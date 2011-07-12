@@ -32,7 +32,6 @@
 import copy
 import hashlib
 import random
-import struct
 import socket
 import time
 import os
@@ -46,6 +45,7 @@ import asynchat
 import asynhttp
 
 
+from struct import pack, unpack
 from hashlib import sha256
 from pprint import pprint as pp
 
@@ -136,63 +136,55 @@ def addrStr_to_base58Str(addr):
      
 
 ##### BINARYSTR/HASHDIGEST #####
-def binHash256_binStr(s):
+def binStr_to_binHash256(s):
    return sha256(sha256(s).digest()).digest()
 
 ##### BINARYSTR/ADDRESSDIGEST #####
-def binHash160_binStr(s):
+def binStr_to_binHash160(s):
    h1 = hashlib.new('ripemd160')
    h1.update(sha256(s).digest())
    return h1.digest()
 
 ##### HEXSTR/HASHDIGEST #####
-def hexHash256_hexStr(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
+def hexStr_to_hexHash256(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
    strBinary = hexStr_to_binStr(h, hend, LITTLEENDIAN)
-   digestBinary = binHash256_binStr(strBinary)
+   digestBinary = binStr_to_binHash256(strBinary)
    digestHex = binStr_to_hexStr(digestBinary, LITTLEENDIAN, dend)
    return digestHex
 
-##### HEXSTR/BINARYADDRESSDIGEst
-def hexHash160_hexStr(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
+##### HEXSTR/BINARYADDRESSDIGEST
+def hexStr_to_hexHash160(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
    strBinary = hexStr_to_binStr(h, hend, LITTLEENDIAN)
-   digestBinary = binHash160_binStr(strBinary)
+   digestBinary = binStr_to_binHash160(strBinary)
    digestHex = binStr_to_hexStr(digestBinary, LITTLEENDIAN, dend)
    return digestHex
 
 ##### HEXPUBLICKEY/ADDRSTR
-def hexPubKey_to_addrStr(hexKey, hend=LITTLEENDIAN):
-   hkey = hexKey[:] if hend==LITTLEENDIAN else hexStr_switchEndian(hexKey)
-   hexKeyHash = hexHash160_hexStr(hkey)
+def hexPubKey_to_addrStr(hexStr, hend=LITTLEENDIAN):
+   hexKey = hexStr[:] if hend==LITTLEENDIAN else hexStr_switchEndian(hexStr)
 
-   checksum   = hexHash256_hexStr(hexKeyHash)
-   hexAddrStr = hexKeyHash + checksum[:4]
-   intAddrStr = hexStr_to_int(kexAddrStr)
+   binKey     = hexStr_to_binStr(hexKey)
+   binKeyHash =           binStr_to_binHash160(binKey)
+
+   checksum   = binStr_to_binHash256('\x00' + binKeyHash)
+   binAddrStr = binKeyHash + checksum[:4]
+   intAddrStr = binStr_to_int(binAddrStr)
    b58AddrStr =           int_to_base58Str(intAddrStr)
    return                        base58Str_to_addrStr(b58AddrStr)
 
-   #checksum = str_to_hashdigest('\x00' + s)[:4]
-   #i = hexStr_to_int(s + checksum)
-   #b = int_to_base58Str(i)
-   #return base58Str_to_addrStr(b)
-   #return '1' + int_to_base58Str(
-      #int ('0x' + (s + checksum).encode ('hex_codec'), 16)
-      #)
-
+##### ADDRESS VERIFICATION #####
 def verify_addrStr(addr, kend=LITTLEENDIAN):
    b58Str  = addrStr_to_base58Str(addr)
    intAddr =            base58Str_to_int(b58Str)
    binAddr =                         int_to_binStr(intAddr)
-
    binKeyHash = binAddr[:-4]
-   checkSum   = binAddr[-4:]
-   binKeyHashHash = binHash256_binStr('\x00' + binKeyHash)
-
-   print '\t\ts    =', int_to_hexStr(intAddr)
-   print '\t\th160 =', binStr_to_hexStr(binKeyHash)
-   print '\t\tchk0 =', binStr_to_hexStr(checkSum)
-   print '\t\tchk1 =', binStr_to_hexStr(binKeyHashHash[:4])
-
-   return binKeyHashHash[:4] == checkSum
+   targetChk   = binAddr[-4:]
+   binKeyHashHash = binStr_to_binHash256('\x00' + binKeyHash)
+   #print '\t\ts    =', int_to_hexStr(intAddr)
+   #print '\t\th160 =', binStr_to_hexStr(binKeyHash)
+   #print '\t\tchk0 =', binStr_to_hexStr(targetChk)
+   #print '\t\tchk1 =', binStr_to_hexStr(binKeyHashHash[:4])
+   return binKeyHashHash[:4] == targetChk
 
 
 
@@ -207,19 +199,21 @@ def float_to_btc (f):
    return long (round(f * COIN))
 
 
-def unpack_var_int (d, pos):
-   n0, = unpack_pos ('<B', d, pos)
-   if n0 < 0xfd:
-      return n0
-   elif n0 == 0xfd:
-      n1, = unpack_pos ('<H', d, pos)
-      return n1
-   elif n0 == 0xfe:
-      n2, = unpack_pos ('<I', d, pos)
-      return n2
-   elif n0 == 0xff:
-      n3, = unpack_pos ('<Q', d, pos)
-      return n3
+##### HEXSTR/VARINT #####
+def packVarInt(n):
+   if   n < 0xfd:  return [chr(n), 1]
+   elif n < 1<<16: return ['\xfd'+pack('<H',n), 3]
+   elif n < 1<<32: return ['\xfe'+pack('<I',n), 5]
+   else:           return ['\xff'+pack('<Q',n), 9]
+
+def unpackVarInt(hvi):
+   """ Returns a pair: the specified integer and number of bytes read """
+   code = unpack('<B', hvi[0])[0]
+   if   code  < 0xfd: return [code, 1]
+   elif code == 0xfd: return [unpack('<H',hvi[1:3])[0], 3]
+   elif code == 0xfe: return [unpack('<I',hvi[1:5])[0], 5]
+   elif code == 0xff: return [unpack('<Q',hvi[1:9])[0], 9]
+   else: assert(False)
 
 
 

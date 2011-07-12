@@ -37,7 +37,26 @@ blockhead = '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000
 blockhash   = '7d97d862654e03d6c43b77820a40df894e3d6890784528e9cd05000000000000'
 blockhashBE = '00000000000005cde928457890683d4e89df400a82773bc4d6034e6562d8977d'
 
-testFunction('hexHash256_hexStr', blockhash, blockhead)
-testFunction('hexHash256_hexStr', blockhashBE, blockhead, LE, BE)
+testFunction('hexStr_to_hexHash256', blockhash, blockhead)
+testFunction('hexStr_to_hexHash256', blockhashBE, blockhead, LE, BE)
 
-testFunction('verify_addrStr', True, addr)
+pubKeyHex  = '123abc'
+pubKeyAddr = '1NePmEXs4sqRGXqPrYAWc9V9eTBBGCfg7B'
+
+testFunction('hexPubKey_to_addrStr', pubKeyAddr, pubKeyHex)
+testFunction('verify_addrStr', True, pubKeyAddr)
+
+testFunction('ubtc_to_floatStr', '12.05600000', 1205600000)
+testFunction('floatStr_to_ubtc', 1205600000, '12.056')
+testFunction('float_to_btc', 1205600000, 12.056)
+
+
+testFunction('packVarInt', ['A',1], 65)
+testFunction('packVarInt', ['\xfd\xff\x00', 3], 255)
+testFunction('packVarInt', ['\xfe\x00\x00\x01\x00', 5], 65536)
+testFunction('packVarInt', ['\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00', 9], 10**12)
+
+testFunction('unpackVarInt', [65,1], 'A')
+testFunction('unpackVarInt', [255, 3], '\xfd\xff\x00')
+testFunction('unpackVarInt', [65536, 5], '\xfe\x00\x00\x01\x00')
+testFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00')
