@@ -1,10 +1,48 @@
+********************************************************************************
+*
+* Project:  PyBtcEngine
+* Author:   Alan Reiner
+* Date:     11 July, 2011
+* Donate:   1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
+*
+* Descr:   Modified from the "caesure" code by Sam Rushing.  The header comments
+*          of the original code is included, maintaining refs to the original 
+*          source code.  The code was pulled from his git repo on 10 July, 2011.
+*
+*
+*
+********************************************************************************
 
-Caesure: a python bitcoin client
+********************************************************************************
+Please take a moment to donate 0.1 BTC!    1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
 
---------------------------------------------------------------------------------
-Help Fund This Project! 1Ncui8YjT7JJD91tkf42dijPnqywbupf7w
---------------------------------------------------------------------------------
+(c'mon, it will take like 10 seconds to cut&paste)
+********************************************************************************
 
+
+This code is developed to be as intuitive as possible, even at the expense
+of having more lines of code.  For instance, I have endless conversion methods
+which are very explicit about the input and output, such as:
+
+   hexStr_to_binStr (binary string)
+   hexStr_to_int
+   int_to_binStr
+   base58Str_to_int
+   hexPubKey_to_addrStr
+   etc
+
+I have started to clear out the original code and comments to replace with my
+own, but I haven't gotten very far, yet.  There's a ton of Sam's original code
+and comments throughout this directory.  Eventually it will turn over and
+probably not look anything like his original work.  But I will still keep
+giving him credit for it...
+
+
+
+
+********************************************************************************
+ORIGINAL README FROM CAESURE PROJECT - BELOW
+********************************************************************************
 note: this is *not* a JSON/RPC client, it's an implementation of the bitcoin protocol.
 
 requirements: a relatively recent python, probably 2.5+ or so
