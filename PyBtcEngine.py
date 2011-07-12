@@ -38,7 +38,7 @@ import os
 import pickle
 import string
 import sys
-import pyecdsa.ecdsa
+import lisecdsa
 
 import asyncore
 import asynchat
@@ -56,8 +56,8 @@ BLOCKS_PATH = 'blocks.bin'
 genesis_block_hash = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-LITTLEENDIAN = 0;
-BIGENDIAN = 1;
+LITTLEENDIAN = '<';
+BIGENDIAN = '>';
 COIN = 1e8
 
 class BadAddress (Exception):
@@ -67,46 +67,46 @@ class BadAddress (Exception):
 def hexStr_switchEndian(s):
    pairList = [s[i]+s[i+1] for i in range(0,len(s),2)]
    return ''.join(pairList[::-1])
-def binStr_switchEndian(s):
+def binary_switchEndian(s):
    return s[::-1]
  
 
 ##### INT/HEXSTR #####
-def int_to_hexStr(i, hend=LITTLEENDIAN):
+def int_to_hexStr(i, endOut=LITTLEENDIAN):
    h = hex(i)[2:]
    if isinstance(i,long):
       h = h[:-1]
    if len(h)%2 == 1:
       h = '0'+h
-   if hend==BIGENDIAN:
+   if endOut==BIGENDIAN:
       h = hexStr_switchEndian(h)
    return h   
-def hexStr_to_int(h, hend=LITTLEENDIAN):
+def hexStr_to_int(h, endIn=LITTLEENDIAN):
    hstr = h[:]  # copies data, no references
-   if hend==BIGENDIAN:
+   if endIn==BIGENDIAN:
       hstr = hexStr_switchEndian(hstr)
    return( int(hstr, 16) )
  
 
 ##### HEXSTR/BINARYSTR #####
-def hexStr_to_binStr(h, hend=LITTLEENDIAN, bend=LITTLEENDIAN):
+def hexStr_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    bout = h[:]  # copies data, no references
-   if not hend==bend:
+   if not endIn==endOut:
       bout = hexStr_switchEndian(bout) 
    return bout.decode('hex_codec')
-def binStr_to_hexStr(b, bend=LITTLEENDIAN, hend=LITTLEENDIAN):
+def binary_to_hexStr(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
    hout = b.encode('hex_codec')
-   if not bend==hend:
+   if not endOut==endIn:
       hout = hexStr_switchEndian(hout) 
    return hout
 
  
 ##### INT/BINARYSTR #####
-def int_to_binStr(i, bend=LITTLEENDIAN):
+def int_to_binary(i, endOut=LITTLEENDIAN):
    h = int_to_hexStr(i)
-   return hexStr_to_binStr(h, bend=bend)
-def binStr_to_int(b, bend=LITTLEENDIAN):
-   h = binStr_to_hexStr(b, bend, LITTLEENDIAN)
+   return hexStr_to_binary(h, endOut=endOut)
+def binary_to_int(b, endIn=LITTLEENDIAN):
+   h = binary_to_hexStr(b, endIn, LITTLEENDIAN)
    return hexStr_to_int(h)
  
 
@@ -130,62 +130,64 @@ def base58Str_to_addrStr(b58str):
    return '1'+b58str;
 def addrStr_to_base58Str(addr):
    if not addr[0]=='1':
-     raise BadAddress(addr)
+      raise BadAddress(addr)
    else:
-     return addr[1:]
+      return addr[1:]
      
 
 ##### BINARYSTR/HASHDIGEST #####
-def binStr_to_binHash256(s):
+def binary_to_binHash256(s):
    return sha256(sha256(s).digest()).digest()
 
 ##### BINARYSTR/ADDRESSDIGEST #####
-def binStr_to_binHash160(s):
+def binary_to_binHash160(s):
    h1 = hashlib.new('ripemd160')
    h1.update(sha256(s).digest())
    return h1.digest()
 
 ##### HEXSTR/HASHDIGEST #####
-def hexStr_to_hexHash256(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
-   strBinary = hexStr_to_binStr(h, hend, LITTLEENDIAN)
-   digestBinary = binStr_to_binHash256(strBinary)
-   digestHex = binStr_to_hexStr(digestBinary, LITTLEENDIAN, dend)
+def hexStr_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+   strBinary = hexStr_to_binary(h, endIn, LITTLEENDIAN)
+   digestBinary = binary_to_binHash256(strBinary)
+   digestHex = binary_to_hexStr(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXSTR/BINARYADDRESSDIGEST
-def hexStr_to_hexHash160(h, hend=LITTLEENDIAN, dend=LITTLEENDIAN):
-   strBinary = hexStr_to_binStr(h, hend, LITTLEENDIAN)
-   digestBinary = binStr_to_binHash160(strBinary)
-   digestHex = binStr_to_hexStr(digestBinary, LITTLEENDIAN, dend)
+def hexStr_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+   strBinary = hexStr_to_binary(h, endIn, LITTLEENDIAN)
+   digestBinary = binary_to_binHash160(strBinary)
+   digestHex = binary_to_hexStr(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXPUBLICKEY/ADDRSTR
-def hexPubKey_to_addrStr(hexStr, hend=LITTLEENDIAN):
-   hexKey = hexStr[:] if hend==LITTLEENDIAN else hexStr_switchEndian(hexStr)
-
-   binKey     = hexStr_to_binStr(hexKey)
-   binKeyHash =           binStr_to_binHash160(binKey)
-
-   checksum   = binStr_to_binHash256('\x00' + binKeyHash)
+def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
+   binKey = binStr[:] if endIn==LITTLEENDIAN else binStr_switchEndian(binStr)
+   binKeyHash = binary_to_binHash160(binKey)
+   checksum   = binary_to_binHash256('\x00' + binKeyHash)
    binAddrStr = binKeyHash + checksum[:4]
-   intAddrStr = binStr_to_int(binAddrStr)
+   intAddrStr = binary_to_int(binAddrStr)
    b58AddrStr =           int_to_base58Str(intAddrStr)
    return                        base58Str_to_addrStr(b58AddrStr)
 
-##### ADDRESS VERIFICATION #####
-def verify_addrStr(addr, kend=LITTLEENDIAN):
+##### HEXPUBLICKEY/ADDRSTR
+def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
+   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hexStr_switchEndian(hexStr)
+   binKey = hexStr_to_binary(hexKey)
+   return binPubKey_to_addrStr(binKey)
+
+
+def addrStr_to_binaryPair(addr):
    b58Str  = addrStr_to_base58Str(addr)
    intAddr =            base58Str_to_int(b58Str)
-   binAddr =                         int_to_binStr(intAddr)
-   binKeyHash = binAddr[:-4]
-   targetChk   = binAddr[-4:]
-   binKeyHashHash = binStr_to_binHash256('\x00' + binKeyHash)
-   #print '\t\ts    =', int_to_hexStr(intAddr)
-   #print '\t\th160 =', binStr_to_hexStr(binKeyHash)
-   #print '\t\tchk0 =', binStr_to_hexStr(targetChk)
-   #print '\t\tchk1 =', binStr_to_hexStr(binKeyHashHash[:4])
-   return binKeyHashHash[:4] == targetChk
+   binAddr =                         int_to_binary(intAddr)
+   return (binAddr[:-4], binAddr[-4:])
+   
 
+##### ADDRESS VERIFICATION #####
+def addrStr_isValid(addr):
+   binKeyHash, targetChk = addrStr_to_binaryPair(addr)
+   binKeyHashHash = binary_to_binHash256('\x00' + binKeyHash)
+   return binKeyHashHash[:4] == targetChk
 
 
 
@@ -215,6 +217,173 @@ def unpackVarInt(hvi):
    elif code == 0xff: return [unpack('<Q',hvi[1:9])[0], 9]
    else: assert(False)
 
+
+def padHexStrLeft(hexStr, nBytes, padChar='0'):
+   needMoreChars = max(0, (nBytes*2) - len(hexStr))
+   return (padChar*needMoreChars) + hexStr
+   
+def padHexStrRight(hexStr, nBytes, padChar='0'):
+   needMoreChars = max(0, (nBytes*2) - len(hexStr))
+   return hexStr + padChar*needMoreChars
+
+def padBinaryLeft(binStr, nBytes, padByte='\x00'):
+   needMoreChars = max(0, nBytes-len(binStr))
+   return padByte*needMoreChars + binStr
+
+def padBinaryRight(binStr, nBytes, padByte='\x00'):
+   needMoreChars = max(0, nBytes-len(binStr))
+   return binStr + padByte*needMoreChars
+
+
+
+################################################################################
+# ECDSA CLASSES
+#
+#    Based on the ECDSA code posted by Lis on the Bitcoin forums: 
+#    http://forum.bitcoin.org/index.php?topic=23241.0
+#
+################################################################################
+
+# The following params are common to ALL bitcoin elliptic curves (secp256k1)
+_p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
+_r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
+_b  = 0x0000000000000000000000000000000000000000000000000000000000000007L
+_a  = 0x0000000000000000000000000000000000000000000000000000000000000000L
+_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
+_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+
+EC_Point = lisecdsa.Point
+EC_Curve = lisecdsa.CurveFp( _p, _a, _b )
+EC_Sig   = lisecdsa.Signature
+EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
+EC_Order = EC_GenPt.order()
+
+class EcPrivKey(object):
+
+   # TODO:  check for python 2.3- to warn if randrange gens "small" numbers
+   # And yes, a private key is really just a random number
+
+   def __init__(self, privInt=None):
+      if privInt==None: 
+         self.secretInt = random.randrange(EC_Order)   
+      else:             
+         self.secretInt = privInt
+
+      self.publicPoint = EC_GenPt * self.secretInt
+      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, publicPoint )
+      self.lisPrivKey = lisecdsa.Private_key( self.lisPubKey, self.secretInt )
+
+   def to_hexStr(self, endian=LITTLEENDIAN):
+      hexSecret = int_to_hexStr(self.secretInt, endian)
+      assert(len(hexSecret) == 64)
+      return hexSecret
+
+   def to_binary(self, endian=LITTLEENDIAN):
+      binSecret = int_to_binary(self.secretInt, endian)
+      assert(len(binSecret) == 32)
+      return binSecret
+
+   def signBinaryString(self, binStr):
+      return self.lisPrivKey.sign(binStr, random.randrange(EC_Order))
+
+
+class EcPubKey(object):
+   """ Init EcPubKey with either EcPrivKey, or 65-bit-string from script """
+   def __init__(self, initObj):
+      # InitObj is either a EcPrivKey or BINARY public key str (65 bytes)
+      if isinstance(initObj, EcPrivKey):
+         self.pubKeyX = initObj.publicPoint.x()
+         self.pubKeyY = initObj.publicPoint.y()
+         self.binary  = self.to_binary()
+      else:
+         chk, binXp, binYp = binStr65B[0], binStr65B[1:33], binStr65B[33:]
+         assert(len(binStr65B) == 65 and chk == 0x04)
+         self.pubKeyX = binary_to_int(binXp)
+         self.pubKeyY = binary_to_int(binYp)
+         self.binary = initObj
+
+      self.publicPoint = EC_Point(EC_GenPt, self.pubKeyX, self.pubKeyY)
+      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, EC_Point(EC_GenPt, xp, yp))
+      
+
+   def to_hexStr(self, endian=LITTLEENDIAN):
+      hexXp = int_to_hexStr(self.pubKeyX)
+      hexYp = int_to_hexStr(self.pubKeyY)
+      assert(len(hexXp) == 64)
+      assert(len(hexYp) == 64)
+      return '04' + hexXp + hexYp
+
+   def to_binary(self, endian=LITTLEENDIAN):
+      leadByte = pack(endian+'B', 4)
+      binXp = int_to_binary(self.pubKeyX, endian);
+      binYp = int_to_binary(self.pubKeyY, endian);
+      assert(len(binXp) == 32)
+      assert(len(binYp) == 32)
+      return leadByte + binXp + binYp
+
+   def to_addrStr(self):
+      return binPubKey_to_addrStr
+      
+
+   def verifyBinarySignature(self, r, s):
+      sig = EC_sig(r,s)
+      return self.lisPubKey.verifies(binStr, sig)
+
+
+def calc_EcPubKey_from_EcPrivKey(key):
+   return EcPubKey(key)
+   
+def VerifyEcKeyPair(pubkey, privkey):
+   return (pubkey.publicPoint == privkey.publicPoint)
+      
+
+def hexStr_to_EcPubKey(hexStr):
+   binaryKey65B = hexStr_to_binary(hexStr)
+   assert(len(binaryKey65B) == 65)
+   return EcPubKey(binaryKey65B)
+
+def hexPointXY_to_EcPubKey(hexXp, hexYp):
+   binXp = hexStr_to_binary(hexXp)
+   binYp = hexStr_to_binary(hexYp)
+   binaryKey65B = pack('<B',4) + binXp + binYp
+   assert(len(binaryKey65B) == 65)
+   return EcPubKey(binaryKey65B)
+
+
+EcPubKey  = lisecdsa.Public_key
+EcPrivKey = lisecdsa.Private_key
+EcSig     = lisecdsa.Signature
+
+"""
+def binaryTx_to_binaryPieces(binStr):
+    pos = 0;
+    version =  ('<I', data, pos)
+    if version != 1:
+        raise ValueError ("unknown tx version: %d" % (version,))
+    txin_count = unpack_var_int (data, pos)
+    inputs = []
+    outputs = []
+    for i in range (txin_count):
+        outpoint = unpack_pos ('<32sI', data, pos)
+        script_length = unpack_var_int (data, pos)
+        script = data[pos.val:pos.val+script_length]
+        pos.incr (script_length)
+        sequence, = unpack_pos ('<I', data, pos)
+        inputs.append ((outpoint, script, sequence))
+    txout_count = unpack_var_int (data, pos)
+    for i in range (txout_count):
+        value, = unpack_pos ('<Q', data, pos)
+        pk_script_length = unpack_var_int (data, pos)
+        pk_script = data[pos.val:pos.val+pk_script_length]
+        pos.incr (pk_script_length)
+        outputs.append ((value, pk_script))
+    lock_time, = unpack_pos ('<I', data, pos)
+    return inputs, outputs, lock_time
+ 
+
+def binaryScript_to_binaryPieces(binScr):
+"""
+   
 
 
 
@@ -1129,8 +1298,6 @@ if __name__ == '__main__':
    else:
       # database browsing mode
       db = the_block_db # alias
-
-
 
 
 
