@@ -1,0 +1,79 @@
+
+   The Mysterious OP_CHECKSIG.
+
+This is the most complex recipe for feeding a hash in the system.
+It involves making a copy of the original TX, and modifying some of
+the entries.
+
+Hugely Helpful: http://forum.bitcoin.org/index.php?topic=2957.20
+original tx:
+010000000330f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694000000008c493046022100f5746b0b254f5a37e75251459c7a23b6dfcb868ac7467edd9a6fdd1d969871be02210088948aea29b69161ca341c49c02686a81d8cbb73940f917fa0ed7154686d3e5b01410447d490561f396c8a9efc14486bc198884ba18379bcac2e0be2d8525134ab742f301a9aca36606e5d29aa238a9e2993003150423df6924563642d4afe9bf4fe28ffffffff72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea689000000004a493046022100bce43ad3acbc79b0247e54c8c91eac1cf9037505000e01d1fd811854d85bc21a022100992a6f6f2feb6f62d3706f3b9aaab88d9f1132956a1dffa926cd556ed55360df01ffffffffd28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c00000000494830450220209757368161537708fd29d89bb1e9d648007949ecfded789b51a96324cb6518022100cd0f7c30213916482b6e166d8a4f2b981f777eb184cd8a495f1b3d3690fbbf2d01ffffffff0100a6f75f020000001976a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac00000000
+
+original tx:
+version   01000000
+#inputs   03
+---
+outpoint  30f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694
+index     00000000
+script    8c 493046022100f5746b0b254f5a37e75251459c7a23b6dfcb868ac7467edd9a6fdd1d969871be02210088948aea29b69161ca341c49c02686a81d8cbb73940f917fa0ed7154686d3e5b01410447d490561f396c8a9efc14486bc198884ba18379bcac2e0be2d8525134ab742f301a9aca36606e5d29aa238a9e2993003150423df6924563642d4afe9bf4fe28
+sequence  ffffffff
+---
+outpoint  72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea689
+index     00000000
+script    4a 493046022100bce43ad3acbc79b0247e54c8c91eac1cf9037505000e01d1fd811854d85bc21a022100992a6f6f2feb6f62d3706f3b9aaab88d9f1132956a1dffa926cd556ed55360df01
+sequence  ffffffff
+---
+outpoint  d28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c
+index     00000000
+script    49 4830450220209757368161537708fd29d89bb1e9d648007949ecfded789b51a96324cb6518022100cd0f7c30213916482b6e166d8a4f2b981f777eb184cd8a495f1b3d3690fbbf2d01
+sequence  ffffffff
+---
+#outputs  01
+value     00a6f75f02000000
+script    19 76a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac
+---
+locktime  00000000
+
+final version to be hashed
+--------------------------------------------------------------------------------
+version   01000000
+#inputs   03
+---
+outpoint  30f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694
+index     00000000
+script    19 76a91402bf4b2889c6ada8190c252e70bde1a1909f961788ac
+sequence  ffffffff
+---
+outpoint  72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea689
+index     00000000
+script    00
+sequence  ffffffff
+---
+outpoint  d28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c
+index     00000000
+script    00
+sequence  ffffffff
+---
+#outputs  01
+value     00a6f75f02000000
+script    19 76a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac
+---
+locktime  00000000
+---
+hash-type 01000000
+
+Laid out so neatly the answer is fairly obvious...
+
+The scripts are zeroed out for the non-relevant inputs (and this is done
+by leaving *in* the zero length byte).
+
+The relevant input's script - which originally was (<sig>, <pubkey>)
+is replaced with an oscript-style hash of <pubkey>: i.e.
+ [OP_DUP, OP_HASH160, <pubkey>, OP_EQUALVERIFY, OP_CHECKSIG]
+This is probably where all the script-hacking magic comes in - take
+the original oscript and replace the original output keyhash with the
+input keyhash instead.  To handle non-standard txs we'll have to
+figure that stuff out.
+
+Finally, the 32-bit hash-type is appended.
+Then, dhash() is done. (i.e., double-sha256)
