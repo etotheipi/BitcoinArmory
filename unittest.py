@@ -10,7 +10,7 @@ def testFunction( fnName, expectedOutput, *args):
    print '\tTesting function:', fnName
    actualOutput = fn(*args)
    testPassed = (expectedOutput == actualOutput)
-   passStr = '   PASS   ' if testPassed else '***FAIL***'
+   passStr = 'PASS' if testPassed else '***FAIL***'
    print '\t\t',passStr
    if not testPassed:
       print '\t','___Inputs___:', args
@@ -41,4 +41,3 @@ testFunction('hexHash256_hexStr', blockhash, blockhead)
 testFunction('hexHash256_hexStr', blockhashBE, blockhead, LE, BE)
 
 testFunction('verify_addrStr', True, addr)
-testFunction('address_to_key', '0000', addr)

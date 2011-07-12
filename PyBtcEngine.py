@@ -185,57 +185,14 @@ def verify_addrStr(addr, kend=LITTLEENDIAN):
 
    binKeyHash = binAddr[:-4]
    checkSum   = binAddr[-4:]
-   binKeyHashHash = binHash256_binStr(binKeyHash)
+   binKeyHashHash = binHash256_binStr('\x00' + binKeyHash)
 
-   print 's =', int_to_hexStr(intAddr)
-   print 'h160 =', binStr_to_hexStr(binKeyHash)
-   print 'chk0 =', binStr_to_hexStr(checkSum)
-   print 'chk1 =', binStr_to_hexStr(binKeyHashHash[:4])
+   print '\t\ts    =', int_to_hexStr(intAddr)
+   print '\t\th160 =', binStr_to_hexStr(binKeyHash)
+   print '\t\tchk0 =', binStr_to_hexStr(checkSum)
+   print '\t\tchk1 =', binStr_to_hexStr(binKeyHashHash[:4])
 
    return binKeyHashHash[:4] == checkSum
-
-
-
-################################################################################
-################################################################################
-## ORIGINAL SAM RUSHING CODE
-def base58_encode (n):
-   l = []
-   while n > 0:
-      n, r = divmod (n, 58)
-      l.insert (0, (b58_digits[r]))
-   return ''.join (l)
-def base58_decode (s):
-   n = 0
-   for ch in s:
-      n *= 58
-      digit = b58_digits.index (ch)
-      n += digit
-   return n
-def dhash (s):
-   return sha256(sha256(s).digest()).digest()
-def rhash (s):
-   h1 = hashlib.new ('ripemd160')
-   h1.update (sha256(s).digest())
-   return h1.digest()
-def key_to_address (s):
-   checksum = dhash ('\x00' + s)[:4]
-   return '1' + base58_encode (
-      int ('0x' + (s + checksum).encode ('hex_codec'), 16))
-def address_to_key (s):
-    # strip off leading '1'
-    s = ('%x' % base58_decode (s[1:])).decode ('hex_codec')
-    hash160, check0 = s[:-4], s[-4:]
-    check1 = dhash ('\x00' + hash160)[:4]
-    print 's =', binStr_to_hexStr(s)
-    print 'h160 = ', binStr_to_hexStr(hash160)
-    print 'ckh0 = ', binStr_to_hexStr(check0)
-    print 'chk1 = ', binStr_to_hexStr(check1)
-    if check0 != check1:
-        raise BadAddress (s)
-    return hash160
-################################################################################
-################################################################################
 
 
 
