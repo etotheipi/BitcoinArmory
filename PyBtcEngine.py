@@ -64,7 +64,7 @@ class BadAddress (Exception):
    pass
 
 ##### Switch endian-ness #####
-def hexStr_switchEndian(s):
+def hex_switchEndian(s):
    pairList = [s[i]+s[i+1] for i in range(0,len(s),2)]
    return ''.join(pairList[::-1])
 def binary_switchEndian(s):
@@ -72,42 +72,42 @@ def binary_switchEndian(s):
  
 
 ##### INT/HEXSTR #####
-def int_to_hexStr(i, endOut=LITTLEENDIAN):
+def int_to_hex(i, endOut=LITTLEENDIAN):
    h = hex(i)[2:]
    if isinstance(i,long):
       h = h[:-1]
    if len(h)%2 == 1:
       h = '0'+h
    if endOut==BIGENDIAN:
-      h = hexStr_switchEndian(h)
+      h = hex_switchEndian(h)
    return h   
-def hexStr_to_int(h, endIn=LITTLEENDIAN):
+def hex_to_int(h, endIn=LITTLEENDIAN):
    hstr = h[:]  # copies data, no references
    if endIn==BIGENDIAN:
-      hstr = hexStr_switchEndian(hstr)
+      hstr = hex_switchEndian(hstr)
    return( int(hstr, 16) )
  
 
 ##### HEXSTR/BINARYSTR #####
-def hexStr_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    bout = h[:]  # copies data, no references
    if not endIn==endOut:
-      bout = hexStr_switchEndian(bout) 
+      bout = hex_switchEndian(bout) 
    return bout.decode('hex_codec')
-def binary_to_hexStr(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
+def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
    hout = b.encode('hex_codec')
    if not endOut==endIn:
-      hout = hexStr_switchEndian(hout) 
+      hout = hex_switchEndian(hout) 
    return hout
 
  
 ##### INT/BINARYSTR #####
 def int_to_binary(i, endOut=LITTLEENDIAN):
-   h = int_to_hexStr(i)
-   return hexStr_to_binary(h, endOut=endOut)
+   h = int_to_hex(i)
+   return hex_to_binary(h, endOut=endOut)
 def binary_to_int(b, endIn=LITTLEENDIAN):
-   h = binary_to_hexStr(b, endIn, LITTLEENDIAN)
-   return hexStr_to_int(h)
+   h = binary_to_hex(b, endIn, LITTLEENDIAN)
+   return hex_to_int(h)
  
 
 ##### INT/BASE58STR #####
@@ -145,18 +145,18 @@ def binary_to_binHash160(s):
    h1.update(sha256(s).digest())
    return h1.digest()
 
-##### HEXSTR/HASHDIGEST #####
-def hexStr_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
-   strBinary = hexStr_to_binary(h, endIn, LITTLEENDIAN)
+##### hex/HASHDIGEST #####
+def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+   strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
    digestBinary = binary_to_binHash256(strBinary)
-   digestHex = binary_to_hexStr(digestBinary, LITTLEENDIAN, endOut)
+   digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXSTR/BINARYADDRESSDIGEST
-def hexStr_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
-   strBinary = hexStr_to_binary(h, endIn, LITTLEENDIAN)
+def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+   strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
    digestBinary = binary_to_binHash160(strBinary)
-   digestHex = binary_to_hexStr(digestBinary, LITTLEENDIAN, endOut)
+   digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXPUBLICKEY/ADDRSTR
@@ -171,8 +171,8 @@ def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
 
 ##### HEXPUBLICKEY/ADDRSTR
 def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
-   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hexStr_switchEndian(hexStr)
-   binKey = hexStr_to_binary(hexKey)
+   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hex_switchEndian(hexStr)
+   binKey = hex_to_binary(hexKey)
    return binPubKey_to_addrStr(binKey)
 
 
@@ -258,6 +258,49 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
+def binScript_to_binSigKey(binStr):
+   # Returns [signature, pubKey, totalBytes]
+   # TODO:  check when sometimes it returns only a sig, sometimes sig&key
+   szSig = binary_to_int(binStr[0])
+   binarySignature = binStr[1:szSig+1]
+   szKey = binary_to_int(binStr[szSig+1])
+   binaryKey = binStr[2+szSig:2+szSig+szKey]
+   return (binarySignature, binaryKey, 2+szKey+szSig)
+
+def intRS_to_derSig(r,s):
+   rBin   = int_to_binary(r)
+   sBin   = int_to_binary(s)
+   rSize  = int_to_binary(len(rBin))
+   sSize  = int_to_binary(len(sBin))
+   rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+   return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin + '\x01'
+
+def derSig_to_intRS(binStr):
+   # There was nothing easy about figuring out how these numbers were encoded
+   codeByte = binStr[0]
+   nBytes   = binary_to_int(binStr[1])
+   rsStr    = binStr[2:-1]
+   endByte  = binStr[-1]
+   assert(codeByte == '\x30')
+   assert(endByte  == '\x01')
+   assert(nBytes == len(rsStr))
+
+   # Read r
+   codeByte  = rsStr[0]
+   rBytes    = binary_to_int(rsStr[1])
+   r         = binary_to_int(rsStr[2:2+rBytes])
+   assert(codeByte == '\x02')
+   sStr      = rsStr[2+rBytes:]
+
+   # Read s
+   codeByte  = sStr[0]
+   sBytes    = binary_to_int(sStr[1])
+   s         = binary_to_int(sStr[2:2+sBytes])
+   assert(codeByte == '\x02')
+   return (r,s)
+
+
+
 class EcPrivKey(object):
 
    # TODO:  check for python 2.3- to warn if randrange gens "small" numbers
@@ -270,11 +313,11 @@ class EcPrivKey(object):
          self.secretInt = privInt
 
       self.publicPoint = EC_GenPt * self.secretInt
-      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, publicPoint )
+      self.lisPubKey  = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
       self.lisPrivKey = lisecdsa.Private_key( self.lisPubKey, self.secretInt )
 
-   def to_hexStr(self, endian=LITTLEENDIAN):
-      hexSecret = int_to_hexStr(self.secretInt, endian)
+   def to_hex(self, endian=LITTLEENDIAN):
+      hexSecret = int_to_hex(self.secretInt, endian)
       assert(len(hexSecret) == 64)
       return hexSecret
 
@@ -283,8 +326,12 @@ class EcPrivKey(object):
       assert(len(binSecret) == 32)
       return binSecret
 
-   def signBinaryString(self, binStr):
-      return self.lisPrivKey.sign(binStr, random.randrange(EC_Order))
+   def derSignature(self, binStr):
+      binHash = binary_to_binHash256(binStr)
+      intHash = binary_to_int(binHash)
+      sig = self.lisPrivKey.sign(intHash, random.randrange(EC_Order))
+      return intRS_to_derSig(sig.r, sig.s)
+      
 
 
 class EcPubKey(object):
@@ -292,31 +339,31 @@ class EcPubKey(object):
    def __init__(self, initObj):
       # InitObj is either a EcPrivKey or BINARY public key str (65 bytes)
       if isinstance(initObj, EcPrivKey):
-         self.pubKeyX = initObj.publicPoint.x()
-         self.pubKeyY = initObj.publicPoint.y()
+         self.intPubKeyX = initObj.publicPoint.x()
+         self.intPubKeyY = initObj.publicPoint.y()
          self.binary  = self.to_binary()
       else:
-         chk, binXp, binYp = binStr65B[0], binStr65B[1:33], binStr65B[33:]
-         assert(len(binStr65B) == 65 and chk == 0x04)
-         self.pubKeyX = binary_to_int(binXp)
-         self.pubKeyY = binary_to_int(binYp)
+         chk, binXp, binYp = initObj[0], initObj[1:33], initObj[33:]
+         assert(len(initObj) == 65 and chk == '\x04')
+         self.intPubKeyX = binary_to_int(binXp)
+         self.intPubKeyY = binary_to_int(binYp)
          self.binary = initObj
 
-      self.publicPoint = EC_Point(EC_GenPt, self.pubKeyX, self.pubKeyY)
-      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, EC_Point(EC_GenPt, xp, yp))
+      self.publicPoint = EC_Point(EC_Curve, self.intPubKeyX, self.intPubKeyY)
+      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
       
 
-   def to_hexStr(self, endian=LITTLEENDIAN):
-      hexXp = int_to_hexStr(self.pubKeyX)
-      hexYp = int_to_hexStr(self.pubKeyY)
+   def to_hex(self, endian=LITTLEENDIAN):
+      hexXp = int_to_hex(self.intPubKeyX)
+      hexYp = int_to_hex(self.intPubKeyY)
       assert(len(hexXp) == 64)
       assert(len(hexYp) == 64)
       return '04' + hexXp + hexYp
 
    def to_binary(self, endian=LITTLEENDIAN):
       leadByte = pack(endian+'B', 4)
-      binXp = int_to_binary(self.pubKeyX, endian);
-      binYp = int_to_binary(self.pubKeyY, endian);
+      binXp = int_to_binary(self.intPubKeyX, endian);
+      binYp = int_to_binary(self.intPubKeyY, endian);
       assert(len(binXp) == 32)
       assert(len(binYp) == 32)
       return leadByte + binXp + binYp
@@ -325,9 +372,11 @@ class EcPubKey(object):
       return binPubKey_to_addrStr
       
 
-   def verifyBinarySignature(self, r, s):
-      sig = EC_sig(r,s)
-      return self.lisPubKey.verifies(binStr, sig)
+   def verifyBinarySignature(self, binStr, derSig):
+      binHash = binary_to_binHash256(binStr)
+      (r,s) = derSig_to_intRS(derSig)
+      lisSignature = EC_Sig(r,s)
+      return self.lisPubKey.verifies(binHash, lisSignature)
 
 
 def calc_EcPubKey_from_EcPrivKey(key):
@@ -337,22 +386,25 @@ def VerifyEcKeyPair(pubkey, privkey):
    return (pubkey.publicPoint == privkey.publicPoint)
       
 
-def hexStr_to_EcPubKey(hexStr):
-   binaryKey65B = hexStr_to_binary(hexStr)
+def hex_to_EcPubKey(hexStr):
+   binaryKey65B = hex_to_binary(hexStr)
    assert(len(binaryKey65B) == 65)
    return EcPubKey(binaryKey65B)
 
 def hexPointXY_to_EcPubKey(hexXp, hexYp):
-   binXp = hexStr_to_binary(hexXp)
-   binYp = hexStr_to_binary(hexYp)
+   binXp = hex_to_binary(hexXp)
+   binYp = hex_to_binary(hexYp)
    binaryKey65B = pack('<B',4) + binXp + binYp
    assert(len(binaryKey65B) == 65)
    return EcPubKey(binaryKey65B)
 
 
-EcPubKey  = lisecdsa.Public_key
-EcPrivKey = lisecdsa.Private_key
-EcSig     = lisecdsa.Signature
+
+
+def makeScriptBinary(binSig, binPubKey):
+   pubkey_hash = binary_to_binHash160(binPubKey)
+   new_script = chr(118) + chr (169) + chr (len (pubkey_hash)) + pubkey_hash + chr (136) + chr (172)
+
 
 """
 def binaryTx_to_binaryPieces(binStr):
