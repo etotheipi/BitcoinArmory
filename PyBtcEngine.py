@@ -326,9 +326,8 @@ class EcPrivKey(object):
       assert(len(binSecret) == 32)
       return binSecret
 
-   def derSignature(self, binStr):
-      binHash = binary_to_binHash256(binStr)
-      intHash = binary_to_int(binHash)
+   def derSignature(self, binHashToSign):
+      intHash = binary_to_int(binHashToSign)
       sig = self.lisPrivKey.sign(intHash, random.randrange(EC_Order))
       return intRS_to_derSig(sig.r, sig.s)
       
@@ -371,12 +370,11 @@ class EcPubKey(object):
    def to_addrStr(self):
       return binPubKey_to_addrStr
       
-
-   def verifyBinarySignature(self, binStr, derSig):
-      binHash = binary_to_binHash256(binStr)
+   def verifyBinarySignature(self, binHashToVerify, derSig):
+      intHash = binary_to_int(binHashToVerify)
       (r,s) = derSig_to_intRS(derSig)
       lisSignature = EC_Sig(r,s)
-      return self.lisPubKey.verifies(binHash, lisSignature)
+      return self.lisPubKey.verifies(intHash, lisSignature)
 
 
 def calc_EcPubKey_from_EcPrivKey(key):
@@ -399,7 +397,205 @@ def hexPointXY_to_EcPubKey(hexXp, hexYp):
    return EcPubKey(binaryKey65B)
 
 
+# Finally done with all the base conversion functions and ECDSA code
+# Now define the classes for the objects that will use this
 
+################################################################################
+################################################################################
+#  Classes for reading and writing large binary objects
+################################################################################
+################################################################################
+UINT32, UNIT64, UBYTE, VAR_INT, BINARY_CHUNK = range(5)
+
+# Seed this object with binary data, then read in its pieces sequentially
+class BinaryUnpacker(object):
+   def __init__(self, binaryStr):
+      self.binaryStr = binaryStr
+      self.pos = 0
+
+   def getSize(self):
+      return len(binaryStr)
+
+   def getRemainingSize(self):
+      return len(binaryStr) - pos
+
+   def advance(self, bytesToAdvance):
+      self.pos += bytesToAdvance
+
+   def rewind(self, bytesToRewind):
+      self.pos -= bytesToRewind
+
+   def resetPosition(self, toPos=0):
+      self.pos = toPos
+
+   def get(self, varType, sz=0, endianness=LITTLEENDIAN):
+      if varType == UNIT32:
+         value = binary_to_int(self.binaryStr[pos:pos+4], endianness)
+         self.advance(4)
+         return value
+      elif varType == UNIT64:
+         value = binary_to_int(self.binaryStr[pos:pos+8], endianness)
+         self.advance(8)
+         return value
+      elif varType == UBYTE:
+         value = binary_to_int(self.binaryStr[pos:pos+1], endianness)
+         self.advance(1)
+         return value
+      elif varType == VAR_INT:
+         [value, nBytes] = unpackVarInt(self.binaryStr[pos:], endianness)
+         self.advance(nBytes)
+         return value
+      elif varType == BINARY_CHUNK:
+         binOut = self.binaryStr[pos:pos+sz]
+         self.advance(sz)
+         return binOut
+      
+      print 'Var Type not recognized!  VarType =', varType
+      assert(False)
+         
+         
+
+# Start a buffer for concatenating various blocks of binary data
+class BinaryPacker(object):
+   def __init__(self):
+      self.binaryList = []
+
+   def getSize(self):
+      return sum([len(a) for a in self.binaryList])
+
+   def getBinaryString(self):
+      return ''.join(self.binaryList)
+
+   def __str__(self):
+      return self.getBinaryString(self)
+      
+
+   def put(self, varType, theData, endianness=LITTLEENDIAN):
+      if varType == UNIT32:
+         self.binaryList.append( int_to_binary(theData, endianness))
+      elif varType == UNIT64:
+         self.binaryList.append( int_to_binary(theData, endianness))
+      elif varType == UBYTE:
+         self.binaryList.append( int_to_binary(theData, endianness))
+      elif varType == VAR_INT:
+         self.binaryList.append( packVarInt(theData) )
+      elif varType == BINARY_CHUNK:
+         self.binaryList.append( theData )
+
+      print 'Var Type not recognized!  VarType =', varType
+      assert(False)
+
+################################################################################
+
+
+################################################################################
+#  Transaction Classes
+################################################################################
+
+#####
+class OutPoint(object):
+   def __init__(self, txOutHash, outIndex):
+      self.txOutHash = txOutHash
+      self.index     = outIndex
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         opData = toUnpack 
+      else: 
+         opData = BinaryUnpacker( toUnpack )
+
+      self.txOutHash = opData.get(BINARY_CHUNK, 32)
+      self.index     = opData.get(UINT32)
+      return self
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK, self.txOutHash)
+      binOut.put(UINT32, self.index)
+      return binOut.getBinaryString()
+      
+
+#####
+class TxIn(object):
+   def __init__(self, outpt, binScript, intSeq):
+      self.outpoint  = outpt
+      self.binScript = script
+      self.intSeq    = intSeq
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         txInData = toUnpack 
+      else: 
+         txInData = BinaryUnpacker( toUnpack )
+
+      self.outpoint  = OutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
+      scriptSize     = txInData.get(VAR_INT)
+      self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
+      self.intSeq    = txInData.get(UINT32)
+      return self
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK, self.output.serialize() )
+      binOut.put(VAR_INT, len(self.binScript))
+      binOut.put(BINARY_CHUNK, self.binScript)
+      binOut.put(UINT32, self.sequence)
+      return binOut.getBinaryString()
+      
+
+#####
+class TxOut(object):
+   def __init__(self, value, binPKScript):
+      self.value  = value
+      self.binPKScript = binPKScript
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         txOutData = toUnpack 
+      else: 
+         txOutData = BinaryUnpacker( toUnpack )
+
+      self.value       = txOutData.get(UINT64)
+      scriptSize       = txOutData.get(VAR_INT) 
+      self.binPKScript = txOutData.get(BINARY_CHUNK, scriptSize)
+      return self
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(UINT64, self.value)
+      binOut.put(VAR_INT, len(self.binPKScript))
+      binOut.put(BINARY_CHUNK, self.binPKScript)
+      return binOut.getBinaryString()
+
+
+#####
+class Tx(object):
+   def __init__(self, version, txInList, txOutList, lockTime):
+      self.version    = version
+      self.numInputs  = len(txInList)
+      self.txInputs   = txInList
+      self.numOutputs = len(txOutList)
+      self.txOutputs  = txOutList
+      self.lockTime   = lockTime
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         txData = toUnpack 
+      else: 
+         txData = BinaryUnpacker( toUnpack )
+
+      self.txInputs   = []
+      self.txOutputs  = []
+      self.version    = txData.get(UINT32)
+      self.numInputs  = txData.get(VAR_INT)
+      for i in range(self.numInputs):
+         self.txInputs.append( TxIn().unserialize(txData) )
+      self.numOutputs = txData.get(VAR_INT)
+      for i in range(self.numOutputs):
+         self.txOutputs.append( TxOut().unserialize(txData) )
+      self.lockTime   = txData.get(UINT32)
+      
+      
 
 def makeScriptBinary(binSig, binPubKey):
    pubkey_hash = binary_to_binHash160(binPubKey)
@@ -433,7 +629,6 @@ def binaryTx_to_binaryPieces(binStr):
     return inputs, outputs, lock_time
  
 
-def binaryScript_to_binaryPieces(binScr):
 """
    
 

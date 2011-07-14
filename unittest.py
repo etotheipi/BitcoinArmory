@@ -115,10 +115,13 @@ block_135687 = (
 
 
 
-privInt = hex_to_int('2a'*30)
+privInt = hex_to_int('2a'*32)
 pvkey = EcPrivKey(privInt)
+
 msg = int_to_binary(39029348428)
-dersig = pvkey.derSignature(msg)
+theHash = binary_to_binHash256(msg)
+
+dersig = pvkey.derSignature(theHash)
 pbkey = EcPubKey(pvkey)
-pbkey.verifyBinarySignature( msg, dersig)
+print pbkey.verifyBinarySignature( theHash, dersig)
 
