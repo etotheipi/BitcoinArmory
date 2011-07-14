@@ -473,9 +473,9 @@ class BinaryPacker(object):
       
 
    def put(self, varType, theData, endianness=LITTLEENDIAN):
-      if varType == UNIT32:
+      if varType == UINT32:
          self.binaryList.append( int_to_binary(theData, endianness))
-      elif varType == UNIT64:
+      elif varType == UINT64:
          self.binaryList.append( int_to_binary(theData, endianness))
       elif varType == UBYTE:
          self.binaryList.append( int_to_binary(theData, endianness))
@@ -483,9 +483,9 @@ class BinaryPacker(object):
          self.binaryList.append( packVarInt(theData) )
       elif varType == BINARY_CHUNK:
          self.binaryList.append( theData )
-
-      print 'Var Type not recognized!  VarType =', varType
-      assert(False)
+      else:
+         print 'Var Type not recognized!  VarType =', varType
+         assert(False)
 
 ################################################################################
 
@@ -521,8 +521,8 @@ class OutPoint(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
-      print indstr + '\tPrevTxHash:', binary_to_hex(self.txOutHash)
-      print indstr + '\tTxOutIndex:', self.index
+      print indstr + indent + 'PrevTxHash:', binary_to_hex(self.txOutHash)
+      print indstr + indent + 'TxOutIndex:', self.index
       
 
 #####
@@ -546,18 +546,18 @@ class TxIn(object):
 
    def serialize(self):
       binOut = BinaryPacker()
-      binOut.put(BINARY_CHUNK, self.output.serialize() )
+      binOut.put(BINARY_CHUNK, self.outpoint.serialize() )
       binOut.put(VAR_INT, len(self.binScript))
       binOut.put(BINARY_CHUNK, self.binScript)
-      binOut.put(UINT32, self.sequence)
+      binOut.put(UINT32, self.intSeq)
       return binOut.getBinaryString()
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
       self.outpoint.pprint(nIndent+1)
-      print indstr + '\tSCRIPT: ', binary_to_hex(self.binScript)[:32] + '...'
-      print indstr + '\tSeq     ', self.intSeq
+      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binScript)[:32] + '...'
+      print indstr + indent + 'Seq     ', self.intSeq
       
 
 #####
@@ -587,8 +587,8 @@ class TxOut(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
-      print indstr + '\tValue:  ', self.value, '(', float(self.value) / COIN, ')'
-      print indstr + '\tSCRIPT: ', binary_to_hex(self.binPKScript)[:32], '...'
+      print indstr + indent + 'Value:  ', self.value, '(', float(self.value) / COIN, ')'
+      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binPKScript)[:32], '...'
 
 
 #####
@@ -600,6 +600,17 @@ class Tx(object):
       #self.numOutputs = len(txOutList)
       #self.outputs    = txOutList
       #self.lockTime   = lockTime
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(UINT32, self.version)
+      binOut.put(VAR_INT, self.numInputs)
+      for txin in self.inputs:
+         binOut.put(BINARY_CHUNK, txin.serialize())
+      binOut.put(VAR_INT, self.numOutputs)
+      for txout in self.outputs:
+         binOut.put(BINARY_CHUNK, txout.serialize())
+      binOut.put(UINT32, self.lockTime)
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -622,17 +633,107 @@ class Tx(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'Transaction:'
-      print indstr + '\tVersion:  ', self.version
-      print indstr + '\tnInputs:  ', self.numInputs
-      print indstr + '\tnOutputs: ', self.numOutputs
-      print indstr + '\tLockTime: ', self.lockTime
-      print indstr + '\tInputs: '
+      print indstr + indent + 'Version:  ', self.version
+      print indstr + indent + 'nInputs:  ', self.numInputs
+      print indstr + indent + 'nOutputs: ', self.numOutputs
+      print indstr + indent + 'LockTime: ', self.lockTime
+      print indstr + indent + 'Inputs: '
       for inp in self.inputs:
          inp.pprint(nIndent+1)
-      print indstr + '\tOutputs: '
+      print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+1)
       
+
+
+################################################################################
+#  Block Information
+################################################################################
+
+
+class BlockHeader(object):
+   #def __init__(self, version, prevBlock, merkleRoot, timestamp, diff, nonce):
+      #self.version     = version
+      #self.prevBlkHash = prevBlock
+      #self.merkleRoot  = merkleRoot
+      #self.timestamp   = timestamp
+      #self.difficulty  = diff
+      #self.nonce       = nonce
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(UINT32, self.version)
+      binOut.put(BINARY_CHUNK, self.prevBlkHash)
+      binOut.put(BINARY_CHUNK, self.merkleRoot)
+      binOut.put(UINT32, self.timestamp)
+      binOut.put(UINT32, self.difficulty)
+      binOut.put(UINT32, self.nonce)
+      return binOut.getBinaryString()
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         blkData = toUnpack 
+      else: 
+         blkData = BinaryUnpacker( toUnpack )
+     
+      self.version     = blkData.get(UINT32)
+      self.prevBlkHash = blkData.get(BINARY_CHUNK, 32)
+      self.merkleRoot  = blkData.get(BINARY_CHUNK, 32)
+      self.timestamp   = blkData.get(UINT32)
+      self.difficulty  = blkData.get(UINT32)
+      self.nonce       = blkData.get(UINT32)
+      #self.theHash     = binary_to_binHash256(self.serialize())
+      return self
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'Header:'
+      #print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash )
+      print indstr + indent + 'Version:   ', self.version     
+      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
+      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
+      print indstr + indent + 'Timestamp: ', self.timestamp 
+      print indstr + indent + 'Target:    ', self.difficulty
+      print indstr + indent + 'Nonce:     ', self.nonce    
+
+
+
+
+class Block(object):
+   #def __init__(self, header, numTx, txList):
+      #self.header = header
+      #self.numTx  = numTx
+      #self.txList = txList
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK, self.header.serialize())
+      binOut.put(VAR_INT, self.numTx)
+      for tx in self.txList:
+         binOut.put(BINARY_CHUNK, tx.serialize())
+      return binOut.getBinaryString()
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         blkData = toUnpack 
+      else: 
+         blkData = BinaryUnpacker( toUnpack )
+
+      self.txList = []
+      self.header = BlockHeader().unserialize(blkData)
+      self.numTx  = blkData.get(VAR_INT)
+      for i in range(self.numTx):
+         self.txList.append( Tx().unserialize(blkData) )
+      return self
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'Block:'
+      self.header.pprint(nIndent+1)
+      print indstr + indent + 'NumTx:     ', self.numTx
+      for tx in self.txList:
+         tx.pprint(nIndent+1)
+
 
 def makeScriptBinary(binSig, binPubKey):
    pubkey_hash = binary_to_binHash160(binPubKey)
