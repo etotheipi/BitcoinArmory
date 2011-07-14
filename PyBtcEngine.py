@@ -78,12 +78,12 @@ def int_to_hex(i, endOut=LITTLEENDIAN):
       h = h[:-1]
    if len(h)%2 == 1:
       h = '0'+h
-   if endOut==BIGENDIAN:
+   if endOut==LITTLEENDIAN:
       h = hex_switchEndian(h)
    return h   
 def hex_to_int(h, endIn=LITTLEENDIAN):
    hstr = h[:]  # copies data, no references
-   if endIn==BIGENDIAN:
+   if endIn==LITTLEENDIAN:
       hstr = hex_switchEndian(hstr)
    return( int(hstr, 16) )
  
@@ -112,11 +112,11 @@ def binary_to_int(b, endIn=LITTLEENDIAN):
 
 ##### INT/BASE58STR #####
 def int_to_base58Str(n):
-   l = []
+   b58 = ''
    while n > 0:
       n, r = divmod (n, 58)
-      l.insert (0, (b58_digits[r]))
-   return ''.join (l)
+      b58 = b58_digits[r] + b58
+   return b58
 def base58Str_to_int(s):
    n = 0
    for ch in s:
@@ -161,11 +161,11 @@ def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
 
 ##### HEXPUBLICKEY/ADDRSTR
 def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
-   binKey = binStr[:] if endIn==LITTLEENDIAN else binStr_switchEndian(binStr)
+   binKey = binStr[:] if endIn==LITTLEENDIAN else binary_switchEndian(binStr)
    binKeyHash = binary_to_binHash160(binKey)
    checksum   = binary_to_binHash256('\x00' + binKeyHash)
    binAddrStr = binKeyHash + checksum[:4]
-   intAddrStr = binary_to_int(binAddrStr)
+   intAddrStr = binary_to_int(binAddrStr, BIGENDIAN)  # why the endian switch required!?
    b58AddrStr =           int_to_base58Str(intAddrStr)
    return                        base58Str_to_addrStr(b58AddrStr)
 
@@ -179,8 +179,8 @@ def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
 def addrStr_to_binaryPair(addr):
    b58Str  = addrStr_to_base58Str(addr)
    intAddr =            base58Str_to_int(b58Str)
-   binAddr =                         int_to_binary(intAddr)
-   return (binAddr[:-4], binAddr[-4:])
+   binAddr =                         int_to_binary(intAddr, BIGENDIAN)
+   return (binAddr[:-4], binAddr[-4:])  # why the endian switch required!?
    
 
 ##### ADDRESS VERIFICATION #####
@@ -258,6 +258,7 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
+### TODO:  https://en.bitcoin.it/wiki/Script says scripts should be BIGENDIAN?!?!
 def binScript_to_binSigKey(binStr):
    # Returns [signature, pubKey, totalBytes]
    # TODO:  check when sometimes it returns only a sig, sometimes sig&key
@@ -405,7 +406,7 @@ def hexPointXY_to_EcPubKey(hexXp, hexYp):
 #  Classes for reading and writing large binary objects
 ################################################################################
 ################################################################################
-UINT32, UNIT64, UBYTE, VAR_INT, BINARY_CHUNK = range(5)
+UINT32, UINT64, UBYTE, VAR_INT, BINARY_CHUNK = range(5)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
@@ -429,11 +430,12 @@ class BinaryUnpacker(object):
       self.pos = toPos
 
    def get(self, varType, sz=0, endianness=LITTLEENDIAN):
-      if varType == UNIT32:
+      pos = self.pos
+      if varType == UINT32:
          value = binary_to_int(self.binaryStr[pos:pos+4], endianness)
          self.advance(4)
          return value
-      elif varType == UNIT64:
+      elif varType == UINT64:
          value = binary_to_int(self.binaryStr[pos:pos+8], endianness)
          self.advance(8)
          return value
@@ -442,7 +444,7 @@ class BinaryUnpacker(object):
          self.advance(1)
          return value
       elif varType == VAR_INT:
-         [value, nBytes] = unpackVarInt(self.binaryStr[pos:], endianness)
+         [value, nBytes] = unpackVarInt(self.binaryStr[pos:])
          self.advance(nBytes)
          return value
       elif varType == BINARY_CHUNK:
@@ -492,11 +494,13 @@ class BinaryPacker(object):
 #  Transaction Classes
 ################################################################################
 
+indent = ' '*3
+
 #####
 class OutPoint(object):
-   def __init__(self, txOutHash, outIndex):
-      self.txOutHash = txOutHash
-      self.index     = outIndex
+   #def __init__(self, txOutHash, outIndex):
+      #self.txOutHash = txOutHash
+      #self.index     = outIndex
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -513,14 +517,20 @@ class OutPoint(object):
       binOut.put(BINARY_CHUNK, self.txOutHash)
       binOut.put(UINT32, self.index)
       return binOut.getBinaryString()
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'OutPoint:'
+      print indstr + '\tPrevTxHash:', binary_to_hex(self.txOutHash)
+      print indstr + '\tTxOutIndex:', self.index
       
 
 #####
 class TxIn(object):
-   def __init__(self, outpt, binScript, intSeq):
-      self.outpoint  = outpt
-      self.binScript = script
-      self.intSeq    = intSeq
+   #def __init__(self, outpt, binScript, intSeq):
+      #self.outpoint  = outpt
+      #self.binScript = script
+      #self.intSeq    = intSeq
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -541,13 +551,20 @@ class TxIn(object):
       binOut.put(BINARY_CHUNK, self.binScript)
       binOut.put(UINT32, self.sequence)
       return binOut.getBinaryString()
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'TxIn:'
+      self.outpoint.pprint(nIndent+1)
+      print indstr + '\tSCRIPT: ', binary_to_hex(self.binScript)[:32] + '...'
+      print indstr + '\tSeq     ', self.intSeq
       
 
 #####
 class TxOut(object):
-   def __init__(self, value, binPKScript):
-      self.value  = value
-      self.binPKScript = binPKScript
+   #def __init__(self, value, binPKScript):
+      #self.value  = value
+      #self.binPKScript = binPKScript
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -567,16 +584,22 @@ class TxOut(object):
       binOut.put(BINARY_CHUNK, self.binPKScript)
       return binOut.getBinaryString()
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'TxOut:'
+      print indstr + '\tValue:  ', self.value, '(', float(self.value) / COIN, ')'
+      print indstr + '\tSCRIPT: ', binary_to_hex(self.binPKScript)[:32], '...'
+
 
 #####
 class Tx(object):
-   def __init__(self, version, txInList, txOutList, lockTime):
-      self.version    = version
-      self.numInputs  = len(txInList)
-      self.txInputs   = txInList
-      self.numOutputs = len(txOutList)
-      self.txOutputs  = txOutList
-      self.lockTime   = lockTime
+   #def __init__(self, version, txInList, txOutList, lockTime):
+      #self.version    = version
+      #self.numInputs  = len(txInList)
+      #self.inputs     = txInList
+      #self.numOutputs = len(txOutList)
+      #self.outputs    = txOutList
+      #self.lockTime   = lockTime
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -584,17 +607,31 @@ class Tx(object):
       else: 
          txData = BinaryUnpacker( toUnpack )
 
-      self.txInputs   = []
-      self.txOutputs  = []
+      self.inputs     = []
+      self.outputs    = []
       self.version    = txData.get(UINT32)
       self.numInputs  = txData.get(VAR_INT)
       for i in range(self.numInputs):
-         self.txInputs.append( TxIn().unserialize(txData) )
+         self.inputs.append( TxIn().unserialize(txData) )
       self.numOutputs = txData.get(VAR_INT)
       for i in range(self.numOutputs):
-         self.txOutputs.append( TxOut().unserialize(txData) )
+         self.outputs.append( TxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
+      return self
       
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'Transaction:'
+      print indstr + '\tVersion:  ', self.version
+      print indstr + '\tnInputs:  ', self.numInputs
+      print indstr + '\tnOutputs: ', self.numOutputs
+      print indstr + '\tLockTime: ', self.lockTime
+      print indstr + '\tInputs: '
+      for inp in self.inputs:
+         inp.pprint(nIndent+1)
+      print indstr + '\tOutputs: '
+      for out in self.outputs:
+         out.pprint(nIndent+1)
       
 
 def makeScriptBinary(binSig, binPubKey):
