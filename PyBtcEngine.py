@@ -147,32 +147,32 @@ def addrStr_to_base58Str(addr):
      
 
 ##### BINARYSTR/HASHDIGEST #####
-def binary_to_binHash256(s):
+def hash256(s):
    return sha256(sha256(s))
 
 ##### BINARYSTR/ADDRESSDIGEST #####
-def binary_to_binHash160(s):
+def hash160(s):
    return ripemd160(sha256(s))
 
 ##### hex/HASHDIGEST #####
 def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
-   digestBinary = binary_to_binHash256(strBinary)
+   digestBinary = hash256(strBinary)
    digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXSTR/BINARYADDRESSDIGEST
 def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
-   digestBinary = binary_to_binHash160(strBinary)
+   digestBinary = hash160(strBinary)
    digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
 ##### HEXPUBLICKEY/ADDRSTR
 def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
    binKey = binStr[:] if endIn==LITTLEENDIAN else binary_switchEndian(binStr)
-   binKeyHash = binary_to_binHash160(binKey)
-   checksum   = binary_to_binHash256('\x00' + binKeyHash)
+   binKeyHash = hash160(binKey)
+   checksum   = hash256('\x00' + binKeyHash)
    binAddrStr = binKeyHash + checksum[:4]
    intAddrStr = binary_to_int(binAddrStr, endIn=BIGENDIAN)  # why the endian switch required!?
    b58AddrStr =           int_to_base58Str(intAddrStr)
@@ -195,7 +195,7 @@ def addrStr_to_binaryPair(addr):
 ##### ADDRESS VERIFICATION #####
 def addrStr_isValid(addr):
    binKeyHash, targetChk = addrStr_to_binaryPair(addr)
-   binKeyHashHash = binary_to_binHash256('\x00' + binKeyHash)
+   binKeyHashHash = hash256('\x00' + binKeyHash)
    return binKeyHashHash[:4] == targetChk
 
 
@@ -479,31 +479,31 @@ class BinaryUnpacker(object):
 # Start a buffer for concatenating various blocks of binary data
 class BinaryPacker(object):
    def __init__(self):
-      self.binaryList = []
+      self.binaryConcat = []
 
    def getSize(self):
-      return sum([len(a) for a in self.binaryList])
+      return sum([len(a) for a in self.binaryConcat])
 
    def getBinaryString(self):
-      return ''.join(self.binaryList)
+      return ''.join(self.binaryConcat)
 
    def __str__(self):
-      return self.getBinaryString(self)
+      return self.getBinaryString()
       
 
    def put(self, varType, theData, endianness=LITTLEENDIAN):
-      if varType == UINT32:
-         self.binaryList.append( int_to_binary(theData, 4, endianness))
-      elif varType == UINT64:
-         self.binaryList.append( int_to_binary(theData, 8, endianness))
-      elif varType == UBYTE:
-         self.binaryList.append( int_to_binary(theData, 1, endianness))
+      if   varType == UBYTE:
+         self.binaryConcat += int_to_binary(theData, 1, endianness)
       elif varType == USHORT:
-         self.binaryList.append( int_to_binary(theData, 2, endianness))
+         self.binaryConcat += int_to_binary(theData, 2, endianness)
+      elif varType == UINT32:
+         self.binaryConcat += int_to_binary(theData, 4, endianness)
+      elif varType == UINT64:
+         self.binaryConcat += int_to_binary(theData, 8, endianness)
       elif varType == VAR_INT:
-         self.binaryList.append( packVarInt(theData)[0] )
+         self.binaryConcat += packVarInt(theData)[0]
       elif varType == BINARY_CHUNK:
-         self.binaryList.append( theData )
+         self.binaryConcat += theData
       else:
          print 'Var Type not recognized!  VarType =', varType
          assert(False)
@@ -632,6 +632,7 @@ class Tx(object):
       for txout in self.outputs:
          binOut.put(BINARY_CHUNK, txout.serialize())
       binOut.put(UINT32, self.lockTime)
+      return binOut.getBinaryString()
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -653,9 +654,9 @@ class Tx(object):
       
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      #thisHash = binary_to_binHash256(self.serialize())
+      thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      #print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash)
+      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash)
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
       print indstr + indent + 'nOutputs: ', self.numOutputs
@@ -682,6 +683,8 @@ class BlockHeader(object):
       #self.timestamp   = timestamp
       #self.difficulty  = diff
       #self.nonce       = nonce
+      # TODO: forgot to put this in here
+      #self.numTx       = numTx
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -705,12 +708,12 @@ class BlockHeader(object):
       self.timestamp   = blkData.get(UINT32)
       self.difficulty  = blkData.get(UINT32)
       self.nonce       = blkData.get(UINT32)
-      self.theHash     = binary_to_binHash256(self.serialize())
+      self.theHash     = hash256(self.serialize())
       return self
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print indstr + 'Header:'
+      print indstr + 'BlockHeader:'
       print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash )
       print indstr + indent + 'Version:   ', self.version     
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
@@ -720,17 +723,18 @@ class BlockHeader(object):
       print indstr + indent + 'Nonce:     ', self.nonce    
 
 
-
-
-class Block(object):
+class BlockData(object):
    #def __init__(self, header, numTx, txList):
-      #self.header = header
-      #self.numTx  = numTx
+      #self.numTx = txList
       #self.txList = txList
+      #self.merkleTree = []
+      #self.merkleRoot = ''
+   def __init__(self):
+      self.merkleTree = []
+      self.merkleRoot = ''
 
    def serialize(self):
       binOut = BinaryPacker()
-      binOut.put(BINARY_CHUNK, self.header.serialize())
       binOut.put(VAR_INT, self.numTx)
       for tx in self.txList:
          binOut.put(BINARY_CHUNK, tx.serialize())
@@ -743,23 +747,81 @@ class Block(object):
          blkData = BinaryUnpacker( toUnpack )
 
       self.txList = []
-      self.header = BlockHeader().unserialize(blkData)
       self.numTx  = blkData.get(VAR_INT)
       for i in range(self.numTx):
          self.txList.append( Tx().unserialize(blkData) )
+      self.merkleTree = []
+      self.merkleRoot = ''
+      return self
+
+
+
+   def getMerkleRoot(self, doPrint=False, revHash=False):
+      if len(self.merkleTree)==0 and not self.numTx==0:
+         #Create the merkle tree 
+         self.merkleTree = [hash256(tx.serialize()) for tx in self.txList]
+         sz = len(self.merkleTree)
+         while sz > 1:
+            hashes = self.merkleTree[-sz:]
+            mod2 = sz%2
+            for i in range(sz/2):
+               self.merkleTree.append( hash256(hashes[2*i] + hashes[2*i+1]) )
+            if mod2==1:
+               self.merkleTree.append( hash256(hashes[-1] + hashes[-1]) )
+            sz = (sz+1) / 2
+      else:
+         # TODO:  What do we do if no Tx's in this block?
+         print 'No Transactions in block!  What do we do with the hash??'
+      if doPrint:
+         print '\tPrinting Merkle Tree:'
+         for h in self.merkleTree:
+            phash = binary_to_hex(h) if not revHash else binary_to_hex(h, endOut=BIGENDIAN)
+            print '\t'*2, phash
+      self.merkleRoot = self.merkleTree[-1]
+      return self.merkleRoot
+         
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      self.createMerkleTree()
+      print indstr + 'BlockData:'
+      print indstr + indent + 'MerkleRoot:  ', binary_to_hex(self.getMerkleRoot())
+      print indstr + indent + 'NumTx:       ', self.numTx
+      for tx in self.txList:
+         tx.pprint(nIndent+1)
+      
+
+
+class Block(object):
+   #def __init__(self, header, blkdata):
+      #self.blockHeader = header
+      #self.blockData = blkdata
+
+   def serialize(self):
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK, self.blockHeader.serialize())
+      binOut.put(BINARY_CHUNK, self.blockData.serialize())
+      return binOut.getBinaryString()
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         blkData = toUnpack 
+      else: 
+         blkData = BinaryUnpacker( toUnpack )
+
+      self.txList = []
+      self.blockHeader = BlockHeader().unserialize(blkData)
+      self.blockData   = BlockData().unserialize(blkData)
       return self
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'Block:'
-      self.header.pprint(nIndent+1)
-      print indstr + indent + 'NumTx:     ', self.numTx
-      for tx in self.txList:
-         tx.pprint(nIndent+1)
-
+      self.blockHeader.pprint(nIndent+1)
+      self.blockData.pprint(nIndent+1)
 
 def makeScriptBinary(binSig, binPubKey):
-   pubkey_hash = binary_to_binHash160(binPubKey)
+   pubkey_hash = hash160(binPubKey)
    new_script = chr(118) + chr (169) + chr (len (pubkey_hash)) + pubkey_hash + chr (136) + chr (172)
 
 
