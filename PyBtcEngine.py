@@ -46,8 +46,15 @@ import asynhttp
 
 
 from struct import pack, unpack
-from hashlib import sha256
+import hashlib 
 from pprint import pprint as pp
+
+def sha1(bits):
+   return hashlib.new('sha1', bits).digest()
+def sha256(bits):
+   return hashlib.new('sha256', bits).digest()
+def ripemd160(bits):
+   return hashlib.new('ripemd160', bits).digest()
 
 # these are overriden for testnet
 BITCOIN_PORT = 8333
@@ -72,12 +79,16 @@ def binary_switchEndian(s):
  
 
 ##### INT/HEXSTR #####
-def int_to_hex(i, endOut=LITTLEENDIAN):
+def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
    h = hex(i)[2:]
    if isinstance(i,long):
       h = h[:-1]
    if len(h)%2 == 1:
       h = '0'+h
+   if not widthBytes==0:
+      nZero = 2*widthBytes - len(h)
+      if nZero > 0:
+         h = '0'*nZero + h
    if endOut==LITTLEENDIAN:
       h = hex_switchEndian(h)
    return h   
@@ -102,8 +113,8 @@ def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
 
  
 ##### INT/BINARYSTR #####
-def int_to_binary(i, endOut=LITTLEENDIAN):
-   h = int_to_hex(i)
+def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):
+   h = int_to_hex(i,widthBytes)
    return hex_to_binary(h, endOut=endOut)
 def binary_to_int(b, endIn=LITTLEENDIAN):
    h = binary_to_hex(b, endIn, LITTLEENDIAN)
@@ -137,13 +148,11 @@ def addrStr_to_base58Str(addr):
 
 ##### BINARYSTR/HASHDIGEST #####
 def binary_to_binHash256(s):
-   return sha256(sha256(s).digest()).digest()
+   return sha256(sha256(s))
 
 ##### BINARYSTR/ADDRESSDIGEST #####
 def binary_to_binHash160(s):
-   h1 = hashlib.new('ripemd160')
-   h1.update(sha256(s).digest())
-   return h1.digest()
+   return ripemd160(sha256(s))
 
 ##### hex/HASHDIGEST #####
 def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
@@ -165,7 +174,7 @@ def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
    binKeyHash = binary_to_binHash160(binKey)
    checksum   = binary_to_binHash256('\x00' + binKeyHash)
    binAddrStr = binKeyHash + checksum[:4]
-   intAddrStr = binary_to_int(binAddrStr, BIGENDIAN)  # why the endian switch required!?
+   intAddrStr = binary_to_int(binAddrStr, endIn=BIGENDIAN)  # why the endian switch required!?
    b58AddrStr =           int_to_base58Str(intAddrStr)
    return                        base58Str_to_addrStr(b58AddrStr)
 
@@ -179,7 +188,7 @@ def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
 def addrStr_to_binaryPair(addr):
    b58Str  = addrStr_to_base58Str(addr)
    intAddr =            base58Str_to_int(b58Str)
-   binAddr =                         int_to_binary(intAddr, BIGENDIAN)
+   binAddr =                         int_to_binary(intAddr, endOut=BIGENDIAN)
    return (binAddr[:-4], binAddr[-4:])  # why the endian switch required!?
    
 
@@ -354,16 +363,16 @@ class EcPubKey(object):
       
 
    def to_hex(self, endian=LITTLEENDIAN):
-      hexXp = int_to_hex(self.intPubKeyX)
-      hexYp = int_to_hex(self.intPubKeyY)
+      hexXp = int_to_hex(self.intPubKeyX, endOut=endian)
+      hexYp = int_to_hex(self.intPubKeyY, endOut=endian)
       assert(len(hexXp) == 64)
       assert(len(hexYp) == 64)
       return '04' + hexXp + hexYp
 
    def to_binary(self, endian=LITTLEENDIAN):
       leadByte = pack(endian+'B', 4)
-      binXp = int_to_binary(self.intPubKeyX, endian);
-      binYp = int_to_binary(self.intPubKeyY, endian);
+      binXp = int_to_binary(self.intPubKeyX, endOut=endian);
+      binYp = int_to_binary(self.intPubKeyY, endOut=endian);
       assert(len(binXp) == 32)
       assert(len(binYp) == 32)
       return leadByte + binXp + binYp
@@ -406,7 +415,7 @@ def hexPointXY_to_EcPubKey(hexXp, hexYp):
 #  Classes for reading and writing large binary objects
 ################################################################################
 ################################################################################
-UINT32, UINT64, UBYTE, VAR_INT, BINARY_CHUNK = range(5)
+UBYTE, USHORT, UINT32, UINT64, VAR_INT, BINARY_CHUNK = range(6)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
@@ -420,6 +429,9 @@ class BinaryUnpacker(object):
    def getRemainingSize(self):
       return len(binaryStr) - pos
 
+   def getBinaryString(self):
+      return self.binaryStr
+
    def advance(self, bytesToAdvance):
       self.pos += bytesToAdvance
 
@@ -428,6 +440,9 @@ class BinaryUnpacker(object):
 
    def resetPosition(self, toPos=0):
       self.pos = toPos
+
+   def getPosition(self):
+      return self.pos
 
    def get(self, varType, sz=0, endianness=LITTLEENDIAN):
       pos = self.pos
@@ -442,6 +457,10 @@ class BinaryUnpacker(object):
       elif varType == UBYTE:
          value = binary_to_int(self.binaryStr[pos:pos+1], endianness)
          self.advance(1)
+         return value
+      elif varType == USHORT:
+         value = binary_to_int(self.binaryStr[pos:pos+2], endianness)
+         self.advance(2)
          return value
       elif varType == VAR_INT:
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:])
@@ -474,13 +493,15 @@ class BinaryPacker(object):
 
    def put(self, varType, theData, endianness=LITTLEENDIAN):
       if varType == UINT32:
-         self.binaryList.append( int_to_binary(theData, endianness))
+         self.binaryList.append( int_to_binary(theData, 4, endianness))
       elif varType == UINT64:
-         self.binaryList.append( int_to_binary(theData, endianness))
+         self.binaryList.append( int_to_binary(theData, 8, endianness))
       elif varType == UBYTE:
-         self.binaryList.append( int_to_binary(theData, endianness))
+         self.binaryList.append( int_to_binary(theData, 1, endianness))
+      elif varType == USHORT:
+         self.binaryList.append( int_to_binary(theData, 2, endianness))
       elif varType == VAR_INT:
-         self.binaryList.append( packVarInt(theData) )
+         self.binaryList.append( packVarInt(theData)[0] )
       elif varType == BINARY_CHUNK:
          self.binaryList.append( theData )
       else:
@@ -632,17 +653,19 @@ class Tx(object):
       
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
+      #thisHash = binary_to_binHash256(self.serialize())
       print indstr + 'Transaction:'
+      #print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash)
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
       print indstr + indent + 'nOutputs: ', self.numOutputs
       print indstr + indent + 'LockTime: ', self.lockTime
       print indstr + indent + 'Inputs: '
       for inp in self.inputs:
-         inp.pprint(nIndent+1)
+         inp.pprint(nIndent+2)
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
-         out.pprint(nIndent+1)
+         out.pprint(nIndent+2)
       
 
 
@@ -682,13 +705,13 @@ class BlockHeader(object):
       self.timestamp   = blkData.get(UINT32)
       self.difficulty  = blkData.get(UINT32)
       self.nonce       = blkData.get(UINT32)
-      #self.theHash     = binary_to_binHash256(self.serialize())
+      self.theHash     = binary_to_binHash256(self.serialize())
       return self
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'Header:'
-      #print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash )
+      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash )
       print indstr + indent + 'Version:   ', self.version     
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
@@ -740,34 +763,422 @@ def makeScriptBinary(binSig, binPubKey):
    new_script = chr(118) + chr (169) + chr (len (pubkey_hash)) + pubkey_hash + chr (136) + chr (172)
 
 
-"""
-def binaryTx_to_binaryPieces(binStr):
-    pos = 0;
-    version =  ('<I', data, pos)
-    if version != 1:
-        raise ValueError ("unknown tx version: %d" % (version,))
-    txin_count = unpack_var_int (data, pos)
-    inputs = []
-    outputs = []
-    for i in range (txin_count):
-        outpoint = unpack_pos ('<32sI', data, pos)
-        script_length = unpack_var_int (data, pos)
-        script = data[pos.val:pos.val+script_length]
-        pos.incr (script_length)
-        sequence, = unpack_pos ('<I', data, pos)
-        inputs.append ((outpoint, script, sequence))
-    txout_count = unpack_var_int (data, pos)
-    for i in range (txout_count):
-        value, = unpack_pos ('<Q', data, pos)
-        pk_script_length = unpack_var_int (data, pos)
-        pk_script = data[pos.val:pos.val+pk_script_length]
-        pos.incr (pk_script_length)
-        outputs.append ((value, pk_script))
-    lock_time, = unpack_pos ('<I', data, pos)
-    return inputs, outputs, lock_time
- 
 
-"""
+
+################################################################################
+# 
+# SCRIPTING!
+#
+################################################################################
+
+# Start list of OP codes
+OP_0 = 0
+OP_FALSE = 0
+OP_PUSHDATA1 = 76	
+OP_PUSHDATA2 = 77	
+OP_PUSHDATA4 = 78	
+OP_1NEGATE = 79	
+OP_1 = 81
+OP_TRUE = 81	
+#OP_2-OP_16	82-96	
+OP_NOP = 97	
+OP_IF = 99	
+OP_NOTIF = 100	
+OP_ELSE = 103
+OP_ENDIF = 104
+OP_VERIFY = 105	
+OP_RETURN = 106
+OP_TOALTSTACK = 107	
+OP_FROMALTSTACK = 108	
+OP_IFDUP = 115	
+OP_DEPTH = 116	
+OP_DROP = 117	
+OP_DUP = 118	
+OP_NIP = 119	
+OP_OVER = 120	 
+OP_PICK = 121	 
+OP_ROLL = 122	 
+OP_ROT = 123	 
+OP_SWAP = 124	 
+OP_TUCK = 125	 
+OP_2DROP = 109	 
+OP_2DUP = 110	 
+OP_3DUP = 111	 
+OP_2OVER = 112	 
+OP_2ROT = 113	 
+OP_2SWAP = 114	 
+OP_CAT = 126	 
+OP_SUBSTR = 127 
+OP_LEFT = 128	 
+OP_RIGHT = 129	 
+OP_SIZE = 130	 
+OP_INVERT = 131	 
+OP_AND = 132	 
+OP_OR = 133	 
+OP_XOR = 134 
+OP_EQUAL = 135 
+OP_EQUALVERIFY = 136	 
+OP_1ADD = 139	 
+OP_1SUB = 140	 
+OP_2MUL = 141	 
+OP_2DIV = 142	 
+OP_NEGATE = 143	 
+OP_ABS = 144	 
+OP_NOT = 145	 
+OP_0NOTEQUAL = 146	 
+OP_ADD = 147	 
+OP_SUB = 148	 
+OP_MUL = 149	 
+OP_DIV = 150	 
+OP_MOD = 151	 
+OP_LSHIFT = 152	 
+OP_RSHIFT = 153	 
+OP_BOOLAND = 154	 
+OP_BOOLOR = 155	 
+OP_NUMEQUAL = 156	 
+OP_NUMEQUALVERIFY = 157	 
+OP_NUMNOTEQUAL = 158	 
+OP_LESSTHAN = 159	 
+OP_GREATERTHAN = 160	 
+OP_LESSTHANOREQUAL = 161	 
+OP_GREATERTHANOREQUAL = 162 
+OP_MIN = 163	 
+OP_MAX = 164	 
+OP_WITHIN = 165 
+OP_RIPEMD160 = 166	
+OP_SHA1 = 167	
+OP_SHA256 = 168	
+OP_HASH160 = 169	
+OP_HASH256 = 170	
+OP_CODESEPARATOR = 171	
+OP_CHECKSIG = 172	
+OP_CHECKSIGVERIFY = 173	
+OP_CHECKMULTISIG = 174	
+OP_CHECKMULTISIGVERIFY = 175	
+
+# =  words are used internally for assisting with transaction matching. They are invalid if used in actual scripts.
+#Word Opcode	Description
+#OP_PUBKEYHASH = 253	Represents a public key hashed with OP_HASH160.
+#OP_PUBKEY = 254	Represents a public key compatible with OP_CHECKSIG.
+#OP_INVALIDOPCODE = 255	Matches any opcode that is not yet assigned.
+#[edit] Reserved words
+#Any opcode not assigned is also reserved. Using an unassigned opcode makes the transaction invalid.
+#Word	Opcode	When used...
+#OP_RESERVED = 80	Transaction is invalid
+#OP_VER = 98	Transaction is invalid
+#OP_VERIF = 101	Transaction is invalid
+#OP_VERNOTIF = 102	Transaction is invalid
+#OP_RESERVED1 = 137	Transaction is invalid
+#OP_RESERVED2 = 138	Transaction is invalid
+#OP_NOP1 = OP_NOP10	176-185	The word is ignored.
+
+
+TX_INVALID = 0
+SCRIPT_ERROR = 1
+OP_NOT_IMPLEMENTED = 2
+OP_DISABLED = 3
+
+   
+
+def executeScript(binaryScript, stack=[]):
+   stackAlt  = []
+   scriptData = BinaryUnpacker(binaryScript)
+   lastOpCodeSepPos = None
+
+   def checkStackSizeAtLeast(n):
+      if len(stack) < n:
+         return SCRIPT_ERROR
+   
+   while scriptData.getSize() > 0:
+      opcode = bin.get(UBYTE)
+   
+      if   opcode == OP_FALSE:  stack.append(0)
+      elif 0 < opcode < 76: stack.append(scriptData.get(BINARY_CHUNK, opcode))
+      elif opcode == OP_PUSHDATA1: 
+         nBytes = scriptData.get(UBYTE)
+         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+      elif opcode == OP_PUSHDATA2: 
+         nBytes = scriptData.get(USHORT)
+         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+      elif opcode == OP_PUSHDATA4:
+         nBytes = scriptData.get(UINT32)
+         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+      elif opcode == OP_1NEGATE:
+         stack.append(-1)
+      elif opcode == OP_TRUE:
+         stack.append(1)
+      elif 81 < opcode < 97:
+         stack.append(opcode-80)
+      elif opcode == OP_NOP:
+         pass
+   
+      # TODO: figure out the conditional op codes...
+      elif opcode == OP_IF:
+         return OP_NOT_IMPLEMENTED
+      elif opcode == OP_NOTIF:
+         return OP_NOT_IMPLEMENTED
+      elif opcode == OP_ELSE:
+         return OP_NOT_IMPLEMENTED
+      elif opcode == OP_ENDIF:
+         return OP_NOT_IMPLEMENTED
+   
+      elif opcode == OP_VERIFY:
+         if not stack.pop() == 1:
+            stack.append(0)
+            return TX_INVALID
+      elif opcode == OP_RETURN:
+         return TX_INVALID
+      elif opcode == OP_TOALTSTACK:
+         stackAlt.append( stack.pop() ) 
+      elif opcode == OP_FROMALTSTACK:
+         stack.append( stackAlt.pop() ) 
+
+      # TODO:  I don't get this... what does it do?
+      elif opcode == OP_IFDUP:
+         return OP_NOT_IMPLEMENTED
+
+      elif opcode == OP_DEPTH:
+         stack.append( len(stack) )
+      elif opcode == OP_DROP:
+         stack.pop()
+      elif opcode == OP_DUP:
+         stack.append( stack[-1] )
+      elif opcode == OP_NIP:
+         checkStackSizeAtLeast(2)
+         del stack[-2]
+      elif opcode == OP_OVER:
+         checkStackSizeAtLeast(2)
+         stack.append(stack[-2])
+      elif opcode == OP_PICK:
+         n = stack.pop()
+         checkStackSizeAtLeast(n)
+         stack.append(stack[-n])
+      elif opcode == OP_ROLL:
+         n = stack.pop()
+         checkStackSizeAtLeast(n)
+         stack.append(stack[-n])
+         del stack[-(n+1)]
+      elif opcode == OP_ROT:
+         checkStackSizeAtLeast(3)
+         stack.append( stack[-3] ) 
+         del stack[-4]
+      elif opcode == OP_SWAP:
+         checkStackSizeAtLeast(2)
+         x2 = stack.pop()
+         x1 = stack.pop()
+         stack.extend([x2, x1])
+      elif opcode == OP_TUCK:
+         checkStackSizeAtLeast(2)
+         x2 = stack.pop()
+         x1 = stack.pop()
+         stack.extend([x2, x1, x2])
+      elif opcode == OP_2DROP:
+         checkStackSizeAtLeast(2)
+         stack.pop()
+         stack.pop()
+      elif opcode == OP_2DUP:
+         checkStackSizeAtLeast(2)
+         stack.append( stack[-2] )
+         stack.append( stack[-2] )
+      elif opcode == OP_3DUP:
+         checkStackSizeAtLeast(3)
+         stack.append( stack[-3] )
+         stack.append( stack[-3] )
+         stack.append( stack[-3] )
+      elif opcode == OP_2OVER:
+         checkStackSizeAtLeast(4)
+         stack.append( stack[-4] )
+         stack.append( stack[-4] )
+      elif opcode == OP_2ROT:
+         checkStackSizeAtLeast(6)
+         stack.append( stack[-6] )
+         stack.append( stack[-6] )
+      elif opcode == OP_2SWAP:
+         checkStackSizeAtLeast(4)
+         x4 = stack.pop()
+         x3 = stack.pop()
+         x2 = stack.pop()
+         x1 = stack.pop()
+         stack.extend( [x3, x4, x1, x2] )
+      elif opcode == OP_CAT:
+         return OP_DISABLED
+      elif opcode == OP_SUBSTR:
+         return OP_DISABLED
+      elif opcode == OP_LEFT:
+         return OP_DISABLED
+      elif opcode == OP_RIGHT:
+         return OP_DISABLED
+      elif opcode == OP_SIZE:
+         stack.append( len(stack[-1]) )
+      elif opcode == OP_INVERT:
+         return OP_DISABLED
+      elif opcode == OP_AND:
+         return OP_DISABLED
+      elif opcode == OP_OR:
+         return OP_DISABLED
+      elif opcode == OP_XOR:
+         return OP_DISABLED
+      elif opcode == OP_EQUAL:
+         x1 = stack.pop()
+         x2 = stack.pop()
+         stack.append( 1 if x1==x2 else 0  )
+      elif opcode == OP_EQUALVERIFY:
+         x1 = stack.pop()
+         x2 = stack.pop()
+         if not x1==x2:
+            stack.append(0)
+            return TX_INVALID 
+
+
+      elif opcode == OP_1ADD:
+         stack[-1] += 1
+      elif opcode == OP_1SUB:
+         stack[-1] -= 1
+      elif opcode == OP_2MUL:
+         stack[-1] *= 2
+         return OP_DISABLED
+      elif opcode == OP_2DIV:
+         stack[-1] /= 2
+         return OP_DISABLED
+      elif opcode == OP_NEGATE:
+         stack[-1] *= -1
+      elif opcode == OP_ABS:
+         stack[-1] = abs(stack[-1])
+      elif opcode == OP_NOT:
+         top = stack.pop()
+         if top==0: 
+            stack.append(1)
+         else:
+            stack.append(0)
+      elif opcode == OP_0NOTEQUAL:
+         # TODO:  The description essentially looks the same as above
+         top = stack.pop()
+         if top==0: 
+            stack.append(1)
+         else:
+            stack.append(0)
+      elif opcode == OP_ADD:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append(a+b)
+      elif opcode == OP_SUB:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append(a-b)
+      elif opcode == OP_MUL:
+         #b = stack.pop()
+         #a = stack.pop()
+         #stack.append(float(a)*float(b))
+         return OP_DISABLED
+      elif opcode == OP_DIV:
+         #b = stack.pop()
+         #a = stack.pop()
+         #stack.append(float(a)/float(b))
+         return OP_DISABLED
+      elif opcode == OP_MOD:
+         return OP_DISABLED
+      elif opcode == OP_LSHIFT:
+         return OP_DISABLED
+      elif opcode == OP_RSHIFT:
+         return OP_DISABLED
+      elif opcode == OP_BOOLAND:
+         b = stack.pop()
+         a = stack.pop()
+         if (not a==0) and (not b==0):
+            stack.append(1)
+         else:
+            stack.append(0)
+      elif opcode == OP_BOOLOR:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if ((not a==0) or (not b==0)) else 0 )
+      elif opcode == OP_NUMEQUAL:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if a==b else 0 )
+      elif opcode == OP_NUMEQUALVERIFY:
+         b = stack.pop()
+         a = stack.pop()
+         if not a==b:
+            stack.append(0)
+            return TX_INVALID 
+      elif opcode == OP_NUMNOTEQUAL:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if not a==b else 0 )
+      elif opcode == OP_LESSTHAN:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if a<b else 0) 
+      elif opcode == OP_GREATERTHAN:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if a>b else 0) 
+      elif opcode == OP_LESSTHANOREQUAL:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if a<=b else 0) 
+      elif opcode == OP_GREATERTHANOREQUAL:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( 1 if a>=b else 0) 
+      elif opcode == OP_MIN:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( min(a,b) )
+      elif opcode == OP_MAX:
+         b = stack.pop()
+         a = stack.pop()
+         stack.append( max(a,b) )
+      elif opcode == OP_WITHIN:
+         xmax = stack.pop()
+         xmin = stack.pop()
+         x    = stack.pop()
+         stack.append( 1 if (xmin <= x < xmax) else 0 )
+
+      elif opcode == OP_RIPEMD160:
+         bits = stack.pop()
+         stack.append( ripemd160(bits) )
+      elif opcode == OP_SHA1:
+         bits = stack.pop()
+         stack.append( sha1(bits) )
+      elif opcode == OP_SHA256:
+         bits = stack.pop()
+         stack.append( sha256(bits) )
+      elif opcode == OP_HASH160:
+         bits = stack.pop()
+         stack.append( ripemd160(sha256(bits) ) )
+      elif opcode == OP_HASH256:
+         bits = stack.pop()
+         stack.append( sha256(sha256(bits) ) )
+      elif opcode == OP_CODESEPARATOR:
+         lastOpCodeSepPos = scriptData.getPosition()
+      elif opcode == OP_CHECKMULTISIG:
+         return OP_NOT_IMPLEMENTED
+      elif opcode == OP_CHECKMULTISIGVERIFY:
+         return OP_NOT_IMPLEMENTED
+      elif opcode == OP_CHECKSIG or opcode == OP_CHECKSIGVERIFY:
+
+         # 1. Pop key and sig from the stack
+         binPubKey = stack.pop()
+         binSig    = stack.pop()
+
+         # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
+         subscript = scriptData.getBinaryString() 
+         if not lastOpCodeSepPos == None:
+            subscript = subscript[lastOpCodeSepPos:]
+         
+         # 3. Signature is deleted from subscript
+         # I'm not sure why this line is necessary - maybe for non-standard scripts?
+         lengthInBinary = int_to_binary(len(binSig))
+         subscript = subscript.replace( lengthInBinary + signature, "")
+   
+         # 4. Hashtype is popped and stored
+         hashtype = signature[-1]
+         signature = signature[:-1]
+         
+      else:
+         return SCRIPT_ERROR
    
 
 

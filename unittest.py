@@ -123,6 +123,9 @@ tx2.pprint()
 print '\n'*3
 
 
+#tx1ser = tx1.serialize()
+#print tx1ser == tx1raw
+
 
 exBlock = (
     '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
@@ -147,8 +150,14 @@ exBlock = (
 blk = Block().unserialize( hex_to_binary(exBlock) )
 blk.pprint()
 
-#print blk.serialize()
+print blk.serialize()
+
+print binary_to_hex( blk.header.serialize() )
 
 
+blk.pprint()
 
+ser = blk.serialize()
+blk.unserialize(ser)
 
+blk.pprint()
