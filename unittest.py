@@ -94,15 +94,6 @@ testFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00'
 
 
 
-print "Testing ECDSA signing & verification: "
-privInt = hex_to_int('2a'*32)
-pvkey = EcPrivKey(privInt)
-msg = int_to_binary(39029348428)
-theHash = hash256(msg)
-dersig = pvkey.derSignature(theHash)
-pbkey = EcPubKey(pvkey)
-print "\tTest Passed?  ", pbkey.verifyBinarySignature( theHash, dersig)
-
 
 # Unserialize an reserialize
 tx1raw= '\x01\x00\x00\x00\x02\x0f{\x7f\xb8mL\xf6F\x05\x8eA\xd3\xb0\x07\x18?\xdfysn\xd1\x9b*th\xab\xc5\xbd\x04\xb1n\x91\x00\x00\x00\x00\x8cI0F\x02!\x00\xb2\xee9\xd2\xfc\xc2\xe5TJW\xc3\x0f{NI\xcf\xb8""fm\x03O\xb9\x0e"4\x8e\x17\xe2\x8e\x0f\x02!\x00\xdb\x91\xc3\x19\x9c\xc7\xb4\x1dMz\xfc\xe0\xcc\xb4\xce\xb4$\xb9GmQ\xc0aBX=\xafS\xce\n\x9bf\x01A\x04\xc3"\x15\xa9\t0\x11\xbd<A(:\xce=\x00,f`w\xb2J`[<\xfc\x8fq\x01\x9a\x0fC\xdff\xf3\x89\xf3\xd9\xa6!\x88\xa4\x94\xb8i\xdc~_\x9d\xff\xc9\x8av\xd3\x08\x8a!\xe9\xb78\xec\x9e\xba\x98\xcb\xff\xff\xff\xff\x97\x00A%R\x8f{^\xd34e\xca\xaa\xe0!\xc0\xb8\x15\xf3\xe6\xa3pvA\xd5\xa0\xbc\xa4?\xc1II\x01\x00\x00\x00\x8aG0D\x02 3\xd0,.\x89o\x1a\x12RH\x8dSL\xfb\x08\xab\xf3\xe7\xea\x90\xab\xa7\xbaoW\xab\xf1\x89\xce\xf1\xd87\x02 \x05f\x8duP\x13\xb0\xe5\x9a*\xf5\x14_\x10\xef\xe6.\xa7\x16\xd33&\x8b\x0bZ>\xfb\xd8-\x149\xbe\x01A\x04\xc3"\x15\xa9\t0\x11\xbd<A(:\xce=\x00,f`w\xb2J`[<\xfc\x8fq\x01\x9a\x0fC\xdff\xf3\x89\xf3\xd9\xa6!\x88\xa4\x94\xb8i\xdc~_\x9d\xff\xc9\x8av\xd3\x08\x8a!\xe9\xb78\xec\x9e\xba\x98\xcb\xff\xff\xff\xff\x01\x00\xc2\xeb\x0b\x00\x00\x00\x00\x19v\xa9\x14\x02\xbfK(\x89\xc6\xad\xa8\x19\x0c%.p\xbd\xe1\xa1\x90\x9f\x96\x17\x88\xac\x00\x00\x00\x00'
@@ -115,10 +106,14 @@ tx1again = tx1.serialize()
 tx2again = tx2.serialize()
 
 
-print 
+print ''
+print 'Testing transaction serialization round trip:'
+print '\t Tx1 == Tx().unserialize( Tx1.serialize() ) ? ', tx1raw == tx1again
+print '\t Tx2 == Tx().unserialize( Tx2.serialize() ) ? ', tx2raw == tx2again
+print ''
 
 
-exBlock = (
+hexBlock = (
     '01000000eb10c9a996a2340a4d74eaab41421ed8664aa49d18538bab59010000000000005a2f06efa9f2bd804f17877537f2080030cadbfa1eb50e02338117cc'
     '604d91b9b7541a4ecfbb0a1a64f1ade70301000000010000000000000000000000000000000000000000000000000000000000000000ffffffff0804cfbb0a1a'
     '02360affffffff0100f2052a01000000434104c2239c4eedb3beb26785753463be3ec62b82f6acd62efb65f452f8806f2ede0b338e31d1f69b1ce449558d7061'
@@ -138,28 +133,43 @@ exBlock = (
     'ac61050000001976a914964642290c194e3bfab661c1085e47d67786d2d388ac2f77e200000000001976a9141486a7046affd935919a3cb4b50a8a0c233c286c'
     '88ac00000000')
 
-blk = Block().unserialize( hex_to_binary(exBlock) )
-#blk.pprint()
-
-ser = blk.serialize()
-newBlock = Block().unserialize(ser)
-#newBlock.pprint()
-print '\n'*3
-
-print 'The blocks are the same!? ', blk.serialize() == newBlock.serialize()
-
-binRoot = blk.blockData.getMerkleRoot(doPrint=True, revHash=True)
-
-print 'MerkleRoot in block header:', binary_to_hex(blk.blockHeader.merkleRoot)
-print 'MerkleRoot calculated:     ', binary_to_hex(binRoot)
-print 'Root calculation verified? ', blk.blockHeader.merkleRoot == blk.blockData.merkleRoot, '!'
+blk = Block().unserialize( hex_to_binary(hexBlock) )
+blockReHex = binary_to_hex(blk.serialize())
+print ''
+print 'Testing block serialization round trip:'
+print '\t theBlock == Block().unserialize( theBlock.serialize() ) ? ', hexBlock == blockReHex
+print ''
 
 
+binRoot = blk.blockData.getMerkleRoot()
+print ''
+print 'Testing merkle tree calculation:'
+print '\tMerkleRoot in block header:', binary_to_hex(blk.blockHeader.merkleRoot)
+print '\tMerkleRoot calculated:     ', binary_to_hex(binRoot)
+print '\tRoot calculation verified? ', blk.blockHeader.merkleRoot == blk.blockData.merkleRoot, '!'
+print ''
 
 
 
 
+print 'Testing ECDSA signing & verification -- Arbitrary Data'
+privInt = hex_to_int('2a'*32)
+pvkey = EcPrivKey(privInt)
+msg = int_to_binary(39029348428)
+theHash = hash256(msg)
+dersig = pvkey.derSignature(theHash)
+pbkey = EcPubKey(pvkey)
+print '\tTest Passed?  ', pbkey.verifyBinarySignature( theHash, dersig)
 
+
+sp = ScriptProcessor()
+sp.setTxObjects(tx1, tx2, 0)
+print ''
+print 'Testing ECDSA signing & verification -- two linked transactions:'
+print '(if this test passes, you are in fantastic shape!)'
+print '\tTest Passed?  ', sp.verifyTransactionValid()
+
+# From tx tests before, we have tx1 and tx2, where tx2 uses and output from tx1
 
 
 

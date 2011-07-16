@@ -67,6 +67,20 @@ LITTLEENDIAN = '<';
 BIGENDIAN = '>';
 COIN = 1e8
 
+
+def default_error_function(msg):
+   print ''
+   print '***ERROR*** : ', msg
+   print 'Aborting run'
+   exit(0)
+
+
+raiseError = default_error_function
+
+def setErrorFunction( fn ):
+   raiseError = fn
+
+
 class BadAddress (Exception):
    pass
 
@@ -283,16 +297,14 @@ def intRS_to_derSig(r,s):
    rSize  = int_to_binary(len(rBin))
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-   return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin + '\x01'
+   return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
 
 def derSig_to_intRS(binStr):
    # There was nothing easy about figuring out how these numbers were encoded
    codeByte = binStr[0]
    nBytes   = binary_to_int(binStr[1])
-   rsStr    = binStr[2:-1]
-   endByte  = binStr[-1]
+   rsStr    = binStr[2:]
    assert(codeByte == '\x30')
-   assert(endByte  == '\x01')
    assert(nBytes == len(rsStr))
 
    # Read r
@@ -313,7 +325,7 @@ def derSig_to_intRS(binStr):
 
 class EcPrivKey(object):
 
-   # TODO:  check for python 2.3- to warn if randrange gens "small" numbers
+   # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
    # And yes, a private key is really just a random number
 
    def __init__(self, privInt=None):
@@ -345,7 +357,7 @@ class EcPrivKey(object):
 
 class EcPubKey(object):
    """ Init EcPubKey with either EcPrivKey, or 65-bit-string from script """
-   def __init__(self, initObj):
+   def __init__(self, initObj, endianIn=LITTLEENDIAN):
       # InitObj is either a EcPrivKey or BINARY public key str (65 bytes)
       if isinstance(initObj, EcPrivKey):
          self.intPubKeyX = initObj.publicPoint.x()
@@ -354,10 +366,12 @@ class EcPubKey(object):
       else:
          chk, binXp, binYp = initObj[0], initObj[1:33], initObj[33:]
          assert(len(initObj) == 65 and chk == '\x04')
-         self.intPubKeyX = binary_to_int(binXp)
-         self.intPubKeyY = binary_to_int(binYp)
+         # Script values are stored in big-endian
+         self.intPubKeyX = binary_to_int(binXp, endIn=endianIn)
+         self.intPubKeyY = binary_to_int(binYp, endIn=endianIn)
          self.binary = initObj
 
+      # If there is an error here about "contains_point" try switching endian
       self.publicPoint = EC_Point(EC_Curve, self.intPubKeyX, self.intPubKeyY)
       self.lisPubKey = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
       
@@ -378,7 +392,7 @@ class EcPubKey(object):
       return leadByte + binXp + binYp
 
    def to_addrStr(self):
-      return binPubKey_to_addrStr
+      return binPubKey_to_addrStr(self)
       
    def verifyBinarySignature(self, binHashToVerify, derSig):
       intHash = binary_to_int(binHashToVerify)
@@ -424,10 +438,10 @@ class BinaryUnpacker(object):
       self.pos = 0
 
    def getSize(self):
-      return len(binaryStr)
+      return len(self.binaryStr)
 
    def getRemainingSize(self):
-      return len(binaryStr) - pos
+      return len(self.binaryStr) - self.pos
 
    def getBinaryString(self):
       return self.binaryStr
@@ -729,6 +743,7 @@ class BlockData(object):
       #self.txList = txList
       #self.merkleTree = []
       #self.merkleRoot = ''
+
    def __init__(self):
       self.merkleTree = []
       self.merkleRoot = ''
@@ -756,7 +771,7 @@ class BlockData(object):
 
 
 
-   def getMerkleRoot(self, doPrint=False, revHash=False):
+   def getMerkleRoot(self):
       if len(self.merkleTree)==0 and not self.numTx==0:
          #Create the merkle tree 
          self.merkleTree = [hash256(tx.serialize()) for tx in self.txList]
@@ -772,18 +787,22 @@ class BlockData(object):
       else:
          # TODO:  What do we do if no Tx's in this block?
          print 'No Transactions in block!  What do we do with the hash??'
-      if doPrint:
-         print '\tPrinting Merkle Tree:'
-         for h in self.merkleTree:
-            phash = binary_to_hex(h) if not revHash else binary_to_hex(h, endOut=BIGENDIAN)
-            print '\t'*2, phash
       self.merkleRoot = self.merkleTree[-1]
       return self.merkleRoot
+
+   def printMerkleTree(self, reverseHash=False, indent=''):
+         print indent + 'Printing Merkle Tree:'
+         if reverseHash:
+            print indent + '(hashes will be reversed, like shown on BlockExplorer.com)'
+         root = self.getMerkleRoot()
+         print indent + 'Merkle Root:', binary_to_hex(root)
+         for h in self.merkleTree:
+            phash = binary_to_hex(h) if not reverseHash else binary_to_hex(h, endOut=BIGENDIAN)
+            print indent + '\t' + phash
          
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      self.createMerkleTree()
       print indstr + 'BlockData:'
       print indstr + indent + 'MerkleRoot:  ', binary_to_hex(self.getMerkleRoot())
       print indstr + indent + 'NumTx:       ', self.numTx
@@ -936,35 +955,95 @@ OP_CHECKMULTISIGVERIFY = 175
 
 
 TX_INVALID = 0
-SCRIPT_ERROR = 1
-OP_NOT_IMPLEMENTED = 2
-OP_DISABLED = 3
+OP_NOT_IMPLEMENTED = 1
+OP_DISABLED = 2
+SCRIPT_STACK_SIZE_ERROR = 3
+SCRIPT_ERROR = 4
+SCRIPT_NO_ERROR = 5
 
    
+class ScriptProcessor(object):
 
-def executeScript(binaryScript, stack=[]):
-   stackAlt  = []
-   scriptData = BinaryUnpacker(binaryScript)
-   lastOpCodeSepPos = None
+   def __init__(self):
+      self.stack = []
+      self.txOld = None
+      self.txNew = None
 
-   def checkStackSizeAtLeast(n):
-      if len(stack) < n:
-         return SCRIPT_ERROR
+   def setTxObjects(self, txOld, txNew, txInIndex):
+      self.txOld = txOld
+      self.txNew = txNew
+      self.txInIndex  = txInIndex
+      self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
+      self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
+      if not self.txOutHash == hash256(txOld.serialize()):
+         print '*** Supplied incorrect pair of transactions!'
+
+      self.script1 = txNew.inputs[txInIndex].binScript
+      self.script2 = txOld.outputs[self.txOutIndex].binPKScript
+
+
+   def verifyTransactionValid(self):
+      if self.txOld==None or self.txNew==None:
+         raiseError('Cannot verify transactions, without setTxObjects call first!')
+
+      # Execute TxIn script first
+      exitCode1 = self.executeScript(self.script1, self.stack) 
+
+      if not exitCode1 == SCRIPT_NO_ERROR:
+         raiseError('First script failed!  Exit Code: ' + str(exitCode1))
+         return False
+
+      exitCode2 = self.executeScript(self.script2, self.stack) 
+
+      if not exitCode2 == SCRIPT_NO_ERROR:
+         raiseError('First script failed!  Exit Code: ' + str(exitCode2))
+         return False
+
+      return self.stack[-1]==1
+
+
+   def executeScript(self, binaryScript, stack=[]):
+      self.stack = stack
+      stackAlt  = []
+      scriptData = BinaryUnpacker(binaryScript)
+      self.lastOpCodeSepPos = None
+      print ''
    
-   while scriptData.getSize() > 0:
-      opcode = bin.get(UBYTE)
-   
-      if   opcode == OP_FALSE:  stack.append(0)
-      elif 0 < opcode < 76: stack.append(scriptData.get(BINARY_CHUNK, opcode))
+      while scriptData.getRemainingSize() > 0:
+         opcode = scriptData.get(UBYTE)
+         exitCode = self.executeOpCode(opcode, scriptData, self.stack)
+         if not exitCode == SCRIPT_NO_ERROR:
+            return exitCode
+
+      print 'Execute Script Completed!'
+      print 'Contents of the stack:'
+      print 
+      for s in self.stack:
+         print '\t', binary_to_hex(s) if isinstance(s, str) else s
+
+      return SCRIPT_NO_ERROR
+      
+      
+
+   def executeOpCode(self, opcode, scriptUnpacker, stack):
+
+      stackSizeAtLeast = lambda n: (len(self.stack) >= n)
+
+      print 'OP_CODE: ', opcode
+
+      if   opcode == OP_FALSE:  
+         stack.append(0)
+      elif 0 < opcode < 76: 
+         stack.append(scriptUnpacker.get(BINARY_CHUNK, opcode))
       elif opcode == OP_PUSHDATA1: 
-         nBytes = scriptData.get(UBYTE)
-         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+         nBytes = scriptUnpacker.get(UBYTE)
+         stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_PUSHDATA2: 
-         nBytes = scriptData.get(USHORT)
-         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+         nBytes = scriptUnpacker.get(USHORT)
+         stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_PUSHDATA4:
-         nBytes = scriptData.get(UINT32)
-         stack.append(scriptData.get(BINARY_CHUNK, nBytes))
+         nBytes = scriptUnpacker.get(UINT32)
+         stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_1NEGATE:
          stack.append(-1)
       elif opcode == OP_TRUE:
@@ -973,7 +1052,7 @@ def executeScript(binaryScript, stack=[]):
          stack.append(opcode-80)
       elif opcode == OP_NOP:
          pass
-   
+
       # TODO: figure out the conditional op codes...
       elif opcode == OP_IF:
          return OP_NOT_IMPLEMENTED
@@ -1006,57 +1085,57 @@ def executeScript(binaryScript, stack=[]):
       elif opcode == OP_DUP:
          stack.append( stack[-1] )
       elif opcode == OP_NIP:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          del stack[-2]
       elif opcode == OP_OVER:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          stack.append(stack[-2])
       elif opcode == OP_PICK:
          n = stack.pop()
-         checkStackSizeAtLeast(n)
+         if not stackSizeAtLeast(n): return SCRIPT_STACK_SIZE_ERROR
          stack.append(stack[-n])
       elif opcode == OP_ROLL:
          n = stack.pop()
-         checkStackSizeAtLeast(n)
+         if not stackSizeAtLeast(n): return SCRIPT_STACK_SIZE_ERROR
          stack.append(stack[-n])
          del stack[-(n+1)]
       elif opcode == OP_ROT:
-         checkStackSizeAtLeast(3)
+         if not stackSizeAtLeast(3): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-3] ) 
          del stack[-4]
       elif opcode == OP_SWAP:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          x2 = stack.pop()
          x1 = stack.pop()
          stack.extend([x2, x1])
       elif opcode == OP_TUCK:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          x2 = stack.pop()
          x1 = stack.pop()
          stack.extend([x2, x1, x2])
       elif opcode == OP_2DROP:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          stack.pop()
          stack.pop()
       elif opcode == OP_2DUP:
-         checkStackSizeAtLeast(2)
+         if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-2] )
          stack.append( stack[-2] )
       elif opcode == OP_3DUP:
-         checkStackSizeAtLeast(3)
+         if not stackSizeAtLeast(3): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-3] )
          stack.append( stack[-3] )
          stack.append( stack[-3] )
       elif opcode == OP_2OVER:
-         checkStackSizeAtLeast(4)
+         if not stackSizeAtLeast(4): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-4] )
          stack.append( stack[-4] )
       elif opcode == OP_2ROT:
-         checkStackSizeAtLeast(6)
+         if not stackSizeAtLeast(6): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-6] )
          stack.append( stack[-6] )
       elif opcode == OP_2SWAP:
-         checkStackSizeAtLeast(4)
+         if not stackSizeAtLeast(4): return SCRIPT_STACK_SIZE_ERROR
          x4 = stack.pop()
          x3 = stack.pop()
          x2 = stack.pop()
@@ -1113,7 +1192,7 @@ def executeScript(binaryScript, stack=[]):
          else:
             stack.append(0)
       elif opcode == OP_0NOTEQUAL:
-         # TODO:  The description essentially looks the same as above
+         # TODO:  The description for this opcode looks identical to OP_NOT
          top = stack.pop()
          if top==0: 
             stack.append(1)
@@ -1214,41 +1293,78 @@ def executeScript(binaryScript, stack=[]):
          bits = stack.pop()
          stack.append( sha256(sha256(bits) ) )
       elif opcode == OP_CODESEPARATOR:
-         lastOpCodeSepPos = scriptData.getPosition()
+         self.lastOpCodeSepPos = scriptUnpacker.getPosition()
       elif opcode == OP_CHECKMULTISIG:
          return OP_NOT_IMPLEMENTED
       elif opcode == OP_CHECKMULTISIGVERIFY:
          return OP_NOT_IMPLEMENTED
       elif opcode == OP_CHECKSIG or opcode == OP_CHECKSIGVERIFY:
 
-         # 1. Pop key and sig from the stack
+         # 1. Pop key and sig from the stack 
          binPubKey = stack.pop()
          binSig    = stack.pop()
 
          # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
-         subscript = scriptData.getBinaryString() 
-         if not lastOpCodeSepPos == None:
-            subscript = subscript[lastOpCodeSepPos:]
+         subscript = scriptUnpacker.getBinaryString() 
+         if not self.lastOpCodeSepPos == None:
+            subscript = subscript[self.lastOpCodeSepPos:]
          
          # 3. Signature is deleted from subscript
-         # I'm not sure why this line is necessary - maybe for non-standard scripts?
+         #    I'm not sure why this line is necessary - maybe for non-standard scripts?
          lengthInBinary = int_to_binary(len(binSig))
-         subscript = subscript.replace( lengthInBinary + signature, "")
+         subscript = subscript.replace( lengthInBinary + binSig, "")
    
          # 4. Hashtype is popped and stored
-         hashtype = signature[-1]
-         signature = signature[:-1]
-         
+         hashtype = binary_to_int(binSig[-1])
+         binSig = binSig[:-1]
+
+         # 5. Make a copy of the transaction -- we will be hashing a modified version
+         txCopy = Tx().unserialize( self.txNew.serialize() )
+
+         # 6. Remove all OP_CODESEPARATORs
+         subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
+
+         # 7. All the TxIn scripts in the copy are blanked (set to empty string)
+         for txin in self.txNew.inputs:
+            txin.binScript = ''
+
+         # 8. Script for the current input in the copy is set to subscript
+         txCopy.inputs[self.txInIndex].script = subscript
+
+         # 9. Prepare the signature and public key
+         pubkey = EcPubKey(binPubKey, BIGENDIAN)
+         binHashCode = int_to_binary(hashtype, widthBytes=4)
+         #toHash = txCopy.serialize() + binHashCode
+         # TEMPORARILY set toHash to the output from txexample so I can check verify only
+         toHash = hex_to_binary('010000000330f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694000000001976a91402bf4b2889c6ada8190c252e70bde1a1909f961788acffffffff72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea6890000000000ffffffffd28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c0000000000ffffffff0100a6f75f020000001976a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac0000000001000000')
+         print 'TXHASH: ', binary_to_hex(toHash)
+         hashToVerify = hash256(toHash)
+
+         print 'HashToVerify: ', binary_to_hex(hashToVerify)
+
+         if pubkey.verifyBinarySignature(hashToVerify, binSig):
+            stack.append(1)
+         else:
+            stack.append(0)
+          
+         if opcode==OP_CHECKSIGVERIFY:
+            verifyCode = self.executeOpCode(OP_VERIFY)
+            if verifyCode == TX_INVALID:
+               return TX_INVALID
+            
+            
       else:
          return SCRIPT_ERROR
+
+      return SCRIPT_NO_ERROR
+      
    
-
-
-
-
+   
+   
+   
 OBJ_TX   = 1
 OBJ_BLOCK = 2
-
+   
 object_types = {
    0: "ERROR",
    1: "TX",
