@@ -310,14 +310,14 @@ def derSig_to_intRS(binStr):
    # Read r
    codeByte  = rsStr[0]
    rBytes    = binary_to_int(rsStr[1])
-   r         = binary_to_int(rsStr[2:2+rBytes])
+   r         = binary_to_int(rsStr[2:2+rBytes], endIn=BIGENDIAN)
    assert(codeByte == '\x02')
    sStr      = rsStr[2+rBytes:]
 
    # Read s
    codeByte  = sStr[0]
    sBytes    = binary_to_int(sStr[1])
-   s         = binary_to_int(sStr[2:2+sBytes])
+   s         = binary_to_int(sStr[2:2+sBytes], endIn=BIGENDIAN)
    assert(codeByte == '\x02')
    return (r,s)
 
@@ -395,7 +395,7 @@ class EcPubKey(object):
       return binPubKey_to_addrStr(self)
       
    def verifyBinarySignature(self, binHashToVerify, derSig):
-      intHash = binary_to_int(binHashToVerify)
+      intHash = binary_to_int(binHashToVerify, endIn=BIGENDIAN)
       (r,s) = derSig_to_intRS(derSig)
       lisSignature = EC_Sig(r,s)
       return self.lisPubKey.verifies(intHash, lisSignature)
@@ -1339,8 +1339,6 @@ class ScriptProcessor(object):
          toHash = hex_to_binary('010000000330f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694000000001976a91402bf4b2889c6ada8190c252e70bde1a1909f961788acffffffff72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea6890000000000ffffffffd28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c0000000000ffffffff0100a6f75f020000001976a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac0000000001000000')
          print 'TXHASH: ', binary_to_hex(toHash)
          hashToVerify = hash256(toHash)
-
-         print 'HashToVerify: ', binary_to_hex(hashToVerify)
 
          if pubkey.verifyBinarySignature(hashToVerify, binSig):
             stack.append(1)
