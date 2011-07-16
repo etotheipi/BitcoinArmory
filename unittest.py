@@ -17,8 +17,15 @@ def testFunction( fnName, expectedOutput, *args):
       print '\t','___ExpOut___:', expectedOutput
       print '\t','___ActOut___:', actualOutput
       
-   
 
+def printpassorfail(abool):
+   if abool:
+      print '*** PASSED ***',
+   else:
+      print '___ FAILED ___',
+   
+print ''
+print ''
 print '*** Running Bitcoin engine unit tests ***'
 
 addr = '1Ncui8YjT7JJD91tkf42dijPnqywbupf7w'  # Sam Rushing's BTC address
@@ -116,8 +123,11 @@ tx2again = tx2.serialize()
 
 print ''
 print 'Testing transaction serialization round trip:'
-print '\t Tx1 == Tx().unserialize( Tx1.serialize() ) ? ', tx1raw == tx1again
-print '\t Tx2 == Tx().unserialize( Tx2.serialize() ) ? ', tx2raw == tx2again
+print '\t Tx1 == Tx().unserialize( Tx1.serialize() ) ? ', 
+printpassorfail(tx1raw == tx1again)
+print ''
+print '\t Tx2 == Tx().unserialize( Tx2.serialize() ) ? ', 
+printpassorfail(tx2raw == tx2again)
 print ''
 
 
@@ -145,7 +155,8 @@ blk = Block().unserialize( hex_to_binary(hexBlock) )
 blockReHex = binary_to_hex(blk.serialize())
 print ''
 print 'Testing block serialization round trip:'
-print '\t theBlock == Block().unserialize( theBlock.serialize() ) ? ', hexBlock == blockReHex
+print '\t theBlock == Block().unserialize( theBlock.serialize() ) ? ', 
+printpassorfail(hexBlock == blockReHex)
 print ''
 
 
@@ -154,32 +165,31 @@ print ''
 print 'Testing merkle tree calculation:'
 print '\tMerkleRoot in block header:', binary_to_hex(blk.blockHeader.merkleRoot)
 print '\tMerkleRoot calculated:     ', binary_to_hex(binRoot)
-print '\tRoot calculation verified? ', blk.blockHeader.merkleRoot == blk.blockData.merkleRoot, '!'
+print '\tRoot calculation verified? ', 
+printpassorfail(blk.blockHeader.merkleRoot == blk.blockData.merkleRoot)
+print ''
 print ''
 
 
 
 
-print 'Testing ECDSA signing & verification -- Arbitrary Data'
 privInt = hex_to_int('2a'*32)
 pvkey = EcPrivKey(privInt)
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
 dersig = pvkey.derSignature(theHash)
 pbkey = EcPubKey(pvkey)
-print '\tTest Passed?  ', pbkey.verifyBinarySignature( theHash, dersig)
-
-
-sp = ScriptProcessor()
-sp.setTxObjects(tx1, tx2, 0)
+print 'Testing ECDSA signing & verification -- arbitrary binary strings:', 
+printpassorfail( pbkey.verifyBinarySignature( theHash, dersig))
 print ''
-print 'Testing ECDSA signing & verification -- two linked transactions:'
-print '(if this test passes, you are in fantastic shape!)'
-print '\tTest Passed?  ', sp.verifyTransactionValid()
+
 
 # From tx tests before, we have tx1 and tx2, where tx2 uses and output from tx1
+sp = ScriptProcessor()
+sp.setTxObjects(tx1, tx2, 0)
+print 'Testing ECDSA signing & verification -- two linked transactions: ',
+printpassorfail( sp.verifyTransactionValid() )
+print ''
 
 
 
-
-print '\n'*2

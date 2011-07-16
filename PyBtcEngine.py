@@ -292,8 +292,8 @@ def binScript_to_binSigKey(binStr):
    return (binarySignature, binaryKey, 2+szKey+szSig)
 
 def intRS_to_derSig(r,s):
-   rBin   = int_to_binary(r)
-   sBin   = int_to_binary(s)
+   rBin   = int_to_binary(r, endOut=BIGENDIAN)
+   sBin   = int_to_binary(s, endOut=BIGENDIAN)
    rSize  = int_to_binary(len(rBin))
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
@@ -395,7 +395,7 @@ class EcPubKey(object):
       return binPubKey_to_addrStr(self)
       
    def verifyBinarySignature(self, binHashToVerify, derSig):
-      intHash = binary_to_int(binHashToVerify, endIn=BIGENDIAN)
+      intHash = binary_to_int(binHashToVerify)
       (r,s) = derSig_to_intRS(derSig)
       lisSignature = EC_Sig(r,s)
       return self.lisPubKey.verifies(intHash, lisSignature)
@@ -1015,12 +1015,6 @@ class ScriptProcessor(object):
          if not exitCode == SCRIPT_NO_ERROR:
             return exitCode
 
-      print 'Execute Script Completed!'
-      print 'Contents of the stack:'
-      print 
-      for s in self.stack:
-         print '\t', binary_to_hex(s) if isinstance(s, str) else s
-
       return SCRIPT_NO_ERROR
       
       
@@ -1029,7 +1023,7 @@ class ScriptProcessor(object):
 
       stackSizeAtLeast = lambda n: (len(self.stack) >= n)
 
-      print 'OP_CODE: ', opcode
+      #print 'OP_CODE: ', opcode
 
       if   opcode == OP_FALSE:  
          stack.append(0)
@@ -1325,21 +1319,19 @@ class ScriptProcessor(object):
          subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
 
          # 7. All the TxIn scripts in the copy are blanked (set to empty string)
-         for txin in self.txNew.inputs:
+         for txin in txCopy.inputs:
             txin.binScript = ''
 
          # 8. Script for the current input in the copy is set to subscript
-         txCopy.inputs[self.txInIndex].script = subscript
+         txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
          pubkey = EcPubKey(binPubKey, BIGENDIAN)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
-         #toHash = txCopy.serialize() + binHashCode
-         # TEMPORARILY set toHash to the output from txexample so I can check verify only
-         toHash = hex_to_binary('010000000330f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694000000001976a91402bf4b2889c6ada8190c252e70bde1a1909f961788acffffffff72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea6890000000000ffffffffd28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c0000000000ffffffff0100a6f75f020000001976a9149e35d93c7792bdcaad5697ddebf04353d9a5e19688ac0000000001000000')
-         print 'TXHASH: ', binary_to_hex(toHash)
+         toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)
 
+         hashToVerify = binary_switchEndian(hashToVerify)
          if pubkey.verifyBinarySignature(hashToVerify, binSig):
             stack.append(1)
          else:

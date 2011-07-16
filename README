@@ -10,7 +10,6 @@
 *          source code.  The code was pulled from his git repo on 10 July, 2011.
 *
 *
-*
 ********************************************************************************
 
 ********************************************************************************
@@ -19,24 +18,51 @@ Please take a moment to donate 0.1 BTC!    1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
 (c'mon, it will take like 10 seconds to cut&paste)
 ********************************************************************************
 
-
 This code is developed to be as intuitive as possible, even at the expense
 of having more lines of code.  For instance, I have endless conversion methods
 which are very explicit about the input and output, such as:
 
-   hexStr_to_binStr (binary string)
-   hexStr_to_int
-   int_to_binStr
+   hex_to_binary 
+   hex_to_int
+   int_to_binary
    base58Str_to_int
    hexPubKey_to_addrStr
    etc
 
-I have started to clear out the original code and comments to replace with my
-own, but I haven't gotten very far, yet.  There's a ton of Sam's original code
-and comments throughout this directory.  Eventually it will turn over and
-probably not look anything like his original work.  But I will still keep
-giving him credit for it...
+I have shifted most of Sam's code and comments to the bottom of the file, and 
+it will eventually be removed entirely once I have succeeded at writing all the
+stuff he did, but in my own way.  He will, of course, still get a ton of credit 
+for providing such good reference code.  "Lis" from the Bitcoin forums also
+deserves a ton of credit for writing a fantastic, dependency-less version of
+ECDSA.  This may enable more platforms where this code can be used, as they
+don't need to have any particular crypto libraries installed
 
+#####
+16 July, 2011:
+
+   After a ton of work, I have finally completed much of the calculation engine!
+   All number/binary conversions work, with easy endianness swapping.
+   Complete, recursive serialization and unserialization of all block/tx data
+   MerkleTree calculation and verification done
+   Cryptography library from "Lis" wrapped and tested on arbitrary data
+   Most script OP_CODEs implemented, and OP_CHECKSIG works on example tx data!
+
+   Basically, everything else that I need to do (besides networking), should 
+   be very easy to implement.  With all the endianness, serialization and 
+   crypto methods tested, packet construction, block verification, data
+   structures, and crypto anything should be a breeze.
+
+   Of course, this does not include networking.  The networking engine is going
+   to be a whole different beast... but luckily Sam's code already has a lot of 
+   that written.  When it comes to networking, I might just stick to using other
+   people's code, instead of re-writing it in my own way.
+
+   Some immeidate things that I need to do:
+      SIGHASH_ALL/NONE/SINGLE/ANYONCANPAY
+      Wallet/Account file formats and implementation
+
+   Long term:
+      Networking engine (ugh)
 
 
 
