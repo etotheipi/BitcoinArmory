@@ -2,15 +2,15 @@
 #
 # Project: PyBtcEngine
 # Author:  Alan Reiner
-# Date:   11 July, 2011
+# Date:    11 July, 2011
 # Descr:   Modified from the Sam Rushing code.   The original header comments
-#        of the original code is below, maintaining reference to the original 
-#        source code, for reference.  The code was pulled from his git repo
-#        on 10 July, 2011.
+#          of the original code is below, maintaining reference to the original 
+#          source code, for reference.  The code was pulled from his git repo
+#          on 10 July, 2011.
 #
 ################################################################################
 
-
+#
 # -*- Mode: Python -*-
 # A prototype bitcoin implementation.
 #
@@ -66,6 +66,8 @@ b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 LITTLEENDIAN = '<';
 BIGENDIAN = '>';
 COIN = 1e8
+UNINITIALIZED = None
+UNKNOWN = -2
 
 
 def default_error_function(msg):
@@ -259,6 +261,19 @@ def padBinaryRight(binStr, nBytes, padByte='\x00'):
 
 
 
+# Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
+def binaryBits_to_intDifficulty(b):
+   i = binary_to_int(b)
+   nShift = (i >> 24) & 0xff
+   dDiff = float(0x0000ffff) / float(i & 0x00ffffff)
+   while nShift < 29:
+      dDiff *= 256.0
+      nShift += 1
+   while nShift > 29:
+      dDiff /= 256.0
+      nShift -= 1
+   return dDiff
+
 ################################################################################
 # ECDSA CLASSES
 #
@@ -281,7 +296,6 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
-### TODO:  https://en.bitcoin.it/wiki/Script says scripts should be BIGENDIAN?!?!
 def binScript_to_binSigKey(binStr):
    # Returns [signature, pubKey, totalBytes]
    # TODO:  check when sometimes it returns only a sig, sometimes sig&key
@@ -297,6 +311,7 @@ def intRS_to_derSig(r,s):
    rSize  = int_to_binary(len(rBin))
    sSize  = int_to_binary(len(sBin))
    rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+   # TODO: we need to put a hash-code at the end... not sure when to do that, though
    return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
 
 def derSig_to_intRS(binStr):
@@ -446,6 +461,9 @@ class BinaryUnpacker(object):
    def getBinaryString(self):
       return self.binaryStr
 
+   def append(self, binaryStr):
+      self.binaryStr += binaryStr
+
    def advance(self, bytesToAdvance):
       self.pos += bytesToAdvance
 
@@ -562,10 +580,11 @@ class OutPoint(object):
 
 #####
 class TxIn(object):
-   #def __init__(self, outpt, binScript, intSeq):
-      #self.outpoint  = outpt
-      #self.binScript = script
-      #self.intSeq    = intSeq
+   def __init__(self):
+      self.outpoint   = UNINITIALIZED
+      self.binScript  = UNINITIALIZED
+      self.intSeq     = UNINITIALIZED
+      self.isCoinbase = UNKNOWN
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -597,9 +616,9 @@ class TxIn(object):
 
 #####
 class TxOut(object):
-   #def __init__(self, value, binPKScript):
-      #self.value  = value
-      #self.binPKScript = binPKScript
+   def __init__(self):
+      self.value       = UNINITIALIZED
+      self.binPKScript = UNINITIALIZED
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -690,23 +709,24 @@ class Tx(object):
 
 
 class BlockHeader(object):
-   #def __init__(self, version, prevBlock, merkleRoot, timestamp, diff, nonce):
-      #self.version     = version
-      #self.prevBlkHash = prevBlock
-      #self.merkleRoot  = merkleRoot
-      #self.timestamp   = timestamp
-      #self.difficulty  = diff
-      #self.nonce       = nonce
-      # TODO: forgot to put this in here
-      #self.numTx       = numTx
+   def __init__(self):
+      self.theHash     = UNINITIALIZED 
+      self.version     = UNINITIALIZED 
+      self.prevBlkHash = UNINITIALIZED 
+      self.merkleRoot  = UNINITIALIZED 
+      self.timestamp   = UNINITIALIZED 
+      self.diffBits    = UNINITIALIZED 
+      self.nonce       = UNINITIALIZED 
+      self.numTx       = UNINITIALIZED 
 
    def serialize(self):
+      assert( not self.version == UNINITIALIZED)
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
       binOut.put(BINARY_CHUNK, self.prevBlkHash)
       binOut.put(BINARY_CHUNK, self.merkleRoot)
       binOut.put(UINT32, self.timestamp)
-      binOut.put(UINT32, self.difficulty)
+      binOut.put(BINARY_CHUNK, self.diffBits)
       binOut.put(UINT32, self.nonce)
       return binOut.getBinaryString()
 
@@ -720,35 +740,47 @@ class BlockHeader(object):
       self.prevBlkHash = blkData.get(BINARY_CHUNK, 32)
       self.merkleRoot  = blkData.get(BINARY_CHUNK, 32)
       self.timestamp   = blkData.get(UINT32)
-      self.difficulty  = blkData.get(UINT32)
+      self.diffBits    = blkData.get(BINARY_CHUNK, 4)
       self.nonce       = blkData.get(UINT32)
       self.theHash     = hash256(self.serialize())
       return self
 
+   def getHash(self, endian=LITTLEENDIAN):
+      assert( not self.version == UNINITIALIZED)
+      if len(self.theHash) < 32:
+         self.theHash = hash256(self.serialize())
+      outHash = self.theHash 
+      if endian==BIGENDIAN: 
+         outHash = binary_switchEndian(outHash)
+      return outHash
+
+   def getHashHex(self, endian=LITTLEENDIAN):
+      assert( not self.version == UNINITIALIZED)
+      if len(self.theHash) < 32:
+         self.theHash = hash256(self.serialize())
+      return binary_to_hex(self.theHash, endian)
+
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
-      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash )
+      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(Big-Endian)'
       print indstr + indent + 'Version:   ', self.version     
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
       print indstr + indent + 'Timestamp: ', self.timestamp 
-      print indstr + indent + 'Target:    ', self.difficulty
+      print indstr + indent + 'Target:    ', self.diffBits
       print indstr + indent + 'Nonce:     ', self.nonce    
 
 
 class BlockData(object):
-   #def __init__(self, header, numTx, txList):
-      #self.numTx = txList
-      #self.txList = txList
-      #self.merkleTree = []
-      #self.merkleRoot = ''
-
    def __init__(self):
-      self.merkleTree = []
-      self.merkleRoot = ''
+      self.numTx      = UNINITIALIZED
+      self.txList     = UNINITIALIZED
+      self.merkleTree = UNINITIALIZED
+      self.merkleRoot = UNINITIALIZED
 
    def serialize(self):
+      assert( not self.numTx == UNINITIALIZED )
       binOut = BinaryPacker()
       binOut.put(VAR_INT, self.numTx)
       for tx in self.txList:
@@ -770,8 +802,14 @@ class BlockData(object):
       return self
 
 
+   def getTxHashList(self):
+      if( self.numTx == UNINITIALIZED ):
+         self.getMerkleRoot()
+      return self.merkleTree[:self.numTx]
+      
 
    def getMerkleRoot(self):
+      assert( not self.numTx == UNINITIALIZED )
       if len(self.merkleTree)==0 and not self.numTx==0:
          #Create the merkle tree 
          self.merkleTree = [hash256(tx.serialize()) for tx in self.txList]
@@ -784,21 +822,18 @@ class BlockData(object):
             if mod2==1:
                self.merkleTree.append( hash256(hashes[-1] + hashes[-1]) )
             sz = (sz+1) / 2
-      else:
-         # TODO:  What do we do if no Tx's in this block?
-         print 'No Transactions in block!  What do we do with the hash??'
       self.merkleRoot = self.merkleTree[-1]
       return self.merkleRoot
 
    def printMerkleTree(self, reverseHash=False, indent=''):
-         print indent + 'Printing Merkle Tree:'
-         if reverseHash:
-            print indent + '(hashes will be reversed, like shown on BlockExplorer.com)'
-         root = self.getMerkleRoot()
-         print indent + 'Merkle Root:', binary_to_hex(root)
-         for h in self.merkleTree:
-            phash = binary_to_hex(h) if not reverseHash else binary_to_hex(h, endOut=BIGENDIAN)
-            print indent + '\t' + phash
+      print indent + 'Printing Merkle Tree:'
+      if reverseHash:
+         print indent + '(hashes will be reversed, like shown on BlockExplorer.com)'
+      root = self.getMerkleRoot()
+      print indent + 'Merkle Root:', binary_to_hex(root)
+      for h in self.merkleTree:
+         phash = binary_to_hex(h) if not reverseHash else binary_to_hex(h, endOut=BIGENDIAN)
+         print indent + '\t' + phash
          
 
    def pprint(self, nIndent=0):
@@ -812,11 +847,12 @@ class BlockData(object):
 
 
 class Block(object):
-   #def __init__(self, header, blkdata):
-      #self.blockHeader = header
-      #self.blockData = blkdata
+   def __init__(self):
+      self.blockHeader = UNINITIALIZED
+      self.blockData   = UNINITIALIZED
 
    def serialize(self):
+      assert( not self.blockHeader == UNINITIALIZED )
       binOut = BinaryPacker()
       binOut.put(BINARY_CHUNK, self.blockHeader.serialize())
       binOut.put(BINARY_CHUNK, self.blockData.serialize())
@@ -838,6 +874,8 @@ class Block(object):
       print indstr + 'Block:'
       self.blockHeader.pprint(nIndent+1)
       self.blockData.pprint(nIndent+1)
+
+
 
 def makeScriptBinary(binSig, binPubKey):
    pubkey_hash = hash160(binPubKey)
@@ -1311,6 +1349,10 @@ class ScriptProcessor(object):
          # 4. Hashtype is popped and stored
          hashtype = binary_to_int(binSig[-1])
          binSig = binSig[:-1]
+
+         if not hashtype == 1:
+            print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
+            assert(False)
 
          # 5. Make a copy of the transaction -- we will be hashing a modified version
          txCopy = Tx().unserialize( self.txNew.serialize() )

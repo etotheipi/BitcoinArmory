@@ -1,5 +1,5 @@
-from PyBtcEngine import *
-import PyBtcEngine
+from pybtcengine import *
+import pybtcengine
 
 LE = LITTLEENDIAN
 BE = BIGENDIAN
@@ -7,7 +7,7 @@ BE = BIGENDIAN
 
 # Pass in the name of a function,
 def testFunction( fnName, expectedOutput, *args):
-   fn = getattr(PyBtcEngine, fnName)
+   fn = getattr(pybtcengine, fnName)
    actualOutput = fn(*args)
    testPassed = (expectedOutput == actualOutput)
    passStr = '____PASS____' if testPassed else '***FAIL***'
