@@ -192,4 +192,10 @@ printpassorfail( sp.verifyTransactionValid() )
 print ''
 
 
+blkh = BlockHeader().unserialize( hex_to_binary(hexBlock) )
+blkextra = blkh.serializeWithExtra()
+blkh2 = BlockHeader().unserializeWithExtra(blkextra)
+
+print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
+printpassorfail( blkextra == blkh2.serializeWithExtra() )
 

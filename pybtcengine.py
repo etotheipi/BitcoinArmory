@@ -60,8 +60,11 @@ def ripemd160(bits):
 BITCOIN_PORT = 8333
 BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
 BLOCKS_PATH = 'blocks.bin'
-genesis_block_hash = '000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f'
+GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+NOHASH = '00'*32
 
 LITTLEENDIAN = '<';
 BIGENDIAN = '>';
@@ -262,7 +265,7 @@ def padBinaryRight(binStr, nBytes, padByte='\x00'):
 
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
-def binaryBits_to_intDifficulty(b):
+def binaryBits_to_difficulty(b):
    i = binary_to_int(b)
    nShift = (i >> 24) & 0xff
    dDiff = float(0x0000ffff) / float(i & 0x00ffffff)
@@ -273,6 +276,11 @@ def binaryBits_to_intDifficulty(b):
       dDiff /= 256.0
       nShift -= 1
    return dDiff
+
+# TODO:  I don't actually know how to do this, yet...
+def difficulty_to_binaryBits(i):
+   pass
+   
 
 ################################################################################
 # ECDSA CLASSES
@@ -444,7 +452,7 @@ def hexPointXY_to_EcPubKey(hexXp, hexYp):
 #  Classes for reading and writing large binary objects
 ################################################################################
 ################################################################################
-UBYTE, USHORT, UINT32, UINT64, VAR_INT, BINARY_CHUNK = range(6)
+UBYTE, USHORT, UINT32, UINT64, VAR_INT, FLOAT, BINARY_CHUNK = range(7)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
@@ -498,6 +506,10 @@ class BinaryUnpacker(object):
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:])
          self.advance(nBytes)
          return value
+      elif varType == FLOAT:
+         value = unpack('<f', self.binaryStr[pos:pos+4])
+         self.advance(4)
+         return value
       elif varType == BINARY_CHUNK:
          binOut = self.binaryStr[pos:pos+sz]
          self.advance(sz)
@@ -534,6 +546,8 @@ class BinaryPacker(object):
          self.binaryConcat += int_to_binary(theData, 8, endianness)
       elif varType == VAR_INT:
          self.binaryConcat += packVarInt(theData)[0]
+      elif varType == FLOAT:
+         self.binaryConcat += pack('<f', theData)
       elif varType == BINARY_CHUNK:
          self.binaryConcat += theData
       else:
@@ -710,14 +724,23 @@ class Tx(object):
 
 class BlockHeader(object):
    def __init__(self):
-      self.theHash     = UNINITIALIZED 
-      self.version     = UNINITIALIZED 
-      self.prevBlkHash = UNINITIALIZED 
-      self.merkleRoot  = UNINITIALIZED 
-      self.timestamp   = UNINITIALIZED 
-      self.diffBits    = UNINITIALIZED 
-      self.nonce       = UNINITIALIZED 
-      self.numTx       = UNINITIALIZED 
+      self.theHash      = UNINITIALIZED 
+      self.version      = UNINITIALIZED 
+      self.prevBlkHash  = UNINITIALIZED 
+      self.merkleRoot   = UNINITIALIZED 
+      self.timestamp    = UNINITIALIZED 
+      self.diffBits     = UNINITIALIZED 
+      self.nonce        = UNINITIALIZED 
+      # Use these fields for storage of block information, but are not otherwise
+      # part of the serialized data structure
+      self.numTx        = UNINITIALIZED 
+      self.fileByteLoc  = UNINITIALIZED 
+      self.nextBlkHash  = UNINITIALIZED 
+      self.intDifficult = UNINITIALIZED 
+      self.sumDifficult = UNINITIALIZED 
+      self.blkHeight    = UNINITIALIZED 
+      self.isOrphan     = UNINITIALIZED 
+      self.isLeafNode   = UNINITIALIZED
 
    def serialize(self):
       assert( not self.version == UNINITIALIZED)
@@ -729,6 +752,7 @@ class BlockHeader(object):
       binOut.put(BINARY_CHUNK, self.diffBits)
       binOut.put(UINT32, self.nonce)
       return binOut.getBinaryString()
+
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -743,6 +767,70 @@ class BlockHeader(object):
       self.diffBits    = blkData.get(BINARY_CHUNK, 4)
       self.nonce       = blkData.get(UINT32)
       self.theHash     = hash256(self.serialize())
+      return self
+
+   ##### Serialize the header with all the extra information not normally
+   #     considered to be part of the header
+   def serializeWithExtra(self):
+      binData = BinaryPacker()
+      binData.put(BINARY_CHUNK, self.serialize() )
+
+      def putData(dtype, theData, nBytes):
+         unInit = theData==UNINITIALIZED
+         binData.put(UBYTE, 0 if unInit else 1)
+         if unInit:
+            binData.put(BINARY_CHUNK, '\xff'*nBytes)
+         else:
+            if dtype == BINARY_CHUNK:
+               binData.put(BINARY_CHUNK, theData, nBytes)
+            else:
+               binData.put(dtype, theData)
+             
+      # TODO: should figure out a better way to store difficulty values
+      putData(UINT32, self.numTx,        4)
+      putData(BINARY_CHUNK, self.nextBlkHash,  32)
+      putData(UINT64, self.fileByteLoc,  8)
+      putData(FLOAT,  self.sumDifficult, 4)
+      putData(UINT32, self.blkHeight,    4)
+      putData(UBYTE,  self.isOrphan,     1)
+      return binData.getBinaryString()
+
+   def unserializeWithExtra(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         binData = toUnpack 
+      else: 
+         binData = BinaryUnpacker( toUnpack )
+
+      self.unserialize( binData )
+
+      def getData(dtype, nBytes):
+         unInit = binData.get(UBYTE)
+         if unInit == 0:
+            binData.advance(nBytes)
+            return UNINITIALIZED 
+         else:
+            return binData.get(dtype, nBytes)
+            
+
+      self.numTx        = getData(UINT32, 4)
+      self.nextBlkHash  = getData(BINARY_CHUNK, 32)
+      self.fileByteLoc  = getData(UINT64, 8)
+      self.sumDifficult = getData(FLOAT, 4)
+      self.blkHeight    = getData(UINT32, 4)
+      self.isOrphan     = getData(UBYTE, 1)
+      #getData(self.numTx,        4)
+      #getData(self.nextBlkHash,  32)
+      #getData(self.fileByteLoc,  8)
+      #getData(self.intDifficult, 8)
+      #getData(self.sumDifficult, 8)
+      #getData(self.blkHeight,    4)
+      #getData(self.isOrphan,     1)
+      #self.numTx         = binary_to_int(self.numTx)
+      #self.fileByteLoc   = binary_to_int(self.fileByteLoc)
+      #self.intDifficult  = binary_to_int(self.intDifficult)
+      #self.sumDifficult  = binary_to_int(self.sumDifficult)
+      #self.blkHeight     = binary_to_int(self.blkHeight)
+      #self.isOrphan      = binary_to_int(self.isOrphan)
       return self
 
    def getHash(self, endian=LITTLEENDIAN):
@@ -760,6 +848,11 @@ class BlockHeader(object):
          self.theHash = hash256(self.serialize())
       return binary_to_hex(self.theHash, endian)
 
+   def getDifficulty(self):
+      assert(not self.diffBits == UNINITIALIZED)
+      self.intDifficult = binaryBits_to_difficulty(self.diffBits)
+      return self.intDifficult
+
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
@@ -768,8 +861,19 @@ class BlockHeader(object):
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
       print indstr + indent + 'Timestamp: ', self.timestamp 
-      print indstr + indent + 'Target:    ', self.diffBits
+      print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
       print indstr + indent + 'Nonce:     ', self.nonce    
+      if not self.blkHeight==UNINITIALIZED:
+         print indstr + indent + 'BlkHeight: ', self.blkHeight    
+      if not self.nextBlkHash==UNINITIALIZED:
+         #print indstr + indent + 'NextBlock: ', binary_to_hex(self.nextBlkHash)
+         print indstr + indent + 'NextBlock: ', self.nextBlkHash
+      if not self.numTx==UNINITIALIZED:
+         print indstr + indent + 'NumTx:     ', self.numTx    
+      if not self.intDifficult==UNINITIALIZED:
+         print indstr + indent + 'Difficulty:', self.intDifficult    
+      if not self.sumDifficult==UNINITIALIZED:
+         print indstr + indent + 'ChainDiff: ', self.sumDifficult    
 
 
 class BlockData(object):
