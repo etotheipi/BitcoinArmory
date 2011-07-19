@@ -734,13 +734,12 @@ class BlockHeader(object):
       # Use these fields for storage of block information, but are not otherwise
       # part of the serialized data structure
       self.numTx        = UNINITIALIZED 
+      self.blkHeight    = UNINITIALIZED 
       self.fileByteLoc  = UNINITIALIZED 
       self.nextBlkHash  = UNINITIALIZED 
       self.intDifficult = UNINITIALIZED 
       self.sumDifficult = UNINITIALIZED 
-      self.blkHeight    = UNINITIALIZED 
       self.isOrphan     = UNINITIALIZED 
-      self.isLeafNode   = UNINITIALIZED
 
    def serialize(self):
       assert( not self.version == UNINITIALIZED)
