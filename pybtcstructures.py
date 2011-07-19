@@ -16,15 +16,16 @@ class BlockChain(object):
    block data is filled in
    """
 
-   def __init__(self, genesisBlock=GENESIS_BLOCK_HASH):
-      self.genBlkHash = genesisBlock
+   def __init__(self, genesisBlockHash=GENESIS_BLOCK_HASH):
+      self.genBlkHash = genesisBlockHash
       self.networkMagicBytes = ''
-      self.blockHeadersMap = {}  # indexed by header hash
-      self.txHashListMap   = {}  # indexed by header hash
-      self.txDataMap       = {}  # indexed by transaction hash
-      self.topBlockHash    = UNINITIALIZED  # contains the hash of the top block of the longest chain
-      self.lastChainCalc   = UNINITIALIZED  # will contain the last time we calculated the chain
-      self.nBestHeight     = UNINITIALIZED  # will contain the last time we calculated the chain
+      self.blockHeadersMap   = {}               # indexed by header hash
+      self.txHashListMap     = {}               # indexed by header hash
+      self.txDataMap         = {}               # indexed by transaction hash
+      self.topBlockHash      = self.genBlkHash  # tip of the longest chain (hash)
+      self.topBlockHeight    = 0                # the height at the top
+      self.topBlockSumDiff   = 0                # Cumulative difficulty at top
+      #self.lastChainCalc   = UNINITIALIZED  # will contain the last time we calculated the chain
 
    def readBlockChainFile(self, bcfilename, justHeaders=False):
       # This ended up much more complicated than I had hoped, because I 
@@ -99,7 +100,7 @@ class BlockChain(object):
       print 'Headers file size is:    ', float(sizeHeaderFile) / float(1024**2), 'MB'
       print 'Number of headers:       ', numBlocks
       print 'Bytes for each header:   ', bytesPerHeader, '(80 official bytes,', bytesPerHeader-80,' extra bytes)'
-      print 'Headers are for network: ', ''.join([self.networkMagicBytes[i:i+2] for i in range(4)])
+      print 'Headers are for network: ', [self.networkMagicBytes[i:i+2] for i in range(4)]
 
       return self
          
@@ -249,13 +250,85 @@ class BlockChain(object):
 #
       #return self.topBlockHash
       
-   def calcLongestChain(self):
+   def solveChainFromTop(self, startNodeHash):
+      headers = self.blockHeadersMap  # gonna be accessing this alot, make ref
+      startBlk = headers[startNodeHash] 
+
+      if not startBlk.blkHeight == UNINITIALIZED:
+         return (startBlk.blkHeight, startBlk.sumDifficult)
+
+      # The only block that doesn't have a prevBlkHash is the genesis block,
+      # but we've made sure it is "solved" already... right?
+      hashlistBackwards   = [startNodeHash]
+      thisBlk = headers[startBlk.prevBlkHash ]
+      while thisBlk.blkHeight == UNINITIALIZED:
+         hashlistBackwards.append(thisBlk.theHash)
+         thisBlk = headers[ thisBlk.prevBlkHash ]
+         
+      # Now we should have a long list of hashes starting from the top node
+      # to the highest-so-far solved block (will be the genesis block
+      # on the first call).  Now walk back up, setting the block heights
+      # and cumulative difficulties
+      for theHash in hashlistBackwards[::-1]:
+         thisBlk = headers[theHash]
+         prevBlk = headers[thisBlk.prevBlkHash]
+         thisBlk.sumDifficult = prevBlk.sumDifficult + thisBlk.getDifficulty()
+         thisBlk.blkHeight    = prevBlk.blkHeight + 1
+         prevBlk.isOrphan = False
+          
+      thisBlk = headers[startNodeHash]
+      return (thisBlk.blkHeight, thisBlk.sumDifficult)
+      
+      
+
+   def calcLongestChain(self, recalcAll=False):
       # To calculate the longest chain, we start from every block and 
       # work our way down to the highest point we've "answered" already
       # (found absolute block-height and cumulative difficulty).  Then we
       # walk back up filling in the heights and cumulative difficulties 
       # for the nodes we just passed.  Once a few high nodes have been
       # calculated, most of the blocks will already be done.  
+      
+      headers = self.blockHeadersMap  # gonna be accessing this alot, make ref
+
+      prevTopHash   = self.topBlockHash
+      prevTopHeight = self.topBlockHeight
+
+      if recalcAll:
+         prevTopHash   = GENESIS_BLOCK_HASH
+         prevTopHeight = 0
+
+      # Seed the base of the chain with a solved genesis block
+      genBlk = headers[GENESIS_BLOCK_HASH]
+      genBlk.blkHeight = 0
+      genBlk.sumDifficult = 1.0
+      genBlk.isOrphan = False
+
+      # Now follow the chain back from every block in the memory pool
+      for blkhash in headers.iterkeys():
+         height, sumDiff = self.solveChainFromTop(blkhash)
+         if sumDiff > self.topBlockSumDiff:
+            self.topBlockHeight  = height
+            self.topBlockSumDiff = sumDiff
+            self.topBlockHash    = blkhash
+         
+         
+      # Finally, we trace the chain back down one more time, from the best
+      # block.  This time we update all the nextBlkHash values to point to 
+      # the "correct" nextNode (the one on the main blockChain)
+      thisBlk = headers[self.topBlockHash]
+      thisBlk.nextBlkHash = NOHASH
+      nextHash = self.topBlockHash
+      while not thisBlk.blkHeight==prevTopHeight:
+         thisBlk = headers[thisBlk.prevBlkHash]
+         thisBlk.nextBlkHash = nextHash   
+         thisBlk.isOrphan = False   
+         nextHash = thisBlk.theHash
+         
+      return self.topBlockHash
+
+               
+      
          
    #############################################################################
    #############################################################################
@@ -282,8 +355,8 @@ class BlockChain(object):
          
 
    def getBlockHeaderByHash(self, txHash):
-      if(self.blockheadersMap.has_key(txHash)):
-         return self.blockheadersMap[txHash]
+      if(self.blockHeadersMap.has_key(txHash)):
+         return self.blockHeadersMap[txHash]
       else:
          return None
       

@@ -739,7 +739,7 @@ class BlockHeader(object):
       self.nextBlkHash  = UNINITIALIZED 
       self.intDifficult = UNINITIALIZED 
       self.sumDifficult = UNINITIALIZED 
-      self.isOrphan     = UNINITIALIZED 
+      self.isOrphan     = True  # true until proven innocent
 
    def serialize(self):
       assert( not self.version == UNINITIALIZED)
