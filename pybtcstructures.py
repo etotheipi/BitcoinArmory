@@ -36,7 +36,7 @@ class BlockChain(object):
       binUnpacker = BinaryUnpacker(bcFile.read(BUF_SIZE))
       fileSizeLeft = os.stat(bcfilename).st_size - BUF_SIZE
 
-      print 'File %s is %0.2f MB' % (bcfilename, fileSizeLeft/float(1024**2))
+      print 'File %s is %0.2f MB' % (bcfilename, (fileSizeLeft+BUF_SIZE)/float(1024**2))
       print 'Reading blockdata',
       if justHeaders:
          print '(just headers)',
@@ -55,8 +55,9 @@ class BlockChain(object):
             if(fileSizeLeft + buBytesLeft < nextBlockSize):
                return
             else:
-               binUnpacker.append( bcFile.read(BUF_SIZE) )
-               fileSizeLeft -= BUF_SIZE
+               readSz = min(fileSizeLeft, BUF_SIZE)
+               binUnpacker.append( bcFile.read(readSz) )
+               fileSizeLeft -= readSz
 
 
          blockStartByte = bcFile.tell() - binUnpacker.getRemainingSize()
@@ -100,7 +101,7 @@ class BlockChain(object):
       print 'Headers file size is:    ', float(sizeHeaderFile) / float(1024**2), 'MB'
       print 'Number of headers:       ', numBlocks
       print 'Bytes for each header:   ', bytesPerHeader, '(80 official bytes,', bytesPerHeader-80,' extra bytes)'
-      print 'Headers are for network: ', [self.networkMagicBytes[i:i+2] for i in range(4)]
+      print 'Headers are for network: ', ' '.join([self.networkMagicBytes[i:i+2] for i in range(0,8,2)])
 
       return self
          
@@ -121,135 +122,12 @@ class BlockChain(object):
       headFile.write(bp.getBinaryString())
       
       
-   #############################################################################
-   #############################################################################
-
-   #def calcLongestChain(self, startHash=GENESIS_BLOCK_HASH):
-      ## This method is exceptionally complicated, because it would best
-      ## be solved using recursion, but we don't want to do any recursion
-      ## because we'd quickly hit the recursion limit with such long chains.
-      ## This could also be made dramatically simpler by just making ANY
-      ## reasonable assumptions, such as there will never be multiple branching
-      ## or orphan branches longer than some amount.  Instead, I opted to 
-      ## write the most general method possible, that will work on any 
-      ## block chain under even the craziest circumstances.  That's just how
-      ## I roll...
-      #leafList = []
-      #branchNodeStack = []
-      #headers = self.blockHeadersMap  # gonna be accessing this alot, make ref
-      #
-#
-      ## Step 1:  Iterate through all the blocks we have in the memory pool 
-      ##          and set their prev-nodes' nextBlkHash values
-      ##          Since we will be searching the entire memory pool but may
-      ##          be starting from the end of an already-calculated chain,
-      ##          we skip any block that already has its blkHeight calculated
-      ##          Then the following steps will on operate from startNode up
-      #for blkhash, thisBlk in headers.iteritems():
-         #if thisBlk.blkHeight == UNINITIALIZED:
-            #thisBlk.nextBlkHash = [NOHASH]
-         #if thisBlk.blkHeight == UNINITIALIZED and headers.has_key(thisBlk.prevBlkHash):
-            #prevBlk = headers[thisBlk.prevBlkHash]
-            #prevBlk.isLeafNode   = False
-            #prevBlk.alreadyCalc  = False
-            #if (prevBlk.nextBlkHash==UNINITIALIZED) or (prevBlk.nextBlkHash==NOHASH):
-               #prevBlk.nextBlkHash  = [[blkhash, False]]
-               #prevBlk.isBranchNode = False
-            #else:
-               #prevBlk.nextBlkHash.append([blkhash, False])
-               #prevBlk.isBranchNode = True
-               #
-      ## Step 2: Now the longest chain can be followed from the start block
-      ##         but we're going to hit lots of branches along the way up,
-      ##         so we have to traverse each branch, without recursion
-      ##         We do this by pushing each branch node onto a stack, and
-      ##         then restart from that node when we hit a leaf.  This will
-      ##         essentially do a depth-first search of the tree
-      #def getNextUnsolvedBranchIndex(node):
-         #for i in range(len(node.nextBlkHash)):
-            #if node.nextBlkHash[i][1] == False:
-               #return i
-      #
-      #prevIntDiff, prevSumDiff, prevBlkHeight = 0,0,0
-      #thisBlk = headers[startHash]
-      #if thisBlk.theHash == GENESIS_BLOCK_HASH:
-         #prevIntDiff  = 0
-         #prevSumDiff  = 0
-         #prevBlkHeight = -1
-      #else:
-         #prevIntDiff  = thisBlk.intDifficult
-         #prevSumDiff  = thisBlk.sumDifficult
-         #prevBlkHeight = thisBlk.blkHeight
-         #thisBlk = thisBlk.nextBlkHash
-#
-      ## We know that if we're at a leaf node, and there was no more branches,
-      ## we've finished the entire search
-      #while not (thisBlk.isLeafNode and len(branchNodeStack) == 0):
-#
-         #if not thisBlk.alreadyCalc:
-            #thisBlk.sumDifficult = prevSumDiff + thisBlk.getDifficulty()
-            #thisBlk.blkHeight    = prevBlkHeight + 1
-            #thisBlk.alreadyCalc  = True
-#
-         #prevIntDiff   = thisBlk.getDifficulty()
-         #prevSumDiff   = thisBlk.sumDifficult
-         #prevBlkHeight = thisBlk.blkHeight
-#
-         #if not thisBlk.isLeafNode:
-            ## Else, we get the next block to search, which may be a branch child
-            #nBranch = len(thisBlk.nextBlkHash)
-            #nextBranchIndex = getNextUnsolvedBranchIndex(thisBlk)
-            #if nextBranchIndex == nBranch-1 and nBranch > 1:
-               ## This node must've previously been added to the branch stack, but we're done
-               ## searching it after this 
-               #del branchNodeStack[-1]
-            #nextNodeHash = thisBlk.nextBlkHash[nextBranchIndex][0]
-            #thisBlk.nextBlkHash[nextBranchIndex][1] = True
-            ## If we're about to search the last branch of this branchNode, remove it from the stack
-            #thisBlk = headers[nextNodeHash]
-         #else:
-            ## If we're at the end of a chain, go back to the last branch
-            #leafList.append(thisBlk.theHash)
-            #if len(branchNodeStack) == 0:
-               #break
-            #else:
-               #thisBlk = headers[branchNodeStack[-1]]
-         #
-         #thisBlk.pprint()
-         #print 'height:', thisBlk.blkHeight
-         #print branchNodeStack
-         #if not thisBlk.isLeafNode:
-            #if len(thisBlk.nextBlkHash) > 1:
-               #branchNodeStack.append(thisBlk.theHash)
-#
-            #
-      ## Step 3: Finally, let's follow each leaf node back to the genesis block, 
-      ##         and fix the nextBlkHash values -- convert from list of branches, 
-      #         to just the one branch that is the longest.  We can then follow 
-      ##         the other leaves back, too, to fix the branches, and just stop 
-      ##         when they hit a branch node that has already been fixed
-      #
-      #leafHeights = [ (headers[L].theHash, headers[L].blkHeight) for L in leafList ]
-      #def cmpLeaves(a,b):
-         #if   a[1] > b[1]: return  1
-         #elif a[1] < b[1]: return -1
-         #else:             return  0
-      #leafHeights.sort(cmpLeaves)
-      #self.topBlockHash = leafHeights[0][0]
-#
-        #
-      #for L in [b[0] for b in leafHeights]:
-         #headers[L].nextBlkHash = NOHASH  # Leaves have no next-blk
-         #blkhash = headers[L].prevBlkHash
-         #nextBlkHash = L
-         ## Stop when we get to the start hash, or a block that's already been finalized
-         #while (not blkhash == startHash) and isinstance(headers[blkhash].nextBlkHash, list):
-            #headers[blkhash].nextBlkHash = nextBlkHash
-            #nextBlkHash = blkhash
-            #blkhash = headers[blkhash].prevBlkHash
-#
-      #return self.topBlockHash
       
+   # From the given block, walk backwards to the highest block that has a 
+   # definite height and sumDifficulty.  Then walk back up the chain and
+   # fill in all the heights and sumDifficulty values.  If the startHash
+   # is already "solved", then we just exit.  Only the first couple calls
+   # to this method will do a lot of computation
    def solveChainFromTop(self, startNodeHash):
       headers = self.blockHeadersMap  # gonna be accessing this alot, make ref
       startBlk = headers[startNodeHash] 
@@ -347,7 +225,7 @@ class BlockChain(object):
          calcRoot = data.getMerkleRoot()
          assert(calcRoot == head.merkleRoot)
          self.txHashListMap[headHash] = data.getTxHashList()
-         for i,tx in enumerate(theBlock.blockData.txList):
+         for i,tx in enumerate(data.txList):
             self.txDataMap[data.merkleTree[i]] = tx
 
    def getBlockChainStats(self):
@@ -392,7 +270,7 @@ class KeyStore(object):
       self.addrMap = None
 
 
-class SavingsAccount(object):
+class BitcoinAccount(object):
    def __init__(self, name, addrFile, keyFile=None):
       pass
       

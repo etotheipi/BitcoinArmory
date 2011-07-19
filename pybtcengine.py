@@ -59,7 +59,11 @@ def ripemd160(bits):
 # these are overriden for testnet
 BITCOIN_PORT = 8333
 BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-BLOCKS_PATH = 'blocks.bin'
+GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+
+BITCOIN_PORT = 8333
+BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
 GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
 GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
 
@@ -187,35 +191,6 @@ def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
    return digestHex
 
-##### HEXPUBLICKEY/ADDRSTR
-def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
-   binKey = binStr[:] if endIn==LITTLEENDIAN else binary_switchEndian(binStr)
-   binKeyHash = hash160(binKey)
-   checksum   = hash256('\x00' + binKeyHash)
-   binAddrStr = binKeyHash + checksum[:4]
-   intAddrStr = binary_to_int(binAddrStr, endIn=BIGENDIAN)  # why the endian switch required!?
-   b58AddrStr =           int_to_base58Str(intAddrStr)
-   return                        base58Str_to_addrStr(b58AddrStr)
-
-##### HEXPUBLICKEY/ADDRSTR
-def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
-   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hex_switchEndian(hexStr)
-   binKey = hex_to_binary(hexKey)
-   return binPubKey_to_addrStr(binKey)
-
-
-def addrStr_to_binaryPair(addr):
-   b58Str  = addrStr_to_base58Str(addr)
-   intAddr =            base58Str_to_int(b58Str)
-   binAddr =                         int_to_binary(intAddr, endOut=BIGENDIAN)
-   return (binAddr[:-4], binAddr[-4:])  # why the endian switch required!?
-   
-
-##### ADDRESS VERIFICATION #####
-def addrStr_isValid(addr):
-   binKeyHash, targetChk = addrStr_to_binaryPair(addr)
-   binKeyHashHash = hash256('\x00' + binKeyHash)
-   return binKeyHashHash[:4] == targetChk
 
 
 
@@ -304,6 +279,36 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
+##### HEXPUBLICKEY/ADDRSTR
+def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
+   binKey = binStr[:] if endIn==LITTLEENDIAN else binary_switchEndian(binStr)
+   binKeyHash = hash160(binKey)
+   checksum   = hash256('\x00' + binKeyHash)
+   binAddrStr = binKeyHash + checksum[:4]
+   intAddrStr = binary_to_int(binAddrStr, endIn=BIGENDIAN)  # why the endian switch required!?
+   b58AddrStr =           int_to_base58Str(intAddrStr)
+   return                        base58Str_to_addrStr(b58AddrStr)
+
+##### HEXPUBLICKEY/ADDRSTR
+def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
+   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hex_switchEndian(hexStr)
+   binKey = hex_to_binary(hexKey)
+   return binPubKey_to_addrStr(binKey)
+
+
+def addrStr_to_binaryPair(addr):
+   b58Str  = addrStr_to_base58Str(addr)
+   intAddr =            base58Str_to_int(b58Str)
+   binAddr =                         int_to_binary(intAddr, endOut=BIGENDIAN)
+   return (binAddr[:-4], binAddr[-4:])  # why the endian switch required!?
+   
+
+##### ADDRESS VERIFICATION #####
+def addrStr_isValid(addr):
+   binKeyHash, targetChk = addrStr_to_binaryPair(addr)
+   binKeyHashHash = hash256('\x00' + binKeyHash)
+   return binKeyHashHash[:4] == targetChk
+
 def binScript_to_binSigKey(binStr):
    # Returns [signature, pubKey, totalBytes]
    # TODO:  check when sometimes it returns only a sig, sometimes sig&key
@@ -344,20 +349,60 @@ def derSig_to_intRS(binStr):
    assert(codeByte == '\x02')
    return (r,s)
 
+def hex_to_EcPubKey(hexStr):
+   binaryKey65B = hex_to_binary(hexStr)
+   assert(len(binaryKey65B) == 65)
+   return EcPubKey(binaryKey65B)
 
+def hexPointXY_to_EcPubKey(hexXp, hexYp):
+   binXp = hex_to_binary(hexXp)
+   binYp = hex_to_binary(hexYp)
+   binaryKey65B = pack('<B',4) + binXp + binYp
+   assert(len(binaryKey65B) == 65)
+   return EcPubKey(binaryKey65B)
+
+class KeyPair(object):
+   def __init__(self):
+      self.privKeyInt = UNINITIALIZED 
+      self.pubKeyXY   = UNINITIALIZED 
+      self.addrStr    = UNINITIALIZED 
+      self.lisPrivKey = UNINITIALIZED
+      self.lisPubKey  = UNINITIALIZED
+      # And some extra, higher-level information
+      self.pubKeyInt  = UNINITIALIZED 
+      self.binary65B  = UNINITIALIZED 
+
+   def generateNew(self):
+      # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
+      # And yes, a private key is really just a random number
+      self.privKeyInt   = random.randrange(EC_Order)   
+      self.pubKeyXY     = 
+      self.ecPublicKey  = EcPubKey(self.ecPrivateKey)
+      self.addr         = self.ecPublicKey.to_addrStr()
+
+   def initFromPublicKey(self, pubkey):
+      if isinstance(pubkey, EC_Point):
+         self.pubKeyXY  = pubkey
+         self.pubKeyInt = int_to_binary(4, widthBytes=1) + in
+      elif isinstance(pubkey, int):
+         
 
 class EcPrivKey(object):
 
    # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
    # And yes, a private key is really just a random number
 
-   def __init__(self, privInt=None):
+   def __init__(self, privInt=None, publicPoint=None):
       if privInt==None: 
          self.secretInt = random.randrange(EC_Order)   
       else:             
          self.secretInt = privInt
 
-      self.publicPoint = EC_GenPt * self.secretInt
+      if publicPoint==None:
+         self.publicPoint = EC_GenPt * self.secretInt
+      else:
+         self.publicPoint = publicPoint
+
       self.lisPubKey  = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
       self.lisPrivKey = lisecdsa.Private_key( self.lisPubKey, self.secretInt )
 
@@ -415,7 +460,7 @@ class EcPubKey(object):
       return leadByte + binXp + binYp
 
    def to_addrStr(self):
-      return binPubKey_to_addrStr(self)
+      return binPubKey_to_addrStr(self.to_binary())
       
    def verifyBinarySignature(self, binHashToVerify, derSig):
       intHash = binary_to_int(binHashToVerify)
@@ -431,17 +476,8 @@ def VerifyEcKeyPair(pubkey, privkey):
    return (pubkey.publicPoint == privkey.publicPoint)
       
 
-def hex_to_EcPubKey(hexStr):
-   binaryKey65B = hex_to_binary(hexStr)
-   assert(len(binaryKey65B) == 65)
-   return EcPubKey(binaryKey65B)
 
-def hexPointXY_to_EcPubKey(hexXp, hexYp):
-   binXp = hex_to_binary(hexXp)
-   binYp = hex_to_binary(hexYp)
-   binaryKey65B = pack('<B',4) + binXp + binYp
-   assert(len(binaryKey65B) == 65)
-   return EcPubKey(binaryKey65B)
+
 
 
 # Finally done with all the base conversion functions and ECDSA code
@@ -872,7 +908,7 @@ class BlockHeader(object):
       if not self.intDifficult==UNINITIALIZED:
          print indstr + indent + 'Difficulty:', self.intDifficult    
       if not self.sumDifficult==UNINITIALIZED:
-         print indstr + indent + 'ChainDiff: ', self.sumDifficult    
+         print indstr + indent + 'DiffSum:   ', self.sumDifficult    
 
 
 class BlockData(object):
