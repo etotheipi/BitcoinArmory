@@ -258,232 +258,6 @@ def difficulty_to_binaryBits(i):
    
 
 ################################################################################
-# ECDSA CLASSES
-#
-#    Based on the ECDSA code posted by Lis on the Bitcoin forums: 
-#    http://forum.bitcoin.org/index.php?topic=23241.0
-#
-################################################################################
-
-# The following params are common to ALL bitcoin elliptic curves (secp256k1)
-_p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-_r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-_b  = 0x0000000000000000000000000000000000000000000000000000000000000007L
-_a  = 0x0000000000000000000000000000000000000000000000000000000000000000L
-_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
-
-EC_Point = lisecdsa.Point
-EC_Curve = lisecdsa.CurveFp( _p, _a, _b )
-EC_Sig   = lisecdsa.Signature
-EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
-EC_Order = EC_GenPt.order()
-
-##### HEXPUBLICKEY/ADDRSTR
-def binPubKey_to_addrStr(binStr, endIn=LITTLEENDIAN):
-   binKey = binStr[:] if endIn==LITTLEENDIAN else binary_switchEndian(binStr)
-   binKeyHash = hash160(binKey)
-   checksum   = hash256('\x00' + binKeyHash)
-   binAddrStr = binKeyHash + checksum[:4]
-   intAddrStr = binary_to_int(binAddrStr, endIn=BIGENDIAN)  # why the endian switch required!?
-   b58AddrStr =           int_to_base58Str(intAddrStr)
-   return                        base58Str_to_addrStr(b58AddrStr)
-
-##### HEXPUBLICKEY/ADDRSTR
-def hexPubKey_to_addrStr(hexStr, endIn=LITTLEENDIAN):
-   hexKey = hexStr[:] if endIn==LITTLEENDIAN else hex_switchEndian(hexStr)
-   binKey = hex_to_binary(hexKey)
-   return binPubKey_to_addrStr(binKey)
-
-
-def addrStr_to_binaryPair(addr):
-   b58Str  = addrStr_to_base58Str(addr)
-   intAddr =            base58Str_to_int(b58Str)
-   binAddr =                         int_to_binary(intAddr, endOut=BIGENDIAN)
-   return (binAddr[:-4], binAddr[-4:])  # why the endian switch required!?
-   
-
-##### ADDRESS VERIFICATION #####
-def addrStr_isValid(addr):
-   binKeyHash, targetChk = addrStr_to_binaryPair(addr)
-   binKeyHashHash = hash256('\x00' + binKeyHash)
-   return binKeyHashHash[:4] == targetChk
-
-def binScript_to_binSigKey(binStr):
-   # Returns [signature, pubKey, totalBytes]
-   # TODO:  check when sometimes it returns only a sig, sometimes sig&key
-   szSig = binary_to_int(binStr[0])
-   binarySignature = binStr[1:szSig+1]
-   szKey = binary_to_int(binStr[szSig+1])
-   binaryKey = binStr[2+szSig:2+szSig+szKey]
-   return (binarySignature, binaryKey, 2+szKey+szSig)
-
-def intRS_to_derSig(r,s):
-   rBin   = int_to_binary(r, endOut=BIGENDIAN)
-   sBin   = int_to_binary(s, endOut=BIGENDIAN)
-   rSize  = int_to_binary(len(rBin))
-   sSize  = int_to_binary(len(sBin))
-   rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-   # TODO: we need to put a hash-code at the end... not sure when to do that, though
-   return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
-
-def derSig_to_intRS(binStr):
-   # There was nothing easy about figuring out how these numbers were encoded
-   codeByte = binStr[0]
-   nBytes   = binary_to_int(binStr[1])
-   rsStr    = binStr[2:]
-   assert(codeByte == '\x30')
-   assert(nBytes == len(rsStr))
-
-   # Read r
-   codeByte  = rsStr[0]
-   rBytes    = binary_to_int(rsStr[1])
-   r         = binary_to_int(rsStr[2:2+rBytes], endIn=BIGENDIAN)
-   assert(codeByte == '\x02')
-   sStr      = rsStr[2+rBytes:]
-
-   # Read s
-   codeByte  = sStr[0]
-   sBytes    = binary_to_int(sStr[1])
-   s         = binary_to_int(sStr[2:2+sBytes], endIn=BIGENDIAN)
-   assert(codeByte == '\x02')
-   return (r,s)
-
-def hex_to_EcPubKey(hexStr):
-   binaryKey65B = hex_to_binary(hexStr)
-   assert(len(binaryKey65B) == 65)
-   return EcPubKey(binaryKey65B)
-
-def hexPointXY_to_EcPubKey(hexXp, hexYp):
-   binXp = hex_to_binary(hexXp)
-   binYp = hex_to_binary(hexYp)
-   binaryKey65B = pack('<B',4) + binXp + binYp
-   assert(len(binaryKey65B) == 65)
-   return EcPubKey(binaryKey65B)
-
-class KeyPair(object):
-   def __init__(self):
-      self.privKeyInt = UNINITIALIZED 
-      self.pubKeyXY   = UNINITIALIZED 
-      self.addrStr    = UNINITIALIZED 
-      self.lisPrivKey = UNINITIALIZED
-      self.lisPubKey  = UNINITIALIZED
-      # And some extra, higher-level information
-      self.pubKeyInt  = UNINITIALIZED 
-      self.binary65B  = UNINITIALIZED 
-
-   def generateNew(self):
-      # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
-      # And yes, a private key is really just a random number
-      self.privKeyInt   = random.randrange(EC_Order)   
-      self.pubKeyXY     = 
-      self.ecPublicKey  = EcPubKey(self.ecPrivateKey)
-      self.addr         = self.ecPublicKey.to_addrStr()
-
-   def initFromPublicKey(self, pubkey):
-      if isinstance(pubkey, EC_Point):
-         self.pubKeyXY  = pubkey
-         self.pubKeyInt = int_to_binary(4, widthBytes=1) + in
-      elif isinstance(pubkey, int):
-         
-
-class EcPrivKey(object):
-
-   # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
-   # And yes, a private key is really just a random number
-
-   def __init__(self, privInt=None, publicPoint=None):
-      if privInt==None: 
-         self.secretInt = random.randrange(EC_Order)   
-      else:             
-         self.secretInt = privInt
-
-      if publicPoint==None:
-         self.publicPoint = EC_GenPt * self.secretInt
-      else:
-         self.publicPoint = publicPoint
-
-      self.lisPubKey  = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
-      self.lisPrivKey = lisecdsa.Private_key( self.lisPubKey, self.secretInt )
-
-   def to_hex(self, endian=LITTLEENDIAN):
-      hexSecret = int_to_hex(self.secretInt, endian)
-      assert(len(hexSecret) == 64)
-      return hexSecret
-
-   def to_binary(self, endian=LITTLEENDIAN):
-      binSecret = int_to_binary(self.secretInt, endian)
-      assert(len(binSecret) == 32)
-      return binSecret
-
-   def derSignature(self, binHashToSign):
-      intHash = binary_to_int(binHashToSign)
-      sig = self.lisPrivKey.sign(intHash, random.randrange(EC_Order))
-      return intRS_to_derSig(sig.r, sig.s)
-      
-
-
-class EcPubKey(object):
-   """ Init EcPubKey with either EcPrivKey, or 65-bit-string from script """
-   def __init__(self, initObj, endianIn=LITTLEENDIAN):
-      # InitObj is either a EcPrivKey or BINARY public key str (65 bytes)
-      if isinstance(initObj, EcPrivKey):
-         self.intPubKeyX = initObj.publicPoint.x()
-         self.intPubKeyY = initObj.publicPoint.y()
-         self.binary  = self.to_binary()
-      else:
-         chk, binXp, binYp = initObj[0], initObj[1:33], initObj[33:]
-         assert(len(initObj) == 65 and chk == '\x04')
-         # Script values are stored in big-endian
-         self.intPubKeyX = binary_to_int(binXp, endIn=endianIn)
-         self.intPubKeyY = binary_to_int(binYp, endIn=endianIn)
-         self.binary = initObj
-
-      # If there is an error here about "contains_point" try switching endian
-      self.publicPoint = EC_Point(EC_Curve, self.intPubKeyX, self.intPubKeyY)
-      self.lisPubKey = lisecdsa.Public_key( EC_GenPt, self.publicPoint )
-      
-
-   def to_hex(self, endian=LITTLEENDIAN):
-      hexXp = int_to_hex(self.intPubKeyX, endOut=endian)
-      hexYp = int_to_hex(self.intPubKeyY, endOut=endian)
-      assert(len(hexXp) == 64)
-      assert(len(hexYp) == 64)
-      return '04' + hexXp + hexYp
-
-   def to_binary(self, endian=LITTLEENDIAN):
-      leadByte = pack(endian+'B', 4)
-      binXp = int_to_binary(self.intPubKeyX, endOut=endian);
-      binYp = int_to_binary(self.intPubKeyY, endOut=endian);
-      assert(len(binXp) == 32)
-      assert(len(binYp) == 32)
-      return leadByte + binXp + binYp
-
-   def to_addrStr(self):
-      return binPubKey_to_addrStr(self.to_binary())
-      
-   def verifyBinarySignature(self, binHashToVerify, derSig):
-      intHash = binary_to_int(binHashToVerify)
-      (r,s) = derSig_to_intRS(derSig)
-      lisSignature = EC_Sig(r,s)
-      return self.lisPubKey.verifies(intHash, lisSignature)
-
-
-def calc_EcPubKey_from_EcPrivKey(key):
-   return EcPubKey(key)
-   
-def VerifyEcKeyPair(pubkey, privkey):
-   return (pubkey.publicPoint == privkey.publicPoint)
-      
-
-
-
-
-
-# Finally done with all the base conversion functions and ECDSA code
-# Now define the classes for the objects that will use this
-
-################################################################################
 ################################################################################
 #  Classes for reading and writing large binary objects
 ################################################################################
@@ -591,6 +365,273 @@ class BinaryPacker(object):
          assert(False)
 
 ################################################################################
+
+
+################################################################################
+# ECDSA CLASSES
+#
+#    Based on the ECDSA code posted by Lis on the Bitcoin forums: 
+#    http://forum.bitcoin.org/index.php?topic=23241.0
+#
+################################################################################
+
+# The following params are common to ALL bitcoin elliptic curves (secp256k1)
+_p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
+_r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
+_b  = 0x0000000000000000000000000000000000000000000000000000000000000007L
+_a  = 0x0000000000000000000000000000000000000000000000000000000000000000L
+_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
+_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+
+EC_Point = lisecdsa.Point
+EC_Curve = lisecdsa.CurveFp( _p, _a, _b )
+EC_Sig   = lisecdsa.Signature
+EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
+EC_Order = EC_GenPt.order()
+
+# ADDRESSDATA -- I gotta come up with a better name for this
+# Store all information about an address string.  
+# Having the privateKey is the most data.  Public key is next
+# Finally, you frequently just have someone's address, without
+# even having their public key
+#
+# The "createFrom" methods actually calculate the data below it
+# The serialize/unserialize methods do no extra calculation, or
+# consistency checks, because the lisecdsa library is slow, and 
+# we don't want to spend the time verifying thousands of keypairs
+# There's a reason we wrote out the pubkey and addresses...
+class AddressData(object):
+   def __init__(self):
+      self.privKeyInt = UNINITIALIZED
+      self.pubKeyXInt = UNINITIALIZED
+      self.pubKeyYInt = UNINITIALIZED
+      self.addrStr    = UNINITIALIZED 
+      self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
+      self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
+      # All other information can always be computed on the fly
+      self.hasPubKey  = False
+      self.hasPrivKey = False
+
+   def generateNew(self):
+      # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
+      self.createFromPrivateKey(random.randrange(EC_Order))
+      return self
+
+   def createFromPrivateKey(self, privKeyInt):
+      self.privKeyInt = privKeyInt
+      pubKeyPoint  = EC_GenPt * self.privKeyInt
+      self.pubKeyXInt = pubKeyPoint.x()
+      self.pubKeyYInt = pubKeyPoint.y()
+      self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
+      self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
+      self.hasPubKey  = True
+      self.hasPrivKey = True
+      self.addrStr = self.calculateAddrStr()
+      return self
+
+   def createFromPublicKey(self, pubkey):
+      if isinstance(pubkey, EC_Point):
+         self.pubKeyXInt = pubkey.x()
+         self.pubKeyYInt = pubkey.y()
+      elif isinstance(pubkey, tuple):
+         self.pubKeyXInt = pubkey[0]
+         self.pubKeyYInt = pubkey[1]
+      elif isinstance(pubkey, str):
+         # assume 65-byte binary string
+         assert( len(pubkey) == 65 )
+         leadByte        = binary_to_int(pubkey[:1    ], BIGENDIAN)
+         self.pubKeyXInt = binary_to_int(pubkey[ 1:33 ], BIGENDIAN)
+         self.pubKeyYInt = binary_to_int(pubkey[   33:], BIGENDIAN)
+         assert( leadByte == 4 )
+      # If "contains_point" error... the supplied XY-coords are not
+      # on the secp256k1 elliptic curve
+      pubKeyPoint = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
+      self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
+      self.hasPubKey  = True
+      self.hasPrivKey = False
+      self.addrStr = self.calculateAddrStr()
+      return self
+
+   def createFromAddrStr(self, addrStr):
+      self.addrStr = addrStr
+      assert(self.checkAddressValid())
+      self.hasPubKey  = False
+      self.hasPrivKey = False
+      return self
+
+   def calculateAddrStr(self):
+      assert( self.hasPubKey )
+      xBinBE     = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
+      yBinBE     = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
+      binPubKey  = '\x04' + xBinBE + yBinBE
+      keyHash    = hash160(binPubKey)
+      chkSum     = hash256('\x00' + keyHash)[:4]
+      addrInt    = binary_to_int(keyHash + chkSum, BIGENDIAN)
+      addrB58    = int_to_base58Str(addrInt)
+      return base58Str_to_addrStr(addrB58)
+
+   def getAddrStr(self):
+      if self.addrStr==UNINITIALIZED:
+         return self.calculateAddrStr()
+      return self.addrStr
+
+   def generateDERSignature(self, binToSign):
+      assert( self.hasPrivKey )
+      self.prepareKeys()
+      intSign = binary_to_int(binToSign)
+      sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
+      rBin   = int_to_binary(sig.r, endOut=BIGENDIAN)
+      sBin   = int_to_binary(sig.s, endOut=BIGENDIAN)
+      rSize  = int_to_binary(len(rBin))
+      sSize  = int_to_binary(len(sBin))
+      rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+      return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
+
+   def verifyDERSignature(self, binToVerify, derToVerify):
+      assert(self.hasPubKey)
+      self.prepareKeys()
+      codeByte = derToVerify[0]
+      nBytes   = binary_to_int(derToVerify[1])
+      rsStr    = derToVerify[2:]
+      assert(codeByte == '\x30')
+      assert(nBytes == len(rsStr))
+      # Read r
+      codeByte  = rsStr[0]
+      rBytes    = binary_to_int(rsStr[1])
+      r         = binary_to_int(rsStr[2:2+rBytes], endIn=BIGENDIAN)
+      assert(codeByte == '\x02')
+      sStr      = rsStr[2+rBytes:]
+      # Read s
+      codeByte  = sStr[0]
+      sBytes    = binary_to_int(sStr[1])
+      s         = binary_to_int(sStr[2:2+sBytes], endIn=BIGENDIAN)
+      assert(codeByte == '\x02')
+      # Now we have the (r,s) values of the 
+      lisSignature = EC_Sig(r,s)
+      intVerify = binary_to_int(binToVerify)
+      return self.lisPubKey.verifies(intVerify, lisSignature)
+
+   def prepareKeys(self, checkKeyMatch=True):
+      # We may have the key data, but may not have created the lisecdsa objects
+      if self.hasPubKey and self.lisPubKey==UNINITIALIZED:
+         pubKeyPoint     = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
+         self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
+
+      if self.hasPrivKey and self.lisPrivKey==UNINITIALIZED:
+         self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
+
+      # If we already had both a public and private key, we might consider
+      # checking that they are a match
+      if self.hasPubKey and self.hasPrivKey and checkKeyMatch:
+         assert(self.checkPubPrivKeyPairMatch())
+
+
+   # We make this pseudo-static so that we can use it for arbitrary address
+   def checkAddressValid(self, addrStr=None):
+      if addrStr==None:
+         assert(not self.addrStr == UNINITIALIZED)
+         addrStr = self.addrStr
+      addrB58 = addrStr_to_base58Str(addrStr)
+      addrInt = base58Str_to_int(addrB58)
+      addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
+      first20, chk4 = addrBin[:-4], addrBin[-4:]
+      chkBytes = hash256('\x00' + first20)
+      return chkBytes[:4] == chk4
+
+   def checkPubPrivKeyPairMatch(self):
+      assert( self.hasPubKey and self.hasPrivKey )
+      privToPubPoint = EC_GenPt * self.privKeyInt
+      xMatches = privToPubPoint.x() == self.pubKeyXInt
+      yMatches = privToPubPoint.y() == self.pubKeyYInt
+      return (xMatches and yMatches)
+
+   
+   def addrStr_serialize(self):
+      # Address string has a maximum length of 34 bytes... so let's left-pad
+      # the address with \x00 bytes and start reading at the first 1
+      addrLen = len(self.addrStr)
+      return int_to_binary(addrLen) + self.addrStr  # append reg string to binary string...okay
+   def addrStr_unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         addrData = toUnpack
+      else:
+         addrData = BinaryUnpacker(toUnpack)
+      addrLen      = addrData.get(UBYTE)
+      self.addrStr = addrDate.get(BINARY_CHUNK, addrLen)
+   
+
+   def pubKey_serialize(self):
+      if not self.hasPubKey:
+         return '\x00'
+      else:
+         xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
+         yBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
+         return '\x01' + '\x04' + xBinBE + yBinBE
+   def pubKey_unserialize(self, toUnpack):
+      # Does not recompute addrStr
+      if isinstance(toUnpack, BinaryUnpacker):
+         keyData = toUnpack
+      else:
+         keyData = BinaryUnpacker(toUnpack)
+
+      leadByte = keyData.get(UBYTE)
+      if leadByte==0:
+         self.pubKeyXInt == UNINITIALIZED
+         self.pubKeyYInt == UNINITIALIZED
+         self.hasPubKey = False
+      else:
+         leadByte = keyData.get(UBYTE)
+         assert(leadByte == 4)
+         self.pubKeyXInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
+         self.pubKeyYInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
+         self.hasPubKey = True
+
+
+
+   def privKey_serialize(self):
+      if not self.hasPrivKey:
+         return '\x00'
+      else:
+         privKeyBin = int_to_binary(self.privKeyInt, widthBytes=32, endOut=BIGENDIAN)
+         return '\x01' + privKeyBin
+   def privKey_unserialize(self, toUnpack):
+      # Does not recompute public key and addr -- run consistency check
+      if isinstance(toUnpack, BinaryUnpacker):
+         keyData = toUnpack
+      else:
+         keyData = BinaryUnpacker(toUnpack)
+      leadByte = keyData.get(UBYTE)
+      if leadByte==0:
+         self.privKeyInt = UNINITIALIZED
+         self.hasPrivKey = False
+      else:
+         privKeyBin = keyData.get(BINARY_CHUNK, 32)
+         self.privKeyInt = binary_to_int(privKeyBin, BIGENDIAN)
+         self.hasPrivKey = True
+
+   
+   def serialize(self):
+      # We should ALWAYS have an address available.  But not necessary pub and
+      # and priv keys.  Use 0 to
+      addrBin = self.addrStr_serialize()
+      pubkBin = self.pubKey_serialize()
+      prvkBin = self.privKey_serialize()
+      return addrBin + pubkBin + prvkBin
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         theData = toUnpack
+      else:
+         theData = BinaryUnpacker(toUnpack)
+      self.addrStr_unserialize( theData ) 
+      self.pubKey_unserialize( theData ) 
+      self.privKey_unserialize( theData ) 
+      
+
+
+
+# Finally done with all the base conversion functions and ECDSA code
+# Now define the classes for the objects that will use this
 
 
 ################################################################################
@@ -1507,13 +1548,13 @@ class ScriptProcessor(object):
          txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
-         pubkey = EcPubKey(binPubKey, BIGENDIAN)
+         senderAddr = AddressData().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)
 
          hashToVerify = binary_switchEndian(hashToVerify)
-         if pubkey.verifyBinarySignature(hashToVerify, binSig):
+         if senderAddr.verifyDERSignature(hashToVerify, binSig):
             stack.append(1)
          else:
             stack.append(0)

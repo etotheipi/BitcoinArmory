@@ -24,6 +24,7 @@ def printpassorfail(abool):
    else:
       print '___ FAILED ___',
    
+
 print ''
 print ''
 print '*** Running Bitcoin engine unit tests ***'
@@ -59,17 +60,6 @@ testFunction('hex_to_hexHash256', blockhash, blockhead)
 testFunction('hex_to_hexHash256', blockhashBE, blockhead, LE, BE)
 
 
-# Execute the tests with Satoshi's public key from the Bitcoin specification page
-satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
-satoshiAddrStr = '1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s'
-addrPiece1Hex = '65a4358f4691660849d9f235eb05f11fabbd69fa'
-addrPiece2Hex = 'd8b2307a'
-addrPiece1Bin = hex_to_binary(addrPiece1Hex)
-addrPiece2Bin = hex_to_binary(addrPiece2Hex)
-
-testFunction('hexPubKey_to_addrStr', satoshiAddrStr, satoshiPubKeyHex)
-testFunction('addrStr_to_binaryPair', (addrPiece1Bin, addrPiece2Bin), satoshiAddrStr)
-testFunction('addrStr_isValid', True, satoshiAddrStr)
 
 testFunction('ubtc_to_floatStr', '12.05600000', 1205600000)
 testFunction('floatStr_to_ubtc', 1205600000, '12.056')
@@ -85,6 +75,8 @@ testFunction('unpackVarInt', [65,1], 'A')
 testFunction('unpackVarInt', [255, 3], '\xfd\xff\x00')
 testFunction('unpackVarInt', [65536, 5], '\xfe\x00\x00\x01\x00')
 testFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00')
+
+
 
 
 #outHash = '3de0c1e913e6271769d8c0172cea2f00d6d3240afc3a20f9fa247ce58af30d2a' 
@@ -172,15 +164,29 @@ print ''
 
 
 
+# Execute the tests with Satoshi's public key from the Bitcoin specification page
+satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
+satoshiAddrStr = '1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s'
+addrPiece1Hex = '65a4358f4691660849d9f235eb05f11fabbd69fa'
+addrPiece2Hex = 'd8b2307a'
+addrPiece1Bin = hex_to_binary(addrPiece1Hex)
+addrPiece2Bin = hex_to_binary(addrPiece2Hex)
 
-privInt = hex_to_int('2a'*32)
-pvkey = EcPrivKey(privInt)
+print 'Testing ECDSA key/address methods:'
+print "\tSatoshi's PubKey:      ", satoshiPubKeyHex[:32], '...'
+print "\tSatoshi's Address:     ", satoshiAddrStr
+saddr = AddressData().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
+print ''
+print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
+print '\tAddress is valid:      ', AddressData().checkAddressValid(satoshiAddrStr)
+
+
+addr = AddressData().generateNew()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
-dersig = pvkey.derSignature(theHash)
-pbkey = EcPubKey(pvkey)
+derSig = addr.generateDERSignature(theHash)
 print 'Testing ECDSA signing & verification -- arbitrary binary strings:', 
-printpassorfail( pbkey.verifyBinarySignature( theHash, dersig))
+printpassorfail( addr.verifyDERSignature( theHash, derSig))
 print ''
 
 

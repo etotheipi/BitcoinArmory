@@ -118,7 +118,7 @@ class BlockChain(object):
       for headhash, head in self.blockHeadersMap.iteritems():
          bp.put(BINARY_CHUNK, head.serializeWithExtra() )
        
-      headFile = open(headfilename, 'w')
+      headFile = open(headfilename, 'wb')
       headFile.write(bp.getBinaryString())
       
       
