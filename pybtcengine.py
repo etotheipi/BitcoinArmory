@@ -57,15 +57,20 @@ def ripemd160(bits):
    return hashlib.new('ripemd160', bits).digest()
 
 # these are overriden for testnet
-BITCOIN_PORT = 8333
-BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+USE_TESTNET = False
 
-BITCOIN_PORT = 8333
-BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+if USE_TESTNET:
+   ##### TESTNET #####
+   BITCOIN_PORT = 18333
+   BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+   GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
+   GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+else:
+   ##### MAIN NETWORK #####
+   BITCOIN_PORT = 8333
+   BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+   GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+   GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 NOHASH = '00'*32
@@ -270,50 +275,35 @@ class BinaryUnpacker(object):
       self.binaryStr = binaryStr
       self.pos = 0
 
-   def getSize(self):
-      return len(self.binaryStr)
-
-   def getRemainingSize(self):
-      return len(self.binaryStr) - self.pos
-
-   def getBinaryString(self):
-      return self.binaryStr
-
-   def append(self, binaryStr):
-      self.binaryStr += binaryStr
-
-   def advance(self, bytesToAdvance):
-      self.pos += bytesToAdvance
-
-   def rewind(self, bytesToRewind):
-      self.pos -= bytesToRewind
-
-   def resetPosition(self, toPos=0):
-      self.pos = toPos
-
-   def getPosition(self):
-      return self.pos
+   def getSize(self): return len(self.binaryStr)
+   def getRemainingSize(self): return len(self.binaryStr) - self.pos
+   def getBinaryString(self): return self.binaryStr
+   def append(self, binaryStr): self.binaryStr += binaryStr
+   def advance(self, bytesToAdvance): self.pos += bytesToAdvance
+   def rewind(self, bytesToRewind): self.pos -= bytesToRewind
+   def resetPosition(self, toPos=0): self.pos = toPos
+   def getPosition(self): return self.pos
 
    def get(self, varType, sz=0, endianness=LITTLEENDIAN):
       pos = self.pos
       if varType == UINT32:
-         value = binary_to_int(self.binaryStr[pos:pos+4], endianness)
+         value = unpack('<I', self.binaryStr[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == UINT64:
-         value = binary_to_int(self.binaryStr[pos:pos+8], endianness)
+         value = unpack('<Q', self.binaryStr[pos:pos+8])[0]
          self.advance(8)
          return value
       elif varType == UBYTE:
-         value = binary_to_int(self.binaryStr[pos:pos+1], endianness)
+         value = unpack('<B', self.binaryStr[pos:pos+1])[0]
          self.advance(1)
          return value
       elif varType == USHORT:
-         value = binary_to_int(self.binaryStr[pos:pos+2], endianness)
+         value = unpack('<H', self.binaryStr[pos:pos+2])[0]
          self.advance(2)
          return value
       elif varType == VAR_INT:
-         [value, nBytes] = unpackVarInt(self.binaryStr[pos:])
+         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          self.advance(nBytes)
          return value
       elif varType == FLOAT:
@@ -389,7 +379,11 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
-# ADDRESSDATA -- I gotta come up with a better name for this
+def isValidEcPoint(x,y):
+   return EC_Curve.contains_point(x,y)
+   
+
+# BtcAccount -- I gotta come up with a better name for this
 # Store all information about an address string.  
 # Having the privateKey is the most data.  Public key is next
 # Finally, you frequently just have someone's address, without
@@ -400,7 +394,7 @@ EC_Order = EC_GenPt.order()
 # consistency checks, because the lisecdsa library is slow, and 
 # we don't want to spend the time verifying thousands of keypairs
 # There's a reason we wrote out the pubkey and addresses...
-class AddressData(object):
+class BtcAccount(object):
    def __init__(self):
       self.privKeyInt = UNINITIALIZED
       self.pubKeyXInt = UNINITIALIZED
@@ -816,6 +810,7 @@ class BlockHeader(object):
       self.nextBlkHash  = UNINITIALIZED 
       self.intDifficult = UNINITIALIZED 
       self.sumDifficult = UNINITIALIZED 
+      self.isMainChain  = False  # true until proven innocent
       self.isOrphan     = True  # true until proven innocent
 
    def serialize(self):
@@ -868,6 +863,7 @@ class BlockHeader(object):
       putData(UINT64, self.fileByteLoc,  8)
       putData(FLOAT,  self.sumDifficult, 4)
       putData(UINT32, self.blkHeight,    4)
+      putData(UBYTE,  self.isMainChain,  1)
       putData(UBYTE,  self.isOrphan,     1)
       return binData.getBinaryString()
 
@@ -893,6 +889,7 @@ class BlockHeader(object):
       self.fileByteLoc  = getData(UINT64, 8)
       self.sumDifficult = getData(FLOAT, 4)
       self.blkHeight    = getData(UINT32, 4)
+      self.isMainChain  = getData(UBYTE, 1)
       self.isOrphan     = getData(UBYTE, 1)
       #getData(self.numTx,        4)
       #getData(self.nextBlkHash,  32)
@@ -934,13 +931,15 @@ class BlockHeader(object):
       print indstr + 'BlockHeader:'
       print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(Big-Endian)'
       print indstr + indent + 'Version:   ', self.version     
-      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash)
+      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(Big-Endian)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
       print indstr + indent + 'Timestamp: ', self.timestamp 
       print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
       print indstr + indent + 'Nonce:     ', self.nonce    
       if not self.blkHeight==UNINITIALIZED:
          print indstr + indent + 'BlkHeight: ', self.blkHeight    
+      if not self.blkHeight==UNINITIALIZED:
+         print indstr + indent + 'BlkFileLoc:', self.fileByteLoc    
       if not self.nextBlkHash==UNINITIALIZED:
          #print indstr + indent + 'NextBlock: ', binary_to_hex(self.nextBlkHash)
          print indstr + indent + 'NextBlock: ', self.nextBlkHash
@@ -1548,7 +1547,7 @@ class ScriptProcessor(object):
          txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
-         senderAddr = AddressData().createFromPublicKey(binPubKey)
+         senderAddr = BtcAccount().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)

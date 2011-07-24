@@ -175,13 +175,13 @@ addrPiece2Bin = hex_to_binary(addrPiece2Hex)
 print 'Testing ECDSA key/address methods:'
 print "\tSatoshi's PubKey:      ", satoshiPubKeyHex[:32], '...'
 print "\tSatoshi's Address:     ", satoshiAddrStr
-saddr = AddressData().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
+saddr = BtcAccount().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
 print ''
 print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
-print '\tAddress is valid:      ', AddressData().checkAddressValid(satoshiAddrStr)
+print '\tAddress is valid:      ', BtcAccount().checkAddressValid(satoshiAddrStr)
 
 
-addr = AddressData().generateNew()
+addr = BtcAccount().generateNew()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
 derSig = addr.generateDERSignature(theHash)

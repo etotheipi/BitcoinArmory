@@ -1,6 +1,7 @@
 from pybtcengine import *
 import os
 from os import path
+import bsddb
 
 
 BUF_SIZE = 16*1024**2
@@ -25,52 +26,49 @@ class BlockChain(object):
       self.topBlockHash      = self.genBlkHash  # tip of the longest chain (hash)
       self.topBlockHeight    = 0                # the height at the top
       self.topBlockSumDiff   = 0                # Cumulative difficulty at top
+      #self.headerDB          = bsddb.btopen('bsddb.headers.bin', 'c')
+      #self.dataDB            = bsddb.btopen('bsddb.data.bin', 'c')
+      #self.txDB              = bsddb.btopen('bsddb.tx.bin', 'c')
       #self.lastChainCalc   = UNINITIALIZED  # will contain the last time we calculated the chain
 
    def readBlockChainFile(self, bcfilename, justHeaders=False):
-      # This ended up much more complicated than I had hoped, because I 
-      # was trying to buffer the read so I don't have the full 500 MB of
-      # blk0001.dat in memory at once...  
+      # We will try reading directly from file, to see if this improves the
+      # speed compared to using binary unpacker
       assert(path.exists(bcfilename))
       bcFile = open(bcfilename, 'r')
-      binUnpacker = BinaryUnpacker(bcFile.read(BUF_SIZE))
-      fileSizeLeft = os.stat(bcfilename).st_size - BUF_SIZE
+      #binUnpacker = BinaryUnpacker(bcFile.read(BUF_SIZE))
+      fileSizeLeft = os.stat(bcfilename).st_size
 
-      print 'File %s is %0.2f MB' % (bcfilename, (fileSizeLeft+BUF_SIZE)/float(1024**2))
+      print 'File %s is %0.2f MB' % (bcfilename, (fileSizeLeft)/float(1024**2))
       print 'Reading blockdata',
       if justHeaders:
          print '(just headers)',
       print ''
 
       i = 0
-      while fileSizeLeft > 0 or binUnpacker.getRemainingSize() > 1:
+      while fileSizeLeft > 0: # or binUnpacker.getRemainingSize() > 1:
          if( i%10000 == 0):
             print '\tBlocks read:', i
          # Each block starts with 4 magic bytes
-         magicBytes = binary_to_hex(binUnpacker.get(BINARY_CHUNK, 4))
-         nextBlockSize = binUnpacker.get(UINT32)
+         #magicBytes = binary_to_hex(binUnpacker.get(BINARY_CHUNK, 4))
+         #nextBlockSize = binUnpacker.get(UINT32)
+         bytes8 = bcFile.read(8)
+         magicBytes = binary_to_hex(bytes8[:4])
+         nextBlockSize = binary_to_int(bytes8[4:])
          
-         buBytesLeft = binUnpacker.getRemainingSize()
-         if buBytesLeft < nextBlockSize + 8:
-            if(fileSizeLeft + buBytesLeft < nextBlockSize):
-               return
-            else:
-               readSz = min(fileSizeLeft, BUF_SIZE)
-               binUnpacker.append( bcFile.read(readSz) )
-               fileSizeLeft -= readSz
+         blockStartByte = bcFile.tell() + 80 # where to start reading BlockData
+         nextBlockStr = bcFile.read(nextBlockSize)
+         fileSizeLeft -= nextBlockSize+8
 
-
-         blockStartByte = bcFile.tell() - binUnpacker.getRemainingSize()
-         thisHeader = BlockHeader().unserialize( binUnpacker )
-         thisData   = []
-         if justHeaders:
-            afterHeaderPos = binUnpacker.getPosition()
-            binUnpacker.advance( nextBlockSize - 80 )
-         else:
-            thisData = BlockData().unserialize( binUnpacker )
+         thisHeader = BlockHeader().unserialize( nextBlockStr )
+         thisHeader.fileByteLoc = blockStartByte
+         txData    = []
+         thisTxList  = []
+         if not justHeaders:
+            txData = BlockData().unserialize( nextBlockStr[80:] )
+            thisHeader.numTx = txData.numTx
             
-         self.addBlockToMemoryPool(thisHeader, thisData, justHeaders)   
-         blkFilePos = int_to_binary(blockStartByte, widthBytes=8)
+         self.addBlockToMemoryPool(thisHeader, txData, justHeaders=justHeaders)   
          if i==0: 
             if not (magicBytes=='f9beb4d9' or magicBytes=='fabfb5da'):
                print 'File', bcfilename, 'is not a blockchain file!'
@@ -84,17 +82,17 @@ class BlockChain(object):
       assert(path.exists(headfilename))
       print 'Reading Headers file:', headfilename, '...'
       headFile = open(headfilename, 'r')
-      binData = BinaryUnpacker(headFile.read())
-      headFile.close()
 
       # 4 magic bytes at beginning, 80 bytes-per-header
       sizeHeaderFile = os.stat(headfilename).st_size
-      self.networkMagicBytes = binary_to_hex( binData.get(BINARY_CHUNK, 4) )
-      numBlocks = binary_to_int( binData.get(BINARY_CHUNK, 4) )
+
+      first8 = headFile.read(8)
+      self.networkMagicBytes = binary_to_hex( first8[:4] )
+      numBlocks = binary_to_int( first8[4:] )
       bytesPerHeader = (sizeHeaderFile-8)/numBlocks
 
       for i in range(numBlocks):
-         header = BlockHeader().unserializeWithExtra(binData)
+         header = BlockHeader().unserializeWithExtra( headFile.read(bytesPerHeader) )
          self.addBlockToMemoryPool(header, justHeaders=True)
          
       print 'Done reading headers file'
@@ -103,6 +101,7 @@ class BlockChain(object):
       print 'Bytes for each header:   ', bytesPerHeader, '(80 official bytes,', bytesPerHeader-80,' extra bytes)'
       print 'Headers are for network: ', ' '.join([self.networkMagicBytes[i:i+2] for i in range(0,8,2)])
 
+      headFile.close()
       return self
          
    def writeHeadersFile(self, headfilename):
@@ -152,7 +151,7 @@ class BlockChain(object):
          prevBlk = headers[thisBlk.prevBlkHash]
          thisBlk.sumDifficult = prevBlk.sumDifficult + thisBlk.getDifficulty()
          thisBlk.blkHeight    = prevBlk.blkHeight + 1
-         prevBlk.isOrphan = False
+         prevBlk.isMainChain = True
           
       thisBlk = headers[startNodeHash]
       return (thisBlk.blkHeight, thisBlk.sumDifficult)
@@ -180,7 +179,7 @@ class BlockChain(object):
       genBlk = headers[GENESIS_BLOCK_HASH]
       genBlk.blkHeight = 0
       genBlk.sumDifficult = 1.0
-      genBlk.isOrphan = False
+      genBlk.isMainChain = True
 
       # Now follow the chain back from every block in the memory pool
       for blkhash in headers.iterkeys():
@@ -200,7 +199,7 @@ class BlockChain(object):
       while not thisBlk.blkHeight==prevTopHeight:
          thisBlk = headers[thisBlk.prevBlkHash]
          thisBlk.nextBlkHash = nextHash   
-         thisBlk.isOrphan = False   
+         thisBlk.isMainChain = True
          nextHash = thisBlk.theHash
          
       return self.topBlockHash
@@ -214,17 +213,17 @@ class BlockChain(object):
       
 
 
-   def addBlockToMemoryPool(self, head, data=[], justHeaders=False):
-
-      headHash = hash256(head.serialize())
-      #print 'Adding block', binary_to_hex(headHash, endOut=BIGENDIAN), ' Diff = ', head.getDifficulty()
-      self.blockHeadersMap[headHash] = head
+   def addBlockToMemoryPool(self, head, data=[], itsHash=None, justHeaders=False):
+      if itsHash==None:
+         itsHash = hash256(head.serialize())
+      #print 'Adding block', binary_to_hex(itsHash, endOut=BIGENDIAN), ' Diff = ', head.getDifficulty()
+      self.blockHeadersMap[itsHash] = head
       if justHeaders:
          pass
       else:
          calcRoot = data.getMerkleRoot()
          assert(calcRoot == head.merkleRoot)
-         self.txHashListMap[headHash] = data.getTxHashList()
+         self.txHashListMap[itsHash] = data.getTxHashList()
          for i,tx in enumerate(data.txList):
             self.txDataMap[data.merkleTree[i]] = tx
 
@@ -245,6 +244,7 @@ class BlockChain(object):
       else:
          return None
 
+
    def getBlockByHash(self, txHash):
       # TODO:  Since we aren't storing the whole block in memory, we need 
       #        to reconstruct the block on the fly from the header and the
@@ -260,17 +260,19 @@ class BlockChain(object):
 
 
 
-class KeyStore(object):
-   class KeyData(object):
-      def __init__(self, addrStr, addrInt, privateInt):
-         self.secret = privateInt
+
+
+class ArmoryWallet(object):
+   def __init__(self, name='<no name>'):
+      self.name = name
+      self.addrDataMap = {}
+      self.fileList = []
+      self.remotes = []
+      self.isMine = []
       
 
-   def __init__(self):
-      self.addrMap = None
 
 
-class BitcoinAccount(object):
-   def __init__(self, name, addrFile, keyFile=None):
-      pass
-      
+
+
+
