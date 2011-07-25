@@ -18,6 +18,8 @@
 
 #define BinaryData (vector<uint8_t>)
 
+using namespace std;
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // This class doesn't hold actually block header data, it only holds pointers
@@ -133,11 +135,15 @@ private:
    // than copying a vector of 1MB chunks)
    list<BinaryData>                                   chunks_;
    vector<list<BinaryData>::iterator>                 chunkPtrs_;
+
    map<BinaryData, BlockHeaderPtr>                    headerMap_;
+   vector<map<BinaryData, BlockHeaderPtr>::iterator>  headersByHeight_;
+   vector<uint8_t*>                                   rawHeaderPtrs_;
    queue<uint8_t*>                                    deletedPtrs_;
-   vector<map<BinaryData, BlockHeaderPtr>::iterator>  blockChainIndex_;
-   uint32_t   nextHeaderIndex_;  
-   static BlockHeadersManager * theOnlyBHM_;
+   uint32_t                                           nextHeaderIndex_;  
+
+   static BlockHeadersManager *                       theOnlyBHM_;
+   static sha2                                        sha256_;
 
 
 private:
@@ -169,6 +175,64 @@ public:
       return (*theOnlyBHM_);
    }
 
+   // Get a blockheader based on its height on the main chain
+   BlockHeaderPtr getHeaderByHeight(int index)
+   {
+      if( index>=0 && index<(int)headersByHeight_.size())
+         return headersByHeight_[index]->second;
+   }
+
+   // The most common access method is to get a block by its hash
+   BlockHeaderPtr getHeaderByHash(BinaryData blkHash)
+   {
+      map<BinaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
+      if(it==headerMap_.end())
+         return BlockHeaderPtr(NULL);
+      else
+         return headerMap_[blkHash]->second;
+   }
+
+
+   // Add headers from a file that is serialized identically to the way
+   // we have laid it out in memory.  Return the number of bytes read
+   long importDataFromFile(std::string filename):
+   {
+      cout << "Reading block headers from file: " << filename.c_str() << endl;
+      ifstream is(filename.c_str(), ios::in | ios::binary);
+      is.seekg(0, ios::end);
+      long filesize = is.tellg();
+      is.seekg(0, ios::beg);
+      if(filesize % HEADER_SIZE != 0)
+         return - 1;
+      
+      // We'll need this information to do the indexing, later
+      uint8_t* firstHeaderPtr = getNextEmptyPtr();
+      int numHeadersToAdd = filesize / HEADER_SIZE;
+
+      int numHeadersLeft = numHeadersToAdd;
+      int numToCopy = nHeadersLeftInChunk();  // the first copy
+      while(numToCopy>0) 
+      {
+         cout << "\tCopying " << numHeadersLeft << " headers" << endl;
+         nBytes = numToCopy * HEADER_SIZE;
+         is.read( (char *)getNextEmptyPtr(), nBytes);
+         incrementHeaderIndex(numToCopy);
+         
+         numHeadersLeft -= numToCopy;
+         numToCopy = min(numHeadersLeft, HEADERS_PER_CHUNK);
+      }
+
+      cout << "Done reading headers, now indexing the new data." << endl;
+      // Now with all the data in memory, create BlockHeaderPtr objects
+      for( int i=0; i<numHeadersToAdd; i++)
+      {
+         // we'll come back to this
+      }
+
+      cout << "Done with everything!  " << filesize << " bytes read!" << endl;
+      return filesize;      
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    // We accommodate two different kinds of accesses:  
    //    (1) Someone supplies a chunk of header data, and we intelligently
@@ -182,23 +246,12 @@ public:
    //        
    /////////////////////////////////////////////////////////////////////////////
 
-   uint8_t* getNextEmptyPtr(void) const
-   { 
-      int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
-      int headerIndex = nextHeaderIndex_ % HEADERS_PER_CHUNK;
-      return &(chunks_[chunkIndex][0]) + HEADER_SIZE * headerIndex;
+
+   int nHeadersLeftInChunk(void)
+   {
+      return (HEADERS_PER_CHUNK - (nextHeaderIndex_ % HEADERS_PER_CHUNK));
    }
 
-   bool incrementHeaderIndex(int nIncr=1)
-   {
-      int oldChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
-      nextHeaderIndex_ += nIncr;
-      int newChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
-      // We return a indicator that we are in a different chunk than
-      // we started.  This may 
-      if(oldChunkIndex != newChunkIndex)
-         return false;
-   }
 
    void defrag(void)
    {
@@ -209,6 +262,7 @@ public:
    }
    
 
+private:
    // Add another chunk of 10,000 block headers to the global memory pool
    void addChunk(void)
    {
@@ -227,21 +281,30 @@ public:
          addChunk();
    }
 
-   BlockHeaderPtr getHeaderByIndex(int index)
+   static getHash(BinaryData blkHeaderIn, BinaryData & hashOut)
    {
-      if( index>=0 && index<(int)blockChainIndex_.size())
-         return blockChainIndex_[index]->second;
+      hashOut.resize(32);
+      string const & theHash = sha256_.GetHash(enuSHA256, &(blkHeaderIn[0]), HEADER_SIZE);
+      memcpy(&(hashOut[0]), theHash.c_str(), 32)
    }
 
-   BlockHeaderPtr getHeaderByHash(BinaryData blkHash)
-   {
-      map<BinaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
-      if(it==headerMap_.end())
-         return BlockHeaderPtr(NULL);
-      else
-         return headerMap_[blkHash]->second;
+   uint8_t* getNextEmptyPtr(void) const
+   { 
+      int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
+      int headerIndex = nextHeaderIndex_ % HEADERS_PER_CHUNK;
+      return &(chunks_[chunkIndex][0]) + HEADER_SIZE * headerIndex;
    }
 
+   bool incrementHeaderIndex(int nIncr=1)
+   {
+      int oldChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      nextHeaderIndex_ += nIncr;
+      int newChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      // We return a indicator that we are in a different chunk than
+      // we started.  This may 
+      if(oldChunkIndex != newChunkIndex)
+         return false;
+   }
    
 };
 
