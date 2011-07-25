@@ -36,12 +36,9 @@ public:
    uint32_t       getTimestamp(void)  { return *timestamp_;                              }
    BinaryData     getDiffBits(void)   { return  BinaryData(diffBits_, diffBits_+4);      }
    uint32_t       getNonce(void)      { return *nonce_;                                  }
-
-   BinaryData     getThisHash(void)   { return  thisHash_;   }
-   BinaryData     getNextHash(void)   { return  nextHash_;   }
-   uint32_t       getNumTx(void)      { return  numTx_;      }
-
-   bool           isInvalid(void)     { return  invalidBlockHeader_;   }
+   BinaryData     getThisHash(void)   { return  thisHash_;                               }
+   BinaryData     getNextHash(void)   { return  nextHash_;                               }
+   uint32_t       getNumTx(void)      { return  numTx_;                                  }
    
    void setVersion(uint32_t i)        { *version_ = i;                    }
    void setPrevHash(BinaryData str)   { memcpy(prevHash_, &str[0], 32);   }
@@ -49,13 +46,13 @@ public:
    void setTimestamp(uint32_t i)      { *timestamp_ = i;                  }
    void setDiffBits(BinaryData str)   { memcpy(diffBits_, &str[0], 4);    }
    void setNonce(uint32_t i)          { *nonce_ = i;                      }
-
-   void setNextHash(BinaryData str)   { memcpy(nextHash_, &str[0], 32); }
+   void setNextHash(BinaryData str)   { memcpy(nextHash_, &str[0], 32);   }
 
    BinaryData serialize(void) { return blockStart_; }
    void  unserialize(BinaryData strIn) { memcpy(blockStart_, &strIn[0], 80); }
+   bool isInvalid(void) { return (b.blockStart_==NULL) }
 
-   BlockHeaderPtr(BinaryData blkptr) :
+   BlockHeaderPtr(BinaryData blkptr=NULL) :
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
@@ -66,21 +63,17 @@ public:
       invalidBlockHeader_(false),
    {
       blockStart_ = blkptr;
-      version_    = (uint32_t*)(blockStart_ +  0);
-      prevHash_   =            (blockStart_ +  4);
-      merkleRoot_ =            (blockStart_ + 36);
-      timestamp_  = (uint32_t*)(blockStart_ + 68);
-      diffBits_   =            (blockStart_ + 72);
-      nonce_      = (uint32_t*)(blockStart_ + 76);
-
+      if(blkptr != NULL)
+      {
+         version_    = (uint32_t*)(blockStart_ +  0);
+         prevHash_   =            (blockStart_ +  4);
+         merkleRoot_ =            (blockStart_ + 36);
+         timestamp_  = (uint32_t*)(blockStart_ + 68);
+         diffBits_   =            (blockStart_ + 72);
+         nonce_      = (uint32_t*)(blockStart_ + 76);
+      }
    }
 
-   static BlockHeaderPtr InvalidHeaderObj(void)
-   {
-      BlockHeaderPtr b;
-      b.invalidBlockHeader_ = true;
-      return b;
-   }
 
 private:
    BinaryData blockStart_;
@@ -104,47 +97,64 @@ private:
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
-
-   bool           invalidBlockHeader_;
 };
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+//
+// The goal of this class is to create a memory pool in RAM that looks exactly
+// the same as the block-headers storage on disk.  There is no serialization
+// or unserialization, we just copy back and forth between disk and RAM, and 
+// we're done.  So it should be about as fast as theoretically possible, you 
+// are limited only by your disk I/O speed.
+//
+// This is more of a simple test, which will later be applied to the entire
+// blockchain.  If it works as expected, then this will potentially be useful
+// for the official BTC client which seems to have some speed problems at 
+// startup and shutdown.
+//
 // This class is a singleton -- there can only ever be one, accessed through
 // the static method GetInstance().  This method gets the single instantiation
 // of the BHM class, and then its public members can be used to access the 
 // block data that is sitting in memory.
+//
 class BlockHeadersManager
 {
 private:
    // We will store headers in chunks of 10,000 (800,000 bytes)
    // We will maintain a std::list of such chunks, so that we can
    // efficiently add more chunks as the number of headers increases
-   // If the target platform is memory-limited, then this will be
-   // easier than finding one huge chunk of contiguous memory
-   list<BinaryData> chunks_;
-   vector<list<BinaryData>::iterator> chunkPtrs_;
-
-   map<BinaryData, BlockHeaderPtr> headerMap_;
-   queue<
-   vector<map<BinaryData, BlockHeaderPtr>::iterator> blockChainIndex_;
-   uint8_t* nextEmptyPtr_;
-
+   //
+   // Note this is a linked list, but we simulatneously maintain a 
+   // list of pointers to these chunks so we can also access by
+   // index (copying a vector of pointers to expand it is a lot better
+   // than copying a vector of 1MB chunks)
+   list<BinaryData>                                   chunks_;
+   vector<list<BinaryData>::iterator>                 chunkPtrs_;
+   map<BinaryData, BlockHeaderPtr>                    headerMap_;
+   queue<uint8_t*>                                    deletedPtrs_;
+   vector<map<BinaryData, BlockHeaderPtr>::iterator>  blockChainIndex_;
+   uint32_t   nextHeaderIndex_;  
    static BlockHeadersManager * theOnlyBHM_;
 
 
 private:
    // Set the constructor to private so that only one can ever be created
    BlockHeadersManager(void) : 
-         data_(0), 
+         chunks_(0), 
+         chunkPtrs_(0), 
          headerMap_(0),
-         nextEmptyPtr_(NULL) {}
+         deletedPtrs_(0),
+         nHeaders_(0),
+         nextHeaderIndex_(0) 
+   {
+      addChunk();
+   }
 
-   uint8_t* getNextEmptyPtr(void) { return nextEmptyPtr_; }
-   
 public:
+
    // The only way to "create" a BHM is with this method, which creates it
    // if one doesn't exist yet, or returns a reference to the only one
    // that will ever exist
@@ -159,6 +169,46 @@ public:
       return (*theOnlyBHM_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // We accommodate two different kinds of accesses:  
+   //    (1) Someone supplies a chunk of header data, and we intelligently
+   //        copy it into the memory pool
+   //    (2) We provide a pointer to the next empty location, and let the
+   //        requestor copy data in, probably directly from a ifstream.read()
+   //        call. 
+   //
+   // Method (2) is UNSAFE, but may not actually be necessary, except for
+   // within this class for reading in files.  
+   //        
+   /////////////////////////////////////////////////////////////////////////////
+
+   uint8_t* getNextEmptyPtr(void) const
+   { 
+      int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
+      int headerIndex = nextHeaderIndex_ % HEADERS_PER_CHUNK;
+      return &(chunks_[chunkIndex][0]) + HEADER_SIZE * headerIndex;
+   }
+
+   bool incrementHeaderIndex(int nIncr=1)
+   {
+      int oldChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      nextHeaderIndex_ += nIncr;
+      int newChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      // We return a indicator that we are in a different chunk than
+      // we started.  This may 
+      if(oldChunkIndex != newChunkIndex)
+         return false;
+   }
+
+   void defrag(void)
+   {
+      // TODO:  Still need to write this.  Will move the headers at the
+      //        back of the list into spots previously occupied by other
+      //        block that were deleted.
+      //          
+   }
+   
+
    // Add another chunk of 10,000 block headers to the global memory pool
    void addChunk(void)
    {
@@ -171,7 +221,7 @@ public:
    // Bulk-allocate some space for a certain number of headers
    void allocate(int nHeaders):
    {
-      int prevNChunk = (int)data_.size();
+      int prevNChunk = (int)chunks_.size();
       int needNChunk = (nHeaders / HEADERS_PER_CHUNK) + 1;
       for(int i=prevNChunk+1; i<=needNChunk; i++)
          addChunk();
@@ -187,7 +237,7 @@ public:
    {
       map<BinaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
       if(it==headerMap_.end())
-         return BlockHeaderPtr::InvalidHeaderObj()
+         return BlockHeaderPtr(NULL);
       else
          return headerMap_[blkHash]->second;
    }

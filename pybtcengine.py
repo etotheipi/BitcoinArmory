@@ -559,7 +559,7 @@ class BtcAccount(object):
          return '\x00'
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
-         yBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
+         yBinBE = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
          return '\x01' + '\x04' + xBinBE + yBinBE
    def pubKey_unserialize(self, toUnpack):
       # Does not recompute addrStr
