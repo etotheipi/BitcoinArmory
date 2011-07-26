@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include <cstdint>
+#include <inttypes.h>
 #include <fstream>
 #include <vector>
 #include <queue>
@@ -16,9 +16,10 @@
 #define HEADERS_PER_CHUNK 10000
 #define BHM_CHUNK_SIZE    (HEADER_SIZE*HEADERS_PER_CHUNK)
 
-#define BinaryData (vector<uint8_t>)
 
 using namespace std;
+typedef vector<uint8_t> BinaryData;
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,9 +29,8 @@ using namespace std;
 // is the one we want.
 class BlockHeaderPtr
 {
-public: 
-   BlockHeaderPtr(void) { }
 
+public: 
 
    uint32_t       getVersion(void)    { return *version_;                                }
    BinaryData     getPrevHash(void)   { return  BinaryData(prevHash_, prevHash_+32);     }
@@ -42,27 +42,36 @@ public:
    BinaryData     getNextHash(void)   { return  nextHash_;                               }
    uint32_t       getNumTx(void)      { return  numTx_;                                  }
    
-   void setVersion(uint32_t i)        { *version_ = i;                    }
-   void setPrevHash(BinaryData str)   { memcpy(prevHash_, &str[0], 32);   }
-   void setMerkleRoot(BinaryData str) { memcpy(merkleRoot_, &str[0], 32); }
-   void setTimestamp(uint32_t i)      { *timestamp_ = i;                  }
-   void setDiffBits(BinaryData str)   { memcpy(diffBits_, &str[0], 4);    }
-   void setNonce(uint32_t i)          { *nonce_ = i;                      }
-   void setNextHash(BinaryData str)   { memcpy(nextHash_, &str[0], 32);   }
+   void setVersion(uint32_t i)        { *version_ = i;                           }
+   void setPrevHash(BinaryData str)   { memcpy(prevHash_, &str[0], 32);          }
+   void setMerkleRoot(BinaryData str) { memcpy(merkleRoot_, &str[0], 32);        }
+   void setTimestamp(uint32_t i)      { *timestamp_ = i;                         }
+   void setDiffBits(BinaryData str)   { memcpy(diffBits_, &str[0], 4);           }
+   void setNonce(uint32_t i)          { *nonce_ = i;                             }
+   void setNextHash(BinaryData str)   { memcpy( &(nextHash_[0]), &(str[0]), 32); }
 
-   BinaryData serialize(void) { return blockStart_; }
-   void  unserialize(BinaryData strIn) { memcpy(blockStart_, &strIn[0], 80); }
-   bool isInvalid(void) { return (b.blockStart_==NULL) }
+   //BinaryData serialize(void) 
+   //{ 
+      //BinaryData bdout(HEADER_SIZE);
+      //memcpy(&(bdout[0]), blockStart_, HEADER_SIZE);
+      //return BinaryData;
+   //}
 
-   BlockHeaderPtr(BinaryData blkptr=NULL) :
+   void  unserialize(BinaryData strIn) 
+   { 
+      memcpy(blockStart_, &strIn[0], HEADER_SIZE);
+   }
+
+   bool isInvalid(void) { return (blockStart_==NULL); }
+
+   BlockHeaderPtr(uint8_t* blkptr=NULL) :
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
       difficultyFlt_(0.0),
       difficultySum_(0.0),
       isMainBranch_(false),
-      isOrphan_(true),
-      invalidBlockHeader_(false),
+      isOrphan_(true)
    {
       blockStart_ = blkptr;
       if(blkptr != NULL)
@@ -78,7 +87,7 @@ public:
 
 
 private:
-   BinaryData blockStart_;
+   uint8_t* blockStart_;
 
    // All these pointers point to data managed by another class.
    // As such, it is unnecessary to deal with any memory mgmt. 
@@ -151,12 +160,10 @@ private:
    BlockHeadersManager(void) : 
          chunks_(0), 
          chunkPtrs_(0), 
-         headerMap_(0),
-         deletedPtrs_(0),
-         nHeaders_(0),
          nextHeaderIndex_(0) 
    {
       addChunk();
+      headerMap_.clear();
    }
 
 public:
@@ -189,13 +196,13 @@ public:
       if(it==headerMap_.end())
          return BlockHeaderPtr(NULL);
       else
-         return headerMap_[blkHash]->second;
+         return headerMap_[blkHash];
    }
 
 
    // Add headers from a file that is serialized identically to the way
    // we have laid it out in memory.  Return the number of bytes read
-   long importDataFromFile(std::string filename):
+   long importDataFromFile(std::string filename)
    {
       cout << "Reading block headers from file: " << filename.c_str() << endl;
       ifstream is(filename.c_str(), ios::in | ios::binary);
@@ -206,7 +213,6 @@ public:
          return - 1;
       
       // We'll need this information to do the indexing, later
-      uint8_t* firstHeaderPtr = getNextEmptyPtr();
       int numHeadersToAdd = filesize / HEADER_SIZE;
 
       int numHeadersLeft = numHeadersToAdd;
@@ -214,7 +220,7 @@ public:
       while(numToCopy>0) 
       {
          cout << "\tCopying " << numHeadersLeft << " headers" << endl;
-         nBytes = numToCopy * HEADER_SIZE;
+         int nBytes = numToCopy * HEADER_SIZE;
          is.read( (char *)getNextEmptyPtr(), nBytes);
          incrementHeaderIndex(numToCopy);
          
@@ -273,33 +279,34 @@ private:
    }
 
    // Bulk-allocate some space for a certain number of headers
-   void allocate(int nHeaders):
-   {
-      int prevNChunk = (int)chunks_.size();
-      int needNChunk = (nHeaders / HEADERS_PER_CHUNK) + 1;
-      for(int i=prevNChunk+1; i<=needNChunk; i++)
-         addChunk();
-   }
+   //void allocate(int nHeaders)
+   //{
+      //int prevNChunk = (int)chunks_.size();
+      //int needNChunk = (nHeaders / HEADERS_PER_CHUNK) + 1;
+      //for(int i=prevNChunk+1; i<=needNChunk; i++)
+         //addChunk();
+   //}
 
-   static getHash(BinaryData blkHeaderIn, BinaryData & hashOut)
+   static void getHash(BinaryData blkHeaderIn, BinaryData & hashOut)
    {
       hashOut.resize(32);
-      string const & theHash = sha256_.GetHash(enuSHA256, &(blkHeaderIn[0]), HEADER_SIZE);
-      memcpy(&(hashOut[0]), theHash.c_str(), 32)
+      string const & theHash = sha256_.GetHash(sha2::enuSHA256, &(blkHeaderIn[0]), HEADER_SIZE);
+      memcpy(&(hashOut[0]), theHash.c_str(), 32);
    }
 
    uint8_t* getNextEmptyPtr(void) const
    { 
       int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
       int headerIndex = nextHeaderIndex_ % HEADERS_PER_CHUNK;
-      return &(chunks_[chunkIndex][0]) + HEADER_SIZE * headerIndex;
+      BinaryData & chnkptr = *(chunkPtrs_[chunkIndex]);
+      return &(chnkptr[0]) + HEADER_SIZE * headerIndex;
    }
 
    bool incrementHeaderIndex(int nIncr=1)
    {
-      int oldChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      int oldChunkIndex = nextHeaderIndex_ / HEADERS_PER_CHUNK;
       nextHeaderIndex_ += nIncr;
-      int newChunkIndex = nHeaders_ / HEADERS_PER_CHUNK;
+      int newChunkIndex = nextHeaderIndex_ / HEADERS_PER_CHUNK;
       // We return a indicator that we are in a different chunk than
       // we started.  This may 
       if(oldChunkIndex != newChunkIndex)
