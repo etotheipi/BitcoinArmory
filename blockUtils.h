@@ -3,7 +3,7 @@
 
 #include <stdio.h>
 #include <iostream>
-#include <inttypes.h>
+#include <cstdint>
 #include <fstream>
 #include <vector>
 #include <queue>
