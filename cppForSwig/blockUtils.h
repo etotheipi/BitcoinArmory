@@ -10,6 +10,7 @@
 #include <list>
 #include <map>
 
+#include "binaryData.h"
 #include "sha2.h"
 
 #define HEADER_SIZE       80
@@ -18,7 +19,6 @@
 
 
 using namespace std;
-typedef vector<uint8_t> BinaryData;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -33,33 +33,33 @@ class BlockHeaderPtr
 public: 
 
    uint32_t       getVersion(void)    { return *version_;                                }
-   BinaryData     getPrevHash(void)   { return  BinaryData(prevHash_, prevHash_+32);     }
-   BinaryData     getMerkleRoot(void) { return  BinaryData(merkleRoot_, merkleRoot_+32); }
+   binaryData     getPrevHash(void)   { return  binaryData(prevHash_, prevHash_+32);     }
+   binaryData     getMerkleRoot(void) { return  binaryData(merkleRoot_, merkleRoot_+32); }
    uint32_t       getTimestamp(void)  { return *timestamp_;                              }
-   BinaryData     getDiffBits(void)   { return  BinaryData(diffBits_, diffBits_+4);      }
+   binaryData     getDiffBits(void)   { return  binaryData(diffBits_, diffBits_+4);      }
    uint32_t       getNonce(void)      { return *nonce_;                                  }
-   BinaryData     getThisHash(void)   { return  thisHash_;                               }
-   BinaryData     getNextHash(void)   { return  nextHash_;                               }
+   binaryData     getThisHash(void)   { return  thisHash_;                               }
+   binaryData     getNextHash(void)   { return  nextHash_;                               }
    uint32_t       getNumTx(void)      { return  numTx_;                                  }
    
    void setVersion(uint32_t i)        { *version_ = i;                           }
-   void setPrevHash(BinaryData str)   { memcpy(prevHash_, &str[0], 32);          }
-   void setMerkleRoot(BinaryData str) { memcpy(merkleRoot_, &str[0], 32);        }
+   void setPrevHash(binaryData str)   { str.copyTo(prevHash_, 32);               }
+   void setMerkleRoot(binaryData str) { str.copyTo(merkleRoot_, 32);             }
    void setTimestamp(uint32_t i)      { *timestamp_ = i;                         }
-   void setDiffBits(BinaryData str)   { memcpy(diffBits_, &str[0], 4);           }
+   void setDiffBits(binaryData str)   { str.copyTo(diffBits_, 4);                }
    void setNonce(uint32_t i)          { *nonce_ = i;                             }
-   void setNextHash(BinaryData str)   { memcpy( &(nextHash_[0]), &(str[0]), 32); }
+   void setNextHash(binaryData str)   { nextHash_.copyFrom(str);                 }
 
-   //BinaryData serialize(void) 
+   //binaryData serialize(void) 
    //{ 
-      //BinaryData bdout(HEADER_SIZE);
+      //binaryData bdout(HEADER_SIZE);
       //memcpy(&(bdout[0]), blockStart_, HEADER_SIZE);
-      //return BinaryData;
+      //return binaryData;
    //}
 
-   void  unserialize(BinaryData strIn) 
+   void  unserialize(binaryData strIn) 
    { 
-      memcpy(blockStart_, &strIn[0], HEADER_SIZE);
+      memcpy(blockStart_, strIn.getConstPtr(), HEADER_SIZE);
    }
 
    bool isInvalid(void) { return (blockStart_==NULL); }
@@ -101,8 +101,8 @@ private:
    // Some more data types to be stored with the header, but not
    // part of the official serialized header data, so these are
    // actual members of the BlockHeaderPtr.
-   BinaryData     thisHash_;
-   BinaryData     nextHash_;
+   binaryData     thisHash_;
+   binaryData     nextHash_;
    uint32_t       numTx_;
    double         difficultyFlt_;
    double         difficultySum_;
@@ -142,11 +142,11 @@ private:
    // list of pointers to these chunks so we can also access by
    // index (copying a vector of pointers to expand it is a lot better
    // than copying a vector of 1MB chunks)
-   list<BinaryData>                                   chunks_;
-   vector<list<BinaryData>::iterator>                 chunkPtrs_;
+   list<binaryData>                                   chunks_;
+   vector<list<binaryData>::iterator>                 chunkPtrs_;
 
-   map<BinaryData, BlockHeaderPtr>                    headerMap_;
-   vector<map<BinaryData, BlockHeaderPtr>::iterator>  headersByHeight_;
+   map<binaryData, BlockHeaderPtr>                    headerMap_;
+   vector<map<binaryData, BlockHeaderPtr>::iterator>  headersByHeight_;
    vector<uint8_t*>                                   rawHeaderPtrs_;
    queue<uint8_t*>                                    deletedPtrs_;
    uint32_t                                           nextHeaderIndex_;  
@@ -177,7 +177,7 @@ public:
       if( !bhmCreatedYet_ )
       {
          theOnlyBHM_ = new BlockHeadersManager;
-         bhmCreatedYet_ = false;
+         bhmCreatedYet_ = true;
       }
       return (*theOnlyBHM_);
    }
@@ -190,9 +190,9 @@ public:
    }
 
    // The most common access method is to get a block by its hash
-   BlockHeaderPtr getHeaderByHash(BinaryData blkHash)
+   BlockHeaderPtr getHeaderByHash(binaryData blkHash)
    {
-      map<BinaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
+      map<binaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
       if(it==headerMap_.end())
          return BlockHeaderPtr(NULL);
       else
@@ -207,14 +207,17 @@ public:
       cout << "Reading block headers from file: " << filename.c_str() << endl;
       ifstream is(filename.c_str(), ios::in | ios::binary);
       is.seekg(0, ios::end);
-      long filesize = is.tellg();
+      size_t filesize = (size_t)is.tellg();
       is.seekg(0, ios::beg);
-      if(filesize % HEADER_SIZE != 0)
-         return - 1;
+      if((int)filesize % HEADER_SIZE != 0)
+         return -1;
       
       // We'll need this information to do the indexing, later
-      int numHeadersToAdd = filesize / HEADER_SIZE;
+      int numHeadersBefore = nextHeaderIndex_;
+      int numHeadersToAdd  = filesize / HEADER_SIZE;
+      int numHeadersTotal  = numHeadersBefore+numHeadersToAdd;
 
+      allocate(numHeadersBefore + numHeadersToAdd);
       int numHeadersLeft = numHeadersToAdd;
       int numToCopy = nHeadersLeftInChunk();  // the first copy
       while(numToCopy>0) 
@@ -230,13 +233,32 @@ public:
 
       cout << "Done reading headers, now indexing the new data." << endl;
       // Now with all the data in memory, create BlockHeaderPtr objects
-      for( int i=0; i<numHeadersToAdd; i++)
+      rawHeaderPtrs_.resize(numHeadersTotal);
+      for( int i=numHeadersBefore; i<numHeadersTotal; i++)
       {
          // we'll come back to this
+         int chunkIndex  = i / HEADERS_PER_CHUNK;
+         int headerIndex = i % HEADERS_PER_CHUNK;
+         binaryData & chnkptr = *(chunkPtrs_[chunkIndex]);
+         uint8_t* thisHeaderPtr = chnkptr.getPtr() + (HEADER_SIZE * i);
+         rawHeaderPtrs_[i] = thisHeaderPtr;
+
+         //binaryData theHash(32);
+         //getHash( thisHeaderPtr, theHash );
+         //headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
+
       }
 
       cout << "Done with everything!  " << filesize << " bytes read!" << endl;
       return filesize;      
+   }
+
+   void addHeader(binaryData const & binHeader)
+   {
+      incrementHeaderIndex();
+      uint8_t* newHeaderLoc = getNextEmptyPtr();
+      rawHeaderPtrs_.push_back(newHeaderLoc);
+      binHeader.copyTo(newHeaderLoc, HEADER_SIZE);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -268,38 +290,39 @@ public:
    }
    
 
+   static void getHash(uint8_t* blockStart, binaryData & hashOut)
+   {
+      hashOut.resize(32);
+      string const & theHash = sha256_.GetHash(sha2::enuSHA256, blockStart, HEADER_SIZE);
+      hashOut.copyFrom(theHash);
+   }
+
 private:
    // Add another chunk of 10,000 block headers to the global memory pool
    void addChunk(void)
    {
-      chunks_.push_back(BinaryData(BHM_CHUNK_SIZE));
-      list<BinaryData>::iterator iter = chunks_.end();
+      chunks_.push_back(binaryData(BHM_CHUNK_SIZE));
+      list<binaryData>::iterator iter = chunks_.end();
       iter--;
       chunkPtrs_.push_back(iter);
    }
 
    // Bulk-allocate some space for a certain number of headers
-   //void allocate(int nHeaders)
-   //{
-      //int prevNChunk = (int)chunks_.size();
-      //int needNChunk = (nHeaders / HEADERS_PER_CHUNK) + 1;
-      //for(int i=prevNChunk+1; i<=needNChunk; i++)
-         //addChunk();
-   //}
-
-   static void getHash(BinaryData blkHeaderIn, BinaryData & hashOut)
+   void allocate(int nHeaders)
    {
-      hashOut.resize(32);
-      string const & theHash = sha256_.GetHash(sha2::enuSHA256, &(blkHeaderIn[0]), HEADER_SIZE);
-      memcpy(&(hashOut[0]), theHash.c_str(), 32);
+      int prevNChunk = (int)chunks_.size();
+      int needNChunk = (nHeaders / HEADERS_PER_CHUNK) + 1;
+      for(int i=prevNChunk+1; i<=needNChunk; i++)
+         addChunk();
    }
+
 
    uint8_t* getNextEmptyPtr(void) const
    { 
       int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
       int headerIndex = nextHeaderIndex_ % HEADERS_PER_CHUNK;
-      BinaryData & chnkptr = *(chunkPtrs_[chunkIndex]);
-      return &(chnkptr[0]) + HEADER_SIZE * headerIndex;
+      binaryData & chnkptr = *(chunkPtrs_[chunkIndex]);
+      return chnkptr.getPtr() + (HEADER_SIZE * headerIndex);
    }
 
    bool incrementHeaderIndex(int nIncr=1)
@@ -310,7 +333,8 @@ private:
       // We return a indicator that we are in a different chunk than
       // we started.  This may 
       if(oldChunkIndex != newChunkIndex)
-         return false;
+         return true;
+      return false;
    }
    
 };
