@@ -11,7 +11,10 @@
 #include <map>
 
 #include "binaryData.h"
-#include "sha2.h"
+
+#include "cryptlib.h"
+#include "sha.h"
+
 
 #define HEADER_SIZE       80
 #define HEADERS_PER_CHUNK 10000
@@ -65,6 +68,7 @@ public:
    bool isInvalid(void) { return (blockStart_==NULL); }
 
    BlockHeaderPtr(uint8_t* blkptr=NULL) :
+      blockStart_(blkptr),
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
@@ -73,7 +77,6 @@ public:
       isMainBranch_(false),
       isOrphan_(true)
    {
-      blockStart_ = blkptr;
       if(blkptr != NULL)
       {
          version_    = (uint32_t*)(blockStart_ +  0);
@@ -152,7 +155,7 @@ private:
    uint32_t                                           nextHeaderIndex_;  
 
    static BlockHeadersManager *                       theOnlyBHM_;
-   static sha2                                        sha256_;
+   static CryptoPP::SHA256                            sha256_;
 
 
 private:
@@ -224,7 +227,8 @@ public:
       {
          cout << "\tCopying " << numHeadersLeft << " headers" << endl;
          int nBytes = numToCopy * HEADER_SIZE;
-         is.read( (char *)getNextEmptyPtr(), nBytes);
+         uint8_t* nextCopyPtr = getNextEmptyPtr();
+         is.read( (char *)nextCopyPtr, nBytes);
          incrementHeaderIndex(numToCopy);
          
          numHeadersLeft -= numToCopy;
@@ -234,17 +238,18 @@ public:
       cout << "Done reading headers, now indexing the new data." << endl;
       // Now with all the data in memory, create BlockHeaderPtr objects
       rawHeaderPtrs_.resize(numHeadersTotal);
+      binaryData theHash(32);
       for( int i=numHeadersBefore; i<numHeadersTotal; i++)
       {
          // we'll come back to this
          int chunkIndex  = i / HEADERS_PER_CHUNK;
          int headerIndex = i % HEADERS_PER_CHUNK;
          binaryData & chnkptr = *(chunkPtrs_[chunkIndex]);
-         uint8_t* thisHeaderPtr = chnkptr.getPtr() + (HEADER_SIZE * i);
+         uint8_t* thisHeaderPtr = chnkptr.getPtr() + (HEADER_SIZE * headerIndex);
          rawHeaderPtrs_[i] = thisHeaderPtr;
 
-         //binaryData theHash(32);
-         //getHash( thisHeaderPtr, theHash );
+         getHash( thisHeaderPtr, theHash);
+         cout << theHash.toHex().c_str() << "  " << i << endl;
          //headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
 
       }
@@ -292,9 +297,10 @@ public:
 
    static void getHash(uint8_t* blockStart, binaryData & hashOut)
    {
-      hashOut.resize(32);
-      string const & theHash = sha256_.GetHash(sha2::enuSHA256, blockStart, HEADER_SIZE);
-      hashOut.copyFrom(theHash);
+      if(hashOut.getSize() != 32)
+         hashOut.resize(32);
+      sha256_.CalculateDigest(hashOut.getPtr(), blockStart, HEADER_SIZE);
+      sha256_.CalculateDigest(hashOut.getPtr(), hashOut.getPtr(), 32);
    }
 
 private:

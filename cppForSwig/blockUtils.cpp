@@ -1,5 +1,9 @@
 #include "blockUtils.h"
 
 
+
 BlockHeadersManager* BlockHeadersManager::theOnlyBHM_ = NULL;
-sha2 BlockHeadersManager::sha256_ = sha2();
+
+CryptoPP::SHA256 BlockHeadersManager::sha256_ = CryptoPP::SHA256();
+
+

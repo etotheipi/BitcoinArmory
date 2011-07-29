@@ -63,7 +63,7 @@ public:
    void resize(size_t sz) { data_.resize(sz); nBytes_ = sz;}
 
    // Swap endianness of the bytes in the index range [pos1, pos2)
-   void swapEndianness(size_t pos1=0, size_t pos2=0)
+   binaryData& swapEndian(size_t pos1=0, size_t pos2=0)
    {
       if(pos2 <= pos1)
          pos2 = nBytes_;
@@ -72,9 +72,10 @@ public:
       for(size_t i=0; i<(totalBytes/2); i++)
       {
          uint8_t d1    = data_[pos1+i];
-         data_[pos1+i] = data_[pos2-i];
-         data_[pos2-i] = d1;
+         data_[pos1+i] = data_[pos2-(i+1)];
+         data_[pos2-(i+1)] = d1;
       }
+      return (*this);
    }
 
    string toHex(void)
