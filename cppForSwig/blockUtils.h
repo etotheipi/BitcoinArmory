@@ -3,7 +3,13 @@
 
 #include <stdio.h>
 #include <iostream>
-#include <cstdint>
+#ifdef WIN32
+   #include <cstdint>
+#else
+   #include <stdlib.h>
+   #include <inttypes.h>
+   #include <cstring>
+#endif
 #include <fstream>
 #include <vector>
 #include <queue>
@@ -212,7 +218,9 @@ public:
       is.seekg(0, ios::end);
       size_t filesize = (size_t)is.tellg();
       is.seekg(0, ios::beg);
-      if((int)filesize % HEADER_SIZE != 0)
+      cout << filename.c_str() << " is " << filesize << " bytes" << endl;
+      if((unsigned int)filesize % HEADER_SIZE != 0)
+         cout << "filesize=" << filesize << " is not a multiple of header size!" << endl;
          return -1;
       
       // We'll need this information to do the indexing, later

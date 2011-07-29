@@ -29,7 +29,7 @@ int main(void)
    BlockHeadersManager::getHash(genBlock.getPtr(), theHash);
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 
-   bhm.importDataFromFile("../blkheaders.dat");
+   bhm.importDataFromFile("../blkHeaders.dat");
 
 
 }

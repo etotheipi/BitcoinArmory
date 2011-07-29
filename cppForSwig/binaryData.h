@@ -2,7 +2,13 @@
 #define _binaryData_H_
 
 #include <stdio.h>
-#include <cstdint>
+#ifdef WIN32
+   #include <cstdint>
+#else
+   #include <stdlib.h>
+   #include <inttypes.h>   
+   #include <cstring>
+#endif
 #include <iostream>
 #include <vector>
 #include <string>
@@ -44,16 +50,35 @@ public:
 
    bool operator<(binaryData const & bd2) const
    {
-      return (toString().compare(bd2.toString()) < 0);
+      int minLen = min(nBytes_, bd2.nBytes_);
+      for(int i=0; i<minLen; i++)
+      {
+         if( data_[i] == bd2.data_[i] )
+            continue;
+         return data_[i] < bd2.data_[i];
+      }
+      return (nBytes_ < bd2.nBytes_);
    }
    bool operator==(binaryData const & bd2) const
    {
-      return (toString().compare(bd2.toString()) == 0);
+      if(nBytes_ != bd2.nBytes_)
+         return false;
+      for(unsigned int i=0; i<nBytes_; i++)
+         if( data_[i] != bd2.data_[i] )
+            return false;
+      return true;
    }
 
    bool operator>(binaryData const & bd2) const
    {
-      return (toString().compare(bd2.toString()) > 0);
+      int minLen = min(nBytes_, bd2.nBytes_);
+      for(int i=0; i<minLen; i++)
+      {
+         if( data_[i] == bd2.data_[i] )
+            continue;
+         return data_[i] > bd2.data_[i];
+      }
+      return (nBytes_ > bd2.nBytes_);
    }
 
    // These are always memory-safe
@@ -99,13 +124,13 @@ public:
       static uint8_t binLookupTable[256] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0a, 0x0b, 0x0c, 0x0d, 0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
       assert(str.size()%2 == 0);
-      size_t newLen = str.size() / 2;
+      int newLen = str.size() / 2;
       alloc(newLen);
 
-      for( size_t i=0; i<newLen; i++)
+      for(int i=0; i<newLen; i++)
       {
-         uint8_t char1 = binLookupTable[ str[2*i  ] ];
-         uint8_t char2 = binLookupTable[ str[2*i+1] ];
+         uint8_t char1 = binLookupTable[ (uint8_t)str[2*i  ] ];
+         uint8_t char2 = binLookupTable[ (uint8_t)str[2*i+1] ];
          data_[i] = (char1 << 4) | char2;
       }
    }
@@ -118,11 +143,8 @@ private:
 private:
    void alloc(size_t sz)
    {
-      if(nBytes_ != sz)
-      {
-         data_ = vector<uint8_t>(sz);
-         nBytes_ = sz;
-      }
+      data_ = vector<uint8_t>(sz);
+      nBytes_ = sz;
    }
 
 };
