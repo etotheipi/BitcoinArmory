@@ -177,6 +177,7 @@ private:
 
 public:
 
+   /////////////////////////////////////////////////////////////////////////////
    // The only way to "create" a BHM is with this method, which creates it
    // if one doesn't exist yet, or returns a reference to the only one
    // that will ever exist
@@ -191,6 +192,7 @@ public:
       return (*theOnlyBHM_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
    BlockHeaderPtr getHeaderByHeight(int index)
    {
@@ -198,6 +200,7 @@ public:
          return headersByHeight_[index]->second;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    // The most common access method is to get a block by its hash
    BlockHeaderPtr getHeaderByHash(binaryData blkHash)
    {
@@ -209,6 +212,7 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    // Add headers from a file that is serialized identically to the way
    // we have laid it out in memory.  Return the number of bytes read
    uint64_t importHeadersFromHeaderFile(std::string filename)
@@ -250,6 +254,7 @@ public:
 
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void createHeaderIndex(int headerIdx0=0, int headerIdx1=nextHeaderIndex_)
    {
       cout << "Done reading headers, now indexing the new data." << endl;
@@ -271,48 +276,83 @@ public:
       }
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    uint64_t importHeadersFromBlockFile(std::string filename)
    {
       binaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
       
+      bool readHead   = false;
+      bool readVarInt = false;
+      bool readTxData = false;
+      uint64_t varLength;
+
+      // While there is still data left in the stream (file), pull it
       while(bsb.streamPull())
       {
-         while(bsb.getBufferSizeRemaining() > 1
-         
-         
+         // Data has been pulled into the buffer, process all of it
+         while(bsb.getBufferSizeRemaining() > 1)
+         {
+             
+            // If we haven't read the header yet, do it
+            if( !readHead )
+            {
+               if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
+                  break;
+               bsb.reader().get_binaryData(getNextEmptyPtr(), HEADER_SIZE);
+               incrementHeaderIndex();
+               readHead = true;
+            }
+
+            // If we haven't read the blockdata-size yet, do it
+            if( !readVarInt )
+            {
+               if(bsb.getBufferSizeRemaining()ufSizeLeft < 9)
+                  break;
+               varLength = bsb.reader().get_var_int();
+               readVarInt = true;
+            }
+
+            // If we haven't read/skipped the blockdata yet, do it
+            if( !readTxData )
+            {
+               if(bsb.getBufferSizeRemaining()ufSizeLeft < varLength)
+                  break;
+               // Here we are only reading headers, so we advance
+               bsb.reader().advance(varLength);
+               readTxData = true;
+            }
+
+            // If necessary, add txData
+            // ...pass...
+            
+            bool readHead   = false;
+            bool readVarInt = false;
+            bool readTxData = false;
+         }
       }
       
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Not sure exactly when this would get used...
    void addHeader(binaryData const & binHeader)
    {
-      incrementHeaderIndex();
       uint8_t* newHeaderLoc = getNextEmptyPtr();
       rawHeaderPtrs_.push_back(newHeaderLoc);
       binHeader.copyTo(newHeaderLoc, HEADER_SIZE);
+      incrementHeaderIndex();
    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   // We accommodate two different kinds of accesses:  
-   //    (1) Someone supplies a chunk of header data, and we intelligently
-   //        copy it into the memory pool
-   //    (2) We provide a pointer to the next empty location, and let the
-   //        requestor copy data in, probably directly from a ifstream.read()
-   //        call. 
-   //
-   // Method (2) is UNSAFE, but may not actually be necessary, except for
-   // within this class for reading in files.  
-   //        
-   /////////////////////////////////////////////////////////////////////////////
 
-
+   /////////////////////////////////////////////////////////////////////////////
    int nHeadersLeftInChunk(void)
    {
       return (HEADERS_PER_CHUNK - (nextHeaderIndex_ % HEADERS_PER_CHUNK));
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    void defrag(void)
    {
       // TODO:  Still need to write this.  Will move the headers at the
@@ -322,6 +362,7 @@ public:
    }
    
 
+   /////////////////////////////////////////////////////////////////////////////
    static void getHash(uint8_t* blockStart, binaryData & hashOut)
    {
       if(hashOut.getSize() != 32)
@@ -331,6 +372,8 @@ public:
    }
 
 private:
+
+   /////////////////////////////////////////////////////////////////////////////
    // Add another chunk of 10,000 block headers to the global memory pool
    void addChunk(void)
    {
@@ -340,6 +383,7 @@ private:
       chunkPtrs_.push_back(iter);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    // Bulk-allocate some space for a certain number of headers
    void allocate(int nHeaders)
    {
@@ -350,6 +394,7 @@ private:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    uint8_t* getNextEmptyPtr(void) const
    { 
       int chunkIndex  = nextHeaderIndex_ / HEADERS_PER_CHUNK;
@@ -358,6 +403,7 @@ private:
       return chnkptr.getPtr() + (HEADER_SIZE * headerIndex);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    bool incrementHeaderIndex(int nIncr=1)
    {
       int oldChunkIndex = nextHeaderIndex_ / HEADERS_PER_CHUNK;

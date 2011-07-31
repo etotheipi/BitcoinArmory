@@ -40,11 +40,11 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
-   void copyFrom(uint8_t const * inData) { memcpy( &(data_[0]), inData, (size_t)nBytes_); }
-   void copyFrom(uint8_t const * inData, size_t sz) { alloc(sz); memcpy( &(data_[0]), inData, nBytes_); }
-   void copyFrom(uint8_t const * start, uint8_t const * end) { copyFrom( start, (end-start)); }
-   void copyFrom(string const & str) { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
-   void copyFrom(binaryData const & bd) { copyFrom( bd.getConstPtr(), bd.getSize() ); }
+   void copyFrom(uint8_t const * inData)                     { memcpy( &(data_[0]), inData, (size_t)nBytes_); }
+   void copyFrom(uint8_t const * inData, size_t sz)          { if(sz!=nBytes_) alloc(sz); memcpy( &(data_[0]), inData, sz); }
+   void copyFrom(uint8_t const * start, uint8_t const * end) { copyFrom( start, (end-start)); }  // [start, end)
+   void copyFrom(string const & str)                         { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
+   void copyFrom(binaryData const & bd)                      { copyFrom( bd.getConstPtr(), bd.getSize() ); }
 
    /////////////////////////////////////////////////////////////////////////////
    // UNSAFE -- you don't know if outData holds enough space for this
@@ -183,7 +183,6 @@ class binaryReader
 {
 public:
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    binaryReader(binaryData const & toRead) :
       bdStr_(toRead),
       totalSize_(toRead.getSize()),
@@ -193,7 +192,6 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    void advance(uint32_t nBytes) 
    { 
       pos_ += nBytes;  
@@ -201,14 +199,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    void rewind(uint32_t nBytes) 
    { 
       pos_ -= nBytes;  
       pos_ = max(pos_, 0);
    }
 
-   /////////////////////////////////////////////////////////////////////////////
    /////////////////////////////////////////////////////////////////////////////
    void resize(uint32_t nBytes)
    {
@@ -217,7 +213,6 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    uint64_t get_var_int(uint8_t* nRead=NULL)
    {
       uint8_t firstByte = bdStr_[pos_];
@@ -251,7 +246,6 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    uint8_t get_uint8_t(void)
    {
       uint8_t outVal = bdStr_[pos];
@@ -259,7 +253,7 @@ public:
       return outVal;
    }
 
-   ////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////////////////////////
    uint16_t get_uint16_t(void)
    {
       uint16_t outVal = *(uint16_t*)(bdStr_.getPtr())
@@ -267,7 +261,6 @@ public:
       return outVal;
    }
 
-   ////////////////////////////////////////////////////////
    /////////////////////////////////////////////////////////////////////////////
    uint32_t get_uint32_t(void)
    {
@@ -291,6 +284,13 @@ public:
       pos_ += nBytes;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void get_binaryData(uint8_t* targPtr, uint32_t nBytes)
+   {
+      bdStr_.copyTo(targPtr, nBytes);
+      pos_ += nBytes;
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // Take the remaining buffer and shift it to the front
@@ -299,12 +299,12 @@ public:
    //                                      
    //  Before:                             pos
    //                                       |
-   //                                       v
+   //                                       V
    //             [ a b c d e f g h i j k l m n o p q r s t]
    //
    //  After:      pos           return*
    //               |               |
-   //               v               v
+   //               V               V
    //             [ m n o p q r s t - - - - - - - - - - - -]
    //                                 
    //
@@ -322,7 +322,6 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   ////////////////////////////////////////////////////////
    void     resetPosition(void)           { pos_ = 0; }
    uint32_t getPosition(void) const       { return pos_; }
    uint32_t getSize(void) const           { return totalSize_; }
@@ -426,14 +425,14 @@ public:
       }
       else
       {
-         // The buffer is bigger than the remaining stream size
+         // The buffer needs to be refilled but has leftover data at the end
          pair<uint8_t*, int> leftover = binReader_.rotateRemaining();
          uint8_t* putNewDataPtr = leftover.first;
          uint32_t numBytes      = leftover.second;
 
          if(fileBytesRemaining_ > numBytes)
          {
-            // Enough left in the stream to fill the entire buffer
+            // Enough data left in the stream to fill the entire buffer
             streamPtr_->read(putNewDataPtr, numBytes);
             fileBytesRemaining_ -= numBytes;
          }
@@ -462,7 +461,6 @@ public:
 private:
 
    binaryReader binReader_;
-
    istream* streamPtr_;
    bool     weOwnTheStream_;
    uint32_t bufferSize_;
