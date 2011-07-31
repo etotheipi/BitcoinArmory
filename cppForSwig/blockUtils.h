@@ -23,7 +23,7 @@
 
 
 #define HEADER_SIZE       80
-#define HEADERS_PER_CHUNK 10000
+#define HEADERS_PER_CHUNK 25000
 #define BHM_CHUNK_SIZE    (HEADER_SIZE*HEADERS_PER_CHUNK)
 
 
@@ -211,7 +211,7 @@ public:
 
    // Add headers from a file that is serialized identically to the way
    // we have laid it out in memory.  Return the number of bytes read
-   long importDataFromFile(std::string filename)
+   uint64_t importHeadersFromHeaderFile(std::string filename)
    {
       cout << "Reading block headers from file: " << filename.c_str() << endl;
       ifstream is(filename.c_str(), ios::in | ios::binary);
@@ -220,8 +220,10 @@ public:
       is.seekg(0, ios::beg);
       cout << filename.c_str() << " is " << filesize << " bytes" << endl;
       if((unsigned int)filesize % HEADER_SIZE != 0)
+      {
          cout << "filesize=" << filesize << " is not a multiple of header size!" << endl;
          return -1;
+      }
       
       // We'll need this information to do the indexing, later
       int numHeadersBefore = nextHeaderIndex_;
@@ -243,11 +245,18 @@ public:
          numToCopy = min(numHeadersLeft, HEADERS_PER_CHUNK);
       }
 
+      cout << "Done with everything!  " << filesize << " bytes read!" << endl;
+      return filesize;      
+
+   }
+
+   void createHeaderIndex(int headerIdx0=0, int headerIdx1=nextHeaderIndex_)
+   {
       cout << "Done reading headers, now indexing the new data." << endl;
       // Now with all the data in memory, create BlockHeaderPtr objects
-      rawHeaderPtrs_.resize(numHeadersTotal);
+      rawHeaderPtrs_.resize(nextHeaderIndex_);
       binaryData theHash(32);
-      for( int i=numHeadersBefore; i<numHeadersTotal; i++)
+      for( int i=headerIdx0; i<headerIdx1; i++)
       {
          // we'll come back to this
          int chunkIndex  = i / HEADERS_PER_CHUNK;
@@ -257,14 +266,24 @@ public:
          rawHeaderPtrs_[i] = thisHeaderPtr;
 
          getHash( thisHeaderPtr, theHash);
-         cout << theHash.toHex().c_str() << "  " << i << endl;
-         //headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
-
+         //cout << theHash.toHex().c_str() << "  " << i << endl;
+         headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
       }
-
-      cout << "Done with everything!  " << filesize << " bytes read!" << endl;
-      return filesize;      
    }
+
+   uint64_t importHeadersFromBlockFile(std::string filename)
+   {
+      binaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
+      
+      while(bsb.streamPull())
+      {
+         while(bsb.getBufferSizeRemaining() > 1
+         
+         
+      }
+      
+   }
+
 
    void addHeader(binaryData const & binHeader)
    {

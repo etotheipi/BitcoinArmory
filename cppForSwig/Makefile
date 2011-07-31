@@ -1,6 +1,6 @@
 COMPILER = g++ 
-COMPILER_OPTS = -c -g -Wall
-#COMPILER_OPTS = -c -march=native -O2 -pipe
+#COMPILER_OPTS = -c -g -Wall
+COMPILER_OPTS = -c -march=native -O2 -pipe
 
 
 LINKER = g++ 
