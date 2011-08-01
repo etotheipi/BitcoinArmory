@@ -27,6 +27,13 @@
 #define BHM_CHUNK_SIZE    (HEADER_SIZE*HEADERS_PER_CHUNK)
 
 
+//#ifdef MAIN_NETWORK
+   #define MAGICBYTES "f9beb4d9"
+//#else
+//#define MAGICBYTES "fabfb5da"
+//#endif
+
+
 using namespace std;
 
 
@@ -255,8 +262,11 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void createHeaderIndex(int headerIdx0=0, int headerIdx1=nextHeaderIndex_)
+   void indexHeaders(int headerIdx0=0, int headerIdx1=0)
    {
+      if(headerIdx1 <= headerIdx0)
+         headerIdx1 = nextHeaderIndex_;
+
       cout << "Done reading headers, now indexing the new data." << endl;
       // Now with all the data in memory, create BlockHeaderPtr objects
       rawHeaderPtrs_.resize(nextHeaderIndex_);
@@ -277,14 +287,18 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t importHeadersFromBlockFile(std::string filename)
+   uint32_t importHeadersFromBlockFile(std::string filename)
    {
       binaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
       
-      bool readHead   = false;
+      bool readMagic  = false;
       bool readVarInt = false;
-      bool readTxData = false;
-      uint64_t varLength;
+      bool readBlock  = false;
+      uint32_t numBlockBytes;
+
+      binaryData magicStr;
+      magicStr.createFromHex(MAGICBYTES);
+      binaryData magicBucket(4);
 
       // While there is still data left in the stream (file), pull it
       while(bsb.streamPull())
@@ -292,45 +306,55 @@ public:
          // Data has been pulled into the buffer, process all of it
          while(bsb.getBufferSizeRemaining() > 1)
          {
-             
-            // If we haven't read the header yet, do it
-            if( !readHead )
+
+            // The first four bytes are always the magic bytes
+            if( !readMagic )
             {
-               if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
+               if(bsb.getBufferSizeRemaining() < 4)
                   break;
-               bsb.reader().get_binaryData(getNextEmptyPtr(), HEADER_SIZE);
-               incrementHeaderIndex();
-               readHead = true;
+               bsb.reader().get_binaryData(magicBucket, 4);
+               if( !(magicBucket == magicStr) )
+               {
+                  cerr << "Magic string does not match network!" << endl;
+                  cerr << "\tExpected: " << MAGICBYTES << endl;
+                  cerr << "\tReceived: " << magicBucket.toHex() << endl;
+               }
+               readMagic = true;
             }
 
             // If we haven't read the blockdata-size yet, do it
             if( !readVarInt )
             {
-               if(bsb.getBufferSizeRemaining()ufSizeLeft < 9)
+               // TODO:  Whoops, this isn't a VAR_INT, just a 4-byte num
+               if(bsb.getBufferSizeRemaining() < 4)
                   break;
-               varLength = bsb.reader().get_var_int();
+               numBlockBytes = bsb.reader().get_uint32_t();
                readVarInt = true;
             }
 
-            // If we haven't read/skipped the blockdata yet, do it
-            if( !readTxData )
+
+            // If we haven't read the header yet, do it
+            if( !readBlock )
             {
-               if(bsb.getBufferSizeRemaining()ufSizeLeft < varLength)
+               if(bsb.getBufferSizeRemaining() < numBlockBytes)
                   break;
-               // Here we are only reading headers, so we advance
-               bsb.reader().advance(varLength);
-               readTxData = true;
+
+               bsb.reader().get_binaryData(getNextEmptyPtr(), HEADER_SIZE);
+               incrementHeaderIndex();
+
+               // Here we are only reading headers, so we advance past txData
+               bsb.reader().advance((uint32_t)(numBlockBytes-HEADER_SIZE));
+               readBlock = true;
             }
 
-            // If necessary, add txData
-            // ...pass...
             
-            bool readHead   = false;
+            bool readMagic  = false;
             bool readVarInt = false;
-            bool readTxData = false;
+            bool readBlock  = false;
          }
       }
-      
+
+      return nextHeaderIndex_;
    }
 
 
@@ -409,6 +433,8 @@ private:
       int oldChunkIndex = nextHeaderIndex_ / HEADERS_PER_CHUNK;
       nextHeaderIndex_ += nIncr;
       int newChunkIndex = nextHeaderIndex_ / HEADERS_PER_CHUNK;
+      if(newChunkIndex >= (int)chunks_.size())
+         allocate(nextHeaderIndex_);
       // We return a indicator that we are in a different chunk than
       // we started.  This may 
       if(oldChunkIndex != newChunkIndex)

@@ -183,6 +183,15 @@ class binaryReader
 {
 public:
    /////////////////////////////////////////////////////////////////////////////
+   binaryReader(int sz=0) :
+      bdStr_(sz),
+      totalSize_(sz),
+      pos_(0)
+   {
+      // Nothing needed here
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    binaryReader(binaryData const & toRead) :
       bdStr_(toRead),
       totalSize_(toRead.getSize()),
@@ -202,7 +211,7 @@ public:
    void rewind(uint32_t nBytes) 
    { 
       pos_ -= nBytes;  
-      pos_ = max(pos_, 0);
+      pos_ = max(pos_, (uint32_t)0);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -248,7 +257,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t get_uint8_t(void)
    {
-      uint8_t outVal = bdStr_[pos];
+      uint8_t outVal = bdStr_[pos_];
       pos_ += 1;
       return outVal;
    }
@@ -256,7 +265,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint16_t get_uint16_t(void)
    {
-      uint16_t outVal = *(uint16_t*)(bdStr_.getPtr())
+      uint16_t outVal = *(uint16_t*)(bdStr_.getPtr() + pos_);
       pos_ += 2;
       return outVal;
    }
@@ -264,7 +273,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t get_uint32_t(void)
    {
-      uint32_t outVal = *(uint32_t*)(bdStr_.getPtr())
+      uint32_t outVal = *(uint32_t*)(bdStr_.getPtr() + pos_);
       pos_ += 4;
       return outVal;
    }
@@ -272,7 +281,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint64_t get_uint64_t(void)
    {
-      uint64_t outVal = *(uint64_t*)(bdStr_.getPtr())
+      uint64_t outVal = *(uint64_t*)(bdStr_.getPtr() + pos_);
       pos_ += 8;
       return outVal;
    }
@@ -280,7 +289,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void get_binaryData(binaryData & bdTarget, uint32_t nBytes)
    {
-      bdTarget.copyFrom( bdStr_.getPtr() + pos, nBytes);
+      bdTarget.copyFrom( bdStr_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
    }
 
@@ -311,10 +320,10 @@ public:
    pair<uint8_t*, int> rotateRemaining(void)
    {
       uint32_t nRemain = getSizeRemaining();
-      if(pos_ > nRemain+1)
-         memcpy(bdStr_.getPtr(), bdStr.getPtr() + pos, nRemain);
-      else
-         memmove(bdStr_.getPtr(), bdStr.getPtr() + pos, nRemain);
+      //if(pos_ > nRemain+1)
+         //memcpy(bdStr_.getPtr(), bdStr_.getPtr() + pos_, nRemain);
+      //else
+         memmove(bdStr_.getPtr(), bdStr_.getPtr() + pos_, nRemain);
 
       pos_ = 0;
 
@@ -326,7 +335,8 @@ public:
    uint32_t getPosition(void) const       { return pos_; }
    uint32_t getSize(void) const           { return totalSize_; }
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
-   void     isEndOfStream(void) const     { return pos_ >= totalSize_; }
+   bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
+   uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
 
 private:
    binaryData bdStr_;
@@ -344,8 +354,8 @@ class binaryStreamBuffer
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   binaryStreamBuffer(string filename="", bufSize=DEFAULT_BUFFER_SIZE) :
-      binReader_(0),
+   binaryStreamBuffer(string filename="", uint32_t bufSize=DEFAULT_BUFFER_SIZE) :
+      binReader_(bufSize),
       streamPtr_(NULL),
       weOwnTheStream_(false),
       bufferSize_(bufSize),
@@ -355,29 +365,30 @@ public:
       {
          streamPtr_ = new ifstream;
          weOwnTheStream_ = true;
-         streamPtr_->open(filename.c_str(), ios::in | ios::binary);
-         if( !streamPtr_->is_open() )
+         ifstream* ifstreamPtr = static_cast<ifstream*>(streamPtr_);
+         ifstreamPtr->open(filename.c_str(), ios::in | ios::binary);
+         if( !ifstreamPtr->is_open() )
          {
             cerr << "Could not open file for reading!  File: " << filename.c_str() << endl;
             cerr << "Aborting!" << endl;
             assert(false);
          }
 
-         streamPtr_.seekg(0, ios::end);
-         totalStreamSize_  = (uint32_t)streamPtr_.tellg();
+         ifstreamPtr->seekg(0, ios::end);
+         totalStreamSize_  = (uint32_t)ifstreamPtr->tellg();
          fileBytesRemaining_ = totalStreamSize_;
-         streamPtr_.seekg(0, ios::beg);
+         ifstreamPtr->seekg(0, ios::beg);
       }
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void attachAsStreamBuffer(istream const & is, 
+   void attachAsStreamBuffer(istream & is, 
                              uint32_t streamSize,
                              uint32_t bufSz=DEFAULT_BUFFER_SIZE)
    {
-      if(streamPtr_ != NULL and weOwnTheStream_)
+      if(streamPtr_ != NULL && weOwnTheStream_)
       {
-         streamPtr_->close();
+         static_cast<ifstream*>(streamPtr_)->close();
          delete streamPtr_;
       }
 
@@ -411,13 +422,13 @@ public:
          if(fileBytesRemaining_ > binReader_.getSize())
          {
             // Enough left in the stream to fill the entire buffer
-            streamPtr_->read(binReader_.getPtr(), binReader_.getSize());
+            streamPtr_->read((char*)(binReader_.exposeDataPtr()), binReader_.getSize());
             fileBytesRemaining_ -= binReader_.getSize();
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            streamPtr_->read(binReader_.getPtr(), fileBytesRemaining_);
+            streamPtr_->read((char*)(binReader_.exposeDataPtr()), fileBytesRemaining_);
             binReader_.resize(fileBytesRemaining_);
             fileBytesRemaining_ = 0;
          }
@@ -433,13 +444,13 @@ public:
          if(fileBytesRemaining_ > numBytes)
          {
             // Enough data left in the stream to fill the entire buffer
-            streamPtr_->read(putNewDataPtr, numBytes);
+            streamPtr_->read((char*)putNewDataPtr, numBytes);
             fileBytesRemaining_ -= numBytes;
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            streamPtr_->read(putNewDataPtr, fileBytesRemaining_);
+            streamPtr_->read((char*)putNewDataPtr, fileBytesRemaining_);
             binReader_.resize(fileBytesRemaining_+ prevBufSizeRemain); 
             fileBytesRemaining_ = 0;
          }
@@ -454,7 +465,7 @@ public:
       return binReader_;
    }
 
-   uint32_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining; }
+   uint32_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining(); }
    uint32_t getFileSizeRemaining(void)   { return fileBytesRemaining_; }
    uint32_t getBufferSize(void)          { return binReader_.getSize(); }
 
@@ -467,7 +478,7 @@ private:
    uint32_t totalStreamSize_;
    uint32_t fileBytesRemaining_;
 
-}
+};
 
 
 #endif
