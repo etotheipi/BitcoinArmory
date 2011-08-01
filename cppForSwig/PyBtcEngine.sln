@@ -1,0 +1,43 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 11.00
+# Visual Studio 2010
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PyBtcEngine", "PyBtcEngine.vcxproj", "{610511B9-F1E5-468B-904C-B0F6F077F903}"
+	ProjectSection(ProjectDependencies) = postProject
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10} = {62F6A537-D152-F66A-B4F4-2C59E37EFD10}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptlib", "cryptopp\cryptlib.vcxproj", "{62F6A537-D152-F66A-B4F4-2C59E37EFD10}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Win32 = Debug|Win32
+		DLL-Import Debug|Win32 = DLL-Import Debug|Win32
+		DLL-Import Release|Win32 = DLL-Import Release|Win32
+		Release|Win32 = Release|Win32
+		Template|Win32 = Template|Win32
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Debug|Win32.ActiveCfg = Debug|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Debug|Win32.Build.0 = Debug|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.DLL-Import Debug|Win32.ActiveCfg = Debug|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.DLL-Import Debug|Win32.Build.0 = Debug|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.DLL-Import Release|Win32.ActiveCfg = Release|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.DLL-Import Release|Win32.Build.0 = Release|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Release|Win32.ActiveCfg = Release|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Release|Win32.Build.0 = Release|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Template|Win32.ActiveCfg = Release|Win32
+		{610511B9-F1E5-468B-904C-B0F6F077F903}.Template|Win32.Build.0 = Release|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.Debug|Win32.ActiveCfg = Debug|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.DLL-Import Debug|Win32.ActiveCfg = DLL-Import Debug|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.DLL-Import Debug|Win32.Build.0 = DLL-Import Debug|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.DLL-Import Release|Win32.ActiveCfg = DLL-Import Release|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.DLL-Import Release|Win32.Build.0 = DLL-Import Release|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.Release|Win32.ActiveCfg = Release|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.Release|Win32.Build.0 = Release|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.Template|Win32.ActiveCfg = Template|Win32
+		{62F6A537-D152-F66A-B4F4-2C59E37EFD10}.Template|Win32.Build.0 = Template|Win32
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
