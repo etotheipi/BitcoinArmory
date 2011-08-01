@@ -400,12 +400,6 @@ public:
    }
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t getFileByteLocation(void)
-   {
-      return totalStreamSize_ - (fileBytesRemaining_ + binReader_.getSizeRemaining());
-   }
-
    
    /////////////////////////////////////////////////////////////////////////////
    // Refills the buffer from the stream, returns true if there is more data 
@@ -463,6 +457,12 @@ public:
    binaryReader& reader(void)
    {
       return binReader_;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t getFileByteLocation(void)
+   {
+      return totalStreamSize_ - (fileBytesRemaining_ + binReader_.getSizeRemaining());
    }
 
    uint32_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining(); }

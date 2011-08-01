@@ -15,6 +15,7 @@
 #include <queue>
 #include <list>
 #include <map>
+#include <limits>
 
 #include "binaryData.h"
 
@@ -29,6 +30,7 @@
 
 //#ifdef MAIN_NETWORK
    #define MAGICBYTES "f9beb4d9"
+   #define CURR_APPROX_NUM_BLOCKS 130000
 //#else
 //#define MAGICBYTES "fabfb5da"
 //#endif
@@ -75,16 +77,19 @@ public:
 
    void  unserialize(binaryData strIn) 
    { 
+      assert(blockStart_==NULL);
       memcpy(blockStart_, strIn.getConstPtr(), HEADER_SIZE);
    }
 
    bool isInvalid(void) { return (blockStart_==NULL); }
 
-   BlockHeaderPtr(uint8_t* blkptr=NULL) :
+   BlockHeaderPtr(uint8_t*  blkptr  = NULL, 
+                  uint64_t  fileLoc = numeric_limits<uint64_t>::max()) :
       blockStart_(blkptr),
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
+      fileByteLoc_(fileLoc),  
       difficultyFlt_(0.0),
       difficultySum_(0.0),
       isMainBranch_(false),
@@ -120,6 +125,7 @@ private:
    binaryData     thisHash_;
    binaryData     nextHash_;
    uint32_t       numTx_;
+   uint64_t       fileByteLoc_;
    double         difficultyFlt_;
    double         difficultySum_;
    bool           isMainBranch_;
@@ -160,16 +166,63 @@ private:
    // than copying a vector of 1MB chunks)
    list<binaryData>                                   chunks_;
    vector<list<binaryData>::iterator>                 chunkPtrs_;
+   vector<uint8_t*>                                   rawHeaderPtrs_;
 
    map<binaryData, BlockHeaderPtr>                    headerMap_;
    vector<map<binaryData, BlockHeaderPtr>::iterator>  headersByHeight_;
-   vector<uint8_t*>                                   rawHeaderPtrs_;
    queue<uint8_t*>                                    deletedPtrs_;
    uint32_t                                           nextHeaderIndex_;  
 
    static BlockHeadersManager *                       theOnlyBHM_;
    static CryptoPP::SHA256                            sha256_;
 
+   // Member descriptions:
+   //
+   //    chunks_    -  A list of binary data chunks to hold the headers.
+   //                  Chunk size could be something like 10,000 headers.
+   //                  The goal is to hold the headers in large chunks
+   //                  of contiguous memory so that file I/O is faster.
+   //    chunkPtrs_ -  chunks_ is a linked-list, so we actively maintain
+   //                  pointers to each of it's elements so we can do
+   //                  random access.  Since elements of chunks_ are 
+   //                  >500 KB, it's much cheaper to have to copy a list
+   //                  of pointers upon vector expansion, thatn to copy
+   //                  the entire array of data itself.  
+   //
+   //    rawHeaderPtrs_ - contains pointers to the original header information
+   //                  in the order they were read from the blockfile.  This
+   //                  will be most useful for operations that require looping
+   //                  over the entire set of block headers in the memory pool
+   //                  in arbitrary order
+   //
+   //    BlockHeaderPtr -  contains pointers to the official block header
+   //                  information within chunks_ structure.  Also includes
+   //                  some extra (non-pointer) data such as it's own hash 
+   //                  value, and location of the TX data in the block file.
+   //
+   //    headerMap_ -  Map<BinaryData, BlockHeaderPtr> to map the block 
+   //                  header hashes to the headers in the chunks_ structure.
+   //
+   //    headersByHeight_ - will eventually be a lookup table for block 
+   //                  headers based on their height relative to the genesis
+   //                  block.  If a block is not in the main chain, it won't
+   //                  be in this vector
+   //                  
+   //    deletedPtrs_  - (not implemented) if we ever decide to delete headers
+   //                  from the memory pool, we'll be left with gaps in the
+   //                  chunks_ structures.  We would then want to back-fill
+   //                  these gaps with new header data.  The idea is to add
+   //                  a pointer to the location of the deleted header, and
+   //                  check this queue for such gaps before adding a new 
+   //                  header to the memory pool.  
+   //
+   //    theOnlyBHM_  - This is a "singleton class" which means there will 
+   //                  only ever be one.  This is a ptr to that instantiation.
+   //
+   //    sha256_    -  The CryptoPP object to be used for SHA256 hashing.
+   //                  (probably unnecessary)
+   //
+   //              
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -281,7 +334,7 @@ public:
          rawHeaderPtrs_[i] = thisHeaderPtr;
 
          getHash( thisHeaderPtr, theHash);
-         //cout << theHash.toHex().c_str() << "  " << i << endl;
+         cout << theHash.toHex().c_str() << "  " << i << endl;
          headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
       }
    }
@@ -296,9 +349,17 @@ public:
       bool readBlock  = false;
       uint32_t numBlockBytes;
 
-      binaryData magicStr;
-      magicStr.createFromHex(MAGICBYTES);
       binaryData magicBucket(4);
+      binaryData magicStr(4);
+      magicStr.createFromHex(MAGICBYTES);
+      binaryData hashBucket(32);
+
+      // The resize value is only approximate, and not at all necessary 
+      // to get it right.  I'm just avoiding the growing pains of starting
+      // with an empty list, and pushing 140,00 blocks.  The underlying
+      // vector would have to expand a couple times, doing an expensive
+      // full copy every time
+      rawHeaderPtrs_.resize(CURR_APPROX_NUM_BLOCKS);
 
       // While there is still data left in the stream (file), pull it
       while(bsb.streamPull())
@@ -306,7 +367,8 @@ public:
          // Data has been pulled into the buffer, process all of it
          while(bsb.getBufferSizeRemaining() > 1)
          {
-
+            static int i = 0;
+            cout << "Block# " << i++ << ":";
             // The first four bytes are always the magic bytes
             if( !readMagic )
             {
@@ -318,6 +380,7 @@ public:
                   cerr << "Magic string does not match network!" << endl;
                   cerr << "\tExpected: " << MAGICBYTES << endl;
                   cerr << "\tReceived: " << magicBucket.toHex() << endl;
+                  break;
                }
                readMagic = true;
             }
@@ -334,12 +397,14 @@ public:
 
 
             // If we haven't read the header yet, do it
+            uint8_t* thisBlockPtr  = getNextEmptyPtr();
+            uint64_t blkByteOffset = bsb.getFileByteLocation();
             if( !readBlock )
             {
                if(bsb.getBufferSizeRemaining() < numBlockBytes)
                   break;
 
-               bsb.reader().get_binaryData(getNextEmptyPtr(), HEADER_SIZE);
+               bsb.reader().get_binaryData(thisBlockPtr, HEADER_SIZE);
                incrementHeaderIndex();
 
                // Here we are only reading headers, so we advance past txData
@@ -348,9 +413,16 @@ public:
             }
 
             
-            bool readMagic  = false;
-            bool readVarInt = false;
-            bool readBlock  = false;
+            readMagic  = false;
+            readVarInt = false;
+            readBlock  = false;
+
+            // The header has been added to the memory pool, but not indexed
+            // in a way that we can locate it efficiently.
+            rawHeaderPtrs_.push_back(thisBlockPtr);
+            getHash(thisBlockPtr, hashBucket);
+            cout << hashBucket.toHex().c_str() << endl;
+            headerMap_[hashBucket] = BlockHeaderPtr(thisBlockPtr, blkByteOffset+HEADER_SIZE);
          }
       }
 
