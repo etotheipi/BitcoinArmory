@@ -296,7 +296,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void get_binaryData(uint8_t* targPtr, uint32_t nBytes)
    {
-      bdStr_.copyTo(targPtr, nBytes);
+      bdStr_.copyTo(targPtr, pos_, nBytes);
       pos_ += nBytes;
    }
 

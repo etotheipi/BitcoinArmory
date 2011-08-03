@@ -28,13 +28,36 @@
 #define BHM_CHUNK_SIZE    (HEADER_SIZE*HEADERS_PER_CHUNK)
 
 
+
 //#ifdef MAIN_NETWORK
    #define MAGICBYTES "f9beb4d9"
    #define CURR_APPROX_NUM_BLOCKS 130000
+   #define GENESIS_HASH_HEX "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
 //#else
-//#define MAGICBYTES "fabfb5da"
+   //#define MAGICBYTES "fabfb5da"
+   //#define GENESIS_HASH_HEX "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
 //#endif
 
+
+double convertDiffBitsToDouble(uint32_t diffBits)
+{
+    int nShift = (diffBits >> 24) & 0xff;
+    double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
+
+    while (nShift < 29)
+    {
+        dDiff *= 256.0;
+        nShift++;
+    }
+    while (nShift > 29)
+    {
+        dDiff /= 256.0;
+        nShift--;
+    }
+
+    return dDiff;
+
+}
 
 using namespace std;
 
@@ -45,7 +68,7 @@ using namespace std;
 // to where the data is in the BlockHeaderManager.  So there is a single place
 // where all block headers are stored, and this class tells us where exactly
 // is the one we want.
-class BlockHeaderPtr
+class BlockHeaderRef
 {
 
 public: 
@@ -83,17 +106,20 @@ public:
 
    bool isInvalid(void) { return (blockStart_==NULL); }
 
-   BlockHeaderPtr(uint8_t*  blkptr  = NULL, 
-                  uint64_t  fileLoc = numeric_limits<uint64_t>::max()) :
+   BlockHeaderRef(uint8_t*   blkptr  = NULL, 
+                  binaryData* thisHash = NULL,
+                  uint64_t   fileLoc = numeric_limits<uint64_t>::max()) :
       blockStart_(blkptr),
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
       fileByteLoc_(fileLoc),  
-      difficultyFlt_(0.0),
-      difficultySum_(0.0),
+      difficultyFlt_(-1.0),
+      difficultySum_(-1.0),
+      blockHeight_(0),
       isMainBranch_(false),
-      isOrphan_(true)
+      isOrphan_(false)
+      isFinishedCalc_(false)
    {
       if(blkptr != NULL)
       {
@@ -103,6 +129,10 @@ public:
          timestamp_  = (uint32_t*)(blockStart_ + 68);
          diffBits_   =            (blockStart_ + 72);
          nonce_      = (uint32_t*)(blockStart_ + 76);
+
+         if(! (thisHash == NULL) )
+            thisHash_.copyFrom(thisHash);
+
       }
    }
 
@@ -121,15 +151,22 @@ private:
 
    // Some more data types to be stored with the header, but not
    // part of the official serialized header data, so these are
-   // actual members of the BlockHeaderPtr.
+   // actual members of the BlockHeaderRef.
    binaryData     thisHash_;
    binaryData     nextHash_;
    uint32_t       numTx_;
+   uint32_t       blockHeight_;
    uint64_t       fileByteLoc_;
    double         difficultyFlt_;
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
+   bool           isFinishedCalc_;
+
+   // We should keep the genesis hash handy 
+   static binaryData GenesisHash_;
+   static binaryData EmptyHash_;
+   static BlockHeaderRef* topBlockPtr_;
 };
 
 
@@ -168,13 +205,15 @@ private:
    vector<list<binaryData>::iterator>                 chunkPtrs_;
    vector<uint8_t*>                                   rawHeaderPtrs_;
 
-   map<binaryData, BlockHeaderPtr>                    headerMap_;
-   vector<map<binaryData, BlockHeaderPtr>::iterator>  headersByHeight_;
+   map<binaryData, BlockHeaderRef>                    headerMap_;
+   vector<map<binaryData, BlockHeaderRef>::iterator>  headersByHeight_;
    queue<uint8_t*>                                    deletedPtrs_;
    uint32_t                                           nextHeaderIndex_;  
 
    static BlockHeadersManager *                       theOnlyBHM_;
    static CryptoPP::SHA256                            sha256_;
+
+   vector<map<binaryData, BlockHeaderRef>::iterator>
 
    // Member descriptions:
    //
@@ -195,12 +234,12 @@ private:
    //                  over the entire set of block headers in the memory pool
    //                  in arbitrary order
    //
-   //    BlockHeaderPtr -  contains pointers to the official block header
+   //    BlockHeaderRef -  contains pointers to the official block header
    //                  information within chunks_ structure.  Also includes
    //                  some extra (non-pointer) data such as it's own hash 
    //                  value, and location of the TX data in the block file.
    //
-   //    headerMap_ -  Map<BinaryData, BlockHeaderPtr> to map the block 
+   //    headerMap_ -  Map<BinaryData, BlockHeaderRef> to map the block 
    //                  header hashes to the headers in the chunks_ structure.
    //
    //    headersByHeight_ - will eventually be a lookup table for block 
@@ -254,7 +293,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
-   BlockHeaderPtr getHeaderByHeight(int index)
+   BlockHeaderRef getHeaderByHeight(int index)
    {
       if( index>=0 && index<(int)headersByHeight_.size())
          return headersByHeight_[index]->second;
@@ -262,11 +301,11 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // The most common access method is to get a block by its hash
-   BlockHeaderPtr getHeaderByHash(binaryData blkHash)
+   BlockHeaderRef getHeaderByHash(binaryData blkHash)
    {
-      map<binaryData, BlockHeaderPtr>::iterator it = headerMap_.find(blkHash);
+      map<binaryData, BlockHeaderRef>::iterator it = headerMap_.find(blkHash);
       if(it==headerMap_.end())
-         return BlockHeaderPtr(NULL);
+         return BlockHeaderRef(NULL);
       else
          return headerMap_[blkHash];
    }
@@ -321,7 +360,7 @@ public:
          headerIdx1 = nextHeaderIndex_;
 
       cout << "Done reading headers, now indexing the new data." << endl;
-      // Now with all the data in memory, create BlockHeaderPtr objects
+      // Now with all the data in memory, create BlockHeaderRef objects
       rawHeaderPtrs_.resize(nextHeaderIndex_);
       binaryData theHash(32);
       for( int i=headerIdx0; i<headerIdx1; i++)
@@ -334,8 +373,8 @@ public:
          rawHeaderPtrs_[i] = thisHeaderPtr;
 
          getHash( thisHeaderPtr, theHash);
-         cout << theHash.toHex().c_str() << "  " << i << endl;
-         headerMap_[theHash] = BlockHeaderPtr(thisHeaderPtr);
+         //cout << theHash.toHex().c_str() << "  " << i << endl;
+         headerMap_[theHash] = BlockHeaderRef(thisHeaderPtr);
       }
    }
 
@@ -368,7 +407,7 @@ public:
          while(bsb.getBufferSizeRemaining() > 1)
          {
             static int i = 0;
-            cout << "Block# " << i++ << ":";
+            //cout << "Block# " << i++ << ":";
             // The first four bytes are always the magic bytes
             if( !readMagic )
             {
@@ -377,9 +416,9 @@ public:
                bsb.reader().get_binaryData(magicBucket, 4);
                if( !(magicBucket == magicStr) )
                {
-                  cerr << "Magic string does not match network!" << endl;
-                  cerr << "\tExpected: " << MAGICBYTES << endl;
-                  cerr << "\tReceived: " << magicBucket.toHex() << endl;
+                  //cerr << "Magic string does not match network!" << endl;
+                  //cerr << "\tExpected: " << MAGICBYTES << endl;
+                  //cerr << "\tReceived: " << magicBucket.toHex() << endl;
                   break;
                }
                readMagic = true;
@@ -421,8 +460,10 @@ public:
             // in a way that we can locate it efficiently.
             rawHeaderPtrs_.push_back(thisBlockPtr);
             getHash(thisBlockPtr, hashBucket);
-            cout << hashBucket.toHex().c_str() << endl;
-            headerMap_[hashBucket] = BlockHeaderPtr(thisBlockPtr, blkByteOffset+HEADER_SIZE);
+            //cout << hashBucket.toHex().c_str() << endl;
+            headerMap_[hashBucket] = BlockHeaderRef(thisBlockPtr, 
+                                                    &hashBucket,
+                                                    blkByteOffset+HEADER_SIZE);
          }
       }
 
@@ -513,6 +554,139 @@ private:
          return true;
       return false;
    }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Start from a node, trace down to the highest solved block, accumulate
+   // difficulties and difficultySum values.  Return the difficultySum of 
+   // this block.
+   double traceChainDown(BlockHeaderRef & bhpStart)
+   {
+      if(thisPtr->difficultySum_ < 0)
+         return thisPtr->difficultySum_;
+
+      // Prepare some data structures for walking down the chain
+      vector<double>          difficultyStack(nextHeaderIndex_);
+      vector<BlockHeaderRef*>     bhpPtrStack(nextHeaderIndex_);
+      uint32_t blkIdx = 0;
+      double thisDiff;
+
+      // Walk down the chain of prevHash_ values, until we find a block
+      // that has a definitive difficultySum value (i.e. >0). 
+      BlockHeaderRef* thisPtr = &bhpStart;
+      map<binaryData, BlockHeaderRef>::iterator iter;
+      bool isOrphanChain = false;
+      while( thisPtr->difficultySum_ < 0)
+      {
+         thisDiff = convertDiffBitsToDouble(*(uint32_t*)(thisPtr->diffBits_));
+         difficultyStack[blkIdx] = thisDiff;
+         bhpPtrStack[blkIdx]     = thisPtr;
+         blkIdx++;
+
+
+         iter = headerMap_.find(thisPtr->prevHash_);
+         if( ! (iter == headerMap_.end()) )
+            thisPtr = &(iter->second);
+         else
+         {
+            // We didn't hit a known block, but we don't have this block's
+            // ancestor in the memory pool, so we can't go back any further.
+            iter->second.isOrphan_ = true;
+            isOrphanChain = true;
+            break;
+         }
+      }
+
+      // If this is an orphan chain, then label all the blocks in this chain
+      // as orphans and get out
+      if(isOrphanChain)
+      {
+         for(uint32_t i=blkIdx-1; i>=0; i--)
+         {
+            bhpPtrStack[i]->isOrphan_ = true;
+            return 0.0;
+         }
+      }
+
+      // Now we have a stack of difficulties and pointers.  Walk back up
+      // (by pointer) and accumulate the difficulty values 
+      double   seedDiffSum = thisPtr->difficultySum_;
+      uint32_t blkHeight   = thisPtr->blockHeight_;
+      for(uint32_t i=blkIdx-1; i>=0; i--)
+      {
+         seedDiffSum += difficultyStack[i];
+         blkHeight++;
+         thisPtr                 = bhpPtrStack[i];
+         thisPtr->difficultyFlt_ = difficultyStack[i];
+         thisPtr->difficultySum_ = seedDiffSum;
+         thisPtr->blockHeight_   = blkHeight;
+      }
+      
+      // Finally, we have all the difficulty sums calculated, return this one
+      return bhpStart.difficultySum_;
+     
+   }
+
+   // This returns false if our new main branch does not include the previous
+   // topBlock.  If this returns false, that probably means that we have
+   // previously considered some blocks to be valid that no longer are valid.
+   // We shou
+   bool organizeChain(void)
+   {
+      // Set genesis block
+      BlockHeaderRef & genBlock = headerMap_[GenesisHash_];
+      genBlock.blockHeight_    = 0;
+      genBlock.difficultyFlt_  = 1.0;
+      genBlock.difficultySum_  = 1.0;
+      genBlock.isMainBranch_   = true;
+      genBlock.isOrphan_       = false;
+      genBlock.isFinishedCalc_ = true;
+      if(topBlockPtr_ == NULL)
+         topBlockPtr_ = &(headerMap_[GenesisHash_]);
+
+      // Store the old top block so we can later check whether it is included 
+      // in the new chain organization
+      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
+
+      // Iterate over all blocks, track the maximum difficulty-sum block
+      map<binaryData, BlockHeaderRef>::iterator iter;
+      uint32_t maxBlockHeight = 0;
+      uint32_t maxDiffSum = 0;
+      for( iter  = headerMap_.begin(); iter != headerMap_.end(); iter ++)
+      {
+         // *** The magic happens here
+         uint32_t thisDiffSum = traceChainDown(iter->second);
+         // ***
+         
+         if(thisDiffSum > maxDiffSum)
+         {
+            maxDiffSum     = thisDiffSum;
+            topBlockPtr_   = &(iter->second);
+         }
+      }
+
+      // Walk down the list one more time, set nextHash fields
+      // Also set headersByHeight_;
+      topBlockPtr_->nextHash_ = EmptyHash_;
+      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
+      bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
+      while( !thisBlockPtr->isFinishedCalc_ )
+      {
+         thisBlockPtr->isFinishedCalc_ = true;
+         thisBlockPtr->isMainBranch_   = true;
+
+         binaryData & childHash        = thisBlockPtr->thisHash_;
+         thisBlockPtr                  = headerMap_[nextBlockPtr->prevHash_]
+         thisBlockPtr->nextHash_       = childHash;
+
+         if(thisBlockPtr == prevTopBlockPtr)
+            prevChainStillValid = true;
+      }
+
+      return prevChainStillValid;
+   }
+
+
    
 };
 
