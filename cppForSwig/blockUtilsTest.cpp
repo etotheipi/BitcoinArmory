@@ -18,12 +18,12 @@ int main(void)
    binaryData genBlock;
    string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
    genBlock.createFromHex(strgenblk);
-   cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHex().c_str() << endl;
+   //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHex().c_str() << endl;
    string strrndtrip = genBlock.toHex();
 
-   cout << "Orig : " << strgenblk.c_str() << endl;
-   cout << "New  : " << strrndtrip.c_str() << endl;
-   cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
+   //cout << "Orig : " << strgenblk.c_str() << endl;
+   //cout << "New  : " << strrndtrip.c_str() << endl;
+   //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
    binaryData theHash;   
    BlockHeadersManager::getHash(genBlock.getPtr(), theHash);
@@ -31,5 +31,14 @@ int main(void)
 
    bhm.importHeadersFromBlockFile("../blk0001.dat");
 
+   bool isGenOnMainChain = bhm.organizeChain();
+
+   cout << endl << endl;
+   cout << "Printing genesis block information:" << endl;
+   bhm.getHeaderByHash(genBlock).printBlockHeader(cout);
+
+   cout << endl << endl;
+   cout << "Printing last block information:" << endl;
+   bhm.getTopBlock().printBlockHeader(cout);
 
 }

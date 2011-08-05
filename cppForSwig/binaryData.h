@@ -40,6 +40,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
+   // TODO:  Got a problem when copying an empty/uninitialized BD object...
    void copyFrom(uint8_t const * inData)                     { memcpy( &(data_[0]), inData, (size_t)nBytes_); }
    void copyFrom(uint8_t const * inData, size_t sz)          { if(sz!=nBytes_) alloc(sz); memcpy( &(data_[0]), inData, sz); }
    void copyFrom(uint8_t const * start, uint8_t const * end) { copyFrom( start, (end-start)); }  // [start, end)
@@ -131,6 +132,13 @@ public:
          outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
       }
       return string((char const *)(&(outStr[0])), 2*nBytes_);
+   }
+
+   static binaryData CreateFromHex(string const & str)
+   {
+      binaryData out;
+      out.createFromHex(str);
+      return out;
    }
 
    /////////////////////////////////////////////////////////////////////////////

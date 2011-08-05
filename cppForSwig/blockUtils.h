@@ -39,25 +39,6 @@
 //#endif
 
 
-double convertDiffBitsToDouble(uint32_t diffBits)
-{
-    int nShift = (diffBits >> 24) & 0xff;
-    double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
-
-    while (nShift < 29)
-    {
-        dDiff *= 256.0;
-        nShift++;
-    }
-    while (nShift > 29)
-    {
-        dDiff /= 256.0;
-        nShift--;
-    }
-
-    return dDiff;
-
-}
 
 using namespace std;
 
@@ -71,25 +52,31 @@ using namespace std;
 class BlockHeaderRef
 {
 
+   friend class BlockHeadersManager;
+
 public: 
 
-   uint32_t       getVersion(void)    { return *version_;                                }
-   binaryData     getPrevHash(void)   { return  binaryData(prevHash_, prevHash_+32);     }
-   binaryData     getMerkleRoot(void) { return  binaryData(merkleRoot_, merkleRoot_+32); }
-   uint32_t       getTimestamp(void)  { return *timestamp_;                              }
-   binaryData     getDiffBits(void)   { return  binaryData(diffBits_, diffBits_+4);      }
-   uint32_t       getNonce(void)      { return *nonce_;                                  }
-   binaryData     getThisHash(void)   { return  thisHash_;                               }
-   binaryData     getNextHash(void)   { return  nextHash_;                               }
-   uint32_t       getNumTx(void)      { return  numTx_;                                  }
+   uint32_t       getVersion(void)    { return *version_Raw_;                   }
+   binaryData     getPrevHash(void)   { return  binaryData(prevHash_Raw_, 
+                                                           prevHash_Raw_+32);   }
+   binaryData     getMerkleRoot(void) { return  binaryData(merkleRoot_Raw_, 
+                                                           merkleRoot_Raw_+32); }
+   uint32_t       getTimestamp(void)  { return *timestamp_Raw_;                 }
+   binaryData     getDiffBits(void)   { return  binaryData(diffBits_Raw_, 
+                                                           diffBits_Raw_+4);    }
+   uint32_t       getNonce(void)      { return *nonce_Raw_;                     }
+
+   binaryData     getThisHash(void)   { return  thisHash_;                      }
+   binaryData     getNextHash(void)   { return  nextHash_;                      }
+   uint32_t       getNumTx(void)      { return  numTx_;                         }
    
-   void setVersion(uint32_t i)        { *version_ = i;                           }
-   void setPrevHash(binaryData str)   { str.copyTo(prevHash_, 32);               }
-   void setMerkleRoot(binaryData str) { str.copyTo(merkleRoot_, 32);             }
-   void setTimestamp(uint32_t i)      { *timestamp_ = i;                         }
-   void setDiffBits(binaryData str)   { str.copyTo(diffBits_, 4);                }
-   void setNonce(uint32_t i)          { *nonce_ = i;                             }
-   void setNextHash(binaryData str)   { nextHash_.copyFrom(str);                 }
+   void setVersion(uint32_t i)        { *version_Raw_ = i;                      }
+   void setPrevHash(binaryData str)   { str.copyTo(prevHash_Raw_, 32);          }
+   void setMerkleRoot(binaryData str) { str.copyTo(merkleRoot_Raw_, 32);        }
+   void setTimestamp(uint32_t i)      { *timestamp_Raw_ = i;                    }
+   void setDiffBits(binaryData str)   { str.copyTo(diffBits_Raw_, 4);           }
+   void setNonce(uint32_t i)          { *nonce_Raw_ = i;                        }
+   void setNextHash(binaryData str)   { nextHash_.copyFrom(str);                }
 
    //binaryData serialize(void) 
    //{ 
@@ -106,10 +93,11 @@ public:
 
    bool isInvalid(void) { return (blockStart_==NULL); }
 
-   BlockHeaderRef(uint8_t*   blkptr  = NULL, 
+   BlockHeaderRef(uint8_t*    blkptr  = NULL, 
                   binaryData* thisHash = NULL,
-                  uint64_t   fileLoc = numeric_limits<uint64_t>::max()) :
+                  uint64_t    fileLoc = numeric_limits<uint64_t>::max()) :
       blockStart_(blkptr),
+      prevHash_(32),
       thisHash_(32),
       nextHash_(32),
       numTx_(-1),
@@ -118,22 +106,58 @@ public:
       difficultySum_(-1.0),
       blockHeight_(0),
       isMainBranch_(false),
-      isOrphan_(false)
+      isOrphan_(false),
       isFinishedCalc_(false)
    {
       if(blkptr != NULL)
       {
-         version_    = (uint32_t*)(blockStart_ +  0);
-         prevHash_   =            (blockStart_ +  4);
-         merkleRoot_ =            (blockStart_ + 36);
-         timestamp_  = (uint32_t*)(blockStart_ + 68);
-         diffBits_   =            (blockStart_ + 72);
-         nonce_      = (uint32_t*)(blockStart_ + 76);
+         version_Raw_    = (uint32_t*)(blockStart_ +  0);
+         prevHash_Raw_   =            (blockStart_ +  4);
+         merkleRoot_Raw_ =            (blockStart_ + 36);
+         timestamp_Raw_  = (uint32_t*)(blockStart_ + 68);
+         diffBits_Raw_   =            (blockStart_ + 72);
+         nonce_Raw_      = (uint32_t*)(blockStart_ + 76);
 
          if(! (thisHash == NULL) )
-            thisHash_.copyFrom(thisHash);
+            thisHash_.copyFrom(*thisHash);
+
+         prevHash_ = getPrevHash();
 
       }
+   }
+
+   static double convertDiffBitsToDouble(uint32_t diffBits)
+   {
+       int nShift = (diffBits >> 24) & 0xff;
+       double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
+   
+       while (nShift < 29)
+       {
+           dDiff *= 256.0;
+           nShift++;
+       }
+       while (nShift > 29)
+       {
+           dDiff /= 256.0;
+           nShift--;
+       }
+   
+       return dDiff;
+   }
+
+   void printBlockHeader(ostream & os=cout)
+   {
+      os << "Block Information: " << blockHeight_ << endl;
+      os << "\tHeight:       " << blockHeight_ << endl;
+      os << "\tHash:         " << thisHash_.toHex().c_str() << endl;
+      os << "\tTimestamp:    " << getTimestamp() << endl;
+      os << "\tPrev Hash:    " << prevHash_.toHex().c_str() << endl;
+      os << "\tMerkle Root:  " << getMerkleRoot().toHex().c_str() << endl;
+      os << "\tDifficulty:   " << difficultyFlt_ 
+                             << "(" << getDiffBits().toHex().c_str() << ")" << endl;
+      os << "\tCumulDiff:    " << difficultySum_ << endl;
+      os << "\tNonce:        " << getNonce() << endl;
+      os << "\tFile Offset:  " << fileByteLoc_ << endl;
    }
 
 
@@ -142,16 +166,17 @@ private:
 
    // All these pointers point to data managed by another class.
    // As such, it is unnecessary to deal with any memory mgmt. 
-   uint32_t*  version_;
-   uint8_t*   prevHash_;
-   uint8_t*   merkleRoot_;
-   uint32_t*  timestamp_;
-   uint8_t*   diffBits_; 
-   uint32_t*  nonce_; 
+   uint32_t*  version_Raw_;
+   uint8_t*   prevHash_Raw_;
+   uint8_t*   merkleRoot_Raw_;
+   uint32_t*  timestamp_Raw_;
+   uint8_t*   diffBits_Raw_; 
+   uint32_t*  nonce_Raw_; 
 
    // Some more data types to be stored with the header, but not
    // part of the official serialized header data, so these are
    // actual members of the BlockHeaderRef.
+   binaryData     prevHash_;
    binaryData     thisHash_;
    binaryData     nextHash_;
    uint32_t       numTx_;
@@ -166,7 +191,6 @@ private:
    // We should keep the genesis hash handy 
    static binaryData GenesisHash_;
    static binaryData EmptyHash_;
-   static BlockHeaderRef* topBlockPtr_;
 };
 
 
@@ -209,11 +233,11 @@ private:
    vector<map<binaryData, BlockHeaderRef>::iterator>  headersByHeight_;
    queue<uint8_t*>                                    deletedPtrs_;
    uint32_t                                           nextHeaderIndex_;  
+   BlockHeaderRef*                                    topBlockPtr_;
 
    static BlockHeadersManager *                       theOnlyBHM_;
    static CryptoPP::SHA256                            sha256_;
 
-   vector<map<binaryData, BlockHeaderRef>::iterator>
 
    // Member descriptions:
    //
@@ -268,7 +292,8 @@ private:
    BlockHeadersManager(void) : 
          chunks_(0), 
          chunkPtrs_(0), 
-         nextHeaderIndex_(0) 
+         nextHeaderIndex_(0),
+         topBlockPtr_(NULL)
    {
       addChunk();
       headerMap_.clear();
@@ -292,6 +317,18 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   BlockHeaderRef getTopBlock(void)
+   {
+      return *topBlockPtr_;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BlockHeaderRef getGenesisBlock(void)
+   {
+      return headerMap_[BlockHeaderRef::GenesisHash_];
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
    BlockHeaderRef getHeaderByHeight(int index)
    {
@@ -301,7 +338,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // The most common access method is to get a block by its hash
-   BlockHeaderRef getHeaderByHash(binaryData blkHash)
+   BlockHeaderRef getHeaderByHash(binaryData const & blkHash)
    {
       map<binaryData, BlockHeaderRef>::iterator it = headerMap_.find(blkHash);
       if(it==headerMap_.end())
@@ -508,6 +545,67 @@ public:
       sha256_.CalculateDigest(hashOut.getPtr(), hashOut.getPtr(), 32);
    }
 
+   // This returns false if our new main branch does not include the previous
+   // topBlock.  If this returns false, that probably means that we have
+   // previously considered some blocks to be valid that no longer are valid.
+   bool organizeChain(void)
+   {
+      // Set genesis block
+      BlockHeaderRef & genBlock = headerMap_[BlockHeaderRef::GenesisHash_];
+      genBlock.blockHeight_    = 0;
+      genBlock.difficultyFlt_  = 1.0;
+      genBlock.difficultySum_  = 1.0;
+      genBlock.isMainBranch_   = true;
+      genBlock.isOrphan_       = false;
+      genBlock.isFinishedCalc_ = true;
+
+      binaryData const & GenesisHash_ = BlockHeaderRef::GenesisHash_;
+      binaryData const & EmptyHash_   = BlockHeaderRef::EmptyHash_;
+      if(topBlockPtr_ == NULL)
+         topBlockPtr_ = &(headerMap_[BlockHeaderRef::GenesisHash_]);
+
+      // Store the old top block so we can later check whether it is included 
+      // in the new chain organization
+      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
+
+      // Iterate over all blocks, track the maximum difficulty-sum block
+      map<binaryData, BlockHeaderRef>::iterator iter;
+      uint32_t maxBlockHeight = 0;
+      double   maxDiffSum = 0;
+      for( iter  = headerMap_.begin(); iter != headerMap_.end(); iter ++)
+      {
+         // *** The magic happens here
+         double thisDiffSum = traceChainDown(iter->second);
+         // ***
+         
+         if(thisDiffSum > maxDiffSum)
+         {
+            maxDiffSum     = thisDiffSum;
+            topBlockPtr_   = &(iter->second);
+         }
+      }
+
+      // Walk down the list one more time, set nextHash fields
+      // Also set headersByHeight_;
+      topBlockPtr_->nextHash_ = EmptyHash_;
+      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
+      bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
+      while( !thisBlockPtr->isFinishedCalc_ )
+      {
+         thisBlockPtr->isFinishedCalc_ = true;
+         thisBlockPtr->isMainBranch_   = true;
+
+         binaryData & childHash        = thisBlockPtr->thisHash_;
+         thisBlockPtr                  = &(headerMap_[thisBlockPtr->prevHash_]);
+         thisBlockPtr->nextHash_       = childHash;
+
+         if(thisBlockPtr == prevTopBlockPtr)
+            prevChainStillValid = true;
+      }
+
+      return prevChainStillValid;
+   }
+
 private:
 
    /////////////////////////////////////////////////////////////////////////////
@@ -562,8 +660,8 @@ private:
    // this block.
    double traceChainDown(BlockHeaderRef & bhpStart)
    {
-      if(thisPtr->difficultySum_ < 0)
-         return thisPtr->difficultySum_;
+      if(bhpStart.difficultySum_ > 0)
+         return bhpStart.difficultySum_;
 
       // Prepare some data structures for walking down the chain
       vector<double>          difficultyStack(nextHeaderIndex_);
@@ -578,7 +676,8 @@ private:
       bool isOrphanChain = false;
       while( thisPtr->difficultySum_ < 0)
       {
-         thisDiff = convertDiffBitsToDouble(*(uint32_t*)(thisPtr->diffBits_));
+         thisDiff = BlockHeaderRef::convertDiffBitsToDouble(
+                              *(uint32_t*)(thisPtr->diffBits_Raw_));
          difficultyStack[blkIdx] = thisDiff;
          bhpPtrStack[blkIdx]     = thisPtr;
          blkIdx++;
@@ -612,7 +711,7 @@ private:
       // (by pointer) and accumulate the difficulty values 
       double   seedDiffSum = thisPtr->difficultySum_;
       uint32_t blkHeight   = thisPtr->blockHeight_;
-      for(uint32_t i=blkIdx-1; i>=0; i--)
+      for(int32_t i=blkIdx-1; i>=0; i--)
       {
          seedDiffSum += difficultyStack[i];
          blkHeight++;
@@ -627,64 +726,6 @@ private:
      
    }
 
-   // This returns false if our new main branch does not include the previous
-   // topBlock.  If this returns false, that probably means that we have
-   // previously considered some blocks to be valid that no longer are valid.
-   // We shou
-   bool organizeChain(void)
-   {
-      // Set genesis block
-      BlockHeaderRef & genBlock = headerMap_[GenesisHash_];
-      genBlock.blockHeight_    = 0;
-      genBlock.difficultyFlt_  = 1.0;
-      genBlock.difficultySum_  = 1.0;
-      genBlock.isMainBranch_   = true;
-      genBlock.isOrphan_       = false;
-      genBlock.isFinishedCalc_ = true;
-      if(topBlockPtr_ == NULL)
-         topBlockPtr_ = &(headerMap_[GenesisHash_]);
-
-      // Store the old top block so we can later check whether it is included 
-      // in the new chain organization
-      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
-
-      // Iterate over all blocks, track the maximum difficulty-sum block
-      map<binaryData, BlockHeaderRef>::iterator iter;
-      uint32_t maxBlockHeight = 0;
-      uint32_t maxDiffSum = 0;
-      for( iter  = headerMap_.begin(); iter != headerMap_.end(); iter ++)
-      {
-         // *** The magic happens here
-         uint32_t thisDiffSum = traceChainDown(iter->second);
-         // ***
-         
-         if(thisDiffSum > maxDiffSum)
-         {
-            maxDiffSum     = thisDiffSum;
-            topBlockPtr_   = &(iter->second);
-         }
-      }
-
-      // Walk down the list one more time, set nextHash fields
-      // Also set headersByHeight_;
-      topBlockPtr_->nextHash_ = EmptyHash_;
-      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
-      bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
-      while( !thisBlockPtr->isFinishedCalc_ )
-      {
-         thisBlockPtr->isFinishedCalc_ = true;
-         thisBlockPtr->isMainBranch_   = true;
-
-         binaryData & childHash        = thisBlockPtr->thisHash_;
-         thisBlockPtr                  = headerMap_[nextBlockPtr->prevHash_]
-         thisBlockPtr->nextHash_       = childHash;
-
-         if(thisBlockPtr == prevTopBlockPtr)
-            prevChainStillValid = true;
-      }
-
-      return prevChainStillValid;
-   }
 
 
    
