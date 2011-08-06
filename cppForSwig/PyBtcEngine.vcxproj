@@ -85,10 +85,12 @@
   <ItemGroup>
     <ClInclude Include="binaryData.h" />
     <ClInclude Include="blockUtils.h" />
+    <ClInclude Include="UniversalTimer.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="blockUtils.cpp" />
     <ClCompile Include="blockUtilsTest.cpp" />
+    <ClCompile Include="UniversalTimer.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

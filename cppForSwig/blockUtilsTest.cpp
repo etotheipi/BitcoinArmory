@@ -2,6 +2,7 @@
 #include <fstream>
 #include "blockUtils.h"
 #include "binaryData.h"
+#include "UniversalTimer.h"
 
 
 
@@ -17,7 +18,10 @@ int main(void)
 
    binaryData genBlock;
    string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
+
+   TIMER_START("Single_Hash_2x_SHA256");
    genBlock.createFromHex(strgenblk);
+   TIMER_STOP("Single_Hash_2x_SHA256");
    //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHex().c_str() << endl;
    string strrndtrip = genBlock.toHex();
 
@@ -26,19 +30,33 @@ int main(void)
    //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
    binaryData theHash;   
-   BlockHeadersManager::getHash(genBlock.getPtr(), theHash);
+   for(int i=0; i<200000; i++)
+   {
+      TIMER_START("BHM_GetHash");
+      BlockHeadersManager::getHash(genBlock.getPtr(), theHash);
+      TIMER_STOP("BHM_GetHash");
+   }
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 
-   bhm.importHeadersFromBlockFile("../blk0001.dat");
+   TIMER_START("BHM_Import_Headers");
+   //bhm.importHeadersFromBlockFile("../blk0001.dat");
+   bhm.importHeadersFromHeaderFile("../blkHeaders.dat");
+   TIMER_STOP("BHM_Import_Headers");
 
+   TIMER_START("BHM_Organize_Chain");
    bool isGenOnMainChain = bhm.organizeChain();
+   TIMER_STOP("BHM_Organize_Chain");
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
-   bhm.getHeaderByHash(genBlock).printBlockHeader(cout);
+   bhm.getGenesisBlock().printBlockHeader(cout);
 
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
    bhm.getTopBlock().printBlockHeader(cout);
 
+   UniversalTimer::instance().print();
+   int i;
+   cout << "Type something to exit";
+   cin >> i;
 }

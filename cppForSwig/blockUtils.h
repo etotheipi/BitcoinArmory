@@ -126,6 +126,28 @@ public:
       }
    }
 
+   BlockHeaderRef(BlockHeaderRef const & bhr2)
+   {
+      blockStart_     = bhr2.blockStart_;
+      version_Raw_    = bhr2.version_Raw_;
+      prevHash_Raw_   = bhr2.prevHash_Raw_;
+      merkleRoot_Raw_ = bhr2.merkleRoot_Raw_;
+      timestamp_Raw_  = bhr2.timestamp_Raw_;
+      diffBits_Raw_   = bhr2.diffBits_Raw_;
+      nonce_Raw_      = bhr2.nonce_Raw_;
+      prevHash_       = bhr2.prevHash_;
+      thisHash_       = bhr2.thisHash_;
+      nextHash_       = bhr2.nextHash_;
+      numTx_          = bhr2.numTx_;
+      blockHeight_    = bhr2.blockHeight_;
+      fileByteLoc_    = bhr2.fileByteLoc_;
+      difficultyFlt_  = bhr2.difficultyFlt_;
+      difficultySum_  = bhr2.difficultySum_;
+      isMainBranch_   = bhr2.isMainBranch_;
+      isOrphan_       = bhr2.isOrphan_;
+      isFinishedCalc_ = bhr2.isFinishedCalc_;
+   }
+
    static double convertDiffBitsToDouble(uint32_t diffBits)
    {
        int nShift = (diffBits >> 24) & 0xff;
@@ -148,16 +170,15 @@ public:
    void printBlockHeader(ostream & os=cout)
    {
       os << "Block Information: " << blockHeight_ << endl;
-      os << "\tHeight:       " << blockHeight_ << endl;
-      os << "\tHash:         " << thisHash_.toHex().c_str() << endl;
-      os << "\tTimestamp:    " << getTimestamp() << endl;
-      os << "\tPrev Hash:    " << prevHash_.toHex().c_str() << endl;
-      os << "\tMerkle Root:  " << getMerkleRoot().toHex().c_str() << endl;
-      os << "\tDifficulty:   " << difficultyFlt_ 
-                             << "(" << getDiffBits().toHex().c_str() << ")" << endl;
-      os << "\tCumulDiff:    " << difficultySum_ << endl;
-      os << "\tNonce:        " << getNonce() << endl;
-      os << "\tFile Offset:  " << fileByteLoc_ << endl;
+      os << " Hash:       " << thisHash_.toHex().c_str() << endl;
+      os << " Timestamp:  " << getTimestamp() << endl;
+      os << " Prev Hash:  " << prevHash_.toHex().c_str() << endl;
+      os << " MerkleRoot: " << getMerkleRoot().toHex().c_str() << endl;
+      os << " Difficulty: " << difficultyFlt_ 
+                             << "    (" << getDiffBits().toHex().c_str() << ")" << endl;
+      os << " CumulDiff:  " << difficultySum_ << endl;
+      os << " Nonce:      " << getNonce() << endl;
+      os << " FileOffset: " << fileByteLoc_ << endl;
    }
 
 
@@ -323,14 +344,14 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef getGenesisBlock(void)
+   BlockHeaderRef & getGenesisBlock(void)
    {
       return headerMap_[BlockHeaderRef::GenesisHash_];
    }
 
    /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
-   BlockHeaderRef getHeaderByHeight(int index)
+   BlockHeaderRef & getHeaderByHeight(int index)
    {
       if( index>=0 && index<(int)headersByHeight_.size())
          return headersByHeight_[index]->second;
@@ -386,6 +407,7 @@ public:
       }
 
       cout << "Done with everything!  " << filesize << " bytes read!" << endl;
+      indexHeaders();
       return filesize;      
 
    }
@@ -690,6 +712,8 @@ private:
          {
             // We didn't hit a known block, but we don't have this block's
             // ancestor in the memory pool, so we can't go back any further.
+            // TODO:  Walk back up the orphan chain and mark all the blocks
+            //        as such.
             iter->second.isOrphan_ = true;
             isOrphanChain = true;
             break;
