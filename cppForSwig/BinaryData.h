@@ -66,6 +66,37 @@ public:
    uint8_t & operator[](size_t i)       { return data_[i]; }
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
+   // This is probably inefficient, but easy
+   BinaryData operator+(BinaryData const & bd2)
+   {
+      BinaryData out(nBytes_ + bd2.nBytes_);
+      memcpy(out.getPtr(), getPtr(), nBytes_);
+      memcpy(out.getPtr()+nBytes_, bd2.getPtr(), bd2.nBytes_);
+      return out;
+   }
+
+   // This is about as efficient as we're going to get...
+   BinaryData & append(BinaryData const & bd2)
+   {
+      data_.insert(data_.end(), bd2.data_.begin(), bd2.data_.end());
+      return (*this);
+   }
+
+   // Not remarkably efficient, but not terrible
+   BinaryData & append(uint8_t const * str, uint32_t sz)
+   {
+      BinaryData appStr(str, sz);
+      data_.insert(data_.end(), appStr.data_.begin(), appStr.data_.end());
+      return (*this);
+   }
+
+   // This is about as efficient as we're going to get...
+   BinaryData & append(uint8_t byte)
+   {
+      data_.insert(data_.end(), byte);
+      return (*this);
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
    {
@@ -109,6 +140,7 @@ public:
    string toString(void) const { return string((char const *)(&(data_[0])), nBytes_); }
 
    void resize(size_t sz) { data_.resize(sz); nBytes_ = sz;}
+   void reserve(size_t sz) { data_.reserve(sz); }
 
    /////////////////////////////////////////////////////////////////////////////
    // Swap endianness of the bytes in the index range [pos1, pos2)
@@ -363,6 +395,103 @@ private:
 
 };
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class BinaryWriter
+{
+public:
+   /////////////////////////////////////////////////////////////////////////////
+   // Using the argument to pre-allocate a certain amount of capacity.  Not 
+   // required, but will improve performance if you can take a reasonable guess
+   // about the final size of the output data
+   BinaryWriter(uint32_t reserveSize=0) :
+      theString_(0)
+   {
+      if(reserveSize != 0)
+         theString_.reserve(reserveSize);
+   }
+
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void put_uint8_t (uint8_t  val) { theString_.append( val ); }
+   void put_uint16_t(uint16_t val) { theString_.append( (uint8_t*)(&val), 2); }
+   void put_uint32_t(uint32_t val) { theString_.append( (uint8_t*)(&val), 4); }
+   void put_uint64_t(uint64_t val) { theString_.append( (uint8_t*)(&val), 8); }
+
+   //void put_int8_t  (  int8_t val) { theString_.append( val ); }
+   //void put_int16_t ( int16_t val) { theString_.append( (uint8_t*)(&val), 2); }
+   //void put_int32_t ( int32_t val) { theString_.append( (uint8_t*)(&val), 4); }
+   //void put_int64_t ( int64_t val) { theString_.append( (uint8_t*)(&val), 8); }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t put_var_int(uint64_t val)
+   {
+
+      if(val < 0xfd)
+      {
+         put_uint8_t(val);
+         return 1;
+      }
+      else if(val <= UINT16_MAX)
+      {
+         put_uint8_t(0xfd);
+         put_uint16_t((uint16_t)val);
+         return 3;
+      }
+      else if(val <= UINT32_MAX)
+      {
+         put_uint8_t(0xfe);
+         put_uint32_t((uint32_t)val);
+         return 5;
+      }
+      else 
+      {
+         put_uint8_t(0xff);
+         put_uint64_t(val);
+         return 9;
+      }
+   }
+
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void put_BinaryData(BinaryData const & str, uint32_t offset=0, sz=0)
+   {
+      if(offset==0)
+      {
+         if(sz==0)
+            theString_.append(str);
+         else
+            theString_.append(str.getPtr(), sz);
+      }
+      else
+      {
+         if(sz==0)
+            theString_.append(str.getPtr() + offset, str.getSize() - offset);
+         else
+            theString_.append(str.getPtr() + offset, sz);
+      }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void put_BinaryData(uint8_t* targPtr, uint32_t nBytes)
+   {
+      theString_.append(targPtr, nBytes);
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData const & getData(void)
+   {
+      return theString_;
+   }
+
+private:
+   BinaryData theString_;
+
+
+};
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
