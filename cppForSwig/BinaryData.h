@@ -1,5 +1,5 @@
-#ifndef _binaryData_H_
-#define _binaryData_H_
+#ifndef _BinaryData_H_
+#define _BinaryData_H_
 
 #include <stdio.h>
 #ifdef WIN32
@@ -20,23 +20,33 @@ using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class binaryData
+class BinaryData
 {
 public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   binaryData(void) : data_(0), nBytes_(0)     {                         }
-   binaryData(size_t sz)                       { alloc(sz);              }
-   binaryData(uint8_t* inData, size_t sz)      { copyFrom(inData, sz);   }
-   binaryData(uint8_t* dstart, uint8_t* dend ) { copyFrom(dstart, dend); }
-   binaryData(string str)                      { copyFrom(str);          }
-   binaryData(binaryData const & bd)           { copyFrom(bd);           }
+   BinaryData(void) : data_(0), nBytes_(0)     {                         }
+   BinaryData(size_t sz)                       { alloc(sz);              }
+   BinaryData(uint8_t* inData, size_t sz)      { copyFrom(inData, sz);   }
+   BinaryData(uint8_t* dstart, uint8_t* dend ) { copyFrom(dstart, dend); }
+   BinaryData(string str)                      { copyFrom(str);          }
+   BinaryData(BinaryData const & bd) 
+   { 
+      if(bd.nBytes_!=0) 
+      {
+         alloc(bd.nBytes_);
+         copyFrom(bd);
+      }
+      else
+         nBytes_ = 0;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
+   uint8_t const * getPtr(void) const       { return &(data_[0]); }
    uint8_t * getPtr(void)                   { return &(data_[0]); }
    size_t getSize(void) const               { return nBytes_; }
-   uint8_t const * getConstPtr(void) const  { return &(data_[0]); }
+   //uint8_t const * getConstPtr(void) const  { return &(data_[0]); }
 
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
@@ -45,7 +55,7 @@ public:
    void copyFrom(uint8_t const * inData, size_t sz)          { if(sz!=nBytes_) alloc(sz); memcpy( &(data_[0]), inData, sz); }
    void copyFrom(uint8_t const * start, uint8_t const * end) { copyFrom( start, (end-start)); }  // [start, end)
    void copyFrom(string const & str)                         { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
-   void copyFrom(binaryData const & bd)                      { copyFrom( bd.getConstPtr(), bd.getSize() ); }
+   void copyFrom(BinaryData const & bd)                      { copyFrom( bd.getPtr(), bd.getSize() ); }
 
    /////////////////////////////////////////////////////////////////////////////
    // UNSAFE -- you don't know if outData holds enough space for this
@@ -57,7 +67,7 @@ public:
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator<(binaryData const & bd2) const
+   bool operator<(BinaryData const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
       for(int i=0; i<minLen; i++)
@@ -70,7 +80,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator==(binaryData const & bd2) const
+   bool operator==(BinaryData const & bd2) const
    {
       if(nBytes_ != bd2.nBytes_)
          return false;
@@ -81,7 +91,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator>(binaryData const & bd2) const
+   bool operator>(BinaryData const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
       for(int i=0; i<minLen; i++)
@@ -102,7 +112,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Swap endianness of the bytes in the index range [pos1, pos2)
-   binaryData& swapEndian(size_t pos1=0, size_t pos2=0)
+   BinaryData& swapEndian(size_t pos1=0, size_t pos2=0)
    {
       if(pos2 <= pos1)
          pos2 = nBytes_;
@@ -118,7 +128,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHex(void)
+   string toHex(void) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
@@ -134,9 +144,9 @@ public:
       return string((char const *)(&(outStr[0])), 2*nBytes_);
    }
 
-   static binaryData CreateFromHex(string const & str)
+   static BinaryData CreateFromHex(string const & str)
    {
-      binaryData out;
+      BinaryData out;
       out.createFromHex(str);
       return out;
    }
@@ -187,11 +197,11 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class binaryReader
+class BinaryReader
 {
 public:
    /////////////////////////////////////////////////////////////////////////////
-   binaryReader(int sz=0) :
+   BinaryReader(int sz=0) :
       bdStr_(sz),
       totalSize_(sz),
       pos_(0)
@@ -200,7 +210,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   binaryReader(binaryData const & toRead) :
+   BinaryReader(BinaryData const & toRead) :
       bdStr_(toRead),
       totalSize_(toRead.getSize()),
       pos_(0)
@@ -295,14 +305,14 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void get_binaryData(binaryData & bdTarget, uint32_t nBytes)
+   void get_BinaryData(BinaryData & bdTarget, uint32_t nBytes)
    {
       bdTarget.copyFrom( bdStr_.getPtr() + pos_, nBytes);
       pos_ += nBytes;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void get_binaryData(uint8_t* targPtr, uint32_t nBytes)
+   void get_BinaryData(uint8_t* targPtr, uint32_t nBytes)
    {
       bdStr_.copyTo(targPtr, pos_, nBytes);
       pos_ += nBytes;
@@ -347,7 +357,7 @@ public:
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
 
 private:
-   binaryData bdStr_;
+   BinaryData bdStr_;
    uint32_t totalSize_;
    uint32_t pos_;
 
@@ -356,13 +366,13 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class binaryStreamBuffer
+class BinaryStreamBuffer
 {
 
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   binaryStreamBuffer(string filename="", uint32_t bufSize=DEFAULT_BUFFER_SIZE) :
+   BinaryStreamBuffer(string filename="", uint32_t bufSize=DEFAULT_BUFFER_SIZE) :
       binReader_(bufSize),
       streamPtr_(NULL),
       weOwnTheStream_(false),
@@ -462,7 +472,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   binaryReader& reader(void)
+   BinaryReader& reader(void)
    {
       return binReader_;
    }
@@ -479,7 +489,7 @@ public:
 
 private:
 
-   binaryReader binReader_;
+   BinaryReader binReader_;
    istream* streamPtr_;
    bool     weOwnTheStream_;
    uint32_t bufferSize_;

@@ -76,6 +76,8 @@ public:
    double read (string key, string grpstr="");
    string getLastKey(void) {return most_recent_key_;}
    double getLastTiming(void) {return call_timers_[most_recent_key_].getPrev();}
+   void printCSV(ostream & os=cout, bool excludeZeros=false);
+   void printCSV(string filename, bool excludeZeros=false);
    void print(ostream & os=cout, bool excludeZeros=false);
    void print(string filename, bool excludeZeros=false);
 protected:

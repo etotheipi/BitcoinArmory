@@ -83,7 +83,7 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="binaryData.h" />
+    <ClInclude Include="BinaryData.h" />
     <ClInclude Include="blockUtils.h" />
     <ClInclude Include="UniversalTimer.h" />
   </ItemGroup>

@@ -1,22 +1,22 @@
 #include <iostream>
 #include <fstream>
 #include "blockUtils.h"
-#include "binaryData.h"
+#include "BinaryData.h"
 #include "UniversalTimer.h"
 
 
 
 int main(void)
 {
-   binaryData bd(32);
+   BinaryData bd(32);
    for(int i=0; i<32; i++) 
       bd[i] = i;
 
    cout << bd.toHex().c_str() << endl;
 
-   BlockHeadersManager & bhm = BlockHeadersManager::GetInstance(); 
+   BlockDataManager & bdm = BlockDataManager::GetInstance(); 
 
-   binaryData genBlock;
+   BinaryData genBlock;
    string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
 
    TIMER_START("Single_Hash_2x_SHA256");
@@ -29,34 +29,31 @@ int main(void)
    //cout << "New  : " << strrndtrip.c_str() << endl;
    //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
-   binaryData theHash;   
-   for(int i=0; i<200000; i++)
+   BinaryData theHash;   
+   for(int i=0; i<20000; i++)
    {
-      TIMER_START("BHM_GetHash");
-      BlockHeadersManager::getHash(genBlock.getPtr(), theHash);
-      TIMER_STOP("BHM_GetHash");
+      TIMER_START("BDM_GetHash");
+      BlockHeader::getHash(genBlock.getPtr(), theHash);
+      TIMER_STOP("BDM_GetHash");
    }
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 
-   TIMER_START("BHM_Import_Headers");
-   //bhm.importHeadersFromBlockFile("../blk0001.dat");
-   bhm.importHeadersFromHeaderFile("../blkHeaders.dat");
-   TIMER_STOP("BHM_Import_Headers");
+   TIMER_START("BDM_Import_Headers");
+   bdm.importHeadersFromBlockFile("../blk0001.dat");
+   //bdm.importHeadersFromHeaderFile("../blkHeaders.dat");
+   TIMER_STOP("BDM_Import_Headers");
 
-   TIMER_START("BHM_Organize_Chain");
-   bool isGenOnMainChain = bhm.organizeChain();
-   TIMER_STOP("BHM_Organize_Chain");
+   TIMER_START("BDM_Organize_Chain");
+   bool isGenOnMainChain = bdm.organizeChain();
+   TIMER_STOP("BDM_Organize_Chain");
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
-   bhm.getGenesisBlock().printBlockHeader(cout);
+   bdm.getGenesisBlock().printBlockHeader(cout);
 
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
-   bhm.getTopBlock().printBlockHeader(cout);
+   bdm.getTopBlock().printBlockHeader(cout);
 
    UniversalTimer::instance().print();
-   int i;
-   cout << "Type something to exit";
-   cin >> i;
 }
