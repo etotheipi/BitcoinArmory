@@ -39,7 +39,7 @@ int main(void)
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 
    TIMER_START("BDM_Import_Headers");
-   bdm.importHeadersFromBlockFile("../blk0001.dat");
+   bdm.importFromBlockFile("../blk0001.dat");
    //bdm.importHeadersFromHeaderFile("../blkHeaders.dat");
    TIMER_STOP("BDM_Import_Headers");
 

@@ -79,7 +79,7 @@ public:
    void setNextHash(HashString str)   { nextHash_.copyFrom(str);         }
 
    /////////////////////////////////////////////////////////////////////////////
-   void serializeTo(BinaryWriter & bw)
+   void serialize(BinaryWriter & bw)
    {
       bw.put_uint32_t  ( version_     );
       bw.put_BinaryData( prevHash_    );
@@ -93,31 +93,32 @@ public:
    BinaryData serialize(void)
    {
       BinaryWriter bw(HEADER_SIZE);
-      serializeTo(bw);
+      serialize(bw);
       return bw.getData();
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryData const & strIn) 
-   { 
-      unserialize(strIn.getPtr());
+   void unserialize(BinaryReader & br)
+   {
+      BinaryData str;
+      br.get_BinaryData(str, 80);
+      unserialize(str);
    }
 
-   void unserialize(uint8_t const * start)
+   /////////////////////////////////////////////////////////////////////////////
+   void unserialize(BinaryData const & str)
    {
-      version_ = *(uint32_t*)(   start +  0 );
-      prevHash_.copyFrom(        start +  4, 32);
+      uint8_t const * start = str.getPtr();
+      version_ = *(uint32_t*)(   start +  0     );
+      prevHash_.copyFrom(        start +  4, 32 );
       merkleRoot_.copyFrom(      start + 36, 32 );
-      timestamp_ = *(uint32_t*)( start + 68 );
-      diffBitsRaw_.copyFrom(     start + 72, 4 );
-      nonce_ = *(uint32_t*)(     start + 76 );
+      timestamp_ = *(uint32_t*)( start + 68     );
+      diffBitsRaw_.copyFrom(     start + 72, 4  );
+      nonce_ = *(uint32_t*)(     start + 76     );
    } 
 
-   void unserialize(BinaryReader & br)
-   { 
-      unserialize(strIn.getPtr());
-   }
 
+   /////////////////////////////////////////////////////////////////////////////
    BlockHeader( uint8_t const * bhDataPtr,
                 HashString* thisHash = NULL) :
       prevHash_(32),
@@ -287,7 +288,7 @@ public:
       return (txHash_ == op2.txHash_ && txOutIndex_ == op2.txOutIndex_);
    }
 
-   void serializeTo(BinaryWriter & bw)
+   void serialize(BinaryWriter & bw)
    {
       bw.put_BinaryData(txHash_);
       bw.put_uint32_t(txOutIndex_);
@@ -296,7 +297,7 @@ public:
    BinaryData serialize(void)
    {
       BinaryWriter bw(36);
-      serializeTo(bw);
+      serialize(bw);
       return bw.getData();
    }
 
@@ -366,9 +367,9 @@ public:
    void setIsCoinbase(bool iscb) { isCoinbase_ = iscb; }
 
 
-   void serializeTo(BinaryWriter & bw)
+   void serialize(BinaryWriter & bw)
    {
-      outPoint_.serializeTo(bw);
+      outPoint_.serialize(bw);
       bw.put_var_int(scriptSize_);
       bw.put_BinaryData(binScript_);
       bw.put_uint32_t(sequence_);
@@ -377,7 +378,7 @@ public:
    BinaryData serialize(void)
    {
       BinaryWriter bw(250);
-      serializeTo(bw);
+      serialize(bw);
       return bw.getData();
    }
 
@@ -462,7 +463,7 @@ public:
    }
 
 
-   void serializeTo(BinaryWriter & bw)
+   void serialize(BinaryWriter & bw)
    {
       bw.put_uint64_t(value_);
       bw.put_var_int(scriptSize_);
@@ -472,7 +473,7 @@ public:
    BinaryData serialize(void)
    {
       BinaryWriter bw(45);
-      serializeTo(bw);
+      serialize(bw);
       return bw.getData();
    }
 
@@ -529,18 +530,18 @@ public:
    }
 
 
-   void serializeTo(BinaryWriter & bw)
+   void serialize(BinaryWriter & bw)
    {
       bw.put_uint32_t(version_);
       bw.put_var_int(numTxIn_);
       for(int i=0; i<numTxIn_; i++)
       {
-         txInList_[i].serializeTo(bw);
+         txInList_[i].serialize(bw);
       }
       bw.put_var_int(numTxOut_);
       for(int i=0; i<numTxOut_; i++)
       {
-         txOutList_[i].serializeTo(bw);
+         txOutList_[i].serialize(bw);
       }
       bw.put_uint32_t(lockTime_);
    }
@@ -548,7 +549,7 @@ public:
    BinaryData serialize(void)
    {
       BinaryWriter bw(300);
-      serializeTo(bw);
+      serialize(bw);
       return bw.getData();
    }
 
