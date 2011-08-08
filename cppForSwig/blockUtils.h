@@ -109,14 +109,18 @@ public:
    void unserialize(BinaryData const & str)
    {
       uint8_t const * start = str.getPtr();
+      unserialize(start);
+   } 
+
+   void unserialize(uint8_t const * start)
+   {
       version_ = *(uint32_t*)(   start +  0     );
       prevHash_.copyFrom(        start +  4, 32 );
       merkleRoot_.copyFrom(      start + 36, 32 );
       timestamp_ = *(uint32_t*)( start + 68     );
       diffBitsRaw_.copyFrom(     start + 72, 4  );
       nonce_ = *(uint32_t*)(     start + 76     );
-   } 
-
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader( uint8_t const * bhDataPtr,
@@ -136,12 +140,12 @@ public:
       if( thisHash != NULL )
          thisHash_.copyFrom(*thisHash);
       else
-         getHash(thisHash_.getPtr(), serialize());
+         BinaryData::getHash256(bhDataPtr, HEADER_SIZE, thisHash_);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader( BinaryData const * serHeader = NULL,
-                HashString const * thisHash  = NULL,
+                HashString const * suppliedHash  = NULL,
                 uint64_t           fileLoc   = UINT64_MAX) :
       prevHash_(32),
       thisHash_(32),
@@ -159,23 +163,13 @@ public:
       if(serHeader != NULL)
       {
          unserialize(*serHeader);
-         serialHeader_.copyFrom(*serHeader);
-         if( thisHash != NULL )
-            thisHash_.copyFrom(*thisHash);
+         if( suppliedHash != NULL )
+            thisHash_.copyFrom(*suppliedHash);
          else
-            getHash(thisHash_.getPtr(), serialHeader_);
-
+            BinaryData::getHash256(*serHeader, thisHash_);
       }
    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   static void getHash(uint8_t const * blockStart, HashString & hashOut)
-   {
-      if(hashOut.getSize() != 32)
-         hashOut.resize(32);
-      sha256_.CalculateDigest(hashOut.getPtr(), blockStart, HEADER_SIZE);
-      sha256_.CalculateDigest(hashOut.getPtr(), hashOut.getPtr(), 32);
-   }
 
    /////////////////////////////////////////////////////////////////////////////
    static double convertDiffBitsToDouble(uint32_t diffBits)
@@ -329,7 +323,7 @@ class TxIn
 
 public:
    TxIn(void) :
-      outPoint_(32),
+      outPoint_(),
       binScript_(0),
       sequence_(0),
       isCoinbase_(false),
@@ -353,7 +347,7 @@ public:
    OutPoint const & getOutPoint(void) { return outPoint_; }
    BinaryData const & getBinScript(void) { return binScript_; }
    uint32_t getSequence(void) { return sequence_; }
-   void getScriptSize(void) { return scriptSize_; }
+   uint32_t getScriptSize(void) { return scriptSize_; }
 
    bool getIsCoinbase(void) 
    { 
@@ -384,8 +378,8 @@ public:
 
    void unserialize(BinaryReader & br)
    {
-      outPoint.unserialize(br);
-      scriptSize_ = br.get_var_int();
+      outPoint_.unserialize(br);
+      scriptSize_ = (uint32_t)br.get_var_int();
       br.get_BinaryData(binScript_, scriptSize_);
       sequence_ = br.get_uint32_t();
    }
@@ -424,14 +418,14 @@ public:
 
    TxOut(uint64_t val, BinaryData const & scr) :
       value_(val),
-      pkScript_(scr),
+      pkScript_(scr)
    {
       scriptSize_ = (uint32_t)(pkScript_.getSize());
    }
 
    uint64_t getValue(void) { return value_; }
    BinaryData const & getPkScript(void) { return pkScript_; }
-   void getScriptSize(void) { return scriptSize_; }
+   uint32_t getScriptSize(void) { return scriptSize_; }
 
    void setValue(uint64_t val) { value_ = val; }
    void setPkScript(BinaryData const & scr) { pkScript_.copyFrom(scr); }
@@ -448,15 +442,15 @@ public:
    BinaryData const & getRecipientAddr(void)
    {
       if( !isStandardScript() )
-         return BinaryData();
+         return badAddress_;
 
       if(recipientAddr_.getSize() < 1)
       {
          BinaryReader binReader(pkScript_);
          binReader.advance(2);
-         uint64_t addrLength = binReader.get_var_int();
-         recipientAddr_.resize(addrLength);
-         binReader.get_BinaryData(recipientAddr_, addrLength);
+         uint64_t addrLength = (uint32_t)binReader.get_var_int();
+         recipientAddr_.resize((size_t)addrLength);
+         binReader.get_BinaryData(recipientAddr_, (uint32_t)addrLength);
       }
 
       return recipientAddr_;
@@ -480,7 +474,7 @@ public:
    void unserialize(BinaryReader & br)
    {
       value_ = br.get_uint64_t();
-      scriptSize_ = br.get_var_int();
+      scriptSize_ = (uint32_t)br.get_var_int();
       br.get_BinaryData(pkScript_, scriptSize_);
    }
 
@@ -496,6 +490,8 @@ private:
    BinaryData recipientAddr_;
 
    bool       isMine_;
+
+   static BinaryData badAddress_;
 
 };
 
@@ -522,11 +518,9 @@ public:
    }
 
      
-   OutPoint getOutPoint(int index)
+   OutPoint createOutPoint(int txOutIndex)
    {
-      if(thisHash_.getSize() < 1)
-         getHash(void);
-      return OutPoint(thisHash_, index);
+      return OutPoint(thisHash_, txOutIndex);
    }
 
 
@@ -534,12 +528,12 @@ public:
    {
       bw.put_uint32_t(version_);
       bw.put_var_int(numTxIn_);
-      for(int i=0; i<numTxIn_; i++)
+      for(uint32_t i=0; i<numTxIn_; i++)
       {
          txInList_[i].serialize(bw);
       }
       bw.put_var_int(numTxOut_);
-      for(int i=0; i<numTxOut_; i++)
+      for(uint32_t i=0; i<numTxOut_; i++)
       {
          txOutList_[i].serialize(bw);
       }
@@ -555,15 +549,26 @@ public:
 
    void unserialize(BinaryReader & br)
    {
-      value_ = br.get_uint64_t();
-      scriptSize_ = br.get_var_int();
-      br.get_BinaryData(pkScript_, scriptSize_);
+      version_ = br.get_uint32_t();
+
+      numTxIn_ = (uint32_t)br.get_var_int();
+      txInList_ = vector<TxIn>(numTxIn_);
+      for(uint32_t i=0; i<numTxIn_; i++)
+         txInList_[i].unserialize(br); 
+
+      numTxOut_ = (uint32_t)br.get_var_int();
+      txOutList_ = vector<TxOut>(numTxOut_);
+      for(uint32_t i=0; i<numTxOut_; i++)
+         txOutList_[i].unserialize(br); 
+
+      lockTime_ = br.get_uint32_t();
    }
 
    void unserialize(BinaryData const & str)
    {
       unserialize(BinaryReader(str));
    }
+
 
 private:
    uint32_t      version_;
@@ -575,6 +580,7 @@ private:
    
    bool          isMine_;
    HashString    thisHash_;
+   uint32_t      nBytes_;
 
 };
 
@@ -644,6 +650,7 @@ public:
       return (*theOnlyBDM_);
    }
 
+
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader getTopBlock(void)
    {
@@ -700,9 +707,8 @@ public:
       HashString thisHash(32);
       for(int offset=0; offset<(int)filesize; offset+=HEADER_SIZE)
       {
-         //static void getHash(uint8_t* blockStart, HashString & hashOut)
          uint8_t* thisPtr = front + offset;
-         BlockHeader::getHash(thisPtr, thisHash);
+         BinaryData::getHash256(thisPtr, HEADER_SIZE, thisHash);
          headerMap_[thisHash] = BlockHeader(thisPtr, &thisHash);
       }
       cout << "Done with everything!  " << filesize << " bytes read!" << endl;
@@ -711,13 +717,14 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t importHeadersFromBlockFile(std::string filename)
+   uint32_t importFromBlockFile(std::string filename, bool justHeaders=false)
    {
       BinaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
       
       bool readMagic  = false;
       bool readVarInt = false;
-      bool readBlock  = false;
+      bool readHeader = false;
+      bool readTx     = false;
       uint32_t numBlockBytes;
 
       BinaryData magicBucket(4);
@@ -763,32 +770,65 @@ public:
 
             // If we haven't read the header yet, do it
             uint64_t blkByteOffset = bsb.getFileByteLocation();
-            if( !readBlock )
+            if( !readHeader )
             {
-               if(bsb.getBufferSizeRemaining() < numBlockBytes)
+               if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
                   break;
-
 
                bsb.reader().get_BinaryData(thisHeaderBD, HEADER_SIZE);
                thisHeaderBH.unserialize(thisHeaderBD);
 
-               // Here we are only reading headers, so we advance past txData
-               bsb.reader().advance((uint32_t)(numBlockBytes-HEADER_SIZE));
-               readBlock = true;
+               BinaryData::getHash256(thisHeaderBD, thisHash);
+               headerMap_[thisHash] = BlockHeader(&thisHeaderBD, 
+                                                  &thisHash,
+                                                  blkByteOffset+HEADER_SIZE);
+
+               //cout << thisHash.toHex().c_str() << endl;
+               readHeader = true;
+            }
+
+            uint32_t totalTxBytes = numBlockBytes - HEADER_SIZE;
+            if( !readTx )
+            {
+               if(bsb.getBufferSizeRemaining() < totalTxBytes)
+                  break;
+
+               if(justHeaders)
+                  bsb.reader().advance((uint32_t)totalTxBytes);
+               else
+               {
+                  thisHeaderBH.numTx_ = (uint32_t)bsb.reader().get_var_int();
+                  Tx tempTx;
+                  for(uint32_t i=0; i<thisHeaderBH.numTx_; i++)
+                  {
+                     // Retrieve the entire Tx as a binary chunk from the reader
+                     BinaryData txFull(totalTxBytes);
+                     bsb.reader().get_BinaryData(txFull.getPtr(), totalTxBytes);
+
+                     // Calculate the hash of the Tx
+                     BinaryData hashOut(32);
+                     BinaryData::getHash256(txFull, hashOut);
+
+                     // Unserialize this chunk of binary and set some properties
+                     tempTx.unserialize(txFull);
+                     tempTx.thisHash_ = hashOut;
+                     tempTx.nBytes_ = totalTxBytes;
+
+                     // Finally, store it in our map.
+                     txMap_[hashOut] = tempTx;
+
+                  }
+               }
+
+               readTx = true;
             }
 
             
             readMagic  = false;
             readVarInt = false;
-            readBlock  = false;
+            readHeader = false;
+            readTx     = false;
 
-            // The header has been added to the memory pool, but not indexed
-            // in a way that we can locate it efficiently.
-            BlockHeader::getHash(thisHeaderBD.getPtr(), thisHash);
-            //cout << thisHash.toHex().c_str() << endl;
-            headerMap_[thisHash] = BlockHeader(&thisHeaderBD, 
-                                               &thisHash,
-                                               blkByteOffset+HEADER_SIZE);
          }
       }
 
@@ -801,8 +841,8 @@ public:
    void addHeader(BinaryData const & binHeader)
    {
       HashString theHash(32); 
-      BlockHeader::getHash(binHeader.getPtr(), theHash);
-      headerMap_[theHash] = BlockHeader( &binHeader, &theHash);
+      BinaryData::getHash256(binHeader, theHash);
+      headerMap_[theHash] = BlockHeader(&binHeader, &theHash);
    }
 
 

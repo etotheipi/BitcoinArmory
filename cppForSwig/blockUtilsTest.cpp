@@ -32,9 +32,9 @@ int main(void)
    BinaryData theHash;   
    for(int i=0; i<20000; i++)
    {
-      TIMER_START("BDM_GetHash");
-      BlockHeader::getHash(genBlock.getPtr(), theHash);
-      TIMER_STOP("BDM_GetHash");
+      TIMER_START("BinaryData::GetHash");
+      BinaryData::getHash256(genBlock, theHash);
+      TIMER_STOP("BinaryData::GetHash");
    }
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 

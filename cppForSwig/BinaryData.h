@@ -16,6 +16,13 @@
 
 #define DEFAULT_BUFFER_SIZE 25*1048576
 
+
+#ifdef USE_CRYPTOPP
+   #include "cryptlib.h"
+   #include "sha.h"
+#endif
+
+
 using namespace std;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -28,8 +35,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData(void) : data_(0), nBytes_(0)     {                         }
    BinaryData(size_t sz)                       { alloc(sz);              }
-   BinaryData(uint8_t* inData, size_t sz)      { copyFrom(inData, sz);   }
-   BinaryData(uint8_t* dstart, uint8_t* dend ) { copyFrom(dstart, dend); }
+   BinaryData(uint8_t const * inData, size_t sz)      
+                                               { copyFrom(inData, sz);   }
+   BinaryData(uint8_t const * dstart, uint8_t const * dend ) 
+                                               { copyFrom(dstart, dend); }
    BinaryData(string str)                      { copyFrom(str);          }
    BinaryData(BinaryData const & bd) 
    { 
@@ -51,11 +60,18 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
    // TODO:  Got a problem when copying an empty/uninitialized BD object...
-   void copyFrom(uint8_t const * inData)                     { memcpy( &(data_[0]), inData, (size_t)nBytes_); }
-   void copyFrom(uint8_t const * inData, size_t sz)          { if(sz!=nBytes_) alloc(sz); memcpy( &(data_[0]), inData, sz); }
-   void copyFrom(uint8_t const * start, uint8_t const * end) { copyFrom( start, (end-start)); }  // [start, end)
-   void copyFrom(string const & str)                         { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
-   void copyFrom(BinaryData const & bd)                      { copyFrom( bd.getPtr(), bd.getSize() ); }
+   void copyFrom(uint8_t const * start, uint8_t const * end) 
+                  { copyFrom( start, (end-start)); }  // [start, end)
+   void copyFrom(string const & str)                         
+                  { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
+   void copyFrom(BinaryData const & bd)                      
+                  { copyFrom( bd.getPtr(), bd.getSize() ); }
+   void copyFrom(uint8_t const * inData, size_t sz)          
+   { 
+      if(sz!=nBytes_) 
+         alloc(sz); 
+      memcpy( &(data_[0]), inData, sz);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // UNSAFE -- you don't know if outData holds enough space for this
@@ -211,6 +227,44 @@ public:
          data_[i] = (char1 << 4) | char2;
       }
    }
+
+#ifdef USE_CRYPTOPP
+
+   static void getHash256(uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+      if(hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+   }
+
+   static void getHash256(BinaryData const & strToHash, 
+                          BinaryData &       hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+      if(hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+
+   }
+
+   static BinaryData getHash256(BinaryData const & strToHash)
+   {
+      static CryptoPP::SHA256 sha256_;
+      
+      BinaryData hashOutput(32);
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      return hashOutput;
+   }
+
+#endif
 
 private:
    vector<uint8_t> data_;
@@ -430,7 +484,7 @@ public:
 
       if(val < 0xfd)
       {
-         put_uint8_t(val);
+         put_uint8_t((uint8_t)val);
          return 1;
       }
       else if(val <= UINT16_MAX)
@@ -456,7 +510,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void put_BinaryData(BinaryData const & str, uint32_t offset=0, sz=0)
+   void put_BinaryData(BinaryData const & str, uint32_t offset=0, uint32_t sz=0)
    {
       if(offset==0)
       {
@@ -611,6 +665,7 @@ public:
    {
       return totalStreamSize_ - (fileBytesRemaining_ + binReader_.getSizeRemaining());
    }
+
 
    uint32_t getBufferSizeRemaining(void) { return binReader_.getSizeRemaining(); }
    uint32_t getFileSizeRemaining(void)   { return fileBytesRemaining_; }
