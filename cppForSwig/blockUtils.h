@@ -50,6 +50,9 @@ using namespace std;
 // to where the data is in the BlockHeaderManager.  So there is a single place
 // where all block headers are stored, and this class tells us where exactly
 // is the one we want.
+
+class Tx;
+
 class BlockHeader
 {
 
@@ -157,8 +160,7 @@ public:
       blockHeight_(0),
       isMainBranch_(false),
       isOrphan_(false),
-      isFinishedCalc_(false),
-      serialHeader_(0)
+      isFinishedCalc_(false)
    {
       if(serHeader != NULL)
       {
@@ -232,7 +234,7 @@ private:
    bool           isOrphan_;
    bool           isFinishedCalc_;
 
-   BinaryData     serialHeader_;
+   vector<Tx*>    txPtrList_;
 
    // We should keep the genesis hash handy 
    static HashString GenesisHash_;
@@ -512,7 +514,8 @@ public:
       txOutList_(0),
       lockTime_(UINT32_MAX),
       isMine_(false),
-      thisHash_(32)
+      thisHash_(32),
+      headerPtr_(NULL)
    {
       // Nothing to put here
    }
@@ -581,7 +584,7 @@ private:
    bool          isMine_;
    HashString    thisHash_;
    uint32_t      nBytes_;
-
+   BlockHeader*  headerPtr_;
 };
 
 
@@ -609,6 +612,8 @@ private:
 class BlockDataManager
 {
 private:
+   typedef map<HashString, BlockHeader>::iterator HeadMapIter;
+   typedef map<HashString, Tx         >::iterator TxMapIter;
 
    static BlockDataManager *         theOnlyBDM_;
 
@@ -730,9 +735,14 @@ public:
       BinaryData magicBucket(4);
       BinaryData magicStr(4);
       magicStr.createFromHex(MAGICBYTES);
-      HashString thisHash(32);
-      BinaryData thisHeaderBD(HEADER_SIZE);
-      BlockHeader thisHeaderBH;
+      HashString headHash(32);
+      BinaryData headerStr(HEADER_SIZE);
+
+      Tx tempTx;
+      BlockHeader tempBH;
+
+      pair<HeadMapIter, bool> insHeadIter;
+      pair<TxMapIter, bool>   insTxIter;
 
 
       // While there is still data left in the stream (file), pull it
@@ -775,19 +785,26 @@ public:
                if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
                   break;
 
-               bsb.reader().get_BinaryData(thisHeaderBD, HEADER_SIZE);
-               thisHeaderBH.unserialize(thisHeaderBD);
+               bsb.reader().get_BinaryData(headerStr, HEADER_SIZE);
+               tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE);
 
-               BinaryData::getHash256(thisHeaderBD, thisHash);
-               headerMap_[thisHash] = BlockHeader(&thisHeaderBD, 
-                                                  &thisHash,
-                                                  blkByteOffset+HEADER_SIZE);
+               BinaryData::getHash256(headerStr, headHash);
+               insHeadIter = headerMap_.insert( make_pair( headHash, tempBH) );
 
-               //cout << thisHash.toHex().c_str() << endl;
+               if(insHeadIter.second == false)
+               {
+                  cerr << "***Insert Header Failed! " 
+                       << headHash.toHex().c_str()
+                       << endl;
+                  tempBH.printBlockHeader();
+               }
+
+               //cout << headHash.toHex().c_str() << endl;
                readHeader = true;
             }
 
             uint32_t totalTxBytes = numBlockBytes - HEADER_SIZE;
+            BlockHeader & blkHead = insHeadIter.first->second;
             if( !readTx )
             {
                if(bsb.getBufferSizeRemaining() < totalTxBytes)
@@ -797,9 +814,9 @@ public:
                   bsb.reader().advance((uint32_t)totalTxBytes);
                else
                {
-                  thisHeaderBH.numTx_ = (uint32_t)bsb.reader().get_var_int();
-                  Tx tempTx;
-                  for(uint32_t i=0; i<thisHeaderBH.numTx_; i++)
+                  blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int();
+                  blkHead.txPtrList_.resize(blkHead.numTx_);
+                  for(uint32_t i=0; i<blkHead.numTx_; i++)
                   {
                      // Retrieve the entire Tx as a binary chunk from the reader
                      BinaryData txFull(totalTxBytes);
@@ -811,11 +828,23 @@ public:
 
                      // Unserialize this chunk of binary and set some properties
                      tempTx.unserialize(txFull);
-                     tempTx.thisHash_ = hashOut;
-                     tempTx.nBytes_ = totalTxBytes;
+                     tempTx.thisHash_  = hashOut;
+                     tempTx.nBytes_    = totalTxBytes;
+                     tempTx.headerPtr_ = &blkHead;
 
                      // Finally, store it in our map.
-                     txMap_[hashOut] = tempTx;
+
+                     insTxIter = txMap_.insert(make_pair(hashOut, tempTx));
+
+                     if(insHeadIter.second == false)
+                     {
+                        cerr << "***Insert Tx Failed! " 
+                             << tempTx.thisHash_.toHex().c_str()
+                             << endl;
+                        // tempTx.print(cout);
+                     }
+
+                     blkHead.txPtrList_[i] = &(insTxIter.first->second);
 
                   }
                }
