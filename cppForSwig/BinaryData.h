@@ -68,8 +68,11 @@ public:
                   { copyFrom( bd.getPtr(), bd.getSize() ); }
    void copyFrom(uint8_t const * inData, size_t sz)          
    { 
-      if(sz!=nBytes_) 
+      if(sz!=data_.size()) 
+      {
          alloc(sz); 
+         nBytes_ = sz;
+      }
       memcpy( &(data_[0]), inData, sz);
    }
 
@@ -95,6 +98,7 @@ public:
    BinaryData & append(BinaryData const & bd2)
    {
       data_.insert(data_.end(), bd2.data_.begin(), bd2.data_.end());
+      nBytes_ += bd2.nBytes_;
       return (*this);
    }
 
@@ -103,6 +107,7 @@ public:
    {
       BinaryData appStr(str, sz);
       data_.insert(data_.end(), appStr.data_.begin(), appStr.data_.end());
+      nBytes_ += sz;
       return (*this);
    }
 
@@ -110,6 +115,7 @@ public:
    BinaryData & append(uint8_t byte)
    {
       data_.insert(data_.end(), byte);
+      nBytes_ += 1;
       return (*this);
    }
 
@@ -340,20 +346,20 @@ public:
       {
          if(nRead != NULL) *nRead = 3;
          pos_ += 3;
-         return (uint64_t)(*(uint16_t*)(bdStr_.getPtr() + pos_ + 1));
+         return (uint64_t)(*(uint16_t*)(bdStr_.getPtr() + pos_ +1 - 3));
          
       }
       else if(firstByte == 0xfe)
       {
          if(nRead != NULL) *nRead = 5;
          pos_ += 5;
-         return (uint64_t)(*(uint32_t*)(bdStr_.getPtr() + pos_ + 1));
+         return (uint64_t)(*(uint32_t*)(bdStr_.getPtr() + pos_ +1 - 5));
       }
       else //if(firstByte == 0xff)
       {
          if(nRead != NULL) *nRead = 9;
          pos_ += 9;
-         return *(uint64_t*)(bdStr_.getPtr() + pos_ + 1);
+         return *(uint64_t*)(bdStr_.getPtr() + pos_ + 1 - 9);
       }
    }
 

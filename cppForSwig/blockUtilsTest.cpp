@@ -56,4 +56,8 @@ int main(void)
    bdm.getTopBlock().printBlockHeader(cout);
 
    UniversalTimer::instance().print();
+
+   char a[256];
+   cout << "Enter anything to exit" << endl;
+   cin >> a;
 }

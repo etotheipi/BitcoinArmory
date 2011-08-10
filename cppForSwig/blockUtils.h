@@ -744,7 +744,7 @@ public:
       pair<HeadMapIter, bool> insHeadIter;
       pair<TxMapIter, bool>   insTxIter;
 
-
+      int nBlocksRead = 0;
       // While there is still data left in the stream (file), pull it
       while(bsb.streamPull())
       {
@@ -786,9 +786,9 @@ public:
                   break;
 
                bsb.reader().get_BinaryData(headerStr, HEADER_SIZE);
-               tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE);
 
                BinaryData::getHash256(headerStr, headHash);
+               tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE);
                insHeadIter = headerMap_.insert( make_pair( headHash, tempBH) );
 
                if(insHeadIter.second == false)
@@ -803,37 +803,53 @@ public:
                readHeader = true;
             }
 
-            uint32_t totalTxBytes = numBlockBytes - HEADER_SIZE;
+            uint32_t txListBytes = numBlockBytes - HEADER_SIZE;
             BlockHeader & blkHead = insHeadIter.first->second;
             if( !readTx )
             {
-               if(bsb.getBufferSizeRemaining() < totalTxBytes)
+               if(bsb.getBufferSizeRemaining() < txListBytes)
                   break;
 
                if(justHeaders)
-                  bsb.reader().advance((uint32_t)totalTxBytes);
+                  bsb.reader().advance((uint32_t)txListBytes);
                else
                {
-                  blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int();
+                  uint8_t varIntSz;
+                  blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int(&varIntSz);
                   blkHead.txPtrList_.resize(blkHead.numTx_);
+                  txListBytes -= varIntSz;
+                  BinaryData allTx(txListBytes);
+                  bsb.reader().get_BinaryData(allTx.getPtr(), txListBytes);
+                  BinaryReader txListReader(allTx);
                   for(uint32_t i=0; i<blkHead.numTx_; i++)
                   {
-                     // Retrieve the entire Tx as a binary chunk from the reader
-                     BinaryData txFull(totalTxBytes);
-                     bsb.reader().get_BinaryData(txFull.getPtr(), totalTxBytes);
+
+                     uint32_t readerStartPos = txListReader.getPosition();
+                     tempTx.unserialize(txListReader);
+                     uint32_t readerEndPos = txListReader.getPosition();
+
+                     BinaryData txSerial( allTx.getPtr() + readerStartPos, 
+                                          allTx.getPtr() + readerEndPos    );
+                     tempTx.nBytes_    = readerEndPos - readerStartPos;
+                     tempTx.headerPtr_ = &blkHead;
 
                      // Calculate the hash of the Tx
                      BinaryData hashOut(32);
-                     BinaryData::getHash256(txFull, hashOut);
-
-                     // Unserialize this chunk of binary and set some properties
-                     tempTx.unserialize(txFull);
+                     BinaryData::getHash256(txSerial, hashOut);
                      tempTx.thisHash_  = hashOut;
-                     tempTx.nBytes_    = totalTxBytes;
-                     tempTx.headerPtr_ = &blkHead;
+
+                     //cout << "Tx Hash: " << hashOut.toHex().c_str() << endl;
+
+                     ////////////// Debugging Output - DELETE ME ///////////////
+                     //Tx newTx;
+                     //BinaryData tempTxSer = tempTx.serialize();
+                     //newTx.unserialize(tempTxSer);
+                     //BinaryData newTxSer = newTx.serialize();
+                     //BinaryData::getHash256(txSerial, hashOut);
+                     //cout << "Tx Hash: " << hashOut.toHex().c_str() << endl;
+                     ////////////// Debugging Output - DELETE ME ///////////////
 
                      // Finally, store it in our map.
-
                      insTxIter = txMap_.insert(make_pair(hashOut, tempTx));
 
                      if(insHeadIter.second == false)
@@ -857,6 +873,7 @@ public:
             readVarInt = false;
             readHeader = false;
             readTx     = false;
+            nBlocksRead++;
 
          }
       }
