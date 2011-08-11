@@ -39,7 +39,7 @@ int main(void)
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
 
    TIMER_START("BDM_Import_Headers");
-   bdm.importFromBlockFile("../blk0001.dat");
+   bdm.importFromBlockFile("../blk0001.dat", false);
    //bdm.importHeadersFromHeaderFile("../blkHeaders.dat");
    TIMER_STOP("BDM_Import_Headers");
 
@@ -56,6 +56,7 @@ int main(void)
    bdm.getTopBlock().printBlockHeader(cout);
 
    UniversalTimer::instance().print();
+   UniversalTimer::instance().printCSV("timings.csv");
 
    char a[256];
    cout << "Enter anything to exit" << endl;

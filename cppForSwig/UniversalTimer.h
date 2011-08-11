@@ -40,7 +40,7 @@
 
 // WRAP ANY FUNCTION OR LINE WITH THIS METHOD — IT IS STORED BY ITS OWN NAME
 #define TIMER_WRAP(LINE) \
-   UniversalTimer::instance(),start(std::string(#LINE)); \
+   UniversalTimer::instance().start(std::string(#LINE)); \
    LINE; \
    UniversalTimer::instance().stop(std::string(#LINE));
 

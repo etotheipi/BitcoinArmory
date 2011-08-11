@@ -22,6 +22,7 @@
 
 #include "cryptlib.h"
 #include "sha.h"
+#include "UniversalTimer.h"
 
 
 #define HEADER_SIZE       80
@@ -785,11 +786,11 @@ public:
                if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
                   break;
 
-               bsb.reader().get_BinaryData(headerStr, HEADER_SIZE);
+               TIMER_WRAP(bsb.reader().get_BinaryData(headerStr, HEADER_SIZE));
 
                BinaryData::getHash256(headerStr, headHash);
-               tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE);
-               insHeadIter = headerMap_.insert( make_pair( headHash, tempBH) );
+               TIMER_WRAP(tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE));
+               TIMER_WRAP(insHeadIter = headerMap_.insert( make_pair( headHash, tempBH) ));
 
                if(insHeadIter.second == false)
                {
@@ -815,28 +816,29 @@ public:
                else
                {
                   uint8_t varIntSz;
-                  blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int(&varIntSz);
+                  TIMER_WRAP(blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int(&varIntSz));
                   blkHead.txPtrList_.resize(blkHead.numTx_);
                   txListBytes -= varIntSz;
                   BinaryData allTx(txListBytes);
-                  bsb.reader().get_BinaryData(allTx.getPtr(), txListBytes);
-                  BinaryReader txListReader(allTx);
+                  TIMER_WRAP(bsb.reader().get_BinaryData(allTx.getPtr(), txListBytes));
+                  TIMER_WRAP(BinaryReader txListReader(allTx));
                   for(uint32_t i=0; i<blkHead.numTx_; i++)
                   {
 
                      uint32_t readerStartPos = txListReader.getPosition();
-                     tempTx.unserialize(txListReader);
+                     TIMER_WRAP(tempTx.unserialize(txListReader));
                      uint32_t readerEndPos = txListReader.getPosition();
 
-                     BinaryData txSerial( allTx.getPtr() + readerStartPos, 
-                                          allTx.getPtr() + readerEndPos    );
+                     TIMER_WRAP(BinaryData txSerial( allTx.getPtr() + readerStartPos, allTx.getPtr() + readerEndPos    ));
                      tempTx.nBytes_    = readerEndPos - readerStartPos;
                      tempTx.headerPtr_ = &blkHead;
 
                      // Calculate the hash of the Tx
+                     TIMER_START("TxSerial Hash");
                      BinaryData hashOut(32);
                      BinaryData::getHash256(txSerial, hashOut);
                      tempTx.thisHash_  = hashOut;
+                     TIMER_STOP("TxSerial Hash");
 
                      //cout << "Tx Hash: " << hashOut.toHex().c_str() << endl;
 
@@ -850,7 +852,7 @@ public:
                      ////////////// Debugging Output - DELETE ME ///////////////
 
                      // Finally, store it in our map.
-                     insTxIter = txMap_.insert(make_pair(hashOut, tempTx));
+                     TIMER_WRAP(insTxIter = txMap_.insert(make_pair(hashOut, tempTx)));
 
                      if(insHeadIter.second == false)
                      {
@@ -860,7 +862,7 @@ public:
                         // tempTx.print(cout);
                      }
 
-                     blkHead.txPtrList_[i] = &(insTxIter.first->second);
+                     TIMER_WRAP(blkHead.txPtrList_[i] = &(insTxIter.first->second));
 
                   }
                }
