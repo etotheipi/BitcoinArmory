@@ -730,6 +730,145 @@ private:
 
 };
 
+
+class BinaryRefReader
+{
+public:
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryRefReader(int sz=0) :
+      bdRef_(),
+      totalSize_(sz),
+      pos_(0)
+   {
+      // Nothing needed here
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryRefReader(BinaryData const & toRead) :
+      bdRef_(toRead),
+      totalSize_(toRead.getSize()),
+      pos_(0)
+   {
+      // Nothing needed here
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void advance(uint32_t nBytes) 
+   { 
+      pos_ += nBytes;  
+      pos_ = min(pos_, totalSize_);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void rewind(uint32_t nBytes) 
+   { 
+      pos_ -= nBytes;  
+      pos_ = max(pos_, (uint32_t)0);
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint64_t get_var_int(uint8_t* nRead=NULL)
+   {
+      uint8_t firstByte = bdRef_[pos_];
+
+      if(firstByte < 0xfd)
+      {
+         if(nRead != NULL) *nRead = 1;
+         pos_ += 1;
+         return (uint64_t)firstByte;
+      }
+      if(firstByte == 0xfd)
+      {
+         if(nRead != NULL) *nRead = 3;
+         pos_ += 3;
+         return (uint64_t)(*(uint16_t*)(bdRef_.getPtr() + pos_ + 1 - 3));
+      }
+      else if(firstByte == 0xfe)
+      {
+         if(nRead != NULL) *nRead = 5;
+         pos_ += 5;
+         return (uint64_t)(*(uint32_t*)(bdRef_.getPtr() + pos_ + 1 - 5));
+      }
+      else //if(firstByte == 0xff)
+      {
+         if(nRead != NULL) *nRead = 9;
+         pos_ += 9;
+         return *(uint64_t*)(bdRef_.getPtr() + pos_ + 1 - 9);
+      }
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t get_uint8_t(void)
+   {
+      uint8_t outVal = bdRef_[pos_];
+      pos_ += 1;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint16_t get_uint16_t(void)
+   {
+      uint16_t outVal = *(uint16_t*)(bdRef_.getPtr() + pos_);
+      pos_ += 2;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t get_uint32_t(void)
+   {
+      uint32_t outVal = *(uint32_t*)(bdRef_.getPtr() + pos_);
+      pos_ += 4;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint64_t get_uint64_t(void)
+   {
+      uint64_t outVal = *(uint64_t*)(bdRef_.getPtr() + pos_);
+      pos_ += 8;
+      return outVal;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef get_BinaryDataRef(uint32_t nBytes)
+   {
+      BinaryDataRef bdrefout(bdRef_.getPtr() + pos_, nBytes);
+      pos_ += nBytes;
+      return bdrefout;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void get_BinaryData(BinaryData & bdTarget, uint32_t nBytes)
+   {
+      bdTarget.copyFrom( bdRef_.getPtr() + pos_, nBytes);
+      pos_ += nBytes;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void get_BinaryData(uint8_t* targPtr, uint32_t nBytes)
+   {
+      bdRef_.copyTo(targPtr, pos_, nBytes);
+      pos_ += nBytes;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void     resetPosition(void)           { pos_ = 0; }
+   uint32_t getPosition(void) const       { return pos_; }
+   uint32_t getSize(void) const           { return totalSize_; }
+   uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
+   bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
+   uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
+
+private:
+   BinaryDataRef bdRef_;
+   uint32_t totalSize_;
+   uint32_t pos_;
+
+};
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BinaryWriter

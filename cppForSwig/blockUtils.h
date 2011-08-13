@@ -1032,6 +1032,188 @@ public:
    }
 
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////////////////////////
+   //   
+   // Attempting the same thing as above, but using refs only.  This should 
+   // actually simplify the buffering because there's only a single, massive
+   // copy operation.  And there should be very little extra copying after 
+   // that.  Only copying pointers around.
+   //
+   /////////////////////////////////////////////////////////////////////////////
+   /////////////////////////////////////////////////////////////////////////////
+   
+   /*
+   uint32_t importRefsFromBlockFile(std::string filename)
+   {
+      // TODO: My original everythingRef solution for headers would save a LOT
+      //       of computation here.  At 140k blocks, with 1.1 million Tx's:
+      //
+      //          txSerial copy:       19s
+      //          binaryReader copy:   20s
+      //          tx.unserialize:      45s
+      //          txMap_[hash] = tx:  115s
+      //          &(txMap_[hash]):      0.61s
+      //
+      //       In other words, we spend a shitload of time copying data around.
+      //       If we switch to copying all data once from file, and then only
+      //       copy pointers around, we should be in fantastic shape!
+      //         
+      BinaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
+      
+      bool readMagic  = false;
+      bool readVarInt = false;
+      bool readHeader = false;
+      bool readTx     = false;
+      uint32_t numBlockBytes;
+
+      BinaryData magicBucket(4);
+      BinaryData magicStr(4);
+      magicStr.createFromHex(MAGICBYTES);
+      HashString headHash(32);
+      BinaryData headerStr(HEADER_SIZE);
+
+      Tx tempTx;
+      BlockHeader tempBH;
+
+
+      int nBlocksRead = 0;
+      // While there is still data left in the stream (file), pull it
+      while(bsb.streamPull())
+      {
+         // Data has been pulled into the buffer, process all of it
+         while(bsb.getBufferSizeRemaining() > 1)
+         {
+            static int i = 0;
+            if( !readMagic )
+            {
+               if(bsb.getBufferSizeRemaining() < 4)
+                  break;
+               bsb.reader().get_BinaryData(magicBucket, 4);
+               if( !(magicBucket == magicStr) )
+               {
+                  //cerr << "Magic string does not match network!" << endl;
+                  //cerr << "\tExpected: " << MAGICBYTES << endl;
+                  //cerr << "\tReceived: " << magicBucket.toHex() << endl;
+                  break;
+               }
+               readMagic = true;
+            }
+
+            // If we haven't read the blockdata-size yet, do it
+            if( !readVarInt )
+            {
+               // TODO:  Whoops, this isn't a VAR_INT, just a 4-byte num
+               if(bsb.getBufferSizeRemaining() < 4)
+                  break;
+               numBlockBytes = bsb.reader().get_uint32_t();
+               readVarInt = true;
+            }
+
+
+            // If we haven't read the header yet, do it
+            uint64_t blkByteOffset = bsb.getFileByteLocation();
+            if( !readHeader )
+            {
+               if(bsb.getBufferSizeRemaining() < HEADER_SIZE)
+                  break;
+
+               TIMER_WRAP(bsb.reader().get_BinaryData(headerStr, HEADER_SIZE));
+
+               BinaryData::getHash256(headerStr, headHash);
+               TIMER_WRAP(tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE));
+               TIMER_WRAP(headerMap_[headHash] = tempBH);
+
+               //cout << headHash.toHex().c_str() << endl;
+               readHeader = true;
+            }
+
+            uint32_t txListBytes = numBlockBytes - HEADER_SIZE;
+            BlockHeader & blkHead = headerMap_[headHash];
+            if( !readTx )
+            {
+               if(bsb.getBufferSizeRemaining() < txListBytes)
+                  break;
+
+               if(justHeaders)
+                  bsb.reader().advance((uint32_t)txListBytes);
+               else
+               {
+                  uint8_t varIntSz;
+                  TIMER_WRAP(blkHead.numTx_ = (uint32_t)bsb.reader().get_var_int(&varIntSz));
+                  blkHead.txPtrList_.resize(blkHead.numTx_);
+                  txListBytes -= varIntSz;
+                  BinaryData allTx(txListBytes);
+                  TIMER_WRAP(bsb.reader().get_BinaryData(allTx.getPtr(), txListBytes));
+                  TIMER_WRAP(BinaryReader txListReader(allTx));
+                  for(uint32_t i=0; i<blkHead.numTx_; i++)
+                  {
+
+                     uint32_t readerStartPos = txListReader.getPosition();
+                     TIMER_WRAP(tempTx.unserialize(txListReader));
+                     uint32_t readerEndPos = txListReader.getPosition();
+
+                     TIMER_WRAP(BinaryData txSerial( allTx.getPtr() + readerStartPos, 
+                                                     allTx.getPtr() + readerEndPos    ));
+                     tempTx.nBytes_    = readerEndPos - readerStartPos;
+                     tempTx.headerPtr_ = &blkHead;
+
+                     // Calculate the hash of the Tx
+                     TIMER_START("TxSerial Hash");
+                     BinaryData hashOut(32);
+                     BinaryData::getHash256(txSerial, hashOut);
+                     tempTx.thisHash_  = hashOut;
+                     TIMER_STOP("TxSerial Hash");
+
+                     //cout << "Tx Hash: " << hashOut.toHex().c_str() << endl;
+
+                     ////////////// Debugging Output - DELETE ME ///////////////
+                     //Tx newTx;
+                     //BinaryData tempTxSer = tempTx.serialize();
+                     //newTx.unserialize(tempTxSer);
+                     //BinaryData newTxSer = newTx.serialize();
+                     //BinaryData::getHash256(txSerial, hashOut);
+                     //cout << "Tx Hash: " << hashOut.toHex().c_str() << endl;
+                     ////////////// Debugging Output - DELETE ME ///////////////
+
+                     // Finally, store it in our map.
+                     TIMER_WRAP(txMap_[hashOut] = tempTx);
+                     TIMER_WRAP(Tx * txPtr = &(txMap_[hashOut]));
+                     
+
+                     if(txPtr == NULL)
+                     {
+                        cerr << "***Insert Tx Failed! " 
+                             << tempTx.thisHash_.toHex().c_str()
+                             << endl;
+                        // tempTx.print(cout);
+                     }
+
+                     TIMER_WRAP(blkHead.txPtrList_[i] = txPtr);
+
+                  }
+               }
+
+               readTx = true;
+            }
+
+            
+            readMagic  = false;
+            readVarInt = false;
+            readHeader = false;
+            readTx     = false;
+            nBlocksRead++;
+
+         }
+      }
+
+      return (uint32_t)headerMap_.size();
+   }
+   */
+
+
+
    /////////////////////////////////////////////////////////////////////////////
    // Not sure exactly when this would get used...
    void addHeader(BinaryData const & binHeader)
