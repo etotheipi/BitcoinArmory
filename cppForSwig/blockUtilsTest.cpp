@@ -25,6 +25,29 @@ int main(void)
    //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHex().c_str() << endl;
    string strrndtrip = genBlock.toHex();
 
+   BinaryData testContains, a, b, c, d, e, f;
+   testContains.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
+   a.createFromHex("0011");
+   b.createFromHex("0012");
+   c.createFromHex("2233");
+   d.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+   e.createFromHex("33333333");
+   f.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
+   cout << "Contains test (T): " << testContains.find(a) << endl;
+   cout << "Contains test (F): " << testContains.find(b) << endl;
+   cout << "Contains test (T): " << testContains.find(c) << endl;
+   cout << "Contains test (F): " << testContains.find(d) << endl;
+   cout << "Contains test (T): " << testContains.find(e) << endl;
+   cout << "Contains test (T): " << testContains.find(f) << endl;
+
+   BinaryData myAddress, myPubKey;
+   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
+   myPubKey.createFromHex("e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
+   //myAddress.swapEndian();
+   //myPubKey.swapEndian();
+
+   bdm.addAccount(myAddress, myPubKey);
+
    //cout << "Orig : " << strgenblk.c_str() << endl;
    //cout << "New  : " << strrndtrip.c_str() << endl;
    //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
@@ -47,6 +70,12 @@ int main(void)
    bool isGenOnMainChain = bdm.organizeChain();
    TIMER_STOP("BDM_Organize_Chain");
 
+   /*
+   TIMER_START("BDM_Flag_Transactions");
+   bdm.flagMyTransactions();
+   TIMER_STOP("BDM_Flag_Transactions");
+   */
+
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
    bdm.getGenesisBlock().printBlockHeader(cout);
@@ -58,7 +87,7 @@ int main(void)
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
 
-   char a[256];
+   char aa[256];
    cout << "Enter anything to exit" << endl;
-   cin >> a;
+   cin >> aa;
 }

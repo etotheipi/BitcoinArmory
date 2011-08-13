@@ -239,9 +239,9 @@ void UniversalTimer::print(ostream & os, bool excludeZeros)
       if(iterd->first.length() == 0)
          continue;
 
-      printf("\t%s\t%0.3f\t%s\t\t%s\n", string("     "),
-                                      itert->second.read(), 
-                                      string("     "),
-                                      itert->first.c_str());
+      printf("\t%s\t%0.3f\t%s\t\t%s\n", string("     ").c_str(),
+                                      iterd->second, 
+                                      string("     ").c_str(),
+                                      iterd->first.c_str());
    }
 }

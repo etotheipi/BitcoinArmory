@@ -1,5 +1,5 @@
-#ifndef _BinaryData_H_
-#define _BinaryData_H_
+#ifndef _BINARYDATA_H_
+#define _BINARYDATA_H_
 
 #include <stdio.h>
 #ifdef WIN32
@@ -22,8 +22,12 @@
    #include "sha.h"
 #endif
 
+#include "UniversalTimer.h"
+
 
 using namespace std;
+
+class BinaryDataRef;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -55,6 +59,7 @@ public:
    uint8_t const * getPtr(void) const       { return &(data_[0]); }
    uint8_t * getPtr(void)                   { return &(data_[0]); }
    size_t getSize(void) const               { return nBytes_; }
+   BinaryDataRef getRef(void) const;
    //uint8_t const * getConstPtr(void) const  { return &(data_[0]); }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -66,6 +71,7 @@ public:
                   { copyFrom( (uint8_t*)str.c_str(), str.size()); } 
    void copyFrom(BinaryData const & bd)                      
                   { copyFrom( bd.getPtr(), bd.getSize() ); }
+   void copyFrom(BinaryDataRef const & bdr);
    void copyFrom(uint8_t const * inData, size_t sz)          
    { 
       if(sz!=data_.size()) 
@@ -85,6 +91,7 @@ public:
    uint8_t & operator[](size_t i)       { return data_[i]; }
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
+   /////////////////////////////////////////////////////////////////////////////
    // This is probably inefficient, but easy
    BinaryData operator+(BinaryData const & bd2)
    {
@@ -94,6 +101,7 @@ public:
       return out;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    // This is about as efficient as we're going to get...
    BinaryData & append(BinaryData const & bd2)
    {
@@ -102,6 +110,10 @@ public:
       return (*this);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData & append(BinaryDataRef const & bd2);
+
+   /////////////////////////////////////////////////////////////////////////////
    // Not remarkably efficient, but not terrible
    BinaryData & append(uint8_t const * str, uint32_t sz)
    {
@@ -111,6 +123,7 @@ public:
       return (*this);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    // This is about as efficient as we're going to get...
    BinaryData & append(uint8_t byte)
    {
@@ -118,6 +131,19 @@ public:
       nBytes_ += 1;
       return (*this);
    }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   int32_t find(BinaryData const & matchStr, uint32_t startPos=0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool contains(BinaryData const & matchStr, uint32_t startPos=0);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool contains(BinaryDataRef const & matchStr, uint32_t startPos=0);
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
@@ -285,6 +311,255 @@ private:
    }
 
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class BinaryDataRef
+{
+public:
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef(void) : ptr_(NULL), nBytes_(0)     
+   {
+      // Nothing to put here
+   }
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef(uint8_t const * inData, size_t sz) 
+   { 
+      setRef(inData, sz); 
+   }
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef(uint8_t const * dstart, uint8_t const * dend )
+   { 
+      setRef(dstart,dend); 
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef(BinaryDataRef const & bdr)
+   { 
+      ptr_ = bdr.ptr_;
+      nBytes_ = bdr.nBytes_;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef(BinaryData const & bd)
+   { 
+      if(bd.getSize()!=0) 
+      {
+         ptr_ = bd.getPtr();
+         nBytes_ = bd.getSize();
+      }
+      else
+      {
+         ptr_= NULL;
+         nBytes_ = 0;
+      }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t const * getPtr(void) const       { return ptr_;    }
+   //uint8_t       * getPtr(void)             { return ptr_;    }
+   size_t getSize(void) const               { return nBytes_; }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void setRef(uint8_t const * inData, size_t sz)          
+   { 
+      ptr_ = inData; 
+      nBytes_ = sz;
+   }
+   void setRef(uint8_t const * start, uint8_t const * end) 
+                  { setRef( start, (end-start)); }  // [start, end)
+   void setRef(string const & str)                         
+                  { setRef( (uint8_t*)str.c_str(), str.size()); } 
+   void setRef(BinaryData const & bd)                      
+                  { setRef( bd.getPtr(), bd.getSize() ); }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // UNSAFE -- you don't know if outData holds enough space for this
+   void copyTo(uint8_t* outData) const { memcpy( outData, ptr_, (size_t)nBytes_); }
+   void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
+   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
+   void copyTo(BinaryData & bd) const 
+   {
+      bd.resize(nBytes_);
+      memcpy( bd.getPtr(), ptr_, (size_t)nBytes_);
+   }
+
+   BinaryData copy(void) const 
+   {
+      BinaryData outData(nBytes_);
+      copyTo(outData);
+      return outData;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // These are always memory-safe
+   void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
+   string toString(void) const { return string((char const *)(ptr_), nBytes_); }
+
+   uint8_t const & operator[](size_t i) const      { return ptr_[i]; }
+   //uint8_t   operator[](size_t i) const { return ptr_[i]; } 
+   bool isValid(void) const { return ptr_ != NULL; }
+
+   /////////////////////////////////////////////////////////////////////////////
+   int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0)
+   {
+      int32_t finalAnswer = -1;
+      for(int32_t i=startPos; i<=(int32_t)nBytes_-(int32_t)matchStr.nBytes_; i++)
+      {
+         if(matchStr.ptr_[0] != ptr_[i])
+            continue;
+
+         for(uint32_t j=0; j<matchStr.nBytes_; j++)
+         {
+            if(matchStr.ptr_[j] != ptr_[i+j])
+               break;
+
+            // If we are at this instruction and is the last index, it's a match
+            if(j==matchStr.nBytes_-1)
+               finalAnswer = i;
+         }
+
+         if(finalAnswer != -1)
+            break;
+      }
+
+      return finalAnswer;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   int32_t find(BinaryData const & matchStr, uint32_t startPos=0)
+   {
+      BinaryDataRef bdr(matchStr);
+      return find(bdr, startPos);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool contains(BinaryDataRef const & matchStr, uint32_t startPos=0)
+   {
+      return (find(matchStr, startPos) != -1);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool contains(BinaryData const & matchStr, uint32_t startPos=0)
+   {
+      BinaryDataRef bdr(matchStr);
+      return (find(bdr, startPos) != -1);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator<(BinaryDataRef const & bd2) const
+   {
+      int minLen = min(nBytes_, bd2.nBytes_);
+      for(int i=0; i<minLen; i++)
+      {
+         if( ptr_[i] == bd2.ptr_[i] )
+            continue;
+         return ptr_[i] < bd2.ptr_[i];
+      }
+      return (nBytes_ < bd2.nBytes_);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator==(BinaryDataRef const & bd2) const
+   {
+      if(nBytes_ != bd2.nBytes_)
+         return false;
+      for(unsigned int i=0; i<nBytes_; i++)
+         if( ptr_[i] != bd2.ptr_[i] )
+            return false;
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool operator>(BinaryDataRef const & bd2) const
+   {
+      int minLen = min(nBytes_, bd2.nBytes_);
+      for(int i=0; i<minLen; i++)
+      {
+         if( ptr_[i] == bd2.ptr_[i] )
+            continue;
+         return ptr_[i] > bd2.ptr_[i];
+      }
+      return (nBytes_ > bd2.nBytes_);
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toHex(void) const
+   {
+      static char hexLookupTable[16] = {'0','1','2','3',
+                                        '4','5','6','7',
+                                        '8','9','a','b',
+                                        'c','d','e','f' };
+      vector<int8_t> outStr(2*nBytes_);
+      for( size_t i=0; i<nBytes_; i++)
+      {
+         uint8_t nextByte = ptr_[i];
+         outStr[2*i  ] = hexLookupTable[ (nextByte >> 4) & 0x0F ];
+         outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
+      }
+      return string((char const *)(&(outStr[0])), 2*nBytes_);
+   }
+
+
+
+#ifdef USE_CRYPTOPP
+
+   static void getHash256(uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData    & hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+      if(hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+   }
+
+   static void getHash256(BinaryDataRef const & strToHash, 
+                          BinaryData          & hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+      if(hashOutput.getSize() != 32)
+         hashOutput.resize(32);
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+
+   }
+
+   static BinaryData getHash256(BinaryDataRef const & strToHash)
+   {
+      static CryptoPP::SHA256 sha256_;
+      
+      BinaryData hashOutput(32);
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      return hashOutput;
+   }
+
+   BinaryData getHash256(void)
+   {
+      static CryptoPP::SHA256 sha256_;
+      BinaryData hashOutput(32);
+      sha256_.CalculateDigest(hashOutput.getPtr(), ptr_,                 nBytes_);
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      return hashOutput;
+   }
+
+#endif
+
+private:
+   uint8_t const * ptr_;
+   size_t nBytes_;
+
+private:
+
+};
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -613,6 +888,7 @@ public:
    // left in the stream
    bool streamPull(void)
    {
+      TIMER_START("Stream Pull");
       uint32_t prevBufSizeRemain = binReader_.getSizeRemaining();
       if(fileBytesRemaining_ == 0)
          return false;
@@ -623,13 +899,13 @@ public:
          if(fileBytesRemaining_ > binReader_.getSize())
          {
             // Enough left in the stream to fill the entire buffer
-            streamPtr_->read((char*)(binReader_.exposeDataPtr()), binReader_.getSize());
+            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)(binReader_.exposeDataPtr()), binReader_.getSize()));
             fileBytesRemaining_ -= binReader_.getSize();
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            streamPtr_->read((char*)(binReader_.exposeDataPtr()), fileBytesRemaining_);
+            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)(binReader_.exposeDataPtr()), fileBytesRemaining_));
             binReader_.resize(fileBytesRemaining_);
             fileBytesRemaining_ = 0;
          }
@@ -645,17 +921,18 @@ public:
          if(fileBytesRemaining_ > numBytes)
          {
             // Enough data left in the stream to fill the entire buffer
-            streamPtr_->read((char*)putNewDataPtr, numBytes);
+            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)putNewDataPtr, numBytes));
             fileBytesRemaining_ -= numBytes;
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            streamPtr_->read((char*)putNewDataPtr, fileBytesRemaining_);
+            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)putNewDataPtr, fileBytesRemaining_));
             binReader_.resize(fileBytesRemaining_+ prevBufSizeRemain); 
             fileBytesRemaining_ = 0;
          }
       }
+      TIMER_STOP("Stream Pull");
 
       return true;
    }

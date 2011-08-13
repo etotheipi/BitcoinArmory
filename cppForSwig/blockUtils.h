@@ -19,6 +19,7 @@
 #include <limits>
 
 #include "BinaryData.h"
+//#include "BinaryDataRef.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -273,14 +274,14 @@ public:
    void setTxOutIndex(uint32_t idx) { txOutIndex_ = idx; }
 
    // Define these operators so that we can use OutPoint as a map<> key
-   bool operator<(OutPoint const & op2)
+   bool operator<(OutPoint const & op2) const
    {
       if(txHash_ == op2.txHash_)
          return txOutIndex_ < op2.txOutIndex_;
       else
          return txHash_ < op2.txHash_;
    }
-   bool operator==(OutPoint const & op2)
+   bool operator==(OutPoint const & op2) const
    {
       return (txHash_ == op2.txHash_ && txOutIndex_ == op2.txOutIndex_);
    }
@@ -399,6 +400,8 @@ private:
    uint32_t   sequence_;
    bool       isCoinbase_;
 
+   bool       isMine_;
+
    uint32_t   scriptSize_;
 };
 
@@ -488,11 +491,12 @@ public:
 
 private:
    uint64_t   value_;
-   BinaryData pkScript_;
    uint32_t   scriptSize_;
+   BinaryData pkScript_;
    BinaryData recipientAddr_;
 
    bool       isMine_;
+   bool       isSpent_;
 
    static BinaryData badAddress_;
 
@@ -514,7 +518,6 @@ public:
       txInList_(0),
       txOutList_(0),
       lockTime_(UINT32_MAX),
-      isMine_(false),
       thisHash_(32),
       headerPtr_(NULL)
    {
@@ -582,7 +585,6 @@ private:
    vector<TxOut> txOutList_;
    uint32_t      lockTime_;
    
-   bool          isMine_;
    HashString    thisHash_;
    uint32_t      nBytes_;
    BlockHeader*  headerPtr_;
@@ -625,18 +627,34 @@ private:
 
 
    map<HashString, Tx>               txMap_;
-   map<OutPoint, TxOut*>             relevantOuts_;
 
+   // The following two deques should be parallel
+   map<BinaryData, BinaryData>       myAccounts_;  
+   uint64_t                          myBalance_;
+  
+
+   //map<OutPoint, TxOut*>             relevantOuts_;
+   //map<OutPoint, TxIn*>              relevantIns_;
+
+   map<OutPoint, TxOut*>   myTxOuts_;
+   map<OutPoint, TxOut*>   myUnspentTxOuts_;
+   map<OutPoint, TxIn*>    myTxIns_;
+
+   map<OutPoint, TxOut*>   myTxOutsNonStandard_;
 
 
 private:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager(void) : 
          topBlockPtr_(NULL),
-         genBlockPtr_(NULL)
+         genBlockPtr_(NULL),
+         myBalance_(0)
    {
       headerMap_.clear();
+      txMap_.clear();
+      myAccounts_.clear();
       headersByHeight_.clear();
+      myTxOutsNonStandard_.clear();
    }
 
 public:
@@ -690,6 +708,130 @@ public:
          return &(it->second);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void addAccount(BinaryData const & addr, BinaryData const & pubKey64B)
+   {
+      myAccounts_[addr] = pubKey64B;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void flagMyTransactions(void)
+   {
+      if(myAccounts_.size() == 0)
+         return;
+
+      map<HashString, Tx>::iterator         txIter;
+      map<BinaryData, BinaryData>::iterator addrIter;
+
+     
+      TIMER_START("ScanTxOuts");
+      // We need to accumulate all TxOuts first
+      for( txIter  = txMap_.begin();
+           txIter != txMap_.end();
+           txIter++)
+      {
+         Tx & thisTx = txIter->second;
+         for( addrIter  = myAccounts_.begin();
+              addrIter != myAccounts_.end();
+              addrIter++)
+         {
+            for(uint32_t i=0; i<thisTx.numTxOut_; i++)
+            {
+               if( thisTx.txOutList_[i].pkScript_.contains(addrIter->first))
+               {
+                  OutPoint op;
+                  op.setTxHash(thisTx.thisHash_);
+                  op.setTxOutIndex(i);
+
+                  // Already processed this one, before
+                  if( !thisTx.txOutList_[i].isMine_ )
+                     continue;
+
+                  if( !thisTx.txOutList_[i].isStandardScript() )
+                  {
+                     cout << "Non-standard script! "  << endl;
+                     cout << "\tTx:       " << thisTx.thisHash_.toHex().c_str() << endl;
+                     cout << "\tOutIndex: " << i << endl;
+                     myTxOutsNonStandard_[op] = &(thisTx.txOutList_[i]);
+                  }
+                  else
+                  {
+                     // We use a map indexed by OutPoint so we can easily iterate
+                     // OR find a record to delete it easily from the TxIn record
+                     TxOut & txout = thisTx.txOutList_[i];
+                     txout.isMine_ = true;
+                     txout.isSpent_ = false;
+                     myTxOuts_[op]        = &txout;
+                     myUnspentTxOuts_[op] = &txout;
+                     myBalance_ += txout.value_;
+                  }
+                  
+               }
+            }
+         }
+      }
+      TIMER_STOP("ScanTxOuts");
+
+      TIMER_START("ScanTxIns");
+      // Next we find all the TxIns and delete TxOuts
+      for( txIter  = txMap_.begin();
+           txIter != txMap_.end();
+           txIter++)
+      {
+         Tx & thisTx = txIter->second;
+         for( addrIter  = myAccounts_.begin();
+              addrIter != myAccounts_.end();
+              addrIter++)
+         {
+            for(uint32_t i=0; i<thisTx.numTxIn_; i++)
+            {
+               // can start searching for pub key 64 bytes into binScript
+               if( thisTx.txInList_[i].binScript_.contains(addrIter->second, 64))
+               {
+                  OutPoint const & op = thisTx.txInList_[i].outPoint_;
+                  TxIn  & txin  = thisTx.txInList_[i];
+                  TxOut & txout = thisTx.txOutList_[op.txOutIndex_];
+                  myTxIns_[op] = &(txin);
+                  myTxOuts_[op]->isSpent_ = true;
+                  myUnspentTxOuts_.erase(op);
+                  myBalance_ += txout.value_;
+               }
+            }
+         }
+      }
+      TIMER_STOP("ScanTxIns");
+
+      cout << "Completed full scan of TxOuts (" << TIMER_READ_SEC("ScanTxOuts")
+           << " sec) and TxIns (" << TIMER_READ_SEC("ScanTxIns") << " sec)" << endl;
+      
+      cout << "TxOuts: " << endl;
+      map<OutPoint, TxOut*>::iterator outIter;
+      for( outIter  = myTxOuts_.begin();
+           outIter != myTxOuts_.begin();
+           outIter++)
+      {
+         OutPoint const & outpt = outIter->first;
+         TxOut    & txout = *(outIter->second);
+         cout << "\t" << outpt.txHash_.toHex().c_str();
+         cout << "(" << outpt.txOutIndex_ << ")";
+         if(txout.isSpent_)
+            cout << "\t(SPENT)";
+         cout << endl;
+      }
+
+      cout << "TxIns: " << endl;
+      map<OutPoint, TxIn*>::iterator inIter;
+      for( inIter  = myTxIns_.begin();
+           inIter != myTxIns_.begin();
+           inIter++)
+      {
+         OutPoint const & outpt = inIter->first;
+         TxIn     & txin  = *(inIter->second);
+         cout << "\t" << outpt.txHash_.toHex().c_str();
+         cout << "(" << outpt.txOutIndex_ << ")";
+         cout << endl;
+      }
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // Add headers from a file that is serialized identically to the way
@@ -725,6 +867,19 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t importFromBlockFile(std::string filename, bool justHeaders=false)
    {
+      // TODO: My original everythingRef solution for headers would save a LOT
+      //       of computation here.  At 140k blocks, with 1.1 million Tx's:
+      //
+      //          txSerial copy:       19s
+      //          binaryReader copy:   20s
+      //          tx.unserialize:      45s
+      //          txMap_[hash] = tx:  115s
+      //          &(txMap_[hash]):      0.61s
+      //
+      //       In other words, we spend a shitload of time copying data around.
+      //       If we switch to copying all data once from file, and then only
+      //       copy pointers around, we should be in fantastic shape!
+      //         
       BinaryStreamBuffer bsb(filename, 25*1024*1024);  // use 25 MB buffer
       
       bool readMagic  = false;
@@ -742,8 +897,6 @@ public:
       Tx tempTx;
       BlockHeader tempBH;
 
-      pair<HeadMapIter, bool> insHeadIter;
-      pair<TxMapIter, bool>   insTxIter;
 
       int nBlocksRead = 0;
       // While there is still data left in the stream (file), pull it
@@ -790,22 +943,14 @@ public:
 
                BinaryData::getHash256(headerStr, headHash);
                TIMER_WRAP(tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE));
-               TIMER_WRAP(insHeadIter = headerMap_.insert( make_pair( headHash, tempBH) ));
-
-               if(insHeadIter.second == false)
-               {
-                  cerr << "***Insert Header Failed! " 
-                       << headHash.toHex().c_str()
-                       << endl;
-                  tempBH.printBlockHeader();
-               }
+               TIMER_WRAP(headerMap_[headHash] = tempBH);
 
                //cout << headHash.toHex().c_str() << endl;
                readHeader = true;
             }
 
             uint32_t txListBytes = numBlockBytes - HEADER_SIZE;
-            BlockHeader & blkHead = insHeadIter.first->second;
+            BlockHeader & blkHead = headerMap_[headHash];
             if( !readTx )
             {
                if(bsb.getBufferSizeRemaining() < txListBytes)
@@ -829,7 +974,8 @@ public:
                      TIMER_WRAP(tempTx.unserialize(txListReader));
                      uint32_t readerEndPos = txListReader.getPosition();
 
-                     TIMER_WRAP(BinaryData txSerial( allTx.getPtr() + readerStartPos, allTx.getPtr() + readerEndPos    ));
+                     TIMER_WRAP(BinaryData txSerial( allTx.getPtr() + readerStartPos, 
+                                                     allTx.getPtr() + readerEndPos    ));
                      tempTx.nBytes_    = readerEndPos - readerStartPos;
                      tempTx.headerPtr_ = &blkHead;
 
@@ -852,9 +998,11 @@ public:
                      ////////////// Debugging Output - DELETE ME ///////////////
 
                      // Finally, store it in our map.
-                     TIMER_WRAP(insTxIter = txMap_.insert(make_pair(hashOut, tempTx)));
+                     TIMER_WRAP(txMap_[hashOut] = tempTx);
+                     TIMER_WRAP(Tx * txPtr = &(txMap_[hashOut]));
+                     
 
-                     if(insHeadIter.second == false)
+                     if(txPtr == NULL)
                      {
                         cerr << "***Insert Tx Failed! " 
                              << tempTx.thisHash_.toHex().c_str()
@@ -862,7 +1010,7 @@ public:
                         // tempTx.print(cout);
                      }
 
-                     TIMER_WRAP(blkHead.txPtrList_[i] = &(insTxIter.first->second));
+                     TIMER_WRAP(blkHead.txPtrList_[i] = txPtr);
 
                   }
                }

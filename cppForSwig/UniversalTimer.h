@@ -62,6 +62,8 @@
    LINE; \
    UniversalTimer::instance().stop(NAME,GRPSTR);
 
+#define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
+
 using namespace std;
 
 class UniversalTimer
