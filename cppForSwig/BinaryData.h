@@ -16,13 +16,8 @@
 
 #define DEFAULT_BUFFER_SIZE 25*1048576
 
-
-#ifdef USE_CRYPTOPP
-   #include "cryptlib.h"
-   #include "sha.h"
-#endif
-
 #include "UniversalTimer.h"
+#include "BtcUtils.h"
 
 
 using namespace std;
@@ -54,6 +49,8 @@ public:
       else
          nBytes_ = 0;
    }
+
+   BinaryData(BinaryDataRef const & bdRef);
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       { return &(data_[0]); }
@@ -260,43 +257,6 @@ public:
       }
    }
 
-#ifdef USE_CRYPTOPP
-
-   static void getHash256(uint8_t const * strToHash,
-                          uint32_t        nBytes,
-                          BinaryData &    hashOutput)
-   {
-      static CryptoPP::SHA256 sha256_;
-      if(hashOutput.getSize() != 32)
-         hashOutput.resize(32);
-
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-   }
-
-   static void getHash256(BinaryData const & strToHash, 
-                          BinaryData &       hashOutput)
-   {
-      static CryptoPP::SHA256 sha256_;
-      if(hashOutput.getSize() != 32)
-         hashOutput.resize(32);
-
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-
-   }
-
-   static BinaryData getHash256(BinaryData const & strToHash)
-   {
-      static CryptoPP::SHA256 sha256_;
-      
-      BinaryData hashOutput(32);
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-      return hashOutput;
-   }
-
-#endif
 
 private:
    vector<uint8_t> data_;
@@ -449,6 +409,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   bool isSameRefAs(BinaryDataRef const & bdRef2)
+   {
+      return (ptr_ == bdRef2.ptr_ && nBytes_ == bdRef2.nBytes_);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryDataRef const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
@@ -554,7 +520,7 @@ public:
 
 private:
    uint8_t const * ptr_;
-   size_t nBytes_;
+   uint32_t nBytes_;
 
 private:
 
@@ -609,6 +575,12 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint64_t get_var_int(uint8_t* nRead=NULL)
    {
+      uint8_t nBytes;
+      uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos, &nBytes);
+      nRead = nBytes;
+      pos_ += nRead;
+      return varInt;
+      /*
       uint8_t firstByte = bdStr_[pos_];
 
       if(firstByte < 0xfd)
@@ -636,6 +608,7 @@ public:
          pos_ += 9;
          return *(uint64_t*)(bdStr_.getPtr() + pos_ + 1 - 9);
       }
+      */
    }
 
 
@@ -722,6 +695,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
+   uint8_t const * getPosPtr(void)        { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
@@ -752,6 +726,24 @@ public:
       // Nothing needed here
    }
 
+   BinaryRefReader(BinaryDataRef const & toRead) :
+      bdRef_(toRead),
+      totalSize_(toRead.getSize()),
+      pos_(0)
+   {
+      // Nothing needed here
+   }
+
+   // Default to INF size -- leave it to the user to guarantee that he's
+   // not reading past the end of rawPtr
+   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX)
+      bdRef_(rawPtr, nBytes);
+      totalSize_(nBytes),
+      pos_(0)
+   {
+      // Nothing needed here
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    void advance(uint32_t nBytes) 
    { 
@@ -770,6 +762,13 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint64_t get_var_int(uint8_t* nRead=NULL)
    {
+      uint8_t nBytes;
+      uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos, &nBytes);
+      nRead = nBytes;
+      pos_ += nRead;
+      return varInt;
+
+      /*
       uint8_t firstByte = bdRef_[pos_];
 
       if(firstByte < 0xfd)
@@ -796,6 +795,7 @@ public:
          pos_ += 9;
          return *(uint64_t*)(bdRef_.getPtr() + pos_ + 1 - 9);
       }
+      */
    }
 
 
@@ -861,6 +861,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
+   uint8_t const * getPosPtr(void)        { return bdRef_.getPtr() + pos_; }
 
 private:
    BinaryDataRef bdRef_;
