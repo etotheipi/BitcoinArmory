@@ -40,7 +40,7 @@
 
 // WRAP ANY FUNCTION OR LINE WITH THIS METHOD — IT IS STORED BY ITS OWN NAME
 #define TIMER_WRAP(LINE) \
-   UniversalTimer::instance(),start(std::string(#LINE)); \
+   UniversalTimer::instance().start(std::string(#LINE)); \
    LINE; \
    UniversalTimer::instance().stop(std::string(#LINE));
 
@@ -62,6 +62,8 @@
    LINE; \
    UniversalTimer::instance().stop(NAME,GRPSTR);
 
+#define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
+
 using namespace std;
 
 class UniversalTimer
@@ -76,6 +78,8 @@ public:
    double read (string key, string grpstr="");
    string getLastKey(void) {return most_recent_key_;}
    double getLastTiming(void) {return call_timers_[most_recent_key_].getPrev();}
+   void printCSV(ostream & os=cout, bool excludeZeros=false);
+   void printCSV(string filename, bool excludeZeros=false);
    void print(ostream & os=cout, bool excludeZeros=false);
    void print(string filename, bool excludeZeros=false);
 protected:

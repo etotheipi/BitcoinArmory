@@ -142,15 +142,15 @@ double UniversalTimer::read(string key, string grpstr)
 }
 
 // Print complete timing results to a file of this name
-void UniversalTimer::print(string filename, bool excludeZeros)
+void UniversalTimer::printCSV(string filename, bool excludeZeros)
 {
    ofstream os(filename.c_str(), ios::out);
-   print(os, excludeZeros);
+   printCSV(os, excludeZeros);
    os.close();
 }
 
 // Print complete timing results to a given output stream
-void UniversalTimer::print(ostream & os, bool excludeZeros)
+void UniversalTimer::printCSV(ostream & os, bool excludeZeros)
 {
    os << "Individual timings:" << endl << endl;
    os << ",NCall,Tot,Avg,Name" << endl << endl;
@@ -191,5 +191,57 @@ void UniversalTimer::print(ostream & os, bool excludeZeros)
       os << ","; // no count, so no avg
       os << "," << iterd->first;
       os << endl;
+   }
+}
+
+// Print complete timing results to a file of this name
+void UniversalTimer::print(string filename, bool excludeZeros)
+{
+   ofstream os(filename.c_str(), ios::out);
+   print(os, excludeZeros);
+   os.close();
+}
+
+// Print complete timing results to a given output stream
+void UniversalTimer::print(ostream & os, bool excludeZeros)
+{
+   os << "Individual timings:" << endl << endl;
+   os << "\tNCall\tTot\tAvg\t\tName" << endl << endl;
+   map<string, timer>::iterator itert;
+   map<string, int>::iterator iteri;
+   for(itert = call_timers_.begin(), iteri = call_count_.begin();
+       itert != call_timers_.end();
+       itert++, iteri++)
+   {
+      if(excludeZeros && itert->second.read() == 0)
+         continue;
+      printf("\t%d\t%0.3f\t%g\t\t%s\n", iteri->second, 
+                                      itert->second.read(), 
+                                      itert->second.read()/(double)(iteri->second),
+                                      itert->first.c_str());
+   }
+
+   os << endl;
+   os << "Group Timings" << endl << endl;
+   // Accumulate the timings for everything with the same group
+   map<string, double> group_accum;
+   map<string, string>::iterator iters;
+   for(itert = call_timers_.begin(), iters = call_group_.begin();
+      itert != call_timers_.end();
+      itert++, iters++)
+   {
+      group_accum[iters->second] += itert->second.read();
+   }
+   // Now all timings have been accumulated for the individual groups
+   map<string, double>::iterator iterd;
+   for(iterd = group_accum.begin(); iterd != group_accum.end(); iterd++)
+   {
+      if(iterd->first.length() == 0)
+         continue;
+
+      printf("\t%s\t%0.3f\t%s\t\t%s\n", string("     ").c_str(),
+                                      iterd->second, 
+                                      string("     ").c_str(),
+                                      iterd->first.c_str());
    }
 }
