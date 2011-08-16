@@ -270,20 +270,6 @@ def binaryBits_to_difficulty(b):
 def difficulty_to_binaryBits(i):
    pass
    
-# Check validity of a BTC address in its binary form, as would
-# be found inside a pkScript.  Usually about 24 bytes
-def checkAddrBinValid(addrBin):
-   first20, chk4 = addrBin[:-4], addrBin[-4:]
-   chkBytes = hash256('\x00' + first20)
-   return chkBytes[:4] == chk4
-
-# Check validity of a BTC address in "1Ghfk38dDF..." form
-def checkAddrStrValid(addrStr):
-   addrB58 = addrStr_to_base58Str(addrStr)
-   addrInt = base58Str_to_int(addrB58)
-   addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
-   return checkAddrBinValid(addrBin)
-   
 
 ################################################################################
 ################################################################################
@@ -600,6 +586,55 @@ def isValidEcPoint(x,y):
    return EC_Curve.contains_point(x,y)
 
 
+# Check validity of a BTC address in its binary form, as would
+# be found inside a pkScript.  Usually about 24 bytes
+def checkAddrBinValid(addrBin):
+   first20, chk4 = addrBin[:-4], addrBin[-4:]
+   chkBytes = hash256('\x00' + first20)
+   return chkBytes[:4] == chk4
+
+# Check validity of a BTC address in "1Ghfk38dDF..." form
+def checkAddrStrValid(addrStr):
+   addrB58 = addrStr_to_base58Str(addrStr)
+   addrInt = base58Str_to_int(addrB58)
+   addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
+   return checkAddrBinValid(addrBin)
+
+def isStandardTxOutScript(binScript):
+   if binScript[:2] == hex_to_binary('4104'):
+      is65B = len(binScript) == 67
+      lastByteMatch = binScript[-1] == int_to_binary(172)
+      return (is65B and lastByteMatch)
+   else:
+      is1 = binScript[ 0] == int_to_binary(118)
+      is2 = binScript[ 1] == int_to_binary(169)
+      is3 = binScript[-2] == int_to_binary(136)
+      is4 = binScript[-1] == int_to_binary(172)
+      return (is1 and is2 and is3 and is4)
+   
+def TxInScriptExtractKeyAddr(binScript):
+   if len(binScript) < 16:
+      return ('COINBASE','COINBASE')
+   pubKeyBin = binScript[-65:]
+   newAcct = BtcAccount().createFromPublicKey(pubKeyBin)
+   return (newAcct.calculateAddrStr(), \
+           binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
+
+def TxOutScriptExtractKeyAddr(binScript):
+   if not isStandardTxOutScript(binScript):
+      return '<Non-standard TxOut script>'
+
+   if binScript[1] == hex_to_binary('04'):
+      newAcct = BtcAccount().createFromPublicKey(binScript[1:66])
+      return newAcct.calculateAddrStr()
+   else:
+      keyHash = binScript[3:23]
+      chkSum  = hash256('\x00' + keyHash)[:4]
+      addrInt = binary_to_int(keyHash+chkSum, BIGENDIAN)
+      addrB58 = int_to_base58Str(addrInt)
+      return base58Str_to_addrStr(addrB58)
+
+
 # BtcAccount -- I gotta come up with a better name for this
 # Store all information about an address string.  
 # Having the privateKey is the most data.  Public key is next
@@ -904,8 +939,8 @@ class TxIn(object):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
       self.outpoint.pprint(nIndent+1)
-      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binScript)[:32] + '...'
-      print indstr + indent + 'Seq     ', self.intSeq
+      print indstr + indent + 'Source: ', '('+TxInScriptExtractKeyAddr(self.binScript)[0]+')'
+      print indstr + indent + 'Seq:    ', self.intSeq
       
 
 #####
@@ -935,9 +970,11 @@ class TxOut(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
-      print indstr + indent + 'Value:  ', self.value, '(', float(self.value) / COIN, ')'
-      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binPKScript)[:32], '...'
-
+      print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
+      if isStandardTxOutScript(self.binPKScript):
+         print indstr + indent + 'SCRIPT:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % (TxOutScriptExtractKeyAddr(self.binPKScript),)
+      else:
+         print indstr + indent + 'SCRIPT:   <Non-standard script!>'
 
 #####
 class Tx(object):
@@ -1794,20 +1831,23 @@ def applyBinaryMaskToHex(binStr, mask, maskVal=1):
          
 
 def figureOutMysteryHex(hexStr):
-   print 'Starting with a block of hex:'
+   print ''
+   print 'Trying to identify Bitcoin-related strings in this block of hex:'
    hexStr.replace(' ','')
    pprintHex(hexStr, '   ')
    
    binStr = hex_to_binary(hexStr)
    searchStr = {}
-   searchStr['Empty4B'  ] = hex_to_binary('00000000'    )  
-   searchStr['Version'  ] = hex_to_binary('01000000'    ) 
-   searchStr['PkStart'  ] = hex_to_binary('76a9'        )
-   searchStr['PkEnd'    ] = hex_to_binary('88ac'        )  
-   searchStr['SeqNum'   ] = hex_to_binary('ffffffff'    )  
-   searchStr['MagicTest'] = hex_to_binary('fabfb5da'    )  
-   searchStr['MagicMain'] = hex_to_binary('f9beb4d9'    )  
-   searchStr['Verack'   ] = hex_to_binary('76657261636b') 
+   searchStr['Empty4B'  ] = hex_to_binary('00000000'      )  
+   searchStr['Version'  ] = hex_to_binary('01000000'      ) 
+   searchStr['PkStart'  ] = hex_to_binary('76a9'          )
+   searchStr['PkEnd'    ] = hex_to_binary('88ac'          )  
+   searchStr['SeqNum'   ] = hex_to_binary('ffffffff'      )  
+   searchStr['MagicTest'] = hex_to_binary('fabfb5da'      )  
+   searchStr['MagicMain'] = hex_to_binary('f9beb4d9'      )  
+   searchStr['Verack'   ] = hex_to_binary('76657261636b'  ) 
+   searchStr['VersMsg'  ] = hex_to_binary('76657273696f6e') 
+   searchStr['Addr'     ] = hex_to_binary('61646472'      ) 
 
    # To verify a timestamp, check it's between 2009 and today + 10days
    timeMin = time.mktime( (2009,1,1,0,0,0,0,0,-1))
@@ -1856,6 +1896,8 @@ def figureOutMysteryHex(hexStr):
          print 'excepted! ', idx
          continue
 
+   
+
    # Soon implement tests for other stuff... but not yet
    print ''
    print ''
@@ -1894,7 +1936,11 @@ def figureOutMysteryHex(hexStr):
    
    pprintHex(''.join(maskedBytes));
    
+
+def figureOutMysteryBinary(binStr):
+   figureOutMysteryHex( binary_to_hex(binStr))
    
+
 # This is the remaining "end" of Sam Rushing's original code.  I'm not using any
 # of it right now.  But I will eventually dissect it and take advantage of the work
 # he's already done on networking and protocol
