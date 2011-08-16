@@ -6,7 +6,7 @@ COMPILER_OPTS = -c -march=native -O2 -pipe
 LINKER = g++ 
 OBJS = blockUtils.o
 
-INCLUDE_OPTS += -Icryptopp
+INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP
 LIBRARY_OPTS += -Lcryptopp -lcryptopp
 
 INCLUDE_OPTS += 
@@ -23,7 +23,7 @@ blockUtilsTest.out : $(OBJS)
 #**************************************************************************
 # Rules for performing the compilation of each individual object file.
 
-blockUtils.o: blockUtils.h  binaryData.h blockUtils.cpp
+blockUtils.o: blockUtils.h  BinaryData.h blockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) blockUtils.cpp
 
 

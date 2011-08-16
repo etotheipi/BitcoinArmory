@@ -38,7 +38,7 @@ import os
 import pickle
 import string
 import sys
-import lisecdsa
+#import lisecdsa
 
 import asyncore
 import asynchat
@@ -88,6 +88,15 @@ def default_error_function(msg):
    print 'Aborting run'
    exit(0)
 
+def pprintHex(theStr, indent=''):
+   sz = len(theStr)
+   minor = 8;
+   major = 8;
+   nchunk = int((sz-1)/minor) + 1;
+   for i in range(nchunk):
+      if i%major==0:
+         print '' + indent
+      print theStr[i*minor:(i+1)*minor],
 
 raiseError = default_error_function
 
@@ -261,6 +270,20 @@ def binaryBits_to_difficulty(b):
 def difficulty_to_binaryBits(i):
    pass
    
+# Check validity of a BTC address in its binary form, as would
+# be found inside a pkScript.  Usually about 24 bytes
+def checkAddrBinValid(addrBin):
+   first20, chk4 = addrBin[:-4], addrBin[-4:]
+   chkBytes = hash256('\x00' + first20)
+   return chkBytes[:4] == chk4
+
+# Check validity of a BTC address in "1Ghfk38dDF..." form
+def checkAddrStrValid(addrStr):
+   addrB58 = addrStr_to_base58Str(addrStr)
+   addrInt = base58Str_to_int(addrB58)
+   addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
+   return checkAddrBinValid(addrBin)
+   
 
 ################################################################################
 ################################################################################
@@ -365,6 +388,200 @@ class BinaryPacker(object):
 #
 ################################################################################
 
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+################################################################################
+
+# ECDSA Import from Lis http://bitcointalk.org/index.php?topic=23241.0
+#
+################################################################################
+class lisecdsa:
+   @staticmethod
+   def inverse_mod( a, m ):
+      if a < 0 or m <= a: a = a % m
+      c, d = a, m
+      uc, vc, ud, vd = 1, 0, 0, 1
+      while c != 0:
+         q, c, d = divmod( d, c ) + ( c, )
+         uc, vc, ud, vd = ud - q*uc, vd - q*vc, uc, vc
+      assert d == 1
+      if ud > 0: return ud
+      else: return ud + m
+
+   class CurveFp( object ):
+      def __init__( self, p, a, b ):
+         self.__p = p
+         self.__a = a
+         self.__b = b
+   
+      def p( self ):
+         return self.__p
+   
+      def a( self ):
+         return self.__a
+   
+      def b( self ):
+         return self.__b
+   
+      def contains_point( self, x, y ):
+         return ( y * y - ( x * x * x + self.__a * x + self.__b ) ) % self.__p == 0
+   
+   class Point( object ):
+      def __init__( self, curve, x, y, order = None ):
+         self.__curve = curve
+         self.__x = x
+         self.__y = y
+         self.__order = order
+         if self.__curve: assert self.__curve.contains_point( x, y )
+         if order: assert self * order == INFINITY
+    
+      def __add__( self, other ):
+         if other == INFINITY: return self
+         if self == INFINITY: return other
+         assert self.__curve == other.__curve
+         if self.__x == other.__x:
+            if ( self.__y + other.__y ) % self.__curve.p() == 0:
+               return INFINITY
+            else:
+               return self.double()
+   
+         p = self.__curve.p()
+         l = ( ( other.__y - self.__y ) * lisecdsa.inverse_mod(other.__x - self.__x, p) ) % p
+         x3 = ( l * l - self.__x - other.__x ) % p
+         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
+         return lisecdsa.Point( self.__curve, x3, y3 )
+   
+      def __mul__( self, other ):
+         def leftmost_bit( x ):
+            assert x > 0
+            result = 1L
+            while result <= x: result = 2 * result
+            return result / 2
+   
+         e = other
+         if self.__order: e = e % self.__order
+         if e == 0: return INFINITY
+         if self == INFINITY: return INFINITY
+         assert e > 0
+         e3 = 3 * e
+         negative_self = lisecdsa.Point( self.__curve, self.__x, -self.__y, self.__order )
+         i = leftmost_bit( e3 ) / 2
+         result = self
+         while i > 1:
+            result = result.double()
+            if ( e3 & i ) != 0 and ( e & i ) == 0: result = result + self
+            if ( e3 & i ) == 0 and ( e & i ) != 0: result = result + negative_self
+            i = i / 2
+         return result
+   
+      def __rmul__( self, other ):
+         return self * other
+   
+      def __str__( self ):
+         if self == INFINITY: return "infinity"
+         return "(%d,%d)" % ( self.__x, self.__y )
+   
+      def double( self ):
+         if self == INFINITY:
+            return INFINITY
+   
+         p = self.__curve.p()
+         a = self.__curve.a()
+         l = ( (3 * self.__x * self.__x + a) * lisecdsa.inverse_mod(2 * self.__y, p) ) % p
+         x3 = ( l * l - 2 * self.__x ) % p
+         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
+         return lisecdsa.Point( self.__curve, x3, y3 )
+   
+      def x( self ):
+         return self.__x
+   
+      def y( self ):
+         return self.__y
+   
+      def curve( self ):
+         return self.__curve
+      
+      def order( self ):
+         return self.__order
+         
+   
+   
+   # secp256k1
+   _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
+   _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
+   _b = 0x0000000000000000000000000000000000000000000000000000000000000007L
+   _a = 0x0000000000000000000000000000000000000000000000000000000000000000L
+   _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
+   _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+   
+   class Signature( object ):
+      def __init__( self, r, s ):
+         self.r = r
+         self.s = s
+         
+   class Public_key( object ):
+      def __init__( self, generator, point ):
+         self.curve = generator.curve()
+         self.generator = generator
+         self.point = point
+         n = generator.order()
+         if not n:
+            raise RuntimeError, "Generator point must have order."
+         if not n * point == INFINITY:
+            raise RuntimeError, "Generator point order is bad."
+         if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
+            raise RuntimeError, "Generator point has x or y out of range."
+   
+      def verifies( self, hash, signature ):
+         G = self.generator
+         n = G.order()
+         r = signature.r
+         s = signature.s
+         if r < 1 or r > n-1: return False
+         if s < 1 or s > n-1: return False
+         c = lisecdsa.inverse_mod( s, n )
+         u1 = ( hash * c ) % n
+         u2 = ( r * c ) % n
+         xy = u1 * G + u2 * self.point
+         v = xy.x() % n
+         return v == r
+   
+   class Private_key( object ):
+      def __init__( self, public_key, secret_multiplier ):
+         self.public_key = public_key
+         self.secret_multiplier = secret_multiplier
+   
+      def der( self ):
+         hex_der_key = '06052b8104000a30740201010420' + \
+                       '%064x' % self.secret_multiplier + \
+                       'a00706052b8104000aa14403420004' + \
+                       '%064x' % self.public_key.point.x() + \
+                       '%064x' % self.public_key.point.y()
+         return hex_der_key.decode('hex')
+   
+      def sign( self, hash, random_k ):
+         G = self.public_key.generator
+         n = G.order()
+         k = random_k % n
+         p1 = k * G
+         r = p1.x()
+         if r == 0: raise RuntimeError, "amazingly unlucky random number r"
+         s = ( lisecdsa.inverse_mod( k, n ) * \
+                  ( hash + ( self.secret_multiplier * r ) % n ) ) % n
+         if s == 0: raise RuntimeError, "amazingly unlucky random number s"
+         return lisecdsa.Signature( r, s )
+   
+INFINITY = lisecdsa.Point( None, None, None )
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+   
+
+
+
 # The following params are common to ALL bitcoin elliptic curves (secp256k1)
 _p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
 _r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
@@ -381,7 +598,7 @@ EC_Order = EC_GenPt.order()
 
 def isValidEcPoint(x,y):
    return EC_Curve.contains_point(x,y)
-   
+
 
 # BtcAccount -- I gotta come up with a better name for this
 # Store all information about an address string.  
@@ -521,16 +738,8 @@ class BtcAccount(object):
 
 
    # We make this pseudo-static so that we can use it for arbitrary address
-   def checkAddressValid(self, addrStr=None):
-      if addrStr==None:
-         assert(not self.addrStr == UNINITIALIZED)
-         addrStr = self.addrStr
-      addrB58 = addrStr_to_base58Str(addrStr)
-      addrInt = base58Str_to_int(addrB58)
-      addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
-      first20, chk4 = addrBin[:-4], addrBin[-4:]
-      chkBytes = hash256('\x00' + first20)
-      return chkBytes[:4] == chk4
+   def checkAddressValid(self):
+      return checkAddrStrValid(self.addrStr);
 
    def checkPubPrivKeyPairMatch(self):
       assert( self.hasPubKey and self.hasPrivKey )
@@ -1570,8 +1779,126 @@ class ScriptProcessor(object):
       return SCRIPT_NO_ERROR
       
    
+################################################################################
+################################################################################
+
+
+# Not the most efficient coding practices, but it will be plenty fast anyway
+def applyBinaryMaskToHex(binStr, mask, maskVal=1):
+   pprintHex(''.join(['0' if mask[i]==0 else '1' for i in range(len(mask))]))
+   outHex = ['-'*len(binStr)*2]
+   for i in range(len(mask)):
+      if mask[i] == maskVal:
+         outHex[2*i:2*(i+1)] = binary_to_hex(binStr[i]);
+   return outHex
+         
+
+def figureOutMysteryHex(hexStr):
+   print 'Starting with a block of hex:'
+   hexStr.replace(' ','')
+   pprintHex(hexStr, '   ')
+   
+   binStr = hex_to_binary(hexStr)
+   searchStr = {}
+   searchStr['Empty4B'  ] = hex_to_binary('00000000'    )  
+   searchStr['Version'  ] = hex_to_binary('01000000'    ) 
+   searchStr['PkStart'  ] = hex_to_binary('76a9'        )
+   searchStr['PkEnd'    ] = hex_to_binary('88ac'        )  
+   searchStr['SeqNum'   ] = hex_to_binary('ffffffff'    )  
+   searchStr['MagicTest'] = hex_to_binary('fabfb5da'    )  
+   searchStr['MagicMain'] = hex_to_binary('f9beb4d9'    )  
+   searchStr['Verack'   ] = hex_to_binary('76657261636b') 
+
+   # To verify a timestamp, check it's between 2009 and today + 10days
+   timeMin = time.mktime( (2009,1,1,0,0,0,0,0,-1))
+   timeMax = time.time() + 10*86400
+
+   # Will contain [Name, startIdx, endIdx, hexSubstr, objUnserialized]
+   idList = []
+   maskAll = [0]*len(binStr)
+   
+   # Version numbers are easy to identify, both for headers and Tx's
+   versIdx = []
+   findResult = binStr.find(searchStr['Version'])
+   while not findResult == -1:
+      versIdx.append(findResult) 
+      findResult = binStr.find(searchStr['Version'],findResult+1)
+
+   print ''
+   print versIdx
+   
+   for idx in versIdx:
+      # Check for block Header:  hash has leading zeros and timestamp is sane
+      hashZeros = binStr[idx+32:idx+36] == searchStr['Empty4B']
+      validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
+      if hashZeros and validTime:
+         blockHex = binStr[idx:idx+80]
+         idList.append(['BlockHeader', idx, idx+80, BlockHeader().unserialize(blockHex)])
+         maskAll[idx:idx+80] = [1]*80
+         continue 
+      
+      # If not a header, check to see if it's a Tx
+      try:
+         testTx = Tx().unserialize(binStr[idx:])
+         if len(testTx.inputs) < 1 or len(testTx.outputs) < 1:
+            raise Exception
+         for I in testTx.inputs:
+            if not I.intSeq==binary_to_int(searchStr['SeqNum']):
+               raise Exception
+
+         # If we got here, the sequence numbers should be sufficient evidence for
+         # declaring this is a transaction
+         txLen = len(testTx.serialize())
+         idList.append(['Transaction', idx, idx+txLen, testTx])
+         maskAll[idx:idx+txLen] = [1]*txLen
+      except:
+         # Obviously wasn't a transaction, either
+         print 'excepted! ', idx
+         continue
+
+   # Soon implement tests for other stuff... but not yet
+   print ''
+   print ''
+   print 'List of things I found in this block of hex:'
+   for ids in idList:
+      print '\t', ids
+
+
+   for ids in idList:
+      print ''
+      print '################################################################################'
+      idx0 = ids[1]
+      idx1 = ids[2]
+      hexAgain = binary_to_hex(binStr[idx0:idx1])
+      hexAgain = '--'*idx0 + hexAgain + '--'*(len(binStr)-idx1)
+      print 'We found a: ', ids[0]
+      print 'Size:', idx1-idx0, 'bytes'
+      print 'Bytes: %d to %d  (0x%s to 0x%s)' % (idx0, idx1, \
+                                                     int_to_hex(idx0, 4, BIGENDIAN), \
+                                                     int_to_hex(idx1, 4, BIGENDIAN))
+      pprintHex( hexAgain, '   ')
+      print ''
+      print ''
+      print 'Object found:' 
+      ids[3].pprint(1)
+      print ''
+      print '################################################################################'
+      
+
+   print 'Found', len(idList), 'identifiable objects!'
+
+   print ''
+   print ''
+   print 'Unidentified bytes'
+   maskedBytes = ['--' if maskAll[i] == 1 else hexStr[2*i:2*i+2] for i in range(len(binStr))]
+   
+   pprintHex(''.join(maskedBytes));
    
    
+# This is the remaining "end" of Sam Rushing's original code.  I'm not using any
+# of it right now.  But I will eventually dissect it and take advantage of the work
+# he's already done on networking and protocol
+"""
    
 OBJ_TX   = 1
 OBJ_BLOCK = 2
@@ -2484,5 +2811,6 @@ if __name__ == '__main__':
       # database browsing mode
       db = the_block_db # alias
 
+"""
 
 

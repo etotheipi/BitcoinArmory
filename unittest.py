@@ -178,7 +178,7 @@ print "\tSatoshi's Address:     ", satoshiAddrStr
 saddr = BtcAccount().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
 print ''
 print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
-print '\tAddress is valid:      ', BtcAccount().checkAddressValid(satoshiAddrStr)
+print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
 addr = BtcAccount().generateNew()
@@ -205,3 +205,7 @@ blkh2 = BlockHeader().unserializeWithExtra(blkextra)
 print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
 printpassorfail( blkextra == blkh2.serializeWithExtra() )
 
+
+
+print 'Testing arbitrary HexBlock deduction...'
+figureOutMysteryHex(hexBlock)
