@@ -1953,7 +1953,7 @@ def figureOutMysteryHex(hexStr):
    for idx in pkIdx:
       if binStr[idx+23:idx+25] == searchStr['PkEnd']:
          addrStr = BtcAccount().createFromPublicKeyHash160(binStr[idx+3:idx+23])
-         writeHex = 'Addr:' + addrStr.getAddrStr()
+         writeHex = 'StdScript:' + addrStr.getAddrStr()
          idListIncl.append(['PkScript', idx, idx+25, writeHex.center(50,'='), ''])
 
    startCBPK = hex_to_binary('04')
@@ -1964,8 +1964,8 @@ def figureOutMysteryHex(hexStr):
          continue
       if binStr[idx+65] == endCBPK:
          addrStr = BtcAccount().createFromPublicKey(binStr[idx:idx+65])
-         writeHex = 'Addr:' + addrStr.calculateAddrStr()
-         idListIncl.append(['PkScript', idx, idx+25, writeHex.center(132,'='), ''])
+         writeHex = 'PublicKeyCoinbaseRecipient:' + addrStr.calculateAddrStr()
+         idListIncl.append(['PkScript', idx, idx+66, writeHex.center(132,'='), ''])
          
    magicIdx = getIdxList(searchStr['MagicMain'])
    for idx in magicIdx:
@@ -2012,6 +2012,7 @@ def figureOutMysteryHex(hexStr):
       idx0 = 2*ids[1]
       idx1 = 2*ids[2]
       hexToPrint[2*ids[1]:2*ids[2]] = ids[3]
+      print len(hexToPrint)
 
    hexToPrint = ''.join(hexToPrint)
    pprintHex(hexToPrint, '   ')
