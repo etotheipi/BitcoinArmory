@@ -18,17 +18,6 @@ Please take a moment to donate 0.1 BTC!    1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
 (c'mon, it will take like 10 seconds to cut&paste)
 ********************************************************************************
 
-This code is developed to be as intuitive as possible, even at the expense
-of having more lines of code.  For instance, I have endless conversion methods
-which are very explicit about the input and output, such as:
-
-   hex_to_binary 
-   hex_to_int
-   int_to_binary
-   base58Str_to_int
-   hexPubKey_to_addrStr
-   etc
-
 I have shifted most of Sam's code and comments to the bottom of the file, and 
 it will eventually be removed entirely once I have succeeded at writing all the
 stuff he did, but in my own way.  He will, of course, still get a ton of credit 
