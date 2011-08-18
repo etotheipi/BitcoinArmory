@@ -1953,28 +1953,45 @@ def figureOutMysteryHex(hexStr):
    for idx in pkIdx:
       if binStr[idx+23:idx+25] == searchStr['PkEnd']:
          addrStr = BtcAccount().createFromPublicKeyHash160(binStr[idx+3:idx+23])
-         writeHex = 'StdScript:' + addrStr.getAddrStr()
-         idListIncl.append(['PkScript', idx, idx+25, writeHex.center(50,'='), ''])
+         extraInfo = addrStr.getAddrStr()
+         idListIncl.append(['PkScript', idx, idx+25, extraInfo, ''])
 
    startCBPK = hex_to_binary('04')
-   endCBPK   = hex_to_binary('ac')
    pkIdx = getIdxList(startCBPK)
    for idx in pkIdx:
+      #if idx > len(binStr)-65 or maskAll[idx] == 1:
       if idx > len(binStr)-65:
          continue
-      if binStr[idx+65] == endCBPK:
+      #if binStr[idx+65] == endCBPK:
+      try:
          addrStr = BtcAccount().createFromPublicKey(binStr[idx:idx+65])
-         writeHex = 'PublicKeyCoinbaseRecipient:' + addrStr.calculateAddrStr()
-         idListIncl.append(['PkScript', idx, idx+66, writeHex.center(132,'='), ''])
+         extraInfo = addrStr.calculateAddrStr()
+         if binStr[idx+65] == hex_to_binary('ac'):
+            idListIncl.append(['CoinbaseScr', idx, idx+66, extraInfo, ''])
+         else:
+            idListIncl.append(['Bare PubKey', idx, idx+65, extraInfo, ''])
+      except:
+         pass # I guess this wasn't a PK after all...
          
    magicIdx = getIdxList(searchStr['MagicMain'])
    for idx in magicIdx:
-      idListIncl.append(['MagicNum', idx, idx+4, '=magic#=', ''])
+      idListIncl.append(['MagicNum', idx, idx+4, 'Main network magic bytes (f9 be b4 d9)', ''])
+
+   magicIdx = getIdxList(searchStr['MagicTest'])
+   for idx in magicIdx:
+      idListIncl.append(['MagicNum', idx, idx+4, 'Test network magic bytes (fa bf b5 da)', ''])
 
    verackIdx = getIdxList(searchStr['Verack'])
    for idx in verackIdx:
-      idListIncl.append(['VERACK', idx, idx+6, 'VERACK'.center(12,'='), ''])
+      idListIncl.append(['VERACK', idx, idx+6, 'Version acknowledgement msg', ''])
          
+   vermsgIdx = getIdxList(searchStr['VersMsg'])
+   for idx in vermsgIdx:
+      idListIncl.append(['Version', idx, idx+7, 'Version packet declaration', ''])
+
+   addrIdx = getIdxList(searchStr['VersMsg'])
+   for idx in addrIdx:
+      idListIncl.append(['AddrMsg', idx, idx+7, 'Addr packet declaration', ''])
 
 
    print ''
@@ -2007,18 +2024,23 @@ def figureOutMysteryHex(hexStr):
       print '################################################################################'
 
    print 'Other assorted things:'
+   idListIncl.sort(key=lambda x: x[1])
    hexToPrint = ['-'] * 2*len(binStr) 
-   for ids in idListIncl:
-      idx0 = 2*ids[1]
-      idx1 = 2*ids[2]
-      hexToPrint[2*ids[1]:2*ids[2]] = ids[3]
+   ReprList = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
+   for j,ids in enumerate(idListIncl):
+      i1 = ids[1]
+      i2 = ids[2]
+      nb = i2-i1
+      maskAll[i1:i2] = [1]*nb
+      hexToPrint[2*i1:2*i2] = ReprList[j]*2*nb
       print len(hexToPrint)
 
    hexToPrint = ''.join(hexToPrint)
    pprintHex(hexToPrint, '   ')
 
-   for ids in idListIncl:
-      print ids[:3]
+   print ''
+   for j,ids in enumerate(idListIncl):
+      print '\t', ReprList[j] + ':', ids[0].ljust(16,' '), ':', ids[3]
       
    
    

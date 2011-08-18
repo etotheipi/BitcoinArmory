@@ -208,4 +208,4 @@ printpassorfail( blkextra == blkh2.serializeWithExtra() )
 
 
 print 'Testing arbitrary HexBlock deduction...'
-figureOutMysteryHex('f9beb4d9' + hexBlock + '0000ffff76657261636bffff')
+figureOutMysteryHex('f9beb4d9' + hexBlock + 'fabfb5da0000ffff76657261636bffff')
