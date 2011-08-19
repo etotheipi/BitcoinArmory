@@ -1208,9 +1208,9 @@ class BlockHeader(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
-      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(Big-Endian)'
+      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:   ', self.version     
-      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(Big-Endian)'
+      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
       print indstr + indent + 'Timestamp: ', self.timestamp 
       print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
