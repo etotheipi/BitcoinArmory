@@ -628,12 +628,16 @@ def getTxOutScriptType(binScript):
    return SCRIPT_UNKNOWN
    
 def TxInScriptExtractKeyAddr(binScript):
-   if len(binScript) < 16:
-      return ('COINBASE','COINBASE')
-   pubKeyBin = binScript[-65:]
-   newAcct = BtcAccount().createFromPublicKey(pubKeyBin)
-   return (newAcct.calculateAddrStr(), \
-           binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
+   try:
+      if len(binScript) < 16:
+         return ('COINBASE','COINBASE')
+      pubKeyBin = binScript[-65:]
+      newAcct = BtcAccount().createFromPublicKey(pubKeyBin)
+      return (newAcct.calculateAddrStr(), \
+              binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
+   except:
+      # No guarantee that this script is meaningful (like in the genesis block)
+      return ('Probably COINBASE', 'Probably COINBASE')
 
 def TxOutScriptExtractKeyAddr(binScript):
    txoutType = getTxOutScriptType(binScript)
@@ -1029,6 +1033,7 @@ class Tx(object):
       else: 
          txData = BinaryUnpacker( toUnpack )
 
+      startPos = txData.getPosition()
       self.inputs     = []
       self.outputs    = []
       self.version    = txData.get(UINT32)
@@ -1039,6 +1044,9 @@ class Tx(object):
       for i in range(self.numOutputs):
          self.outputs.append( TxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
+      endPos = txData.getPosition()
+      self.nBytes = endPos - startPos
+      self.thisHash = hash256(self.serialize())
       return self
       
    def pprint(self, nIndent=0):
@@ -1841,220 +1849,8 @@ class ScriptProcessor(object):
       return SCRIPT_NO_ERROR
       
    
-################################################################################
-################################################################################
-
-
-# Not the most efficient coding practices, but it will be plenty fast anyway
-def applyBinaryMaskToHex(binStr, mask, maskVal=1):
-   pprintHex(''.join(['0' if mask[i]==0 else '1' for i in range(len(mask))]))
-   outHex = ['-'*len(binStr)*2]
-   for i in range(len(mask)):
-      if mask[i] == maskVal:
-         outHex[2*i:2*(i+1)] = binary_to_hex(binStr[i]);
-   return outHex
          
 
-def figureOutMysteryHex(hexStr):
-   print ''
-   print 'Trying to identify Bitcoin-related strings in this block of hex:'
-   hexStr.replace(' ','')
-   pprintHex(hexStr, '   ')
-   
-   binStr = hex_to_binary(hexStr)
-   searchStr = {}
-   searchStr['Empty4B'  ] = hex_to_binary('00000000'      )  
-   searchStr['Version'  ] = hex_to_binary('01000000'      ) 
-   searchStr['PkStart'  ] = hex_to_binary('76a9'          )
-   searchStr['PkEnd'    ] = hex_to_binary('88ac'          )  
-   searchStr['SeqNum'   ] = hex_to_binary('ffffffff'      )  
-   searchStr['MagicTest'] = hex_to_binary('fabfb5da'      )  
-   searchStr['MagicMain'] = hex_to_binary('f9beb4d9'      )  
-   searchStr['Verack'   ] = hex_to_binary('76657261636b'  ) 
-   searchStr['VersMsg'  ] = hex_to_binary('76657273696f6e') 
-   searchStr['Addr'     ] = hex_to_binary('61646472'      ) 
-
-   # To verify a timestamp, check it's between 2009 and today + 10days
-   timeMin = time.mktime( (2009,1,1,0,0,0,0,0,-1))
-   timeMax = time.time() + 10*86400
-
-   # Exclusive list of [Name, startIdx, endIdx, hexSubstr, toPrintAfter]
-   idListExcl = []
-
-   # Inclusive list of multipe random things
-   idListIncl = []
-
-   maskAll = [0]*len(binStr)
-
-
-   # This method will return all indices that match the substring "findBin"
-   # excluding matches inside chunks already ID'd
-   def getIdxListNotIdYet(findBin, theMask):
-      versIdx = []
-      findIdx = binStr.find(findBin)
-      while not findIdx == -1:
-         if not theMask[findIdx] == 1:
-            versIdx.append(findIdx) 
-         findIdx = binStr.find(searchStr['Version'],findIdx+1)
-      return versIdx
-      
-   # Return all matches for the string, regardless of whether it's ID'd already
-   def getIdxList(findBin):
-      versIdx = []
-      findIdx = binStr.find(findBin)
-      while not findIdx == -1:
-         versIdx.append(findIdx)
-         findIdx = binStr.find(findBin,findIdx+1)
-      return versIdx
-         
-   ############################################################################
-   # Search for version numbers which will help us find Tx's and BlockHeaders
-   ############################################################################
-   versIdx = getIdxListNotIdYet(searchStr['Version'], maskAll)
-   
-   for idx in versIdx:
-      # Check for block Header:  hash has leading zeros and timestamp is sane
-      hashZeros = binStr[idx+32:idx+36] == searchStr['Empty4B']
-      validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
-      if hashZeros and validTime:
-         bin80 = binStr[idx:idx+80]
-         blkhead = BlockHeader().unserialize(bin80) 
-         idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
-         maskAll[idx:idx+80] = [1]*80
-         continue 
-      
-      # If not a header, check to see if it's a Tx
-      try:
-         testTx = Tx().unserialize(binStr[idx:])
-         if len(testTx.inputs) < 1 or len(testTx.outputs) < 1:
-            raise Exception
-         for inp in testTx.inputs:
-            if not inp.intSeq==binary_to_int(searchStr['SeqNum']):
-               raise Exception
-
-         # If we got here, the sequence numbers should be sufficient evidence for
-         # declaring this is a transaction
-         txBin = testTx.serialize()
-         txLen = len(txBin)
-         txHex = binary_to_hex(txBin)
-         idListExcl.append(['Transaction', idx, idx+txLen, txHex, testTx])
-         maskAll[idx:idx+txLen] = [1]*txLen
-      except:
-         # Obviously wasn't a transaction, either
-         continue
-
-   
-      
-
-   ############################################################################
-   # Search for various substrings which should just be called out
-   ############################################################################
-   pkIdx = getIdxList(searchStr['PkStart'])
-   for idx in pkIdx:
-      if binStr[idx+23:idx+25] == searchStr['PkEnd']:
-         addrStr = BtcAccount().createFromPublicKeyHash160(binStr[idx+3:idx+23])
-         extraInfo = addrStr.getAddrStr()
-         idListIncl.append(['PkScript', idx, idx+25, extraInfo, ''])
-
-   startCBPK = hex_to_binary('04')
-   pkIdx = getIdxList(startCBPK)
-   for idx in pkIdx:
-      #if idx > len(binStr)-65 or maskAll[idx] == 1:
-      if idx > len(binStr)-65:
-         continue
-      #if binStr[idx+65] == endCBPK:
-      try:
-         addrStr = BtcAccount().createFromPublicKey(binStr[idx:idx+65])
-         extraInfo = addrStr.calculateAddrStr()
-         if binStr[idx+65] == hex_to_binary('ac'):
-            idListIncl.append(['CoinbaseScr', idx, idx+66, extraInfo, ''])
-         else:
-            idListIncl.append(['Bare PubKey', idx, idx+65, extraInfo, ''])
-      except:
-         pass # I guess this wasn't a PK after all...
-         
-   magicIdx = getIdxList(searchStr['MagicMain'])
-   for idx in magicIdx:
-      idListIncl.append(['MagicNum', idx, idx+4, 'Main network magic bytes (f9 be b4 d9)', ''])
-
-   magicIdx = getIdxList(searchStr['MagicTest'])
-   for idx in magicIdx:
-      idListIncl.append(['MagicNum', idx, idx+4, 'Test network magic bytes (fa bf b5 da)', ''])
-
-   verackIdx = getIdxList(searchStr['Verack'])
-   for idx in verackIdx:
-      idListIncl.append(['VERACK', idx, idx+6, 'Version acknowledgement msg', ''])
-         
-   vermsgIdx = getIdxList(searchStr['VersMsg'])
-   for idx in vermsgIdx:
-      idListIncl.append(['Version', idx, idx+7, 'Version packet declaration', ''])
-
-   addrIdx = getIdxList(searchStr['VersMsg'])
-   for idx in addrIdx:
-      idListIncl.append(['AddrMsg', idx, idx+7, 'Addr packet declaration', ''])
-
-
-   print ''
-   print ''
-   print 'List of things I found in this block of hex:'
-   for i in idListExcl:
-      print i[:3]
-
-
-   for ids in idListExcl:
-      print ''
-      print '################################################################################'
-      idx0,idx1 = ids[1], ids[2]
-
-      # If this is a Tx or BH, need to pprint the last arg
-      hexToPrint = ['-'] * 2*len(binStr) 
-      if ids[0] == 'Transaction' or ids[0] == 'BlockHeader':
-         hexToPrint[2*ids[1]:2*ids[2]] = ids[3]
-         print 'Found: ', ids[0]
-         print 'Size:', idx1-idx0, 'bytes'
-         print 'Bytes: %d to %d  (0x%s to 0x%s)' % (idx0, idx1, \
-                                                        int_to_hex(idx0, 4, BIGENDIAN), \
-                                                        int_to_hex(idx1, 4, BIGENDIAN))
-         pprintHex( ''.join(hexToPrint), '   ')
-         print ''
-         print ''
-         print 'Object found:' 
-         ids[4].pprint(1)
-      print ''
-      print '################################################################################'
-
-   print 'Other assorted things:'
-   idListIncl.sort(key=lambda x: x[1])
-   hexToPrint = ['-'] * 2*len(binStr) 
-   ReprList = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz'
-   for j,ids in enumerate(idListIncl):
-      i1 = ids[1]
-      i2 = ids[2]
-      nb = i2-i1
-      maskAll[i1:i2] = [1]*nb
-      hexToPrint[2*i1:2*i2] = ReprList[j]*2*nb
-      print len(hexToPrint)
-
-   hexToPrint = ''.join(hexToPrint)
-   pprintHex(hexToPrint, '   ')
-
-   print ''
-   for j,ids in enumerate(idListIncl):
-      print '\t', ReprList[j] + ':', ids[0].ljust(16,' '), ':', ids[3]
-      
-   
-   
-         
-   print ''
-   print ''
-   print 'Unidentified bytes'
-   maskedBytes = ['--' if maskAll[i] == 1 else hexStr[2*i:2*i+2] for i in range(len(binStr))]
-   
-   pprintHex(''.join(maskedBytes));
-   
-
-def figureOutMysteryBinary(binStr):
-   figureOutMysteryHex( binary_to_hex(binStr))
    
 
 # This is the remaining "end" of Sam Rushing's original code.  I'm not using any
