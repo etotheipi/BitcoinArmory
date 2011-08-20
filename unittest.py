@@ -175,13 +175,13 @@ addrPiece2Bin = hex_to_binary(addrPiece2Hex)
 print 'Testing ECDSA key/address methods:'
 print "\tSatoshi's PubKey:      ", satoshiPubKeyHex[:32], '...'
 print "\tSatoshi's Address:     ", satoshiAddrStr
-saddr = BtcAccount().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
+saddr = BtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
 print ''
 print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
 print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
-addr = BtcAccount().generateNew()
+addr = BtcAddress().generateNew()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
 derSig = addr.generateDERSignature(theHash)
@@ -207,5 +207,3 @@ printpassorfail( blkextra == blkh2.serializeWithExtra() )
 
 
 
-print 'Testing arbitrary HexBlock deduction...'
-figureOutMysteryHex('f9beb4d9' + hexBlock + 'fabfb5da0000ffff76657261636bffff')

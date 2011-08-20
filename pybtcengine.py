@@ -96,7 +96,7 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
       if i%major==0:
          outStr += '\n'  + indent 
          if withAddr:
-            locStr = int_to_hex(i*minor/2, widthBytes=3, endOut=BIGENDIAN)
+            locStr = int_to_hex(i*minor/2, widthBytes=2, endOut=BIGENDIAN)
             outStr +=  '0x' + locStr + ':  '
       outStr += theStr[i*minor:(i+1)*minor] + ' '
    return outStr
@@ -630,7 +630,7 @@ def getTxOutScriptType(binScript):
 def TxInScriptExtractKeyAddr(binScript):
    try:
       pubKeyBin = binScript[-65:]
-      newAcct = BtcAccount().createFromPublicKey(pubKeyBin)
+      newAcct = BtcAddress().createFromPublicKey(pubKeyBin)
       return (newAcct.calculateAddrStr(), \
               binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
    except:
@@ -643,10 +643,10 @@ def TxOutScriptExtractKeyAddr(binScript):
       return '<Non-standard TxOut script>'
 
    if txoutType == SCRIPT_COINBASE:
-      newAcct = BtcAccount().createFromPublicKey(binScript[1:66])
+      newAcct = BtcAddress().createFromPublicKey(binScript[1:66])
       return newAcct.calculateAddrStr()
    elif txoutType == SCRIPT_STANDARD:
-      newAcct = BtcAccount().createFromPublicKeyHash160(binScript[3:23])
+      newAcct = BtcAddress().createFromPublicKeyHash160(binScript[3:23])
       return newAcct.getAddrStr()
 
 
@@ -661,7 +661,7 @@ def TxOutScriptExtractKeyAddr(binScript):
 # consistency checks, because the lisecdsa library is slow, and 
 # we don't want to spend the time verifying thousands of keypairs
 # There's a reason we wrote out the pubkey and addresses...
-class BtcAccount(object):
+class BtcAddress(object):
    def __init__(self):
       self.privKeyInt = UNINITIALIZED
       self.pubKeyXInt = UNINITIALIZED
@@ -888,6 +888,23 @@ class BtcAccount(object):
       self.addrStr_unserialize( theData ) 
       self.pubKey_unserialize( theData ) 
       self.privKey_unserialize( theData ) 
+
+   def pprint(self, withPrivKey=False):
+      print '  BTC Address:     ', 
+      if self.addrStr==UNINITIALIZED:
+         print 'UNINITIALIZED'
+      else:
+         print self.addrStr
+         print '  Have Public Key: ', self.hasPubKey
+         print '  Have Private Key:', self.hasPrivKey
+         if self.hasPubKey:
+            print '  Public Key Hex (Big-Endian):  '
+            print '     04', int_to_hex(self.pubKeyXInt, 32, BIGENDIAN)
+            print '       ', int_to_hex(self.pubKeyYInt, 32, BIGENDIAN)
+         if withPrivKey and self.hasPrivKey:
+            print '  Private Key Hex (Big-Endian): '
+            print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
+      
       
 
 
@@ -1217,7 +1234,7 @@ class BlockHeader(object):
       print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:   ', self.version     
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
-      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot), '(LE)'
+      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
       print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
       print indstr + indent + 'Nonce:     ', self.nonce    
@@ -1832,7 +1849,7 @@ class ScriptProcessor(object):
          txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
-         senderAddr = BtcAccount().createFromPublicKey(binPubKey)
+         senderAddr = BtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)

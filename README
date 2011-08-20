@@ -7,24 +7,69 @@
 *
 * Descr:   Modified from the "caesure" code by Sam Rushing.  The header comments
 *          of the original code is included, maintaining refs to the original 
-*          source code.  The code was pulled from his git repo on 10 July, 2011.
+*          source code.  At this point, though, my code no longer resembles his.
+*          The code was pulled from his git repo on 10 July, 2011.
 *
+*          I have shifted most of Sam's code and comments to the bottom of the 
+*          file, and it will eventually be removed entirely once I have 
+*          succeeded at writing all the stuff he did, but in my own way.  He 
+*          will, of course, still get a ton of credit for providing such good 
+*          reference code.  "Lis" from the Bitcoin forums also deserves a ton 
+*          of credit for writing a fantastic, dependency-less version of ECDSA.  
+*          This may enable more platforms where this code can be used, as they 
+*          don't need to have any particular crypto libraries installed
 *
 ********************************************************************************
 
 ********************************************************************************
-Please take a moment to donate 0.1 BTC!    1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
+  Please take a moment to donate 0.1 BTC!    1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk
 
-(c'mon, it will take like 10 seconds to cut&paste)
+  (c'mon, it will take like 10 seconds to cut&paste)
 ********************************************************************************
 
-I have shifted most of Sam's code and comments to the bottom of the file, and 
-it will eventually be removed entirely once I have succeeded at writing all the
-stuff he did, but in my own way.  He will, of course, still get a ton of credit 
-for providing such good reference code.  "Lis" from the Bitcoin forums also
-deserves a ton of credit for writing a fantastic, dependency-less version of
-ECDSA.  This may enable more platforms where this code can be used, as they
-don't need to have any particular crypto libraries installed
+
+#####
+20 Aug, 2011:
+   
+   PyBtcEngine is a finally a fairly complete set of tools that addresses most
+   of the calculations, manipulations and crypto that is involved in analyzing
+   the blockchain.  It's not particularly fast, which is why I started creating
+   a C++ backend to handle all the block data, to be imported via SWIG.  This
+   is not yet complete, but believe will be the most efficient method possible
+   to process the entire blockchain at once.
+
+
+   Due to many requests on the forum, as well as personal desire to identify 
+   large chunks of binary/hex data, I have created a separate script called
+   mysteryHex.py which will try to completely break down a chunk of data and
+   find BTC-related strings in it, using PyBtcEngine.  It should be a fairly
+   versatile tool, allowing for quick ID of headers, transactions, public keys,
+   etc.  Also allows the user to read their blockfile store to construct a 
+   dictionary of 1-2 million hashes to include in the block file identification
+   (use -s to enable hash searching from knownHashes.bin, and -u to create or
+   update your knownHashes.bin file from blk0001.dat in your BTC directory).
+   
+   In fact, here's the output of ./mysteryHex.py --help:
+
+      Try to identify Bitcoin-related strings in a block of data
+      Usage: mysteryHex.py [--binary|-b] -f FILE 
+         or: mysteryHex.py unidentifiedHex
+
+      Options:
+        -h, --help            show this help message and exit
+        -f FILENAME, --file=FILENAME
+                              Get unidentified data from this file
+        -k BLK0001FILE, --blkfile=BLK0001FILE
+                              Update hashlist from this file (default
+                              ~/.bitcoin/blk0001.dat)
+        -g HASHFILE, --hashfile=HASHFILE
+                              The file to store and retrieve header/tx hashes
+        -b, --binary          Specified file is in binary
+        -s, --usehashes       Import header/tx hashes to be used in searching
+        -u, --updatehashes    Search blk0001.dat to update hashlist
+        -r, --rescanhashes    Rescan blkfile for header/tx hashes
+ 
+
 
 #####
 16 July, 2011:

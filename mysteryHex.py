@@ -12,13 +12,13 @@ HASHCODE_TX     = 3
 ################################################################################
 ################################################################################
 def figureOutMysteryHex(hexStr, hashDict={}):
+   binStr = hex_to_binary(hexStr)
    print '\n' + '-'*80
-   print '\nStarting hex data:'
+   print '\nStarting hex data:', len(binStr), 'bytes'
    hexStr.replace(' ','')
    pprintHex(hexStr, '   ')
    print '\n' + '-'*80
    
-   binStr = hex_to_binary(hexStr)
 
    # These search terms only give us hints about where things are.  We have more
    # operations to determine if something is actually behind these strings
@@ -112,29 +112,34 @@ def figureOutMysteryHex(hexStr, hashDict={}):
 
    
    # Try to find a PkScript
-   pkIdx = getIdxList(hintStr['PkStart'])
+   pkIdx = getIdxListNotIdYet(hintStr['PkStart'], maskAll)
    for idx in pkIdx:
       if binStr[idx+23:idx+25] == hintStr['PkEnd']:
-         addrStr = BtcAccount().createFromPublicKeyHash160(binStr[idx+3:idx+23])
+         addrStr = BtcAddress().createFromPublicKeyHash160(binStr[idx+3:idx+23])
          extraInfo = addrStr.getAddrStr()
          idListSimple.append(['TxOutScript', idx, idx+25, extraInfo, ''])
+         maskAll[idx:idx+25] = [1]*25
 
    startCBPK = hex_to_binary('04')
-   pkIdx = getIdxList(startCBPK)
+   pkIdx = getIdxListNotIdYet(startCBPK, maskAll)
    for idx in pkIdx:
       #if idx > len(binStr)-65 or maskAll[idx] == 1:
       if idx > len(binStr)-65:
          continue
       #if binStr[idx+65] == endCBPK:
       try:
-         addrStr = BtcAccount().createFromPublicKey(binStr[idx:idx+65])
+         addrStr = BtcAddress().createFromPublicKey(binStr[idx:idx+65])
          extraInfo = addrStr.calculateAddrStr()
-         if binStr[idx+65] == hex_to_binary('ac'):
+         if not idx+65==len(binStr) and binStr[idx+65] == hex_to_binary('ac'):
             idListSimple.append(['CoinbaseScript', idx, idx+66, extraInfo, ''])
+            maskAll[idx:idx+66] = [1]*66
          else:
             idListSimple.append(['BarePublicKey', idx, idx+65, extraInfo, ''])
-         if binStr[idx-1]  == hex_to_binary('41'):
+            maskAll[idx:idx+65] = [1]*65
+
+         if idx>0 and binStr[idx-1]  == hex_to_binary('41'):
             idListSimple[-1][1] -= 1  # get the 41 that's there if it's a script
+            maskAll[idx-1] = 1
       except:
          pass # I guess this wasn't a PK after all...
          
@@ -148,10 +153,13 @@ def figureOutMysteryHex(hexStr, hashDict={}):
          idListSimple.append([triplet[1], idx, idx+len(triplet[0])/2, triplet[2], ''])
 
 
+         
 
    # If we have a useful dictionary of hashes, let's use it
    if len(hashDict) > 0:
-      for i in range(len(binStr)-32):
+      for i in range(len(binStr)-31):
+         if maskAll[i] == 1:
+            continue
          str32 = binStr[i:i+32]
          if hashDict.has_key(str32):
             hashcode = hashDict[str32]
@@ -165,7 +173,7 @@ def figureOutMysteryHex(hexStr, hashDict={}):
                hashCode = 'UnknownHash'
             idListSimple.append([hashCode, i, i+32, binary_to_hex(str32), ''])
          elif hashDict.has_key(binary_switchEndian(str32)):
-            hashcode = hashDict[str32]
+            hashcode = hashDict[binary_switchEndian(str32)]
             if hashcode==HASHCODE_HEADER:
                hashCode = 'HeaderHash(BE)'
             elif hashcode==HASHCODE_MERKLE:
@@ -237,10 +245,13 @@ def updateHashList(hashfile, blkfile, rescan=False):
    print '\t\t.Hashfile: ', hashfile
    print '\t\t.BlockFile:', blkfile
    if not path.exists(hashfile) or rescan:
-      hf = open('knownHashes.txt','wb')
+      hf = open('knownHashes.bin','wb')
       hf.write('\x00'*8)
       hf.close()
+
    hf = open(hashfile, 'rb')
+   startBlkByte = binary_to_int(hf.read(8))
+   hf.close()
 
    
    assert(path.exists(blkfile))
@@ -248,8 +259,6 @@ def updateHashList(hashfile, blkfile, rescan=False):
    bf = open(blkfile, 'rb')
 
    
-   startBlkByte = binary_to_int(hf.read(8))
-   hf.close()
    hf = open(hashfile, 'r+')
    hf.write(int_to_binary(blkfileSize, widthBytes=8))
    hf.seek(0,2) # start writing at the end of the file
@@ -274,7 +283,7 @@ def updateHashList(hashfile, blkfile, rescan=False):
       newHashes += 2 + len(thisData.txList)
 
       if newBlocksRead==0:
-         print '\n\t\tReading blocks...'
+         print '\n\t\tReading blocks...',
       newBlocksRead += 1
       if(newBlocksRead%1000==0):
          if(newBlocksRead%10000==0):
@@ -291,21 +300,21 @@ def updateHashList(hashfile, blkfile, rescan=False):
 
 
 if __name__ == '__main__':
-   print '\n\nTrying to identify Bitcoin-related strings in a block of data'
+   print '\nTry to identify Bitcoin-related strings in a block of data'
 
    parser = OptionParser(usage='USAGE: %prog [--binary|-b] -f FILE \n   or: %prog unidentifiedHex')
    parser.add_option('-f', '--file',   dest='filename', \
                   help='Get unidentified data from this file')
    parser.add_option('-k', '--blkfile', dest='blk0001file', default='', \
                   help='Update hashlist from this file (default ~/.bitcoin/blk0001.dat)')
-   parser.add_option('-g', '--hashfile', dest='hashfile', default='./knownHashes.txt', \
+   parser.add_option('-g', '--hashfile', dest='hashfile', default='./knownHashes.bin', \
                   help='The file to store and retrieve header/tx hashes')
    parser.add_option('-b', '--binary', action='store_false', dest='isHex', default=True, \
                   help='Specified file is in binary')
    parser.add_option('-s', '--usehashes', action='store_true', dest='useHashes', default=False, \
                   help='Import header/tx hashes to be used in searching')
-   parser.add_option('-u', '--updatehashes', action='store_true', dest='updateHashes', default=False, \
-                  help='Do not search blk0001.dat to update hashlist')
+   parser.add_option('-u', '--noupdatehashes', action='store_false', dest='updateHashes', default=True, \
+                  help='Search blk0001.dat to update hashlist')
    parser.add_option('-r', '--rescanhashes', action='store_true', dest='doRescan', default=False, \
                   help='Rescan blkfile for header/tx hashes')
    # Should add option for picking (start,end) bytes for files that are long
@@ -332,7 +341,7 @@ if __name__ == '__main__':
 
    # A variety of error conditions
    if fn == None and len(args)==0:
-      parser.error('Please supply a hex data or a file with unidentified data')
+      parser.error('Please supply hex data or a file with unidentified data\n')
    if not fn == None and not path.exists(fn):
       parser.error('Cannot find ' + fn)
    if fn == None and not isHex:
@@ -357,7 +366,7 @@ if __name__ == '__main__':
       hfile.close()
       print '\t.Reading %s (%0.1f MB)' % (hashfile, len(binaryHashes)/float(1024**2))
       if not opts.updateHashes:
-         print '\t (use -u to update hashlist with recent blocks from blk0001.dat'
+         print '\t (remove -u flag to update hashlist with recent blocks from blk0001.dat'
       nHash = len(binaryHashes) / 33
       for i in range(nHash):
          loc = i*33
