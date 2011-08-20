@@ -38,7 +38,7 @@ import os
 import pickle
 import string
 import sys
-import lisecdsa
+#import lisecdsa
 
 import asyncore
 import asynchat
@@ -87,6 +87,22 @@ def default_error_function(msg):
    print '***ERROR*** : ', msg
    print 'Aborting run'
    exit(0)
+
+def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
+   outStr = ''
+   sz = len(theStr)
+   nchunk = int((sz-1)/minor) + 1;
+   for i in range(nchunk):
+      if i%major==0:
+         outStr += '\n'  + indent 
+         if withAddr:
+            locStr = int_to_hex(i*minor/2, widthBytes=2, endOut=BIGENDIAN)
+            outStr +=  '0x' + locStr + ':  '
+      outStr += theStr[i*minor:(i+1)*minor] + ' '
+   return outStr
+
+def pprintHex(theStr, indent='', major=8, minor=8):
+   print prettyHex(theStr, indent, major, minor)
 
 
 raiseError = default_error_function
@@ -365,6 +381,200 @@ class BinaryPacker(object):
 #
 ################################################################################
 
+
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+
+################################################################################
+
+# ECDSA Import from Lis http://bitcointalk.org/index.php?topic=23241.0
+#
+################################################################################
+class lisecdsa:
+   @staticmethod
+   def inverse_mod( a, m ):
+      if a < 0 or m <= a: a = a % m
+      c, d = a, m
+      uc, vc, ud, vd = 1, 0, 0, 1
+      while c != 0:
+         q, c, d = divmod( d, c ) + ( c, )
+         uc, vc, ud, vd = ud - q*uc, vd - q*vc, uc, vc
+      assert d == 1
+      if ud > 0: return ud
+      else: return ud + m
+
+   class CurveFp( object ):
+      def __init__( self, p, a, b ):
+         self.__p = p
+         self.__a = a
+         self.__b = b
+   
+      def p( self ):
+         return self.__p
+   
+      def a( self ):
+         return self.__a
+   
+      def b( self ):
+         return self.__b
+   
+      def contains_point( self, x, y ):
+         return ( y * y - ( x * x * x + self.__a * x + self.__b ) ) % self.__p == 0
+   
+   class Point( object ):
+      def __init__( self, curve, x, y, order = None ):
+         self.__curve = curve
+         self.__x = x
+         self.__y = y
+         self.__order = order
+         if self.__curve: assert self.__curve.contains_point( x, y )
+         if order: assert self * order == INFINITY
+    
+      def __add__( self, other ):
+         if other == INFINITY: return self
+         if self == INFINITY: return other
+         assert self.__curve == other.__curve
+         if self.__x == other.__x:
+            if ( self.__y + other.__y ) % self.__curve.p() == 0:
+               return INFINITY
+            else:
+               return self.double()
+   
+         p = self.__curve.p()
+         l = ( ( other.__y - self.__y ) * lisecdsa.inverse_mod(other.__x - self.__x, p) ) % p
+         x3 = ( l * l - self.__x - other.__x ) % p
+         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
+         return lisecdsa.Point( self.__curve, x3, y3 )
+   
+      def __mul__( self, other ):
+         def leftmost_bit( x ):
+            assert x > 0
+            result = 1L
+            while result <= x: result = 2 * result
+            return result / 2
+   
+         e = other
+         if self.__order: e = e % self.__order
+         if e == 0: return INFINITY
+         if self == INFINITY: return INFINITY
+         assert e > 0
+         e3 = 3 * e
+         negative_self = lisecdsa.Point( self.__curve, self.__x, -self.__y, self.__order )
+         i = leftmost_bit( e3 ) / 2
+         result = self
+         while i > 1:
+            result = result.double()
+            if ( e3 & i ) != 0 and ( e & i ) == 0: result = result + self
+            if ( e3 & i ) == 0 and ( e & i ) != 0: result = result + negative_self
+            i = i / 2
+         return result
+   
+      def __rmul__( self, other ):
+         return self * other
+   
+      def __str__( self ):
+         if self == INFINITY: return "infinity"
+         return "(%d,%d)" % ( self.__x, self.__y )
+   
+      def double( self ):
+         if self == INFINITY:
+            return INFINITY
+   
+         p = self.__curve.p()
+         a = self.__curve.a()
+         l = ( (3 * self.__x * self.__x + a) * lisecdsa.inverse_mod(2 * self.__y, p) ) % p
+         x3 = ( l * l - 2 * self.__x ) % p
+         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
+         return lisecdsa.Point( self.__curve, x3, y3 )
+   
+      def x( self ):
+         return self.__x
+   
+      def y( self ):
+         return self.__y
+   
+      def curve( self ):
+         return self.__curve
+      
+      def order( self ):
+         return self.__order
+         
+   
+   
+   # secp256k1
+   _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
+   _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
+   _b = 0x0000000000000000000000000000000000000000000000000000000000000007L
+   _a = 0x0000000000000000000000000000000000000000000000000000000000000000L
+   _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
+   _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+   
+   class Signature( object ):
+      def __init__( self, r, s ):
+         self.r = r
+         self.s = s
+         
+   class Public_key( object ):
+      def __init__( self, generator, point ):
+         self.curve = generator.curve()
+         self.generator = generator
+         self.point = point
+         n = generator.order()
+         if not n:
+            raise RuntimeError, "Generator point must have order."
+         if not n * point == INFINITY:
+            raise RuntimeError, "Generator point order is bad."
+         if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
+            raise RuntimeError, "Generator point has x or y out of range."
+   
+      def verifies( self, hash, signature ):
+         G = self.generator
+         n = G.order()
+         r = signature.r
+         s = signature.s
+         if r < 1 or r > n-1: return False
+         if s < 1 or s > n-1: return False
+         c = lisecdsa.inverse_mod( s, n )
+         u1 = ( hash * c ) % n
+         u2 = ( r * c ) % n
+         xy = u1 * G + u2 * self.point
+         v = xy.x() % n
+         return v == r
+   
+   class Private_key( object ):
+      def __init__( self, public_key, secret_multiplier ):
+         self.public_key = public_key
+         self.secret_multiplier = secret_multiplier
+   
+      def der( self ):
+         hex_der_key = '06052b8104000a30740201010420' + \
+                       '%064x' % self.secret_multiplier + \
+                       'a00706052b8104000aa14403420004' + \
+                       '%064x' % self.public_key.point.x() + \
+                       '%064x' % self.public_key.point.y()
+         return hex_der_key.decode('hex')
+   
+      def sign( self, hash, random_k ):
+         G = self.public_key.generator
+         n = G.order()
+         k = random_k % n
+         p1 = k * G
+         r = p1.x()
+         if r == 0: raise RuntimeError, "amazingly unlucky random number r"
+         s = ( lisecdsa.inverse_mod( k, n ) * \
+                  ( hash + ( self.secret_multiplier * r ) % n ) ) % n
+         if s == 0: raise RuntimeError, "amazingly unlucky random number s"
+         return lisecdsa.Signature( r, s )
+   
+INFINITY = lisecdsa.Point( None, None, None )
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+ # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
+   
+
+
+
 # The following params are common to ALL bitcoin elliptic curves (secp256k1)
 _p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
 _r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
@@ -381,7 +591,64 @@ EC_Order = EC_GenPt.order()
 
 def isValidEcPoint(x,y):
    return EC_Curve.contains_point(x,y)
+
+
+# Check validity of a BTC address in its binary form, as would
+# be found inside a pkScript.  Usually about 24 bytes
+def checkAddrBinValid(addrBin):
+   first20, chk4 = addrBin[:-4], addrBin[-4:]
+   chkBytes = hash256('\x00' + first20)
+   return chkBytes[:4] == chk4
+
+# Check validity of a BTC address in "1Ghfk38dDF..." form
+def checkAddrStrValid(addrStr):
+   addrB58 = addrStr_to_base58Str(addrStr)
+   addrInt = base58Str_to_int(addrB58)
+   addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
+   return checkAddrBinValid(addrBin)
+
+SCRIPT_STANDARD = 0
+SCRIPT_COINBASE = 1
+SCRIPT_UNKNOWN  = 2
+
+def getTxOutScriptType(binScript):
+   if binScript[:2] == hex_to_binary('4104'):
+      is65B = len(binScript) == 67
+      lastByteMatch = binScript[-1] == int_to_binary(172)
+      if (is65B and lastByteMatch):
+         return SCRIPT_COINBASE
+   else:
+      is1 = binScript[ 0] == int_to_binary(118)
+      is2 = binScript[ 1] == int_to_binary(169)
+      is3 = binScript[-2] == int_to_binary(136)
+      is4 = binScript[-1] == int_to_binary(172)
+      if (is1 and is2 and is3 and is4):
+         return SCRIPT_STANDARD
+
+   return SCRIPT_UNKNOWN
    
+def TxInScriptExtractKeyAddr(binScript):
+   try:
+      pubKeyBin = binScript[-65:]
+      newAcct = BtcAddress().createFromPublicKey(pubKeyBin)
+      return (newAcct.calculateAddrStr(), \
+              binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
+   except:
+      # No guarantee that this script is meaningful (like in the genesis block)
+      return ('SignatureForCoinbaseTx', 'SignatureForCoinbaseTx')
+
+def TxOutScriptExtractKeyAddr(binScript):
+   txoutType = getTxOutScriptType(binScript)
+   if txoutType == SCRIPT_UNKNOWN:
+      return '<Non-standard TxOut script>'
+
+   if txoutType == SCRIPT_COINBASE:
+      newAcct = BtcAddress().createFromPublicKey(binScript[1:66])
+      return newAcct.calculateAddrStr()
+   elif txoutType == SCRIPT_STANDARD:
+      newAcct = BtcAddress().createFromPublicKeyHash160(binScript[3:23])
+      return newAcct.getAddrStr()
+
 
 # BtcAccount -- I gotta come up with a better name for this
 # Store all information about an address string.  
@@ -394,7 +661,7 @@ def isValidEcPoint(x,y):
 # consistency checks, because the lisecdsa library is slow, and 
 # we don't want to spend the time verifying thousands of keypairs
 # There's a reason we wrote out the pubkey and addresses...
-class BtcAccount(object):
+class BtcAddress(object):
    def __init__(self):
       self.privKeyInt = UNINITIALIZED
       self.pubKeyXInt = UNINITIALIZED
@@ -444,6 +711,15 @@ class BtcAccount(object):
       self.hasPubKey  = True
       self.hasPrivKey = False
       self.addrStr = self.calculateAddrStr()
+      return self
+
+   def createFromPublicKeyHash160(self, pubkeyHash160):
+      chkSum  = hash256('\x00' + pubkeyHash160)[:4]
+      addrInt = binary_to_int(pubkeyHash160+chkSum, BIGENDIAN)
+      addrB58 = int_to_base58Str(addrInt)
+      self.addrStr = base58Str_to_addrStr(addrB58)
+      self.hasPubKey  = False
+      self.hasPrivKey = False
       return self
 
    def createFromAddrStr(self, addrStr):
@@ -521,16 +797,8 @@ class BtcAccount(object):
 
 
    # We make this pseudo-static so that we can use it for arbitrary address
-   def checkAddressValid(self, addrStr=None):
-      if addrStr==None:
-         assert(not self.addrStr == UNINITIALIZED)
-         addrStr = self.addrStr
-      addrB58 = addrStr_to_base58Str(addrStr)
-      addrInt = base58Str_to_int(addrB58)
-      addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
-      first20, chk4 = addrBin[:-4], addrBin[-4:]
-      chkBytes = hash256('\x00' + first20)
-      return chkBytes[:4] == chk4
+   def checkAddressValid(self):
+      return checkAddrStrValid(self.addrStr);
 
    def checkPubPrivKeyPairMatch(self):
       assert( self.hasPubKey and self.hasPrivKey )
@@ -620,6 +888,23 @@ class BtcAccount(object):
       self.addrStr_unserialize( theData ) 
       self.pubKey_unserialize( theData ) 
       self.privKey_unserialize( theData ) 
+
+   def pprint(self, withPrivKey=False):
+      print '  BTC Address:     ', 
+      if self.addrStr==UNINITIALIZED:
+         print 'UNINITIALIZED'
+      else:
+         print self.addrStr
+         print '  Have Public Key: ', self.hasPubKey
+         print '  Have Private Key:', self.hasPrivKey
+         if self.hasPubKey:
+            print '  Public Key Hex (Big-Endian):  '
+            print '     04', int_to_hex(self.pubKeyXInt, 32, BIGENDIAN)
+            print '       ', int_to_hex(self.pubKeyYInt, 32, BIGENDIAN)
+         if withPrivKey and self.hasPrivKey:
+            print '  Private Key Hex (Big-Endian): '
+            print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
+      
       
 
 
@@ -659,7 +944,9 @@ class OutPoint(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
-      print indstr + indent + 'PrevTxHash:', binary_to_hex(self.txOutHash)
+      print indstr + indent + 'PrevTxHash:', \
+                  binary_to_hex(self.txOutHash, BIGENDIAN), \
+                  '(BE)'
       print indstr + indent + 'TxOutIndex:', self.index
       
 
@@ -695,8 +982,12 @@ class TxIn(object):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
       self.outpoint.pprint(nIndent+1)
-      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binScript)[:32] + '...'
-      print indstr + indent + 'Seq     ', self.intSeq
+      source = TxInScriptExtractKeyAddr(self.binScript)[0]
+      if 'Sign' in source:
+         print indstr + indent + 'Script: ', '('+source+')'
+      else:
+         print indstr + indent + 'Source: ', '('+source+')'
+      print indstr + indent + 'Seq:    ', self.intSeq
       
 
 #####
@@ -726,9 +1017,16 @@ class TxOut(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
-      print indstr + indent + 'Value:  ', self.value, '(', float(self.value) / COIN, ')'
-      print indstr + indent + 'SCRIPT: ', binary_to_hex(self.binPKScript)[:32], '...'
-
+      print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
+      txoutType = getTxOutScriptType(self.binPKScript)
+      if txoutType == SCRIPT_COINBASE:
+         print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
+                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
+      elif txoutType == SCRIPT_STANDARD:
+         print indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
+                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
+      else:
+         print indstr + indent + 'Script:   <Non-standard script!>'
 
 #####
 class Tx(object):
@@ -758,6 +1056,7 @@ class Tx(object):
       else: 
          txData = BinaryUnpacker( toUnpack )
 
+      startPos = txData.getPosition()
       self.inputs     = []
       self.outputs    = []
       self.version    = txData.get(UINT32)
@@ -768,6 +1067,9 @@ class Tx(object):
       for i in range(self.numOutputs):
          self.outputs.append( TxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
+      endPos = txData.getPosition()
+      self.nBytes = endPos - startPos
+      self.thisHash = hash256(self.serialize())
       return self
       
    def pprint(self, nIndent=0):
@@ -929,10 +1231,10 @@ class BlockHeader(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
-      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(Big-Endian)'
+      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:   ', self.version     
-      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(Big-Endian)'
-      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
+      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
+      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
       print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
       print indstr + indent + 'Nonce:     ', self.nonce    
@@ -1547,7 +1849,7 @@ class ScriptProcessor(object):
          txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
-         senderAddr = BtcAccount().createFromPublicKey(binPubKey)
+         senderAddr = BtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)
@@ -1570,8 +1872,14 @@ class ScriptProcessor(object):
       return SCRIPT_NO_ERROR
       
    
+         
+
    
-   
+
+# This is the remaining "end" of Sam Rushing's original code.  I'm not using any
+# of it right now.  But I will eventually dissect it and take advantage of the work
+# he's already done on networking and protocol
+"""
    
 OBJ_TX   = 1
 OBJ_BLOCK = 2
@@ -2484,5 +2792,6 @@ if __name__ == '__main__':
       # database browsing mode
       db = the_block_db # alias
 
+"""
 
 
