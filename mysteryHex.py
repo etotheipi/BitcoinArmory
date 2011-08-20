@@ -346,7 +346,7 @@ if __name__ == '__main__':
       parser.error('Cannot find ' + fn)
    if fn == None and not isHex:
       parser.error('Cannot read binary data from command line.  Please put it in a file and use -f option')
-   if not path.exists(blkfile) and opts.updateHashes:
+   if not path.exists(blkfile) and opts.useHashes and opts.updateHashes:
       print 'Cannot find blockdata file', blkfile, '... proceeding without updating hashes'
       opts.updateHashes = False
 
