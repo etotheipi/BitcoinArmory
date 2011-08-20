@@ -1076,7 +1076,7 @@ class Tx(object):
       indstr = indent*nIndent
       thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash)
+      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
       print indstr + indent + 'nOutputs: ', self.numOutputs
