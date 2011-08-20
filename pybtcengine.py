@@ -629,15 +629,13 @@ def getTxOutScriptType(binScript):
    
 def TxInScriptExtractKeyAddr(binScript):
    try:
-      if len(binScript) < 16:
-         return ('COINBASE','COINBASE')
       pubKeyBin = binScript[-65:]
       newAcct = BtcAccount().createFromPublicKey(pubKeyBin)
       return (newAcct.calculateAddrStr(), \
               binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
    except:
       # No guarantee that this script is meaningful (like in the genesis block)
-      return ('Probably COINBASE', 'Probably COINBASE')
+      return ('SignatureForCoinbaseTx', 'SignatureForCoinbaseTx')
 
 def TxOutScriptExtractKeyAddr(binScript):
    txoutType = getTxOutScriptType(binScript)
@@ -929,7 +927,9 @@ class OutPoint(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
-      print indstr + indent + 'PrevTxHash:', binary_to_hex(self.txOutHash)
+      print indstr + indent + 'PrevTxHash:', \
+                  binary_to_hex(self.txOutHash, BIGENDIAN), \
+                  '(BE)'
       print indstr + indent + 'TxOutIndex:', self.index
       
 
@@ -965,7 +965,11 @@ class TxIn(object):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
       self.outpoint.pprint(nIndent+1)
-      print indstr + indent + 'Source: ', '('+TxInScriptExtractKeyAddr(self.binScript)[0]+')'
+      source = TxInScriptExtractKeyAddr(self.binScript)[0]
+      if 'Sign' in source:
+         print indstr + indent + 'Script: ', '('+source+')'
+      else:
+         print indstr + indent + 'Source: ', '('+source+')'
       print indstr + indent + 'Seq:    ', self.intSeq
       
 
@@ -999,11 +1003,13 @@ class TxOut(object):
       print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
       txoutType = getTxOutScriptType(self.binPKScript)
       if txoutType == SCRIPT_COINBASE:
-         print indstr + indent + 'SCRIPT:   PubKey(%s) OP_CHECKSIG' % (TxOutScriptExtractKeyAddr(self.binPKScript),)
+         print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
+                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
       elif txoutType == SCRIPT_STANDARD:
-         print indstr + indent + 'SCRIPT:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % (TxOutScriptExtractKeyAddr(self.binPKScript),)
+         print indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
+                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
       else:
-         print indstr + indent + 'SCRIPT:   <Non-standard script!>'
+         print indstr + indent + 'Script:   <Non-standard script!>'
 
 #####
 class Tx(object):
@@ -1211,7 +1217,7 @@ class BlockHeader(object):
       print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:   ', self.version     
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
-      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot)
+      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot), '(LE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
       print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
       print indstr + indent + 'Nonce:     ', self.nonce    
