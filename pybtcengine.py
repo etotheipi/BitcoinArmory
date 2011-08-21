@@ -1030,13 +1030,16 @@ class TxIn(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
-      self.outpoint.pprint(nIndent+1)
+      #self.outpoint.pprint(nIndent+1)
+      print indstr + indent + 'PrevTxHash:', \
+                  binary_to_hex(self.outpoint.txOutHash, BIGENDIAN), '(BE)'
+      print indstr + indent + 'TxOutIndex:', self.outpoint.index
       source = TxInScriptExtractKeyAddr(self.binScript)[0]
       if 'Sign' in source:
-         print indstr + indent + 'Script: ', '('+source+')'
+         print indstr + indent + 'Script:    ', '('+source+')'
       else:
-         print indstr + indent + 'Source: ', '('+source+')'
-      print indstr + indent + 'Seq:    ', self.intSeq
+         print indstr + indent + 'Source:    ', '('+source+')'
+      print indstr + indent + 'Seq:       ', self.intSeq
       
 
 #####
@@ -1285,7 +1288,8 @@ class BlockHeader(object):
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
-      print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
+      fltDiff = binaryBits_to_difficulty(self.diffBits)
+      print indstr + indent + 'Difficulty:', fltDiff, '('+binary_to_hex(self.diffBits)+')'
       print indstr + indent + 'Nonce:     ', self.nonce    
       if not self.blkHeight==UNINITIALIZED:
          print indstr + indent + 'BlkHeight: ', self.blkHeight    
