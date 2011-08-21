@@ -71,6 +71,7 @@ GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x8
 ADDRBYTE = '\x00'
 
 ### This doesn't actually work yet because I botched the scoping
+"""
 def setNetwork(netstring):
    if 'main' in netstring.lower():
       ##### MAIN NETWORK #####
@@ -89,8 +90,8 @@ def setNetwork(netstring):
       ADDRBYTE = '\x6f'
    else:
       print 'Unidentified network string!'
+"""
 
-setNetwork('Test')
 
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
