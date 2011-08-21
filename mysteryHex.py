@@ -314,9 +314,11 @@ if __name__ == '__main__':
    parser.add_option('-s', '--usehashes', action='store_true', dest='useHashes', default=False, \
                   help='Import header/tx hashes to be used in searching')
    parser.add_option('-u', '--noupdatehashes', action='store_false', dest='updateHashes', default=True, \
-                  help='Search blk0001.dat to update hashlist')
+                  help='Disable searching blk0001.dat to update hashlist (ignored without -s)')
    parser.add_option('-r', '--rescanhashes', action='store_true', dest='doRescan', default=False, \
                   help='Rescan blkfile for header/tx hashes')
+   #parser.add_option('-t', '--testnet', action='store_true', dest='testnet', default=False, \
+                  #help='Run the script using testnet data/addresses')
    # Should add option for picking (start,end) bytes for files that are long
    #parser.add_option('-o', '--outfile', dest='outfile', default='', \
                   #help='Redirect results to output file')
@@ -333,11 +335,11 @@ if __name__ == '__main__':
       import platform
       opsys = platform.system()
       if 'win' in opsys.lower():
-         blkfile = path.join(os.getenv('HOME'), 'AppData', 'Roaming', 'Bitcoin', 'blk0001.dat')
+         blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
       if 'nix' in opsys.lower() or 'nux' in opsys.lower():
          blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
       if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-         blkfile = path.join(os.getenv('HOME'), 'Library', 'Application Support', 'Bitcoin', 'blk0001.dat')
+			blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
 
    # A variety of error conditions
    if fn == None and len(args)==0:
