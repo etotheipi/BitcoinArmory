@@ -56,23 +56,42 @@ def sha256(bits):
 def ripemd160(bits):
    return hashlib.new('ripemd160', bits).digest()
 
+
+class UnserializeError(Exception):
+   pass
+
 # these are overriden for testnet
 USE_TESTNET = False
 
-if USE_TESTNET:
-   ##### TESTNET #####
-   BITCOIN_PORT = 18333
-   BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
-   GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
-   GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
-   ADDRBYTE = '\x6f'
-else:
-   ##### MAIN NETWORK #####
-   BITCOIN_PORT = 8333
-   BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-   GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-   GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
-   ADDRBYTE = '\x00'
+##### MAIN NETWORK IS DEFAULT #####
+BITCOIN_PORT = 8333
+BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+ADDRBYTE = '\x00'
+
+### This doesn't actually work yet because I botched the scoping
+def setNetwork(netstring):
+   if 'main' in netstring.lower():
+      ##### MAIN NETWORK #####
+      BITCOIN_PORT = 8333
+      BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+      GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+      GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+      ADDRBYTE = '\x00'
+   elif 'test' in netstring.lower():
+      ##### TESTNET #####
+      print 'Switching to test-network parameters'
+      BITCOIN_PORT = 18333
+      BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+      GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
+      GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+      ADDRBYTE = '\x6f'
+   else:
+      print 'Unidentified network string!'
+
+setNetwork('Test')
+
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 NOHASH = '00'*32
@@ -118,7 +137,7 @@ class BadAddress (Exception):
 
 ##### Switch endian-ness #####
 def hex_switchEndian(s):
-   pairList = [s[i]+s[i+1] for i in range(0,len(s),2)]
+   pairList = [s[i]+s[i+1] for i in xrange(0,len(s),2)]
    return ''.join(pairList[::-1])
 def binary_switchEndian(s):
    return s[::-1]
@@ -980,6 +999,7 @@ class OutPoint(object):
       else: 
          opData = BinaryUnpacker( toUnpack )
 
+      if opData.getRemainingSize() < 36: raise UnserializeError
       self.txOutHash = opData.get(BINARY_CHUNK, 32)
       self.index     = opData.get(UINT32)
       return self
@@ -1015,6 +1035,7 @@ class TxIn(object):
 
       self.outpoint  = OutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
       scriptSize     = txInData.get(VAR_INT)
+      if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
       self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
       self.intSeq    = txInData.get(UINT32)
       return self
@@ -1056,6 +1077,7 @@ class TxOut(object):
 
       self.value       = txOutData.get(UINT64)
       scriptSize       = txOutData.get(VAR_INT) 
+      if txOutData.getRemainingSize() < scriptSize: raise UnserializeError
       self.binPKScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
 
@@ -1113,10 +1135,10 @@ class Tx(object):
       self.outputs    = []
       self.version    = txData.get(UINT32)
       self.numInputs  = txData.get(VAR_INT)
-      for i in range(self.numInputs):
+      for i in xrange(self.numInputs):
          self.inputs.append( TxIn().unserialize(txData) )
       self.numOutputs = txData.get(VAR_INT)
-      for i in range(self.numOutputs):
+      for i in xrange(self.numOutputs):
          self.outputs.append( TxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
@@ -1329,7 +1351,7 @@ class BlockData(object):
 
       self.txList = []
       self.numTx  = blkData.get(VAR_INT)
-      for i in range(self.numTx):
+      for i in xrange(self.numTx):
          self.txList.append( Tx().unserialize(blkData) )
       self.merkleTree = []
       self.merkleRoot = ''

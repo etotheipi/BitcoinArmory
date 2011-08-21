@@ -81,14 +81,15 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    versIdx = getIdxListNotIdYet(hintStr['Version'], maskAll)
    for idx in versIdx:
       # Check for block Header:  hash has leading zeros and timestamp is sane
-      hashZeros = binStr[idx+32:idx+36] == hintStr['Empty4B']
-      validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
-      if hashZeros and validTime:
-         bin80 = binStr[idx:idx+80]
-         blkhead = BlockHeader().unserialize(bin80) 
-         idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
-         maskAll[idx:idx+80] = [1]*80
-         continue 
+      if idx<=len(binStr)-80:
+         hashZeros = binStr[idx+32:idx+36] == hintStr['Empty4B']
+         validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
+         if hashZeros and validTime:
+            bin80 = binStr[idx:idx+80]
+            blkhead = BlockHeader().unserialize(bin80) 
+            idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
+            maskAll[idx:idx+80] = [1]*80
+            continue 
       
       # If not a header, check to see if it's a Tx
       try:
@@ -324,6 +325,7 @@ if __name__ == '__main__':
                   #help='Redirect results to output file')
    
    (opts, args) = parser.parse_args()   
+
 
    fn       = opts.filename
    isHex    = opts.isHex
