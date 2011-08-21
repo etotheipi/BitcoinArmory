@@ -93,7 +93,6 @@ def setNetwork(netstring):
 """
 
 
-
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 NOHASH = '00'*32
 
@@ -788,7 +787,7 @@ class BtcAddress(object):
 
    def createFromPublicKeyHash160(self, pubkeyHash160, netbyte=ADDRBYTE):
       chkSum  = hash256(netbyte + pubkeyHash160)[:4]
-      self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + ckhSum)
+      self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
       self.hasPubKey  = False
       self.hasPrivKey = False
       return self
