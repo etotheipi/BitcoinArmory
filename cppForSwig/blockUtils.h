@@ -567,8 +567,13 @@ class TxInRef
 public:
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0)
    {
+      setRef(ptr, nBytes);
+   }
+
+   void setRef(uint8_t const * ptr, uint32_t nBytes=0)
+   {
       if(nbytes==0)
-         nbytes = BtcUtils::TxInCalcLength(brr.getPosPtr());
+         nbytes = BtcUtils::TxInCalcLength(ptr);
       self.setRef(ptr, nBytes);
    }
 
@@ -597,7 +602,7 @@ public:
       op.unserialize(getPtr());
       return op;
    }
-   OutPoint getOutPointRef(void) 
+   OutPointRef getOutPointRef(void) 
    { 
       return OutPointRef(getPtr());
    }
@@ -677,10 +682,14 @@ public:
 
    bool isStandardScript(void) const
    {
-      return (pkScript_[0] == 118 &&
-              pkScript_[1] == 169 &&
-              pkScript_[scriptSize_-2] == 136 &&
-              pkScript_[scriptSize_-1] == 172);
+      return ((pkScript_[0            ] == 118 &&
+               pkScript_[1            ] == 169 &&
+               pkScript_[scriptSize_-2] == 136 &&
+               pkScript_[scriptSize_-1] == 172   ) ||
+
+               // TODO: I'm pretty sure (LenPK + 0x04 + PUBKEY + OP_CHECKSIG)
+              (pkScript_[scriptSize_-1] == 172 && 
+               scriptSize_ == 67)                     )
    }
 
    BinaryData const & getRecipientAddr(void)
@@ -772,8 +781,13 @@ public:
 
    TxOutRef(uint8_t const * ptr, uint32_t nBytes=0)
    {
-      if(nbytes==0)
-         nbytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
+      setRef(ptr, nBytes);
+   }
+
+   void setRef(uint8_t const * ptr, uint32_t nBytes=0)
+   {
+      if(nBytes==0)
+         nBytes = BtcUtils::TxOutCalcLength(ptr);
       self_.setRef(ptr, nBytes);
    }
 
@@ -793,18 +807,18 @@ public:
    }
 
 
-   void unserialize(BinaryRefReader & br, uint32_t nbytes=0)
+   void unserialize(BinaryRefReader & brr, uint32_t nBytes=0)
    {
-      if(nbytes==0)
-         nbytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
-      self_ = br.get_BinaryDataRef(nbytes);
+      if(nBytes==0)
+         nBytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
+      self_ = brr.get_BinaryDataRef(nBytes);
    }
 
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0)
+   void unserialize(BinaryDataRef const & str, uint32_t nBytes=0)
    {
-      if(nbytes==0)
-         nbytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
-      self_.setRef(str.getPtr(), nbytes);
+      if(nBytes==0)
+         nBytes = BtcUtils::TxOutCalcLength(str.getPtr());
+      self_.setRef(str.getPtr(), nBytes);
    }
 
    BinaryDataRef serialize(void) 
@@ -951,27 +965,41 @@ class TxRef
    friend class BlockDataManager;
 
 public:
-   TxRef(void) :
+   TxRef(uint8_t const * ptr)
    {
-      // Nothing to put here
+      setRefCalcSize(ptr)
    }
+
+   // TODO: Check whether we even need a shortcut algorithm, we might just hurt
+   //       ourself in the long run by having to check a flag everytime we try
+   //       to get a TxIn/TxOut
+   //TxRef(uint8_t const * ptr, uint32_t nBytes)
+   //{
+      //setRef(ptr, nBytes);
+   //}
+
+   void setRefCalcSize(uint8_t const * ptr)
+   {
+      nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
+      self_.setRef(ptr, nBytes_);
+   }
+
+   //void setRef(uint8_t const * ptr, uint32_t nBytes)
+   //{
+      //isOffsetsCalc_ = false;
+      //self_.setRef(ptr, nBytes);
+   //}
+
 
      
-   /*
-   OutPoint createOutPoint(int txOutIndex)
-   {
-      return OutPoint(thisHash_, txOutIndex);
-   }
-
-   OutPointRef createOutPointRef(int txOutIndex)
-   {
-      return OutPoint(thisHash_, txOutIndex);
-   }
-   */
    uint8_t const * getPtr(void) { return self_.getPtr(); }
    uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
+   uint32_t  getNumTxIn(void)  { return (uint32_t)self_.offsetsTxIn_.size()-1;}
+   uint32_t  getNumTxOut(void) { return (uint32_t)self_.offsetsTxOut_.size()-1;}
+
+   BlockHeaderRef  getHeaderPtr_(void)  { return headerPtr_; }
 
    Tx getCopy(void)
    {
@@ -984,18 +1012,20 @@ public:
    }
 
 
-   void unserialize(BinaryRefReader & br, uint32_t nbytes=0)
+   void unserialize(BinaryRefReader & brr)
    {
-      if(nbytes==0)
-         nbytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
-      self_ = br.get_BinaryDataRef(nbytes);
+      setRefCalcSize(brr.getPosPtr());
+      brr.advance(nBytes_);
    }
 
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0)
+   void unserialize(BinaryDataRef const & str)
    {
-      if(nbytes==0)
-         nbytes = BtcUtils::TxOutCalcLength(brr.getPosPtr());
-      self_.setRef(str.getPtr(), nbytes);
+      setRef(str.getPtr());
+   }
+
+   void unserialize(BinaryData const & str)
+   {
+      setRef(str.getPtr());
    }
 
    BinaryDataRef serialize(void) 
@@ -1003,6 +1033,36 @@ public:
       return self_;
    }
 
+   BinaryData getHash(void)
+   {
+      return BtcUtils::getHash256(thisPtr, nBytes_, thisHash_);
+   }
+
+   BinaryDataRef getHashRef(void) const
+   {
+      return BinaryDataRef(thisHash_);
+   }
+
+   //    
+   //void calcOffsets(void)
+   //{
+      //nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
+   //}
+
+   TxInRef getTxInRef(int i)
+   {
+      uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
+      return TxInRef(self.getPtr()+offsetsTxIn_[i], txinSize);
+   }
+
+   TxOutRef getTxOutRef(int i)
+   {
+      uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
+      return TxInRef(self.getPtr()+offsetsTxOut_[i], txoutSize);
+   }
+
+   TxIn  getTxIn (int i) { return getTxInRef (i).getCopy(); }
+   TxOut getTxOut(int i) { return getTxOutRef(i).getCopy(); }
 
 
 
@@ -1016,6 +1076,7 @@ private:
    // A transaction is just a big blob of bits with variable-length fields.
    // We don't actually know where each TxIn and TxOut starts without scanning
    // the blob.  
+   //bool             isOffsetsCalc_;
    vector<uint32_t> offsetsTxIn_;
    vector<uint32_t> offsetsTxOut_;
 
@@ -1044,6 +1105,31 @@ private:
 class BlockDataManager
 {
 private:
+
+   BinaryData  blockFileData_ALL_;
+   BinaryData  blockFileData_NEW_;
+   
+   map<BinaryData, BlockHeaderRef>      headerMap_;
+   deque<BlockHeaderRef*>               headersByHeight_;
+   BlockHeader*                         topBlockPtr_;
+   BlockHeader*                         genBlockPtr_;
+   map<BinaryData, Tx>                  txMap_;
+
+
+
+   // The following two deques should be parallel
+   map<BinaryData, BinaryData>       myAccounts_;  
+   uint64_t                          myBalance_;
+
+   map<OutPoint, TxOut*>   myTxOuts_;
+   map<OutPoint, TxOut*>   myUnspentTxOuts_;
+   map<OutPoint, TxOut*>   pendingTxOuts_;
+   map<OutPoint, TxOut*>   myTxOutsNonStandard_;
+   map<OutPoint, TxIn*>    myTxIns_;
+
+
+
+   /*
    typedef map<BinaryData, BlockHeader>::iterator HeadMapIter;
    typedef map<BinaryData, Tx         >::iterator TxMapIter;
 
@@ -1053,23 +1139,20 @@ private:
    deque<BlockHeader*>               headersByHeight_;
    BlockHeader*                      topBlockPtr_;
    BlockHeader*                      genBlockPtr_;
-
-
    map<BinaryData, Tx>               txMap_;
+
+
 
    // The following two deques should be parallel
    map<BinaryData, BinaryData>       myAccounts_;  
    uint64_t                          myBalance_;
-  
-
-   //map<OutPoint, TxOut*>             relevantOuts_;
-   //map<OutPoint, TxIn*>              relevantIns_;
 
    map<OutPoint, TxOut*>   myTxOuts_;
    map<OutPoint, TxOut*>   myUnspentTxOuts_;
    map<OutPoint, TxIn*>    myTxIns_;
 
    map<OutPoint, TxOut*>   myTxOutsNonStandard_;
+   */
 
 
 private:

@@ -144,6 +144,10 @@ class BtcUtils
    }
 
 
+   // ALL THESE METHODS ASSUME THERE IS A FULL TX/TXIN/TXOUT BEHIND THE PTR
+   // The point of these methods is to calculate the length of the object,
+   // hence we don't know in advance how big the object actually will be, so
+   // we can't provide it as an input for safety checking...
    static uint32_t TxInCalcLength(uint8_t const * ptr)
    {
       uint32_t viLen;
@@ -158,10 +162,54 @@ class BtcUtils
       return (8 + viLen + scrLen);
    }
 
-   static uint32_t TxCalcLength(uint8_t const * ptr)
+   static uint32_t TxCalcLength(uint8_t const * ptr,
+                                vector<uint32_t> * offsetsIn=NULL,
+                                vector<uint32_t> * offsetsOut=NULL)
    {
-      // Not written yet!
-      return 0;
+      BinaryRefReader brr(ptr);  
+      
+      // Tx Version;
+      brr.advance(4);
+
+      // TxIn List
+      uint32_t nIn = brr.get_var_int();
+      if(offsetsIn != NULL)
+      {
+         offsetsIn->resize(nIn+1);
+         for(int i=0; i<nIn; i++)
+         {
+            (*offsetsIn)[i] = brr.getPosition();
+            brr.advance( TxInCalcLength(brr.getPosPtr()) )
+         }
+         (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
+      }
+      else
+      {
+         // Don't need to track the offsets, just leap over everything
+         for(int i=0; i<nIn; i++)
+            brr.advance( TxInCalcLength(brr.getPosPtr()) )
+      }
+
+      // Now extract the TxOut list
+      uint32_t nOut = brr.get_var_int();
+      if(offsetsOut != NULL)
+      {
+         offsetsOut->resize(nOut+1);
+         for(int i=0; i<nOut; i++)
+         {
+            (*offsetsOut)[i] = brr.getPosition();
+            brr.advance( TxOutCalcLength(brr.getPosPtr()) )
+         }
+         (*offsetsOut)[nOut] = brr.getPosition();
+      }
+      else
+      {
+         for(int i=0; i<nOut; i++)
+            brr.advance( TxOutCalcLength(brr.getPosPtr()) )
+      }
+      brr.advance(4);
+
+      return brr.getPosition();
    }
 };
 
