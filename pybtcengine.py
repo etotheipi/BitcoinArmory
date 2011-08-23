@@ -56,21 +56,42 @@ def sha256(bits):
 def ripemd160(bits):
    return hashlib.new('ripemd160', bits).digest()
 
+
+class UnserializeError(Exception):
+   pass
+
 # these are overriden for testnet
 USE_TESTNET = False
 
-if USE_TESTNET:
-   ##### TESTNET #####
-   BITCOIN_PORT = 18333
-   BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
-   GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
-   GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
-else:
-   ##### MAIN NETWORK #####
-   BITCOIN_PORT = 8333
-   BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-   GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-   GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+##### MAIN NETWORK IS DEFAULT #####
+BITCOIN_PORT = 8333
+BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+ADDRBYTE = '\x00'
+
+### This doesn't actually work yet because I botched the scoping
+"""
+def setNetwork(netstring):
+   if 'main' in netstring.lower():
+      ##### MAIN NETWORK #####
+      BITCOIN_PORT = 8333
+      BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+      GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+      GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+      ADDRBYTE = '\x00'
+   elif 'test' in netstring.lower():
+      ##### TESTNET #####
+      print 'Switching to test-network parameters'
+      BITCOIN_PORT = 18333
+      BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+      GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
+      GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+      ADDRBYTE = '\x6f'
+   else:
+      print 'Unidentified network string!'
+"""
+
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 NOHASH = '00'*32
@@ -116,7 +137,7 @@ class BadAddress (Exception):
 
 ##### Switch endian-ness #####
 def hex_switchEndian(s):
-   pairList = [s[i]+s[i+1] for i in range(0,len(s),2)]
+   pairList = [s[i]+s[i+1] for i in xrange(0,len(s),2)]
    return ''.join(pairList[::-1])
 def binary_switchEndian(s):
    return s[::-1]
@@ -165,6 +186,7 @@ def binary_to_int(b, endIn=LITTLEENDIAN):
    return hex_to_int(h)
  
 
+'''
 ##### INT/BASE58STR #####
 def int_to_base58Str(n):
    b58 = ''
@@ -188,6 +210,53 @@ def addrStr_to_base58Str(addr):
       raise BadAddress(addr)
    else:
       return addr[1:]
+'''
+
+# Accidentally took a shortcut through the Base58 procedure, so
+# the old code won't work with non-main-network addresses.  Here
+# I replace int_to_base58Str(), etc, with the correct conversion
+# directly to and from Binary.
+def binary_to_addrStr(binstr):
+   padding = 0;
+   for b in binstr:
+      if b=='\x00':
+         padding+=1
+      else:
+         break
+
+   n = 0
+   for ch in binstr:
+      n *= 256
+      n += ord(ch)
+  
+   b58 = '' 
+   while n > 0:
+      n, r = divmod (n, 58)
+      b58 = b58_digits[r] + b58
+   return '1'*padding + b58
+
+
+def addrStr_to_binary(addr):
+   # Count the zeros ('1' characters) at the beginning
+   padding = 0;
+   for c in addr:
+      if c=='1':
+         padding+=1
+      else:
+         break
+
+   n = 0
+   for ch in addr:
+      n *= 58
+      n += b58_digits.index(ch)
+   
+   binOut = ''
+   while n>0:
+      d,m = divmod(n,256)
+      binOut = chr(m) + binOut 
+      n = d
+   return '\x00'*padding + binOut
+   
      
 
 ##### BINARYSTR/HASHDIGEST #####
@@ -593,19 +662,22 @@ def isValidEcPoint(x,y):
    return EC_Curve.contains_point(x,y)
 
 
+# We can identify an address string by its first byte upon conversion
+# back to binary.  Return -1 if checksum doesn't match
+def checkAddrType(addrBin):
+   first20, chk4 = addrBin[:-4], addrBin[-4:]
+   chkBytes = hash256(first20)
+   if chkBytes[:4] == chk4:
+      return addrBin[0]
+
 # Check validity of a BTC address in its binary form, as would
 # be found inside a pkScript.  Usually about 24 bytes
-def checkAddrBinValid(addrBin):
-   first20, chk4 = addrBin[:-4], addrBin[-4:]
-   chkBytes = hash256('\x00' + first20)
-   return chkBytes[:4] == chk4
+def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+   return checkAddrType(addrBin) == netbyte
 
 # Check validity of a BTC address in "1Ghfk38dDF..." form
 def checkAddrStrValid(addrStr):
-   addrB58 = addrStr_to_base58Str(addrStr)
-   addrInt = base58Str_to_int(addrB58)
-   addrBin = int_to_binary(addrInt, widthBytes=24, endOut=BIGENDIAN)
-   return checkAddrBinValid(addrBin)
+   return checkAddrBinValid(addrStr_to_binary(addrStr))
 
 SCRIPT_STANDARD = 0
 SCRIPT_COINBASE = 1
@@ -713,11 +785,9 @@ class BtcAddress(object):
       self.addrStr = self.calculateAddrStr()
       return self
 
-   def createFromPublicKeyHash160(self, pubkeyHash160):
-      chkSum  = hash256('\x00' + pubkeyHash160)[:4]
-      addrInt = binary_to_int(pubkeyHash160+chkSum, BIGENDIAN)
-      addrB58 = int_to_base58Str(addrInt)
-      self.addrStr = base58Str_to_addrStr(addrB58)
+   def createFromPublicKeyHash160(self, pubkeyHash160, netbyte=ADDRBYTE):
+      chkSum  = hash256(netbyte + pubkeyHash160)[:4]
+      self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
       self.hasPubKey  = False
       self.hasPrivKey = False
       return self
@@ -729,16 +799,14 @@ class BtcAddress(object):
       self.hasPrivKey = False
       return self
 
-   def calculateAddrStr(self):
+   def calculateAddrStr(self, netbyte=ADDRBYTE):
       assert( self.hasPubKey )
       xBinBE     = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
       yBinBE     = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
       binPubKey  = '\x04' + xBinBE + yBinBE
       keyHash    = hash160(binPubKey)
-      chkSum     = hash256('\x00' + keyHash)[:4]
-      addrInt    = binary_to_int(keyHash + chkSum, BIGENDIAN)
-      addrB58    = int_to_base58Str(addrInt)
-      return base58Str_to_addrStr(addrB58)
+      chkSum     = hash256(netbyte + keyHash)[:4]
+      return       binary_to_addrStr(netbyte + keyHash + chkSum)
 
    def getAddrStr(self):
       if self.addrStr==UNINITIALIZED:
@@ -931,6 +999,7 @@ class OutPoint(object):
       else: 
          opData = BinaryUnpacker( toUnpack )
 
+      if opData.getRemainingSize() < 36: raise UnserializeError
       self.txOutHash = opData.get(BINARY_CHUNK, 32)
       self.index     = opData.get(UINT32)
       return self
@@ -966,6 +1035,7 @@ class TxIn(object):
 
       self.outpoint  = OutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
       scriptSize     = txInData.get(VAR_INT)
+      if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
       self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
       self.intSeq    = txInData.get(UINT32)
       return self
@@ -981,13 +1051,16 @@ class TxIn(object):
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'TxIn:'
-      self.outpoint.pprint(nIndent+1)
+      #self.outpoint.pprint(nIndent+1)
+      print indstr + indent + 'PrevTxHash:', \
+                  binary_to_hex(self.outpoint.txOutHash, BIGENDIAN), '(BE)'
+      print indstr + indent + 'TxOutIndex:', self.outpoint.index
       source = TxInScriptExtractKeyAddr(self.binScript)[0]
       if 'Sign' in source:
-         print indstr + indent + 'Script: ', '('+source+')'
+         print indstr + indent + 'Script:    ', '('+source+')'
       else:
-         print indstr + indent + 'Source: ', '('+source+')'
-      print indstr + indent + 'Seq:    ', self.intSeq
+         print indstr + indent + 'Source:    ', '('+source+')'
+      print indstr + indent + 'Seq:       ', self.intSeq
       
 
 #####
@@ -1004,6 +1077,7 @@ class TxOut(object):
 
       self.value       = txOutData.get(UINT64)
       scriptSize       = txOutData.get(VAR_INT) 
+      if txOutData.getRemainingSize() < scriptSize: raise UnserializeError
       self.binPKScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
 
@@ -1061,10 +1135,10 @@ class Tx(object):
       self.outputs    = []
       self.version    = txData.get(UINT32)
       self.numInputs  = txData.get(VAR_INT)
-      for i in range(self.numInputs):
+      for i in xrange(self.numInputs):
          self.inputs.append( TxIn().unserialize(txData) )
       self.numOutputs = txData.get(VAR_INT)
-      for i in range(self.numOutputs):
+      for i in xrange(self.numOutputs):
          self.outputs.append( TxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
@@ -1076,7 +1150,7 @@ class Tx(object):
       indstr = indent*nIndent
       thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash)
+      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, BIGENDIAN), '(BE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
       print indstr + indent + 'nOutputs: ', self.numOutputs
@@ -1236,7 +1310,8 @@ class BlockHeader(object):
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=BIGENDIAN), '(BE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
-      print indstr + indent + 'Difficulty:', binary_to_hex(self.diffBits)
+      fltDiff = binaryBits_to_difficulty(self.diffBits)
+      print indstr + indent + 'Difficulty:', fltDiff, '('+binary_to_hex(self.diffBits)+')'
       print indstr + indent + 'Nonce:     ', self.nonce    
       if not self.blkHeight==UNINITIALIZED:
          print indstr + indent + 'BlkHeight: ', self.blkHeight    
@@ -1276,7 +1351,7 @@ class BlockData(object):
 
       self.txList = []
       self.numTx  = blkData.get(VAR_INT)
-      for i in range(self.numTx):
+      for i in xrange(self.numTx):
          self.txList.append( Tx().unserialize(blkData) )
       self.merkleTree = []
       self.merkleRoot = ''

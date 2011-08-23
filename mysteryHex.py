@@ -81,14 +81,15 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    versIdx = getIdxListNotIdYet(hintStr['Version'], maskAll)
    for idx in versIdx:
       # Check for block Header:  hash has leading zeros and timestamp is sane
-      hashZeros = binStr[idx+32:idx+36] == hintStr['Empty4B']
-      validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
-      if hashZeros and validTime:
-         bin80 = binStr[idx:idx+80]
-         blkhead = BlockHeader().unserialize(bin80) 
-         idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
-         maskAll[idx:idx+80] = [1]*80
-         continue 
+      if idx<=len(binStr)-80:
+         hashZeros = binStr[idx+32:idx+36] == hintStr['Empty4B']
+         validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
+         if hashZeros and validTime:
+            bin80 = binStr[idx:idx+80]
+            blkhead = BlockHeader().unserialize(bin80) 
+            idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
+            maskAll[idx:idx+80] = [1]*80
+            continue 
       
       # If not a header, check to see if it's a Tx
       try:
@@ -314,14 +315,17 @@ if __name__ == '__main__':
    parser.add_option('-s', '--usehashes', action='store_true', dest='useHashes', default=False, \
                   help='Import header/tx hashes to be used in searching')
    parser.add_option('-u', '--noupdatehashes', action='store_false', dest='updateHashes', default=True, \
-                  help='Search blk0001.dat to update hashlist')
+                  help='Disable searching blk0001.dat to update hashlist (ignored without -s)')
    parser.add_option('-r', '--rescanhashes', action='store_true', dest='doRescan', default=False, \
                   help='Rescan blkfile for header/tx hashes')
+   #parser.add_option('-t', '--testnet', action='store_true', dest='testnet', default=False, \
+                  #help='Run the script using testnet data/addresses')
    # Should add option for picking (start,end) bytes for files that are long
    #parser.add_option('-o', '--outfile', dest='outfile', default='', \
                   #help='Redirect results to output file')
    
    (opts, args) = parser.parse_args()   
+
 
    fn       = opts.filename
    isHex    = opts.isHex
@@ -333,11 +337,11 @@ if __name__ == '__main__':
       import platform
       opsys = platform.system()
       if 'win' in opsys.lower():
-         blkfile = path.join(os.getenv('HOME'), 'AppData', 'Roaming', 'Bitcoin', 'blk0001.dat')
+         blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
       if 'nix' in opsys.lower() or 'nux' in opsys.lower():
          blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
       if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-         blkfile = path.join(os.getenv('HOME'), 'Library', 'Application Support', 'Bitcoin', 'blk0001.dat')
+			blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
 
    # A variety of error conditions
    if fn == None and len(args)==0:
@@ -346,7 +350,7 @@ if __name__ == '__main__':
       parser.error('Cannot find ' + fn)
    if fn == None and not isHex:
       parser.error('Cannot read binary data from command line.  Please put it in a file and use -f option')
-   if not path.exists(blkfile) and opts.updateHashes:
+   if not path.exists(blkfile) and opts.useHashes and opts.updateHashes:
       print 'Cannot find blockdata file', blkfile, '... proceeding without updating hashes'
       opts.updateHashes = False
 
