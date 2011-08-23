@@ -144,6 +144,7 @@ class BtcUtils
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    // ALL THESE METHODS ASSUME THERE IS A FULL TX/TXIN/TXOUT BEHIND THE PTR
    // The point of these methods is to calculate the length of the object,
    // hence we don't know in advance how big the object actually will be, so
@@ -155,6 +156,7 @@ class BtcUtils
       return (36 + viLen + scrLen + 4);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static uint32_t TxOutCalcLength(uint8_t const * ptr)
    {
       uint32_t viLen;
@@ -162,6 +164,7 @@ class BtcUtils
       return (8 + viLen + scrLen);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static uint32_t TxCalcLength(uint8_t const * ptr,
                                 vector<uint32_t> * offsetsIn=NULL,
                                 vector<uint32_t> * offsetsOut=NULL)
@@ -211,6 +214,55 @@ class BtcUtils
 
       return brr.getPosition();
    }
+
+   bool isTxOutScriptStandard(uint8_t const * scriptPtr, uint32_t scriptSize)
+   {
+      return ((pkScript_[0            ] == 118 &&
+               pkScript_[1            ] == 169 &&
+               pkScript_[scriptSize_-2] == 136 &&
+               pkScript_[scriptSize_-1] == 172   ) ||
+
+               // TODO: I'm pretty sure (LenPK + 0x04 + PUBKEY + OP_CHECKSIG)
+              (pkScript_[scriptSize_-1] == 172 && 
+               scriptSize_ == 67)                     )
+   }
+
+   BinaryData getTxOutRecipientData(uint8_t const * scriptPtr, uint32_t scriptSize)
+   {
+      if( !isTxOutScriptStandard() )
+         return badAddress_;
+
+      if(recipientData_.getSize() < 1)
+      {
+         BinaryReader binReader(pkScript_);
+         binReader.advance(2);
+         uint64_t addrLength = (uint32_t)binReader.get_var_int();
+         recipientData_.resize((size_t)addrLength);
+         binReader.get_BinaryData(recipientData_, (uint32_t)addrLength);
+      }
+
+      return recipientData_;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static double convertDiffBitsToDouble(uint32_t diffBits)
+   {
+       int nShift = (diffBits >> 24) & 0xff;
+       double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
+   
+       while (nShift < 29)
+       {
+           dDiff *= 256.0;
+           nShift++;
+       }
+       while (nShift > 29)
+       {
+           dDiff /= 256.0;
+           nShift--;
+       }
+       return dDiff;
+   }
+
 };
 
 

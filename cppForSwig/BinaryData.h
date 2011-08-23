@@ -167,6 +167,17 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   bool operator==(BinaryDataRef const & bd2) const
+   {
+      if(nBytes_ != bd2.getSize())
+         return false;
+      for(unsigned int i=0; i<nBytes_; i++)
+         if( data_[i] != bd2[i])
+            return false;
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryData const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
@@ -439,6 +450,17 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   bool operator==(BinaryData const & bd2) const
+   {
+      if(nBytes_ != bd2.getSize())
+         return false;
+      for(unsigned int i=0; i<nBytes_; i++)
+         if( ptr_[i] != bd2[i])
+            return false;
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryDataRef const & bd2) const
    {
       int minLen = min(nBytes_, bd2.nBytes_);
@@ -580,35 +602,6 @@ public:
       nRead = nBytes;
       pos_ += nRead;
       return varInt;
-      /*
-      uint8_t firstByte = bdStr_[pos_];
-
-      if(firstByte < 0xfd)
-      {
-         if(nRead != NULL) *nRead = 1;
-         pos_ += 1;
-         return (uint64_t)firstByte;
-      }
-      if(firstByte == 0xfd)
-      {
-         if(nRead != NULL) *nRead = 3;
-         pos_ += 3;
-         return (uint64_t)(*(uint16_t*)(bdStr_.getPtr() + pos_ +1 - 3));
-         
-      }
-      else if(firstByte == 0xfe)
-      {
-         if(nRead != NULL) *nRead = 5;
-         pos_ += 5;
-         return (uint64_t)(*(uint32_t*)(bdStr_.getPtr() + pos_ +1 - 5));
-      }
-      else //if(firstByte == 0xff)
-      {
-         if(nRead != NULL) *nRead = 9;
-         pos_ += 9;
-         return *(uint64_t*)(bdStr_.getPtr() + pos_ + 1 - 9);
-      }
-      */
    }
 
 
