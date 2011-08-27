@@ -9,6 +9,7 @@
    #include <inttypes.h>   
    #include <cstring>
 #endif
+
 #include <iostream>
 #include <vector>
 #include <string>
@@ -27,6 +28,8 @@
    //#define GENESIS_HASH_HEX "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
 //#endif
 
+class BinaryData;
+class BinaryDataRef;
 
 // This class holds only static methods.  
 class BtcUtils

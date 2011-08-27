@@ -52,6 +52,7 @@ int main(void)
    //cout << "New  : " << strrndtrip.c_str() << endl;
    //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
+   /*
    BinaryData theHash;   
    for(int i=0; i<20000; i++)
    {
@@ -69,6 +70,7 @@ int main(void)
    TIMER_START("BDM_Organize_Chain");
    bool isGenOnMainChain = bdm.organizeChain();
    TIMER_STOP("BDM_Organize_Chain");
+   */
 
    /*
    TIMER_START("BDM_Flag_Transactions");
@@ -76,18 +78,18 @@ int main(void)
    TIMER_STOP("BDM_Flag_Transactions");
    */
 
-   cout << endl << endl;
-   cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().printBlockHeader(cout);
+   //cout << endl << endl;
+   //cout << "Printing genesis block information:" << endl;
+   //bdm.getGenesisBlock().printBlockHeader(cout);
 
-   cout << endl << endl;
-   cout << "Printing last block information:" << endl;
-   bdm.getTopBlock().printBlockHeader(cout);
+   //cout << endl << endl;
+   //cout << "Printing last block information:" << endl;
+   //bdm.getTopBlock().printBlockHeader(cout);
 
-   UniversalTimer::instance().print();
-   UniversalTimer::instance().printCSV("timings.csv");
+   //UniversalTimer::instance().print();
+   //UniversalTimer::instance().printCSV("timings.csv");
 
-   char aa[256];
-   cout << "Enter anything to exit" << endl;
-   cin >> aa;
+   //char aa[256];
+   //cout << "Enter anything to exit" << endl;
+   //cin >> aa;
 }

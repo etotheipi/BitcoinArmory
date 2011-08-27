@@ -244,7 +244,6 @@ public:
    uint32_t      getNonce(void) const       { return *(uint32_t*)(self_+76);    }
 
    uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
    BlockHeader getCopy(void)
@@ -423,7 +422,6 @@ public:
    }
 
    uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
    OutPoint getCopy(void) 
@@ -594,7 +592,6 @@ public:
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
 
    uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
    bool isCoinbase(void) { return (BinaryDataRef(self_.getPtr(), 32) == 
@@ -807,7 +804,6 @@ public:
 
 
    uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
 
@@ -899,12 +895,14 @@ public:
    }
 
      
+   /////////////////////////////////////////////////////////////////////////////
    OutPoint createOutPoint(int txOutIndex)
    {
       return OutPoint(thisHash_, txOutIndex);
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    void serialize(BinaryWriter & bw)
    {
       bw.put_uint32_t(version_);
@@ -921,6 +919,7 @@ public:
       bw.put_uint32_t(lockTime_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData serialize(void)
    {
       BinaryWriter bw(300);
@@ -928,6 +927,7 @@ public:
       return bw.getData();
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr)
    {
       // This would be too annoying to write in raw pointer-arithmatic
@@ -935,6 +935,7 @@ public:
       unserialize(BinaryRefReader(ptr));
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryReader & br)
    {
       uint32_t posStart = br.getPosition();
@@ -954,6 +955,7 @@ public:
       nBytes_ = br.getPosition() - posStart;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr)
    {
       uint32_t posStart = brr.getPosition();
@@ -973,10 +975,12 @@ public:
       nBytes_ = brr.getPosition() - posStart;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryData const & str)
    {
       unserialize(str.getPtr());
    }
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryDataRef const & str)
    {
       unserialize(str.getPtr());
@@ -1020,6 +1024,7 @@ public:
       //setRef(ptr, nBytes);
    //}
 
+   /////////////////////////////////////////////////////////////////////////////
    void setRefCalcSize(uint8_t const * ptr)
    {
       nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
@@ -1035,7 +1040,6 @@ public:
 
      
    uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint8_t const * getBinaryDataRef(void) { return self_; }
    uint32_t        getSize(void) { return self_.getSize(); }
 
    uint32_t  getNumTxIn(void)  { return (uint32_t)self_.offsetsTxIn_.size()-1;}
@@ -1043,6 +1047,7 @@ public:
 
    BlockHeaderRef  getHeaderPtr_(void)  { return headerPtr_; }
 
+   /////////////////////////////////////////////////////////////////////////////
    Tx getCopy(void)
    {
       Tx returnTx;
@@ -1054,32 +1059,38 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr)
    {
       setRefCalcSize(brr.getPosPtr());
       brr.advance(nBytes_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryDataRef const & str)
    {
       setRef(str.getPtr());
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryData const & str)
    {
       setRef(str.getPtr());
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) 
    { 
       return self_;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData getHash(void)
    {
       return BtcUtils::getHash256(thisPtr, nBytes_, thisHash_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getHashRef(void) const
    {
       return BinaryDataRef(thisHash_);
@@ -1091,18 +1102,21 @@ public:
       //nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
    //}
 
+   /////////////////////////////////////////////////////////////////////////////
    TxInRef getTxInRef(int i)
    {
       uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
       return TxInRef(self.getPtr()+offsetsTxIn_[i], txinSize);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    TxOutRef getTxOutRef(int i)
    {
       uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
       return TxInRef(self.getPtr()+offsetsTxOut_[i], txoutSize);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    TxIn  getTxIn (int i) { return getTxInRef (i).getCopy(); }
    TxOut getTxOut(int i) { return getTxOutRef(i).getCopy(); }
 
@@ -1142,32 +1156,52 @@ private:
 // of the BDM class, and then its public members can be used to access the 
 // block data that is sitting in memory.
 //
+typedef enum
+{
+   BDM_MODE_FULL_BLOCKCHAIN,
+   BDM_MODE_LIGHT_STORAGE,
+   BDM_MODE_NO_STORAGE,
+   BDM_MODE_COUNT
+}  BDM_MODE;
+
 class BlockDataManager
 {
 private:
 
-   BinaryData  blockFileData_ALL_;
-   BinaryData  blockFileData_NEW_;
-   
+   // This binary string and two maps hold EVERYTHING.  All other objects are
+   // just informational relationships between stuff we care about and this
+   // bulk block data.
+   //
+   // I plan to not modify the blockchain file continuously.  Only at "good"
+   // times.  Keep fresh block data in a the "_NEW_" veriable, append it to
+   // the blockchain data at 
+   BinaryData                           blockFileData_ALL_;
    map<BinaryData, BlockHeaderRef>      headerMap_;
+   map<BinaryData, TxRef>               txMap_;
+
+   BinaryData  blockFileData_NEW_;
+
    deque<BlockHeaderRef*>               headersByHeight_;
-   BlockHeader*                         topBlockPtr_;
-   BlockHeader*                         genBlockPtr_;
-   map<BinaryData, Tx>                  txMap_;
+   BlockHeaderRef*                      topBlockPtr_;
+   BlockHeaderRef*                      genBlockPtr_;
 
-
-
-   // The following two deques should be parallel
+   // The following two maps should be parallel
    map<BinaryData, BinaryData>       myAccounts_;  
-   uint64_t                          myBalance_;
+   map<BinaryData, uint64_t>         myBalances_;
+   uint64_t                          totalBalance_;
 
-   map<OutPoint, TxOut*>   myTxOuts_;
-   map<OutPoint, TxOut*>   myUnspentTxOuts_;
-   map<OutPoint, TxOut*>   pendingTxOuts_;
-   map<OutPoint, TxOut*>   myTxOutsNonStandard_;
-   map<OutPoint, TxIn*>    myTxIns_;
+   // We will maintain all transactional information in these maps
+   // Only use pointers to the refs
+   map<OutPointRef, TxOutRef*>   myTxOuts_;
+   map<OutPointRef, TxOutRef*>   myUnspentTxOuts_;
+   map<OutPointRef, TxOutRef*>   pendingTxOuts_;
+   map<OutPointRef, TxOutRef*>   myTxOutsNonStandard_;
+   map<OutPointRef, TxInRef*>    myTxIns_;
 
 
+   // The mode will eventually be used to set what kind of 
+   // data storage we prefer
+   BDM_MODE   mode_;  
 
    /*
    typedef map<BinaryData, BlockHeader>::iterator HeadMapIter;
@@ -1226,10 +1260,15 @@ public:
       return (*theOnlyBDM_);
    }
 
+   
+   void setMode(BDM_MODE newMode) { mode_ = newMode; }
+
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader getTopBlock(void)
    {
+      if(genBlockPtr_ == NULL)
+         topBlockPtr_ = &getGenesisBlock();
       return *topBlockPtr_;
    }
 
@@ -1385,6 +1424,11 @@ public:
       }
    }
 
+   /*
+   // I'm disabling this method, because reading the headers from the 
+   // blockchain file is really no slower than reading them from a dedicated
+   // header file
+   //
    /////////////////////////////////////////////////////////////////////////////
    // Add headers from a file that is serialized identically to the way
    // we have laid it out in memory.  Return the number of bytes read
@@ -1414,6 +1458,7 @@ public:
       cout << "Done with everything!  " << filesize << " bytes read!" << endl;
       return filesize;      
    }
+   */
 
 
    /*
