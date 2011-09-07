@@ -122,7 +122,7 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
       outStr += theStr[i*minor:(i+1)*minor] + ' '
    return outStr
 
-def pprintHex(theStr, indent='', major=8, minor=8):
+def pprintHex(theStr, indent='', major=8, minor=8, withAddr=True):
    print prettyHex(theStr, indent, major, minor)
 
 
