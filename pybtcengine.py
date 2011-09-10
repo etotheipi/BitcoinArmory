@@ -184,6 +184,9 @@ def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):
 def binary_to_int(b, endIn=LITTLEENDIAN):
    h = binary_to_hex(b, endIn, LITTLEENDIAN)
    return hex_to_int(h)
+
+
+EmptyHash = hex_to_binary('00'*32)
  
 
 '''
@@ -679,47 +682,81 @@ def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
 def checkAddrStrValid(addrStr):
    return checkAddrBinValid(addrStr_to_binary(addrStr))
 
-SCRIPT_STANDARD = 0
-SCRIPT_COINBASE = 1
-SCRIPT_UNKNOWN  = 2
+TXOUT_SCRIPT_STANDARD = 0
+TXOUT_SCRIPT_COINBASE = 1
+TXOUT_SCRIPT_UNKNOWN  = 2
 
-def getTxOutScriptType(binScript):
+TXIN_SCRIPT_STANDARD = 0
+TXIN_SCRIPT_COINBASE = 1
+TXIN_SCRIPT_SPENDCB  = 2
+TXIN_SCRIPT_UNKNOWN  = 3  
+
+################################################################################
+def getTxOutScriptType(txoutObj):
+   binScript = txoutObj.binPKScript
    if binScript[:2] == hex_to_binary('4104'):
       is65B = len(binScript) == 67
       lastByteMatch = binScript[-1] == int_to_binary(172)
       if (is65B and lastByteMatch):
-         return SCRIPT_COINBASE
+         return TXOUT_SCRIPT_COINBASE
    else:
       is1 = binScript[ 0] == int_to_binary(118)
       is2 = binScript[ 1] == int_to_binary(169)
       is3 = binScript[-2] == int_to_binary(136)
       is4 = binScript[-1] == int_to_binary(172)
       if (is1 and is2 and is3 and is4):
-         return SCRIPT_STANDARD
+         return TXOUT_SCRIPT_STANDARD
+   return TXOUT_SCRIPT_UNKNOWN
 
-   return SCRIPT_UNKNOWN
-   
-def TxInScriptExtractKeyAddr(binScript):
-   try:
-      pubKeyBin = binScript[-65:]
-      newAcct = BtcAddress().createFromPublicKey(pubKeyBin)
-      return (newAcct.calculateAddrStr(), \
-              binary_to_hex(pubKeyBin[1:], BIGENDIAN)) # LITTLE_ENDIAN
-   except:
-      # No guarantee that this script is meaningful (like in the genesis block)
-      return ('SignatureForCoinbaseTx', 'SignatureForCoinbaseTx')
-
-def TxOutScriptExtractKeyAddr(binScript):
-   txoutType = getTxOutScriptType(binScript)
-   if txoutType == SCRIPT_UNKNOWN:
+################################################################################
+def TxOutScriptExtractKeyAddr(txoutObj):
+   binScript = txoutObj.binPKScript
+   txoutType = getTxOutScriptType(txoutObj)
+   if txoutType == TXOUT_SCRIPT_UNKNOWN:
       return '<Non-standard TxOut script>'
 
-   if txoutType == SCRIPT_COINBASE:
+   if txoutType == TXOUT_SCRIPT_COINBASE:
       newAcct = BtcAddress().createFromPublicKey(binScript[1:66])
       return newAcct.calculateAddrStr()
-   elif txoutType == SCRIPT_STANDARD:
+   elif txoutType == TXOUT_SCRIPT_STANDARD:
       newAcct = BtcAddress().createFromPublicKeyHash160(binScript[3:23])
       return newAcct.getAddrStr()
+
+################################################################################
+def getTxInScriptType(txinObj):
+   binScript = txinObj.binScript
+   if txinObj.outpoint.txOutHash == EmptyHash:
+      return TXIN_SCRIPT_COINBASE
+
+   b0,b1,b2,b3,b4 = binScript[:5]
+   if not b1=='\x03' and b3=='\x02':
+      return TXIN_SCRIPT_UNKNOWN
+
+   SigSize = binary_to_int(b2) + 3
+   PubkeySize = 66  # 0x4104[Pubx][Puby]
+
+   if len(binScript)==SigSize:
+      return TXIN_SCRIPT_SPENDCB
+   elif len(binScript)==(SigSize + PubkeySize):
+      return TXIN_SCRIPT_STANDARD
+   
+   return TXIN_SCRIPT_UNKNOWN
+
+   
+################################################################################
+def TxInScriptExtractKeyAddr(txinObj):
+   scrType = getTxInScriptType(txinObj)
+   if scrType == TXIN_SCRIPT_STANDARD:
+      pubKeyBin = txinObj.binScript[-65:] 
+      newAddr = BtcAddress().createFromPublicKey(pubKeyBin)
+      return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
+   elif scrType == TXIN_SCRIPT_COINBASE:
+      return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
+   elif scrType == TXIN_SCRIPT_SPENDCB:
+      return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
+   else:
+      return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
+
 
 
 # BtcAccount -- I gotta come up with a better name for this
@@ -896,7 +933,8 @@ class BtcAddress(object):
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
          yBinBE = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
-         return '\x01' + '\x04' + xBinBE + yBinBE
+         #return '\x01' + '\x04' + xBinBE + yBinBE  # don't remember why I wanted a \x01 prefix
+         return  '\x04' + xBinBE + yBinBE
    def pubKey_unserialize(self, toUnpack):
       # Does not recompute addrStr
       if isinstance(toUnpack, BinaryUnpacker):
@@ -1092,13 +1130,13 @@ class TxOut(object):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
       print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
-      txoutType = getTxOutScriptType(self.binPKScript)
-      if txoutType == SCRIPT_COINBASE:
+      txoutType = getTxOutScriptType(self)
+      if txoutType == TXOUT_SCRIPT_COINBASE:
          print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
-                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
-      elif txoutType == SCRIPT_STANDARD:
+                              (TxOutScriptExtractKeyAddr(self),)
+      elif txoutType == TXOUT_SCRIPT_STANDARD:
          print indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
-                              (TxOutScriptExtractKeyAddr(self.binPKScript),)
+                              (TxOutScriptExtractKeyAddr(self),)
       else:
          print indstr + indent + 'Script:   <Non-standard script!>'
 
