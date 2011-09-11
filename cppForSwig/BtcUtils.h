@@ -18,6 +18,7 @@
 #include "BinaryData.h"
 #include "cryptlib.h"
 #include "sha.h"
+#include "ripemd.h"
 
 
 //#ifdef MAIN_NETWORK
@@ -30,6 +31,22 @@
 
 class BinaryData;
 class BinaryDataRef;
+
+typedef enum
+{
+   TXOUT_SCRIPT_STANDARD,
+   TXOUT_SCRIPT_COINBASE,
+   TXOUT_SCRIPT_UNKNOWN
+}  TXOUT_SCRIPT_TYPE;
+
+typedef enum
+{
+   TXIN_SCRIPT_STANDARD,
+   TXIN_SCRIPT_COINBASE,
+   TXIN_SCRIPT_SPENDCB,
+   TXIN_SCRIPT_UNKNOWN
+}  TXIN_SCRIPT_TYPE;
+
 
 // This class holds only static methods.  
 class BtcUtils
@@ -89,6 +106,8 @@ class BtcUtils
                           uint32_t        nBytes,
                           BinaryData &    hashOutput)
    {
+      // TODO: Check whether static sha256_ is necessary.  The use of static
+      //       MAY prevent this method from being thread-safe
       static CryptoPP::SHA256 sha256_;
       if(hashOutput.getSize() != 32)
          hashOutput.resize(32);
@@ -97,55 +116,102 @@ class BtcUtils
       sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
    }
 
+
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(BinaryData const & strToHash, 
                           BinaryData &       hashOutput)
    {
-      static CryptoPP::SHA256 sha256_;
-      if(hashOutput.getSize() != 32)
-         hashOutput.resize(32);
+      getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
 
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-
+      //static CryptoPP::SHA256 sha256_;
+      //if(hashOutput.getSize() != 32)
+         //hashOutput.resize(32);
+      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(BinaryDataRef const & strToHash, 
                           BinaryData          & hashOutput)
    {
-      static CryptoPP::SHA256 sha256_;
-      if(hashOutput.getSize() != 32)
-         hashOutput.resize(32);
+      getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
 
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      //static CryptoPP::SHA256 sha256_;
+      //if(hashOutput.getSize() != 32)
+         //hashOutput.resize(32);
+      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
 
    }
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getHash256(BinaryData const & strToHash)
    {
-      static CryptoPP::SHA256 sha256_;
-      
       BinaryData hashOutput(32);
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
       return hashOutput;
+
+      //static CryptoPP::SHA256 sha256_;
+      //BinaryData hashOutput(32);
+      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      //return hashOutput;
    }
 
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getHash256(BinaryDataRef const & strToHash)
    {
-      static CryptoPP::SHA256 sha256_;
-      
       BinaryData hashOutput(32);
-      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+      return hashOutput;
+
+      //static CryptoPP::SHA256 sha256_;
+      //BinaryData hashOutput(32);
+      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      //return hashOutput;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static void getHash160(uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      // TODO: Check whether static sha256_ is necessary.  The use of static
+      //       MAY prevent this method from being thread-safe
+      static CryptoPP::SHA256 sha256_;
+      static CryptoPP::RIPEMD160 ripemd160_;
+      static BinaryData bd32(32);
+      if(hashOutput.getSize() != 20)
+         hashOutput.resize(20);
+
+      sha256_.CalculateDigest(bd32.getPtr(), strToHash, nBytes);
+      ripemd160_.CalculateDigest(hashOutput.getPtr(), bd32.getPtr(), 32);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static void getHash160(BinaryDataRef const & strToHash,
+                          BinaryData & hashOutput)
+   {
+      getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash160(BinaryDataRef const & strToHash)
+   {
+      BinaryData hashOutput(20);
+      getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
       return hashOutput;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash160(BinaryData const & strToHash)
+   {
+      BinaryData hashOutput(20);
+      getHash160(strToHash.getPtr(), strToHash.getSize(), hashOutput);
+      return hashOutput;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    // ALL THESE METHODS ASSUME THERE IS A FULL TX/TXIN/TXOUT BEHIND THE PTR
@@ -218,33 +284,76 @@ class BtcUtils
       return brr.getPosition();
    }
 
-   bool isTxOutScriptStandard(uint8_t const * scriptPtr, uint32_t scriptSize)
-   {
-      return ((pkScript_[0            ] == 118 &&
-               pkScript_[1            ] == 169 &&
-               pkScript_[scriptSize_-2] == 136 &&
-               pkScript_[scriptSize_-1] == 172   ) ||
 
-               // TODO: I'm pretty sure (LenPK + 0x04 + PUBKEY + OP_CHECKSIG)
-              (pkScript_[scriptSize_-1] == 172 && 
-               scriptSize_ == 67)                     )
+
+   /////////////////////////////////////////////////////////////////////////////
+   TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
+   {
+      uint32_t sz = s.getSize();
+      if(sz < 2) return TXOUT_SCRIPT_UNKNOWN;
+
+      if( s[0]    == 0x76 && 
+          s[1]    == 0xa9 &&
+          s[sz-2] == 0x88 &&
+          s[sz-1] == 0xac    )
+         return TXOUT_SCRIPT_STANDARD;
+
+      if(sz==67 && s[0]==0x41 && s[1]==0x04 && s[sz-1]==0xac)
+         return TXOUT_SCRIPT_COINBASE;
+
+      return TXOUT_SCRIPT_UNKNOWN;
    }
 
-   BinaryData getTxOutRecipientData(uint8_t const * scriptPtr, uint32_t scriptSize)
+   /////////////////////////////////////////////////////////////////////////////
+   TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
+                                      BinaryDataRef const & prevTxHash)
    {
-      if( !isTxOutScriptStandard() )
-         return badAddress_;
+      if(prevTxHash == BtcUtils::EmptyHash_)
+         return TXIN_SCRIPT_COINBASE;
 
-      if(recipientData_.getSize() < 1)
+      if( !(s[1]==0x03 && s[3]==0x02) )
+         return TXIN_SCRIPT_UNKNOWN;
+
+      uint32_t sigSize = s[2] + 3;
+      uint32_t keySize = 66;  // \x41 \x04 [X32] [Y32] 
+
+      if(s.getSize() == sigSize)
+         return TXIN_SCRIPT_SPENDCB;
+      else if(s.getSize() == sigSize + keySize)
+         return TXIN_SCRIPT_STANDARD;
+
+      return TXIN_SCRIPT_UNKNOWN;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData getTxOutRecipientAddr(BinaryDataRef const & script, 
+                                    TXOUT_SCRIPT_TYPE type==TXOUT_SCRIPT_UNKNOWN)
+   {
+      if(type==TXOUT_SCRIPT_UNKNOWN)
+         type = getTxOutScriptType(script);
+      switch(type)
       {
-         BinaryReader binReader(pkScript_);
-         binReader.advance(2);
-         uint64_t addrLength = (uint32_t)binReader.get_var_int();
-         recipientData_.resize((size_t)addrLength);
-         binReader.get_BinaryData(recipientData_, (uint32_t)addrLength);
+         case(TXOUT_SCRIPT_STANDARD): return script.getSliceCopy(3,20);
+         case(TXOUT_SCRIPT_COINBASE): return getHash160(script.getSliceRef(1,65));
+         case(TXOUT_SCRIPT_UNKNOWN):  return BadAddress_;
+         default:                     return BadAddress_;
       }
+   }
 
-      return recipientData_;
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData getTxInAddr(BinaryDataRef const & script, 
+                          TXIN_SCRIPT_TYPE type==TXIN_SCRIPT_UNKNOWN)
+   {
+      if(type==TXIN_SCRIPT_UNKNOWN)
+         type = getTxInScriptType(script);
+      switch(type)
+      {
+         case(TXIN_SCRIPT_STANDARD):  return getHash160(script.getSliceRef(-65, 65));
+         case(TXIN_SCRIPT_COINBASE):
+         case(TXIN_SCRIPT_SPENDCB):   
+         case(TXIN_SCRIPT_UNKNOWN):   
+         default:                     return BadAddress_;
+      }
    }
 
    /////////////////////////////////////////////////////////////////////////////

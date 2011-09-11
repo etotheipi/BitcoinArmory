@@ -132,15 +132,29 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    int32_t find(BinaryDataRef const & matchStr, uint32_t startPos=0);
-
    /////////////////////////////////////////////////////////////////////////////
    int32_t find(BinaryData const & matchStr, uint32_t startPos=0);
 
    /////////////////////////////////////////////////////////////////////////////
+   bool contains(BinaryDataRef const & matchStr, uint32_t startPos=0);
+   /////////////////////////////////////////////////////////////////////////////
    bool contains(BinaryData const & matchStr, uint32_t startPos=0);
 
+
    /////////////////////////////////////////////////////////////////////////////
-   bool contains(BinaryDataRef const & matchStr, uint32_t startPos=0);
+   bool startsWith(BinaryDataRef const & matchStr);
+   /////////////////////////////////////////////////////////////////////////////
+   bool startsWith(BinaryData const & matchStr);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool endsWith(BinaryDataRef const & matchStr);
+   /////////////////////////////////////////////////////////////////////////////
+   bool endsWith(BinaryData const & matchStr);
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar);
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData    getSliceCopy(uint32_t start_pos, uint32_t nChar);
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
@@ -419,6 +433,89 @@ public:
       return (find(bdr, startPos) != -1);
    }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool startsWith(BinaryDataRef const & matchStr)
+   {
+      if(matchStr.getSize() > nBytes_)
+         return false;
+   
+      for(uint32_t i=0; i<matchStr.getSize(); i++)
+         if(matchStr[i] != (*this)[i])
+            return false;
+   
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool startsWith(BinaryData const & matchStr)
+   {
+      if(matchStr.getSize() > nBytes_)
+         return false;
+   
+      for(uint32_t i=0; i<matchStr.getSize(); i++)
+         if(matchStr[i] != (*this)[i])
+            return false;
+   
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool endsWith(BinaryDataRef const & matchStr)
+   {
+      uint32_t sz = matchStr.getSize();
+      if(sz > nBytes_)
+         return false;
+   
+      for(uint32_t i=0; i<sz; i++)
+         if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
+            return false;
+   
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool endsWith(BinaryData const & matchStr)
+   {
+      uint32_t sz = matchStr.getSize();
+      if(sz > nBytes_)
+         return false;
+   
+      for(uint32_t i=0; i<sz; i++)
+         if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
+            return false;
+   
+      return true;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar)
+   {
+      if(start_pos < 0) 
+         start_pos = nBytes_ + start_pos;
+
+      if(start_pos + nChar >= nBytes_)
+      {
+         cerr << "getSliceRef: Invalid BinaryData access" << endl;
+         return BinaryDataRef();
+      }
+      return BinaryDataRef( getPtr()+start_pos, nChar);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData getSliceCopy(uint32_t start_pos, uint32_t nChar)
+   {
+      if(start_pos < 0) 
+         start_pos = nBytes_ + start_pos;
+
+      if(start_pos + nChar >= nBytes_)
+      {
+         cerr << "getSliceRef: Invalid BinaryData access" << endl;
+         return BinaryDataRef();
+      }
+      return BinaryData( getPtr()+start_pos, nChar);
+   }
+
    /////////////////////////////////////////////////////////////////////////////
    bool isSameRefAs(BinaryDataRef const & bdRef2)
    {
@@ -443,6 +540,9 @@ public:
    {
       if(nBytes_ != bd2.nBytes_)
          return false;
+      else if(ptr_ == bd2.ptr_)
+         return true;
+      
       for(unsigned int i=0; i<nBytes_; i++)
          if( ptr_[i] != bd2.ptr_[i] )
             return false;
@@ -454,6 +554,9 @@ public:
    {
       if(nBytes_ != bd2.getSize())
          return false;
+      else if(ptr_ == bd2.getPtr())
+         return true;
+
       for(unsigned int i=0; i<nBytes_; i++)
          if( ptr_[i] != bd2[i])
             return false;
@@ -493,6 +596,7 @@ public:
 
 
 
+/*
 #ifdef USE_CRYPTOPP
 
    static void getHash256(uint8_t const * strToHash,
@@ -539,6 +643,7 @@ public:
    }
 
 #endif
+*/
 
 private:
    uint8_t const * ptr_;
@@ -760,35 +865,6 @@ public:
       nRead = nBytes;
       pos_ += nRead;
       return varInt;
-
-      /*
-      uint8_t firstByte = bdRef_[pos_];
-
-      if(firstByte < 0xfd)
-      {
-         if(nRead != NULL) *nRead = 1;
-         pos_ += 1;
-         return (uint64_t)firstByte;
-      }
-      if(firstByte == 0xfd)
-      {
-         if(nRead != NULL) *nRead = 3;
-         pos_ += 3;
-         return (uint64_t)(*(uint16_t*)(bdRef_.getPtr() + pos_ + 1 - 3));
-      }
-      else if(firstByte == 0xfe)
-      {
-         if(nRead != NULL) *nRead = 5;
-         pos_ += 5;
-         return (uint64_t)(*(uint32_t*)(bdRef_.getPtr() + pos_ + 1 - 5));
-      }
-      else //if(firstByte == 0xff)
-      {
-         if(nRead != NULL) *nRead = 9;
-         pos_ += 9;
-         return *(uint64_t*)(bdRef_.getPtr() + pos_ + 1 - 9);
-      }
-      */
    }
 
 
