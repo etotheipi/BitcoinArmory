@@ -17,11 +17,11 @@
 #define DEFAULT_BUFFER_SIZE 25*1048576
 
 #include "UniversalTimer.h"
-#include "BtcUtils.h"
 
 
 using namespace std;
 
+class BtcUtils;
 class BinaryDataRef;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -152,9 +152,9 @@ public:
    bool endsWith(BinaryData const & matchStr);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar);
+   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar) const;
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    getSliceCopy(uint32_t start_pos, uint32_t nChar);
+   BinaryData    getSliceCopy(uint32_t start_pos, uint32_t nChar) const;
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
@@ -181,15 +181,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool operator==(BinaryDataRef const & bd2) const
-   {
-      if(nBytes_ != bd2.getSize())
-         return false;
-      for(unsigned int i=0; i<nBytes_; i++)
-         if( data_[i] != bd2[i])
-            return false;
-      return true;
-   }
+   bool operator==(BinaryDataRef const & bd2) const;
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryData const & bd2) const
@@ -489,7 +481,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar)
+   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
@@ -503,7 +495,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getSliceCopy(uint32_t start_pos, uint32_t nChar)
+   BinaryData getSliceCopy(uint32_t start_pos, uint32_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
@@ -700,14 +692,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_var_int(uint8_t* nRead=NULL)
-   {
-      uint8_t nBytes;
-      uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos, &nBytes);
-      nRead = nBytes;
-      pos_ += nRead;
-      return varInt;
-   }
+   uint64_t get_var_int(uint8_t* nRead=NULL);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -793,7 +778,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
-   uint8_t const * getPosPtr(void)        { return bdStr_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)        { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
@@ -834,8 +819,8 @@ public:
 
    // Default to INF size -- leave it to the user to guarantee that he's
    // not reading past the end of rawPtr
-   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX)
-      bdRef_(rawPtr, nBytes);
+   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) : 
+      bdRef_(rawPtr, nBytes),
       totalSize_(nBytes),
       pos_(0)
    {
@@ -858,14 +843,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint64_t get_var_int(uint8_t* nRead=NULL)
-   {
-      uint8_t nBytes;
-      uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos, &nBytes);
-      nRead = nBytes;
-      pos_ += nRead;
-      return varInt;
-   }
+   uint64_t get_var_int(uint8_t* nRead=NULL);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -930,7 +908,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
-   uint8_t const * getPosPtr(void)        { return bdRef_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)        { return bdRef_.getPtr() + pos_; }
 
 private:
    BinaryDataRef bdRef_;

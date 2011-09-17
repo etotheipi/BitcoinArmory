@@ -1,4 +1,5 @@
 #include "BinaryData.h"
+#include "BtcUtils.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData::BinaryData(BinaryDataRef const & bdRef) 
@@ -135,7 +136,7 @@ bool BinaryData::endsWith(BinaryData const & matchStr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar)
+BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;
@@ -149,7 +150,7 @@ BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData    BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar)
+BinaryData BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;
@@ -164,9 +165,37 @@ BinaryData    BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar)
 
 
 
+/////////////////////////////////////////////////////////////////////////////
+inline uint64_t BinaryReader::get_var_int(uint8_t* nRead)
+{
+   uint32_t nBytes;
+   uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos_, &nBytes);
+   *nRead = nBytes;
+   pos_ += nBytes;
+   return varInt;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+inline uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
+{
+   uint32_t nBytes;
+   uint64_t varInt = BtcUtils::readVarInt( bdRef_.getPtr() + pos_, &nBytes);
+   *nRead = nBytes;
+   pos_ += nBytes;
+   return varInt;
+}
 
 
-
+/////////////////////////////////////////////////////////////////////////////
+inline bool BinaryData::operator==(BinaryDataRef const & bd2) const
+{
+   if(nBytes_ != bd2.getSize())
+      return false;
+   for(unsigned int i=0; i<nBytes_; i++)
+      if( data_[i] != bd2[i])
+         return false;
+   return true;
+}
 
 
 

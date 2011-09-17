@@ -16,10 +16,11 @@
 #include <deque>
 #include <list>
 #include <map>
+#include <set>
 #include <limits>
 
 #include "BinaryData.h"
-//#include "BinaryDataRef.h"
+#include "BtcUtils.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -31,16 +32,10 @@
 #define HashStringRef BinaryDataRef
 
 
-#define TX_O_UNCONFIRMED    0 
+#define TX_0_UNCONFIRMED    0 
 #define TX_NOT_EXIST       -1
 #define TX_OFF_MAIN_BRANCH -2
 
-#define TXIN_SCRIPT_STD 0
-#define TXIN_SCRIPT_COINBASE 1
-#define TXIN_SCRIPT_SPENDCB  2
-
-#define TXOUT_SCRIPT_STD 0 
-#define TXOUT_SCRIPT_COINBASE 1 
 
 using namespace std;
 
@@ -56,7 +51,7 @@ class TxRef;
 class BlockHeader
 {
 
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
    friend class BlockHeaderRef;
 
 public: 
@@ -66,7 +61,7 @@ public:
    BinaryData const &  getPrevHash(void) const    { return prevHash_;     }
    BinaryData const &  getMerkleRoot(void) const  { return merkleRoot_;   }
    uint32_t            getTimestamp(void) const   { return timestamp_;    }
-   uint32_t            getDiffBits(void) const    { return diffBitsRaw_;  }
+   BinaryData const &  getDiffBits(void) const    { return diffBits_;  }
    uint32_t            getNonce(void) const       { return nonce_;        }
    BinaryData const &  getThisHash(void) const    { return thisHash_;     }
    BinaryData const &  getNextHash(void) const    { return nextHash_;     }
@@ -78,7 +73,7 @@ public:
    void setPrevHash(BinaryData str)   { prevHash_.copyFrom(str);         }
    void setMerkleRoot(BinaryData str) { merkleRoot_.copyFrom(str);       }
    void setTimestamp(uint32_t i)      { timestamp_ = i;                  }
-   void setDiffBits(uint32_t val)     { diffBitsRaw_ = val;              }
+   void setDiffBits(BinaryData val)   { diffBits_ = val;              }
    void setNonce(uint32_t i)          { nonce_ = i;                      }
    void setNextHash(BinaryData str)   { nextHash_.copyFrom(str);         }
 
@@ -89,7 +84,7 @@ public:
       bw.put_BinaryData( prevHash_    );
       bw.put_BinaryData( merkleRoot_  );
       bw.put_uint32_t  ( timestamp_   );
-      bw.put_uint32_t  ( diffBitsRaw_ );
+      bw.put_BinaryData( diffBits_    );
       bw.put_uint32_t  ( nonce_       );
    }
 
@@ -108,14 +103,14 @@ public:
       prevHash_.copyFrom         ( start +  4, 32 );
       merkleRoot_.copyFrom       ( start + 36, 32 );
       timestamp_ =   *(uint32_t*)( start + 68     );
-      diffBitsRaw_ = *(uint32_t*)( start + 72, 4  );
+      diffBits_ =    *(uint32_t*)( start + 72, 4  );
       nonce_ =       *(uint32_t*)( start + 76     );
 
       if(suppliedHash==NULL)
          BtcUtils::getHash256(start, HEADER_SIZE, thisHash_);
       else
-         thisHash_.copyFrom(*thisHash);
-      difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( diffBitsRaw_ );
+         thisHash_.copyFrom(*suppliedHash);
+      difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( diffBits_ );
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -193,7 +188,7 @@ public:
       os << "-Prev Hash:  " << prevHash_.toHex().c_str() << endl;
       os << "-MerkleRoot: " << getMerkleRoot().toHex().c_str() << endl;
       os << "-Difficulty: " << (uint64_t)(difficultyDbl_)
-                             << "    (" << getDiffBits().toHex().c_str() << ")" << endl;
+                            << "    (" << getDiffBits().toHex().c_str() << ")" << endl;
       os << "-CumulDiff:  " << (uint64_t)(difficultySum_) << endl;
       os << "-Nonce:      " << getNonce() << endl;
       os << "-FileOffset: " << fileByteLoc_ << endl;
@@ -212,7 +207,7 @@ private:
    BinaryData     prevHash_;
    BinaryData     merkleRoot_;
    uint32_t       timestamp_;
-   uint32_t       diffBitsRaw_; 
+   BinaryData     diffBits_; 
    uint32_t       nonce_; 
 
    // Derived properties - we expect these to be set after construct/copy
@@ -241,7 +236,7 @@ private:
 // OutPoint is just a reference to a TxOut
 class OutPoint
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
    friend class OutPointRef;
 
 public:
@@ -252,6 +247,7 @@ public:
 
    OutPoint(uint8_t const * ptr) { unserialize(ptr); }
    BinaryData const & getTxHash(void) { return txHash_; }
+   BinaryDataRef getTxHashRef(void)  { return BinaryDataRef(txHash_); }
    uint32_t getTxOutIndex(void) { return txOutIndex_; }
    void setTxHash(BinaryData const & hash) { txHash_.copyFrom(hash); }
    void setTxOutIndex(uint32_t idx) { txOutIndex_ = idx; }
@@ -313,7 +309,7 @@ private:
 // TxIn 
 class TxIn
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
    friend class TxInRef;
 
 public:
@@ -321,8 +317,8 @@ public:
       outPoint_(),
       binScript_(0),
       sequence_(0),
-      isCoinbase_(false),
-      scriptSize_(0)
+      scriptSize_(0),
+      scriptType_(TXIN_SCRIPT_UNKNOWN)
    {
       // Nothing to put here
    }
@@ -334,7 +330,7 @@ public:
       outPoint_(op),
       binScript_(script),
       sequence_(seq),
-      isCoinbase_(coinbase)
+      scriptType_(TXIN_SCRIPT_UNKNOWN)
    {
       scriptSize_ = (uint32_t)(binScript_.getSize());
    }
@@ -345,12 +341,10 @@ public:
    uint32_t getScriptSize(void) { return scriptSize_; }
    uint32_t getSize(void) { return nBytes_; }
 
-   bool isCoinbase(void) { return isCoinbase_; }
 
    void setOutPoint(OutPoint const & op) { outPoint_ = op; }
    void setBinScript(BinaryData const & scr) { binScript_.copyFrom(scr); }
    void setSequence(uint32_t seq) { sequence_ = seq; }
-   void setIsCoinbase(bool iscb) { isCoinbase_ = iscb; }
    void setIsMine(bool ismine) { isMine_ = ismine; }
 
 
@@ -373,13 +367,13 @@ public:
    {
       outPoint_.unserialize(ptr);
       uint32_t viLen;
-      scriptSize_ = BtcUtils::readVarInt(ptr+36, &viLen);
+      scriptSize_ = (uint32_t)BtcUtils::readVarInt(ptr+36, &viLen);
       binScript_.copyFrom(ptr+36+viLen, scriptSize_);
       sequence_ = *(uint32_t*)(ptr+36+viLen+scriptSize_);
 
       // Derived values
       nBytes_ = 36+viLen+scriptSize_+4;
-      scriptType_ = BtcUtils::getTxInScriptType(binScript_);
+      scriptType_ = BtcUtils::getTxInScriptType(binScript_, outPoint_.getTxHash().getRef());
    }
    void unserialize(BinaryReader & br)
    {
@@ -390,7 +384,7 @@ public:
       sequence_ = br.get_uint32_t();
 
       nBytes_ = br.getPosition() - posStart;
-      scriptType_ = BtcUtils::getTxInScriptType(binScript_);
+      scriptType_ = BtcUtils::getTxInScriptType(binScript_, outPoint_.getTxHash().getRef());
    }
    void unserialize(BinaryRefReader & brr)
    {
@@ -399,8 +393,8 @@ public:
       scriptSize_ = (uint32_t)brr.get_var_int();
       brr.get_BinaryData(binScript_, scriptSize_);
       sequence_ = brr.get_uint32_t();
-      nBytes_ = br.getPosition() - posStart;
-      scriptType_ = BtcUtils::getTxInScriptType(binScript_);
+      nBytes_ = brr.getPosition() - posStart;
+      scriptType_ = BtcUtils::getTxInScriptType(binScript_, outPoint_.getTxHashRef());
    }
 
    void unserialize(BinaryData const & str)
@@ -434,7 +428,7 @@ private:
 // TxOut 
 class TxOut
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
    friend class TxOutRef;
 
 public:
@@ -442,7 +436,12 @@ public:
    TxOut(void) :
       value_(0),
       pkScript_(0),
-      scriptSize_(0)
+      scriptSize_(0),
+      scriptType_(TXOUT_SCRIPT_UNKNOWN),
+      recipientBinAddr20_(0),
+      isMine_(false),
+      isSpent_(false)
+   
    {
       // Nothing to put here
    }
@@ -458,7 +457,7 @@ public:
    uint64_t getValue(void) { return value_; }
    BinaryData const & getPkScript(void) { return pkScript_; }
    uint32_t getScriptSize(void) { return scriptSize_; }
-   bool getIsStandard(void) { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
+   bool isStandard(void) { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
 
    void setValue(uint64_t val) { value_ = val; }
    void setPkScript(BinaryData const & scr) { pkScript_.copyFrom(scr); }
@@ -491,25 +490,25 @@ public:
    {
       value_ = *(uint64_t*)(ptr);
       uint32_t viLen;
-      scriptSize_ = BtcUtils::readVarInt(ptr+8, &viLen);
+      scriptSize_ = (uint32_t)BtcUtils::readVarInt(ptr+8, &viLen);
       pkScript_.copyFrom(ptr+8+viLen, scriptSize_);
       nBytes_ = 8 + viLen + scriptSize_;
       scriptType_ = BtcUtils::getTxOutScriptType(pkScript_.getRef());
       recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(pkScript_, 
-                                                            scriptType_)
+                                                            scriptType_);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryReader & br)
    {
-      unserialize(br.getPosPtr());
+      unserialize(br.getCurrPtr());
       br.advance(nBytes_);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr)
    {
-      unserialize(brr.getPosPtr());
+      unserialize(brr.getCurrPtr());
       brr.advance(nBytes_);
    }
 
@@ -541,7 +540,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class Tx
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
    friend class TxRef;
 
 public:
@@ -553,7 +552,8 @@ public:
       txOutList_(0),
       lockTime_(UINT32_MAX),
       thisHash_(32),
-      headerPtr_(NULL)
+      headerPtr_(NULL),
+      headerRefPtr_(NULL)
    {
       // Nothing to put here
    }
@@ -664,7 +664,8 @@ private:
    uint32_t      nBytes_;
 
    // To be calculated later
-   BlockHeader*  headerPtr_;
+   BlockHeader*     headerPtr_;
+   BlockHeaderRef*  headerRefPtr_;
 };
 
 
@@ -684,27 +685,32 @@ private:
 // is the one we want.
 class BlockHeaderRef
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
 
 public:
 
+   BlockHeaderRef(void) { isInitialized_ = false; }
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
    BlockHeaderRef(BinaryData    const & str) { unserialize(str); }
 
-   uint32_t      getVersion(void) const     { return *(uint32_t*)self_;         }
-   BinaryDataRef getPrevHash(void) const    { return BinaryDataRef(self_+4,32); }
-   BinaryDataRef getMerkleRoot(void) const  { return BinaryDataRef(self_+36,32);}
-   uint32_t      getTimestamp(void) const   { return *(uint32_t*)(self+68);     }
-   BinaryDataRef getDiffBits(void) const    { return BinaryDataRef(self_+72,4); }
-   uint32_t      getNonce(void) const       { return *(uint32_t*)(self_+76);    }
+   uint32_t      getVersion(void) const      { assert(isInitialized_); return  *(uint32_t*)(getPtr()      ); }
+   BinaryDataRef getPrevHash(void) const     { assert(isInitialized_); return BinaryDataRef(getPtr()+4,32 ); }
+   BinaryDataRef getMerkleRoot(void) const   { assert(isInitialized_); return BinaryDataRef(getPtr()+36,32); }
+   uint32_t      getTimestamp(void) const    { assert(isInitialized_); return  *(uint32_t*)(getPtr()+68   ); }
+   BinaryDataRef getDiffBits(void) const     { assert(isInitialized_); return BinaryDataRef(getPtr()+72,4 ); }
+   uint32_t      getNonce(void) const        { assert(isInitialized_); return  *(uint32_t*)(getPtr()+76   ); }
+   uint32_t      getBlockHeight(void) const  { assert(isInitialized_); return blockHeight_;                  }
+   uint32_t      isMainBranch(void) const    { assert(isInitialized_); return isMainBranch_;                 }
+   uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
 
-   uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint32_t        getSize(void) { return self_.getSize(); }
+   uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
+   uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
 
    BlockHeader getCopy(void)
    {
+      assert(isInitialized_);
       BlockHeader bh;
       bh.unserialize(self_);
 
@@ -719,13 +725,18 @@ public:
       bh.isOrphan_     = isOrphan_;
       bh.isFinishedCalc_ = isFinishedCalc_;
       bh.isOnDiskYet_  = isOnDiskYet_;
-      bh.txPtrList_    = txPtrList_;
+
+      // The copy doesn't have pointers to any Tx (because BHRef class doesn't
+      // use any real Tx's, only TxRefs
+      bh.txPtrList_.clear();
+
 
       return bh;
    }
 
    BinaryDataRef serialize(void)
    {
+      assert(isInitialized_);
       return self_;
    }
 
@@ -734,7 +745,8 @@ public:
       self_.setRef(ptr, HEADER_SIZE);
       BtcUtils::getHash256(self_.getPtr(), HEADER_SIZE, thisHash_);
       difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 
-                                 *(uint32_t*)(self_.getPtr()+72) )
+                                 *(uint32_t*)(self_.getPtr()+72) );
+      isInitialized_ = true;
    }
 
    void unserialize(BinaryDataRef const & str)
@@ -756,6 +768,7 @@ public:
 
 private:
    BinaryDataRef  self_;
+   bool isInitialized_;
 
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
@@ -771,7 +784,7 @@ private:
    bool           isOrphan_;
    bool           isFinishedCalc_;
    bool           isOnDiskYet_;
-   vector<TxRef*>    txPtrList_;
+   vector<TxRef*> txPtrList_;
 };
 
 
@@ -780,27 +793,27 @@ private:
 // OutPoint is just a reference to a TxOut
 class OutPointRef
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
 
 public:
    OutPointRef(uint8_t const * ptr) { unserialize(ptr); }
 
-   uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint32_t        getSize(void) { return self_.getSize(); }
+   uint8_t const * getPtr(void) const { return self_.getPtr(); }
+   uint32_t        getSize(void) const { return self_.getSize(); }
 
-   OutPoint getCopy(void) 
+   OutPoint getCopy(void) const
    {
       OutPoint op;
       op.unserialize( self_.getPtr() );
       return op;
    }
 
-   BinaryData    getTxHash(void)     { return BinaryData(self_.getPtr(), 32); }
-   BinaryDataRef getTxHashRef(void)  { return BinaryDataRef(self_.getPtr(),32); }
-   uint32_t      getTxOutIndex(void) { return *(uint32_t*)(self_.getPtr()+32); }
-   BinaryDataRef serialize(void) { return self_; }
-   void unserialize(uint8_t const * ptr) { self_.setRef(prt, 36); }
-   void unserialize(BinaryRefReader & brr) { unserialize(br.get_BinaryDataRef(36)); }
+   BinaryData    getTxHash(void) const{ return BinaryData(self_.getPtr(), 32); }
+   BinaryDataRef getTxHashRef(void) const  { return BinaryDataRef(self_.getPtr(),32); }
+   uint32_t      getTxOutIndex(void) const { return *(uint32_t*)(self_.getPtr()+32); }
+   BinaryDataRef serialize(void) const     { return self_; }
+   void unserialize(uint8_t const * ptr) { self_.setRef(ptr, 36); }
+   void unserialize(BinaryRefReader & brr) { unserialize(brr.get_BinaryDataRef(36)); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); } 
 
 private:
@@ -812,16 +825,16 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxInRef
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
 
 public:
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
 
    uint8_t const * getPtr(void) { return self_.getPtr(); }
    uint32_t        getSize(void) { return self_.getSize(); }
+   bool            isStandard(void) { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
+   TXIN_SCRIPT_TYPE getScriptType(void) { return scriptType_; }
 
-   bool isCoinbase(void) { return (BinaryDataRef(self_.getPtr(), 32) == 
-                                                      BtcUtils::EmptyHash_); }
 
    /////////////////////////////////////////////////////////////////////////////
    TxIn getCopy(void)
@@ -852,15 +865,15 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData getBinScript(void) 
    { 
-      uint32_t scrLen = BtcUtils::readVarInt(getPtr()+36);
+      uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
       return BinaryData(getPtr() + getScriptOffset(), scrLen);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getBinScriptRef(void) 
    { 
-      uint32_t scrLen = BtcUtils::readVarInt(getPtr()+36);
-      return BinaryDataRef(getPtr() + scriptOffset_, getScriptSize);
+      uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
+      return BinaryDataRef(getPtr() + scriptOffset_, scrLen);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -881,12 +894,14 @@ public:
 
       char const & v = self_[36];
       scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));
+      scriptType_ = BtcUtils::getTxInScriptType(getBinScriptRef(), 
+                                                BinaryDataRef(getPtr(), 32));
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr, uint32_t nbytes=0)
    {
-      unserialize(brr.getPosPtr(), nbytes);
+      unserialize(brr.getCurrPtr(), nbytes);
       brr.advance(nBytes_);
    }
 
@@ -896,6 +911,20 @@ public:
       unserialize(str.getPtr(), nbytes);
    }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Not all TxIns have this information.  Have to go to the Outpoint and get
+   // the corresponding TxOut to find the sender.  In the case the sender is
+   // not available, return false and don't write the output
+   bool getSenderAddrIfAvailable(BinaryData & addrTarget)
+   {
+      if(scriptType_ != TXIN_SCRIPT_STANDARD)
+         return false;
+      
+      BinaryData pubkey65 = getBinScriptRef().getSliceCopy(-65, 65);
+      addrTarget = BtcUtils::getHash160(pubkey65);
+      return true;
+   }
 
 
 private:
@@ -916,7 +945,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxOutRef
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
 
 public:
 
@@ -930,7 +959,9 @@ public:
    uint8_t const * getPtr(void) { return self_.getPtr(); }
    uint32_t        getSize(void) { return self_.getSize(); }
    uint64_t        getValue(void) { return *(uint64_t*)(self_.getPtr()); }
-   bool            getIsStandard(void) { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
+   bool            isStandard(void) { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
+   TXOUT_SCRIPT_TYPE getScriptType(void) { return scriptType_; }
+   BinaryDataRef getRecipientAddr(void) { return recipientBinAddr20_.getRef(); }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -947,10 +978,8 @@ public:
    uint32_t getScriptSize(void) { return nBytes_ - scriptOffset_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void) 
-   { 
-      return self_;
-   }
+   BinaryDataRef serialize(void) { return self_; }
+
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getScriptRef(void) 
@@ -970,14 +999,13 @@ public:
 
       BinaryDataRef scriptRef(self_.getPtr()+scriptOffset_, getScriptSize());
       scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
-      recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef,
-                                                            scriptType_)
+      recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr, uint32_t nbytes=0)
    {
-      unserialize( brr.getPosPtr(), nbytes);
+      unserialize( brr.getCurrPtr(), nbytes);
       brr.advance(nBytes_);
    }
 
@@ -1008,30 +1036,32 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxRef
 {
-   friend class BlockDataManager;
+   friend class BlockDataManager_FullRAM;
 
 public:
+   TxRef(void)                      { isInitialized_ = false; }
    TxRef(uint8_t const * ptr)       { unserialize(ptr); }
    TxRef(BinaryRefReader & brr)     { unserialize(brr); }
    TxRef(BinaryDataRef const & str) { unserialize(str); }
    TxRef(BinaryData const & str)    { unserialize(str); }
      
-   uint8_t const * getPtr(void) { return self_.getPtr(); }
-   uint32_t        getSize(void) { return self_.getSize(); }
+   uint8_t const * getPtr(void) { assert(isInitialized_); return self_.getPtr(); }
+   uint32_t        getSize(void) { assert(isInitialized_); return self_.getSize(); }
 
-   uint32_t  getNumTxIn(void)  { return (uint32_t)self_.offsetsTxIn_.size()-1;}
-   uint32_t  getNumTxOut(void) { return (uint32_t)self_.offsetsTxOut_.size()-1;}
+   uint32_t  getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
+   uint32_t  getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
 
-   BlockHeaderRef  getHeaderPtr_(void)  { return headerPtr_; }
+   BlockHeaderRef* getHeaderPtr_(void)  { assert(isInitialized_); return headerPtr_; }
 
    /////////////////////////////////////////////////////////////////////////////
    Tx getCopy(void)
    {
+      assert(isInitialized_);    
       Tx returnTx;
       returnTx.unserialize(getPtr());
       returnTx.thisHash_ = thisHash_;
       returnTx.nBytes_ = nBytes_;
-      returnTx.headerPtr_ = headerPtr_;
+      returnTx.headerRefPtr_ = headerPtr_;
       return returnTx;
    }
 
@@ -1041,12 +1071,13 @@ public:
       nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
       BtcUtils::getHash256(ptr, nBytes_, thisHash_);
       self_.setRef(ptr, nBytes_);
+      isInitialized_ = true;
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr)
    {
-      unserialize(brr.getPosPtr());
+      unserialize(brr.getCurrPtr());
       brr.advance(nBytes_);
    }
 
@@ -1069,25 +1100,28 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    TxInRef getTxInRef(int i)
    {
+      assert(isInitialized_);
       uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-      return TxInRef(self.getPtr()+offsetsTxIn_[i], txinSize);
+      return TxInRef(self_.getPtr()+offsetsTxIn_[i], txinSize);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    TxOutRef getTxOutRef(int i)
    {
+      assert(isInitialized_);
       uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-      return TxInRef(self.getPtr()+offsetsTxOut_[i], txoutSize);
+      return TxOutRef(self_.getPtr()+offsetsTxOut_[i], txoutSize);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   TxIn  getTxIn (int i) { return getTxInRef (i).getCopy(); }
-   TxOut getTxOut(int i) { return getTxOutRef(i).getCopy(); }
+   TxIn  getTxIn (int i) { assert(isInitialized_);  return getTxInRef (i).getCopy(); }
+   TxOut getTxOut(int i) { assert(isInitialized_);  return getTxOutRef(i).getCopy(); }
 
 
 
 private:
    BinaryDataRef self_; 
+   bool isInitialized_;
 
    // Derived properties - we expect these to be set after construct/copy
    BinaryData    thisHash_;
@@ -1164,7 +1198,7 @@ public:
    BinaryData theHash_;
    uint32_t fileIndex_;
    uint64_t fileLoc_;
-}
+};
 
 
 
@@ -1202,7 +1236,7 @@ public:
    {
       txoutrefptr_ = outrefptr; 
       if(hasTxOut())
-         amount_ = txoutrefptr->getValue();
+         amount_ = txoutrefptr_->getValue();
    }
 
    bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
@@ -1211,8 +1245,8 @@ public:
    bool isStandardTxOutScript(void) 
    { 
       if(hasTxOut()) 
-         return txoutrefptr->isStandard();
-       return false;
+         return txoutrefptr_->isStandard();
+      return false;
    }
 
 private:
@@ -1260,8 +1294,8 @@ public:
       address20_(0),
       pubkey65_(0),
       privkey32_(0),
-      createdBlockNum_  = UINT32_MAX;
-      createdTimestamp_ = UINT32_MAX;
+      createdBlockNum_(UINT32_MAX),
+      createdTimestamp_(UINT32_MAX)
    {
       // Nothing to do here
    }
@@ -1272,9 +1306,9 @@ public:
    uint32_t createdBlockNum_;
    uint32_t createdTimestamp_;
 
-   // The second arg is for 
+   // The second arg is for whether the money is in (+), out (-), or both (0)
    vector< pair<TxIORefPtrPair*, int> > txioList_;
-}
+};
 
 
 // Some might argue that inheritance would be useful here.  I'm not a software
@@ -1346,23 +1380,23 @@ private:
    //
    // These four data structures contain all the *real* data.  Everything 
    // else is just references and pointers to this data
-   BinaryData                                blockchainData_ALL_;
-   BinaryData                                blockchainData_NEW_; // to be added
-   map<HashStringRef, BlockHeaderRef>        headerHashMap_;
-   map<HashStringRef, TxRef >                txHashMap_;
+   BinaryData                         blockchainData_ALL_;
+   BinaryData                         blockchainData_NEW_; // to be added
+   map<HashString, BlockHeaderRef>    headerHashMap_;
+   map<HashString, TxRef >            txHashMap_;
   
    // We will maintain all transactional information in these maps
    // Only use pointers to the refs
    map<OutPointRef, TxIORefPtrPair>   txioMap_;
    set<OutPointRef>                   myUnspentTxOuts_;
-   map<OutPointRef, TxRef*>           myPendingTxOuts_;
+   set<HashString>                    myPendingTxs_;
    set<OutPointRef>                   myTxOutsNonStandard_;
    set<OutPointRef>                   orphanTxIns_;
 
    // For the case of keeping tx/header data on disk:
-   vector<string>                          blockchainFilenames_;
-   map<HashStringRef, pair<int,int> >      txFileRefs_;
-   map<HashStringRef, pair<int,int> >      headerFileRefs_;
+   vector<string>                     blockchainFilenames_;
+   map<HashString, pair<int,int> >    txFileRefs_;
+   map<HashString, pair<int,int> >    headerFileRefs_;
 
 
    // These should be set after the blockchain is organized
@@ -1374,23 +1408,32 @@ private:
    map<BinaryData, BtcAddress>       myAccounts_;  
    uint64_t                          totalBalance_;
 
+   vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
+   vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
+   static BlockDataManager_FullRAM* theOnlyBDM_;
+   static bool bdmCreatedYet_;
 
 
 
 
 private:
    // Set the constructor to private so that only one can ever be created
-   BlockDataManager(void) : 
+   BlockDataManager_FullRAM(void) : 
+         blockchainData_ALL_(0),
+         blockchainData_NEW_(0),
          topBlockPtr_(NULL),
          genBlockPtr_(NULL),
-         myBalance_(0)
+         totalBalance_(0)
    {
-      headerMap_.clear();
-      txMap_.clear();
+      headerHashMap_.clear();
+      txHashMap_.clear();
+      txioMap_.clear();
       myAccounts_.clear();
       headersByHeight_.clear();
       myTxOutsNonStandard_.clear();
+      myPendingTxs_.clear();
+      blockchainFilenames_.clear();
    }
 
 public:
@@ -1399,12 +1442,12 @@ public:
    // The only way to "create" a BDM is with this method, which creates it
    // if one doesn't exist yet, or returns a reference to the only one
    // that will ever exist
-   static BlockDataManager & GetInstance(void) 
+   static BlockDataManager_FullRAM & GetInstance(void) 
    {
       static bool bdmCreatedYet_ = false;
       if( !bdmCreatedYet_ )
       {
-         theOnlyBDM_ = new BlockDataManager;
+         theOnlyBDM_ = new BlockDataManager_FullRAM;
          bdmCreatedYet_ = true;
       }
       return (*theOnlyBDM_);
@@ -1415,46 +1458,46 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    int32_t getNumConfirmations(BinaryData txHash)
    {
-      txHashMapType::iterator findResult = txHashMap_.find(txHash); 
-      if(findResult = txHashMap_.end())
+      map<HashString, TxRef>::iterator findResult = txHashMap_.find(txHash); 
+      if(findResult == txHashMap_.end())
          return TX_NOT_EXIST;
       else
       {
-         if(findResult->second == NULL)
+         if(findResult->second.headerPtr_ == NULL)
             return TX_0_UNCONFIRMED; 
          else
          { 
-            BlockHeaderRef & txbh = *(findResult->second);
+            BlockHeaderRef & txbh = *(findResult->second.headerPtr_);
             if(!txbh.isMainBranch_)
                return TX_OFF_MAIN_BRANCH;
 
-            int32_t txBlockHeight  = findResult->second->getBlockHeight();
+            int32_t txBlockHeight  = txbh.getBlockHeight();
             int32_t topBlockHeight = getTopBlock().blockHeight_;
-            return topBlockHeight - txBlockHeight + 1;
+            return  topBlockHeight - txBlockHeight + 1;
          }
       }
    }
 
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef const & getTopBlock(void)
+   BlockHeaderRef & getTopBlock(void) 
    {
-      if(genBlockPtr_ == NULL)
-         topBlockPtr_ = &getGenesisBlock();
+      if(topBlockPtr_ == NULL)
+         topBlockPtr_ = &(getGenesisBlock());
       return *topBlockPtr_;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef const & getGenesisBlock(void)
+   BlockHeaderRef & getGenesisBlock(void) 
    {
       if(genBlockPtr_ == NULL)
-         genBlockPtr_ = &(headerMap_[BlockHeader::GenesisHash_]);
+         genBlockPtr_ = &(headerHashMap_[BtcUtils::GenesisHash_]);
       return *genBlockPtr_;
    }
 
    /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
-   BlockHeader & getHeaderByHeight(int index)
+   BlockHeaderRef & getHeaderByHeight(int index)
    {
       if( index>=0 && index<(int)headersByHeight_.size())
          return *headersByHeight_[index];
@@ -1462,23 +1505,33 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // The most common access method is to get a block by its hash
-   BlockHeader * getHeaderByHash(BinaryData const & blkHash)
+   BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash)
    {
-      map<BinaryData, BlockHeader>::iterator it = headerMap_.find(blkHash);
-      if(it==headerMap_.end())
+      map<BinaryData, BlockHeaderRef>::iterator it = headerHashMap_.find(blkHash);
+      if(it==headerHashMap_.end())
          return NULL;
       else
          return &(it->second);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void addAccount(BinaryData const & addr, BinaryData const & pubKey64B)
+   // We may add accounts to our address book just for watching purposes.  Hence
+   // why you may not have the pub/priv keypair
+   void addAccount(BinaryData const * addr, 
+                   BinaryData const * pubKey65=NULL,
+                   BinaryData const * privKey32=NULL)
    {
-      myAccounts_[addr] = pubKey64B;
+      BtcAddress & myAddr = myAccounts_[*addr];
+      myAddr.address20_.copyFrom(*addr);
+      if(pubKey65 != NULL)
+         myAddr.pubkey65_.copyFrom(*pubKey65);
+      if(privKey32 != NULL)
+         myAddr.privkey32_.copyFrom(*privKey32);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void flagNewTxIO(vector<TxRef*> & txref, vector<BinaryData> const & accountList)
+   //void updateTxIOList(vector<TxRef*> & blkTxList,
+                       //vector<BtcAddress> const & accountList)
    //{
       // TODO:  WOW this is a subtle, major problem:
       //              TxIns that are either coinbase TxIn or spending a
@@ -1514,13 +1567,14 @@ public:
    //}
 
    /////////////////////////////////////////////////////////////////////////////
+   /*
    void flagTransactions(vector<BinaryData> const & accountList)
    {
       if(accountList.size() == 0)
          return;
 
-      map<BinaryData, Tx>::iterator         txIter;
-      map<BinaryData, BinaryData>::iterator addrIter;
+      map<HashString, TxRef     >::const_iterator  txIter;
+      map<BinaryData, BtcAddress>::const_iterator  addrIter;
 
      
       TIMER_START("ScanTxOuts");
@@ -1529,24 +1583,25 @@ public:
            txIter != txHashMap_.end();
            txIter++)
       {
-         Tx & thisTx = txIter->second;
+         TxRef const & thisTx = txIter->second;
          for( addrIter  = accountList.begin();
               addrIter != accountList.end();
               addrIter++)
          {
-            for(uint32_t i=0; i<thisTx.numTxOut_; i++)
+            for(uint32_t i=0; i<thisTx.getNumTxOut(); i++)
             {
-               if( thisTx.txOutList_[i].pkScript_.contains(addrIter->first))
+               TxOutRef const & txout = thisTx.getTxOutRef(i);
+               if( txout.getRecipientAddr() == addrIter->first)
                {
                   OutPoint op;
                   op.setTxHash(thisTx.thisHash_);
                   op.setTxOutIndex(i);
 
                   // Already processed this one, before
-                  if( !thisTx.txOutList_[i].isMine_ )
+                  if( !txout.isMine_ )
                      continue;
 
-                  if( !thisTx.txOutList_[i].isStandardScript() )
+                  if( !thisTx.txOutList_[i].isStandard() )
                   {
                      cout << "Non-standard script! "  << endl;
                      cout << "\tTx:       " << thisTx.thisHash_.toHex().c_str() << endl;
@@ -1573,16 +1628,16 @@ public:
 
       TIMER_START("ScanTxIns");
       // Next we find all the TxIns and delete TxOuts
-      for( txIter  = txMap_.begin();
-           txIter != txMap_.end();
+      for( txIter  = txHashMap_.begin();
+           txIter != txHashMap_.end();
            txIter++)
       {
-         Tx & thisTx = txIter->second;
+         Tx const & thisTx = txIter->second;
          for( addrIter  = accountList.begin();
               addrIter != accountList.end();
               addrIter++)
          {
-            for(uint32_t i=0; i<thisTx.numTxIn_; i++)
+            for(uint32_t i=0; i<thisTx.getNumTxIn(); i++)
             {
                // can start searching for pub key 64 bytes into binScript
                if( thisTx.txInList_[i].binScript_.contains(addrIter->second, 64))
@@ -1631,6 +1686,7 @@ public:
          cout << endl;
       }
    }
+   */
 
    // I'm disabling this method, because reading the headers from the 
    // blockchain file is really no slower than reading them from a dedicated
@@ -1639,6 +1695,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Add headers from a file that is serialized identically to the way
    // we have laid it out in memory.  Return the number of bytes read
+   /*
    uint64_t importHeadersFromHeaderFile(std::string filename)
    {
       cout << "Reading block headers from file: " << filename.c_str() << endl;
@@ -1664,11 +1721,12 @@ public:
       {
          uint8_t* thisPtr = front + offset;
          BtcUtils::getHash256(thisPtr, HEADER_SIZE, thisHash);
-         headerMap_[thisHash] = BlockHeader(thisPtr, &thisHash);
+         headerHashMap_[thisHash] = BlockHeader(thisPtr, &thisHash);
       }
       cout << "Done with everything!  " << filesize << " bytes read!" << endl;
       return filesize;      
    }
+   */
 
 
 
@@ -1686,33 +1744,44 @@ public:
       //////////////////////////////////////////////////////////////////////////
       TIMER_START("ReadBlockchainIntoRAM");
       blockchainData_ALL_.resize(filesize);
-      uint8_t* front = allHeaders.getPtr();
+      uint8_t* front = blockchainData_ALL_.getPtr();
       is.read((char*)front, filesize);
       TIMER_STOP("ReadBlockchainIntoRAM");
       //////////////////////////////////////////////////////////////////////////
 
-      // TODO:  The way I've constructed these objects, we have create a copy
-      //        to get the hash before storing in the map.  If we precompute
-      //        the hash, then the hash will be computed twice.  Should figure
-      //        out if this is avoidable
+      // Going ot use the following four objects for efficient insertions
+      pair<HashString, TxRef>  txInputPair;
+      pair<HashString, BlockHeaderRef>  bhInputPair;
+      pair<map<HashString, TxRef>::iterator, bool>          txInsResult;
+      pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
+
       BinaryRefReader brr(blockchainData_ALL_);
       while(!brr.isEndOfStream())
       {
-         BlockHeaderRef headref(brr);
-         uint64_t nTx = brr.get_var_int()
-         headref.numTx_ = nTx;
-         headerHashMap_[headref.thisHash_] = headref;
+         brr.advance(4); // magic bytes
+         uint32_t nBytes = brr.get_uint32_t();
 
-         TxRef txref;
-         vector<TxIORefPtrPair
+         bhInputPair.second.unserialize(brr);
+         bhInputPair.first = bhInputPair.second.thisHash_;
+         bhInsResult = headerHashMap_.insert(bhInputPair);
+         BlockHeaderRef * bhptr = &(bhInsResult.first->second);
+
+         uint32_t nTx = (uint32_t)brr.get_var_int();
+         bhptr->numTx_ = nTx;
+         bhptr->txPtrList_.clear();
+
          for(uint64_t i=0; i<nTx; i++)
          {
-            txref.unserialize(brr);
-            txHashMap_[txref.thisHash_] = txref;
+            txInputPair.second.unserialize(brr);
+            txInputPair.first = txInputPair.second.thisHash_;
+            txInsResult = txHashMap_.insert(txInputPair);
+            TxRef * txptr = &(txInsResult.first->second);
 
+            txptr->headerPtr_ = bhptr;
+            bhptr->txPtrList_.push_back( txptr );
          }
-            searchTxForMyTxIO(txref);
 
+         //updateTxIOList(bhptr->txPtrList_);
 
          //brr.getSizeRemaining(); 
       }
@@ -1815,14 +1884,14 @@ public:
 
                BtcUtils::getHash256(headerStr, headHash);
                TIMER_WRAP(tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE));
-               TIMER_WRAP(headerMap_[headHash] = tempBH);
+               TIMER_WRAP(headerHashMap_[headHash] = tempBH);
 
                //cout << headHash.toHex().c_str() << endl;
                readHeader = true;
             }
 
             uint32_t txListBytes = numBlockBytes - HEADER_SIZE;
-            BlockHeader & blkHead = headerMap_[headHash];
+            BlockHeader & blkHead = headerHashMap_[headHash];
             if( !readTx )
             {
                if(bsb.getBufferSizeRemaining() < txListBytes)
@@ -1870,8 +1939,8 @@ public:
                      ////////////// Debugging Output - DELETE ME ///////////////
 
                      // Finally, store it in our map.
-                     TIMER_WRAP(txMap_[hashOut] = tempTx);
-                     TIMER_WRAP(Tx * txPtr = &(txMap_[hashOut]));
+                     TIMER_WRAP(txHashMap_[hashOut] = tempTx);
+                     TIMER_WRAP(Tx * txPtr = &(txHashMap_[hashOut]));
                      
 
                      if(txPtr == NULL)
@@ -1900,7 +1969,7 @@ public:
          }
       }
 
-      return (uint32_t)headerMap_.size();
+      return (uint32_t)headerHashMap_.size();
    }
    */
 
@@ -1996,14 +2065,14 @@ public:
 
                BtcUtils::getHash256(headerStr, headHash);
                TIMER_WRAP(tempBH = BlockHeader(&headerStr, &headHash, blkByteOffset+HEADER_SIZE));
-               TIMER_WRAP(headerMap_[headHash] = tempBH);
+               TIMER_WRAP(headerHashMap_[headHash] = tempBH);
 
                //cout << headHash.toHex().c_str() << endl;
                readHeader = true;
             }
 
             uint32_t txListBytes = numBlockBytes - HEADER_SIZE;
-            BlockHeader & blkHead = headerMap_[headHash];
+            BlockHeader & blkHead = headerHashMap_[headHash];
             if( !readTx )
             {
                if(bsb.getBufferSizeRemaining() < txListBytes)
@@ -2051,8 +2120,8 @@ public:
                      ////////////// Debugging Output - DELETE ME ///////////////
 
                      // Finally, store it in our map.
-                     TIMER_WRAP(txMap_[hashOut] = tempTx);
-                     TIMER_WRAP(Tx * txPtr = &(txMap_[hashOut]));
+                     TIMER_WRAP(txHashMap_[hashOut] = tempTx);
+                     TIMER_WRAP(Tx * txPtr = &(txHashMap_[hashOut]));
                      
 
                      if(txPtr == NULL)
@@ -2081,7 +2150,7 @@ public:
          }
       }
 
-      return (uint32_t)headerMap_.size();
+      return (uint32_t)headerHashMap_.size();
    }
    */
 
@@ -2093,7 +2162,7 @@ public:
    {
       BinaryData theHash(32); 
       BtcUtils::getHash256(binHeader, theHash);
-      headerMap_[theHash] = BlockHeader(&binHeader, &theHash);
+      headerHashMap_[theHash] = BlockHeaderRef(binHeader);
    }
 
 
@@ -2111,9 +2180,9 @@ public:
       // than a second, anyway.
       if(forceRebuild)
       {
-         map<BinaryData, BlockHeader>::iterator iter;
-         for( iter  = headerMap_.begin(); 
-              iter != headerMap_.end(); 
+         map<BinaryData, BlockHeaderRef>::iterator iter;
+         for( iter  = headerHashMap_.begin(); 
+              iter != headerHashMap_.end(); 
               iter++)
          {
             iter->second.difficultySum_ = -1;
@@ -2124,7 +2193,7 @@ public:
       }
 
       // Set genesis block
-      BlockHeader & genBlock = getGenesisBlock();
+      BlockHeaderRef & genBlock = getGenesisBlock();
       genBlock.blockHeight_    = 0;
       genBlock.difficultyDbl_  = 1.0;
       genBlock.difficultySum_  = 1.0;
@@ -2132,20 +2201,20 @@ public:
       genBlock.isOrphan_       = false;
       genBlock.isFinishedCalc_ = true;
 
-      BinaryData const & GenesisHash_ = BlockHeader::GenesisHash_;
-      BinaryData const & EmptyHash_   = BlockHeader::EmptyHash_;
+      BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
+      BinaryData const & EmptyHash_   = BtcUtils::EmptyHash_;
       if(topBlockPtr_ == NULL)
          topBlockPtr_ = &genBlock;
 
       // Store the old top block so we can later check whether it is included 
       // in the new chain organization
-      BlockHeader* prevTopBlockPtr = topBlockPtr_;
+      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
 
       // Iterate over all blocks, track the maximum difficulty-sum block
-      map<BinaryData, BlockHeader>::iterator iter;
+      map<BinaryData, BlockHeaderRef>::iterator iter;
       uint32_t maxBlockHeight = 0;
       double   maxDiffSum = 0;
-      for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
+      for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
       {
          // *** The magic happens here
          double thisDiffSum = traceChainDown(iter->second);
@@ -2161,7 +2230,7 @@ public:
       // Walk down the list one more time, set nextHash fields
       // Also set headersByHeight_;
       topBlockPtr_->nextHash_ = EmptyHash_;
-      BlockHeader* thisBlockPtr = topBlockPtr_;
+      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
       bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
       headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
       while( !thisBlockPtr->isFinishedCalc_ )
@@ -2171,7 +2240,7 @@ public:
          headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
 
          BinaryData & childHash        = thisBlockPtr->thisHash_;
-         thisBlockPtr                  = &(headerMap_[thisBlockPtr->prevHash_]);
+         thisBlockPtr                  = &(headerHashMap_[thisBlockPtr->getPrevHash()]);
          thisBlockPtr->nextHash_       = childHash;
 
          if(thisBlockPtr == prevTopBlockPtr)
@@ -2191,32 +2260,30 @@ private:
    // Start from a node, trace down to the highest solved block, accumulate
    // difficulties and difficultySum values.  Return the difficultySum of 
    // this block.
-   double traceChainDown(BlockHeader & bhpStart)
+   double traceChainDown(BlockHeaderRef & bhpStart)
    {
       if(bhpStart.difficultySum_ > 0)
          return bhpStart.difficultySum_;
 
       // Prepare some data structures for walking down the chain
-      vector<double>          difficultyStack(headerMap_.size());
-      vector<BlockHeader*>     bhpPtrStack(headerMap_.size());
+      vector<double>          difficultyStack(headerHashMap_.size());
+      vector<BlockHeaderRef*>     bhpPtrStack(headerHashMap_.size());
       uint32_t blkIdx = 0;
       double thisDiff;
 
       // Walk down the chain of prevHash_ values, until we find a block
       // that has a definitive difficultySum value (i.e. >0). 
-      BlockHeader* thisPtr = &bhpStart;
-      map<BinaryData, BlockHeader>::iterator iter;
+      BlockHeaderRef* thisPtr = &bhpStart;
+      map<BinaryData, BlockHeaderRef>::iterator iter;
       while( thisPtr->difficultySum_ < 0)
       {
-         thisDiff = BtcUtils::convertDiffBitsToDouble(
-                              *(uint32_t*)(thisPtr->diffBitsRaw_.getPtr()));
+         thisDiff = thisPtr->difficultyDbl_;
          difficultyStack[blkIdx] = thisDiff;
          bhpPtrStack[blkIdx]     = thisPtr;
          blkIdx++;
 
-
-         iter = headerMap_.find(thisPtr->prevHash_);
-         if( iter != headerMap_.end() )
+         iter = headerHashMap_.find(thisPtr->getPrevHash());
+         if( iter != headerHashMap_.end() )
             thisPtr = &(iter->second);
          else
          {
@@ -2250,18 +2317,27 @@ private:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void markOrphanChain(BlockHeader & bhpStart)
+   void markOrphanChain(BlockHeaderRef & bhpStart)
    {
       bhpStart.isOrphan_ = true;
       bhpStart.isMainBranch_ = false;
-      map<BinaryData, BlockHeader>::iterator iter;
-      iter = headerMap_.find(bhpStart.getPrevHash());
-      while( iter != headerMap_.end() )
+      map<BinaryData, BlockHeaderRef>::iterator iter;
+      iter = headerHashMap_.find(bhpStart.getPrevHash());
+      HashStringRef lastHeadHash(32);
+      // TODO: I believe here we can check whether the block was previously
+      //       marked isMainBranch_ and if so, we can add it to a "previously-
+      //       but-no-longer-valid" block list.  This allows us to flag txs
+      //       that might have been included in the wallet, but should be removed.
+      while( iter != headerHashMap_.end() )
       {
+         if(iter->second.isMainBranch_ == true)
+            previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
          iter->second.isOrphan_ = true;
          iter->second.isMainBranch_ = false;
-         iter = headerMap_.find(iter->second.prevHash_);
+         lastHeadHash.setRef(iter->second.thisHash_);
+         iter = headerHashMap_.find(iter->second.getPrevHash());
       }
+      orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
    }
 
 

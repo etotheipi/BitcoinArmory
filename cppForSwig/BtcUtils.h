@@ -51,6 +51,8 @@ typedef enum
 // This class holds only static methods.  
 class BtcUtils
 {
+public:
+
    // We should keep the genesis hash handy 
    static BinaryData        BadAddress_;
    static BinaryData        GenesisHash_;
@@ -221,7 +223,7 @@ class BtcUtils
    static uint32_t TxInCalcLength(uint8_t const * ptr)
    {
       uint32_t viLen;
-      uint32_t scrLen = BtcUtils::readVarInt(getPtr()+36, &viLen);
+      uint32_t scrLen = (uint32_t)readVarInt(ptr+36, &viLen);
       return (36 + viLen + scrLen + 4);
    }
 
@@ -229,7 +231,7 @@ class BtcUtils
    static uint32_t TxOutCalcLength(uint8_t const * ptr)
    {
       uint32_t viLen;
-      uint32_t scrLen = BtcUtils::readVarInt(getPtr()+8, &viLen);
+      uint32_t scrLen = (uint32_t)readVarInt(ptr+8, &viLen);
       return (8 + viLen + scrLen);
    }
 
@@ -244,40 +246,40 @@ class BtcUtils
       brr.advance(4);
 
       // TxIn List
-      uint32_t nIn = brr.get_var_int();
+      uint32_t nIn = (uint32_t)brr.get_var_int();
       if(offsetsIn != NULL)
       {
          offsetsIn->resize(nIn+1);
-         for(int i=0; i<nIn; i++)
+         for(uint32_t i=0; i<nIn; i++)
          {
             (*offsetsIn)[i] = brr.getPosition();
-            brr.advance( TxInCalcLength(brr.getPosPtr()) )
+            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
          }
          (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
       }
       else
       {
          // Don't need to track the offsets, just leap over everything
-         for(int i=0; i<nIn; i++)
-            brr.advance( TxInCalcLength(brr.getPosPtr()) )
+         for(uint32_t i=0; i<nIn; i++)
+            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
       }
 
       // Now extract the TxOut list
-      uint32_t nOut = brr.get_var_int();
+      uint32_t nOut = (uint32_t)brr.get_var_int();
       if(offsetsOut != NULL)
       {
          offsetsOut->resize(nOut+1);
-         for(int i=0; i<nOut; i++)
+         for(uint32_t i=0; i<nOut; i++)
          {
             (*offsetsOut)[i] = brr.getPosition();
-            brr.advance( TxOutCalcLength(brr.getPosPtr()) )
+            brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
          }
          (*offsetsOut)[nOut] = brr.getPosition();
       }
       else
       {
-         for(int i=0; i<nOut; i++)
-            brr.advance( TxOutCalcLength(brr.getPosPtr()) )
+         for(uint32_t i=0; i<nOut; i++)
+            brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
       }
       brr.advance(4);
 
@@ -287,7 +289,7 @@ class BtcUtils
 
 
    /////////////////////////////////////////////////////////////////////////////
-   TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
+   static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
    {
       uint32_t sz = s.getSize();
       if(sz < 2) return TXOUT_SCRIPT_UNKNOWN;
@@ -305,8 +307,8 @@ class BtcUtils
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
-                                      BinaryDataRef const & prevTxHash)
+   static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
+                                             BinaryDataRef const & prevTxHash)
    {
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
@@ -326,8 +328,8 @@ class BtcUtils
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getTxOutRecipientAddr(BinaryDataRef const & script, 
-                                    TXOUT_SCRIPT_TYPE type==TXOUT_SCRIPT_UNKNOWN)
+   static BinaryData getTxOutRecipientAddr(BinaryDataRef const & script, 
+                                           TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_UNKNOWN)
    {
       if(type==TXOUT_SCRIPT_UNKNOWN)
          type = getTxOutScriptType(script);
@@ -341,11 +343,12 @@ class BtcUtils
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getTxInAddr(BinaryDataRef const & script, 
-                          TXIN_SCRIPT_TYPE type==TXIN_SCRIPT_UNKNOWN)
+   static BinaryData getTxInAddr(BinaryDataRef const & script, 
+                                 BinaryDataRef const & prevTxHash,
+                                 TXIN_SCRIPT_TYPE type=TXIN_SCRIPT_UNKNOWN)
    {
       if(type==TXIN_SCRIPT_UNKNOWN)
-         type = getTxInScriptType(script);
+         type = getTxInScriptType(script, prevTxHash);
       switch(type)
       {
          case(TXIN_SCRIPT_STANDARD):  return getHash160(script.getSliceRef(-65, 65));
@@ -357,8 +360,9 @@ class BtcUtils
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static double convertDiffBitsToDouble(uint32_t diffBits)
+   static double convertDiffBitsToDouble(BinaryData const & diffBitsBinary)
    {
+       uint32_t diffBits = *(uint32_t*)(diffBitsBinary.getPtr());
        int nShift = (diffBits >> 24) & 0xff;
        double dDiff = (double)0x0000ffff / (double)(diffBits & 0x00ffffff);
    

@@ -1,7 +1,7 @@
 #include "blockUtils.h"
 
 
-BlockDataManager* BlockDataManager::theOnlyBDM_ = NULL;
+BlockDataManager_FullRAM* BlockDataManager_FullRAM::theOnlyBDM_ = NULL;
 
 
 

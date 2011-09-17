@@ -2,6 +2,7 @@
 #include <fstream>
 #include "blockUtils.h"
 #include "BinaryData.h"
+#include "BtcUtils.h"
 #include "UniversalTimer.h"
 
 
@@ -14,7 +15,7 @@ int main(void)
 
    cout << bd.toHex().c_str() << endl;
 
-   BlockDataManager & bdm = BlockDataManager::GetInstance(); 
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
    BinaryData genBlock;
    string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
@@ -46,7 +47,7 @@ int main(void)
    //myAddress.swapEndian();
    //myPubKey.swapEndian();
 
-   bdm.addAccount(myAddress, myPubKey);
+   bdm.addAccount(&myAddress, &myPubKey);
 
    //cout << "Orig : " << strgenblk.c_str() << endl;
    //cout << "New  : " << strrndtrip.c_str() << endl;
