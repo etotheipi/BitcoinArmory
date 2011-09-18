@@ -20,6 +20,10 @@
 #include "sha.h"
 #include "ripemd.h"
 
+#define HEADER_SIZE 80
+#define HashString     BinaryData
+#define HashStringRef  BinaryDataRef
+
 
 //#ifdef MAIN_NETWORK
    #define MAGICBYTES "f9beb4d9"
