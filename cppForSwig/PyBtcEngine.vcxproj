@@ -85,7 +85,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="BinaryData.h" />
-    <ClInclude Include="BinaryDataRef.h" />
     <ClInclude Include="blockUtils.h" />
     <ClInclude Include="BtcUtils.h" />
     <ClInclude Include="UniversalTimer.h" />
@@ -94,6 +93,7 @@
     <ClCompile Include="BinaryData.cpp" />
     <ClCompile Include="blockUtils.cpp" />
     <ClCompile Include="blockUtilsTest.cpp" />
+    <ClCompile Include="BtcUtils.cpp" />
     <ClCompile Include="UniversalTimer.cpp" />
   </ItemGroup>
   <ItemGroup>

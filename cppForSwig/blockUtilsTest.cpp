@@ -34,12 +34,12 @@ int main(void)
    d.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
    e.createFromHex("33333333");
    f.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
-   cout << "Contains test (T): " << testContains.find(a) << endl;
-   cout << "Contains test (F): " << testContains.find(b) << endl;
-   cout << "Contains test (T): " << testContains.find(c) << endl;
-   cout << "Contains test (F): " << testContains.find(d) << endl;
-   cout << "Contains test (T): " << testContains.find(e) << endl;
-   cout << "Contains test (T): " << testContains.find(f) << endl;
+   //cout << "Contains test (T): " << testContains.find(a) << endl;
+   //cout << "Contains test (F): " << testContains.find(b) << endl;
+   //cout << "Contains test (T): " << testContains.find(c) << endl;
+   //cout << "Contains test (F): " << testContains.find(d) << endl;
+   //cout << "Contains test (T): " << testContains.find(e) << endl;
+   //cout << "Contains test (T): " << testContains.find(f) << endl;
 
    BinaryData myAddress, myPubKey;
    myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
@@ -53,25 +53,34 @@ int main(void)
    //cout << "New  : " << strrndtrip.c_str() << endl;
    //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
-   /*
    BinaryData theHash;   
    for(int i=0; i<20000; i++)
    {
       TIMER_START("BinaryData::GetHash");
-      BinaryData::getHash256(genBlock, theHash);
+      BtcUtils::getHash256(genBlock, theHash);
       TIMER_STOP("BinaryData::GetHash");
    }
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
+   cout << endl << endl;
 
-   TIMER_START("BDM_Import_Headers");
-   bdm.importFromBlockFile("../blk0001.dat", false);
+   //TIMER_START("BDM_Import_Headers");
+   //bdm.importFromBlockFile("../blk0001.dat", false);
    //bdm.importHeadersFromHeaderFile("../blkHeaders.dat");
-   TIMER_STOP("BDM_Import_Headers");
+   //TIMER_STOP("BDM_Import_Headers");
+   
+   // Reading data from blockchain
+   cout << "Reading data from blockchain..." << endl;
+   TIMER_START("BDM_Read_BlkChain_From_Scratch");
+   bdm.readBlockchainFromBlkFile_FullRAM_FromScratch("../blk0001.dat");
+   TIMER_STOP("BDM_Read_BlkChain_From_Scratch");
+   cout << endl << endl;
 
+   cout << endl << "Organizing blockchain: " ;
    TIMER_START("BDM_Organize_Chain");
    bool isGenOnMainChain = bdm.organizeChain();
    TIMER_STOP("BDM_Organize_Chain");
-   */
+   cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
+   cout << endl << endl;
 
    /*
    TIMER_START("BDM_Flag_Transactions");
@@ -79,16 +88,16 @@ int main(void)
    TIMER_STOP("BDM_Flag_Transactions");
    */
 
-   //cout << endl << endl;
-   //cout << "Printing genesis block information:" << endl;
-   //bdm.getGenesisBlock().printBlockHeader(cout);
+   cout << endl << endl;
+   cout << "Printing genesis block information:" << endl;
+   bdm.getGenesisBlock().getCopy().printBlockHeader(cout);
 
-   //cout << endl << endl;
-   //cout << "Printing last block information:" << endl;
-   //bdm.getTopBlock().printBlockHeader(cout);
+   cout << endl << endl;
+   cout << "Printing last block information:" << endl;
+   bdm.getTopBlock().getCopy().printBlockHeader(cout);
 
-   //UniversalTimer::instance().print();
-   //UniversalTimer::instance().printCSV("timings.csv");
+   UniversalTimer::instance().print();
+   UniversalTimer::instance().printCSV("timings.csv");
 
    //char aa[256];
    //cout << "Enter anything to exit" << endl;

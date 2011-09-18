@@ -103,14 +103,14 @@ public:
       prevHash_.copyFrom         ( start +  4, 32 );
       merkleRoot_.copyFrom       ( start + 36, 32 );
       timestamp_ =   *(uint32_t*)( start + 68     );
-      diffBits_ =    *(uint32_t*)( start + 72, 4  );
+      diffBits_.copyFrom         ( start + 72, 4  );
       nonce_ =       *(uint32_t*)( start + 76     );
 
       if(suppliedHash==NULL)
          BtcUtils::getHash256(start, HEADER_SIZE, thisHash_);
       else
          thisHash_.copyFrom(*suppliedHash);
-      difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( diffBits_ );
+      difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( diffBits_.getRef() );
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -689,7 +689,7 @@ class BlockHeaderRef
 
 public:
 
-   BlockHeaderRef(void) { isInitialized_ = false; }
+   BlockHeaderRef(void) : isInitialized_(false) {}
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
@@ -745,8 +745,18 @@ public:
       self_.setRef(ptr, HEADER_SIZE);
       BtcUtils::getHash256(self_.getPtr(), HEADER_SIZE, thisHash_);
       difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 
-                                 *(uint32_t*)(self_.getPtr()+72) );
+                                 BinaryDataRef(self_.getPtr()+72, 4));
       isInitialized_ = true;
+      nextHash_ = BinaryData(0);
+      numTx_ = 0;
+      blockHeight_ = UINT32_MAX;
+      fileByteLoc_ = UINT64_MAX;
+      difficultySum_ = -1;
+      isMainBranch_ = false;
+      isOrphan_ = true;
+      isFinishedCalc_ = false;
+      isOnDiskYet_ = false;
+      txPtrList_ = vector<TxRef*>(0);
    }
 
    void unserialize(BinaryDataRef const & str)
@@ -1755,7 +1765,10 @@ public:
       pair<map<HashString, TxRef>::iterator, bool>          txInsResult;
       pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
 
+      cout << "Scanning all block data currently in RAM" << endl;
+      TIMER_START("ScanBlockchainInRAM");
       BinaryRefReader brr(blockchainData_ALL_);
+      uint32_t nBlkRead = 0;
       while(!brr.isEndOfStream())
       {
          brr.advance(4); // magic bytes
@@ -1784,7 +1797,10 @@ public:
          //updateTxIOList(bhptr->txPtrList_);
 
          //brr.getSizeRemaining(); 
+         nBlkRead++;
       }
+      TIMER_STOP("ScanBlockchainInRAM");
+      return nBlkRead;
 
    }
 
@@ -2249,7 +2265,10 @@ public:
 
       // Not sure if this should be automatic... for now I don't think it hurts
       if( !prevChainStillValid )
+      {
          organizeChain(true); // force-rebuild the blockchain
+         return false;
+      }
 
       return prevChainStillValid;
    }

@@ -16,7 +16,7 @@ inline void BinaryData::copyFrom(BinaryDataRef const & bdr)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryDataRef BinaryData::getRef(void) const
+BinaryDataRef BinaryData::getRef(void) const
 {
    return BinaryDataRef(getPtr(), nBytes_);
 }
@@ -166,21 +166,23 @@ BinaryData BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-inline uint64_t BinaryReader::get_var_int(uint8_t* nRead)
+uint64_t BinaryReader::get_var_int(uint8_t* nRead)
 {
    uint32_t nBytes;
    uint64_t varInt = BtcUtils::readVarInt( bdStr_.getPtr() + pos_, &nBytes);
-   *nRead = nBytes;
+   if(nRead != NULL)
+      *nRead = nBytes;
    pos_ += nBytes;
    return varInt;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-inline uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
+uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
 {
    uint32_t nBytes;
    uint64_t varInt = BtcUtils::readVarInt( bdRef_.getPtr() + pos_, &nBytes);
-   *nRead = nBytes;
+   if(nRead != NULL)
+      *nRead = nBytes;
    pos_ += nBytes;
    return varInt;
 }
