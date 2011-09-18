@@ -729,7 +729,7 @@ def getTxInScriptType(txinObj):
       return TXIN_SCRIPT_COINBASE
 
    b0,b1,b2,b3,b4 = binScript[:5]
-   if not b1=='\x03' and b3=='\x02':
+   if not (b1=='\x03' and b3=='\x02'):
       return TXIN_SCRIPT_UNKNOWN
 
    SigSize = binary_to_int(b2) + 3

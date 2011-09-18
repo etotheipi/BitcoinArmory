@@ -3,8 +3,19 @@ from os import path
 import sys
 from optparse import OptionParser
 
+import time
+
+
+def calcAddrFromBinPubKey(binPubKey, netbyte='\x00'):
+   keyHash = hash160(binPubKey)
+   keyHash    = hash160(binPubKey)
+   chkSum     = hash256(netbyte + keyHash)[:4]
+   return       binary_to_addrStr(netbyte + keyHash + chkSum)
+   
+
 
 if __name__ == '__main__':
+   timeStart = time.time()
    print '\nExtract all addresses from blk0001.dat file'
 
    parser = OptionParser(usage='USAGE: %prog [-o|--outfile] [-b|blkfile')
@@ -49,7 +60,7 @@ if __name__ == '__main__':
    binunpack = BinaryUnpacker(bf.read())
    newBlocksRead = 0
    uniqueAddresses = set()
-   while binunpack.getRemainingSize() > 0 :
+   while binunpack.getRemainingSize() > 0:
       binunpack.advance(4)  # magic
       sz = binunpack.get(UINT32)  # total bytes in this block
       binunpack.advance(80)
@@ -59,10 +70,10 @@ if __name__ == '__main__':
             tintype = getTxInScriptType(tin)
             if tintype == TXIN_SCRIPT_STANDARD:
                binPubkey = tin.binScript[-65:]
-               newAddr = BtcAddress().createFromPublicKey(binPubkey)
-               addrStr = newAddr.calculateAddrStr()
+               addrStr = calcAddrFromBinPubKey(binPubkey)
                if not addrStr in uniqueAddresses:
-                  of.write('%s\t%s\n' % (addrStr, binary_to_hex(binPubkey)) )
+                  #of.write('%s\t%s\n' % (addrStr, binary_to_hex(binPubkey)) )
+                  of.write(addrStr + '\n')
                uniqueAddresses.add(addrStr)
 
          for tout in tx.outputs:
@@ -70,16 +81,16 @@ if __name__ == '__main__':
             if touttype == TXOUT_SCRIPT_STANDARD:
                addr160 = tout.binPKScript[3:23]
                newAddr = BtcAddress().createFromPublicKeyHash160(addr160)
-               addrStr = newAddr.calculateAddrStr()
+               addrStr = newAddr.getAddrStr()
                if not addrStr in uniqueAddresses:
                   of.write(addrStr + '\n')
                uniqueAddresses.add(addrStr)
             elif touttype == TXOUT_SCRIPT_COINBASE:
                binPubkey = tout.binPKScript[1:-1]
-               newAddr = BtcAddress().createFromPublicKey(binPubkey)
-               addrStr = newAddr.calculateAddrStr()
+               addrStr = calcAddrFromBinPubKey(binPubkey)
                if not addrStr in uniqueAddresses:
-                  of.write('%s\t%s\n' % (addrStr, binary_to_hex(binPubkey)) )
+                  #of.write('%s\t%s\n' % (addrStr, binary_to_hex(binPubkey)) )
+                  of.write(addrStr + '\n')
                uniqueAddresses.add(addrStr)
                
       if newBlocksRead==0:
@@ -94,6 +105,10 @@ if __name__ == '__main__':
                
    of.close()
    bf.close()
+
+   timeEnd = time.time()
+   print ''
+   print 'Took %0.3f minutes to find all addresses' % ((timeEnd - timeStart)/60.0,)
                
             
 
