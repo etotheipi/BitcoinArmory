@@ -111,6 +111,7 @@ def figureOutMysteryHex(hexStr, hashDict={}):
          # Obviously wasn't a transaction, either
          continue
 
+   pubkeyList = [ ]
    
    # Try to find a PkScript
    pkIdx = getIdxListNotIdYet(hintStr['PkStart'], maskAll)
@@ -124,10 +125,8 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    startCBPK = hex_to_binary('04')
    pkIdx = getIdxListNotIdYet(startCBPK, maskAll)
    for idx in pkIdx:
-      #if idx > len(binStr)-65 or maskAll[idx] == 1:
       if idx > len(binStr)-65:
          continue
-      #if binStr[idx+65] == endCBPK:
       try:
          addrStr = BtcAddress().createFromPublicKey(binStr[idx:idx+65])
          extraInfo = addrStr.calculateAddrStr()
@@ -312,6 +311,8 @@ if __name__ == '__main__':
                   help='The file to store and retrieve header/tx hashes')
    parser.add_option('-b', '--binary', action='store_false', dest='isHex', default=True, \
                   help='Specified file is in binary')
+   parser.add_option('--byterange', dest='byterange', default='all', \
+                  help='Bytes to read, --byterange=0,100')
    parser.add_option('-s', '--usehashes', action='store_true', dest='useHashes', default=False, \
                   help='Import header/tx hashes to be used in searching')
    parser.add_option('-u', '--noupdatehashes', action='store_false', dest='updateHashes', default=True, \
@@ -357,6 +358,11 @@ if __name__ == '__main__':
    if not opts.useHashes:
       print '\t(use the -s option to enable search for header/tx hashes from blk0001.dat)'
 
+   byteStart,byteStop = 0,0
+   print opts.byterange
+   if not opts.byterange=='all':
+      byteStart,byteStop = [int(i) for i in opts.byterange.split(',')]
+
    # Update the knownHashes.txt file, if necessary
    if(opts.useHashes and opts.updateHashes):
       updateHashList(hashfile, blkfile, opts.doRescan)
@@ -383,12 +389,21 @@ if __name__ == '__main__':
    if not fn == None:
       if not isHex:
          f = open(fn, 'rb')
-         binaryToSearch = f.read()
+         binaryToSearch = ''
+         if byteStop<=byteStart:
+            binaryToSearch = f.read()
+         else:
+            f.seek(byteStart,0);
+            binaryToSearch = f.read(byteStop-byteStart)
+         
          f.close()
       else:
          f = open(fn, 'r')
          hexLines = f.readlines()
          hexToSearch = ''.join([l.strip().replace(' ','') for l in hexLines])
+         if not byteStop<=byteStart:
+            hexToSearch = hexToSearch[2*byteStart:2*byteStop]
+
          try:
             binaryToSearch = hex_to_binary(hexToSearch)
          except:
