@@ -94,12 +94,8 @@ public:
       unserialize(brr.get_BinaryDataRef(HEADER_SIZE));
    }
 
-   // Not sure this makes sense...
-   //void unserialize(BinaryData const & str)
-   //{
-      //self_.setRef(str.getPtr(), HEADER_SIZE);
-      //BtcUtils::getHash256(self_.getPtr(), HEADER_SIZE, thisHash_);
-   //}
+   vector<TxRef*> const & getTxRefPtrList(void) {return txPtrList_;}
+
 
 private:
    BinaryDataRef  self_;
@@ -158,11 +154,13 @@ class TxInRef
    friend class BlockDataManager_FullRAM;
 
 public:
+   TxInRef(void) : self_(0) {}
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
    bool            isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
+   bool            isInitialized_(void) const {return self_.getSize() > 0; }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
 
 
@@ -268,19 +266,24 @@ class TxOutRef
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   TxOutRef(uint8_t const * ptr, uint32_t nBytes=0)
-   {
-      unserialize(ptr, nBytes);
-   }
+   TxOutRef(void) : self_(0) {}
+   TxOutRef(uint8_t const * ptr, uint32_t nBytes=0) { unserialize(ptr, nBytes); }
 
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
    uint64_t        getValue(void) const { return *(uint64_t*)(self_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
-   TXOUT_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
-   BinaryDataRef getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
+   bool            isInitialized_(void) const {return self_.getSize() > 0; }
 
+   bool            isMine(void)  const { return isMine_;  }
+   bool            isSpent(void) const { return isSpent_; }
+
+   bool            setMine(bool b)  { isMine_  = b; }
+   bool            setSpent(bool b) { isSpent_ = b; }
+
+   BinaryDataRef getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
+   TXOUT_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
 
    /////////////////////////////////////////////////////////////////////////////
    TxOut getCopy(void) const;
@@ -399,7 +402,9 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   TxInRef getTxInRef(int i) const
+   // This is not a pointer to persistent object, this method actually CREATES
+   // the TxInRef (once) that will be stored in a txioMap
+   TxInRef createTxInRef(int i) const
    {
       assert(isInitialized_);
       uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
@@ -407,7 +412,9 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   TxOutRef getTxOutRef(int i) const
+   // This is not a pointer to persistent object, this method actually CREATES
+   // the TxOutRef (once) that will be stored in a txioMap
+   TxOutRef createTxOutRef(int i) const
    {
       assert(isInitialized_);
       uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
@@ -415,8 +422,8 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   TxIn  getTxIn (int i) const;
-   TxOut getTxOut(int i) const;
+   TxIn  getTxInCopy (int i) const;
+   TxOut getTxOutCopy(int i) const;
 
 
 

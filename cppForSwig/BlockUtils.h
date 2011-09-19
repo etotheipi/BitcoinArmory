@@ -39,45 +39,8 @@ using namespace std;
 
 
 
-
-
-
 ////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-/* This class is a solution for a problem I don't have -- commented out for now
-class BlockRef
-{
-   BlockRef(void) :
-      headRef_(NULL),
-      txList_(0)
-   {
-      // Nothing to put here
-   }
-
-   void setHeadRefPtr(BlockHeaderRef* bhr) {headRef_ = bhr;}
-   void addTxRefPtr(TxRef* txr)            { txList_.push_back(txr); }
- 
-   uint32_t getNumTx(void)            { return (uint32_t)(txList_.size()); }
-   void     setNumTx(uint32_t sz)     { txList_.resize(sz); }
-   TxRef*   getTxRefPtr(uint32_t i)   { return (i<getNumTx() ? txList_[i] : NULL); }
-   BlockHeaderRef* getHeaderRef(void) { return headRef_; }
-
-private:
-   BlockHeaderRef*  headRef_;
-   vector<TxRef*>   txList_;
-
-};
-*/
-
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// START FILE-REF CLASSES
-//
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
+/*
 class BlockHeaderFileRef
 {
 public:
@@ -105,105 +68,159 @@ public:
    uint32_t fileIndex_;
    uint64_t fileLoc_;
 };
+*/
 
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// TxIORefPtrPair
+// TxIORefPair
 //
 // There's no point in separating these two objects.  For every TxOut, there 
 // will be a TxIn, and they both have the same value.  So we can track ptrs to
 // each one, and easily determine, based on which pointers are NULL, whether
 // the money is unspent.  
 //
-class TxIORefPtrPair
+class TxIORefPair
 {
 public:
-   TxIORefPtrPair(TxOutRef* outref=NULL, TxInRef* inref=NULL) : 
-          txoutrefptr_(outref), 
-          txinrefptr_(inref),
-          amount_(UINT64_MAX) { }
+   //////////////////////////////////////////////////////////////////////////////
+   TxIORefPair(void) : 
+      amount_(UINT64_MAX),
+      txoutRef_(), 
+      txoutTxRef_(NULL),
+      txinRef_(),
+      txinTxRef_(NULL),
 
-   bool      hasTxOut(void)       { return (txoutrefptr_!=NULL); }
-   bool      hasTxIn(void)        { return (txinrefptr_!=NULL); }
-   bool      hasValue(void)       { return (amount_!=UINT64_MAX); }
-   uint64_t  getValue(void)       { return amount_;}
-   TxOutRef* getTxOutRefPtr(void) { return txoutrefptr_; }
-   TxInRef*  getTxInRefPtr(void)  { return txinrefptr_; }
+   //////////////////////////////////////////////////////////////////////////////
+   TxIORefPair(uint64_t  amount) :
+      amount_(amount),
+      txoutRef_(), 
+      txoutTxRef_(NULL),
+      txinTxRef_(),
+      txinRef_(NULL) {}
 
-   // UNSAFE:  check hasTxOut/hasTxIn first!
-   TxOutRef  getTxOutRef(void)    { return *txoutrefptr_; }
-   TxInRef   getTxInRef(void)     { return *txinrefptr_; }
-   TxOut     getTxOut(void)       { return txoutrefptr_->getCopy(); }
-   TxIn      getTxIn(void)        { return txinrefptr_->getCopy(); }
-
-   void setTxInRefPtr (TxInRef*  inrefptr ) { txinrefptr_  = inrefptr; }
-   void setTxOutRefPtr(TxOutRef* outrefptr) 
-   {
-      txoutrefptr_ = outrefptr; 
-      if(hasTxOut())
-         amount_ = txoutrefptr_->getValue();
+   //////////////////////////////////////////////////////////////////////////////
+   TxIORefPair(TxOutRef const &  outref, 
+               TxRef    const *  txPtr) :
+      amount_(UINT64_MAX),
+      txinTxRef_(),
+      txinRef_(NULL) 
+   { 
+      setTxOutRef(outref, txPtr);
    }
 
+   //////////////////////////////////////////////////////////////////////////////
+   TxIORefPair(TxOutRef  outref, 
+               TxRef*    txPtrOut, 
+               TxInRef   inref, 
+               TxRef*    txPtrIn) :
+      amount_(UINT64_MAX),
+   { 
+      setTxOutRef(outref, txPtrOut);
+      setTxInRef(inref, txPtrIn);
+   }
+
+
+   // Lots of accessors
+   bool      hasTxOut(void)       { return (txoutRef_.isInitialized_()); }
+   bool      hasTxIn(void)        { return (txinRef_.isInitialized_()); }
+   bool      hasValue(void)       { return (amount_!=UINT64_MAX); }
+   uint64_t  getValue(void)       { return amount_;}
+
+   //////////////////////////////////////////////////////////////////////////////
+   TxOutRef const * getTxOutRefPtr(void) const   { return &txoutRef_; }
+   TxInRef  const * getTxInRefPtr(void) const    { return &txinRef_; }
+   TxOutRef const & getTxOutRef(void) const      { return txoutRef_; }
+   TxInRef  const & getTxInRef(void)  const      { return txinRef_; }
+   TxOut            getTxOut(void) const         { return txoutRef_->getCopy(); }
+   TxIn             getTxIn(void) const          { return txinRef_->getCopy(); }
+   TxRef    const & getTxRefOfOutput(void) const { return *txoutTxRef_; }
+   TxRef    const & getTxRefOfInput(void) const  { return *txinTxRef_; }
+
+
+   //////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getTxHashOfOutput(void)
+   {
+      if(txoutTxRef_ == NULL)
+         return BtcUtils::EmptyHash_;
+      else
+         return txoutTxRef_->getHashRef();
+   }
+
+   //////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getTxHashOfInput(void)
+   {
+      if(txinTxRef_ == NULL)
+         return BtcUtils::EmptyHash_;
+      else
+         return txinTxRef_->getHashRef();
+   }
+
+   //////////////////////////////////////////////////////////////////////////////
+   void setTxInRef(TxInRef const & inref, TxRef const * intxptr)
+   { 
+      txinRef_  = inref;
+      txinTxRef_  = intxptr;
+   }
+
+   //////////////////////////////////////////////////////////////////////////////
+   void setTxOutRef(TxOutRef const & outref, TxRef const * outtxptr)
+   {
+      txoutRef_ = outref; 
+      txoutTxRef_ = outtx;
+      if(txoutRef_.isInitialized_())
+         amount_ = txoutRef_.getValue();
+   }
+
+   //////////////////////////////////////////////////////////////////////////////
    bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
    bool isSpent(void)         { return (  hasTxOut() &&  hasTxIn() ); }
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
    bool isStandardTxOutScript(void) 
    { 
       if(hasTxOut()) 
-         return txoutrefptr_->isStandard();
+         return txoutRef_->isStandard();
       return false;
    }
 
 private:
-   TxOutRef* txoutrefptr_;
-   TxInRef*  txinrefptr_;
    uint64_t  amount_;
+   TxOutRef  txoutRef_;
+   TxRef*    txoutTxRef_;
+   TxInRef   txinRef_;
+   TxRef*    txinTxRef_;
 
 };
 
 
-// I think this falls under the umbrella of premature optimization...
-// Will work on this later if it seems necessary
-/*
-// Want to reduce access times by only searching for first 4 of 32 bytes,
-// but need to handle multiple objects that may be found.  
-template<typename KEYTYPE, typename VALUETYPE>
-class mmapWrapper
-{
-private:
-   multimap<BinaryData, VALUETYPE> mmap_;
-  
-public:
-   mmapWrapper(void) { mmap_.clear(); }
-
-   VALUETYPE & find(KEYTYPE fullKey)
-   {
-      BinaryData bd = fullKey.getSliceCopy(0,4);
-      if(mmap_.count(bd) == 1)
-         return 
-   }
-
-};
-*/
 
 typedef enum
 {
+   TXIO_EMPTY,
    TXIO_UNSPENT,
-   TXIO_SPENT,
+   TXIO_SPENT
 }  TXIO_STATUS;
 
-class BtcAddress
+struct BtcAddress
 {
-public:
    BtcAddress(void) :
       address20_(0),
       pubkey65_(0),
       privkey32_(0),
-      createdBlockNum_(UINT32_MAX),
-      createdTimestamp_(UINT32_MAX)
+      createdBlockNum_(0),
+      createdTimestamp_(0),
+      txrefList_(0),
+      txioList_(0)
    {
       // Nothing to do here
+   }
+
+   void setCreatedBlockNum(uint32_t blknum) { createdBlockNum_  = blknum; }
+   void setCreatedTimestamp(uint32_t time)  { createdTimestamp_ = time;   }
+   {
+      createdBlockNum_ = blknum;
+      if(createdTimestamp_ == 0)
+         createdTimestamp_ = UINT32_MAX;
    }
 
    BinaryData address20_;
@@ -211,9 +228,10 @@ public:
    BinaryData privkey32_;
    uint32_t createdBlockNum_;
    uint32_t createdTimestamp_;
+   vector<TxRef*> txrefList_;
 
    // The second arg is for whether the money is in (+), out (-), or both (0)
-   vector< pair<TxIORefPtrPair*, int> > txioList_;
+   vector< pair<TxIORefPair*> > txioList_;
 };
 
 
@@ -290,14 +308,14 @@ private:
    BinaryData                         blockchainData_NEW_; // to be added
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef >            txHashMap_;
+   map<OutPoint,   TxIORefPair>       txioMap_;
   
    // We will maintain all transactional information in these maps
    // Only use pointers to the refs
-   map<OutPointRef, TxIORefPtrPair>   txioMap_;
-   set<OutPointRef>                   myUnspentTxOuts_;
+   set<OutPoint>                      myUnspentTxOuts_;
    set<HashString>                    myPendingTxs_;
-   set<OutPointRef>                   myTxOutsNonStandard_;
-   set<OutPointRef>                   orphanTxIns_;
+   set<OutPoint>                      myTxOutsNonStandard_;
+   set<OutPoint>                      orphanTxIns_;
 
    // For the case of keeping tx/header data on disk:
    vector<string>                     blockchainFilenames_;
@@ -423,7 +441,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // We may add accounts to our address book just for watching purposes.  Hence
    // why you may not have the pub/priv keypair
-   void addAccount(BinaryData const * addr, 
+   void addAddress(BinaryData const * addr, 
                    BinaryData const * pubKey65=NULL,
                    BinaryData const * privKey32=NULL)
    {
@@ -436,8 +454,99 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   //void updateTxIOList(vector<TxRef*> & blkTxList,
-                       //vector<BtcAddress> const & accountList)
+   void addAddress(BtcAddress newAddr)
+   {
+      if(newAddr.address20_.getSize() > 0)
+         myAccounts_[newAddr.address20_] = newAddr;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   // This is an intense search, using every tool we've created so far!
+   void scanBlockchainForTx_FromScratch(map<BinaryData, BtcAddress> const & addrMap)
+   {
+      uint32_t nHeaders = headersByHeight_.size();
+
+      ///// LOOP OVER ALL HEADERS ////
+      for(int h=0; h<nHeaders; h++)
+      {
+         BlockHeaderRef const & bhr = *(headersByHeight_[h]);
+         uint32_t blkTimestamp = bhr.getTimestamp();
+         uint32_t blkHeight    = bhr.getBlockHeight();
+         map<BinaryData, BtcAddress>::const_iterator addrIter;
+
+         ///// LOOP OVER ALL ADDRESSES ////
+         for(addrIter  = addrMap.begin();
+             addrIter != addrMap.end();
+             addrIter++)
+         {
+            if( addrIter->createdTimestamp_ > blkTimestamp - (3600*24*7) ||
+                addrIter->createdBlockNum_  > blkHeight    -  1000          )
+               continue;  // addr was created at least one week (1000 blocks) later
+
+            vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
+
+            ///// LOOP OVER ALL TX IN BLOCK /////
+            for(uint32_t itx=0; itx<txlist.size(); itx++)
+            {
+               TxRef const & tx = *(txlist[itx]);
+
+               ///// LOOP OVER ALL TXOUT IN BLOCK /////
+               for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+               {
+                  TxOutRef txout = tx.createTxOutRef();
+                  if( txout.getRecipientAddr() == addrIter->first)
+                  {
+                     txout.setMine(true);
+                     txout.setSpent(false);
+                     myUnspentTxOuts_.insert(outpt);
+                     OutPoint outpt(tx.getHash(), iout);      
+                     if(txioMap_.find(outpt) != txioMap_.end())
+                        txioMap_[outpt] = TxIORefPair(txout, &tx);
+                  }
+               }
+
+               ///// LOOP OVER ALL TXIN IN BLOCK /////
+               for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+               {
+                  TxInRef const & txin = tx.createTxInRef();
+                  BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
+                  OutPoint outpt = txin.getOutPoint();
+                  if(headerHashMap_.find(prevOutHash) != headerHashMap_.end())
+                  {
+                     // We have the header, sanity check that we have a txio 
+                     if(txioMap_.find(outpt) != txioMap_.end())
+                     {
+                        myUnspentTxOuts_.erase(outpt);
+                        txioMap_[outpt].setTxInRef(txin, &tx);
+                     }
+                     else
+                     {
+                        // WTF?  We read the blocks in height-order... 
+                        //       this shouldn't happen
+                        cerr << "***ERROR: TxIn found for unscanned txout" << endl;
+                        TxIORefPair txiorp;
+                        txiorp.setTxInRef(txin, &tx);
+                        txioMap_[outpt] = txiorp;
+                        orphanTxIns_.insert(outpt);
+                     }
+
+                  }
+                  else // also WTF?
+                  {
+                     // This shouldn't happen unless we are missing
+                     // blocks in the chain -- a TxIn referenced a 
+                     // block header that isn't in the blockheader map
+                     TxIORefPair txiorp;
+                     txiorp.setTxInRef(txin, &tx);
+                     txioMap_[outpt] = txiorp;
+                     orphanTxIns_.insert(outpt);
+                  }
+               }
+            }
+         }
+      }
+   }
+
    //{
       // TODO:  WOW this is a subtle, major problem:
       //              TxIns that are either coinbase TxIn or spending a
