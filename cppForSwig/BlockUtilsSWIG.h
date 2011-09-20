@@ -16,12 +16,18 @@
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+using namespace std;
 
 class BlockchainManager
 {
 public:
+   BlockchainManager(void) {}
 
-   addAddress(
+   void loadBlockchain(string filename);
+   bool organizeBlockchain(void);
+
+   void addPublicKey(string binPubKeyStr65B);
+   void addPrivPubKeyPair(string binPrivStr32B, string binPubStr65B);
    
 
 private:

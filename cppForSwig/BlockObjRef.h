@@ -108,6 +108,7 @@ private:
    // Need to compute these later
    BinaryData     nextHash_;
    uint32_t       numTx_;
+   uint32_t       blockNumBytes_;
    uint32_t       blockHeight_;
    uint64_t       fileByteLoc_;
    double         difficultySum_;
@@ -154,15 +155,17 @@ class TxInRef
    friend class BlockDataManager_FullRAM;
 
 public:
-   TxInRef(void) : self_(0) {}
+   TxInRef(void) : self_(0), isMine_(false) {}
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
    bool            isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
    bool            isInitialized(void) const {return self_.getSize() > 0; }
+   bool            isMine(void) const {return isMine_;}
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
 
+   void setMine(bool b) { isMine_ = b; }
 
    /////////////////////////////////////////////////////////////////////////////
    TxIn getCopy(void) const;
@@ -207,6 +210,7 @@ public:
    {
       nBytes_ = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
       self_ = BinaryDataRef(ptr, nBytes_);
+      isMine_ = false;
 
       char const & v = self_[36];
       scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));

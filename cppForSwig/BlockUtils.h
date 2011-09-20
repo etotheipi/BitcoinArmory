@@ -209,8 +209,7 @@ struct BtcAddress
       privkey32_(0),
       createdBlockNum_(0),
       createdTimestamp_(0),
-      txrefList_(0),
-      txioList_(0)
+      relevantTxIOPtrs_(0)
    {
       // Nothing to do here
    }
@@ -223,10 +222,9 @@ struct BtcAddress
    BinaryData privkey32_;
    uint32_t createdBlockNum_;
    uint32_t createdTimestamp_;
-   vector<TxRef*> txrefList_;
 
    // The second arg is for whether the money is in (+), out (-), or both (0)
-   vector< TxIORefPair* > txioList_;
+   vector< TxIORefPair* > relevantTxIOPtrs_;
 };
 
 
@@ -462,7 +460,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // This is an intense search, using every tool we've created so far!
-   void scanBlockchainForTx_FromScratch(map<BinaryData, BtcAddress> const & addrMap)
+   void scanBlockchainForTx_FromScratch(map<BinaryData, BtcAddress> & addrMap)
    {
       uint32_t nHeaders = headersByHeight_.size();
 
@@ -472,7 +470,10 @@ public:
          BlockHeaderRef & bhr = *(headersByHeight_[h]);
          uint32_t blkTimestamp = bhr.getTimestamp();
          uint32_t blkHeight    = bhr.getBlockHeight();
-         map<BinaryData, BtcAddress>::const_iterator addrIter;
+         map<BinaryData, BtcAddress>::iterator addrIter;
+
+         if(blkHeight == 108009)
+            blkHeight = 108009;
 
          ///// LOOP OVER ALL ADDRESSES ////
          for(addrIter  = addrMap.begin();
@@ -500,14 +501,27 @@ public:
                      txout.setMine(true);
                      txout.setSpent(false);
                      myUnspentTxOuts_.insert(outpt);
-                     txioMap_[outpt] = TxIORefPair(txout, &tx);
+                     pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
+                     pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+                     insResult = txioMap_.insert(toBeInserted);
+
+                     TxIORefPair & thisTxio = insResult.first->second;
+                     BtcAddress & thisAddr = addrIter->second;
+                     if(insResult.second == true)
+                     {
+                        thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
+                        if(thisAddr.createdBlockNum_ == 0 ||
+                           thisAddr.createdBlockNum_ > blkHeight)
+                           thisAddr.createdBlockNum_ = blkHeight;
+                     }
+
                   }
                }
 
                ///// LOOP OVER ALL TXIN IN BLOCK /////
                for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
                {
-                  TxInRef const & txin = tx.createTxInRef(iin);
+                  TxInRef & txin = tx.createTxInRef(iin);
                   BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
                   if(prevOutHash == BtcUtils::EmptyHash_)
                      continue;
@@ -523,6 +537,7 @@ public:
                         if(txioIter->second.getTxOutRef().getRecipientAddr() == addrIter->first)
                         {
                            myUnspentTxOuts_.erase(outpt);
+                           txin.setMine(true);
                            txioMap_[outpt].setTxInRef(txin, &tx);
                         }
                      }
@@ -791,6 +806,7 @@ public:
       {
          brr.advance(4); // magic bytes
          uint32_t nBytes = brr.get_uint32_t();
+         uint64_t fileByteLoc = brr.getPosition();
 
          bhInputPair.second.unserialize(brr);
          bhInputPair.first = bhInputPair.second.thisHash_;
@@ -799,6 +815,8 @@ public:
 
          uint32_t nTx = (uint32_t)brr.get_var_int();
          bhptr->numTx_ = nTx;
+         bhptr->blockNumBytes_ = nBytes;
+         bhptr->fileByteLoc_ = fileByteLoc;
          bhptr->txPtrList_.clear();
 
          for(uint64_t i=0; i<nTx; i++)

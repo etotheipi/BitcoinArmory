@@ -317,10 +317,10 @@ public:
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
 
-      if( !(s[1]==0x03 && s[3]==0x02) )
+      if( !(s[1]==0x30 && s[3]==0x02) )
          return TXIN_SCRIPT_UNKNOWN;
 
-      uint32_t sigSize = s[2] + 3;
+      uint32_t sigSize = s[2] + 4;
       uint32_t keySize = 66;  // \x41 \x04 [X32] [Y32] 
 
       if(s.getSize() == sigSize)
