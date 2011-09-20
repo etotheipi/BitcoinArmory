@@ -94,7 +94,7 @@ public:
       unserialize(brr.get_BinaryDataRef(HEADER_SIZE));
    }
 
-   vector<TxRef*> const & getTxRefPtrList(void) {return txPtrList_;}
+   vector<TxRef*> const & getTxRefPtrList(void) const {return txPtrList_;}
 
 
 private:
@@ -160,7 +160,7 @@ public:
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
    bool            isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
-   bool            isInitialized_(void) const {return self_.getSize() > 0; }
+   bool            isInitialized(void) const {return self_.getSize() > 0; }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
 
 
@@ -170,10 +170,10 @@ public:
    uint32_t getScriptOffset(void) { return scriptOffset_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   OutPoint getOutPoint(void);
+   OutPoint getOutPoint(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   OutPointRef getOutPointRef(void) 
+   OutPointRef getOutPointRef(void) const
    { 
       return OutPointRef(getPtr());
    }
@@ -274,13 +274,13 @@ public:
    uint32_t        getSize(void) const { return self_.getSize(); }
    uint64_t        getValue(void) const { return *(uint64_t*)(self_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
-   bool            isInitialized_(void) const {return self_.getSize() > 0; }
+   bool            isInitialized(void) const {return self_.getSize() > 0; }
 
    bool            isMine(void)  const { return isMine_;  }
    bool            isSpent(void) const { return isSpent_; }
 
-   bool            setMine(bool b)  { isMine_  = b; }
-   bool            setSpent(bool b) { isSpent_ = b; }
+   void            setMine(bool b)  { isMine_  = b; }
+   void            setSpent(bool b) { isSpent_ = b; }
 
    BinaryDataRef getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
    TXOUT_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
@@ -392,10 +392,10 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void) { return self_; }
+   BinaryDataRef serialize(void) const { return self_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getHash(void) { return thisHash_; }
+   BinaryData getHash(void) const { return thisHash_; }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getHashRef(void) const { return BinaryDataRef(thisHash_); }

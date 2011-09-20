@@ -85,26 +85,26 @@ class TxIORefPair
 public:
    //////////////////////////////////////////////////////////////////////////////
    TxIORefPair(void) : 
-      amount_(UINT64_MAX),
+      amount_(0),
       txoutRef_(), 
-      txoutTxRef_(NULL),
+      txoutTxRefPtr_(NULL),
       txinRef_(),
-      txinTxRef_(NULL),
+      txinTxRefPtr_(NULL) {}
 
    //////////////////////////////////////////////////////////////////////////////
    TxIORefPair(uint64_t  amount) :
       amount_(amount),
       txoutRef_(), 
-      txoutTxRef_(NULL),
-      txinTxRef_(),
-      txinRef_(NULL) {}
+      txoutTxRefPtr_(NULL),
+      txinRef_(),
+      txinTxRefPtr_(NULL) {}
 
    //////////////////////////////////////////////////////////////////////////////
    TxIORefPair(TxOutRef const &  outref, 
-               TxRef    const *  txPtr) :
-      amount_(UINT64_MAX),
-      txinTxRef_(),
-      txinRef_(NULL) 
+               TxRef          *  txPtr) :
+      amount_(0),
+      txinRef_(),
+      txinTxRefPtr_(NULL) 
    { 
       setTxOutRef(outref, txPtr);
    }
@@ -114,7 +114,7 @@ public:
                TxRef*    txPtrOut, 
                TxInRef   inref, 
                TxRef*    txPtrIn) :
-      amount_(UINT64_MAX),
+      amount_(0)
    { 
       setTxOutRef(outref, txPtrOut);
       setTxInRef(inref, txPtrIn);
@@ -122,53 +122,53 @@ public:
 
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txoutRef_.isInitialized_()); }
-   bool      hasTxIn(void)        { return (txinRef_.isInitialized_()); }
-   bool      hasValue(void)       { return (amount_!=UINT64_MAX); }
+   bool      hasTxOut(void)       { return (txoutRef_.isInitialized()); }
+   bool      hasTxIn(void)        { return (txinRef_.isInitialized()); }
+   bool      hasValue(void)       { return (amount_!=0); }
    uint64_t  getValue(void)       { return amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef const * getTxOutRefPtr(void) const   { return &txoutRef_; }
-   TxInRef  const * getTxInRefPtr(void) const    { return &txinRef_; }
+   TxOutRef       * getTxOutRefPtr(void)         { return &txoutRef_; }
+   TxInRef        * getTxInRefPtr(void)          { return &txinRef_; }
    TxOutRef const & getTxOutRef(void) const      { return txoutRef_; }
    TxInRef  const & getTxInRef(void)  const      { return txinRef_; }
-   TxOut            getTxOut(void) const         { return txoutRef_->getCopy(); }
-   TxIn             getTxIn(void) const          { return txinRef_->getCopy(); }
-   TxRef    const & getTxRefOfOutput(void) const { return *txoutTxRef_; }
-   TxRef    const & getTxRefOfInput(void) const  { return *txinTxRef_; }
+   TxOut            getTxOut(void) const         { return txoutRef_.getCopy(); }
+   TxIn             getTxIn(void) const          { return txinRef_.getCopy(); }
+   TxRef    const & getTxRefOfOutput(void) const { return *txoutTxRefPtr_; }
+   TxRef    const & getTxRefOfInput(void) const  { return *txinTxRefPtr_; }
 
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getTxHashOfOutput(void)
    {
-      if(txoutTxRef_ == NULL)
+      if(txoutTxRefPtr_ == NULL)
          return BtcUtils::EmptyHash_;
       else
-         return txoutTxRef_->getHashRef();
+         return txoutTxRefPtr_->getHashRef();
    }
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getTxHashOfInput(void)
    {
-      if(txinTxRef_ == NULL)
+      if(txinTxRefPtr_ == NULL)
          return BtcUtils::EmptyHash_;
       else
-         return txinTxRef_->getHashRef();
+         return txinTxRefPtr_->getHashRef();
    }
 
    //////////////////////////////////////////////////////////////////////////////
-   void setTxInRef(TxInRef const & inref, TxRef const * intxptr)
+   void setTxInRef(TxInRef const & inref, TxRef* intxptr)
    { 
       txinRef_  = inref;
-      txinTxRef_  = intxptr;
+      txinTxRefPtr_  = intxptr;
    }
 
    //////////////////////////////////////////////////////////////////////////////
-   void setTxOutRef(TxOutRef const & outref, TxRef const * outtxptr)
+   void setTxOutRef(TxOutRef const & outref, TxRef* outtxptr)
    {
       txoutRef_ = outref; 
-      txoutTxRef_ = outtx;
-      if(txoutRef_.isInitialized_())
+      txoutTxRefPtr_ = outtxptr;
+      if(txoutRef_.isInitialized())
          amount_ = txoutRef_.getValue();
    }
 
@@ -179,16 +179,16 @@ public:
    bool isStandardTxOutScript(void) 
    { 
       if(hasTxOut()) 
-         return txoutRef_->isStandard();
+         return txoutRef_.isStandard();
       return false;
    }
 
 private:
    uint64_t  amount_;
    TxOutRef  txoutRef_;
-   TxRef*    txoutTxRef_;
+   TxRef*    txoutTxRefPtr_;
    TxInRef   txinRef_;
-   TxRef*    txinTxRef_;
+   TxRef*    txinTxRefPtr_;
 
 };
 
@@ -217,11 +217,6 @@ struct BtcAddress
 
    void setCreatedBlockNum(uint32_t blknum) { createdBlockNum_  = blknum; }
    void setCreatedTimestamp(uint32_t time)  { createdTimestamp_ = time;   }
-   {
-      createdBlockNum_ = blknum;
-      if(createdTimestamp_ == 0)
-         createdTimestamp_ = UINT32_MAX;
-   }
 
    BinaryData address20_;
    BinaryData pubkey65_;
@@ -231,7 +226,7 @@ struct BtcAddress
    vector<TxRef*> txrefList_;
 
    // The second arg is for whether the money is in (+), out (-), or both (0)
-   vector< pair<TxIORefPair*> > txioList_;
+   vector< TxIORefPair* > txioList_;
 };
 
 
@@ -329,7 +324,7 @@ private:
    BlockHeaderRef*                      genBlockPtr_;
 
    // The following two maps should be parallel
-   map<BinaryData, BtcAddress>       myAccounts_;  
+   map<BinaryData, BtcAddress>       myAddresses_;  
    uint64_t                          totalBalance_;
 
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
@@ -353,7 +348,7 @@ private:
       headerHashMap_.clear();
       txHashMap_.clear();
       txioMap_.clear();
-      myAccounts_.clear();
+      myAddresses_.clear();
       headersByHeight_.clear();
       myTxOutsNonStandard_.clear();
       myPendingTxs_.clear();
@@ -445,7 +440,7 @@ public:
                    BinaryData const * pubKey65=NULL,
                    BinaryData const * privKey32=NULL)
    {
-      BtcAddress & myAddr = myAccounts_[*addr];
+      BtcAddress & myAddr = myAddresses_[*addr];
       myAddr.address20_.copyFrom(*addr);
       if(pubKey65 != NULL)
          myAddr.pubkey65_.copyFrom(*pubKey65);
@@ -457,7 +452,12 @@ public:
    void addAddress(BtcAddress newAddr)
    {
       if(newAddr.address20_.getSize() > 0)
-         myAccounts_[newAddr.address20_] = newAddr;
+         myAddresses_[newAddr.address20_] = newAddr;
+   }
+
+   void scanBlockchainForTx_FromScratch(void)
+   {
+      TIMER_WRAP(scanBlockchainForTx_FromScratch( myAddresses_ ));
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -467,9 +467,9 @@ public:
       uint32_t nHeaders = headersByHeight_.size();
 
       ///// LOOP OVER ALL HEADERS ////
-      for(int h=0; h<nHeaders; h++)
+      for(uint32_t h=0; h<nHeaders; h++)
       {
-         BlockHeaderRef const & bhr = *(headersByHeight_[h]);
+         BlockHeaderRef & bhr = *(headersByHeight_[h]);
          uint32_t blkTimestamp = bhr.getTimestamp();
          uint32_t blkHeight    = bhr.getBlockHeight();
          map<BinaryData, BtcAddress>::const_iterator addrIter;
@@ -479,8 +479,8 @@ public:
              addrIter != addrMap.end();
              addrIter++)
          {
-            if( addrIter->createdTimestamp_ > blkTimestamp - (3600*24*7) ||
-                addrIter->createdBlockNum_  > blkHeight    -  1000          )
+            if( addrIter->second.createdTimestamp_ > blkTimestamp - (3600*24*7) ||
+                addrIter->second.createdBlockNum_  > blkHeight    -  1000          )
                continue;  // addr was created at least one week (1000 blocks) later
 
             vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
@@ -488,46 +488,59 @@ public:
             ///// LOOP OVER ALL TX IN BLOCK /////
             for(uint32_t itx=0; itx<txlist.size(); itx++)
             {
-               TxRef const & tx = *(txlist[itx]);
+               TxRef & tx = *(txlist[itx]);
 
                ///// LOOP OVER ALL TXOUT IN BLOCK /////
                for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
                {
-                  TxOutRef txout = tx.createTxOutRef();
+                  TxOutRef txout = tx.createTxOutRef(iout);
                   if( txout.getRecipientAddr() == addrIter->first)
                   {
+                     OutPoint outpt(tx.getHash(), iout);      
                      txout.setMine(true);
                      txout.setSpent(false);
                      myUnspentTxOuts_.insert(outpt);
-                     OutPoint outpt(tx.getHash(), iout);      
-                     if(txioMap_.find(outpt) != txioMap_.end())
-                        txioMap_[outpt] = TxIORefPair(txout, &tx);
+                     txioMap_[outpt] = TxIORefPair(txout, &tx);
                   }
                }
 
                ///// LOOP OVER ALL TXIN IN BLOCK /////
                for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
                {
-                  TxInRef const & txin = tx.createTxInRef();
+                  TxInRef const & txin = tx.createTxInRef(iin);
                   BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
+                  if(prevOutHash == BtcUtils::EmptyHash_)
+                     continue;
+
                   OutPoint outpt = txin.getOutPoint();
-                  if(headerHashMap_.find(prevOutHash) != headerHashMap_.end())
+                  if(txHashMap_.find(prevOutHash) != txHashMap_.end())
                   {
-                     // We have the header, sanity check that we have a txio 
-                     if(txioMap_.find(outpt) != txioMap_.end())
+                     // We have the tx, sanity check that we have a txio 
+                     map<OutPoint, TxIORefPair>::iterator txioIter 
+                                                   = txioMap_.find(outpt);
+                     if(txioIter != txioMap_.end())
                      {
-                        myUnspentTxOuts_.erase(outpt);
-                        txioMap_[outpt].setTxInRef(txin, &tx);
+                        if(txioIter->second.getTxOutRef().getRecipientAddr() == addrIter->first)
+                        {
+                           myUnspentTxOuts_.erase(outpt);
+                           txioMap_[outpt].setTxInRef(txin, &tx);
+                        }
                      }
                      else
                      {
+
                         // WTF?  We read the blocks in height-order... 
                         //       this shouldn't happen
-                        cerr << "***ERROR: TxIn found for unscanned txout" << endl;
-                        TxIORefPair txiorp;
-                        txiorp.setTxInRef(txin, &tx);
-                        txioMap_[outpt] = txiorp;
-                        orphanTxIns_.insert(outpt);
+                        // CORRECTION:  Actually, we are only saving our own
+                        //              txio objects, so most of the TxIns
+                        //              that we find will not match one in the 
+                        //              txioMap, and thus we hit this conditional
+                        //              constantly... this is normal
+                        //cerr << "***ERROR: TxIn found for unscanned txout" << endl;
+                        //TxIORefPair txiorp;
+                        //txiorp.setTxInRef(txin, &tx);
+                        //txioMap_[outpt] = txiorp;
+                        //orphanTxIns_.insert(outpt);
                      }
 
                   }
@@ -535,7 +548,7 @@ public:
                   {
                      // This shouldn't happen unless we are missing
                      // blocks in the chain -- a TxIn referenced a 
-                     // block header that isn't in the blockheader map
+                     // transaction that isn't in the tx map
                      TxIORefPair txiorp;
                      txiorp.setTxInRef(txin, &tx);
                      txioMap_[outpt] = txiorp;
@@ -1267,6 +1280,9 @@ public:
          if(thisBlockPtr == prevTopBlockPtr)
             prevChainStillValid = true;
       }
+      // Last block in the while loop didn't get added (usually genesis block)
+      thisBlockPtr->isMainBranch_   = true;
+      headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
 
       // Not sure if this should be automatic... for now I don't think it hurts
       if( !prevChainStillValid )

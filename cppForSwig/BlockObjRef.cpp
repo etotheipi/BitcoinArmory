@@ -48,7 +48,7 @@ OutPoint OutPointRef::getCopy(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-OutPoint TxInRef::getOutPoint(void) 
+OutPoint TxInRef::getOutPoint(void) const
 { 
    OutPoint op;
    op.unserialize(getPtr());
@@ -91,17 +91,17 @@ Tx TxRef::getCopy(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-TxIn  TxRef::getTxIn (int i) const
+TxIn  TxRef::getTxInCopy (int i) const
 { 
    assert(isInitialized_);  
-   return getTxInRef(i).getCopy();
+   return createTxInRef(i).getCopy();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-TxOut TxRef::getTxOut(int i) const
+TxOut TxRef::getTxOutCopy(int i) const
 { 
    assert(isInitialized_);  
-   return getTxOutRef(i).getCopy(); 
+   return createTxOutRef(i).getCopy(); 
 }
 
 

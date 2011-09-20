@@ -1,0 +1,29 @@
+#include <iostream>
+#include <string>
+#include <vector>
+#include <map>
+#include "BinaryData.h"
+#include "BlockUtils.h"
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// Wrapper for the BlockDataManager classes.  Need a "simple" interface to
+// simplify the wrapping as much as possible.  ALL python calls should be 
+// here, using nothing but simple C++ types (int, double, string, vector, etc)
+//
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+
+class BlockchainManager
+{
+public:
+
+   addAddress(
+   
+
+private:
+   BlockDataManager_FullRAM bdm_;
+}

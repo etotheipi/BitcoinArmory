@@ -41,13 +41,6 @@ int main(void)
    //cout << "Contains test (T): " << testContains.find(e) << endl;
    //cout << "Contains test (T): " << testContains.find(f) << endl;
 
-   BinaryData myAddress, myPubKey;
-   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
-   myPubKey.createFromHex("e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
-   //myAddress.swapEndian();
-   //myPubKey.swapEndian();
-
-   bdm.addAccount(&myAddress, &myPubKey);
 
    //cout << "Orig : " << strgenblk.c_str() << endl;
    //cout << "New  : " << strrndtrip.c_str() << endl;
@@ -95,6 +88,23 @@ int main(void)
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
    bdm.getTopBlock().getCopy().printBlockHeader(cout);
+
+
+   BinaryData myAddress, myPubKey;
+   //myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
+   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14");
+   myPubKey.createFromHex("04e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
+   //myAddress.swapEndian();
+   //myPubKey.swapEndian();
+
+   bdm.addAddress(&myAddress, &myPubKey);
+   myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
+   bdm.addAddress(&myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+   bdm.addAddress(&myAddress);
+
+   bdm.scanBlockchainForTx_FromScratch();
+
 
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
