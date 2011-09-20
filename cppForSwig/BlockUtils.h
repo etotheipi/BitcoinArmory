@@ -472,9 +472,6 @@ public:
          uint32_t blkHeight    = bhr.getBlockHeight();
          map<BinaryData, BtcAddress>::iterator addrIter;
 
-         if(blkHeight == 108009)
-            blkHeight = 108009;
-
          ///// LOOP OVER ALL ADDRESSES ////
          for(addrIter  = addrMap.begin();
              addrIter != addrMap.end();
@@ -575,6 +572,290 @@ public:
       }
    }
 
+
+
+
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t readBlockchainFromBlkFile_FullRAM_FromScratch(string filename)
+   {
+      cout << "Reading block data from file: " << filename.c_str() << endl;
+      ifstream is(filename.c_str(), ios::in | ios::binary);
+      is.seekg(0, ios::end);
+      size_t filesize = (size_t)is.tellg();
+      is.seekg(0, ios::beg);
+      cout << filename.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
+
+      //////////////////////////////////////////////////////////////////////////
+      TIMER_START("ReadBlockchainIntoRAM");
+      blockchainData_ALL_.resize(filesize);
+      uint8_t* front = blockchainData_ALL_.getPtr();
+      is.read((char*)front, filesize);
+      TIMER_STOP("ReadBlockchainIntoRAM");
+      //////////////////////////////////////////////////////////////////////////
+
+      // Going ot use the following four objects for efficient insertions
+      pair<HashString, TxRef>  txInputPair;
+      pair<HashString, BlockHeaderRef>  bhInputPair;
+      pair<map<HashString, TxRef>::iterator, bool>          txInsResult;
+      pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
+
+      cout << "Scanning all block data currently in RAM" << endl;
+      TIMER_START("ScanBlockchainInRAM");
+      BinaryRefReader brr(blockchainData_ALL_);
+      uint32_t nBlkRead = 0;
+      while(!brr.isEndOfStream())
+      {
+         brr.advance(4); // magic bytes
+         uint32_t nBytes = brr.get_uint32_t();
+         uint64_t fileByteLoc = brr.getPosition();
+
+         bhInputPair.second.unserialize(brr);
+         bhInputPair.first = bhInputPair.second.thisHash_;
+         bhInsResult = headerHashMap_.insert(bhInputPair);
+         BlockHeaderRef * bhptr = &(bhInsResult.first->second);
+
+         uint32_t nTx = (uint32_t)brr.get_var_int();
+         bhptr->numTx_ = nTx;
+         bhptr->blockNumBytes_ = nBytes;
+         bhptr->fileByteLoc_ = fileByteLoc;
+         bhptr->txPtrList_.clear();
+
+         for(uint64_t i=0; i<nTx; i++)
+         {
+            txInputPair.second.unserialize(brr);
+            txInputPair.first = txInputPair.second.thisHash_;
+            txInsResult = txHashMap_.insert(txInputPair);
+            TxRef * txptr = &(txInsResult.first->second);
+
+            txptr->headerPtr_ = bhptr;
+            bhptr->txPtrList_.push_back( txptr );
+         }
+         nBlkRead++;
+      }
+      TIMER_STOP("ScanBlockchainInRAM");
+      return nBlkRead;
+
+   }
+
+   uint32_t readBlockchainFromBlkFile_FullRAM_UseBlkIndex(string blkfn,
+                                                          string idxfn)
+   {
+
+   }
+
+   uint32_t readIndexFile(string indexfn)
+   {
+
+   }
+
+   void writeBlkIndexFile_Full(std::string filename)
+   {
+
+   }
+
+   
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Not sure exactly when this would get used...
+   void addHeader(BinaryData const & binHeader)
+   {
+      BinaryData theHash(32); 
+      BtcUtils::getHash256(binHeader, theHash);
+      headerHashMap_[theHash] = BlockHeaderRef(binHeader);
+   }
+
+
+
+   // This returns false if our new main branch does not include the previous
+   // topBlock.  If this returns false, that probably means that we have
+   // previously considered some blocks to be valid that no longer are valid.
+   bool organizeChain(bool forceRebuild=false)
+   {
+      // If rebuild, we zero out any original organization data and do a 
+      // rebuild of the chain from scratch.  This will need to be done in
+      // the event that our first call to organizeChain returns false, which
+      // means part of blockchain that was previously valid, has become
+      // invalid.  Rather than get fancy, just rebuild all which takes less
+      // than a second, anyway.
+      if(forceRebuild)
+      {
+         map<BinaryData, BlockHeaderRef>::iterator iter;
+         for( iter  = headerHashMap_.begin(); 
+              iter != headerHashMap_.end(); 
+              iter++)
+         {
+            iter->second.difficultySum_ = -1;
+            iter->second.difficultyDbl_ = -1;
+            iter->second.blockHeight_   =  0;
+            iter->second.isFinishedCalc_ = false;
+         }
+      }
+
+      // Set genesis block
+      BlockHeaderRef & genBlock = getGenesisBlock();
+      genBlock.blockHeight_    = 0;
+      genBlock.difficultyDbl_  = 1.0;
+      genBlock.difficultySum_  = 1.0;
+      genBlock.isMainBranch_   = true;
+      genBlock.isOrphan_       = false;
+      genBlock.isFinishedCalc_ = true;
+
+      BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
+      BinaryData const & EmptyHash_   = BtcUtils::EmptyHash_;
+      if(topBlockPtr_ == NULL)
+         topBlockPtr_ = &genBlock;
+
+      // Store the old top block so we can later check whether it is included 
+      // in the new chain organization
+      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
+
+      // Iterate over all blocks, track the maximum difficulty-sum block
+      map<BinaryData, BlockHeaderRef>::iterator iter;
+      uint32_t maxBlockHeight = 0;
+      double   maxDiffSum = 0;
+      for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
+      {
+         // *** The magic happens here
+         double thisDiffSum = traceChainDown(iter->second);
+         // ***
+         
+         if(thisDiffSum > maxDiffSum)
+         {
+            maxDiffSum     = thisDiffSum;
+            topBlockPtr_   = &(iter->second);
+         }
+      }
+
+      // Walk down the list one more time, set nextHash fields
+      // Also set headersByHeight_;
+      topBlockPtr_->nextHash_ = EmptyHash_;
+      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
+      bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
+      headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
+      while( !thisBlockPtr->isFinishedCalc_ )
+      {
+         thisBlockPtr->isFinishedCalc_ = true;
+         thisBlockPtr->isMainBranch_   = true;
+         thisBlockPtr->isOrphan_       = false;
+         headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
+
+         BinaryData & childHash        = thisBlockPtr->thisHash_;
+         thisBlockPtr                  = &(headerHashMap_[thisBlockPtr->getPrevHash()]);
+         thisBlockPtr->nextHash_       = childHash;
+
+         if(thisBlockPtr == prevTopBlockPtr)
+            prevChainStillValid = true;
+      }
+      // Last block in the while loop didn't get added (usually genesis block)
+      thisBlockPtr->isMainBranch_   = true;
+      headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
+
+      // Not sure if this should be automatic... for now I don't think it hurts
+      if( !prevChainStillValid )
+      {
+         organizeChain(true); // force-rebuild the blockchain
+         return false;
+      }
+
+      return prevChainStillValid;
+   }
+
+private:
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Start from a node, trace down to the highest solved block, accumulate
+   // difficulties and difficultySum values.  Return the difficultySum of 
+   // this block.
+   double traceChainDown(BlockHeaderRef & bhpStart)
+   {
+      if(bhpStart.difficultySum_ > 0)
+         return bhpStart.difficultySum_;
+
+      // Prepare some data structures for walking down the chain
+      vector<double>          difficultyStack(headerHashMap_.size());
+      vector<BlockHeaderRef*>     bhpPtrStack(headerHashMap_.size());
+      uint32_t blkIdx = 0;
+      double thisDiff;
+
+      // Walk down the chain of prevHash_ values, until we find a block
+      // that has a definitive difficultySum value (i.e. >0). 
+      BlockHeaderRef* thisPtr = &bhpStart;
+      map<BinaryData, BlockHeaderRef>::iterator iter;
+      while( thisPtr->difficultySum_ < 0)
+      {
+         thisDiff = thisPtr->difficultyDbl_;
+         difficultyStack[blkIdx] = thisDiff;
+         bhpPtrStack[blkIdx]     = thisPtr;
+         blkIdx++;
+
+         iter = headerHashMap_.find(thisPtr->getPrevHash());
+         if( iter != headerHashMap_.end() )
+            thisPtr = &(iter->second);
+         else
+         {
+            // We didn't hit a known block, but we don't have this block's
+            // ancestor in the memory pool, so this is an orphan chain...
+            // at least temporarily
+            markOrphanChain(bhpStart);
+            return 0.0;
+         }
+      }
+
+
+      // Now we have a stack of difficulties and pointers.  Walk back up
+      // (by pointer) and accumulate the difficulty values 
+      double   seedDiffSum = thisPtr->difficultySum_;
+      uint32_t blkHeight   = thisPtr->blockHeight_;
+      for(int32_t i=blkIdx-1; i>=0; i--)
+      {
+         seedDiffSum += difficultyStack[i];
+         blkHeight++;
+         thisPtr                 = bhpPtrStack[i];
+         thisPtr->difficultyDbl_ = difficultyStack[i];
+         thisPtr->difficultySum_ = seedDiffSum;
+         thisPtr->blockHeight_   = blkHeight;
+      }
+      
+      // Finally, we have all the difficulty sums calculated, return this one
+      return bhpStart.difficultySum_;
+     
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void markOrphanChain(BlockHeaderRef & bhpStart)
+   {
+      bhpStart.isOrphan_ = true;
+      bhpStart.isMainBranch_ = false;
+      map<BinaryData, BlockHeaderRef>::iterator iter;
+      iter = headerHashMap_.find(bhpStart.getPrevHash());
+      HashStringRef lastHeadHash(32);
+      // TODO: I believe here we can check whether the block was previously
+      //       marked isMainBranch_ and if so, we can add it to a "previously-
+      //       but-no-longer-valid" block list.  This allows us to flag txs
+      //       that might have been included in the wallet, but should be removed.
+      while( iter != headerHashMap_.end() )
+      {
+         if(iter->second.isMainBranch_ == true)
+            previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
+         iter->second.isOrphan_ = true;
+         iter->second.isMainBranch_ = false;
+         lastHeadHash.setRef(iter->second.thisHash_);
+         iter = headerHashMap_.find(iter->second.getPrevHash());
+      }
+      orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
+   }
+
+
+   
+};
+
+
+// Some old methods that are not appropriate for the fullRAM implementation
+// but I might want to recycle later
    //{
       // TODO:  WOW this is a subtle, major problem:
       //              TxIns that are either coinbase TxIn or spending a
@@ -770,93 +1051,7 @@ public:
       return filesize;      
    }
    */
-
-
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t readBlockchainFromBlkFile_FullRAM_FromScratch(string filename)
-   {
-      cout << "Reading block data from file: " << filename.c_str() << endl;
-      ifstream is(filename.c_str(), ios::in | ios::binary);
-      is.seekg(0, ios::end);
-      size_t filesize = (size_t)is.tellg();
-      is.seekg(0, ios::beg);
-      cout << filename.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
-
-      //////////////////////////////////////////////////////////////////////////
-      TIMER_START("ReadBlockchainIntoRAM");
-      blockchainData_ALL_.resize(filesize);
-      uint8_t* front = blockchainData_ALL_.getPtr();
-      is.read((char*)front, filesize);
-      TIMER_STOP("ReadBlockchainIntoRAM");
-      //////////////////////////////////////////////////////////////////////////
-
-      // Going ot use the following four objects for efficient insertions
-      pair<HashString, TxRef>  txInputPair;
-      pair<HashString, BlockHeaderRef>  bhInputPair;
-      pair<map<HashString, TxRef>::iterator, bool>          txInsResult;
-      pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
-
-      cout << "Scanning all block data currently in RAM" << endl;
-      TIMER_START("ScanBlockchainInRAM");
-      BinaryRefReader brr(blockchainData_ALL_);
-      uint32_t nBlkRead = 0;
-      while(!brr.isEndOfStream())
-      {
-         brr.advance(4); // magic bytes
-         uint32_t nBytes = brr.get_uint32_t();
-         uint64_t fileByteLoc = brr.getPosition();
-
-         bhInputPair.second.unserialize(brr);
-         bhInputPair.first = bhInputPair.second.thisHash_;
-         bhInsResult = headerHashMap_.insert(bhInputPair);
-         BlockHeaderRef * bhptr = &(bhInsResult.first->second);
-
-         uint32_t nTx = (uint32_t)brr.get_var_int();
-         bhptr->numTx_ = nTx;
-         bhptr->blockNumBytes_ = nBytes;
-         bhptr->fileByteLoc_ = fileByteLoc;
-         bhptr->txPtrList_.clear();
-
-         for(uint64_t i=0; i<nTx; i++)
-         {
-            txInputPair.second.unserialize(brr);
-            txInputPair.first = txInputPair.second.thisHash_;
-            txInsResult = txHashMap_.insert(txInputPair);
-            TxRef * txptr = &(txInsResult.first->second);
-
-            txptr->headerPtr_ = bhptr;
-            bhptr->txPtrList_.push_back( txptr );
-         }
-
-         //updateTxIOList(bhptr->txPtrList_);
-
-         //brr.getSizeRemaining(); 
-         nBlkRead++;
-      }
-      TIMER_STOP("ScanBlockchainInRAM");
-      return nBlkRead;
-
-   }
-
-   uint32_t readBlockchainFromBlkFile_FullRAM_UseBlkIndex(string blkfn,
-                                                          string idxfn)
-   {
-
-   }
-
-   uint32_t readIndexFile(string indexfn)
-   {
-
-   }
-
-   void writeBlkIndexFile_Full(std::string filename)
-   {
-
-   }
-
-   /*
+/*
    /////////////////////////////////////////////////////////////////////////////
    uint32_t importFromBlockFile(std::string filename, bool justHeaders=false)
    {
@@ -1205,203 +1400,6 @@ public:
       return (uint32_t)headerHashMap_.size();
    }
    */
-
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Not sure exactly when this would get used...
-   void addHeader(BinaryData const & binHeader)
-   {
-      BinaryData theHash(32); 
-      BtcUtils::getHash256(binHeader, theHash);
-      headerHashMap_[theHash] = BlockHeaderRef(binHeader);
-   }
-
-
-
-   // This returns false if our new main branch does not include the previous
-   // topBlock.  If this returns false, that probably means that we have
-   // previously considered some blocks to be valid that no longer are valid.
-   bool organizeChain(bool forceRebuild=false)
-   {
-      // If rebuild, we zero out any original organization data and do a 
-      // rebuild of the chain from scratch.  This will need to be done in
-      // the event that our first call to organizeChain returns false, which
-      // means part of blockchain that was previously valid, has become
-      // invalid.  Rather than get fancy, just rebuild all which takes less
-      // than a second, anyway.
-      if(forceRebuild)
-      {
-         map<BinaryData, BlockHeaderRef>::iterator iter;
-         for( iter  = headerHashMap_.begin(); 
-              iter != headerHashMap_.end(); 
-              iter++)
-         {
-            iter->second.difficultySum_ = -1;
-            iter->second.difficultyDbl_ = -1;
-            iter->second.blockHeight_   =  0;
-            iter->second.isFinishedCalc_ = false;
-         }
-      }
-
-      // Set genesis block
-      BlockHeaderRef & genBlock = getGenesisBlock();
-      genBlock.blockHeight_    = 0;
-      genBlock.difficultyDbl_  = 1.0;
-      genBlock.difficultySum_  = 1.0;
-      genBlock.isMainBranch_   = true;
-      genBlock.isOrphan_       = false;
-      genBlock.isFinishedCalc_ = true;
-
-      BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
-      BinaryData const & EmptyHash_   = BtcUtils::EmptyHash_;
-      if(topBlockPtr_ == NULL)
-         topBlockPtr_ = &genBlock;
-
-      // Store the old top block so we can later check whether it is included 
-      // in the new chain organization
-      BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
-
-      // Iterate over all blocks, track the maximum difficulty-sum block
-      map<BinaryData, BlockHeaderRef>::iterator iter;
-      uint32_t maxBlockHeight = 0;
-      double   maxDiffSum = 0;
-      for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
-      {
-         // *** The magic happens here
-         double thisDiffSum = traceChainDown(iter->second);
-         // ***
-         
-         if(thisDiffSum > maxDiffSum)
-         {
-            maxDiffSum     = thisDiffSum;
-            topBlockPtr_   = &(iter->second);
-         }
-      }
-
-      // Walk down the list one more time, set nextHash fields
-      // Also set headersByHeight_;
-      topBlockPtr_->nextHash_ = EmptyHash_;
-      BlockHeaderRef* thisBlockPtr = topBlockPtr_;
-      bool prevChainStillValid = (thisBlockPtr == prevTopBlockPtr);
-      headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
-      while( !thisBlockPtr->isFinishedCalc_ )
-      {
-         thisBlockPtr->isFinishedCalc_ = true;
-         thisBlockPtr->isMainBranch_   = true;
-         headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
-
-         BinaryData & childHash        = thisBlockPtr->thisHash_;
-         thisBlockPtr                  = &(headerHashMap_[thisBlockPtr->getPrevHash()]);
-         thisBlockPtr->nextHash_       = childHash;
-
-         if(thisBlockPtr == prevTopBlockPtr)
-            prevChainStillValid = true;
-      }
-      // Last block in the while loop didn't get added (usually genesis block)
-      thisBlockPtr->isMainBranch_   = true;
-      headersByHeight_[thisBlockPtr->getBlockHeight()] = thisBlockPtr;
-
-      // Not sure if this should be automatic... for now I don't think it hurts
-      if( !prevChainStillValid )
-      {
-         organizeChain(true); // force-rebuild the blockchain
-         return false;
-      }
-
-      return prevChainStillValid;
-   }
-
-private:
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Start from a node, trace down to the highest solved block, accumulate
-   // difficulties and difficultySum values.  Return the difficultySum of 
-   // this block.
-   double traceChainDown(BlockHeaderRef & bhpStart)
-   {
-      if(bhpStart.difficultySum_ > 0)
-         return bhpStart.difficultySum_;
-
-      // Prepare some data structures for walking down the chain
-      vector<double>          difficultyStack(headerHashMap_.size());
-      vector<BlockHeaderRef*>     bhpPtrStack(headerHashMap_.size());
-      uint32_t blkIdx = 0;
-      double thisDiff;
-
-      // Walk down the chain of prevHash_ values, until we find a block
-      // that has a definitive difficultySum value (i.e. >0). 
-      BlockHeaderRef* thisPtr = &bhpStart;
-      map<BinaryData, BlockHeaderRef>::iterator iter;
-      while( thisPtr->difficultySum_ < 0)
-      {
-         thisDiff = thisPtr->difficultyDbl_;
-         difficultyStack[blkIdx] = thisDiff;
-         bhpPtrStack[blkIdx]     = thisPtr;
-         blkIdx++;
-
-         iter = headerHashMap_.find(thisPtr->getPrevHash());
-         if( iter != headerHashMap_.end() )
-            thisPtr = &(iter->second);
-         else
-         {
-            // We didn't hit a known block, but we don't have this block's
-            // ancestor in the memory pool, so this is an orphan chain...
-            // at least temporarily
-            markOrphanChain(bhpStart);
-            return 0.0;
-         }
-      }
-
-
-      // Now we have a stack of difficulties and pointers.  Walk back up
-      // (by pointer) and accumulate the difficulty values 
-      double   seedDiffSum = thisPtr->difficultySum_;
-      uint32_t blkHeight   = thisPtr->blockHeight_;
-      for(int32_t i=blkIdx-1; i>=0; i--)
-      {
-         seedDiffSum += difficultyStack[i];
-         blkHeight++;
-         thisPtr                 = bhpPtrStack[i];
-         thisPtr->difficultyDbl_ = difficultyStack[i];
-         thisPtr->difficultySum_ = seedDiffSum;
-         thisPtr->blockHeight_   = blkHeight;
-      }
-      
-      // Finally, we have all the difficulty sums calculated, return this one
-      return bhpStart.difficultySum_;
-     
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   void markOrphanChain(BlockHeaderRef & bhpStart)
-   {
-      bhpStart.isOrphan_ = true;
-      bhpStart.isMainBranch_ = false;
-      map<BinaryData, BlockHeaderRef>::iterator iter;
-      iter = headerHashMap_.find(bhpStart.getPrevHash());
-      HashStringRef lastHeadHash(32);
-      // TODO: I believe here we can check whether the block was previously
-      //       marked isMainBranch_ and if so, we can add it to a "previously-
-      //       but-no-longer-valid" block list.  This allows us to flag txs
-      //       that might have been included in the wallet, but should be removed.
-      while( iter != headerHashMap_.end() )
-      {
-         if(iter->second.isMainBranch_ == true)
-            previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
-         iter->second.isOrphan_ = true;
-         iter->second.isMainBranch_ = false;
-         lastHeadHash.setRef(iter->second.thisHash_);
-         iter = headerHashMap_.find(iter->second.getPrevHash());
-      }
-      orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
-   }
-
-
-   
-};
-
 
 
 #endif

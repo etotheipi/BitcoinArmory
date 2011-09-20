@@ -75,6 +75,7 @@ public:
       nextHash_ = BinaryData(0);
       numTx_ = 0;
       blockHeight_ = UINT32_MAX;
+      blockNumBytes_ = 0;
       fileByteLoc_ = 0;
       difficultySum_ = -1;
       isMainBranch_ = false;

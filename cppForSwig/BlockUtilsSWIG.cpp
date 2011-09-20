@@ -4,7 +4,12 @@
 #include <map>
 #include "BlockUtilsSWIG.h"
 
-void BlockUtilsSWIG::addPublicKey(string binPubKey65Str)
+SWIG_BlockchainManager::SWIG_BlockchainManager(void)
+{
+   bdm_ = &(BlockDataManager_FullRAM.GetInstance());
+}
+
+void SWIG_BlockchainManager::addPublicKey(string binPubKey65Str)
 {
    BinaryData binPubKey(binPubKeyStr);
       

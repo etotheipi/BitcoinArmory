@@ -18,10 +18,22 @@
 
 using namespace std;
 
-class BlockchainManager
+////////////////////////////////////////////////////////////////////////////////
+class SWIG_BlockHeader
+{
+   SWIG_BlockHeader(void);
+
+   
+
+private:
+   BlockHeaderRef* bhr_;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+class SWIG_BlockchainManager
 {
 public:
-   BlockchainManager(void) {}
+   BlockchainManager(void);
 
    void loadBlockchain(string filename);
    bool organizeBlockchain(void);
@@ -32,4 +44,4 @@ public:
 
 private:
    BlockDataManager_FullRAM bdm_;
-}
+};
