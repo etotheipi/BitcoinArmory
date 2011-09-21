@@ -1093,7 +1093,7 @@ class TxIn(object):
       print indstr + indent + 'PrevTxHash:', \
                   binary_to_hex(self.outpoint.txOutHash, BIGENDIAN), '(BE)'
       print indstr + indent + 'TxOutIndex:', self.outpoint.index
-      source = TxInScriptExtractKeyAddr(self.binScript)[0]
+      source = TxInScriptExtractKeyAddr(self)[0]
       if 'Sign' in source:
          print indstr + indent + 'Script:    ', '('+source+')'
       else:

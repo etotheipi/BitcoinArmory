@@ -213,7 +213,7 @@ class OutPoint
 public:
    OutPoint(void) : txHash_(32), txOutIndex_(UINT32_MAX) { }
 
-   OutPoint(BinaryData & txHash, uint32_t txOutIndex) : 
+   OutPoint(BinaryData const & txHash, uint32_t txOutIndex) : 
                 txHash_(txHash), txOutIndex_(txOutIndex) { }
 
    OutPoint(uint8_t const * ptr) { unserialize(ptr); }
@@ -567,7 +567,8 @@ public:
    {
       // This would be too annoying to write in raw pointer-arithmatic
       // So I will just create a BinaryRefReader
-      unserialize(BinaryRefReader(ptr));
+      BinaryRefReader brr(ptr);
+      unserialize(brr);
    }
 
    /////////////////////////////////////////////////////////////////////////////

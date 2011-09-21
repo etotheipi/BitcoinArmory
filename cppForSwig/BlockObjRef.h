@@ -397,10 +397,10 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void) const { return self_; }
+   BinaryDataRef const & serialize(void) const { return self_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getHash(void) const { return thisHash_; }
+   BinaryData const & getHash(void) const { return thisHash_; }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getHashRef(void) const { return BinaryDataRef(thisHash_); }

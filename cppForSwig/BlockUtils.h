@@ -518,7 +518,7 @@ public:
                ///// LOOP OVER ALL TXIN IN BLOCK /////
                for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
                {
-                  TxInRef & txin = tx.createTxInRef(iin);
+                  TxInRef txin = tx.createTxInRef(iin);
                   BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
                   if(prevOutHash == BtcUtils::EmptyHash_)
                      continue;
@@ -526,7 +526,7 @@ public:
                   OutPoint outpt = txin.getOutPoint();
                   if(txHashMap_.find(prevOutHash) != txHashMap_.end())
                   {
-                     // We have the tx, sanity check that we have a txio 
+                     // We have the tx, now check if it contains one of our TxOuts
                      map<OutPoint, TxIORefPair>::iterator txioIter 
                                                    = txioMap_.find(outpt);
                      if(txioIter != txioMap_.end())

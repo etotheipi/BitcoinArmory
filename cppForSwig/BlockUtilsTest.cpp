@@ -1,6 +1,6 @@
 #include <iostream>
 #include <fstream>
-#include "blockUtils.h"
+#include "BlockUtils.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "UniversalTimer.h"
