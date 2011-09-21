@@ -28,16 +28,20 @@ class BlockHeader
 public: 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t            getVersion(void) const     { return version_;      }
-   BinaryData const &  getPrevHash(void) const    { return prevHash_;     }
-   BinaryData const &  getMerkleRoot(void) const  { return merkleRoot_;   }
-   uint32_t            getTimestamp(void) const   { return timestamp_;    }
-   BinaryData const &  getDiffBits(void) const    { return diffBits_;  }
-   uint32_t            getNonce(void) const       { return nonce_;        }
-   BinaryData const &  getThisHash(void) const    { return thisHash_;     }
-   BinaryData const &  getNextHash(void) const    { return nextHash_;     }
-   uint32_t            getNumTx(void) const       { return numTx_;        }
-   uint32_t            getBlockHeight(void) const { return blockHeight_;  }
+   uint32_t            getVersion(void) const       { return version_;      }
+   BinaryData const &  getPrevHash(void) const      { return prevHash_;     }
+   BinaryData const &  getMerkleRoot(void) const    { return merkleRoot_;   }
+   uint32_t            getTimestamp(void) const     { return timestamp_;    }
+   BinaryData const &  getDiffBits(void) const      { return diffBits_;  }
+   uint32_t            getNonce(void) const         { return nonce_;        }
+   BinaryData const &  getThisHash(void) const      { return thisHash_;     }
+   BinaryData const &  getNextHash(void) const      { return nextHash_;     }
+   uint32_t            getNumTx(void) const         { return numTx_;        }
+   uint32_t            getBlockHeight(void) const   { return blockHeight_;  }
+   double              getDifficulty(void) const    { return difficultyDbl_;  }
+   double              getDifficultySum(void) const { return difficultySum_;  }
+   bool                isMainBranch(void) const     { return isMainBranch_;  }
+   bool                isOrphan(void) const         { return isOrphan_;  }
    
    /////////////////////////////////////////////////////////////////////////////
    void setVersion(uint32_t i)        { version_ = i;                    }
@@ -91,6 +95,13 @@ public:
       br.get_BinaryData(str, HEADER_SIZE);
       unserialize(str);
    }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void unserialize(string const & str)
+   {
+      BinaryDataRef bdr((uint8_t const *)str.c_str(), str.size());
+      unserialize(bdr);
+   } 
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryData const & str)

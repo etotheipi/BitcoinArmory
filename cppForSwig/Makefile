@@ -1,10 +1,10 @@
 COMPILER = g++ 
 #COMPILER_OPTS = -c -g -Wall
-COMPILER_OPTS = -c -march=native -O2 -pipe -Wall
+COMPILER_OPTS = -c -march=native -O2 -pipe 
 
 
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o 
+OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o BlockUtilsSWIG.o
 
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LIBRARY_OPTS += -Lcryptopp -lcryptopp
@@ -40,6 +40,9 @@ BlockObjRef.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockObjRef.cpp
 
 BlockUtils.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils.cpp
+
+BlockUtilsSWIG.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtilsSWIG.h BlockUtilsSWIG.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsSWIG.cpp
 
 #BlockUtilsTest.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockUtilsTest.cpp
 	#$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsTest.cpp

@@ -414,10 +414,12 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Get a blockheader based on its height on the main chain
-   BlockHeaderRef & getHeaderByHeight(int index)
+   BlockHeaderRef * getHeaderByHeight(int index)
    {
-      if( index>=0 && index<(int)headersByHeight_.size())
-         return *headersByHeight_[index];
+      if( index<0 || index>=(int)headersByHeight_.size())
+         return NULL;
+      else
+         return headersByHeight_[index];
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -639,6 +641,7 @@ public:
 
    }
 
+   /*
    uint32_t readBlockchainFromBlkFile_FullRAM_UseBlkIndex(string blkfn,
                                                           string idxfn)
    {
@@ -654,6 +657,7 @@ public:
    {
 
    }
+   */
 
    
 
