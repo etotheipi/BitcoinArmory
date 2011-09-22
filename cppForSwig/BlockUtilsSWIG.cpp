@@ -14,6 +14,14 @@ void SWIG_BlockchainManager::loadBlockchain(string filename)
    isBlockChainLoaded_ = true;
 }
 
+void SWIG_BlockchainManager::resetBlockchainData(void)
+{
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
+
+   bdm.Reset();
+   isBlockChainLoaded_ = false;
+}
+
 SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHeight(uint32_t h)
 {
    assert(isBlockChainLoaded_);
@@ -30,7 +38,21 @@ SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHash(string hash)
    return SWIG_BlockHeader(*bdm.getHeaderByHash(BinaryData(hash)));
 }
 
+SWIG_BlockHeader SWIG_BlockchainManager::getTopBlockHeader(void)
+{
+   assert(isBlockChainLoaded_);
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
 
+   return SWIG_BlockHeader(bdm.getTopBlock());
+}
+
+uint32_t SWIG_BlockchainManager::getTopBlockHeight(void)
+{
+   assert(isBlockChainLoaded_);
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
+
+   return bdm.getTopBlock().getBlockHeight();
+}
 
 
 

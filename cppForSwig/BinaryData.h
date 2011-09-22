@@ -275,6 +275,12 @@ public:
       }
    }
 
+   // For deallocating all the memory that is currently used by this BD
+   void clear(void)
+   {
+      data_.clear();
+      nBytes_=0;
+   }
 
 private:
    vector<uint8_t> data_;

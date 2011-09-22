@@ -43,6 +43,7 @@ public:
    uint32_t   isMainBranch(void) const      {return bh_.isMainBranch();}
    uint32_t   isOrphan(void) const          {return bh_.isOrphan();}
 
+   void       print(ostream & os=cout)      {bh_.printBlockHeader(os);}
 
 private:
    SWIG_BlockHeader(BlockHeaderRef const & bhr) { bh_ = bhr.getCopy();}
@@ -78,7 +79,7 @@ public:
    SWIG_BlockchainManager(void) : isBlockChainLoaded_(false) {}
 
    void loadBlockchain(string filename);
-   bool organizeBlockchain(void);
+   void resetBlockchainData(void);
 
    void addAddress(string address20B);
    void addPublicKey(string binPubKeyStr65B);
@@ -86,6 +87,8 @@ public:
    
    SWIG_BlockHeader getHeaderByHeight(uint32_t height);
    SWIG_BlockHeader getHeaderByHash(string theHash);
+   SWIG_BlockHeader getTopBlockHeader(void);
+   uint32_t         getTopBlockHeight(void);
 
 private:
    // BlockDataManager_FullRAM is a singleton class, so don't need anything here

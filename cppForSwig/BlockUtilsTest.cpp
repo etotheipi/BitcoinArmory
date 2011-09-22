@@ -1,14 +1,17 @@
 #include <iostream>
 #include <fstream>
-#include "BlockUtils.h"
+#include "UniversalTimer.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
-#include "UniversalTimer.h"
+#include "BlockUtils.h"
+#include "BlockUtilsSWIG.h"
 
 
+using namespace std;
 
 int main(void)
 {
+   /*
    BinaryData bd(32);
    for(int i=0; i<32; i++) 
       bd[i] = i;
@@ -75,11 +78,10 @@ int main(void)
    cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
    cout << endl << endl;
 
-   /*
-   TIMER_START("BDM_Flag_Transactions");
-   bdm.flagMyTransactions();
-   TIMER_STOP("BDM_Flag_Transactions");
-   */
+   //TIMER_START("BDM_Flag_Transactions");
+   //bdm.flagMyTransactions();
+   //TIMER_STOP("BDM_Flag_Transactions");
+
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
@@ -109,7 +111,20 @@ int main(void)
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
 
-   //char aa[256];
-   //cout << "Enter anything to exit" << endl;
-   //cin >> aa;
+   bdm.Reset();
+   */
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   SWIG_BlockchainManager swigbcm;
+   swigbcm.loadBlockchain("../blk0001.dat");
+
+   // Using SWIG interface to print the top block
+   SWIG_BlockHeader top = swigbcm.getTopBlockHeader();
+   top.print(cout);
+
+
+   char aa[256];
+   cout << "Enter anything to exit" << endl;
+   cin >> aa;
 }

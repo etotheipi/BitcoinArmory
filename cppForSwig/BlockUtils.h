@@ -350,7 +350,12 @@ private:
       headersByHeight_.clear();
       myTxOutsNonStandard_.clear();
       myPendingTxs_.clear();
+      myUnspentTxOuts_.clear();
+      txFileRefs_.clear();
+      headerFileRefs_.clear();
       blockchainFilenames_.clear();
+      previouslyValidBlockHeaderRefs_.clear();
+      orphanChainStartBlocks_.clear();
    }
 
 public:
@@ -368,6 +373,28 @@ public:
          bdmCreatedYet_ = true;
       }
       return (*theOnlyBDM_);
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   void Reset(void)
+   {
+      blockchainData_ALL_.clear();
+      blockchainData_NEW_.clear();
+
+      headerHashMap_.clear();
+      txHashMap_.clear();
+      txioMap_.clear();
+      myAddresses_.clear();
+      headersByHeight_.clear();
+      myTxOutsNonStandard_.clear();
+      myPendingTxs_.clear();
+      myUnspentTxOuts_.clear();
+      txFileRefs_.clear();
+      headerFileRefs_.clear();
+      blockchainFilenames_.clear();
+      previouslyValidBlockHeaderRefs_.clear();
+      orphanChainStartBlocks_.clear();
    }
 
    
@@ -542,19 +569,8 @@ public:
                      }
                      else
                      {
-
-                        // WTF?  We read the blocks in height-order... 
-                        //       this shouldn't happen
-                        // CORRECTION:  Actually, we are only saving our own
-                        //              txio objects, so most of the TxIns
-                        //              that we find will not match one in the 
-                        //              txioMap, and thus we hit this conditional
-                        //              constantly... this is normal
-                        //cerr << "***ERROR: TxIn found for unscanned txout" << endl;
-                        //TxIORefPair txiorp;
-                        //txiorp.setTxInRef(txin, &tx);
-                        //txioMap_[outpt] = txiorp;
-                        //orphanTxIns_.insert(outpt);
+                        //This would only be a problem if we were storing Tx
+                        //for ALL addresses, not just our wallet.
                      }
 
                   }
@@ -575,6 +591,119 @@ public:
    }
 
 
+   /*
+   /////////////////////////////////////////////////////////////////////////////
+   // This is an intense search, using every tool we've created so far!
+   // NOTE:  I know this is terrible to copy and paste such a huge method,
+   //        but I couldn't figure out how to remove the address loop
+   //        based on a dynamic conditional.  Even if I could hack it by
+   //        putting some sentinel/flag in the addrMap, it would take
+   //        extra compute to check it.  Copy and pasting without the
+   //        addr loop at all should be more efficient, anyway
+   void scanBlockchainForTx_FromScratch_AllAddr(void)
+   {
+      uint32_t nHeaders = headersByHeight_.size();
+
+      ///// LOOP OVER ALL HEADERS ////
+      for(uint32_t h=0; h<nHeaders; h++)
+      {
+         BlockHeaderRef & bhr = *(headersByHeight_[h]);
+         uint32_t blkTimestamp = bhr.getTimestamp();
+         uint32_t blkHeight    = bhr.getBlockHeight();
+         map<BinaryData, BtcAddress>::iterator addrIter;
+         vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
+
+         ///// LOOP OVER ALL TX IN BLOCK /////
+         for(uint32_t itx=0; itx<txlist.size(); itx++)
+         {
+            TxRef & tx = *(txlist[itx]);
+
+            ///// LOOP OVER ALL TXOUT IN BLOCK /////
+            for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+            {
+               TxOutRef txout = tx.createTxOutRef(iout);
+               
+               // Add address to address map, if necessary
+               BinaryDataRef recipAddrStr = txout.getRecipientAddr();
+               pair<BinaryData... // TODO: come back to this later
+
+               OutPoint outpt(tx.getHash(), iout);      
+               txout.setMine(true);
+               txout.setSpent(false);
+               myUnspentTxOuts_.insert(outpt);
+               pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
+               pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+               insResult = txioMap_.insert(toBeInserted);
+
+               TxIORefPair & thisTxio = insResult.first->second;
+               BtcAddress & thisAddr = addrIter->second;
+               if(insResult.second == true)
+               {
+                  thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
+                  if(thisAddr.createdBlockNum_ == 0 ||
+                     thisAddr.createdBlockNum_ > blkHeight)
+                     thisAddr.createdBlockNum_ = blkHeight;
+               }
+
+            }
+
+            ///// LOOP OVER ALL TXIN IN BLOCK /////
+            for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+            {
+               TxInRef txin = tx.createTxInRef(iin);
+               BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
+               if(prevOutHash == BtcUtils::EmptyHash_)
+                  continue;
+
+               OutPoint outpt = txin.getOutPoint();
+               if(txHashMap_.find(prevOutHash) != txHashMap_.end())
+               {
+                  // We have the tx, now check if it contains one of our TxOuts
+                  map<OutPoint, TxIORefPair>::iterator txioIter 
+                                                = txioMap_.find(outpt);
+                  if(txioIter != txioMap_.end())
+                  {
+                     if(txioIter->second.getTxOutRef().getRecipientAddr() == addrIter->first)
+                     {
+                        myUnspentTxOuts_.erase(outpt);
+                        txin.setMine(true);
+                        txioMap_[outpt].setTxInRef(txin, &tx);
+                     }
+                  }
+                  else
+                  {
+
+                     // WTF?  We read the blocks in height-order... 
+                     //       this shouldn't happen
+                     // CORRECTION:  Actually, we are only saving our own
+                     //              txio objects, so most of the TxIns
+                     //              that we find will not match one in the 
+                     //              txioMap, and thus we hit this conditional
+                     //              constantly... this is normal
+                     //cerr << "***ERROR: TxIn found for unscanned txout" << endl;
+                     //TxIORefPair txiorp;
+                     //txiorp.setTxInRef(txin, &tx);
+                     //txioMap_[outpt] = txiorp;
+                     //orphanTxIns_.insert(outpt);
+                  }
+
+               }
+               else // also WTF?
+               {
+                  // This shouldn't happen unless we are missing
+                  // blocks in the chain -- a TxIn referenced a 
+                  // transaction that isn't in the tx map
+                  TxIORefPair txiorp;
+                  txiorp.setTxInRef(txin, &tx);
+                  txioMap_[outpt] = txiorp;
+                  orphanTxIns_.insert(outpt);
+               }
+            }
+         }
+      }
+   }
+   */
+
 
 
 
@@ -594,6 +723,7 @@ public:
       blockchainData_ALL_.resize(filesize);
       uint8_t* front = blockchainData_ALL_.getPtr();
       is.read((char*)front, filesize);
+      is.close();
       TIMER_STOP("ReadBlockchainIntoRAM");
       //////////////////////////////////////////////////////////////////////////
 
