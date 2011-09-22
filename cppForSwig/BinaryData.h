@@ -201,6 +201,8 @@ public:
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), nBytes_); }
    string toString(void) const { return string((char const *)(&(data_[0])), nBytes_); }
+   char* toCharPtr(void) const  { return  (char*)(&(data_[0])); }
+   unsigned char* toUCharPtr(void) const { return (unsigned char*)(&(data_[0])); }
 
    void resize(size_t sz) { data_.resize(sz); nBytes_ = sz;}
    void reserve(size_t sz) { data_.reserve(sz); }
@@ -381,6 +383,8 @@ public:
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
    string toString(void) const { return string((char const *)(ptr_), nBytes_); }
+   char* toCharPtr(void) const  { return  (char*)(ptr_); }
+   unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
    uint8_t const & operator[](size_t i) const      { return ptr_[i]; }
    //uint8_t   operator[](size_t i) const { return ptr_[i]; } 

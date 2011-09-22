@@ -29,13 +29,13 @@ friend class SWIG_BlockchainManager;
 
 public:
    SWIG_BlockHeader(void);
-   SWIG_BlockHeader(string const & header80B);
+   SWIG_BlockHeader(char * header80B);
 
    uint32_t   getVersion(void) const        {return bh_.getVersion();}
-   string     getPrevHash(void) const       {return bh_.getPrevHash().toString();}
-   string     getMerkleRoot(void) const     {return bh_.getMerkleRoot().toString();}
+   char*      getPrevHash(void) const       {return bh_.getPrevHash().toCharPtr();}
+   char*      getMerkleRoot(void) const     {return bh_.getMerkleRoot().toCharPtr();}
    uint32_t   getTimestamp(void) const      {return bh_.getTimestamp();}
-   string     getDiffBits(void) const       {return bh_.getDiffBits().toString();}
+   char*      getDiffBits(void) const       {return bh_.getDiffBits().toCharPtr();}
    uint32_t   getNonce(void) const          {return bh_.getNonce();}
    double     getDifficulty(void) const     {return bh_.getDifficulty();}
    double     getDifficultySum(void) const  {return bh_.getDifficultySum();}
@@ -78,15 +78,15 @@ class SWIG_BlockchainManager
 public:
    SWIG_BlockchainManager(void) : isBlockChainLoaded_(false) {}
 
-   void loadBlockchain(string filename);
+   void loadBlockchain(char* filename);
    void resetBlockchainData(void);
 
-   void addAddress(string address20B);
-   void addPublicKey(string binPubKeyStr65B);
-   void addPrivPubKeyPair(string binPrivStr32B, string binPubStr65B);
+   void addAddress(char* address20B);
+   void addPublicKey(char* binPubKeyStr65B);
+   void addPrivPubKeyPair(char* binPrivStr32B, char*  binPubStr65B);
    
    SWIG_BlockHeader getHeaderByHeight(uint32_t height);
-   SWIG_BlockHeader getHeaderByHash(string theHash);
+   SWIG_BlockHeader getHeaderByHash(char* theHash);
    SWIG_BlockHeader getTopBlockHeader(void);
    uint32_t         getTopBlockHeight(void);
 
