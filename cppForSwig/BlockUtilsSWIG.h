@@ -28,24 +28,22 @@ class SWIG_BlockHeader
 friend class SWIG_BlockchainManager;
 
 public:
-   SWIG_BlockHeader(void);
-   SWIG_BlockHeader(char * header80B);
+   SWIG_BlockHeader(void) : bh_() { }
+   SWIG_BlockHeader(string const & header80B) : bh_(header80B) { }
 
-   uint32_t   getVersion(void) const        {return bh_.getVersion();}
-   char*      getPrevHash(void) const       {return bh_.getPrevHash().toCharPtr();}
-   char*      getMerkleRoot(void) const     {return bh_.getMerkleRoot().toCharPtr();}
-   uint32_t   getTimestamp(void) const      {return bh_.getTimestamp();}
-   char*      getDiffBits(void) const       {return bh_.getDiffBits().toCharPtr();}
-   uint32_t   getNonce(void) const          {return bh_.getNonce();}
-   double     getDifficulty(void) const     {return bh_.getDifficulty();}
-   double     getDifficultySum(void) const  {return bh_.getDifficultySum();}
-   uint32_t   getBlockHeight(void) const    {return bh_.getBlockHeight();}
-   uint32_t   isMainBranch(void) const      {return bh_.isMainBranch();}
-   uint32_t   isOrphan(void) const          {return bh_.isOrphan();}
+   unsigned int  getVersion(void) const       {return (unsigned int)bh_.getVersion();}
+   string        getPrevHash(void) const      {return bh_.getPrevHash().toString();}
+   string        getMerkleRoot(void) const    {return bh_.getMerkleRoot().toString();}
+   unsigned int  getTimestamp(void) const     {return (unsigned int)bh_.getTimestamp();}
+   string        getDiffBits(void) const      {return bh_.getDiffBits().toString();}
+   unsigned int  getNonce(void) const         {return (unsigned int)bh_.getNonce();}
+   double        getDifficulty(void) const    {return bh_.getDifficulty();}
+   double        getDifficultySum(void) const {return bh_.getDifficultySum();}
+   unsigned int  getBlockHeight(void) const   {return (unsigned int)bh_.getBlockHeight();}
+   unsigned int  isMainBranch(void) const     {return (unsigned int)bh_.isMainBranch();}
+   unsigned int  isOrphan(void) const         {return (unsigned int)bh_.isOrphan();}
+   void          printHeader(ostream & os=cout)      {bh_.printBlockHeader(os);}
 
-   void       print(ostream & os=cout)      {bh_.printBlockHeader(os);}
-
-private:
    SWIG_BlockHeader(BlockHeaderRef const & bhr) { bh_ = bhr.getCopy();}
 private:
    BlockHeader bh_;
@@ -81,12 +79,12 @@ public:
    void loadBlockchain(char* filename);
    void resetBlockchainData(void);
 
-   void addAddress(char* address20B);
-   void addPublicKey(char* binPubKeyStr65B);
-   void addPrivPubKeyPair(char* binPrivStr32B, char*  binPubStr65B);
+   void addAddress(BinaryData address20B);
+   void addPublicKey(BinaryData binPubKeyStr65B);
+   void addPrivPubKeyPair(BinaryData binPrivStr32B, BinaryData  binPubStr65B);
    
    SWIG_BlockHeader getHeaderByHeight(uint32_t height);
-   SWIG_BlockHeader getHeaderByHash(char* theHash);
+   SWIG_BlockHeader getHeaderByHash(BinaryData theHash);
    SWIG_BlockHeader getTopBlockHeader(void);
    uint32_t         getTopBlockHeight(void);
 

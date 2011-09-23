@@ -133,6 +133,12 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   BlockHeader(BinaryData const & header80B)
+   {
+      unserialize(header80B);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    BlockHeader( BinaryData const * serHeader = NULL,
                 BinaryData const * suppliedHash  = NULL,
                 uint64_t           fileLoc   = UINT64_MAX) :
@@ -169,9 +175,9 @@ public:
       os << "-Timestamp:  " << getTimestamp() << endl;
       os << "-Prev Hash:  " << prevHash_.toHex().c_str() << endl;
       os << "-MerkleRoot: " << getMerkleRoot().toHex().c_str() << endl;
-      os << "-Difficulty: " << (uint64_t)(difficultyDbl_)
+      os << "-Difficulty: " << (difficultyDbl_)
                             << "    (" << getDiffBits().toHex().c_str() << ")" << endl;
-      os << "-CumulDiff:  " << (uint64_t)(difficultySum_) << endl;
+      os << "-CumulDiff:  " << (difficultySum_) << endl;
       os << "-Nonce:      " << getNonce() << endl;
       os << "-FileOffset: " << fileByteLoc_ << endl;
    }

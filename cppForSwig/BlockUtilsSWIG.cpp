@@ -5,6 +5,7 @@
 #include <cassert>
 #include "BlockUtilsSWIG.h"
 
+
 void SWIG_BlockchainManager::loadBlockchain(char* filename)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
@@ -30,13 +31,12 @@ SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHeight(uint32_t h)
    return SWIG_BlockHeader(*bdm.getHeaderByHeight(h));
 }
 
-SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHash(char* hash)
+SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHash(BinaryData hash)
 {
    assert(isBlockChainLoaded_);
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
 
-   BinaryData bdhash((uint8_t*)hash, 32);
-   return SWIG_BlockHeader(*bdm.getHeaderByHash(bdhash));
+   return SWIG_BlockHeader(*bdm.getHeaderByHash(hash));
 }
 
 SWIG_BlockHeader SWIG_BlockchainManager::getTopBlockHeader(void)
