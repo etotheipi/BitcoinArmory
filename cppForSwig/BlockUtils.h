@@ -302,6 +302,11 @@ private:
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef >            txHashMap_;
    map<OutPoint,   TxIORefPair>       txioMap_;
+   map<BinaryData, BtcAddress>        allAddresses_;  
+
+   // The following two maps should be parallel
+   map<BinaryData, BtcAddress>        myAddresses_;  
+   uint64_t                           totalBalance_;
   
    // We will maintain all transactional information in these maps
    // Only use pointers to the refs
@@ -321,9 +326,6 @@ private:
    BlockHeaderRef*                      topBlockPtr_;
    BlockHeaderRef*                      genBlockPtr_;
 
-   // The following two maps should be parallel
-   map<BinaryData, BtcAddress>       myAddresses_;  
-   uint64_t                          totalBalance_;
 
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
@@ -482,10 +484,17 @@ public:
          myAddresses_[newAddr.address20_] = newAddr;
    }
 
+
+   //vector< pair<BinaryData, int> > prefixSearchStr(BinaryData:
+   
+
+
    void scanBlockchainForTx_FromScratch(void)
    {
       TIMER_WRAP(scanBlockchainForTx_FromScratch( myAddresses_ ));
    }
+
+   
 
    /////////////////////////////////////////////////////////////////////////////
    // This is an intense search, using every tool we've created so far!
@@ -806,6 +815,9 @@ public:
    // This returns false if our new main branch does not include the previous
    // topBlock.  If this returns false, that probably means that we have
    // previously considered some blocks to be valid that no longer are valid.
+   //
+   // TODO:  Figure out if there is an elegant way to deal with a forked 
+   //        blockchain containing two equal-length chains
    bool organizeChain(bool forceRebuild=false)
    {
       // If rebuild, we zero out any original organization data and do a 

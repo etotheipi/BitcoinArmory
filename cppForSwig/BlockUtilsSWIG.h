@@ -33,6 +33,7 @@ public:
 
    unsigned int  getVersion(void) const       {return (unsigned int)bh_.getVersion();}
    string        getPrevHash(void) const      {return bh_.getPrevHash().toString();}
+   string        getThisHash(void) const      {return bh_.getThisHash().toString();}
    string        getMerkleRoot(void) const    {return bh_.getMerkleRoot().toString();}
    unsigned int  getTimestamp(void) const     {return (unsigned int)bh_.getTimestamp();}
    string        getDiffBits(void) const      {return bh_.getDiffBits().toString();}
@@ -68,6 +69,11 @@ private:
 };
 
 
+class SWIG_Wallet
+{
+
+};
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -84,9 +90,12 @@ public:
    void addPrivPubKeyPair(BinaryData binPrivStr32B, BinaryData  binPubStr65B);
    
    SWIG_BlockHeader getHeaderByHeight(uint32_t height);
-   SWIG_BlockHeader getHeaderByHash(BinaryData theHash);
+   SWIG_BlockHeader getHeaderByHash(BinaryData const & theHash);
    SWIG_BlockHeader getTopBlockHeader(void);
    uint32_t         getTopBlockHeight(void);
+
+   vector<int>        getTop10BlockHeights(void);
+   vector<BinaryData> getTop10BlockHashes(void);
 
 private:
    // BlockDataManager_FullRAM is a singleton class, so don't need anything here

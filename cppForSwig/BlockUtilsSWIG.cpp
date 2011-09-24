@@ -31,7 +31,7 @@ SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHeight(uint32_t h)
    return SWIG_BlockHeader(*bdm.getHeaderByHeight(h));
 }
 
-SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHash(BinaryData hash)
+SWIG_BlockHeader SWIG_BlockchainManager::getHeaderByHash(BinaryData const & hash)
 {
    assert(isBlockChainLoaded_);
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance();
@@ -56,8 +56,25 @@ uint32_t SWIG_BlockchainManager::getTopBlockHeight(void)
 }
 
 
+vector<int> SWIG_BlockchainManager::getTop10BlockHeights(void)
+{
+   uint32_t topHeight = getTopBlockHeight();
+   vector<int> out(10);
+   for(int i=0; i<10; i++)
+      out[i] = topHeight-i;
+
+   return out;
+}
 
 
 
 
+vector<BinaryData> SWIG_BlockchainManager::getTop10BlockHashes(void)
+{
+   uint32_t topHeight = getTopBlockHeight();
+   vector<BinaryData> out(10);
+   for(int i=0; i<10; i++)
+      out[i] = getHeaderByHeight(topHeight - i).getThisHash();
 
+   return out;
+}
