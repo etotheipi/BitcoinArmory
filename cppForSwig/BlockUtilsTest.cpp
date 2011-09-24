@@ -4,7 +4,6 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockUtils.h"
-#include "BlockUtilsSWIG.h"
 
 
 using namespace std;
@@ -66,7 +65,7 @@ int main(void)
    // Reading data from blockchain
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Read_BlkChain_From_Scratch");
-   bdm.readBlockchainFromBlkFile_FullRAM_FromScratch("../blk0001.dat");
+   bdm.readBlkFile_FromScratch("../blk0001.dat");
    TIMER_STOP("BDM_Read_BlkChain_From_Scratch");
    cout << endl << endl;
 
@@ -92,20 +91,22 @@ int main(void)
 
 
    BinaryData myAddress, myPubKey;
+   BtcWallet wlt;
    //myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
    myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14");
    myPubKey.createFromHex("04e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
+   wlt.addAddress(myAddress, myPubKey);
    //myAddress.swapEndian();
    //myPubKey.swapEndian();
 
-   bdm.addAddress(&myAddress, &myPubKey);
    myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
-   bdm.addAddress(&myAddress);
-   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
-   bdm.addAddress(&myAddress);
+   wlt.addAddress(myAddress);
 
-   //bdm.scanBlockchainForTx_FromScratch();
-   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+   wlt.addAddress(myAddress);
+
+   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
+   //TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
 
 
    UniversalTimer::instance().print();
@@ -113,14 +114,6 @@ int main(void)
 
    bdm.Reset();
 
-
-   /////////////////////////////////////////////////////////////////////////////
-   //SWIG_BlockchainManager swigbcm;
-   //swigbcm.loadBlockchain("../blk0001.dat");
-
-   // Using SWIG interface to print the top block
-   //SWIG_BlockHeader top = swigbcm.getTopBlockHeader();
-   //top.print(cout);
 
 
    char aa[256];

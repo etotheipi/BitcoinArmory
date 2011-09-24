@@ -61,7 +61,7 @@ int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline int32_t BinaryData::find(BinaryData const & matchStr, uint32_t startPos)
+int32_t BinaryData::find(BinaryData const & matchStr, uint32_t startPos)
 {
    BinaryDataRef bdrmatch(matchStr);
    return find(bdrmatch, startPos);
@@ -69,13 +69,13 @@ inline int32_t BinaryData::find(BinaryData const & matchStr, uint32_t startPos)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::contains(BinaryData const & matchStr, uint32_t startPos)
+bool BinaryData::contains(BinaryData const & matchStr, uint32_t startPos)
 {
    return (find(matchStr, startPos) != -1);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startPos)
+bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    return (find(matchStr, startPos) != -1);
 }
@@ -83,7 +83,7 @@ inline bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startP
 
 
 /////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::startsWith(BinaryDataRef const & matchStr)
+bool BinaryData::startsWith(BinaryDataRef const & matchStr) const
 {
    if(matchStr.getSize() > nBytes_)
       return false;
@@ -96,7 +96,7 @@ inline bool BinaryData::startsWith(BinaryDataRef const & matchStr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::startsWith(BinaryData const & matchStr)
+bool BinaryData::startsWith(BinaryData const & matchStr) const
 {
    if(matchStr.getSize() > nBytes_)
       return false;
@@ -109,7 +109,7 @@ inline bool BinaryData::startsWith(BinaryData const & matchStr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::endsWith(BinaryDataRef const & matchStr)
+bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
    if(sz > nBytes_)
@@ -122,7 +122,7 @@ inline bool BinaryData::endsWith(BinaryDataRef const & matchStr)
    return true;
 }
 /////////////////////////////////////////////////////////////////////////////
-bool BinaryData::endsWith(BinaryData const & matchStr)
+bool BinaryData::endsWith(BinaryData const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
    if(sz > nBytes_)

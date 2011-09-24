@@ -54,6 +54,8 @@ public:
    uint32_t      isMainBranch(void) const    { assert(isInitialized_); return isMainBranch_;                 }
    uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
 
+   BinaryDataRef getHash(void) const     { assert(isInitialized_); return thisHash_.getRef();}
+
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
 
@@ -390,19 +392,11 @@ public:
       brr.advance(nBytes_);
    }
 
-   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
-
-   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
 
-   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef const & serialize(void) const { return self_; }
-
-   /////////////////////////////////////////////////////////////////////////////
    BinaryData const & getHash(void) const { return thisHash_; }
-
-   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getHashRef(void) const { return BinaryDataRef(thisHash_); }
 
 
@@ -430,6 +424,20 @@ public:
    TxIn  getTxInCopy (int i) const;
    TxOut getTxOutCopy(int i) const;
 
+   uint32_t getBlockTimestamp(void)
+   {
+      if(headerPtr_==NULL)
+         return headerPtr_->getTimestamp();
+      return 0;
+   }
+
+   uint32_t getBlockHeight(void)
+   {
+      if(headerPtr_==NULL)
+         if(headerPtr_->isMainBranch())
+            return headerPtr_->getBlockHeight();
+      return 0;
+   }
 
 
 private:

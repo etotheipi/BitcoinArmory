@@ -143,14 +143,14 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   bool startsWith(BinaryDataRef const & matchStr);
+   bool startsWith(BinaryDataRef const & matchStr) const;
    /////////////////////////////////////////////////////////////////////////////
-   bool startsWith(BinaryData const & matchStr);
+   bool startsWith(BinaryData const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   bool endsWith(BinaryDataRef const & matchStr);
+   bool endsWith(BinaryDataRef const & matchStr) const;
    /////////////////////////////////////////////////////////////////////////////
-   bool endsWith(BinaryData const & matchStr);
+   bool endsWith(BinaryData const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar) const;
@@ -438,7 +438,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   bool startsWith(BinaryDataRef const & matchStr)
+   bool startsWith(BinaryDataRef const & matchStr) const
    {
       if(matchStr.getSize() > nBytes_)
          return false;
@@ -451,7 +451,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool startsWith(BinaryData const & matchStr)
+   bool startsWith(BinaryData const & matchStr) const
    {
       if(matchStr.getSize() > nBytes_)
          return false;
@@ -464,7 +464,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool endsWith(BinaryDataRef const & matchStr)
+   bool endsWith(BinaryDataRef const & matchStr) const
    {
       uint32_t sz = matchStr.getSize();
       if(sz > nBytes_)
@@ -478,7 +478,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   bool endsWith(BinaryData const & matchStr)
+   bool endsWith(BinaryData const & matchStr) const
    {
       uint32_t sz = matchStr.getSize();
       if(sz > nBytes_)
