@@ -214,6 +214,20 @@ struct BtcAddress
       // Nothing to do here
    }
 
+   BtcAddress(BinaryData * addr20,
+              BinaryData * pubkey65=NULL,
+              BinaryData * privkey32=NULL) :
+      createdBlockNum_(0),
+      createdTimestamp_(0),
+      relevantTxIOPtrs_(0)
+   {
+      address20_.copyFrom(*addr20);
+      if(pubkey65!=NULL)
+         pubkey65_.copyFrom(*pubkey65);
+      if(privkey32!=NULL)
+         privkey32_.copyFrom(*privkey32);
+   }
+
    void setCreatedBlockNum(uint32_t blknum) { createdBlockNum_  = blknum; }
    void setCreatedTimestamp(uint32_t time)  { createdTimestamp_ = time;   }
 
@@ -303,13 +317,14 @@ private:
    map<HashString, TxRef >            txHashMap_;
    map<OutPoint,   TxIORefPair>       txioMap_;
    map<BinaryData, BtcAddress>        allAddresses_;  
+   set<OutPoint>                      allUnspentTxOuts_;  
 
    // The following two maps should be parallel
-   map<BinaryData, BtcAddress>        myAddresses_;  
-   uint64_t                           totalBalance_;
   
    // We will maintain all transactional information in these maps
    // Only use pointers to the refs
+   map<BinaryData, BtcAddress>        myAddresses_;  
+   uint64_t                           totalBalance_;
    set<OutPoint>                      myUnspentTxOuts_;
    set<HashString>                    myPendingTxs_;
    set<OutPoint>                      myTxOutsNonStandard_;
@@ -521,7 +536,7 @@ public:
 
             vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
 
-            ///// LOOP OVER ALL TX IN BLOCK /////
+            ///// LOOP OVER ALL TX /////
             for(uint32_t itx=0; itx<txlist.size(); itx++)
             {
                TxRef & tx = *(txlist[itx]);
@@ -600,7 +615,6 @@ public:
    }
 
 
-   /*
    /////////////////////////////////////////////////////////////////////////////
    // This is an intense search, using every tool we've created so far!
    // NOTE:  I know this is terrible to copy and paste such a huge method,
@@ -622,7 +636,7 @@ public:
          map<BinaryData, BtcAddress>::iterator addrIter;
          vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
 
-         ///// LOOP OVER ALL TX IN BLOCK /////
+         ///// LOOP OVER ALL TX /////
          for(uint32_t itx=0; itx<txlist.size(); itx++)
          {
             TxRef & tx = *(txlist[itx]);
@@ -631,27 +645,38 @@ public:
             for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
             {
                TxOutRef txout = tx.createTxOutRef(iout);
+               BinaryData recipAddr20 = txout.getRecipientAddr();
                
-               // Add address to address map, if necessary
-               BinaryDataRef recipAddrStr = txout.getRecipientAddr();
-               pair<BinaryData... // TODO: come back to this later
+               // Add address to address map
+               // If address is already there, this will leave it untouched
+               pair< map<BinaryData, BtcAddress>::iterator, bool> insAddrResult; 
+               pair<BinaryData, BtcAddress> toInsert(recipAddr20, BtcAddress(&recipAddr20));
+               insAddrResult = allAddresses_.insert(toInsert);
+               BtcAddress & thisAddr = insAddrResult.first->second;
 
                OutPoint outpt(tx.getHash(), iout);      
-               txout.setMine(true);
-               txout.setSpent(false);
-               myUnspentTxOuts_.insert(outpt);
-               pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
-               pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
-               insResult = txioMap_.insert(toBeInserted);
 
-               TxIORefPair & thisTxio = insResult.first->second;
-               BtcAddress & thisAddr = addrIter->second;
-               if(insResult.second == true)
+               // Will probably comment this out later:  tracking all unspect TxOuts
+               allUnspentTxOuts_.insert(outpt);
+
+               // The new TxIO to be inserted only has a TxOut right now
+               pair< map<OutPoint, TxIORefPair>::iterator, bool> insTxioResult;
+               pair<OutPoint, TxIORefPair> newTxio(outpt, TxIORefPair(txout, &tx));
+               insTxioResult = txioMap_.insert(newTxio);
+
+               TxIORefPair & thisTxio = insTxioResult.first->second;
+               if(insTxioResult.second == true)
                {
                   thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
-                  if(thisAddr.createdBlockNum_ == 0 ||
-                     thisAddr.createdBlockNum_ > blkHeight)
+                  if(thisAddr.createdBlockNum_ == 0)
+                  {
                      thisAddr.createdBlockNum_ = blkHeight;
+                     thisAddr.createdTimestamp_ = blkTimestamp;
+                  }
+               }
+               else
+               {
+                  cout << "***WARNING: Found TxOut that already has TxIO" << endl;
                }
 
             }
@@ -665,53 +690,26 @@ public:
                   continue;
 
                OutPoint outpt = txin.getOutPoint();
-               if(txHashMap_.find(prevOutHash) != txHashMap_.end())
+               // We have the tx, now check if it contains one of our TxOuts
+               map<OutPoint, TxIORefPair>::iterator txioIter = txioMap_.find(outpt);
+               if(txioIter != txioMap_.end())
                {
-                  // We have the tx, now check if it contains one of our TxOuts
-                  map<OutPoint, TxIORefPair>::iterator txioIter 
-                                                = txioMap_.find(outpt);
-                  if(txioIter != txioMap_.end())
-                  {
-                     if(txioIter->second.getTxOutRef().getRecipientAddr() == addrIter->first)
-                     {
-                        myUnspentTxOuts_.erase(outpt);
-                        txin.setMine(true);
-                        txioMap_[outpt].setTxInRef(txin, &tx);
-                     }
-                  }
-                  else
-                  {
-
-                     // WTF?  We read the blocks in height-order... 
-                     //       this shouldn't happen
-                     // CORRECTION:  Actually, we are only saving our own
-                     //              txio objects, so most of the TxIns
-                     //              that we find will not match one in the 
-                     //              txioMap, and thus we hit this conditional
-                     //              constantly... this is normal
-                     //cerr << "***ERROR: TxIn found for unscanned txout" << endl;
-                     //TxIORefPair txiorp;
-                     //txiorp.setTxInRef(txin, &tx);
-                     //txioMap_[outpt] = txiorp;
-                     //orphanTxIns_.insert(outpt);
-                  }
-
+                  allUnspentTxOuts_.erase(outpt);
+                  txioMap_[outpt].setTxInRef(txin, &tx);
                }
-               else // also WTF?
+               else
                {
-                  // This shouldn't happen unless we are missing
-                  // blocks in the chain -- a TxIn referenced a 
-                  // transaction that isn't in the tx map
+                  cout << "***WARNING: found TxIn without seeing prev TxOut" << endl;
                   TxIORefPair txiorp;
                   txiorp.setTxInRef(txin, &tx);
                   txioMap_[outpt] = txiorp;
                   orphanTxIns_.insert(outpt);
+
                }
             }
          }
       }
    }
-   */
 
 
 

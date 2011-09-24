@@ -11,7 +11,6 @@ using namespace std;
 
 int main(void)
 {
-   /*
    BinaryData bd(32);
    for(int i=0; i<32; i++) 
       bd[i] = i;
@@ -105,23 +104,23 @@ int main(void)
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    bdm.addAddress(&myAddress);
 
-   bdm.scanBlockchainForTx_FromScratch();
+   //bdm.scanBlockchainForTx_FromScratch();
+   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
 
 
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
 
    bdm.Reset();
-   */
 
 
    /////////////////////////////////////////////////////////////////////////////
-   SWIG_BlockchainManager swigbcm;
-   swigbcm.loadBlockchain("../blk0001.dat");
+   //SWIG_BlockchainManager swigbcm;
+   //swigbcm.loadBlockchain("../blk0001.dat");
 
    // Using SWIG interface to print the top block
-   SWIG_BlockHeader top = swigbcm.getTopBlockHeader();
-   top.print(cout);
+   //SWIG_BlockHeader top = swigbcm.getTopBlockHeader();
+   //top.print(cout);
 
 
    char aa[256];
