@@ -9,7 +9,7 @@ BinaryData::BinaryData(BinaryDataRef const & bdRef)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline void BinaryData::copyFrom(BinaryDataRef const & bdr)
+void BinaryData::copyFrom(BinaryDataRef const & bdr)
 {
    copyFrom( bdr.getPtr(), bdr.getSize() );
 }
@@ -24,7 +24,7 @@ BinaryDataRef BinaryData::getRef(void) const
 
 
 ////////////////////////////////////////////////////////////////////////////////
-inline BinaryData & BinaryData::append(BinaryDataRef const & bd2)
+BinaryData & BinaryData::append(BinaryDataRef const & bd2)
 {
    data_.insert(data_.end(), bd2.getPtr(), bd2.getPtr()+bd2.getSize());
    nBytes_ += bd2.getSize();
@@ -189,7 +189,7 @@ uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
 
 
 /////////////////////////////////////////////////////////////////////////////
-inline bool BinaryData::operator==(BinaryDataRef const & bd2) const
+bool BinaryData::operator==(BinaryDataRef const & bd2) const
 {
    if(nBytes_ != bd2.getSize())
       return false;

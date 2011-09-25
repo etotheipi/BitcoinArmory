@@ -83,11 +83,11 @@ int main(void)
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().getCopy().printBlockHeader(cout);
+   bdm.getGenesisBlock().getCopy().printHeader(cout);
 
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
-   bdm.getTopBlock().getCopy().printBlockHeader(cout);
+   bdm.getTopBlockHeader().getCopy().printHeader(cout);
 
 
    BinaryData myAddress, myPubKey;
@@ -108,17 +108,18 @@ int main(void)
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt.getAddrByIndex(i).address20_;
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
       cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "\t\tTx: " 
-              << ledger[j].value_/(float)(CONVERTBTC) << " (" 
-              << ledger[j].blockNum_
-              << ")  TxHash: " << ledger[j].txHash_.getSliceCopy(0,4).toHex()
-              << " (Index: " << ledger[j].index_ << ")" << endl;
+           << ledger[j].getAddrStr20().getSliceCopy(0,4).toHex() << "  "
+           << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledger[j].getBlockNum()
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHex()
+           << " (Index: " << ledger[j].getIndex() << ")" << endl;
       }
 
    }
@@ -131,7 +132,7 @@ int main(void)
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt.getAddrByIndex(i).address20_;
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
       cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
 
@@ -143,11 +144,11 @@ int main(void)
    for(uint32_t j=0; j<ledger.size(); j++)
    {  
       cout << "\t\tTx: " 
-           << ledger[j].addr20_.toHex() << "  "
-           << ledger[j].value_/(float)(CONVERTBTC) << " (" 
-           << ledger[j].blockNum_
-           << ")  TxHash: " << ledger[j].txHash_.getSliceCopy(0,4).toHex()
-           << " (Index: " << ledger[j].index_ << ")" << endl;
+           << ledger[j].getAddrStr20().toHex() << "  "
+           << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledger[j].getBlockNum()
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHex()
+           << " (Index: " << ledger[j].getIndex() << ")" << endl;
    }
 
    cout << "Printing SORTED allAddr ledger..." << endl;
@@ -155,10 +156,11 @@ int main(void)
    for(uint32_t j=0; j<ledger2.size(); j++)
    {  
       cout << "\t\tTx: " 
-           << ledger2[j].value_/(float)(CONVERTBTC) << " (" 
-           << ledger2[j].blockNum_
-           << ")  TxHash: " << ledger2[j].txHash_.getSliceCopy(0,4).toHex()
-           << " (Index: " << ledger2[j].index_ << ")" << endl;
+           << ledger2[j].getAddrStr20().toHex() << "  "
+           << ledger2[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledger2[j].getBlockNum()
+           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHex()
+           << " (Index: " << ledger2[j].getIndex() << ")" << endl;
    }
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");

@@ -168,7 +168,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void printBlockHeader(ostream & os=cout)
+   void printHeader(ostream & os=cout)
    {
       os << "Block Information: " << blockHeight_ << endl;
       os << "-Hash:       " << thisHash_.toHex().c_str() << endl;

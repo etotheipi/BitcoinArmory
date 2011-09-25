@@ -48,7 +48,7 @@ BlockUtils.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.cpp
 BlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils_wrap.cxx
 	$(COMPILER) $(SWIG_OPTS) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils_wrap.cxx
 
-BlockUtils_wrap.cxx: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.h BlockUtils.cpp BlockUtils.i
+BlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp BlockUtils.i
 	swig -c++ -python -v BlockUtils.i
 
 #BlockUtilsTest.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockUtilsTest.cpp

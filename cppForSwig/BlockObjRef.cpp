@@ -37,6 +37,10 @@ BlockHeader BlockHeaderRef::getCopy(void) const
    return bh;
 }
 
+void BlockHeaderRef::printHeader(ostream & os)
+{
+   getCopy().printHeader(os);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

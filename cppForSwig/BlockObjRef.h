@@ -38,6 +38,7 @@ class BlockHeaderRef
 
 public:
 
+   /////////////////////////////////////////////////////////////////////////////
    BlockHeaderRef(void) : isInitialized_(false), isFinishedCalc_(false), fileByteLoc_(0) {}
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
@@ -53,6 +54,8 @@ public:
    uint32_t      getBlockHeight(void) const  { assert(isInitialized_); return blockHeight_;                  }
    uint32_t      isMainBranch(void) const    { assert(isInitialized_); return isMainBranch_;                 }
    uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
+   double        getDifficulty(void) const   { assert(isInitialized_); return difficultyDbl_;                }
+   double        getDifficultySum(void) const{ assert(isInitialized_); return difficultySum_;                }
 
    BinaryDataRef getThisHash(void) const     { assert(isInitialized_); return thisHash_.getRef();}
 
@@ -61,12 +64,14 @@ public:
 
    BlockHeader getCopy(void) const;
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void)
    {
       assert(isInitialized_);
       return self_;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr)
    {
       self_.setRef(ptr, HEADER_SIZE);
@@ -87,18 +92,22 @@ public:
       txPtrList_ = vector<TxRef*>(0);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryDataRef const & str)
    {
       unserialize(str.getPtr());
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryRefReader & brr)
    {
       unserialize(brr.get_BinaryDataRef(HEADER_SIZE));
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    vector<TxRef*> const & getTxRefPtrList(void) const {return txPtrList_;}
 
+   void printHeader(ostream & os=cout);
 
 private:
    BinaryDataRef  self_;
@@ -138,6 +147,7 @@ public:
 
    OutPoint getCopy(void) const;
 
+   /////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHash(void) const{ return BinaryData(self_.getPtr(), 32); }
    BinaryDataRef getTxHashRef(void) const  { return BinaryDataRef(self_.getPtr(),32); }
    uint32_t      getTxOutIndex(void) const { return *(uint32_t*)(self_.getPtr()+32); }
@@ -373,7 +383,7 @@ public:
    uint32_t  getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
    uint32_t  getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
 
-   BlockHeaderRef* getHeaderPtr_(void)  const { assert(isInitialized_); return headerPtr_; }
+   BlockHeaderRef* getHeaderPtr(void)  const { assert(isInitialized_); return headerPtr_; }
 
    /////////////////////////////////////////////////////////////////////////////
    Tx getCopy(void) const;
@@ -394,6 +404,7 @@ public:
       brr.advance(nBytes_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
 
@@ -426,6 +437,8 @@ public:
    TxIn  getTxInCopy (int i) const;
    TxOut getTxOutCopy(int i) const;
 
+   
+   /////////////////////////////////////////////////////////////////////////////
    uint32_t getBlockTimestamp(void)
    {
       if(headerPtr_==NULL)
@@ -433,6 +446,7 @@ public:
       return UINT32_MAX;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    uint32_t getBlockHeight(void)
    {
       if(headerPtr_==NULL)

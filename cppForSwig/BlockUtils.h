@@ -147,15 +147,16 @@ private:
 // LedgerEntry  (STRUCT)
 //
 ////////////////////////////////////////////////////////////////////////////////
-struct LedgerEntry
+class LedgerEntry
 {
+public:
    LedgerEntry(void) :
       addr20_(0),
       value_(0),
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
-      isNowInvalid_(true) {}
+      isValid_(false) {}
 
    LedgerEntry(BinaryData const & addr20,
                int64_t val, 
@@ -167,18 +168,28 @@ struct LedgerEntry
       blockNum_(blkNum),
       txHash_(txhash),
       index_(idx),
-      isNowInvalid_(false) {}
+      isValid_(true) {}
+
+   BinaryData const &  getAddrStr20(void) const { return addr20_;   }
+   int64_t             getValue(void) const     { return value_;    }
+   uint32_t            getBlockNum(void) const  { return blockNum_; }
+   BinaryData const &  getTxHash(void) const    { return txHash_;   }
+   uint32_t            getIndex(void) const     { return index_;    }
+   bool                isValid(void) const      { return isValid_;  }
+
+   void setInvalid(bool b=true) { isValid_ = !b; }
       
-   
    bool operator<(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
+private:
+   
 
    BinaryData       addr20_;
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
-   bool             isNowInvalid_;
+   bool             isValid_;
 
 
    
@@ -190,20 +201,32 @@ struct LedgerEntry
 // BtcAddress  (STRUCT)
 //
 ////////////////////////////////////////////////////////////////////////////////
-struct BtcAddress
+class BtcAddress
 {
+public:
    BtcAddress(void) : 
       address20_(0), pubKey65_(0), privKey32_(0), isActive_(false),
-      createdBlockNum_(0), createdTimestamp_(0), 
+      firstBlockNum_(0), firstTimestamp_(0), 
       relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
               BinaryData    pubKey65  = BinaryData(0),
               BinaryData    privKey32 = BinaryData(0),
-              uint32_t      createdBlockNum  = 0,
-              uint32_t      createdTimestamp = 0);
+              uint32_t      firstBlockNum  = 0,
+              uint32_t      firstTimestamp = 0);
+   
+   BinaryData const &  getAddrStr20(void) const  {return address20_;      }
+   BinaryData const &  getPubKey65(void) const   {return pubKey65_;       }
+   BinaryData const &  getPrivKey32(void) const  {return privKey32_;      }
+   uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
+   uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
+   bool           isActive(void) const           {return isActive_;       }
 
-   //BtcAddress(BtcAddress const & addr2);
+   void           setPubKey65(BinaryDataRef bd)  { pubKey65_ = bd.copy(); } 
+   void           setPrivKey32(BinaryDataRef bd) { privKey32_ = bd.copy();} 
+   void           setFirstBlockNum(uint32_t b)   { firstBlockNum_ = b;     }
+   void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t;    }
+
    uint32_t cleanLedger(void);
 
    bool havePubKey(void) { return pubKey65_.getSize() > 0; }
@@ -211,15 +234,21 @@ struct BtcAddress
 
    uint64_t getBalance(void);
 
+   vector<LedgerEntry> const & getTxLedger(void) { return ledger_; }
+   vector<TxIORefPair*> const & getTxIOList(void) { return relevantTxIOPtrs_; }
+
+   void addTxIO(TxIORefPair * txio) { relevantTxIOPtrs_.push_back(txio);}
+   void addTxIO(TxIORefPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
+   void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
+
+
+private:
    BinaryData address20_;
    BinaryData pubKey65_;
    BinaryData privKey32_;
-   uint32_t   createdBlockNum_;
-   uint32_t   createdTimestamp_;
+   uint32_t   firstBlockNum_;
+   uint32_t   firstTimestamp_;
    bool       isActive_; 
-
-
-   vector<LedgerEntry> const & getTxLedger(void) { return ledger_; }
 
    // Each address will store a list of pointers to its transactions
    vector<TxIORefPair*>   relevantTxIOPtrs_;
@@ -244,8 +273,8 @@ public:
    void addAddress(BinaryData    addr, 
                    BinaryData    pubKey65  = BinaryData(0),
                    BinaryData    privKey32 = BinaryData(0),
-                   uint32_t      createdBlockNum  = 0,
-                   uint32_t      createdTimestamp = 0);
+                   uint32_t      firstBlockNum  = 0,
+                   uint32_t      firstTimestamp = 0);
 
    bool hasAddr(BinaryData const & addr20);
 
@@ -261,8 +290,6 @@ public:
    uint64_t   getBalance(uint32_t i);
    uint64_t   getBalance(BinaryData const & addr20);
 
-   vector<TxRef> getTxList(void);
-   vector<TxRef> getTxList(BinaryData const & addr20);
    
    uint32_t     getNumAddr(void) {return addrMap_.size();}
    BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
@@ -407,7 +434,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t getNumConfirmations(BinaryData txHash);
-   BlockHeaderRef & getTopBlock(void) ;
+   BlockHeaderRef & getTopBlockHeader(void) ;
    BlockHeaderRef & getGenesisBlock(void) ;
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);

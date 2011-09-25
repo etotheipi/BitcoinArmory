@@ -123,28 +123,17 @@ bool LedgerEntry::operator==(LedgerEntry const & le2) const
 BtcAddress::BtcAddress(BinaryData    addr, 
                        BinaryData    pubKey65,
                        BinaryData    privKey32,
-                       uint32_t      createdBlockNum,
-                       uint32_t      createdTimestamp) :
+                       uint32_t      firstBlockNum,
+                       uint32_t      firstTimestamp) :
       address20_(addr), 
       pubKey65_(pubKey65),
       privKey32_(privKey32),
-      createdBlockNum_(createdBlockNum), 
-      createdTimestamp_(createdTimestamp)
+      firstBlockNum_(firstBlockNum), 
+      firstTimestamp_(firstTimestamp)
 { 
    relevantTxIOPtrs_.clear();
 } 
 
-/*
-BtcAddress::BtcAddress(BtcAddress const & addr2)
-{
-   address20_ = addr2.address20_;
-   pubKey65_  = addr2.pubKey65_ ;
-   privKey32_ = addr2.privKey32_;
-   createdBlockNum_ = addr2.createdBlockNum_;
-   createdTimestamp_ = addr2.createdTimestamp_;
-   relevantTxIOPtrs_ = addr2.relevantTxIOPtrs_;
-}
-*/
 
 
 uint64_t BtcAddress::getBalance(void)
@@ -164,7 +153,7 @@ uint32_t BtcAddress::cleanLedger(void)
    uint32_t leRemoved = 0;
    for(uint32_t i=0; i<ledger_.size(); i++)
    {
-      if(ledger_[i].isNowInvalid_)
+      if(!ledger_[i].isValid())
          leRemoved++;
       else
          newLedger.push_back(ledger_[i]);
@@ -186,22 +175,22 @@ uint32_t BtcAddress::cleanLedger(void)
 void BtcWallet::addAddress(BinaryData    addr, 
                            BinaryData    pubKey65,
                            BinaryData    privKey32,
-                           uint32_t      createdBlockNum,
-                           uint32_t      createdTimestamp)
+                           uint32_t      firstBlockNum,
+                           uint32_t      firstTimestamp)
 {
 
    BtcAddress* addrPtr = &(addrMap_[addr]);
    *addrPtr = BtcAddress(addr, pubKey65, privKey32, 
-                         createdBlockNum, createdTimestamp);
+                         firstBlockNum, firstTimestamp);
    addrPtrVect_.push_back(addrPtr);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addAddress(BtcAddress const & newAddr)
 {
-   if(newAddr.address20_.getSize() > 0)
+   if(newAddr.getAddrStr20().getSize() > 0)
    {            
-      BtcAddress * addrPtr = &(addrMap_[newAddr.address20_]);
+      BtcAddress * addrPtr = &(addrMap_[newAddr.getAddrStr20()]);
       *addrPtr = newAddr;
       addrPtrVect_.push_back(addrPtr);
    }
@@ -229,11 +218,11 @@ void BtcWallet::scanTx(TxRef & tx,
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
-      BinaryData & addr20 = thisAddr.address20_;
+      BinaryData const & addr20 = thisAddr.getAddrStr20();
 
       // Ignore if addr was created at one week or 1000 blocks after this tx
-      if( thisAddr.createdTimestamp_ > blktime + (3600*24*7) ||
-          thisAddr.createdBlockNum_  > blknum  +  1000          )
+      if( thisAddr.getFirstTimestamp() > blktime + (3600*24*7) ||
+          thisAddr.getFirstBlockNum()  > blknum  +  1000          )
          continue;  
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
@@ -252,7 +241,7 @@ void BtcWallet::scanTx(TxRef & tx,
          {
             TxIORefPair     & txio  = txioIter->second;
             TxOutRef const  & txout = txioIter->second.getTxOutRef();
-            if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.address20_)
+            if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
             {
                txIsOurs   = true;
                txInIsOurs = true;
@@ -266,7 +255,7 @@ void BtcWallet::scanTx(TxRef & tx,
                                     blknum, 
                                     tx.getThisHash(), 
                                     iin);
-               thisAddr.ledger_.push_back(newEntry);
+               thisAddr.addLedgerEntry(newEntry);
                valueIn += thisVal;
             }
          }
@@ -292,7 +281,7 @@ void BtcWallet::scanTx(TxRef & tx,
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
          TxOutRef txout = tx.createTxOutRef(iout);
-         if( txout.getRecipientAddr() == thisAddr.address20_ )
+         if( txout.getRecipientAddr() == thisAddr.getAddrStr20() )
          {
             OutPoint outpt(tx.getThisHash(), iout);      
             unspentTxOuts_.insert(outpt);
@@ -306,7 +295,7 @@ void BtcWallet::scanTx(TxRef & tx,
                txIsOurs    = true;
                txOutIsOurs = true;
 
-               thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
+               thisAddr.addTxIO( thisTxio );
 
                int64_t thisVal = (int64_t)(txout.getValue());
                LedgerEntry newLedger(addr20, 
@@ -314,12 +303,12 @@ void BtcWallet::scanTx(TxRef & tx,
                                      blknum, 
                                      tx.getThisHash(), 
                                      iout);
-               thisAddr.ledger_.push_back(newLedger);
+               thisAddr.addLedgerEntry(newLedger);
                valueOut += thisVal;
-               if(thisAddr.createdBlockNum_ == 0)
+               if(thisAddr.getFirstBlockNum() == 0)
                {
-                  thisAddr.createdBlockNum_  = blknum;
-                  thisAddr.createdTimestamp_ = blktime;
+                  thisAddr.setFirstBlockNum( blknum );
+                  thisAddr.setFirstTimestamp( blktime );
                }
             }
             else
@@ -375,7 +364,7 @@ uint32_t BtcWallet::cleanLedger(void)
    uint32_t leRemoved = 0;
    for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
    {
-      if(ledgerAllAddr_[i].isNowInvalid_)
+      if(!ledgerAllAddr_[i].isValid())
          leRemoved++;
       else
          newLedger.push_back(ledgerAllAddr_[i]);
@@ -464,7 +453,7 @@ int32_t BlockDataManager_FullRAM::getNumConfirmations(BinaryData txHash)
             return TX_OFF_MAIN_BRANCH;
 
          int32_t txBlockHeight  = txbh.getBlockHeight();
-         int32_t topBlockHeight = getTopBlock().blockHeight_;
+         int32_t topBlockHeight = getTopBlockHeader().blockHeight_;
          return  topBlockHeight - txBlockHeight + 1;
       }
    }
@@ -472,7 +461,7 @@ int32_t BlockDataManager_FullRAM::getNumConfirmations(BinaryData txHash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeaderRef & BlockDataManager_FullRAM::getTopBlock(void) 
+BlockHeaderRef & BlockDataManager_FullRAM::getTopBlockHeader(void) 
 {
    if(topBlockPtr_ == NULL)
       topBlockPtr_ = &(getGenesisBlock());
@@ -596,6 +585,8 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet>
    }
 }
 
+
+// **** THIS METHOD IS NOT MAINTAINED ANYMORE **** //
 /////////////////////////////////////////////////////////////////////////////
 // This is an intense search, using every tool we've created so far!
 // This also should only be used in special circumstances because it's 
@@ -807,7 +798,6 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
            iter++)
       {
          iter->second.difficultySum_ = -1;
-         iter->second.difficultyDbl_ = -1;
          iter->second.blockHeight_   =  0;
          iter->second.isFinishedCalc_ = false;
       }

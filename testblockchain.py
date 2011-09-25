@@ -9,7 +9,7 @@ blkDataPath  = '/home/alan/download/bitcoin-blockchain-20110716/blk0001.dat'
 blkIndexPath = '/home/alan/download/bitcoin-blockchain-20110716/blkindex.dat'
 blkHeadPath  = 'blkHeaders.dat'
 
-bc = BlockChain()
+bc = PyBlockChain()
 
 timestart = datetime.now()
 bc.readBlockChainFile(blkDataPath, justHeaders=True)

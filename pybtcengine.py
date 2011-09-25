@@ -92,6 +92,22 @@ def setNetwork(netstring):
       print 'Unidentified network string!'
 """
 
+def coin2str(ncoin, ndec=8):
+   dispstr = str(ncoin)
+   firstChar = ' '
+   if ncoin < 0:
+      dispstr=dispstr[1:]
+      firstChar='-'
+   left = '0'
+   if abs(ncoin) > 99999999:
+      left = dispstr[:-8]
+   right = dispstr[-8:]
+   if not ndec==8:
+      right = right[:ndec]
+   return firstChar+left+'.'+right
+   
+   
+   
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 NOHASH = '00'*32
@@ -716,10 +732,10 @@ def TxOutScriptExtractKeyAddr(txoutObj):
       return '<Non-standard TxOut script>'
 
    if txoutType == TXOUT_SCRIPT_COINBASE:
-      newAcct = BtcAddress().createFromPublicKey(binScript[1:66])
+      newAcct = PyBtcAddress().createFromPublicKey(binScript[1:66])
       return newAcct.calculateAddrStr()
    elif txoutType == TXOUT_SCRIPT_STANDARD:
-      newAcct = BtcAddress().createFromPublicKeyHash160(binScript[3:23])
+      newAcct = PyBtcAddress().createFromPublicKeyHash160(binScript[3:23])
       return newAcct.getAddrStr()
 
 ################################################################################
@@ -748,7 +764,7 @@ def TxInScriptExtractKeyAddr(txinObj):
    scrType = getTxInScriptType(txinObj)
    if scrType == TXIN_SCRIPT_STANDARD:
       pubKeyBin = txinObj.binScript[-65:] 
-      newAddr = BtcAddress().createFromPublicKey(pubKeyBin)
+      newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
       return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
    elif scrType == TXIN_SCRIPT_COINBASE:
       return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
@@ -770,7 +786,7 @@ def TxInScriptExtractKeyAddr(txinObj):
 # consistency checks, because the lisecdsa library is slow, and 
 # we don't want to spend the time verifying thousands of keypairs
 # There's a reason we wrote out the pubkey and addresses...
-class BtcAddress(object):
+class PyBtcAddress(object):
    def __init__(self):
       self.privKeyInt = UNINITIALIZED
       self.pubKeyXInt = UNINITIALIZED
@@ -1026,7 +1042,7 @@ class BtcAddress(object):
 indent = ' '*3
 
 #####
-class OutPoint(object):
+class PyOutPoint(object):
    #def __init__(self, txOutHash, outIndex):
       #self.txOutHash = txOutHash
       #self.index     = outIndex
@@ -1058,7 +1074,7 @@ class OutPoint(object):
       
 
 #####
-class TxIn(object):
+class PyTxIn(object):
    def __init__(self):
       self.outpoint   = UNINITIALIZED
       self.binScript  = UNINITIALIZED
@@ -1071,7 +1087,7 @@ class TxIn(object):
       else: 
          txInData = BinaryUnpacker( toUnpack )
 
-      self.outpoint  = OutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
+      self.outpoint  = PyOutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
       scriptSize     = txInData.get(VAR_INT)
       if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
       self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
@@ -1088,7 +1104,7 @@ class TxIn(object):
 
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
-      print indstr + 'TxIn:'
+      print indstr + 'PyTxIn:'
       #self.outpoint.pprint(nIndent+1)
       print indstr + indent + 'PrevTxHash:', \
                   binary_to_hex(self.outpoint.txOutHash, BIGENDIAN), '(BE)'
@@ -1102,7 +1118,7 @@ class TxIn(object):
       
 
 #####
-class TxOut(object):
+class PyTxOut(object):
    def __init__(self):
       self.value       = UNINITIALIZED
       self.binPKScript = UNINITIALIZED
@@ -1141,7 +1157,7 @@ class TxOut(object):
          print indstr + indent + 'Script:   <Non-standard script!>'
 
 #####
-class Tx(object):
+class PyTx(object):
    #def __init__(self, version, txInList, txOutList, lockTime):
       #self.version    = version
       #self.numInputs  = len(txInList)
@@ -1174,10 +1190,10 @@ class Tx(object):
       self.version    = txData.get(UINT32)
       self.numInputs  = txData.get(VAR_INT)
       for i in xrange(self.numInputs):
-         self.inputs.append( TxIn().unserialize(txData) )
+         self.inputs.append( PyTxIn().unserialize(txData) )
       self.numOutputs = txData.get(VAR_INT)
       for i in xrange(self.numOutputs):
-         self.outputs.append( TxOut().unserialize(txData) )
+         self.outputs.append( PyTxOut().unserialize(txData) )
       self.lockTime   = txData.get(UINT32)
       endPos = txData.getPosition()
       self.nBytes = endPos - startPos
@@ -1207,7 +1223,7 @@ class Tx(object):
 ################################################################################
 
 
-class BlockHeader(object):
+class PyBlockHeader(object):
    def __init__(self):
       self.theHash      = UNINITIALIZED 
       self.version      = UNINITIALIZED 
@@ -1366,7 +1382,7 @@ class BlockHeader(object):
          print indstr + indent + 'DiffSum:   ', self.sumDifficult    
 
 
-class BlockData(object):
+class PyBlockData(object):
    def __init__(self):
       self.numTx      = UNINITIALIZED
       self.txList     = UNINITIALIZED
@@ -1390,7 +1406,7 @@ class BlockData(object):
       self.txList = []
       self.numTx  = blkData.get(VAR_INT)
       for i in xrange(self.numTx):
-         self.txList.append( Tx().unserialize(blkData) )
+         self.txList.append( PyTx().unserialize(blkData) )
       self.merkleTree = []
       self.merkleRoot = ''
       return self
@@ -1440,7 +1456,7 @@ class BlockData(object):
       
 
 
-class Block(object):
+class PyBlock(object):
    def __init__(self):
       self.blockHeader = UNINITIALIZED
       self.blockData   = UNINITIALIZED
@@ -1459,8 +1475,8 @@ class Block(object):
          blkData = BinaryUnpacker( toUnpack )
 
       self.txList = []
-      self.blockHeader = BlockHeader().unserialize(blkData)
-      self.blockData   = BlockData().unserialize(blkData)
+      self.blockHeader = PyBlockHeader().unserialize(blkData)
+      self.blockData   = PyBlockData().unserialize(blkData)
       return self
 
    def pprint(self, nIndent=0):
@@ -1594,7 +1610,7 @@ SCRIPT_ERROR = 4
 SCRIPT_NO_ERROR = 5
 
    
-class ScriptProcessor(object):
+class PyScriptProcessor(object):
 
    def __init__(self):
       self.stack = []
@@ -1639,7 +1655,6 @@ class ScriptProcessor(object):
       stackAlt  = []
       scriptData = BinaryUnpacker(binaryScript)
       self.lastOpCodeSepPos = None
-      print ''
    
       while scriptData.getRemainingSize() > 0:
          opcode = scriptData.get(UBYTE)
@@ -1949,7 +1964,7 @@ class ScriptProcessor(object):
             assert(False)
 
          # 5. Make a copy of the transaction -- we will be hashing a modified version
-         txCopy = Tx().unserialize( self.txNew.serialize() )
+         txCopy = PyTx().unserialize( self.txNew.serialize() )
 
          # 6. Remove all OP_CODESEPARATORs
          subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
@@ -1962,7 +1977,7 @@ class ScriptProcessor(object):
          txCopy.inputs[self.txInIndex].binScript = subscript
 
          # 9. Prepare the signature and public key
-         senderAddr = BtcAddress().createFromPublicKey(binPubKey)
+         senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
          hashToVerify = hash256(toHash)

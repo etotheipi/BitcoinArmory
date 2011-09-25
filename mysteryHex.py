@@ -86,14 +86,14 @@ def figureOutMysteryHex(hexStr, hashDict={}):
          validTime = timeMin < binary_to_int(binStr[idx+68:idx+72]) < timeMax
          if hashZeros and validTime:
             bin80 = binStr[idx:idx+80]
-            blkhead = BlockHeader().unserialize(bin80) 
+            blkhead = PyBlockHeader().unserialize(bin80) 
             idListExcl.append(['BlockHeader', idx, idx+80, binary_to_hex(bin80), blkhead])
             maskAll[idx:idx+80] = [1]*80
             continue 
       
       # If not a header, check to see if it's a Tx
       try:
-         testTx = Tx().unserialize(binStr[idx:])
+         testTx = PyTx().unserialize(binStr[idx:])
          if len(testTx.inputs) < 1 or len(testTx.outputs) < 1:
             raise Exception
          for inp in testTx.inputs:
@@ -117,7 +117,7 @@ def figureOutMysteryHex(hexStr, hashDict={}):
    pkIdx = getIdxListNotIdYet(hintStr['PkStart'], maskAll)
    for idx in pkIdx:
       if binStr[idx+23:idx+25] == hintStr['PkEnd']:
-         addrStr = BtcAddress().createFromPublicKeyHash160(binStr[idx+3:idx+23])
+         addrStr = PyBtcAddress().createFromPublicKeyHash160(binStr[idx+3:idx+23])
          extraInfo = addrStr.getAddrStr()
          idListSimple.append(['TxOutScript', idx, idx+25, extraInfo, ''])
          maskAll[idx:idx+25] = [1]*25
@@ -128,7 +128,7 @@ def figureOutMysteryHex(hexStr, hashDict={}):
       if idx > len(binStr)-65:
          continue
       try:
-         addrStr = BtcAddress().createFromPublicKey(binStr[idx:idx+65])
+         addrStr = PyBtcAddress().createFromPublicKey(binStr[idx:idx+65])
          extraInfo = addrStr.calculateAddrStr()
          if not idx+65==len(binStr) and binStr[idx+65] == hex_to_binary('ac'):
             idListSimple.append(['CoinbaseScript', idx, idx+66, extraInfo, ''])
@@ -274,10 +274,10 @@ def updateHashList(hashfile, blkfile, rescan=False):
    while( binunpack.getRemainingSize() > 0):
       binunpack.advance(4)  # magic
       sz = binunpack.get(UINT32)  # total bytes in this block
-      thisHeader = BlockHeader().unserialize(binunpack)
+      thisHeader = PyBlockHeader().unserialize(binunpack)
       hf.write(thisHeader.theHash + '\x01')
       hf.write(thisHeader.merkleRoot + '\x02')
-      thisData = BlockData().unserialize(binunpack)
+      thisData = PyBlockData().unserialize(binunpack)
       for tx in thisData.txList:
          hf.write(tx.thisHash + '\x03')
       newHashes += 2 + len(thisData.txList)
