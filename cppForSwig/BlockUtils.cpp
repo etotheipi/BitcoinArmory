@@ -1,3 +1,4 @@
+#include <algorithm>
 #include "BlockUtils.h"
 
 
@@ -170,6 +171,8 @@ uint32_t BtcAddress::cleanLedger(void)
    }
    ledger_.clear();
    ledger_ = newLedger;
+   
+   sort(ledger_.begin(), ledger_.end());
    return leRemoved;
 }
 
@@ -248,7 +251,7 @@ void BtcWallet::scanTx(TxRef & tx,
          {
             TxIORefPair     & txio  = txioIter->second;
             TxOutRef const  & txout = txioIter->second.getTxOutRef();
-            if(txout.getRecipientAddr() == thisAddr.address20_)
+            if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.address20_)
             {
                txIsOurs   = true;
                txInIsOurs = true;
@@ -257,7 +260,8 @@ void BtcWallet::scanTx(TxRef & tx,
                txio.setTxInRef(txin, &tx);
 
                int64_t thisVal = (int64_t)txout.getValue();
-               LedgerEntry( -thisVal, blknum, tx.getThisHash(), iin);
+               LedgerEntry newEntry( -thisVal, blknum, tx.getThisHash(), iin);
+               thisAddr.ledger_.push_back(newEntry);
                valueIn -= thisVal;
             }
          }
@@ -361,6 +365,7 @@ uint32_t BtcWallet::cleanLedger(void)
    }
    ledgerAllAddr_.clear();
    ledgerAllAddr_ = newLedger;
+   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
    return leRemoved;
 }
 

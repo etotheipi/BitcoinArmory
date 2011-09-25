@@ -158,7 +158,9 @@ class TxInRef
    friend class BlockDataManager_FullRAM;
 
 public:
-   TxInRef(void) : self_(0), isMine_(false) {}
+   TxInRef(void) : self_(0), isMine_(false), nBytes_(0), 
+                   scriptType_(TXIN_SCRIPT_UNKNOWN), scriptOffset_(0) {}
+
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
