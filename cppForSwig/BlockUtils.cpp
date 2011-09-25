@@ -92,6 +92,51 @@ bool TxIORefPair::isStandardTxOutScript(void)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
+// BtcAddress Methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+BtcAddress::BtcAddress(BinaryData    addr, 
+                       BinaryData    pubKey65,
+                       BinaryData    privKey32,
+                       uint32_t      createdBlockNum,
+                       uint32_t      createdTimestamp) :
+      address20_(addr), 
+      pubKey65_(pubKey65),
+      privKey32_(privKey32),
+      createdBlockNum_(createdBlockNum), 
+      createdTimestamp_(createdTimestamp)
+{ 
+   relevantTxIOPtrs_.clear();
+} 
+
+/*
+BtcAddress::BtcAddress(BtcAddress const & addr2)
+{
+   address20_ = addr2.address20_;
+   pubKey65_  = addr2.pubKey65_ ;
+   privKey32_ = addr2.privKey32_;
+   createdBlockNum_ = addr2.createdBlockNum_;
+   createdTimestamp_ = addr2.createdTimestamp_;
+   relevantTxIOPtrs_ = addr2.relevantTxIOPtrs_;
+}
+*/
+
+
+uint64_t BtcAddress::getBalance(void)
+{
+   uint64_t balance = 0;
+   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   {
+      if(relevantTxIOPtrs_[i]->isUnspent())
+         balance += relevantTxIOPtrs_[i]->getValue();
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
 // BtcWallet Methods
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -102,44 +147,48 @@ void BtcWallet::addAddress(BinaryData    addr,
                            uint32_t      createdBlockNum,
                            uint32_t      createdTimestamp)
 {
-   BtcAddress & myAddr = addrList_[addr];
-   myAddr.address20_.copyFrom(addr);
-   if(pubKey65.getSize() > 0)
-      myAddr.pubkey65_.copyFrom(pubKey65);
-   if(privKey32.getSize() > 0)
-      myAddr.privkey32_.copyFrom(privKey32);
-   myAddr.createdBlockNum_  = createdBlockNum;
-   myAddr.createdTimestamp_ = createdTimestamp;
+
+   BtcAddress* addrPtr = &(addrMap_[addr]);
+   *addrPtr = BtcAddress(addr, pubKey65, privKey32, 
+                         createdBlockNum, createdTimestamp);
+   addrPtrVect_.push_back(addrPtr);
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addAddress(BtcAddress const & newAddr)
 {
    if(newAddr.address20_.getSize() > 0)
-      addrList_[newAddr.address20_] = newAddr;
+   {            
+      BtcAddress * addrPtr = &(addrMap_[newAddr.address20_]);
+      *addrPtr = newAddr;
+      addrPtrVect_.push_back(addrPtr);
+   }
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Pass this wallet a TxRef and BlockHeaderRef, 
-bool BtcWallet::scanTx(TxRef & tx, BlockHeaderRef & bhr)
+bool BtcWallet::hasAddr(BinaryData const & addr20)
 {
-   uint32_t blkTimestamp = bhr.getTimestamp();
-   uint32_t blkHeight    = bhr.getBlockHeight();
-   map<BinaryData, BtcAddress>::iterator addrIter;
+   map<BinaryData, BtcAddress>::iterator addrIter = addrMap_.find(addr20);
+   return addrIter != addrMap_.end();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Pass this wallet a TxRef and current time/blknumber.  I used to just pass
+// in the BlockHeaderRef with it, but this may be a Tx not in a block yet, 
+// but I still need the time/num 
+void BtcWallet::scanTx(TxRef & tx, uint32_t blknum, uint32_t blktime)
+{
    bool txIsOurs = false;
 
    ///// LOOP OVER ALL ADDRESSES ////
-   for(addrIter  = addrList_.begin();
-       addrIter != addrList_.end();
-       addrIter++)
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
-      BtcAddress & thisAddr = addrIter->second;
+      BtcAddress & thisAddr = *(addrPtrVect_[i]);
 
       // Ignore if addr was created at one week or 1000 blocks after this tx
-      if( thisAddr.createdTimestamp_ > blkTimestamp - (3600*24*7) ||
-          thisAddr.createdBlockNum_  > blkHeight    -  1000          )
+      if( thisAddr.createdTimestamp_ > blktime + (3600*24*7) ||
+          thisAddr.createdBlockNum_  > blknum  +  1000          )
          continue;  
-
 
       ///// LOOP OVER ALL TXOUT IN BLOCK /////
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
@@ -160,8 +209,8 @@ bool BtcWallet::scanTx(TxRef & tx, BlockHeaderRef & bhr)
                txIsOurs = true;
                if(thisAddr.createdBlockNum_ == 0)
                {
-                  thisAddr.createdBlockNum_  = blkHeight;
-                  thisAddr.createdTimestamp_ = blkTimestamp;
+                  thisAddr.createdBlockNum_  = blknum;
+                  thisAddr.createdTimestamp_ = blktime;
                }
             }
             else
@@ -183,21 +232,22 @@ bool BtcWallet::scanTx(TxRef & tx, BlockHeaderRef & bhr)
 
          // We have the tx, now check if it contains one of our TxOuts
          map<OutPoint, TxIORefPair>::iterator txioIter = txioMap_.find(outpt);
-         if(txioIter->second.getTxOutRef().getRecipientAddr() == addrIter->first)
+         if(txioIter != txioMap_.end())
          {
-            txIsOurs = true;
-            if(txioIter != txioMap_.end())
+            if(txioIter->second.getTxOutRef().getRecipientAddr() == thisAddr.address20_)
             {
+               txIsOurs = true;
                unspentTxOuts_.erase(outpt);
                txioMap_[outpt].setTxInRef(txin, &tx);
             }
-            else
-            {
-               cout << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
-               cerr << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
-               txioMap_[outpt].setTxInRef(txin, &tx);
-               orphanTxIns_.insert(outpt);
-            }
+         }
+         else
+         {
+            // Lots of txins that we won't have, this is a normal conditional
+            //cout << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
+            //cerr << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
+            //txioMap_[outpt].setTxInRef(txin, &tx);
+            //orphanTxIns_.insert(outpt);
          }
       } // loop over TxIns
    } // loop over all wallet addresses
@@ -206,9 +256,10 @@ bool BtcWallet::scanTx(TxRef & tx, BlockHeaderRef & bhr)
       txrefList_.push_back(&tx);
 }
 
-uint64_t BtcWallet::getBalance(BinaryData const & addr20)
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getBalance(void)
 {
-   uint64_t balance;
+   uint64_t balance = 0;
    set<OutPoint>::iterator unspentIter;
    for( unspentIter  = unspentTxOuts_.begin(); 
         unspentIter != unspentTxOuts_.end(); 
@@ -216,7 +267,20 @@ uint64_t BtcWallet::getBalance(BinaryData const & addr20)
       balance += txioMap_[*unspentIter].getValue();
    return balance;
 }
+
    
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getBalance(uint32_t i)
+{
+   return addrPtrVect_[i]->getBalance();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getBalance(BinaryData const & addr20)
+{
+   assert(hasAddr(addr20)); 
+   return addrMap_[addr20].getBalance();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -393,7 +457,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWal
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
          TxRef & tx = *(txlist[itx]);
-         myWallet.scanTx(tx, bhr);
+         myWallet.scanTx(tx, bhr.getBlockHeight(), bhr.getTimestamp());
       }
    }
 }
@@ -413,7 +477,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet>
          TxRef & tx = *(txlist[itx]);
 
          for(uint32_t w=0; w<walletVect.size(); w++)
-            walletVect[w].scanTx(tx, bhr);
+            walletVect[w].scanTx(tx, bhr.getBlockHeight(), bhr.getTimestamp());
       }
    }
 }

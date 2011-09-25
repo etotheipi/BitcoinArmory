@@ -150,14 +150,29 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 struct BtcAddress
 {
-   BtcAddress(void) : address20_(0), pubkey65_(0), privkey32_(0),
+   BtcAddress(void) : 
+      address20_(0), pubKey65_(0), privKey32_(0), isActive_(false),
       createdBlockNum_(0), createdTimestamp_(0), relevantTxIOPtrs_(0) { } 
 
+   BtcAddress(BinaryData    addr, 
+              BinaryData    pubKey65  = BinaryData(0),
+              BinaryData    privKey32 = BinaryData(0),
+              uint32_t      createdBlockNum  = 0,
+              uint32_t      createdTimestamp = 0);
+
+   //BtcAddress(BtcAddress const & addr2);
+
+   bool havePubKey(void) { return pubKey65_.getSize() > 0; }
+   bool havePrivKey(void) { return privKey32_.getSize() > 0; }
+
+   uint64_t getBalance(void);
+
    BinaryData address20_;
-   BinaryData pubkey65_;
-   BinaryData privkey32_;
-   uint32_t createdBlockNum_;
-   uint32_t createdTimestamp_;
+   BinaryData pubKey65_;
+   BinaryData privKey32_;
+   uint32_t   createdBlockNum_;
+   uint32_t   createdTimestamp_;
+   bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
    vector< TxIORefPair* > relevantTxIOPtrs_;
@@ -183,29 +198,41 @@ public:
                    uint32_t      createdBlockNum  = 0,
                    uint32_t      createdTimestamp = 0);
 
+   bool hasAddr(BinaryData const & addr20);
 
-   bool       scanTx(TxRef & tx, BlockHeaderRef & bhr);
+   // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
+   // you will save time by not checking addresses that are much newr than
+   // the block
+   void       scanTx(TxRef & tx, 
+                     uint32_t blknum = UINT32_MAX,
+                     uint32_t blktime = UINT32_MAX);
+
    uint64_t   getBalance(void);
+   uint64_t   getBalance(uint32_t i);
    uint64_t   getBalance(BinaryData const & addr20);
 
    vector<TxRef> getTxList(void);
    vector<TxRef> getTxList(BinaryData const & addr20);
    
+   uint32_t     getNumAddr(void) {return addrMap_.size();}
+   BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
+   BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
 
 private:
-   map<BinaryData, BtcAddress> addrList_;
-   map<OutPoint, TxIORefPair>  txioMap_;
-   set<OutPoint>               unspentTxOuts_;
-   set<OutPoint>               orphanTxIns_;
-   vector<TxRef*>              txrefList_;      // aggregation of all relevant Tx
-   bitset<32>                  encryptFlags_;    // priv-key-encryp params
-   bool                        isLocked_;       // watching only, no spending
+   vector<BtcAddress*>          addrPtrVect_;
+   map<BinaryData, BtcAddress>  addrMap_;
+   map<OutPoint, TxIORefPair>   txioMap_;
+   set<OutPoint>                unspentTxOuts_;
+   set<OutPoint>                orphanTxIns_;
+   vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
+   bitset<32>                   encryptFlags_;    // priv-key-encryp params
+   bool                         isLocked_;       // watching only, no spending
    
    // import future
-   BinaryData                  privKeyGenerator_;
-   BinaryData                  pubKeyGenerator_;
-   BinaryData                  chainCode_;
-   bitset<32>                  chainFlags_;
+   BinaryData                   privKeyGenerator_;
+   BinaryData                   pubKeyGenerator_;
+   BinaryData                   chainCode_;
+   bitset<32>                   chainFlags_;
    
 };
 
@@ -339,7 +366,7 @@ public:
    vector<BinaryData> prefixSearchTx(BinaryData const & searchStr);
    vector<BinaryData> prefixSearchAddress(BinaryData const & searchStr);
 
-   // Traverse the blockchain and update the wallet with the relevant Tx data
+   // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    void scanBlockchainForTx_FromScratch(BtcWallet & myWallet);
    void scanBlockchainForTx_FromScratch(vector<BtcWallet> & walletVect);
  

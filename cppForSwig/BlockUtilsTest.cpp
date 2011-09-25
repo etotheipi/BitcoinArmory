@@ -107,7 +107,15 @@ int main(void)
 
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    //TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
+   
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).address20_;
+      cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
+                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
 
+   }
 
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
