@@ -21,6 +21,7 @@
 #include "ripemd.h"
 
 #define HEADER_SIZE 80
+#define CONVERTBTC 100000000
 #define HashString     BinaryData
 #define HashStringRef  BinaryDataRef
 

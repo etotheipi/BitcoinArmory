@@ -345,7 +345,6 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       { return ptr_;    }
-   //uint8_t       * getPtr(void)             { return ptr_;    }
    size_t getSize(void) const               { return nBytes_; }
 
    /////////////////////////////////////////////////////////////////////////////

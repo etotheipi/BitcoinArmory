@@ -38,6 +38,7 @@
 
 using namespace std;
 
+class BlockDataManager_FullRAM;
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,6 +142,43 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// LedgerEntry  (STRUCT)
+//
+////////////////////////////////////////////////////////////////////////////////
+struct LedgerEntry
+{
+   LedgerEntry(void) :
+      value_(0),
+      blockNum_(UINT32_MAX),
+      txHash_(BtcUtils::EmptyHash_),
+      index_(UINT32_MAX),
+      isNowInvalid_(true) {}
+
+   LedgerEntry(int64_t val, 
+               uint32_t blkNum, 
+               BinaryData const & txhash, 
+               uint32_t idx) :
+      value_(val),
+      blockNum_(blkNum),
+      txHash_(txhash),
+      index_(idx),
+      isNowInvalid_(false) {}
+      
+   
+   bool operator<(LedgerEntry const & le2);
+   bool operator==(LedgerEntry const & le2);
+
+   int64_t          value_;
+   uint32_t         blockNum_;
+   BinaryData       txHash_;
+   uint32_t         index_;  // either a tx index, txout index or txin index
+   bool             isNowInvalid_;
+
+
+   
+}; 
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -152,7 +190,8 @@ struct BtcAddress
 {
    BtcAddress(void) : 
       address20_(0), pubKey65_(0), privKey32_(0), isActive_(false),
-      createdBlockNum_(0), createdTimestamp_(0), relevantTxIOPtrs_(0) { } 
+      createdBlockNum_(0), createdTimestamp_(0), 
+      relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
               BinaryData    pubKey65  = BinaryData(0),
@@ -161,6 +200,7 @@ struct BtcAddress
               uint32_t      createdTimestamp = 0);
 
    //BtcAddress(BtcAddress const & addr2);
+   uint32_t cleanLedger(void);
 
    bool havePubKey(void) { return pubKey65_.getSize() > 0; }
    bool havePrivKey(void) { return privKey32_.getSize() > 0; }
@@ -174,9 +214,15 @@ struct BtcAddress
    uint32_t   createdTimestamp_;
    bool       isActive_; 
 
+
+   vector<LedgerEntry> const & getTxLedger(void) { return ledger_; }
+
    // Each address will store a list of pointers to its transactions
-   vector< TxIORefPair* > relevantTxIOPtrs_;
+   vector<TxIORefPair*>   relevantTxIOPtrs_;
+   vector<LedgerEntry>    ledger_;
 };
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -184,7 +230,6 @@ struct BtcAddress
 // BtcWallet
 //
 ////////////////////////////////////////////////////////////////////////////////
-
 class BtcWallet
 {
 public:
@@ -204,6 +249,7 @@ public:
    // you will save time by not checking addresses that are much newr than
    // the block
    void       scanTx(TxRef & tx, 
+                     uint32_t txIndex = UINT32_MAX,
                      uint32_t blknum = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX);
 
@@ -218,10 +264,14 @@ public:
    BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
    BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
 
+   uint32_t cleanLedger(void);
+   vector<LedgerEntry> const & getTxLedger(void) { return ledgerAllAddr_; }
+
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
    map<OutPoint, TxIORefPair>   txioMap_;
+   vector<LedgerEntry>          ledgerAllAddr_;  
    set<OutPoint>                unspentTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
@@ -357,6 +407,7 @@ public:
    BlockHeaderRef & getGenesisBlock(void) ;
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
+   TxRef *          getTxByHash(BinaryData const & txHash);
    void             addHeader(BinaryData const & binHeader);
 
    // Prefix searches would be much better if we had an some kind of underlying

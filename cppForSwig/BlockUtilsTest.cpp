@@ -99,15 +99,35 @@ int main(void)
    //myAddress.swapEndian();
    //myPubKey.swapEndian();
 
-   myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
-   wlt.addAddress(myAddress);
-
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    wlt.addAddress(myAddress);
 
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    //TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
    
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).address20_;
+      cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
+                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
+      vector<LedgerEntry> const & ledger = wlt.getTxLedger();
+      for(uint32_t j=0; j<ledger.size(); j++)
+      {  
+         cout << "\t\tTx: " 
+              << ledger[i].value_/(float)(CONVERTBTC) << " (" 
+              << ledger[i].value_
+              << ")  TxHash: " << ledger[i].txHash_.toString()
+              << " (Index: " << ledger[i].index_ << ")" << endl;
+      }
+
+   }
+   cout << endl;
+
+   myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
+   wlt.addAddress(myAddress);
+   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
+
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
@@ -116,6 +136,7 @@ int main(void)
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
 
    }
+
 
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
