@@ -150,16 +150,19 @@ private:
 struct LedgerEntry
 {
    LedgerEntry(void) :
+      addr20_(0),
       value_(0),
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
       isNowInvalid_(true) {}
 
-   LedgerEntry(int64_t val, 
+   LedgerEntry(BinaryData const & addr20,
+               int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx) :
+      addr20_(addr20),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
@@ -167,9 +170,10 @@ struct LedgerEntry
       isNowInvalid_(false) {}
       
    
-   bool operator<(LedgerEntry const & le2);
-   bool operator==(LedgerEntry const & le2);
+   bool operator<(LedgerEntry const & le2) const;
+   bool operator==(LedgerEntry const & le2) const;
 
+   BinaryData       addr20_;
    int64_t          value_;
    uint32_t         blockNum_;
    BinaryData       txHash_;

@@ -116,7 +116,7 @@ int main(void)
       {  
          cout << "\t\tTx: " 
               << ledger[j].value_/(float)(CONVERTBTC) << " (" 
-              << ledger[j].value_
+              << ledger[j].blockNum_
               << ")  TxHash: " << ledger[j].txHash_.getSliceCopy(0,4).toHex()
               << " (Index: " << ledger[j].index_ << ")" << endl;
       }
@@ -143,8 +143,9 @@ int main(void)
    for(uint32_t j=0; j<ledger.size(); j++)
    {  
       cout << "\t\tTx: " 
+           << ledger[j].addr20_.toHex() << "  "
            << ledger[j].value_/(float)(CONVERTBTC) << " (" 
-           << ledger[j].value_
+           << ledger[j].blockNum_
            << ")  TxHash: " << ledger[j].txHash_.getSliceCopy(0,4).toHex()
            << " (Index: " << ledger[j].index_ << ")" << endl;
    }
@@ -155,7 +156,7 @@ int main(void)
    {  
       cout << "\t\tTx: " 
            << ledger2[j].value_/(float)(CONVERTBTC) << " (" 
-           << ledger2[j].value_
+           << ledger2[j].blockNum_
            << ")  TxHash: " << ledger2[j].txHash_.getSliceCopy(0,4).toHex()
            << " (Index: " << ledger2[j].index_ << ")" << endl;
    }

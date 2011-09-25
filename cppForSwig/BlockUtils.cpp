@@ -97,18 +97,18 @@ bool TxIORefPair::isStandardTxOutScript(void)
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-bool LedgerEntry::operator<(LedgerEntry const & le2)
+bool LedgerEntry::operator<(LedgerEntry const & le2) const
 {
-   if( blockNum_ < le2.blockNum_)
-      return true;
-   else if( index_ < le2.index_)
-      return true;
+   if( blockNum_ != le2.blockNum_)
+      return blockNum_ < le2.blockNum_;
+   else if( index_ != le2.index_)
+      return index_ < le2.index_;
    else
       return false;
    
 }
 
-bool LedgerEntry::operator==(LedgerEntry const & le2)
+bool LedgerEntry::operator==(LedgerEntry const & le2) const
 {
    return (blockNum_ == le2.blockNum_ && index_ == le2.index_);
 }
@@ -229,6 +229,7 @@ void BtcWallet::scanTx(TxRef & tx,
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
+      BinaryData & addr20 = thisAddr.address20_;
 
       // Ignore if addr was created at one week or 1000 blocks after this tx
       if( thisAddr.createdTimestamp_ > blktime + (3600*24*7) ||
@@ -260,9 +261,13 @@ void BtcWallet::scanTx(TxRef & tx,
                txio.setTxInRef(txin, &tx);
 
                int64_t thisVal = (int64_t)txout.getValue();
-               LedgerEntry newEntry( -thisVal, blknum, tx.getThisHash(), iin);
+               LedgerEntry newEntry(addr20, 
+                                   -thisVal,
+                                    blknum, 
+                                    tx.getThisHash(), 
+                                    iin);
                thisAddr.ledger_.push_back(newEntry);
-               valueIn -= thisVal;
+               valueIn += thisVal;
             }
          }
          else
@@ -275,7 +280,11 @@ void BtcWallet::scanTx(TxRef & tx,
          }
       } // loop over TxIns
       if(txInIsOurs)
-         ledgerAllAddr_.push_back(LedgerEntry( valueIn, blknum, tx.getThisHash(), txIndex));
+         ledgerAllAddr_.push_back(LedgerEntry(addr20, 
+                                             -valueIn, 
+                                              blknum, 
+                                              tx.getThisHash(), 
+                                              txIndex));
 
       ///// LOOP OVER ALL TXOUT IN BLOCK /////
       uint64_t valueOut = 0;
@@ -300,7 +309,11 @@ void BtcWallet::scanTx(TxRef & tx,
                thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
 
                int64_t thisVal = (int64_t)(txout.getValue());
-               LedgerEntry newLedger(thisVal, blknum, tx.getThisHash(), iout);
+               LedgerEntry newLedger(addr20, 
+                                     thisVal, 
+                                     blknum, 
+                                     tx.getThisHash(), 
+                                     iout);
                thisAddr.ledger_.push_back(newLedger);
                valueOut += thisVal;
                if(thisAddr.createdBlockNum_ == 0)
@@ -318,7 +331,11 @@ void BtcWallet::scanTx(TxRef & tx,
          }
       } // loop over TxOuts
       if(txOutIsOurs)
-         ledgerAllAddr_.push_back(LedgerEntry( valueOut, blknum, tx.getThisHash(), txIndex));
+         ledgerAllAddr_.push_back(LedgerEntry( addr20, 
+                                               valueOut, 
+                                               blknum, 
+                                               tx.getThisHash(), 
+                                               txIndex));
 
    } // loop over all wallet addresses
 

@@ -27,6 +27,53 @@
   (c'mon, it will take like 10 seconds to cut&paste)
 ********************************************************************************
 
+#####
+25 Sep, 2011:   
+
+   *** Address scanning, Tx ledgers, wallet balance, etc, ADDED
+   
+   The directory cppForSwig contains a C++ implementation of the block objects
+   with everything that doesn't require a bignum library.  The goal was to 
+   create C++ code that could be accessed via SWIG/python to do the heavy 
+   lifting, since python isn't very good at doing it quickly/efficiently.
+   
+   At the moment, the BlockDataManager_FullRAM will store the entire blockchain
+   in RAM, and do all calculations on it there.  I anticipate in the future, to
+   convert this to a file-based approach with an initial scan.
+
+   Below is a list of the operations the C++ code supports, as well as timings
+   based on my decent AMD Phenom II X4 840 CPU and WD 1TB HDD, using a file
+   containing the blockchain up to about block 145,000:  600 MB.
+
+      -- Reading blockchain from disk:    5.4s
+      -- Populating header and tx maps:  10.2s
+      -- Organizing headers into chain:   0.6s
+      -- Scan blkchain for 3 addrs' tx:   2.9s
+
+   Note that these operations are all from scratch, meaning you don't need to
+   keep any other files on your HDD except for your address list, and the 
+   client could start up, read the entire blkchain file, and find all of your
+   transactions and compute your balances from scratch, in under 30s.  I'm 
+   very pleased with these results!  (NOTE:  This does not involve any kind
+   of verification, or crypto operations).
+
+   Some additional features:
+      -- Will maintain a tx ledger for each address individually, as well
+         as for the entire wallet as a whole (this should aggregate multiple
+         TxIn objects in a single Tx into a single ledger entry, though I
+         haven't tested this specific feature yet).  
+      -- The ledgers can be sorted by order in the blockchain
+      -- A separate list of your TxOut-TxIn pairs provides a simple way
+         to access your unspent TxOuts, and prune off TxOuts that have 
+         already been spent
+      -- The organize-blockchain should detect reorganizations and invalid
+         blocks, but does not yet do anything other than return a flag
+         I will eventually go through and populate the previouslyValid list.
+      -- The basics of the SWIG interface are in place:  I've made sure that
+         std::strings and std::vectors are handled properly and that the 
+         blockchain reading works from python.  But that was a few commits
+         ago and the interface needs to be updated. 
+   
 
 #####
 20 Aug, 2011:
