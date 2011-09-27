@@ -83,11 +83,67 @@ int main(void)
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().getCopy().printHeader(cout);
+   bdm.getGenesisBlock().printHeader(cout);
 
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
-   bdm.getTopBlockHeader().getCopy().printHeader(cout);
+   bdm.getTopBlockHeader().printHeader(cout);
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << endl << endl;
+   cout << "Next-to-top block:" << endl;
+   BlockHeaderRef & topm1 = *(bdm.getHeaderByHash( bdm.getTopBlockHeader().getPrevHash()));
+   topm1.printHeader();
+   
+   /////////////////////////////////////////////////////////////////////////////
+   cout << endl << endl;
+   cout << "Try listing some TxIn/TxOuts" << endl;
+   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100000));
+   uint32_t nTx = blk100k.getNumTx();
+   vector<TxRef*> & txrefVect = blk100k.getTxRefPtrList();
+   for(uint32_t t=0; t<nTx; t++)
+   {
+      TxRef & tx = *txrefVect[t]; 
+      uint32_t nIn  = tx.getNumTxIn();
+      uint32_t nOut = tx.getNumTxOut();
+      for(uint32_t in=0; in<nIn; in++)
+         tx.getTxInRef(in).print(cout); 
+      for(uint32_t out=0; out<nOut; out++)
+         tx.getTxOutRef(out).print(cout); 
+   }
+
+   cout << endl << endl;
+   cout << "Now print out the same txinx/outs, but different info:" << endl;
+   for(uint32_t t=0; t<nTx; t++)
+   {
+      TxRef & tx = *txrefVect[t]; 
+      uint32_t nIn  = tx.getNumTxIn();
+      uint32_t nOut = tx.getNumTxOut();
+      for(uint32_t in=0; in<nIn; in++)
+      {
+         TxInRef txin = tx.getTxInRef(in);
+         cout << "TxIn: " << endl;
+         TxOutRef prevOut = bdm.getPrevTxOut(txin);
+         if(prevOut.isInitialized())
+         {
+            cout << "\tSender: " << prevOut.getRecipientAddr().toHex();
+            cout << " (" << prevOut.getValue() << ")" << endl;
+         }
+         else
+         {
+            cout << "\tSender: " << "<COINBASE/GENERATION>";
+            cout << " (50 [probably])" << endl;
+         }
+
+      }
+      for(uint32_t out=0; out<nOut; out++)
+      {
+         TxOutRef txout = tx.getTxOutRef(out);
+         cout << "TxOut:" << endl;
+         cout << "\tRecip: " << txout.getRecipientAddr().toHex() << endl;
+         cout << "\tValue: " << txout.getValue() << endl;
+      }
+   }
 
 
    BinaryData myAddress, myPubKey;

@@ -238,7 +238,10 @@ public:
          outStr[2*i  ] = hexLookupTable[ (nextByte >> 4) & 0x0F ];
          outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
       }
-      return string((char const *)(&(outStr[0])), 2*nBytes_);
+      if(nBytes_ > 0)
+         return string((char const *)(&(outStr[0])), 2*nBytes_);
+      else
+         return string("");
    }
 
    static BinaryData CreateFromHex(string const & str)
@@ -496,7 +499,7 @@ public:
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
 
-      if(start_pos + nChar >= nBytes_)
+      if(start_pos + nChar > nBytes_)
       {
          cerr << "getSliceRef: Invalid BinaryData access" << endl;
          return BinaryDataRef();
@@ -510,7 +513,7 @@ public:
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
 
-      if(start_pos + nChar >= nBytes_)
+      if(start_pos + nChar > nBytes_)
       {
          cerr << "getSliceRef: Invalid BinaryData access" << endl;
          return BinaryDataRef();

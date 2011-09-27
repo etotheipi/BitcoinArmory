@@ -111,7 +111,6 @@ OutPoint TxInRef::getOutPoint(void) const
 { 
    OutPoint op;
    op.unserialize(getPtr());
-   cout << "OutPoint: " << op.getTxHash().toHex() << "   " << op.getTxOutIndex() << endl;
    return op;
 }
 
@@ -184,11 +183,7 @@ BinaryData TxInRef::getSenderAddrIfAvailable(void)
    BinaryData addrTarget(0);
    if(scriptType_ == TXIN_SCRIPT_STANDARD)
    {
-      cout << "txin script size: " << getBinScriptRef().getSize() << endl;
-      uint32_t scriptsz = getScriptSize();
-      uint32_t pubkeyOffset = scriptsz-65;
-      cout << "txin script: " << getBinScriptRef().toHex() << endl;
-      BinaryData pubkey65 = getBinScriptRef().getSliceCopy(pubkeyOffset, 65);
+      BinaryData pubkey65 = getBinScriptRef().getSliceCopy(-65, 65);
       addrTarget = BtcUtils::getHash160(pubkey65);
    }
    return addrTarget;

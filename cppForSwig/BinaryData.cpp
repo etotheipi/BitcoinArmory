@@ -141,7 +141,7 @@ BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar) const
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;
 
-   if(start_pos + nChar >= nBytes_)
+   if(start_pos + nChar > nBytes_)
    {
       cerr << "getSliceRef: Invalid BinaryData access" << endl;
       return BinaryDataRef();
@@ -155,7 +155,7 @@ BinaryData BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar) const
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;
 
-   if(start_pos + nChar >= nBytes_)
+   if(start_pos + nChar > nBytes_)
    {
       cerr << "getSliceCopy: Invalid BinaryData access" << endl;
       return BinaryData();

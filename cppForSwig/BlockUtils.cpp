@@ -251,7 +251,7 @@ void BtcWallet::scanTx(TxRef & tx,
 
                int64_t thisVal = (int64_t)txout.getValue();
                LedgerEntry newEntry(addr20, 
-                                   -thisVal,
+                                   -(int64_t)thisVal,
                                     blknum, 
                                     tx.getThisHash(), 
                                     iin);
@@ -270,7 +270,7 @@ void BtcWallet::scanTx(TxRef & tx,
       } // loop over TxIns
       if(txInIsOurs)
          ledgerAllAddr_.push_back(LedgerEntry(addr20, 
-                                             -valueIn, 
+                                             -(int64_t)valueIn, 
                                               blknum, 
                                               tx.getThisHash(), 
                                               txIndex));
@@ -957,6 +957,31 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
    orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// We're going to need the BDM's help to get the sender for a TxIn since it
+// sometimes requires going and finding the TxOut from the distant past
+////////////////////////////////////////////////////////////////////////////////
+TxOutRef BlockDataManager_FullRAM::getPrevTxOut(TxInRef & txin)
+{
+   OutPointRef opr = txin.getOutPointRef();
+   if(opr.getTxHash() == BtcUtils::EmptyHash_)
+      return TxOutRef();
+
+   TxRef & tx = *(getTxByHash(opr.getTxHash()));
+   uint32_t idx = opr.getTxOutIndex();
+   return tx.getTxOutRef(idx);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BlockDataManager_FullRAM::getSenderAddr20(TxInRef & txin)
+{
+   TxOutRef txout = getPrevTxOut(txin);
+   if(!txout.isInitialized())
+      return BinaryData(0);
+
+   return txout.getRecipientAddr();
+}
 
 
 

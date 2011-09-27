@@ -56,7 +56,8 @@ public:
    uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
    double        getDifficulty(void) const   { assert(isInitialized_); return difficultyDbl_;                }
    double        getDifficultySum(void) const{ assert(isInitialized_); return difficultySum_;                }
-   BinaryDataRef getThisHash(void) const     { assert(isInitialized_); return thisHash_.getRef();}
+   BinaryDataRef getThisHash(void) const     { assert(isInitialized_); return thisHash_.getRef();            }
+   uint32_t      getNumTx(void) const        { assert(isInitialized_); return numTx_;                        }
 
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
@@ -73,7 +74,7 @@ public:
    void unserialize(BinaryRefReader & brr);
 
    /////////////////////////////////////////////////////////////////////////////
-   vector<TxRef*> const & getTxRefPtrList(void) const {return txPtrList_;}
+   vector<TxRef*> & getTxRefPtrList(void) {return txPtrList_;}
 
 private:
    BinaryDataRef  self_;

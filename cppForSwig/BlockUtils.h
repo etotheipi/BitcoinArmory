@@ -454,15 +454,16 @@ public:
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    void scanBlockchainForTx_FromScratch_AllAddr(void);
-
-
    uint32_t readBlkFile_FromScratch(string filename);
-
 
    // After reading in all headers, find the longest chain and set nextHash vals
    // TODO:  Figure out if there is an elegant way to deal with a forked 
    //        blockchain containing two equal-length chains
    bool organizeChain(bool forceRebuild=false);
+
+
+   BinaryData getSenderAddr20(TxInRef & txin);
+   TxOutRef getPrevTxOut(TxInRef & txin);
 
 private:
 
