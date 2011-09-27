@@ -136,7 +136,7 @@ bool BinaryData::endsWith(BinaryData const & matchStr) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar) const
+BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;
@@ -150,7 +150,7 @@ BinaryDataRef BinaryData::getSliceRef(uint32_t start_pos, uint32_t nChar) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData BinaryData::getSliceCopy(uint32_t start_pos, uint32_t nChar) const
+BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
       start_pos = nBytes_ + start_pos;

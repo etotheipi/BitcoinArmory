@@ -77,7 +77,8 @@ public:
          alloc(sz); 
          nBytes_ = sz;
       }
-      memcpy( &(data_[0]), inData, sz);
+      if(sz > 0)
+         memcpy( &(data_[0]), inData, sz);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -153,9 +154,9 @@ public:
    bool endsWith(BinaryData const & matchStr) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar) const;
+   BinaryDataRef getSliceRef(int32_t start_pos, uint32_t nChar) const;
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    getSliceCopy(uint32_t start_pos, uint32_t nChar) const;
+   BinaryData    getSliceCopy(int32_t start_pos, uint32_t nChar) const;
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
@@ -494,7 +495,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getSliceRef(uint32_t start_pos, uint32_t nChar) const
+   BinaryDataRef getSliceRef(int32_t start_pos, uint32_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;
@@ -508,7 +509,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getSliceCopy(uint32_t start_pos, uint32_t nChar) const
+   BinaryData getSliceCopy(int32_t start_pos, uint32_t nChar) const
    {
       if(start_pos < 0) 
          start_pos = nBytes_ + start_pos;

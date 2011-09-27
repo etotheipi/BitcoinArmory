@@ -205,8 +205,8 @@ class BtcAddress
 {
 public:
    BtcAddress(void) : 
-      address20_(0), pubKey65_(0), privKey32_(0), isActive_(false),
-      firstBlockNum_(0), firstTimestamp_(0), 
+      address20_(0), pubKey65_(0), privKey32_(0), 
+      firstBlockNum_(0), firstTimestamp_(0), isActive_(false),
       relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
@@ -461,9 +461,12 @@ public:
    //        blockchain containing two equal-length chains
    bool organizeChain(bool forceRebuild=false);
 
-
+   ////////////////////////////////////////////////////////////////////////////////
+   // We're going to need the BDM's help to get the sender for a TxIn since it
+   // sometimes requires going and finding the TxOut from the distant past
+   TxOutRef   getPrevTxOut(TxInRef & txin);
    BinaryData getSenderAddr20(TxInRef & txin);
-   TxOutRef getPrevTxOut(TxInRef & txin);
+   int64_t    getSentValue(TxInRef & txin);
 
 private:
 

@@ -80,12 +80,12 @@ void BlockHeader::unserialize(BinaryDataRef const & str)
 /////////////////////////////////////////////////////////////////////////////
 BlockHeader::BlockHeader( uint8_t const * bhDataPtr, BinaryData* thisHash) :
    prevHash_(32),
+   difficultyDbl_(-1.0),
    nextHash_(32),
    numTx_(-1),
-   fileByteLoc_(0),  
-   difficultyDbl_(-1.0),
-   difficultySum_(-1.0),
    blockHeight_(0),
+   fileByteLoc_(0),  
+   difficultySum_(-1.0),
    isMainBranch_(false),
    isOrphan_(false),
    isFinishedCalc_(false)
@@ -105,12 +105,12 @@ BlockHeader::BlockHeader( BinaryData const * serHeader ,
              uint64_t           fileLoc) :
    prevHash_(32),
    thisHash_(32),
+   difficultyDbl_(-1.0),
    nextHash_(32),
    numTx_(-1),
-   fileByteLoc_(fileLoc),  
-   difficultyDbl_(-1.0),
-   difficultySum_(-1.0),
    blockHeight_(0),
+   fileByteLoc_(fileLoc),  
+   difficultySum_(-1.0),
    isMainBranch_(false),
    isOrphan_(false),
    isFinishedCalc_(false),
@@ -129,7 +129,7 @@ BlockHeader::BlockHeader( BinaryData const * serHeader ,
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockHeader::printHeader(ostream & os)
+void BlockHeader::pprint(ostream & os)
 {
    os << "Block Information: " << blockHeight_ << endl;
    os << "-Hash:       " << thisHash_.toHex().c_str() << endl;
@@ -213,9 +213,9 @@ void OutPoint::unserialize(BinaryDataRef const & bdRef)
 
 TxIn::TxIn(void) :
    outPoint_(),
+   scriptSize_(0),
    binScript_(0),
    sequence_(0),
-   scriptSize_(0),
    scriptType_(TXIN_SCRIPT_UNKNOWN)
 {
    // Nothing to put here
@@ -304,8 +304,8 @@ void TxIn::unserialize(BinaryDataRef const & str)
 
 TxOut::TxOut(void) :
    value_(0),
-   pkScript_(0),
    scriptSize_(0),
+   pkScript_(0),
    scriptType_(TXOUT_SCRIPT_UNKNOWN),
    recipientBinAddr20_(0),
    isMine_(false),

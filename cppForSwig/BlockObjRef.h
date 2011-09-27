@@ -39,7 +39,7 @@ class BlockHeaderRef
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef(void) : isInitialized_(false), isFinishedCalc_(false), fileByteLoc_(0) {}
+   BlockHeaderRef(void) : isInitialized_(false),  fileByteLoc_(0), isFinishedCalc_(false) {}
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
@@ -66,7 +66,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) { assert(isInitialized_); return self_; }
    BlockHeader   getCopy(void) const;
-   void          printHeader(ostream & os=cout);
+   void          pprint(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);
@@ -135,8 +135,8 @@ class TxInRef
    friend class BlockDataManager_FullRAM;
 
 public:
-   TxInRef(void) : self_(0), isMine_(false), nBytes_(0), 
-                   scriptType_(TXIN_SCRIPT_UNKNOWN), scriptOffset_(0) {}
+   TxInRef(void) : self_(0),  nBytes_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
+                   scriptOffset_(0), isMine_(false) {}
 
    TxInRef(uint8_t const * ptr, uint32_t nBytes=0, TxRef* parent=NULL) 
                                        { unserialize(ptr, nBytes, parent); } 
@@ -144,6 +144,7 @@ public:
    uint8_t const *  getPtr(void) const { return self_.getPtr(); }
    uint32_t         getSize(void) const { return self_.getSize(); }
    bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
+   bool             isCoinbase(void) const;
    bool             isInitialized(void) const {return self_.getSize() > 0; }
    bool             isMine(void) const {return isMine_;}
    TxRef*           getParentTxPtr(void) { return parentTx_; }
@@ -173,7 +174,7 @@ public:
    bool       getSenderAddrIfAvailable(BinaryData & addrTarget);
    BinaryData getSenderAddrIfAvailable(void);
 
-   void print(ostream & os=cout);
+   void pprint(ostream & os=cout);
 
 
 private:
@@ -228,7 +229,7 @@ public:
    void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
    void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
 
-   void print(ostream & os=cout);
+   void pprint(ostream & os=cout);
 
 private:
    BinaryDataRef self_;

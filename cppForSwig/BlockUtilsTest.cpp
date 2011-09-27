@@ -83,17 +83,17 @@ int main(void)
 
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().printHeader(cout);
+   bdm.getGenesisBlock().pprint(cout);
 
    cout << endl << endl;
    cout << "Printing last block information:" << endl;
-   bdm.getTopBlockHeader().printHeader(cout);
+   bdm.getTopBlockHeader().pprint(cout);
 
    /////////////////////////////////////////////////////////////////////////////
    cout << endl << endl;
    cout << "Next-to-top block:" << endl;
    BlockHeaderRef & topm1 = *(bdm.getHeaderByHash( bdm.getTopBlockHeader().getPrevHash()));
-   topm1.printHeader();
+   topm1.pprint();
    
    /////////////////////////////////////////////////////////////////////////////
    cout << endl << endl;
@@ -107,9 +107,9 @@ int main(void)
       uint32_t nIn  = tx.getNumTxIn();
       uint32_t nOut = tx.getNumTxOut();
       for(uint32_t in=0; in<nIn; in++)
-         tx.getTxInRef(in).print(cout); 
+         tx.getTxInRef(in).pprint(cout); 
       for(uint32_t out=0; out<nOut; out++)
-         tx.getTxOutRef(out).print(cout); 
+         tx.getTxOutRef(out).pprint(cout); 
    }
 
    cout << endl << endl;
@@ -124,7 +124,7 @@ int main(void)
          TxInRef txin = tx.getTxInRef(in);
          cout << "TxIn: " << endl;
          TxOutRef prevOut = bdm.getPrevTxOut(txin);
-         if(prevOut.isInitialized())
+         if(!txin.isCoinbase())
          {
             cout << "\tSender: " << prevOut.getRecipientAddr().toHex();
             cout << " (" << prevOut.getValue() << ")" << endl;

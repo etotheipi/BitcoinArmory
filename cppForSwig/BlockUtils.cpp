@@ -385,9 +385,9 @@ uint32_t BtcWallet::cleanLedger(void)
 BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) : 
       blockchainData_ALL_(0),
       blockchainData_NEW_(0),
+      isAllAddrLoaded_(false),
       topBlockPtr_(NULL),
-      genBlockPtr_(NULL),
-      isAllAddrLoaded_(false)
+      genBlockPtr_(NULL)
 {
    headerHashMap_.clear();
    txHashMap_.clear();
@@ -964,10 +964,10 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
 ////////////////////////////////////////////////////////////////////////////////
 TxOutRef BlockDataManager_FullRAM::getPrevTxOut(TxInRef & txin)
 {
-   OutPointRef opr = txin.getOutPointRef();
-   if(opr.getTxHash() == BtcUtils::EmptyHash_)
+   if(txin.isCoinbase())
       return TxOutRef();
 
+   OutPointRef opr = txin.getOutPointRef();
    TxRef & tx = *(getTxByHash(opr.getTxHash()));
    uint32_t idx = opr.getTxOutIndex();
    return tx.getTxOutRef(idx);
@@ -976,13 +976,20 @@ TxOutRef BlockDataManager_FullRAM::getPrevTxOut(TxInRef & txin)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData BlockDataManager_FullRAM::getSenderAddr20(TxInRef & txin)
 {
-   TxOutRef txout = getPrevTxOut(txin);
-   if(!txout.isInitialized())
+   if(txin.isCoinbase())
       return BinaryData(0);
 
-   return txout.getRecipientAddr();
+   return getPrevTxOut(txin).getRecipientAddr();
 }
 
 
+int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
+{
+   if(txin.isCoinbase())
+      return -1;
+
+   return getPrevTxOut(txin).getValue();
+
+}
 
 

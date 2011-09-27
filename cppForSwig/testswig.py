@@ -27,7 +27,7 @@ print ''
 
 print 'Getting top block of the chain... ',
 top = bdm.getTopBlockHeader()
-top.printHeader()
+top.pprint()
 print 'Done!...'
 print ''
 
@@ -39,13 +39,13 @@ print ''
 
 print 'Getting almost-top-block'
 topm1 = bdm.getHeaderByHash(prevhash.copy())
-topm1.printHeader()
+topm1.pprint()
 print 'Done!'
 print ''
 
 print 'Getting Block 170...'
 topm1 = bdm.getHeaderByHeight(170)
-topm1.printHeader()
+topm1.pprint()
 print 'Done!'
 print ''
 
@@ -73,7 +73,7 @@ print 'TxList for block #', someBlk.getBlockHeight()
 topTxPtrList = someBlk.getTxRefPtrList()
 print 'NumTx:', len(topTxPtrList)
 for txptr in topTxPtrList:
-   print '\n\n'
+   print '\n'
    print binary_to_hex(txptr.getThisHash().toString(), BIGENDIAN)[:16],
    blkHead = txptr.getHeaderPtr()
    print 'Blk:', blkHead.getBlockHeight(),
@@ -82,17 +82,22 @@ for txptr in topTxPtrList:
    nOut = txptr.getNumTxOut()
    print '(in,out) = (%d,%d)' % (nIn, nOut)
 
-   
-   for i in range(min(nIn,10)):
+   for i in range(nIn):
       # TxIns don't always contain the sender... you have to
       # go to find the corresponding TxOut to get it
       txin = txptr.getTxInRef(i)
-      txin._print()
+      if txin.isCoinbase():
+         print '\tSender:', '<COINBASE/GENERATION>'.center(34),
+         print 'Value: 50 [probably]';
+      else:
+         print '\tSender:', hash160ToAddr(bdm.getSenderAddr20(txin).toString()),
+         print 'Value:',  coin2str(bdm.getSentValue(txin))
+         
 
-   for i in range(min(nOut,10)):
+   for i in range(nOut):
       txout = txptr.getTxOutRef(i)
-      print '\tTxOut: ', hash160ToAddr(txout.getRecipientAddr().toString()),
-      print '\t(%s)' % (coin2str(txout.getValue()),)
+      print '\tRecip: ', hash160ToAddr(txout.getRecipientAddr().toString()),
+      print 'Value:', coin2str(txout.getValue())
 
 
 

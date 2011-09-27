@@ -78,9 +78,9 @@ void BlockHeaderRef::unserialize(BinaryRefReader & brr)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::printHeader(ostream & os)
+void BlockHeaderRef::pprint(ostream & os)
 {
-   getCopy().printHeader(os);
+   getCopy().pprint(os);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -137,6 +137,12 @@ BinaryDataRef TxInRef::getBinScriptRef(void)
 }
 
 
+bool TxInRef::isCoinbase(void) const
+{
+   return (scriptType_ == TXIN_SCRIPT_COINBASE || 
+           scriptType_ == TXIN_SCRIPT_SPENDCB    );
+}
+
 /////////////////////////////////////////////////////////////////////////////
 void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
 {
@@ -173,7 +179,7 @@ bool TxInRef::getSenderAddrIfAvailable(BinaryData & addrTarget)
    if(scriptType_ != TXIN_SCRIPT_STANDARD)
       return false;
    
-   BinaryData pubkey65 = getBinScriptRef().getSliceCopy(-65, 65);
+   BinaryData pubkey65 = getBinScript().getSliceCopy(-65, 65);
    addrTarget = BtcUtils::getHash160(pubkey65);
    return true;
 }
@@ -201,7 +207,7 @@ TxIn TxInRef::getCopy(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void TxInRef::print(ostream & os)
+void TxInRef::pprint(ostream & os)
 {
    cout << "TxIn:" << endl;
    cout << "\tType:    ";
@@ -270,7 +276,7 @@ TxOut TxOutRef::getCopy(void) const
    return returnTxOut;
 }
 
-void TxOutRef::print(ostream & os)
+void TxOutRef::pprint(ostream & os)
 {
    cout << "TxOut:" << endl;
    cout << "\tType:   ";
