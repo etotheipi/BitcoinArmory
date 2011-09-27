@@ -132,12 +132,12 @@ BlockHeader::BlockHeader( BinaryData const * serHeader ,
 void BlockHeader::pprint(ostream & os)
 {
    os << "Block Information: " << blockHeight_ << endl;
-   os << "-Hash:       " << thisHash_.toHex().c_str() << endl;
+   os << "-Hash:       " << thisHash_.toHexString().c_str() << endl;
    os << "-Timestamp:  " << getTimestamp() << endl;
-   os << "-Prev Hash:  " << prevHash_.toHex().c_str() << endl;
-   os << "-MerkleRoot: " << getMerkleRoot().toHex().c_str() << endl;
+   os << "-Prev Hash:  " << prevHash_.toHexString().c_str() << endl;
+   os << "-MerkleRoot: " << getMerkleRoot().toHexString().c_str() << endl;
    os << "-Difficulty: " << (difficultyDbl_)
-                         << "    (" << getDiffBits().toHex().c_str() << ")" << endl;
+                         << "    (" << getDiffBits().toHexString().c_str() << ")" << endl;
    os << "-CumulDiff:  " << (difficultySum_) << endl;
    os << "-Nonce:      " << getNonce() << endl;
    os << "-FileOffset: " << fileByteLoc_ << endl;

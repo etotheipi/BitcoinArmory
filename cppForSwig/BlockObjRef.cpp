@@ -88,13 +88,13 @@ void BlockHeaderRef::pprint(ostream & os)
 vector<BinaryData> BlockHeaderRef::getTxHashList(void)
 {
    vector<BinaryData> vectOut(numTx_);
-   for(int i=0; i<numTx_; i++)
-      vectOut[i] = *(txPtrList_[i]);
+   for(uint32_t i=0; i<numTx_; i++)
+      vectOut[i] = txPtrList_[i]->getThisHash();
 
    return vectOut;
 }
 ////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
+BinaryData BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut) 
 {
    // Don't know in advance how big this list will be, make a list too big
    // and copy the result to the right size list afterwards
@@ -105,7 +105,7 @@ vector<BinaryData> BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
    BinaryData hashInput(64);
    BinaryData hashOutput(32);
 
-   for(int i=0; i<numTx_; i++)
+   for(uint32_t i=0; i<numTx_; i++)
       merktree[i] = txhashlist[i];
 
    uint32_t thisLevelStart = 0;
@@ -113,17 +113,17 @@ vector<BinaryData> BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
    uint32_t levelSize = numTx_;
    while(levelSize>1)
    {
-      for(uint32_t j = 0; j<levelSize/2; j++)
+      for(uint32_t j=0; j<(levelSize+1)/2; j++)
       {
-         uint8_t* half1Ptr hashInput.getPtr();
-         uint8_t* half2Ptr hashInput.getPtr()+32;
+         uint8_t* half1Ptr = hashInput.getPtr();
+         uint8_t* half2Ptr = hashInput.getPtr()+32;
       
-         if(j<levelSize/2)
+         if(j < levelSize/2)
          {
             merktree[thisLevelStart+(2*j)  ].copyTo(half1Ptr, 32);
             merktree[thisLevelStart+(2*j)+1].copyTo(half2Ptr, 32);
          }
-         else if(levelSize % 2 == 1)
+         else 
          {
             merktree[nextLevelStart-1].copyTo(half1Ptr, 32);
             merktree[nextLevelStart-1].copyTo(half2Ptr, 32);
@@ -140,7 +140,7 @@ vector<BinaryData> BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
 
    if(treeOut != NULL)
    {
-      treeOut->resize(levelTip);
+      treeOut->resize(thisLevelStart+1);
       for(uint32_t i=0; i<=thisLevelStart; i++)
          (*treeOut)[i] = merktree[i];
    }
@@ -149,15 +149,11 @@ vector<BinaryData> BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
 
    
 }
-////////////////////////////////////////////////////////////////////////////////
-BinaryData         BlockHeaderRef::calcMerkleRoot(void)
-{
 
-}
-////////////////////////////////////////////////////////////////////////////////
-bool               BlockHeaderRef::verifyMerkleRoot(void)
+bool BlockHeaderRef::verifyMerkleRoot(void)
 {
-
+   // Calculate the merkle root, and compare to the one already stored in header
+   return calcMerkleRoot() == getMerkleRoot();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -295,7 +291,7 @@ void TxInRef::pprint(ostream & os)
    case TXIN_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
    }
    cout << "\tBytes:   " << getSize() << endl;
-   cout << "\tSender:  " << getSenderAddrIfAvailable().toHex() << endl;
+   cout << "\tSender:  " << getSenderAddrIfAvailable().toHexString() << endl;
 }
 
 
@@ -362,7 +358,7 @@ void TxOutRef::pprint(ostream & os)
    case TXOUT_SCRIPT_COINBASE: cout << "COINBASE" << endl; break;
    case TXOUT_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
    }
-   cout << "\tRecip:  " << recipientBinAddr20_.toHex().c_str() << endl;
+   cout << "\tRecip:  " << recipientBinAddr20_.toHexString().c_str() << endl;
    cout << "\tValue:  " << getValue() << endl;
 }
 

@@ -734,8 +734,14 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
       uint32_t nBytes = brr.get_uint32_t();
       uint64_t fileByteLoc = brr.getPosition();
 
+      // For some reason, my blockfile sometimes has some extra bytes
+      if(brr.isEndOfStream() || brr.getSizeRemaining() < nBytes)
+         break;
+
       bhInputPair.second.unserialize(brr);
       bhInputPair.first = bhInputPair.second.thisHash_;
+
+
       bhInsResult = headerHashMap_.insert(bhInputPair);
       BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
@@ -763,6 +769,31 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 }
 
 
+bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
+{
+   bool isGood = true;
+   map<HashString, BlockHeaderRef>::iterator headIter;
+   for(headIter  = headerHashMap_.begin();
+       headIter != headerHashMap_.end();
+       headIter++)
+   {
+      BlockHeaderRef & bhr = headIter->second;
+      bool thisHeadGood = bhr.verifyMerkleRoot();
+      if(!thisHeadGood)
+      {
+         cout << "Blockfile contains incorrect header or tx data:" << endl;
+         cout << "  Block number:    " << bhr.getBlockHeight() << endl;
+         cout << "  Block hash (BE):   " << endl;
+         cout << "    " << bhr.getThisHash().copySwapEndian().toHexString() << endl;
+         cout << "  Num Tx :         " << bhr.getNumTx() << endl;
+         cout << "  Tx Hash List: (compare to raw tx data on blockexplorer)" << endl;
+         for(uint32_t t=0; t<bhr.getNumTx(); t++)
+            cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexString() << endl;
+      }
+      isGood = isGood && thisHeadGood;
+   }
+   return isGood;
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -825,8 +856,10 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    map<BinaryData, BlockHeaderRef>::iterator iter;
    uint32_t maxBlockHeight = 0;
    double   maxDiffSum = 0;
+   uint32_t niter =0;
    for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
    {
+      niter++;
       // *** The magic happens here
       double thisDiffSum = traceChainDown(iter->second);
       // ***

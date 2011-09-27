@@ -14,7 +14,7 @@ int main(void)
    for(int i=0; i<32; i++) 
       bd[i] = i;
 
-   cout << bd.toHex().c_str() << endl;
+   cout << bd.toHexString().c_str() << endl;
 
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
@@ -24,17 +24,17 @@ int main(void)
    TIMER_START("Single_Hash_2x_SHA256");
    genBlock.createFromHex(strgenblk);
    TIMER_STOP("Single_Hash_2x_SHA256");
-   //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHex().c_str() << endl;
-   string strrndtrip = genBlock.toHex();
+   //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHexString().c_str() << endl;
+   string strrndtrip = genBlock.toHexString();
 
-   BinaryData testContains, a, b, c, d, e, f;
-   testContains.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
-   a.createFromHex("0011");
-   b.createFromHex("0012");
-   c.createFromHex("2233");
-   d.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-   e.createFromHex("33333333");
-   f.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
+   //BinaryData testContains, a, b, c, d, e, f;
+   //testContains.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
+   //a.createFromHex("0011");
+   //b.createFromHex("0012");
+   //c.createFromHex("2233");
+   //d.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+   //e.createFromHex("33333333");
+   //f.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
    //cout << "Contains test (T): " << testContains.find(a) << endl;
    //cout << "Contains test (F): " << testContains.find(b) << endl;
    //cout << "Contains test (T): " << testContains.find(c) << endl;
@@ -54,7 +54,7 @@ int main(void)
       BtcUtils::getHash256(genBlock, theHash);
       TIMER_STOP("BinaryData::GetHash");
    }
-   cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHex().c_str() << endl;
+   cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHexString().c_str() << endl;
    cout << endl << endl;
 
    //TIMER_START("BDM_Import_Headers");
@@ -98,21 +98,31 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << endl << endl;
    cout << "Try listing some TxIn/TxOuts" << endl;
-   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100000));
-   uint32_t nTx = blk100k.getNumTx();
-   vector<TxRef*> & txrefVect = blk100k.getTxRefPtrList();
-   for(uint32_t t=0; t<nTx; t++)
-   {
-      TxRef & tx = *txrefVect[t]; 
-      uint32_t nIn  = tx.getNumTxIn();
-      uint32_t nOut = tx.getNumTxOut();
-      for(uint32_t in=0; in<nIn; in++)
-         tx.getTxInRef(in).pprint(cout); 
-      for(uint32_t out=0; out<nOut; out++)
-         tx.getTxOutRef(out).pprint(cout); 
-   }
+   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100014));
 
    cout << endl << endl;
+   cout << "Verifying MerkleRoot: ";
+   vector<BinaryData> merkletree(0);
+   BinaryData merkroot = blk100k.calcMerkleRoot(&merkletree);
+   bool isVerified = blk100k.verifyMerkleRoot();
+   cout << (isVerified ? "Correct!" : "Incorrect!") 
+        << "  ("  << merkroot.toHexString() << ")" << endl;
+
+
+   cout << endl << endl;
+   cout << "Now that we can verify merkle roots, let's verify the " << endl;
+   cout << "integrity of the entire blockchain file.  If no bits " << endl;
+   cout << "have been flipped, all merkle roots should check out" << endl;
+   cout << "Verifying... ";
+   TIMER_START("Verify blk0001.dat integrity");
+   isVerified = bdm.verifyBlkFileIntegrity();
+   TIMER_STOP("Verify blk0001.dat integrity");
+   cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
+
+   cout << endl << endl;
+   uint32_t nTx = blk100k.getNumTx();
+   vector<TxRef*> & txrefVect = blk100k.getTxRefPtrList();
+   blk100k.pprint();
    cout << "Now print out the same txinx/outs, but different info:" << endl;
    for(uint32_t t=0; t<nTx; t++)
    {
@@ -126,7 +136,7 @@ int main(void)
          TxOutRef prevOut = bdm.getPrevTxOut(txin);
          if(!txin.isCoinbase())
          {
-            cout << "\tSender: " << prevOut.getRecipientAddr().toHex();
+            cout << "\tSender: " << prevOut.getRecipientAddr().toHexString();
             cout << " (" << prevOut.getValue() << ")" << endl;
          }
          else
@@ -140,7 +150,7 @@ int main(void)
       {
          TxOutRef txout = tx.getTxOutRef(out);
          cout << "TxOut:" << endl;
-         cout << "\tRecip: " << txout.getRecipientAddr().toHex() << endl;
+         cout << "\tRecip: " << txout.getRecipientAddr().toHexString() << endl;
          cout << "\tValue: " << txout.getValue() << endl;
       }
    }
@@ -148,34 +158,29 @@ int main(void)
 
    BinaryData myAddress, myPubKey;
    BtcWallet wlt;
-   //myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd1463794a22");
    myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14");
    myPubKey.createFromHex("04e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
    wlt.addAddress(myAddress, myPubKey);
-   //myAddress.swapEndian();
-   //myPubKey.swapEndian();
 
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
    wlt.addAddress(myAddress);
 
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
-   //TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch_AllAddr());
    
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
-         cout << "\t\tTx: " 
-           << ledger[j].getAddrStr20().getSliceCopy(0,4).toHex() << "  "
+         cout << "    Tx: " 
+           << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexString() << "  "
            << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger[j].getBlockNum()
-           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHex()
-           << " (Index: " << ledger[j].getIndex() << ")" << endl;
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
       }
 
    }
@@ -189,7 +194,7 @@ int main(void)
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "\tAddr: " << wlt.getAddrByIndex(i).getBalance() << ","
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
 
    }
@@ -199,24 +204,23 @@ int main(void)
    vector<LedgerEntry> const & ledger = wlt.getTxLedger();
    for(uint32_t j=0; j<ledger.size(); j++)
    {  
-      cout << "\t\tTx: " 
-           << ledger[j].getAddrStr20().toHex() << "  "
+      cout << "    Tx: " 
+           << ledger[j].getAddrStr20().toHexString() << "  "
            << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger[j].getBlockNum()
-           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHex()
-           << " (Index: " << ledger[j].getIndex() << ")" << endl;
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
    }
 
    cout << "Printing SORTED allAddr ledger..." << endl;
    vector<LedgerEntry> const & ledger2 = wlt.getTxLedger();
    for(uint32_t j=0; j<ledger2.size(); j++)
    {  
-      cout << "\t\tTx: " 
-           << ledger2[j].getAddrStr20().toHex() << "  "
+      cout << "    Tx: " 
+           << ledger2[j].getAddrStr20().toHexString() << "  "
            << ledger2[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger2[j].getBlockNum()
-           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHex()
-           << " (Index: " << ledger2[j].getIndex() << ")" << endl;
+           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
+           
    }
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");

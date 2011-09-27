@@ -19,6 +19,12 @@
 *          This may enable more platforms where this code can be used, as they 
 *          don't need to have any particular crypto libraries installed
 *
+*          Note:  I am not a "real" programmer, I'm an engineer that writes 
+*                 algorithms to solve problems really quickly.  There's a few 
+*                 places I should've used inheritance but didn't.  And although
+*                 I usually am good about const correctness, it turned into a 
+*                 nightmare here, so I've mostly removed it
+*
 ********************************************************************************
 
 ********************************************************************************

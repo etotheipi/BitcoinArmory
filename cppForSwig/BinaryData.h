@@ -226,7 +226,16 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHex(void) const
+   // Swap endianness of the bytes in the index range [pos1, pos2)
+   BinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const
+   {
+      BinaryData bdout(*this);
+      bdout.swapEndian();
+      return bdout;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toHexString(void) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
@@ -584,7 +593,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHex(void) const
+   string toHexString(void) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',

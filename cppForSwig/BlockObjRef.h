@@ -56,15 +56,16 @@ public:
    uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
    double        getDifficulty(void) const   { assert(isInitialized_); return difficultyDbl_;                }
    double        getDifficultySum(void) const{ assert(isInitialized_); return difficultySum_;                }
-   BinaryDataRef getThisHash(void) const     { assert(isInitialized_); return thisHash_.getRef();            }
+   BinaryData    getThisHash(void) const     { assert(isInitialized_); return thisHash_;                     }
+   BinaryDataRef getThisHashRef(void) const  { assert(isInitialized_); return thisHash_.getRef();            }
    uint32_t      getNumTx(void) const        { assert(isInitialized_); return numTx_;                        }
 
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
+   uint32_t        isInitialized(void) const { return isInitialized_; }
 
    vector<BinaryData> getTxHashList(void);
-   vector<BinaryData> calcMerkleTree(void);
-   BinaryData         calcMerkleRoot(void);
+   BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
 
    /////////////////////////////////////////////////////////////////////////////

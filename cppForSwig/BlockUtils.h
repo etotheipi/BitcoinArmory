@@ -455,6 +455,8 @@ public:
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    void scanBlockchainForTx_FromScratch_AllAddr(void);
    uint32_t readBlkFile_FromScratch(string filename);
+   
+   bool verifyBlkFileIntegrity(void);
 
    // After reading in all headers, find the longest chain and set nextHash vals
    // TODO:  Figure out if there is an elegant way to deal with a forked 
