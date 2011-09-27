@@ -68,13 +68,13 @@ def getTimeOfTx(txhash):
    blkTime = bdm.getTxByHash(txhash).getBlockTimestamp()
 
 print 'Accessing some transactions...'
-someBlk = bdm.getHeaderByHeight(100000)
+someBlk = bdm.getHeaderByHeight(100014)
 print 'TxList for block #', someBlk.getBlockHeight()
 topTxPtrList = someBlk.getTxRefPtrList()
 print 'NumTx:', len(topTxPtrList)
 for txptr in topTxPtrList:
    print '\n'
-   print binary_to_hex(txptr.getThisHash().toString(), BIGENDIAN)[:16],
+   print 'Tx:', binary_to_hex(txptr.getThisHash().toString(), BIGENDIAN)[:16],
    blkHead = txptr.getHeaderPtr()
    print 'Blk:', blkHead.getBlockHeight(),
    print 'Timestamp:', unixTimeToFormatStr(blkHead.getTimestamp()),
@@ -87,7 +87,7 @@ for txptr in topTxPtrList:
       # go to find the corresponding TxOut to get it
       txin = txptr.getTxInRef(i)
       if txin.isCoinbase():
-         print '\tSender:', '<COINBASE/GENERATION>'.center(34),
+         print '\tSender:', '<COINBASE/GENERATION>'.ljust(34),
          print 'Value: 50 [probably]';
       else:
          print '\tSender:', hash160ToAddr(bdm.getSenderAddr20(txin).toString()),

@@ -62,6 +62,10 @@ public:
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
 
+   vector<BinaryData> getTxHashList(void);
+   vector<BinaryData> calcMerkleTree(void);
+   BinaryData         calcMerkleRoot(void);
+   bool               verifyMerkleRoot(void);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) { assert(isInitialized_); return self_; }
