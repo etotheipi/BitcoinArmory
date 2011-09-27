@@ -11,9 +11,6 @@ LIBRARY_OPTS += -Lcryptopp -lcryptopp
 
 SWIG_OPTS += -I/usr/include/python2.7 
 
-INCLUDE_OPTS += 
-LIBRARY_OPTS += 
-
 all :
 	make BlockUtilsTest.out
 	

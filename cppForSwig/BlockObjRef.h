@@ -56,58 +56,24 @@ public:
    uint32_t      isOrphan(void) const        { assert(isInitialized_); return isOrphan_;                     }
    double        getDifficulty(void) const   { assert(isInitialized_); return difficultyDbl_;                }
    double        getDifficultySum(void) const{ assert(isInitialized_); return difficultySum_;                }
-
    BinaryDataRef getThisHash(void) const     { assert(isInitialized_); return thisHash_.getRef();}
 
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
 
-   BlockHeader getCopy(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void)
-   {
-      assert(isInitialized_);
-      return self_;
-   }
+   BinaryDataRef serialize(void) { assert(isInitialized_); return self_; }
+   BlockHeader   getCopy(void) const;
+   void          printHeader(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr)
-   {
-      self_.setRef(ptr, HEADER_SIZE);
-      BtcUtils::getHash256(self_.getPtr(), HEADER_SIZE, thisHash_);
-      difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 
-                                 BinaryDataRef(self_.getPtr()+72, 4));
-      isInitialized_ = true;
-      nextHash_ = BinaryData(0);
-      numTx_ = 0;
-      blockHeight_ = UINT32_MAX;
-      blockNumBytes_ = 0;
-      fileByteLoc_ = 0;
-      difficultySum_ = -1;
-      isMainBranch_ = false;
-      isOrphan_ = true;
-      isFinishedCalc_ = false;
-      isOnDiskYet_ = false;
-      txPtrList_ = vector<TxRef*>(0);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryDataRef const & str)
-   {
-      unserialize(str.getPtr());
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryRefReader & brr)
-   {
-      unserialize(brr.get_BinaryDataRef(HEADER_SIZE));
-   }
+   void unserialize(uint8_t const * ptr);
+   void unserialize(BinaryDataRef const & str);
+   void unserialize(BinaryRefReader & brr);
 
    /////////////////////////////////////////////////////////////////////////////
    vector<TxRef*> const & getTxRefPtrList(void) const {return txPtrList_;}
-
-   void printHeader(ostream & os=cout);
 
 private:
    BinaryDataRef  self_;
@@ -171,95 +137,42 @@ public:
    TxInRef(void) : self_(0), isMine_(false), nBytes_(0), 
                    scriptType_(TXIN_SCRIPT_UNKNOWN), scriptOffset_(0) {}
 
-   TxInRef(uint8_t const * ptr, uint32_t nBytes=0) {unserialize(ptr, nBytes);}
+   TxInRef(uint8_t const * ptr, uint32_t nBytes=0, TxRef* parent=NULL) 
+                                       { unserialize(ptr, nBytes, parent); } 
 
-   uint8_t const * getPtr(void) const { return self_.getPtr(); }
-   uint32_t        getSize(void) const { return self_.getSize(); }
-   bool            isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
-   bool            isInitialized(void) const {return self_.getSize() > 0; }
-   bool            isMine(void) const {return isMine_;}
+   uint8_t const *  getPtr(void) const { return self_.getPtr(); }
+   uint32_t         getSize(void) const { return self_.getSize(); }
+   bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
+   bool             isInitialized(void) const {return self_.getSize() > 0; }
+   bool             isMine(void) const {return isMine_;}
+   TxRef*           getParentTxPtr(void) { return parentTx_; }
+   void             setParentTxPtr(TxRef * txref) { parentTx_ = txref; }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
+   uint32_t         getScriptOffset(void) { return scriptOffset_; }
 
-   void setMine(bool b) { isMine_ = b; }
-
-   /////////////////////////////////////////////////////////////////////////////
-   TxIn getCopy(void) const;
-
-   uint32_t getScriptOffset(void) { return scriptOffset_; }
-
-   /////////////////////////////////////////////////////////////////////////////
-   OutPoint getOutPoint(void) const;
-
-   /////////////////////////////////////////////////////////////////////////////
-   OutPointRef getOutPointRef(void) const
-   { 
-      return OutPointRef(getPtr());
-   }
+   TxIn             getCopy(void) const;
+   OutPoint         getOutPoint(void) const;
+   OutPointRef      getOutPointRef(void) const;
+   BinaryData       getBinScript(void) ;
+   BinaryDataRef    getBinScriptRef(void) ;
+   uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
+   uint32_t         getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
+   void             setMine(bool b) { isMine_ = b; }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getBinScript(void) 
-   { 
-      uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
-      return BinaryData(getPtr() + getScriptOffset(), scrLen);
-   }
+   BinaryDataRef serialize(void) { return self_; }
+   void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getBinScriptRef(void) 
-   { 
-      uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
-      return BinaryDataRef(getPtr() + scriptOffset_, scrLen);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
-   uint32_t getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void) 
-   { 
-      return self_;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t nbytes=0)
-   {
-      nBytes_ = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
-      self_ = BinaryDataRef(ptr, nBytes_);
-      isMine_ = false;
-
-      char const & v = self_[36];
-      scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));
-      scriptType_ = BtcUtils::getTxInScriptType(getBinScriptRef(), 
-                                                BinaryDataRef(getPtr(), 32));
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0)
-   {
-      unserialize(brr.getCurrPtr(), nbytes);
-      brr.advance(nBytes_);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0)
-   {
-      unserialize(str.getPtr(), nbytes);
-   }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   // Not all TxIns have this information.  Have to go to the Outpoint and get
+   // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
    // the corresponding TxOut to find the sender.  In the case the sender is
    // not available, return false and don't write the output
-   bool getSenderAddrIfAvailable(BinaryData & addrTarget)
-   {
-      if(scriptType_ != TXIN_SCRIPT_STANDARD)
-         return false;
-      
-      BinaryData pubkey65 = getBinScriptRef().getSliceCopy(-65, 65);
-      addrTarget = BtcUtils::getHash160(pubkey65);
-      return true;
-   }
+   bool       getSenderAddrIfAvailable(BinaryData & addrTarget);
+   BinaryData getSenderAddrIfAvailable(void);
+
+   void print(ostream & os=cout);
 
 
 private:
@@ -269,6 +182,7 @@ private:
    uint32_t         nBytes_;
    TXIN_SCRIPT_TYPE scriptType_;
    uint32_t         scriptOffset_;
+   TxRef*           parentTx_;
 
    // To be calculated later
    bool             isMine_;
@@ -286,67 +200,34 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    TxOutRef(void) : self_(0) {}
-   TxOutRef(uint8_t const * ptr, uint32_t nBytes=0) { unserialize(ptr, nBytes); }
-
+   TxOutRef(uint8_t const * ptr, uint32_t nBytes=0, TxRef* parent=NULL) 
+                                       { unserialize(ptr, nBytes, parent); } 
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
    uint64_t        getValue(void) const { return *(uint64_t*)(self_.getPtr()); }
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
    bool            isInitialized(void) const {return self_.getSize() > 0; }
-
    bool            isMine(void)  const { return isMine_;  }
    bool            isSpent(void) const { return isSpent_; }
-
+   TxRef*          getParentTxPtr(void) { return parentTx_; }
+   void            setParentTxPtr(TxRef * txref) { parentTx_ = txref; }
    void            setMine(bool b)  { isMine_  = b; }
    void            setSpent(bool b) { isSpent_ = b; }
 
-   BinaryDataRef getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
-   TXOUT_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
+   BinaryDataRef      getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
+   TXOUT_SCRIPT_TYPE  getScriptType(void) const { return scriptType_; }
+   TxOut              getCopy(void) const;
+   uint32_t           getScriptSize(void) { return nBytes_ - scriptOffset_; }
+   BinaryDataRef      serialize(void) { return self_; }
+   BinaryDataRef      getScriptRef(void) ;
 
    /////////////////////////////////////////////////////////////////////////////
-   TxOut getCopy(void) const;
+   void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
 
-   uint32_t getScriptSize(void) { return nBytes_ - scriptOffset_; }
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef serialize(void) { return self_; }
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getScriptRef(void) 
-   { 
-      return BinaryDataRef( self_.getPtr()+scriptOffset_, getScriptSize() );
-   }
-
-
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t nbytes=0)
-   {
-      nBytes_ = (nbytes==0 ? BtcUtils::TxOutCalcLength(ptr) : nbytes);
-      self_ = BinaryDataRef(ptr, nBytes_);
-      char const & v = self_[8];
-      scriptOffset_ = (v<0xfd ? 9 : (v==0xfd ? 11 : (v==0xfe ? 13 : 17)));
-
-      BinaryDataRef scriptRef(self_.getPtr()+scriptOffset_, getScriptSize());
-      scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
-      recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0)
-   {
-      unserialize( brr.getCurrPtr(), nbytes);
-      brr.advance(nBytes_);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0)
-   {
-      unserialize(str.getPtr(), nbytes);
-   }
-
+   void print(ostream & os=cout);
 
 private:
    BinaryDataRef self_;
@@ -356,6 +237,7 @@ private:
    uint32_t          scriptOffset_;
    TXOUT_SCRIPT_TYPE scriptType_;
    BinaryData        recipientBinAddr20_;
+   TxRef*            parentTx_;
 
    // To be calculated later
    bool              isMine_;
@@ -372,39 +254,23 @@ class TxRef
 
 public:
    TxRef(void)                      { isInitialized_ = false; }
-   TxRef(uint8_t const * ptr)       { unserialize(ptr); }
-   TxRef(BinaryRefReader & brr)     { unserialize(brr); }
-   TxRef(BinaryDataRef const & str) { unserialize(str); }
-   TxRef(BinaryData const & str)    { unserialize(str); }
+   TxRef(uint8_t const * ptr)       { unserialize(ptr);       }
+   TxRef(BinaryRefReader & brr)     { unserialize(brr);       }
+   TxRef(BinaryDataRef const & str) { unserialize(str);       }
+   TxRef(BinaryData const & str)    { unserialize(str);       }
      
    uint8_t const * getPtr(void) const { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
-
-   uint32_t  getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
-   uint32_t  getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
-
+   uint32_t        getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
+   uint32_t        getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
    BlockHeaderRef* getHeaderPtr(void)  const { assert(isInitialized_); return headerPtr_; }
+   Tx              getCopy(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   Tx getCopy(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr)
-   {
-      nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
-      BtcUtils::getHash256(ptr, nBytes_, thisHash_);
-      self_.setRef(ptr, nBytes_);
-      isInitialized_ = true;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryRefReader & brr)
-   {
-      unserialize(brr.getCurrPtr());
-      brr.advance(nBytes_);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
+   void unserialize(uint8_t const * ptr);
+   void unserialize(BinaryRefReader & brr);
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
 
@@ -414,46 +280,17 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // This is not a pointer to persistent object, this method actually CREATES
-   // the TxInRef (once) that will be stored in a txioMap
-   TxInRef createTxInRef(int i) const
-   {
-      assert(isInitialized_);
-      uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-      return TxInRef(self_.getPtr()+offsetsTxIn_[i], txinSize);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   // This is not a pointer to persistent object, this method actually CREATES
-   // the TxOutRef (once) that will be stored in a txioMap
-   TxOutRef createTxOutRef(int i) const
-   {
-      assert(isInitialized_);
-      uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-      return TxOutRef(self_.getPtr()+offsetsTxOut_[i], txoutSize);
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   TxIn  getTxInCopy (int i) const;
-   TxOut getTxOutCopy(int i) const;
-
+   // These are not pointers to persistent object, these methods actually 
+   // CREATES the TxInRef/TxOutRef.  But the construction is fast, so it's
+   // okay to do it on the fly
+   TxInRef   getTxInRef(int i);
+   TxOutRef  getTxOutRef(int i);
+   TxIn      getTxInCopy(int i);
+   TxOut     getTxOutCopy(int i);
    
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t getBlockTimestamp(void)
-   {
-      if(headerPtr_==NULL)
-         return headerPtr_->getTimestamp();
-      return UINT32_MAX;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t getBlockHeight(void)
-   {
-      if(headerPtr_==NULL)
-         if(headerPtr_->isMainBranch())
-            return headerPtr_->getBlockHeight();
-      return UINT32_MAX;
-   }
+   uint32_t getBlockTimestamp(void);
+   uint32_t getBlockHeight(void);
 
 
 private:

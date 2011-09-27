@@ -73,10 +73,26 @@ print 'TxList for block #', someBlk.getBlockHeight()
 topTxPtrList = someBlk.getTxRefPtrList()
 print 'NumTx:', len(topTxPtrList)
 for txptr in topTxPtrList:
-   print binary_to_hex(txptr.getThisHash().toString(), BIGENDIAN),
+   print '\n\n'
+   print binary_to_hex(txptr.getThisHash().toString(), BIGENDIAN)[:16],
    blkHead = txptr.getHeaderPtr()
    print 'Blk:', blkHead.getBlockHeight(),
-   print 'Timestamp:', unixTimeToFormatStr(blkHead.getTimestamp())
+   print 'Timestamp:', unixTimeToFormatStr(blkHead.getTimestamp()),
+   nIn  = txptr.getNumTxIn()
+   nOut = txptr.getNumTxOut()
+   print '(in,out) = (%d,%d)' % (nIn, nOut)
+
+   
+   for i in range(min(nIn,10)):
+      # TxIns don't always contain the sender... you have to
+      # go to find the corresponding TxOut to get it
+      txin = txptr.getTxInRef(i)
+      txin._print()
+
+   for i in range(min(nOut,10)):
+      txout = txptr.getTxOutRef(i)
+      print '\tTxOut: ', hash160ToAddr(txout.getRecipientAddr().toString()),
+      print '\t(%s)' % (coin2str(txout.getValue()),)
 
 
 

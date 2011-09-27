@@ -230,7 +230,7 @@ void BtcWallet::scanTx(TxRef & tx,
       bool txInIsOurs = false;
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
-         TxInRef txin = tx.createTxInRef(iin);
+         TxInRef txin = tx.getTxInRef(iin);
          OutPoint outpt = txin.getOutPoint();
          if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
             continue;
@@ -280,7 +280,7 @@ void BtcWallet::scanTx(TxRef & tx,
       bool txOutIsOurs = false;
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
-         TxOutRef txout = tx.createTxOutRef(iout);
+         TxOutRef txout = tx.getTxOutRef(iout);
          if( txout.getRecipientAddr() == thisAddr.getAddrStr20() )
          {
             OutPoint outpt(tx.getThisHash(), iout);      
@@ -609,7 +609,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
          ///// LOOP OVER ALL TXOUT IN BLOCK /////
          for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
          {
-            TxOutRef txout = tx.createTxOutRef(iout);
+            TxOutRef txout = tx.getTxOutRef(iout);
             BinaryData recipAddr20 = txout.getRecipientAddr();
             map<BinaryData, set<HashString> >::iterator iter = 
                                   allAddrTxMap_.find(recipAddr20);
@@ -662,14 +662,14 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
          ///// LOOP OVER ALL TXIN IN BLOCK /////
          for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
          {
-            TxInRef txin = tx.createTxInRef(iin);
+            TxInRef txin = tx.getTxInRef(iin);
             BinaryData prevOutHash = txin.getOutPointRef().getTxHash();
             if(prevOutHash == BtcUtils::EmptyHash_)
                continue;
 
             OutPoint outpt = txin.getOutPoint();
             // We have the tx, now check if it contains one of our TxOuts
-            BinaryData recip = txHashMap_[prevOutHash].createTxOutRef(outpt.getTxOutIndex()).getRecipientAddr();
+            BinaryData recip = txHashMap_[prevOutHash].getTxOutRef(outpt.getTxOutIndex()).getRecipientAddr();
             allAddrTxMap_[recip].insert(tx.getThisHash());
          }
       }
