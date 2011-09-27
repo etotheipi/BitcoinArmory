@@ -772,14 +772,20 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 {
    bool isGood = true;
+   BinaryData fourzerobytes(4);
+   fourzerobytes[0] = 0;
+   fourzerobytes[1] = 0;
+   fourzerobytes[2] = 0;
+   fourzerobytes[3] = 0;
    map<HashString, BlockHeaderRef>::iterator headIter;
    for(headIter  = headerHashMap_.begin();
        headIter != headerHashMap_.end();
        headIter++)
    {
       BlockHeaderRef & bhr = headIter->second;
-      bool thisHeadGood = bhr.verifyMerkleRoot();
-      if(!thisHeadGood)
+      bool merkleRootIsGood = bhr.verifyMerkleRoot();
+      bool headerHashIsGood = bhr.getThisHashRef().getSliceCopy(28,4) == fourzerobytes;
+      if( !merkleRootIsGood || !headerHashIsGood)
       {
          cout << "Blockfile contains incorrect header or tx data:" << endl;
          cout << "  Block number:    " << bhr.getBlockHeight() << endl;
@@ -790,7 +796,7 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
          for(uint32_t t=0; t<bhr.getNumTx(); t++)
             cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexString() << endl;
       }
-      isGood = isGood && thisHeadGood;
+      isGood = isGood && merkleRootIsGood && headerHashIsGood;
    }
    return isGood;
 }

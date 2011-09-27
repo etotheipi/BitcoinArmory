@@ -20,35 +20,11 @@ int main(void)
 
    BinaryData genBlock;
    string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
-
-   TIMER_START("Single_Hash_2x_SHA256");
    genBlock.createFromHex(strgenblk);
-   TIMER_STOP("Single_Hash_2x_SHA256");
    //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHexString().c_str() << endl;
-   string strrndtrip = genBlock.toHexString();
-
-   //BinaryData testContains, a, b, c, d, e, f;
-   //testContains.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
-   //a.createFromHex("0011");
-   //b.createFromHex("0012");
-   //c.createFromHex("2233");
-   //d.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-   //e.createFromHex("33333333");
-   //f.createFromHex("00112233aabbccdd0000111122223333aaaabbbbccccdddd0000000001111111112222222233333333");
-   //cout << "Contains test (T): " << testContains.find(a) << endl;
-   //cout << "Contains test (F): " << testContains.find(b) << endl;
-   //cout << "Contains test (T): " << testContains.find(c) << endl;
-   //cout << "Contains test (F): " << testContains.find(d) << endl;
-   //cout << "Contains test (T): " << testContains.find(e) << endl;
-   //cout << "Contains test (T): " << testContains.find(f) << endl;
-
-
-   //cout << "Orig : " << strgenblk.c_str() << endl;
-   //cout << "New  : " << strrndtrip.c_str() << endl;
-   //cout << "Equal: " << (strrndtrip == strgenblk ? "EQUAL" : "NOT_EQUAL") << endl;
 
    BinaryData theHash;   
-   for(int i=0; i<20000; i++)
+   for(int i=0; i<50000; i++)
    {
       TIMER_START("BinaryData::GetHash");
       BtcUtils::getHash256(genBlock, theHash);
@@ -57,11 +33,6 @@ int main(void)
    cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHexString().c_str() << endl;
    cout << endl << endl;
 
-   //TIMER_START("BDM_Import_Headers");
-   //bdm.importFromBlockFile("../blk0001.dat", false);
-   //bdm.importHeadersFromHeaderFile("../blkHeaders.dat");
-   //TIMER_STOP("BDM_Import_Headers");
-   
    // Reading data from blockchain
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Read_BlkChain_From_Scratch");
@@ -97,12 +68,12 @@ int main(void)
    
    /////////////////////////////////////////////////////////////////////////////
    cout << endl << endl;
-   cout << "Try listing some TxIn/TxOuts" << endl;
-   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100014));
 
    cout << endl << endl;
    cout << "Verifying MerkleRoot: ";
    vector<BinaryData> merkletree(0);
+
+   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100014));
    BinaryData merkroot = blk100k.calcMerkleRoot(&merkletree);
    bool isVerified = blk100k.verifyMerkleRoot();
    cout << (isVerified ? "Correct!" : "Incorrect!") 
@@ -112,8 +83,10 @@ int main(void)
    cout << endl << endl;
    cout << "Now that we can verify merkle roots, let's verify the " << endl;
    cout << "integrity of the entire blockchain file.  If no bits " << endl;
-   cout << "have been flipped, all merkle roots should check out" << endl;
-   cout << "Verifying... ";
+   cout << "have been flipped, all merkle roots should match the " << endl;
+   cout << "headers, and header hashes should have at least four " << endl;
+   cout << "leading zeros:" << endl << endl;
+   cout << "    Verifying... ";
    TIMER_START("Verify blk0001.dat integrity");
    isVerified = bdm.verifyBlkFileIntegrity();
    TIMER_STOP("Verify blk0001.dat integrity");
@@ -123,7 +96,7 @@ int main(void)
    uint32_t nTx = blk100k.getNumTx();
    vector<TxRef*> & txrefVect = blk100k.getTxRefPtrList();
    blk100k.pprint();
-   cout << "Now print out the same txinx/outs, but different info:" << endl;
+   cout << "Now print out the txinx/outs for this block:" << endl;
    for(uint32_t t=0; t<nTx; t++)
    {
       TxRef & tx = *txrefVect[t]; 
