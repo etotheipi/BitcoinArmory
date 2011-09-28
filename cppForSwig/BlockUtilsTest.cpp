@@ -35,9 +35,9 @@ int main(void)
 
    // Reading data from blockchain
    cout << "Reading data from blockchain..." << endl;
-   TIMER_START("BDM_Read_BlkChain_From_Scratch");
+   TIMER_START("BDM_Load_and_Scan_BlkChain");
    bdm.readBlkFile_FromScratch("../blk0001.dat");
-   TIMER_STOP("BDM_Read_BlkChain_From_Scratch");
+   TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
    cout << endl << "Organizing blockchain: " ;
@@ -195,11 +195,32 @@ int main(void)
            << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
            
    }
+
+   cout << endl << endl;
+   cout << "Scanning the blockchain for all non-std transactions..." << endl;
+   TIMER_START("FindNonStdTx");
+   vector<TxRef*> nonStdTxVect = bdm.findAllNonStdTx();
+   TIMER_STOP("FindNonStdTx");
+   cout << endl << "Found " << nonStdTxVect.size() << " such transactions:" << endl;
+   for(uint32_t i=0; i<nonStdTxVect.size(); i++)
+   {
+      TxRef & tx = *(nonStdTxVect[i]);
+      cout << "  Block:  " << tx.getHeaderPtr()->getBlockHeight() << endl;
+      cout << "  TxHash: " << tx.getThisHash().copySwapEndian().toHexString() << endl;
+      cout << "  #TxIn:  " << tx.getNumTxIn() << endl;
+      cout << "  #TxOut: " << tx.getNumTxOut() << endl;
+      cout << endl << endl;
+   }
+
+   // Last I checked, resetting doesn't actually work!
+   TIMER_WRAP(bdm.Reset());
+
+
+   // ***** Print out all timings to stdout and a csv file *****
+   //       This file can be loaded into a spreadsheet,
+   //       but it's not the prettiest thing...
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
-
-   bdm.Reset();
-
 
 
    char aa[256];

@@ -384,7 +384,19 @@ public:
        return dDiff;
    }
 
+
+   
+   static vector<string> convertScriptToOpStrings(BinaryData const & script)
+   {
+      vector<string> opOut(0);
+
+
+      return opOut;
+   }
+
+
 };
+
 
 
 

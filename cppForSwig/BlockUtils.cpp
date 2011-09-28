@@ -609,6 +609,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
          ///// LOOP OVER ALL TXOUT IN BLOCK /////
          for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
          {
+            
             TxOutRef txout = tx.getTxOutRef(iout);
             BinaryData recipAddr20 = txout.getRecipientAddr();
             map<BinaryData, set<HashString> >::iterator iter = 
@@ -676,27 +677,49 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
    }
 
    isAllAddrLoaded_ = true;
-   /*  This was some test code to find the most "active" address in the chain
-   cout << "NumAddresses: " << allAddrTxMap_.size() << endl;
-   map<BinaryData, set<HashString> >::iterator iter;
-   size_t maxTx = 0;
-   BinaryData maxAddr(0);
-   for(iter  = allAddrTxMap_.begin();
-       iter != allAddrTxMap_.end();
-       iter++)
-   {
-      if( iter->second.size() > maxTx )
-      {
-         maxAddr = iter->first;
-         maxTx = iter->second.size();
-      }
-   }
-   cout << "max num tx: " << maxTx << " by address: " << maxAddr.toHex() << endl;
-   */
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
+{
+   vector<TxRef*> txVectOut(0);
+   uint32_t nHeaders = headersByHeight_.size();
 
+   ///// LOOP OVER ALL HEADERS ////
+   for(uint32_t h=0; h<nHeaders; h++)
+   {
+      BlockHeaderRef & bhr = *(headersByHeight_[h]);
+      vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
+
+      ///// LOOP OVER ALL TX /////
+      for(uint32_t itx=0; itx<txlist.size(); itx++)
+      {
+         TxRef & tx = *(txlist[itx]);
+
+
+         ///// LOOP OVER ALL TXIN IN BLOCK /////
+         for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+         {
+            TxInRef txin = tx.getTxInRef(iin);
+            if(txin.getScriptType() == TXIN_SCRIPT_UNKNOWN)
+               txVectOut.push_back(&tx);
+         }
+
+         ///// LOOP OVER ALL TXOUT IN BLOCK /////
+         for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+         {
+            
+            TxOutRef txout = tx.getTxOutRef(iout);
+            if(txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN)
+               txVectOut.push_back(&tx);               
+
+         }
+      }
+   }
+
+   return txVectOut;
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -772,20 +795,14 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 {
    bool isGood = true;
-   BinaryData fourzerobytes(4);
-   fourzerobytes[0] = 0;
-   fourzerobytes[1] = 0;
-   fourzerobytes[2] = 0;
-   fourzerobytes[3] = 0;
    map<HashString, BlockHeaderRef>::iterator headIter;
    for(headIter  = headerHashMap_.begin();
        headIter != headerHashMap_.end();
        headIter++)
    {
       BlockHeaderRef & bhr = headIter->second;
-      bool merkleRootIsGood = bhr.verifyMerkleRoot();
-      bool headerHashIsGood = bhr.getThisHashRef().getSliceCopy(28,4) == fourzerobytes;
-      if( !merkleRootIsGood || !headerHashIsGood)
+      bool thisHeaderIsGood = bhr.verifyIntegrity();
+      if( !thisHeaderIsGood )
       {
          cout << "Blockfile contains incorrect header or tx data:" << endl;
          cout << "  Block number:    " << bhr.getBlockHeight() << endl;
@@ -796,7 +813,7 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
          for(uint32_t t=0; t<bhr.getNumTx(); t++)
             cout << "    " << bhr.getTxRefPtrList()[t]->getThisHash().copySwapEndian().toHexString() << endl;
       }
-      isGood = isGood && merkleRootIsGood && headerHashIsGood;
+      isGood = isGood && thisHeaderIsGood;
    }
    return isGood;
 }

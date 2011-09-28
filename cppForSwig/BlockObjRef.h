@@ -67,6 +67,7 @@ public:
    vector<BinaryData> getTxHashList(void);
    BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
+   bool               verifyIntegrity(void);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) { assert(isInitialized_); return self_; }

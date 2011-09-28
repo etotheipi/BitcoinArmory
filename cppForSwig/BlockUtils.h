@@ -286,6 +286,7 @@ public:
                      uint32_t blknum = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX);
 
+
    uint64_t   getBalance(void);
    uint64_t   getBalance(uint32_t i);
    uint64_t   getBalance(BinaryData const & addr20);
@@ -453,10 +454,11 @@ public:
    void scanBlockchainForTx_FromScratch(vector<BtcWallet> & walletVect);
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
-   void scanBlockchainForTx_FromScratch_AllAddr(void);
-   uint32_t readBlkFile_FromScratch(string filename);
+   uint32_t       readBlkFile_FromScratch(string filename);
+   bool           verifyBlkFileIntegrity(void);
+   void           scanBlockchainForTx_FromScratch_AllAddr(void);
+   vector<TxRef*> findAllNonStdTx(void);
    
-   bool verifyBlkFileIntegrity(void);
 
    // After reading in all headers, find the longest chain and set nextHash vals
    // TODO:  Figure out if there is an elegant way to deal with a forked 

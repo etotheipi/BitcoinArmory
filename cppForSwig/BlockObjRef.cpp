@@ -150,10 +150,23 @@ BinaryData BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
    
 }
 
+////////////////////////////////////////////////////////////////////////////////
 bool BlockHeaderRef::verifyMerkleRoot(void)
 {
+   return  (calcMerkleRoot() == getMerkleRoot());
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool BlockHeaderRef::verifyIntegrity(void)
+{
    // Calculate the merkle root, and compare to the one already stored in header
-   return calcMerkleRoot() == getMerkleRoot();
+   bool merkleIsGood = (calcMerkleRoot() == getMerkleRoot());
+
+   // Check that the last four bytes of the hash are zeros
+   BinaryData fourzerobytes = BtcUtils::EmptyHash_.getSliceCopy(0,4);
+   bool headerIsGood = (thisHash_.getSliceCopy(28,4) == fourzerobytes);
+   return (merkleIsGood && headerIsGood);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
