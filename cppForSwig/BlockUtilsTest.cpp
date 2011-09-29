@@ -132,10 +132,10 @@ int main(void)
    BinaryData myAddress, myPubKey;
    BtcWallet wlt;
    myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14");
-   myPubKey.createFromHex("04e02e7826c63038fa3e6a416b74b85bc4db2b5125f039bb5b0139842655d0faec750ec639c380c0cbc070650037b17a1a6a101391422ff9827a27010990ae1acd");
-   wlt.addAddress(myAddress, myPubKey);
-
+   wlt.addAddress(myAddress);
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+   wlt.addAddress(myAddress);
+   myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2");
    wlt.addAddress(myAddress);
 
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
@@ -209,6 +209,11 @@ int main(void)
       cout << "  TxHash: " << tx.getThisHash().copySwapEndian().toHexString() << endl;
       cout << "  #TxIn:  " << tx.getNumTxIn() << endl;
       cout << "  #TxOut: " << tx.getNumTxOut() << endl;
+      cout << "  Script: " << endl;
+   
+      // Ack, super annoying that I don't have a simple way to get the script,
+      // only have the TxRef* but no hint about which TxIn/TxOut...
+      //BtcUtils.pprintScript(
       cout << endl << endl;
    }
 

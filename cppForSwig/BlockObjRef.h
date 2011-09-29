@@ -161,8 +161,8 @@ public:
    TxIn             getCopy(void) const;
    OutPoint         getOutPoint(void) const;
    OutPointRef      getOutPointRef(void) const;
-   BinaryData       getBinScript(void) ;
-   BinaryDataRef    getBinScriptRef(void) ;
+   BinaryData       getScript(void) ;
+   BinaryDataRef    getScriptRef(void) ;
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
    uint32_t         getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
    void             setMine(bool b) { isMine_ = b; }
@@ -228,6 +228,7 @@ public:
    TxOut              getCopy(void) const;
    uint32_t           getScriptSize(void) { return nBytes_ - scriptOffset_; }
    BinaryDataRef      serialize(void) { return self_; }
+   BinaryData         getScript(void) ;
    BinaryDataRef      getScriptRef(void) ;
 
    /////////////////////////////////////////////////////////////////////////////

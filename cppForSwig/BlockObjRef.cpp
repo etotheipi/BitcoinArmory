@@ -209,14 +209,14 @@ OutPointRef TxInRef::getOutPointRef(void) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData TxInRef::getBinScript(void) 
+BinaryData TxInRef::getScript(void) 
 { 
    uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
    return BinaryData(getPtr() + getScriptOffset(), scrLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxInRef::getBinScriptRef(void) 
+BinaryDataRef TxInRef::getScriptRef(void) 
 { 
    uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
    return BinaryDataRef(getPtr() + scriptOffset_, scrLen);
@@ -238,7 +238,7 @@ void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
 
    char const & v = self_[36];
    scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));
-   scriptType_ = BtcUtils::getTxInScriptType(getBinScriptRef(), 
+   scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(), 
                                              BinaryDataRef(getPtr(), 32));
 }
 
@@ -264,7 +264,7 @@ bool TxInRef::getSenderAddrIfAvailable(BinaryData & addrTarget)
    if(scriptType_ != TXIN_SCRIPT_STANDARD)
       return false;
    
-   BinaryData pubkey65 = getBinScript().getSliceCopy(-65, 65);
+   BinaryData pubkey65 = getScript().getSliceCopy(-65, 65);
    addrTarget = BtcUtils::getHash160(pubkey65);
    return true;
 }
@@ -274,7 +274,7 @@ BinaryData TxInRef::getSenderAddrIfAvailable(void)
    BinaryData addrTarget(0);
    if(scriptType_ == TXIN_SCRIPT_STANDARD)
    {
-      BinaryData pubkey65 = getBinScriptRef().getSliceCopy(-65, 65);
+      BinaryData pubkey65 = getScriptRef().getSliceCopy(-65, 65);
       addrTarget = BtcUtils::getHash160(pubkey65);
    }
    return addrTarget;
@@ -316,6 +316,13 @@ void TxInRef::pprint(ostream & os)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData TxOutRef::getScript(void) 
+{ 
+   return BinaryData( self_.getPtr()+scriptOffset_, getScriptSize() );
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef TxOutRef::getScriptRef(void) 
 { 
    return BinaryDataRef( self_.getPtr()+scriptOffset_, getScriptSize() );

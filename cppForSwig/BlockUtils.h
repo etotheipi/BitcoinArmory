@@ -286,6 +286,11 @@ public:
                      uint32_t blknum = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX);
 
+   void       scanNonStdTx(uint32_t blknum, 
+                           uint32_t txidx, 
+                           TxRef&   txref,
+                           uint32_t txoutidx,
+                           BtcAddress& addr);
 
    uint64_t   getBalance(void);
    uint64_t   getBalance(uint32_t i);
@@ -309,6 +314,11 @@ private:
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
    bitset<32>                   encryptFlags_;    // priv-key-encryp params
    bool                         isLocked_;       // watching only, no spending
+
+   // For non-std transactions
+   map<OutPoint, TxIORefPair>   nonStdTxio_;
+   set<OutPoint>                nonStdUnspentTxOuts_;
+
    
    // import future
    BinaryData                   privKeyGenerator_;
