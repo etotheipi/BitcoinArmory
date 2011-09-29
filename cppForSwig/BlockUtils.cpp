@@ -261,6 +261,11 @@ void BtcWallet::scanTx(TxRef & tx,
          }
          else
          {
+            if(nonStdTxio_.find(outpt) != nonStdTxio_.end())
+            {
+               nonStdTxio_[outpt].setTxInRef(txin, &tx);
+               nonStdUnspentTxOuts_.erase(outpt);
+            }
             // Lots of txins that we won't have, this is a normal conditional
             //cout << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
             //cerr << "***WARNING: found a relevant TxIn but not seen TxOut" << endl;
