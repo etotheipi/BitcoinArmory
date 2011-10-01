@@ -93,21 +93,10 @@ for txptr in topTxPtrList:
    print '(in,out) = (%d,%d)' % (nIn, nOut)
 
    for i in range(nIn):
-      # TxIns don't always contain the sender... you have to
-      # go to find the corresponding TxOut to get it
       txptr.getTxInRef(i).pprint()
-      #if txin.isCoinbase():
-         #print '\tSender:', '<COINBASE/GENERATION>'.ljust(34),
-         #print 'Value: 50 [probably]';
-      #else:
-         #print '\tSender:', hash160_to_addrStr(bdm.getSenderAddr20(txin).toBinStr()),
-         #print 'Value:',  coin2str(bdm.getSentValue(txin))
-         
 
    for i in range(nOut):
       txptr.getTxOutRef(i).pprint()
-      #print '\tRecip: ', hash160_to_addrStr(txout.getRecipientAddr().toBinStr()),
-      #print 'Value:', coin2str(txout.getValue())
 
 
 

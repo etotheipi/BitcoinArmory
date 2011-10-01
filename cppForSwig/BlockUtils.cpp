@@ -656,8 +656,15 @@ vector<BinaryData> BlockDataManager_FullRAM::prefixSearchTx(BinaryData const & s
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Since the cpp code doesn't have full addresses (only 20-byte hashes),
+// that's all we can search for.  
 vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData const & searchStr)
 {
+   // Actually, we can't even search for this, because we don't have a list
+   // of addresses in the blockchain.  We could construct one, but it would
+   // take up a lot of RAM (and time)... I will need to create a separate 
+   // call to allow the caller to create a set<BinaryData> of addresses 
+   // before calling this method
    return vector<BinaryData>(0);
 }
 
