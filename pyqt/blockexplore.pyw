@@ -21,7 +21,7 @@ from optparse import OptionParser
 
 
 
-__version__ = "1.0.0"
+__version__ = "0.0.1"
 
 sys.path.append('..')
 sys.path.append('../cppForSwig')
@@ -34,7 +34,6 @@ class BtcExploreWindow(QMainWindow):
    def __init__(self, parent=None):
       super(BtcExploreWindow, self).__init__(parent)
 
-
       defaultBlkFile = ''
       opsys = platform.system()
       if 'win' in opsys.lower():
@@ -46,7 +45,11 @@ class BtcExploreWindow(QMainWindow):
 
 
       settings = QSettings()
-      self.blkFile     = str(settings.value('BlockFile', defaultBlkFile).toString())
+      if len(sys.argv) > 1:
+         self.blkFile     = sys.argv[1]
+      else:
+         self.blkFile     = str(settings.value('BlockFile', defaultBlkFile).toString())
+
       self.wltFileList = settings.value('WalletFiles').toStringList()
       self.bcLoadDoneYet = False
       self.setMinimumSize(1000,700)
@@ -54,7 +57,8 @@ class BtcExploreWindow(QMainWindow):
       # Search bar
       self.lblSearch = QLabel('&Search:')
       self.lblSearch.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      self.edtSearch = QLineEdit()
+      self.edtSearch = QLineEdit('Please wait while the blockchain is loaded...')
+      self.edtSearch.setEnabled(False)
       self.edtSearch.setAlignment(Qt.AlignVCenter)
       self.btnSearch = QLineEdit()
       self.btnSearch.setAlignment(Qt.AlignVCenter)
@@ -90,16 +94,16 @@ class BtcExploreWindow(QMainWindow):
       ##### Set up the QTableWidgets to display... just about everything
       # Set up the headers table
       headersTableHeadRow = ['Block#', 'Hash', 'Difficulty', 'Num Tx', 'Datetime']
-      self.tblHeaders = self.createTableWidget(headersTableHeadRow)
+      self.tblHeaders = self.createTableWidget(headersTableHeadRow, (600, 200))
       # Set up the transactions table
       txTableHeadRow = ['Hash', 'Total BTC', 'Src', 'Dst', 'Size(B)', 'Locktime']
-      self.tblTxs = self.createTableWidget(txTableHeadRow)
+      self.tblTxs = self.createTableWidget(txTableHeadRow, (600,300))
       # Set up the TxIn table
       txinHeadRow = ['Sender', 'BTC',  'From Block#', 'Src Tx', 'Sequence']
-      self.tblTxIns = self.createTableWidget(txinHeadRow, (300,100))
+      self.tblTxIns = self.createTableWidget(txinHeadRow, (400,100))
       # Set up the TxOut table
       txoutHeadRow = ['Recipient', 'BTC', 'Script Type', 'Sequence']
-      self.tblTxOuts = self.createTableWidget(txoutHeadRow, (300,100))
+      self.tblTxOuts = self.createTableWidget(txoutHeadRow, (400,100))
       # Set up the Address table
       addrHeadRow = ['Address (Base58)', 'Address (20 byte hex)', 'BTC Sent', 'Btc Rcvd']
       self.tblAddrs = self.createTableWidget(addrHeadRow, (300,200))
@@ -107,11 +111,11 @@ class BtcExploreWindow(QMainWindow):
       #self.connect(self.tblHeaders, SIGNAL('cellDoubleClicked(int,int)'), self.dispSelected)
 
       # And a few random labels
-      lblHeaders = QLabel('Headers');      lblHeaders.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
-      lblTxs     = QLabel('Transactions'); lblTxs.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
-      lblTxIns   = QLabel('TxIn List');    lblTxIns.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
-      lblTxOuts  = QLabel('TxOut List');   lblTxOuts.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
-      lblAddrs   = QLabel('Addresses');    lblAddrs.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+      lblHeaders = QLabel('Headers:');      lblHeaders.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+      lblTxs     = QLabel('Transactions:'); lblTxs.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+      lblTxIns   = QLabel('TxIn List:');    lblTxIns.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+      lblTxOuts  = QLabel('TxOut List:');   lblTxOuts.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
+      lblAddrs   = QLabel('Addresses:');    lblAddrs.setAlignment(Qt.AlignBottom | Qt.AlignLeft)
 
       # Set up the central widget
       self.ctrFrame = QFrame()
@@ -120,25 +124,25 @@ class BtcExploreWindow(QMainWindow):
       # Finally, set up the central widget
       self.ctrLayout = QGridLayout()
       #                                             Row  Col nRows nCols
-      self.ctrLayout.addWidget(self.lblSearch,        0,   0,   1,   1)
-      self.ctrLayout.addWidget(self.edtSearch,        0,   1,   1,   2)
-      self.ctrLayout.addWidget(self.btnSearch,        0,   3,   1,   1)
-      self.ctrLayout.addWidget(self.gbxEndian,        0,   5,   2,   1)
+      self.ctrLayout.addWidget(self.lblSearch,        1,   0,   1,   1)
+      self.ctrLayout.addWidget(self.edtSearch,        1,   1,   1,   2)
+      self.ctrLayout.addWidget(self.btnSearch,        1,   3,   1,   1)
+      self.ctrLayout.addWidget(self.gbxEndian,        0,   5,   3,   1)
 
-      self.ctrLayout.addWidget(lblHeaders,            1,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxs,                1,   2,   1,   1)
+      self.ctrLayout.addWidget(lblHeaders,            2,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxIns,              2,   4,   1,   1)
 
-      self.ctrLayout.addWidget(self.tblHeaders,       2,   0,   2,   2)
-      self.ctrLayout.addWidget(self.tblTxs,           2,   2,   2,   2)
-      self.ctrLayout.addWidget(self.txtSelectedInfo,  2,   4,   2,   2)
+      self.ctrLayout.addWidget(self.tblHeaders,       3,   0,   2,   4)
+      self.ctrLayout.addWidget(self.tblTxIns,         3,   4,   2,   2)
+      #self.ctrLayout.addWidget(self.txtSelectedInfo,  2,   4,   2,   2)
 
-      self.ctrLayout.addWidget(lblTxIns,              4,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxOuts,             4,   2,   1,   1)
-      self.ctrLayout.addWidget(lblAddrs,              4,   4,   1,   1)
+      self.ctrLayout.addWidget(lblTxs,                5,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxOuts,             5,   4,   1,   1)
+      #self.ctrLayout.addWidget(lblAddrs,              5,   4,   1,   1)
 
-      self.ctrLayout.addWidget(self.tblTxIns,         5,   0,   2,   2)
-      self.ctrLayout.addWidget(self.tblTxOuts,        5,   2,   2,   2)
-      self.ctrLayout.addWidget(self.tblAddrs,         5,   4,   2,   2)
+      self.ctrLayout.addWidget(self.tblTxs,           6,   0,   3,   4)
+      self.ctrLayout.addWidget(self.tblTxOuts,        6,   4,   2,   2)
+      #self.ctrLayout.addWidget(self.tblAddrs,         5,   4,   2,   2)
 
       # Finally set the layout
       self.ctrFrame.setLayout(self.ctrLayout)
@@ -149,7 +153,6 @@ class BtcExploreWindow(QMainWindow):
       self.bdm = BlockDataManager_FullRAM.GetInstance()
       print 'holding'
       QTimer.singleShot(100, self.initBlockchain)
-      self.selectedObj = ('Header', 'top')
 
    def createTableWidget(self, headerRow, minSizePair=(300,150)):
       tbl = QTableWidget()
@@ -161,7 +164,6 @@ class BtcExploreWindow(QMainWindow):
       tbl.verticalHeader().setVisible(False)
       tbl.setMinimumSize( *minSizePair )
       tbl.setHorizontalHeaderLabels(headerRow)
-      tbl.resizeColumnsToContents()
       return tbl
 
    def initBlockchain(self):
@@ -170,9 +172,54 @@ class BtcExploreWindow(QMainWindow):
          self.bdm.organizeChain()
          self.bcLoadDoneYet = True
          self.btnSearch.setEnabled(True)
+         self.edtSearch.setEnabled(True)
+         self.edtSearch.setText('');
+         self.edtSearch.setFocus()
+         self.selectedObj = None
+         self.updateUI()
+
 
    def updateUI(self):
-      pass
+      if self.selectedObj == None:
+         # Fill the headers table
+         maxBlk = self.bdm.getTopBlockHeader().getBlockHeight()
+         hlist = range(maxBlk, max(0, maxBlk-20), -1)
+         self.fillHeadersTableByHeightList( hlist, maxBlk-1)
+
+      else:
+         pass
+
+
+   # First element in the list will be on the TOP
+   def fillHeadersTableByHashList(self, hashList, selectedHash=None):
+      heightList = []
+      selectedHeight = None
+      for theHash in hashList:
+         theHeight = self.bdm.getHeaderByHash(theHash).getBlockHeight()
+         heightList.append(theHeight)
+         if theHash == selectedHash:
+            selectedHeight = theHeight
+      self.fillHeadersTableByHeightList( heightList, selectedHeight)
+
+   # First element in the list will be on the TOP
+   def fillHeadersTableByHeightList(self, heightList, selectedHeight=None):
+      self.tblHeaders.clearContents()
+      self.tblHeaders.setRowCount( len(heightList) )
+      for row,height in enumerate(heightList):
+         head = self.bdm.getHeaderByHeight(height)
+         cols = []
+         cols.append( QTableWidgetItem(str(head.getBlockHeight())) )
+         cols.append( QTableWidgetItem(head.getThisHash().toHexStr()[:24] + '...') )
+         cols.append( QTableWidgetItem("%0.2f" % head.getDifficulty()) )
+         cols.append( QTableWidgetItem("%d" % head.getNumTx()))
+         cols.append( QTableWidgetItem(unixTimeToFormatStr(head.getTimestamp()))) 
+         cols[1].setFont( QFont("Courier", 10, QFont.Bold) )
+         for c in range(5):
+            self.tblHeaders.setItem(row, c, cols[c])
+
+      self.tblHeaders.resizeColumnsToContents()
+      if not selectedHeight==None and selectedHeight in heightList:
+         self.tblHeaders.selectRow( heightList.index(selectedHeight))
 
    def doSearch(self, searchStr):
       if self.bcLoadDoneYet == False:
