@@ -14,8 +14,8 @@ SWIG_OPTS += -I/usr/include/python2.7
 all :
 	make BlockUtilsTest.out
 	
-swig : $(OBJS) BlockUtils_wrap.o
-	g++ -shared -lcryptopp $(OBJS) BlockUtils_wrap.o -o _BlockUtils.so
+swig : $(OBJS) CppBlockUtils_wrap.o
+	g++ -shared -lcryptopp $(OBJS) CppBlockUtils_wrap.o -o _CppBlockUtils.so
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
 	$(LINKER) $(OBJS) -o BlockUtilsTest.out $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsTest.cpp
@@ -42,14 +42,12 @@ BlockObjRef.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockObjRef.cpp
 BlockUtils.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils.cpp
 
-BlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils_wrap.cxx
-	$(COMPILER) $(SWIG_OPTS) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils_wrap.cxx
+CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
+	swig -c++ -python -v CppBlockUtils.i
 
-BlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp BlockUtils.i
-	swig -c++ -python -v BlockUtils.i
+CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
+	$(COMPILER) $(SWIG_OPTS) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx
 
-#BlockUtilsTest.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockUtilsTest.cpp
-#$(COMPILER) -fPIC $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsTest.cpp
 
 ##########################################################################
 # And now we have created all the individual object files specified with 

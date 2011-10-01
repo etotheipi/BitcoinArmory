@@ -1,4 +1,11 @@
 #! /usr/bin/python
+################################################################################
+#                                                                              #
+#  Copyright (C) 2011, Alan C. Reiner    <alan.reiner@gmail.com>               #
+#  Distributed under the GNU Affero General Public License (AGPL v3)           #
+#  See LICENSE or http://www.gnu.org/licenses/agpl.html                        #
+#                                                                              #
+################################################################################
 
 from sys import path as PYPATH
 PYPATH.append('..')
@@ -16,8 +23,9 @@ if 'nix' in opsys.lower() or 'nux' in opsys.lower():
 if 'mac' in opsys.lower() or 'osx' in opsys.lower():
    blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
 
+print '*'*80
 print 'Importing BlockUtils module...',
-from BlockUtils import *
+from CppBlockUtils import *
 print 'Done!'
 print ''
 
@@ -36,6 +44,7 @@ bdm.organizeChain();
 print 'Done!'
 print ''
 
+print '*'*80
 print 'Getting top block of the chain... ',
 top = bdm.getTopBlockHeader()
 top.pprint()
@@ -66,14 +75,8 @@ print 'Diff Sum  :', top.getDifficultySum()
 print 'Timestamp :', top.getTimestamp()
 print ''
 
-def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
-   dtobj = datetime.fromtimestamp(unixTime)
-   dtstr = dtobj.strftime(formatStr)
-   return dtstr[:-2] + dtstr[-2:].lower()
 
-def getTimeOfTx(txhash):
-   blkTime = bdm.getTxByHash(txhash).getBlockTimestamp()
-
+print '*'*80
 print 'Accessing some transactions...'
 someBlk = bdm.getHeaderByHeight(100014)
 print 'TxList for block #', someBlk.getBlockHeight()
@@ -92,23 +95,48 @@ for txptr in topTxPtrList:
    for i in range(nIn):
       # TxIns don't always contain the sender... you have to
       # go to find the corresponding TxOut to get it
-      txin = txptr.getTxInRef(i)
-      if txin.isCoinbase():
-         print '\tSender:', '<COINBASE/GENERATION>'.ljust(34),
-         print 'Value: 50 [probably]';
-      else:
-         print '\tSender:', hash160_to_addrStr(bdm.getSenderAddr20(txin).toBinStr()),
-         print 'Value:',  coin2str(bdm.getSentValue(txin))
+      txptr.getTxInRef(i).pprint()
+      #if txin.isCoinbase():
+         #print '\tSender:', '<COINBASE/GENERATION>'.ljust(34),
+         #print 'Value: 50 [probably]';
+      #else:
+         #print '\tSender:', hash160_to_addrStr(bdm.getSenderAddr20(txin).toBinStr()),
+         #print 'Value:',  coin2str(bdm.getSentValue(txin))
          
 
    for i in range(nOut):
-      txout = txptr.getTxOutRef(i)
-      print '\tRecip: ', hash160_to_addrStr(txout.getRecipientAddr().toBinStr()),
-      print 'Value:', coin2str(txout.getValue())
+      txptr.getTxOutRef(i).pprint()
+      #print '\tRecip: ', hash160_to_addrStr(txout.getRecipientAddr().toBinStr()),
+      #print 'Value:', coin2str(txout.getValue())
 
+
+
+print '*'*80
+print '\n\nPrint some random scripts:'
+someBlk = bdm.getHeaderByHeight(147570)
+print someBlk.pprint()
+for tx in someBlk.getTxRefPtrList():
+   print 'Tx:', tx.getThisHash().toHexStr(False)
+   for i in range(tx.getNumTxIn()):
+      print 'TxIn:', i
+      txin = tx.getTxInRef(i)
+      binScript = txin.getScript().toBinStr()
+      if txin.isCoinbase():
+         print 'Script: '
+         print '   <COINBASE/ARBITRARY>'
+         print '  ', binary_to_hex(binScript)
+      else:
+         pprintScript(binScript)
+      print ''
+   for i in range(tx.getNumTxOut()):
+      print 'TxOut:', i
+      binScript = tx.getTxOutRef(i).getScript().toBinStr()
+      pprintScript(binScript)
+      print ''
 
 
    
+print '*'*80
 print '\n\nScanning Blockchain for transactions...',
 wallet = BtcWallet()
 addrStr1 = BinaryData(hex_to_binary("abda0c878dd7b4197daa9622d96704a606d2cd14"))
