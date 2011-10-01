@@ -10,28 +10,7 @@ using namespace std;
 
 int main(void)
 {
-   BinaryData bd(32);
-   for(int i=0; i<32; i++) 
-      bd[i] = i;
-
-   cout << bd.toHexString().c_str() << endl;
-
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
-
-   BinaryData genBlock;
-   string strgenblk = "0100000000000000000000000000000000000000000000000000000000000000000000003ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a29ab5f49ffff001d1dac2b7c";
-   genBlock.createFromHex(strgenblk);
-   //cout << "The genesis block (hex): " << endl << "\t" << genBlock.toHexString().c_str() << endl;
-
-   BinaryData theHash;   
-   for(int i=0; i<50000; i++)
-   {
-      TIMER_START("BinaryData::GetHash");
-      BtcUtils::getHash256(genBlock, theHash);
-      TIMER_STOP("BinaryData::GetHash");
-   }
-   cout << "The hash of the genesis block:" << endl << "\t" << theHash.toHexString().c_str() << endl;
-   cout << endl << endl;
 
    // Reading data from blockchain
    cout << "Reading data from blockchain..." << endl;
@@ -77,7 +56,7 @@ int main(void)
    BinaryData merkroot = blk100k.calcMerkleRoot(&merkletree);
    bool isVerified = blk100k.verifyMerkleRoot();
    cout << (isVerified ? "Correct!" : "Incorrect!") 
-        << "  ("  << merkroot.toHexString() << ")" << endl;
+        << "  ("  << merkroot.toHexStr() << ")" << endl;
 
 
    cout << endl << endl;
@@ -109,7 +88,7 @@ int main(void)
          TxOutRef prevOut = bdm.getPrevTxOut(txin);
          if(!txin.isCoinbase())
          {
-            cout << "\tSender: " << prevOut.getRecipientAddr().toHexString();
+            cout << "\tSender: " << prevOut.getRecipientAddr().toHexStr();
             cout << " (" << prevOut.getValue() << ")" << endl;
          }
          else
@@ -123,7 +102,7 @@ int main(void)
       {
          TxOutRef txout = tx.getTxOutRef(out);
          cout << "TxOut:" << endl;
-         cout << "\tRecip: " << txout.getRecipientAddr().toHexString() << endl;
+         cout << "\tRecip: " << txout.getRecipientAddr().toHexStr() << endl;
          cout << "\tValue: " << txout.getValue() << endl;
       }
    }
@@ -137,7 +116,6 @@ int main(void)
    wlt.addAddress(myAddress);
    myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2");
    wlt.addAddress(myAddress);
-
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
@@ -150,16 +128,18 @@ int main(void)
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "    Tx: " 
-           << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexString() << "  "
+           << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexStr() << "  "
            << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger[j].getBlockNum()
-           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
       }
 
    }
    cout << endl;
 
    myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
+   wlt.addAddress(myAddress);
+   myAddress.createFromHex("6300bf4c5c2a724c280b893807afb976ec78a92b");
    wlt.addAddress(myAddress);
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
 
@@ -178,10 +158,10 @@ int main(void)
    for(uint32_t j=0; j<ledger.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledger[j].getAddrStr20().toHexString() << "  "
+           << ledger[j].getAddrStr20().toHexStr() << "  "
            << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger[j].getBlockNum()
-           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
+           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
    }
 
    cout << "Printing SORTED allAddr ledger..." << endl;
@@ -189,10 +169,10 @@ int main(void)
    for(uint32_t j=0; j<ledger2.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledger2[j].getAddrStr20().toHexString() << "  "
+           << ledger2[j].getAddrStr20().toHexStr() << "  "
            << ledger2[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledger2[j].getBlockNum()
-           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexString() << endl;
+           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
 
@@ -206,7 +186,7 @@ int main(void)
    {
       TxRef & tx = *(nonStdTxVect[i]);
       cout << "  Block:  " << tx.getHeaderPtr()->getBlockHeight() << endl;
-      cout << "  TxHash: " << tx.getThisHash().copySwapEndian().toHexString() << endl;
+      cout << "  TxHash: " << tx.getThisHash().copySwapEndian().toHexStr() << endl;
       cout << "  #TxIn:  " << tx.getNumTxIn() << endl;
       cout << "  #TxOut: " << tx.getNumTxOut() << endl;
       cout << "  Script: " << endl;

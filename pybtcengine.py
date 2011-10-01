@@ -276,6 +276,8 @@ def addrStr_to_binary(addr):
       n = d
    return '\x00'*padding + binOut
    
+
+   
      
 
 ##### BINARYSTR/HASHDIGEST #####
@@ -285,6 +287,14 @@ def hash256(s):
 ##### BINARYSTR/ADDRESSDIGEST #####
 def hash160(s):
    return ripemd160(sha256(s))
+
+def hash160_to_addrStr(binStr):
+   addr21 = ADDRBYTE + binStr
+   addr25 = addr21 + hash256(addr21)[:4]
+   return binary_to_addrStr(addr25);
+
+def addrStr_to_hash160(binStr):
+   return addrStr_to_binary(binStr)[1:-4]
 
 ##### hex/HASHDIGEST #####
 def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
@@ -949,7 +959,6 @@ class PyBtcAddress(object):
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
          yBinBE = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
-         #return '\x01' + '\x04' + xBinBE + yBinBE  # don't remember why I wanted a \x01 prefix
          return  '\x04' + xBinBE + yBinBE
    def pubKey_unserialize(self, toUnpack):
       # Does not recompute addrStr
@@ -1585,6 +1594,88 @@ OP_CHECKSIGVERIFY = 173
 OP_CHECKMULTISIG = 174	
 OP_CHECKMULTISIGVERIFY = 175	
 
+opnames = ['']*256
+opnames[0] =   'OP_FALSE'
+opnames[76] =	'OP_PUSHDATA1'
+opnames[77] =	'OP_PUSHDATA2'
+opnames[78] =	'OP_PUSHDATA4'
+opnames[79] =	'OP_1NEGATE'
+opnames[81] =  'OP_1'
+opnames[81] =	'OP_TRUE'
+opnames[97] =	'OP_NOP'
+opnames[99] =	'OP_IF'
+opnames[100] =	'OP_NOTIF'
+opnames[103] = 'OP_ELSE'
+opnames[104] = 'OP_ENDIF'
+opnames[105] =	'OP_VERIFY'
+opnames[106] = 'OP_RETURN'
+opnames[107] =	'OP_TOALTSTACK'
+opnames[108] =	'OP_FROMALTSTACK'
+opnames[115] =	'OP_IFDUP'
+opnames[116] =	'OP_DEPTH'
+opnames[117] =	'OP_DROP'
+opnames[118] =	'OP_DUP'
+opnames[119] =	'OP_NIP'
+opnames[120] =	'OP_OVER'
+opnames[121] =	'OP_PICK'
+opnames[122] =	'OP_ROLL'
+opnames[123] =	'OP_ROT'
+opnames[124] =	'OP_SWAP'
+opnames[125] =	'OP_TUCK'
+opnames[109] =	'OP_2DROP'
+opnames[110] =	'OP_2DUP'
+opnames[111] =	'OP_3DUP'
+opnames[112] =	'OP_2OVER'
+opnames[113] =	'OP_2ROT'
+opnames[114] =	'OP_2SWAP'
+opnames[126] =	'OP_CAT'
+opnames[127] = 'OP_SUBSTR'
+opnames[128] =	'OP_LEFT'
+opnames[129] =	'OP_RIGHT'
+opnames[130] =	'OP_SIZE'
+opnames[131] =	'OP_INVERT'
+opnames[132] =	'OP_AND'
+opnames[133] =	'OP_OR'
+opnames[134] = 'OP_XOR'
+opnames[135] = 'OP_EQUAL'
+opnames[136] =	'OP_EQUALVERIFY'
+opnames[139] =	'OP_1ADD'
+opnames[140] =	'OP_1SUB'
+opnames[141] =	'OP_2MUL'
+opnames[142] =	'OP_2DIV'
+opnames[143] =	'OP_NEGATE'
+opnames[144] =	'OP_ABS'
+opnames[145] =	'OP_NOT'
+opnames[146] =	'OP_0NOTEQUAL'
+opnames[147] =	'OP_ADD'
+opnames[148] =	'OP_SUB'
+opnames[149] =	'OP_MUL'
+opnames[150] =	'OP_DIV'
+opnames[151] =	'OP_MOD'
+opnames[152] =	'OP_LSHIFT'
+opnames[153] =	'OP_RSHIFT'
+opnames[154] =	'OP_BOOLAND'
+opnames[155] =	'OP_BOOLOR'
+opnames[156] =	'OP_NUMEQUAL'
+opnames[157] =	'OP_NUMEQUALVERIFY'
+opnames[158] =	'OP_NUMNOTEQUAL'
+opnames[159] =	'OP_LESSTHAN'
+opnames[160] =	'OP_GREATERTHAN'
+opnames[161] =	'OP_LESSTHANOREQUAL'
+opnames[162] = 'OP_GREATERTHANOREQUAL'
+opnames[163] =	'OP_MIN'
+opnames[164] =	'OP_MAX'
+opnames[165] = 'OP_WITHIN'
+opnames[166] =	'OP_RIPEMD160'
+opnames[167] =	'OP_SHA1'
+opnames[168] =	'OP_SHA256'
+opnames[169] =	'OP_HASH160'
+opnames[170] =	'OP_HASH256'
+opnames[171] =	'OP_CODESEPARATOR'
+opnames[172] =	'OP_CHECKSIG'
+opnames[173] =	'OP_CHECKSIGVERIFY'
+opnames[174] =	'OP_CHECKMULTISIG'
+opnames[175] =	'OP_CHECKMULTISIGVERIFY'
 # =  words are used internally for assisting with transaction matching. They are invalid if used in actual scripts.
 #Word Opcode	Description
 #OP_PUBKEYHASH = 253	Represents a public key hashed with OP_HASH160.
@@ -1665,6 +1756,19 @@ class PyScriptProcessor(object):
       return SCRIPT_NO_ERROR
       
       
+   # Implementing this method exactly as in the client because it looks like
+   # there could be some subtlties with how it determines "true"
+   def castToBool(self, binData):
+      for i,byte in enumerate(binData):
+
+         if not ord(byte) == 0:
+            if (i == len(binData)-1) and (byte==0x80):
+               return False
+            return True
+
+      return False
+         
+      
 
    def executeOpCode(self, opcode, scriptUnpacker, stack):
 
@@ -1705,7 +1809,7 @@ class PyScriptProcessor(object):
          return OP_NOT_IMPLEMENTED
    
       elif opcode == OP_VERIFY:
-         if not stack.pop() == 1:
+         if not castToBool(stack.pop()):
             stack.append(0)
             return TX_INVALID
       elif opcode == OP_RETURN:
@@ -1715,9 +1819,11 @@ class PyScriptProcessor(object):
       elif opcode == OP_FROMALTSTACK:
          stack.append( stackAlt.pop() ) 
 
-      # TODO:  I don't get this... what does it do?
       elif opcode == OP_IFDUP:
-         return OP_NOT_IMPLEMENTED
+         # Looks like this method duplicates the top item if it's not zero
+         if not stackSizeAtLeast(1): return SCRIPT_STACK_SIZE_ERROR
+         if castToBool(stack[-1]):
+            stack.append(stack[-1]);
 
       elif opcode == OP_DEPTH:
          stack.append( len(stack) )
@@ -1873,7 +1979,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_BOOLOR:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if ((not a==0) or (not b==0)) else 0 )
+         stack.append( 1 if (castToBool(a) or castToBool(b)) else 0 )
       elif opcode == OP_NUMEQUAL:
          b = stack.pop()
          a = stack.pop()

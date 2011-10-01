@@ -96,58 +96,13 @@ vector<BinaryData> BlockHeaderRef::getTxHashList(void)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut) 
 {
-   // Don't know in advance how big this list will be, make a list too big
-   // and copy the result to the right size list afterwards
-   vector<BinaryData> txhashlist = getTxHashList();
-   vector<BinaryData> merktree(3*numTx_);
-
-   static CryptoPP::SHA256 sha256_;
-   BinaryData hashInput(64);
-   BinaryData hashOutput(32);
-
-   for(uint32_t i=0; i<numTx_; i++)
-      merktree[i] = txhashlist[i];
-
-   uint32_t thisLevelStart = 0;
-   uint32_t nextLevelStart = numTx_;
-   uint32_t levelSize = numTx_;
-   while(levelSize>1)
+   if(treeOut == NULL)
+      return BtcUtils::calculateMerkleRoot( getTxHashList() );
+   else
    {
-      for(uint32_t j=0; j<(levelSize+1)/2; j++)
-      {
-         uint8_t* half1Ptr = hashInput.getPtr();
-         uint8_t* half2Ptr = hashInput.getPtr()+32;
-      
-         if(j < levelSize/2)
-         {
-            merktree[thisLevelStart+(2*j)  ].copyTo(half1Ptr, 32);
-            merktree[thisLevelStart+(2*j)+1].copyTo(half2Ptr, 32);
-         }
-         else 
-         {
-            merktree[nextLevelStart-1].copyTo(half1Ptr, 32);
-            merktree[nextLevelStart-1].copyTo(half2Ptr, 32);
-         }
-         
-         sha256_.CalculateDigest(hashOutput.getPtr(), hashInput.getPtr(),  64);
-         sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-         merktree[nextLevelStart+j] = hashOutput;
-      }
-      levelSize = (levelSize+1)/2;
-      thisLevelStart = nextLevelStart;
-      nextLevelStart = nextLevelStart+levelSize;
+      *treeOut = BtcUtils::calculateMerkleTree( getTxHashList() );
+      return (*treeOut)[treeOut.size()-1];
    }
-
-   if(treeOut != NULL)
-   {
-      treeOut->resize(thisLevelStart+1);
-      for(uint32_t i=0; i<=thisLevelStart; i++)
-         (*treeOut)[i] = merktree[i];
-   }
-
-   return merktree[thisLevelStart];
-
-   
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -304,7 +259,7 @@ void TxInRef::pprint(ostream & os)
    case TXIN_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
    }
    cout << "\tBytes:   " << getSize() << endl;
-   cout << "\tSender:  " << getSenderAddrIfAvailable().toHexString() << endl;
+   cout << "\tSender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
 }
 
 
@@ -378,7 +333,7 @@ void TxOutRef::pprint(ostream & os)
    case TXOUT_SCRIPT_COINBASE: cout << "COINBASE" << endl; break;
    case TXOUT_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
    }
-   cout << "\tRecip:  " << recipientBinAddr20_.toHexString().c_str() << endl;
+   cout << "\tRecip:  " << recipientBinAddr20_.toHexStr().c_str() << endl;
    cout << "\tValue:  " << getValue() << endl;
 }
 
@@ -395,6 +350,7 @@ void TxRef::unserialize(uint8_t const * ptr)
    BtcUtils::getHash256(ptr, nBytes_, thisHash_);
    self_.setRef(ptr, nBytes_);
    isInitialized_ = true;
+   isMainBranch_ = false;  // only BDM::organizeChain() can set this
 }
 
 /////////////////////////////////////////////////////////////////////////////

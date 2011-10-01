@@ -201,7 +201,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), nBytes_); }
-   string toString(void) const { return string((char const *)(&(data_[0])), nBytes_); }
+   string toBinStr(void) const { return string((char const *)(&(data_[0])), nBytes_); }
    char* toCharPtr(void) const  { return  (char*)(&(data_[0])); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(&(data_[0])); }
 
@@ -235,21 +235,28 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHexString(void) const
+   string toHexStr(bool bigEndian=false) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
                                         '8','9','a','b',
                                         'c','d','e','f' };
+      BinaryData bdToHex = *this;
+      if(bigEndian)
+         bdToHex.swapEndian();
+
       vector<int8_t> outStr(2*nBytes_);
       for( size_t i=0; i<nBytes_; i++)
       {
-         uint8_t nextByte = data_[i];
+         uint8_t nextByte = bdToHex.data_[i];
          outStr[2*i  ] = hexLookupTable[ (nextByte >> 4) & 0x0F ];
          outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
       }
       if(nBytes_ > 0)
+      {
+         
          return string((char const *)(&(outStr[0])), 2*nBytes_);
+      }
       else
          return string("");
    }
@@ -394,7 +401,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
-   string toString(void) const { return string((char const *)(ptr_), nBytes_); }
+   string toBinStr(void) const { return string((char const *)(ptr_), nBytes_); }
    char* toCharPtr(void) const  { return  (char*)(ptr_); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
@@ -593,7 +600,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHexString(void) const
+   string toHexStr(void) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',

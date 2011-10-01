@@ -29,7 +29,7 @@
 
 
 //#ifdef MAIN_NETWORK
-   #define MAGICBYTES "f9beb4d9"
+   #define MAGIC_BYTES "f9beb4d9"
    #define GENESIS_HASH_HEX "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
 //#else
    //#define MAGICBYTES "fabfb5da"
@@ -206,6 +206,7 @@ public:
    static BinaryData        BadAddress_;
    static BinaryData        GenesisHash_;
    static BinaryData        EmptyHash_;
+   static BinaryData        MagicBytes_;
 
    /////////////////////////////////////////////////////////////////////////////
    static uint64_t readVarInt(uint8_t const * strmPtr, uint32_t* lenOutPtr=NULL)
@@ -364,6 +365,64 @@ public:
       return hashOutput;
    }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   static vector<BinaryData> calculateMerkleRoot(vector<BinaryData> const & txhashlist)
+   {
+      vector<BinaryData> mtree = calculateMerkleTree(txhashlist);
+      return mtree[mtree.size()-1];
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static vector<BinaryData> calculateMerkleTree(vector<BinaryData> const & txhashlist)
+   {
+      // Don't know in advance how big this list will be, make a list too big
+      // and copy the result to the right size list afterwards
+      uint32_t numTx = txhashlist.size();
+      vector<BinaryData> merkleTree(3*numTx);
+      static CryptoPP::SHA256 sha256_;
+      BinaryData hashInput(64);
+      BinaryData hashOutput(32);
+   
+      for(uint32_t i=0; i<numTx; i++)
+         merkleTree[i] = txhashlist[i];
+   
+      uint32_t thisLevelStart = 0;
+      uint32_t nextLevelStart = numTx;
+      uint32_t levelSize = numTx;
+      while(levelSize>1)
+      {
+         for(uint32_t j=0; j<(levelSize+1)/2; j++)
+         {
+            uint8_t* half1Ptr = hashInput.getPtr();
+            uint8_t* half2Ptr = hashInput.getPtr()+32;
+         
+            if(j < levelSize/2)
+            {
+               merkleTree[thisLevelStart+(2*j)  ].copyTo(half1Ptr, 32);
+               merkleTree[thisLevelStart+(2*j)+1].copyTo(half2Ptr, 32);
+            }
+            else 
+            {
+               merkleTree[nextLevelStart-1].copyTo(half1Ptr, 32);
+               merkleTree[nextLevelStart-1].copyTo(half2Ptr, 32);
+            }
+            
+            sha256_.CalculateDigest(hashOutput.getPtr(), hashInput.getPtr(),  64);
+            sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+            merkleTree[nextLevelStart+j] = hashOutput;
+         }
+         levelSize = (levelSize+1)/2;
+         thisLevelStart = nextLevelStart;
+         nextLevelStart = nextLevelStart+levelSize;
+      }
+
+      // nextLevelStart is the size of the merkle tree
+      merkleTree.erase(merkleTree.begin()+nextLevelStart, merkleTree.end());
+      return merkleTree;
+   
+   }
+   
    /////////////////////////////////////////////////////////////////////////////
    // ALL THESE METHODS ASSUME THERE IS A FULL TX/TXIN/TXOUT BEHIND THE PTR
    // The point of these methods is to calculate the length of the object,
@@ -684,8 +743,8 @@ public:
          uint8_t nextOp = script[i];
          if(nextOp < 76)
          {
-            opList.push_back("[PUSH " + num2str(nextOp) + " BYTES:]");
-            opList.push_back(script.getSliceCopy(i+1, nextOp).toHexString());
+            opList.push_back("[PUSHDATA -- " + num2str(nextOp) + " BYTES:]");
+            opList.push_back(script.getSliceCopy(i+1, nextOp).toHexStr());
             i += nextOp+1;
          }
          else if(nextOp == 76)
@@ -693,9 +752,8 @@ public:
             uint8_t nb = *(uint8_t*)(script.getPtr() + i+1);
             if(i+1+1+nb >= sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+2, nb);
-            opList.push_back("OP_PUSHDATA1");
-            opList.push_back("[PUSH " + num2str(nb) + " BYTES:]");
-            opList.push_back(binObj.toHexString());
+            opList.push_back("[OP_PUSHDATA1 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back(binObj.toHexStr());
             i += nb+2;
          }
          else if(nextOp == 77)
@@ -703,9 +761,8 @@ public:
             uint16_t nb = *(uint16_t*)(script.getPtr() + i+1);
             if(i+1+2+nb >= sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+3, min((int)nb,256));
-            opList.push_back("OP_PUSHDATA2");
-            opList.push_back("[PUSH " + num2str(nb) + " BYTES:]");
-            opList.push_back(binObj.toHexString() + "...");
+            opList.push_back("[OP_PUSHDATA2 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back(binObj.toHexStr() + "...");
             i += nb+3;
          }
          else if(nextOp == 78)
@@ -713,9 +770,8 @@ public:
             uint32_t nb = *(uint32_t*)(script.getPtr() + i+1);
             if(i+1+4+nb >= sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+5, min((int)nb,256));
-            opList.push_back("OP_PUSHDATA4");
-            opList.push_back("[PUSH " + num2str(nb) + " BYTES:]");
-            opList.push_back(binObj.toHexString() + "...");
+            opList.push_back("[OP_PUSHDATA4 -- " + num2str(nb) + " BYTES:]");
+            opList.push_back(binObj.toHexStr() + "...");
             i += nb+5;
          }
          else
@@ -755,7 +811,7 @@ public:
    {
       vector<string> oplist = convertScriptToOpStrings(script);
       for(uint32_t i=0; i<oplist.size(); i++)
-         cout << "    " << oplist[i] << endl;
+         cout << "   " << oplist[i] << endl;
    }
 };
    

@@ -304,19 +304,32 @@ public:
    uint32_t cleanLedger(void);
    vector<LedgerEntry> const & getTxLedger(void) { return ledgerAllAddr_; }
 
+   map<OutPoint, TxIORefPair> & getTxIOMap(void) {return txioMap_;}
+   set<OutPoint> & getUnspentOutPoints(void)     {return unspentTxOuts_;}
+
+   map<OutPoint, TxIORefPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
+   set<OutPoint> const & getNonStdUnspentTxOuts(void) {return nonStdUnspentTxOuts_;}
+
+   // If we have spent TxOuts but the tx haven't made it into the blockchain
+   // we need to lock them to make sure we have a record of which ones are 
+   // available to sign more Txs
+   void   lockTxOut(OutPoint op) {lockedTxOuts_.insert(op);}
+   void unlockTxOut(OutPoint op) {lockedTxOuts_.erase( op);}
+
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
    map<OutPoint, TxIORefPair>   txioMap_;
    vector<LedgerEntry>          ledgerAllAddr_;  
    set<OutPoint>                unspentTxOuts_;
+   set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
    bitset<32>                   encryptFlags_;    // priv-key-encryp params
    bool                         isLocked_;       // watching only, no spending
 
    // For non-std transactions
-   map<OutPoint, TxIORefPair>   nonStdTxio_;
+   map<OutPoint, TxIORefPair>   nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentTxOuts_;
 
    
@@ -404,6 +417,7 @@ private:
 
    // These four data structures contain all the *real* data.  Everything 
    // else is just references and pointers to this data
+   string                             blockFilePath_;
    BinaryData                         blockchainData_ALL_;
    BinaryData                         blockchainData_NEW_; // to be added
    map<HashString, BlockHeaderRef>    headerHashMap_;
@@ -426,6 +440,12 @@ private:
    BlockHeaderRef*                   topBlockPtr_;
    BlockHeaderRef*                   genBlockPtr_;
 
+   // Reorganization details
+   bool                              lastBlockWasReorg_;
+   BlockHeaderRef*                   reorgBranchPoint_;
+   set<HashString>                   txJustInvalidated_;
+   set<HashString>                   txJustAffected_;
+
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
@@ -441,6 +461,9 @@ public:
 
    static BlockDataManager_FullRAM & GetInstance(void);
 
+   bool             isLastBlockReorg(void) {return lastBlockWasReorg_;}
+   set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
+   set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
@@ -450,7 +473,19 @@ public:
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
    TxRef *          getTxByHash(BinaryData const & txHash);
+
    void             addHeader(BinaryData const & binHeader);
+   bool             addBlockData(BinaryData const & binaryHeader,
+                                 vector<BinaryData> const & binaryTxList)
+   void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
+                                              BlockHeaderRef* newTopPtr,
+                                              BlockHeaderRef* branchPtr );
+
+   bool             hasTxWithHash(BinaryData const & txhash) const;
+   bool             hasHeaderWithHash(BinaryData const & txhash) const;
+   uint32_t         getNumBlocks(void) const { return headerHashMap_.size(); }
+   uint32_t         getNumTx(void) const { return txHashMap_.size(); }
+   vector<BlockHeaderRef*> getHeadersNotOnMainChain(void);
 
    // Prefix searches would be much better if we had an some kind of underlying
    // Trie/PatriciaTrie/DeLaBrandiaTrie instead of std::map<>.  For now this

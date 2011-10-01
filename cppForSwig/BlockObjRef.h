@@ -64,6 +64,8 @@ public:
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
 
+   /////////////////////////////////////////////////////////////////////////////
+   vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
    vector<BinaryData> getTxHashList(void);
    BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
@@ -79,8 +81,6 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
-   /////////////////////////////////////////////////////////////////////////////
-   vector<TxRef*> & getTxRefPtrList(void) {return txPtrList_;}
 
 private:
    BinaryDataRef  self_;
@@ -262,7 +262,7 @@ class TxRef
    friend class BlockDataManager_FullRAM;
 
 public:
-   TxRef(void)                      { isInitialized_ = false; }
+   TxRef(void) : isInitialized_(false), isMainBranch_(false) {}
    TxRef(uint8_t const * ptr)       { unserialize(ptr);       }
    TxRef(BinaryRefReader & brr)     { unserialize(brr);       }
    TxRef(BinaryDataRef const & str) { unserialize(str);       }
@@ -273,7 +273,10 @@ public:
    uint32_t        getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
    uint32_t        getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
    BlockHeaderRef* getHeaderPtr(void)  const { assert(isInitialized_); return headerPtr_; }
+   void            setHeaderPtr(BlockHeaderRef* bhr)   { headerPtr_ = bhr; }
    Tx              getCopy(void) const;
+   void            setMainBranch(bool b=true) { isMainBranch_ = b; }
+   void            isMainBranch(void)  { return isMainBranch_; }
 
    /////////////////////////////////////////////////////////////////////////////
 
@@ -307,14 +310,15 @@ private:
    bool isInitialized_;
 
    // Derived properties - we expect these to be set after construct/copy
-   BinaryData    thisHash_;
-   uint32_t      nBytes_;
-   uint64_t      fileByteLoc_;
+   BinaryData       thisHash_;
+   uint32_t         nBytes_;
+   uint64_t         fileByteLoc_;
    vector<uint32_t> offsetsTxIn_;
    vector<uint32_t> offsetsTxOut_;
 
    // To be calculated/set later
    BlockHeaderRef*  headerPtr_;
+   BlockHeaderRef*  isMainBranch_;
 
 };
 
