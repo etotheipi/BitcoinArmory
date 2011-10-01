@@ -3,6 +3,7 @@ This license applies to all works under this directory.
 ********************************************************************************
 
     PyBtcEngine -- C++/Python/SWIG backend for developing Bitcoin software
+
     Copyright (C) 2011, Alan C. Reiner  <alan.reiner@gmail.com>
 
     This program is free software: you can redistribute it and/or modify

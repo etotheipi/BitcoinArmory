@@ -74,6 +74,7 @@
 *      (22)  Blockchain download
 *      (23)  Tx construction
 *      (24)  Tx broadcast
+*      (25)  Tx fee detect/calc/handle
 *
 *
 * Notes:
