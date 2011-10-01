@@ -494,18 +494,39 @@ BlockDataManager_FullRAM & BlockDataManager_FullRAM::GetInstance(void)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::Reset(void)
 {
+   // Clear out all the "real" data in the blkfile
+   blockFilePath_ = "";
    blockchainData_ALL_.clear();
    blockchainData_NEW_.clear();
-
    headerHashMap_.clear();
    txHashMap_.clear();
-   headersByHeight_.clear();
+
+   // If we decided to store ALL addresses
+   allAddrTxMap_.clear();
+   isAllAddrLoaded_ = false;
+
+   // These are not used at the moment, but we should clear them anyway
+   blockchainFilenames_.clear();
    txFileRefs_.clear();
    headerFileRefs_.clear();
-   blockchainFilenames_.clear();
+
+
+   // These should be set after the blockchain is organized
+   headersByHeight_.clear();
+   topBlockPtr_ = NULL;
+   genBlockPtr_ = NULL;
+
+   // Reorganization details
+   lastBlockWasReorg_ = false;
+   reorgBranchPoint_ = NULL;
+   txJustInvalidated_.clear();
+   txJustAffected_.clear();
+
+   // Reset orphan chains
    previouslyValidBlockHeaderRefs_.clear();
    orphanChainStartBlocks_.clear();
-   isAllAddrLoaded_ = false;
+   
+
 }
 
 
@@ -988,20 +1009,20 @@ bool BlockDataManager_FullRAM::addBlockData(
    // In the real client, we want to execute these checks.  But we may want
    // to pass in hand-made data when debugging, and don't want to require
    // the hand-made blocks to have leading zeros.
-   if(headHash.getSliceCopy(28,4) != BtcUtils::EmptyHash_.getSliceCopy(28,4))
+   if(! (headHash.getSliceCopy(28,4) == BtcUtils::EmptyHash_.getSliceCopy(28,4)))
    {
       cout << "***ERROR: header hash does not have leading zeros" << endl;   
       cerr << "***ERROR: header hash does not have leading zeros" << endl;   
-      return;
+      return true;  // no data added, so no reorg
    }
 
    // Same story with merkle roots in debug mode
    BinaryData merkleRoot = BtcUtils::calculateMerkleRoot(txHashes);
-   if(merkleRoot != BinaryDataRef(binaryHeader.getPtr() + 36, 32))
+   if(! (merkleRoot == BinaryDataRef(binaryHeader.getPtr() + 36, 32)))
    {
       cout << "***ERROR: merkle root does not match header data" << endl;
       cerr << "***ERROR: merkle root does not match header data" << endl;
-      return;
+      return true;  // no data added, so no reorg
    }
 #endif
    
@@ -1028,7 +1049,7 @@ bool BlockDataManager_FullRAM::addBlockData(
    blockchainData_NEW_.append( fullBlock );
 
    // Also append it to the blockfile
-   ofstream fileAppend(blockFilePath_, ios::app | ios::binary);
+   ofstream fileAppend(blockFilePath_.c_str(), ios::app | ios::binary);
    fileAppend.write((char const *)(fullBlock.getPtr()), totalSize);
    fileAppend.close();
 
@@ -1042,18 +1063,18 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint32_t firstNewTxOffset = 8 + 80 + viSize;
    
    bhInputPair.first = headHash;
-   bhInputPair.second.unserialize(blkDataNewPtr + 8);
+   bhInputPair.second.unserialize(newDataPtr + 8);
    bhInsResult = headerHashMap_.insert(bhInputPair);
    BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
    bhptr->numTx_         = numTx;
    bhptr->blockNumBytes_ = nBytes;
-   bhptr->fileByteLoc_   = blockchainData_ALL_.getSize() + headerOffset;
+   bhptr->fileByteLoc_   = blockchainData_ALL_.getSize() + oldNumBytes + 8;
    bhptr->txPtrList_.clear();
 
-   for(uint64_t i=0; i<nTx; i++)
+   for(uint64_t i=0; i<numTx; i++)
    {
-      uint8_t* 
+      //uint8_t* 
       txInputPair.second.unserialize(newDataPtr + 88 + viSize + txOffsets[i]);
       txInputPair.first = txInputPair.second.thisHash_;
       txInsResult = txHashMap_.insert(txInputPair);
@@ -1063,7 +1084,6 @@ bool BlockDataManager_FullRAM::addBlockData(
    }
    
    // Finally, let's re-assess the state of the blockchain with the new data
-   BlockHeaderRef* oldTopBlockPtr = topBlockPtr_;
    bool oldTopBlockValid = organizeChain(); 
 
    // *** If there was a reorg, we must make take appropriate action! ***
@@ -1075,9 +1095,12 @@ bool BlockDataManager_FullRAM::addBlockData(
       return true;
    else
    {
-      reassessTxValidityOnReorg(oldTopBlockPtr, 
+      reassessTxValidityOnReorg(prevTopBlockPtr_,
                                 topBlockPtr_, 
                                 reorgBranchPoint_);
+      // TODO:  It might also be necessary to look at the specific
+      //        block headers that were invalidated, to make sure 
+      //        we aren't using stale data somewhere that copied it
       return false;
    }
 }
@@ -1087,19 +1110,12 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr)
 {
-   // Haven't determined what to do here yet.  I would go through and mark
-   // transactions invalid, but most likely they will be included in the 
-   // chain, too, so it won't matter
-   //
-   // Probably going to use:  reorgBranchPoint_;
-   // To populate the list:   txJustInvalidated_;
-
    // Walk down invalidated chain first, until we get to the branch point
    // Mark transactions as invalid
    txJustInvalidated_.clear();
    txJustAffected_.clear();
-   BlockHeaderRef* thisBlockPtr = oldTopPtr;
-   while(oldTop != branchPtr)
+   BlockHeaderRef* thisHeaderPtr = oldTopPtr;
+   while(oldTopPtr != branchPtr)
    {
       
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
@@ -1110,24 +1126,25 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
          txJustInvalidated_.insert(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisBlockPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
    }
 
    // Walk down the newly-valid chain and mark transactions as valid.  If 
    // a tx is in both chains, it will still be valid after this process
-   BlockHeaderRef* thisBlockPtr = newTopPtr;
+   thisHeaderPtr = newTopPtr;
    while(newTopPtr != branchPtr)
    {
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
-         txptr->setHeaderPtr(thisBlockPtr);
+         txptr->setHeaderPtr(thisHeaderPtr);
          txptr->setMainBranch(true);
          txJustInvalidated_.erase(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisBlockPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
    }
+
 }
 
 vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
@@ -1178,7 +1195,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.difficultyDbl_  = 1.0;
    genBlock.difficultySum_  = 1.0;
    genBlock.isMainBranch_   = true;
-   genBlock.isOrphan_       = false;
+   genBlock.isOrphan_       = true;
    genBlock.isFinishedCalc_ = true;
 
    BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
@@ -1190,12 +1207,12 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 
    // Store the old top block so we can later check whether it is included 
    // in the new chain organization
-   BlockHeaderRef* prevTopBlockPtr = topBlockPtr_;
+   BlockHeaderRef* prevTopBlockPtr_ = topBlockPtr_;
 
    // Iterate over all blocks, track the maximum difficulty-sum block
    map<BinaryData, BlockHeaderRef>::iterator iter;
-   uint32_t maxBlockHeight = prevTopBlockPtr->getBlockHeight();
-   double   maxDiffSum     = prevTopBlockPtr->getDifficultySum();
+   uint32_t maxBlockHeight = prevTopBlockPtr_->getBlockHeight();
+   double   maxDiffSum     = prevTopBlockPtr_->getDifficultySum();
    for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
    {
       // *** Walk down the chain following prevHash fields, until
@@ -1216,7 +1233,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 
    // Walk down the list one more time, set nextHash fields
    // Also set headersByHeight_;
-   bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr);
+   bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr_);
    topBlockPtr_->nextHash_ = EmptyHash_;
    BlockHeaderRef* thisHeaderPtr = topBlockPtr_;
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
@@ -1231,7 +1248,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
       // header, because they could've been linked to an invalidated block
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
-         TxRef & tx = thisHeaderPtr->getTxRefPtrList()[i];
+         TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
          tx.setHeaderPtr(thisHeaderPtr);
          tx.setMainBranch(true);
       }
@@ -1240,7 +1257,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
       thisHeaderPtr             = &(headerHashMap_[thisHeaderPtr->getPrevHash()]);
       thisHeaderPtr->nextHash_  = childHash;
 
-      if(thisHeaderPtr == prevTopBlockPtr)
+      if(thisHeaderPtr == prevTopBlockPtr_)
          prevChainStillValid = true;
 
    }
@@ -1326,19 +1343,23 @@ double BlockDataManager_FullRAM::traceChainDown(BlockHeaderRef & bhpStart)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
 {
-   bhpStart.isOrphan_ = true;
-   bhpStart.isMainBranch_ = false;
+   bhpStart.isMainBranch_ = true;
    map<BinaryData, BlockHeaderRef>::iterator iter;
    iter = headerHashMap_.find(bhpStart.getPrevHash());
    HashStringRef lastHeadHash(32);
-   // TODO: I believe here we can check whether the block was previously
-   //       marked isMainBranch_ and if so, we can add it to a "previously-
-   //       but-no-longer-valid" block list.  This allows us to flag txs
-   //       that might have been included in the wallet, but should be removed.
    while( iter != headerHashMap_.end() )
    {
-      if(iter->second.isMainBranch_ == true)
+      // I don't see how it's possible to have a header that used to be 
+      // in the main branch, but is now an ORPHAN (meaning it has no
+      // parent).  It will be good to detect this case, though
+      if(iter->second.isMainBranch() == true)
+      {
+         cout << "***ERROR: Block previously main branch, now orphan!?"
+              << iter->second.getThisHash().toHexStr() << endl;
+         cerr << "***ERROR: Block previously main branch, now orphan!?"
+              << iter->second.getThisHash().toHexStr() << endl;
          previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
+      }
       iter->second.isOrphan_ = true;
       iter->second.isMainBranch_ = false;
       lastHeadHash.setRef(iter->second.thisHash_);

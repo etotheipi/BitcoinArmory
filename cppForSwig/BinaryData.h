@@ -241,7 +241,7 @@ public:
                                         '4','5','6','7',
                                         '8','9','a','b',
                                         'c','d','e','f' };
-      BinaryData bdToHex = *this;
+      BinaryData bdToHex(*this);
       if(bigEndian)
          bdToHex.swapEndian();
 
@@ -600,16 +600,20 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   string toHexStr(void) const
+   string toHexStr(bool bigEndian=false) const
    {
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
                                         '8','9','a','b',
                                         'c','d','e','f' };
+      BinaryData bdToHex(*this);
+      if(bigEndian)
+         bdToHex.swapEndian();
+
       vector<int8_t> outStr(2*nBytes_);
-      for( size_t i=0; i<nBytes_; i++)
+      for(size_t i=0; i<nBytes_; i++)
       {
-         uint8_t nextByte = ptr_[i];
+         uint8_t nextByte = *(bdToHex.getPtr()+i);
          outStr[2*i  ] = hexLookupTable[ (nextByte >> 4) & 0x0F ];
          outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
       }

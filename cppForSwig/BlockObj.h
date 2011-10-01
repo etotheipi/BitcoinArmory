@@ -66,7 +66,7 @@ public:
                 BinaryData const * suppliedHash  = NULL,
                 uint64_t           fileLoc   = UINT64_MAX);
 
-   void pprint(ostream & os=cout);
+   void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
 
 
 private:

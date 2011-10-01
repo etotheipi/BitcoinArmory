@@ -63,6 +63,7 @@ public:
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
+   uint32_t        getBlockSize(void) const;
 
    /////////////////////////////////////////////////////////////////////////////
    vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
@@ -74,7 +75,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) { assert(isInitialized_); return self_; }
    BlockHeader   getCopy(void) const;
-   void          pprint(ostream & os=cout);
+   void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);
@@ -156,13 +157,13 @@ public:
    TxRef*           getParentTxPtr(void) { return parentTx_; }
    void             setParentTxPtr(TxRef * txref) { parentTx_ = txref; }
    TXIN_SCRIPT_TYPE getScriptType(void) const { return scriptType_; }
-   uint32_t         getScriptOffset(void) { return scriptOffset_; }
+   uint32_t         getScriptOffset(void) const { return scriptOffset_; }
 
    TxIn             getCopy(void) const;
    OutPoint         getOutPoint(void) const;
    OutPointRef      getOutPointRef(void) const;
-   BinaryData       getScript(void) ;
-   BinaryDataRef    getScriptRef(void) ;
+   BinaryData       getScript(void) const;
+   BinaryDataRef    getScriptRef(void) const;
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
    uint32_t         getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
    void             setMine(bool b) { isMine_ = b; }
@@ -177,10 +178,10 @@ public:
    // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
    // the corresponding TxOut to find the sender.  In the case the sender is
    // not available, return false and don't write the output
-   bool       getSenderAddrIfAvailable(BinaryData & addrTarget);
-   BinaryData getSenderAddrIfAvailable(void);
+   bool       getSenderAddrIfAvailable(BinaryData & addrTarget) const;
+   BinaryData getSenderAddrIfAvailable(void) const;
 
-   void pprint(ostream & os=cout);
+   void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
 
 
 private:
@@ -226,17 +227,17 @@ public:
    BinaryDataRef      getRecipientAddr(void) const { return recipientBinAddr20_.getRef(); }
    TXOUT_SCRIPT_TYPE  getScriptType(void) const { return scriptType_; }
    TxOut              getCopy(void) const;
-   uint32_t           getScriptSize(void) { return nBytes_ - scriptOffset_; }
+   uint32_t           getScriptSize(void) const { return nBytes_ - scriptOffset_; }
    BinaryDataRef      serialize(void) { return self_; }
-   BinaryData         getScript(void) ;
-   BinaryDataRef      getScriptRef(void) ;
+   BinaryData         getScript(void);
+   BinaryDataRef      getScriptRef(void);
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
    void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
    void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
 
-   void pprint(ostream & os=cout);
+   void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
 
 private:
    BinaryDataRef self_;
@@ -276,7 +277,7 @@ public:
    void            setHeaderPtr(BlockHeaderRef* bhr)   { headerPtr_ = bhr; }
    Tx              getCopy(void) const;
    void            setMainBranch(bool b=true) { isMainBranch_ = b; }
-   void            isMainBranch(void)  { return isMainBranch_; }
+   bool            isMainBranch(void)  { return isMainBranch_; }
 
    /////////////////////////////////////////////////////////////////////////////
 
@@ -301,9 +302,11 @@ public:
    TxOut     getTxOutCopy(int i);
    
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t getBlockTimestamp(void);
-   uint32_t getBlockHeight(void);
+   uint32_t  getBlockTimestamp(void);
+   uint32_t  getBlockHeight(void);
 
+   /////////////////////////////////////////////////////////////////////////////
+   void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
 
 private:
    BinaryDataRef self_; 
@@ -318,7 +321,7 @@ private:
 
    // To be calculated/set later
    BlockHeaderRef*  headerPtr_;
-   BlockHeaderRef*  isMainBranch_;
+   bool             isMainBranch_;
 
 };
 

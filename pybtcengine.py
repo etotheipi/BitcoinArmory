@@ -1073,12 +1073,12 @@ class PyOutPoint(object):
       binOut.put(UINT32, self.index)
       return binOut.getBinaryString()
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
       print indstr + indent + 'PrevTxHash:', \
-                  binary_to_hex(self.txOutHash, BIGENDIAN), \
-                  '(BE)'
+                  binary_to_hex(self.txOutHash, endian), \
+                  '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.index
       
 
@@ -1111,12 +1111,13 @@ class PyTxIn(object):
       binOut.put(UINT32, self.intSeq)
       return binOut.getBinaryString()
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'PyTxIn:'
       #self.outpoint.pprint(nIndent+1)
       print indstr + indent + 'PrevTxHash:', \
-                  binary_to_hex(self.outpoint.txOutHash, BIGENDIAN), '(BE)'
+                  binary_to_hex(self.outpoint.txOutHash, endian), \
+                      '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.outpoint.index
       source = TxInScriptExtractKeyAddr(self)[0]
       if 'Sign' in source:
@@ -1151,7 +1152,7 @@ class PyTxOut(object):
       binOut.put(BINARY_CHUNK, self.binPKScript)
       return binOut.getBinaryString()
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
       print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
@@ -1209,21 +1210,22 @@ class PyTx(object):
       self.thisHash = hash256(self.serialize())
       return self
       
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, BIGENDIAN), '(BE)'
+      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, endian), \
+                                    '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
       print indstr + indent + 'nOutputs: ', self.numOutputs
       print indstr + indent + 'LockTime: ', self.lockTime
       print indstr + indent + 'Inputs: '
       for inp in self.inputs:
-         inp.pprint(nIndent+2)
+         inp.pprint(nIndent+2, endian=endian)
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
-         out.pprint(nIndent+2)
+         out.pprint(nIndent+2, endian=endian)
       
 
 
@@ -1365,13 +1367,16 @@ class PyBlockHeader(object):
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
-      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=BIGENDIAN), '(BE)'
+      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=endian), \
+                                                      '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:   ', self.version     
-      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=BIGENDIAN), '(BE)'
-      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=BIGENDIAN), '(BE)'
+      print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=endian), \
+                                                      '(BE)' if endian==BIGENDIAN else '(LE)'
+      print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=endian), \
+                                                      '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Timestamp: ', self.timestamp 
       fltDiff = binaryBits_to_difficulty(self.diffBits)
       print indstr + indent + 'Difficulty:', fltDiff, '('+binary_to_hex(self.diffBits)+')'
@@ -1455,13 +1460,14 @@ class PyBlockData(object):
          print indent + '\t' + phash
          
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'BlockData:'
-      print indstr + indent + 'MerkleRoot:  ', binary_to_hex(self.getMerkleRoot())
+      print indstr + indent + 'MerkleRoot:  ', binary_to_hex(self.getMerkleRoot(), endian), \
+                                               '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'NumTx:       ', self.numTx
       for tx in self.txList:
-         tx.pprint(nIndent+1)
+         tx.pprint(nIndent+1, endian=endian)
       
 
 
@@ -1488,11 +1494,11 @@ class PyBlock(object):
       self.blockData   = PyBlockData().unserialize(blkData)
       return self
 
-   def pprint(self, nIndent=0):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'Block:'
-      self.blockHeader.pprint(nIndent+1)
-      self.blockData.pprint(nIndent+1)
+      self.blockHeader.pprint(nIndent+1, endian=endian)
+      self.blockData.pprint(nIndent+1, endian=endian)
 
 
 

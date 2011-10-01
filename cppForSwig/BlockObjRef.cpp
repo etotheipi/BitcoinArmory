@@ -18,6 +18,24 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
+
+uint32_t BlockHeaderRef::getBlockSize(void) const
+{
+   uint32_t nBytes = HEADER_SIZE; 
+   uint32_t nTx = txPtrList_.size();
+   for(uint32_t i=0; i<nTx; i++)
+   {
+      if(txPtrList_[i] == NULL)
+         return 0;
+      else
+         nBytes += txPtrList_[i]->getSize();
+   }
+
+   // Add in a couple bytes for the var_int
+   nBytes += BinaryWriter().put_var_int(nTx);
+   return nBytes;
+}
+
 BlockHeader BlockHeaderRef::getCopy(void) const
 {
    assert(isInitialized_);
@@ -78,9 +96,9 @@ void BlockHeaderRef::unserialize(BinaryRefReader & brr)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::pprint(ostream & os)
+void BlockHeaderRef::pprint(ostream & os, int nIndent, bool pBigendian) const
 {
-   getCopy().pprint(os);
+   getCopy().pprint(os, nIndent, pBigendian);
 }
 
 
@@ -101,7 +119,7 @@ BinaryData BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut)
    else
    {
       *treeOut = BtcUtils::calculateMerkleTree( getTxHashList() );
-      return (*treeOut)[treeOut.size()-1];
+      return (*treeOut)[treeOut->size()-1];
    }
 }
 
@@ -164,14 +182,14 @@ OutPointRef TxInRef::getOutPointRef(void) const
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData TxInRef::getScript(void) 
+BinaryData TxInRef::getScript(void) const
 { 
    uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
    return BinaryData(getPtr() + getScriptOffset(), scrLen);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxInRef::getScriptRef(void) 
+BinaryDataRef TxInRef::getScriptRef(void) const
 { 
    uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
    return BinaryDataRef(getPtr() + scriptOffset_, scrLen);
@@ -214,7 +232,7 @@ void TxInRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* par
 // Not all TxIns have this information.  Have to go to the Outpoint and get
 // the corresponding TxOut to find the sender.  In the case the sender is
 // not available, return false and don't write the output
-bool TxInRef::getSenderAddrIfAvailable(BinaryData & addrTarget)
+bool TxInRef::getSenderAddrIfAvailable(BinaryData & addrTarget) const
 {
    if(scriptType_ != TXIN_SCRIPT_STANDARD)
       return false;
@@ -224,7 +242,7 @@ bool TxInRef::getSenderAddrIfAvailable(BinaryData & addrTarget)
    return true;
 }
 
-BinaryData TxInRef::getSenderAddrIfAvailable(void)
+BinaryData TxInRef::getSenderAddrIfAvailable(void) const
 {
    BinaryData addrTarget(0);
    if(scriptType_ == TXIN_SCRIPT_STANDARD)
@@ -247,19 +265,23 @@ TxIn TxInRef::getCopy(void) const
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void TxInRef::pprint(ostream & os)
+void TxInRef::pprint(ostream & os, int nIndent, bool pBigendian) const
 {
-   cout << "TxIn:" << endl;
-   cout << "\tType:    ";
+   string indent = "";
+   for(int i=0; i<nIndent; i++)
+      indent = indent + "   ";
+
+   os << indent << "TxIn:" << endl;
+   os << indent << "   Type:    ";
    switch(scriptType_)
    {
-   case TXIN_SCRIPT_STANDARD: cout << "STANDARD" << endl; break;
-   case TXIN_SCRIPT_COINBASE: cout << "COINBASE" << endl; break;
-   case TXIN_SCRIPT_SPENDCB : cout << "SPEND CB" << endl; break;
-   case TXIN_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
+   case TXIN_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
+   case TXIN_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
+   case TXIN_SCRIPT_SPENDCB : os << "SPEND CB" << endl; break;
+   case TXIN_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
    }
-   cout << "\tBytes:   " << getSize() << endl;
-   cout << "\tSender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
+   os << indent << "   Bytes:   " << getSize() << endl;
+   os << indent << "   Sender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
 }
 
 
@@ -323,18 +345,24 @@ TxOut TxOutRef::getCopy(void) const
    return returnTxOut;
 }
 
-void TxOutRef::pprint(ostream & os)
+void TxOutRef::pprint(ostream & os, int nIndent, bool pBigendian) 
 {
-   cout << "TxOut:" << endl;
-   cout << "\tType:   ";
+   string indent = "";
+   for(int i=0; i<nIndent; i++)
+      indent = indent + "   ";
+
+   os << indent << "TxOut:" << endl;
+   os << indent << "   Type:   ";
    switch(scriptType_)
    {
-   case TXOUT_SCRIPT_STANDARD: cout << "STANDARD" << endl; break;
-   case TXOUT_SCRIPT_COINBASE: cout << "COINBASE" << endl; break;
-   case TXOUT_SCRIPT_UNKNOWN : cout << "UNKNOWN " << endl; break;
+   case TXOUT_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
+   case TXOUT_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
+   case TXOUT_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
    }
-   cout << "\tRecip:  " << recipientBinAddr20_.toHexStr().c_str() << endl;
-   cout << "\tValue:  " << getValue() << endl;
+   os << indent << "   Recip:  " 
+                << recipientBinAddr20_.toHexStr(pBigendian).c_str() 
+                << (pBigendian ? " (BE)" : " (LE)") << endl;
+   os << indent << "   Value:  " << getValue() << endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -429,6 +457,29 @@ uint32_t TxRef::getBlockHeight(void)
 }
 
 
+void TxRef::pprint(ostream & os, int nIndent, bool pBigendian) 
+{
+   string indent = "";
+   for(int i=0; i<nIndent; i++)
+      indent = indent + "   ";
+    
+   os << indent << "Tx:   " << thisHash_.toHexStr(pBigendian) 
+                << (pBigendian ? " (BE)" : " (LE)") << endl;
+   if( headerPtr_==NULL)
+      os << indent << "   Blk:  <NOT PART OF A BLOCK YET>" << endl;
+   else
+      os << indent << "   Blk:         " << headerPtr_->getBlockHeight() << endl;
+
+   os << indent << "   TxSize:      " << getSize() << " bytes" << endl;
+   os << indent << "   NumInputs:   " << getNumTxIn() << endl;
+   os << indent << "   NumOutputs:  " << getNumTxIn() << endl;
+   os << endl;
+   for(int i=0; i<getNumTxIn(); i++)
+      getTxInRef(i).pprint(os, nIndent+1, pBigendian);
+   os << endl;
+   for(int i=0; i<getNumTxOut(); i++)
+      getTxOutRef(i).pprint(os, nIndent+1, pBigendian);
+}
 
 
 

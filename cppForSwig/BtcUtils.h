@@ -367,7 +367,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static vector<BinaryData> calculateMerkleRoot(vector<BinaryData> const & txhashlist)
+   static BinaryData calculateMerkleRoot(vector<BinaryData> const & txhashlist)
    {
       vector<BinaryData> mtree = calculateMerkleTree(txhashlist);
       return mtree[mtree.size()-1];

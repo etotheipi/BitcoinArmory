@@ -443,9 +443,11 @@ private:
    // Reorganization details
    bool                              lastBlockWasReorg_;
    BlockHeaderRef*                   reorgBranchPoint_;
+   BlockHeaderRef*                   prevTopBlockPtr_;
    set<HashString>                   txJustInvalidated_;
    set<HashString>                   txJustAffected_;
 
+   // Store info on orphan chains
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
@@ -475,8 +477,8 @@ public:
    TxRef *          getTxByHash(BinaryData const & txHash);
 
    void             addHeader(BinaryData const & binHeader);
-   bool             addBlockData(BinaryData const & binaryHeader,
-                                 vector<BinaryData> const & binaryTxList)
+   bool             addBlockData(BinaryData  const & binaryHeader,
+                          vector<BinaryData> const & binaryTxList);
    void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr );

@@ -129,18 +129,26 @@ BlockHeader::BlockHeader( BinaryData const * serHeader ,
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockHeader::pprint(ostream & os)
+void BlockHeader::pprint(ostream & os, int nIndent, bool pBigendian) const
 {
-   os << "Block Information: " << blockHeight_ << endl;
-   os << "-Hash:       " << thisHash_.toHexStr().c_str() << endl;
-   os << "-Timestamp:  " << getTimestamp() << endl;
-   os << "-Prev Hash:  " << prevHash_.toHexStr().c_str() << endl;
-   os << "-MerkleRoot: " << getMerkleRoot().toHexStr().c_str() << endl;
-   os << "-Difficulty: " << (difficultyDbl_)
+   string indent = "";
+   for(int i=0; i<nIndent; i++)
+      indent = indent + "   ";
+
+   string endstr = (pBigendian ? " (BE)" : " (LE)");
+   os << indent << "Block Information: " << blockHeight_ << endl;
+   os << indent << "   Hash:       " 
+                << thisHash_.toHexStr(pBigendian).c_str() << endstr << endl;
+   os << indent << "   Timestamp:  " << getTimestamp() << endl;
+   os << indent << "   Prev Hash:  " 
+                << prevHash_.toHexStr(pBigendian).c_str() << endstr << endl;
+   os << indent << "   MerkleRoot: " 
+                << getMerkleRoot().toHexStr(pBigendian).c_str() << endstr << endl;
+   os << indent << "   Difficulty: " << (difficultyDbl_)
                          << "    (" << getDiffBits().toHexStr().c_str() << ")" << endl;
-   os << "-CumulDiff:  " << (difficultySum_) << endl;
-   os << "-Nonce:      " << getNonce() << endl;
-   os << "-FileOffset: " << fileByteLoc_ << endl;
+   os << indent << "   CumulDiff:  " << (difficultySum_) << endl;
+   os << indent << "   Nonce:      " << getNonce() << endl;
+   os << indent << "   FileOffset: " << fileByteLoc_ << endl;
 }
 
 

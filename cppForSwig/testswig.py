@@ -26,7 +26,7 @@ bdm = BlockDataManager_FullRAM.GetInstance()
 print 'Done!'
 print ''
 
-print 'Loading blk0001.dat...            ',
+print 'Loading blk0001.dat...            '
 bdm.readBlkFile_FromScratch(blkfile)
 print 'Done!'
 print ''
