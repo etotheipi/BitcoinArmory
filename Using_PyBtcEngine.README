@@ -1,0 +1,493 @@
+################################################################################
+##                                                                            ##
+##  Copyright (C) 2011, Alan C. Reiner    <alan.reiner@gmail.com>             ##
+##  Distributed under the GNU Affero General Public License (AGPL v3)         ##
+##  See LICENSE or http:##www.gnu.org#licenses#agpl.html                      ##
+##                                                                            ##
+################################################################################
+
+PyBtcEngine contains over 7,000 lines of code, between the C++ and python
+libraries.  This can be very confusing for someone unfamiliar with the 
+code (you).  Below I have attempted to illustrate the CONOPS (concept of 
+operations) that the library was designed for, so you know how to use it 
+in your own development activities.  There is a bunch of sample code in
+the following three files:
+
+   [ C++    ]   cppForSwig/BlockUtilsTest.cpp
+   [ Python ]   pybtcengine.py
+   [ SWIG   ]   testswig.py and pyqt/blockexplore.pyw
+
+But of course, sample code alone does not make great documentation.  I will
+attempt to provide reference info for everything else you need to know, here.
+For a list of library features, see the STATUS table in the README.  Note
+that all features with an X in either column are accessible in SWIG.
+
+ 
+################################################################################
+*** Compiling ***
+
+   Linux:   See dependencies below.  From the cppForSwig directory "make" to
+            make the C++ code alone, "make swig" to create and compile the 
+            SWIG wrappers
+   
+   Windows: MSVS 2010 project is included.  Setup to compile C++ code only
+            I have not tried any of the Python/SWIG code in Windows, at all.
+
+   ***Dependencies (from README) ***
+ 
+   - Crypto++  
+            In MSVS:    Copy cryptopp source dir into same location as .sln
+                        Download from "http://www.cryptopp.com/#download"
+            In Linux:   Install package "libcrypto++-dev"
+   - SWIG
+            In MSVS:    Haven't tried this yet
+            In Linux:   Install package "swig"
+   
+   - Probably more I'm forgetting...
+   
+################################################################################
+
+################################################################################
+*** Documentation ***
+
+   This documentation is broken into three sections:
+
+      - SWIG
+      - C++
+      - Python
+
+   If you are only interested in using the library for building python tools or
+   applications, you can skip directly to the SWIG section, which bypasses a lot
+   of the under-the-hood discussion in the other two sections. 
+
+
+################################################################################
+*** SWIG Code Overview ***
+
+   There is no explicit library file for combining python and C++ methods.  You
+   import both CppBlockUtils and pybtcengine and off you go -- it might be a
+   a good idea to create such a unified import, though
+
+
+################################################################################
+*** C++ Code Overview ***
+
+What's there:   
+      - Blockchain reading from file, scanning
+      - Checking blk0001.dat file integrity
+      - Organizing and finding the longest chain
+      - Efficient access to ALL data in the blockchain
+      - Standard and Non-standard script detection
+      - Binary wallet tracking, with address ledgers
+
+What's NOT there:
+      - BigNum library:  cannot do any Base58/address manipulations.  
+      - ECDSA library:   cannot do any signing/verification operations
+                         (however, crypto++ is linked, could be easy to add)                         
+      - Address storage: addresses that have not 
+                         information on a given address, you must do a full
+                         scan of the blockchain, which takes about 5s.  If
+                         you need to do this quicker, you can revive some
+                         old code I had which took about 30s
+      - Constructing transaction packets:  this could be easy to add, since
+        the library does make it easy to find all TxOuts for a given wallet
+
+
+The basics:  The goal of the C++ code is to provide an optimized layer for 
+             accessing the blockchain.  It reads the specified blk0001.dat 
+             file (where the blockchain is stored in raw, binary form)
+             and maintains a series of maps and pointers to this data with
+             minimal copy operations.  IT IS VERY FAST. 
+
+             The C++ code has no BigNum or ECDSA code in it, which means
+             it cannot sign/verify anything, or calculate address strings.
+
+
+*************************
+Class BinaryData:
+   This class is a simple wrapper for {vector<uint8_t>, uint32_t size}.
+   It has a ton of convenience methods for searching, slicing and hashing
+   these objects.  All data that isn't human-readable strings will be
+   passed around with BinaryData objects  (typedef'd to "HashString")
+
+*************************
+Class BinaryDataRef:
+   This class is REFERENCE class for what would otherwise be used by 
+   BinaryData.  It holds a {uint8_t*, uint32_t size}.  Since many of our 
+   objects are persistent (see rule 1), it's safe to pass around 
+   references to them.  This class has easy conversions to and from 
+   BinaryData, and has most of the same methods.
+            
+*************************
+Class BtcUtils:
+   This is a helper class that contains methods and constants that might be 
+   shared between multiple classes.  THIS IS A STATIC-METHOD-ONLY class. 
+   Therefore all methods and members must be scoped with BtcUtils::
+
+   Useful Methods:
+      BtcUtils::GenesisHash_;
+      BtcUtils::EmptyHash_;
+      BtcUtils::MagicBytes_;
+
+      BtcUtils::readVarInt()
+      BtcUtils::readVarIntLength()
+      BtcUtils::getHash256() 
+      BtcUtils::getHash160()
+      BtcUtils::calculateMerkleRoot()
+      BtcUtils::calculateMerkleTree()
+
+      BtcUtils::TxInCalcLength()
+      BtcUtils::TxOutCalcLength()
+      BtcUtils::TxCalcLength()
+
+      BtcUtils::getTxInScriptType()
+      BtcUtils::getTxOutScriptType()
+      BtcUtils::getTxOutRecipientAddr()
+      BtcUtils::convertDiffBitsToDouble()
+
+      BtcUtils::getOpCodeName()
+      BtcUtils::convertScriptToOpStrings()
+
+
+*************************
+Classes in BlockObjRef:
+   These are the core of the library; all these objects have a serialize() 
+   and unserialize() method which uses the specified formats in:
+
+      https://en.bitcoin.it/wiki/Protocol_specification
+
+   These objects do not hold any serialized information, only a BinaryDataRef
+   to where it is serialized in RAM by the BlockDataManager.  All data that
+   is not officially part of its serialized state is stored as extra members
+
+   Useful methods:
+
+     BlockHeaderRef
+         BlockHeaderRef::getVersion()
+         BlockHeaderRef::getPrevHash()
+         BlockHeaderRef::getMerkleRoot()
+         BlockHeaderRef::getDifficulty()
+         BlockHeaderRef::getTimestamp()
+         BlockHeaderRef::getNonce()
+         BlockHeaderRef::pprint()  
+      
+         BlockHeaderRef::serialize()
+         BlockHeaderRef::unserialize()
+
+         BlockHeaderRef::getThisHash()
+         BlockHeaderRef::getDifficultySum()
+         BlockHeaderRef::getBlockSize()     // in bytes
+         BlockHeaderRef::getTxRefPtrList()  // access to all Tx's in this block
+         BlockHeaderRef::getTxHashList()    // access to all Tx's in this block
+
+         BlockHeaderRef::verifyMerkleRoot()
+         BlockHeaderRef::verifyIntegrity()  // checks merkleroot and hash zeros
+
+         
+     OutPointRef
+         OutPointRef::getTxHash()
+         OutPointRef::getTxOutIndex()
+
+         OutPointRef::serialize()
+         OutPointRef::unserialize()
+   
+     TxInRef
+         TxInRef::getOutPoint()
+         TxInRef::getScript()
+         TxInRef::getSequence()
+         TxInRef::isCoinbase()
+         TxInRef::pprint()
+
+         TxInRef::serialize()
+         TxInRef::unserialize()
+         TxInRef::getSize()         // number of serialized bytes
+         TxInRef::getScriptSize()   // number of serialized bytes
+
+         TxInRef::getScriptType()
+         TxInRef::isScriptStandard()
+         TxInRef::isScriptCoinbase()
+         TxInRef::isScriptSpendCB()
+         TxInRef::isScriptUnknown()
+         TxInRef::getSenderAddrIfAvailable()  // Coinbase TxIns don't have this
+
+         TxInRef::getCopy()         // Creates TxIn; not used much/ever
+         TxInRef::getParentTxPtr()  // Coinbase TxIns don't have this
+         
+     TxOutRef
+         TxOutRef::getValue()
+         TxOutRef::getScript()
+         TxOutRef::pprint()
+
+         TxOutRef::serialize()
+         TxOutRef::unserialize()
+         TxOutRef::getSize()         // number of serialized bytes
+         TxOutRef::getScriptSize()   // number of serialized bytes
+
+         TxOutRef::isScriptStandard()
+         TxOutRef::isScriptCoinbase()
+         TxOutRef::isScriptUnknown()
+
+         TxOutRef::getRecipientAddr()
+         TxOutRef::getParentTxPtr()
+         TxOutRef::getCopy()       // Creates TxOut; not used much/ever
+        
+   
+     TxRef
+         TxRef::getVersion()
+         TxRef::getNumTxIn()
+         TxRef::getNumTxOut()
+         TxRef::getTxInRef(index)
+         TxRef::getTxOutRef(index)
+         TxRef::getLockTime()
+         TxRef::pprint()
+      
+         TxRef::serialize()
+         TxRef::unserialize()
+         TxRef::getSize()           // number of serialized bytes
+
+         TxRef::getThisHash()
+
+         TxRef::getHeaderPtr()
+         TxRef::setHeaderPtr()
+         TxRef::getBlockTimestamp()
+         TxRef::getBlockHeight()
+
+
+   
+*************************
+Classes in BlockObj:
+   These are not used much, except for OutPoint which is used as the key
+   for some of the maps.  Generally these objects are used if you need to
+   make a copy of a *Ref object, but this isn't common.  Also, because of
+   their lack of use, they may not have all methods you would expect them 
+   to have.  
+   
+   (NOTE:  you cannot create a BlockObjRef from a BlockObj, because the
+           BlockObj does not store a serialization of itself, which is 
+           what is needed to create a *Ref object.  You can only go the
+           other way.                                                   )
+
+
+*************************
+Class TxIORefPair:
+   All Bitcoin transfers are simply converting older TxOuts to newer TxOuts
+   by signing a TxIn to prove that you own them.  As such, each TxOut has
+   exactly one or zero TxIns.  If it has a TxIn, it is spent and can be
+   forgotten.  If not, it is unspent, and availble for use.
+
+   Given the above, maintaining a wallet is much simpler if these objects
+   are paired intelligently.  Finding a TxOut during a blockchain scan
+   will create an unspent TxIORefPair in your wallet (and a pointer to the
+   Tx in which it is found).  When you find a TxIn, it must reference a 
+   TxOut that you have already seen, and so we retreive the TxIORefPair
+   and update it.  It has now been spent.
+
+   One major benefit of this technique is that it becomes painfully obvious
+   which of your TxOuts are available to be spent, and if you are creating
+   a lightweight client, you can purge all TxIORefPairs that have both
+   objects to save space.
+
+   Useful methods:
+      
+      TxIORefPair::hasTxOut()
+      TxIORefPair::hasTxIn()
+      TxIORefPair::hasValue()
+
+      TxIORefPair::getValue()
+      TxIORefPair::getTxOutRef()
+      TxIORefPair::getTxInRef()
+      TxIORefPair::getTxRefOfOutput()
+      TxIORefPair::getTxRefOfInput()
+
+      TxIORefPair::setTxInRef()
+      TxIORefPair::setTxOutRef()
+
+      TxIORefPair::isUnspent()
+      TxIORefPair::isSpent()
+   
+      TxIORefPair::isStandardTxOutScript()
+
+
+*************************
+Class LedgerEntry:
+   This is a reduced form of a transaction.  IT HAS DUAL-UTILITY:  it can
+   represent a ledger entry for a single address, or for an entire wallet.
+   This is an important distinction since an address is maintained via a 
+   list of TxIns and TxOuts, but a wallet only cares about the sum of TxIns
+   and TxOuts in the transaction.
+
+   When we use the BtcWallet::scanTx() method, the list of ledger entries
+   for both wallet and child addresses will be updated.  They can also be
+   sorted by timestamp, or made invalid
+      
+   Useful methods:
+      LedgerEntry::getAddrStr20()
+      LedgerEntry::getValue()
+      LedgerEntry::getBlockNum()
+      LedgerEntry::getTxHash()
+      LedgerEntry::getIndex()   // index of Tx for wallet, TxIn/TxOut for addr
+       
+
+*************************
+Class BtcAddress:
+   Holds as much information as we know about a given address.  Will also
+   hold an updated balance/ledger everytime it's parent BtcWallet is updated
+   Since there are multiple ways to represent each field, we label each 
+   member with the number of bytes
+   
+   Useful Methods:
+      BtcAddress::get/setAddrStr20()
+      BtcAddress::get/setPubKey65()
+      BtcAddress::get/setPrivKey32()
+      BtcAddress::get/setFirstBlockNum()
+      BtcAddress::get/setFirstTimestamp()
+      
+      BtcAddress::havePubKey()
+      BtcAddress::havePrivKey()
+      BtcAddress::getBalance()
+      BtcAddress::cleanLedger()       // remove invalid entries, sort by time
+
+      BtcAddress::addTxIO()           // add a ref/ptr to this address's list
+      BtcAddress::addLedgerEntry()    
+      BtcAddress::getTxIOList()       // Get all relevant TxIORefPair objects
+      BtcAddress::getTxLedger()       // get a vector of ledger entries
+
+*************************
+Class BtcWallet:
+   This basically just holds a bunch of BtcAddresses, and will aggregate 
+   information relevant to all addresses in it.
+
+   Useful methods:
+
+      BtcWallet::addAddress()
+      BtcWallet::addAddress_X_()     // needed to play nicely with SWIG
+      BtcWallet::hasAddr()
+
+      BtcWallet::scanTx()
+      BtcWallet::scanNonStdTx()
+
+      BtcWallet::getBalance()
+      BtcWallet::getNumAddr()
+      BtcWallet::getAddrByIndex()
+      BtcWallet::getAddrByHash160()
+
+      BtcWallet::getTxLedger()
+      BtcWallet::cleanLedger()
+
+      BtcWallet::getTxIOMap()         // all relevant TxIORefPairs
+      BtcWallet::getNonStdTxIO()      // in this list if TxOut has nonstd script
+
+      BtcWallet::getUnspentOutPoints()    // all relevant TxIORefPairs
+      BtcWallet::getNonStdUnspentOutPoints() // all relevant TxIORefPairs
+
+      BtcWallet::lockTxOut()        // may want to lock when attempting tx
+      BtcWallet::unlockTxOut()        
+
+*************************
+Class BlockDataManager (BDM):
+   This is your one-stop-shopping location for anything related to the
+   blockchain.  It is a SINGLETON meaning only one of them can ever
+   be created, and it is accessed via:
+
+      BlockDataManager bdm = BlockDataManager::GetInstance()
+
+   Useful methods in BlockDataManager:
+
+      BlockDataManager::readBlkFile_FromScratch           (filename)
+      BlockDataManager::organizeChain                     (void)
+      BlockDataManager::getHeaderByHash                   (BinaryData)
+      BlockDataManager::getHeaderByHeight                 (uint32_t)
+      BlockDataManager::getTxByHash                       (BinaryData)
+      BlockDataManager::scanBlockchainForTx_FromScratch   (BtcWallet)
+      BlockDataManager::scanBlockchainForTx_FromScratch   (vector<BtcWallet>)
+      BlockDataManager::findAllNonStdTx                   (void)
+   
+
+
+
+*** Using the C++ code ***
+
+***RULE 1:  DON'T COPY PERSISTENT OBJECTS
+
+   The following object types are stored EXACTLY once by BlockDataManager:
+
+      -BlockHeaderRef
+      -TxRef
+
+   The following object types are stored EXACTLY once by BtcWallet/BtcAddress:
+
+      -TxIORefPair
+
+   All operations involving one of these object types should use pointers 
+   to the single instance of them.  This is not as hard as it sounds, because
+   all methods that using these objects as inputs/outputs only use pointers.
+
+   While the point of the *Ref classes was to not have to worry about copy
+   operations, THEY CONTAIN POST-CONSTRUCTION MEMBERS that may be large
+   and slow/complicated to re-compute.  For instance:  TxRef contains a pointer
+   to a BlockHeaderRef.  However, this pointer can change (upon reorg) and
+   thus, if we had multiple copies of the TxRef, we'd have to make sure they
+   all get updated.  
+
+
+
+***RULE 2:  ONLY COPY OutPointRef, TxInRef, TxOutRef OBJECTS
+
+   Unlike BlockHeadeRef and TxRef, these three classes contain no members 
+   that are created post-construction.  They are also very fast to recompute
+   given a pointer to where they are serialized.
+
+   Therefore, we rarely use ptrs/refs to these objects, and instead create 
+   new ones on the fly whenever we need them.  Use 
+
+         uint32_t  TxRef::getNumTxIn  (void);
+         uint32_t  TxRef::getNumTxOut (void);
+
+         TxInRef   TxRef::getTxInRef  (index i);
+         TxOutRef  TxRef::getTxOutRef (index i);
+
+   
+***RULE 3:  TxIns ARE COMPLICATED
+
+   We'd like to think that TxIns contain all the information we need about
+   where and how much money is coming from in a Tx.  However, this is not 
+   actually the case.  Standard TxIn serializations do not hold the values
+   and MAY NOT EVEN HOLD THE SENDER ADDRESS.  To get this information, you
+   have to follow its OutPoint and get it's TxOut, you need the help of 
+   the BlockDataManager to find it.  Three convenience methods have been
+   created for this purpose:
+
+      TxOutRef   BlockDataManager::getPrevTxOut    (TxInRef & txin);
+      BinaryData BlockDataManager::getSenderAddr20 (TxInRef & txin); 
+      int64_t    BlockDataManager::getSentValue    (TxInRef & txin);
+
+
+***RULE 4:  ALWAYS RESCAN YOUR WALLET(S) AFTER BLOCKCHAIN UPDATES 
+          (OR PASS NEW TX DATA DIRECTLY TO YOUR WALLET, IN ADDITION TO BDM)
+
+   You create a BtcWallet object and then add your addresses to it.  However,
+   the BlockDataManager has no persistent knowledge of your wallet. You must
+   update your wallet balances/ledgers with a call to:
+
+      BlockDataManager::scanBlockchainForTx_FromScratch(MyBtcWallets)
+
+   Or you can plug the new Tx information directly into the wallet:
+
+      BtcWallet::scanTx( TxRef, txIndex, blockNumber, blockTimestamp)
+
+   The extra information is to make sure that you wallet can update all of its
+   pointers correctly, and store first-seen information (to improve searching)
+   
+   
+
+################################################################################
+*** Python Code Overview ***
+
+
+
+
+
+
+
+
+

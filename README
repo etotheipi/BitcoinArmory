@@ -37,6 +37,12 @@
 ********************************************************************************
 
 ********************************************************************************
+* Please take a moment to donate 0.5 BTC!    1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
+
+* (c'mon, it will take like 10 seconds to cut&paste)
+********************************************************************************
+
+********************************************************************************
 *  STATUS:   Last Updated - 01 Oct, 2011
 *            Legend:   
 *                      _    not implemented
@@ -110,18 +116,23 @@
 *            Deterministic address generation
 *            Wallet serialization/storage to file
 *            Convert wallet files to/from official BTC wallets (pywallet)
-*     
-*      
 *  
 ********************************************************************************
 
-
-
 ********************************************************************************
-  Please take a moment to donate 0.1 BTC!    1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
-
-  (c'mon, it will take like 10 seconds to cut&paste)
+* Dependencies:
+*    - Crypto++  
+*           In MSVS:    Copy cryptopp source dir into same location as .sln
+*                       Download from "http://www.cryptopp.com/#download"
+*           In Linux:   Install package "libcrypto++-dev"
+*    - SWIG
+*           In MSVS:    Haven't tried this yet
+*           In Linux:   Install package "swig"
+*  
+*    - Probably more I'm forgetting...
+*  
 ********************************************************************************
+
 
 #####
 25 Sep, 2011:   

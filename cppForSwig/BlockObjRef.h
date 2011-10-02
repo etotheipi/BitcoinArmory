@@ -305,6 +305,7 @@ public:
    uint32_t        getSize(void) const {  return self_.getSize(); }
 
    /////////////////////////////////////////////////////////////////////////////
+   uint32_t           getVersion(void)  const { return *(uint32_t*)(self_.getPtr()+4);}
    uint32_t           getNumTxIn(void)  const { return offsetsTxIn_.size()-1;}
    uint32_t           getNumTxOut(void) const { return offsetsTxOut_.size()-1;}
    BinaryData const & getThisHash(void) const    { return thisHash_; }

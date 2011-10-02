@@ -351,7 +351,7 @@ public:
    set<OutPoint> & getUnspentOutPoints(void)     {return unspentTxOuts_;}
 
    map<OutPoint, TxIORefPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
-   set<OutPoint> const & getNonStdUnspentTxOuts(void) {return nonStdUnspentTxOuts_;}
+   set<OutPoint> const & getNonStdUnspentOutPoints(void) {return nonStdUnspentTxOuts_;}
 
    // If we have spent TxOuts but the tx haven't made it into the blockchain
    // we need to lock them to make sure we have a record of which ones are 
@@ -506,10 +506,6 @@ public:
 
    static BlockDataManager_FullRAM & GetInstance(void);
 
-   bool             isLastBlockReorg(void) {return lastBlockWasReorg_;}
-   set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
-   set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
-
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t getNumConfirmations(BinaryData txHash);
@@ -554,6 +550,12 @@ public:
    // TODO:  Figure out if there is an elegant way to deal with a forked 
    //        blockchain containing two equal-length chains
    bool organizeChain(bool forceRebuild=false);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool             isLastBlockReorg(void)     {return lastBlockWasReorg_;}
+   set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
+   set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
+
 
    ////////////////////////////////////////////////////////////////////////////////
    // We're going to need the BDM's help to get the sender for a TxIn since it

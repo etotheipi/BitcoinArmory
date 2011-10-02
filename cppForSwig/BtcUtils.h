@@ -596,7 +596,7 @@ public:
    }
 
 
-   static string getOpName(OPCODETYPE opcode)
+   static string getOpCodeName(OPCODETYPE opcode)
    {
       switch (opcode)
       {
@@ -784,7 +784,7 @@ public:
          }
          else
          {
-            opList.push_back(getOpName((OPCODETYPE)nextOp));
+            opList.push_back(getOpCodeName((OPCODETYPE)nextOp));
             i++;
          }
             
