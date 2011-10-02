@@ -12,7 +12,6 @@
 %module CppBlockUtils
 
 %{
-#include "BinaryData.h"
 #include "BlockObj.h"
 #include "BlockObjRef.h"
 #include "BlockUtils.h"
@@ -80,16 +79,8 @@ public:
 };
 */
 
-
-%include "BinaryData.h"
-%include "BlockObj.h"
-%include "BlockObjRef.h"
-%include "BlockUtils.h"
-
-
-/*  My typemaps didn't work
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
+/******************************************************************************/
+/* Convert Python(str) to C++(BinaryData) */
 %typemap(in) BinaryData
 {
    if(!PyString_Check($input))
@@ -98,15 +89,49 @@ public:
       return NULL;
    }
    
-   string s(PyString_AsString($input), PyString_Size($input));
-   $1 = BinaryData(s);
+   $1 = BinaryData((uint8_t*)PyString_AsString($input), PyString_Size($input));
 }
 
+/******************************************************************************/
+/* Convert C++(BinaryData) to Python(str) */
 %typemap(out) BinaryData
 {
    $result = PyString_FromStringAndSize((char*)($1.getPtr()), $1.getSize());
 }
+
+/******************************************************************************/
+/*
+// Convert Python(str) to C++(BinaryData const &) 
+// We add a bdObj which will get created outside the typemap block,
+// so that we have a BinaryData obj that isn't destroyed before it 
+// is referenced (search CppBlockUtils_wrap.cxx for "bdObj")
 */
+%typemap(in) BinaryData const & (BinaryData bdObj)
+{
+   if(!PyString_Check($input))
+   {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+   }
+   bdObj.copyFrom((uint8_t*)PyString_AsString($input), PyString_Size($input));
+   $1 = &bdObj;
+}
+
+/******************************************************************************/
+/* Convert C++(BinaryData const &) to Python(str) */
+%typemap(out) BinaryData const & 
+{
+   $result = PyString_FromStringAndSize((char*)($1->getPtr()), $1->getSize());
+}
+
+
+
+/* With our typemaps, we can finally include our other objects */
+%include "BlockObj.h"
+%include "BlockObjRef.h"
+%include "BlockUtils.h"
+
+
 
 /*
 ////////////////////////////////////////////////////////////////////////////////
@@ -129,6 +154,7 @@ struct BtcAddress
 };
 
 
+/*
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet

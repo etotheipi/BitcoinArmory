@@ -129,8 +129,12 @@ public:
 
 
    //////////////////////////////////////////////////////////////////////////////
-   BinaryDataRef getTxHashOfOutput(void);
-   BinaryDataRef getTxHashOfInput(void);
+   BinaryData    getTxHashOfInput(void);
+   BinaryDataRef getTxHashOfInputRef(void);
+
+   BinaryData    getTxHashOfOutput(void);
+   BinaryDataRef getTxHashOfOutputRef(void);
+
    void setTxInRef(TxInRef const & inref, TxRef* intxptr);
    void setTxOutRef(TxOutRef const & outref, TxRef* outtxptr);
 
@@ -218,9 +222,9 @@ public:
       relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
-              BinaryData    pubKey65  = BinaryData(0),
+              BinaryData    pubKey65 = BinaryData(0),
               BinaryData    privKey32 = BinaryData(0),
-              uint32_t      firstBlockNum  = 0,
+              uint32_t      firstBlockNum = 0,
               uint32_t      firstTimestamp = 0);
    
    BinaryData const &  getAddrStr20(void) const  {return address20_;      }
@@ -230,8 +234,15 @@ public:
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
    bool           isActive(void) const           {return isActive_;       }
 
-   void           setPubKey65(BinaryDataRef bd)  { pubKey65_ = bd.copy(); } 
-   void           setPrivKey32(BinaryDataRef bd) { privKey32_ = bd.copy();} 
+   void           setAddrStr20(BinaryData bd)     { address20_.copyFrom(bd); }
+   //void           setAddrStr20(BinaryDataRef bd)  { address20_.copyFrom(bd); }
+
+   void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
+   //void           setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
+
+   void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
+   //void           setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
+
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_ = b;     }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t;    }
 
@@ -283,6 +294,30 @@ public:
                    BinaryData    privKey32 = BinaryData(0),
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      firstTimestamp = 0);
+
+   // SWIG has some serious problems with typemaps and variable arg lists
+   // Here I just create some extra functions that sidestep all the problems
+   // but it would be nice to figure out "typemap typecheck" in SWIG...
+   void addAddress_BtcAddress_(BtcAddress const & newAddr);
+   void addAddress_1_(BinaryData    addr);
+
+   void addAddress_2_(BinaryData    addr, 
+                     BinaryData    pubKey65);
+
+   void addAddress_3_(BinaryData    addr, 
+                     BinaryData    pubKey65,
+                     BinaryData    privKey32);
+
+   void addAddress_4_(BinaryData    addr, 
+                     BinaryData    pubKey65,
+                     BinaryData    privKey32,
+                     uint32_t      firstBlockNum);
+
+   void addAddress_5_(BinaryData    addr, 
+                     BinaryData    pubKey65,
+                     BinaryData    privKey32,
+                     uint32_t      firstBlockNum,
+                     uint32_t      firstTimestamp);
 
    bool hasAddr(BinaryData const & addr20);
 
