@@ -29,6 +29,7 @@ from pybtcengine import *
 from CppBlockUtils import *
 
 
+
 class BtcExploreWindow(QMainWindow):
 
    def __init__(self, parent=None):
@@ -84,7 +85,7 @@ class BtcExploreWindow(QMainWindow):
       self.gbxLayout.addStretch(1)
       self.rdoEndianD.setChecked(True)
       self.gbxEndian.setLayout(self.gbxLayout)
-      self.connect(self.gbxEndian, SIGNAL('clicked()'), self.updateUI)
+      self.connect(self.gbxEndian, SIGNAL('clicked()'), self.initGUI)
 
       # Set area to display selected object properties
       self.txtSelectedInfo = QLabel()
@@ -107,6 +108,12 @@ class BtcExploreWindow(QMainWindow):
       # Set up the Address table
       addrHeadRow = ['Address (Base58)', 'Address (20 byte hex)', 'BTC Sent', 'Btc Rcvd']
       self.tblAddrs = self.createTableWidget(addrHeadRow, (300,200))
+   
+      self.connect(self.tblHeaders, SIGNAL("cellClicked(int,int)"), self.headerClicked)
+      self.connect(self.tblTxs,     SIGNAL("cellClicked(int,int)"), self.txClicked)
+      self.connect(self.tblTxIns,   SIGNAL("cellClicked(int,int)"), self.txInClicked)
+      self.connect(self.tblTxOuts,  SIGNAL("cellClicked(int,int)"), self.txOutClicked)
+      self.connect(self.tblAddrs,   SIGNAL("cellClicked(int,int)"), self.addrClicked)
 
       #self.connect(self.tblHeaders, SIGNAL('cellDoubleClicked(int,int)'), self.dispSelected)
 
@@ -173,6 +180,7 @@ class BtcExploreWindow(QMainWindow):
       tbl.verticalHeader().setVisible(False)
       tbl.setMinimumSize( *minSizePair )
       tbl.setHorizontalHeaderLabels(headerRow)
+      tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
       return tbl
 
    def initBlockchain(self):
@@ -184,7 +192,7 @@ class BtcExploreWindow(QMainWindow):
          self.edtSearch.setEnabled(True)
          self.edtSearch.setText('');
          self.edtSearch.setFocus()
-         self.updateUI()
+         self.initGUI()
 
 
    def getPrevTxOutData(self, txin):
@@ -202,8 +210,55 @@ class BtcExploreWindow(QMainWindow):
       return (txout, addr, value, blknum)
       
 
+   # When the header changes, everything else does
+   def headerClicked(self, r, c):
+      currHeight = int(self.tblHeaders.item(r,0).text())
+      self.selectedObjs['Header'] = ('Height', currHeight) # not really used
+      self.selectedObjs['Tx'] = None
+      txrefList = self.bdm.getHeaderByHeight(currHeight).getTxRefPtrList()
+      self.fillTxTableByTxRefList(txrefList, self.selectedObjs['Tx'])
+      
+   def txClicked(self, r, c):
+      txhashHex = str(self.tblTxs.item(r, 0).text())
+      txhashBin = hex_to_binary(txhashHex)
+      self.selectedObjs['Tx'] = ('Hash', txhashBin)
+      tx = self.bdm.getTxByHash(BinaryData(txhashBin))
+      self.fillTxInTableByTxRef(tx)
+      self.fillTxOutTableByTxRef(tx)
+
+   def txInClicked(self, r, c):
+      txinrow = self.tblTxIns.currentRow() 
+      stype = self.selectedObjs['Tx'][0]
+      txin=[]
+      if stype=='Ref':
+         txin = self.selectedObjs['Tx'][1].getTxInRef(txinrow)
+      elif stype=='Hash':
+         txhash = BinaryData(self.selectedObjs['Tx'][1])
+         txin = self.bdm.getTxByHash(txhash).getTxInRef(txinrow)
+   
+      oplist = ['TxIn Script:']
+      oplist.extend( convertScriptToOpStrings(txin.getScript().toBinStr()))
+      oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
+      self.txtSelectedInfo.setText('\n'.join(oplist))
+   def txOutClicked(self, r, c):
+      txoutrow = self.tblTxOuts.currentRow() 
+      stype = self.selectedObjs['Tx'][0]
+      txin=[]
+      if stype=='Ref':
+         txout = self.selectedObjs['Tx'][1].getTxOutRef(txoutrow)
+      elif stype=='Hash':
+         txhash = BinaryData(self.selectedObjs['Tx'][1])
+         txin = self.bdm.getTxByHash(txhash).getTxOutRef(txoutrow)
+   
+      oplist = ['TxOut Script:']
+      oplist.extend(convertScriptToOpStrings(txout.getScript().toBinStr()))
+      oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
+      self.txtSelectedInfo.setText('\n'.join(oplist))
+   def addrClicked(self, r, c):
+      pass
+
    #############################################################################
-   def updateUI(self):
+   def initGUI(self):
       if self.selectedObjs['Header'] == None:
          # Fill the headers table
          self.maxHeight = self.bdm.getTopBlockHeader().getBlockHeight()
@@ -211,15 +266,15 @@ class BtcExploreWindow(QMainWindow):
 
       sHeight = self.selectedObjs['Header'][1]
       self.fillHeadersTableBySelected(sHeight)
-      currRow = self.tblHeaders.currentRow()
-      txObjList = self.bdm.getHeaderByHeight(sHeight).getTxRefPtrList()
-      self.fillTxTableByTxRefList(txObjList, self.selectedObjs['Tx'])
+      #currRow = self.tblHeaders.currentRow()
+      #txObjList = self.bdm.getHeaderByHeight(sHeight).getTxRefPtrList()
+      #self.fillTxTableByTxRefList(txObjList, self.selectedObjs['Tx'])
          
-      txref = self.selectedObjs['Tx'][1]
-      if self.selectedObjs['Tx'][0] == 'Hash':
-         txref = self.bdm.getTxByHash(txref)
-      self.fillTxInTableByTxRef( txref)
-      self.fillTxOutTableByTxRef(txref)
+      #txref = self.selectedObjs['Tx'][1]
+      #if self.selectedObjs['Tx'][0] == 'Hash':
+         #txref = self.bdm.getTxByHash(txref)
+      #self.fillTxInTableByTxRef( txref)
+      #self.fillTxOutTableByTxRef(txref)
 
 
    #############################################################################
@@ -266,9 +321,15 @@ class BtcExploreWindow(QMainWindow):
       #self.tblHeaders.resizeColumnsToContents()
       #if not selectedHeight==None and selectedHeight in heightList:
          #self.tblHeaders.selectRow( heightList.index(selectedHeight))
-      if not sItem == None:
-         self.tblHeaders.setCurrentItem(sItem)
-         self.tblHeaders.scrollToItem(sItem)
+      if sItem == None:
+         sItem = self.tblHeaders.item(0,0)
+
+      self.tblHeaders.setCurrentItem(sItem)
+      self.tblHeaders.scrollToItem(sItem)
+
+      sHeight = int(sItem.text())
+      txObjList = self.bdm.getHeaderByHeight(sHeight).getTxRefPtrList()
+      self.fillTxTableByTxRefList(txObjList, self.selectedObjs['Tx'])
 
    #############################################################################
    # First element in the list will be on the TOP
@@ -317,6 +378,12 @@ class BtcExploreWindow(QMainWindow):
       self.tblTxs.setCurrentItem(sItem)
       self.tblTxs.scrollToItem(sItem)
 
+      sTxHash = sItem.text()
+      txref = self.bdm.getTxByHash( BinaryData( hex_to_binary(str(sTxHash)) ) )
+      self.fillTxInTableByTxRef(  txref)
+      self.fillTxOutTableByTxRef( txref)
+      
+
 
    #############################################################################
    # First element in the list will be on the TOP
@@ -356,6 +423,8 @@ class BtcExploreWindow(QMainWindow):
       self.tblTxIns.setCurrentItem(sItem)
       self.tblTxIns.scrollToItem(sItem)
 
+   #############################################################################
+   # First element in the list will be on the TOP
    def fillTxOutTableByTxRef(self, tx):
       nOut = tx.getNumTxOut()
       self.tblTxOuts.setRowCount(nOut);
