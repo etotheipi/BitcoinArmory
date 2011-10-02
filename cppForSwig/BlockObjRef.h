@@ -176,6 +176,12 @@ public:
    uint32_t         getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
    void             setMine(bool b) { isMine_ = b; }
 
+   // SWIG doesn't handle these enums well, so we will provide some direct bools
+   bool             isScriptStandard(void) { return scriptType_ == TXIN_SCRIPT_STANDARD;}
+   bool             isScriptCoinbase(void) { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendCB(void)  { return scriptType_ == TXIN_SCRIPT_SPENDCB; }
+   bool             isScriptUnknown(void)  { return scriptType_ == TXIN_SCRIPT_UNKNOWN; }
+
    /////////////////////////////////////////////////////////////////////////////
    BinaryDataRef serialize(void) { return self_; }
    void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
@@ -240,6 +246,11 @@ public:
    BinaryData         getScript(void);
    BinaryDataRef      getScriptRef(void);
 
+   // SWIG doesn't handle these enums well, so we will provide some direct bools
+   bool               isScriptStandard(void) { return scriptType_ == TXOUT_SCRIPT_STANDARD;}
+   bool               isScriptCoinbase(void) { return scriptType_ == TXOUT_SCRIPT_COINBASE;}
+   bool               isScriptUnknown(void)  { return scriptType_ == TXOUT_SCRIPT_UNKNOWN; }
+
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
    void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
@@ -279,6 +290,7 @@ public:
      
    uint8_t const * getPtr(void) const { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
+   uint32_t        getLockTime(void) const; 
    uint32_t        getNumTxIn(void)  const { assert(isInitialized_); return (uint32_t)offsetsTxIn_.size()-1;}
    uint32_t        getNumTxOut(void) const { assert(isInitialized_); return (uint32_t)offsetsTxOut_.size()-1;}
    BlockHeaderRef* getHeaderPtr(void)  const { assert(isInitialized_); return headerPtr_; }
@@ -298,6 +310,11 @@ public:
    BinaryDataRef const & serialize(void) const { return self_; }
    BinaryData const & getThisHash(void) const { return thisHash_; }
    BinaryDataRef getThisHashRef(void) const { return BinaryDataRef(thisHash_); }
+
+   // We actually can't get the sum of inputs without going and finding the 
+   // referenced TxOuts -- need BDM to help with this
+   //uint64_t    getSumOfInputs(void);
+   uint64_t    getSumOfOutputs(void);
 
 
    /////////////////////////////////////////////////////////////////////////////

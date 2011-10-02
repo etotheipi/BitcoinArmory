@@ -46,7 +46,7 @@ public:
                                                { copyFrom(inData, sz);   }
    BinaryData(uint8_t const * dstart, uint8_t const * dend ) 
                                                { copyFrom(dstart, dend); }
-   BinaryData(string str)                      { copyFrom(str);          }
+   BinaryData(string const & str)              { copyFrom(str);          }
    BinaryData(BinaryData const & bd) 
    { 
       if(bd.nBytes_!=0) 

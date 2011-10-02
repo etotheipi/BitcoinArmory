@@ -396,6 +396,31 @@ void TxRef::unserialize(BinaryRefReader & brr)
    brr.advance(nBytes_);
 }
 
+// We actually can't get the values in without going and finding the 
+// referenced TxOuts -- need BDM to help with this
+//uint64_t TxRef::getSumOfInputs(void)
+//{
+   //uint64_t sumVal = 0;
+   //for(int i=0; i<getNumTxIn(); i++)
+      //sumVal += ...
+//}
+
+uint32_t TxRef::getLockTime(void) const
+{ 
+   assert(isInitialized_); 
+   uint32_t ltStartByte = offsetsTxOut_[getNumTxOut()];
+   return *(uint32_t*)(getPtr() + ltStartByte);
+}
+
+uint64_t TxRef::getSumOfOutputs(void)
+{
+   uint64_t sumVal = 0;
+   for(int i=0; i<getNumTxOut(); i++)
+      sumVal += getTxOutRef(i).getValue();
+
+   return sumVal;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 Tx TxRef::getCopy(void) const
 {
