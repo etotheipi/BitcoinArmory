@@ -56,6 +56,8 @@ CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_
 
 
 clean:
+	touch CppBlockUtils.i
 	-rm *.o *.out 
+	
 
 

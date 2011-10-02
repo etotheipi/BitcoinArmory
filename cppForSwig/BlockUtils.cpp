@@ -58,7 +58,7 @@ TxIORefPair::TxIORefPair(TxOutRef  outref,
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfOutput(void)
+BinaryDataRef TxIORefPair::getTxHashOfOutputRef(void)
 {
    if(txoutTxRefPtr_ == NULL)
       return BtcUtils::EmptyHash_;
@@ -67,12 +67,30 @@ BinaryDataRef TxIORefPair::getTxHashOfOutput(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfInput(void)
+BinaryDataRef TxIORefPair::getTxHashOfInputRef(void)
 {
    if(txinTxRefPtr_ == NULL)
       return BtcUtils::EmptyHash_;
    else
       return txinTxRefPtr_->getThisHashRef();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+BinaryData TxIORefPair::getTxHashOfOutput(void)
+{
+   if(txoutTxRefPtr_ == NULL)
+      return BtcUtils::EmptyHash_;
+   else
+      return txoutTxRefPtr_->getThisHash();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+BinaryData TxIORefPair::getTxHashOfInput(void)
+{
+   if(txinTxRefPtr_ == NULL)
+      return BtcUtils::EmptyHash_;
+   else
+      return txinTxRefPtr_->getThisHash();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -202,6 +220,46 @@ void BtcWallet::addAddress(BtcAddress const & newAddr)
       *addrPtr = newAddr;
       addrPtrVect_.push_back(addrPtr);
    }
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// SWIG has some serious problems with typemaps and variable arg lists
+// Here I just create some extra functions that sidestep all the problems
+// but it would be nice to figure out "typemap typecheck" in SWIG...
+void BtcWallet::addAddress_BtcAddress_(BtcAddress const & newAddr)
+{ 
+   addAddress(newAddr); 
+}
+void BtcWallet::addAddress_1_(BinaryData    addr)
+{  
+   addAddress(addr); 
+} 
+void BtcWallet::addAddress_2_(BinaryData    addr, 
+                             BinaryData    pubKey65)
+{  
+   addAddress(addr, pubKey65); 
+} 
+void BtcWallet::addAddress_3_(BinaryData    addr, 
+                             BinaryData    pubKey65,
+                             BinaryData    privKey32)
+{  
+   addAddress(addr, pubKey65, privKey32); 
+} 
+void BtcWallet::addAddress_4_(BinaryData    addr, 
+                             BinaryData    pubKey65,
+                             BinaryData    privKey32,
+                             uint32_t      firstBlockNum)
+{  
+   addAddress(addr, pubKey65, privKey32, firstBlockNum); 
+} 
+void BtcWallet::addAddress_5_(BinaryData    addr, 
+                             BinaryData    pubKey65,
+                             BinaryData    privKey32,
+                             uint32_t      firstBlockNum,
+                             uint32_t      firstTimestamp)
+{  
+   addAddress(addr, pubKey65, privKey32, firstBlockNum, firstTimestamp); 
 }
 
 /////////////////////////////////////////////////////////////////////////////

@@ -215,7 +215,6 @@ void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
    parentTx_ = parent;
    nBytes_ = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
    self_ = BinaryDataRef(ptr, nBytes_);
-   isMine_ = false;
 
    char const & v = self_[36];
    scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));
@@ -227,6 +226,12 @@ void TxInRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent)
 {
    unserialize(brr.getCurrPtr(), nbytes, parent);
    brr.advance(nBytes_);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void TxInRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent)
+{
+   unserialize(str.getPtr(), nbytes, parent);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -268,7 +273,6 @@ TxIn TxInRef::getCopy(void) const
    TxIn returnTxIn;
    returnTxIn.unserialize(getPtr());
    returnTxIn.scriptType_ = scriptType_;
-   returnTxIn.isMine_ = isMine_;
    return returnTxIn;
 }
 
@@ -330,10 +334,9 @@ void TxOutRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOutRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent)
+void TxOutRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent)
 {
-   unserialize( brr.getCurrPtr(), nbytes, parent);
-   brr.advance(nBytes_);
+   unserialize(str.getPtr(), nbytes, parent);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -342,13 +345,19 @@ void TxOutRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* pa
    unserialize(str.getPtr(), nbytes, parent);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void TxOutRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent)
+{
+   unserialize( brr.getCurrPtr(), nbytes, parent);
+   brr.advance(nBytes_);
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 TxOut TxOutRef::getCopy(void) const
 {
    TxOut returnTxOut;
    returnTxOut.unserialize(getPtr());
-   returnTxOut.isMine_ = isMine_;
-   returnTxOut.isSpent_ = isSpent_;
    returnTxOut.recipientBinAddr20_ = recipientBinAddr20_;
    return returnTxOut;
 }

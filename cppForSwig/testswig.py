@@ -7,7 +7,7 @@
 #                                                                              #
 ################################################################################
 
-from sys import path as PYPATH
+from sys import path as PYPATH, argv
 PYPATH.append('..')
 from pybtcengine import *
 from datetime import datetime
@@ -22,6 +22,9 @@ if 'nix' in opsys.lower() or 'nux' in opsys.lower():
    blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
 if 'mac' in opsys.lower() or 'osx' in opsys.lower():
    blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
+
+if len(sys.argv) > 1:
+   blkfile = sys.argv[1]
 
 print '*'*80
 print 'Importing BlockUtils module...',
@@ -53,12 +56,20 @@ print ''
 
 print 'Getting top block prevHash ...    ',
 prevhash = top.getPrevHash()
-print prevhash
+print binary_to_hex(prevhash, BIGENDIAN)
 print 'Done!'
 print ''
 
+
+print 'Testing SWIG typemaps!'
+pyhashstr = hex_to_binary('a4deb66c0d726b0aefb03ed51be407fbad7331c6e8f9eef231b7000000000000')
+head100k = bdm.getHeaderByHash(pyhashstr)
+print 'Got header:', head100k.getBlockHeight() 
+bdstr = head100k.getPrevHash()
+print 'This BinaryData obj should\'ve been converted to pystr', binary_to_hex(bdstr)
+
 print 'Getting almost-top-block'
-topm1 = bdm.getHeaderByHash(prevhash.copy())
+topm1 = bdm.getHeaderByHash(prevhash)
 topm1.pprint()
 print 'Done!'
 print ''
@@ -84,7 +95,7 @@ topTxPtrList = someBlk.getTxRefPtrList()
 print 'NumTx:', len(topTxPtrList)
 for txptr in topTxPtrList:
    print '\n'
-   print 'Tx:', binary_to_hex(txptr.getThisHash().toBinStr(), BIGENDIAN)[:16],
+   print 'Tx:', binary_to_hex(txptr.getThisHash(), BIGENDIAN)[:16],
    blkHead = txptr.getHeaderPtr()
    print 'Blk:', blkHead.getBlockHeight(),
    print 'Timestamp:', unixTimeToFormatStr(blkHead.getTimestamp()),
@@ -102,14 +113,14 @@ for txptr in topTxPtrList:
 
 print '*'*80
 print '\n\nPrint some random scripts:'
-someBlk = bdm.getHeaderByHeight(147570)
+someBlk = bdm.getHeaderByHeight(100014)
 print someBlk.pprint()
 for tx in someBlk.getTxRefPtrList():
-   print 'Tx:', tx.getThisHash().toHexStr(False)
+   print 'Tx:', binary_to_hex(tx.getThisHash())
    for i in range(tx.getNumTxIn()):
       print 'TxIn:', i
       txin = tx.getTxInRef(i)
-      binScript = txin.getScript().toBinStr()
+      binScript = txin.getScript()
       if txin.isCoinbase():
          print 'Script: '
          print '   <COINBASE/ARBITRARY>'
@@ -119,37 +130,42 @@ for tx in someBlk.getTxRefPtrList():
       print ''
    for i in range(tx.getNumTxOut()):
       print 'TxOut:', i
-      binScript = tx.getTxOutRef(i).getScript().toBinStr()
+      binScript = tx.getTxOutRef(i).getScript()
       pprintScript(binScript)
       print ''
+
 
 
    
 print '*'*80
 print '\n\nScanning Blockchain for transactions...',
+
+
+addrStr1 = hex_to_binary("abda0c878dd7b4197daa9622d96704a606d2cd14");
+addrStr2 = hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
+addrStr3 = hex_to_binary("f62242a747ec1cb02afd56aac978faf05b90462e");
+addrStr4 = hex_to_binary("baa72d8650baec634cdc439c1b84a982b2e596b2");
+addrStr5 = hex_to_binary("6300bf4c5c2a724c280b893807afb976ec78a92b");
+
+# Special methods in C++ code to avoid using overloads with typemaps
 wallet = BtcWallet()
-addrStr1 = BinaryData(hex_to_binary("abda0c878dd7b4197daa9622d96704a606d2cd14"))
-addrStr2 = BinaryData(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
-addrStr3 = BinaryData(hex_to_binary("f62242a747ec1cb02afd56aac978faf05b90462e"))
-addrStr4 = BinaryData(hex_to_binary("baa72d8650baec634cdc439c1b84a982b2e596b2"))
-addrStr5 = BinaryData(hex_to_binary("6300bf4c5c2a724c280b893807afb976ec78a92b"))
-wallet.addAddress(addrStr1);
-wallet.addAddress(addrStr2);
-wallet.addAddress(addrStr3);
+wallet.addAddress_1_(addrStr1);
+wallet.addAddress_1_(addrStr2);
+wallet.addAddress_1_(addrStr3);
 bdm.scanBlockchainForTx_FromScratch(wallet);
 print 'Done!'
 
 print 'Wallet addresses: ', wallet.getNumAddr()
 for i in range(wallet.getNumAddr()):
    addr = wallet.getAddrByIndex(i)
-   print '\t', hash160_to_addrStr(addr.getAddrStr20().toBinStr()),
+   print '\t', hash160_to_addrStr(addr.getAddrStr20()),
    print '\tBalance:', coin2str(addr.getBalance())
 
 print 'Getting Ledger for addresses:'
 ledger1 = wallet.getTxLedger()
 for i,l in enumerate(ledger1):
    print i, 
-   print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20().toBinStr()), 
+   print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20()), 
    print '\tBlock:',   l.getBlockNum(), 
    print '\tAmt:',     coin2str(l.getValue()),
    txptr = bdm.getTxByHash(l.getTxHash())
@@ -159,22 +175,22 @@ for i,l in enumerate(ledger1):
 
 
 print '\n\nAdding address to wallet that has non-std tx.  Rescan wallet:'
-wallet.addAddress(addrStr4)
-wallet.addAddress(addrStr5)
+wallet.addAddress_1_(addrStr4)
+wallet.addAddress_1_(addrStr5)
 bdm.scanBlockchainForTx_FromScratch(wallet);
 print 'Done!'
 
 print 'Wallet addresses: ', wallet.getNumAddr()
 for i in range(wallet.getNumAddr()):
    addr = wallet.getAddrByIndex(i)
-   print '\t', hash160_to_addrStr(addr.getAddrStr20().toBinStr()),
+   print '\t', hash160_to_addrStr(addr.getAddrStr20()),
    print '\tBalance:', coin2str(addr.getBalance())
 
 print 'Getting Ledger for addresses:'
 ledger1 = wallet.getTxLedger()
 for i,l in enumerate(ledger1):
    print i, 
-   print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20().toBinStr()), 
+   print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20()), 
    print '\tBlock:',   l.getBlockNum(), 
    print '\tAmt:',     coin2str(l.getValue()),
    txptr = bdm.getTxByHash(l.getTxHash())
