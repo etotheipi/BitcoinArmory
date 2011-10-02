@@ -193,6 +193,12 @@ public:
    BinaryData       getScript(void) const;
    BinaryDataRef    getScriptRef(void) const;
 
+   // SWIG doesn't handle these enums well, so we will provide some direct bools
+   bool             isScriptStandard(void) { return scriptType_ == TXIN_SCRIPT_STANDARD;}
+   bool             isScriptCoinbase(void) { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendCB(void)  { return scriptType_ == TXIN_SCRIPT_SPENDCB; }
+   bool             isScriptUnknown(void)  { return scriptType_ == TXIN_SCRIPT_UNKNOWN; }
+
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serialize(void)    { return BinaryData(self_); }
    BinaryDataRef serializeRef(void) { return            self_;  }
@@ -258,6 +264,11 @@ public:
    BinaryDataRef      getRecipientAddrRef(void) const { return recipientBinAddr20_.getRef(); }
    BinaryData         getScript(void);
    BinaryDataRef      getScriptRef(void);
+
+   // SWIG doesn't handle these enums well, so we will provide some direct bools
+   bool               isScriptStandard(void) { return scriptType_ == TXOUT_SCRIPT_STANDARD;}
+   bool               isScriptCoinbase(void) { return scriptType_ == TXOUT_SCRIPT_COINBASE;}
+   bool               isScriptUnknown(void)  { return scriptType_ == TXOUT_SCRIPT_UNKNOWN; }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) { return BinaryData(self_); }
@@ -326,6 +337,12 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryRefReader & brr);
+
+   // We actually can't get the sum of inputs without going and finding the 
+   // referenced TxOuts -- need BDM to help with this
+   //uint64_t    getSumOfInputs(void);
+   uint32_t    getLockTime(void)  const;
+   uint64_t    getSumOfOutputs(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
