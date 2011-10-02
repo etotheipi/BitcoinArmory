@@ -53,7 +53,7 @@ class BtcExploreWindow(QMainWindow):
 
       self.wltFileList = settings.value('WalletFiles').toStringList()
       self.bcLoadDoneYet = False
-      self.setMinimumSize(1000,700)
+      self.setMinimumSize(1600,700)
 
       # Search bar
       self.lblSearch = QLabel('&Search:')
@@ -95,10 +95,10 @@ class BtcExploreWindow(QMainWindow):
       ##### Set up the QTableWidgets to display... just about everything
       # Set up the headers table
       headersTableHeadRow = ['Block#', 'Hash', 'Difficulty', 'Num Tx', 'Datetime']
-      self.tblHeaders = self.createTableWidget(headersTableHeadRow, (600, 200))
+      self.tblHeaders = self.createTableWidget(headersTableHeadRow, (900, 200))
       # Set up the transactions table
-      txTableHeadRow = ['Hash', 'Total BTC', 'Src', 'Dst', 'Size(kB)'] #, 'Locktime']
-      self.tblTxs = self.createTableWidget(txTableHeadRow, (600,300))
+      txTableHeadRow = ['Index', 'Hash', 'Total BTC', 'Src', 'Dst', 'Size(kB)'] #, 'Locktime']
+      self.tblTxs = self.createTableWidget(txTableHeadRow, (900,300))
       # Set up the TxIn table
       txinHeadRow = ['Sender', 'BTC', 'From Block#', 'Sequence']
       self.tblTxIns = self.createTableWidget(txinHeadRow, (400,100))
@@ -114,6 +114,12 @@ class BtcExploreWindow(QMainWindow):
       self.connect(self.tblTxIns,   SIGNAL("cellClicked(int,int)"), self.txInClicked)
       self.connect(self.tblTxOuts,  SIGNAL("cellClicked(int,int)"), self.txOutClicked)
       self.connect(self.tblAddrs,   SIGNAL("cellClicked(int,int)"), self.addrClicked)
+
+      self.connect(self.tblHeaders, SIGNAL("itemSelectionChange()"), self.headerClicked)
+      self.connect(self.tblTxs,     SIGNAL("itemSelectionChange()"), self.txClicked)
+      self.connect(self.tblTxIns,   SIGNAL("itemSelectionChange()"), self.txInClicked)
+      self.connect(self.tblTxOuts,  SIGNAL("itemSelectionChange()"), self.txOutClicked)
+      self.connect(self.tblAddrs,   SIGNAL("itemSelectionChange()"), self.addrClicked)
 
       #self.connect(self.tblHeaders, SIGNAL('cellDoubleClicked(int,int)'), self.dispSelected)
 
@@ -167,7 +173,6 @@ class BtcExploreWindow(QMainWindow):
       # Prepare the BlockDataManager for 
       print 'GUI is setup, now load the blockchain'
       self.bdm = BlockDataManager_FullRAM.GetInstance()
-      print 'holding'
       QTimer.singleShot(100, self.initBlockchain)
 
    def createTableWidget(self, headerRow, minSizePair=(300,150)):
@@ -204,56 +209,62 @@ class BtcExploreWindow(QMainWindow):
          blknum = ''
       else:
          txout  = self.bdm.getPrevTxOut(txin)
-         addr   = txout.getRecipientAddr().toBinStr()
+         addr   = txout.getRecipientAddr()
          value  = txout.getValue()
          blknum = self.bdm.getTxByHash(txin.getOutPointRef().getTxHash()).getHeaderPtr().getBlockHeight()
       return (txout, addr, value, blknum)
       
 
    # When the header changes, everything else does
-   def headerClicked(self, r, c):
+   def headerClicked(self, r=-1, c=-1):
+      if r==-1:
+         r = self.tblHeaders.currentRow()
       currHeight = int(self.tblHeaders.item(r,0).text())
       self.selectedObjs['Header'] = ('Height', currHeight) # not really used
       self.selectedObjs['Tx'] = None
       txrefList = self.bdm.getHeaderByHeight(currHeight).getTxRefPtrList()
       self.fillTxTableByTxRefList(txrefList, self.selectedObjs['Tx'])
       
-   def txClicked(self, r, c):
-      txhashHex = str(self.tblTxs.item(r, 0).text())
+   def txClicked(self, r=-1, c=-1):
+      if r==-1:
+         r = self.tblTxs.currentRow()
+      txhashHex = str(self.tblTxs.item(r, 1).text())
       txhashBin = hex_to_binary(txhashHex)
       self.selectedObjs['Tx'] = ('Hash', txhashBin)
-      tx = self.bdm.getTxByHash(BinaryData(txhashBin))
+      tx = self.bdm.getTxByHash(txhashBin)
       self.fillTxInTableByTxRef(tx)
       self.fillTxOutTableByTxRef(tx)
 
-   def txInClicked(self, r, c):
+   def txInClicked(self, r=-1, c=-1):
       txinrow = self.tblTxIns.currentRow() 
       stype = self.selectedObjs['Tx'][0]
       txin=[]
       if stype=='Ref':
          txin = self.selectedObjs['Tx'][1].getTxInRef(txinrow)
       elif stype=='Hash':
-         txhash = BinaryData(self.selectedObjs['Tx'][1])
+         txhash = self.selectedObjs['Tx'][1]
          txin = self.bdm.getTxByHash(txhash).getTxInRef(txinrow)
    
       oplist = ['TxIn Script:']
-      oplist.extend( convertScriptToOpStrings(txin.getScript().toBinStr()))
+      oplist.extend( convertScriptToOpStrings(txin.getScript()))
       oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
       self.txtSelectedInfo.setText('\n'.join(oplist))
-   def txOutClicked(self, r, c):
+
+   def txOutClicked(self, r=-1, c=-1):
       txoutrow = self.tblTxOuts.currentRow() 
       stype = self.selectedObjs['Tx'][0]
-      txin=[]
+      txout=[]
       if stype=='Ref':
          txout = self.selectedObjs['Tx'][1].getTxOutRef(txoutrow)
       elif stype=='Hash':
-         txhash = BinaryData(self.selectedObjs['Tx'][1])
-         txin = self.bdm.getTxByHash(txhash).getTxOutRef(txoutrow)
+         txhash = self.selectedObjs['Tx'][1]
+         txout = self.bdm.getTxByHash(txhash).getTxOutRef(txoutrow)
    
       oplist = ['TxOut Script:']
-      oplist.extend(convertScriptToOpStrings(txout.getScript().toBinStr()))
+      oplist.extend(convertScriptToOpStrings(txout.getScript()))
       oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
       self.txtSelectedInfo.setText('\n'.join(oplist))
+
    def addrClicked(self, r, c):
       pass
 
@@ -280,8 +291,8 @@ class BtcExploreWindow(QMainWindow):
    #############################################################################
    # First element in the list will be on the TOP
    def fillHeadersTableBySelected(self, selectedHeight):
-      topH = min(self.maxHeight, selectedHeight+100)
-      lowH = max(0,              selectedHeight-100)
+      topH = min(self.maxHeight, selectedHeight+10000)
+      lowH = max(0,              selectedHeight-10000)
       self.fillHeadersTableByHeightList( range(topH,lowH,-1), selectedHeight)
 
 
@@ -306,8 +317,7 @@ class BtcExploreWindow(QMainWindow):
          head = self.bdm.getHeaderByHeight(height)
          cols = []
          cols.append( QTableWidgetItem(str(head.getBlockHeight())) )
-         #cols.append( QTableWidgetItem(head.getThisHash().toHexStr()[:24] + '...') )
-         cols.append( QTableWidgetItem(head.getThisHash().toHexStr()))
+         cols.append( QTableWidgetItem(binary_to_hex(head.getThisHash())))
          cols.append( QTableWidgetItem("%0.2f" % head.getDifficulty()) )
          cols.append( QTableWidgetItem("%d" % head.getNumTx()))
          cols.append( QTableWidgetItem(unixTimeToFormatStr(head.getTimestamp()))) 
@@ -316,6 +326,11 @@ class BtcExploreWindow(QMainWindow):
             self.tblHeaders.setItem(row, c, cols[c])
          if height==selectedHeight:
             sItem = cols[0]
+      
+         #self.tblHeaders.sizeHintForRow(
+
+      self.tblHeaders.resizeColumnsToContents()
+      self.tblHeaders.resizeRowsToContents()
 
       #self.tblHeaders.sizeHintForColumn()
       #self.tblHeaders.resizeColumnsToContents()
@@ -341,7 +356,8 @@ class BtcExploreWindow(QMainWindow):
       newTxList = filter(lambda t: t != None, txrefList)
       for row,tx in enumerate(txrefList):
          cols=[]
-         cols.append( QTableWidgetItem(tx.getThisHash().toHexStr()))
+         cols.append( QTableWidgetItem("%d" % row))
+         cols.append( QTableWidgetItem(binary_to_hex(tx.getThisHash())))
          cols.append( QTableWidgetItem("%0.4f" % (float(tx.getSumOfOutputs()/1e8))))
 
          if tx.getNumTxIn() > 1:
@@ -352,34 +368,38 @@ class BtcExploreWindow(QMainWindow):
             if txin.isCoinbase():
                cols.append( QTableWidgetItem('<COINBASE>') )
             else:
-               addr20 = self.bdm.getSenderAddr20(tx.getTxInRef(0)).toBinStr()
+               addr20 = self.bdm.getSenderAddr20(tx.getTxInRef(0))
                cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
             
          if tx.getNumTxOut() > 1:
             cols.append( QTableWidgetItem('<Multiple>') )
          else:
-            addr20 = tx.getTxOutRef(0).getRecipientAddr().toBinStr()
+            addr20 = tx.getTxOutRef(0).getRecipientAddr()
             cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
 
          cols.append( QTableWidgetItem("%0.2f" % (float(tx.getSize())/1024.0) ))
-         #cols.append( QTableWidgetItem("%d" % float(tx.getLockTime())))
 
-         cols[0].setFont( QFont("Courier", 10, QFont.Bold) )
+         cols[1].setFont( QFont("Courier", 10, QFont.Bold) )
          for c in range(len(cols)):
             self.tblTxs.setItem(row, c, cols[c])
          if selectedTxref==tx:
             sItem = cols[0]
             self.selectedObjs['Tx'] = ('Ref', tx)
+
+      self.tblTxs.resizeColumnToContents(0)
+      self.tblTxs.resizeColumnToContents(3)
+      self.tblTxs.resizeColumnToContents(4)
+      self.tblTxs.resizeRowsToContents()
          
       if sItem==None:
-         sItem = self.tblTxs.item(1,0)  # autoselect second row, first is coinbase
+         sItem = self.tblTxs.item(1,1)  # autoselect second row, first is coinbase
          self.selectedObjs['Tx'] = ('Ref', txrefList[1])
 
       self.tblTxs.setCurrentItem(sItem)
       self.tblTxs.scrollToItem(sItem)
 
       sTxHash = sItem.text()
-      txref = self.bdm.getTxByHash( BinaryData( hex_to_binary(str(sTxHash)) ) )
+      txref = self.bdm.getTxByHash(  hex_to_binary(str(sTxHash))  )
       self.fillTxInTableByTxRef(  txref)
       self.fillTxOutTableByTxRef( txref)
       
@@ -418,6 +438,9 @@ class BtcExploreWindow(QMainWindow):
          cols.append( QTableWidgetItem(int_to_hex(txin.getSequence(), 4, BIGENDIAN)))
          for c in range(len(cols)):
             self.tblTxIns.setItem(row, c, cols[c])
+
+      self.tblTxIns.resizeColumnsToContents()
+      self.tblTxIns.resizeRowsToContents()
          
       sItem = self.tblTxIns.item(0,0)
       self.tblTxIns.setCurrentItem(sItem)
@@ -432,7 +455,7 @@ class BtcExploreWindow(QMainWindow):
          txout = tx.getTxOutRef(row)
 
          cols = []
-         addr20 = txout.getRecipientAddr().toBinStr()
+         addr20 = txout.getRecipientAddr()
          cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
          cols.append( QTableWidgetItem("%0.4f" % (float(txout.getValue())/1e8)))
          if txout.isScriptStandard():
@@ -444,6 +467,8 @@ class BtcExploreWindow(QMainWindow):
          for c in range(len(cols)):
             self.tblTxOuts.setItem(row, c, cols[c])
 
+      self.tblTxOuts.resizeColumnsToContents()
+      self.tblTxOuts.resizeRowsToContents()
 
    #############################################################################
    def doSearch(self, searchStr):

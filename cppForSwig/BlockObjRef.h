@@ -340,6 +340,7 @@ public:
    // We actually can't get the sum of inputs without going and finding the 
    // referenced TxOuts -- need BDM to help with this
    //uint64_t    getSumOfInputs(void);
+   uint32_t    getLockTime(void)  const;
    uint64_t    getSumOfOutputs(void);
 
 
