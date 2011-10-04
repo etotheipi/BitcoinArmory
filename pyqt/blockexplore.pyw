@@ -27,7 +27,17 @@ sys.path.append('..')
 sys.path.append('../cppForSwig')
 from pybtcengine import *
 from CppBlockUtils import *
+from pbemodels import *
 
+
+HEAD_BLKNUM, HEAD_HASH, HEAD_DIFF, HEAD_NUMTX, HEAD_DATE = range(5)
+headColLabels = {HEAD_BLKNUM: 'Block#', \
+                 HEAD_HASH:   'Hash', \
+                 HEAD_DIFF:   'Difficulty', \
+                 HEAD_NUMTX:  '#Tx', \
+                 HEAD_DATE:   'Date & Time'}
+b2h = lambda x: binary_to_hex(x)
+h2b = lambda x: hex_to_binary(x)
 
 
 class BtcExploreWindow(QMainWindow):
@@ -53,7 +63,56 @@ class BtcExploreWindow(QMainWindow):
 
       self.wltFileList = settings.value('WalletFiles').toStringList()
       self.bcLoadDoneYet = False
-      self.setMinimumSize(1600,700)
+      self.setMinimumSize(1000,700)
+
+      ##########################################################################
+      # Start setting up the model/view behaviors
+      self.models = {}  # Will store all models in this dictionary
+
+      self.models['Headers'] = HeaderDataModel()
+      self.headView  = QTableView()
+      self.headView.setSelectionBehavior(QTableView.SelectRows)
+      self.headView.setSelectionMode(QTableView.SingleSelection)
+      self.headView.setMinimumSize(800,200)
+      self.headView.horizontalHeader().setStretchLastSection(True)
+      self.headView.verticalHeader().setDefaultSectionSize(16)
+      self.headView.setModel(self.models['Headers'])
+
+
+
+      self.models['Tx'] = TxDataModel()
+      self.txView = QTableView()
+      self.txView.setSelectionBehavior(QTableView.SelectRows)
+      self.txView.setSelectionMode(QTableView.SingleSelection)
+      self.txView.setMinimumSize(800,200)
+      self.txView.horizontalHeader().setStretchLastSection(True)
+      self.txView.verticalHeader().setDefaultSectionSize(16)
+      self.txView.setModel(self.models['Tx'])
+
+
+      self.models['TxIns'] = TxInDataModel()
+      self.txinView = QTableView()
+      self.txinView.setSelectionBehavior(QTableView.SelectRows)
+      self.txinView.setSelectionMode(QTableView.SingleSelection)
+      self.txinView.setMinimumSize(400,200)
+      self.txinView.horizontalHeader().setStretchLastSection(True)
+      self.txinView.verticalHeader().setDefaultSectionSize(16)
+      self.txinView.setModel(self.models['TxIns'])
+
+      self.models['TxOuts'] = TxOutDataModel()
+      self.txoutView = QTableView()
+      self.txoutView.setSelectionBehavior(QTableView.SelectRows)
+      self.txoutView.setSelectionMode(QTableView.SingleSelection)
+      self.txoutView.setMinimumSize(400,200)
+      self.txoutView.horizontalHeader().setStretchLastSection(True)
+      self.txoutView.verticalHeader().setDefaultSectionSize(16)
+      self.txoutView.setModel(self.models['TxOuts'])
+
+      self.connect(self.headView,   SIGNAL('cellClicked(int,int)'), self.headerClicked)
+      #self.connect(self.headView,   SIGNAL("itemSelectionChanged()"), self.headerClicked)
+      self.connect(self.txView,     SIGNAL("itemSelectionChanged()"), self.txClicked)
+      self.connect(self.txinView,   SIGNAL("itemSelectionChanged()"), self.txInClicked)
+      self.connect(self.txoutView,  SIGNAL("itemSelectionChanged()"), self.txOutClicked)
 
       # Search bar
       self.lblSearch = QLabel('&Search:')
@@ -85,41 +144,19 @@ class BtcExploreWindow(QMainWindow):
       self.gbxLayout.addStretch(1)
       self.rdoEndianD.setChecked(True)
       self.gbxEndian.setLayout(self.gbxLayout)
-      self.connect(self.gbxEndian, SIGNAL('clicked()'), self.initGUI)
+      self.connect(self.gbxEndian, SIGNAL('clicked()'), self.changeEndian)
+      self.gbxEndian.setSizePolicy(QSizePolicy(QSizePolicy.Fixed))
 
       # Set area to display selected object properties
       self.txtSelectedInfo = QLabel()
       self.txtSelectedInfo.setWordWrap(True)
       self.txtSelectedInfo.setMinimumSize(200,200)
+      self.txtSelectedInfo.setSizePolicy(QSizePolicy(QSizePolicy.Fixed))
 
-      ##### Set up the QTableWidgets to display... just about everything
-      # Set up the headers table
-      headersTableHeadRow = ['Block#', 'Hash', 'Difficulty', 'Num Tx', 'Datetime']
-      self.tblHeaders = self.createTableWidget(headersTableHeadRow, (900, 200))
-      # Set up the transactions table
-      txTableHeadRow = ['Index', 'Hash', 'Total BTC', 'Src', 'Dst', 'Size(kB)'] #, 'Locktime']
-      self.tblTxs = self.createTableWidget(txTableHeadRow, (900,300))
-      # Set up the TxIn table
-      txinHeadRow = ['Sender', 'BTC', 'From Block#', 'Sequence']
-      self.tblTxIns = self.createTableWidget(txinHeadRow, (400,100))
-      # Set up the TxOut table
-      txoutHeadRow = ['Recipient', 'BTC', 'Script Type']
-      self.tblTxOuts = self.createTableWidget(txoutHeadRow, (400,100))
-      # Set up the Address table
-      addrHeadRow = ['Address (Base58)', 'Address (20 byte hex)', 'BTC Sent', 'Btc Rcvd']
-      self.tblAddrs = self.createTableWidget(addrHeadRow, (300,200))
+      #addrHeadRow = ['Address (Base58)', 'Address (20 byte hex)', 'BTC Sent', 'Btc Rcvd']
+      #self.tblAddrs = self.createTableWidget(addrHeadRow, (300,200))
    
-      self.connect(self.tblHeaders, SIGNAL("cellClicked(int,int)"), self.headerClicked)
-      self.connect(self.tblTxs,     SIGNAL("cellClicked(int,int)"), self.txClicked)
-      self.connect(self.tblTxIns,   SIGNAL("cellClicked(int,int)"), self.txInClicked)
-      self.connect(self.tblTxOuts,  SIGNAL("cellClicked(int,int)"), self.txOutClicked)
-      self.connect(self.tblAddrs,   SIGNAL("cellClicked(int,int)"), self.addrClicked)
-
-      self.connect(self.tblHeaders, SIGNAL("itemSelectionChange()"), self.headerClicked)
-      self.connect(self.tblTxs,     SIGNAL("itemSelectionChange()"), self.txClicked)
-      self.connect(self.tblTxIns,   SIGNAL("itemSelectionChange()"), self.txInClicked)
-      self.connect(self.tblTxOuts,  SIGNAL("itemSelectionChange()"), self.txOutClicked)
-      self.connect(self.tblAddrs,   SIGNAL("itemSelectionChange()"), self.addrClicked)
+      #self.connect(self.addrView,   SIGNAL("itemSelectionChange()"), self.addrClicked)
 
       #self.connect(self.tblHeaders, SIGNAL('cellDoubleClicked(int,int)'), self.dispSelected)
 
@@ -136,57 +173,54 @@ class BtcExploreWindow(QMainWindow):
 
       # Finally, set up the central widget
       self.ctrLayout = QGridLayout()
+      # can control some features of the layout
+      self.ctrLayout.setSpacing(5)
+      self.ctrLayout.setMargin(10)
       #                                             Row  Col nRows nCols
       self.ctrLayout.addWidget(self.lblSearch,        1,   0,   1,   1)
       self.ctrLayout.addWidget(self.edtSearch,        1,   1,   1,   2)
       self.ctrLayout.addWidget(self.btnSearch,        1,   3,   1,   1)
-      self.ctrLayout.addWidget(self.gbxEndian,        0,   5,   3,   1)
 
+      self.ctrLayout.addWidget(self.gbxEndian,        2,   4,   3,   1)
       self.ctrLayout.addWidget(lblHeaders,            2,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxIns,              2,   4,   1,   1)
+      self.ctrLayout.addWidget(lblTxs,                4,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxIns,              7,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxOuts,             7,   2,   1,   1)
 
-      self.ctrLayout.addWidget(self.tblHeaders,       3,   0,   2,   4)
-      self.ctrLayout.addWidget(self.tblTxIns,         3,   4,   2,   2)
-
-      self.ctrLayout.addWidget(lblTxs,                5,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxOuts,             5,   4,   1,   1)
-      #self.ctrLayout.addWidget(lblAddrs,              5,   4,   1,   1)
-
-      self.ctrLayout.addWidget(self.tblTxs,           6,   0,   3,   4)
-      self.ctrLayout.addWidget(self.tblTxOuts,        6,   4,   2,   2)
-      #self.ctrLayout.addWidget(self.tblAddrs,         5,   4,   2,   2)
-
-      self.ctrLayout.addWidget(self.txtSelectedInfo,  8,   4,   1,   2)
+      self.ctrLayout.addWidget(self.headView,         3,   0,   2,   4)
+      self.ctrLayout.addWidget(self.txView,           5,   0,   3,   4)
+      self.ctrLayout.addWidget(self.txinView,         8,   0,   2,   2)
+      self.ctrLayout.addWidget(self.txoutView,        8,   2,   2,   2)
+      self.ctrLayout.addWidget(self.txtSelectedInfo,  7,   4,   2,   2)
 
       # Finally set the layout
       self.ctrFrame.setLayout(self.ctrLayout)
       self.setCentralWidget(self.ctrFrame)
 
-      # We will store the current "selection" here.
-      #self.primarySelect = 'Header'
-      self.selectedObjs = {'Header': None, \
-                           'Tx':     None, \
-                           'TxIn':   None, \
-                           'TxOut':  None, \
-                           'Addr':   None}
+      # Set up signals
+      #self.headView.setStretchFactor(1)
+      #self.txView.setStretchFactor(1)
+      #self.txinView.setStretchFactor(1)
+      #self.txoutView.setStretchFactor(1)
 
       # Prepare the BlockDataManager for 
       print 'GUI is setup, now load the blockchain'
       self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.setWindowTitle('PyBtcEngine BlockExplorer')
       QTimer.singleShot(100, self.initBlockchain)
 
-   def createTableWidget(self, headerRow, minSizePair=(300,150)):
-      tbl = QTableWidget()
-      tbl.setSelectionBehavior(QTableWidget.SelectRows)
-      tbl.setSelectionMode(QTableWidget.SingleSelection)
-      tbl.setRowCount(0);
-      tbl.setColumnCount(len(headerRow))
-      #tbl.setStretchLastSection(True)
-      tbl.verticalHeader().setVisible(False)
-      tbl.setMinimumSize( *minSizePair )
-      tbl.setHorizontalHeaderLabels(headerRow)
-      tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
-      return tbl
+   #def createTableWidget(self, headerRow, minSizePair=(300,150)):
+      #tbl = QTableWidget()
+      #tbl.setSelectionBehavior(QTableWidget.SelectRows)
+      #tbl.setSelectionMode(QTableWidget.SingleSelection)
+      #tbl.setRowCount(0);
+      #tbl.setColumnCount(len(headerRow))
+      ##tbl.setStretchLastSection(True)
+      #tbl.verticalHeader().setVisible(False)
+      #tbl.setMinimumSize( *minSizePair )
+      #tbl.setHorizontalHeaderLabels(headerRow)
+      #tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
+      #return tbl
 
    def initBlockchain(self):
       if not self.blkFile==None:
@@ -197,70 +231,122 @@ class BtcExploreWindow(QMainWindow):
          self.edtSearch.setEnabled(True)
          self.edtSearch.setText('');
          self.edtSearch.setFocus()
-         self.initGUI()
+         self.models['Headers'].reset()
+         self.headView.resizeColumnsToContents()
+         self.headView.setCurrentIndex( self.models['Headers'].index(0,0))
+         self.headerClicked()
+         print 'Done!'
 
-
-   def getPrevTxOutData(self, txin):
-      txout, addr, value, blkNumStr  = [None]*4
-      if txin.isCoinbase():
-         txout  = None
-         addr   = '<COINBASE>'
-         value  = -1
-         blknum = ''
-      else:
-         txout  = self.bdm.getPrevTxOut(txin)
-         addr   = txout.getRecipientAddr()
-         value  = txout.getValue()
-         blknum = self.bdm.getTxByHash(txin.getOutPointRef().getTxHash()).getHeaderPtr().getBlockHeight()
-      return (txout, addr, value, blknum)
+   #############################################################################
+   def changeEndian(self):
+      currEnd = ''
+      if self.rdoEndianD.isChecked():
+         currEnd = 'Default'
+      if self.rdoEndianL.isChecked():
+         currEnd = LITTLEENDIAN
+      if self.rdoEndianL.isChecked():
+         currEnd = BIGENDIAN
+      for m in self.models.itervalues():
+         m.endianSelect = currEnd
+         m.reset()
       
 
+   #############################################################################
+   def getSelectedHeader(self):
+      if self.models['Headers'].rowCount() < 1:
+         return (None, None)
+      row = self.headView.currentIndex().row()
+      col = self.headView.currentIndex().column()
+      hidx = self.models['Headers'].index(row, HEAD_BLKNUM)
+      blknum = self.models['Headers'].data(hidx).toInt()[0]
+      return (self.bdm.getHeaderByHeight(blknum), col)
+      
+   #############################################################################
+   def getSelectedTx(self):
+      if self.models['Tx'].rowCount() < 1:
+         return (None, None)
+      row = self.txView.currentIndex().row()
+      col = self.txView.currentIndex().column()
+      tidx = self.models['Tx'].index(row, TX_HASH)
+      txhash = str(self.models['Tx'].data(tidx).toString())
+      print txhash
+      tx = self.bdm.getTxByHash(txhash)
+      if tx == None:
+         tx = self.bdm.getTxByHash( binary_switchEndian(txhash))
+      if tx == None or len(txhash) < 1:
+         return (None, None)
+      return (tx, col)
+
+   #############################################################################
+   def resizeTxCols(self):
+      for col in (TX_INDEX, TX_BTC, TX_SRC, TX_RECIP, TX_SIZE):
+         self.txView.resizeColumnToContents(col)   
+      
+   #############################################################################
+   def getSelectedTxIn(self):
+      if self.models['TxIns'].rowCount() < 1:
+         return (None, None)
+      row = self.txinView.currentIndex().row()
+      col = self.txinView.currentIndex().column()
+      txin = self.getSelectedTx().getTxInRef(row)
+      return (txin, col)
+
+   #############################################################################
+   def getSelectedTxOut(self):
+      if self.models['TxOuts'].rowCount() < 1:
+         return (None,None)
+      row = self.txoutView.currentIndex().row()
+      col = self.txoutView.currentIndex().column()
+      txout = self.getSelectedTx().getTxOutRef(row)
+      return (txout, col)
+
+   #############################################################################
    # When the header changes, everything else does
    def headerClicked(self, r=-1, c=-1):
-      if r==-1:
-         r = self.tblHeaders.currentRow()
-      currHeight = int(self.tblHeaders.item(r,0).text())
-      self.selectedObjs['Header'] = ('Height', currHeight) # not really used
-      self.selectedObjs['Tx'] = None
-      txrefList = self.bdm.getHeaderByHeight(currHeight).getTxRefPtrList()
-      self.fillTxTableByTxRefList(txrefList, self.selectedObjs['Tx'])
+      print 'HeaderClicked!'
+      head,col = self.getSelectedHeader()
+      if head==None:
+         return
+      # We can't use getTxHashList yet because of a typemap problem 
+      txptrs = head.getTxRefPtrList()
+      self.models['Tx'].txHashList = [tx.getThisHash() for tx in txptrs]
+      self.models['Tx'].reset()
+      self.txView.setCurrentIndex( self.models['Tx'].index(0,0) )
+      self.resizeTxCols()
+      self.txView.horizontalHeader().setStretchLastSection(True)
+      self.txClicked(0,0)
       
+   #############################################################################
+   # When the tx changes, gotta update TxIn and TxOut views, too
    def txClicked(self, r=-1, c=-1):
-      if r==-1:
-         r = self.tblTxs.currentRow()
-      txhashHex = str(self.tblTxs.item(r, 1).text())
-      txhashBin = hex_to_binary(txhashHex)
-      self.selectedObjs['Tx'] = ('Hash', txhashBin)
-      tx = self.bdm.getTxByHash(txhashBin)
-      self.fillTxInTableByTxRef(tx)
-      self.fillTxOutTableByTxRef(tx)
+      print 'TxClicked!!'
+      tx,col = self.getSelectedTx()
+      if tx==None:
+         return
+
+      self.models['TxIns'].txSelect = tx[0]
+      self.models['TxIns'].reset()
+      self.txinView.resizeColumnsToContents()
+
+      self.models['TxOuts'].txSelect = tx[0]
+      self.models['TxOuts'].reset()
+      self.txoutView.resizeColumnsToContents()
+      
 
    def txInClicked(self, r=-1, c=-1):
-      txinrow = self.tblTxIns.currentRow() 
-      stype = self.selectedObjs['Tx'][0]
-      txin=[]
-      if stype=='Ref':
-         txin = self.selectedObjs['Tx'][1].getTxInRef(txinrow)
-      elif stype=='Hash':
-         txhash = self.selectedObjs['Tx'][1]
-         txin = self.bdm.getTxByHash(txhash).getTxInRef(txinrow)
-   
-      oplist = ['TxIn Script:']
+      txin,col = self.getSelectedTxIn()
+      if txin==None:
+         return
+
+      oplist = ['TxIn Script:\n']
       oplist.extend( convertScriptToOpStrings(txin.getScript()))
       oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
       self.txtSelectedInfo.setText('\n'.join(oplist))
 
    def txOutClicked(self, r=-1, c=-1):
-      txoutrow = self.tblTxOuts.currentRow() 
-      stype = self.selectedObjs['Tx'][0]
-      txout=[]
-      if stype=='Ref':
-         txout = self.selectedObjs['Tx'][1].getTxOutRef(txoutrow)
-      elif stype=='Hash':
-         txhash = self.selectedObjs['Tx'][1]
-         txout = self.bdm.getTxByHash(txhash).getTxOutRef(txoutrow)
+      txout,col = self.getSelectedTxOut()
    
-      oplist = ['TxOut Script:']
+      oplist = ['TxOut Script:\n']
       oplist.extend(convertScriptToOpStrings(txout.getScript()))
       oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
       self.txtSelectedInfo.setText('\n'.join(oplist))
@@ -405,70 +491,6 @@ class BtcExploreWindow(QMainWindow):
       
 
 
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillTxTableByHashList(self, txhashList, selectedHash=None):
-      txrefList = []
-      selectedTxRef = None
-      for theHash in txhashList:
-         txrefList.append( self.bdm.getTxByHash(theHash) )
-         if theHash == selectedHash:
-            selectedTxRef = txrefList[-1]
-
-      self.fillTxTableByTxRefList(txrefList, selectedTxRef)
-
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillTxInTableByTxRef(self, tx):
-      nIn = tx.getNumTxIn()
-      self.tblTxIns.setRowCount(nIn);
-      for row in range(nIn):
-         txin = tx.getTxInRef(row)
-         (txout, sender, value, blknum) = self.getPrevTxOutData(txin)
-         if txin.isCoinbase():
-            value = tx.getTxOutRef(0).getValue()
-            sender = '<COINBASE>'
-         else:
-            sender = hash160_to_addrStr(sender)
-
-         cols = []
-         cols.append( QTableWidgetItem(sender))
-         cols.append( QTableWidgetItem("%0.4f" % (float(value)/1e8)))
-         cols.append( QTableWidgetItem("%d" % blknum))
-         cols.append( QTableWidgetItem(int_to_hex(txin.getSequence(), 4, BIGENDIAN)))
-         for c in range(len(cols)):
-            self.tblTxIns.setItem(row, c, cols[c])
-
-      self.tblTxIns.resizeColumnsToContents()
-      self.tblTxIns.resizeRowsToContents()
-         
-      sItem = self.tblTxIns.item(0,0)
-      self.tblTxIns.setCurrentItem(sItem)
-      self.tblTxIns.scrollToItem(sItem)
-
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillTxOutTableByTxRef(self, tx):
-      nOut = tx.getNumTxOut()
-      self.tblTxOuts.setRowCount(nOut);
-      for row in range(nOut):
-         txout = tx.getTxOutRef(row)
-
-         cols = []
-         addr20 = txout.getRecipientAddr()
-         cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
-         cols.append( QTableWidgetItem("%0.4f" % (float(txout.getValue())/1e8)))
-         if txout.isScriptStandard():
-            cols.append( QTableWidgetItem('STANDARD') )
-         elif txout.isScriptCoinbase():
-            cols.append( QTableWidgetItem('COINBASE') )
-         elif txout.isScriptUnknown():
-            cols.append( QTableWidgetItem('UNKNOWN') )
-         for c in range(len(cols)):
-            self.tblTxOuts.setItem(row, c, cols[c])
-
-      self.tblTxOuts.resizeColumnsToContents()
-      self.tblTxOuts.resizeRowsToContents()
 
    #############################################################################
    def doSearch(self, searchStr):

@@ -1270,6 +1270,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.isMainBranch_   = true;
    genBlock.isOrphan_       = true;
    genBlock.isFinishedCalc_ = true;
+   genBlock.isInitialized_  = false; // TODO: we're throwing SegFaults unless we ignore this one
 
    BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
    BinaryData const & EmptyHash_   = BtcUtils::EmptyHash_;
