@@ -323,6 +323,10 @@ void BtcWallet::scanTx(TxRef & tx,
                                     iin);
                thisAddr.addLedgerEntry(newEntry);
                valueIn += thisVal;
+
+               // Update last seen on the network
+               thisAddr.setLastTimestamp(blktime);
+               thisAddr.setLastBlockNum(blknum);
             }
          }
          else
@@ -385,11 +389,15 @@ void BtcWallet::scanTx(TxRef & tx,
                                      iout);
                thisAddr.addLedgerEntry(newLedger);
                valueOut += thisVal;
+               // Check if this is the first time we've seen this
                if(thisAddr.getFirstBlockNum() == 0)
                {
                   thisAddr.setFirstBlockNum( blknum );
                   thisAddr.setFirstTimestamp( blktime );
                }
+               // Update last seen on the network
+               thisAddr.setLastTimestamp(blktime);
+               thisAddr.setLastBlockNum(blknum);
             }
             else
             {
@@ -527,7 +535,8 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
       isAllAddrLoaded_(false),
       lastBlockWasReorg_(false),
       topBlockPtr_(NULL),
-      genBlockPtr_(NULL)
+      genBlockPtr_(NULL),
+      lastEOFByteLoc_(0)
 {
    headerHashMap_.clear();
    txHashMap_.clear();
@@ -561,7 +570,7 @@ BlockDataManager_FullRAM & BlockDataManager_FullRAM::GetInstance(void)
 void BlockDataManager_FullRAM::Reset(void)
 {
    // Clear out all the "real" data in the blkfile
-   blockFilePath_ = "";
+   blkfilePath_ = "";
    blockchainData_ALL_.clear();
    blockchainData_NEW_.clear();
    headerHashMap_.clear();
@@ -920,31 +929,33 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 {
-   cout << "Reading block data from file: " << filename.c_str() << endl;
-   ifstream is(filename.c_str(), ios::in | ios::binary);
+   blkfilePath_ = filename;
+   cout << "Reading block data from file: " << blkfilePath_.c_str() << endl;
+   ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
    if( !is.is_open() )
    {
-      cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
-      cerr << "***ERROR:  Cannot open " << filename.c_str() << endl;
+      cout << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
+      cerr << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
       return 0;
    }
 
    // We succeeded opening the file...
-   blockFilePath_ = filename;
-
    is.seekg(0, ios::end);
    size_t filesize = (size_t)is.tellg();
    is.seekg(0, ios::beg);
-   cout << filename.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
+   cout << blkfilePath_.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
 
    //////////////////////////////////////////////////////////////////////////
    TIMER_START("ReadBlockchainIntoRAM");
    blockchainData_ALL_.resize(filesize);
-   uint8_t* front = blockchainData_ALL_.getPtr();
-   is.read((char*)front, filesize);
+   is.read((char*)blockchainData_ALL_.getPtr(), filesize);
    is.close();
    TIMER_STOP("ReadBlockchainIntoRAM");
+
    //////////////////////////////////////////////////////////////////////////
+   // If we plan to re-scan the same blkfile, knowing that it may have been
+   // updated externally, we'd be wise to save where to start scanning again
+   lastEOFByteLoc_ = filesize;
 
    // Going ot use the following four objects for efficient insertions
    pair<HashString, TxRef>                               txInputPair;
@@ -997,10 +1008,83 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
    }
    TIMER_STOP("ScanBlockchainInRAM");
    return nBlkRead;
-
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// NOTE:  This method is "inefficient" because it will scan the new header/txs,
+//        then bundle it up and rescan the same thing again in addBlockData().
+//        However, addBlockData() is intended to be a generic function that 
+//        should only be written/debugged once, and handles network data, too.  
+//        Here, we're only adding a few blocks at a time , so the inefficiency 
+//        is irrelevant
+//
+//        The goal here is to construct a BinaryData rawHeader, and a vector
+//        of rawTxs, to pass to addBlockData()
+//
+uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
+{
+   TIMER_STOP("getBlockfileUpdates");
+
+   ifstream is(blkfilePath_, ios::in | ios::binary);
+   if( !is.is_open() )
+   {
+      cout << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
+      cerr << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
+      return 0;
+   }
+
+   // We succeeded opening the file...
+   is.seekg(0, ios::end);
+   uint64_t filesize = (size_t)is.tellg();
+   uint64_t nBytesToRead = filesize - lastEOFByteLoc_;
+   is.seekg(lastEOFByteLoc_, ios::beg);
+   cout << "\tUpdating blockchain from the most recent " << nBytesToRead << " bytes" endl;
+   
+   BinaryData newBlockDataRaw(nBytesToRead);
+   is.read((char*)newBlockData.getPtr(), nBytesToRead);
+   is.close();
+    
+   // Scan the new blockdata, extract the headers + vector<Tx>.  Only need the raw
+   // serialized versions, as they will be plugged into BDM::addBlockData()
+
+   BinaryRefReader brr(newBlockDataRaw);
+   uint32_t nBlkRead = 0;
+   while(!brr.isEndOfStream())
+   {
+      brr.advance(4); // magic bytes
+      uint32_t nBytes = brr.get_uint32_t();
+      uint64_t fileByteLoc = brr.getPosition() + lastEOFByteLoc_;
+
+      BinaryData rawHeader;
+      vector<BinaryData> rawTxVect;
+
+      // For some reason, my blockfile sometimes has some extra bytes
+      if(brr.isEndOfStream() || brr.getSizeRemaining() < nBytes)
+         break;
+
+      brr.get_BinaryData(rawHeader, HEADER_SIZE);
+      numTx = brr.get_var_int();
+      rawTxVect.resize(numTx);
+      for(int i=0; i<numTx; i++)
+      {
+         uint32_t txBytes = BtcUtils::TxCalcLength(brr.getCurrPtr());
+         brr.get_BinaryData(rawTxVect[i], txBytes);
+      }
+
+      ////////////
+      addBlockData( rawHeader, rawTxVect);
+      ////////////
+      
+      nBlkRead++;
+   }
+
+   cout << "Read " << nBlkRead << " new blocks." << endl;
+   lastEOFByteLoc_ = filesize;
+   TIMER_STOP("getBlockfileUpdates");
+}
+
+/////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 {
    bool isGood = true;
@@ -1056,26 +1140,27 @@ void BlockDataManager_FullRAM::addHeader(BinaryData const & binHeader)
 // pool without a header (so we can see zero-confirmation-transactions),
 // but we can't write it to the blockchain file without a header.
 bool BlockDataManager_FullRAM::addBlockData(
-                                        BinaryData  const & binaryHeader,
-                                 vector<BinaryData> const & binaryTxList)
+                                        BinaryData  const & rawHeader,
+                                 vector<BinaryData> const & rawTxVect,
+                                        bool writeToBlk0001)
 {
    // Prepare for new blockdata
    lastBlockWasReorg_ = false;
    txJustInvalidated_.clear();
 
    // Hash the header in advance
-   BinaryData headHash = BtcUtils::getHash256(binaryHeader);
+   BinaryData headHash = BtcUtils::getHash256(rawHeader);
 
    // Hash the tx's and compute their size and offsets
-   uint32_t numTx = binaryTxList.size();
+   uint32_t numTx = rawTxVect.size();
    uint32_t nBytes = 0;
    vector<uint32_t> txOffsets(numTx);
    vector<BinaryData> txHashes(numTx);
    for(int i=0; i<numTx; i++)
    {
       txOffsets[i] = nBytes;
-      txHashes[i]  = BtcUtils::getHash256(binaryTxList[i]);
-      nBytes      += binaryTxList[i].getSize();
+      txHashes[i]  = BtcUtils::getHash256(rawTxVect[i]);
+      nBytes      += rawTxVect[i].getSize();
    }
 
 #ifndef _DEBUG
@@ -1091,7 +1176,7 @@ bool BlockDataManager_FullRAM::addBlockData(
 
    // Same story with merkle roots in debug mode
    BinaryData merkleRoot = BtcUtils::calculateMerkleRoot(txHashes);
-   if(! (merkleRoot == BinaryDataRef(binaryHeader.getPtr() + 36, 32)))
+   if(! (merkleRoot == BinaryDataRef(rawHeader.getPtr() + 36, 32)))
    {
       cout << "***ERROR: merkle root does not match header data" << endl;
       cerr << "***ERROR: merkle root does not match header data" << endl;
@@ -1101,8 +1186,11 @@ bool BlockDataManager_FullRAM::addBlockData(
    
 
    // The block file has a var_int which is included in block size...
-   uint32_t viSize    = (uint32_t)BinaryWriter().put_var_int(numTx); 
+   uint32_t viSize = BtcUtils::calcVarIntSize(numTx); 
 
+   // Although it may be slightly inefficient, it's simpler if we keep
+   // the new block data in the exact same format as the blkfile, even
+   // if we're not going to write it to the blkfile
    // Serialization:   magic  nb    head    numTx      txdata
    uint32_t totalSize =  4  +  4  +  80  +  viSize  +  nBytes;
 
@@ -1110,21 +1198,25 @@ bool BlockDataManager_FullRAM::addBlockData(
    BinaryWriter bw(totalSize);
    bw.put_BinaryData(    BtcUtils::MagicBytes_  );
    bw.put_uint32_t(      80 + viSize + nBytes   );
-   bw.put_BinaryData(    binaryHeader           );
+   bw.put_BinaryData(    rawHeader              );
    bw.put_var_int(       numTx                  );
 
    for(int i=0; i<numTx; i++)
-      bw.put_BinaryData( binaryTxList[i]        );
+      bw.put_BinaryData( rawTxVect[i]        );
 
    // Now add the new block data to the BDM memory pool
    BinaryData const & fullBlock = bw.getData();
    uint32_t oldNumBytes = blockchainData_NEW_.getSize();
    blockchainData_NEW_.append( fullBlock );
 
-   // Also append it to the blockfile
-   ofstream fileAppend(blockFilePath_.c_str(), ios::app | ios::binary);
-   fileAppend.write((char const *)(fullBlock.getPtr()), totalSize);
-   fileAppend.close();
+   // If appropriate, add to the blockfile (obviously don't do this if you
+   // just read the data from blockfile, such as in a dumb client)
+   if(writeToBlk0001)
+   {
+      ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);
+      fileAppend.write((char const *)(fullBlock.getPtr()), totalSize);
+      fileAppend.close();
+   }
 
    // Copy code from readBlkFile() to make sure new data is processed correctly
    pair<HashString, TxRef>                               txInputPair;
@@ -1157,17 +1249,20 @@ bool BlockDataManager_FullRAM::addBlockData(
    }
    
    // Finally, let's re-assess the state of the blockchain with the new data
-   bool oldTopBlockValid = organizeChain(); 
+   bool prevTopBlockValid = organizeChain(); 
 
-   // *** If there was a reorg, we must make take appropriate action! ***
-   //     The organizeChain call already set the headers in the 
-   //     invalid branch to !isMainBranch and updated nextHash_
-   //     pointers to reflect the new organization.  But we may 
-   //     have to examine 
-   if(oldTopBlockValid)
+   if(prevTopBlockValid)
       return true;
    else
    {
+      cout << "Blockchain Reorganization detected!" << endl;
+      // *** If there was a reorg, we must make take appropriate action! ***
+      //     The organizeChain call already set the headers in the 
+      //     invalid branch to !isMainBranch and updated nextHash_
+      //     pointers to reflect the new organization.  But we also
+      //     need to update transactions that may have been affected
+      //     (do that next), and YOU need to run a post-reorg check
+      //     on your wallet (hopefully implemented soon).
       reassessTxValidityOnReorg(prevTopBlockPtr_,
                                 topBlockPtr_, 
                                 reorgBranchPoint_);
@@ -1178,6 +1273,9 @@ bool BlockDataManager_FullRAM::addBlockData(
    }
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
                                               BlockHeaderRef* oldTopPtr,
                                               BlockHeaderRef* newTopPtr,
@@ -1220,6 +1318,7 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
 
 }
 
+////////////////////////////////////////////////////////////////////////////////
 vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
 {
    vector<BlockHeaderRef*> out(0);

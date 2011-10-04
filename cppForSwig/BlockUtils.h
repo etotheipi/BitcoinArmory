@@ -232,19 +232,23 @@ public:
    BinaryData const &  getPrivKey32(void) const  {return privKey32_;      }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
+   uint32_t       getLastBlockNum_(void)         {return lastBlockNum_;   }
+   uint32_t       getLastTimestamp_(void)        {return lastTimestamp_;  }
    bool           isActive(void) const           {return isActive_;       }
 
    void           setAddrStr20(BinaryData bd)     { address20_.copyFrom(bd); }
-   //void           setAddrStr20(BinaryDataRef bd)  { address20_.copyFrom(bd); }
+   //void         setAddrStr20(BinaryDataRef bd)  { address20_.copyFrom(bd); }
 
    void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
-   //void           setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
+   //void         setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
 
    void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
-   //void           setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
+   //void         setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
 
-   void           setFirstBlockNum(uint32_t b)   { firstBlockNum_ = b;     }
-   void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t;    }
+   void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
+   void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
+   uint32_t       setLastBlockNum(uint32_t b)   { lastBlockNum_   = b; }
+   uint32_t       setLastTimestamp(uint32_t t)  { lastTimestamp_  = t; }
 
    uint32_t cleanLedger(void);
 
@@ -253,7 +257,7 @@ public:
 
    uint64_t getBalance(void);
 
-   vector<LedgerEntry> const & getTxLedger(void) { return ledger_; }
+   vector<LedgerEntry>  const & getTxLedger(void) { return ledger_;           }
    vector<TxIORefPair*> const & getTxIOList(void) { return relevantTxIOPtrs_; }
 
    void addTxIO(TxIORefPair * txio) { relevantTxIOPtrs_.push_back(txio);}
@@ -267,6 +271,8 @@ private:
    BinaryData privKey32_;
    uint32_t   firstBlockNum_;
    uint32_t   firstTimestamp_;
+   uint32_t   lastBlockNum_;
+   uint32_t   lastTimestamp_;
    bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
@@ -460,11 +466,12 @@ private:
 
    // These four data structures contain all the *real* data.  Everything 
    // else is just references and pointers to this data
-   string                             blockFilePath_;
+   string                             blkfilePath_;
    BinaryData                         blockchainData_ALL_;
    BinaryData                         blockchainData_NEW_; // to be added
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef >            txHashMap_;
+   uint64_t                           lastEOFByteLoc_;
 
    // If we are really ambitious and have a lot of RAM, we might save
    // all addresses for super-fast lookup.  The key is the 20B addr
@@ -517,7 +524,8 @@ public:
 
    void             addHeader(BinaryData const & binHeader);
    bool             addBlockData(BinaryData  const & binaryHeader,
-                          vector<BinaryData> const & binaryTxList);
+                          vector<BinaryData> const & binaryTxList,
+                                 bool writeToBlk0001=false);
    void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr );
@@ -541,6 +549,7 @@ public:
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename);
+   uint32_t       readBlkFileUpdate(void);
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
    vector<TxRef*> findAllNonStdTx(void);

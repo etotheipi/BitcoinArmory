@@ -95,7 +95,7 @@ class BtcExploreWindow(QMainWindow):
       self.txinView.setModel(self.models['TxIns'])
       self.txinView.setSelectionBehavior(QTableView.SelectRows)
       self.txinView.setSelectionMode(QTableView.SingleSelection)
-      self.txinView.setMinimumSize(550,100)
+      self.txinView.setMinimumSize(550,150)
       self.txinView.horizontalHeader().setStretchLastSection(True)
       self.txinView.verticalHeader().setDefaultSectionSize(16)
 
@@ -104,7 +104,7 @@ class BtcExploreWindow(QMainWindow):
       self.txoutView.setModel(self.models['TxOuts'])
       self.txoutView.setSelectionBehavior(QTableView.SelectRows)
       self.txoutView.setSelectionMode(QTableView.SingleSelection)
-      self.txoutView.setMinimumSize(550,100)
+      self.txoutView.setMinimumSize(550,150)
       self.txoutView.horizontalHeader().setStretchLastSection(True)
       self.txoutView.verticalHeader().setDefaultSectionSize(16)
 
@@ -113,6 +113,11 @@ class BtcExploreWindow(QMainWindow):
       self.connect(self.txView,     SIGNAL("clicked(QModelIndex)"), self.txClicked)
       self.connect(self.txinView,   SIGNAL("clicked(QModelIndex)"), self.txInClicked)
       self.connect(self.txoutView,  SIGNAL("clicked(QModelIndex)"), self.txOutClicked)
+
+      self.connect(self.headView,   SIGNAL("doubleClicked(QModelIndex)"), self.headerDblClicked)
+      self.connect(self.txView,     SIGNAL("doubleClicked(QModelIndex)"), self.txDblClicked)
+      self.connect(self.txinView,   SIGNAL("doubleClicked(QModelIndex)"), self.txInDblClicked)
+      self.connect(self.txoutView,  SIGNAL("doubleClicked(QModelIndex)"), self.txOutDblClicked)
 
       # Search bar
       self.lblSearch = QLabel('&Search:')
@@ -342,6 +347,51 @@ class BtcExploreWindow(QMainWindow):
       self.txtSelectedInfo.setText('\n'.join(oplist))
 
    def txOutClicked(self, r=-1, c=-1):
+      txout,col = self.getSelectedTxOut()
+   
+      oplist = ['TxOut Script:\n']
+      oplist.extend(convertScriptToOpStrings(txout.getScript()))
+      oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
+      self.txtSelectedInfo.setText('\n'.join(oplist))
+
+   def addrClicked(self, r, c):
+      pass
+
+   #############################################################################
+   # When the header changes, everything else does
+   def headerDblClicked(self, r=-1, c=-1):
+      head,col = self.getSelectedHeader()
+      if head==None:
+         return
+      # We can't use getTxHashList yet because of a typemap problem 
+      
+   #############################################################################
+   # When the tx changes, gotta update TxIn and TxOut views, too
+   def txDblClicked(self, r=-1, c=-1):
+      tx,col = self.getSelectedTx()
+      if tx==None:
+         return
+
+      self.models['TxIns'].txSelect = tx
+      self.models['TxIns'].reset()
+      self.txinView.resizeColumnsToContents()
+
+      self.models['TxOuts'].txSelect = tx
+      self.models['TxOuts'].reset()
+      self.txoutView.resizeColumnsToContents()
+      
+
+   def txInDblClicked(self, r=-1, c=-1):
+      txin,col = self.getSelectedTxIn()
+      if txin==None:
+         return
+
+      oplist = ['TxIn Script:\n']
+      oplist.extend( convertScriptToOpStrings(txin.getScript()))
+      oplist = [op if len(op)<=50 else op[:47]+'...' for op in oplist]
+      self.txtSelectedInfo.setText('\n'.join(oplist))
+
+   def txOutDblClicked(self, r=-1, c=-1):
       txout,col = self.getSelectedTxOut()
    
       oplist = ['TxOut Script:\n']

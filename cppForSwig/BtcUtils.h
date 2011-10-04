@@ -249,6 +249,7 @@ public:
    }
 
    
+   /////////////////////////////////////////////////////////////////////////////
    static inline uint32_t readVarIntLength(uint8_t const * strmPtr)
    {
       uint8_t firstByte = strmPtr[0];
@@ -262,12 +263,23 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   static inline uint32_t calcVarIntSize(uint64_t regularIteger)
+   {
+      if(regularIteger < 0xfd)
+         return 1;
+      else if(regularIteger <= 0xffff)
+         return 3;
+      else if(regularIteger <= 0xffffffff)
+         return 5;
+      else
+         return 9;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static void getHash256(uint8_t const * strToHash,
                           uint32_t        nBytes,
                           BinaryData &    hashOutput)
    {
-      // TODO: Check whether static sha256_ is necessary.  The use of static
-      //       MAY prevent this method from being thread-safe
       static CryptoPP::SHA256 sha256_;
       if(hashOutput.getSize() != 32)
          hashOutput.resize(32);
@@ -282,12 +294,6 @@ public:
                           BinaryData &       hashOutput)
    {
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
-
-      //static CryptoPP::SHA256 sha256_;
-      //if(hashOutput.getSize() != 32)
-         //hashOutput.resize(32);
-      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -295,13 +301,6 @@ public:
                           BinaryData          & hashOutput)
    {
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
-
-      //static CryptoPP::SHA256 sha256_;
-      //if(hashOutput.getSize() != 32)
-         //hashOutput.resize(32);
-      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -310,12 +309,6 @@ public:
       BinaryData hashOutput(32);
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
       return hashOutput;
-
-      //static CryptoPP::SHA256 sha256_;
-      //BinaryData hashOutput(32);
-      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-      //return hashOutput;
    }
 
 
@@ -325,12 +318,6 @@ public:
       BinaryData hashOutput(32);
       getHash256(strToHash.getPtr(), strToHash.getSize(), hashOutput);
       return hashOutput;
-
-      //static CryptoPP::SHA256 sha256_;
-      //BinaryData hashOutput(32);
-      //sha256_.CalculateDigest(hashOutput.getPtr(), strToHash.getPtr(), strToHash.getSize());
-      //sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
-      //return hashOutput;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -338,8 +325,6 @@ public:
                           uint32_t        nBytes,
                           BinaryData &    hashOutput)
    {
-      // TODO: Check whether static sha256_ is necessary.  The use of static
-      //       MAY prevent this method from being thread-safe
       static CryptoPP::SHA256 sha256_;
       static CryptoPP::RIPEMD160 ripemd160_;
       static BinaryData bd32(32);
