@@ -71,48 +71,48 @@ class BtcExploreWindow(QMainWindow):
 
       self.models['Headers'] = HeaderDataModel()
       self.headView  = QTableView()
+      self.headView.setModel(self.models['Headers'])
       self.headView.setSelectionBehavior(QTableView.SelectRows)
       self.headView.setSelectionMode(QTableView.SingleSelection)
       self.headView.setMinimumSize(800,200)
       self.headView.horizontalHeader().setStretchLastSection(True)
       self.headView.verticalHeader().setDefaultSectionSize(16)
-      self.headView.setModel(self.models['Headers'])
 
 
 
       self.models['Tx'] = TxDataModel()
       self.txView = QTableView()
+      self.txView.setModel(self.models['Tx'])
       self.txView.setSelectionBehavior(QTableView.SelectRows)
       self.txView.setSelectionMode(QTableView.SingleSelection)
       self.txView.setMinimumSize(800,200)
       self.txView.horizontalHeader().setStretchLastSection(True)
       self.txView.verticalHeader().setDefaultSectionSize(16)
-      self.txView.setModel(self.models['Tx'])
 
 
       self.models['TxIns'] = TxInDataModel()
       self.txinView = QTableView()
+      self.txinView.setModel(self.models['TxIns'])
       self.txinView.setSelectionBehavior(QTableView.SelectRows)
       self.txinView.setSelectionMode(QTableView.SingleSelection)
-      self.txinView.setMinimumSize(400,200)
+      self.txinView.setMinimumSize(550,100)
       self.txinView.horizontalHeader().setStretchLastSection(True)
       self.txinView.verticalHeader().setDefaultSectionSize(16)
-      self.txinView.setModel(self.models['TxIns'])
 
       self.models['TxOuts'] = TxOutDataModel()
       self.txoutView = QTableView()
+      self.txoutView.setModel(self.models['TxOuts'])
       self.txoutView.setSelectionBehavior(QTableView.SelectRows)
       self.txoutView.setSelectionMode(QTableView.SingleSelection)
-      self.txoutView.setMinimumSize(400,200)
+      self.txoutView.setMinimumSize(550,100)
       self.txoutView.horizontalHeader().setStretchLastSection(True)
       self.txoutView.verticalHeader().setDefaultSectionSize(16)
-      self.txoutView.setModel(self.models['TxOuts'])
 
-      self.connect(self.headView,   SIGNAL('cellClicked(int,int)'), self.headerClicked)
-      #self.connect(self.headView,   SIGNAL("itemSelectionChanged()"), self.headerClicked)
-      self.connect(self.txView,     SIGNAL("itemSelectionChanged()"), self.txClicked)
-      self.connect(self.txinView,   SIGNAL("itemSelectionChanged()"), self.txInClicked)
-      self.connect(self.txoutView,  SIGNAL("itemSelectionChanged()"), self.txOutClicked)
+      #self.connect(self.headView,   SIGNAL('cellClicked(int,int)'), self.headerClicked)
+      self.connect(self.headView,   SIGNAL("clicked(QModelIndex)"), self.headerClicked)
+      self.connect(self.txView,     SIGNAL("clicked(QModelIndex)"), self.txClicked)
+      self.connect(self.txinView,   SIGNAL("clicked(QModelIndex)"), self.txInClicked)
+      self.connect(self.txoutView,  SIGNAL("clicked(QModelIndex)"), self.txOutClicked)
 
       # Search bar
       self.lblSearch = QLabel('&Search:')
@@ -131,7 +131,7 @@ class BtcExploreWindow(QMainWindow):
       # Set Endianness preferences
       self.gbxEndian = QGroupBox()
       self.gbxEndian.setCheckable(False)
-      self.gbxEndian.setTitle(QString('Display Hashes'))
+      self.gbxEndian.setTitle(QString('Display Hashes (not implemented)'))
       
       self.gbxLayout  = QVBoxLayout()
       self.rdoEndianD = QRadioButton("&Default")
@@ -181,17 +181,18 @@ class BtcExploreWindow(QMainWindow):
       self.ctrLayout.addWidget(self.edtSearch,        1,   1,   1,   2)
       self.ctrLayout.addWidget(self.btnSearch,        1,   3,   1,   1)
 
-      self.ctrLayout.addWidget(self.gbxEndian,        2,   4,   3,   1)
       self.ctrLayout.addWidget(lblHeaders,            2,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxs,                4,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxIns,              7,   0,   1,   1)
-      self.ctrLayout.addWidget(lblTxOuts,             7,   2,   1,   1)
+      self.ctrLayout.addWidget(lblTxs,                5,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxIns,              9,   0,   1,   1)
+      self.ctrLayout.addWidget(lblTxOuts,             9,   2,   1,   1)
 
       self.ctrLayout.addWidget(self.headView,         3,   0,   2,   4)
-      self.ctrLayout.addWidget(self.txView,           5,   0,   3,   4)
-      self.ctrLayout.addWidget(self.txinView,         8,   0,   2,   2)
-      self.ctrLayout.addWidget(self.txoutView,        8,   2,   2,   2)
-      self.ctrLayout.addWidget(self.txtSelectedInfo,  7,   4,   2,   2)
+      self.ctrLayout.addWidget(self.txView,           6,   0,   3,   4)
+      self.ctrLayout.addWidget(self.txinView,        10,   0,   2,   2)
+      self.ctrLayout.addWidget(self.txoutView,       10,   2,   2,   2)
+
+      self.ctrLayout.addWidget(self.gbxEndian,       12,   0,   1,   2)
+      self.ctrLayout.addWidget(self.txtSelectedInfo, 12,   2,   1,   2)
 
       # Finally set the layout
       self.ctrFrame.setLayout(self.ctrLayout)
@@ -268,8 +269,7 @@ class BtcExploreWindow(QMainWindow):
       row = self.txView.currentIndex().row()
       col = self.txView.currentIndex().column()
       tidx = self.models['Tx'].index(row, TX_HASH)
-      txhash = str(self.models['Tx'].data(tidx).toString())
-      print txhash
+      txhash = hex_to_binary(str(self.models['Tx'].data(tidx).toString()))
       tx = self.bdm.getTxByHash(txhash)
       if tx == None:
          tx = self.bdm.getTxByHash( binary_switchEndian(txhash))
@@ -288,7 +288,7 @@ class BtcExploreWindow(QMainWindow):
          return (None, None)
       row = self.txinView.currentIndex().row()
       col = self.txinView.currentIndex().column()
-      txin = self.getSelectedTx().getTxInRef(row)
+      txin = self.getSelectedTx()[0].getTxInRef(row)
       return (txin, col)
 
    #############################################################################
@@ -297,13 +297,12 @@ class BtcExploreWindow(QMainWindow):
          return (None,None)
       row = self.txoutView.currentIndex().row()
       col = self.txoutView.currentIndex().column()
-      txout = self.getSelectedTx().getTxOutRef(row)
+      txout = self.getSelectedTx()[0].getTxOutRef(row)
       return (txout, col)
 
    #############################################################################
    # When the header changes, everything else does
    def headerClicked(self, r=-1, c=-1):
-      print 'HeaderClicked!'
       head,col = self.getSelectedHeader()
       if head==None:
          return
@@ -319,16 +318,15 @@ class BtcExploreWindow(QMainWindow):
    #############################################################################
    # When the tx changes, gotta update TxIn and TxOut views, too
    def txClicked(self, r=-1, c=-1):
-      print 'TxClicked!!'
       tx,col = self.getSelectedTx()
       if tx==None:
          return
 
-      self.models['TxIns'].txSelect = tx[0]
+      self.models['TxIns'].txSelect = tx
       self.models['TxIns'].reset()
       self.txinView.resizeColumnsToContents()
 
-      self.models['TxOuts'].txSelect = tx[0]
+      self.models['TxOuts'].txSelect = tx
       self.models['TxOuts'].reset()
       self.txoutView.resizeColumnsToContents()
       
