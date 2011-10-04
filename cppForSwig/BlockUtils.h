@@ -247,8 +247,8 @@ public:
 
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
-   uint32_t       setLastBlockNum(uint32_t b)   { lastBlockNum_   = b; }
-   uint32_t       setLastTimestamp(uint32_t t)  { lastTimestamp_  = t; }
+   void           setLastBlockNum(uint32_t b)   { lastBlockNum_   = b; }
+   void           setLastTimestamp(uint32_t t)  { lastTimestamp_  = t; }
 
    uint32_t cleanLedger(void);
 
@@ -471,7 +471,9 @@ private:
    BinaryData                         blockchainData_NEW_; // to be added
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef >            txHashMap_;
-   uint64_t                           lastEOFByteLoc_;
+
+   // This may have to be updated later if the blkfile exceeds 4GB
+   uint32_t                           lastEOFByteLoc_;
 
    // If we are really ambitious and have a lot of RAM, we might save
    // all addresses for super-fast lookup.  The key is the 20B addr

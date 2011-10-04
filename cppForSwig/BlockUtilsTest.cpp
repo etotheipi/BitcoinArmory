@@ -15,7 +15,8 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("../blk0001.dat");
+   //bdm.readBlkFile_FromScratch("../blk0001.dat");
+   bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -28,7 +29,7 @@ int main(void)
    cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
-   cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers" << endl;
+   cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
    TIMER_START("Verify blk0001.dat integrity");
    bool isVerified = bdm.verifyBlkFileIntegrity();
    TIMER_STOP("Verify blk0001.dat integrity");
@@ -182,7 +183,7 @@ int main(void)
    cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
-
+   /*
    cout << "Resetting BlockDataManager..." << endl;
    TIMER_WRAP(bdm.Reset());
 
@@ -197,9 +198,10 @@ int main(void)
    cout << endl << endl;
    cout << "Printing genesis block information:" << endl;
    bdm.getGenesisBlock().pprint(cout, 0, false);
+   */
 
    cout << endl << endl;
-   cout << "Printing last block information:" << endl;
+   cout << "Re-displaying top block information:" << endl;
    bdm.getTopBlockHeader().pprint(cout, 0, false);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -211,6 +213,18 @@ int main(void)
 
 
    char aa[256];
+   cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
+        << "file.  Then type a few characters and press enter -- will test" << endl
+        << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
+   cin >> aa;
+
+   cout << "Checking blkfile for updates" << endl;
+   bdm.readBlkFileUpdate();
+
+   cout << endl << endl;
+   cout << "Printing NEW top block information" << endl;
+   bdm.getTopBlockHeader().pprint(cout, 0, false);
+
    cout << "Enter anything to exit" << endl;
    cin >> aa;
 }

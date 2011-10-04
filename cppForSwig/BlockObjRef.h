@@ -62,8 +62,8 @@ public:
    uint32_t           getTimestamp(void) const    { return  *(uint32_t*)(getPtr()+68); }
    uint32_t           getNonce(void) const        { return  *(uint32_t*)(getPtr()+76); }
    uint32_t           getBlockHeight(void) const  { return blockHeight_;               }
-   uint32_t           isMainBranch(void) const    { return isMainBranch_;              }
-   uint32_t           isOrphan(void) const        { return isOrphan_;                  }
+   bool               isMainBranch(void) const    { return isMainBranch_;              }
+   bool               isOrphan(void) const        { return isOrphan_;                  }
    double             getDifficulty(void) const   { return difficultyDbl_;             }
    double             getDifficultySum(void) const{ return difficultySum_;             }
    uint32_t           getNumTx(void) const        { return numTx_;                     }

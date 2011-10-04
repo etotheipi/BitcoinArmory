@@ -1024,7 +1024,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 //
 uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 {
-   TIMER_STOP("getBlockfileUpdates");
+   TIMER_START("getBlockfileUpdates");
 
    ifstream is(blkfilePath_, ios::in | ios::binary);
    if( !is.is_open() )
@@ -1036,13 +1036,23 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 
    // We succeeded opening the file...
    is.seekg(0, ios::end);
-   uint64_t filesize = (size_t)is.tellg();
-   uint64_t nBytesToRead = filesize - lastEOFByteLoc_;
+   uint32_t filesize = (size_t)is.tellg();
+   uint32_t nBytesToRead = filesize - lastEOFByteLoc_;
+   cout << "Old filesize: " << lastEOFByteLoc_ << endl;
+   cout << "New filesize: " << filesize << endl;
+   cout << "Difference:   " << nBytesToRead << endl;
+   if(nBytesToRead == 0)
+   {
+      is.close();
+      return 0;
+   }
+   
    is.seekg(lastEOFByteLoc_, ios::beg);
-   cout << "\tUpdating blockchain from the most recent " << nBytesToRead << " bytes" endl;
+   cout << "\tUpdating blockchain from the most recent " 
+        << nBytesToRead << " bytes" << endl;
    
    BinaryData newBlockDataRaw(nBytesToRead);
-   is.read((char*)newBlockData.getPtr(), nBytesToRead);
+   is.read((char*)newBlockDataRaw.getPtr(), nBytesToRead);
    is.close();
     
    // Scan the new blockdata, extract the headers + vector<Tx>.  Only need the raw
@@ -1052,9 +1062,10 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    uint32_t nBlkRead = 0;
    while(!brr.isEndOfStream())
    {
+      cout << "Reading new block " << nBlkRead+1 << endl;
       brr.advance(4); // magic bytes
       uint32_t nBytes = brr.get_uint32_t();
-      uint64_t fileByteLoc = brr.getPosition() + lastEOFByteLoc_;
+      uint32_t fileByteLoc = brr.getPosition() + lastEOFByteLoc_;
 
       BinaryData rawHeader;
       vector<BinaryData> rawTxVect;
@@ -1064,15 +1075,16 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
          break;
 
       brr.get_BinaryData(rawHeader, HEADER_SIZE);
-      numTx = brr.get_var_int();
+      uint32_t numTx = (uint32_t)brr.get_var_int();
       rawTxVect.resize(numTx);
-      for(int i=0; i<numTx; i++)
+      for(uint32_t i=0; i<numTx; i++)
       {
          uint32_t txBytes = BtcUtils::TxCalcLength(brr.getCurrPtr());
          brr.get_BinaryData(rawTxVect[i], txBytes);
       }
 
       ////////////
+      cout << "About to add data to memory pool" << endl;
       addBlockData( rawHeader, rawTxVect);
       ////////////
       
@@ -1082,6 +1094,8 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    cout << "Read " << nBlkRead << " new blocks." << endl;
    lastEOFByteLoc_ = filesize;
    TIMER_STOP("getBlockfileUpdates");
+
+   return nBlkRead;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1156,12 +1170,14 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint32_t nBytes = 0;
    vector<uint32_t> txOffsets(numTx);
    vector<BinaryData> txHashes(numTx);
-   for(int i=0; i<numTx; i++)
+   cout << "Computing block size...";
+   for(uint32_t i=0; i<numTx; i++)
    {
       txOffsets[i] = nBytes;
       txHashes[i]  = BtcUtils::getHash256(rawTxVect[i]);
       nBytes      += rawTxVect[i].getSize();
    }
+   cout << nBytes << " bytes!" << endl;
 
 #ifndef _DEBUG
    // In the real client, we want to execute these checks.  But we may want
@@ -1195,24 +1211,30 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint32_t totalSize =  4  +  4  +  80  +  viSize  +  nBytes;
 
    // Reserve the exact amount of data before writing
+   cout << "Creating BinaryWriter..." << endl;
    BinaryWriter bw(totalSize);
    bw.put_BinaryData(    BtcUtils::MagicBytes_  );
    bw.put_uint32_t(      80 + viSize + nBytes   );
    bw.put_BinaryData(    rawHeader              );
    bw.put_var_int(       numTx                  );
 
-   for(int i=0; i<numTx; i++)
+   for(uint32_t i=0; i<numTx; i++)
       bw.put_BinaryData( rawTxVect[i]        );
 
    // Now add the new block data to the BDM memory pool
    BinaryData const & fullBlock = bw.getData();
    uint32_t oldNumBytes = blockchainData_NEW_.getSize();
+   cout << "Full block constructed, " << fullBlock.getSize() << " bytes" << endl;
+   cout << "OLD blockchain_NEW_ data was " << oldNumBytes << " bytes" << endl;
    blockchainData_NEW_.append( fullBlock );
+   cout << "NEW blockchain_NEW_ data is   " << blockchainData_NEW_.getSize() << " bytes" << endl;
+   cout << "One header and " << numTx << " new Tx" << endl;
 
    // If appropriate, add to the blockfile (obviously don't do this if you
    // just read the data from blockfile, such as in a dumb client)
    if(writeToBlk0001)
    {
+      cout << "Writing new block data to file" << endl;
       ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);
       fileAppend.write((char const *)(fullBlock.getPtr()), totalSize);
       fileAppend.close();
@@ -1227,8 +1249,10 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint8_t* newDataPtr = blockchainData_NEW_.getPtr() + oldNumBytes;
    uint32_t firstNewTxOffset = 8 + 80 + viSize;
    
+   cout << "Unserializing header" << endl;
    bhInputPair.first = headHash;
    bhInputPair.second.unserialize(newDataPtr + 8);
+   cout << "Inserting header" << endl;
    bhInsResult = headerHashMap_.insert(bhInputPair);
    BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
@@ -1237,11 +1261,13 @@ bool BlockDataManager_FullRAM::addBlockData(
    bhptr->fileByteLoc_   = blockchainData_ALL_.getSize() + oldNumBytes + 8;
    bhptr->txPtrList_.clear();
 
-   for(uint64_t i=0; i<numTx; i++)
+   for(uint32_t i=0; i<numTx; i++)
    {
       //uint8_t* 
+      cout << "Unserializing tx" << endl;
       txInputPair.second.unserialize(newDataPtr + 88 + viSize + txOffsets[i]);
       txInputPair.first = txInputPair.second.thisHash_;
+      cout << "Inserting tx" << endl;
       txInsResult = txHashMap_.insert(txInputPair);
       TxRef * txptr = &(txInsResult.first->second);
 
@@ -1249,10 +1275,14 @@ bool BlockDataManager_FullRAM::addBlockData(
    }
    
    // Finally, let's re-assess the state of the blockchain with the new data
+   cout << "Calling organize chain" << endl;
    bool prevTopBlockValid = organizeChain(); 
 
    if(prevTopBlockValid)
+   {
+      cout << "No reorg!  We're done!" << endl;
       return true;
+   }
    else
    {
       cout << "Blockchain Reorganization detected!" << endl;

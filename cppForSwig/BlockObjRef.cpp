@@ -424,7 +424,7 @@ uint32_t TxRef::getLockTime(void) const
 uint64_t TxRef::getSumOfOutputs(void)
 {
    uint64_t sumVal = 0;
-   for(int i=0; i<getNumTxOut(); i++)
+   for(uint32_t i=0; i<getNumTxOut(); i++)
       sumVal += getTxOutRef(i).getValue();
 
    return sumVal;
@@ -516,10 +516,10 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
    os << indent << "   NumInputs:   " << getNumTxIn() << endl;
    os << indent << "   NumOutputs:  " << getNumTxIn() << endl;
    os << endl;
-   for(int i=0; i<getNumTxIn(); i++)
+   for(uint32_t i=0; i<getNumTxIn(); i++)
       getTxInRef(i).pprint(os, nIndent+1, pBigendian);
    os << endl;
-   for(int i=0; i<getNumTxOut(); i++)
+   for(uint32_t i=0; i<getNumTxOut(); i++)
       getTxOutRef(i).pprint(os, nIndent+1, pBigendian);
 }
 
