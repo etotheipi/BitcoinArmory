@@ -542,9 +542,9 @@ public:
    // Prefix searches would be much better if we had an some kind of underlying
    // Trie/PatriciaTrie/DeLaBrandiaTrie instead of std::map<>.  For now this
    // search will simply be suboptimal...
-   vector<BinaryData> prefixSearchHeaders(BinaryData const & searchStr);
-   vector<BinaryData> prefixSearchTx(BinaryData const & searchStr);
-   vector<BinaryData> prefixSearchAddress(BinaryData const & searchStr);
+   vector<BlockHeaderRef*> prefixSearchHeaders(BinaryData const & searchStr);
+   vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
+   vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    void scanBlockchainForTx_FromScratch(BtcWallet & myWallet);

@@ -39,6 +39,7 @@ headColLabels = {HEAD_BLKNUM: 'Block#', \
 b2h = lambda x: binary_to_hex(x)
 h2b = lambda x: hex_to_binary(x)
 
+blkfileRefreshInterval = 5 * 1000;  # 5s
 
 class BtcExploreWindow(QMainWindow):
 
@@ -78,8 +79,6 @@ class BtcExploreWindow(QMainWindow):
       self.headView.horizontalHeader().setStretchLastSection(True)
       self.headView.verticalHeader().setDefaultSectionSize(16)
 
-
-
       self.models['Tx'] = TxDataModel()
       self.txView = QTableView()
       self.txView.setModel(self.models['Tx'])
@@ -88,7 +87,6 @@ class BtcExploreWindow(QMainWindow):
       self.txView.setMinimumSize(800,200)
       self.txView.horizontalHeader().setStretchLastSection(True)
       self.txView.verticalHeader().setDefaultSectionSize(16)
-
 
       self.models['TxIns'] = TxInDataModel()
       self.txinView = QTableView()
@@ -130,8 +128,9 @@ class BtcExploreWindow(QMainWindow):
       self.lblSearch.setBuddy(self.edtSearch)
       self.btnSearch = QPushButton('Go!')
       self.btnSearch.setEnabled(False)
-      #self.connect(self.edtSearch, SIGNAL('returnPressed()'), \
-                   #self.doSearch(self.edtSearch.text()) )
+
+      self.connect(self.edtSearch, SIGNAL('returnPressed()'), self.doSearch)
+      self.connect(self.btnSearch, SIGNAL('pressed()'),       self.doSearch)
       
       # Set Endianness preferences
       self.gbxEndian = QGroupBox()
@@ -203,7 +202,9 @@ class BtcExploreWindow(QMainWindow):
       self.ctrFrame.setLayout(self.ctrLayout)
       self.setCentralWidget(self.ctrFrame)
 
-      # Set up signals
+      self.updateTimer = QTimer()
+      self.connect(self.updateTimer, SIGNAL("timeout()"), self.readNewBlockData)
+
       #self.headView.setStretchFactor(1)
       #self.txView.setStretchFactor(1)
       #self.txinView.setStretchFactor(1)
@@ -241,6 +242,8 @@ class BtcExploreWindow(QMainWindow):
          self.headView.resizeColumnsToContents()
          self.headView.setCurrentIndex( self.models['Headers'].index(0,0))
          self.headerClicked()
+         self.updateTimer.start(blkfileRefreshInterval)
+         self.prevSearchStr = ''
          print 'Done!'
 
    #############################################################################
@@ -256,6 +259,11 @@ class BtcExploreWindow(QMainWindow):
          m.endianSelect = currEnd
          m.reset()
       
+
+   def readNewBlockData(self):
+      print 'Updating Blockfile...',
+      self.bdm.readBlkFileUpdate();
+      print 'Done!'
 
    #############################################################################
    def getSelectedHeader(self):
@@ -402,154 +410,76 @@ class BtcExploreWindow(QMainWindow):
    def addrClicked(self, r, c):
       pass
 
-   #############################################################################
-   def initGUI(self):
-      if self.selectedObjs['Header'] == None:
-         # Fill the headers table
-         self.maxHeight = self.bdm.getTopBlockHeader().getBlockHeight()
-         self.selectedObjs['Header'] = ('Height', self.maxHeight) # not really used
-
-      sHeight = self.selectedObjs['Header'][1]
-      self.fillHeadersTableBySelected(sHeight)
-      #currRow = self.tblHeaders.currentRow()
-      #txObjList = self.bdm.getHeaderByHeight(sHeight).getTxRefPtrList()
-      #self.fillTxTableByTxRefList(txObjList, self.selectedObjs['Tx'])
-         
-      #txref = self.selectedObjs['Tx'][1]
-      #if self.selectedObjs['Tx'][0] == 'Hash':
-         #txref = self.bdm.getTxByHash(txref)
-      #self.fillTxInTableByTxRef( txref)
-      #self.fillTxOutTableByTxRef(txref)
-
-
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillHeadersTableBySelected(self, selectedHeight):
-      topH = min(self.maxHeight, selectedHeight+10000)
-      lowH = max(0,              selectedHeight-10000)
-      self.fillHeadersTableByHeightList( range(topH,lowH,-1), selectedHeight)
-
-
-   def fillHeadersTableByHashList(self, hashList, selectedHash=None):
-      heightList = []
-      selectedHeight = None
-      newHashList = filter(lambda h: h != None, hashList)
-      for theHash in newHashList:
-         theHeight = self.bdm.getHeaderByHash(theHash).getBlockHeight()
-         heightList.append(theHeight)
-         if theHash == selectedHash:
-            selectedHeight = theHeight
-      self.fillHeadersTableByHeightList( heightList, selectedHeight)
-
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillHeadersTableByHeightList(self, heightList, selectedHeight=None):
-      self.tblHeaders.clearContents()
-      self.tblHeaders.setRowCount( len(heightList) )
-      sItem = None
-      for row,height in enumerate(heightList):
-         head = self.bdm.getHeaderByHeight(height)
-         cols = []
-         cols.append( QTableWidgetItem(str(head.getBlockHeight())) )
-         cols.append( QTableWidgetItem(binary_to_hex(head.getThisHash())))
-         cols.append( QTableWidgetItem("%0.2f" % head.getDifficulty()) )
-         cols.append( QTableWidgetItem("%d" % head.getNumTx()))
-         cols.append( QTableWidgetItem(unixTimeToFormatStr(head.getTimestamp()))) 
-         cols[1].setFont( QFont("Courier", 10, QFont.Bold) )
-         for c in range(len(cols)):
-            self.tblHeaders.setItem(row, c, cols[c])
-         if height==selectedHeight:
-            sItem = cols[0]
-      
-         #self.tblHeaders.sizeHintForRow(
-
-      self.tblHeaders.resizeColumnsToContents()
-      self.tblHeaders.resizeRowsToContents()
-
-      #self.tblHeaders.sizeHintForColumn()
-      #self.tblHeaders.resizeColumnsToContents()
-      #if not selectedHeight==None and selectedHeight in heightList:
-         #self.tblHeaders.selectRow( heightList.index(selectedHeight))
-      if sItem == None:
-         sItem = self.tblHeaders.item(0,0)
-
-      self.tblHeaders.setCurrentItem(sItem)
-      self.tblHeaders.scrollToItem(sItem)
-
-      sHeight = int(sItem.text())
-      txObjList = self.bdm.getHeaderByHeight(sHeight).getTxRefPtrList()
-      self.fillTxTableByTxRefList(txObjList, self.selectedObjs['Tx'])
-
-   #############################################################################
-   # First element in the list will be on the TOP
-   def fillTxTableByTxRefList(self, txrefList, selectedTxref=None):
-      self.tblTxs.clearContents()
-      self.tblTxs.setRowCount( len(txrefList) )
-      
-      sItem = None
-      newTxList = filter(lambda t: t != None, txrefList)
-      for row,tx in enumerate(txrefList):
-         cols=[]
-         cols.append( QTableWidgetItem("%d" % row))
-         cols.append( QTableWidgetItem(binary_to_hex(tx.getThisHash())))
-         cols.append( QTableWidgetItem("%0.4f" % (float(tx.getSumOfOutputs()/1e8))))
-
-         if tx.getNumTxIn() > 1:
-            cols.append( QTableWidgetItem('<Multiple>') )
-         else:
-            txin = tx.getTxInRef(0)
-      
-            if txin.isCoinbase():
-               cols.append( QTableWidgetItem('<COINBASE>') )
-            else:
-               addr20 = self.bdm.getSenderAddr20(tx.getTxInRef(0))
-               cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
-            
-         if tx.getNumTxOut() > 1:
-            cols.append( QTableWidgetItem('<Multiple>') )
-         else:
-            addr20 = tx.getTxOutRef(0).getRecipientAddr()
-            cols.append( QTableWidgetItem( hash160_to_addrStr(addr20) ))
-
-         cols.append( QTableWidgetItem("%0.2f" % (float(tx.getSize())/1024.0) ))
-
-         cols[1].setFont( QFont("Courier", 10, QFont.Bold) )
-         for c in range(len(cols)):
-            self.tblTxs.setItem(row, c, cols[c])
-         if selectedTxref==tx:
-            sItem = cols[0]
-            self.selectedObjs['Tx'] = ('Ref', tx)
-
-      self.tblTxs.resizeColumnToContents(0)
-      self.tblTxs.resizeColumnToContents(3)
-      self.tblTxs.resizeColumnToContents(4)
-      self.tblTxs.resizeRowsToContents()
-         
-      if sItem==None:
-         sItem = self.tblTxs.item(1,1)  # autoselect second row, first is coinbase
-         self.selectedObjs['Tx'] = ('Ref', txrefList[1])
-
-      self.tblTxs.setCurrentItem(sItem)
-      self.tblTxs.scrollToItem(sItem)
-
-      sTxHash = sItem.text()
-      txref = self.bdm.getTxByHash(  hex_to_binary(str(sTxHash))  )
-      self.fillTxInTableByTxRef(  txref)
-      self.fillTxOutTableByTxRef( txref)
       
 
-
-
    #############################################################################
-   def doSearch(self, searchStr):
+   def doSearch(self):
       if self.bcLoadDoneYet == False:
          QMessageBox.warning(self, 'Blockchain Manager Still Loading', \
                      unicode('Blockchain is not done loading.  Please wait!'))
          return
       else:
-         print 'Need to do the search!?'
-         
+         searchStr = str(self.edtSearch.text()).strip()
+         if searchStr=='':
+            return 
 
+         if not searchStr==self.prevSearchStr:
+            self.searchResults = []
+            try:
+               self.searchResults = [(int(searchStr),0)]
+            except(ValueError):
+               # Thus must be a hex hash
+               sstr1 = hex_to_binary(searchStr)
+               sstr2 = hex_to_binary(hex_switchEndian(searchStr))
+   
+               # Search headers
+               srch1 = self.bdm.prefixSearchHeaders(sstr1) 
+               print srch1
+               srch2 = self.bdm.prefixSearchHeaders(sstr2) 
+               print srch2
+               for resultSet in (srch1, srch2):
+                  for header in resultSet:
+                     blkNum = header.getBlockHeight()
+                     self.searchResults.append( (blkNum,  0) )
+            
+               # Search Tx
+               srch1 = self.bdm.prefixSearchTx(sstr1) 
+               print srch1
+               srch2 = self.bdm.prefixSearchTx(sstr2) 
+               print srch2
+               for resultSet in (srch1, srch2):
+                  for tx in resultSet:
+                     blkNum  = tx.getBlockHeight()
+                     txindex = tx.getBlockTxIndex()
+                     self.searchResults.append( (blkNum, txindex) )
+   
+            
+         if len(self.searchResults) == 0:
+            print 'No search results!'
+            return
+
+         currHeight  = self.getSelectedHeader()[0].getBlockHeight()
+         currTxIndex = -1
+         tx = self.getSelectedTx()
+         if tx[0]:
+            currTxIndex = tx[0].getBlockTxIndex()
+         newHeight, newTxIndex = 0,0
+         foundNext = False
+         for blk,txidx in self.searchResults:
+            if blk < currHeight or (blk==currHeight and txidx>currTxIndex):
+               row = self.models['Headers'].rowCount() - blk - 1
+               self.headView.setCurrentIndex( self.models['Headers'].index(row,0))
+               self.txView.setCurrentIndex( self.models['Tx'].index(txidx,0))
+               foundNext = True
+         if not foundNext:
+            # wrap around
+            row = self.models['Headers'].rowCount() - self.searchResults[0][0] - 1
+            txidx = self.searchResults[0][1]
+            self.headView.setCurrentIndex( self.models['Headers'].index(row,0))
+            self.headerClicked()
+            self.txView.setCurrentIndex( self.models['Tx'].index(txidx,0))
+            self.txClicked()
+         self.prevSearchStr = searchStr
    
 def main():
    app = QApplication(sys.argv)

@@ -695,31 +695,31 @@ bool BlockDataManager_FullRAM::hasHeaderWithHash(BinaryData const & txhash) cons
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> BlockDataManager_FullRAM::prefixSearchHeaders(BinaryData const & searchStr)
+vector<BlockHeaderRef*> BlockDataManager_FullRAM::prefixSearchHeaders(BinaryData const & searchStr)
 {
-   vector<BinaryData> outList(0);
+   vector<BlockHeaderRef*> outList(0);
    map<HashString, BlockHeaderRef>::iterator iter;
    for(iter  = headerHashMap_.begin();
        iter != headerHashMap_.end();
        iter++)
    {
       if(iter->first.startsWith(searchStr))
-         outList.push_back(iter->first);
+         outList.push_back(&(iter->second));
    }
    return outList;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> BlockDataManager_FullRAM::prefixSearchTx(BinaryData const & searchStr)
+vector<TxRef*> BlockDataManager_FullRAM::prefixSearchTx(BinaryData const & searchStr)
 {
-   vector<BinaryData> outList(0);
+   vector<TxRef*> outList(0);
    map<HashString, TxRef>::iterator iter;
    for(iter  = txHashMap_.begin();
        iter != txHashMap_.end();
        iter++)
    {
       if(iter->first.startsWith(searchStr))
-         outList.push_back(iter->first); 
+         outList.push_back(&(iter->second));
    }
    return outList;
 }
@@ -1090,10 +1090,10 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       ////////////
       
       nBlkRead++;
+      lastEOFByteLoc_ += nBytes+8;
    }
 
    cout << "Read " << nBlkRead << " new blocks." << endl;
-   lastEOFByteLoc_ = filesize;
    TIMER_STOP("getBlockfileUpdates");
 
    return nBlkRead;

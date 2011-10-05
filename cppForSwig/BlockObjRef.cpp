@@ -492,12 +492,23 @@ uint32_t TxRef::getBlockTimestamp(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getBlockHeight(void)
 {
-   if(headerPtr_==NULL)
-      if(headerPtr_->isMainBranch())
+   if(headerPtr_!=NULL && headerPtr_->isMainBranch())
          return headerPtr_->getBlockHeight();
    return UINT32_MAX;
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+// We have the TxRef, but we don't know its index... gotta get Tx list from
+// header and try to match up
+uint32_t TxRef::getBlockTxIndex(void)
+{
+   vector<TxRef*> txlist = headerPtr_->getTxRefPtrList();
+   for(uint32_t i=0; i<txlist.size(); i++)
+      if( txlist[i] == this )
+         return i;
+   return UINT32_MAX;
+}
 
 void TxRef::pprint(ostream & os, int nIndent, bool pBigendian) 
 {
