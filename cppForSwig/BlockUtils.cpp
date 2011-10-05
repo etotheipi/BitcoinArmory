@@ -1040,9 +1040,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    is.seekg(0, ios::end);
    uint32_t filesize = (size_t)is.tellg();
    uint32_t nBytesToRead = filesize - lastEOFByteLoc_;
-   cout << "Old filesize: " << lastEOFByteLoc_ << endl;
-   cout << "New filesize: " << filesize << endl;
-   cout << "Difference:   " << nBytesToRead << endl;
    if(nBytesToRead == 0)
    {
       is.close();
@@ -1050,8 +1047,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    }
    
    is.seekg(lastEOFByteLoc_, ios::beg);
-   cout << "\tUpdating blockchain from the most recent " 
-        << nBytesToRead << " bytes" << endl;
    
    BinaryData newBlockDataRaw(nBytesToRead);
    is.read((char*)newBlockDataRaw.getPtr(), nBytesToRead);
@@ -1064,7 +1059,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    uint32_t nBlkRead = 0;
    while(!brr.isEndOfStream())
    {
-      cout << "Reading new block " << nBlkRead+1 << endl;
       brr.advance(4); // magic bytes
       uint32_t nBytes = brr.get_uint32_t();
 
@@ -1085,7 +1079,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       }
 
       ////////////
-      cout << "About to add data to memory pool" << endl;
       addBlockData( rawHeader, rawTxVect);
       ////////////
       
@@ -1249,10 +1242,8 @@ bool BlockDataManager_FullRAM::addBlockData(
 
    uint8_t* newDataPtr = blockchainData_NEW_.getPtr() + oldNumBytes;
    
-   cout << "Unserializing header" << endl;
    bhInputPair.first = headHash;
    bhInputPair.second.unserialize(newDataPtr + 8);
-   cout << "Inserting header" << endl;
    bhInsResult = headerHashMap_.insert(bhInputPair);
    BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
@@ -1264,10 +1255,8 @@ bool BlockDataManager_FullRAM::addBlockData(
    for(uint32_t i=0; i<numTx; i++)
    {
       //uint8_t* 
-      cout << "Unserializing tx" << endl;
       txInputPair.second.unserialize(newDataPtr + 88 + viSize + txOffsets[i]);
       txInputPair.first = txInputPair.second.thisHash_;
-      cout << "Inserting tx" << endl;
       txInsResult = txHashMap_.insert(txInputPair);
       TxRef * txptr = &(txInsResult.first->second);
 
@@ -1275,7 +1264,7 @@ bool BlockDataManager_FullRAM::addBlockData(
    }
    
    // Finally, let's re-assess the state of the blockchain with the new data
-   cout << "Calling organize chain" << endl;
+   cout << "Re-assess blockchain state after adding new data..." ;
    bool prevTopBlockValid = organizeChain(); 
 
    if(prevTopBlockValid)

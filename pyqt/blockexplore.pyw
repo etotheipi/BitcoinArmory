@@ -64,7 +64,7 @@ class BtcExploreWindow(QMainWindow):
 
       self.wltFileList = settings.value('WalletFiles').toStringList()
       self.bcLoadDoneYet = False
-      self.setMinimumSize(1000,700)
+      self.setMinimumSize(1000,750)
 
       ##########################################################################
       # Start setting up the model/view behaviors
@@ -154,7 +154,7 @@ class BtcExploreWindow(QMainWindow):
       # Set area to display selected object properties
       self.txtSelectedInfo = QLabel()
       self.txtSelectedInfo.setWordWrap(True)
-      self.txtSelectedInfo.setMinimumSize(200,200)
+      self.txtSelectedInfo.setMinimumSize(200,75)
       self.txtSelectedInfo.setSizePolicy(QSizePolicy(QSizePolicy.Fixed))
 
       #addrHeadRow = ['Address (Base58)', 'Address (20 byte hex)', 'BTC Sent', 'Btc Rcvd']
@@ -205,29 +205,12 @@ class BtcExploreWindow(QMainWindow):
       self.updateTimer = QTimer()
       self.connect(self.updateTimer, SIGNAL("timeout()"), self.readNewBlockData)
 
-      #self.headView.setStretchFactor(1)
-      #self.txView.setStretchFactor(1)
-      #self.txinView.setStretchFactor(1)
-      #self.txoutView.setStretchFactor(1)
-
       # Prepare the BlockDataManager for 
       print 'GUI is setup, now load the blockchain'
       self.bdm = BlockDataManager_FullRAM.GetInstance()
       self.setWindowTitle('PyBtcEngine BlockExplorer')
-      QTimer.singleShot(100, self.initBlockchain)
+      QTimer.singleShot(500, self.initBlockchain)
 
-   #def createTableWidget(self, headerRow, minSizePair=(300,150)):
-      #tbl = QTableWidget()
-      #tbl.setSelectionBehavior(QTableWidget.SelectRows)
-      #tbl.setSelectionMode(QTableWidget.SingleSelection)
-      #tbl.setRowCount(0);
-      #tbl.setColumnCount(len(headerRow))
-      ##tbl.setStretchLastSection(True)
-      #tbl.verticalHeader().setVisible(False)
-      #tbl.setMinimumSize( *minSizePair )
-      #tbl.setHorizontalHeaderLabels(headerRow)
-      #tbl.setEditTriggers(QAbstractItemView.NoEditTriggers)
-      #return tbl
 
    def initBlockchain(self):
       if not self.blkFile==None:
@@ -244,10 +227,13 @@ class BtcExploreWindow(QMainWindow):
          self.headerClicked()
          self.updateTimer.start(blkfileRefreshInterval)
          self.prevSearchStr = ''
+
+         self.txView.horizontalHeader().resizeSection(TX_HASH, 250)
          print 'Done!'
 
    #############################################################################
    def changeEndian(self):
+      print 'Chaging endian!'
       currEnd = ''
       if self.rdoEndianD.isChecked():
          currEnd = 'Default'
@@ -260,10 +246,9 @@ class BtcExploreWindow(QMainWindow):
          m.reset()
       
 
+   #############################################################################
    def readNewBlockData(self):
-      print 'Updating Blockfile...',
       self.bdm.readBlkFileUpdate();
-      print 'Done!'
 
    #############################################################################
    def getSelectedHeader(self):
