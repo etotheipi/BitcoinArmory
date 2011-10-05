@@ -286,10 +286,12 @@ void BtcWallet::scanTx(TxRef & tx,
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
       BinaryData const & addr20 = thisAddr.getAddrStr20();
 
-      // Ignore if addr was created at one week or 1000 blocks after this tx
-      if( thisAddr.getFirstTimestamp() > blktime + (3600*24*7) ||
-          thisAddr.getFirstBlockNum()  > blknum  +  1000          )
-         continue;  
+      // TODO:  for some reason, this conditional stopped working!
+      // If this block is before known addr creation time, no point in scanning
+      // If this block is before last addr seen time, already seen it!
+      //if(  blktime < thisAddr.getFirstTimestamp()-(3600*24*7) ||
+           //blknum  < thisAddr.getFirstBlockNum()-1000            )
+         //continue;  
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       uint64_t valueIn = 0;
@@ -532,11 +534,11 @@ uint32_t BtcWallet::cleanLedger(void)
 BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) : 
       blockchainData_ALL_(0),
       blockchainData_NEW_(0),
+      lastEOFByteLoc_(0),
       isAllAddrLoaded_(false),
-      lastBlockWasReorg_(false),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
-      lastEOFByteLoc_(0)
+      lastBlockWasReorg_(false)
 {
    headerHashMap_.clear();
    txHashMap_.clear();
@@ -1026,7 +1028,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 {
    TIMER_START("getBlockfileUpdates");
 
-   ifstream is(blkfilePath_, ios::in | ios::binary);
+   ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
    if( !is.is_open() )
    {
       cout << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
@@ -1065,7 +1067,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       cout << "Reading new block " << nBlkRead+1 << endl;
       brr.advance(4); // magic bytes
       uint32_t nBytes = brr.get_uint32_t();
-      uint32_t fileByteLoc = brr.getPosition() + lastEOFByteLoc_;
 
       BinaryData rawHeader;
       vector<BinaryData> rawTxVect;
@@ -1247,7 +1248,6 @@ bool BlockDataManager_FullRAM::addBlockData(
    pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
 
    uint8_t* newDataPtr = blockchainData_NEW_.getPtr() + oldNumBytes;
-   uint32_t firstNewTxOffset = 8 + 80 + viSize;
    
    cout << "Unserializing header" << endl;
    bhInputPair.first = headHash;
@@ -1397,12 +1397,10 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.difficultyDbl_  = 1.0;
    genBlock.difficultySum_  = 1.0;
    genBlock.isMainBranch_   = true;
-   genBlock.isOrphan_       = true;
+   genBlock.isOrphan_       = false;
    genBlock.isFinishedCalc_ = true;
-   genBlock.isInitialized_  = false; // TODO: we're throwing SegFaults unless we ignore this one
+   genBlock.isInitialized_  = true; 
 
-   BinaryData const & GenesisHash_ = BtcUtils::GenesisHash_;
-   BinaryData const & EmptyHash_   = BtcUtils::EmptyHash_;
 
    // If this is the first run, the topBlock is the genesis block
    if(topBlockPtr_ == NULL)
@@ -1414,7 +1412,6 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 
    // Iterate over all blocks, track the maximum difficulty-sum block
    map<BinaryData, BlockHeaderRef>::iterator iter;
-   uint32_t maxBlockHeight = prevTopBlockPtr_->getBlockHeight();
    double   maxDiffSum     = prevTopBlockPtr_->getDifficultySum();
    for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
    {
@@ -1437,7 +1434,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    // Walk down the list one more time, set nextHash fields
    // Also set headersByHeight_;
    bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr_);
-   topBlockPtr_->nextHash_ = EmptyHash_;
+   topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
    BlockHeaderRef* thisHeaderPtr = topBlockPtr_;
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
    while( !thisHeaderPtr->isFinishedCalc_ )

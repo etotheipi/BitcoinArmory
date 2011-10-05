@@ -218,8 +218,9 @@ class BtcAddress
 public:
    BtcAddress(void) : 
       address20_(0), pubKey65_(0), privKey32_(0), 
-      firstBlockNum_(0), firstTimestamp_(0), isActive_(false),
-      relevantTxIOPtrs_(0), ledger_(0) {}
+      firstBlockNum_(0), firstTimestamp_(0), 
+      lastBlockNum_(0), lastTimestamp_(0), 
+      isActive_(false), relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
               BinaryData    pubKey65 = BinaryData(0),
@@ -232,8 +233,8 @@ public:
    BinaryData const &  getPrivKey32(void) const  {return privKey32_;      }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
-   uint32_t       getLastBlockNum_(void)         {return lastBlockNum_;   }
-   uint32_t       getLastTimestamp_(void)        {return lastTimestamp_;  }
+   uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
+   uint32_t       getLastTimestamp(void)         {return lastTimestamp_;  }
    bool           isActive(void) const           {return isActive_;       }
 
    void           setAddrStr20(BinaryData bd)     { address20_.copyFrom(bd); }
@@ -247,8 +248,8 @@ public:
 
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
-   void           setLastBlockNum(uint32_t b)   { lastBlockNum_   = b; }
-   void           setLastTimestamp(uint32_t t)  { lastTimestamp_  = t; }
+   void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
+   void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
    uint32_t cleanLedger(void);
 
