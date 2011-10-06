@@ -109,6 +109,24 @@ void BlockHeaderRef::pprint(ostream & os, int nIndent, bool pBigendian) const
    getCopy().pprint(os, nIndent, pBigendian);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockHeaderRef::pprintAlot(ostream & os)
+{
+   cout << "Header:   " << getBlockHeight() << endl;
+   cout << "Hash:     " << getThisHash().toHexStr(true)  << endl;
+   cout << "Hash:     " << getThisHash().toHexStr(false) << endl;
+   cout << "PrvHash:  " << getPrevHash().toHexStr(true)  << endl;
+   cout << "PrvHash:  " << getPrevHash().toHexStr(false) << endl;
+   cout << "this*:    " << this << endl;
+   cout << "TotSize:  " << getBlockSize() << endl;
+   vector<TxRef*> txlist = getTxRefPtrList();
+   vector<BinaryData> hashlist = getTxHashList();
+   cout << "Number of Tx:  " << txlist.size() << ", " << hashlist.size() << endl;
+   for(uint32_t i=0; i<txlist.size(); i++)
+      txlist[i]->pprintAlot();
+
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<BinaryData> BlockHeaderRef::getTxHashList(void)
@@ -534,6 +552,51 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
       getTxOutRef(i).pprint(os, nIndent+1, pBigendian);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// Need a serious debugging method, that will touch all pointers that are
+// supposed to be not NULL.  I'd like to try to force a segfault here, if it
+// is going to happen, instead of letting it kill my program where I don't 
+// know what happened.
+void TxRef::pprintAlot(ostream & os)
+{
+   cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
+   cout << "Tx hash:   " << thisHash_.toHexStr(false) << endl;
+   cout << "Byteloc:   " << fileByteLoc_ << endl;
+   cout << "this*:     " << this << endl;
+   cout << "Size:      " << getSize() << endl;
+   cout << "HeaderPtr: " << headerPtr_ << endl;
+   if(headerPtr_ != NULL)
+   {
+      cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
+      cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
+      cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(false) << endl;
+   }
+
+   cout << endl << "NumTxIn:   " << getNumTxIn() << endl;
+   for(uint32_t i=0; i<getNumTxIn(); i++)
+   {
+      TxInRef txin = getTxInRef(i);
+      cout << "   TxIn: " << i <<  "   ParentPtr: " << txin.getParentTxPtr() << endl;
+      cout << "      Siz:  " << txin.getSize() << endl;
+      cout << "      Scr:  " << txin.getScriptSize() << "  Type: " 
+                        << (int)txin.getScriptType() << endl;
+      cout << "      OPR:  " << txin.getOutPointRef().getTxHash().toHexStr(true) 
+                             << txin.getOutPointRef().getTxOutIndex() << endl;
+      cout << "      Seq:  " << txin.getSequence() << endl;
+   }
+
+   cout << endl <<  "NumTxOut:   " << getNumTxOut() << endl;
+   for(uint32_t i=0; i<getNumTxOut(); i++)
+   {
+      TxOutRef txout = getTxOutRef(i);
+      cout << "   TxOut: " << i <<  "   ParentPtr: " << txout.getParentTxPtr() << endl;
+      cout << "      Siz:  " << txout.getSize() << endl;
+      cout << "      Scr:  " << txout.getScriptSize() << "  Type: " 
+                        << (int)txout.getScriptType() << endl;
+      cout << "      Val:  " << txout.getValue() << endl;
+   }
+
+}
 
 
 

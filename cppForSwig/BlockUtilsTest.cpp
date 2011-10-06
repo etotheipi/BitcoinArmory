@@ -201,7 +201,7 @@ int main(void)
    */
 
    cout << endl << endl;
-   cout << "Re-displaying top block information:" << endl;
+   cout << "Re-displaying top few blocks:" << endl;
    bdm.getTopBlockHeader().pprint(cout, 0, false);
 
    /////////////////////////////////////////////////////////////////////////////
@@ -210,9 +210,12 @@ int main(void)
    //       but it's not the prettiest thing...
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
+   char pause[256];
 
-
-   char aa[256];
+   
+   // This is a good test, but it didn't catch a few of the problems I'm having
+   // with adding blocks
+   /*
    cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
         << "file.  Then type a few characters and press enter -- will test" << endl
         << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
@@ -224,7 +227,26 @@ int main(void)
    cout << endl << endl;
    cout << "Printing NEW top block information" << endl;
    bdm.getTopBlockHeader().pprint(cout, 0, false);
+   */
+
+   // Let's examine a few things we've had problems with...
+   cout << endl;
+   bdm.getHeaderByHeight(100000)->pprint();
+   bdm.getHeaderByHeight(100001)->pprint();
+   bdm.getHeaderByHeight(100002)->pprint();
+   bdm.getHeaderByHeight(100003)->pprint();
+   cout << endl;
+
+   cout << "Print A LOT of information about a couple blocks..." << endl;
+   cout << endl << endl << endl;
+   bdm.getHeaderByHeight(100000)->pprintAlot();
+
+   cout << endl << endl << endl;
+   bdm.getHeaderByHeight(0)->pprintAlot();
+   
 
    cout << "Enter anything to exit" << endl;
-   cin >> aa;
+   cin >> pause;
+
+
 }

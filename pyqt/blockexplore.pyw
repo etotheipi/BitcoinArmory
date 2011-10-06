@@ -112,6 +112,8 @@ class BtcExploreWindow(QMainWindow):
       self.connect(self.txinView,   SIGNAL("clicked(QModelIndex)"), self.txInClicked)
       self.connect(self.txoutView,  SIGNAL("clicked(QModelIndex)"), self.txOutClicked)
 
+      self.connect(self.headView,   SIGNAL("itemSelectionChanged(QModelIndex,QModelIndex)"), self.headerClicked)
+
       self.connect(self.headView,   SIGNAL("doubleClicked(QModelIndex)"), self.headerDblClicked)
       self.connect(self.txView,     SIGNAL("doubleClicked(QModelIndex)"), self.txDblClicked)
       self.connect(self.txinView,   SIGNAL("doubleClicked(QModelIndex)"), self.txInDblClicked)
@@ -178,7 +180,7 @@ class BtcExploreWindow(QMainWindow):
       # Finally, set up the central widget
       self.ctrLayout = QGridLayout()
       # can control some features of the layout
-      self.ctrLayout.setSpacing(5)
+      self.ctrLayout.setSpacing(10)
       self.ctrLayout.setMargin(10)
       #                                             Row  Col nRows nCols
       self.ctrLayout.addWidget(self.lblSearch,        1,   0,   1,   1)

@@ -35,6 +35,16 @@
 #define HashString     BinaryData
 #define HashStringRef  BinaryDataRef
 
+#ifdef _DEBUG
+   #define PDEBUG(s) (cout << s << endl)
+   #define PDEBUG2(s1, s2) (cout << s1 << " " << s2 << endl)
+   #define PDEBUG3(s1, s2, s3) (cout << s1 << " " << s2 << " " << s3 << endl)
+#else
+   #define PDEBUG(s)
+   #define PDEBUG2(s1, s2)
+   #define PDEBUG3(s1, s2, s3)
+#endif
+
 
 //#ifdef MAIN_NETWORK
    #define MAGIC_BYTES "f9beb4d9"

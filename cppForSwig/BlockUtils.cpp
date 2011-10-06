@@ -233,6 +233,7 @@ void BtcWallet::addAddress_BtcAddress_(BtcAddress const & newAddr)
 }
 void BtcWallet::addAddress_1_(BinaryData    addr)
 {  
+   PDEBUG("Adding address to BtcWallet");
    addAddress(addr); 
 } 
 void BtcWallet::addAddress_2_(BinaryData    addr, 
@@ -742,6 +743,7 @@ vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData cons
 // This is an intense search, using every tool we've created so far!
 void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWallet)
 {
+   PDEBUG("Scanning blockchain for tx, from scratch");
    ///// LOOP OVER ALL HEADERS ////
    for(uint32_t h=0; h<headersByHeight_.size(); h++)
    {
@@ -756,11 +758,13 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWal
       }
    }
    myWallet.cleanLedger(); // removes invalid tx and sorts
+   PDEBUG("Done scanning blockchain for tx");
 }
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet> & walletVect)
 {
+   PDEBUG("Scanning blockchain for tx, from scratch");
    ///// LOOP OVER ALL HEADERS ////
    for(uint32_t h=0; h<headersByHeight_.size(); h++)
    {
@@ -780,6 +784,8 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet>
    // Removes any invalid tx and sorts
    for(uint32_t w=0; w<walletVect.size(); w++)
       walletVect[w].cleanLedger();
+
+   PDEBUG("Done scanning blockchain for tx");
 }
 
 
@@ -880,6 +886,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
 /////////////////////////////////////////////////////////////////////////////
 vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 {
+   PDEBUG("Finding all non-std tx");
    vector<TxRef*> txVectOut(0);
    uint32_t nHeaders = headersByHeight_.size();
 
@@ -924,6 +931,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
       }
    }
 
+   PDEBUG("Done finding all non-std tx");
    return txVectOut;
 }
 
@@ -931,6 +939,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 {
+   PDEBUG("Read blkfile from scratch");
    blkfilePath_ = filename;
    cout << "Reading block data from file: " << blkfilePath_.c_str() << endl;
    ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
@@ -1026,6 +1035,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 //
 uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 {
+   PDEBUG("Update blkfile from blk0001.dat");
    TIMER_START("getBlockfileUpdates");
 
    ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
@@ -1043,6 +1053,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    if(nBytesToRead == 0)
    {
       is.close();
+      PDEBUG("Nothing to update.  Done!");
       return 0;
    }
    
@@ -1089,12 +1100,14 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    cout << "Read " << nBlkRead << " new blocks." << endl;
    TIMER_STOP("getBlockfileUpdates");
 
+   PDEBUG("Done updating blkfile from blk0001.dat");
    return nBlkRead;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 {
+   PDEBUG("Verifying blk0001.dat integrity");
    bool isGood = true;
    map<HashString, BlockHeaderRef>::iterator headIter;
    for(headIter  = headerHashMap_.begin();
@@ -1117,6 +1130,7 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
       isGood = isGood && thisHeaderIsGood;
    }
    return isGood;
+   PDEBUG("Done verifying blockfile integrity");
 }
 
 
@@ -1152,6 +1166,7 @@ bool BlockDataManager_FullRAM::addBlockData(
                                  vector<BinaryData> const & rawTxVect,
                                         bool writeToBlk0001)
 {
+   PDEBUG("Adding blockdata");
    // Prepare for new blockdata
    lastBlockWasReorg_ = false;
    txJustInvalidated_.clear();
@@ -1164,7 +1179,6 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint32_t nBytes = 0;
    vector<uint32_t> txOffsets(numTx);
    vector<BinaryData> txHashes(numTx);
-   cout << "Computing block size...";
    for(uint32_t i=0; i<numTx; i++)
    {
       txOffsets[i] = nBytes;
@@ -1205,7 +1219,6 @@ bool BlockDataManager_FullRAM::addBlockData(
    uint32_t totalSize =  4  +  4  +  80  +  viSize  +  nBytes;
 
    // Reserve the exact amount of data before writing
-   cout << "Creating BinaryWriter..." << endl;
    BinaryWriter bw(totalSize);
    bw.put_BinaryData(    BtcUtils::MagicBytes_  );
    bw.put_uint32_t(      80 + viSize + nBytes   );
@@ -1218,17 +1231,14 @@ bool BlockDataManager_FullRAM::addBlockData(
    // Now add the new block data to the BDM memory pool
    BinaryData const & fullBlock = bw.getData();
    uint32_t oldNumBytes = blockchainData_NEW_.getSize();
-   cout << "Full block constructed, " << fullBlock.getSize() << " bytes" << endl;
-   cout << "OLD blockchain_NEW_ data was " << oldNumBytes << " bytes" << endl;
    blockchainData_NEW_.append( fullBlock );
-   cout << "NEW blockchain_NEW_ data is   " << blockchainData_NEW_.getSize() << " bytes" << endl;
-   cout << "One header and " << numTx << " new Tx" << endl;
+
+   PDEBUG("Done appending new block data into memory pool");
 
    // If appropriate, add to the blockfile (obviously don't do this if you
    // just read the data from blockfile, such as in a dumb client)
    if(writeToBlk0001)
    {
-      cout << "Writing new block data to file" << endl;
       ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);
       fileAppend.write((char const *)(fullBlock.getPtr()), totalSize);
       fileAppend.close();
@@ -1300,6 +1310,7 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr)
 {
+   PDEBUG("Reassessing Tx validity after (after reorg?)");
    // Walk down invalidated chain first, until we get to the branch point
    // Mark transactions as invalid
    txJustInvalidated_.clear();
@@ -1335,11 +1346,13 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
       thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
    }
 
+   PDEBUG("Done reassessing tx validity");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
 {
+   PDEBUG("Getting headers not on main chain");
    vector<BlockHeaderRef*> out(0);
    map<HashString, BlockHeaderRef>::iterator iter;
    for(iter  = headerHashMap_.begin(); 
@@ -1349,6 +1362,7 @@ vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
       if( ! iter->second.isMainBranch() )
          out.push_back(&(iter->second));
    }
+   PDEBUG("Getting headers not on main chain");
    return out;
 }
 
@@ -1361,6 +1375,7 @@ vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
 //        blockchain containing two equal-length chains
 bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 {
+   PDEBUG2("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
    // If rebuild, we zero out any original organization data and do a 
    // rebuild of the chain from scratch.  This will need to be done in
    // the event that our first call to organizeChain returns false, which
@@ -1389,6 +1404,9 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.isOrphan_       = false;
    genBlock.isFinishedCalc_ = true;
    genBlock.isInitialized_  = true; 
+   genBlock.txPtrList_      = vector<TxRef*>(1);
+   genBlock.txPtrList_[0]   = getTxByHash(BtcUtils::GenesisTxHash_);
+   genBlock.txPtrList_[0]->setHeaderPtr(&genBlock);
 
 
    // If this is the first run, the topBlock is the genesis block
@@ -1459,12 +1477,14 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    // On a full rebuild, prevChainStillValid should ALWAYS be true
    if( !prevChainStillValid )
    {
+      PDEBUG("Reorg detected!");
       reorgBranchPoint_ = thisHeaderPtr;
       organizeChain(true); // force-rebuild blockchain (takes less than 1s)
       return false;
    }
 
    // Let the caller know that there was no reorg
+   PDEBUG("Done organizing chain");
    return true;
 }
 
@@ -1532,6 +1552,7 @@ double BlockDataManager_FullRAM::traceChainDown(BlockHeaderRef & bhpStart)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
 {
+   PDEBUG("Marking orphan chain");
    bhpStart.isMainBranch_ = true;
    map<BinaryData, BlockHeaderRef>::iterator iter;
    iter = headerHashMap_.find(bhpStart.getPrevHash());
@@ -1555,6 +1576,7 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
       iter = headerHashMap_.find(iter->second.getPrevHash());
    }
    orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
+   PDEBUG("Done marking orphan chain");
 }
 
 

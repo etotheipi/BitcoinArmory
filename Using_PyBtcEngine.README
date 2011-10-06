@@ -24,26 +24,54 @@ that all features with an X in either column are accessible in SWIG.
 
  
 ################################################################################
+***Dependencies (from README) ***
+ 
+   - Crypto++  
+            Linux:   Install package "libcrypto++-dev"
+            Windows: Download from "http://www.cryptopp.com/#download"
+            (MSVS: Copy cryptopp source dir into same location as .sln)
+
+   - SWIG
+            Linux:   Install package "swig"
+            Windows: "http://www.swig.org/download.html"
+            (MSVS: Copy swigwin-2.x directory next to cryptopp)
+
+   - Python 2.6/2.7
+            Linux:   Should be preinstalled...
+            Windows: "http://www.python.org/getit/"
+
+   (OPTIONAL - include this if you'd like to compile/run the block-explorer demo)
+   - PyQt 4 (for Python 2.X)
+            Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
+            Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
+
+
 *** Compiling ***
 
-   Linux:   See dependencies below.  From the cppForSwig directory "make" to
-            make the C++ code alone, "make swig" to create and compile the 
-            SWIG wrappers
+   Linux:   From the cppForSwig directory "make" to make the C++ code alone, 
+            "make swig" to create and compile the SWIG wrappers
    
    Windows: MSVS 2010 project is included.  Setup to compile C++ code only
             I have not tried any of the Python/SWIG code in Windows, at all.
 
-   ***Dependencies (from README) ***
- 
-   - Crypto++  
-            In MSVS:    Copy cryptopp source dir into same location as .sln
-                        Download from "http://www.cryptopp.com/#download"
-            In Linux:   Install package "libcrypto++-dev"
-   - SWIG
-            In MSVS:    Haven't tried this yet
-            In Linux:   Install package "swig"
-   
-   - Probably more I'm forgetting...
+            In windows you're going to have to do a bit more work than just
+            installing the programs below.  Specifically, you need to add
+            a few environment variables to make sure MSVS knows where to find
+            all the python/swig files it needs
+            
+            I don't know for sure if I needed to set these environment
+            variables, I had to hard-code their locations in the config
+            manager after all.
+            Environment Vars        where I found it on my WinXP system
+            PYTHON_INCLUDE             C:\Python27\include
+            PYTHON_LIB                 C:\Python27\libs\python27.lib
+
+            In MSVS under the SWIG configuration:
+               C/C++  --> General --> Additional Include Directories:
+               Linker --> General --> Additional Library Directories:
+            Make sure the python lines match your system config
+
+
    
 ################################################################################
 

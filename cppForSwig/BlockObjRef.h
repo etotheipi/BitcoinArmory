@@ -90,6 +90,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader   getCopy(void) const;
    void          pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
+   void          pprintAlot(ostream & os=cout);
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serialize(void)    { return BinaryData(self_); }
@@ -361,6 +362,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
+   void pprintAlot(ostream & os=cout);
 
 private:
    BinaryDataRef self_; 
