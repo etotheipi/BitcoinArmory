@@ -1,4 +1,3 @@
-This license applies to all works under this directory.
 
 ********************************************************************************
 
@@ -18,6 +17,19 @@ This license applies to all works under this directory.
     for more details.
 
 ********************************************************************************
+
+    This license applies to all works under this directory EXCEPT for:
+    
+          cppForSwig/cryptopp
+    
+    Everything in that directory is considered public domain according to
+    http://www.cryptopp.com/ and included here only for convenience.  Please
+    contact me at alan.reiner@gmail.com if you believe that I am not in
+    compliance with the crypto++ licence.
+
+
+********************************************************************************
+
 
 
                        GNU AFFERO GENERAL PUBLIC LICENSE

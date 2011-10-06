@@ -69,24 +69,6 @@ int main(void)
    cout << "Now print out the txinx/outs for this block:" << endl;
    for(uint32_t t=0; t<nTx; t++)
       txptrVect[t]->pprint(cout, 2, false);
-   /*
-   {
-      TxRef & tx = *txrefVect[t]; 
-      uint32_t nIn  = tx.getNumTxIn();
-      uint32_t nOut = tx.getNumTxOut();
-      for(uint32_t in=0; in<nIn; in++)
-      {
-         tx.getTxInRef(in).pprint();
-      }
-      for(uint32_t out=0; out<nOut; out++)
-      {
-         TxOutRef txout = tx.getTxOutRef(out);
-         cout << "TxOut:" << endl;
-         cout << "\tRecip: " << txout.getRecipientAddr().toHexStr() << endl;
-         cout << "\tValue: " << txout.getValue() << endl;
-      }
-   }
-   */
    cout << endl << endl;
 
 
@@ -136,20 +118,9 @@ int main(void)
 
    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   cout << "Printing unsorted allAddr ledger..." << endl;
-   wlt.cleanLedger();
-   vector<LedgerEntry> const & ledger = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledger.size(); j++)
-   {  
-      cout << "    Tx: " 
-           << ledger[j].getAddrStr20().toHexStr() << "  "
-           << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
-           << ledger[j].getBlockNum()
-           << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
-   }
 
    cout << "Printing SORTED allAddr ledger..." << endl;
+   wlt.cleanLedger();
    vector<LedgerEntry> const & ledger2 = wlt.getTxLedger();
    for(uint32_t j=0; j<ledger2.size(); j++)
    {  
@@ -162,47 +133,6 @@ int main(void)
    }
    cout << endl << endl;
 
-   /////////////////////////////////////////////////////////////////////////////
-   /*
-   cout << endl << endl;
-   cout << "Scanning the blockchain for all non-std transactions..." << endl;
-   TIMER_START("FindNonStdTx");
-   vector<TxRef*> nonStdTxVect = bdm.findAllNonStdTx();
-   TIMER_STOP("FindNonStdTx");
-   cout << endl << "Found " << nonStdTxVect.size() << " such transactions:" << endl;
-   for(uint32_t i=0; i<nonStdTxVect.size(); i++)
-   {
-      TxRef & tx = *(nonStdTxVect[i]);
-      cout << "  Block:  " << tx.getHeaderPtr()->getBlockHeight() << endl;
-      cout << "  TxHash: " << tx.getThisHash().copySwapEndian().toHexStr() << endl;
-      cout << "  #TxIn:  " << tx.getNumTxIn() << endl;
-      cout << "  #TxOut: " << tx.getNumTxOut() << endl;
-      cout << endl << endl;
-   }
-   */
-   cout << endl << endl;
-
-   /////////////////////////////////////////////////////////////////////////////
-   /*
-   cout << "Resetting BlockDataManager..." << endl;
-   TIMER_WRAP(bdm.Reset());
-
-   bdm.readBlkFile_FromScratch("../blk0001.dat");
-   cout << endl << endl;
-
-   cout << endl << "Reading blockchain again" << endl;
-   isGenOnMainChain = bdm.organizeChain();
-   cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
-   cout << endl << endl;
-
-   cout << endl << endl;
-   cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().pprint(cout, 0, false);
-   */
-
-   cout << endl << endl;
-   cout << "Re-displaying top few blocks:" << endl;
-   bdm.getTopBlockHeader().pprint(cout, 0, false);
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -212,37 +142,6 @@ int main(void)
    UniversalTimer::instance().printCSV("timings.csv");
    char pause[256];
 
-   
-   // This is a good test, but it didn't catch a few of the problems I'm having
-   // with adding blocks
-   /*
-   cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
-        << "file.  Then type a few characters and press enter -- will test" << endl
-        << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
-   cin >> aa;
-
-   cout << "Checking blkfile for updates" << endl;
-   bdm.readBlkFileUpdate();
-
-   cout << endl << endl;
-   cout << "Printing NEW top block information" << endl;
-   bdm.getTopBlockHeader().pprint(cout, 0, false);
-   */
-
-   // Let's examine a few things we've had problems with...
-   cout << endl;
-   bdm.getHeaderByHeight(100000)->pprint();
-   bdm.getHeaderByHeight(100001)->pprint();
-   bdm.getHeaderByHeight(100002)->pprint();
-   bdm.getHeaderByHeight(100003)->pprint();
-   cout << endl;
-
-   cout << "Print A LOT of information about a couple blocks..." << endl;
-   cout << endl << endl << endl;
-   bdm.getHeaderByHeight(100000)->pprintAlot();
-
-   cout << endl << endl << endl;
-   bdm.getHeaderByHeight(0)->pprintAlot();
    
 
    cout << "Enter anything to exit" << endl;
