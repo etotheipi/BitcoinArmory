@@ -227,7 +227,9 @@ class BtcExploreWindow(QMainWindow):
          self.headView.resizeColumnsToContents()
          self.headView.setCurrentIndex( self.models['Headers'].index(0,0))
          self.headerClicked()
-         self.updateTimer.start(blkfileRefreshInterval)
+
+         # TODO: updating disabled due to problem with addBlockData() method
+         #self.updateTimer.start(blkfileRefreshInterval)
          self.prevSearchStr = ''
 
          self.txView.horizontalHeader().resizeSection(TX_HASH, 250)

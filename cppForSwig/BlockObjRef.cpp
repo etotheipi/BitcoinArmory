@@ -569,7 +569,6 @@ void TxRef::pprintAlot(ostream & os)
    {
       cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
       cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
-      cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(false) << endl;
    }
 
    cout << endl << "NumTxIn:   " << getNumTxIn() << endl;
