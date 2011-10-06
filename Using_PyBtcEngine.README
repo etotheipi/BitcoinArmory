@@ -69,8 +69,12 @@ that all features with an X in either column are accessible in SWIG.
             In MSVS under the SWIG configuration:
                C/C++  --> General --> Additional Include Directories:
                Linker --> General --> Additional Library Directories:
+               Linker --> Input   --> Additional Library Directories:
             Make sure the python lines match your system config
 
+            SO FAR THIS IS AS FAR AS I'VE GOTTEN:  the SWIG code compiles
+            into a .dll but I can't seem to load it, and PyQt4 won't load,
+            either.  
 
    
 ################################################################################
@@ -84,17 +88,53 @@ that all features with an X in either column are accessible in SWIG.
       - C++
       - Python
 
-   If you are only interested in using the library for building python tools or
-   applications, you can skip directly to the SWIG section, which bypasses a lot
-   of the under-the-hood discussion in the other two sections. 
+   Most of what you need to know is actually in the C++ section, since every 
+   C++ function call is mapped directly into python calls through SWIG.  These
+   C++ functions are at the heart of everything you do that touches the block-
+   chain.  Python will be needed for anything involving Base-58 address strings,
+   or anything ECDSA-related.  Signing and verification works, it's just not
+   part of any demo yet (besides unittest.py).
+   
 
 
 ################################################################################
 *** SWIG Code Overview ***
 
    There is no explicit library file for combining python and C++ methods.  You
-   import both CppBlockUtils and pybtcengine and off you go -- it might be a
-   a good idea to create such a unified import, though
+   import both CppBlockUtils and pybtcengine in python, and off you go. 
+
+   The one import thing to know is that the modules are spread out in the root
+   project directory, and thus you need to add some directories to your path.
+   This can be done on the command-line before running python, or at the top
+   of the python file that includes them. 
+
+   For instance, if you are running the example blockexplorer in the pyqt dir,
+   you will need the following lines at the top of your script to point python
+   to search the other directories for the modules:
+
+      import sys
+      sys.path.append('..')
+      sys.path.append('../cppForSwig')
+      from pybtcengine import *
+      from CppBlockUtils import *
+
+
+   Most of the CONOPS for using the combined library is actually knowing how
+   to use the C++ code.  Most calls you make will be on SWIGified objects
+   pulled in through the .dll/.so.  In this case, the best documentation 
+   really is the example code.  Look at cppForSwig/testswig.py; this file
+   has examples of nearly every function.  You can use this as a reference
+   for what functions require C++ calls, and which ones are from pybtcengine.py.
+   In general, if it came from the BlockDataManager:
+
+      bdm = BlockDataManager_FullRam.GetInstance()
+      bdm.getTxByHash(...)
+      ...
+
+   Then the resulting objects will be C++/SWIG objects.  The list of useful
+   methods in the C++ documentation, below, will identify all the available
+   methods. 
+   
 
 
 ################################################################################
@@ -475,7 +515,8 @@ Class BlockDataManager (BDM):
          TxOutRef  TxRef::getTxOutRef (index i);
 
    
-***RULE 3:  TxIns ARE COMPLICATED
+***RULE 3:  TxIns ARE COMPLICATED 
+            (I know this isn't "rule", but it is important)
 
    We'd like to think that TxIns contain all the information we need about
    where and how much money is coming from in a Tx.  However, this is not 
@@ -511,7 +552,7 @@ Class BlockDataManager (BDM):
 ################################################################################
 *** Python Code Overview ***
 
-
+   Coming soon!
 
 
 

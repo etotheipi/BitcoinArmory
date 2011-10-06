@@ -14,15 +14,21 @@
 * Date:     11 July, 2011
 * Donate:   1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
 *
-* Descr:   Modified from the "caesure" code by Sam Rushing, pulled from his 
-*          git repo on 10 July, 2011.   At this point, though, my code no 
-*          longer resembles his at all, so I will probably remove any license
-*          information related to it (my code is a complete rewrite).
+* Descr:   PyBtcEngine is a full computational backend for Bitcoin software.
+*          It combines C++ and Python to enable *all* the functionality 
+*          necessary to write Bitcoin software, *except for networking*.
+*          The networking is more application-oriented, whereas this library
+*          is more focused on enabling you to read/interpret/construct the
+*          packets you would be exchanging on the Bitcoin network.
+*  
+*          For a demo of all the features of the library, you can see the 
+*          PyQt block-explorer I made in the pyqt directory.  If it doesn't
+           autodetect your blkfile, you can provide it as a CLI argument
 *
-*          I have shifted most of Sam's code and comments to the bottom of the 
-*          file, and it will eventually be removed entirely once I have 
-*          succeeded at writing all the stuff he did, but in my own way.  He 
-*          will, of course, still get a ton of credit for providing such good 
+*          This library was originally based on Sam Rushing "caesure" code,
+*          but is a complete rewrite and no longer resembles or includes any
+*          of the code he wrote.  So, I have removed his license/copyright.  
+*          Of course, he still gets a ton of credit for providing such good 
 *          reference code.  "Lis" from the Bitcoin forums also deserves a ton 
 *          of credit for writing a fantastic, dependency-less version of ECDSA.  
 *          This may enable more platforms where this code can be used, as they 
@@ -121,54 +127,26 @@
 
 ********************************************************************************
 
-***Dependencies***
- 
-   - Crypto++  
-            Linux:   Install package "libcrypto++-dev"
-            Windows: Download from "http://www.cryptopp.com/#download"
-            (MSVS: Copy cryptopp source dir into same location as .sln)
+   For information on dependencies and compiling, see Using_PyBtcEngine.README
 
-   - SWIG
-            Linux:   Install package "swig"
-            Windows: "http://www.swig.org/download.html"
-            (MSVS: Copy swigwin-2.x directory next to cryptopp)
-
-   - Python 2.6/2.7
-            Linux:   Should be preinstalled...
-            Windows: "http://www.python.org/getit/"
-
-   - PyQt 4 (for Python 2.X)
-            Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
-            Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
-
-
-***Compiling***
-
-   Linux:   See dependencies below.  From the cppForSwig directory "make" to
-            make the C++ code alone, "make swig" to create and compile the 
-            SWIG wrappers
-   
-   Windows: MSVS 2010 project is included.  Setup to compile C++ code only
-            I have not tried any of the Python/SWIG code in Windows, at all.
-
-            In windows you're going to have to do a bit more work than just
-            installing the programs below.  Specifically, you need to add
-            a few environment variables to make sure MSVS knows where to find
-            all the python/swig files it needs
-            
-            I don't know for sure if I needed to set these environment
-            variables, I had to hard-code their locations in the config
-            manager after all.
-            Environment Vars        where I found it on my WinXP system
-            PYTHON_INCLUDE             C:\Python27\include
-            PYTHON_LIB                 C:\Python27\libs\python27.lib
-
-            In MSVS under the SWIG configuration:
-               C/C++  --> General --> Additional Include Directories:
-               Linker --> General --> Additional Library Directories:
-            Make sure the python lines match your system config
 ********************************************************************************
 
+#####
+06 Oct, 2011
+
+   *** A working block-explorer demo in PyQt4!  (Linux/Ubuntu, only, right now)
+
+   Got enough of the interface working in SWIG to be able to create a full 
+   blockchain explorer.  It does not include anything to do with addresses,
+   besides identifying the addresses involved in the particular block you
+   are browsing.  In the immediate future I plan to include a separate
+   tab/view for doing address searches and display.
+
+   I had implemented a feature to auto-update the GUI in realtime if you
+   are simultaneously running the BTC client and it updates blk0001.dat. 
+   Unfortunately, there's a bug in the addBlockData() method which causes
+   a segfault.  This feature will be back soon, but I think I need the help
+   of MSVS to thoroughly test/debug addBlockData().
 
 #####
 25 Sep, 2011:   
