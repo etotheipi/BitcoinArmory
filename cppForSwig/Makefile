@@ -7,15 +7,20 @@ LINKER = g++
 OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o
 
 INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
-LIBRARY_OPTS += -Lcryptopp -lcryptopp
+LIBRARY_OPTS += -Lcryptopp -lcryptopp -lpthread
+SWIG_INC += -I/usr/include/python2.7
 
-SWIG_OPTS += -I/usr/include/python2.7 
+SWIG_OPTS    += -c++ -python
+
+# Use the following line if you get an error about needing the classic option in swig
+#SWIG_OPTS    += -classic
+
 
 all :
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o
-	g++ -shared -lcryptopp $(OBJS) CppBlockUtils_wrap.o -o _CppBlockUtils.so
+	g++ -shared $(LIBRARY_OPTS) $(OBJS) CppBlockUtils_wrap.o -o _CppBlockUtils.so
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
 	$(LINKER) $(OBJS) -o BlockUtilsTest.out $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsTest.cpp
@@ -43,10 +48,10 @@ BlockUtils.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils.cpp
 
 CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
-	swig -c++ -python -v CppBlockUtils.i
+	swig $(SWIG_OPTS) -v CppBlockUtils.i
 
 CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
-	$(COMPILER) $(SWIG_OPTS) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx
+	$(COMPILER) $(SWIG_INC) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx
 
 
 ##########################################################################
