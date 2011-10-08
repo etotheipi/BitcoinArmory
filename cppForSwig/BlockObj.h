@@ -94,7 +94,7 @@ private:
    BinaryData     nextHash_;
    uint32_t       numTx_;
    uint32_t       blockHeight_;
-   uint64_t       fileByteLoc_;
+   uint64_t       blkByteLoc_;
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;

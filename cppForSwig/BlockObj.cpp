@@ -92,7 +92,7 @@ BlockHeader::BlockHeader( uint8_t const * bhDataPtr, BinaryData* thisHash) :
    nextHash_(32),
    numTx_(-1),
    blockHeight_(0),
-   fileByteLoc_(0),  
+   blkByteLoc_(0),  
    difficultySum_(-1.0),
    isMainBranch_(false),
    isOrphan_(false),
@@ -117,7 +117,7 @@ BlockHeader::BlockHeader( BinaryData const * serHeader ,
    nextHash_(32),
    numTx_(-1),
    blockHeight_(0),
-   fileByteLoc_(fileLoc),  
+   blkByteLoc_(fileLoc),  
    difficultySum_(-1.0),
    isMainBranch_(false),
    isOrphan_(false),
@@ -156,7 +156,7 @@ void BlockHeader::pprint(ostream & os, int nIndent, bool pBigendian) const
                          << "    (" << getDiffBits().toHexStr().c_str() << ")" << endl;
    os << indent << "   CumulDiff:  " << (difficultySum_) << endl;
    os << indent << "   Nonce:      " << getNonce() << endl;
-   os << indent << "   FileOffset: " << fileByteLoc_ << endl;
+   os << indent << "   FileOffset: " << blkByteLoc_ << endl;
 }
 
 

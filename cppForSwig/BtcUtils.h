@@ -300,6 +300,16 @@ public:
       sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash256(uint8_t const * strToHash,
+                                uint32_t        nBytes)
+   {
+      static CryptoPP::SHA256 sha256_;
+
+      BinaryData hashOutput(32);
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(BinaryData const & strToHash, 

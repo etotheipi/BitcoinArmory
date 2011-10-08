@@ -47,7 +47,7 @@ class BlockHeaderRef
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef(void) : isInitialized_(false),  fileByteLoc_(0), isFinishedCalc_(false) {}
+   BlockHeaderRef(void) : isInitialized_(false),  blkByteLoc_(0), isFinishedCalc_(false) {}
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
@@ -66,13 +66,14 @@ public:
    bool               isOrphan(void) const        { return isOrphan_;                  }
    double             getDifficulty(void) const   { return difficultyDbl_;             }
    double             getDifficultySum(void) const{ return difficultySum_;             }
-   uint32_t           getNumTx(void) const        { return numTx_;                     }
 
    BinaryDataRef getThisHashRef(void) const   { return thisHash_.getRef();            }
    BinaryDataRef getPrevHashRef(void) const   { return BinaryDataRef(getPtr()+4, 32); }
    BinaryDataRef getNextHashRef(void) const   { return nextHash_.getRef();            }
    BinaryDataRef getMerkleRootRef(void) const { return BinaryDataRef(getPtr()+36,32); }
    BinaryDataRef getDiffBitsRef(void) const   { return BinaryDataRef(getPtr()+72,4 ); }
+   uint64_t      getBlkStartByte(void) const  { return blkByteLoc_;                   }
+   uint32_t      getNumTx(void) const         { return txPtrList_.size();             }
 
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
@@ -116,7 +117,7 @@ private:
    uint32_t       numTx_;
    uint32_t       blockNumBytes_;
    uint32_t       blockHeight_;
-   uint64_t       fileByteLoc_;
+   uint64_t       blkByteLoc_;
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
@@ -324,6 +325,8 @@ public:
    BinaryDataRef      getThisHashRef(void) const { return BinaryDataRef(thisHash_); }
    void               setMainBranch(bool b=true) { isMainBranch_ = b; }
    bool               isMainBranch(void)  { return isMainBranch_; }
+   uint64_t           getTxStartByte(void) { return fileByteLoc_; }
+   uint64_t           setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
 
    Tx              getCopy(void) const;
    BlockHeaderRef* getHeaderPtr(void)  const { return headerPtr_; }

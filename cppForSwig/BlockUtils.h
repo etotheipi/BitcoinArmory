@@ -469,12 +469,13 @@ private:
    // else is just references and pointers to this data
    string                             blkfilePath_;
    BinaryData                         blockchainData_ALL_;
-   BinaryData                         blockchainData_NEW_; // to be added
+   list<BinaryData>                   blockchainData_NEW_; // to be added
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef >            txHashMap_;
 
    // This may have to be updated later if the blkfile exceeds 4GB
-   uint32_t                           lastEOFByteLoc_;
+   uint64_t                           lastEOFByteLoc_;
+   uint64_t                           totalBlockchainBytes_;
 
    // If we are really ambitious and have a lot of RAM, we might save
    // all addresses for super-fast lookup.  The key is the 20B addr
@@ -518,17 +519,26 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
-   int32_t getNumConfirmations(BinaryData txHash);
+   int32_t          getNumConfirmations(BinaryData txHash);
    BlockHeaderRef & getTopBlockHeader(void) ;
    BlockHeaderRef & getGenesisBlock(void) ;
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
    TxRef *          getTxByHash(BinaryData const & txHash);
 
-   void             addHeader(BinaryData const & binHeader);
-   bool             addBlockData(BinaryData  const & binaryHeader,
-                          vector<BinaryData> const & binaryTxList,
-                                 bool writeToBlk0001=false);
+
+   // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
+   bool             parseNewBlockData(BinaryRefReader & rawBlockDataReader,
+                                      uint64_t & currBlockchainSize);
+
+   // When we add new block data, we will need to store/copy it to its
+   // permanent memory location before parsing it.
+   // These methods return (blockAddSucceeded, didCauseReorg)
+   pair<bool,bool>  addNewBlockData(   BinaryData rawBlockDataCopy,
+                                       bool writeToBlk0001=false);
+   pair<bool,bool>  addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
+                                       bool writeToBlk0001=false);
+
    void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr );

@@ -54,7 +54,7 @@ BlockHeader BlockHeaderRef::getCopy(void) const
    bh.nextHash_     = nextHash_;
    bh.numTx_        = numTx_;
    bh.blockHeight_  = blockHeight_;
-   bh.fileByteLoc_  = fileByteLoc_;
+   bh.blkByteLoc_  = blkByteLoc_;
    bh.difficultyDbl_ = difficultyDbl_;
    bh.difficultySum_ = difficultySum_;
    bh.isMainBranch_ = isMainBranch_;
@@ -81,7 +81,7 @@ void BlockHeaderRef::unserialize(uint8_t const * ptr)
    numTx_ = 0;
    blockHeight_ = UINT32_MAX;
    blockNumBytes_ = 0;
-   fileByteLoc_ = 0;
+   blkByteLoc_ = 0;
    difficultySum_ = -1;
    isMainBranch_ = false;
    isOrphan_ = true;
@@ -560,12 +560,6 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 void TxRef::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
-   cout << "Tx hash:   " << thisHash_.toHexStr(false) << endl;
-   cout << "Byteloc:   " << fileByteLoc_ << endl;
-   cout << "this*:     " << this << endl;
-   cout << "Size:      " << getSize() << endl;
-   cout << "HeaderPtr: " << headerPtr_ << endl;
-   if(headerPtr_ != NULL)
    {
       cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
       cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
