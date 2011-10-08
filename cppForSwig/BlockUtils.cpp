@@ -1157,7 +1157,7 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
       // headers
 
    }
-   currBlockchainSize += nBytes;
+   currBlockchainSize += nBytes+8;
    return !brr.isEndOfStream();
 }
    

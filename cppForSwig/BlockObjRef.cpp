@@ -52,7 +52,7 @@ BlockHeader BlockHeaderRef::getCopy(void) const
 
    bh.thisHash_     = thisHash_;
    bh.nextHash_     = nextHash_;
-   bh.numTx_        = numTx_;
+   bh.numTx_        = getNumTx();
    bh.blockHeight_  = blockHeight_;
    bh.blkByteLoc_  = blkByteLoc_;
    bh.difficultyDbl_ = difficultyDbl_;
@@ -78,7 +78,6 @@ void BlockHeaderRef::unserialize(uint8_t const * ptr)
                               BinaryDataRef(self_.getPtr()+72, 4));
    isInitialized_ = true;
    nextHash_ = BinaryData(0);
-   numTx_ = 0;
    blockHeight_ = UINT32_MAX;
    blockNumBytes_ = 0;
    blkByteLoc_ = 0;
@@ -131,8 +130,8 @@ void BlockHeaderRef::pprintAlot(ostream & os)
 ////////////////////////////////////////////////////////////////////////////////
 vector<BinaryData> BlockHeaderRef::getTxHashList(void)
 {
-   vector<BinaryData> vectOut(numTx_);
-   for(uint32_t i=0; i<numTx_; i++)
+   vector<BinaryData> vectOut(getNumTx());
+   for(uint32_t i=0; i<getNumTx(); i++)
       vectOut[i] = txPtrList_[i]->getThisHash();
 
    return vectOut;

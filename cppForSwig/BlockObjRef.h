@@ -114,7 +114,6 @@ private:
 
    // Need to compute these later
    BinaryData     nextHash_;
-   uint32_t       numTx_;
    uint32_t       blockNumBytes_;
    uint32_t       blockHeight_;
    uint64_t       blkByteLoc_;
