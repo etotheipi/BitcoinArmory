@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <sstream>
 #include "UniversalTimer.h"
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -132,6 +133,26 @@ int main(void)
            
    }
    cout << endl << endl;
+   cout << endl << endl << endl << endl;
+   cout << "Testing adding blocks to an existing chain"<< endl;
+   cout << "Resetting the blockchain..." << endl;
+   bdm.Reset();
+   cout << "Reading and organizing 180 blocks" << endl;
+   bdm.readBlkFile_FromScratch("blk180.bin");
+   bdm.organizeChain();
+
+   /*
+   cout << "Reading through extra blocks and adding them to the blockchain" << endl;
+   for(uint32_t i=181; i<190; i++)
+   {
+      stringstream ss;
+      ss << "blk" << i << ".bin";
+      cout << "Reading: " << ss.str();
+   }
+   */
+   
+
+  
 
 
    /////////////////////////////////////////////////////////////////////////////

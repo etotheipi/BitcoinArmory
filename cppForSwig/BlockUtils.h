@@ -454,6 +454,13 @@ typedef enum
 
 
 
+
+class BlockDataManager_FullRAM;
+
+
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // BlockDataManager is a SINGLETON:  only one is ever created.  
@@ -600,6 +607,24 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+//
+// We have a problem with "classic" swig refusing to compile static functions,
+// which gives me no way to access BDM which is a singleton class accessed by
+// a static class method.  This class simply wraps the call to be invoked in
+// python/swig
+//
+////////////////////////////////////////////////////////////////////////////////
+class BlockDataManager
+{
+public:
+   BlockDataManager(void) { bdm_ = &(BlockDataManager_FullRAM::GetInstance());}
+   
+   BlockDataManager_FullRAM & getBDM(void) { return *bdm_; }
+
+private:
+   BlockDataManager_FullRAM* bdm_;
+};
 
 
 #endif

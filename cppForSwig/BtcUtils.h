@@ -309,6 +309,7 @@ public:
       BinaryData hashOutput(32);
       sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
       sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+      return hashOutput;
    }
 
    /////////////////////////////////////////////////////////////////////////////

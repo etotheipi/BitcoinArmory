@@ -1233,7 +1233,7 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
 pair<bool,bool> BlockDataManager_FullRAM::addNewBlockDataRef( BinaryDataRef bdr,
                                                               bool writeToBlk0001)
 {
-   addNewBlockData(bdr.copy());
+   return addNewBlockData(bdr.copy());
 }
 
 
