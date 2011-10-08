@@ -294,7 +294,7 @@ bool IntegrityCheckModule(const char *moduleFilename, const byte *expectedModule
 	if (!moduleStream)
 	{
 #ifdef CRYPTOPP_WIN32_AVAILABLE
-		OutputDebugString("Crypto++ DLL integrity check failed. Cannot open file for reading.");
+		//OutputDebugString("Crypto++ DLL integrity check failed. Cannot open file for reading.");
 #endif
 		return false;
 	}
@@ -388,7 +388,7 @@ bool IntegrityCheckModule(const char *moduleFilename, const byte *expectedModule
 	// hash from disk instead
 	if (!VerifyBufsEqual(expectedModuleMac, actualMac, macSize))
 	{
-		OutputDebugString("In memory integrity check failed. This may be caused by debug breakpoints or DLL relocation.\n");
+		//OutputDebugString("In memory integrity check failed. This may be caused by debug breakpoints or DLL relocation.\n");
 		moduleStream.clear();
 		moduleStream.seekg(0);
 		verifier.Initialize(MakeParameters(Name::OutputBuffer(), ByteArrayParameter(actualMac, (unsigned int)actualMac.size())));
@@ -407,7 +407,7 @@ bool IntegrityCheckModule(const char *moduleFilename, const byte *expectedModule
 #ifdef CRYPTOPP_WIN32_AVAILABLE
 	std::string hexMac;
 	HexEncoder(new StringSink(hexMac)).PutMessageEnd(actualMac, actualMac.size());
-	OutputDebugString((("Crypto++ DLL integrity check failed. Actual MAC is: " + hexMac) + "\n").c_str());
+	//OutputDebugString((("Crypto++ DLL integrity check failed. Actual MAC is: " + hexMac) + "\n").c_str());
 #endif
 	return false;
 }

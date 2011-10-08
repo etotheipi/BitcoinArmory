@@ -114,7 +114,6 @@ private:
 
    // Need to compute these later
    BinaryData     nextHash_;
-   uint32_t       numTx_;
    uint32_t       blockNumBytes_;
    uint32_t       blockHeight_;
    uint64_t       blkByteLoc_;
@@ -326,7 +325,7 @@ public:
    void               setMainBranch(bool b=true) { isMainBranch_ = b; }
    bool               isMainBranch(void)  { return isMainBranch_; }
    uint64_t           getTxStartByte(void) { return fileByteLoc_; }
-   uint64_t           setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
+   void               setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
 
    Tx              getCopy(void) const;
    BlockHeaderRef* getHeaderPtr(void)  const { return headerPtr_; }

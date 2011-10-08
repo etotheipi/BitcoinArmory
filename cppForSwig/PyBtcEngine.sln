@@ -3,10 +3,15 @@ Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PyBtcEngine", "PyBtcEngine.vcxproj", "{610511B9-F1E5-468B-904C-B0F6F077F903}"
 	ProjectSection(ProjectDependencies) = postProject
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55} = {32B97D03-0DE6-7789-B554-7C08D55F6D55}
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39} = {B1055DA3-83CE-47BF-98E6-2850E3411D39}
 	EndProjectSection
 EndProject
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptlib", "cryptopp\cryptlib.vcxproj", "{32B97D03-0DE6-7789-B554-7C08D55F6D55}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PBE_BlockExplore", "PBE_BlockExplore.vcxproj", "{9F7D5FF5-1B79-4247-B670-07DA57272FE5}"
+	ProjectSection(ProjectDependencies) = postProject
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39} = {B1055DA3-83CE-47BF-98E6-2850E3411D39}
+	EndProjectSection
+EndProject
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "cryptopp", "cryptopp\cryptopp.vcxproj", "{B1055DA3-83CE-47BF-98E6-2850E3411D39}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -27,15 +32,26 @@ Global
 		{610511B9-F1E5-468B-904C-B0F6F077F903}.Release|Win32.Build.0 = Release|Win32
 		{610511B9-F1E5-468B-904C-B0F6F077F903}.Template|Win32.ActiveCfg = Release|Win32
 		{610511B9-F1E5-468B-904C-B0F6F077F903}.Template|Win32.Build.0 = Release|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.Debug|Win32.ActiveCfg = Debug|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.DLL-Import Debug|Win32.ActiveCfg = DLL-Import Debug|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.DLL-Import Debug|Win32.Build.0 = DLL-Import Debug|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.DLL-Import Release|Win32.ActiveCfg = DLL-Import Release|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.DLL-Import Release|Win32.Build.0 = DLL-Import Release|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.Release|Win32.ActiveCfg = Release|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.Release|Win32.Build.0 = Release|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.Template|Win32.ActiveCfg = Template|Win32
-		{32B97D03-0DE6-7789-B554-7C08D55F6D55}.Template|Win32.Build.0 = Template|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Debug|Win32.ActiveCfg = Debug|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Debug|Win32.Build.0 = Debug|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.DLL-Import Debug|Win32.ActiveCfg = Debug|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.DLL-Import Debug|Win32.Build.0 = Debug|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.DLL-Import Release|Win32.ActiveCfg = Release|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.DLL-Import Release|Win32.Build.0 = Release|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Release|Win32.ActiveCfg = Release|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Release|Win32.Build.0 = Release|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Template|Win32.ActiveCfg = Release|Win32
+		{9F7D5FF5-1B79-4247-B670-07DA57272FE5}.Template|Win32.Build.0 = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Debug|Win32.ActiveCfg = Debug|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Debug|Win32.Build.0 = Debug|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.DLL-Import Debug|Win32.ActiveCfg = Debug|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.DLL-Import Debug|Win32.Build.0 = Debug|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.DLL-Import Release|Win32.ActiveCfg = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.DLL-Import Release|Win32.Build.0 = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Release|Win32.ActiveCfg = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Release|Win32.Build.0 = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Template|Win32.ActiveCfg = Release|Win32
+		{B1055DA3-83CE-47BF-98E6-2850E3411D39}.Template|Win32.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

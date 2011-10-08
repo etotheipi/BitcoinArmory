@@ -15,7 +15,7 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    //bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
@@ -51,11 +51,11 @@ int main(void)
    cout << endl << endl;
    
    /////////////////////////////////////////////////////////////////////////////
-   cout << "Verifying MerkleRoot of blk 100014" << endl;
+   cout << "Verifying MerkleRoot of blk 170" << endl;
    vector<BinaryData> merkletree(0);
-   BlockHeaderRef & blk100k = *(bdm.getHeaderByHeight(100014));
-   BinaryData merkroot = blk100k.calcMerkleRoot(&merkletree);
-   isVerified = blk100k.verifyMerkleRoot();
+   BlockHeaderRef & ablk = *(bdm.getHeaderByHeight(170));
+   BinaryData merkroot = ablk.calcMerkleRoot(&merkletree);
+   isVerified = ablk.verifyMerkleRoot();
    cout << (isVerified ? "Correct!" : "Incorrect!") 
         << "  ("  << merkroot.toHexStr() << ")" << endl;
    cout << endl << endl;
@@ -63,9 +63,9 @@ int main(void)
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t nTx = blk100k.getNumTx();
-   vector<TxRef*> & txptrVect = blk100k.getTxRefPtrList();
-   blk100k.pprint(cout, 0, false);
+   uint32_t nTx = ablk.getNumTx();
+   vector<TxRef*> & txptrVect = ablk.getTxRefPtrList();
+   ablk.pprint(cout, 0, false);
    cout << "Now print out the txinx/outs for this block:" << endl;
    for(uint32_t t=0; t<nTx; t++)
       txptrVect[t]->pprint(cout, 2, false);
