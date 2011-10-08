@@ -98,6 +98,9 @@ public:
    BinaryDataRef serializeRef(void) { return            self_;  }
 
    /////////////////////////////////////////////////////////////////////////////
+   BinaryData    serializeWholeBlock(bool withLead8Bytes=true) const;
+
+   /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);
    void unserialize(BinaryData const & str) { unserialize(str.getRef()); }
    void unserialize(BinaryDataRef const & str);

@@ -27,6 +27,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
+// Returns the size of the header + numTx + tx[i], no leading bytes
 uint32_t BlockHeaderRef::getBlockSize(void) const
 {
    uint32_t nBytes = HEADER_SIZE; 
@@ -101,6 +102,28 @@ void BlockHeaderRef::unserialize(BinaryRefReader & brr)
    unserialize(brr.get_BinaryDataRef(HEADER_SIZE)); 
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData BlockHeaderRef::serializeWholeBlock(bool withLead8Bytes) const
+{
+   BinaryWriter serializedBlock;
+   uint32_t blksize = getBlockSize();
+   if(withLead8Bytes)
+   {
+      serializedBlock.reserve(blksize + 8);
+      serializedBlock.put_BinaryData(BtcUtils::MagicBytes_);
+      serializedBlock.put_uint32_t(blksize);
+   }
+   else
+      serializedBlock.reserve(blksize);
+
+   serializedBlock.put_BinaryData(self_);
+   serializedBlock.put_var_int(getNumTx());
+   for(uint32_t i=0; i<getNumTx(); i++)
+      serializedBlock.put_BinaryData(txPtrList_[i]->serialize());
+
+   return serializedBlock.getData();
+   
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockHeaderRef::pprint(ostream & os, int nIndent, bool pBigendian) const

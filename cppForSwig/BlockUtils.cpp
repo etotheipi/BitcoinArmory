@@ -1003,7 +1003,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 //
 uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 {
-   PDEBUG("Update blkfile from ", blkfilePath_);
+   PDEBUG2("Update blkfile from ", blkfilePath_);
    TIMER_START("getBlockfileUpdates");
 
    // Try opening the blkfile for reading
@@ -1022,7 +1022,6 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    if(nBytesToRead == 0)
    {
       is.close();
-      PDEBUG("Nothing to update.  Done!");
       return 0;
    }
 
@@ -1031,9 +1030,11 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    // TODO:  Check why we need the -1 on lastEOFByteLoc_.  And if it is 
    //        necessary, do we need it elsewhere, too?
    BinaryData newBlockDataRaw(nBytesToRead);
-   is.seekg(lastEOFByteLoc_-1, ios::beg);
+   is.seekg(lastEOFByteLoc_, ios::beg);
    is.read((char*)newBlockDataRaw.getPtr(), nBytesToRead);
    is.close();
+
+   cout << newBlockDataRaw.getSliceCopy(0,4).toHexStr() << endl;
     
    // Use the specialized "addNewBlockData()" methods to add the data
    // to the permanent memory pool and parse it into our header/tx maps
@@ -1192,7 +1193,7 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
-   PDEBUG("Re-assess blockchain state after adding new data...");
+   PDEBUG("New block!  Re-assess blockchain state after adding new data...");
    bool prevTopBlockStillValid = organizeChain(); 
 
    // If there was a reorganization, we're going to have to do a bit of work

@@ -253,9 +253,9 @@ class BtcExploreWindow(QMainWindow):
 
    #############################################################################
    def readNewBlockData(self):
-      print 'Checking for new blocks in block file...',
+      #print 'Checking for new blocks in block file...',
       numNewBlk = self.bdm.readBlkFileUpdate();
-      print numNewBlk, 'found!'
+      #print numNewBlk, 'found!'
 
    #############################################################################
    def getSelectedHeader(self):
