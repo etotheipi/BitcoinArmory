@@ -605,6 +605,8 @@ void BlockDataManager_FullRAM::Reset(void)
    previouslyValidBlockHeaderRefs_.clear();
    orphanChainStartBlocks_.clear();
    
+   lastEOFByteLoc_ = 0;
+   totalBlockchainBytes_ = 0;
 
 }
 
@@ -1001,7 +1003,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
 //
 uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 {
-   PDEBUG("Update blkfile from blk0001.dat");
+   PDEBUG("Update blkfile from ", blkfilePath_);
    TIMER_START("getBlockfileUpdates");
 
    // Try opening the blkfile for reading
@@ -1016,7 +1018,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    // We succeeded opening the file, check to see if there's new data
    is.seekg(0, ios::end);
    uint32_t filesize = (size_t)is.tellg();
-   uint32_t nBytesToRead = filesize - lastEOFByteLoc_;
+   uint32_t nBytesToRead = (uint32_t)(filesize - lastEOFByteLoc_);
    if(nBytesToRead == 0)
    {
       is.close();
@@ -1026,8 +1028,10 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 
    
    // Seek to the beginning of the new data and read it
+   // TODO:  Check why we need the -1 on lastEOFByteLoc_.  And if it is 
+   //        necessary, do we need it elsewhere, too?
    BinaryData newBlockDataRaw(nBytesToRead);
-   is.seekg(lastEOFByteLoc_, ios::beg);
+   is.seekg(lastEOFByteLoc_-1, ios::beg);
    is.read((char*)newBlockDataRaw.getPtr(), nBytesToRead);
    is.close();
     
@@ -1044,6 +1048,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       uint32_t nextBlockSize = *(uint32_t*)(brr.getCurrPtr()+4);
       BinaryDataRef nextRawBlockRef(brr.getCurrPtr(), nextBlockSize+8);
       blockAddResults = addNewBlockDataRef( nextRawBlockRef );
+      brr.advance(nextBlockSize+8);
       ////////////
 
       bool blockAddSucceeded = blockAddResults.first;
@@ -1158,7 +1163,7 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
 
    }
    currBlockchainSize += nBytes+8;
-   return !brr.isEndOfStream();
+   return true;
 }
    
 
@@ -1182,7 +1187,7 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
    if( ! didSucceed ) 
    {
       cout << "Adding new block data to memory pool failed!";
-      return pair<bool, bool>(false, true);
+      return pair<bool, bool>(false, false);
    }
 
    // Finally, let's re-assess the state of the blockchain with the new data

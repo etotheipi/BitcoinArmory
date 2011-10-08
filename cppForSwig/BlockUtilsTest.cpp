@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <string>
 #include <sstream>
 #include "UniversalTimer.h"
 #include "BinaryData.h"
@@ -9,6 +10,17 @@
 
 using namespace std;
 
+void copyFile(string src, string dst)
+{
+   fstream fin(src, ios::in | ios::binary);
+   fstream fout(dst, ios::out | ios::binary);
+   if(fin == NULL || fout == NULL) { cout <<"error"; return; }
+   // read from the first file then write to the second file
+   char c;
+   while(!fin.eof()) { fin.get(c); fout.put(c); }
+}
+
+
 int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
@@ -16,8 +28,9 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
+   //bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
    //bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -135,25 +148,28 @@ int main(void)
 
 
 
-   /*
    cout << endl << endl << endl << endl;
    cout << "Testing adding blocks to an existing chain"<< endl;
    cout << "Resetting the blockchain..." << endl;
    bdm.Reset();
    cout << "Reading and organizing 180 blocks" << endl;
-   bdm.readBlkFile_FromScratch("blk180.bin");
+   copyFile("blockaddtest/blk179.bin", "smallBlockchain.dat");
+   bdm.readBlkFile_FromScratch("smallBlockchain.dat");
    bdm.organizeChain();
-
-   cout << "Reading through extra blocks and adding them to the blockchain" << endl;
-   for(uint32_t i=181; i<190; i++)
+   bdm.getTopBlockHeader().pprint();
+   for(uint32_t i=180; i<189; i++)
    {
       stringstream ss;
-      ss << "blk" << i << ".bin";
-      cout << "Reading: " << ss.str();
+      ss << "blockaddtest/blk" << i << ".bin";
+      copyFile( ss.str(), "smallBlockchain.dat");
+      cout << "New block added to blockchain file.  Updating..." << endl;
+      bdm.readBlkFileUpdate();
    }
-   */
+
+
    
 
+   /*
    char aa[256];
    cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
         << "file.  Then type a few characters and press enter -- will test" << endl
@@ -162,6 +178,7 @@ int main(void)
 
    cout << "Checking blkfile for updates" << endl;
    bdm.readBlkFileUpdate();
+   */
 
    cout << endl << endl;
    cout << "Printing NEW top block information" << endl;
