@@ -16,7 +16,7 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
+   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
    //bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
@@ -132,7 +132,10 @@ int main(void)
            << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
-   cout << endl << endl;
+
+
+
+   /*
    cout << endl << endl << endl << endl;
    cout << "Testing adding blocks to an existing chain"<< endl;
    cout << "Resetting the blockchain..." << endl;
@@ -141,7 +144,6 @@ int main(void)
    bdm.readBlkFile_FromScratch("blk180.bin");
    bdm.organizeChain();
 
-   /*
    cout << "Reading through extra blocks and adding them to the blockchain" << endl;
    for(uint32_t i=181; i<190; i++)
    {
@@ -152,7 +154,19 @@ int main(void)
    */
    
 
-  
+   char aa[256];
+   cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
+        << "file.  Then type a few characters and press enter -- will test" << endl
+        << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
+   cin >> aa;
+
+   cout << "Checking blkfile for updates" << endl;
+   bdm.readBlkFileUpdate();
+
+   cout << endl << endl;
+   cout << "Printing NEW top block information" << endl;
+   bdm.getTopBlockHeader().pprint(cout, 0, false);
+
 
 
    /////////////////////////////////////////////////////////////////////////////

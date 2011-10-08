@@ -33,7 +33,7 @@ print 'Done!'
 print ''
 
 print 'Constructing BlockDataManager... ',
-bdm = BlockDataManager_FullRAM.GetInstance()
+bdm = BlockDataManager().getBDM()
 print 'Done!'
 print ''
 

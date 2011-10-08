@@ -44,7 +44,7 @@ class HeaderDataModel(QAbstractTableModel):
 
    def __init__(self):
       super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.bdm = BlockDataManager().getBDM()
       self.headerData = []
       self.endianSelect = BIGENDIAN
 
@@ -116,7 +116,7 @@ class TxDataModel(QAbstractTableModel):
 
    def __init__(self):
       super(TxDataModel, self).__init__()
-      self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.bdm = BlockDataManager().getBDM()
       self.endianSelect = BIGENDIAN
       self.txHashList = None 
 
@@ -192,7 +192,7 @@ class TxInDataModel(QAbstractTableModel):
 
    def __init__(self):
       super(TxInDataModel, self).__init__()
-      self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.bdm = BlockDataManager().getBDM()
       self.endianSelect = BIGENDIAN
       self.txSelect = None 
 
@@ -262,7 +262,7 @@ class TxOutDataModel(QAbstractTableModel):
 
    def __init__(self):
       super(TxOutDataModel, self).__init__()
-      self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.bdm = BlockDataManager().getBDM()
       self.endianSelect = BIGENDIAN
       self.txSelect = None 
 

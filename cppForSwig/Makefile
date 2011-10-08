@@ -1,6 +1,6 @@
 COMPILER = g++ 
-COMPILER_OPTS = -c -g -Wall -D_DEBUG
-#COMPILER_OPTS = -c -march=native -O2 -pipe 
+#COMPILER_OPTS = -c -g -Wall -D_DEBUG
+COMPILER_OPTS = -c -march=native -O2 -pipe 
 
 
 LINKER = g++ 
@@ -10,11 +10,16 @@ INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
 LIBRARY_OPTS += -Lcryptopp -lcryptopp -lpthread
 SWIG_INC += -I/usr/include/python2.7
 
-SWIG_OPTS    += -c++ -python
+SWIG_OPTS    += -c++ -python -classic
 
 # Use the following line if you get an error about needing the classic option in swig
-#SWIG_OPTS    += -classic
 
+ifneq (exists, $(shell [ -d /usr/include/python2.7 ]  && echo exists ))
+   SWIG_INC = -I/usr/include/python2.6
+   ifneq (exists, $(shell [ -d /usr/include/python2.6 ]  && echo exists ))
+      SWIG_INC = -I/usr/include/python2.5
+   endif
+endif
 
 all :
 	make BlockUtilsTest.out

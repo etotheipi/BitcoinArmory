@@ -209,7 +209,8 @@ class BtcExploreWindow(QMainWindow):
 
       # Prepare the BlockDataManager for 
       print 'GUI is setup, now load the blockchain'
-      self.bdm = BlockDataManager_FullRAM.GetInstance()
+      #self.bdm = BlockDataManager_FullRAM.GetInstance()
+      self.bdm = BlockDataManager().getBDM()
       self.setWindowTitle('PyBtcEngine BlockExplorer')
       QTimer.singleShot(500, self.initBlockchain)
 
@@ -229,7 +230,7 @@ class BtcExploreWindow(QMainWindow):
          self.headerClicked()
 
          # TODO: updating disabled due to problem with addBlockData() method
-         #self.updateTimer.start(blkfileRefreshInterval)
+         self.updateTimer.start(blkfileRefreshInterval)
          self.prevSearchStr = ''
 
          self.txView.horizontalHeader().resizeSection(TX_HASH, 250)
@@ -252,7 +253,9 @@ class BtcExploreWindow(QMainWindow):
 
    #############################################################################
    def readNewBlockData(self):
-      self.bdm.readBlkFileUpdate();
+      print 'Checking for new blocks in block file...',
+      numNewBlk = self.bdm.readBlkFileUpdate();
+      print numNewBlk, 'found!'
 
    #############################################################################
    def getSelectedHeader(self):
