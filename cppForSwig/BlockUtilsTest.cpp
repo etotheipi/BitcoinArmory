@@ -169,6 +169,13 @@ int main(void)
 */
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   // ***** Print out all timings to stdout and a csv file *****
+   //       This file can be loaded into a spreadsheet,
+   //       but it's not the prettiest thing...
+   UniversalTimer::instance().print();
+   UniversalTimer::instance().printCSV("timings.csv");
+   cout << endl << endl;
    
 
    char aa[256];
@@ -186,12 +193,6 @@ int main(void)
 
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   // ***** Print out all timings to stdout and a csv file *****
-   //       This file can be loaded into a spreadsheet,
-   //       but it's not the prettiest thing...
-   UniversalTimer::instance().print();
-   UniversalTimer::instance().printCSV("timings.csv");
    char pause[256];
 
    
