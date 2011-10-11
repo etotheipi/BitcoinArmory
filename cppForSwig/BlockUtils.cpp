@@ -1217,6 +1217,7 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
       // TODO:  It might also be necessary to look at the specific
       //        block headers that were invalidated, to make sure 
       //        we aren't using stale data somewhere that copied it
+      cout << "Done reassessing tx validity " << endl;
    }
 
    // Write this block to file if is on the main chain and we requested it
@@ -1277,18 +1278,28 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
                                               BlockHeaderRef* newTopPtr,
                                               BlockHeaderRef* branchPtr)
 {
-   PDEBUG("Reassessing Tx validity after (after reorg?)");
+   cout << "Reassessing Tx validity after (after reorg?)" << endl;
+   cout << "   Old top block: " << endl;
+   oldTopPtr->pprint(cout, 2);
+   cout << "   New top block: " << endl;
+   newTopPtr->pprint(cout, 2);
+   cout << "   Branch point: " << endl;
+   branchPtr->pprint(cout, 2);
+   cout << endl << endl;
+
    // Walk down invalidated chain first, until we get to the branch point
    // Mark transactions as invalid
    txJustInvalidated_.clear();
    txJustAffected_.clear();
    BlockHeaderRef* thisHeaderPtr = oldTopPtr;
+   cout << "Invalidating old-chain transactions..." << endl;
    while(oldTopPtr != branchPtr)
    {
       
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
+         cout << "   Tx: " << txptr->getThisHash().getSliceCopy(0,8).toHexStr() << endl;
          txptr->setHeaderPtr(NULL);
          txptr->setMainBranch(false);
          txJustInvalidated_.insert(txptr->getThisHash());
@@ -1300,11 +1311,13 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
    // Walk down the newly-valid chain and mark transactions as valid.  If 
    // a tx is in both chains, it will still be valid after this process
    thisHeaderPtr = newTopPtr;
+   cout << "Marking new-chain transactions valid..." << endl;
    while(newTopPtr != branchPtr)
    {
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
+         cout << "   Tx: " << txptr->getThisHash().getSliceCopy(0,8).toHexStr() << endl;
          txptr->setHeaderPtr(thisHeaderPtr);
          txptr->setMainBranch(true);
          txJustInvalidated_.erase(txptr->getThisHash());

@@ -298,6 +298,8 @@ class TxOutDataModel(QAbstractTableModel):
       elif role==Qt.TextAlignmentRole:
          if col in (TXOUT_STYPE,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (TXOUT_BTC,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
          else: 
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:

@@ -884,12 +884,9 @@ class PyBtcAddress(object):
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):
       assert( self.hasPubKey )
-      xBinBE     = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
-      yBinBE     = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
-      binPubKey  = '\x04' + xBinBE + yBinBE
-      keyHash    = hash160(binPubKey)
-      chkSum     = hash256(netbyte + keyHash)[:4]
-      return       binary_to_addrStr(netbyte + keyHash + chkSum)
+      keyHash = self.getAddr160()
+      chkSum  = hash256(netbyte + keyHash)[:4]
+      return  binary_to_addrStr(netbyte + keyHash + chkSum)
 
    def getAddrStr(self):
       if self.addrStr==UNINITIALIZED:
@@ -958,6 +955,11 @@ class PyBtcAddress(object):
       yMatches = privToPubPoint.y() == self.pubKeyYInt
       return (xMatches and yMatches)
 
+   def getAddr160(self):
+      xBinBE     = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
+      yBinBE     = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
+      binPubKey  = '\x04' + xBinBE + yBinBE
+      return hash160(binPubKey)
    
    def addrStr_serialize(self):
       # Address string has a maximum length of 34 bytes... so let's left-pad
@@ -1702,7 +1704,90 @@ opnames[172] =	'OP_CHECKSIG'
 opnames[173] =	'OP_CHECKSIGVERIFY'
 opnames[174] =	'OP_CHECKMULTISIG'
 opnames[175] =	'OP_CHECKMULTISIGVERIFY'
-# =  words are used internally for assisting with transaction matching. They are invalid if used in actual scripts.
+
+
+opCodeLookup = {}
+opCodeLookup['OP_FALSE'] = 0  
+opCodeLookup['OP_PUSHDATA1'] =	76
+opCodeLookup['OP_PUSHDATA2'] =	77
+opCodeLookup['OP_PUSHDATA4'] =	78
+opCodeLookup['OP_1NEGATE'] =	79
+opCodeLookup['OP_1'] =  81
+opCodeLookup['OP_TRUE'] =	81
+opCodeLookup['OP_NOP'] =	97
+opCodeLookup['OP_IF'] =	99
+opCodeLookup['OP_NOTIF'] =	100
+opCodeLookup['OP_ELSE'] = 103
+opCodeLookup['OP_ENDIF'] = 104
+opCodeLookup['OP_VERIFY'] =	105
+opCodeLookup['OP_RETURN'] = 106
+opCodeLookup['OP_TOALTSTACK'] =	107
+opCodeLookup['OP_FROMALTSTACK'] =	108
+opCodeLookup['OP_IFDUP'] =	115
+opCodeLookup['OP_DEPTH'] =	116
+opCodeLookup['OP_DROP'] =	117
+opCodeLookup['OP_DUP'] =	118
+opCodeLookup['OP_NIP'] =	119
+opCodeLookup['OP_OVER'] =	120
+opCodeLookup['OP_PICK'] =	121
+opCodeLookup['OP_ROLL'] =	122
+opCodeLookup['OP_ROT'] =	123
+opCodeLookup['OP_SWAP'] =	124
+opCodeLookup['OP_TUCK'] =	125
+opCodeLookup['OP_2DROP'] =	109
+opCodeLookup['OP_2DUP'] =	110
+opCodeLookup['OP_3DUP'] =	111
+opCodeLookup['OP_2OVER'] =	112
+opCodeLookup['OP_2ROT'] =	113
+opCodeLookup['OP_2SWAP'] =	114
+opCodeLookup['OP_CAT'] =	126
+opCodeLookup['OP_SUBSTR'] = 127
+opCodeLookup['OP_LEFT'] =	128
+opCodeLookup['OP_RIGHT'] =	129
+opCodeLookup['OP_SIZE'] =	130
+opCodeLookup['OP_INVERT'] =	131
+opCodeLookup['OP_AND'] =	132
+opCodeLookup['OP_OR'] =	133
+opCodeLookup['OP_XOR'] = 134
+opCodeLookup['OP_EQUAL'] = 135
+opCodeLookup['OP_EQUALVERIFY'] =	136
+opCodeLookup['OP_1ADD'] =	139
+opCodeLookup['OP_1SUB'] =	140
+opCodeLookup['OP_2MUL'] =	141
+opCodeLookup['OP_2DIV'] =	142
+opCodeLookup['OP_NEGATE'] =	143
+opCodeLookup['OP_ABS'] =	144
+opCodeLookup['OP_NOT'] =	145
+opCodeLookup['OP_0NOTEQUAL'] =	146
+opCodeLookup['OP_ADD'] =	147
+opCodeLookup['OP_SUB'] =	148
+opCodeLookup['OP_MUL'] =	149
+opCodeLookup['OP_DIV'] =	150
+opCodeLookup['OP_MOD'] =	151
+opCodeLookup['OP_LSHIFT'] =	152
+opCodeLookup['OP_RSHIFT'] =	153
+opCodeLookup['OP_BOOLAND'] =	154
+opCodeLookup['OP_BOOLOR'] =	155
+opCodeLookup['OP_NUMEQUAL'] =	156
+opCodeLookup['OP_NUMEQUALVERIFY'] =	157
+opCodeLookup['OP_NUMNOTEQUAL'] =	158
+opCodeLookup['OP_LESSTHAN'] =	159
+opCodeLookup['OP_GREATERTHAN'] =	160
+opCodeLookup['OP_LESSTHANOREQUAL'] =	161
+opCodeLookup['OP_GREATERTHANOREQUAL'] = 162
+opCodeLookup['OP_MIN'] =	163
+opCodeLookup['OP_MAX'] =	164
+opCodeLookup['OP_WITHIN'] = 165
+opCodeLookup['OP_RIPEMD160'] =	166
+opCodeLookup['OP_SHA1'] =	167
+opCodeLookup['OP_SHA256'] =	168
+opCodeLookup['OP_HASH160'] =	169
+opCodeLookup['OP_HASH256'] =	170
+opCodeLookup['OP_CODESEPARATOR'] =	171
+opCodeLookup['OP_CHECKSIG'] =	172
+opCodeLookup['OP_CHECKSIGVERIFY'] =	173
+opCodeLookup['OP_CHECKMULTISIG'] =	174
+opCodeLookup['OP_CHECKMULTISIGVERIFY'] =	175
 #Word Opcode	Description
 #OP_PUBKEYHASH = 253	Represents a public key hashed with OP_HASH160.
 #OP_PUBKEY = 254	Represents a public key compatible with OP_CHECKSIG.
