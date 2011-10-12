@@ -131,6 +131,8 @@ def default_error_function(msg):
    print 'Aborting run'
    exit(0)
 
+raiseError = default_error_function
+
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    outStr = ''
    sz = len(theStr)
@@ -144,11 +146,10 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
       outStr += theStr[i*minor:(i+1)*minor] + ' '
    return outStr
 
-def pprintHex(theStr, indent='', major=8, minor=8, withAddr=True):
+def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    print prettyHex(theStr, indent, major, minor)
 
 
-raiseError = default_error_function
 
 def setErrorFunction( fn ):
    raiseError = fn
@@ -728,81 +729,6 @@ def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
 def checkAddrStrValid(addrStr):
    return checkAddrBinValid(addrStr_to_binary(addrStr))
 
-TXOUT_SCRIPT_STANDARD = 0
-TXOUT_SCRIPT_COINBASE = 1
-TXOUT_SCRIPT_UNKNOWN  = 2
-
-TXIN_SCRIPT_STANDARD = 0
-TXIN_SCRIPT_COINBASE = 1
-TXIN_SCRIPT_SPENDCB  = 2
-TXIN_SCRIPT_UNKNOWN  = 3  
-
-################################################################################
-def getTxOutScriptType(txoutObj):
-   binScript = txoutObj.binPKScript
-   if binScript[:2] == hex_to_binary('4104'):
-      is65B = len(binScript) == 67
-      lastByteMatch = binScript[-1] == int_to_binary(172)
-      if (is65B and lastByteMatch):
-         return TXOUT_SCRIPT_COINBASE
-   else:
-      is1 = binScript[ 0] == int_to_binary(118)
-      is2 = binScript[ 1] == int_to_binary(169)
-      is3 = binScript[-2] == int_to_binary(136)
-      is4 = binScript[-1] == int_to_binary(172)
-      if (is1 and is2 and is3 and is4):
-         return TXOUT_SCRIPT_STANDARD
-   return TXOUT_SCRIPT_UNKNOWN
-
-################################################################################
-def TxOutScriptExtractKeyAddr(txoutObj):
-   binScript = txoutObj.binPKScript
-   txoutType = getTxOutScriptType(txoutObj)
-   if txoutType == TXOUT_SCRIPT_UNKNOWN:
-      return '<Non-standard TxOut script>'
-
-   if txoutType == TXOUT_SCRIPT_COINBASE:
-      newAcct = PyBtcAddress().createFromPublicKey(binScript[1:66])
-      return newAcct.calculateAddrStr()
-   elif txoutType == TXOUT_SCRIPT_STANDARD:
-      newAcct = PyBtcAddress().createFromPublicKeyHash160(binScript[3:23])
-      return newAcct.getAddrStr()
-
-################################################################################
-def getTxInScriptType(txinObj):
-   binScript = txinObj.binScript
-   if txinObj.outpoint.txOutHash == EmptyHash:
-      return TXIN_SCRIPT_COINBASE
-
-   b0,b1,b2,b3,b4 = binScript[:5]
-   if not (b1=='\x03' and b3=='\x02'):
-      return TXIN_SCRIPT_UNKNOWN
-
-   SigSize = binary_to_int(b2) + 3
-   PubkeySize = 66  # 0x4104[Pubx][Puby]
-
-   if len(binScript)==SigSize:
-      return TXIN_SCRIPT_SPENDCB
-   elif len(binScript)==(SigSize + PubkeySize):
-      return TXIN_SCRIPT_STANDARD
-   
-   return TXIN_SCRIPT_UNKNOWN
-
-   
-################################################################################
-def TxInScriptExtractKeyAddr(txinObj):
-   scrType = getTxInScriptType(txinObj)
-   if scrType == TXIN_SCRIPT_STANDARD:
-      pubKeyBin = txinObj.binScript[-65:] 
-      newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
-      return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
-   elif scrType == TXIN_SCRIPT_COINBASE:
-      return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
-   elif scrType == TXIN_SCRIPT_SPENDCB:
-      return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
-   else:
-      return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
-
 
 
 # BtcAccount -- I gotta come up with a better name for this
@@ -951,21 +877,22 @@ class PyBtcAddress(object):
    def checkPubPrivKeyPairMatch(self):
       assert( self.hasPubKey and self.hasPrivKey )
       privToPubPoint = EC_GenPt * self.privKeyInt
-      xMatches = privToPubPoint.x() == self.pubKeyXInt
-      yMatches = privToPubPoint.y() == self.pubKeyYInt
+      xMatches = (privToPubPoint.x() == self.pubKeyXInt)
+      yMatches = (privToPubPoint.y() == self.pubKeyYInt)
       return (xMatches and yMatches)
 
    def getAddr160(self):
-      xBinBE     = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
-      yBinBE     = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
-      binPubKey  = '\x04' + xBinBE + yBinBE
-      return hash160(binPubKey)
+      if self.hasPubKey:
+         return hash160(self.pubKey_serialize())
+      else:
+         return '' 
    
    def addrStr_serialize(self):
       # Address string has a maximum length of 34 bytes... so let's left-pad
       # the address with \x00 bytes and start reading at the first 1
       addrLen = len(self.addrStr)
       return int_to_binary(addrLen) + self.addrStr  # append reg string to binary string...okay
+
    def addrStr_unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
          addrData = toUnpack
@@ -977,11 +904,12 @@ class PyBtcAddress(object):
 
    def pubKey_serialize(self):
       if not self.hasPubKey:
-         return '\x00'
+         return ''
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
          yBinBE = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
          return  '\x04' + xBinBE + yBinBE
+
    def pubKey_unserialize(self, toUnpack):
       # Does not recompute addrStr
       if isinstance(toUnpack, BinaryUnpacker):
@@ -1060,6 +988,81 @@ class PyBtcAddress(object):
       
       
 
+TXOUT_SCRIPT_STANDARD = 0
+TXOUT_SCRIPT_COINBASE = 1
+TXOUT_SCRIPT_UNKNOWN  = 2
+
+TXIN_SCRIPT_STANDARD = 0
+TXIN_SCRIPT_COINBASE = 1
+TXIN_SCRIPT_SPENDCB  = 2
+TXIN_SCRIPT_UNKNOWN  = 3  
+
+################################################################################
+def getTxOutScriptType(txoutObj):
+   binScript = txoutObj.binScript
+   if binScript[:2] == hex_to_binary('4104'):
+      is65B = len(binScript) == 67
+      lastByteMatch = binScript[-1] == int_to_binary(172)
+      if (is65B and lastByteMatch):
+         return TXOUT_SCRIPT_COINBASE
+   else:
+      is1 = binScript[ 0] == int_to_binary(118)
+      is2 = binScript[ 1] == int_to_binary(169)
+      is3 = binScript[-2] == int_to_binary(136)
+      is4 = binScript[-1] == int_to_binary(172)
+      if (is1 and is2 and is3 and is4):
+         return TXOUT_SCRIPT_STANDARD
+   return TXOUT_SCRIPT_UNKNOWN
+
+################################################################################
+def TxOutScriptExtractKeyAddr(txoutObj):
+   binScript = txoutObj.binScript
+   txoutType = getTxOutScriptType(txoutObj)
+   if txoutType == TXOUT_SCRIPT_UNKNOWN:
+      return '<Non-standard TxOut script>'
+
+   if txoutType == TXOUT_SCRIPT_COINBASE:
+      newAcct = PyBtcAddress().createFromPublicKey(binScript[1:66])
+      return newAcct.calculateAddrStr()
+   elif txoutType == TXOUT_SCRIPT_STANDARD:
+      newAcct = PyBtcAddress().createFromPublicKeyHash160(binScript[3:23])
+      return newAcct.getAddrStr()
+
+################################################################################
+def getTxInScriptType(txinObj):
+   binScript = txinObj.binScript
+   if txinObj.outpoint.txOutHash == EmptyHash or len(binScript) < 1:
+      return TXIN_SCRIPT_COINBASE
+
+   b0,b1,b2,b3,b4 = binScript[:5]
+   if not (b1=='\x03' and b3=='\x02'):
+      return TXIN_SCRIPT_UNKNOWN
+
+   SigSize = binary_to_int(b2) + 3
+   PubkeySize = 66  # 0x4104[Pubx][Puby]
+
+   if len(binScript)==SigSize:
+      return TXIN_SCRIPT_SPENDCB
+   elif len(binScript)==(SigSize + PubkeySize):
+      return TXIN_SCRIPT_STANDARD
+   
+   return TXIN_SCRIPT_UNKNOWN
+
+   
+################################################################################
+def TxInScriptExtractKeyAddr(txinObj):
+   scrType = getTxInScriptType(txinObj)
+   if scrType == TXIN_SCRIPT_STANDARD:
+      pubKeyBin = txinObj.binScript[-65:] 
+      newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
+      return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
+   elif scrType == TXIN_SCRIPT_COINBASE:
+      return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
+   elif scrType == TXIN_SCRIPT_SPENDCB:
+      return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
+   else:
+      return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
+
 
 
 # Finally done with all the base conversion functions and ECDSA code
@@ -1109,7 +1112,7 @@ class PyTxIn(object):
    def __init__(self):
       self.outpoint   = UNINITIALIZED
       self.binScript  = UNINITIALIZED
-      self.intSeq     = UNINITIALIZED
+      self.intSeq     = 2**32-1
       self.isCoinbase = UNKNOWN
 
    def unserialize(self, toUnpack):
@@ -1152,8 +1155,8 @@ class PyTxIn(object):
 #####
 class PyTxOut(object):
    def __init__(self):
-      self.value       = UNINITIALIZED
-      self.binPKScript = UNINITIALIZED
+      self.value     = UNINITIALIZED
+      self.binScript = UNINITIALIZED
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -1164,14 +1167,14 @@ class PyTxOut(object):
       self.value       = txOutData.get(UINT64)
       scriptSize       = txOutData.get(VAR_INT) 
       if txOutData.getRemainingSize() < scriptSize: raise UnserializeError
-      self.binPKScript = txOutData.get(BINARY_CHUNK, scriptSize)
+      self.binScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
 
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(UINT64, self.value)
-      binOut.put(VAR_INT, len(self.binPKScript))
-      binOut.put(BINARY_CHUNK, self.binPKScript)
+      binOut.put(VAR_INT, len(self.binScript))
+      binOut.put(BINARY_CHUNK, self.binScript)
       return binOut.getBinaryString()
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
@@ -1190,13 +1193,14 @@ class PyTxOut(object):
 
 #####
 class PyTx(object):
-   #def __init__(self, version, txInList, txOutList, lockTime):
-      #self.version    = version
-      #self.numInputs  = len(txInList)
-      #self.inputs     = txInList
-      #self.numOutputs = len(txOutList)
-      #self.outputs    = txOutList
-      #self.lockTime   = lockTime
+   def __init__(self):
+      self.version    = UNINITIALIZED
+      self.numInputs  = UNINITIALIZED
+      self.inputs     = UNINITIALIZED
+      self.numOutputs = UNINITIALIZED
+      self.outputs    = UNINITIALIZED
+      self.lockTime   = 0
+      self.thisHash   = UNINITIALIZED
 
    def serialize(self):
       binOut = BinaryPacker()
@@ -1231,6 +1235,11 @@ class PyTx(object):
       self.nBytes = endPos - startPos
       self.thisHash = hash256(self.serialize())
       return self
+
+   def getHash(self):
+      if self.thisHash == UNINITIALIZED:
+         self.thisHash = hash256(self.serialize())
+      return self.thisHash
       
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -1258,15 +1267,15 @@ class PyTx(object):
 
 class PyBlockHeader(object):
    def __init__(self):
-      self.theHash      = UNINITIALIZED 
-      self.version      = UNINITIALIZED 
-      self.prevBlkHash  = UNINITIALIZED 
+      self.version      = 1
+      self.prevBlkHash  = ''
       self.merkleRoot   = UNINITIALIZED 
       self.timestamp    = UNINITIALIZED 
       self.diffBits     = UNINITIALIZED 
       self.nonce        = UNINITIALIZED 
       # Use these fields for storage of block information, but are not otherwise
       # part of the serialized data structure
+      self.theHash      = ''
       self.numTx        = UNINITIALIZED 
       self.blkHeight    = UNINITIALIZED 
       self.fileByteLoc  = UNINITIALIZED 
@@ -1419,11 +1428,12 @@ class PyBlockHeader(object):
 
 
 class PyBlockData(object):
-   def __init__(self):
-      self.numTx      = UNINITIALIZED
-      self.txList     = UNINITIALIZED
-      self.merkleTree = UNINITIALIZED
+   def __init__(self, txList=[]):
+      self.txList     = txList
+      self.numTx      = len(txList)
+      self.merkleTree = []
       self.merkleRoot = UNINITIALIZED
+      
 
    def serialize(self):
       assert( not self.numTx == UNINITIALIZED )
@@ -1494,9 +1504,13 @@ class PyBlockData(object):
 
 
 class PyBlock(object):
-   def __init__(self):
-      self.blockHeader = UNINITIALIZED
-      self.blockData   = UNINITIALIZED
+   def __init__(self, prevHeader=None, txlist=[]):
+      self.blockHeader = PyBlockHeader()
+      self.blockData   = PyBlockData()
+      if prevHeader:
+         self.setPrevHeader(prevHeader)
+      if txlist:
+         self.setTxList(txlist)
 
    def serialize(self):
       assert( not self.blockHeader == UNINITIALIZED )
@@ -1516,6 +1530,25 @@ class PyBlock(object):
       self.blockData   = PyBlockData().unserialize(blkData)
       return self
 
+   def getNumTx(self):
+      return len(self.blockData.txList)
+
+   def getSize(self):
+      return len(self.serialize())
+
+   def setPrevHeader(self, prevHeader, copyAttr=True):
+      self.blockHeader.prevBlkHash = prevHeader.theHash
+      self.blockHeader.nonce       = 0
+      if copyAttr:
+         self.blockHeader.version     = prevHeader.version
+         self.blockHeader.timestamp   = prevHeader.timestamp+600
+         self.blockHeader.diffBits    = prevHeader.diffBits
+
+   def setTxList(self, txlist):
+      self.blockData = PyBlockData(txlist)
+      if not self.blockHeader == UNINITIALIZED:
+         self.blockHeader.merkleRoot = self.blockData.getMerkleRoot()
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'Block:'
@@ -1523,10 +1556,6 @@ class PyBlock(object):
       self.blockData.pprint(nIndent+1, endian=endian)
 
 
-
-def makeScriptBinary(binSig, binPubKey):
-   pubkey_hash = hash160(binPubKey)
-   new_script = chr(118) + chr (169) + chr (len (pubkey_hash)) + pubkey_hash + chr (136) + chr (172)
 
 
 
@@ -1889,7 +1918,7 @@ class PyScriptProcessor(object):
          print '*** Supplied incorrect pair of transactions!'
 
       self.script1 = txNew.inputs[txInIndex].binScript
-      self.script2 = txOld.outputs[self.txOutIndex].binPKScript
+      self.script2 = txOld.outputs[self.txOutIndex].binScript
 
 
    def verifyTransactionValid(self):
@@ -1906,7 +1935,7 @@ class PyScriptProcessor(object):
       exitCode2 = self.executeScript(self.script2, self.stack) 
 
       if not exitCode2 == SCRIPT_NO_ERROR:
-         raiseError('First script failed!  Exit Code: ' + str(exitCode2))
+         raiseError('Second script failed!  Exit Code: ' + str(exitCode2))
          return False
 
       return self.stack[-1]==1
@@ -2278,6 +2307,104 @@ class PyScriptProcessor(object):
       
    
          
+
+################################################################################
+# This method will take an already-selected set of TxOuts, along with 
+# PyBtcAddress objects containing necessary the private keys
+#
+#    Src TxOut ~ {PyBtcAddr, PrevTx, PrevTxOutIdx}  --OR--  COINBASE = -1
+#    Dst TxOut ~ {PyBtcAddr, value}
+#
+# Of course, we usually don't have the private keys of the dst addrs...
+#
+def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
+   newTx = PyTx()
+   newTx.version    = 1
+   newTx.lockTime   = 0
+   newTx.numInputs  = len(srcTxOuts)
+   newTx.numOutputs = len(dstAddrsVals)
+   newTx.inputs     = []
+   newTx.outputs    = []
+
+   coinbaseTx = False
+   if newTx.numInputs==1 and srcTxOuts[0] == -1:
+      coinbaseTx = True
+      
+   def getOpCode(name):
+      return int_to_binary(opCodeLookup[name], widthBytes=1)
+   
+   #############################
+   # Fill in TxOuts first
+   for i in range(newTx.numOutputs):
+      txout       = PyTxOut()
+      txout.value = dstAddrsVals[i][1]
+      dstAddr     = dstAddrsVals[i][0]
+      if(coinbaseTx):
+         txout.binScript = ''.join([  '\x41',                      \
+                                      dstAddr.pubKey_serialize(),  \
+                                      getOpCode('OP_CHECKSIG'   )])
+      else:
+         txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                      getOpCode('OP_HASH160'    ), \
+                                      '\x14',                      \
+                                      dstAddr.getAddr160(),        \
+                                      getOpCode('OP_EQUALVERIFY'), \
+                                      getOpCode('OP_CHECKSIG'   )])
+      
+      newTx.outputs.append(txout)
+
+                                      
+   #############################
+   # Create temp TxIns with blank scripts
+   for i in range(newTx.numInputs):
+      txin = PyTxIn()
+      txin.outpoint = PyOutPoint()
+      if(coinbaseTx):
+         txin.outpoint.txOutHash = '\x00'*32
+         txin.outpoint.index     = binary_to_int('\xff'*4)
+      else:
+         txin.outpoint.txOutHash = hash256(srcTxOuts[0][1].serialize())
+         txin.outpoint.index     = srcTxOuts[0][2]
+      txin.binScript = ''
+      txin.intSeq = 2**32-1
+      newTx.inputs.append(txin)                                      
+      
+
+
+   #############################
+   # Now we apply the ultra-complicated signature procedure
+   # We need a copy of the Tx with all the txin scripts blanked out
+   txCopySerialized = newTx.serialize()
+   for i in range(newTx.numInputs):
+      if coinbaseTx:
+         pass # nothing to sign on a CB tx
+      else:
+         txCopy     = PyTx().unserialize(txCopySerialized)
+         thisTxIn   = txCopy.inputs[i]
+         srcAddr    = srcTxOuts[i][0]
+         txoutIdx   = srcTxOuts[i][2]
+         prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
+         binToSign  = ''
+
+         assert(srcAddr.hasPrivKey)
+         
+         # Only implemented one type of hashing:  SIGHASH_ALL
+         hashCode   = int_to_binary(1, widthBytes=4)
+
+         # Copy the script of the TxOut we're spending, into the txIn script
+         thisTxIn.binScript = prevTxOut.binScript
+         binToSign = hash256(txCopy.serialize() + hashCode)
+         signature = srcAddr.generateDERSignature(binToSign) + '\x01'
+         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
+         if len(prevTxOut.binScript) > 26:
+            newTx.inputs[i].binScript = signature
+         else:
+            newTx.inputs[i].binScript = signature + '\x41' + srcAddr.pubKey_serialize()
+      
+   #############################
+   # Finally, our tx is complete!
+   return newTx
+   
 
    
 
