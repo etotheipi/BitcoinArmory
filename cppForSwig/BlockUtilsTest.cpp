@@ -28,8 +28,8 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
-   //bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+   //bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch("C:/Users/vbox/AppData/Roaming/Bitcoin/blk0001.dat");
    //bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
