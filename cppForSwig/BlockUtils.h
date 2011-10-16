@@ -11,13 +11,13 @@
 
 #include <stdio.h>
 #include <iostream>
-#ifdef WIN32
-   #include <cstdint>
-#else
-   #include <stdlib.h>
-   #include <inttypes.h>
-   #include <cstring>
-#endif
+//#ifdef WIN32
+//#include <cstdint>
+//#else
+//#include <stdlib.h>
+//#include <inttypes.h>
+//#include <cstring>
+//#endif
 #include <fstream>
 #include <vector>
 #include <queue>
