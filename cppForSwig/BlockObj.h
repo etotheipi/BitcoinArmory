@@ -63,6 +63,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData serialize(void);
    void serialize(BinaryWriter & bw);
+   void unserialize_1_(BinaryData const & bh) { unserialize(bh); }
    void unserialize(uint8_t const * start, BinaryData const * suppliedHash=NULL);
    void unserialize(BinaryReader & br);
    void unserialize(string const & str);
@@ -75,7 +76,7 @@ public:
                 uint64_t           fileLoc   = UINT64_MAX);
 
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true) const;
-
+   uint32_t findNonce(void);
 
 private:
 

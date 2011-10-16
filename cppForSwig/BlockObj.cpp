@@ -157,6 +157,36 @@ void BlockHeader::pprint(ostream & os, int nIndent, bool pBigendian) const
    os << indent << "   FileOffset: " << blkByteLoc_ << endl;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+// For now, I just want to create difficulty-1 blocks
+uint32_t BlockHeader::findNonce(void)
+{
+   BinaryData playHeader(serialize());
+   BinaryData fourZeros = BinaryData::CreateFromHex("00000000");
+   BinaryData hashResult(32);
+   for(uint32_t nonce=0; nonce<(uint32_t)(-1); nonce++)
+   {
+      *(uint32_t*)(playHeader.getPtr()+76) = nonce;
+      BtcUtils::getHash256_NoSafetyCheck(playHeader.getPtr(), HEADER_SIZE, hashResult);
+      if(hashResult.getSliceRef(28,4) == fourZeros)
+      {
+         cout << "NONCE FOUND! " << nonce << endl;
+         unserialize(playHeader);
+         cout << "Raw Header: " << serialize().toHexStr() << endl;
+         pprint();
+         cout << "Hash:       " << hashResult.toHexStr() << endl;
+         return nonce;
+      }
+
+      if(nonce % 10000000 == 0)
+      {
+         cout << ".";
+         cout.flush();
+      }
+   }
+   cout << "No nonce found!" << endl;
+   return 0;
+}
 
 /////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////

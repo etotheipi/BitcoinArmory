@@ -1,7 +1,13 @@
 #! /usr/bin/python
 from pybtcengine import *
+from CppBlockUtils import BlockHeader    as CppBlockHeader
+from CppBlockUtils import BlockHeaderRef as CppBlockHeaderRef
+from CppBlockUtils import Tx             as CppTx
+from CppBlockUtils import TxIn           as CppTxIn
+from CppBlockUtils import TxOut          as CppTxOut
+from CppBlockUtils import BtcWallet      as CppBtcWallet
 import os
-from time import time
+from time import time, sleep
 
 
 blkfile = open('/home/alan/.bitcoin/blk0001.dat','r')
@@ -21,87 +27,93 @@ satoshiPubKey = hex_to_binary('04678afdb0fe5548271967f1a67130b7105cd6a828e03909a
 
 # We have to have a 
 AddrA  = PyBtcAddress().createFromPublicKey(satoshiPubKey)
-AddrB  = PyBtcAddress().generateNew()
-AddrC  = PyBtcAddress().generateNew()
-AddrD  = PyBtcAddress().generateNew()
-print 'Addr A:', AddrA.getAddrStr(), ' (Satoshi)'
-print 'Addr B:', AddrB.getAddrStr()
-print 'Addr C:', AddrC.getAddrStr()
-print 'Addr D:', AddrD.getAddrStr()
+AddrB  = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
+AddrC  = PyBtcAddress().createFromPrivateKey(hex_to_int('cc'*32))
+AddrD  = PyBtcAddress().createFromPrivateKey(hex_to_int('dd'*32))
+print 'Addr A: %s', AddrA.getAddrStr(), ' (Satoshi)'
+for a,s in ([AddrB,'B'], [AddrC, 'C'], [AddrD, 'D']):
+   print 'Addr %s: %s (PK:%s)' % ( s, a.getAddrStr(), binary_to_hex(a.privKey_serialize()))
 
 btcValue = lambda btc: btc*(10**8)
 
+COINBASE = -1
 
 #Block 1
-Blk1_Tx0  = PyCreateAndSignTx(    [-1],                [[AddrB, btcValue(50)]] )
+Blk1_Tx0  = PyCreateAndSignTx( [COINBASE],             [[AddrB, btcValue(50)]] )
 
 #Block 2
-Blk2_Tx0  = PyCreateAndSignTx(    [-1],                [[AddrB, btcValue(50)]] )
+Blk2_Tx0  = PyCreateAndSignTx( [COINBASE],             [[AddrB, btcValue(50)]] )
 Blk2_Tx1  = PyCreateAndSignTx( [[AddrB, Blk1_Tx0, 0]], [[AddrC, btcValue(10)], \
-                                               [AddrB, btcValue(40)]] )
+                                                        [AddrB, btcValue(40)]] )
 
 #Block 3
-Blk3_Tx0  = PyCreateAndSignTx(    [-1],                [[AddrC, btcValue(50)]] )
-Blk3_Tx1  = PyCreateAndSignTx( [[AddrB, Blk2_Tx1, 1]], [[AddrD, btcValue(40)]] )
-Blk3_Tx2  = PyCreateAndSignTx( [[AddrC, Blk2_Tx1, 0]], [[AddrD, btcValue(10)]] )
+Blk3_Tx0  = PyCreateAndSignTx( [COINBASE],             [[AddrC, btcValue(50)]] )  # will be reversed
+Blk3_Tx1  = PyCreateAndSignTx( [[AddrB, Blk2_Tx1, 1]], [[AddrD, btcValue(40)]] )  # will be in both chains
+Blk3_Tx2  = PyCreateAndSignTx( [[AddrC, Blk2_Tx1, 0]], [[AddrD, btcValue(10)]] )  # will be reversed
 
 #Block 4
-Blk4_Tx0  = PyCreateAndSignTx(    [-1],                [[AddrA, btcValue(50)]] )
+Blk4_Tx0  = PyCreateAndSignTx( [COINBASE],             [[AddrA, btcValue(50)]] )
+Blk4_Tx1  = PyCreateAndSignTx( [[AddrB, Blk2_Tx0, 0]], [[AddrD, btcValue(50)]] )  # will be moved blk5A
 
 #Block 3-alternate
-Blk3A_Tx0 = PyCreateAndSignTx(    [-1],                [[AddrA, btcValue(50)]] )
+Blk3A_Tx0 = PyCreateAndSignTx( [COINBASE],             [[AddrD, btcValue(50)]] )
 Blk3A_Tx1 = PyCreateAndSignTx( [[AddrB, Blk2_Tx1, 1]], [[AddrD, btcValue(40)]] )
 Blk3A_Tx2 = PyCreateAndSignTx( [[AddrC, Blk2_Tx1, 0]], [[AddrB, btcValue(10)]] )
 
 #Block 4-alternate
-Blk4A_Tx0 = PyCreateAndSignTx(    [-1],                [[AddrA, btcValue(50)]] )
+Blk4A_Tx0 = PyCreateAndSignTx( [COINBASE],             [[AddrA, btcValue(50)]] )
 
 #Block 5-alternate
-Blk5A_Tx0 = PyCreateAndSignTx(    [-1],                [[AddrA, btcValue(50)]] )
+Blk5A_Tx0 = PyCreateAndSignTx( [COINBASE],             [[AddrA, btcValue(50)]] )
+Blk5A_Tx1 = PyCreateAndSignTx( [[AddrB, Blk2_Tx0, 0]], [[AddrD, btcValue(50)]] )  
 
+exit(0)
 
 ################################################################################
 # Finally, actually create the blocks
 
 ################################################################################
-def findNonce(blkHeader, nZeros=4):
-   startTime = time()
-   for n in xrange(0):
-      blkHeader.nonce = n
-      theHash = hash256(blkHeader.serialize())
-      if theHash[-nZeros:] == '\x00'*nZeros:
-         break
-   print 'Time to execute nonce search:', (time() - startTime), 'sec'
-   return blkHeader.nonce
-
 def printHashEnds(theHash):
    intList = [ord(c) for c in theHash]
    print 'First 4 LE bytes:', intList[:4], 'First 4 BE bytes:', intList[::-1][:4]
 
 ################################################################################
 def createPyBlock(prevBlkHeader, txlist):
+   
    print 'Creating block (%d tx):  Computing nonce...' % len(txlist),
-   blk = PyBlock(prevBlkHeader, txlist)
-   aGoodNonce = findNonce(blk.blockHeader, 4)
+   aGoodNonce = 0
+   while aGoodNonce == 0:
+      extraNonce = random.randrange(2**32)
+      txlist[0].inputs[0].binScript = int_to_binary(extraNonce, widthBytes=4)
+      blk = PyBlock(prevBlkHeader, txlist)
+      newbh = CppBlockHeader()
+      newbh.unserialize_1_(blk.blockHeader.serialize())
+      aGoodNonce = newbh.findNonce()
+      print 'Finished searching for nonce: ', aGoodNonce
+
    blk.blockHeader.nonce = aGoodNonce
-   print 'Done!  (%d)' % aGoodNonce
-   print '   Header:', binary_to_hex(blk.blockHeader.getHash())
-   print '         :', printHashEnds(blk.blockHeader.getHash())
+   print 'Done!  Nonce: %d  (extra: %d)' % (aGoodNonce, extraNonce)
+   print '   Head  :', binary_to_hex(blk.blockHeader.getHash())
+   printHashEnds(blk.blockHeader.getHash())
    print '   Prev  :', binary_to_hex(blk.blockHeader.prevBlkHash)
+   print '   RawHeader  :'
+   print pprintHex(binary_to_hex(blk.blockHeader.serialize()))
    for i,tx in enumerate(txlist):
-      print '   Tx %d  :'%i, binary_to_hex(tx.getHash())
-      print '          :', printHashEnds(tx.getHash())
+      print '   Raw Tx :'
+      print pprintHex(binary_to_hex(tx.serialize()))
+      printHashEnds(tx.getHash())
    return blk
+
 
 
 Blk1 = createPyBlock(genBlock.blockHeader, [Blk1_Tx0] )
 Blk2 = createPyBlock(Blk1.blockHeader,     [Blk2_Tx0, Blk2_Tx1] )
 Blk3 = createPyBlock(Blk2.blockHeader,     [Blk3_Tx0, Blk3_Tx1, Blk3_Tx2] )
-Blk4 = createPyBlock(Blk3.blockHeader,     [Blk4_Tx0] )
+Blk4 = createPyBlock(Blk3.blockHeader,     [Blk4_Tx0, Blk4_Tx1] )
 
 Blk3A = createPyBlock(Blk2.blockHeader,    [Blk3A_Tx0, Blk3A_Tx1, Blk3A_Tx2] )
 Blk4A = createPyBlock(Blk3A.blockHeader,   [Blk4A_Tx0])
-Blk5A = createPyBlock(Blk4A.blockHeader,   [Blk5A_Tx0])
+Blk5A = createPyBlock(Blk4A.blockHeader,   [Blk5A_Tx0, Blk5A_Tx1] )
 
 
 ################################################################################
@@ -109,9 +121,9 @@ Blk5A = createPyBlock(Blk4A.blockHeader,   [Blk5A_Tx0])
 # program that claims to handle reorgs
 
 def writeBlk(fileHandle, blk):
-   blkFirstChain.write( hex_to_binary('f9beb4d9') )
-   blkFirstChain.write( int_to_binary(blk.getSize(), widthBytes=4) )
-   blkFirstChain.write( blk.serialize() )
+   fileHandle.write( hex_to_binary('f9beb4d9') )
+   fileHandle.write( int_to_binary(blk.getSize(), widthBytes=4) )
+   fileHandle.write( blk.serialize() )
    print 'Block:'
    print '  ', 'f9beb4d9'
    print '  ', int_to_hex(blk.getSize(), widthBytes=4)
@@ -122,13 +134,16 @@ def writeBlk(fileHandle, blk):
    
 
 print '\n\nWriting blocks to ReorgTest/ directory'
-blkFirstChain = open('ReorgTest/blk_0_to_4.dat','wb')
+blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb')
 for blk in [genBlock, Blk1, Blk2, Blk3, Blk4]:
    writeBlk(blkFirstChain, blk)
 blkFirstChain.close()
 
 for blk,suffix in [[Blk3A,'3A'], [Blk4A, '4A'], [Blk5A, '5A']]:
-   blkAlt = open('ReorgTest/blk_%s.dat'%suffix,'wb')
+   filename = 'reorgTest/blk_%s.dat' % suffix
+   print 'File path: ', filename
+   blkAlt = open(filename, 'wb')
+   sleep(1)
    writeBlk(blkAlt, blk)
    blkAlt.close()
 

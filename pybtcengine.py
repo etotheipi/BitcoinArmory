@@ -824,19 +824,25 @@ class PyBtcAddress(object):
       self.prepareKeys()
       intSign = binary_to_int(binToSign)
       sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
-      rBin   = int_to_binary(sig.r, endOut=BIGENDIAN)
-      sBin   = int_to_binary(sig.s, endOut=BIGENDIAN)
+      # The extra 0x00 bytes are to guarantee the r-s values are 
+      # interpretted as unsigned:  it's a DER-thing
+      rBin   = '\x00' + int_to_binary(sig.r, endOut=BIGENDIAN)
+      sBin   = '\x00' + int_to_binary(sig.s, endOut=BIGENDIAN)
       rSize  = int_to_binary(len(rBin))
       sSize  = int_to_binary(len(sBin))
       rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-      return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
+      sigScr = '\x30' + rsSize + \
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin + \
+               '\x01'
+      return sigScr
 
    def verifyDERSignature(self, binToVerify, derToVerify):
       assert(self.hasPubKey)
       self.prepareKeys()
       codeByte = derToVerify[0]
       nBytes   = binary_to_int(derToVerify[1])
-      rsStr    = derToVerify[2:]
+      rsStr    = derToVerify[2:2+nBytes]
       assert(codeByte == '\x30')
       assert(nBytes == len(rsStr))
       # Read r
@@ -1057,7 +1063,8 @@ def TxInScriptExtractKeyAddr(txinObj):
       newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
       return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
    elif scrType == TXIN_SCRIPT_COINBASE:
-      return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
+      return ('[COINBASE-NO-ADDR: %s]'%binary_to_hex(txinObj.binScript), '[COINBASE-NO-PUBKEY]')
+      #return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
    elif scrType == TXIN_SCRIPT_SPENDCB:
       return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
    else:
@@ -1257,6 +1264,29 @@ class PyTx(object):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+
+      
+   def pprintHex(self, nIndent=0):
+      bu = BinaryUnpacker(self.serialize())
+      theSer = self.serialize()
+      print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+      nTxin = bu.get(VAR_INT)
+      print 'VAR_INT(%d)' % nTxin
+      for i in range(nTxin):
+         print binary_to_hex(bu.get(BINARY_CHUNK,32))
+         print binary_to_hex(bu.get(BINARY_CHUNK,4))
+         scriptSz = bu.get(VAR_INT)
+         print 'VAR_IN(%d)' % scriptSz
+         print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+         print binary_to_hex(bu.get(BINARY_CHUNK,4))
+      nTxout = bu.get(VAR_INT)
+      print 'VAR_INT(%d)' % nTxout
+      for i in range(nTxout):
+         print binary_to_hex(bu.get(BINARY_CHUNK,8))
+         scriptSz = bu.get(VAR_INT)
+         print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+      print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+         
       
 
 
@@ -1427,6 +1457,8 @@ class PyBlockHeader(object):
          print indstr + indent + 'DiffSum:   ', self.sumDifficult    
 
 
+################################################################################
+################################################################################
 class PyBlockData(object):
    def __init__(self, txList=[]):
       self.txList     = txList
@@ -1502,7 +1534,8 @@ class PyBlockData(object):
          tx.pprint(nIndent+1, endian=endian)
       
 
-
+################################################################################
+################################################################################
 class PyBlock(object):
    def __init__(self, prevHeader=None, txlist=[]):
       self.blockHeader = PyBlockHeader()
@@ -1909,11 +1942,14 @@ class PyScriptProcessor(object):
       self.txNew = None
 
    def setTxObjects(self, txOld, txNew, txInIndex):
-      self.txOld = txOld
-      self.txNew = txNew
+      print 'Tx1:', binary_to_hex(txOld.getHash())
+      print 'Tx2:', binary_to_hex(txNew.getHash())
+      self.txOld = PyTx().unserialize(txOld.serialize())
+      self.txNew = PyTx().unserialize(txNew.serialize())
       self.txInIndex  = txInIndex
       self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
       self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
+      print 'OutPoint:', binary_to_hex(self.txOutHash) 
       if not self.txOutHash == hash256(txOld.serialize()):
          print '*** Supplied incorrect pair of transactions!'
 
@@ -1957,7 +1993,7 @@ class PyScriptProcessor(object):
       
       
    # Implementing this method exactly as in the client because it looks like
-   # there could be some subtlties with how it determines "true"
+   # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
       for i,byte in enumerate(binData):
 
@@ -2286,6 +2322,7 @@ class PyScriptProcessor(object):
          senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
+         pprintHex(binary_to_hex(toHash))
          hashToVerify = hash256(toHash)
 
          hashToVerify = binary_switchEndian(hashToVerify)
@@ -2370,6 +2407,17 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       newTx.inputs.append(txin)                                      
       
 
+         # 7. All the TxIn scripts in the copy are blanked (set to empty string)
+         #for txin in txCopy.inputs:
+            #txin.binScript = ''
+
+         # 8. Script for the current input in the copy is set to subscript
+         #txCopy.inputs[self.txInIndex].binScript = subscript
+
+         # 9. Prepare the signature and public key
+         #senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
+         #binHashCode = int_to_binary(hashtype, widthBytes=4)
+         #toHash = txCopy.serialize() + binHashCode
 
    #############################
    # Now we apply the ultra-complicated signature procedure
@@ -2377,29 +2425,45 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    txCopySerialized = newTx.serialize()
    for i in range(newTx.numInputs):
       if coinbaseTx:
-         pass # nothing to sign on a CB tx
+         pass
       else:
          txCopy     = PyTx().unserialize(txCopySerialized)
-         thisTxIn   = txCopy.inputs[i]
          srcAddr    = srcTxOuts[i][0]
          txoutIdx   = srcTxOuts[i][2]
          prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
          binToSign  = ''
 
          assert(srcAddr.hasPrivKey)
+
+         print TxOutScriptExtractKeyAddr(prevTxOut)
+         print srcAddr.getAddrStr() + '\n'
          
          # Only implemented one type of hashing:  SIGHASH_ALL
          hashCode   = int_to_binary(1, widthBytes=4)
 
          # Copy the script of the TxOut we're spending, into the txIn script
-         thisTxIn.binScript = prevTxOut.binScript
-         binToSign = hash256(txCopy.serialize() + hashCode)
-         signature = srcAddr.generateDERSignature(binToSign) + '\x01'
+         txCopy.inputs[i].binScript = prevTxOut.binScript
+         preHashMsg = txCopy.serialize() + hashCode
+
+
+         #print "\n\nPRE_HASHED_ MSG\n"
+         #pprintHex(binary_to_hex(preHashMsg))
+
+         binToSign = hash256(preHashMsg)
+         signature = srcAddr.generateDERSignature(binToSign)
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
-         if len(prevTxOut.binScript) > 26:
-            newTx.inputs[i].binScript = signature
+         if len(prevTxOut.binScript) > 30:
+            # TODO:  I probably should make a script-writer class to make sure
+            #        I'm using PUSHDATA ops correctly... at least in this case
+            #        I'm only ever writing a number approx 72
+            sigLenInBinary = int_to_binary(len(signature))
+            newTx.inputs[i].binScript = sigLenInBinary + signature
          else:
-            newTx.inputs[i].binScript = signature + '\x41' + srcAddr.pubKey_serialize()
+            pubkey = srcAddr.pubKey_serialize()
+            sigLenInBinary    = int_to_binary(len(signature))
+            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
+            newTx.inputs[i].binScript = sigLenInBinary    + signature + \
+                                        pubkeyLenInBinary + pubkey
       
    #############################
    # Finally, our tx is complete!
@@ -2408,4 +2472,73 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
    
 
+# Just before a successful ECDSA signature verification, TxCopy looks like this:
+# (for verifying the signature of TxIn 0)
+# 01000000 
+
+# 03   (num inputs)
+
+# 30f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694
+# 00000000  (txout index)
+# 19
+# 76 a9 14 02bf4b2889c6ada8190c252e70bde1a1909f9617 88 ac
+# ffffffff
+
+# 72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea689
+# 00000000  (txout index)
+# 00 
+#
+# ffffffff  (sequence)
+
+# d28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c 
+# 00000000  (txout index)
+# 00
+#
+# ffffffff  (sequence)
+
+# 01        (num outputs)
+
+# 00a6 f75f0200 0000
+# 19 
+# 76 a9 149e35d93c7792bdcaad5697ddebf04353d9a5e196 88 ac 
+
+# 00000000  (locktime)
+
+# 01000000  (hashcode)
+
+
+
+#PRE_HASHED_ MSG
+
+
+################################################################################
+# This is what I'm getting for my TxCopy
+# 01000000   (version
+
+# 01         (numInputs)
+
+# 0d5027b6c93c8af87a5d4778f49fcd56f815a52c8436102b4130a70a9c6a944c
+# 01000000  (txoutIndex)
+# 19 
+# 76 a9 14ee26c56fc1d942be8d7a24b2a1001dd894693980 88 ac
+# ffffffff
+
+# 01 
+
+# 00286bee00000000 
+# 19 
+# 76 a9 14c522664fb0e55cdc5c0cea73b4aad97ec8343232 88 ac
+
+# 00000000  (locktime)
+
+# 01000000  (hashcode
+
+#PRE_HASHED_ MSG
+# 50 --> {10 + 40}
+# 01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207 
+# 4fdcb8ee d2000000 00434104 68680737 c76dabb8 01cb2204 f57dbe4e 4579e4f7 
+# 10cd67dc 1b422759 2c81e9b5 cf02b5ac 9e8b4c9f 49be5251 056b6a6d 011e4c37 
+# f6b6d17e de6b55fa a23519e2 acffffff ff0200ca 9a3b0000 00001976 a914cb2a 
+# bde8bcca cc32e893 df3a054b 9ef7f227 a4ce88ac 00286bee 00000000 1976a914 
+# ee26c56f c1d942be 8d7a24b2 a1001dd8 94693980 88ac0000 00000100 0000 
 

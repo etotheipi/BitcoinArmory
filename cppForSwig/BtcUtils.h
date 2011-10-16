@@ -301,6 +301,18 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   static void getHash256_NoSafetyCheck(
+                          uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+
+      sha256_.CalculateDigest(hashOutput.getPtr(), strToHash, nBytes);
+      sha256_.CalculateDigest(hashOutput.getPtr(), hashOutput.getPtr(), 32);
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData getHash256(uint8_t const * strToHash,
                                 uint32_t        nBytes)
    {

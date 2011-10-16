@@ -52,6 +52,8 @@ public:
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
    BlockHeaderRef(BinaryData    const & str) { unserialize(str); }
+   // SWIG needs a non-overloaded method
+   BlockHeaderRef & unserialize_1_(BinaryData const & str) { unserialize(str); return *this; }
 
    uint32_t           getVersion(void) const      { return  *(uint32_t*)(getPtr()  );  }
    BinaryData const & getThisHash(void) const     { return thisHash_;                  }
@@ -106,6 +108,8 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t findNonce(void);
 
 private:
    BinaryDataRef  self_;
