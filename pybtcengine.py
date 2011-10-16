@@ -833,8 +833,8 @@ class PyBtcAddress(object):
       rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
       sigScr = '\x30' + rsSize + \
                '\x02' + rSize + rBin + \
-               '\x02' + sSize + sBin + \
-               '\x01'
+               '\x02' + sSize + sBin
+       
       return sigScr
 
    def verifyDERSignature(self, binToVerify, derToVerify):
@@ -1250,9 +1250,8 @@ class PyTx(object):
       
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
-      thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, endian), \
+      print indstr + indent + 'TxHash:   ', binary_to_hex(self.getHash(), endian), \
                                     '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
@@ -1942,14 +1941,11 @@ class PyScriptProcessor(object):
       self.txNew = None
 
    def setTxObjects(self, txOld, txNew, txInIndex):
-      print 'Tx1:', binary_to_hex(txOld.getHash())
-      print 'Tx2:', binary_to_hex(txNew.getHash())
       self.txOld = PyTx().unserialize(txOld.serialize())
       self.txNew = PyTx().unserialize(txNew.serialize())
       self.txInIndex  = txInIndex
       self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
       self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
-      print 'OutPoint:', binary_to_hex(self.txOutHash) 
       if not self.txOutHash == hash256(txOld.serialize()):
          print '*** Supplied incorrect pair of transactions!'
 
@@ -2322,7 +2318,7 @@ class PyScriptProcessor(object):
          senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
-         pprintHex(binary_to_hex(toHash))
+
          hashToVerify = hash256(toHash)
 
          hashToVerify = binary_switchEndian(hashToVerify)
@@ -2405,19 +2401,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       txin.binScript = ''
       txin.intSeq = 2**32-1
       newTx.inputs.append(txin)                                      
-      
 
-         # 7. All the TxIn scripts in the copy are blanked (set to empty string)
-         #for txin in txCopy.inputs:
-            #txin.binScript = ''
-
-         # 8. Script for the current input in the copy is set to subscript
-         #txCopy.inputs[self.txInIndex].binScript = subscript
-
-         # 9. Prepare the signature and public key
-         #senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
-         #binHashCode = int_to_binary(hashtype, widthBytes=4)
-         #toHash = txCopy.serialize() + binHashCode
 
    #############################
    # Now we apply the ultra-complicated signature procedure
@@ -2435,34 +2419,29 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
          assert(srcAddr.hasPrivKey)
 
-         print TxOutScriptExtractKeyAddr(prevTxOut)
-         print srcAddr.getAddrStr() + '\n'
-         
          # Only implemented one type of hashing:  SIGHASH_ALL
-         hashCode   = int_to_binary(1, widthBytes=4)
+         hashType   = 1  # SIGHASH_ALL
+         hashCode1  = int_to_binary(1, widthBytes=1)
+         hashCode4  = int_to_binary(1, widthBytes=4)
 
          # Copy the script of the TxOut we're spending, into the txIn script
          txCopy.inputs[i].binScript = prevTxOut.binScript
-         preHashMsg = txCopy.serialize() + hashCode
-
-
-         #print "\n\nPRE_HASHED_ MSG\n"
-         #pprintHex(binary_to_hex(preHashMsg))
-
+         preHashMsg = txCopy.serialize() + hashCode4
          binToSign = hash256(preHashMsg)
+         binToSign = binary_switchEndian(binToSign)
          signature = srcAddr.generateDERSignature(binToSign)
+
+         
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
+         # Don't forget to tack on the one-byte hashcode and consider it part of sig
          if len(prevTxOut.binScript) > 30:
-            # TODO:  I probably should make a script-writer class to make sure
-            #        I'm using PUSHDATA ops correctly... at least in this case
-            #        I'm only ever writing a number approx 72
-            sigLenInBinary = int_to_binary(len(signature))
-            newTx.inputs[i].binScript = sigLenInBinary + signature
+            sigLenInBinary = int_to_binary(len(signature) + 1)
+            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
          else:
             pubkey = srcAddr.pubKey_serialize()
-            sigLenInBinary    = int_to_binary(len(signature))
+            sigLenInBinary    = int_to_binary(len(signature) + 1)
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            newTx.inputs[i].binScript = sigLenInBinary    + signature + \
+            newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
                                         pubkeyLenInBinary + pubkey
       
    #############################
@@ -2470,75 +2449,6 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    return newTx
    
 
-   
-
-# Just before a successful ECDSA signature verification, TxCopy looks like this:
-# (for verifying the signature of TxIn 0)
-# 01000000 
-
-# 03   (num inputs)
-
-# 30f3701f9bc464552f70495791040817ce777ad5ede16e529fcd0c0e94915694
-# 00000000  (txout index)
-# 19
-# 76 a9 14 02bf4b2889c6ada8190c252e70bde1a1909f9617 88 ac
-# ffffffff
-
-# 72142bf7686ce92c6de5b73365bfb9d59bb60c2c80982d5958c1e6a3b08ea689
-# 00000000  (txout index)
-# 00 
-#
-# ffffffff  (sequence)
-
-# d28128bbb6207c1c3d0a630cc619dc7e7bea56ac19a1dab127c62c78fa1b632c 
-# 00000000  (txout index)
-# 00
-#
-# ffffffff  (sequence)
-
-# 01        (num outputs)
-
-# 00a6 f75f0200 0000
-# 19 
-# 76 a9 149e35d93c7792bdcaad5697ddebf04353d9a5e196 88 ac 
-
-# 00000000  (locktime)
-
-# 01000000  (hashcode)
 
 
-
-#PRE_HASHED_ MSG
-
-
-################################################################################
-# This is what I'm getting for my TxCopy
-# 01000000   (version
-
-# 01         (numInputs)
-
-# 0d5027b6c93c8af87a5d4778f49fcd56f815a52c8436102b4130a70a9c6a944c
-# 01000000  (txoutIndex)
-# 19 
-# 76 a9 14ee26c56fc1d942be8d7a24b2a1001dd894693980 88 ac
-# ffffffff
-
-# 01 
-
-# 00286bee00000000 
-# 19 
-# 76 a9 14c522664fb0e55cdc5c0cea73b4aad97ec8343232 88 ac
-
-# 00000000  (locktime)
-
-# 01000000  (hashcode
-
-#PRE_HASHED_ MSG
-# 50 --> {10 + 40}
-# 01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207 
-# 4fdcb8ee d2000000 00434104 68680737 c76dabb8 01cb2204 f57dbe4e 4579e4f7 
-# 10cd67dc 1b422759 2c81e9b5 cf02b5ac 9e8b4c9f 49be5251 056b6a6d 011e4c37 
-# f6b6d17e de6b55fa a23519e2 acffffff ff0200ca 9a3b0000 00001976 a914cb2a 
-# bde8bcca cc32e893 df3a054b 9ef7f227 a4ce88ac 00286bee 00000000 1976a914 
-# ee26c56f c1d942be 8d7a24b2 a1001dd8 94693980 88ac0000 00000100 0000 
 

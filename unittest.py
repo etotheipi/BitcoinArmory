@@ -162,6 +162,11 @@ printpassorfail(blk.blockHeader.merkleRoot == blk.blockData.merkleRoot)
 print ''
 print ''
 
+blkh = PyBlockHeader().unserialize( hex_to_binary(hexBlock) )
+blkextra = blkh.serializeWithExtra()
+blkh2 = PyBlockHeader().unserializeWithExtra(blkextra)
+print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
+printpassorfail( blkextra == blkh2.serializeWithExtra() )
 
 
 # Execute the tests with Satoshi's public key from the Bitcoin specification page
@@ -172,7 +177,7 @@ addrPiece2Hex = 'd8b2307a'
 addrPiece1Bin = hex_to_binary(addrPiece1Hex)
 addrPiece2Bin = hex_to_binary(addrPiece2Hex)
 
-print 'Testing ECDSA key/address methods:'
+print '\nTesting ECDSA key/address methods:'
 print "\tSatoshi's PubKey:      ", satoshiPubKeyHex[:32], '...'
 print "\tSatoshi's Address:     ", satoshiAddrStr
 saddr = PyBtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
@@ -181,6 +186,7 @@ print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
 print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
+################################################################################
 addr = PyBtcAddress().generateNew()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
@@ -190,6 +196,7 @@ printpassorfail( addr.verifyDERSignature( theHash, derSig))
 print ''
 
 
+################################################################################
 # From tx tests before, we have tx1 and tx2, where tx2 uses and output from tx1
 sp = PyScriptProcessor()
 sp.setTxObjects(tx1, tx2, 0)
@@ -198,12 +205,46 @@ printpassorfail( sp.verifyTransactionValid() )
 print ''
 
 
-blkh = PyBlockHeader().unserialize( hex_to_binary(hexBlock) )
-blkextra = blkh.serializeWithExtra()
-blkh2 = PyBlockHeader().unserializeWithExtra(blkextra)
+################################################################################
+# test signing a transaction:  create two addresses and a fake Tx between them
+AddrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa'*32))
+AddrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
 
-print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
-printpassorfail( blkextra == blkh2.serializeWithExtra() )
+print 'Created two addresses:'
+print 'Address A:', AddrA.getAddrStr()
+print 'Address B:', AddrB.getAddrStr()
+# This TxIn will be completely ignored, so it can contain garbage
+txinA = PyTxIn()
+txinA.outpoint  = PyOutPoint().unserialize(hex_to_binary('00'*36))
+txinA.binScript = hex_to_binary('99'*4)
+txinA.sequence  = hex_to_binary('ff'*4)
+
+txoutA = PyTxOut()
+txoutA.value = 50 * (10**8)
+txoutA.binScript = '\x76\xa9\x14' + AddrA.getAddr160() + '\x88\xac'
+
+tx1 = PyTx()
+tx1.version    = 1
+tx1.numInputs  = 1
+tx1.inputs     = [txinA]
+tx1.numOutputs = 1
+tx1.outputs    = [txoutA]
+tx1.locktime   = 0
+
+tx1hash = tx1.getHash()
+print 'Creating transaction to send coins from A to B'
+tx2 = PyCreateAndSignTx( [[ AddrA, tx1, 0 ]],  [[AddrB, 50*(10**8)]])
+
+# This is not as easy as it sounds -- we did just create this transaction,
+# but we need to make sure we can construct the string to be hashed/verified
+# the same way as we signed it.  I had a few bugs in this process that took
+# me like 2 days to sort out
+print 'Verifying the transaction we just created',
+psp = PyScriptProcessor()
+psp.setTxObjects(tx1, tx2, 0)
+verifResult = psp.verifyTransactionValid()
+printpassorfail( verifResult)
+
 
 
 

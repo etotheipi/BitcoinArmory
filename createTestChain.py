@@ -30,14 +30,15 @@ AddrA  = PyBtcAddress().createFromPublicKey(satoshiPubKey)
 AddrB  = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
 AddrC  = PyBtcAddress().createFromPrivateKey(hex_to_int('cc'*32))
 AddrD  = PyBtcAddress().createFromPrivateKey(hex_to_int('dd'*32))
-print 'Addr A: %s', AddrA.getAddrStr(), ' (Satoshi)'
+print 'Addr A: %s' % AddrA.getAddrStr(), ' (Satoshi)'
 for a,s in ([AddrB,'B'], [AddrC, 'C'], [AddrD, 'D']):
-   print 'Addr %s: %s (PK:%s)' % ( s, a.getAddrStr(), binary_to_hex(a.privKey_serialize()))
+   print 'Addr %s: %s (PrivKey:%s)' % ( s, a.getAddrStr(), binary_to_hex(a.privKey_serialize()))
 
 btcValue = lambda btc: btc*(10**8)
 
 COINBASE = -1
 
+psp = PyScriptProcessor()
 #Block 1
 Blk1_Tx0  = PyCreateAndSignTx( [COINBASE],             [[AddrB, btcValue(50)]] )
 
@@ -67,7 +68,6 @@ Blk4A_Tx0 = PyCreateAndSignTx( [COINBASE],             [[AddrA, btcValue(50)]] )
 Blk5A_Tx0 = PyCreateAndSignTx( [COINBASE],             [[AddrA, btcValue(50)]] )
 Blk5A_Tx1 = PyCreateAndSignTx( [[AddrB, Blk2_Tx0, 0]], [[AddrD, btcValue(50)]] )  
 
-exit(0)
 
 ################################################################################
 # Finally, actually create the blocks
@@ -95,13 +95,13 @@ def createPyBlock(prevBlkHeader, txlist):
    print 'Done!  Nonce: %d  (extra: %d)' % (aGoodNonce, extraNonce)
    print '   Head  :', binary_to_hex(blk.blockHeader.getHash())
    printHashEnds(blk.blockHeader.getHash())
-   print '   Prev  :', binary_to_hex(blk.blockHeader.prevBlkHash)
    print '   RawHeader  :'
    print pprintHex(binary_to_hex(blk.blockHeader.serialize()))
    for i,tx in enumerate(txlist):
-      print '   Raw Tx :'
-      print pprintHex(binary_to_hex(tx.serialize()))
+      print '   Tx :', binary_to_hex(tx.getHash())
       printHashEnds(tx.getHash())
+      print '   RawTx :'
+      print pprintHex(binary_to_hex(tx.serialize()))
    return blk
 
 
@@ -134,6 +134,7 @@ def writeBlk(fileHandle, blk):
    
 
 print '\n\nWriting blocks to ReorgTest/ directory'
+print 'File path: ',  'reorgTest/blk_0_to_4.dat'
 blkFirstChain = open('reorgTest/blk_0_to_4.dat','wb')
 for blk in [genBlock, Blk1, Blk2, Blk3, Blk4]:
    writeBlk(blkFirstChain, blk)
