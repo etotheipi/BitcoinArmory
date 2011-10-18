@@ -25,11 +25,11 @@ int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
+   /*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   //bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat");
-   bdm.readBlkFile_FromScratch("C:/Users/vbox/AppData/Roaming/Bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
    //bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
@@ -145,7 +145,35 @@ int main(void)
            << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
+   */
 
+
+   cout << endl << endl;
+   cout << "Preparing blockchain-reorganization test!" << endl;
+   cout << "Resetting block-data mgr...";
+   bdm.Reset();
+   cout << "Done!" << endl;
+   cout << "Reading in initial block chain (Blocks 0 through 4)..." ;
+   bdm.readBlkFile_FromScratch("reorgTest/blk_0_to_4.dat");
+   bdm.organizeChain();
+   cout << "Done" << endl;
+
+   // prepare the other block to be read in
+   ifstream is;
+   BinaryData blk3a, blk4a, blk5a;
+   assert(blk3a.readBinaryFile("reorgTest/blk_3A.dat") != -1);
+   assert(blk4a.readBinaryFile("reorgTest/blk_4A.dat") != -1);
+   assert(blk5a.readBinaryFile("reorgTest/blk_5A.dat") != -1);
+
+   vector<bool> result;
+   cout << "Pushing Block 3A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk3a);
+
+   cout << "Pushing Block 4A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk4a);
+
+   cout << "Pushing Block 5A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk5a);
 
 
 /*

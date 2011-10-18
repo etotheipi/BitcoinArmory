@@ -106,6 +106,27 @@ testFunction('unpackVarInt', [10**12, 9], '\xff\x00\x10\xa5\xd4\xe8\x00\x00\x00'
 tx1raw= '\x01\x00\x00\x00\x02\x0f{\x7f\xb8mL\xf6F\x05\x8eA\xd3\xb0\x07\x18?\xdfysn\xd1\x9b*th\xab\xc5\xbd\x04\xb1n\x91\x00\x00\x00\x00\x8cI0F\x02!\x00\xb2\xee9\xd2\xfc\xc2\xe5TJW\xc3\x0f{NI\xcf\xb8""fm\x03O\xb9\x0e"4\x8e\x17\xe2\x8e\x0f\x02!\x00\xdb\x91\xc3\x19\x9c\xc7\xb4\x1dMz\xfc\xe0\xcc\xb4\xce\xb4$\xb9GmQ\xc0aBX=\xafS\xce\n\x9bf\x01A\x04\xc3"\x15\xa9\t0\x11\xbd<A(:\xce=\x00,f`w\xb2J`[<\xfc\x8fq\x01\x9a\x0fC\xdff\xf3\x89\xf3\xd9\xa6!\x88\xa4\x94\xb8i\xdc~_\x9d\xff\xc9\x8av\xd3\x08\x8a!\xe9\xb78\xec\x9e\xba\x98\xcb\xff\xff\xff\xff\x97\x00A%R\x8f{^\xd34e\xca\xaa\xe0!\xc0\xb8\x15\xf3\xe6\xa3pvA\xd5\xa0\xbc\xa4?\xc1II\x01\x00\x00\x00\x8aG0D\x02 3\xd0,.\x89o\x1a\x12RH\x8dSL\xfb\x08\xab\xf3\xe7\xea\x90\xab\xa7\xbaoW\xab\xf1\x89\xce\xf1\xd87\x02 \x05f\x8duP\x13\xb0\xe5\x9a*\xf5\x14_\x10\xef\xe6.\xa7\x16\xd33&\x8b\x0bZ>\xfb\xd8-\x149\xbe\x01A\x04\xc3"\x15\xa9\t0\x11\xbd<A(:\xce=\x00,f`w\xb2J`[<\xfc\x8fq\x01\x9a\x0fC\xdff\xf3\x89\xf3\xd9\xa6!\x88\xa4\x94\xb8i\xdc~_\x9d\xff\xc9\x8av\xd3\x08\x8a!\xe9\xb78\xec\x9e\xba\x98\xcb\xff\xff\xff\xff\x01\x00\xc2\xeb\x0b\x00\x00\x00\x00\x19v\xa9\x14\x02\xbfK(\x89\xc6\xad\xa8\x19\x0c%.p\xbd\xe1\xa1\x90\x9f\x96\x17\x88\xac\x00\x00\x00\x00'
 tx2raw= "\x01\x00\x00\x00\x030\xf3p\x1f\x9b\xc4dU/pIW\x91\x04\x08\x17\xcewz\xd5\xed\xe1nR\x9f\xcd\x0c\x0e\x94\x91V\x94\x00\x00\x00\x00\x8cI0F\x02!\x00\xf5tk\x0b%OZ7\xe7RQE\x9cz#\xb6\xdf\xcb\x86\x8a\xc7F~\xdd\x9ao\xdd\x1d\x96\x98q\xbe\x02!\x00\x88\x94\x8a\xea)\xb6\x91a\xca4\x1cI\xc0&\x86\xa8\x1d\x8c\xbbs\x94\x0f\x91\x7f\xa0\xedqThm>[\x01A\x04G\xd4\x90V\x1f9l\x8a\x9e\xfc\x14Hk\xc1\x98\x88K\xa1\x83y\xbc\xac.\x0b\xe2\xd8RQ4\xabt/0\x1a\x9a\xca6`n])\xaa#\x8a\x9e)\x93\x001PB=\xf6\x92Ecd-J\xfe\x9b\xf4\xfe(\xff\xff\xff\xffr\x14+\xf7hl\xe9,m\xe5\xb73e\xbf\xb9\xd5\x9b\xb6\x0c,\x80\x98-YX\xc1\xe6\xa3\xb0\x8e\xa6\x89\x00\x00\x00\x00JI0F\x02!\x00\xbc\xe4:\xd3\xac\xbcy\xb0$~T\xc8\xc9\x1e\xac\x1c\xf9\x03u\x05\x00\x0e\x01\xd1\xfd\x81\x18T\xd8[\xc2\x1a\x02!\x00\x99*oo/\xebob\xd3po;\x9a\xaa\xb8\x8d\x9f\x112\x95j\x1d\xff\xa9&\xcdUn\xd5S`\xdf\x01\xff\xff\xff\xff\xd2\x81(\xbb\xb6 |\x1c=\nc\x0c\xc6\x19\xdc~{\xeaV\xac\x19\xa1\xda\xb1'\xc6,x\xfa\x1bc,\x00\x00\x00\x00IH0E\x02  \x97W6\x81aSw\x08\xfd)\xd8\x9b\xb1\xe9\xd6H\x00yI\xec\xfd\xedx\x9bQ\xa9c$\xcbe\x18\x02!\x00\xcd\x0f|0!9\x16H+n\x16m\x8aO+\x98\x1fw~\xb1\x84\xcd\x8aI_\x1b=6\x90\xfb\xbf-\x01\xff\xff\xff\xff\x01\x00\xa6\xf7_\x02\x00\x00\x00\x19v\xa9\x14\x9e5\xd9<w\x92\xbd\xca\xadV\x97\xdd\xeb\xf0CS\xd9\xa5\xe1\x96\x88\xac\x00\x00\x00\x00"
 
+# I made these two tx in a fake blockchain... but they should still work
+#tx1raw = hex_to_binary( (
+#  '01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207'
+#  '4fdcb8ee d2000000 004a4930 46022100 cb02fb5a 910e7554 85e3578e 6e9be315'
+#  'a161540a 73f84ee6 f5d68641 925c59ac 0221007e 530a1826 30b50e2c 12dd09cd'
+#  'ebfd809f 038be982 bdc2c7e9 d4cbf634 9e088d01 ffffffff 0200ca9a 3b000000'
+#  '001976a9 14cb2abd e8bccacc 32e893df 3a054b9e f7f227a4 ce88ac00 286bee00'
+#  '00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000'
+#  '00'                                                                     ).replace(' ',''))
+
+#x2raw = hex_to_binary( (
+#  '01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6'
+#  '972ee7a8 6e010000 008c4930 46022100 89e47100 d88d5f8c 8f62a796 dac3afb8'
+#  'f090c6fc 2eb0c4af ac7b7567 3a364c01 0221002b f40e554d ae51264b 0a86df17'
+#  '3e45756a 89bbd302 4f166cc4 2cfd1874 13636901 41046868 0737c76d abb801cb'
+#  '2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 b5ac9e8b 4c9f49be'
+#  '5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ffff ffff0100 286bee00'
+#  '00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000'
+#  '00'                                                                     ).replace(' ',''))
+
+
 tx1 = PyTx().unserialize(tx1raw)
 tx2 = PyTx().unserialize(tx2raw)
 
@@ -162,6 +183,11 @@ printpassorfail(blk.blockHeader.merkleRoot == blk.blockData.merkleRoot)
 print ''
 print ''
 
+blkh = PyBlockHeader().unserialize( hex_to_binary(hexBlock) )
+blkextra = blkh.serializeWithExtra()
+blkh2 = PyBlockHeader().unserializeWithExtra(blkextra)
+print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
+printpassorfail( blkextra == blkh2.serializeWithExtra() )
 
 
 # Execute the tests with Satoshi's public key from the Bitcoin specification page
@@ -172,7 +198,7 @@ addrPiece2Hex = 'd8b2307a'
 addrPiece1Bin = hex_to_binary(addrPiece1Hex)
 addrPiece2Bin = hex_to_binary(addrPiece2Hex)
 
-print 'Testing ECDSA key/address methods:'
+print '\nTesting ECDSA key/address methods:'
 print "\tSatoshi's PubKey:      ", satoshiPubKeyHex[:32], '...'
 print "\tSatoshi's Address:     ", satoshiAddrStr
 saddr = PyBtcAddress().createFromPublicKey( hex_to_binary(satoshiPubKeyHex) )
@@ -181,6 +207,7 @@ print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
 print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
+################################################################################
 addr = PyBtcAddress().generateNew()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
@@ -190,6 +217,7 @@ printpassorfail( addr.verifyDERSignature( theHash, derSig))
 print ''
 
 
+################################################################################
 # From tx tests before, we have tx1 and tx2, where tx2 uses and output from tx1
 sp = PyScriptProcessor()
 sp.setTxObjects(tx1, tx2, 0)
@@ -198,12 +226,46 @@ printpassorfail( sp.verifyTransactionValid() )
 print ''
 
 
-blkh = PyBlockHeader().unserialize( hex_to_binary(hexBlock) )
-blkextra = blkh.serializeWithExtra()
-blkh2 = PyBlockHeader().unserializeWithExtra(blkextra)
+################################################################################
+# test signing a transaction:  create two addresses and a fake Tx between them
+AddrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa'*32))
+AddrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
 
-print 'Serialize/Unserialize Round-trip, with extras, block headers: ',
-printpassorfail( blkextra == blkh2.serializeWithExtra() )
+print 'Created two addresses:'
+print 'Address A:', AddrA.getAddrStr()
+print 'Address B:', AddrB.getAddrStr()
+# This TxIn will be completely ignored, so it can contain garbage
+txinA = PyTxIn()
+txinA.outpoint  = PyOutPoint().unserialize(hex_to_binary('00'*36))
+txinA.binScript = hex_to_binary('99'*4)
+txinA.sequence  = hex_to_binary('ff'*4)
+
+txoutA = PyTxOut()
+txoutA.value = 50 * (10**8)
+txoutA.binScript = '\x76\xa9\x14' + AddrA.getAddr160() + '\x88\xac'
+
+tx1 = PyTx()
+tx1.version    = 1
+tx1.numInputs  = 1
+tx1.inputs     = [txinA]
+tx1.numOutputs = 1
+tx1.outputs    = [txoutA]
+tx1.locktime   = 0
+
+tx1hash = tx1.getHash()
+print 'Creating transaction to send coins from A to B'
+tx2 = PyCreateAndSignTx( [[ AddrA, tx1, 0 ]],  [[AddrB, 50*(10**8)]])
+
+# This is not as easy as it sounds -- we did just create this transaction,
+# but we need to make sure we can construct the string to be hashed/verified
+# the same way as we signed it.  I had a few bugs in this process that took
+# me like 2 days to sort out
+print 'Verifying the transaction we just created',
+psp = PyScriptProcessor()
+psp.setTxObjects(tx1, tx2, 0)
+verifResult = psp.verifyTransactionValid()
+printpassorfail( verifResult)
+
 
 
 

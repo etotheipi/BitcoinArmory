@@ -1,6 +1,6 @@
 COMPILER = g++ 
-COMPILER_OPTS = -c -g -Wall -D_DEBUG
-#COMPILER_OPTS = -c -march=native -O2 -pipe 
+#COMPILER_OPTS = -c -g -Wall -D_DEBUG
+COMPILER_OPTS = -c -march=native -O2 -pipe 
 
 
 LINKER = g++ 
@@ -25,7 +25,7 @@ all :
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o
-	g++ -shared $(LIBRARY_OPTS) $(OBJS) CppBlockUtils_wrap.o -o _CppBlockUtils.so
+	g++ -shared $(LIBRARY_OPTS) $(OBJS) CppBlockUtils_wrap.o -o ../_CppBlockUtils.so
 
 BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
 	$(LINKER) $(OBJS) -o BlockUtilsTest.out $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtilsTest.cpp
@@ -53,7 +53,7 @@ BlockUtils.o: BlockUtils.h  BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils.cpp
 
 CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
-	swig $(SWIG_OPTS) -v CppBlockUtils.i
+	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
 	$(COMPILER) $(SWIG_INC) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx

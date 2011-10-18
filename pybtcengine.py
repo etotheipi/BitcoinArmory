@@ -824,19 +824,25 @@ class PyBtcAddress(object):
       self.prepareKeys()
       intSign = binary_to_int(binToSign)
       sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
-      rBin   = int_to_binary(sig.r, endOut=BIGENDIAN)
-      sBin   = int_to_binary(sig.s, endOut=BIGENDIAN)
+      # The extra 0x00 bytes are to guarantee the r-s values are 
+      # interpretted as unsigned:  it's a DER-thing
+      rBin   = '\x00' + int_to_binary(sig.r, endOut=BIGENDIAN)
+      sBin   = '\x00' + int_to_binary(sig.s, endOut=BIGENDIAN)
       rSize  = int_to_binary(len(rBin))
       sSize  = int_to_binary(len(sBin))
       rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
-      return '\x30' + rsSize + '\x02' + rSize + rBin + '\x02' + sSize + sBin
+      sigScr = '\x30' + rsSize + \
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin
+       
+      return sigScr
 
    def verifyDERSignature(self, binToVerify, derToVerify):
       assert(self.hasPubKey)
       self.prepareKeys()
       codeByte = derToVerify[0]
       nBytes   = binary_to_int(derToVerify[1])
-      rsStr    = derToVerify[2:]
+      rsStr    = derToVerify[2:2+nBytes]
       assert(codeByte == '\x30')
       assert(nBytes == len(rsStr))
       # Read r
@@ -1057,7 +1063,8 @@ def TxInScriptExtractKeyAddr(txinObj):
       newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
       return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
    elif scrType == TXIN_SCRIPT_COINBASE:
-      return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
+      return ('[COINBASE-NO-ADDR: %s]'%binary_to_hex(txinObj.binScript), '[COINBASE-NO-PUBKEY]')
+      #return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
    elif scrType == TXIN_SCRIPT_SPENDCB:
       return ('[SPENDCOINBASE]', '[SPENDCOINBASE]')
    else:
@@ -1243,9 +1250,8 @@ class PyTx(object):
       
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
-      thisHash = hash256(self.serialize())
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(thisHash, endian), \
+      print indstr + indent + 'TxHash:   ', binary_to_hex(self.getHash(), endian), \
                                     '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', self.numInputs
@@ -1257,6 +1263,29 @@ class PyTx(object):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+
+      
+   def pprintHex(self, nIndent=0):
+      bu = BinaryUnpacker(self.serialize())
+      theSer = self.serialize()
+      print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+      nTxin = bu.get(VAR_INT)
+      print 'VAR_INT(%d)' % nTxin
+      for i in range(nTxin):
+         print binary_to_hex(bu.get(BINARY_CHUNK,32))
+         print binary_to_hex(bu.get(BINARY_CHUNK,4))
+         scriptSz = bu.get(VAR_INT)
+         print 'VAR_IN(%d)' % scriptSz
+         print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+         print binary_to_hex(bu.get(BINARY_CHUNK,4))
+      nTxout = bu.get(VAR_INT)
+      print 'VAR_INT(%d)' % nTxout
+      for i in range(nTxout):
+         print binary_to_hex(bu.get(BINARY_CHUNK,8))
+         scriptSz = bu.get(VAR_INT)
+         print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
+      print binary_to_hex(bu.get(BINARY_CHUNK, 4))
+         
       
 
 
@@ -1427,6 +1456,8 @@ class PyBlockHeader(object):
          print indstr + indent + 'DiffSum:   ', self.sumDifficult    
 
 
+################################################################################
+################################################################################
 class PyBlockData(object):
    def __init__(self, txList=[]):
       self.txList     = txList
@@ -1502,7 +1533,8 @@ class PyBlockData(object):
          tx.pprint(nIndent+1, endian=endian)
       
 
-
+################################################################################
+################################################################################
 class PyBlock(object):
    def __init__(self, prevHeader=None, txlist=[]):
       self.blockHeader = PyBlockHeader()
@@ -1909,8 +1941,8 @@ class PyScriptProcessor(object):
       self.txNew = None
 
    def setTxObjects(self, txOld, txNew, txInIndex):
-      self.txOld = txOld
-      self.txNew = txNew
+      self.txOld = PyTx().unserialize(txOld.serialize())
+      self.txNew = PyTx().unserialize(txNew.serialize())
       self.txInIndex  = txInIndex
       self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
       self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
@@ -1957,7 +1989,7 @@ class PyScriptProcessor(object):
       
       
    # Implementing this method exactly as in the client because it looks like
-   # there could be some subtlties with how it determines "true"
+   # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
       for i,byte in enumerate(binData):
 
@@ -2286,6 +2318,7 @@ class PyScriptProcessor(object):
          senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
          binHashCode = int_to_binary(hashtype, widthBytes=4)
          toHash = txCopy.serialize() + binHashCode
+
          hashToVerify = hash256(toHash)
 
          hashToVerify = binary_switchEndian(hashToVerify)
@@ -2368,7 +2401,6 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       txin.binScript = ''
       txin.intSeq = 2**32-1
       newTx.inputs.append(txin)                                      
-      
 
 
    #############################
@@ -2377,35 +2409,46 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    txCopySerialized = newTx.serialize()
    for i in range(newTx.numInputs):
       if coinbaseTx:
-         pass # nothing to sign on a CB tx
+         pass
       else:
          txCopy     = PyTx().unserialize(txCopySerialized)
-         thisTxIn   = txCopy.inputs[i]
          srcAddr    = srcTxOuts[i][0]
          txoutIdx   = srcTxOuts[i][2]
          prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
          binToSign  = ''
 
          assert(srcAddr.hasPrivKey)
-         
+
          # Only implemented one type of hashing:  SIGHASH_ALL
-         hashCode   = int_to_binary(1, widthBytes=4)
+         hashType   = 1  # SIGHASH_ALL
+         hashCode1  = int_to_binary(1, widthBytes=1)
+         hashCode4  = int_to_binary(1, widthBytes=4)
 
          # Copy the script of the TxOut we're spending, into the txIn script
-         thisTxIn.binScript = prevTxOut.binScript
-         binToSign = hash256(txCopy.serialize() + hashCode)
-         signature = srcAddr.generateDERSignature(binToSign) + '\x01'
+         txCopy.inputs[i].binScript = prevTxOut.binScript
+         preHashMsg = txCopy.serialize() + hashCode4
+         binToSign = hash256(preHashMsg)
+         binToSign = binary_switchEndian(binToSign)
+         signature = srcAddr.generateDERSignature(binToSign)
+
+         
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
-         if len(prevTxOut.binScript) > 26:
-            newTx.inputs[i].binScript = signature
+         # Don't forget to tack on the one-byte hashcode and consider it part of sig
+         if len(prevTxOut.binScript) > 30:
+            sigLenInBinary = int_to_binary(len(signature) + 1)
+            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
          else:
-            newTx.inputs[i].binScript = signature + '\x41' + srcAddr.pubKey_serialize()
+            pubkey = srcAddr.pubKey_serialize()
+            sigLenInBinary    = int_to_binary(len(signature) + 1)
+            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
+            newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
+                                        pubkeyLenInBinary + pubkey
       
    #############################
    # Finally, our tx is complete!
    return newTx
    
 
-   
+
 
 

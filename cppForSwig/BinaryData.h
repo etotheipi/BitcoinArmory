@@ -324,6 +324,23 @@ public:
       }
    }
 
+   // Absorb a binary file's data into a new BinaryData object
+   int32_t readBinaryFile(string filename)
+   {
+      ifstream is(filename.c_str(), ios::in);
+      if( !is.is_open() )
+         return -1;
+
+      is.seekg(0, ios::end);
+      uint32_t filesize = (size_t)is.tellg();
+      is.seekg(0, ios::beg);
+      
+      nBytes_ = filesize;
+      data_.resize(nBytes_);
+      is.read((char*)getPtr(), nBytes_);
+      return nBytes_;
+   }
+
    // For deallocating all the memory that is currently used by this BD
    void clear(void)
    {

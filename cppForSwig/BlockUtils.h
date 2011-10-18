@@ -509,7 +509,7 @@ private:
    set<HashString>                   txJustAffected_;
 
    // Store info on orphan chains
-   vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
+   vector<BlockHeaderRef*>           previouslyValidBlockHeaderPtrs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
    static BlockDataManager_FullRAM* theOnlyBDM_;
@@ -541,14 +541,14 @@ public:
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, didCauseReorg)
-   pair<bool,bool>  addNewBlockData(   BinaryData rawBlockDataCopy,
+   vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
                                        bool writeToBlk0001=false);
-   pair<bool,bool>  addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
+   vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
                                        bool writeToBlk0001=false);
 
-   void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
-                                              BlockHeaderRef* newTopPtr,
-                                              BlockHeaderRef* branchPtr );
+   void             reassessAfterReorg(BlockHeaderRef* oldTopPtr,
+                                       BlockHeaderRef* newTopPtr,
+                                       BlockHeaderRef* branchPtr );
 
    bool             hasTxWithHash(BinaryData const & txhash) const;
    bool             hasHeaderWithHash(BinaryData const & txhash) const;

@@ -237,28 +237,28 @@ void BtcWallet::addAddress_1_(BinaryData    addr)
    addAddress(addr); 
 } 
 void BtcWallet::addAddress_2_(BinaryData    addr, 
-                             BinaryData    pubKey65)
+                              BinaryData    pubKey65)
 {  
    addAddress(addr, pubKey65); 
 } 
 void BtcWallet::addAddress_3_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32)
 {  
    addAddress(addr, pubKey65, privKey32); 
 } 
 void BtcWallet::addAddress_4_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32,
-                             uint32_t      firstBlockNum)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32,
+                              uint32_t      firstBlockNum)
 {  
    addAddress(addr, pubKey65, privKey32, firstBlockNum); 
 } 
 void BtcWallet::addAddress_5_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32,
-                             uint32_t      firstBlockNum,
-                             uint32_t      firstTimestamp)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32,
+                              uint32_t      firstBlockNum,
+                              uint32_t      firstTimestamp)
 {  
    addAddress(addr, pubKey65, privKey32, firstBlockNum, firstTimestamp); 
 }
@@ -548,7 +548,7 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
    txFileRefs_.clear();
    headerFileRefs_.clear();
    blockchainFilenames_.clear();
-   previouslyValidBlockHeaderRefs_.clear();
+   previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
 }
 
@@ -602,7 +602,7 @@ void BlockDataManager_FullRAM::Reset(void)
    txJustAffected_.clear();
 
    // Reset orphan chains
-   previouslyValidBlockHeaderRefs_.clear();
+   previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
    
    lastEOFByteLoc_ = 0;
@@ -1040,7 +1040,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    // to the permanent memory pool and parse it into our header/tx maps
    BinaryRefReader brr(newBlockDataRaw);
    uint32_t nBlkRead = 0;
-   pair<bool,bool> blockAddResults;
+   vector<bool> blockAddResults;
    bool keepGoing = true;
    while(keepGoing)
    {
@@ -1052,15 +1052,26 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       brr.advance(nextBlockSize+8);
       ////////////
 
-      bool blockAddSucceeded = blockAddResults.first;
-      bool blockchainReorg   = blockAddResults.second;
+      bool blockAddSucceeded = blockAddResults[0];
+      bool blockIsNewTop     = blockAddResults[1];
+      bool blockchainReorg   = blockAddResults[2];
 
       if(blockAddSucceeded)
          nBlkRead++;
-
-      if( blockchainReorg)
+      else
       {
-          //TODO:  checkwhether there was a 
+         if(!blockIsNewTop)
+         {
+            cout << "Block data did not extend the main chain!" << endl;
+            // TODO:  Not sure if there's anything we need to do if this block
+            //        didn't extend the main chain.
+         }
+   
+         if(blockchainReorg)
+         {
+            cout << "This block forced a reorg!  (and we're going to do nothing...)" << endl;
+            //TODO:  do something important (besides seg-faulting)
+         }
       }
       
 
@@ -1170,35 +1181,42 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// This method returns two booleans:
+// This method returns three booleans:
 //    (1)  Block data was added to memory pool successfully
-//    (2)  Adding block data caused blockchain reorganization
+//    (2)  New block added is at the top of the chain
+//    (3)  Adding block data caused blockchain reorganization
 //
 // This method assumes the data is not in the permanent memory pool yet, and
 // we will need to copy it to its permanent memory location before parsing it.
-pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
-                                                          bool writeToBlk0001)
+// Btw, yes I know I could've used a bitset here, but I was too lazy to add
+// the #include and look up the members for using it...
+vector<bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
+                                                       bool writeToBlk0001)
 {
+   // TODO:  maybe we should check whether we already have this block...?
+   vector<bool> vb(3);
    blockchainData_NEW_.push_back(rawBlock);
    list<BinaryData>::iterator listEnd = blockchainData_NEW_.end();
    listEnd--;
    BinaryRefReader newBRR( listEnd->getPtr(), rawBlock.getSize() );
-   bool didSucceed = parseNewBlockData(newBRR, totalBlockchainBytes_);
+   bool addDataSucceeded = parseNewBlockData(newBRR, totalBlockchainBytes_);
 
-   if( ! didSucceed ) 
+   if( ! addDataSucceeded ) 
    {
       cout << "Adding new block data to memory pool failed!";
-      return pair<bool, bool>(false, false);
+      vb[0] = false;  // Added to memory pool
+      vb[1] = false;  // New block is new top of chain
+      vb[2] = false;  // Add caused reorganization
+      return vb;
    }
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
+   // TODO: Check to see if the organizeChain call, perhaps does a lot of what
+   //       I was plannign to do already
    PDEBUG("New block!  Re-assess blockchain state after adding new data...");
    bool prevTopBlockStillValid = organizeChain(); 
 
-   // If there was a reorganization, we're going to have to do a bit of work
-   // to make sure everything is updated properly
-   // 
    // I cannot just do a rescan:  the user needs this to be done manually so
    // that we can identify headers/txs that were previously valid, but no more
    if(!prevTopBlockStillValid)
@@ -1211,34 +1229,40 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
       //     need to update transactions that may have been affected
       //     (do that next), and YOU need to run a post-reorg check
       //     on your wallet (hopefully implemented soon).
-      reassessTxValidityOnReorg(prevTopBlockPtr_,
-                                topBlockPtr_, 
-                                reorgBranchPoint_);
+      reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
       // TODO:  It might also be necessary to look at the specific
       //        block headers that were invalidated, to make sure 
       //        we aren't using stale data somewhere that copied it
       cout << "Done reassessing tx validity " << endl;
    }
 
-   // Write this block to file if is on the main chain and we requested it
+   // Since this method only adds one block, if it's not on the main branch,
+   // then it's not the new head
    BinaryData newHeadHash = BtcUtils::getHash256(rawBlock.getSliceRef(8,80));
-   if(getHeaderByHash(newHeadHash)->isMainBranch() && writeToBlk0001)
+   bool newBlockIsNewTop = getHeaderByHash(newHeadHash)->isMainBranch();
+
+   // Write this block to file if is on the main chain and we requested it
+   // TODO: this isn't right, because this logic won't write any blocks that
+   //       that might eventually be in the main chain but aren't currently.
+   if(newBlockIsNewTop && writeToBlk0001)
    {
       ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);
       fileAppend.write((char const *)(rawBlock.getPtr()), rawBlock.getSize());
       fileAppend.close();
    }
 
-   // Block data was successfully added, and there might've been a reorg
-   return pair<bool, bool>(true, !prevTopBlockStillValid);
+   vb[0] = addDataSucceeded;
+   vb[1] = newBlockIsNewTop;
+   vb[2] = !prevTopBlockStillValid;
+   return vb;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // This method returns two booleans:
 //    (1)  Block data was added to memory pool successfully
 //    (2)  Adding block data caused blockchain reorganization
-pair<bool,bool> BlockDataManager_FullRAM::addNewBlockDataRef( BinaryDataRef bdr,
-                                                              bool writeToBlk0001)
+vector<bool> BlockDataManager_FullRAM::addNewBlockDataRef(BinaryDataRef bdr,
+                                                          bool writeToBlk0001)
 {
    return addNewBlockData(bdr.copy());
 }
@@ -1273,10 +1297,9 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockDataRef( BinaryDataRef bdr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
-                                              BlockHeaderRef* oldTopPtr,
-                                              BlockHeaderRef* newTopPtr,
-                                              BlockHeaderRef* branchPtr)
+void BlockDataManager_FullRAM::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
+                                                   BlockHeaderRef* newTopPtr,
+                                                   BlockHeaderRef* branchPtr)
 {
    cout << "Reassessing Tx validity after (after reorg?)" << endl;
    cout << "   Old top block: " << endl;
@@ -1293,9 +1316,9 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
    txJustAffected_.clear();
    BlockHeaderRef* thisHeaderPtr = oldTopPtr;
    cout << "Invalidating old-chain transactions..." << endl;
-   while(oldTopPtr != branchPtr)
+   while(thisHeaderPtr != branchPtr)
    {
-      
+      previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
@@ -1305,14 +1328,14 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
          txJustInvalidated_.insert(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    // Walk down the newly-valid chain and mark transactions as valid.  If 
    // a tx is in both chains, it will still be valid after this process
    thisHeaderPtr = newTopPtr;
    cout << "Marking new-chain transactions valid..." << endl;
-   while(newTopPtr != branchPtr)
+   while(thisHeaderPtr != branchPtr)
    {
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
@@ -1323,7 +1346,7 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
          txJustInvalidated_.erase(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    PDEBUG("Done reassessing tx validity");
@@ -1369,10 +1392,12 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
            iter != headerHashMap_.end(); 
            iter++)
       {
-         iter->second.difficultySum_ = -1;
-         iter->second.blockHeight_   =  0;
+         iter->second.difficultySum_  = -1;
+         iter->second.blockHeight_    =  0;
          iter->second.isFinishedCalc_ = false;
+         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
       }
+      topBlockPtr_ = NULL;
    }
 
    // Set genesis block
@@ -1395,7 +1420,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 
    // Store the old top block so we can later check whether it is included 
    // in the new chain organization
-   BlockHeaderRef* prevTopBlockPtr_ = topBlockPtr_;
+   prevTopBlockPtr_ = topBlockPtr_;
 
    // Iterate over all blocks, track the maximum difficulty-sum block
    map<BinaryData, BlockHeaderRef>::iterator iter;
@@ -1459,7 +1484,14 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    {
       PDEBUG("Reorg detected!");
       reorgBranchPoint_ = thisHeaderPtr;
+
+      // This is a dangerous bug -- I should probably consider rewriting this
+      // method to avoid this problem:  prevTopBlockPtr_ is set correctly 
+      // RIGHT NOW, but won't be once I make the recursive call to organizeChain
+      // I need to save it now, and re-assign it after the organizeChain call.
+      BlockHeaderRef* prevtopblk = prevTopBlockPtr_;
       organizeChain(true); // force-rebuild blockchain (takes less than 1s)
+      prevTopBlockPtr_ = prevtopblk;
       return false;
    }
 
@@ -1548,7 +1580,7 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
               << iter->second.getThisHash().toHexStr() << endl;
          cerr << "***ERROR: Block previously main branch, now orphan!?"
               << iter->second.getThisHash().toHexStr() << endl;
-         previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
+         previouslyValidBlockHeaderPtrs_.push_back(&(iter->second));
       }
       iter->second.isOrphan_ = true;
       iter->second.isMainBranch_ = false;
