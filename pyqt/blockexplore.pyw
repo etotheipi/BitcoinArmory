@@ -53,7 +53,7 @@ class BtcExploreWindow(QMainWindow):
       if 'nix' in opsys.lower() or 'nux' in opsys.lower():
          defaultBlkFile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
       if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-			defaultBlkFile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
+         defaultBlkFile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
 
 
       settings = QSettings()
