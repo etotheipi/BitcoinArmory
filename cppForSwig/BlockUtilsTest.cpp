@@ -158,6 +158,15 @@ int main(void)
    bdm.organizeChain();
    cout << "Done" << endl;
 
+   // TODO: Let's look at the address ledger after the first chain
+   //       Then look at it again after the reorg.  What we want
+   //       to see is the presence of an invalidated tx, not just
+   //       a disappearing tx -- the user must be informed that a 
+   //       tx they previously thought they owned is now invalid.
+   //       If the user is not informed, they could go crazy trying
+   //       to figure out what happened to this money they thought
+   //       they had.
+
    // prepare the other block to be read in
    ifstream is;
    BinaryData blk3a, blk4a, blk5a;

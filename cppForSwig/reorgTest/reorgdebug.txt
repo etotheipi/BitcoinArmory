@@ -1,331 +1,376 @@
+alan@sekhmet:~/pybtc/cppForSwig$ python ../createTestChain.py 
+Genesis block header:
+BlockHeader:
+   Hash:       000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f (BE)
+   Version:    1
+   PrevBlock:  0000000000000000000000000000000000000000000000000000000000000000 (BE)
+   MerkRoot:   4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b (BE)
+   Timestamp:  1231006505
+   Difficulty: 1.0 (ffff001d)
+   Nonce:      2083236893
+Genesis block tx:
+Transaction:
+   TxHash:    4a5e1e4baab89f3a32518a88c31bc87f618f76673e2cc77ab2127b7afdeda33b (BE)
+   Version:   1
+   nInputs:   1
+   nOutputs:  1
+   LockTime:  0
+   Inputs: 
+      PyTxIn:
+         PrevTxHash: 0000000000000000000000000000000000000000000000000000000000000000 (BE)
+         TxOutIndex: 4294967295
+         Source:     ([COINBASE-NO-ADDR: 04ffff001d0104455468652054696d65732030332f4a616e2f32303039204368616e63656c6c6f72206f6e206272696e6b206f66207365636f6e64206261696c6f757420666f722062616e6b73])
+         Seq:        4294967295
+   Outputs: 
+      TxOut:
+         Value:    5000000000 ( 50.0 )
+         Script:   PubKey(1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa) OP_CHECKSIG
 Addr A: 1A1zP1eP5QGefi2DMPTfTL5SLmv7DivfNa  (Satoshi)
 Addr B: 1NiEGXeURREqqMjCvjCeZn6SwEBZ9AdVet (PrivKey:01bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb)
 Addr C: 1KXFNhNtrRMfgbdiQeuJqnfD7dR4PhniyJ (PrivKey:01cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc)
 Addr D: 1JyMKvPHkrCQd8jQrqTR1rBsAd1VpRhTiE (PrivKey:01dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd)
 
-0x0000:  7aab2836 7159f1ab 3eec6e68 9da7a670 5fabe859 0c637a08 a9ce1920 d86f702e 
 
-0x0000:  c46a4663 a14d2171 86f03d5c 2b4c6d30 97232d8f 3634b38e 4ec81965 a72c4ed0 
 
-0x0000:  8e973175 178aaaa3 9fb5800c 47b11bc4 025c9e12 2eef168e 4012874a 4d1f26f9 
-
-0x0000:  5a308b39 4a38daff b162ae36 09b25bdf e507bb83 793fb4dd 6e4d447b d65bdc70 
-
-0x0000:  c46a4663 a14d2171 86f03d5c 2b4c6d30 97232d8f 3634b38e 4ec81965 a72c4ed0 
-
-0x0000:  b617a496 e84e855f d9aa9aa8 3df85e58 35c542ae b83a98eb 43efbc50 1822049a 
-
-0x0000:  5a308b39 4a38daff b162ae36 09b25bdf e507bb83 793fb4dd 6e4d447b d65bdc70 
-Creating block (1 tx):  Computing nonce..........................................................................................................................................................................................................................................................................................................................................................................................................................................NONCE FOUND! 4225080899
-Raw Header: 010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000db74e6e29eddc4cc50461b9b068cba879eb45eeb00daf258774812c6f126caaf81ad5f49ffff001d439ed5fb
+Creating block (1 tx):  Computing nonce...........NONCE FOUND! 77194820
+Raw Header: 010000006fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d61900000000003bbd67ade98fbbb70718cd80f9e9acf93b5fae917bb2b41d4c3bb82c77725ca581ad5f49ffff001d44e69904
 Block Information: 0
-   Hash:       000000002533da96bfb2dd267668d66a27a0439ca534f3e0460db3ae261d1650 (BE)
+   Hash:       000000003757cbe8ae43511b57b8722851b790f1bd6b90ca3ec6114c4079ca13 (BE)
    Timestamp:  1231007105
    Prev Hash:  000000000019d6689c085ae165831e934ff763ae46a2a6c172b3f1b60a8ce26f (BE)
-   MerkleRoot: afca26f1c612487758f2da00eb5eb49e87ba8c069b1b4650ccc4dd9ee2e674db (BE)
+   MerkleRoot: a55c72772cb83b4c1db4b27b91ae5f3bf9ace9f980cd1807b7bb8fe9ad67bd3b (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      4225080899
+   Nonce:      77194820
    FileOffset: 18446744073709551615
-Hash:       50161d26aeb30d46e0f334a59c43a0276ad6687626ddb2bf96da332500000000
- Finished searching for nonce:  4225080899
-Done!  Nonce: 4225080899  (extra: 2864084220)
-   Head  : 50161d26aeb30d46e0f334a59c43a0276ad6687626ddb2bf96da332500000000
-First 4 LE bytes: [80, 22, 29, 38] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       13ca79404c11c63eca906bbdf190b7512872b8571b5143aee8cb573700000000
+ Finished searching for nonce:  77194820
+Done!  Nonce: 77194820  (extra: 724447090)
+   Head  : 13ca79404c11c63eca906bbdf190b7512872b8571b5143aee8cb573700000000
+First 4 LE bytes: [19, 202, 121, 64] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
 0x0000:  01000000 6fe28c0a b6f1b372 c1a6a246 ae63f74f 931e8365 e15a089c 68d61900 
-0x0020:  00000000 db74e6e2 9eddc4cc 50461b9b 068cba87 9eb45eeb 00daf258 774812c6 
-0x0040:  f126caaf 81ad5f49 ffff001d 439ed5fb 
+0x0020:  00000000 3bbd67ad e98fbbb7 0718cd80 f9e9acf9 3b5fae91 7bb2b41d 4c3bb82c 
+0x0040:  77725ca5 81ad5f49 ffff001d 44e69904 
 None
-   Tx : db74e6e29eddc4cc50461b9b068cba879eb45eeb00daf258774812c6f126caaf
-First 4 LE bytes: [219, 116, 230, 226] First 4 BE bytes: [175, 202, 38, 241]
+   Tx : 3bbd67ade98fbbb70718cd80f9e9acf93b5fae917bb2b41d4c3bb82c77725ca5
+First 4 LE bytes: [59, 189, 103, 173] First 4 BE bytes: [165, 92, 114, 119]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff04fc74 b6aaffff ffff0100 f2052a01 00000043 41046868 
+0x0020:  00000000 00ffffff ff04722f 2e2bffff ffff0100 f2052a01 00000043 41046868 
 0x0040:  0737c76d abb801cb 2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 
 0x0060:  b5ac9e8b 4c9f49be 5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ac00 
 0x0080:  000000 
 None
-Creating block (2 tx):  Computing nonce..........................................................................................................................................................................................................................................................................................................NONCE FOUND! 2947538909
-Raw Header: 0100000050161d26aeb30d46e0f334a59c43a0276ad6687626ddb2bf96da332500000000dab9de8386ad7214201ecb0d8f2c000f88e03ccb369a8a5461c4fd9e1912f9dad9af5f49ffff001ddddfafaf
+Creating block (2 tx):  Computing nonce..............................................................NONCE FOUND! 585763683
+Raw Header: 0100000013ca79404c11c63eca906bbdf190b7512872b8571b5143aee8cb573700000000fc07c983d73917360aeda65729d0d4d32533eb8476ee9d64aa27538f9b4fc00ad9af5f49ffff001d630bea22
 Block Information: 0
-   Hash:       00000000bdcda31cbe4505272c55c5dfd531ba9cb634618c58081dd24f6c4405 (BE)
+   Hash:       00000000582200284cf23362f951db4923a0dd4579f14c0dabfa06055482337d (BE)
    Timestamp:  1231007705
-   Prev Hash:  000000002533da96bfb2dd267668d66a27a0439ca534f3e0460db3ae261d1650 (BE)
-   MerkleRoot: daf912199efdc461548a9a36cb3ce0880f002c8f0dcb1e201472ad8683deb9da (BE)
+   Prev Hash:  000000003757cbe8ae43511b57b8722851b790f1bd6b90ca3ec6114c4079ca13 (BE)
+   MerkleRoot: 0ac04f9b8f5327aa649dee7684eb3325d3d4d02957a6ed0a361739d783c907fc (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      2947538909
+   Nonce:      585763683
    FileOffset: 18446744073709551615
-Hash:       05446c4fd21d08588c6134b69cba31d5dfc5552c270545be1ca3cdbd00000000
- Finished searching for nonce:  2947538909
-Done!  Nonce: 2947538909  (extra: 4240699111)
-   Head  : 05446c4fd21d08588c6134b69cba31d5dfc5552c270545be1ca3cdbd00000000
-First 4 LE bytes: [5, 68, 108, 79] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       7d3382540506faab0d4cf17945dda02349db51f96233f24c2800225800000000
+ Finished searching for nonce:  585763683
+Done!  Nonce: 585763683  (extra: 3843331819)
+   Head  : 7d3382540506faab0d4cf17945dda02349db51f96233f24c2800225800000000
+First 4 LE bytes: [125, 51, 130, 84] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 50161d26 aeb30d46 e0f334a5 9c43a027 6ad66876 26ddb2bf 96da3325 
-0x0020:  00000000 dab9de83 86ad7214 201ecb0d 8f2c000f 88e03ccb 369a8a54 61c4fd9e 
-0x0040:  1912f9da d9af5f49 ffff001d dddfafaf 
+0x0000:  01000000 13ca7940 4c11c63e ca906bbd f190b751 2872b857 1b5143ae e8cb5737 
+0x0020:  00000000 fc07c983 d7391736 0aeda657 29d0d4d3 2533eb84 76ee9d64 aa27538f 
+0x0040:  9b4fc00a d9af5f49 ffff001d 630bea22 
 None
-   Tx : 73e51c8f35a92c03bc105fd76465c8bca0f8216a8cde6ba2477cffad9391e6a0
-First 4 LE bytes: [115, 229, 28, 143] First 4 BE bytes: [160, 230, 145, 147]
+   Tx : 65ca297b9eeb02325cdf7c27b75ae416a965339d9d550a2b30e86346ff1aa4f0
+First 4 LE bytes: [101, 202, 41, 123] First 4 BE bytes: [240, 164, 26, 255]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff04e7ee c3fcffff ffff0100 f2052a01 00000043 41046868 
+0x0020:  00000000 00ffffff ff04eb96 14e5ffff ffff0100 f2052a01 00000043 41046868 
 0x0040:  0737c76d abb801cb 2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 
 0x0060:  b5ac9e8b 4c9f49be 5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ac00 
 0x0080:  000000 
 None
-   Tx : a5b837da38b64a6297862cba8210d021ac59e12b7c6d7e70c355f6972ee7a86e
-First 4 LE bytes: [165, 184, 55, 218] First 4 BE bytes: [110, 168, 231, 46]
+   Tx : f287b5e067e1cf80f7da8af89917b5505094dbd82412d935b665ebbad253d377
+First 4 LE bytes: [242, 135, 181, 224] First 4 BE bytes: [119, 211, 83, 210]
    RawTx :
 
 0x0000:  01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207 
-0x0020:  4fdcb8ee d2000000 004a4930 46022100 cb02fb5a 910e7554 85e3578e 6e9be315 
-0x0040:  a161540a 73f84ee6 f5d68641 925c59ac 0221007e 530a1826 30b50e2c 12dd09cd 
-0x0060:  ebfd809f 038be982 bdc2c7e9 d4cbf634 9e088d01 ffffffff 0200ca9a 3b000000 
+0x0020:  4fdcb8ee d2000000 004a4930 46022100 3dde52c6 5e339f45 7fe1015e 70eed208 
+0x0040:  872eb71e dd484c07 206b190e cb2ec3f8 02210011 c78dcfd0 3d43fa63 61242a33 
+0x0060:  6291ba2a 8c1ef5bc d5472126 2468f2bf 8dee4d01 ffffffff 0200ca9a 3b000000 
 0x0080:  001976a9 14cb2abd e8bccacc 32e893df 3a054b9e f7f227a4 ce88ac00 286bee00 
 0x00a0:  00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000 
 0x00c0:  00 
 None
-Creating block (3 tx):  Computing nonce..................................................................................................................................................................................................................................................NONCE FOUND! 2383868928
-Raw Header: 0100000005446c4fd21d08588c6134b69cba31d5dfc5552c270545be1ca3cdbd000000003da4a91ca469f3256314b24f66191192db9984409b1024cef8060dbe75f02f1531b25f49ffff001d00f4168e
+Creating block (3 tx):  Computing nonce.................................................................................................................................................................................................................................................................................................................................................................................................................................................No nonce found!
+ Finished searching for nonce:  0
+.............................................................................................................................................NONCE FOUND! 1405546728
+Raw Header: 010000007d3382540506faab0d4cf17945dda02349db51f96233f24c28002258000000004806fe80bf85931b882ea64577ca5a0322bb8af23f277b2055f160cd972c8e8b31b25f49ffff001de8f0c653
 Block Information: 0
-   Hash:       00000000536bef4fb0884a0b264407d95acbb05ac26468116f0d776254ba339e (BE)
+   Hash:       00000000aeea07089406226c0014bc1142ddb6871d2ae49b095ef3069964a35d (BE)
    Timestamp:  1231008305
-   Prev Hash:  00000000bdcda31cbe4505272c55c5dfd531ba9cb634618c58081dd24f6c4405 (BE)
-   MerkleRoot: 152ff075be0d06f8ce24109b408499db921119664fb2146325f369a41ca9a43d (BE)
+   Prev Hash:  00000000582200284cf23362f951db4923a0dd4579f14c0dabfa06055482337d (BE)
+   MerkleRoot: 8b8e2c97cd60f155207b273ff28abb22035aca7745a62e881b9385bf80fe0648 (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      2383868928
+   Nonce:      1405546728
    FileOffset: 18446744073709551615
-Hash:       9e33ba5462770d6f116864c25ab0cb5ad90744260b4a88b04fef6b5300000000
- Finished searching for nonce:  2383868928
-Done!  Nonce: 2383868928  (extra: 770534052)
-   Head  : 9e33ba5462770d6f116864c25ab0cb5ad90744260b4a88b04fef6b5300000000
-First 4 LE bytes: [158, 51, 186, 84] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       5da3649906f35e099be42a1d87b6dd4211bc14006c2206940807eaae00000000
+Finished searching for nonce:  1405546728
+Done!  Nonce: 1405546728  (extra: 1501674826)
+   Head  : 5da3649906f35e099be42a1d87b6dd4211bc14006c2206940807eaae00000000
+First 4 LE bytes: [93, 163, 100, 153] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 05446c4f d21d0858 8c6134b6 9cba31d5 dfc5552c 270545be 1ca3cdbd 
-0x0020:  00000000 3da4a91c a469f325 6314b24f 66191192 db998440 9b1024ce f8060dbe 
-0x0040:  75f02f15 31b25f49 ffff001d 00f4168e 
+0x0000:  01000000 7d338254 0506faab 0d4cf179 45dda023 49db51f9 6233f24c 28002258 
+0x0020:  00000000 4806fe80 bf85931b 882ea645 77ca5a03 22bb8af2 3f277b20 55f160cd 
+0x0040:  972c8e8b 31b25f49 ffff001d e8f0c653 
 None
-   Tx : a4749ee7c9ed0cf63bff60b05bf9d1cfeb11f3e97566c12ed926c6742ffe81f6
-First 4 LE bytes: [164, 116, 158, 231] First 4 BE bytes: [246, 129, 254, 47]
+   Tx : decdd08c30e626ef0981ab24a7e7da67647b4f9ce27049919a5296c524c32a6a
+First 4 LE bytes: [222, 205, 208, 140] First 4 BE bytes: [106, 42, 195, 36]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff04a46a ed2dffff ffff0100 f2052a01 00000043 4104b95c 
+0x0020:  00000000 00ffffff ff044abd 8159ffff ffff0100 f2052a01 00000043 4104b95c 
 0x0040:  249d84f4 17e3e395 a1274254 28b54067 1cc15881 eb828c17 b722a53f c599e21c 
 0x0060:  a5e56c90 f340988d 3933acc7 6beb832f d64cab07 8ddf3ce7 32923031 d1a8ac00 
 0x0080:  000000 
 None
-   Tx : 3b68339c8618f529f0a2d54300e58bd6daee6ea03dde8ab857d74d8eedf51291
-First 4 LE bytes: [59, 104, 51, 156] First 4 BE bytes: [145, 18, 245, 237]
+   Tx : 938bb39ee22095cae1f29e1124589f86cef5ec4ce50f02bdf89aa51d239afcfa
+First 4 LE bytes: [147, 139, 179, 158] First 4 BE bytes: [250, 252, 154, 35]
    RawTx :
 
-0x0000:  01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6 
-0x0020:  972ee7a8 6e010000 008c4930 46022100 89e47100 d88d5f8c 8f62a796 dac3afb8 
-0x0040:  f090c6fc 2eb0c4af ac7b7567 3a364c01 0221002b f40e554d ae51264b 0a86df17 
-0x0060:  3e45756a 89bbd302 4f166cc4 2cfd1874 13636901 41046868 0737c76d abb801cb 
+0x0000:  01000000 01f287b5 e067e1cf 80f7da8a f89917b5 505094db d82412d9 35b665eb 
+0x0020:  bad253d3 77010000 008c4930 46022100 96ee0d02 b35fd61e 4960b44f f396f67e 
+0x0040:  01fe17f9 de4e0c17 b6a963bd ab2b50a6 02210034 920d4daa 7e9f8abe 5675c931 
+0x0060:  495809f9 0b9c1189 d05fbaf1 dd6696a5 b0d8f301 41046868 0737c76d abb801cb 
 0x0080:  2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 b5ac9e8b 4c9f49be 
 0x00a0:  5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ffff ffff0100 286bee00 
 0x00c0:  00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000 
 0x00e0:  00 
 None
-   Tx : 4037230d193ea73d6414c7e8887e2f1554f9e493bdf66041da128a4264289335
-First 4 LE bytes: [64, 55, 35, 13] First 4 BE bytes: [53, 147, 40, 100]
+   Tx : 9e29733440ee57a763ee51151d43275d9273aea02b77b014463086945967c58f
+First 4 LE bytes: [158, 41, 115, 52] First 4 BE bytes: [143, 197, 103, 89]
    RawTx :
 
-0x0000:  01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6 
-0x0020:  972ee7a8 6e000000 008c4930 46022100 e8412e59 de80e23c 05accef3 19f56f1d 
-0x0040:  c970547b c2729f49 8485be4b 5256d168 02210042 b6a8dcb1 c68e150d 0f054d56 
-0x0060:  0df04a93 d08869d3 b2448435 56ce816b c287d101 4104b95c 249d84f4 17e3e395 
+0x0000:  01000000 01f287b5 e067e1cf 80f7da8a f89917b5 505094db d82412d9 35b665eb 
+0x0020:  bad253d3 77000000 008c4930 46022100 b08b922a c4bde411 1c229f92 9fe6eb6a 
+0x0040:  50161f98 1f4cf47e a9214d35 bf74d380 022100d2 f6640327 e677a1e1 cc474991 
+0x0060:  b9a48ba5 bd1e0c94 d1c8df49 f7b0193b 7ea4fa01 4104b95c 249d84f4 17e3e395 
 0x0080:  a1274254 28b54067 1cc15881 eb828c17 b722a53f c599e21c a5e56c90 f340988d 
 0x00a0:  3933acc7 6beb832f d64cab07 8ddf3ce7 32923031 d1a8ffff ffff0100 ca9a3b00 
 0x00c0:  00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000 
 0x00e0:  00 
 None
-Creating block (2 tx):  Computing nonce...................................................................................NONCE FOUND! 794171008
-Raw Header: 010000009e33ba5462770d6f116864c25ab0cb5ad90744260b4a88b04fef6b5300000000592da4f0d4c2f8f7e43a22dbf1375378379378b7b01449b5e5a5e79394d0e79489b45f49ffff001d8016562f
+Creating block (2 tx):  Computing nonce...................................................................................................NONCE FOUND! 956846848
+Raw Header: 010000005da3649906f35e099be42a1d87b6dd4211bc14006c2206940807eaae0000000048eeeaed2d9d8522e6201173743823fd4b87cd8aca8e6408ec75ca38302c2ff089b45f49ffff001d00530839
 Block Information: 0
-   Hash:       0000000076bc20aa7b6fd83f68c33e4ece8336e1cf8fc60d4a9884de8983a864 (BE)
+   Hash:       0000000046ecc24d1475c8a0f46b125875787575e23f62802fe626b96fc2aedf (BE)
    Timestamp:  1231008905
-   Prev Hash:  00000000536bef4fb0884a0b264407d95acbb05ac26468116f0d776254ba339e (BE)
-   MerkleRoot: 94e7d09493e7a5e5b54914b0b7789337785337f1db223ae4f7f8c2d4f0a42d59 (BE)
+   Prev Hash:  00000000aeea07089406226c0014bc1142ddb6871d2ae49b095ef3069964a35d (BE)
+   MerkleRoot: f02f2c3038ca75ec08648eca8acd874bfd233874731120e622859d2dedeaee48 (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      794171008
+   Nonce:      956846848
    FileOffset: 18446744073709551615
-Hash:       64a88389de84984a0dc68fcfe13683ce4e3ec3683fd86f7baa20bc7600000000
- Finished searching for nonce:  794171008
-Done!  Nonce: 794171008  (extra: 2931431883)
-   Head  : 64a88389de84984a0dc68fcfe13683ce4e3ec3683fd86f7baa20bc7600000000
-First 4 LE bytes: [100, 168, 131, 137] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       dfaec26fb926e62f80623fe27575787558126bf4a0c875144dc2ec4600000000
+ Finished searching for nonce:  956846848
+Done!  Nonce: 956846848  (extra: 321002964)
+   Head  : dfaec26fb926e62f80623fe27575787558126bf4a0c875144dc2ec4600000000
+First 4 LE bytes: [223, 174, 194, 111] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 9e33ba54 62770d6f 116864c2 5ab0cb5a d9074426 0b4a88b0 4fef6b53 
-0x0020:  00000000 592da4f0 d4c2f8f7 e43a22db f1375378 379378b7 b01449b5 e5a5e793 
-0x0040:  94d0e794 89b45f49 ffff001d 8016562f 
+0x0000:  01000000 5da36499 06f35e09 9be42a1d 87b6dd42 11bc1400 6c220694 0807eaae 
+0x0020:  00000000 48eeeaed 2d9d8522 e6201173 743823fd 4b87cd8a ca8e6408 ec75ca38 
+0x0040:  302c2ff0 89b45f49 ffff001d 00530839 
 None
-   Tx : 83cb595e187cf690d8f142d3511cc6a6f628db8c0f4e17b6b6a84a947a01da23
-First 4 LE bytes: [131, 203, 89, 94] First 4 BE bytes: [35, 218, 1, 122]
+   Tx : 44762bb487ea691a5926dac19d6337d5d395206fb32e688c0f964a5cb0ebf2ac
+First 4 LE bytes: [68, 118, 43, 180] First 4 BE bytes: [172, 242, 235, 176]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff04cb19 baaeffff ffff0100 f2052a01 00000043 4104678a 
+0x0020:  00000000 00ffffff ff04d41d 2213ffff ffff0100 f2052a01 00000043 4104678a 
 0x0040:  fdb0fe55 48271967 f1a67130 b7105cd6 a828e039 09a67962 e0ea1f61 deb649f6 
 0x0060:  bc3f4cef 38c4f355 04e51ec1 12de5c38 4df7ba0b 8d578a4c 702b6bf1 1d5fac00 
 0x0080:  000000 
 None
-   Tx : c8d5ea20978dcded8404174982356c8455072e563375821b2a114c1a2b0cb49e
-First 4 LE bytes: [200, 213, 234, 32] First 4 BE bytes: [158, 180, 12, 43]
+   Tx : 556a81de49c58ae8fce4a6ddbfff8c0f952f5d888c78b5067348d755b4995912
+First 4 LE bytes: [85, 106, 129, 222] First 4 BE bytes: [18, 89, 153, 180]
    RawTx :
 
 0x0000:  01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207 
-0x0020:  4fdcb8ee d2000000 004a4930 46022100 ab20f302 1ecebfc7 cd32e4d5 5fb13941 
-0x0040:  81684d62 040313ee 8efe90bf ad8f882c 0221009b 34b65296 c9bb3207 235a2d39 
-0x0060:  b929cbe5 ba352848 014efd5e 1ecd5e37 2e53a801 ffffffff 0100f205 2a010000 
+0x0020:  4fdcb8ee d2000000 004a4930 46022100 8c8fd57b 48762135 8d8f3e69 19f33e08 
+0x0040:  804736ff 83db47aa 248512e2 6df9b8ba 022100b0 c59e5ee7 bfcbfcd1 a4d83da9 
+0x0060:  55fb260e fda7f42a 25522625 a3d6f2d9 1174a701 ffffffff 0100f205 2a010000 
 0x0080:  001976a9 14c52266 4fb0e55c dc5c0cea 73b4aad9 7ec83432 3288ac00 000000 
 None
-Creating block (3 tx):  Computing nonce...........................................................................................................................................................................................................................................NONCE FOUND! 2318629788
-Raw Header: 0100000005446c4fd21d08588c6134b69cba31d5dfc5552c270545be1ca3cdbd0000000085820b82c13ac22ea7ad140c73660bed0a5d07a260cdd46e1fe931fd3a98c1a431b25f49ffff001d9c7b338a
+Creating block (3 tx):  Computing nonce...............................................................................................................NONCE FOUND! 1075089514
+Raw Header: 010000007d3382540506faab0d4cf17945dda02349db51f96233f24c28002258000000005a15f5731177a353bdca7aab20e16624dfe90adc70accadc68016732302c20a731b25f49ffff001d6a901440
 Block Information: 0
-   Hash:       00000000a05d89c238c05ac7ad4d4c4715db7537f6e3eb4274ad75c2522da919 (BE)
+   Hash:       00000000923caf1d245b5d64d5f19597e88fcc47583a414f7d6605226874e7aa (BE)
    Timestamp:  1231008305
-   Prev Hash:  00000000bdcda31cbe4505272c55c5dfd531ba9cb634618c58081dd24f6c4405 (BE)
-   MerkleRoot: a4c1983afd31e91f6ed4cd60a2075d0aed0b66730c14ada72ec23ac1820b8285 (BE)
+   Prev Hash:  00000000582200284cf23362f951db4923a0dd4579f14c0dabfa06055482337d (BE)
+   MerkleRoot: a7202c3032670168dccaac70dc0ae9df2466e120ab7acabd53a3771173f5155a (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      2318629788
+   Nonce:      1075089514
    FileOffset: 18446744073709551615
-Hash:       19a92d52c275ad7442ebe3f63775db15474c4dadc75ac038c2895da000000000
- Finished searching for nonce:  2318629788
-Done!  Nonce: 2318629788  (extra: 794760515)
-   Head  : 19a92d52c275ad7442ebe3f63775db15474c4dadc75ac038c2895da000000000
-First 4 LE bytes: [25, 169, 45, 82] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       aae774682205667d4f413a5847cc8fe89795f1d5645d5b241daf3c9200000000
+ Finished searching for nonce:  1075089514
+Done!  Nonce: 1075089514  (extra: 3588692909)
+   Head  : aae774682205667d4f413a5847cc8fe89795f1d5645d5b241daf3c9200000000
+First 4 LE bytes: [170, 231, 116, 104] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 05446c4f d21d0858 8c6134b6 9cba31d5 dfc5552c 270545be 1ca3cdbd 
-0x0020:  00000000 85820b82 c13ac22e a7ad140c 73660bed 0a5d07a2 60cdd46e 1fe931fd 
-0x0040:  3a98c1a4 31b25f49 ffff001d 9c7b338a 
+0x0000:  01000000 7d338254 0506faab 0d4cf179 45dda023 49db51f9 6233f24c 28002258 
+0x0020:  00000000 5a15f573 1177a353 bdca7aab 20e16624 dfe90adc 70accadc 68016732 
+0x0040:  302c20a7 31b25f49 ffff001d 6a901440 
 None
-   Tx : 9d8eb62cd222effc4c4c43622b1b5e23f7ea4ffd46c8fb1958e21842ca5f6a34
-First 4 LE bytes: [157, 142, 182, 44] First 4 BE bytes: [52, 106, 95, 202]
+   Tx : 68ffa9c2de469139579cca7b2186b8e608e4c2f6d92a00a7df643715a4851537
+First 4 LE bytes: [104, 255, 169, 194] First 4 BE bytes: [55, 21, 133, 164]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff044315 5f2fffff ffff0100 f2052a01 00000043 4104ed83 
+0x0020:  00000000 00ffffff ff04ad1b e7d5ffff ffff0100 f2052a01 00000043 4104ed83 
 0x0040:  704c95d8 29046f1a c2780621 1132102c 34e9ac7f fa1b7111 0658e5b9 d1bdedc4 
 0x0060:  16f5cefc 1db0625c d0c75de8 192d2b59 2d7e3b00 bcfb4a0e 860d880f d1fcac00 
 0x0080:  000000 
 None
-   Tx : dda0a31c21ea7a32488ebd1aa7a6d7401766329b75f229d71d9a4c873ce6d70c
-First 4 LE bytes: [221, 160, 163, 28] First 4 BE bytes: [12, 215, 230, 60]
+   Tx : 938bb39ee22095cae1f29e1124589f86cef5ec4ce50f02bdf89aa51d239afcfa
+First 4 LE bytes: [147, 139, 179, 158] First 4 BE bytes: [250, 252, 154, 35]
    RawTx :
 
-0x0000:  01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6 
-0x0020:  972ee7a8 6e010000 008c4930 46022100 ede72e25 737fb1b0 f924ad6d 5d4a7c16 
-0x0040:  fab59f96 7e6f9962 83c73cf0 71f5c085 022100fb 2f440138 a01524ad 553db336 
-0x0060:  ae139734 6c82a2c5 051e187c c52aa91a 094af001 41046868 0737c76d abb801cb 
+0x0000:  01000000 01f287b5 e067e1cf 80f7da8a f89917b5 505094db d82412d9 35b665eb 
+0x0020:  bad253d3 77010000 008c4930 46022100 96ee0d02 b35fd61e 4960b44f f396f67e 
+0x0040:  01fe17f9 de4e0c17 b6a963bd ab2b50a6 02210034 920d4daa 7e9f8abe 5675c931 
+0x0060:  495809f9 0b9c1189 d05fbaf1 dd6696a5 b0d8f301 41046868 0737c76d abb801cb 
 0x0080:  2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 b5ac9e8b 4c9f49be 
 0x00a0:  5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ffff ffff0100 286bee00 
 0x00c0:  00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000 
 0x00e0:  00 
 None
-   Tx : ca5615aea7c749c6bfcbcb4feb47c4c0e1f3b07efa8b1902455c9736dd1dff3b
-First 4 LE bytes: [202, 86, 21, 174] First 4 BE bytes: [59, 255, 29, 221]
+   Tx : 320d0746083a9ec2b669cfc7a9bca2114fcc9dc8cb1cf5d4c3ee82a7531585f7
+First 4 LE bytes: [50, 13, 7, 70] First 4 BE bytes: [247, 133, 21, 83]
    RawTx :
 
-0x0000:  01000000 01a5b837 da38b64a 6297862c ba8210d0 21ac59e1 2b7c6d7e 70c355f6 
-0x0020:  972ee7a8 6e000000 008c4930 46022100 5d956983 7df19fe0 1dc90f73 d2af96df 
-0x0040:  b85a9337 384d1417 27ea0097 95baa57d 02210082 e854f2a5 a5d8a005 c52d1b55 
-0x0060:  d9f049c6 bf9cbd6c f9610761 6cc6e2ae b0355b01 4104b95c 249d84f4 17e3e395 
+0x0000:  01000000 01f287b5 e067e1cf 80f7da8a f89917b5 505094db d82412d9 35b665eb 
+0x0020:  bad253d3 77000000 008c4930 46022100 9cc67ddd aa6f592a 6b2babd4 d6ff954f 
+0x0040:  25a784cf 4fe4bb13 afb9f49b 08955119 022100a2 d99545b7 94080757 fcf2b563 
+0x0060:  f2e91287 86332f46 0ec6b90f f085fb28 41a69701 4104b95c 249d84f4 17e3e395 
 0x0080:  a1274254 28b54067 1cc15881 eb828c17 b722a53f c599e21c a5e56c90 f340988d 
 0x00a0:  3933acc7 6beb832f d64cab07 8ddf3ce7 32923031 d1a8ffff ffff0100 ca9a3b00 
 0x00c0:  00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000 
 0x00e0:  00 
 None
-Creating block (1 tx):  Computing nonce.......................................................NONCE FOUND! 514485346
-Raw Header: 0100000019a92d52c275ad7442ebe3f63775db15474c4dadc75ac038c2895da0000000001e99b58f82b4ed4961bea74ec8d36907d67d2bfa46e332b6fb4dec09319c277b89b45f49ffff001d626caa1e
+Creating block (1 tx):  Computing nonce..........................................................................................................................................................................................................................................................................................................................................................................................................NONCE FOUND! 3902904990
+Raw Header: 01000000aae774682205667d4f413a5847cc8fe89795f1d5645d5b241daf3c9200000000361c9cdea09637a0d0c05c3b4e7a5d919edb184a0a4c7633d92e2dddf04cb85489b45f49ffff001d9e9aa1e8
 Block Information: 0
-   Hash:       000000001eae09c61f622b8ce6bac7345dd9081b8ddf0cfe3e33cfb34f731cd7 (BE)
+   Hash:       0000000024461e8ccfb25cd44b85e111a40b082c75d2417f1ba7319cded0c7eb (BE)
    Timestamp:  1231008905
-   Prev Hash:  00000000a05d89c238c05ac7ad4d4c4715db7537f6e3eb4274ad75c2522da919 (BE)
-   MerkleRoot: 7b279c3109ec4dfbb632e346fa2b7dd60769d3c84ea7be6149edb4828fb5991e (BE)
+   Prev Hash:  00000000923caf1d245b5d64d5f19597e88fcc47583a414f7d6605226874e7aa (BE)
+   MerkleRoot: 54b84cf0dd2d2ed933764c0a4a18db9e915d7a4e3b5cc0d0a03796a0de9c1c36 (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      514485346
+   Nonce:      3902904990
    FileOffset: 18446744073709551615
-Hash:       d71c734fb3cf333efe0cdf8d1b08d95d34c7bae68c2b621fc609ae1e00000000
- Finished searching for nonce:  514485346
-Done!  Nonce: 514485346  (extra: 4171958812)
-   Head  : d71c734fb3cf333efe0cdf8d1b08d95d34c7bae68c2b621fc609ae1e00000000
-First 4 LE bytes: [215, 28, 115, 79] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       ebc7d0de9c31a71b7f41d2752c080ba411e1854bd45cb2cf8c1e462400000000
+ Finished searching for nonce:  3902904990
+Done!  Nonce: 3902904990  (extra: 3941840897)
+   Head  : ebc7d0de9c31a71b7f41d2752c080ba411e1854bd45cb2cf8c1e462400000000
+First 4 LE bytes: [235, 199, 208, 222] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 19a92d52 c275ad74 42ebe3f6 3775db15 474c4dad c75ac038 c2895da0 
-0x0020:  00000000 1e99b58f 82b4ed49 61bea74e c8d36907 d67d2bfa 46e332b6 fb4dec09 
-0x0040:  319c277b 89b45f49 ffff001d 626caa1e 
+0x0000:  01000000 aae77468 2205667d 4f413a58 47cc8fe8 9795f1d5 645d5b24 1daf3c92 
+0x0020:  00000000 361c9cde a09637a0 d0c05c3b 4e7a5d91 9edb184a 0a4c7633 d92e2ddd 
+0x0040:  f04cb854 89b45f49 ffff001d 9e9aa1e8 
 None
-   Tx : 1e99b58f82b4ed4961bea74ec8d36907d67d2bfa46e332b6fb4dec09319c277b
-First 4 LE bytes: [30, 153, 181, 143] First 4 BE bytes: [123, 39, 156, 49]
+   Tx : 361c9cdea09637a0d0c05c3b4e7a5d919edb184a0a4c7633d92e2dddf04cb854
+First 4 LE bytes: [54, 28, 156, 222] First 4 BE bytes: [84, 184, 76, 240]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff041c0a abf8ffff ffff0100 f2052a01 00000043 4104678a 
+0x0020:  00000000 00ffffff ff0401b8 f3eaffff ffff0100 f2052a01 00000043 4104678a 
 0x0040:  fdb0fe55 48271967 f1a67130 b7105cd6 a828e039 09a67962 e0ea1f61 deb649f6 
 0x0060:  bc3f4cef 38c4f355 04e51ec1 12de5c38 4df7ba0b 8d578a4c 702b6bf1 1d5fac00 
 0x0080:  000000 
 None
 Creating block (2 tx):  Computing nonce.................................................................................................................................................................................................................................................................................................................................................................................................................................................No nonce found!
  Finished searching for nonce:  0
-..............................................................................................................................................................................................................................................................................................................................................................................................................................................No nonce found!
-Finished searching for nonce:  0
-..................................................................................................................................................................................................................................NONCE FOUND! 2255408262
-Raw Header: 01000000d71c734fb3cf333efe0cdf8d1b08d95d34c7bae68c2b621fc609ae1e00000000d00958d03d4cda811edefb29ed5db9b31fa07f5d953f4d146ebabf994fc6bbe2e1b65f49ffff001d86cc6e86
+........................................................................................................................................................................................................NONCE FOUND! 1999971914
+Raw Header: 01000000ebc7d0de9c31a71b7f41d2752c080ba411e1854bd45cb2cf8c1e462400000000a607774b79b8eb50b52a5a32c1754281ec67f6269561df2857d1fe6aea82c696e1b65f49ffff001d4a263577
 Block Information: 0
-   Hash:       0000000085c6967379881855dc546bf965746bd397d1a49bda141964ff51b657 (BE)
+   Hash:       000000002b2ad01cafc2e18e4ca5e84acdfa2e9f9e1c6e1773899a7e0d1c35dc (BE)
    Timestamp:  1231009505
-   Prev Hash:  000000001eae09c61f622b8ce6bac7345dd9081b8ddf0cfe3e33cfb34f731cd7 (BE)
-   MerkleRoot: e2bbc64f99bfba6e144d3f955d7fa01fb3b95ded29fbde1e81da4c3dd05809d0 (BE)
+   Prev Hash:  0000000024461e8ccfb25cd44b85e111a40b082c75d2417f1ba7319cded0c7eb (BE)
+   MerkleRoot: 96c682ea6afed15728df619526f667ec814275c1325a2ab550ebb8794b7707a6 (BE)
    Difficulty: 1    (ffff001d)
    CumulDiff:  -1
-   Nonce:      2255408262
+   Nonce:      1999971914
    FileOffset: 18446744073709551615
-Hash:       57b651ff641914da9ba4d197d36b7465f96b54dc551888797396c68500000000
-Finished searching for nonce:  2255408262
-Done!  Nonce: 2255408262  (extra: 4113530641)
-   Head  : 57b651ff641914da9ba4d197d36b7465f96b54dc551888797396c68500000000
-First 4 LE bytes: [87, 182, 81, 255] First 4 BE bytes: [0, 0, 0, 0]
+Hash:       dc351c0d7e9a8973176e1c9e9f2efacd4ae8a54c8ee1c2af1cd02a2b00000000
+Finished searching for nonce:  1999971914
+Done!  Nonce: 1999971914  (extra: 2097967513)
+   Head  : dc351c0d7e9a8973176e1c9e9f2efacd4ae8a54c8ee1c2af1cd02a2b00000000
+First 4 LE bytes: [220, 53, 28, 13] First 4 BE bytes: [0, 0, 0, 0]
    RawHeader  :
 
-0x0000:  01000000 d71c734f b3cf333e fe0cdf8d 1b08d95d 34c7bae6 8c2b621f c609ae1e 
-0x0020:  00000000 d00958d0 3d4cda81 1edefb29 ed5db9b3 1fa07f5d 953f4d14 6ebabf99 
-0x0040:  4fc6bbe2 e1b65f49 ffff001d 86cc6e86 
+0x0000:  01000000 ebc7d0de 9c31a71b 7f41d275 2c080ba4 11e1854b d45cb2cf 8c1e4624 
+0x0020:  00000000 a607774b 79b8eb50 b52a5a32 c1754281 ec67f626 9561df28 57d1fe6a 
+0x0040:  ea82c696 e1b65f49 ffff001d 4a263577 
 None
-   Tx : e3fce626550e7354e95b4981ddcf58496dee620fd46ace2d0e61d7997fde5e9d
-First 4 LE bytes: [227, 252, 230, 38] First 4 BE bytes: [157, 94, 222, 127]
+   Tx : 397a0a0d81980107a09e6096cbab127d80eb80b0aa39f58305fc76f810bd021c
+First 4 LE bytes: [57, 122, 10, 13] First 4 BE bytes: [28, 2, 189, 16]
    RawTx :
 
 0x0000:  01000000 01000000 00000000 00000000 00000000 00000000 00000000 00000000 
-0x0020:  00000000 00ffffff ff04117f 2ff5ffff ffff0100 f2052a01 00000043 4104678a 
+0x0020:  00000000 00ffffff ff049971 0c7dffff ffff0100 f2052a01 00000043 4104678a 
 0x0040:  fdb0fe55 48271967 f1a67130 b7105cd6 a828e039 09a67962 e0ea1f61 deb649f6 
 0x0060:  bc3f4cef 38c4f355 04e51ec1 12de5c38 4df7ba0b 8d578a4c 702b6bf1 1d5fac00 
 0x0080:  000000 
 None
-   Tx : a7281f178712d3fbe145b88501ab100f7f0fa755b45230faff6a5b78e2913fbb
-First 4 LE bytes: [167, 40, 31, 23] First 4 BE bytes: [187, 63, 145, 226]
+   Tx : 556a81de49c58ae8fce4a6ddbfff8c0f952f5d888c78b5067348d755b4995912
+First 4 LE bytes: [85, 106, 129, 222] First 4 BE bytes: [18, 89, 153, 180]
    RawTx :
 
 0x0000:  01000000 0163451d 1002611c 1388d5ba 4ddfdf99 196a86b5 990fb5b0 dc786207 
-0x0020:  4fdcb8ee d2000000 004a4930 46022100 db23b05a 70199c6a d2a3c5e9 62d8ccde 
-0x0040:  1be46dde 8862a6e3 6aa66557 6477893c 022100b2 c4707fa8 2bd598db 62a9d4fa 
-0x0060:  ec10d136 c2f36440 4675c9f5 f663e76a e6b14601 ffffffff 0100f205 2a010000 
+0x0020:  4fdcb8ee d2000000 004a4930 46022100 8c8fd57b 48762135 8d8f3e69 19f33e08 
+0x0040:  804736ff 83db47aa 248512e2 6df9b8ba 022100b0 c59e5ee7 bfcbfcd1 a4d83da9 
+0x0060:  55fb260e fda7f42a 25522625 a3d6f2d9 1174a701 ffffffff 0100f205 2a010000 
 0x0080:  001976a9 14c52266 4fb0e55c dc5c0cea 73b4aad9 7ec83432 3288ac00 000000 
 None
 
+
+
+First 4 LE bytes: [ 19, 202, 121,  64] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [ 59, 189, 103, 173] First 4 BE bytes: [165, 92, 114, 119]
+
+First 4 LE bytes: [125,  51, 130,  84] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [101, 202,  41, 123] First 4 BE bytes: [240, 164, 26, 255]
+First 4 LE bytes: [242, 135, 181, 224] First 4 BE bytes: [119, 211, 83, 210]
+
+First 4 LE bytes: [ 93, 163, 100, 153] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [222, 205, 208, 140] First 4 BE bytes: [106, 42, 195, 36]
+First 4 LE bytes: [147, 139, 179, 158] First 4 BE bytes: [250, 252, 154, 35]
+First 4 LE bytes: [158,  41, 115,  52] First 4 BE bytes: [143, 197, 103, 89]
+
+First 4 LE bytes: [223, 174, 194, 111] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [ 68, 118,  43, 180] First 4 BE bytes: [172, 242, 235, 176]
+First 4 LE bytes: [ 85, 106, 129, 222] First 4 BE bytes: [18, 89, 153, 180]
+
+First 4 LE bytes: [170, 231, 116, 104] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [104, 255, 169, 194] First 4 BE bytes: [55, 21, 133, 164]
+First 4 LE bytes: [147, 139, 179, 158] First 4 BE bytes: [250, 252, 154, 35]
+First 4 LE bytes: [ 50,  13,   7,  70] First 4 BE bytes: [247, 133, 21, 83]
+
+First 4 LE bytes: [235, 199, 208, 222] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [ 54,  28, 156, 222] First 4 BE bytes: [84, 184, 76, 240]
+
+First 4 LE bytes: [220,  53,  28,  13] First 4 BE bytes: [0, 0, 0, 0]
+First 4 LE bytes: [ 57, 122,  10,  13] First 4 BE bytes: [28, 2, 189, 16]
+First 4 LE bytes: [ 85, 106, 129, 222] First 4 BE bytes: [18, 89, 153, 180]

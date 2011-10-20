@@ -327,7 +327,7 @@ public:
    // Absorb a binary file's data into a new BinaryData object
    int32_t readBinaryFile(string filename)
    {
-      ifstream is(filename.c_str(), ios::in);
+      ifstream is(filename.c_str(), ios::in | ios::binary );
       if( !is.is_open() )
          return -1;
 
