@@ -25,7 +25,6 @@ int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
-   /*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
@@ -145,9 +144,20 @@ int main(void)
            << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
-   */
 
-
+   // NOTE:  These unit-test files (blk_0_to_4, blk_3A, etc) have an
+   //        error in them, so the OutPoint hashes don't match up.
+   //        For now this test only allows you to walk through your
+   //        reorg code (which still helped me find a ton of bugs), but
+   //        will not allow you to do more exhaustive testing until I
+   //        get the bugs in the unit-test-generation worked out.
+   /*
+   BtcWallet wlt;
+   wlt.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
+   wlt.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
+   wlt.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
+   wlt.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
+                   
    cout << endl << endl;
    cout << "Preparing blockchain-reorganization test!" << endl;
    cout << "Resetting block-data mgr...";
@@ -158,6 +168,7 @@ int main(void)
    bdm.organizeChain();
    cout << "Done" << endl;
 
+   //
    // TODO: Let's look at the address ledger after the first chain
    //       Then look at it again after the reorg.  What we want
    //       to see is the presence of an invalidated tx, not just
@@ -166,6 +177,19 @@ int main(void)
    //       If the user is not informed, they could go crazy trying
    //       to figure out what happened to this money they thought
    //       they had.
+   cout << "Constructing address ledger for the four addresses:" << endl;
+   bdm.scanBlockchainForTx_FromScratch(wlt);
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   cout << "                          Balance: " << wlt.getBalance() << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
+                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
+
+   }
+
+
 
    // prepare the other block to be read in
    ifstream is;
@@ -183,27 +207,9 @@ int main(void)
 
    cout << "Pushing Block 5A into the BDM:" << endl;
    result = bdm.addNewBlockData(blk5a);
+   */
 
 
-/*
-   cout << endl << endl << endl << endl;
-   cout << "Testing adding blocks to an existing chain"<< endl;
-   cout << "Resetting the blockchain..." << endl;
-   bdm.Reset();
-   cout << "Reading and organizing 180 blocks" << endl;
-   copyFile("blockaddtest/blk179.bin", "smallBlockchain.dat");
-   bdm.readBlkFile_FromScratch("smallBlockchain.dat");
-   bdm.organizeChain();
-   bdm.getTopBlockHeader().pprint();
-   for(uint32_t i=180; i<189; i++)
-   {
-      stringstream ss;
-      ss << "blockaddtest/blk" << i << ".bin";
-      copyFile( ss.str(), "smallBlockchain.dat");
-      cout << "New block added to blockchain file.  Updating..." << endl;
-      bdm.readBlkFileUpdate();
-   }
-*/
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -215,25 +221,9 @@ int main(void)
    cout << endl << endl;
    
 
-   char aa[256];
-   cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
-        << "file.  Then type a few characters and press enter -- will test" << endl
-        << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
-   cin >> aa;
-
-   cout << "Checking blkfile for updates" << endl;
-   bdm.readBlkFileUpdate();
-
-   cout << endl << endl;
-   cout << "Printing NEW top block information" << endl;
-   bdm.getTopBlockHeader().pprint(cout, 0, false);
-
 
 
    char pause[256];
-
-   
-
    cout << "Enter anything to exit" << endl;
    cin >> pause;
 

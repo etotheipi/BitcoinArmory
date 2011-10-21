@@ -155,7 +155,9 @@ BtcAddress::BtcAddress(BinaryData    addr,
       pubKey65_(pubKey65),
       privKey32_(privKey32),
       firstBlockNum_(firstBlockNum), 
-      firstTimestamp_(firstTimestamp)
+      firstTimestamp_(firstTimestamp),
+      lastBlockNum_(0), 
+      lastTimestamp_(0)
 { 
    relevantTxIOPtrs_.clear();
 } 
@@ -290,9 +292,9 @@ void BtcWallet::scanTx(TxRef & tx,
       // TODO:  for some reason, this conditional stopped working!
       // If this block is before known addr creation time, no point in scanning
       // If this block is before last addr seen time, already seen it!
-      //if(  blktime < thisAddr.getFirstTimestamp()-(3600*24*7) ||
-           //blknum  < thisAddr.getFirstBlockNum()-1000            )
-         //continue;  
+      if(  blktime+(3600*24*7) < thisAddr.getLastTimestamp() ||
+           blknum+1000         < thisAddr.getLastBlockNum()           )
+         continue;  
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       uint64_t valueIn = 0;
@@ -393,7 +395,7 @@ void BtcWallet::scanTx(TxRef & tx,
                thisAddr.addLedgerEntry(newLedger);
                valueOut += thisVal;
                // Check if this is the first time we've seen this
-               if(thisAddr.getFirstBlockNum() == 0)
+               if(thisAddr.getFirstTimestamp() == 0)
                {
                   thisAddr.setFirstBlockNum( blknum );
                   thisAddr.setFirstTimestamp( blktime );

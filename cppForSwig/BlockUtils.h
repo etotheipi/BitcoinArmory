@@ -193,6 +193,7 @@ public:
       
    bool operator<(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
+
 private:
    
 
@@ -370,12 +371,14 @@ private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
    map<OutPoint, TxIORefPair>   txioMap_;
+
    vector<LedgerEntry>          ledgerAllAddr_;  
+
    set<OutPoint>                unspentTxOuts_;
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
-   bitset<32>                   encryptFlags_;    // priv-key-encryp params
+   bitset<32>                   encryptFlags_;   // priv-key-encryp params
    bool                         isLocked_;       // watching only, no spending
 
    // For non-std transactions
@@ -540,7 +543,7 @@ public:
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
-   // These methods return (blockAddSucceeded, didCauseReorg)
+   // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
    vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
                                        bool writeToBlk0001=false);
    vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
