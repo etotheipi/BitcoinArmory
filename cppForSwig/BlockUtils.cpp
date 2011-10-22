@@ -1122,8 +1122,8 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Pass in a BRR that starts at the beginning of the blockdata (before magic
-// bytes) THAT IS ALREADY AT IT'S PERMANENT LOCATION IN MEMORY
+// Pass in a BRR that starts at the beginning of the blockdata THAT IS 
+// ALREADY AT IT'S PERMANENT LOCATION IN MEMORY (before magic bytes)
 bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
                                                  uint64_t & currBlockchainSize)
 {
@@ -1134,7 +1134,7 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
    uint32_t nBytes = brr.get_uint32_t();
 
    // For some reason, my blockfile sometimes has some extra bytes
-   // If failed we return prevTopBlockStillValid==true;
+   // If failed we return reorgHappened==false;
    if(brr.isEndOfStream() || brr.getSizeRemaining() < nBytes)
       return false;
 
@@ -1152,15 +1152,16 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
    BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
    // Read the #tx and fill in some header properties
-   uint32_t nTx = (uint32_t)brr.get_var_int();
+   uint8_t viSize;
+   uint32_t nTx = (uint32_t)brr.get_var_int(&viSize);
    bhptr->blockNumBytes_ = nBytes;
    bhptr->blkByteLoc_    = currBlockchainSize;
+   uint64_t txOffset = 8 + HEADER_SIZE + viSize; // usually 89
 
    // Read each of the Tx
    bhptr->txPtrList_.clear();
    for(uint32_t i=0; i<nTx; i++)
    {
-      uint64_t txStartByte = brr.getPosition();
       txInputPair.second.unserialize(brr);
       txInputPair.first = txInputPair.second.getThisHash();
       txInsResult = txHashMap_.insert(txInputPair);
@@ -1169,12 +1170,12 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
       // Add a pointer to this tx to the header's tx-ptr-list
       bhptr->txPtrList_.push_back( txptr );
 
-      txptr->setTxStartByte(txStartByte+currBlockchainSize);
-      // We don't set this tx's headerPtr because we're not sure
-      // yet that this block is on the main chain ... if there was
-      // a reorg, this tx could end up being referenced by multiple
-      // headers
-
+      txptr->setTxStartByte(txOffset+currBlockchainSize);
+      txOffset += txptr->getSize();
+      // We don't set this tx's headerPtr because there could be multiple
+      // headers that reference this tx... we will wait until the chain
+      // is organized and make sure this tx points to the header that 
+      // is on the main chain.
    }
    currBlockchainSize += nBytes+8;
    return true;

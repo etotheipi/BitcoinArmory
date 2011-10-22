@@ -254,6 +254,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				Description="Combine compiled libraries and PyQt gui into .exe"
+				CommandLine="python ../pyqt/setup.py py2exe --includes sip,hashlib -d ../pyqtexplore"
 			/>
 		</Configuration>
 		<Configuration
@@ -334,6 +336,8 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				Description="Combine compiled libraries and PyQt gui into .exe"
+				CommandLine="python ../pyqt/setup.py py2exe --includes sip,hashlib -d ../pyqtexplore"
 			/>
 		</Configuration>
 	</Configurations>
