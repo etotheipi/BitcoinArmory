@@ -43,59 +43,58 @@
 ********************************************************************************
 
 ********************************************************************************
-* Please take a moment to donate 0.5 BTC!    1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
-
-* (c'mon, it will take like 10 seconds to cut&paste)
+* Please take a moment to donate 1.0 BTC!    1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
 ********************************************************************************
 
 ********************************************************************************
-*  STATUS:   Last Updated - 01 Oct, 2011
+*  STATUS:   Last Updated - 23 Oct, 2011
 *            Legend:   
 *                      _    not implemented
 *                      .    implemented but not tested
 *                      +    implemented and partially tested
 *                      X    implemented and tested
 *  
-*                                          C++         Python
-*     -----------------------------------------------------------------
-*      (01)  Ser/Unser Block Objects        X            X  
-*      (02)  Hash160/Hash256                X            X 
-*      (03)  Difficulty calcs               X            X
-*      (04)  Address Generation                          X  
-*      (05)  Address Verify/Manip                        X  
-*     -----------------------------------------------------------------
-*      (06)  BlkHeaders read/scan/org       X            X  
-*      (07)  BlkHeaders reorgs              X            
-*      (08)  Blockchain read/scan/org       X               
-*      (09)  Blockchain reorgs              +            
-*      (10)  Blockchain verify integrity    X
-*     -----------------------------------------------------------------
-*      (11)  NonStd Tx Detection            +            +  
-*      (12)  Script pprint                  X            X
-*      (13)  Script evaluation                           +
-*      (14)  Script OP_CHECKSIG                          X
-*      (15)  ECDSA Sign/Verify                           X  
-*     -----------------------------------------------------------------
-*      (16)  Address/Wallet tracking        X            X  
-*      (17)  Scan blkchain for Tx           X
-*      (18)  Scan blkchain for NonStd       X
-*      (19)  Reorg w/ double-spend          .
-*      (20)  Add new blockdata real-time    .
-*     -----------------------------------------------------------------
-*      (21)  Networking/Sockets
-*      (22)  Blockchain download
-*      (23)  Tx construction
-*      (24)  Tx broadcast
-*      (25)  Tx fee detect/calc/handle
+*                                          C++       Python     SWIG
+*     ---------------------------------------------------------------
+*      (01)  Ser/Unser Block Objects        X          X         X
+*      (02)  Hash160/Hash256                X          X         X
+*      (03)  Difficulty calcs               X          X         X
+*      (04)  Address Generation                        X         X
+*      (05)  Address Verify/Manip                      X         X
+*     ---------------------------------------------------------------
+*      (06)  BlkHeaders read/scan/org       X          X         X
+*      (07)  BlkHeaders reorgs              X                    X
+*      (08)  Blockchain read/scan/org       X                    X
+*      (09)  Blockchain reorgs              X                    X
+*      (10)  Blockchain verify integrity    X                    X
+*     ---------------------------------------------------------------
+*      (11)  NonStd Tx Detection            X          X         X
+*      (12)  Script pprint                  X          X         X
+*      (13)  Script OP_CHECKSIG                        X         X
+*      (14)  Arbitrary script eval                     .         .
+*      (15)  ECDSA Sign/Verify                         X         X
+*     ---------------------------------------------------------------
+*      (16)  Address/Wallet tracking        X          X         X
+*      (17)  Scan blkchain for Tx           X                    X
+*      (18)  Scan blkchain for NonStd       X                    X
+*      (19)  Reorg w/ double-spend          X                    X
+*      (20)  Add new blockdata real-time    X                    X
+*     ---------------------------------------------------------------
+*      (21)  Tx construction                           X         X
+*      (22)  Tx broadcast
+*      (23)  Tx fee detect/calc/handle
+*      (24)  Networking/Sockets
+*      (25)  Blockchain download
+*
+*
 *
 *
 * Notes:
-*     (09)  Blockchain reorganizations are mostly tested:  the correct blocks
-*           will be flagged as "isMainBranch", and the others marked no longer
-*           on the main branch.  I also update all the transactions.  However,
-*           I do not have implemented a method for updating balances/ledgers
-*           for wallets after a reorg, and then I will need a specialized unit
-*           test in order to verify it works correctly.
+*     (09)  I have THOROUGHLY tested the blockchain reorg code.  Days of 
+*           carefully stepping through code, line-by-line, and making sure
+*           everything looks exactly right at each step.  After a reorg,
+*           invalidated Tx's show up in the address ledger with a flag
+*           that identifies it has been removed.
 *
 *           
 *     (11)  Is "mostly" tested because there are a few TxIn scripts that I fail
@@ -105,14 +104,14 @@
 *           turn around and reimplement the signauture reading based on a real
 *           DER library, or just hack it to accept extra 0x00 bytes at the end.
 *
-*     (19)  Similar to (09), I have put the code in place to detect and handle
-*           double-spends properly, but it has not been tested at all.  I need
-*           a special unit test to do this.
+*     (14)  I have tested OP_CHECKSIG in the python code fairly exhaustively.
+*           However, I have not really checked any other non-std script types.  
+*           OP_CHECKSIG is the most important, but I can't yet claim that 
+*           my scripting engine is complete
+*
 *
 * More Notes:
-*      FullRAM implementation only in C++ code.  Will try mmap() eventually,
-*      which should allow me to do exactly the same thing, but using a virtual
-*      file-map without reading the entire blockchain into memory.  However,
+*      FullRAM implementation only in C++ code.  However,
 *      modern computers can handle the full blockchain in RAM right now, and 
 *      probably for the next year, so there's no hurry to do this.
 
@@ -130,6 +129,25 @@
    For information on dependencies and compiling, see Using_PyBtcEngine.README
 
 ********************************************************************************
+#####
+18 Oct, 2011
+
+   *** Working blockchain reorgs with double-spend detection, GUI works in 10.04
+
+   I added a createTestChain.py script that can be modified to create any kind
+   of difficulty-1 blockchain, starting with the actual genesis block.  I have
+   used it to create a reorg-double-spend test, and crushed some pretty heavy 
+   bugs in that code.  Next I will be working on the Tx/Ledger handling, so
+   that any transactions that were, at any point, marked valid, will remain in
+   the DB/memorypool for some amount of time, to let the user know what 
+   happened.
+
+   Along the way, also had to iron out my tx-construction code in python.  It's
+   a complete pain in the ass (endianness is a bitch), but it's finally done
+   now and the python code can construct Txs from a list of Addr-Txout-pairs
+   and a list of recipient-value-pairs.  (I do not have TxOut selection 
+   implemented, but it should be straightforward compared to the ECDSA and
+   OP_CHECKSIG stuff).
 
 #####
 06 Oct, 2011

@@ -192,47 +192,6 @@ bool BlockHeaderRef::verifyIntegrity(void)
    return (merkleIsGood && headerIsGood);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// For now, I just want to create difficulty-1 blocks
-uint32_t BlockHeaderRef::findNonce(void)
-{
-   pprint();
-   cout << "C++ hex: " << serialize().toHexStr() << endl;
-   BinaryData playHeader;
-   playHeader.copyFrom(self_);
-   cout << "Playheader: " <<  playHeader.toHexStr() << endl;
-
-   BinaryData a = BinaryData::CreateFromHex("aabbccdd"); cout << "a   : " << a.toHexStr() << endl;
-   BinaryDataRef aref(a);  cout << "aref: " << aref.toHexStr() << endl;
-   BinaryData    acpy(a);  cout << "acpy: " << acpy.toHexStr() << endl;
-   BinaryData    acp2(aref);  cout << "acp2: " << acp2.toHexStr() << endl;
-   exit(0);
-   BinaryData fourZeros = BinaryData::CreateFromHex("00000000");
-   BinaryData hashResult(32);
-   for(uint32_t nonce=0; nonce<(uint32_t)(-1); nonce++)
-   {
-      *(uint32_t*)(playHeader.getPtr()+76) = nonce;
-      BtcUtils::getHash256_NoSafetyCheck(playHeader.getPtr(), HEADER_SIZE, hashResult);
-      if(hashResult.getSliceRef(28,4) == fourZeros)
-      {
-         BlockHeaderRef bhr;
-         bhr.unserialize(playHeader);
-         bhr.pprint();
-         cout << playHeader.toHexStr() << endl;
-         cout << hashResult.toHexStr() << endl;
-         cout << "Nonce: " << nonce;
-         return nonce;
-      }
-
-      if(nonce % 10000000 == 0)
-      {
-         cout << ".";
-         cout.flush();
-      }
-   }
-   cout << "No nonce found!" << endl;
-   return 0;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

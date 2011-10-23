@@ -147,7 +147,7 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
-   print prettyHex(theStr, indent, major, minor)
+   print prettyHex(theStr, indent, withAddr, major, minor)
 
 
 
@@ -1568,6 +1568,8 @@ class PyBlock(object):
    def getSize(self):
       return len(self.serialize())
 
+   # Not sure how useful these manual block-construction methods
+   # are.  For now, I just need something with non-ridiculous vals
    def setPrevHeader(self, prevHeader, copyAttr=True):
       self.blockHeader.prevBlkHash = prevHeader.theHash
       self.blockHeader.nonce       = 0
@@ -1580,6 +1582,9 @@ class PyBlock(object):
       self.blockData = PyBlockData(txlist)
       if not self.blockHeader == UNINITIALIZED:
          self.blockHeader.merkleRoot = self.blockData.getMerkleRoot()
+
+   def tx(self, idx):
+      return self.blockData.txList[idx]
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent

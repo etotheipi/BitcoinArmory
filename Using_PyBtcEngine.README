@@ -34,7 +34,7 @@ that all features with an X in either column are accessible in SWIG.
    - SWIG
             Linux:   Install package "swig"
             Windows: "http://www.swig.org/download.html"
-            (MSVS: Copy swigwin-2.x directory next to cryptopp)
+            (MSVS: Copy swigwin-2.x directory next to cryptopp as "swigwin")
 
    - Python 2.6/2.7
             Linux:   Should be preinstalled...
@@ -44,7 +44,12 @@ that all features with an X in either column are accessible in SWIG.
    - PyQt 4 (for Python 2.X)
             Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
             Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
+                     Also will need the QtSDK
 
+   (OPTIONAL - if you want to make a standalone executable)
+   - py2exe
+            Linux:   ---
+            Windows: http://www.py2exe.org/
 
 *** Compiling ***
 
@@ -52,29 +57,50 @@ that all features with an X in either column are accessible in SWIG.
             "make swig" to create and compile the SWIG wrappers
    
    Windows: MSVS 2010 project is included.  Setup to compile C++ code only
-            I have not tried any of the Python/SWIG code in Windows, at all.
+            MSVS 2005 project also included.  Setup to compile everything,
+            and even runs swig and py2exe as pre- and post-build events.            
 
             In windows you're going to have to do a bit more work than just
             installing the programs below.  Specifically, you need to add
-            a few environment variables to make sure MSVS knows where to find
-            all the python/swig files it needs
-            
-            I don't know for sure if I needed to set these environment
-            variables, I had to hard-code their locations in the config
-            manager after all.
-            Environment Vars        where I found it on my WinXP system
-            PYTHON_INCLUDE             C:\Python27\include
-            PYTHON_LIB                 C:\Python27\libs\python27.lib
+            a few libraries I couldn't distributed through git (for various
+            reasons), and also make sure the MSVS has the right includes
+            for your python version/location.
 
-            In MSVS under the SWIG configuration:
+            Most importantly, check 
+            
+           
+            
+            In MSVS, you're going to have to 
                C/C++  --> General --> Additional Include Directories:
                Linker --> General --> Additional Library Directories:
                Linker --> Input   --> Additional Library Directories:
             Make sure the python lines match your system config
 
-            SO FAR THIS IS AS FAR AS I'VE GOTTEN:  the SWIG code compiles
-            into a .dll but I can't seem to load it, and PyQt4 won't load,
-            either.  
+
+   SWIG Notes:
+            Running SWIG takes in all the source code and the CppBlockUtils.i
+            and creates a C++ source file called CppBlockUtils_wrap.cxx, as 
+            well as CppBlockUtils.py.
+            The result of compiling this source file in linux:
+               _CppBlockUtils.so
+            In windows, compiling will generally produce
+               _CppBlockUtils.dll  --> MUST BE RENAMED --> _CppBlockUtils.pyd
+               
+            The previously-created CppBlockUtils.py expects to find this 
+            shared-object or pyd in the same directory.
+
+   PyQt4 Notes:
+            Getting PyQt4 setup in Linux is trivial:  apt-get install as above
+
+            Getting PyQt4 setup in Windows was a pain.  I'm still not positive
+            I could repeat the process and succeed.  It does involve:
+               -- Getting and installing QtSDK
+               -- Getting mingw matching you QtSDK version
+               -- Unzip mingw somewhere and referencing it when install QtSDK
+               -- Download PyQt4 matching your python version
+               -- Manipulate your PATH (environment variables) to make sure
+                  it has PyQt4 directory (C:\Python2X\Lib\site-packages\PyQt4)
+    
 
    
 ################################################################################
