@@ -1,6 +1,6 @@
-Writing blocks to ReorgTest/ directory
 File path:  reorgTest/blk_0_to_4.dat
-Block:
+
+Block 0:
    f9beb4d9
    1d010000
    
@@ -16,7 +16,7 @@ Block:
    01000000 43410467 8afdb0fe 55482719 67f1a671 30b7105c d6a828e0 3909a679 
    62e0ea1f 61deb649 f6bc3f4c ef38c4f3 5504e51e c112de5c 384df7ba 0b8d578a 
    4c702b6b f11d5fac 00000000 
-Block:
+Block 1:
    f9beb4d9
    d4000000
    
@@ -30,7 +30,7 @@ Block:
    0737c76d abb801cb 2204f57d be4e4579 e4f710cd 67dc1b42 27592c81 e9b5cf02 
    b5ac9e8b 4c9f49be 5251056b 6a6d011e 4c37f6b6 d17ede6b 55faa235 19e2ac00 
    000000 
-Block:
+Block 2:
    f9beb4d9
    95010000
    
@@ -52,7 +52,7 @@ Block:
    001976a9 14cb2abd e8bccacc 32e893df 3a054b9e f7f227a4 ce88ac00 286bee00 
    00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000 
    00 
-Block:
+Block 3:
    f9beb4d9
    96020000
    
@@ -84,7 +84,8 @@ Block:
    3933acc7 6beb832f d64cab07 8ddf3ce7 32923031 d1a8ffff ffff0100 ca9a3b00 
    00000019 76a914c5 22664fb0 e55cdc5c 0cea73b4 aad97ec8 34323288 ac000000 
    00 
-Block:
+
+Block 4:
    f9beb4d9
    73010000
    
@@ -104,8 +105,9 @@ Block:
    804736ff 83db47aa 248512e2 6df9b8ba 022100b0 c59e5ee7 bfcbfcd1 a4d83da9 
    55fb260e fda7f42a 25522625 a3d6f2d9 1174a701 ffffffff 0100f205 2a010000 
    001976a9 14c52266 4fb0e55c dc5c0cea 73b4aad9 7ec83432 3288ac00 000000 
+
 File path:  reorgTest/blk_3A.dat
-Block:
+Block 3A:
    f9beb4d9
    96020000
    
@@ -137,8 +139,9 @@ Block:
    3933acc7 6beb832f d64cab07 8ddf3ce7 32923031 d1a8ffff ffff0100 ca9a3b00 
    00000019 76a914ee 26c56fc1 d942be8d 7a24b2a1 001dd894 69398088 ac000000 
    00 
+
 File path:  reorgTest/blk_4A.dat
-Block:
+Block 4A:
    f9beb4d9
    d4000000
    
@@ -152,8 +155,9 @@ Block:
    fdb0fe55 48271967 f1a67130 b7105cd6 a828e039 09a67962 e0ea1f61 deb649f6 
    bc3f4cef 38c4f355 04e51ec1 12de5c38 4df7ba0b 8d578a4c 702b6bf1 1d5fac00 
    000000 
+
 File path:  reorgTest/blk_5A.dat
-Block:
+Block 5A:
    f9beb4d9
    73010000
    

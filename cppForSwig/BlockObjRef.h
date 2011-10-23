@@ -330,7 +330,7 @@ public:
    BinaryData const & getThisHash(void) const    { return thisHash_; }
    BinaryDataRef      getThisHashRef(void) const { return BinaryDataRef(thisHash_); }
    void               setMainBranch(bool b=true) { isMainBranch_ = b; }
-   bool               isMainBranch(void)  { return isMainBranch_; }
+   bool               isMainBranch(void)  const { return isMainBranch_; }
    uint64_t           getTxStartByte(void) { return fileByteLoc_; }
    void               setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
 

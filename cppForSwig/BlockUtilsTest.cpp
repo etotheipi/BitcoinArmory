@@ -25,10 +25,13 @@ int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
+   /*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch(
+            "C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
+            false);  // false ~ don't organize blockchain, just create maps
    //bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
@@ -134,16 +137,17 @@ int main(void)
 
    cout << "Printing SORTED allAddr ledger..." << endl;
    wlt.cleanLedger();
-   vector<LedgerEntry> const & ledger2 = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledger2.size(); j++)
+   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledger2[j].getAddrStr20().toHexStr() << "  "
-           << ledger2[j].getValue()/(float)(CONVERTBTC) << " (" 
-           << ledger2[j].getBlockNum()
-           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
+           << ledgerAll[j].getAddrStr20().toHexStr() << "  "
+           << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledgerAll[j].getBlockNum()
+           << ")  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
+   */
 
    // NOTE:  These unit-test files (blk_0_to_4, blk_3A, etc) have an
    //        error in them, so the OutPoint hashes don't match up.
@@ -151,7 +155,6 @@ int main(void)
    //        reorg code (which still helped me find a ton of bugs), but
    //        will not allow you to do more exhaustive testing until I
    //        get the bugs in the unit-test-generation worked out.
-   /*
    BtcWallet wlt;
    wlt.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
    wlt.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
@@ -177,15 +180,27 @@ int main(void)
    //       If the user is not informed, they could go crazy trying
    //       to figure out what happened to this money they thought
    //       they had.
-   cout << "Constructing address ledger for the four addresses:" << endl;
+   cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
    bdm.scanBlockchainForTx_FromScratch(wlt);
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
-   cout << "                          Balance: " << wlt.getBalance() << endl;
+   cout << "                          Balance: " << wlt.getBalance()/1e8 << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      for(uint32_t j=0; j<ledger.size(); j++)
+      {  
+         cout << "    Tx: " 
+              << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexStr() << "  "
+              << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+              << ledger[j].getBlockNum()
+              << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr();
+         if( ! ledger[j].isValid())
+            cout << " (INVALID) ";
+         cout << endl;
+      }
 
    }
 
@@ -197,19 +212,60 @@ int main(void)
    assert(blk3a.readBinaryFile("reorgTest/blk_3A.dat") != -1);
    assert(blk4a.readBinaryFile("reorgTest/blk_4A.dat") != -1);
    assert(blk5a.readBinaryFile("reorgTest/blk_5A.dat") != -1);
-
    vector<bool> result;
+
+   /////
    cout << "Pushing Block 3A into the BDM:" << endl;
    result = bdm.addNewBlockData(blk3a);
 
+   /////
    cout << "Pushing Block 4A into the BDM:" << endl;
    result = bdm.addNewBlockData(blk4a);
 
+   /////
    cout << "Pushing Block 5A into the BDM:" << endl;
    result = bdm.addNewBlockData(blk5a);
-   */
+   if(result[ADD_BLOCK_CAUSED_REORG] == true)
+   {
+      cout << "Reorg happened after pushing block 5A" << endl;
+      bdm.scanBlockchainForTx_FromScratch(wlt);
+      bdm.updateWalletAfterReorg(wlt);
+   }
 
+   cout << "Checking balance of entire wallet: " << wlt.getBalance()/1e8 << endl;
+   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll.size(); j++)
+   {  
+      cout << "    Tx: " 
+           << ledgerAll[j].getAddrStr20().toHexStr() << "  "
+           << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledgerAll[j].getBlockNum()
+           << ")  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if( ! ledgerAll[j].isValid())
+         cout << " (INVALID) ";
+      cout << endl;
+   }
 
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
+                         << wlt.getAddrByHash160(addr20).getBalance()/1e8 << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      for(uint32_t j=0; j<ledger.size(); j++)
+      {  
+         cout << "    Tx: " 
+              << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexStr() << "  "
+              << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+              << ledger[j].getBlockNum()
+              << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr();
+         if( ! ledger[j].isValid())
+            cout << " (INVALID) ";
+         cout << endl;
+      }
+
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////
