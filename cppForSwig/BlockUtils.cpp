@@ -15,105 +15,96 @@ BlockDataManager_FullRAM* BlockDataManager_FullRAM::theOnlyBDM_ = NULL;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
-// TxIORefPair Methods
+// TxIOPair Methods
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(void) : 
+TxIOPair::TxIOPair(void) : 
    amount_(0),
-   txoutRef_(), 
-   txoutTxRefPtr_(NULL),
-   txinRef_(),
-   txinTxRefPtr_(NULL) {}
+   txPtrOfOutput_(NULL),
+   indexOfOutput_(0),
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) {}
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(uint64_t  amount) :
+TxIOPair::TxIOPair(uint64_t  amount) :
    amount_(amount),
-   txoutRef_(), 
-   txoutTxRefPtr_(NULL),
-   txinRef_(),
-   txinTxRefPtr_(NULL) {}
+   txPtrOfOutput_(NULL),
+   indexOfOutput_(0),
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) {}
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(TxOutRef const &  outref, 
-                         TxRef          *  txPtr) :
+TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    amount_(0),
-   txinRef_(),
-   txinTxRefPtr_(NULL) 
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) 
 { 
-   setTxOutRef(outref, txPtr);
+   setTxOutRef(txPtrO, txoutIndex);
 }
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(TxOutRef  outref, 
-                         TxRef*    txPtrOut, 
-                         TxInRef   inref, 
-                         TxRef*    txPtrIn) :
+TxIOPair::TxIOPair(TxRef*    txPtrO,
+                   uint32_t  txoutIndex,
+                   TxRef*    txPtrI, 
+                   uint32_t  txinIndex) :
    amount_(0)
 { 
-   setTxOutRef(outref, txPtrOut);
-   setTxInRef(inref, txPtrIn);
+   setTxOutRef(txPtrO, txoutIndex);
+   setTxInRef (txPtrI, txinIndex );
 }
 
+
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfOutputRef(void)
+BinaryData TxIOPair::getTxHashOfOutput(void)
 {
-   if(txoutTxRefPtr_ == NULL)
+   if(!hasTxOut())
       return BtcUtils::EmptyHash_;
    else
-      return txoutTxRefPtr_->getThisHashRef();
+      return txPtrOfOutput_->getThisHash();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfInputRef(void)
+BinaryData TxIOPair::getTxHashOfInput(void)
 {
-   if(txinTxRefPtr_ == NULL)
+   if(!hasTxIn())
       return BtcUtils::EmptyHash_;
    else
-      return txinTxRefPtr_->getThisHashRef();
+      return txPtrOfInput_->getThisHash();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryData TxIORefPair::getTxHashOfOutput(void)
-{
-   if(txoutTxRefPtr_ == NULL)
-      return BtcUtils::EmptyHash_;
-   else
-      return txoutTxRefPtr_->getThisHash();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-BinaryData TxIORefPair::getTxHashOfInput(void)
-{
-   if(txinTxRefPtr_ == NULL)
-      return BtcUtils::EmptyHash_;
-   else
-      return txinTxRefPtr_->getThisHash();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-void TxIORefPair::setTxInRef(TxInRef const & inref, TxRef* intxptr)
+void TxIOPair::setTxInRef(TxRef* txref, uint32_t index)
 { 
-   txinRef_  = inref;
-   txinTxRefPtr_  = intxptr;
+   txPtrOfInput_  = txref;
+   indexOfInput_  = index;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void TxIORefPair::setTxOutRef(TxOutRef const & outref, TxRef* outtxptr)
+void TxIOPair::setTxOutRef(TxRef* txref, uint32_t index)
 {
-   txoutRef_ = outref; 
-   txoutTxRefPtr_ = outtxptr;
-   if(txoutRef_.isInitialized())
-      amount_ = txoutRef_.getValue();
+   txPtrOfOutput_ = txref; 
+   indexOfOutput_ = index;
+   if(hasTxOut())
+      amount_ = getTxOutRef().getValue();
 }
 
-bool TxIORefPair::isStandardTxOutScript(void) 
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isStandardTxOutScript(void) 
 { 
    if(hasTxOut()) 
-      return txoutRef_.isStandard();
+      return getTxOutRef().isStandard();
    return false;
+}
+
+pair<bool,bool> TxIOPair::reassessValidity(void)
+{
+   pair<bool,bool> result;
+   result.first  = (hasTxOut() && txPtrOfOutput_->isMainBranch());
+   result.second = (hasTxIn()  && txPtrOfInput_->isMainBranch());
+   return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -134,6 +125,7 @@ bool LedgerEntry::operator<(LedgerEntry const & le2) const
    
 }
 
+//////////////////////////////////////////////////////////////////////////////
 bool LedgerEntry::operator==(LedgerEntry const & le2) const
 {
    return (blockNum_ == le2.blockNum_ && index_ == le2.index_);
@@ -155,25 +147,30 @@ BtcAddress::BtcAddress(BinaryData    addr,
       pubKey65_(pubKey65),
       privKey32_(privKey32),
       firstBlockNum_(firstBlockNum), 
-      firstTimestamp_(firstTimestamp)
+      firstTimestamp_(firstTimestamp),
+      lastBlockNum_(0), 
+      lastTimestamp_(0)
 { 
    relevantTxIOPtrs_.clear();
 } 
 
 
 
+////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcAddress::getBalance(void)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isUnspent())
+      if(relevantTxIOPtrs_[i]->isUnspent() &&
+         relevantTxIOPtrs_[i]->getTxRefOfOutput().isMainBranch())
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    return balance;
 }
 
-uint32_t BtcAddress::cleanLedger(void)
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BtcAddress::removeInvalidEntries(void)   
 {
    vector<LedgerEntry> newLedger(0);
    uint32_t leRemoved = 0;
@@ -186,10 +183,15 @@ uint32_t BtcAddress::cleanLedger(void)
    }
    ledger_.clear();
    ledger_ = newLedger;
-   
-   sort(ledger_.begin(), ledger_.end());
    return leRemoved;
 }
+   
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::sortLedger(void)
+{
+   sort(ledger_.begin(), ledger_.end());
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -209,6 +211,7 @@ void BtcWallet::addAddress(BinaryData    addr,
    *addrPtr = BtcAddress(addr, pubKey65, privKey32, 
                          firstBlockNum, firstTimestamp);
    addrPtrVect_.push_back(addrPtr);
+   isLocked_ = false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -237,28 +240,28 @@ void BtcWallet::addAddress_1_(BinaryData    addr)
    addAddress(addr); 
 } 
 void BtcWallet::addAddress_2_(BinaryData    addr, 
-                             BinaryData    pubKey65)
+                              BinaryData    pubKey65)
 {  
    addAddress(addr, pubKey65); 
 } 
 void BtcWallet::addAddress_3_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32)
 {  
    addAddress(addr, pubKey65, privKey32); 
 } 
 void BtcWallet::addAddress_4_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32,
-                             uint32_t      firstBlockNum)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32,
+                              uint32_t      firstBlockNum)
 {  
    addAddress(addr, pubKey65, privKey32, firstBlockNum); 
 } 
 void BtcWallet::addAddress_5_(BinaryData    addr, 
-                             BinaryData    pubKey65,
-                             BinaryData    privKey32,
-                             uint32_t      firstBlockNum,
-                             uint32_t      firstTimestamp)
+                              BinaryData    pubKey65,
+                              BinaryData    privKey32,
+                              uint32_t      firstBlockNum,
+                              uint32_t      firstTimestamp)
 {  
    addAddress(addr, pubKey65, privKey32, firstBlockNum, firstTimestamp); 
 }
@@ -279,7 +282,12 @@ void BtcWallet::scanTx(TxRef & tx,
                        uint32_t blknum, 
                        uint32_t blktime)
 {
-   bool txIsOurs = false;
+   int64_t totalLedgerAmt = 0;
+   bool anyTxInIsOurs   = false;
+   bool anyTxOutIsOurs  = false;
+
+   vector<bool> thisTxInIsOurs (tx.getNumTxIn(),  false);
+   vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
 
    ///// LOOP OVER ALL ADDRESSES ////
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
@@ -287,45 +295,49 @@ void BtcWallet::scanTx(TxRef & tx,
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
       BinaryData const & addr20 = thisAddr.getAddrStr20();
 
-      // TODO:  for some reason, this conditional stopped working!
       // If this block is before known addr creation time, no point in scanning
       // If this block is before last addr seen time, already seen it!
-      //if(  blktime < thisAddr.getFirstTimestamp()-(3600*24*7) ||
-           //blknum  < thisAddr.getFirstBlockNum()-1000            )
-         //continue;  
+      // Added a week or 1000 blocks buffer to be safe, and make sure I don't
+      // discard a reorg block or some other silly boundary case
+      if(  blktime+(3600*24*7) < thisAddr.getLastTimestamp() ||
+           blknum+1000         < thisAddr.getLastBlockNum()           )
+         continue;  
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
-      uint64_t valueIn = 0;
-      bool txInIsOurs = false;
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
          TxInRef txin = tx.getTxInRef(iin);
          OutPoint outpt = txin.getOutPoint();
+         // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
          if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
             continue;
 
-         // We have the tx, now check if it contains one of our TxOuts
-         map<OutPoint, TxIORefPair>::iterator txioIter = txioMap_.find(outpt);
+         // We have the txin, now check if it contains one of our TxOuts
+         map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
          if(txioIter != txioMap_.end())
          {
-            TxIORefPair     & txio  = txioIter->second;
-            TxOutRef const  & txout = txioIter->second.getTxOutRef();
-            if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
+            TxIOPair & txio  = txioIter->second;
+            TxOutRef const  & txout = txio.getTxOutRef();
+            //if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
+            if(txout.getRecipientAddr()==thisAddr.getAddrStr20()  && 
+               (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
             {
-               txIsOurs   = true;
-               txInIsOurs = true;
+               anyTxInIsOurs = true;
+               thisTxInIsOurs[iin] = true;
 
                unspentTxOuts_.erase(outpt);
-               txio.setTxInRef(txin, &tx);
+               txio.setTxInRef(&tx, iin);
 
                int64_t thisVal = (int64_t)txout.getValue();
                LedgerEntry newEntry(addr20, 
                                    -(int64_t)thisVal,
                                     blknum, 
                                     tx.getThisHash(), 
-                                    iin);
+                                    iin,
+                                    false,  // actually we don't know yet if sent to self
+                                    false); // "isChangeBack" is meaningless for TxIn
                thisAddr.addLedgerEntry(newEntry);
-               valueIn += thisVal;
+               totalLedgerAmt -= thisVal;
 
                // Update last seen on the network
                thisAddr.setLastTimestamp(blktime);
@@ -339,25 +351,14 @@ void BtcWallet::scanTx(TxRef & tx,
             // be there
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
-               nonStdTxioMap_[outpt].setTxInRef(txin, &tx);
+               nonStdTxioMap_[outpt].setTxInRef(&tx, iin);
                nonStdUnspentTxOuts_.erase(outpt);
             }
          }
       } // loop over TxIns
 
-      // Add to ledger if this TxIn is ours
-      if(txInIsOurs)
-      {
-         ledgerAllAddr_.push_back(LedgerEntry(addr20, 
-                                             -(int64_t)valueIn, 
-                                              blknum, 
-                                              tx.getThisHash(), 
-                                              txIndex));
-      }
 
       ///// LOOP OVER ALL TXOUT IN BLOCK /////
-      uint64_t valueOut = 0;
-      bool txOutIsOurs = false;
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
          TxOutRef txout = tx.getTxOutRef(iout);
@@ -372,15 +373,15 @@ void BtcWallet::scanTx(TxRef & tx,
          {
             OutPoint outpt(tx.getThisHash(), iout);      
             unspentTxOuts_.insert(outpt);
-            pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
-            pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+            pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
+            pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx, iout));
             insResult = txioMap_.insert(toBeInserted);
 
-            TxIORefPair & thisTxio = insResult.first->second;
+            TxIOPair & thisTxio = insResult.first->second;
             if(insResult.second == true)
             {
-               txIsOurs    = true;
-               txOutIsOurs = true;
+               anyTxOutIsOurs = true;
+               thisTxOutIsOurs[iout] = true;
 
                thisAddr.addTxIO( thisTxio );
 
@@ -389,11 +390,13 @@ void BtcWallet::scanTx(TxRef & tx,
                                      thisVal, 
                                      blknum, 
                                      tx.getThisHash(), 
-                                     iout);
+                                     iout,
+                                     anyTxInIsOurs,
+                                     false);  // we don't actually know
                thisAddr.addLedgerEntry(newLedger);
-               valueOut += thisVal;
+               totalLedgerAmt += thisVal;
                // Check if this is the first time we've seen this
-               if(thisAddr.getFirstBlockNum() == 0)
+               if(thisAddr.getFirstTimestamp() == 0)
                {
                   thisAddr.setFirstBlockNum( blknum );
                   thisAddr.setFirstTimestamp( blktime );
@@ -407,24 +410,37 @@ void BtcWallet::scanTx(TxRef & tx,
                //cout << "***WARNING: searchTx: new TxOut already exists!" << endl;
                //cerr << "***WARNING: searchTx: new TxOut already exists!" << endl;
             }
-
          }
       } // loop over TxOuts
 
 
-      if(txOutIsOurs)
-      {
-         ledgerAllAddr_.push_back(LedgerEntry( addr20, 
-                                               valueOut, 
-                                               blknum, 
-                                               tx.getThisHash(), 
-                                               txIndex));
-      }
 
    } // loop over all wallet addresses
 
-   if(txIsOurs)
+   bool allTxOutIsOurs = true;
+   for(int i=0; i<tx.getNumTxOut(); i++)
+      allTxOutIsOurs = allTxOutIsOurs && thisTxOutIsOurs[i];
+
+   // TODO:  Unfortunately, "isChangeBack" is only meaningful in the 
+   //        txOut ledger entry, but we don't know until we have scanned
+   //        all the txOuts, whether it's sentToSelf, or only change
+   //        returned.  At some point, I put in the effort to be more
+   //        rigorous with these
+   bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
+   bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
+
+   if(anyTxInIsOurs || anyTxOutIsOurs)
+   {
       txrefList_.push_back(&tx);
+      ledgerAllAddr_.push_back(LedgerEntry( BinaryData(0),
+                                            totalLedgerAmt, 
+                                            blknum, 
+                                            tx.getThisHash(), 
+                                            txIndex,
+                                            isSentToSelf,
+                                            isChangeBack));
+
+   }
 }
 
 
@@ -474,8 +490,8 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
       nonStdUnspentTxOuts_.insert(outpt);
-      pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
-      pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+      pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
+      pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx,txoutidx));
       insResult = nonStdTxioMap_.insert(toBeInserted);
       insResult = txioMap_.insert(toBeInserted);
    }
@@ -490,7 +506,11 @@ uint64_t BtcWallet::getBalance(void)
    for( unspentIter  = unspentTxOuts_.begin(); 
         unspentIter != unspentTxOuts_.end(); 
         unspentIter++)
-      balance += txioMap_[*unspentIter].getValue();
+   {
+      TxIOPair & txio = txioMap_[*unspentIter];
+      if(txio.getTxRefOfOutput().isMainBranch())
+         balance += txioMap_[*unspentIter].getValue();
+   }
    return balance;
 }
 
@@ -508,7 +528,8 @@ uint64_t BtcWallet::getBalance(BinaryData const & addr20)
    return addrMap_[addr20].getBalance();
 }
 
-uint32_t BtcWallet::cleanLedger(void)
+////////////////////////////////////////////////////////////////////////////////
+uint32_t BtcWallet::removeInvalidEntries(void)   
 {
    vector<LedgerEntry> newLedger(0);
    uint32_t leRemoved = 0;
@@ -521,8 +542,14 @@ uint32_t BtcWallet::cleanLedger(void)
    }
    ledgerAllAddr_.clear();
    ledgerAllAddr_ = newLedger;
-   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
    return leRemoved;
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::sortLedger(void)
+{
+   sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -548,7 +575,7 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
    txFileRefs_.clear();
    headerFileRefs_.clear();
    blockchainFilenames_.clear();
-   previouslyValidBlockHeaderRefs_.clear();
+   previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
 }
 
@@ -602,7 +629,7 @@ void BlockDataManager_FullRAM::Reset(void)
    txJustAffected_.clear();
 
    // Reset orphan chains
-   previouslyValidBlockHeaderRefs_.clear();
+   previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
    
    lastEOFByteLoc_ = 0;
@@ -760,12 +787,12 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWal
          myWallet.scanTx(tx, itx, bhr.getBlockHeight(), bhr.getTimestamp());
       }
    }
-   myWallet.cleanLedger(); // removes invalid tx and sorts
+   myWallet.sortLedger(); // removes invalid tx and sorts
    PDEBUG("Done scanning blockchain for tx");
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet> & walletVect)
+void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet*> walletVect)
 {
    PDEBUG("Scanning blockchain for tx, from scratch");
    ///// LOOP OVER ALL HEADERS ////
@@ -780,13 +807,13 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet>
          TxRef & tx = *(txlist[itx]);
 
          for(uint32_t w=0; w<walletVect.size(); w++)
-            walletVect[w].scanTx(tx, itx, bhr.getBlockHeight(), bhr.getTimestamp());
+            walletVect[w]->scanTx(tx, itx, bhr.getBlockHeight(), bhr.getTimestamp());
       }
    }
  
    // Removes any invalid tx and sorts
    for(uint32_t w=0; w<walletVect.size(); w++)
-      walletVect[w].cleanLedger();
+      walletVect[w]->sortLedger();
 
    PDEBUG("Done scanning blockchain for tx");
 }
@@ -844,11 +871,11 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
             OutPoint outpt(tx.getHash(), iout);      
 
             // The new TxIO to be inserted only has a TxOut right now
-            pair< map<OutPoint, TxIORefPair>::iterator, bool> insTxioResult;
-            pair<OutPoint, TxIORefPair> newTxio(outpt, TxIORefPair(txout, &tx));
+            pair< map<OutPoint, TxIOPair>::iterator, bool> insTxioResult;
+            pair<OutPoint, TxIOPair> newTxio(outpt, TxIOPair(txout, &tx));
             insTxioResult = txioMap_.insert(newTxio);
 
-            TxIORefPair & thisTxio = insTxioResult.first->second;
+            TxIOPair & thisTxio = insTxioResult.first->second;
             if(insTxioResult.second == true)
             {
                thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
@@ -940,7 +967,8 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
+uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
+                                                           bool doOrganize)
 {
    PDEBUG("Read blkfile from scratch");
    blkfilePath_ = filename;
@@ -989,6 +1017,14 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename)
    // new bytes not in the blk0001.dat yet
    totalBlockchainBytes_ = blockchainData_ALL_.getSize();
    lastEOFByteLoc_       = blockchainData_ALL_.getSize();;
+
+   // Organize the chain by default--it takes less than 1s.  I can't really
+   // think of a use case where you would want only an unorganized blockchain
+   // in memory (except for timing the two ops separately)
+   if(doOrganize)
+      organizeChain();
+
+   // Return the number of blocks read from blkfile (this includes invalids)
    return nBlkRead;
 }
 
@@ -1040,7 +1076,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    // to the permanent memory pool and parse it into our header/tx maps
    BinaryRefReader brr(newBlockDataRaw);
    uint32_t nBlkRead = 0;
-   pair<bool,bool> blockAddResults;
+   vector<bool> blockAddResults;
    bool keepGoing = true;
    while(keepGoing)
    {
@@ -1052,15 +1088,26 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
       brr.advance(nextBlockSize+8);
       ////////////
 
-      bool blockAddSucceeded = blockAddResults.first;
-      bool blockchainReorg   = blockAddResults.second;
+      bool blockAddSucceeded = blockAddResults[0];
+      bool blockIsNewTop     = blockAddResults[1];
+      bool blockchainReorg   = blockAddResults[2];
 
       if(blockAddSucceeded)
          nBlkRead++;
-
-      if( blockchainReorg)
+      else
       {
-          //TODO:  checkwhether there was a 
+         if(!blockIsNewTop)
+         {
+            cout << "Block data did not extend the main chain!" << endl;
+            // TODO:  Not sure if there's anything we need to do if this block
+            //        didn't extend the main chain.
+         }
+   
+         if(blockchainReorg)
+         {
+            cout << "This block forced a reorg!  (and we're going to do nothing...)" << endl;
+            //TODO:  do something important (besides seg-faulting)
+         }
       }
       
 
@@ -1075,6 +1122,75 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
    PDEBUG2("Added new blocks to memory pool: ", nBlkRead);
    lastEOFByteLoc_ = filesize;
    return nBlkRead;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// BDM detects the reorg, but is wallet-agnostic so it can't update any wallets
+// You have to call this yourself after you check whether the last organizeChain
+// call indicated that a reorg happened
+void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
+{
+   // Fix the wallet's ledger
+   for(uint32_t i=0; i<wlt.getTxLedger().size(); i++)
+   {
+      HashString const & txHash = wlt.getTxLedger()[i].getTxHash();
+      if(txJustInvalidated_.count(txHash) > 0)
+         wlt.getTxLedger()[i].setValid(false);
+
+      if(txJustAffected_.count(txHash) > 0)
+         wlt.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
+   }
+
+
+   // Need to fix the TxIO pairs, and recompute unspentTxOuts
+   // All addresses point to the wallet's TxIOPairs, so we only need 
+   // to do this check on the wallet -- no need on the individual addrs
+   map<OutPoint, TxIOPair>::iterator txioIter;
+   for(txioIter  = wlt.getTxIOMap().begin();
+       txioIter != wlt.getTxIOMap().end();
+       txioIter++)
+   {
+      pair<bool, bool> reassessValid = txioIter->second.reassessValidity();
+      bool txoutIsValid = reassessValid.first;
+      bool txinIsValid  = reassessValid.second;
+
+      if(txoutIsValid)
+      {
+         if(txinIsValid)
+            wlt.getUnspentOutPoints().erase(txioIter->first);
+         else
+            wlt.getUnspentOutPoints().insert(txioIter->first);
+      }
+      else
+      {
+         if(txinIsValid)
+            cout << "***ERROR: Invalid TxOut but valid TxIn!?" << endl;
+         else
+            wlt.getUnspentOutPoints().erase(txioIter->first);
+      }
+   }
+
+   // Now fix the individual address ledgers
+   for(uint32_t a=0; a<wlt.getNumAddr(); a++)
+   {
+      BtcAddress & addr = wlt.getAddrByIndex(a);
+      for(uint32_t i=0; i<addr.getTxLedger().size(); i++)
+      {
+         HashString const & txHash = addr.getTxLedger()[i].getTxHash();
+         if(txJustInvalidated_.count(txHash) > 0)
+            addr.getTxLedger()[i].setValid(false);
+   
+         if(txJustAffected_.count(txHash) > 0) 
+            addr.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
+      }
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::updateWalletsAfterReorg(vector<BtcWallet*> wltvect)
+{
+   for(uint32_t i=0; i<wltvect.size(); i++)
+      updateWalletAfterReorg(*wltvect[i]);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1109,8 +1225,8 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-// Pass in a BRR that starts at the beginning of the blockdata (before magic
-// bytes) THAT IS ALREADY AT IT'S PERMANENT LOCATION IN MEMORY
+// Pass in a BRR that starts at the beginning of the blockdata THAT IS 
+// ALREADY AT IT'S PERMANENT LOCATION IN MEMORY (before magic bytes)
 bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
                                                  uint64_t & currBlockchainSize)
 {
@@ -1121,7 +1237,7 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
    uint32_t nBytes = brr.get_uint32_t();
 
    // For some reason, my blockfile sometimes has some extra bytes
-   // If failed we return prevTopBlockStillValid==true;
+   // If failed we return reorgHappened==false;
    if(brr.isEndOfStream() || brr.getSizeRemaining() < nBytes)
       return false;
 
@@ -1139,15 +1255,16 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
    BlockHeaderRef * bhptr = &(bhInsResult.first->second);
 
    // Read the #tx and fill in some header properties
-   uint32_t nTx = (uint32_t)brr.get_var_int();
+   uint8_t viSize;
+   uint32_t nTx = (uint32_t)brr.get_var_int(&viSize);
    bhptr->blockNumBytes_ = nBytes;
    bhptr->blkByteLoc_    = currBlockchainSize;
+   uint64_t txOffset = 8 + HEADER_SIZE + viSize; // usually 89
 
    // Read each of the Tx
    bhptr->txPtrList_.clear();
    for(uint32_t i=0; i<nTx; i++)
    {
-      uint64_t txStartByte = brr.getPosition();
       txInputPair.second.unserialize(brr);
       txInputPair.first = txInputPair.second.getThisHash();
       txInsResult = txHashMap_.insert(txInputPair);
@@ -1156,12 +1273,12 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
       // Add a pointer to this tx to the header's tx-ptr-list
       bhptr->txPtrList_.push_back( txptr );
 
-      txptr->setTxStartByte(txStartByte+currBlockchainSize);
-      // We don't set this tx's headerPtr because we're not sure
-      // yet that this block is on the main chain ... if there was
-      // a reorg, this tx could end up being referenced by multiple
-      // headers
-
+      txptr->setTxStartByte(txOffset+currBlockchainSize);
+      txOffset += txptr->getSize();
+      // We don't set this tx's headerPtr because there could be multiple
+      // headers that reference this tx... we will wait until the chain
+      // is organized and make sure this tx points to the header that 
+      // is on the main chain.
    }
    currBlockchainSize += nBytes+8;
    return true;
@@ -1170,35 +1287,42 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-// This method returns two booleans:
+// This method returns three booleans:
 //    (1)  Block data was added to memory pool successfully
-//    (2)  Adding block data caused blockchain reorganization
+//    (2)  New block added is at the top of the chain
+//    (3)  Adding block data caused blockchain reorganization
 //
 // This method assumes the data is not in the permanent memory pool yet, and
 // we will need to copy it to its permanent memory location before parsing it.
-pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
-                                                          bool writeToBlk0001)
+// Btw, yes I know I could've used a bitset here, but I was too lazy to add
+// the #include and look up the members for using it...
+vector<bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
+                                                       bool writeToBlk0001)
 {
+   // TODO:  maybe we should check whether we already have this block...?
+   vector<bool> vb(3);
    blockchainData_NEW_.push_back(rawBlock);
    list<BinaryData>::iterator listEnd = blockchainData_NEW_.end();
    listEnd--;
    BinaryRefReader newBRR( listEnd->getPtr(), rawBlock.getSize() );
-   bool didSucceed = parseNewBlockData(newBRR, totalBlockchainBytes_);
+   bool addDataSucceeded = parseNewBlockData(newBRR, totalBlockchainBytes_);
 
-   if( ! didSucceed ) 
+   if( ! addDataSucceeded ) 
    {
       cout << "Adding new block data to memory pool failed!";
-      return pair<bool, bool>(false, false);
+      vb[ADD_BLOCK_SUCCEEDED]     = false;  // Added to memory pool
+      vb[ADD_BLOCK_NEW_TOP_BLOCK] = false;  // New block is new top of chain
+      vb[ADD_BLOCK_CAUSED_REORG]  = false;  // Add caused reorganization
+      return vb;
    }
 
    // Finally, let's re-assess the state of the blockchain with the new data
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
+   // TODO: Check to see if the organizeChain call, perhaps does a lot of what
+   //       I was plannign to do already
    PDEBUG("New block!  Re-assess blockchain state after adding new data...");
    bool prevTopBlockStillValid = organizeChain(); 
 
-   // If there was a reorganization, we're going to have to do a bit of work
-   // to make sure everything is updated properly
-   // 
    // I cannot just do a rescan:  the user needs this to be done manually so
    // that we can identify headers/txs that were previously valid, but no more
    if(!prevTopBlockStillValid)
@@ -1211,34 +1335,40 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
       //     need to update transactions that may have been affected
       //     (do that next), and YOU need to run a post-reorg check
       //     on your wallet (hopefully implemented soon).
-      reassessTxValidityOnReorg(prevTopBlockPtr_,
-                                topBlockPtr_, 
-                                reorgBranchPoint_);
+      reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
       // TODO:  It might also be necessary to look at the specific
       //        block headers that were invalidated, to make sure 
       //        we aren't using stale data somewhere that copied it
       cout << "Done reassessing tx validity " << endl;
    }
 
-   // Write this block to file if is on the main chain and we requested it
+   // Since this method only adds one block, if it's not on the main branch,
+   // then it's not the new head
    BinaryData newHeadHash = BtcUtils::getHash256(rawBlock.getSliceRef(8,80));
-   if(getHeaderByHash(newHeadHash)->isMainBranch() && writeToBlk0001)
+   bool newBlockIsNewTop = getHeaderByHash(newHeadHash)->isMainBranch();
+
+   // Write this block to file if is on the main chain and we requested it
+   // TODO: this isn't right, because this logic won't write any blocks that
+   //       that might eventually be in the main chain but aren't currently.
+   if(newBlockIsNewTop && writeToBlk0001)
    {
       ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);
       fileAppend.write((char const *)(rawBlock.getPtr()), rawBlock.getSize());
       fileAppend.close();
    }
 
-   // Block data was successfully added, and there might've been a reorg
-   return pair<bool, bool>(true, !prevTopBlockStillValid);
+   vb[ADD_BLOCK_SUCCEEDED]     =  addDataSucceeded;
+   vb[ADD_BLOCK_NEW_TOP_BLOCK] =  newBlockIsNewTop;
+   vb[ADD_BLOCK_CAUSED_REORG]  = !prevTopBlockStillValid;
+   return vb;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // This method returns two booleans:
 //    (1)  Block data was added to memory pool successfully
 //    (2)  Adding block data caused blockchain reorganization
-pair<bool,bool> BlockDataManager_FullRAM::addNewBlockDataRef( BinaryDataRef bdr,
-                                                              bool writeToBlk0001)
+vector<bool> BlockDataManager_FullRAM::addNewBlockDataRef(BinaryDataRef bdr,
+                                                          bool writeToBlk0001)
 {
    return addNewBlockData(bdr.copy());
 }
@@ -1273,19 +1403,11 @@ pair<bool,bool> BlockDataManager_FullRAM::addNewBlockDataRef( BinaryDataRef bdr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
-                                              BlockHeaderRef* oldTopPtr,
-                                              BlockHeaderRef* newTopPtr,
-                                              BlockHeaderRef* branchPtr)
+void BlockDataManager_FullRAM::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
+                                                   BlockHeaderRef* newTopPtr,
+                                                   BlockHeaderRef* branchPtr)
 {
    cout << "Reassessing Tx validity after (after reorg?)" << endl;
-   cout << "   Old top block: " << endl;
-   oldTopPtr->pprint(cout, 2);
-   cout << "   New top block: " << endl;
-   newTopPtr->pprint(cout, 2);
-   cout << "   Branch point: " << endl;
-   branchPtr->pprint(cout, 2);
-   cout << endl << endl;
 
    // Walk down invalidated chain first, until we get to the branch point
    // Mark transactions as invalid
@@ -1293,9 +1415,9 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
    txJustAffected_.clear();
    BlockHeaderRef* thisHeaderPtr = oldTopPtr;
    cout << "Invalidating old-chain transactions..." << endl;
-   while(oldTopPtr != branchPtr)
+   while(thisHeaderPtr != branchPtr)
    {
-      
+      previouslyValidBlockHeaderPtrs_.push_back(thisHeaderPtr);
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
@@ -1305,14 +1427,14 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
          txJustInvalidated_.insert(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    // Walk down the newly-valid chain and mark transactions as valid.  If 
    // a tx is in both chains, it will still be valid after this process
    thisHeaderPtr = newTopPtr;
    cout << "Marking new-chain transactions valid..." << endl;
-   while(newTopPtr != branchPtr)
+   while(thisHeaderPtr != branchPtr)
    {
       for(uint32_t i=0; i<thisHeaderPtr->getTxRefPtrList().size(); i++)
       {
@@ -1323,7 +1445,7 @@ void BlockDataManager_FullRAM::reassessTxValidityOnReorg(
          txJustInvalidated_.erase(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
-      thisHeaderPtr = getHeaderByHash(oldTopPtr->getPrevHash());
+      thisHeaderPtr = getHeaderByHash(thisHeaderPtr->getPrevHash());
    }
 
    PDEBUG("Done reassessing tx validity");
@@ -1369,10 +1491,12 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
            iter != headerHashMap_.end(); 
            iter++)
       {
-         iter->second.difficultySum_ = -1;
-         iter->second.blockHeight_   =  0;
+         iter->second.difficultySum_  = -1;
+         iter->second.blockHeight_    =  0;
          iter->second.isFinishedCalc_ = false;
+         iter->second.nextHash_       =  BtcUtils::EmptyHash_;
       }
+      topBlockPtr_ = NULL;
    }
 
    // Set genesis block
@@ -1386,6 +1510,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.isInitialized_  = true; 
    genBlock.txPtrList_      = vector<TxRef*>(1);
    genBlock.txPtrList_[0]   = getTxByHash(BtcUtils::GenesisTxHash_);
+   genBlock.txPtrList_[0]->setMainBranch(true);
    genBlock.txPtrList_[0]->setHeaderPtr(&genBlock);
 
 
@@ -1395,7 +1520,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 
    // Store the old top block so we can later check whether it is included 
    // in the new chain organization
-   BlockHeaderRef* prevTopBlockPtr_ = topBlockPtr_;
+   prevTopBlockPtr_ = topBlockPtr_;
 
    // Iterate over all blocks, track the maximum difficulty-sum block
    map<BinaryData, BlockHeaderRef>::iterator iter;
@@ -1459,7 +1584,14 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    {
       PDEBUG("Reorg detected!");
       reorgBranchPoint_ = thisHeaderPtr;
+
+      // This is a dangerous bug -- I should probably consider rewriting this
+      // method to avoid this problem:  prevTopBlockPtr_ is set correctly 
+      // RIGHT NOW, but won't be once I make the recursive call to organizeChain
+      // I need to save it now, and re-assign it after the organizeChain call.
+      BlockHeaderRef* prevtopblk = prevTopBlockPtr_;
       organizeChain(true); // force-rebuild blockchain (takes less than 1s)
+      prevTopBlockPtr_ = prevtopblk;
       return false;
    }
 
@@ -1548,7 +1680,7 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
               << iter->second.getThisHash().toHexStr() << endl;
          cerr << "***ERROR: Block previously main branch, now orphan!?"
               << iter->second.getThisHash().toHexStr() << endl;
-         previouslyValidBlockHeaderRefs_.push_back(&(iter->second));
+         previouslyValidBlockHeaderPtrs_.push_back(&(iter->second));
       }
       iter->second.isOrphan_ = true;
       iter->second.isMainBranch_ = false;

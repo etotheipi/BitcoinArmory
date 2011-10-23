@@ -11,13 +11,13 @@
 
 #include <stdio.h>
 #include <iostream>
-#ifdef WIN32
-   #include <cstdint>
-#else
-   #include <stdlib.h>
-   #include <inttypes.h>
-   #include <cstring>
-#endif
+//#ifdef WIN32
+//#include <cstdint>
+//#else
+//#include <stdlib.h>
+//#include <inttypes.h>
+//#include <cstring>
+//#endif
 #include <fstream>
 #include <vector>
 #include <queue>
@@ -49,94 +49,54 @@ using namespace std;
 class BlockDataManager_FullRAM;
 
 
-////////////////////////////////////////////////////////////////////////////////
-/*
-class BlockHeaderFileRef
-{
-public:
-   BlockHeaderFileRef(BinaryData hash, uint64_t fileLoc, uint32_t fileIdx=0) : 
-      theHash_(hash),
-      fileLoc_(fileLoc),
-      fileIndex_(fileIdx) {}
-
-
-   BinaryData theHash_;
-   uint32_t fileIndex_;
-   uint64_t fileLoc_;
-};
-
-class TxFileRef
-{
-public:
-   TxFileRef(BinaryData hash, uint64_t fileLoc, uint32_t fileIdx=0) : 
-      theHash_(hash),
-      fileLoc_(fileLoc),
-      fileIndex_(fileIdx) {}
-
-
-   BinaryData theHash_;
-   uint32_t fileIndex_;
-   uint64_t fileLoc_;
-};
-*/
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
-// TxIORefPair
+// TxIOPair
 //
 // This makes a lot of sense, despite the added complexity.  No TxIn exists
 // unless there was a TxOut, and they both have the same value, so we will
 // store them together here.
 //
 // This will provide the future benefit of easily determining what Tx data
-// can be pruned.  If a TxIORefPair has both TxIn and TxOut, then the value 
+// can be pruned.  If a TxIOPair has both TxIn and TxOut, then the value 
 // was received and spent, contributes zero to our balance, and can effectively
 // ignored.  For now we will maintain them, but in the future we may decide
-// to just start removing TxIORefPairs after they are spent...
+// to just start removing TxIOPairs after they are spent...
 //
 //
-class TxIORefPair
+class TxIOPair
 {
 public:
    //////////////////////////////////////////////////////////////////////////////
-   TxIORefPair(void);
-   TxIORefPair(uint64_t  amount);
-   TxIORefPair(TxOutRef const &  outref, 
-               TxRef          *  txPtr);
-   TxIORefPair(TxOutRef  outref, 
-               TxRef*    txPtrOut, 
-               TxInRef   inref, 
-               TxRef*    txPtrIn);
-
+   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
+   //        we should probably do that here, too.  I designed this before I
+   //        realized that these copies will fall out of sync on a reorg
+   TxIOPair(void);
+   TxIOPair(uint64_t  amount);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txoutRef_.isInitialized()); }
-   bool      hasTxIn(void)        { return (txinRef_.isInitialized()); }
+   bool      hasTxOut(void)       { return (txPtrOfOutput_ != NULL); }
+   bool      hasTxIn(void)        { return (txPtrOfInput_  != NULL); }
    bool      hasValue(void)       { return (amount_!=0); }
    uint64_t  getValue(void)       { return amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef       * getTxOutRefPtr(void)         { return &txoutRef_; }
-   TxInRef        * getTxInRefPtr(void)          { return &txinRef_; }
-   TxOutRef const & getTxOutRef(void) const      { return txoutRef_; }
-   TxInRef  const & getTxInRef(void)  const      { return txinRef_; }
-   TxOut            getTxOut(void) const         { return txoutRef_.getCopy(); }
-   TxIn             getTxIn(void) const          { return txinRef_.getCopy(); }
-   TxRef    const & getTxRefOfOutput(void) const { return *txoutTxRefPtr_; }
-   TxRef    const & getTxRefOfInput(void) const  { return *txinTxRefPtr_; }
+   TxOutRef  getTxOutRef(void) const {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
+   TxInRef   getTxInRef(void) const  {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
+   TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
+   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
+   pair<bool,bool> reassessValidity(void);
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(void);
-   BinaryDataRef getTxHashOfInputRef(void);
-
    BinaryData    getTxHashOfOutput(void);
-   BinaryDataRef getTxHashOfOutputRef(void);
 
-   void setTxInRef(TxInRef const & inref, TxRef* intxptr);
-   void setTxOutRef(TxOutRef const & outref, TxRef* outtxptr);
+   void setTxInRef (TxRef* txref, uint32_t index);
+   void setTxOutRef(TxRef* txref, uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
@@ -146,17 +106,45 @@ public:
 
 private:
    uint64_t  amount_;
-   TxOutRef  txoutRef_;
-   TxRef*    txoutTxRefPtr_;
-   TxInRef   txinRef_;
-   TxRef*    txinTxRefPtr_;
+   TxRef*    txPtrOfOutput_;
+   uint32_t  indexOfOutput_;;
+   TxRef*    txPtrOfInput_;
+   uint32_t  indexOfInput_;;
 
 };
 
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// LedgerEntry  (STRUCT)
+// LedgerEntry  
+//
+// LedgerEntry class is used for bother BtcAddresses and BtcWallets.  Members
+// have slightly different meanings (or irrelevant) depending which one it's
+// used with.
+//
+//  BtcAddress -- Each entry corresponds to ONE TxIn OR ONE TxOut
+//
+//    addr20_    -  useless - just repeating this address
+//    value_     -  net debit/credit on addr balance, in Satoshis (1e-8 BTC)
+//    blockNum_  -  block height of the tx in which this txin/out was included
+//    txHash_    -  hash of the tx in which this txin/txout was included
+//    index_     -  index of the txin/txout in this tx
+//    isValid_   -  default to true -- invalidated due to reorg/double-spend
+//    isSentToSelf_ - if this is a txOut, did it come from ourself?
+//    isChangeBack_ - meaningless:  can't quite figure out how to determine
+//                    this unless I do a prescan to determine if all txOuts
+//                    are ours, or just some of them
+//
+//  BtcWallet -- Each entry corresponds to ONE WHOLE TRANSACTION
+//
+//    addr20_    -  useless - originally had a purpose, but lost it
+//    value_     -  total debit/credit on WALLET balance, in Satoshis (1e-8 BTC)
+//    blockNum_  -  block height of the block in which this tx was included
+//    txHash_    -  hash of this tx 
+//    index_     -  index of the tx in the block
+//    isValid_   -  default to true -- invalidated due to reorg/double-spend
+//    isSentToSelf_ - if we supplied inputs and rx ALL outputs
+//    isChangeBack_ - if we supplied inputs and rx ANY outputs
 //
 ////////////////////////////////////////////////////////////////////////////////
 class LedgerEntry
@@ -168,31 +156,41 @@ public:
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
-      isValid_(false) {}
+      isValid_(false),
+      isSentToSelf_(false),
+      isChangeBack_(false) {}
 
    LedgerEntry(BinaryData const & addr20,
                int64_t val, 
                uint32_t blkNum, 
                BinaryData const & txhash, 
-               uint32_t idx) :
+               uint32_t idx,
+               bool isToSelf=false,
+               bool isChange=false) :
       addr20_(addr20),
       value_(val),
       blockNum_(blkNum),
       txHash_(txhash),
       index_(idx),
-      isValid_(true) {}
+      isValid_(true),
+      isSentToSelf_(isToSelf),
+      isChangeBack_(isChange) {}
 
-   BinaryData const &  getAddrStr20(void) const { return addr20_;   }
-   int64_t             getValue(void) const     { return value_;    }
-   uint32_t            getBlockNum(void) const  { return blockNum_; }
-   BinaryData const &  getTxHash(void) const    { return txHash_;   }
-   uint32_t            getIndex(void) const     { return index_;    }
-   bool                isValid(void) const      { return isValid_;  }
+   BinaryData const &  getAddrStr20(void) const { return addr20_;        }
+   int64_t             getValue(void) const     { return value_;         }
+   uint32_t            getBlockNum(void) const  { return blockNum_;      }
+   BinaryData const &  getTxHash(void) const    { return txHash_;        }
+   uint32_t            getIndex(void) const     { return index_;         }
+   bool                isValid(void) const      { return isValid_;       }
+   bool                isSentToSelf(void) const { return isSentToSelf_;  }
+   bool                isChangeBack(void) const { return isChangeBack_;  }
 
-   void setInvalid(bool b=true) { isValid_ = !b; }
+   void setValid(bool b=true) { isValid_ = b; }
+   void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
    bool operator<(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
+
 private:
    
 
@@ -202,6 +200,8 @@ private:
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
    bool             isValid_;
+   bool             isSentToSelf_;
+   bool             isChangeBack_;;
 
 
    
@@ -210,7 +210,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 //
-// BtcAddress  (STRUCT)
+// BtcAddress  
 //
 ////////////////////////////////////////////////////////////////////////////////
 class BtcAddress
@@ -251,18 +251,19 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   uint32_t cleanLedger(void);
+   void     sortLedger(void);
+   uint32_t removeInvalidEntries(void);
 
    bool havePubKey(void) { return pubKey65_.getSize() > 0; }
    bool havePrivKey(void) { return privKey32_.getSize() > 0; }
 
    uint64_t getBalance(void);
 
-   vector<LedgerEntry>  const & getTxLedger(void) { return ledger_;           }
-   vector<TxIORefPair*> const & getTxIOList(void) { return relevantTxIOPtrs_; }
+   vector<LedgerEntry>  & getTxLedger(void) { return ledger_;           }
+   vector<TxIOPair*> & getTxIOList(void) { return relevantTxIOPtrs_; }
 
-   void addTxIO(TxIORefPair * txio) { relevantTxIOPtrs_.push_back(txio);}
-   void addTxIO(TxIORefPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
+   void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
+   void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
    void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
 
 
@@ -277,7 +278,7 @@ private:
    bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
-   vector<TxIORefPair*>   relevantTxIOPtrs_;
+   vector<TxIOPair*>   relevantTxIOPtrs_;
    vector<LedgerEntry>    ledger_;
 };
 
@@ -309,22 +310,22 @@ public:
    void addAddress_1_(BinaryData    addr);
 
    void addAddress_2_(BinaryData    addr, 
-                     BinaryData    pubKey65);
+                      BinaryData    pubKey65);
 
    void addAddress_3_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32);
 
    void addAddress_4_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32,
-                     uint32_t      firstBlockNum);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32,
+                      uint32_t      firstBlockNum);
 
    void addAddress_5_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32,
-                     uint32_t      firstBlockNum,
-                     uint32_t      firstTimestamp);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32,
+                      uint32_t      firstBlockNum,
+                      uint32_t      firstTimestamp);
 
    bool hasAddr(BinaryData const & addr20);
 
@@ -346,18 +347,20 @@ public:
    uint64_t   getBalance(uint32_t i);
    uint64_t   getBalance(BinaryData const & addr20);
 
+
    
    uint32_t     getNumAddr(void) {return addrMap_.size();}
    BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
    BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
 
-   uint32_t cleanLedger(void);
-   vector<LedgerEntry> const & getTxLedger(void) { return ledgerAllAddr_; }
+   void     sortLedger(void);
+   uint32_t removeInvalidEntries(void);
 
-   map<OutPoint, TxIORefPair> & getTxIOMap(void) {return txioMap_;}
+   vector<LedgerEntry> &        getTxLedger(void) { return ledgerAllAddr_; }
+   map<OutPoint, TxIOPair> & getTxIOMap(void) {return txioMap_;}
+
    set<OutPoint> & getUnspentOutPoints(void)     {return unspentTxOuts_;}
-
-   map<OutPoint, TxIORefPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
+   map<OutPoint, TxIOPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
    set<OutPoint> const & getNonStdUnspentOutPoints(void) {return nonStdUnspentTxOuts_;}
 
    // If we have spent TxOuts but the tx haven't made it into the blockchain
@@ -369,17 +372,19 @@ public:
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
-   map<OutPoint, TxIORefPair>   txioMap_;
+   map<OutPoint, TxIOPair>      txioMap_;
+
    vector<LedgerEntry>          ledgerAllAddr_;  
+
    set<OutPoint>                unspentTxOuts_;
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
-   bitset<32>                   encryptFlags_;    // priv-key-encryp params
+   bitset<32>                   encryptFlags_;   // priv-key-encryp params
    bool                         isLocked_;       // watching only, no spending
 
    // For non-std transactions
-   map<OutPoint, TxIORefPair>   nonStdTxioMap_;
+   map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentTxOuts_;
 
    
@@ -453,6 +458,13 @@ typedef enum
 }  BDM_MODE;
 
 
+typedef enum
+{
+  ADD_BLOCK_SUCCEEDED,
+  ADD_BLOCK_NEW_TOP_BLOCK,
+  ADD_BLOCK_CAUSED_REORG,
+} ADD_BLOCK_RESULT_INDEX;
+
 
 
 class BlockDataManager_FullRAM;
@@ -509,7 +521,7 @@ private:
    set<HashString>                   txJustAffected_;
 
    // Store info on orphan chains
-   vector<BlockHeaderRef*>           previouslyValidBlockHeaderRefs_;
+   vector<BlockHeaderRef*>           previouslyValidBlockHeaderPtrs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
    static BlockDataManager_FullRAM* theOnlyBDM_;
@@ -540,15 +552,15 @@ public:
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
-   // These methods return (blockAddSucceeded, didCauseReorg)
-   pair<bool,bool>  addNewBlockData(   BinaryData rawBlockDataCopy,
+   // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
+   vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
                                        bool writeToBlk0001=false);
-   pair<bool,bool>  addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
+   vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
                                        bool writeToBlk0001=false);
 
-   void             reassessTxValidityOnReorg(BlockHeaderRef* oldTopPtr,
-                                              BlockHeaderRef* newTopPtr,
-                                              BlockHeaderRef* branchPtr );
+   void             reassessAfterReorg(BlockHeaderRef* oldTopPtr,
+                                       BlockHeaderRef* newTopPtr,
+                                       BlockHeaderRef* branchPtr );
 
    bool             hasTxWithHash(BinaryData const & txhash) const;
    bool             hasHeaderWithHash(BinaryData const & txhash) const;
@@ -565,10 +577,10 @@ public:
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    void scanBlockchainForTx_FromScratch(BtcWallet & myWallet);
-   void scanBlockchainForTx_FromScratch(vector<BtcWallet> & walletVect);
+   void scanBlockchainForTx_FromScratch(vector<BtcWallet*> walletVect);
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
-   uint32_t       readBlkFile_FromScratch(string filename);
+   uint32_t       readBlkFile_FromScratch(string filename, bool doOrganize=true);
    uint32_t       readBlkFileUpdate(void);
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
@@ -584,6 +596,8 @@ public:
    bool             isLastBlockReorg(void)     {return lastBlockWasReorg_;}
    set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
    set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
+   void             updateWalletAfterReorg(BtcWallet & wlt);
+   void             updateWalletsAfterReorg(vector<BtcWallet*> wlt);
 
 
    ////////////////////////////////////////////////////////////////////////////////

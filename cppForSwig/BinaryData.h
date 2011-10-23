@@ -9,8 +9,28 @@
 #define _BINARYDATA_H_
 
 #include <stdio.h>
-#ifdef WIN32
-   #include <cstdint>
+#ifdef _MSC_VER
+   //#include <cstdint>
+   typedef          __int8  int8_t;
+   typedef          __int16 int16_t;
+   typedef          __int32 int32_t;
+   typedef          __int64 int64_t;
+   typedef unsigned __int8  uint8_t;
+   typedef unsigned __int16 uint16_t;
+   typedef unsigned __int32 uint32_t;
+   typedef unsigned __int64 uint64_t;
+   #define INT8_MIN     ((int8_t)_I8_MIN)
+   #define INT8_MAX     _I8_MAX
+   #define INT16_MIN    ((int16_t)_I16_MIN)
+   #define INT16_MAX    _I16_MAX
+   #define INT32_MIN    ((int32_t)_I32_MIN)
+   #define INT32_MAX    _I32_MAX
+   #define INT64_MIN    ((int64_t)_I64_MIN)
+   #define INT64_MAX    _I64_MAX
+   #define UINT8_MAX    _UI8_MAX
+   #define UINT16_MAX   _UI16_MAX
+   #define UINT32_MAX   _UI32_MAX
+   #define UINT64_MAX   _UI64_MAX
 #else
    #include <stdlib.h>
    #include <inttypes.h>   
@@ -302,6 +322,23 @@ public:
          uint8_t char2 = binLookupTable[ (uint8_t)str[2*i+1] ];
          data_[i] = (char1 << 4) | char2;
       }
+   }
+
+   // Absorb a binary file's data into a new BinaryData object
+   int32_t readBinaryFile(string filename)
+   {
+      ifstream is(filename.c_str(), ios::in | ios::binary );
+      if( !is.is_open() )
+         return -1;
+
+      is.seekg(0, ios::end);
+      uint32_t filesize = (size_t)is.tellg();
+      is.seekg(0, ios::beg);
+      
+      nBytes_ = filesize;
+      data_.resize(nBytes_);
+      is.read((char*)getPtr(), nBytes_);
+      return nBytes_;
    }
 
    // For deallocating all the memory that is currently used by this BD

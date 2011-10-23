@@ -25,11 +25,13 @@ int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
+   /*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("reorgTest/blk_0_to_4.dat");
-   //bdm.readBlkFile_FromScratch("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+   bdm.readBlkFile_FromScratch(
+            "C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
+            false);  // false ~ don't organize blockchain, just create maps
    //bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
@@ -135,38 +137,146 @@ int main(void)
 
    cout << "Printing SORTED allAddr ledger..." << endl;
    wlt.cleanLedger();
-   vector<LedgerEntry> const & ledger2 = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledger2.size(); j++)
+   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledger2[j].getAddrStr20().toHexStr() << "  "
-           << ledger2[j].getValue()/(float)(CONVERTBTC) << " (" 
-           << ledger2[j].getBlockNum()
+           << ledgerAll[j].getAddrStr20().toHexStr() << "  "
+           << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledgerAll[j].getBlockNum()
            << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
+   */
 
-
-
-/*
-   cout << endl << endl << endl << endl;
-   cout << "Testing adding blocks to an existing chain"<< endl;
-   cout << "Resetting the blockchain..." << endl;
+   // NOTE:  These unit-test files (blk_0_to_4, blk_3A, etc) have an
+   //        error in them, so the OutPoint hashes don't match up.
+   //        For now this test only allows you to walk through your
+   //        reorg code (which still helped me find a ton of bugs), but
+   //        will not allow you to do more exhaustive testing until I
+   //        get the bugs in the unit-test-generation worked out.
+   BtcWallet wlt;
+   wlt.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
+   wlt.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
+   wlt.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
+   wlt.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
+                   
+   cout << endl << endl;
+   cout << "Preparing blockchain-reorganization test!" << endl;
+   cout << "Resetting block-data mgr...";
    bdm.Reset();
-   cout << "Reading and organizing 180 blocks" << endl;
-   copyFile("blockaddtest/blk179.bin", "smallBlockchain.dat");
-   bdm.readBlkFile_FromScratch("smallBlockchain.dat");
+   cout << "Done!" << endl;
+   cout << "Reading in initial block chain (Blocks 0 through 4)..." ;
+   bdm.readBlkFile_FromScratch("reorgTest/blk_0_to_4.dat");
    bdm.organizeChain();
-   bdm.getTopBlockHeader().pprint();
-   for(uint32_t i=180; i<189; i++)
-   {
-      stringstream ss;
-      ss << "blockaddtest/blk" << i << ".bin";
-      copyFile( ss.str(), "smallBlockchain.dat");
-      cout << "New block added to blockchain file.  Updating..." << endl;
-      bdm.readBlkFileUpdate();
+   cout << "Done" << endl;
+
+   //
+   // TODO: Let's look at the address ledger after the first chain
+   //       Then look at it again after the reorg.  What we want
+   //       to see is the presence of an invalidated tx, not just
+   //       a disappearing tx -- the user must be informed that a 
+   //       tx they previously thought they owned is now invalid.
+   //       If the user is not informed, they could go crazy trying
+   //       to figure out what happened to this money they thought
+   //       they had.
+   cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
+   bdm.scanBlockchainForTx_FromScratch(wlt);
+   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll.size(); j++)
+   {  
+      cout << "    Tx: " 
+           << ledgerAll[j].getValue()/1e8
+           << " (" << ledgerAll[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
+      cout << endl;
    }
-*/
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   cout << "                          Balance: " << wlt.getBalance()/1e8 << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
+                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      for(uint32_t j=0; j<ledger.size(); j++)
+      {  
+         cout << "    Tx: " 
+              << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexStr() << "  "
+              << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+              << ledger[j].getBlockNum()
+              << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr();
+         if( ! ledger[j].isValid())  cout << " (INVALID) ";
+         cout << endl;
+      }
+
+   }
+
+
+
+   // prepare the other block to be read in
+   ifstream is;
+   BinaryData blk3a, blk4a, blk5a;
+   assert(blk3a.readBinaryFile("reorgTest/blk_3A.dat") != -1);
+   assert(blk4a.readBinaryFile("reorgTest/blk_4A.dat") != -1);
+   assert(blk5a.readBinaryFile("reorgTest/blk_5A.dat") != -1);
+   vector<bool> result;
+
+   /////
+   cout << "Pushing Block 3A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk3a);
+
+   /////
+   cout << "Pushing Block 4A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk4a);
+
+   /////
+   cout << "Pushing Block 5A into the BDM:" << endl;
+   result = bdm.addNewBlockData(blk5a);
+   if(result[ADD_BLOCK_CAUSED_REORG] == true)
+   {
+      cout << "Reorg happened after pushing block 5A" << endl;
+      bdm.scanBlockchainForTx_FromScratch(wlt);
+      bdm.updateWalletAfterReorg(wlt);
+   }
+
+   cout << "Checking balance of entire wallet: " << wlt.getBalance()/1e8 << endl;
+   vector<LedgerEntry> const & ledgerAll2 = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll2.size(); j++)
+   {  
+      cout << "    Tx: " 
+           << ledgerAll2[j].getValue()/1e8
+           << " (" << ledgerAll2[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll2[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll2[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll2[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll2[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
+      cout << endl;
+   }
+
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   {
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
+                         << wlt.getAddrByHash160(addr20).getBalance()/1e8 << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      for(uint32_t j=0; j<ledger.size(); j++)
+      {  
+         cout << "    Tx: " 
+              << ledger[j].getAddrStr20().getSliceCopy(0,4).toHexStr() << "  "
+              << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
+              << ledger[j].getBlockNum()
+              << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr();
+         if( ! ledger[j].isValid())
+            cout << " (INVALID) ";
+         cout << endl;
+      }
+
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -178,25 +288,9 @@ int main(void)
    cout << endl << endl;
    
 
-   char aa[256];
-   cout << "Wait a for your client to add a new block to the blk0001.dat " << endl
-        << "file.  Then type a few characters and press enter -- will test" << endl
-        << "the both BDM::readBlkFileUpdate and BDM::addBlockData()" << endl;
-   cin >> aa;
-
-   cout << "Checking blkfile for updates" << endl;
-   bdm.readBlkFileUpdate();
-
-   cout << endl << endl;
-   cout << "Printing NEW top block information" << endl;
-   bdm.getTopBlockHeader().pprint(cout, 0, false);
-
 
 
    char pause[256];
-
-   
-
    cout << "Enter anything to exit" << endl;
    cin >> pause;
 

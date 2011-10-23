@@ -10,13 +10,13 @@
 #define _BTCUTILS_H_
 
 #include <stdio.h>
-#ifdef WIN32
-   #include <cstdint>
-#else
-   #include <stdlib.h>
-   #include <inttypes.h>   
-   #include <cstring>
-#endif
+//#ifdef WIN32
+//#include <cstdint>
+//#else
+//#include <stdlib.h>
+//#include <inttypes.h>   
+//#include <cstring>
+//#endif
 
 #include <iostream>
 #include <vector>
