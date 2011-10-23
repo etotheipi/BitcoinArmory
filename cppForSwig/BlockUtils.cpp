@@ -15,106 +15,96 @@ BlockDataManager_FullRAM* BlockDataManager_FullRAM::theOnlyBDM_ = NULL;
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
-// TxIORefPair Methods
+// TxIOPair Methods
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(void) : 
+TxIOPair::TxIOPair(void) : 
    amount_(0),
-   txoutRef_(), 
-   txoutTxRefPtr_(NULL),
-   txinRef_(),
-   txinTxRefPtr_(NULL) {}
+   txPtrOfOutput_(NULL),
+   indexOfOutput_(0),
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) {}
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(uint64_t  amount) :
+TxIOPair::TxIOPair(uint64_t  amount) :
    amount_(amount),
-   txoutRef_(), 
-   txoutTxRefPtr_(NULL),
-   txinRef_(),
-   txinTxRefPtr_(NULL) {}
+   txPtrOfOutput_(NULL),
+   indexOfOutput_(0),
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) {}
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(TxOutRef const &  outref, 
-                         TxRef          *  txPtr) :
+TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    amount_(0),
-   txinRef_(),
-   txinTxRefPtr_(NULL) 
+   txPtrOfInput_(NULL),
+   indexOfInput_(0) 
 { 
-   setTxOutRef(outref, txPtr);
+   setTxOutRef(txPtrO, txoutIndex);
 }
 
 //////////////////////////////////////////////////////////////////////////////
-TxIORefPair::TxIORefPair(TxOutRef  outref, 
-                         TxRef*    txPtrOut, 
-                         TxInRef   inref, 
-                         TxRef*    txPtrIn) :
+TxIOPair::TxIOPair(TxRef*    txPtrO,
+                   uint32_t  txoutIndex,
+                   TxRef*    txPtrI, 
+                   uint32_t  txinIndex) :
    amount_(0)
 { 
-   setTxOutRef(outref, txPtrOut);
-   setTxInRef(inref, txPtrIn);
+   setTxOutRef(txPtrO, txoutIndex);
+   setTxInRef (txPtrI, txinIndex );
 }
 
+
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfOutputRef(void)
+BinaryData TxIOPair::getTxHashOfOutput(void)
 {
-   if(txoutTxRefPtr_ == NULL)
+   if(!hasTxOut())
       return BtcUtils::EmptyHash_;
    else
-      return txoutTxRefPtr_->getThisHashRef();
+      return txPtrOfOutput_->getThisHash();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryDataRef TxIORefPair::getTxHashOfInputRef(void)
+BinaryData TxIOPair::getTxHashOfInput(void)
 {
-   if(txinTxRefPtr_ == NULL)
+   if(!hasTxIn())
       return BtcUtils::EmptyHash_;
    else
-      return txinTxRefPtr_->getThisHashRef();
+      return txPtrOfInput_->getThisHash();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-BinaryData TxIORefPair::getTxHashOfOutput(void)
-{
-   if(txoutTxRefPtr_ == NULL)
-      return BtcUtils::EmptyHash_;
-   else
-      return txoutTxRefPtr_->getThisHash();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-BinaryData TxIORefPair::getTxHashOfInput(void)
-{
-   if(txinTxRefPtr_ == NULL)
-      return BtcUtils::EmptyHash_;
-   else
-      return txinTxRefPtr_->getThisHash();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-void TxIORefPair::setTxInRef(TxInRef const & inref, TxRef* intxptr)
+void TxIOPair::setTxInRef(TxRef* txref, uint32_t index)
 { 
-   txinRef_  = inref;
-   txinTxRefPtr_  = intxptr;
+   txPtrOfInput_  = txref;
+   indexOfInput_  = index;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void TxIORefPair::setTxOutRef(TxOutRef const & outref, TxRef* outtxptr)
+void TxIOPair::setTxOutRef(TxRef* txref, uint32_t index)
 {
-   txoutRef_ = outref; 
-   txoutTxRefPtr_ = outtxptr;
-   if(txoutRef_.isInitialized())
-      amount_ = txoutRef_.getValue();
+   txPtrOfOutput_ = txref; 
+   indexOfOutput_ = index;
+   if(hasTxOut())
+      amount_ = getTxOutRef().getValue();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIORefPair::isStandardTxOutScript(void) 
+bool TxIOPair::isStandardTxOutScript(void) 
 { 
    if(hasTxOut()) 
-      return txoutRef_.isStandard();
+      return getTxOutRef().isStandard();
    return false;
+}
+
+pair<bool,bool> TxIOPair::reassessValidity(void)
+{
+   pair<bool,bool> result;
+   result.first  = (hasTxOut() && txPtrOfOutput_->isMainBranch());
+   result.second = (hasTxIn()  && txPtrOfInput_->isMainBranch());
+   return result;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -323,10 +313,10 @@ void BtcWallet::scanTx(TxRef & tx,
             continue;
 
          // We have the txin, now check if it contains one of our TxOuts
-         map<OutPoint, TxIORefPair>::iterator txioIter = txioMap_.find(outpt);
+         map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
          if(txioIter != txioMap_.end())
          {
-            TxIORefPair     & txio  = txioIter->second;
+            TxIOPair & txio  = txioIter->second;
             TxOutRef const  & txout = txioIter->second.getTxOutRef();
             if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
             {
@@ -334,7 +324,7 @@ void BtcWallet::scanTx(TxRef & tx,
                thisTxInIsOurs[iin] = true;
 
                unspentTxOuts_.erase(outpt);
-               txio.setTxInRef(txin, &tx);
+               txio.setTxInRef(&tx, iin);
 
                int64_t thisVal = (int64_t)txout.getValue();
                LedgerEntry newEntry(addr20, 
@@ -359,7 +349,7 @@ void BtcWallet::scanTx(TxRef & tx,
             // be there
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
-               nonStdTxioMap_[outpt].setTxInRef(txin, &tx);
+               nonStdTxioMap_[outpt].setTxInRef(&tx, iin);
                nonStdUnspentTxOuts_.erase(outpt);
             }
          }
@@ -381,11 +371,11 @@ void BtcWallet::scanTx(TxRef & tx,
          {
             OutPoint outpt(tx.getThisHash(), iout);      
             unspentTxOuts_.insert(outpt);
-            pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
-            pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+            pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
+            pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx, iout));
             insResult = txioMap_.insert(toBeInserted);
 
-            TxIORefPair & thisTxio = insResult.first->second;
+            TxIOPair & thisTxio = insResult.first->second;
             if(insResult.second == true)
             {
                anyTxOutIsOurs = true;
@@ -498,8 +488,8 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
       nonStdUnspentTxOuts_.insert(outpt);
-      pair< map<OutPoint, TxIORefPair>::iterator, bool> insResult;
-      pair<OutPoint, TxIORefPair> toBeInserted(outpt, TxIORefPair(txout, &tx));
+      pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
+      pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx,txoutidx));
       insResult = nonStdTxioMap_.insert(toBeInserted);
       insResult = txioMap_.insert(toBeInserted);
    }
@@ -515,7 +505,7 @@ uint64_t BtcWallet::getBalance(void)
         unspentIter != unspentTxOuts_.end(); 
         unspentIter++)
    {
-      TxIORefPair & txio = txioMap_[*unspentIter];
+      TxIOPair & txio = txioMap_[*unspentIter];
       if(txio.getTxRefOfOutput().isMainBranch())
          balance += txioMap_[*unspentIter].getValue();
    }
@@ -879,11 +869,11 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
             OutPoint outpt(tx.getHash(), iout);      
 
             // The new TxIO to be inserted only has a TxOut right now
-            pair< map<OutPoint, TxIORefPair>::iterator, bool> insTxioResult;
-            pair<OutPoint, TxIORefPair> newTxio(outpt, TxIORefPair(txout, &tx));
+            pair< map<OutPoint, TxIOPair>::iterator, bool> insTxioResult;
+            pair<OutPoint, TxIOPair> newTxio(outpt, TxIOPair(txout, &tx));
             insTxioResult = txioMap_.insert(newTxio);
 
-            TxIORefPair & thisTxio = insTxioResult.first->second;
+            TxIOPair & thisTxio = insTxioResult.first->second;
             if(insTxioResult.second == true)
             {
                thisAddr.relevantTxIOPtrs_.push_back( &thisTxio );
@@ -1149,6 +1139,29 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
       {
          // Not sure we need to do anything here 
       }
+   }
+
+
+   // Need to fix the TxIO pairs, and recompute unspentTxOuts
+   // All addresses point to the wallet's TxIOPairs, so we only need 
+   // to do this check on the wallet -- no need on the individual addrs
+   map<OutPoint, TxIOPair>::iterator txioIter;
+   for(txioIter  = wlt.getTxIOMap().begin();
+       txioIter != wlt.getTxIOMap().end();
+       txioIter++)
+   {
+      pair<bool, bool> reassessValid = txioIter->second.reassessValidity();
+      bool txoutIsValid = reassessValid.first;
+      bool txinIsValid  = reassessValid.second;
+
+      if(txoutIsValid && !txinIsValid)
+         wlt.getUnspentOutPoints().insert(txioIter->first);
+
+      if(!txoutIsValid && !txinIsValid)
+         wlt.getUnspentOutPoints().erase(txioIter->first);
+
+      if(!txoutIsValid &&  txinIsValid)
+         cout << "***ERROR: Invalid TxOut but valid TxIn!?" << endl;
    }
 
    // Now fix the individual address ledgers

@@ -49,94 +49,54 @@ using namespace std;
 class BlockDataManager_FullRAM;
 
 
-////////////////////////////////////////////////////////////////////////////////
-/*
-class BlockHeaderFileRef
-{
-public:
-   BlockHeaderFileRef(BinaryData hash, uint64_t fileLoc, uint32_t fileIdx=0) : 
-      theHash_(hash),
-      fileLoc_(fileLoc),
-      fileIndex_(fileIdx) {}
-
-
-   BinaryData theHash_;
-   uint32_t fileIndex_;
-   uint64_t fileLoc_;
-};
-
-class TxFileRef
-{
-public:
-   TxFileRef(BinaryData hash, uint64_t fileLoc, uint32_t fileIdx=0) : 
-      theHash_(hash),
-      fileLoc_(fileLoc),
-      fileIndex_(fileIdx) {}
-
-
-   BinaryData theHash_;
-   uint32_t fileIndex_;
-   uint64_t fileLoc_;
-};
-*/
-
-
-
 
 ////////////////////////////////////////////////////////////////////////////////
-// TxIORefPair
+// TxIOPair
 //
 // This makes a lot of sense, despite the added complexity.  No TxIn exists
 // unless there was a TxOut, and they both have the same value, so we will
 // store them together here.
 //
 // This will provide the future benefit of easily determining what Tx data
-// can be pruned.  If a TxIORefPair has both TxIn and TxOut, then the value 
+// can be pruned.  If a TxIOPair has both TxIn and TxOut, then the value 
 // was received and spent, contributes zero to our balance, and can effectively
 // ignored.  For now we will maintain them, but in the future we may decide
-// to just start removing TxIORefPairs after they are spent...
+// to just start removing TxIOPairs after they are spent...
 //
 //
-class TxIORefPair
+class TxIOPair
 {
 public:
    //////////////////////////////////////////////////////////////////////////////
-   TxIORefPair(void);
-   TxIORefPair(uint64_t  amount);
-   TxIORefPair(TxOutRef const &  outref, 
-               TxRef          *  txPtr);
-   TxIORefPair(TxOutRef  outref, 
-               TxRef*    txPtrOut, 
-               TxInRef   inref, 
-               TxRef*    txPtrIn);
-
+   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
+   //        we should probably do that here, too.  I designed this before I
+   //        realized that these copies will fall out of sync on a reorg
+   TxIOPair(void);
+   TxIOPair(uint64_t  amount);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txoutRef_.isInitialized()); }
-   bool      hasTxIn(void)        { return (txinRef_.isInitialized()); }
+   bool      hasTxOut(void)       { return (txPtrOfOutput_ != NULL); }
+   bool      hasTxIn(void)        { return (txPtrOfInput_  != NULL); }
    bool      hasValue(void)       { return (amount_!=0); }
    uint64_t  getValue(void)       { return amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef       * getTxOutRefPtr(void)         { return &txoutRef_; }
-   TxInRef        * getTxInRefPtr(void)          { return &txinRef_; }
-   TxOutRef const & getTxOutRef(void) const      { return txoutRef_; }
-   TxInRef  const & getTxInRef(void)  const      { return txinRef_; }
-   TxOut            getTxOut(void) const         { return txoutRef_.getCopy(); }
-   TxIn             getTxIn(void) const          { return txinRef_.getCopy(); }
-   TxRef    const & getTxRefOfOutput(void) const { return *txoutTxRefPtr_; }
-   TxRef    const & getTxRefOfInput(void) const  { return *txinTxRefPtr_; }
+   TxOutRef  getTxOutRef(void) const {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
+   TxInRef   getTxInRef(void) const  {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
+   TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
+   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
+   pair<bool,bool> reassessValidity(void);
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(void);
-   BinaryDataRef getTxHashOfInputRef(void);
-
    BinaryData    getTxHashOfOutput(void);
-   BinaryDataRef getTxHashOfOutputRef(void);
 
-   void setTxInRef(TxInRef const & inref, TxRef* intxptr);
-   void setTxOutRef(TxOutRef const & outref, TxRef* outtxptr);
+   void setTxInRef (TxRef* txref, uint32_t index);
+   void setTxOutRef(TxRef* txref, uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
@@ -146,10 +106,10 @@ public:
 
 private:
    uint64_t  amount_;
-   TxOutRef  txoutRef_;
-   TxRef*    txoutTxRefPtr_;
-   TxInRef   txinRef_;
-   TxRef*    txinTxRefPtr_;
+   TxRef*    txPtrOfOutput_;
+   uint32_t  indexOfOutput_;;
+   TxRef*    txPtrOfInput_;
+   uint32_t  indexOfInput_;;
 
 };
 
@@ -183,8 +143,8 @@ private:
 //    txHash_    -  hash of this tx 
 //    index_     -  index of the tx in the block
 //    isValid_   -  default to true -- invalidated due to reorg/double-spend
-//    isSentToSelf_ - if ALL txOuts are our own addresses and we supplied input
-//    isChangeBack_ - if only some TxOuts are ours, most likely change
+//    isSentToSelf_ - if we supplied inputs and rx ALL outputs
+//    isChangeBack_ - if we supplied inputs and rx ANY outputs
 //
 ////////////////////////////////////////////////////////////////////////////////
 class LedgerEntry
@@ -299,10 +259,10 @@ public:
    uint64_t getBalance(void);
 
    vector<LedgerEntry>  & getTxLedger(void) { return ledger_;           }
-   vector<TxIORefPair*> & getTxIOList(void) { return relevantTxIOPtrs_; }
+   vector<TxIOPair*> & getTxIOList(void) { return relevantTxIOPtrs_; }
 
-   void addTxIO(TxIORefPair * txio) { relevantTxIOPtrs_.push_back(txio);}
-   void addTxIO(TxIORefPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
+   void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
+   void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
    void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
 
 
@@ -317,7 +277,7 @@ private:
    bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
-   vector<TxIORefPair*>   relevantTxIOPtrs_;
+   vector<TxIOPair*>   relevantTxIOPtrs_;
    vector<LedgerEntry>    ledger_;
 };
 
@@ -386,6 +346,7 @@ public:
    uint64_t   getBalance(uint32_t i);
    uint64_t   getBalance(BinaryData const & addr20);
 
+
    
    uint32_t     getNumAddr(void) {return addrMap_.size();}
    BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
@@ -395,10 +356,10 @@ public:
    uint32_t removeInvalidEntries(void);
 
    vector<LedgerEntry> &        getTxLedger(void) { return ledgerAllAddr_; }
-   map<OutPoint, TxIORefPair> & getTxIOMap(void) {return txioMap_;}
+   map<OutPoint, TxIOPair> & getTxIOMap(void) {return txioMap_;}
 
    set<OutPoint> & getUnspentOutPoints(void)     {return unspentTxOuts_;}
-   map<OutPoint, TxIORefPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
+   map<OutPoint, TxIOPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
    set<OutPoint> const & getNonStdUnspentOutPoints(void) {return nonStdUnspentTxOuts_;}
 
    // If we have spent TxOuts but the tx haven't made it into the blockchain
@@ -410,7 +371,7 @@ public:
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
-   map<OutPoint, TxIORefPair>   txioMap_;
+   map<OutPoint, TxIOPair>      txioMap_;
 
    vector<LedgerEntry>          ledgerAllAddr_;  
 
@@ -422,7 +383,7 @@ private:
    bool                         isLocked_;       // watching only, no spending
 
    // For non-std transactions
-   map<OutPoint, TxIORefPair>   nonStdTxioMap_;
+   map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentTxOuts_;
 
    
