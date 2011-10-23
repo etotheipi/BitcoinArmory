@@ -1,4 +1,17 @@
 #! /usr/bin/python
+
+#
+#  IMPORTANT:  This script extracts *EVERY KEY & ADDR* out of your wallet.dat 
+#              file and writes them to file!!   This is usually a terrible
+#              idea, but I made the script to help myself explore the file
+#              format.
+#
+#              Also, wallet.dat includes addresses you HAVE SEEN BUT DO NOT
+#              OWN.  This means that many of the addresses (especially the 
+#              ones without private keys) this script extracts don't actually
+#              contribute anything to your wallet.
+#
+#
 from sys import argv
 from pybtcengine import *
 
