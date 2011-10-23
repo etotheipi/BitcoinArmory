@@ -186,6 +186,7 @@ public:
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
    void setValid(bool b=true) { isValid_ = b; }
+   void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
    bool operator<(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
@@ -309,22 +310,22 @@ public:
    void addAddress_1_(BinaryData    addr);
 
    void addAddress_2_(BinaryData    addr, 
-                     BinaryData    pubKey65);
+                      BinaryData    pubKey65);
 
    void addAddress_3_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32);
 
    void addAddress_4_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32,
-                     uint32_t      firstBlockNum);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32,
+                      uint32_t      firstBlockNum);
 
    void addAddress_5_(BinaryData    addr, 
-                     BinaryData    pubKey65,
-                     BinaryData    privKey32,
-                     uint32_t      firstBlockNum,
-                     uint32_t      firstTimestamp);
+                      BinaryData    pubKey65,
+                      BinaryData    privKey32,
+                      uint32_t      firstBlockNum,
+                      uint32_t      firstTimestamp);
 
    bool hasAddr(BinaryData const & addr20);
 

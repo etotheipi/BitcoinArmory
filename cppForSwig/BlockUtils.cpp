@@ -298,7 +298,7 @@ void BtcWallet::scanTx(TxRef & tx,
       // If this block is before known addr creation time, no point in scanning
       // If this block is before last addr seen time, already seen it!
       // Added a week or 1000 blocks buffer to be safe, and make sure I don't
-      // discard a reorg or some other silly boundary case
+      // discard a reorg block or some other silly boundary case
       if(  blktime+(3600*24*7) < thisAddr.getLastTimestamp() ||
            blknum+1000         < thisAddr.getLastBlockNum()           )
          continue;  
@@ -317,8 +317,10 @@ void BtcWallet::scanTx(TxRef & tx,
          if(txioIter != txioMap_.end())
          {
             TxIOPair & txio  = txioIter->second;
-            TxOutRef const  & txout = txioIter->second.getTxOutRef();
-            if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
+            TxOutRef const  & txout = txio.getTxOutRef();
+            //if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
+            if(txout.getRecipientAddr()==thisAddr.getAddrStr20()  && 
+               (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
             {
                anyTxInIsOurs = true;
                thisTxInIsOurs[iin] = true;
@@ -1136,9 +1138,7 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
          wlt.getTxLedger()[i].setValid(false);
 
       if(txJustAffected_.count(txHash) > 0)
-      {
-         // Not sure we need to do anything here 
-      }
+         wlt.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
    }
 
 
@@ -1154,14 +1154,20 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
       bool txoutIsValid = reassessValid.first;
       bool txinIsValid  = reassessValid.second;
 
-      if(txoutIsValid && !txinIsValid)
-         wlt.getUnspentOutPoints().insert(txioIter->first);
-
-      if(!txoutIsValid && !txinIsValid)
-         wlt.getUnspentOutPoints().erase(txioIter->first);
-
-      if(!txoutIsValid &&  txinIsValid)
-         cout << "***ERROR: Invalid TxOut but valid TxIn!?" << endl;
+      if(txoutIsValid)
+      {
+         if(txinIsValid)
+            wlt.getUnspentOutPoints().erase(txioIter->first);
+         else
+            wlt.getUnspentOutPoints().insert(txioIter->first);
+      }
+      else
+      {
+         if(txinIsValid)
+            cout << "***ERROR: Invalid TxOut but valid TxIn!?" << endl;
+         else
+            wlt.getUnspentOutPoints().erase(txioIter->first);
+      }
    }
 
    // Now fix the individual address ledgers
@@ -1172,9 +1178,10 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
       {
          HashString const & txHash = addr.getTxLedger()[i].getTxHash();
          if(txJustInvalidated_.count(txHash) > 0)
-            wlt.getTxLedger()[i].setValid(false);
+            addr.getTxLedger()[i].setValid(false);
    
-         if(txJustAffected_.count(txHash) > 0) { /* same as above */ }
+         if(txJustAffected_.count(txHash) > 0) 
+            addr.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
       }
    }
 }

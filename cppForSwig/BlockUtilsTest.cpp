@@ -144,7 +144,7 @@ int main(void)
            << ledgerAll[j].getAddrStr20().toHexStr() << "  "
            << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
            << ledgerAll[j].getBlockNum()
-           << ")  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
+           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
    */
@@ -182,6 +182,18 @@ int main(void)
    //       they had.
    cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
    bdm.scanBlockchainForTx_FromScratch(wlt);
+   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll.size(); j++)
+   {  
+      cout << "    Tx: " 
+           << ledgerAll[j].getValue()/1e8
+           << " (" << ledgerAll[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
+      cout << endl;
+   }
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
    cout << "                          Balance: " << wlt.getBalance()/1e8 << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
@@ -197,8 +209,7 @@ int main(void)
               << ledger[j].getValue()/(float)(CONVERTBTC) << " (" 
               << ledger[j].getBlockNum()
               << ")  TxHash: " << ledger[j].getTxHash().getSliceCopy(0,4).toHexStr();
-         if( ! ledger[j].isValid())
-            cout << " (INVALID) ";
+         if( ! ledger[j].isValid())  cout << " (INVALID) ";
          cout << endl;
       }
 
@@ -233,16 +244,16 @@ int main(void)
    }
 
    cout << "Checking balance of entire wallet: " << wlt.getBalance()/1e8 << endl;
-   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledgerAll.size(); j++)
+   vector<LedgerEntry> const & ledgerAll2 = wlt.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll2.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledgerAll[j].getAddrStr20().toHexStr() << "  "
-           << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
-           << ledgerAll[j].getBlockNum()
-           << ")  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr();
-      if( ! ledgerAll[j].isValid())
-         cout << " (INVALID) ";
+           << ledgerAll2[j].getValue()/1e8
+           << " (" << ledgerAll2[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll2[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll2[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll2[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll2[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
       cout << endl;
    }
 
