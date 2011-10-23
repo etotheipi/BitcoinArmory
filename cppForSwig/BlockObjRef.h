@@ -108,8 +108,6 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
-   /////////////////////////////////////////////////////////////////////////////
-   uint32_t findNonce(void);
 
 private:
    BinaryDataRef  self_;

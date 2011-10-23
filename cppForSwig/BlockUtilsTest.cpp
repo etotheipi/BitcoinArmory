@@ -25,14 +25,17 @@ int main(void)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
-   /*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
+   cout << "(haven't figured out home-dir detect in C++: please manually" 
+        << " update the path in the BlockUtilsTest.cpp to run this test."
+        << " Home-dir detection is already implemented in the python/SWIG"
+        << " interface, and unnecessary here)" << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch(
-            "C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
-            false);  // false ~ don't organize blockchain, just create maps
-   //bdm.readBlkFile_FromScratch("../blk0001_120k.dat");
+   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat", false);
+   //bdm.readBlkFile_FromScratch(
+            //"C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
+            //false);  // false ~ don't organize blockchain, just create maps
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -136,30 +139,49 @@ int main(void)
 
 
    cout << "Printing SORTED allAddr ledger..." << endl;
-   wlt.cleanLedger();
+   wlt.sortLedger();
    vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
    for(uint32_t j=0; j<ledgerAll.size(); j++)
    {  
       cout << "    Tx: " 
            << ledgerAll[j].getAddrStr20().toHexStr() << "  "
-           << ledgerAll[j].getValue()/(float)(CONVERTBTC) << " (" 
+           << ledgerAll[j].getValue()/1e8 << " (" 
            << ledgerAll[j].getBlockNum()
-           << ")  TxHash: " << ledger2[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
+           << ")  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
            
    }
-   */
 
-   // NOTE:  These unit-test files (blk_0_to_4, blk_3A, etc) have an
-   //        error in them, so the OutPoint hashes don't match up.
-   //        For now this test only allows you to walk through your
-   //        reorg code (which still helped me find a ton of bugs), but
-   //        will not allow you to do more exhaustive testing until I
-   //        get the bugs in the unit-test-generation worked out.
-   BtcWallet wlt;
-   wlt.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
-   wlt.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
-   wlt.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
-   wlt.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
+   /////////////////////////////////////////////////////////////////////////////
+   //
+   // BLOCKCHAIN REORGANIZATION UNIT-TEST
+   //
+   /////////////////////////////////////////////////////////////////////////////
+   //
+   // NOTE:  The unit-test files (blk_0_to_4, blk_3A, etc) are located in 
+   //        cppForSwig/reorgTest.  These files represent a very small 
+   //        blockchain with a double-spend and a couple invalidated 
+   //        coinbase tx's.  All tx-hashes & OutPoints are consistent,
+   //        all transactions have real ECDSA signatures, and blockheaders
+   //        have four leading zero-bytes to be valid at difficulty=1
+   //        
+   //        If you were to set COINBASE_MATURITY=1 (not applicable here)
+   //        this would be a *completely valid* blockchain--just a very 
+   //        short blockchain.
+   //
+   //        FYI: The first block is the *actual* main-network genesis block
+   //
+   
+   string blk04("reorgTest/blk_0_to_4.dat");
+   string blk3A("reorgTest/blk_3A.dat");
+   string blk4A("reorgTest/blk_4A.dat");
+   string blk5A("reorgTest/blk_5A.dat");
+
+   BtcWallet wlt2;
+   wlt2.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
+   wlt2.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
+   wlt2.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
+   wlt2.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
+
                    
    cout << endl << endl;
    cout << "Preparing blockchain-reorganization test!" << endl;
@@ -181,27 +203,27 @@ int main(void)
    //       to figure out what happened to this money they thought
    //       they had.
    cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
-   bdm.scanBlockchainForTx_FromScratch(wlt);
-   vector<LedgerEntry> const & ledgerAll = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledgerAll.size(); j++)
+   bdm.scanBlockchainForTx_FromScratch(wlt2);
+   vector<LedgerEntry> const & ledgerAll2 = wlt2.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll2.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledgerAll[j].getValue()/1e8
-           << " (" << ledgerAll[j].getBlockNum() << ")"
-           << "  TxHash: " << ledgerAll[j].getTxHash().getSliceCopy(0,4).toHexStr();
-      if(!ledgerAll[j].isValid())      cout << " (INVALID) ";
-      if( ledgerAll[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
-      if( ledgerAll[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
+           << ledgerAll2[j].getValue()/1e8
+           << " (" << ledgerAll2[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll2[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll2[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll2[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll2[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
       cout << endl;
    }
-   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
-   cout << "                          Balance: " << wlt.getBalance()/1e8 << endl;
-   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
+   cout << "                          Balance: " << wlt2.getBalance()/1e8 << endl;
+   for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
-                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
-      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getBalance() << endl;
+      vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "    Tx: " 
@@ -239,31 +261,31 @@ int main(void)
    if(result[ADD_BLOCK_CAUSED_REORG] == true)
    {
       cout << "Reorg happened after pushing block 5A" << endl;
-      bdm.scanBlockchainForTx_FromScratch(wlt);
-      bdm.updateWalletAfterReorg(wlt);
+      bdm.scanBlockchainForTx_FromScratch(wlt2);
+      bdm.updateWalletAfterReorg(wlt2);
    }
 
-   cout << "Checking balance of entire wallet: " << wlt.getBalance()/1e8 << endl;
-   vector<LedgerEntry> const & ledgerAll2 = wlt.getTxLedger();
-   for(uint32_t j=0; j<ledgerAll2.size(); j++)
+   cout << "Checking balance of entire wallet: " << wlt2.getBalance()/1e8 << endl;
+   vector<LedgerEntry> const & ledgerAll3 = wlt2.getTxLedger();
+   for(uint32_t j=0; j<ledgerAll3.size(); j++)
    {  
       cout << "    Tx: " 
-           << ledgerAll2[j].getValue()/1e8
-           << " (" << ledgerAll2[j].getBlockNum() << ")"
-           << "  TxHash: " << ledgerAll2[j].getTxHash().getSliceCopy(0,4).toHexStr();
-      if(!ledgerAll2[j].isValid())      cout << " (INVALID) ";
-      if( ledgerAll2[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
-      if( ledgerAll2[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
+           << ledgerAll3[j].getValue()/1e8
+           << " (" << ledgerAll3[j].getBlockNum() << ")"
+           << "  TxHash: " << ledgerAll3[j].getTxHash().getSliceCopy(0,4).toHexStr();
+      if(!ledgerAll3[j].isValid())      cout << " (INVALID) ";
+      if( ledgerAll3[j].isSentToSelf()) cout << " (SENT_TO_SELF) ";
+      if( ledgerAll3[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
       cout << endl;
    }
 
-   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
-   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
+   cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
+   for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance()/1e8 << ","
-                         << wlt.getAddrByHash160(addr20).getBalance()/1e8 << endl;
-      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
+      BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getBalance()/1e8 << endl;
+      vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "    Tx: " 
@@ -277,6 +299,11 @@ int main(void)
       }
 
    }
+   /////////////////////////////////////////////////////////////////////////////
+   //
+   // END BLOCKCHAIN REORG UNIT-TEST
+   //
+   /////////////////////////////////////////////////////////////////////////////
 
 
    /////////////////////////////////////////////////////////////////////////////
