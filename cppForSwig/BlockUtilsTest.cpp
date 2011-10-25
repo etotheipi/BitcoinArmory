@@ -151,6 +151,42 @@ int main(void)
            
    }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Test txout aggregation, with different prioritization schemes" << endl;
+
+   BtcWallet myWallet;
+   // Three addresses from above
+   myAddress.createFromHex("d184cea7e82c775d08edd288344bcd663c3f99a2");
+   myWallet.addAddress(myAddress);
+   myAddress.createFromHex("205fa00890e6898b987de6ff8c0912805416cf90");
+   myWallet.addAddress(myAddress);
+
+   cout << "Rescanning the blockchain for new addresses." << endl;
+   bdm.scanBlockchainForTx_FromScratch(myWallet);
+
+   vector< vector<UnspentTxOut> > sortedUTOs(4);
+   sortedUTOs[0] = bdm.getUnspentTxOutsForWallet(myWallet, 0);
+   sortedUTOs[1] = bdm.getUnspentTxOutsForWallet(myWallet, 1);
+   sortedUTOs[2] = bdm.getUnspentTxOutsForWallet(myWallet, 2);
+   sortedUTOs[3] = bdm.getUnspentTxOutsForWallet(myWallet, 3);
+
+   for(int i=0; i<4; i++)
+   {
+      cout << "   Sorting Method: " << i << endl;
+      cout << "   Value\t#Conf\tTxHash\tTxIdx" << endl;
+      for(int j=0; j<sortedUTOs[i].size(); j++)
+      {
+         cout << "   "
+              << sortedUTOs[i][j].getValue()/1.01e8 << "\t"
+              << sortedUTOs[i][j].getNumConfirm() << "\t"
+              << sortedUTOs[i][j].getTxHash().getSliceCopy(0,3).toHexStr() << "\t"
+              << sortedUTOs[i][j].getTxOutIndex() << endl;
+      }
+      cout << endl;
+   }
+
+
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -304,6 +340,7 @@ int main(void)
    // END BLOCKCHAIN REORG UNIT-TEST
    //
    /////////////////////////////////////////////////////////////////////////////
+  
 
 
    /////////////////////////////////////////////////////////////////////////////

@@ -242,6 +242,7 @@ BinaryData TxInRef::getScript(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
+//
 BinaryDataRef TxInRef::getScriptRef(void) const
 { 
    uint32_t scrLen = (uint32_t)BtcUtils::readVarInt(getPtr()+36);
@@ -255,9 +256,10 @@ bool TxInRef::isCoinbase(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
+void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
    parentTx_ = parent;
+   index_ = idx;
    nBytes_ = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
    self_ = BinaryDataRef(ptr, nBytes_);
 
@@ -267,22 +269,23 @@ void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
                                              BinaryDataRef(getPtr(), 32));
 }
 
-void TxInRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent)
+/////////////////////////////////////////////////////////////////////////////
+void TxInRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize(brr.getCurrPtr(), nbytes, parent);
+   unserialize(brr.getCurrPtr(), nbytes, parent, idx);
    brr.advance(nBytes_);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxInRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent)
+void TxInRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent);
+   unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxInRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent)
+void TxInRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent);
+   unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 
@@ -365,9 +368,10 @@ BinaryDataRef TxOutRef::getScriptRef(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOutRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
+void TxOutRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
    parentTx_ = parent;
+   index_ = idx;
    nBytes_ = (nbytes==0 ? BtcUtils::TxOutCalcLength(ptr) : nbytes);
    self_ = BinaryDataRef(ptr, nBytes_);
    char const & v = self_[8];
@@ -379,21 +383,21 @@ void TxOutRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOutRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent)
+void TxOutRef::unserialize(BinaryData const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent);
+   unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOutRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent)
+void TxOutRef::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize(str.getPtr(), nbytes, parent);
+   unserialize(str.getPtr(), nbytes, parent, idx);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void TxOutRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent)
+void TxOutRef::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, int32_t idx)
 {
-   unserialize( brr.getCurrPtr(), nbytes, parent);
+   unserialize( brr.getCurrPtr(), nbytes, parent, idx );
    brr.advance(nBytes_);
 }
 
@@ -495,7 +499,7 @@ TxInRef TxRef::getTxInRef(int i)
 {
    assert(isInitialized_);
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-   return TxInRef(self_.getPtr()+offsetsTxIn_[i], txinSize, this);
+   return TxInRef(self_.getPtr()+offsetsTxIn_[i], txinSize, this, i);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -506,23 +510,7 @@ TxOutRef TxRef::getTxOutRef(int i)
 {
    assert(isInitialized_);
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-   return TxOutRef(self_.getPtr()+offsetsTxOut_[i], txoutSize, this);
-}
-
-
-
-////////////////////////////////////////////////////////////////////////////////
-TxIn  TxRef::getTxInCopy (int i)
-{ 
-   assert(isInitialized_);  
-   return getTxInRef(i).getCopy();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-TxOut TxRef::getTxOutCopy(int i)
-{ 
-   assert(isInitialized_);  
-   return getTxOutRef(i).getCopy(); 
+   return TxOutRef(self_.getPtr()+offsetsTxOut_[i], txoutSize, this, i);
 }
 
 
@@ -617,6 +605,5 @@ void TxRef::pprintAlot(ostream & os)
    }
 
 }
-
 
 

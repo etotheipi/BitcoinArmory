@@ -325,7 +325,7 @@ void BtcWallet::scanTx(TxRef & tx,
                anyTxInIsOurs = true;
                thisTxInIsOurs[iin] = true;
 
-               unspentTxOuts_.erase(outpt);
+               unspentOutPoints_.erase(outpt);
                txio.setTxInRef(&tx, iin);
 
                int64_t thisVal = (int64_t)txout.getValue();
@@ -352,7 +352,7 @@ void BtcWallet::scanTx(TxRef & tx,
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
                nonStdTxioMap_[outpt].setTxInRef(&tx, iin);
-               nonStdUnspentTxOuts_.erase(outpt);
+               nonStdUnspentOutPoints_.erase(outpt);
             }
          }
       } // loop over TxIns
@@ -372,7 +372,7 @@ void BtcWallet::scanTx(TxRef & tx,
          if( txout.getRecipientAddr() == thisAddr.getAddrStr20() )
          {
             OutPoint outpt(tx.getThisHash(), iout);      
-            unspentTxOuts_.insert(outpt);
+            unspentOutPoints_.insert(outpt);
             pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
             pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx, iout));
             insResult = txioMap_.insert(toBeInserted);
@@ -489,7 +489,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 
 
       OutPoint outpt(tx.getThisHash(), txoutidx);      
-      nonStdUnspentTxOuts_.insert(outpt);
+      nonStdUnspentOutPoints_.insert(outpt);
       pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
       pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx,txoutidx));
       insResult = nonStdTxioMap_.insert(toBeInserted);
@@ -503,8 +503,8 @@ uint64_t BtcWallet::getBalance(void)
 {
    uint64_t balance = 0;
    set<OutPoint>::iterator unspentIter;
-   for( unspentIter  = unspentTxOuts_.begin(); 
-        unspentIter != unspentTxOuts_.end(); 
+   for( unspentIter  = unspentOutPoints_.begin(); 
+        unspentIter != unspentOutPoints_.end(); 
         unspentIter++)
    {
       TxIOPair & txio = txioMap_[*unspentIter];
@@ -551,6 +551,8 @@ void BtcWallet::sortLedger(void)
 {
    sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
 }
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1717,6 +1719,7 @@ BinaryData BlockDataManager_FullRAM::getSenderAddr20(TxInRef & txin)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
 int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
 {
    if(txin.isCoinbase())
@@ -1724,6 +1727,36 @@ int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
 
    return getPrevTxOut(txin).getValue();
 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> 
+BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, int sortType)
+{
+   vector<UnspentTxOut> result(0);
+   set<OutPoint> & unspentOps = wlt.getUnspentOutPoints();
+   set<OutPoint>::iterator opIter;
+   for(opIter  = unspentOps.begin();
+       opIter != unspentOps.end();
+       opIter++)
+   {
+      TxRef & tx = *(getTxByHash(opIter->getTxHash()));
+      uint32_t currBlk = getTopBlockHeader().getBlockHeight();
+      TxOutRef txout = tx.getTxOutRef(opIter->getTxOutIndex());
+      UnspentTxOut uto(txout, currBlk);
+      result.push_back(uto);
+   }
+   UnspentTxOut::sortTxOutVect(result, sortType);
+   reverse(result.begin(), result.end());
+   return result;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> 
+BlockDataManager_FullRAM::getNonStdUnspentTxOutsForWallet( BtcWallet & wlt)
+{
+   return vector<UnspentTxOut>(0);
 }
 
 

@@ -259,8 +259,8 @@ public:
 
    uint64_t getBalance(void);
 
-   vector<LedgerEntry>  & getTxLedger(void) { return ledger_;           }
-   vector<TxIOPair*> & getTxIOList(void) { return relevantTxIOPtrs_; }
+   vector<LedgerEntry> & getTxLedger(void) { return ledger_;           }
+   vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
 
    void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
    void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
@@ -278,8 +278,8 @@ private:
    bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
-   vector<TxIOPair*>   relevantTxIOPtrs_;
-   vector<LedgerEntry>    ledger_;
+   vector<TxIOPair*>     relevantTxIOPtrs_;
+   vector<LedgerEntry>   ledger_;
 };
 
 
@@ -356,12 +356,18 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &        getTxLedger(void) { return ledgerAllAddr_; }
-   map<OutPoint, TxIOPair> & getTxIOMap(void) {return txioMap_;}
+   vector<LedgerEntry> &     getTxLedger(void)   {return ledgerAllAddr_; }
+   map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
+   map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
-   set<OutPoint> & getUnspentOutPoints(void)     {return unspentTxOuts_;}
-   map<OutPoint, TxIOPair> const & getNonStdTxIO(void) {return nonStdTxioMap_;}
-   set<OutPoint> const & getNonStdUnspentOutPoints(void) {return nonStdUnspentTxOuts_;}
+
+   // NOTE: These methods return raw OutPoint objects, which have to be
+   //       queried through txHashMap_ to get info about the TxOuts
+   //       Use this only if you have some reason to get the minimal
+   //       set of information representing all TxOuts
+   set<OutPoint> & getUnspentOutPoints(void)      {return unspentOutPoints_;}
+   set<OutPoint> & getNonStdUnspentOutPoints(void){return nonStdUnspentOutPoints_;}
+
 
    // If we have spent TxOuts but the tx haven't made it into the blockchain
    // we need to lock them to make sure we have a record of which ones are 
@@ -376,7 +382,7 @@ private:
 
    vector<LedgerEntry>          ledgerAllAddr_;  
 
-   set<OutPoint>                unspentTxOuts_;
+   set<OutPoint>                unspentOutPoints_;
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
@@ -385,7 +391,7 @@ private:
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
-   set<OutPoint>                nonStdUnspentTxOuts_;
+   set<OutPoint>                nonStdUnspentOutPoints_;
 
    
    // import future
@@ -599,6 +605,9 @@ public:
    void             updateWalletAfterReorg(BtcWallet & wlt);
    void             updateWalletsAfterReorg(vector<BtcWallet*> wlt);
 
+   // Use these two methods to get ALL information about your unused TxOuts
+   vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=1);
+   vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
 
    ////////////////////////////////////////////////////////////////////////////////
    // We're going to need the BDM's help to get the sender for a TxIn since it

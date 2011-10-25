@@ -123,9 +123,9 @@ public:
    OutPoint(BinaryData const & txHash, uint32_t txOutIndex) : 
                 txHash_(txHash), txOutIndex_(txOutIndex) { }
 
-   BinaryData const &   getTxHash(void)     { return txHash_; }
-   BinaryDataRef        getTxHashRef(void)  { return BinaryDataRef(txHash_); }
-   uint32_t             getTxOutIndex(void) { return txOutIndex_; }
+   BinaryData const &   getTxHash(void)     const { return txHash_; }
+   BinaryDataRef        getTxHashRef(void)  const { return BinaryDataRef(txHash_); }
+   uint32_t             getTxOutIndex(void) const { return txOutIndex_; }
 
    void setTxHash(BinaryData const & hash) { txHash_.copyFrom(hash); }
    void setTxOutIndex(uint32_t idx) { txOutIndex_ = idx; }
@@ -305,6 +305,53 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+// This class is mainly for sorting by priority
+class UnspentTxOut
+{
+public:
+   UnspentTxOut(void);
+   UnspentTxOut(TxOutRef & txout, uint32_t blknum) { init(txout, blknum);}
+
+   void init(TxOutRef & txout, uint32_t blknum);
+
+   BinaryData getTxHash(void) const      { return txHash_;     }
+   uint32_t   getTxOutIndex(void) const  { return txOutIndex_; }
+   uint64_t   getValue(void)  const      { return value_;      }
+   uint64_t   getTxHeight(void)  const   { return txHeight_;   }
+   BinaryData getScript(void) const      { return script_;     }
+   uint32_t   getNumConfirm(void) const  { return numConfirm_; }
+
+   uint32_t   updateNumConfirm(uint32_t currBlknum);
+
+   //float getPriority(void);  
+   //bool operator<(UnspentTxOut const & t2)
+                     //{ return (getPriority() < t2.getPriority()); }
+   //bool operator==(UnspentTxOut const & t2)
+                     //{ return (getPriority() == t2.getPriority()); }
+
+   // These four methods are listed from steepest-to-shallowest in terms of 
+   // how much they favor large inputs over small inputs.  
+   static bool CompareNaive(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
+   static bool CompareTech1(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
+   static bool CompareTech2(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
+   static bool CompareTech3(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
+
+   static void sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType=1);
+
+public:
+   BinaryData txHash_;
+   uint32_t   txOutIndex_;
+   uint32_t   txHeight_;
+   uint64_t   value_;
+   BinaryData script_;
+   uint32_t   numConfirm_;
+
+   // This can be set and used as part of a compare function:  if you want
+   // each TxOut prioritization to be dependent on the target Tx amount.
+   uint64_t   targetTxAmount_;
+};
 
 #endif
 

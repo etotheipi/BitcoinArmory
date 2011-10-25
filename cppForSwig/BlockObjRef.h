@@ -176,8 +176,10 @@ public:
    TxInRef(void) : self_(0),  nBytes_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
                    scriptOffset_(0) {}
 
-   TxInRef(uint8_t const * ptr, uint32_t nBytes=0, TxRef* parent=NULL) 
-                                       { unserialize(ptr, nBytes, parent); } 
+   TxInRef(uint8_t const * ptr,  
+           uint32_t        nBytes=0, 
+           TxRef*          parent=NULL, 
+           int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return self_.getPtr(); }
    uint32_t         getSize(void) const { assert(isInitialized()); return self_.getSize(); }
@@ -189,7 +191,9 @@ public:
 
    TxIn             getCopy(void) const;
    TxRef*           getParentTxPtr(void) { return parentTx_; }
-   void             setParentTxPtr(TxRef * txref) { parentTx_ = txref; }
+   uint32_t         getIndex(void) { return index_; }
+
+   void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=-1;}
 
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
    uint32_t         getScriptSize(void) { return nBytes_ - (scriptOffset_ + 4); }
@@ -210,10 +214,14 @@ public:
    BinaryDataRef serializeRef(void) { return            self_;  }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryData    const & str, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(uint8_t const * ptr, 
+                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryData    const & str, 
+                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryDataRef const & str, 
+                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryRefReader & brr, 
+                        uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
 
    /////////////////////////////////////////////////////////////////////////////
    // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
@@ -230,6 +238,7 @@ private:
 
    // Derived properties - we expect these to be set after construct/copy
    uint32_t         nBytes_;
+   uint32_t         index_;
    TXIN_SCRIPT_TYPE scriptType_;
    uint32_t         scriptOffset_;
    TxRef*           parentTx_;
@@ -250,8 +259,10 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    TxOutRef(void) : self_(0) {}
-   TxOutRef(uint8_t const * ptr, uint32_t nBytes=0, TxRef* parent=NULL) 
-                                       { unserialize(ptr, nBytes, parent); } 
+   TxOutRef(uint8_t const * ptr, 
+            uint32_t        nBytes=0, 
+            TxRef*          parent=NULL, 
+            int32_t         idx=-1) { unserialize(ptr, nBytes, parent, idx); } 
 
    uint8_t const * getPtr(void) const { return self_.getPtr(); }
    uint32_t        getSize(void) const { return self_.getSize(); }
@@ -259,7 +270,9 @@ public:
    bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
    bool            isInitialized(void) const {return self_.getSize() > 0; }
    TxRef*          getParentTxPtr(void) { return parentTx_; }
-   void            setParentTxPtr(TxRef * txref) { parentTx_ = txref; }
+   uint32_t        getIndex(void) { return index_; }
+
+   void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=-1;}
 
    /////////////////////////////////////////////////////////////////////////////
    TXOUT_SCRIPT_TYPE  getScriptType(void) const { return scriptType_; }
@@ -281,10 +294,14 @@ public:
    BinaryDataRef      serializeRef(void) { return self_; }
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(uint8_t const * ptr, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryData const & str, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryDataRef const & str, uint32_t nbytes=0, TxRef* parent=NULL);
-   void unserialize(BinaryRefReader & brr, uint32_t nbytes=0, TxRef* parent=NULL);
+   void unserialize(uint8_t const * ptr, 
+                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryData const & str, 
+                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryDataRef const & str, 
+                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+   void unserialize(BinaryRefReader & brr, 
+                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
 
    TxOut getCopy(void) const;
    void  pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
@@ -295,6 +312,7 @@ private:
    // Derived properties - we expect these to be set after construct/copy
    uint32_t          nBytes_;
    uint32_t          scriptOffset_;
+   uint32_t          index_;
    TXOUT_SCRIPT_TYPE scriptType_;
    BinaryData        recipientBinAddr20_;
    TxRef*            parentTx_;
@@ -359,8 +377,6 @@ public:
    // okay to do it on the fly
    TxInRef   getTxInRef(int i);
    TxOutRef  getTxOutRef(int i);
-   TxIn      getTxInCopy(int i);
-   TxOut     getTxOutCopy(int i);
    
    /////////////////////////////////////////////////////////////////////////////
    uint32_t  getBlockTimestamp(void);
@@ -387,6 +403,5 @@ private:
    bool             isMainBranch_;
 
 };
-
 
 #endif

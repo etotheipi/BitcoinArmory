@@ -890,6 +890,8 @@ class PyBtcAddress(object):
    def getAddr160(self):
       if self.hasPubKey:
          return hash160(self.pubKey_serialize())
+      elif not self.addrStr == UNINITIALIZED:
+         return addrStr_to_hash160(self.addrStr);
       else:
          return '' 
    

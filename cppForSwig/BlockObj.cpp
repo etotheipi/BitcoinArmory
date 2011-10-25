@@ -9,6 +9,8 @@
 #include <iostream>
 #include <vector>
 #include <map>
+#include <cmath>
+#include <algorithm>
 
 #include "BinaryData.h"
 #include "BtcUtils.h"
@@ -535,6 +537,105 @@ void Tx::unserialize(BinaryDataRef const & str)
 {
    unserialize(str.getPtr());
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// UnspentTxOut Methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+UnspentTxOut::UnspentTxOut(void) :
+   txHash_(BtcUtils::EmptyHash_),
+   txOutIndex_(0),
+   txHeight_(0),
+   value_(0),
+   script_(BinaryData(0)),
+   numConfirm_(0)
+{
+   // Nothing to do here
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void UnspentTxOut::init(TxOutRef & txout, uint32_t blkNum)
+{
+   txHash_     = txout.getParentTxPtr()->getThisHash();
+   txOutIndex_ = txout.getIndex();
+   txHeight_   = txout.getParentTxPtr()->getBlockHeight();
+   value_      = txout.getValue();
+   script_     = txout.getScript();
+   updateNumConfirm(blkNum);
+}
+
+uint32_t UnspentTxOut::updateNumConfirm(uint32_t currBlkNum)
+{
+   if(txHeight_ == UINT32_MAX)
+      numConfirm_ = 0;
+   else
+      numConfirm_ = currBlkNum - txHeight_ + 1;
+   return numConfirm_;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool UnspentTxOut::CompareNaive(UnspentTxOut const & uto1, 
+                                UnspentTxOut const & uto2)
+{
+   float val1 = uto1.getValue();
+   float val2 = uto2.getValue();
+   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool UnspentTxOut::CompareTech1(UnspentTxOut const & uto1,
+                                UnspentTxOut const & uto2)
+{
+   float val1 = pow((float)uto1.getValue(), 1.0f/3.0f);
+   float val2 = pow((float)uto2.getValue(), 1.0f/3.0f);
+   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool UnspentTxOut::CompareTech2(UnspentTxOut const & uto1,
+                                UnspentTxOut const & uto2)
+{
+   float val1 = pow(log10((float)uto1.getValue()) + 5, 4);
+   float val2 = pow(log10((float)uto2.getValue()) + 5, 4);
+   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool UnspentTxOut::CompareTech3(UnspentTxOut const & uto1,
+                                UnspentTxOut const & uto2)
+{
+   float val1 = pow(log10((float)uto1.getValue()) + 5, 4);
+   float val2 = pow(log10((float)uto2.getValue()) + 5, 4);
+   return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void UnspentTxOut::sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType)
+{
+   switch(sortType)
+   {
+   case 0: sort(utovect.begin(), utovect.end(), CompareNaive); break;
+   case 1: sort(utovect.begin(), utovect.end(), CompareTech1); break;
+   case 2: sort(utovect.begin(), utovect.end(), CompareTech2); break;
+   case 3: sort(utovect.begin(), utovect.end(), CompareTech3); break;
+   default: break; // do nothing
+   }
+}
+
+
+
+
+
+
 
 
 
