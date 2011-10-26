@@ -1,0 +1,235 @@
+Methods available in pybtcengine.py
+
+################################################################################
+#####  Utility methods
+################################################################################
+def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
+def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
+def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
+
+def hex_switchEndian(s):
+def binary_switchEndian(s):
+
+def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
+def hex_to_int(h, endIn=LITTLEENDIAN):
+def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
+def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):
+def binary_to_int(b, endIn=LITTLEENDIAN):
+def int_to_base58Str(n):
+def base58Str_to_int(s):
+def base58Str_to_addrStr(b58str):
+def addrStr_to_base58Str(addr):
+def binary_to_addrStr(binstr):
+def addrStr_to_binary(addr):
+
+def sha1(bits):
+def sha256(bits):
+def ripemd160(bits):
+def hash256(s):
+def hash160(s):
+def hash160_to_addrStr(binStr):
+def addrStr_to_hash160(binStr):
+def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+
+def ubtc_to_floatStr(n):
+def floatStr_to_ubtc(s):
+def float_to_btc (f):
+
+def packVarInt(n):
+def unpackVarInt(hvi):
+
+def padHexStrLeft(hexStr, nBytes, padChar='0'):
+def padHexStrRight(hexStr, nBytes, padChar='0'):
+def padBinaryLeft(binStr, nBytes, padByte='\x00'):
+def padBinaryRight(binStr, nBytes, padByte='\x00'):
+
+def binaryBits_to_difficulty(b):
+def difficulty_to_binaryBits(i):
+
+
+################################################################################
+#####  Reading and writing binary streams
+################################################################################
+
+class BinaryUnpacker(object):
+   def __init__(self, binaryStr):
+   def getSize(self): return len(self.binaryStr)
+   def getRemainingSize(self): return len(self.binaryStr) - self.pos
+   def getBinaryString(self): return self.binaryStr
+   def append(self, binaryStr): self.binaryStr += binaryStr
+   def advance(self, bytesToAdvance): self.pos += bytesToAdvance
+   def rewind(self, bytesToRewind): self.pos -= bytesToRewind
+   def resetPosition(self, toPos=0): self.pos = toPos
+   def getPosition(self): return self.pos
+   def get(self, varType, sz=0, endianness=LITTLEENDIAN):
+
+class BinaryPacker(object):
+   def __init__(self):
+   def getSize(self):
+   def getBinaryString(self):
+   def __str__(self):
+   def put(self, varType, theData, endianness=LITTLEENDIAN):
+
+
+
+################################################################################
+#####  ECDSA Core (only used directly by BtcAddress)
+################################################################################
+class lisecdsa:
+   def inverse_mod( a, m ):
+   class CurveFp( object ):
+      def __init__( self, p, a, b ):
+      def p( self ):
+      def a( self ):
+      def b( self ):
+      def contains_point( self, x, y ):
+   class Point( object ):
+      def __init__( self, curve, x, y, order = None ):
+      def __add__( self, other ):
+      def __mul__( self, other ):
+         def leftmost_bit( x ):
+      def __rmul__( self, other ):
+      def __str__( self ):
+      def double( self ):
+      def x( self ):
+      def y( self ):
+      def curve( self ):
+      def order( self ):
+   class Signature( object ):
+      def __init__( self, r, s ):
+   class Public_key( object ):
+      def __init__( self, generator, point ):
+      def verifies( self, hash, signature ):
+   class Private_key( object ):
+      def __init__( self, public_key, secret_multiplier ):
+      def der( self ):
+      def sign( self, hash, random_k ):
+def isValidEcPoint(x,y):
+
+
+
+################################################################################
+#####  Address/Wallet wrappers around ECDSA core
+################################################################################
+def checkAddrType(addrBin):
+def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+def checkAddrStrValid(addrStr):
+class PyBtcAddress(object):
+   def __init__(self):
+   def generateNew(self):
+   def createFromPrivateKey(self, privKeyInt):
+   def createFromPublicKey(self, pubkey):
+   def createFromPublicKeyHash160(self, pubkeyHash160, netbyte=ADDRBYTE):
+   def createFromAddrStr(self, addrStr):
+   def calculateAddrStr(self, netbyte=ADDRBYTE):
+   def getAddrStr(self):
+   def generateDERSignature(self, binToSign):
+   def verifyDERSignature(self, binToVerify, derToVerify):
+   def prepareKeys(self, checkKeyMatch=True):
+   def checkAddressValid(self):
+   def checkPubPrivKeyPairMatch(self):
+   def getAddr160(self):
+   def addrStr_serialize(self):
+   def addrStr_unserialize(self, toUnpack):
+   def pubKey_serialize(self):
+   def pubKey_unserialize(self, toUnpack):
+   def privKey_serialize(self):
+   def privKey_unserialize(self, toUnpack):
+   def serialize(self):
+   def unserialize(self, toUnpack):
+   def pprint(self, withPrivKey=False):
+
+
+
+
+################################################################################
+#####  Blockchain Data Containers
+################################################################################
+def getTxOutScriptType(txoutObj):
+def getTxInScriptType(txinObj):
+
+def TxOutScriptExtractKeyAddr(txoutObj):
+def TxInScriptExtractKeyAddr(txinObj):
+
+
+class PyOutPoint(object):
+   def unserialize(self, toUnpack):
+   def serialize(self):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+class PyTxIn(object):
+   def __init__(self):
+   def unserialize(self, toUnpack):
+   def serialize(self):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+class PyTxOut(object):
+   def __init__(self):
+   def unserialize(self, toUnpack):
+   def serialize(self):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+class PyTx(object):
+   def __init__(self):
+   def serialize(self):
+   def unserialize(self, toUnpack):
+   def getHash(self):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+   def pprintHex(self, nIndent=0):
+
+class PyBlockHeader(object):
+   def __init__(self):
+   def serialize(self):
+   def unserialize(self, toUnpack):
+   def serializeWithExtra(self):
+   def unserializeWithExtra(self, toUnpack):
+   def getHash(self, endian=LITTLEENDIAN):
+   def getHashHex(self, endian=LITTLEENDIAN):
+   def getDifficulty(self):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+class PyBlockData(object):
+   def __init__(self, txList=[]):
+   def serialize(self):
+   def unserialize(self, toUnpack):
+   def getTxHashList(self):
+   def getMerkleRoot(self):
+   def printMerkleTree(self, reverseHash=False, indent=''):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+class PyBlock(object):
+   def __init__(self, prevHeader=None, txlist=[]):
+   def serialize(self):
+   def unserialize(self, toUnpack):
+   def getNumTx(self):
+   def getSize(self):
+   def setPrevHeader(self, prevHeader, copyAttr=True):
+   def setTxList(self, txlist):
+   def tx(self, idx):
+   def pprint(self, nIndent=0, endian=BIGENDIAN):
+
+
+
+################################################################################
+#####  Examining and evaluating scripts
+################################################################################
+def convertScriptToOpStrings(binScript):
+def pprintScript(binScript, nIndent=0):
+class PyScriptProcessor(object):
+   def __init__(self):
+   def setTxObjects(self, txOld, txNew, txInIndex):
+   def verifyTransactionValid(self):
+   def executeScript(self, binaryScript, stack=[]):
+   def castToBool(self, binData):
+   def executeOpCode(self, opcode, scriptUnpacker, stack):
+
+
+
+################################################################################
+#####  Examining and evaluating scripts
+################################################################################
+def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
+def PyBuildUnsignedTx(unspentInputs, dstAddrVals):
+   

@@ -336,13 +336,6 @@ def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
    dtstr = dtobj.strftime(formatStr)
    return dtstr[:-2] + dtstr[-2:].lower()
 
-def getTimeOfTx(txhash):
-   tx = bdm.getTxByHash(txhash)
-   if tx:
-      return bdm.getTxByHash(txhash).getBlockTimestamp()
-   else:
-      return -1
-
 
 ##### HEXSTR/VARINT #####
 def packVarInt(n):
@@ -993,6 +986,17 @@ class PyBtcAddress(object):
          if withPrivKey and self.hasPrivKey:
             print '  Private Key Hex (Big-Endian): '
             print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
+      
+
+################################################################################
+################################################################################
+# TODO:  Finish this!
+class PyBtcWallet(object):
+   def __init__(self):
+      self.pyAddrList = {}  # PyBtcAddress' in a dictionary indexed by addrStr
+
+   def hasAddr160(self, addr160):
+      return self.pyAddrList.has_key(addr160)
       
       
 
@@ -2455,6 +2459,26 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    # Finally, our tx is complete!
    return newTx
    
+
+
+
+################################################################################
+################################################################################
+#class UnsignedTransaction(object):
+   #def __init__(self, unspentInputsList=[], dstAddrValPairs=[], ):
+      #self.serializedTx = ''
+
+
+#def PyBuildUnsignedTx(unspentInputsList, dstAddrValPairs):
+   #pytx = PyTx()
+   #for inp in unspentInputsList:
+      #pytx.inputs.append
+   #pytx.outputs = 
+      
+
+
+
+
 
 
 
