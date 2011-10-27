@@ -603,8 +603,8 @@ bool UnspentTxOut::CompareTech1(UnspentTxOut const & uto1,
 bool UnspentTxOut::CompareTech2(UnspentTxOut const & uto1,
                                 UnspentTxOut const & uto2)
 {
-   float val1 = pow(log10((float)uto1.getValue()) + 5, 4);
-   float val2 = pow(log10((float)uto2.getValue()) + 5, 4);
+   float val1 = pow(log10((float)uto1.getValue()) + 5, 5);
+   float val2 = pow(log10((float)uto2.getValue()) + 5, 5);
    return (val1*uto1.numConfirm_ < val2*uto2.numConfirm_);
 
 }
