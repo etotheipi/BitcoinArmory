@@ -47,7 +47,7 @@
 ********************************************************************************
 
 ********************************************************************************
-*  STATUS:   Last Updated - 23 Oct, 2011
+*  STATUS:   Last Updated - 28 Oct, 2011
 *            Legend:   
 *                      _    not implemented
 *                      .    implemented but not tested
@@ -68,7 +68,7 @@
 *      (09)  Blockchain reorgs              X                    X
 *      (10)  Blockchain verify integrity    X                    X
 *     ---------------------------------------------------------------
-*      (11)  NonStd Tx Detection            X          X         X
+*      (11)  NonStd Tx Detection            +          +         +
 *      (12)  Script pprint                  X          X         X
 *      (13)  Script OP_CHECKSIG                        X         X
 *      (14)  Arbitrary script eval                     .         .
@@ -80,22 +80,24 @@
 *      (19)  Reorg w/ double-spend          X                    X
 *      (20)  Add new blockdata real-time    X                    X
 *     ---------------------------------------------------------------
-*      (21)  Tx construction                           X         X
-*      (22)  Tx broadcast
-*      (23)  Tx fee detect/calc/handle
-*      (24)  Networking/Sockets
+       (20)  SelectCoins for tx                        .         .
+*      (21)  Tx construct given inputs                 X         X
+*      (22*) Distr Proposals for multi-sig                  
+*      (23)  Tx broadcast
+*      (24)  Tx fee detect/calc/handle
 *      (25)  Blockchain download
 *
 *
 *
 *
 * Notes:
-*     (09)  I have THOROUGHLY tested the blockchain reorg code.  Days of 
-*           carefully stepping through code, line-by-line, and making sure
-*           everything looks exactly right at each step.  After a reorg,
+*     (09)  I have THOROUGHLY tested the blockchain reorg code.  and making 
+*           sure everything looks exactly right at each step.  After a reorg,
 *           invalidated Tx's show up in the address ledger with a flag
-*           that identifies it has been removed.
-*
+*           that identifies it has been removed.  This is really important in
+*           the event of oddities in the blockchain -- normally the transaction
+*           would just disappear without evidence it ever existed, which can 
+*           cause a lot of user confusion.
 *           
 *     (11)  Is "mostly" tested because there are a few TxIn scripts that I fail
 *           to identify as "standard."  This is because it appears that a few 
@@ -109,6 +111,12 @@
 *           OP_CHECKSIG is the most important, but I can't yet claim that 
 *           my scripting engine is complete
 *
+*     (22*) In anticipation of supporting multi-signature transactions, I have
+*           created a specification for handling multi-sig transactions, which
+*           also happens to work well for offline wallets/transactions.  I 
+*           have called these "Distribution Proposals".  See the following BIP:
+*              https://gist.github.com/1321518
+*
 *
 * More Notes:
 *      FullRAM implementation only in C++ code.  However,
@@ -116,7 +124,6 @@
 *      probably for the next year, so there's no hurry to do this.
 
 *      Short/Medium-term future:
-*            *** SWIG BLOCK EXPLORER GUI ***
 *            *** NETWORKING & BLOCKCHAIN DOWNLOAD ***
 *            Deterministic address generation
 *            Wallet serialization/storage to file
@@ -130,6 +137,29 @@
 
 ********************************************************************************
 #####
+28 Oct, 2011
+
+   *** Implemented SelectCoins and started "Tx Distribution Proposals."  
+
+   Actually spent a bit of time writing the following specification instead
+   of coding:
+               https://gist.github.com/1321518
+
+   I figured that ironing out a good way to implement it before I actually do,
+   would be a good investment of time.
+
+   Fantastically, this method of dealing with multi-signature transactions, 
+   also works surprisingly well for offline transactions:  you can use the 
+   exact same mechanism, as a 1-of-1 tx that needs to be signed.  The way 
+   the TxDP works, this can be done by an offline computer without access to
+   the blockchain, and thus only needs the ECDSA private keys.
+
+   The only problem is, this complicates my TxDP code, because most TxDPs will
+   only involve signing a single TxIn, whereas this is a "regular" transaction
+   which will potentially have multiple TxIns.  It's going to get done, but it
+   is extra complexity...
+
+
 18 Oct, 2011
 
    *** Working blockchain reorgs with double-spend detection, GUI works in 10.04

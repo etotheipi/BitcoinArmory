@@ -530,10 +530,13 @@ public:
       uint32_t sz = s.getSize();
       if(sz < 2) return TXOUT_SCRIPT_UNKNOWN;
 
-      if( s[0]    == 0x76 && 
+      // Had to add a couple conditionals due to block 150951...
+      if( sz      >= 25   &&
+          s[0]    == 0x76 && 
           s[1]    == 0xa9 &&
+          s[2]    == 0x14 &&  // txs in blk 150951 has a 0x00 here
           s[sz-2] == 0x88 &&
-          s[sz-1] == 0xac    )
+          s[sz-1] == 0xac   )
          return TXOUT_SCRIPT_STANDARD;
 
       if(sz==67 && s[0]==0x41 && s[1]==0x04 && s[sz-1]==0xac)

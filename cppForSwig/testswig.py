@@ -28,12 +28,13 @@ if len(sys.argv) > 1:
 
 print '*'*80
 print 'Importing BlockUtils module...',
-from CppBlockUtils import *
+#from CppBlockUtils import *
+import CppBlockUtils as Cpp
 print 'Done!'
 print ''
 
 print 'Constructing BlockDataManager... ',
-bdm = BlockDataManager().getBDM()
+bdm = Cpp.BlockDataManager().getBDM()
 print 'Done!'
 print ''
 
@@ -147,22 +148,23 @@ addrStr3 = hex_to_binary("f62242a747ec1cb02afd56aac978faf05b90462e");
 addrStr4 = hex_to_binary("baa72d8650baec634cdc439c1b84a982b2e596b2");
 addrStr5 = hex_to_binary("6300bf4c5c2a724c280b893807afb976ec78a92b");
 
-# Special methods in C++ code to avoid using overloads with typemaps
-wallet = BtcWallet()
-wallet.addAddress_1_(addrStr1);
-wallet.addAddress_1_(addrStr2);
-wallet.addAddress_1_(addrStr3);
-bdm.scanBlockchainForTx_FromScratch(wallet);
+# The _1_ methods are to avoid quirks with SWIG related using overloaded methods
+# requiring arguments that were typemap'd (BinaryData, in this case)
+cppWallet = Cpp.BtcWallet()
+cppWallet.addAddress_1_(addrStr1);
+cppWallet.addAddress_1_(addrStr2);
+cppWallet.addAddress_1_(addrStr3);
+bdm.scanBlockchainForTx_FromScratch(cppWallet);
 print 'Done!'
 
-print 'Wallet addresses: ', wallet.getNumAddr()
-for i in range(wallet.getNumAddr()):
-   addr = wallet.getAddrByIndex(i)
+print 'Wallet addresses: ', cppWallet.getNumAddr()
+for i in range(cppWallet.getNumAddr()):
+   addr = cppWallet.getAddrByIndex(i)
    print '\t', hash160_to_addrStr(addr.getAddrStr20()),
    print '\tBalance:', coin2str(addr.getBalance())
 
 print 'Getting Ledger for addresses:'
-ledger1 = wallet.getTxLedger()
+ledger1 = cppWallet.getTxLedger()
 for i,l in enumerate(ledger1):
    print i, 
    print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20()), 
@@ -175,19 +177,19 @@ for i,l in enumerate(ledger1):
 
 
 print '\n\nAdding address to wallet that has non-std tx.  Rescan wallet:'
-wallet.addAddress_1_(addrStr4)
-wallet.addAddress_1_(addrStr5)
-bdm.scanBlockchainForTx_FromScratch(wallet);
+cppWallet.addAddress_1_(addrStr4)
+cppWallet.addAddress_1_(addrStr5)
+bdm.scanBlockchainForTx_FromScratch(cppWallet);
 print 'Done!'
 
-print 'Wallet addresses: ', wallet.getNumAddr()
-for i in range(wallet.getNumAddr()):
-   addr = wallet.getAddrByIndex(i)
+print 'Wallet addresses: ', cppWallet.getNumAddr()
+for i in range(cppWallet.getNumAddr()):
+   addr = cppWallet.getAddrByIndex(i)
    print '\t', hash160_to_addrStr(addr.getAddrStr20()),
    print '\tBalance:', coin2str(addr.getBalance())
 
 print 'Getting Ledger for addresses:'
-ledger1 = wallet.getTxLedger()
+ledger1 = cppWallet.getTxLedger()
 for i,l in enumerate(ledger1):
    print i, 
    print '\tFrom/To:', hash160_to_addrStr(l.getAddrStr20()), 
@@ -199,5 +201,6 @@ for i,l in enumerate(ledger1):
    print '\tRcvd:', unixTimeToFormatStr(htime)
 
 print ''
+
 
 

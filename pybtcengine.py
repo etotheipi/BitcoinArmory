@@ -976,7 +976,7 @@ class PyBtcAddress(object):
       if self.addrStr==UNINITIALIZED:
          print 'UNINITIALIZED'
       else:
-         print self.addrStr
+         print self.addrStr, '(BinaryLE=%s)' % binary_to_hex(self.getAddr160())
          print '  Have Public Key: ', self.hasPubKey
          print '  Have Private Key:', self.hasPrivKey
          if self.hasPubKey:
@@ -2491,12 +2491,19 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
 
 ################################################################################
+# Sorting currently implemented in C++, but just in case we need it here,
+# I might fill out this method to actually do some kind of sorting
+def PySortCoins(unspentTxOutInfo, sortMethod=1):
+   pass
+
+
+################################################################################
 ################################################################################
 # Following two methods, first arg,  assumes same methods as C++ UnspentTxOut
 # class.  This allows this method to work transparently if it is supplied
 # such a C++ list, but could just as easily be used with a custom python class
-# implementing the same set of function calls
-def SelectCoins(unspentTxOutInfo, targetOutVal, minTxFee):
+# implementing the same set of member functions
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
    """
    This select-coins algorithm is an extremely naive implementation.  The goal
    is to construct ANY tx that is valid, FOR NOW.  I will go back through and
@@ -2504,22 +2511,27 @@ def SelectCoins(unspentTxOutInfo, targetOutVal, minTxFee):
 
    We assume that the unspentTxOutInfo list is already sorted with some
    prioritization scheme.  We will accumulate the first X highest-priority
-   elements whose sum exceeds 2*target, so that we can create two nearly-
+   elements whose sum is about 2*target, so that we can create two nearly-
    equal-sized outputs (assuming they have that much BTC).  This is not
-   only good for output anonymity, it also prevents us from accumulating 
+   only good for output anonymity, it also prevents us from creating/accum 
    tons of tiny inputs.  The input anonymity could probably be improved,
    though (we might be linking too many addresses together)
    """
 
+   if needsSorting:
+      PySortCoins(unspentTxOutInfo)
+
    # Return an empty list immediately if not enough funds
-   sumValues = lambda alist: sum([t.value for t in alist])
+   sumValues = lambda alist: sum([t.getValue() for t in alist])
    totalAvailBtc  = sumValues(unspentTxOutInfo)
    if totalAvailBtc < targetOutVal + minTxFee:
       return []
 
    # Default target value is 2*txVal
    idealTarget    = 2*targetOutVal + minTxFee
-   sortedPool     = unspentTxOutInfo[::-1]  # need to copy,reverse list
+
+   # List is already sorted, but for list.pop, need to reverse
+   sortedPool     = unspentTxOutInfo[::-1]  # this line also copies the list
 
    # We will look for a single input that is within 15% of the target
    # In case the tx value is tiny rel to the fee: the minTarget calc
@@ -2536,18 +2548,22 @@ def SelectCoins(unspentTxOutInfo, targetOutVal, minTxFee):
 
    # If we have a good, single TxOut, let's use it
    for txout in sortedPool:
-      if minTarget <= txout.value <= maxTarget:
+      if minTarget <= txout.getValue() <= maxTarget:
          return [txout]      
          
    # No easy solution, let's start accumulating high-priority inputs
    # Every 2 inputs, we add a low-priority input to prevent them 
-   # from accumulating
+   # from accumulating.  If the user only has zero-confirmation Txs,
+   # then this loop will select them if no other options exist.
    loopIters = 0
    selectedTxOuts = []
+   reqZeroConfTxOuts = False
    while sumValues(selectedTxOuts) < minTarget:
       loopIters += 1
       if loopIters%3 != 0:
          selectedTxOuts.append( sortedPool.pop() )
+         if selectedTxOuts[-1].getNumConfirm() == 0:
+            reqZeroConfTxOuts = True
       else:
          # find lowest priority non-zero-confirm txOut
          # If there aren't any: the next loop iter will use a zero-confirm
@@ -2559,15 +2575,15 @@ def SelectCoins(unspentTxOutInfo, targetOutVal, minTxFee):
             selectedTxOuts.append( sortedPool[goodIdx] )
             del sortedPool[goodIdx]
 
-   return selectedTxOuts
+   return (selectedTxOuts, reqZeroConfTxOuts)
 
 
 ################################################################################
 ################################################################################
 def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
    pytx = PyTx()
-   sumInputs  = sum([uto.value  for uto in selectedTxOuts])
-   sumOutputs = sum([dst[1]     for dst in dstAddrValPairs])
+   sumInputs  = sum([uto.getValue()  for uto in selectedTxOuts])
+   sumOutputs = sum([dst[1]          for dst in dstAddrValPairs])
    txFee = sumInputs - sumOutputs
 
    if txFee < 0:
@@ -2617,12 +2633,10 @@ def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
 
 ################################################################################
 ################################################################################
-################################################################################
-################################################################################
 # This class can be used for both multi-signature tx collection, as well as
 # offline wallet signing (you are collecting signatures for a 1-of-1 tx only
 # involving yourself).
-class TxDistProposal(object):
+class PyTxDistProposal(object):
    def __init__(self, pytx=None):
       if pytx:
          self.setProposal(PyTx)

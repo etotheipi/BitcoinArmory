@@ -1,9 +1,10 @@
 #! /usr/bin/python
-from pybtcengine import *
 from os import path
 import sys
 from optparse import OptionParser
 
+sys.path.append('..')
+from pybtcengine import *
 
 HASHCODE_HEADER = 1
 HASHCODE_MERKLE = 2
