@@ -70,11 +70,11 @@ class UnserializeError(Exception):
 USE_TESTNET = False
 
 ##### MAIN NETWORK IS DEFAULT #####
-BITCOIN_PORT = 8333
-BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
-ADDRBYTE = '\x00'
+BITCOIN_PORT = 18333
+BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
+GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+ADDRBYTE = '\x6f'
 
 ### This doesn't actually work yet because I botched the scoping
 """
@@ -112,7 +112,11 @@ def coin2str(ncoin, ndec=8):
       right = right[:ndec]
    return firstChar+left+'.'+right
    
-   
+#def coin2str(ncoin, ndec=8):
+   #dispAmt = str(ncoin).rjust(16,' ')
+   #lhs = dispAmt[:8]
+   #rhs = dispAmt[8:]
+     
    
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -2516,7 +2520,12 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    only good for output anonymity, it also prevents us from creating/accum 
    tons of tiny inputs.  The input anonymity could probably be improved,
    though (we might be linking too many addresses together)
+
+   TODO: it turns out this doesn't actually work well!  Finding double the amount
+         of coins necessary could result in linking a dozen other tx together
+         unnecessarily!
    """
+   
 
    if needsSorting:
       PySortCoins(unspentTxOutInfo)
@@ -2525,13 +2534,14 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    sumValues = lambda alist: sum([t.getValue() for t in alist])
    totalAvailBtc  = sumValues(unspentTxOutInfo)
    if totalAvailBtc < targetOutVal + minTxFee:
-      return []
+      return [[],False]
 
    # Default target value is 2*txVal
    idealTarget    = 2*targetOutVal + minTxFee
 
    # List is already sorted, but for list.pop, need to reverse
-   sortedPool     = unspentTxOutInfo[::-1]  # this line also copies the list
+   sortedPool = list(unspentTxOutInfo)  # this line also copies the list
+   sortedPool.reverse()
 
    # We will look for a single input that is within 15% of the target
    # In case the tx value is tiny rel to the fee: the minTarget calc
@@ -2549,7 +2559,8 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    # If we have a good, single TxOut, let's use it
    for txout in sortedPool:
       if minTarget <= txout.getValue() <= maxTarget:
-         return [txout]      
+         if txout.getNumConfirm() > 0:
+            return [[txout], False]      
          
    # No easy solution, let's start accumulating high-priority inputs
    # Every 2 inputs, we add a low-priority input to prevent them 

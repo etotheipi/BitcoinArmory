@@ -44,39 +44,42 @@ for i in range(len(walletBytes)):
    if not walletBytes[i] == '\x04':
       continue
    else:
-      potentialPubKey = walletBytes[i+1:i+65]
-      x = binary_to_int( potentialPubKey[:32], BIGENDIAN)
-      y = binary_to_int( potentialPubKey[32:], BIGENDIAN)
-      if isValidEcPoint(x,y):
-         acct =  BtcAccount().createFromPublicKey((x,y))
-         fileloc = int_to_hex(i, widthBytes=4, endOut=BIGENDIAN)
-         print '\nFound PUBLIC key in file (0x%08s) / ' % (fileloc,),
-         addrStr   = acct.calculateAddrStr()
-         pubkeyHex = binary_to_hex(acct.pubKey_serialize()[1:])
-         print ' Addr: %-34s' % (addrStr,), '   PrivKey:',
+      try:
+         potentialPubKey = walletBytes[i+1:i+65]
+         x = binary_to_int( potentialPubKey[:32], BIGENDIAN)
+         y = binary_to_int( potentialPubKey[32:], BIGENDIAN)
+         if isValidEcPoint(x,y):
+            acct =  PyBtcAddress().createFromPublicKey((x,y))
+            fileloc = int_to_hex(i, widthBytes=4, endOut=BIGENDIAN)
+            print '\nFound PUBLIC key in file (0x%08s) / ' % (fileloc,),
+            addrStr   = acct.calculateAddrStr()
+            pubkeyHex = binary_to_hex(acct.pubKey_serialize()[1:])
+            print ' Addr: %-34s' % (addrStr,), '   PrivKey:',
 
-         # Now search for a private key that matches
-         havePrivKey = False
-         for j in [i-207,i-283]:
-            if not walletBytes[j:j+2] == '\x04\x20':
-               continue
-            startIdx = j+2
-            endIdx = startIdx+32
-            potentialPrivKeyBE = binary_to_int(walletBytes[startIdx:endIdx], BIGENDIAN)
-            pubpointBE = EC_GenPt * potentialPrivKeyBE
-            x2 = pubpointBE.x()
-            y2 = pubpointBE.y()
-            if( (x==x2 and y==y2)):
-               havePrivKey = True
-               privkeyHex =  binary_to_hex(walletBytes[startIdx:endIdx])
-               break
-
-         if not havePrivKey:
-            pubKeyDict[addrStr] = pubkeyHex
-            print ' NOT_FOUND ',
-         else:
-            privKeyDict[addrStr] = (pubkeyHex, privkeyHex)
-            print ' FOUND ',
+            # Now search for a private key that matches
+            havePrivKey = False
+            for j in [i-207,i-283]:
+               if not walletBytes[j:j+2] == '\x04\x20':
+                  continue
+               startIdx = j+2
+               endIdx = startIdx+32
+               potentialPrivKeyBE = binary_to_int(walletBytes[startIdx:endIdx], BIGENDIAN)
+               pubpointBE = EC_GenPt * potentialPrivKeyBE
+               x2 = pubpointBE.x()
+               y2 = pubpointBE.y()
+               if( (x==x2 and y==y2)):
+                  havePrivKey = True
+                  privkeyHex =  binary_to_hex(walletBytes[startIdx:endIdx])
+                  break
+   
+            if not havePrivKey:
+               pubKeyDict[addrStr] = pubkeyHex
+               print ' NOT_FOUND ',
+            else:
+               privKeyDict[addrStr] = (pubkeyHex, privkeyHex)
+               print ' FOUND (', privkeyHex, ')', 
+      except:
+         pass
          
 for k,v in privKeyDict.iteritems():
    keyout.write('\n%s:\n\tPubKey: %s\n\tPrivKey: %s' % (k,pretty(v[0]),pretty(v[1])))
