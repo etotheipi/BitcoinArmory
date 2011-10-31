@@ -773,7 +773,12 @@ public:
       while(i < sz)
       {
          uint8_t nextOp = script[i];
-         if(nextOp < 76)
+         if(nextOp == 0)
+         {
+            opList.push_back("OP_0");
+            i++;
+         }
+         else if(nextOp < 76)
          {
             opList.push_back("[PUSHDATA -- " + num2str(nextOp) + " BYTES:]");
             opList.push_back(script.getSliceCopy(i+1, nextOp).toHexStr());
