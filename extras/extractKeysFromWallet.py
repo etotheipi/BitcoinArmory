@@ -12,11 +12,12 @@
 #              contribute anything to your wallet.
 #
 #
-from sys import argv
+from sys import argv, path
 from pybtcengine import *
 
+path.append('..')
 
-pubfile = 'keylistpub.txt'
+pubfile  = 'keylistpub.txt'
 pairfile = 'keylistpair.txt'
 
 if len(argv)<2:
@@ -77,12 +78,12 @@ for i in range(len(walletBytes)):
                print ' NOT_FOUND ',
             else:
                privKeyDict[addrStr] = (pubkeyHex, privkeyHex)
-               print ' FOUND (', privkeyHex, ')', 
+               print ' FOUND ',
       except:
          pass
          
 for k,v in privKeyDict.iteritems():
-   keyout.write('\n%s:\n\tPubKey: %s\n\tPrivKey: %s' % (k,pretty(v[0]),pretty(v[1])))
+   keyout.write('\nAddr: %s:\nPubK: %s\nPriv: %s' % (k,pretty(v[0]),pretty(v[1])))
 
 for k,v in pubKeyDict.iteritems():
    pubout.write('\n%s:\n\tPubKey: %s' % (k,pretty(v)))

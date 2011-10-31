@@ -42,6 +42,7 @@ namespace std
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_HeaderRefPtr) std::vector<BlockHeaderRef*>;
+   %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
 }
 
 /*

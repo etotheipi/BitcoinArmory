@@ -6,34 +6,23 @@
 #
 ################################################################################
 #
-# Project: PyBtcEngine
-# Author:  Alan Reiner
-# Date:    11 July, 2011
-# Descr:   Modified from the Sam Rushing code.   The original header comments
-#          of the original code is below, maintaining reference to the original 
-#          source code, for reference.  The code was pulled from his git repo
-#          on 10 July, 2011.
+# Project:    PyBtcEngine
+# Author:     Alan Reiner
+# Orig Date:  11 July, 2011
+# Descr:      A mostly-complete BTC computational engine in Python.  Does not 
+#             do any Blockchain management, but includes just about everything
+#             else, including all the ECDSA signatures and verification.  
+#             
+#             Blockchain management is handled by the CppBlockUtils, C++ code
+#             compiled with g++ and using SWIG to convert it to a .so/.dll.  
+#             Please see Using_PyBtcEngine.README file for more information.
+#
+#             The file pybtcengine.methods.py has a fairly complete list of
+#             methods available in this file, though it needs to be manually 
+#             generated so it's sometimes lagging the code.
+#       
 #
 ################################################################################
-
-#
-# -*- Mode: Python -*-
-# A prototype bitcoin implementation.
-#
-# Author: Sam Rushing. http://www.nightmare.com/~rushing/
-# July 2011.
-#
-# Status: much of the protocol is done.  The crypto bits are now
-#   working, and I can verify 'standard' address-to-address transactions.
-#   There's a simple wallet implementation, which will hopefully soon
-#   be able to transact actual bitcoins.
-# Todo: consider implementing the scripting engine.
-# Todo: actually participate in the p2p network rather than being a lurker.
-#
-# One of my goals here is to keep the implementation as simple and small
-#   as possible - with as few outside dependencies as I can get away with.
-#   For that reason I'm using ctypes to get to openssl rather than building
-#   in a dependency on M2Crypto or any of the other crypto packages.
 
 import copy
 import hashlib
@@ -70,6 +59,11 @@ class UnserializeError(Exception):
 USE_TESTNET = False
 
 ##### MAIN NETWORK IS DEFAULT #####
+#BITCOIN_PORT = 8333
+#BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+#GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+#GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+#ADDRBYTE = '\x00'
 BITCOIN_PORT = 18333
 BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
 GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
@@ -375,6 +369,28 @@ def padBinaryRight(binStr, nBytes, padByte='\x00'):
    return binStr + padByte*needMoreChars
 
 
+def fixChecksumError(binaryStr, chkSum, hashFunc=hash256):
+   """ 
+   Will only try to correct one byte, as that would be the most
+   common error case.  Correcting two bytes is feasible, but I'm
+   not going to bother implementing it until I need it.  If it's
+   not a one-byte error, it's most likely a different problem
+   """
+   check = lambda b:  hashFunc(b).startswith(chkSum)
+
+   # Maybe just the endian is off?
+   if check(binary_switchEndian(binaryStr)):
+      return binary_switchEndian(binaryStr)
+
+   binaryArray = [b[i] for b in privKeyBinary]
+   for byte in range(len(binaryArray)):
+      origByte = binaryArray[byte]
+      for val in range(256):
+         binaryArray[byte] = chr(val)
+         if check(''.join(binaryArray)):
+            return ''.join(binaryArray)
+
+
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
 def binaryBits_to_difficulty(b):
@@ -403,6 +419,14 @@ UBYTE, USHORT, UINT32, UINT64, VAR_INT, FLOAT, BINARY_CHUNK = range(7)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
+   """
+   Class for helping unpack binary streams of data.  Typical usage is
+      >> bup     = BinaryUnpacker(myBinaryData)
+      >> int32   = bup.get(UINT32)
+      >> int64   = bup.get(VAR_INT)
+      >> bytes10 = bup.get(BINARY_CHUNK, 10)
+      >> ...etc...
+   """
    def __init__(self, binaryStr):
       self.binaryStr = binaryStr
       self.pos = 0
@@ -454,6 +478,15 @@ class BinaryUnpacker(object):
 
 # Start a buffer for concatenating various blocks of binary data
 class BinaryPacker(object):
+   """
+   Class for helping load binary data into a stream.  Typical usage is
+      >> binpack = BinaryPacker()
+      >> bup.put(UINT32, 12)
+      >> bup.put(VAR_INT, 78)
+      >> bup.put(BINARY_CHUNK, '\x9f'*10)
+      >> ...etc...
+      >> result = bup.getBinaryString()
+   """
    def __init__(self):
       self.binaryConcat = []
 
@@ -747,9 +780,13 @@ class PyBtcAddress(object):
       self.addrStr    = UNINITIALIZED 
       self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
       self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
-      # All other information can always be computed on the fly
-      self.hasPubKey  = False
-      self.hasPrivKey = False
+
+   def hasPrivKey(self):
+      return (not self.privKeyInt == UNINITIALIZED)
+
+   def hasPubKey(self):
+      return ((not self.pubKeyXInt == UNINITIALIZED) and \
+              (not self.pubKeyYInt == UNINITIALIZED))
 
    def generateNew(self):
       # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
@@ -763,8 +800,6 @@ class PyBtcAddress(object):
       self.pubKeyYInt = pubKeyPoint.y()
       self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
       self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
-      self.hasPubKey  = True
-      self.hasPrivKey = True
       self.addrStr = self.calculateAddrStr()
       return self
 
@@ -786,27 +821,27 @@ class PyBtcAddress(object):
       # on the secp256k1 elliptic curve
       pubKeyPoint = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
       self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
-      self.hasPubKey  = True
-      self.hasPrivKey = False
       self.addrStr = self.calculateAddrStr()
       return self
 
    def createFromPublicKeyHash160(self, pubkeyHash160, netbyte=ADDRBYTE):
       chkSum  = hash256(netbyte + pubkeyHash160)[:4]
       self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
-      self.hasPubKey  = False
-      self.hasPrivKey = False
+      return self
+
+   def createFromKeyDataInts(self, privKeyInt, pubKeyIntPair, verifyMatch=True):
+      if verifyMatch:
+         self.privKeyInt = privKeyInt
+         self.checkPubPrivKeyPairMatch()
       return self
 
    def createFromAddrStr(self, addrStr):
       self.addrStr = addrStr
       assert(self.checkAddressValid())
-      self.hasPubKey  = False
-      self.hasPrivKey = False
       return self
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):
-      assert( self.hasPubKey )
+      assert( self.hasPubKey() )
       keyHash = self.getAddr160()
       chkSum  = hash256(netbyte + keyHash)[:4]
       return  binary_to_addrStr(netbyte + keyHash + chkSum)
@@ -817,7 +852,7 @@ class PyBtcAddress(object):
       return self.addrStr
 
    def generateDERSignature(self, binToSign):
-      assert( self.hasPrivKey )
+      assert( self.hasPrivKey() )
       self.prepareKeys()
       intSign = binary_to_int(binToSign)
       sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
@@ -835,7 +870,7 @@ class PyBtcAddress(object):
       return sigScr
 
    def verifyDERSignature(self, binToVerify, derToVerify):
-      assert(self.hasPubKey)
+      assert(self.hasPubKey())
       self.prepareKeys()
       codeByte = derToVerify[0]
       nBytes   = binary_to_int(derToVerify[1])
@@ -860,16 +895,16 @@ class PyBtcAddress(object):
 
    def prepareKeys(self, checkKeyMatch=True):
       # We may have the key data, but may not have created the lisecdsa objects
-      if self.hasPubKey and self.lisPubKey==UNINITIALIZED:
+      if self.hasPubKey() and self.lisPubKey==UNINITIALIZED:
          pubKeyPoint     = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
          self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
 
-      if self.hasPrivKey and self.lisPrivKey==UNINITIALIZED:
+      if self.hasPrivKey() and self.lisPrivKey==UNINITIALIZED:
          self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
 
       # If we already had both a public and private key, we might consider
       # checking that they are a match
-      if self.hasPubKey and self.hasPrivKey and checkKeyMatch:
+      if self.hasPubKey() and self.hasPrivKey() and checkKeyMatch:
          assert(self.checkPubPrivKeyPairMatch())
 
 
@@ -878,14 +913,14 @@ class PyBtcAddress(object):
       return checkAddrStrValid(self.addrStr);
 
    def checkPubPrivKeyPairMatch(self):
-      assert( self.hasPubKey and self.hasPrivKey )
+      assert( self.hasPubKey() and self.hasPrivKey() )
       privToPubPoint = EC_GenPt * self.privKeyInt
       xMatches = (privToPubPoint.x() == self.pubKeyXInt)
       yMatches = (privToPubPoint.y() == self.pubKeyYInt)
       return (xMatches and yMatches)
 
    def getAddr160(self):
-      if self.hasPubKey:
+      if self.hasPubKey():
          return hash160(self.pubKey_serialize())
       elif not self.addrStr == UNINITIALIZED:
          return addrStr_to_hash160(self.addrStr);
@@ -908,7 +943,7 @@ class PyBtcAddress(object):
    
 
    def pubKey_serialize(self):
-      if not self.hasPubKey:
+      if not self.hasPubKey():
          return ''
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
@@ -926,18 +961,16 @@ class PyBtcAddress(object):
       if leadByte==0:
          self.pubKeyXInt == UNINITIALIZED
          self.pubKeyYInt == UNINITIALIZED
-         self.hasPubKey = False
       else:
          leadByte = keyData.get(UBYTE)
          assert(leadByte == 4)
          self.pubKeyXInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
          self.pubKeyYInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
-         self.hasPubKey = True
 
 
 
    def privKey_serialize(self):
-      if not self.hasPrivKey:
+      if not self.hasPrivKey():
          return '\x00'
       else:
          privKeyBin = int_to_binary(self.privKeyInt, widthBytes=32, endOut=BIGENDIAN)
@@ -951,11 +984,9 @@ class PyBtcAddress(object):
       leadByte = keyData.get(UBYTE)
       if leadByte==0:
          self.privKeyInt = UNINITIALIZED
-         self.hasPrivKey = False
       else:
          privKeyBin = keyData.get(BINARY_CHUNK, 32)
          self.privKeyInt = binary_to_int(privKeyBin, BIGENDIAN)
-         self.hasPrivKey = True
 
    
    def serialize(self):
@@ -981,13 +1012,13 @@ class PyBtcAddress(object):
          print 'UNINITIALIZED'
       else:
          print self.addrStr, '(BinaryLE=%s)' % binary_to_hex(self.getAddr160())
-         print '  Have Public Key: ', self.hasPubKey
-         print '  Have Private Key:', self.hasPrivKey
-         if self.hasPubKey:
+         print '  Have Public Key: ', self.hasPubKey()
+         print '  Have Private Key:', self.hasPrivKey()
+         if self.hasPubKey():
             print '  Public Key Hex (Big-Endian):  '
             print '     04', int_to_hex(self.pubKeyXInt, 32, BIGENDIAN)
             print '       ', int_to_hex(self.pubKeyYInt, 32, BIGENDIAN)
-         if withPrivKey and self.hasPrivKey:
+         if withPrivKey and self.hasPrivKey():
             print '  Private Key Hex (Big-Endian): '
             print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
       
@@ -996,18 +1027,170 @@ class PyBtcAddress(object):
 ################################################################################
 # TODO:  Finish this!
 class PyBtcWallet(object):
+   """
+   Stores a set of PyBtcAddress objects to represent a "wallet" of money. 
+   The first implementation of this class (v1.0) is the simplest, holding
+   just a set of keys without encryption.
+
+   The next implementation (v2.0) will involve private-key encryption 
+   in-place in the wallet, with encryption parameters listed at the top
+   of the file
+    
+   The final implementation will be an optional, deterministic wallet,
+   which will allow the user to create a base key, and all future addrs
+   will be created deterministically from that initial address using 
+   ellliptic-curve operations.
+
+   Wallet file will contain all addresses in blocks of text separated
+   by blank lines.  At the moment, the wallet file should have this format:
+
+      Addr:  1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s
+      PubX:  8a866b128772e12967c927097d9b47ec9667a5ef0fce55033a8fcc82d0e6f026
+      PubY:  f29c4d8d15e04bdc36c6535ffc3b27a99048fc2088788762d971c85cff7bfb67
+      Priv:  603a3ab1878f4c8c39d8ad03e2f3aa7cff7b2f1ddb4cc5972321105b0a627be7
+
+   The address line must be first, then the remaining lines can be in any
+   order with or without any data after the ':' (not all addresses/wallets
+   will contain public and private keypairs:  we may just be watching funds
+   for an offline computer that holds the keys)
+   """
+
    def __init__(self):
       self.pyAddrList = {}  # PyBtcAddress' in a dictionary indexed by addrStr
+      self.encryptParams = None
 
    def hasAddr160(self, addr160):
       return self.pyAddrList.has_key(addr160)
+
+   def addKeyData(self, pybtcaddr):
+      """
+      We add the key data ONLY if it contains more information
+      than an existing key with the same address.  Obviously,
+      if we don't have the key in our dictionary yet, we add it
+      """
+      addr160 = pybtcaddr.getAddr160()
+      if self.pyAddrList.has_key(addr160):
+         if self.pyAddrList[addr160].hasPrivKey():
+            return
+         if self.pyAddrList[addr160].hasPubKey() and not pyAddr.hasPubKey():
+            return
+      self.pyAddrList[addr160] = pybtcaddr
+      
       
    def lock(self):
       pass
 
    def unlock(self):
       pass
+
+   """  WOW, I really messed this up... I need a much better format probably binary...
+   def readPyBtcWalletFile(self, fn, verifyKeys=True, correctErrors=True):
+      wltfile = open(fn,'r')
+      wltlines = wltfile.readlines()
+      wltfile.close()
+      nextAddr = None
+      ASTR, A160, PUBX, PUBY, PRIV = range(5)
+
+      # This is a rare case where I wish I could use braces to identify
+      # the multi-level nestings
+      for line in wltlines:
+         if line.strip().startswith('#'):
+            continue
+
+         # Address line is required, but all other fields are optional
+         if line.strip().startswith('Addr'):
+            # First line of new key data
+            addr = [None]*5
+            addr[ASTR] = line.split(':')[-1].strip()
+            addr[A160] = addrStr_to_binary(addr[0])[1:21]
+         elif line.strip().startswith('PubX'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PUBX] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('PubY'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PUBY] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('Priv'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PRIV] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('Chks'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 8:  # 4+ bytes
+               # Sure, there are better ways to do error correction, such as
+               # Reed-Solomon, but I enjoy having a human-readable wallet file
+               # and not having to convert data into polynomial/BCH codes...
+               privChkSum = hex_to_binary(data[1].strip())
+               if addr[PRIV]:
+                  privKeyBinary = int_to_binary(addr[PRIV], 32, LITTLEENDIAN)
+                  if not hash256(privKeyBinary).startswith(privChkSum):
+                     print '***ERROR: Private key data does not match checksum!'
+                     if correctErrors:
+                        print '          Attempting to fix key...'
+                        result = self.tryToCorrectKey(privKeyBinary, privChkSum)
+                        if result:
+                           addr[PRIV] = result
+                        else:
+                           print '      ***Could not find match :(' 
+                           print '      ***Skipping this key...'
+                           continue
+         elif len(line.strip())==0:
+            # Empty line signals end of key data
+            pyAddr = PyBtcAddress()
+            if addr[PUBX]==None and addr[PRIV]==None:
+               pyAddr.createFromPublicKeyHash160(addr[A160])
+            else 
+               # We found at least the public key
+               if addr[PRIV]==None:
+                  pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
+               else:
+                  if verifyKeys:
+                     pyAddr.createFromPrivateKey(addr[PRIV])
+                     if (pyAddr.pubKeyXInt != addr[PUBX])  or \
+                        (pyAddr.pubKeyYInt != addr[PUBY]):  
+                        print '***ERROR: Private key does not match stored public key'
+                        print '          Address in wallet file:', addr[ASTR]
+                        print '          Computed addr from Key:', pyAddr.getAddrStr()
+                        print '          Skipping this key...'
+                        continue
+                  else:
+                     # We explicitly chose not to verify private keys against
+                     # the stored public keys: this may be useful if there's
+                     # a ton of keydata.  It'll still be checked before signing
+                     pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
+                     pyAddr.privKeyInt = addr[PRIV]
+                  
+            if (pyAddr.getAddrStr() != addr[ASTR]) 
+               print '***ERROR: Address in wallet file does not match public key'
+               print '          Address in wallet file:', addr[ASTR]
+               print '          Computed addr from Key:', pyAddr.getAddrStr()
+               print '          Skipping this key...'
+               continue
+
+
+            # No matter how we got here, we have something to add to wallet
+            # But we do need to check if maybe the key is already in our
+            # wallet -- if so, we don't want to replace it if the existing
+            # PBA has more information than this entry
+            self.addKeyData(pyAddr)
+
+      # We want to potentially use this as a static method, too
+      return self
+            
+         
+   def writePyBtcWalletFile(self, fn, makeBackup=True):
+      if os.path.exists(fn) and makeBackup:
+         os.rename(fn, fn+'.backup')
+      wltfile = open(fn,'w')
+      wltlines = wltfile.readlines()
+      wltfile.close()
+      nextAddr = None
+      ASTR, A160, PUBX, PUBY, PRIV = range(5)
+   """
+   
       
+            
 
 TXOUT_SCRIPT_STANDARD      = 0
 TXOUT_SCRIPT_COINBASE      = 1
@@ -2026,12 +2209,10 @@ class PyScriptProcessor(object):
    # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
       for i,byte in enumerate(binData):
-
          if not ord(byte) == 0:
             if (i == len(binData)-1) and (byte==0x80):
                return False
             return True
-
       return False
          
       
@@ -2461,7 +2642,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
          prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
          binToSign  = ''
 
-         assert(srcAddr.hasPrivKey)
+         assert(srcAddr.hasPrivKey())
 
          # Only implemented one type of hashing:  SIGHASH_ALL
          hashType   = 1  # SIGHASH_ALL
@@ -2501,13 +2682,18 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    pass
 
 
+
+################################################################################
+def PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+   pass
+
 ################################################################################
 ################################################################################
 # Following two methods, first arg,  assumes same methods as C++ UnspentTxOut
 # class.  This allows this method to work transparently if it is supplied
 # such a C++ list, but could just as easily be used with a custom python class
 # implementing the same set of member functions
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+def PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee=0):
    """
    This select-coins algorithm is an extremely naive implementation.  The goal
    is to construct ANY tx that is valid, FOR NOW.  I will go back through and
@@ -2589,6 +2775,20 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    return (selectedTxOuts, reqZeroConfTxOuts)
 
 
+################################################################################
+def PyEvalCoinSelect(unspentTxOutInfo, targetOutVal, minTxFee):
+
+   return (nInputMetric, nOutputMetric, sizeMetric)
+
+
+################################################################################
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+   #selectCoin1 = PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee):
+   #selectCoin2 = PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee):
+   pass
+
+
+   
 ################################################################################
 ################################################################################
 def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):

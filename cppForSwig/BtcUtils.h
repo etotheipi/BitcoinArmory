@@ -46,14 +46,15 @@
 #endif
 
 
-//#ifdef MAIN_NETWORK
+#ifdef TEST_NETWORK
+   #define MAGIC_BYTES "fabfb5da"
+   #define GENESIS_HASH_HEX    "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
+   #define GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
+#else
    #define MAGIC_BYTES "f9beb4d9"
    #define GENESIS_HASH_HEX    "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
    #define GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
-//#else
-   //#define MAGICBYTES "fabfb5da"
-   //#define GENESIS_HASH_HEX "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
-//#endif
+#endif
 
 class BinaryData;
 class BinaryDataRef;
