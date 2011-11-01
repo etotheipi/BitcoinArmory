@@ -790,7 +790,7 @@ public:
          else if(nextOp == 76)
          {
             uint8_t nb = *(uint8_t*)(script.getPtr() + i+1);
-            if(i+1+1+nb >= sz) { error=true; break; }
+            if(i+1+1+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+2, nb);
             opList.push_back("[OP_PUSHDATA1 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr());
@@ -799,7 +799,7 @@ public:
          else if(nextOp == 77)
          {
             uint16_t nb = *(uint16_t*)(script.getPtr() + i+1);
-            if(i+1+2+nb >= sz) { error=true; break; }
+            if(i+1+2+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+3, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA2 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");
@@ -808,7 +808,7 @@ public:
          else if(nextOp == 78)
          {
             uint32_t nb = *(uint32_t*)(script.getPtr() + i+1);
-            if(i+1+4+nb >= sz) { error=true; break; }
+            if(i+1+4+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+5, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA4 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");

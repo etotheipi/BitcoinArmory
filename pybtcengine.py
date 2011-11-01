@@ -2089,14 +2089,17 @@ def convertScriptToOpStrings(binScript):
    error = False;
    while i < sz:
       nextOp = ord(binScript[i]);
-      if nextOp < 76:
+      if nextOp == 0:
+         opList.append("0")
+         i+=1
+      elif nextOp < 76:
          opList.append("[PUSHDATA -- " + str(nextOp) + " BYTES:]")
          binObj = binScript[i+1:i+1+nextOp]
          opList.append(binary_to_hex(binObj))
          i += nextOp+1
       elif nextOp == 76:
          nb = binary_to_int(binScript[i+1:i+2])
-         if i+1+1+nb >= sz: 
+         if i+1+1+nb > sz: 
             error = True;
             break
          binObj = binScript[i+2:i+2+nb]
@@ -2105,7 +2108,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+2
       elif nextOp == 77:
          nb = binScript[i+1:i+3];
-         if i+1+2+nb >= sz: 
+         if i+1+2+nb > sz: 
             error = True;
             break
          nbprint = min(nb,256)
@@ -2115,7 +2118,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
-         if i+1+4+nb >= sz: 
+         if i+1+4+nb > sz: 
             error = True;
             break
          nbprint = min(nb,256)
