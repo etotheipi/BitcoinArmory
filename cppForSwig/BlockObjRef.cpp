@@ -263,10 +263,8 @@ void TxInRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, i
    nBytes_ = (nbytes==0 ? BtcUtils::TxInCalcLength(ptr) : nbytes);
    self_ = BinaryDataRef(ptr, nBytes_);
 
-   char const & v = self_[36];
-   scriptOffset_ = (v<0xfd ? 37 : (v==0xfd ? 39 : (v==0xfe ? 41 : 45)));
-   scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(), 
-                                             BinaryDataRef(getPtr(), 32));
+   scriptOffset_ = 36 + BtcUtils::readVarIntLength(getPtr()+36);
+   scriptType_ = BtcUtils::getTxInScriptType(getScriptRef(), BinaryDataRef(getPtr(), 32));
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -374,9 +372,8 @@ void TxOutRef::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, 
    index_ = idx;
    nBytes_ = (nbytes==0 ? BtcUtils::TxOutCalcLength(ptr) : nbytes);
    self_ = BinaryDataRef(ptr, nBytes_);
-   char const & v = self_[8];
-   scriptOffset_ = (v<0xfd ? 9 : (v==0xfd ? 11 : (v==0xfe ? 13 : 17)));
 
+   scriptOffset_ = 8 + BtcUtils::readVarIntLength(getPtr()+8);
    BinaryDataRef scriptRef(self_.getPtr()+scriptOffset_, getScriptSize());
    scriptType_ = BtcUtils::getTxOutScriptType(scriptRef);
    recipientBinAddr20_ = BtcUtils::getTxOutRecipientAddr(scriptRef, scriptType_);

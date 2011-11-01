@@ -266,13 +266,16 @@ public:
    static inline uint32_t readVarIntLength(uint8_t const * strmPtr)
    {
       uint8_t firstByte = strmPtr[0];
+      if(firstByte < 0xfd)
+         return 1;
+
       switch(firstByte)
       {
          case 0xfd: return 3;
          case 0xfe: return 5;
          case 0xff: return 9;
-         default:   return 1;
       }
+      return -1; // we should never get here
    }
 
    /////////////////////////////////////////////////////////////////////////////

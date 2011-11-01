@@ -945,7 +945,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
                cout << "PrevOut: " << txin.getOutPoint().getTxHash().toHexStr()
                     << ", "        << txin.getOutPoint().getTxOutIndex() << endl;
                cout << "Raw Script: " << txin.getScript().toHexStr() << endl;
-               cout << "Raw Block: " << txin.getParentTxPtr()->serialize().toHexStr() << endl;
+               cout << "Raw Tx: " << txin.getParentTxPtr()->serialize().toHexStr() << endl;
                cout << "pprint: " << endl;
                    
                BtcUtils::pprintScript(txin.getScript());
@@ -966,7 +966,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
                cout << "ThisOut: " << txout.getParentTxPtr()->getThisHash().toHexStr() 
                     << ", "        << txout.getIndex() << endl;
                cout << "Raw Script: " << txout.getScript().toHexStr() << endl;
-               cout << "Raw Block: " << txout.getParentTxPtr()->serialize().toHexStr() << endl;
+               cout << "Raw Tx: " << txout.getParentTxPtr()->serialize().toHexStr() << endl;
                cout << "pprint: " << endl;
                BtcUtils::pprintScript(txout.getScript());
                cout << endl;
