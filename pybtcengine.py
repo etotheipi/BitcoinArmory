@@ -112,7 +112,11 @@ def coin2str(ncoin, ndec=8):
       right = right[:ndec]
    return firstChar+left+'.'+right
    
-   
+#def coin2str(ncoin, ndec=8):
+   #dispAmt = str(ncoin).rjust(16,' ')
+   #lhs = dispAmt[:8]
+   #rhs = dispAmt[8:]
+     
    
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -2497,13 +2501,18 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    pass
 
 
+
+################################################################################
+def PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+   pass
+
 ################################################################################
 ################################################################################
 # Following two methods, first arg,  assumes same methods as C++ UnspentTxOut
 # class.  This allows this method to work transparently if it is supplied
 # such a C++ list, but could just as easily be used with a custom python class
 # implementing the same set of member functions
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+def PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee=0):
    """
    This select-coins algorithm is an extremely naive implementation.  The goal
    is to construct ANY tx that is valid, FOR NOW.  I will go back through and
@@ -2516,7 +2525,12 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    only good for output anonymity, it also prevents us from creating/accum 
    tons of tiny inputs.  The input anonymity could probably be improved,
    though (we might be linking too many addresses together)
+
+   TODO: it turns out this doesn't actually work well!  Finding double the amount
+         of coins necessary could result in linking a dozen other tx together
+         unnecessarily!
    """
+   
 
    if needsSorting:
       PySortCoins(unspentTxOutInfo)
@@ -2525,13 +2539,14 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    sumValues = lambda alist: sum([t.getValue() for t in alist])
    totalAvailBtc  = sumValues(unspentTxOutInfo)
    if totalAvailBtc < targetOutVal + minTxFee:
-      return []
+      return [[],False]
 
    # Default target value is 2*txVal
    idealTarget    = 2*targetOutVal + minTxFee
 
    # List is already sorted, but for list.pop, need to reverse
-   sortedPool     = unspentTxOutInfo[::-1]  # this line also copies the list
+   sortedPool = list(unspentTxOutInfo)  # this line also copies the list
+   sortedPool.reverse()
 
    # We will look for a single input that is within 15% of the target
    # In case the tx value is tiny rel to the fee: the minTarget calc
@@ -2549,7 +2564,8 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    # If we have a good, single TxOut, let's use it
    for txout in sortedPool:
       if minTarget <= txout.getValue() <= maxTarget:
-         return [txout]      
+         if txout.getNumConfirm() > 0:
+            return [[txout], False]      
          
    # No easy solution, let's start accumulating high-priority inputs
    # Every 2 inputs, we add a low-priority input to prevent them 
@@ -2578,6 +2594,20 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False
    return (selectedTxOuts, reqZeroConfTxOuts)
 
 
+################################################################################
+def PyEvalCoinSelect(unspentTxOutInfo, targetOutVal, minTxFee):
+
+   return (nInputMetric, nOutputMetric, sizeMetric)
+
+
+################################################################################
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
+   #selectCoin1 = PySelectCoinsSingle(unspentTxOutInfo, targetOutVal,minTxFee)
+   #selectCoin2 = PySelectCoinsDouble(unspentTxOutInfo, targetOutVal,minTxFee)
+   pass
+
+
+   
 ################################################################################
 ################################################################################
 def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):

@@ -55,6 +55,7 @@ int main(void)
    cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
    cout << endl << endl;
 
+/*
    /////////////////////////////////////////////////////////////////////////////
    cout << "Printing genesis block information:" << endl;
    bdm.getGenesisBlock().pprint(cout, 0, false);
@@ -90,6 +91,7 @@ int main(void)
       txptrVect[t]->pprint(cout, 2, false);
    cout << endl << endl;
 
+*/
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress, myPubKey;
@@ -100,6 +102,9 @@ int main(void)
    wlt.addAddress(myAddress);
    myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2");
    wlt.addAddress(myAddress);
+   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4");
+   wlt.addAddress(myAddress);
+
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
@@ -121,6 +126,7 @@ int main(void)
    }
    cout << endl << endl;
 
+/*
    /////////////////////////////////////////////////////////////////////////////
    myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
    wlt.addAddress(myAddress);
@@ -136,6 +142,7 @@ int main(void)
                          << wlt.getAddrByHash160(addr20).getBalance() << endl;
 
    }
+*/
 
 
    cout << "Printing SORTED allAddr ledger..." << endl;
@@ -161,6 +168,8 @@ int main(void)
    myWallet.addAddress(myAddress);
    myAddress.createFromHex("205fa00890e6898b987de6ff8c0912805416cf90");
    myWallet.addAddress(myAddress);
+   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4");
+   myWallet.addAddress(myAddress);
 
    cout << "Rescanning the blockchain for new addresses." << endl;
    bdm.scanBlockchainForTx_FromScratch(myWallet);
@@ -171,22 +180,31 @@ int main(void)
    sortedUTOs[2] = bdm.getUnspentTxOutsForWallet(myWallet, 2);
    sortedUTOs[3] = bdm.getUnspentTxOutsForWallet(myWallet, 3);
 
-   for(int i=0; i<4; i++)
-   {
+   //for(int i=0; i<4; i++)
+   //{
+      int i=1;
       cout << "   Sorting Method: " << i << endl;
       cout << "   Value\t#Conf\tTxHash\tTxIdx" << endl;
       for(int j=0; j<sortedUTOs[i].size(); j++)
       {
          cout << "   "
-              << sortedUTOs[i][j].getValue()/1.01e8 << "\t"
+              << sortedUTOs[i][j].getValue()/1e8 << "\t"
               << sortedUTOs[i][j].getNumConfirm() << "\t"
-              << sortedUTOs[i][j].getTxHash().getSliceCopy(0,3).toHexStr() << "\t"
+              << sortedUTOs[i][j].getTxHash().toHexStr() << "\t"
               << sortedUTOs[i][j].getTxOutIndex() << endl;
       }
       cout << endl;
-   }
+   //}
+   //vector<TxRef*> txs = bdm.getHeaderByHeight(151467)->getTxRefPtrList();
+   //for(int i=0; i<txs.size(); i++)
+   //{
+      //cout << "Tx: " << i << endl;
+      //txs[i]->pprint();
+      //cout << endl << txs[i]->serialize().toHexStr() << endl;
+   //}
 
 
+/*
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -341,6 +359,7 @@ int main(void)
    //
    /////////////////////////////////////////////////////////////////////////////
   
+*/
 
 
    /////////////////////////////////////////////////////////////////////////////

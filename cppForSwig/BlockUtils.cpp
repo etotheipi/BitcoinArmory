@@ -941,6 +941,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
             {
                txVectOut.push_back(&tx);
                cout << "Attempting to interpret script:" << endl;
+               cout << "Block: " << h << " Tx: " << itx << endl;
                BtcUtils::pprintScript(txin.getScript());
                cout << endl;
             }
@@ -955,6 +956,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
             {
                txVectOut.push_back(&tx);               
                cout << "Attempting to interpret script:" << endl;
+               cout << "Block: " << h << " Tx: " << itx << endl;
                BtcUtils::pprintScript(txout.getScript());
                cout << endl;
             }
