@@ -1897,7 +1897,9 @@ OP_CHECKMULTISIG = 174
 OP_CHECKMULTISIGVERIFY = 175	
 
 opnames = ['']*256
-opnames[0] =   'OP_FALSE'
+opnames[0] =   'OP_0'
+for i in range(1,76):
+   opnames[i] ='OP_PUSHDATA0'
 opnames[76] =	'OP_PUSHDATA1'
 opnames[77] =	'OP_PUSHDATA2'
 opnames[78] =	'OP_PUSHDATA4'
@@ -2281,25 +2283,25 @@ class PyScriptProcessor(object):
       ##########################################################################
       ##########################################################################
       ### DEBUGGING!
-#     print 'MainStack:'
-#     def pr(s):
-#        if isinstance(s,int):
-#           return s
-#        elif isinstance(s,str):
-#           if len(s)>60:
-#              return binary_to_hex(s)[:60] + '...'
-#           else:
-#              return binary_to_hex(s)
+      print 'MainStack:'
+      def pr(s):
+         if isinstance(s,int):
+            return s
+         elif isinstance(s,str):
+            if len(s)>60:
+               return binary_to_hex(s)[:60] + '...'
+            else:
+               return binary_to_hex(s)
 
-#     for s in [pr(i) for i in stack]:
-#        print '\t', s
-#     print 'AltStack:'
-#     for s in [pr(i) for i in stackAlt]:
-#        print '\t', s
+      for s in [pr(i) for i in stack]:
+         print '\t', s
+      #print 'AltStack:'
+      #for s in [pr(i) for i in stackAlt]:
+         #print '\t', s
 
-#     print ''
-#     print 'Executing:', opnames[opcode], '(',opcode,')'
-#     print ''
+      print ''
+      print 'Executing:', opnames[opcode], '(',opcode,')'
+      print ''
       ##########################################################################
       ##########################################################################
 
@@ -2427,7 +2429,10 @@ class PyScriptProcessor(object):
       elif opcode == OP_RIGHT:
          return OP_DISABLED
       elif opcode == OP_SIZE:
-         stack.append( len(stack[-1]) )
+         if isinstance(stack[-1], int):
+            stack.append(1)
+         else:
+            stack.append( len(stack[-1]) )
       elif opcode == OP_INVERT:
          return OP_DISABLED
       elif opcode == OP_AND:
