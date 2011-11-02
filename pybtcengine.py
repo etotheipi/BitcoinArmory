@@ -2211,45 +2211,100 @@ class PyScriptProcessor(object):
    # Implementing this method exactly as in the client because it looks like
    # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
+      if isinstance(binData, int): 
+         binData = int_to_binary(binData)
+
       for i,byte in enumerate(binData):
          if not ord(byte) == 0:
+            # This looks like it's assuming LE encoding (?)
             if (i == len(binData)-1) and (byte==0x80):
                return False
             return True
       return False
          
+
+   def checkSig(self, binSig, binPubKey, txOutScript, txInTx, txInIndex, lastOpCodeSep=None):
+
+      # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
+      subscript = txOutScript
+      if lastOpCodeSep:
+         subscript = subscript[lastOpCodeSep:]
       
+      # 3. Signature is deleted from subscript
+      #    I'm not sure why this line is necessary - maybe for non-standard scripts?
+      lengthInBinary = int_to_binary(len(binSig))
+      subscript = subscript.replace( lengthInBinary + binSig, "")
+
+      # 4. Hashtype is popped and stored
+      hashtype = binary_to_int(binSig[-1])
+      justSig = binSig[:-1]
+
+      if not hashtype == 1:
+         print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
+         assert(False)
+
+      # 5. Make a copy of the transaction -- we will be hashing a modified version
+      txCopy = PyTx().unserialize( txInTx.serialize() )
+
+      # 6. Remove all OP_CODESEPARATORs
+      subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
+
+      # 7. All the TxIn scripts in the copy are blanked (set to empty string)
+      for txin in txCopy.inputs:
+         txin.binScript = ''
+
+      # 8. Script for the current input in the copy is set to subscript
+      txCopy.inputs[txInIndex].binScript = subscript
+
+      # 9. Prepare the signature and public key
+      senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
+      binHashCode = int_to_binary(hashtype, widthBytes=4)
+      toHash = txCopy.serialize() + binHashCode
+
+      hashToVerify = hash256(toHash)
+      hashToVerify = binary_switchEndian(hashToVerify)
+
+      # 10. Apply ECDSA signature verification
+      if senderAddr.verifyDERSignature(hashToVerify, justSig):
+         return True
+      else:
+         return False
+         
+      
+   
 
    def executeOpCode(self, opcode, scriptUnpacker, stack, stackAlt):
-
-      stackSizeAtLeast = lambda n: (len(self.stack) >= n)
+      """ 
+      Takes the the script and the stack[s] and executes the next OP_CODE
+      """
 
       ##########################################################################
       ##########################################################################
       ### DEBUGGING!
+#     print 'MainStack:'
+#     def pr(s):
+#        if isinstance(s,int):
+#           return s
+#        elif isinstance(s,str):
+#           if len(s)>60:
+#              return binary_to_hex(s)[:60] + '...'
+#           else:
+#              return binary_to_hex(s)
 
-      print 'MainStack:'
-      def pr(s):
-         if isinstance(s,int):
-            return s
-         elif isinstance(s,str):
-            if len(s)>60:
-               return binary_to_hex(s)[:60] + '...'
-            else:
-               return binary_to_hex(s)
+#     for s in [pr(i) for i in stack]:
+#        print '\t', s
+#     print 'AltStack:'
+#     for s in [pr(i) for i in stackAlt]:
+#        print '\t', s
 
-      for s in [pr(i) for i in stack]:
-         print '\t', s
-      print 'AltStack:'
-      for s in [pr(i) for i in stackAlt]:
-         print '\t', s
-
-      print ''
-      print 'Executing:', opnames[opcode], '(',opcode,')'
-      print ''
+#     print ''
+#     print 'Executing:', opnames[opcode], '(',opcode,')'
+#     print ''
       ##########################################################################
       ##########################################################################
 
+
+      stackSizeAtLeast = lambda n: (len(self.stack) >= n)
 
       if   opcode == OP_FALSE:  
          stack.append(0)
@@ -2284,7 +2339,7 @@ class PyScriptProcessor(object):
          return OP_NOT_IMPLEMENTED
    
       elif opcode == OP_VERIFY:
-         if not castToBool(stack.pop()):
+         if not self.castToBool(stack.pop()):
             stack.append(0)
             return TX_INVALID
       elif opcode == OP_RETURN:
@@ -2297,7 +2352,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_IFDUP:
          # Looks like this method duplicates the top item if it's not zero
          if not stackSizeAtLeast(1): return SCRIPT_STACK_SIZE_ERROR
-         if castToBool(stack[-1]):
+         if self.castToBool(stack[-1]):
             stack.append(stack[-1]);
 
       elif opcode == OP_DEPTH:
@@ -2454,7 +2509,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_BOOLOR:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if (castToBool(a) or castToBool(b)) else 0 )
+         stack.append( 1 if (self.castToBool(a) or self.castToBool(b)) else 0 )
       elif opcode == OP_NUMEQUAL:
          b = stack.pop()
          a = stack.pop()
@@ -2516,66 +2571,92 @@ class PyScriptProcessor(object):
          stack.append( sha256(sha256(bits) ) )
       elif opcode == OP_CODESEPARATOR:
          self.lastOpCodeSepPos = scriptUnpacker.getPosition()
-      elif opcode == OP_CHECKMULTISIG:
-         return OP_NOT_IMPLEMENTED
-      elif opcode == OP_CHECKMULTISIGVERIFY:
-         return OP_NOT_IMPLEMENTED
       elif opcode == OP_CHECKSIG or opcode == OP_CHECKSIGVERIFY:
 
          # 1. Pop key and sig from the stack 
          binPubKey = stack.pop()
          binSig    = stack.pop()
 
-         # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
-         subscript = scriptUnpacker.getBinaryString() 
-         if not self.lastOpCodeSepPos == None:
-            subscript = subscript[self.lastOpCodeSepPos:]
-         
-         # 3. Signature is deleted from subscript
-         #    I'm not sure why this line is necessary - maybe for non-standard scripts?
-         lengthInBinary = int_to_binary(len(binSig))
-         subscript = subscript.replace( lengthInBinary + binSig, "")
-   
-         # 4. Hashtype is popped and stored
-         hashtype = binary_to_int(binSig[-1])
-         binSig = binSig[:-1]
+         # 2-10. encapsulated in the sep method so CheckMultiSig can use it too
+         txIsValid = self.checkSig(  binSig, \
+                                     binPubKey, \
+                                     scriptUnpacker.getBinaryString(), \
+                                     self.txNew, \
+                                     self.txInIndex, \
+                                     self.lastOpCodeSepPos)
+         stack.append(1 if txIsValid else 0)
 
-         if not hashtype == 1:
-            print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
-            assert(False)
-
-         # 5. Make a copy of the transaction -- we will be hashing a modified version
-         txCopy = PyTx().unserialize( self.txNew.serialize() )
-
-         # 6. Remove all OP_CODESEPARATORs
-         subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
-
-         # 7. All the TxIn scripts in the copy are blanked (set to empty string)
-         for txin in txCopy.inputs:
-            txin.binScript = ''
-
-         # 8. Script for the current input in the copy is set to subscript
-         txCopy.inputs[self.txInIndex].binScript = subscript
-
-         # 9. Prepare the signature and public key
-         senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
-         binHashCode = int_to_binary(hashtype, widthBytes=4)
-         toHash = txCopy.serialize() + binHashCode
-
-         hashToVerify = hash256(toHash)
-
-         hashToVerify = binary_switchEndian(hashToVerify)
-         if senderAddr.verifyDERSignature(hashToVerify, binSig):
-            stack.append(1)
-         else:
-            stack.append(0)
-          
          if opcode==OP_CHECKSIGVERIFY:
             verifyCode = self.executeOpCode(OP_VERIFY)
             if verifyCode == TX_INVALID:
                return TX_INVALID
             
+      elif opcode == OP_CHECKMULTISIG or opcode == OP_CHECKMULTISIGVERIFY:
+         # OP_CHECKMULTISIG procedure ported directly from Satoshi client code
+         # Location:  bitcoin-0.4.0-linux/src/src/script.cpp:775
+         i=1
+         if len(stack) < i:
+            return TX_INVALID
+
+         #nKeys = int(stack.pop())
+         nKeys = int(stack[-1])
+         if nKeys < 0 or nKeys > 20:
+            return TX_INVALID
+
+         i += 1
+         ikey = i
+         i += nKeys
+         if len(stack) < i:
+            return TX_INVALID
+
+
+         #nSigs = stack.pop()
+         nSigs = int(stack[-1])
+         if nSigs < 0 or nSigs > nKeys:
+            return TX_INVALID
+         
+         i += 1
+         iSig = i
+         i += nSigs
+         if len(stack) < i:
+            return TX_INVALID
+      
+
+         # Apply the ECDSA verification to each of the supplied Sig-Key-pairs
+         enoughSigsMatch = True
+         while enoughSigsMatch and nSigs > 0:
+            binSig = stack[-iSig]
+            binKey = stack[-ikey]
             
+            if( self.checkSig(binSig, \
+                              binKey, \
+                              scriptUnpacker.getBinaryString(), \
+                              self.txNew, \
+                              self.txInIndex, \
+                              self.lastOpCodeSepPos) ):
+               iSig += 1
+               nSigs -= 1
+
+            
+            iKey +=1
+            nKeys -=1
+
+            if(nSigs > nKeys):
+               enoughSigsMatch = False
+
+         # Now pop the things off the stack, we only accessed in-place before
+         while i > 0:
+            i -= 1
+            stack.pop()
+
+
+         stack.append(1 if enoughSigsMatch else 0)
+
+         if opcode==OP_CHECKMULTISIGVERIFY:
+            verifyCode = self.executeOpCode(OP_VERIFY)
+            if verifyCode == TX_INVALID:
+               return TX_INVALID
+
       else:
          return SCRIPT_ERROR
 
