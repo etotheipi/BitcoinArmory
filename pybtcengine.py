@@ -2280,6 +2280,15 @@ class PyScriptProcessor(object):
       Takes the the script and the stack[s] and executes the next OP_CODE
       """
 
+      # TODO: Gavin clarified the effects of OP_0, and OP_1-OP_16.  
+      #       OP_0 puts an empty string onto the stack, which evalues to false
+      #            or can be plugged into HASH160 as ''
+      #       OP_X puts a single byte onto the stack, 0x01 to 0x10
+      #
+      #       I haven't implemented it this way yet, because I'm still missing 
+      #       some details.  Since this "works" for standard scripts, I'm going
+      #       to leave it alone for now.
+
       ##########################################################################
       ##########################################################################
       ### DEBUGGING!
@@ -2376,8 +2385,8 @@ class PyScriptProcessor(object):
       elif opcode == OP_ROLL:
          n = stack.pop()
          if not stackSizeAtLeast(n): return SCRIPT_STACK_SIZE_ERROR
-         stack.append(stack[-n])
-         del stack[-(n+1)]
+         stack.append(stack[-(n+1)])
+         del stack[-(n+2)]
       elif opcode == OP_ROT:
          if not stackSizeAtLeast(3): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-3] ) 
@@ -2430,7 +2439,7 @@ class PyScriptProcessor(object):
          return OP_DISABLED
       elif opcode == OP_SIZE:
          if isinstance(stack[-1], int):
-            stack.append(1)
+            stack.append(0)
          else:
             stack.append( len(stack[-1]) )
       elif opcode == OP_INVERT:
@@ -2570,9 +2579,13 @@ class PyScriptProcessor(object):
          stack.append( sha256(bits) )
       elif opcode == OP_HASH160:
          bits = stack.pop()
-         stack.append( ripemd160(sha256(bits) ) )
+         if isinstance(bits, int):
+            bits = ''
+         stack.append( hash160(bits) )
       elif opcode == OP_HASH256:
          bits = stack.pop()
+         if isinstance(bits, int):
+            bits = ''
          stack.append( sha256(sha256(bits) ) )
       elif opcode == OP_CODESEPARATOR:
          self.lastOpCodeSepPos = scriptUnpacker.getPosition()
@@ -2590,7 +2603,6 @@ class PyScriptProcessor(object):
                                      self.txInIndex, \
                                      self.lastOpCodeSepPos)
          stack.append(1 if txIsValid else 0)
-
          if opcode==OP_CHECKSIGVERIFY:
             verifyCode = self.executeOpCode(OP_VERIFY)
             if verifyCode == TX_INVALID:
@@ -2603,35 +2615,35 @@ class PyScriptProcessor(object):
          if len(stack) < i:
             return TX_INVALID
 
-         #nKeys = int(stack.pop())
-         nKeys = int(stack[-1])
+         nKeys = int(stack[-i])
          if nKeys < 0 or nKeys > 20:
             return TX_INVALID
 
          i += 1
-         ikey = i
+         iKey = i
          i += nKeys
          if len(stack) < i:
             return TX_INVALID
 
-
-         #nSigs = stack.pop()
-         nSigs = int(stack[-1])
+         nSigs = int(stack[-i])
          if nSigs < 0 or nSigs > nKeys:
             return TX_INVALID
-         
+
          i += 1
          iSig = i
          i += nSigs
          if len(stack) < i:
             return TX_INVALID
-      
+
 
          # Apply the ECDSA verification to each of the supplied Sig-Key-pairs
          enoughSigsMatch = True
          while enoughSigsMatch and nSigs > 0:
             binSig = stack[-iSig]
-            binKey = stack[-ikey]
+            binKey = stack[-iKey]
+
+            print "Sig", iSig, binary_to_hex(binSig)
+            print "Key", iKey, binary_to_hex(binKey)
             
             if( self.checkSig(binSig, \
                               binKey, \
@@ -2639,9 +2651,11 @@ class PyScriptProcessor(object):
                               self.txNew, \
                               self.txInIndex, \
                               self.lastOpCodeSepPos) ):
-               iSig += 1
+               print 'Verified!'
+               iSig  += 1
                nSigs -= 1
-
+            else:
+               print 'Verification failed!'
             
             iKey +=1
             nKeys -=1
