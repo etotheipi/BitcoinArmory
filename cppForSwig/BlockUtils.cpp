@@ -940,7 +940,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
             if(txin.getScriptType() == TXIN_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);
-               cout << "Attempting to interpret script:" << endl;
+               cout << "Attempting to interpret TXIN script:" << endl;
                cout << "Block: " << h << " Tx: " << itx << endl;
                cout << "PrevOut: " << txin.getOutPoint().getTxHash().toHexStr()
                     << ", "        << txin.getOutPoint().getTxOutIndex() << endl;
@@ -961,7 +961,7 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
             if(txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);               
-               cout << "Attempting to interpret script:" << endl;
+               cout << "Attempting to interpret TXOUT script:" << endl;
                cout << "Block: " << h << " Tx: " << itx << endl;
                cout << "ThisOut: " << txout.getParentTxPtr()->getThisHash().toHexStr() 
                     << ", "        << txout.getIndex() << endl;

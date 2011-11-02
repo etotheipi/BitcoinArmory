@@ -2195,13 +2195,13 @@ class PyScriptProcessor(object):
 
    def executeScript(self, binaryScript, stack=[]):
       self.stack = stack
-      stackAlt  = []
+      self.stackAlt  = []
       scriptData = BinaryUnpacker(binaryScript)
       self.lastOpCodeSepPos = None
    
       while scriptData.getRemainingSize() > 0:
          opcode = scriptData.get(UBYTE)
-         exitCode = self.executeOpCode(opcode, scriptData, self.stack)
+         exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
          if not exitCode == SCRIPT_NO_ERROR:
             return exitCode
 
@@ -2220,11 +2220,36 @@ class PyScriptProcessor(object):
          
       
 
-   def executeOpCode(self, opcode, scriptUnpacker, stack):
+   def executeOpCode(self, opcode, scriptUnpacker, stack, stackAlt):
 
       stackSizeAtLeast = lambda n: (len(self.stack) >= n)
 
-      #print 'OP_CODE: ', opcode
+      ##########################################################################
+      ##########################################################################
+      ### DEBUGGING!
+
+      print 'MainStack:'
+      def pr(s):
+         if isinstance(s,int):
+            return s
+         elif isinstance(s,str):
+            if len(s)>60:
+               return binary_to_hex(s)[:60] + '...'
+            else:
+               return binary_to_hex(s)
+
+      for s in [pr(i) for i in stack]:
+         print '\t', s
+      print 'AltStack:'
+      for s in [pr(i) for i in stackAlt]:
+         print '\t', s
+
+      print ''
+      print 'Executing:', opnames[opcode], '(',opcode,')'
+      print ''
+      ##########################################################################
+      ##########################################################################
+
 
       if   opcode == OP_FALSE:  
          stack.append(0)
