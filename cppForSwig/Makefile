@@ -6,7 +6,7 @@ COMPILER_OPTS = -c -march=native -O2 -pipe
 LINKER = g++ 
 OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o
 
-INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS
+INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS -DTEST_NETWORK
 LIBRARY_OPTS += -Lcryptopp -lcryptopp -lpthread
 SWIG_INC += -I/usr/include/python2.7
 
@@ -22,6 +22,7 @@ ifneq (exists, $(shell [ -d /usr/include/python2.7 ]  && echo exists ))
 endif
 
 all :
+	
 	make BlockUtilsTest.out
 	
 swig : $(OBJS) CppBlockUtils_wrap.o

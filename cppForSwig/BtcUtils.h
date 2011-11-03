@@ -46,14 +46,15 @@
 #endif
 
 
-//#ifdef MAIN_NETWORK
+#ifdef TEST_NETWORK
+   #define MAGIC_BYTES "fabfb5da"
+   #define GENESIS_HASH_HEX    "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
+   #define GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
+#else
    #define MAGIC_BYTES "f9beb4d9"
    #define GENESIS_HASH_HEX    "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
    #define GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
-//#else
-   //#define MAGICBYTES "fabfb5da"
-   //#define GENESIS_HASH_HEX "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
-//#endif
+#endif
 
 class BinaryData;
 class BinaryDataRef;
@@ -265,13 +266,16 @@ public:
    static inline uint32_t readVarIntLength(uint8_t const * strmPtr)
    {
       uint8_t firstByte = strmPtr[0];
+      if(firstByte < 0xfd)
+         return 1;
+
       switch(firstByte)
       {
          case 0xfd: return 3;
          case 0xfe: return 5;
          case 0xff: return 9;
-         default:   return 1;
       }
+      return -1; // we should never get here
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -772,7 +776,12 @@ public:
       while(i < sz)
       {
          uint8_t nextOp = script[i];
-         if(nextOp < 76)
+         if(nextOp == 0)
+         {
+            opList.push_back("OP_0");
+            i++;
+         }
+         else if(nextOp < 76)
          {
             opList.push_back("[PUSHDATA -- " + num2str(nextOp) + " BYTES:]");
             opList.push_back(script.getSliceCopy(i+1, nextOp).toHexStr());
@@ -781,7 +790,7 @@ public:
          else if(nextOp == 76)
          {
             uint8_t nb = *(uint8_t*)(script.getPtr() + i+1);
-            if(i+1+1+nb >= sz) { error=true; break; }
+            if(i+1+1+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+2, nb);
             opList.push_back("[OP_PUSHDATA1 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr());
@@ -790,7 +799,7 @@ public:
          else if(nextOp == 77)
          {
             uint16_t nb = *(uint16_t*)(script.getPtr() + i+1);
-            if(i+1+2+nb >= sz) { error=true; break; }
+            if(i+1+2+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+3, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA2 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");
@@ -799,7 +808,7 @@ public:
          else if(nextOp == 78)
          {
             uint32_t nb = *(uint32_t*)(script.getPtr() + i+1);
-            if(i+1+4+nb >= sz) { error=true; break; }
+            if(i+1+4+nb > sz) { error=true; break; }
             BinaryData binObj = script.getSliceCopy(i+5, min((int)nb,256));
             opList.push_back("[OP_PUSHDATA4 -- " + num2str(nb) + " BYTES:]");
             opList.push_back(binObj.toHexStr() + "...");

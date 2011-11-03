@@ -27,10 +27,6 @@ int main(void)
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
-   cout << "(haven't figured out home-dir detect in C++: please manually" 
-        << " update the path in the BlockUtilsTest.cpp to run this test."
-        << " Home-dir detection is already implemented in the python/SWIG"
-        << " interface, and unnecessary here)" << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
    bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat", false);
    //bdm.readBlkFile_FromScratch(
@@ -48,12 +44,14 @@ int main(void)
    cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
-   cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
-   TIMER_START("Verify blk0001.dat integrity");
-   bool isVerified = bdm.verifyBlkFileIntegrity();
-   TIMER_STOP("Verify blk0001.dat integrity");
-   cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
-   cout << endl << endl;
+   //TESTNET has some 0.125-difficulty blocks which violates the assumption
+   //that it never goes below 1
+   //cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
+   //TIMER_START("Verify blk0001.dat integrity");
+   //bool isVerified = bdm.verifyBlkFileIntegrity();
+   //TIMER_STOP("Verify blk0001.dat integrity");
+   //cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
+   //cout << endl << endl;
 
 /*
    /////////////////////////////////////////////////////////////////////////////
@@ -64,46 +62,28 @@ int main(void)
    cout << "Printing last block information:" << endl;
    bdm.getTopBlockHeader().pprint(cout, 0, false);
    cout << endl << endl;
-
-   cout << "Next-to-top block:" << endl;
-   BlockHeaderRef & topm1 = *(bdm.getHeaderByHash( bdm.getTopBlockHeader().getPrevHash()));
-   topm1.pprint(cout, 0, false);
-   cout << endl << endl;
    
-   /////////////////////////////////////////////////////////////////////////////
-   cout << "Verifying MerkleRoot of blk 170" << endl;
-   vector<BinaryData> merkletree(0);
-   BlockHeaderRef & ablk = *(bdm.getHeaderByHeight(170));
-   BinaryData merkroot = ablk.calcMerkleRoot(&merkletree);
-   isVerified = ablk.verifyMerkleRoot();
-   cout << (isVerified ? "Correct!" : "Incorrect!") 
-        << "  ("  << merkroot.toHexStr() << ")" << endl;
-   cout << endl << endl;
-
-
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t nTx = ablk.getNumTx();
-   vector<TxRef*> & txptrVect = ablk.getTxRefPtrList();
-   ablk.pprint(cout, 0, false);
-   cout << "Now print out the txinx/outs for this block:" << endl;
-   for(uint32_t t=0; t<nTx; t++)
-      txptrVect[t]->pprint(cout, 2, false);
-   cout << endl << endl;
+   bdm.findAllNonStdTx();
 
 */
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData myAddress, myPubKey;
+   BinaryData myAddress;
    BtcWallet wlt;
-   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14");
-   wlt.addAddress(myAddress);
-   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
-   wlt.addAddress(myAddress);
-   myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2");
-   wlt.addAddress(myAddress);
-   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4");
-   wlt.addAddress(myAddress);
+   
+   // Test-network addresses
+   //myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); wlt.addAddress(myAddress);
+
+   // Main-network addresses
+   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
 
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    
@@ -163,22 +143,20 @@ int main(void)
    cout << "Test txout aggregation, with different prioritization schemes" << endl;
 
    BtcWallet myWallet;
-   // Three addresses from above
-   myAddress.createFromHex("d184cea7e82c775d08edd288344bcd663c3f99a2");
-   myWallet.addAddress(myAddress);
-   myAddress.createFromHex("205fa00890e6898b987de6ff8c0912805416cf90");
-   myWallet.addAddress(myAddress);
-   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4");
-   myWallet.addAddress(myAddress);
+
+   // Testnet addresses
+   myAddress.createFromHex("d184cea7e82c775d08edd288344bcd663c3f99a2"); myWallet.addAddress(myAddress);
+   myAddress.createFromHex("205fa00890e6898b987de6ff8c0912805416cf90"); myWallet.addAddress(myAddress);
+   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); myWallet.addAddress(myAddress);
 
    cout << "Rescanning the blockchain for new addresses." << endl;
    bdm.scanBlockchainForTx_FromScratch(myWallet);
 
    vector< vector<UnspentTxOut> > sortedUTOs(4);
-   sortedUTOs[0] = bdm.getUnspentTxOutsForWallet(myWallet, 0);
+   //sortedUTOs[0] = bdm.getUnspentTxOutsForWallet(myWallet, 0);
    sortedUTOs[1] = bdm.getUnspentTxOutsForWallet(myWallet, 1);
-   sortedUTOs[2] = bdm.getUnspentTxOutsForWallet(myWallet, 2);
-   sortedUTOs[3] = bdm.getUnspentTxOutsForWallet(myWallet, 3);
+   //sortedUTOs[2] = bdm.getUnspentTxOutsForWallet(myWallet, 2);
+   //sortedUTOs[3] = bdm.getUnspentTxOutsForWallet(myWallet, 3);
 
    //for(int i=0; i<4; i++)
    //{
@@ -204,7 +182,6 @@ int main(void)
    //}
 
 
-/*
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -359,12 +336,13 @@ int main(void)
    //
    /////////////////////////////////////////////////////////////////////////////
   
-*/
+
+
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // ***** Print out all timings to stdout and a csv file *****
-   //       This file can be loaded into a spreadsheet,
+   // ***** print out all timings to stdout and a csv file *****
+   //       this file can be loaded into a spreadsheet,
    //       but it's not the prettiest thing...
    UniversalTimer::instance().print();
    UniversalTimer::instance().printCSV("timings.csv");
@@ -374,7 +352,7 @@ int main(void)
 
 
    char pause[256];
-   cout << "Enter anything to exit" << endl;
+   cout << "enter anything to exit" << endl;
    cin >> pause;
 
 

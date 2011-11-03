@@ -6,34 +6,23 @@
 #
 ################################################################################
 #
-# Project: PyBtcEngine
-# Author:  Alan Reiner
-# Date:    11 July, 2011
-# Descr:   Modified from the Sam Rushing code.   The original header comments
-#          of the original code is below, maintaining reference to the original 
-#          source code, for reference.  The code was pulled from his git repo
-#          on 10 July, 2011.
+# Project:    PyBtcEngine
+# Author:     Alan Reiner
+# Orig Date:  11 July, 2011
+# Descr:      A mostly-complete BTC computational engine in Python.  Does not 
+#             do any Blockchain management, but includes just about everything
+#             else, including all the ECDSA signatures and verification.  
+#             
+#             Blockchain management is handled by the CppBlockUtils, C++ code
+#             compiled with g++ and using SWIG to convert it to a .so/.dll.  
+#             Please see Using_PyBtcEngine.README file for more information.
+#
+#             The file pybtcengine.methods.py has a fairly complete list of
+#             methods available in this file, though it needs to be manually 
+#             generated so it's sometimes lagging the code.
+#       
 #
 ################################################################################
-
-#
-# -*- Mode: Python -*-
-# A prototype bitcoin implementation.
-#
-# Author: Sam Rushing. http://www.nightmare.com/~rushing/
-# July 2011.
-#
-# Status: much of the protocol is done.  The crypto bits are now
-#   working, and I can verify 'standard' address-to-address transactions.
-#   There's a simple wallet implementation, which will hopefully soon
-#   be able to transact actual bitcoins.
-# Todo: consider implementing the scripting engine.
-# Todo: actually participate in the p2p network rather than being a lurker.
-#
-# One of my goals here is to keep the implementation as simple and small
-#   as possible - with as few outside dependencies as I can get away with.
-#   For that reason I'm using ctypes to get to openssl rather than building
-#   in a dependency on M2Crypto or any of the other crypto packages.
 
 import copy
 import hashlib
@@ -66,37 +55,23 @@ def ripemd160(bits):
 class UnserializeError(Exception):
    pass
 
-# these are overriden for testnet
+# These are overriden for testnet
 USE_TESTNET = False
 
 ##### MAIN NETWORK IS DEFAULT #####
-BITCOIN_PORT = 8333
-BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
-ADDRBYTE = '\x00'
+if not USE_TESTNET:
+   BITCOIN_PORT = 8333
+   BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+   GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
+   GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
+   ADDRBYTE = '\x00'
+else:
+   BITCOIN_PORT = 18333
+   BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+   GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
+   GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+   ADDRBYTE = '\x6f'
 
-### This doesn't actually work yet because I botched the scoping
-"""
-def setNetwork(netstring):
-   if 'main' in netstring.lower():
-      ##### MAIN NETWORK #####
-      BITCOIN_PORT = 8333
-      BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
-      GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
-      GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
-      ADDRBYTE = '\x00'
-   elif 'test' in netstring.lower():
-      ##### TESTNET #####
-      print 'Switching to test-network parameters'
-      BITCOIN_PORT = 18333
-      BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
-      GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
-      GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
-      ADDRBYTE = '\x6f'
-   else:
-      print 'Unidentified network string!'
-"""
 
 def coin2str(ncoin, ndec=8):
    dispstr = str(ncoin)
@@ -112,11 +87,6 @@ def coin2str(ncoin, ndec=8):
       right = right[:ndec]
    return firstChar+left+'.'+right
    
-#def coin2str(ncoin, ndec=8):
-   #dispAmt = str(ncoin).rjust(16,' ')
-   #lhs = dispAmt[:8]
-   #rhs = dispAmt[8:]
-     
    
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -138,6 +108,11 @@ def default_error_function(msg):
 raiseError = default_error_function
 
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
+   """
+   This is the same as pprintHex(), but returns the string instead of
+   printing it to console.  This is useful for redirecting output to
+   files, or doing further modifications to the data before display
+   """
    outStr = ''
    sz = len(theStr)
    nchunk = int((sz-1)/minor) + 1;
@@ -151,6 +126,16 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
+   """
+   This method takes in a long hex string and prints it out into rows
+   of 64 hex chars, in chunks of 8 hex characters, and with address
+   markings on each row.  This means that each row displays 32 bytes,
+   which is usually pleasant.  
+   
+   The format is customizable: you can adjust the indenting of the 
+   entire block, remove address markings, or change the major/minor 
+   grouping size (major * minor = hexCharsPerRow) 
+   """
    print prettyHex(theStr, indent, withAddr, major, minor)
 
 
@@ -164,14 +149,22 @@ class BadAddress (Exception):
 
 ##### Switch endian-ness #####
 def hex_switchEndian(s):
+   """ Switches the endianness of a hex string (in pairs of hex chars) """
    pairList = [s[i]+s[i+1] for i in xrange(0,len(s),2)]
    return ''.join(pairList[::-1])
 def binary_switchEndian(s):
+   """ Switches the endianness of a binary string """
    return s[::-1]
  
 
 ##### INT/HEXSTR #####
 def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
+   """ 
+   Convert an integer (int() or long()) to hexadecimal.  Default behavior is 
+   to use the smallest even number of hex characters necessary, and using
+   little-endian.   Use the widthBytes argument to add 0-padding where needed
+   if you are expecting constant-length output.
+   """
    h = hex(i)[2:]
    if isinstance(i,long):
       h = h[:-1]
@@ -184,7 +177,12 @@ def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
    if endOut==LITTLEENDIAN:
       h = hex_switchEndian(h)
    return h   
+
 def hex_to_int(h, endIn=LITTLEENDIAN):
+   """
+   Convert hex-string to integer (or long).  Default behavior is to interpret
+   hex string as little-endian
+   """
    hstr = h[:]  # copies data, no references
    if endIn==LITTLEENDIAN:
       hstr = hex_switchEndian(hstr)
@@ -193,11 +191,19 @@ def hex_to_int(h, endIn=LITTLEENDIAN):
 
 ##### HEXSTR/BINARYSTR #####
 def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
+   """
+   Converts hexadecimal to binary (in a python string).  Endianness is 
+   only switched if (endIn != endOut)
+   """
    bout = h[:]  # copies data, no references
    if not endIn==endOut:
       bout = hex_switchEndian(bout) 
    return bout.decode('hex_codec')
 def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
+   """
+   Converts binary to hexadecimal.  Endianness is only switched 
+   if (endIn != endOut)
+   """
    hout = b.encode('hex_codec')
    if not endOut==endIn:
       hout = hex_switchEndian(hout) 
@@ -206,9 +212,18 @@ def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
  
 ##### INT/BINARYSTR #####
 def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):
+   """
+   Convert integer to binary.  Default behavior is use as few bytes
+   as necessary, and to use little-endian.  This can be changed with
+   the two optional input arguemnts.
+   """
    h = int_to_hex(i,widthBytes)
    return hex_to_binary(h, endOut=endOut)
+
 def binary_to_int(b, endIn=LITTLEENDIAN):
+   """
+   Converts binary to integer (or long).  Interpret as LE by default
+   """
    h = binary_to_hex(b, endIn, LITTLEENDIAN)
    return hex_to_int(h)
 
@@ -216,37 +231,17 @@ def binary_to_int(b, endIn=LITTLEENDIAN):
 EmptyHash = hex_to_binary('00'*32)
  
 
-'''
-##### INT/BASE58STR #####
-def int_to_base58Str(n):
-   b58 = ''
-   while n > 0:
-      n, r = divmod (n, 58)
-      b58 = b58_digits[r] + b58
-   return b58
-def base58Str_to_int(s):
-   n = 0
-   for ch in s:
-      n *= 58
-      digit = b58_digits.index (ch)
-      n += digit
-   return n
-
-##### BASE58STR/ADDRSTR #####
-def base58Str_to_addrStr(b58str):
-   return '1'+b58str;
-def addrStr_to_base58Str(addr):
-   if not addr[0]=='1':
-      raise BadAddress(addr)
-   else:
-      return addr[1:]
-'''
-
-# Accidentally took a shortcut through the Base58 procedure, so
-# the old code won't work with non-main-network addresses.  Here
-# I replace int_to_base58Str(), etc, with the correct conversion
-# directly to and from Binary.
+# BINARY/BASE58 CONVERSIONS
 def binary_to_addrStr(binstr):
+   """
+   This method applies the Bitcoin-specific conversion from binary to Base58
+   which may includes some extra "zero" bytes, such as is the case with the 
+   main-network addresses.
+   
+   This method is labeled as outputting an "addrStr", but it's really this
+   special kind of Base58 converter, which makes it usable for encoding other
+   data, such as ECDSA keys or scripts.
+   """
    padding = 0;
    for b in binstr:
       if b=='\x00':
@@ -267,6 +262,15 @@ def binary_to_addrStr(binstr):
 
 
 def addrStr_to_binary(addr):
+   """
+   This method applies the Bitcoin-specific conversion from Base58 to binary
+   which may includes some extra "zero" bytes, such as is the case with the 
+   main-network addresses.
+   
+   This method is labeled as inputting an "addrStr", but it's really this
+   special kind of Base58 converter, which makes it usable for encoding other
+   data, such as ECDSA keys or scripts.
+   """
    # Count the zeros ('1' characters) at the beginning
    padding = 0;
    for c in addr:
@@ -293,13 +297,19 @@ def addrStr_to_binary(addr):
 
 ##### BINARYSTR/HASHDIGEST #####
 def hash256(s):
+   """ Double-SHA256 """
    return sha256(sha256(s))
 
 ##### BINARYSTR/ADDRESSDIGEST #####
 def hash160(s):
+   """ RIPEMD160( SHA256( binaryStr ) ) """
    return ripemd160(sha256(s))
 
 def hash160_to_addrStr(binStr):
+   """ 
+   Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
+   which includes the network byte (prefix) and 4-byte checksum (suffix) 
+   """
    addr21 = ADDRBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_addrStr(addr25);
@@ -307,19 +317,6 @@ def hash160_to_addrStr(binStr):
 def addrStr_to_hash160(binStr):
    return addrStr_to_binary(binStr)[1:-4]
 
-##### hex/HASHDIGEST #####
-def hex_to_hexHash256(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
-   strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
-   digestBinary = hash256(strBinary)
-   digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
-   return digestHex
-
-##### HEXSTR/BINARYADDRESSDIGEST
-def hex_to_hexHash160(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
-   strBinary = hex_to_binary(h, endIn, LITTLEENDIAN)
-   digestBinary = hash160(strBinary)
-   digestHex = binary_to_hex(digestBinary, LITTLEENDIAN, endOut)
-   return digestHex
 
 
 
@@ -336,6 +333,10 @@ def float_to_btc (f):
 
 ##### And a few useful utilities #####
 def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
+   """ 
+   Converts a unix time (like those found in block headers) to a 
+   pleasant, human-readable format
+   """
    dtobj = datetime.fromtimestamp(unixTime)
    dtstr = dtobj.strftime(formatStr)
    return dtstr[:-2] + dtstr[-2:].lower()
@@ -343,13 +344,14 @@ def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
 
 ##### HEXSTR/VARINT #####
 def packVarInt(n):
+   """ Writes 1,3,5 or 9 bytes depending on the size of n """
    if   n < 0xfd:  return [chr(n), 1]
    elif n < 1<<16: return ['\xfd'+pack('<H',n), 3]
    elif n < 1<<32: return ['\xfe'+pack('<I',n), 5]
    else:           return ['\xff'+pack('<Q',n), 9]
 
 def unpackVarInt(hvi):
-   """ Returns a pair: the specified integer and number of bytes read """
+   """ Returns a pair: the integer value and number of bytes read """
    code = unpack('<B', hvi[0])[0]
    if   code  < 0xfd: return [code, 1]
    elif code == 0xfd: return [unpack('<H',hvi[1:3])[0], 3]
@@ -358,26 +360,34 @@ def unpackVarInt(hvi):
    else: assert(False)
 
 
-def padHexStrLeft(hexStr, nBytes, padChar='0'):
-   needMoreChars = max(0, (nBytes*2) - len(hexStr))
-   return (padChar*needMoreChars) + hexStr
-   
-def padHexStrRight(hexStr, nBytes, padChar='0'):
-   needMoreChars = max(0, (nBytes*2) - len(hexStr))
-   return hexStr + padChar*needMoreChars
 
-def padBinaryLeft(binStr, nBytes, padByte='\x00'):
-   needMoreChars = max(0, nBytes-len(binStr))
-   return padByte*needMoreChars + binStr
 
-def padBinaryRight(binStr, nBytes, padByte='\x00'):
-   needMoreChars = max(0, nBytes-len(binStr))
-   return binStr + padByte*needMoreChars
+def fixChecksumError(binaryStr, chkSum, hashFunc=hash256):
+   """ 
+   Will only try to correct one byte, as that would be the most
+   common error case.  Correcting two bytes is feasible, but I'm
+   not going to bother implementing it until I need it.  If it's
+   not a one-byte error, it's most likely a different problem
+   """
+   check = lambda b:  hashFunc(b).startswith(chkSum)
+
+   # Maybe just the endian is off?
+   if check(binary_switchEndian(binaryStr)):
+      return binary_switchEndian(binaryStr)
+
+   binaryArray = [b[i] for b in privKeyBinary]
+   for byte in range(len(binaryArray)):
+      origByte = binaryArray[byte]
+      for val in range(256):
+         binaryArray[byte] = chr(val)
+         if check(''.join(binaryArray)):
+            return ''.join(binaryArray)
 
 
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
 def binaryBits_to_difficulty(b):
+   """ Converts the 4-byte binary difficulty string to a float """
    i = binary_to_int(b)
    nShift = (i >> 24) & 0xff
    dDiff = float(0x0000ffff) / float(i & 0x00ffffff)
@@ -403,6 +413,14 @@ UBYTE, USHORT, UINT32, UINT64, VAR_INT, FLOAT, BINARY_CHUNK = range(7)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
+   """
+   Class for helping unpack binary streams of data.  Typical usage is
+      >> bup     = BinaryUnpacker(myBinaryData)
+      >> int32   = bup.get(UINT32)
+      >> int64   = bup.get(VAR_INT)
+      >> bytes10 = bup.get(BINARY_CHUNK, 10)
+      >> ...etc...
+   """
    def __init__(self, binaryStr):
       self.binaryStr = binaryStr
       self.pos = 0
@@ -417,6 +435,10 @@ class BinaryUnpacker(object):
    def getPosition(self): return self.pos
 
    def get(self, varType, sz=0, endianness=LITTLEENDIAN):
+      """
+      First argument is the data-type:  UINT32, VAR_INT, etc.
+      If BINARY_CHUNK, need to supply a number of bytes to read, as well
+      """
       pos = self.pos
       if varType == UINT32:
          value = unpack('<I', self.binaryStr[pos:pos+4])[0]
@@ -454,6 +476,15 @@ class BinaryUnpacker(object):
 
 # Start a buffer for concatenating various blocks of binary data
 class BinaryPacker(object):
+   """
+   Class for helping load binary data into a stream.  Typical usage is
+      >> binpack = BinaryPacker()
+      >> bup.put(UINT32, 12)
+      >> bup.put(VAR_INT, 78)
+      >> bup.put(BINARY_CHUNK, '\x9f'*10)
+      >> ...etc...
+      >> result = bup.getBinaryString()
+   """
    def __init__(self):
       self.binaryConcat = []
 
@@ -468,6 +499,10 @@ class BinaryPacker(object):
       
 
    def put(self, varType, theData, endianness=LITTLEENDIAN):
+      """
+      Need to supply the argument type you are put'ing into the stream.
+      Values of BINARY_CHUNK will automatically detect the size as necessary
+      """
       if   varType == UBYTE:
          self.binaryConcat += int_to_binary(theData, 1, endianness)
       elif varType == USHORT:
@@ -508,6 +543,21 @@ class BinaryPacker(object):
 #
 ################################################################################
 class lisecdsa:
+   """
+   This is the underlying ECDSA code for all Bitcoin signature/verification
+   methods.  These are really only called by PyBtcAddress objects, which act
+   as wrappers around the lisecdsa objects
+
+   Based on the ECDSA code posted by Lis on the Bitcoin forums: 
+   http://forum.bitcoin.org/index.php?topic=23241.0
+
+   NOTE:  these methods are *very* slow in a relative sense.  I believe an
+          "average" computer can do 500 ECDSA signatures/verifications per
+          second, when done in efficient C++/ASM code.  Using the python
+          code below, we achieve about 4/sec.  This is fine for regular
+          users who won't be verifying the entire blockchain, but not a 
+          good solution for more heavy-weight applications.
+   """
    @staticmethod
    def inverse_mod( a, m ):
       if a < 0 or m <= a: a = a % m
@@ -705,41 +755,56 @@ EC_Sig   = lisecdsa.Signature
 EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
 EC_Order = EC_GenPt.order()
 
+
 def isValidEcPoint(x,y):
+   """ This method can be used to determine if a Public key is valid """
    return EC_Curve.contains_point(x,y)
 
 
 # We can identify an address string by its first byte upon conversion
 # back to binary.  Return -1 if checksum doesn't match
 def checkAddrType(addrBin):
-   first20, chk4 = addrBin[:-4], addrBin[-4:]
-   chkBytes = hash256(first20)
+   """ Gets the network byte of the address.  Returns -1 if chksum fails """
+   first21, chk4 = addrBin[:-4], addrBin[-4:]
+   chkBytes = hash256(first21)
    if chkBytes[:4] == chk4:
       return addrBin[0]
+   else:
+      return -1
 
 # Check validity of a BTC address in its binary form, as would
 # be found inside a pkScript.  Usually about 24 bytes
 def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
+   """ 
+   Checks whether this address is valid for the given network
+   (set at the top of pybtcengine.py)
+   """
    return checkAddrType(addrBin) == netbyte
 
-# Check validity of a BTC address in "1Ghfk38dDF..." form
+# Check validity of a BTC address in Base58 form
 def checkAddrStrValid(addrStr):
+   """ Check that a Base58 address-string is valid on this network """
    return checkAddrBinValid(addrStr_to_binary(addrStr))
 
 
 
-# BtcAccount -- I gotta come up with a better name for this
-# Store all information about an address string.  
-# Having the privateKey is the most data.  Public key is next
-# Finally, you frequently just have someone's address, without
-# even having their public key
-#
-# The "createFrom" methods actually calculate the data below it
-# The serialize/unserialize methods do no extra calculation, or
-# consistency checks, because the lisecdsa library is slow, and 
-# we don't want to spend the time verifying thousands of keypairs
-# There's a reason we wrote out the pubkey and addresses...
 class PyBtcAddress(object):
+   """
+   PyBtcAddress --
+
+   Encapsulate an address, regardless of whether it includes the 
+   private key or just an address we've seen on the network.
+
+   Having the privateKey is the most data.  Public key is next
+   Finally, you frequently just have someone's address, without
+   even having their public key. 
+   
+   The "createFrom" methods actually calculate the data below it
+   The serialize/unserialize methods do no extra calculation, or
+   consistency checks, because the lisecdsa library is slow, and 
+   we don't want to spend the time verifying thousands of keypairs
+   if we've precomputed them before.
+   """
    def __init__(self):
       self.privKeyInt = UNINITIALIZED
       self.pubKeyXInt = UNINITIALIZED
@@ -747,28 +812,61 @@ class PyBtcAddress(object):
       self.addrStr    = UNINITIALIZED 
       self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
       self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
-      # All other information can always be computed on the fly
-      self.hasPubKey  = False
-      self.hasPrivKey = False
+
+   def hasPrivKey(self):
+      return (not self.privKeyInt == UNINITIALIZED)
+
+   def hasPubKey(self):
+      return ((not self.pubKeyXInt == UNINITIALIZED) and \
+              (not self.pubKeyYInt == UNINITIALIZED))
 
    def generateNew(self):
-      # TODO:  check for python <=2.3 to warn if randrange gens "small" numbers
+      """
+      Generates a new PyBtcAddress by using python's "random" module.  This 
+      may not be the most reliable PRNG (especially in python <=2.3), but is
+      perfectly sufficient for experimental purposes.
+
+      If the user wishes to supply his own entropy, he may provide 32 bytes
+      of random binary data in the following manner:
+
+         pkRandInt = ExternalGenRandomInteger(0, EC_Order)
+         newAddr = PyBtcAddress().createFromPrivateKey(pkRandInt
+
+      Or if the entropy is in binary:
+
+         pkRandInt = binary_to_int(ExternalGenRandomBytes)
+         newAddr = PyBtcAddress().createFromPrivateKey(pkRandInt
+      """
       self.createFromPrivateKey(random.randrange(EC_Order))
       return self
 
    def createFromPrivateKey(self, privKeyInt):
+      """ 
+      Creates address from a user-supplied random INTEGER.  
+      This method DOES perform elliptic-curve operations to 
+      calculate the public key, which may be 0.1 to 1 sec
+      depending on your hardware
+      """
       self.privKeyInt = privKeyInt
       pubKeyPoint  = EC_GenPt * self.privKeyInt
       self.pubKeyXInt = pubKeyPoint.x()
       self.pubKeyYInt = pubKeyPoint.y()
       self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
       self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
-      self.hasPubKey  = True
-      self.hasPrivKey = True
       self.addrStr = self.calculateAddrStr()
       return self
 
    def createFromPublicKey(self, pubkey):
+      """ 
+      Creates address from a user-supplied ECDSA public key.
+
+      The key can be supplied as an (x,y) pair of integers, an EC_Point
+      as defined in the lisecdsa class, or as a 65-byte binary string
+      (the 64 public key bytes with a 0x04 prefix byte)
+
+      This method will fail if the supplied pair of points is not
+      on the secp256k1 curve.
+      """
       if isinstance(pubkey, EC_Point):
          self.pubKeyXInt = pubkey.x()
          self.pubKeyYInt = pubkey.y()
@@ -786,43 +884,90 @@ class PyBtcAddress(object):
       # on the secp256k1 elliptic curve
       pubKeyPoint = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
       self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
-      self.hasPubKey  = True
-      self.hasPrivKey = False
       self.addrStr = self.calculateAddrStr()
       return self
 
    def createFromPublicKeyHash160(self, pubkeyHash160, netbyte=ADDRBYTE):
+      """
+      Creates an address from just the 20-byte binary hash of a public key.
+
+      In binary form without a chksum, there is no protection against byte
+      errors, since there's no way to distinguish an invalid address from
+      a valid one (they both look like random data).   
+      
+      If you are creating an address using 20 bytes you obtained in an
+      unreliable manner (such as manually typing them in), you should 
+      double-check the input before sending money using the address created
+      here -- the tx will appear valid and be accepted by the network, 
+      but will be permanently tied up in the network
+      """
       chkSum  = hash256(netbyte + pubkeyHash160)[:4]
       self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
-      self.hasPubKey  = False
-      self.hasPrivKey = False
       return self
 
+   #def createFromKeyDataInts(self, privKeyInt, pubKeyIntPair, verifyMatch=True):
+      #if verifyMatch:
+         #self.privKeyInt = privKeyInt
+         #self.checkPubPrivKeyPairMatch()
+      #return self
+
    def createFromAddrStr(self, addrStr):
+      """
+      Creates an address from a Base58 address string.  Since the address 
+      string includes a checksum, this method will fail if there was any
+      errors entering/copying the address
+      """
       self.addrStr = addrStr
       assert(self.checkAddressValid())
-      self.hasPubKey  = False
-      self.hasPrivKey = False
       return self
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):
-      assert( self.hasPubKey )
+      """
+      Forces a recalculation of the address string from the public key
+      """
+      assert( self.hasPubKey() )
       keyHash = self.getAddr160()
       chkSum  = hash256(netbyte + keyHash)[:4]
       return  binary_to_addrStr(netbyte + keyHash + chkSum)
 
    def getAddrStr(self):
+      """
+      Gets the current address string, calculates it if not available
+      """
       if self.addrStr==UNINITIALIZED:
          return self.calculateAddrStr()
       return self.addrStr
 
-   def generateDERSignature(self, binToSign):
-      assert( self.hasPrivKey )
+   def generateDERSignature(self, binToSign, extraEntropy=None):
+      """
+      Applies ECDSA magic to sign a message with the private key.
+      This method fails if this address doesn't contain a private
+      key.  The input argument should be the hash of the message 
+      you are signing.  Returns a DER-encoded siganture, (r,s)
+
+      This method relies on a random number, and using the same
+      random number on two different signatures is FATAL:  an
+      attacker can VERY QUICKLY compute your private key.
+
+      Optionally, you can provide your own random number 
+      """
+      assert( self.hasPrivKey() )
       self.prepareKeys()
       intSign = binary_to_int(binToSign)
-      sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
+      if extraEntropy:
+         if isinstance(extraEntropy, int) and extraEntropy>2**250:
+            sig = self.lisPrivKey.sign(intSign, extraEntropy)
+         elif len(extraEntropy) >= 30:
+            sig = self.lisPrivKey.sign(intSign, binary_to_int(extraEntropy))
+         else:
+            print "***WARNING: extra entropy provided to ECDSA signing function"
+            print "            did not contain enough entropy.  Defaulting to "
+            print "            using python's random number generator..."
+            sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
+      else:
+         sig = self.lisPrivKey.sign(intSign, random.randrange(EC_Order))
       # The extra 0x00 bytes are to guarantee the r-s values are 
-      # interpretted as unsigned:  it's a DER-thing
+      # interpretted as unsigned integers:  it's a DER-thing
       rBin   = '\x00' + int_to_binary(sig.r, endOut=BIGENDIAN)
       sBin   = '\x00' + int_to_binary(sig.s, endOut=BIGENDIAN)
       rSize  = int_to_binary(len(rBin))
@@ -835,7 +980,10 @@ class PyBtcAddress(object):
       return sigScr
 
    def verifyDERSignature(self, binToVerify, derToVerify):
-      assert(self.hasPubKey)
+      """
+      Applies ECDSA magic to verify a message using a PUBLIC key.
+      """
+      assert(self.hasPubKey())
       self.prepareKeys()
       codeByte = derToVerify[0]
       nBytes   = binary_to_int(derToVerify[1])
@@ -859,17 +1007,23 @@ class PyBtcAddress(object):
       return self.lisPubKey.verifies(intVerify, lisSignature)
 
    def prepareKeys(self, checkKeyMatch=True):
-      # We may have the key data, but may not have created the lisecdsa objects
-      if self.hasPubKey and self.lisPubKey==UNINITIALIZED:
+      """ 
+      We may have the key data, but may not have created the underlying 
+      lisecdsa objects.  Additionally, we may have skipped checking whether
+      the keypair matches, due to computational restraints (if we're reading
+      in a large wallet).  However, we DO want to check that they match
+      before we use these keys for anything, so we will call this method first.
+      """
+      if self.hasPubKey() and self.lisPubKey==UNINITIALIZED:
          pubKeyPoint     = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
          self.lisPubKey  = lisecdsa.Public_key(EC_GenPt, pubKeyPoint)
 
-      if self.hasPrivKey and self.lisPrivKey==UNINITIALIZED:
+      if self.hasPrivKey() and self.lisPrivKey==UNINITIALIZED:
          self.lisPrivKey = lisecdsa.Private_key(self.lisPubKey, self.privKeyInt)
 
       # If we already had both a public and private key, we might consider
       # checking that they are a match
-      if self.hasPubKey and self.hasPrivKey and checkKeyMatch:
+      if self.hasPubKey() and self.hasPrivKey() and checkKeyMatch:
          assert(self.checkPubPrivKeyPairMatch())
 
 
@@ -878,14 +1032,15 @@ class PyBtcAddress(object):
       return checkAddrStrValid(self.addrStr);
 
    def checkPubPrivKeyPairMatch(self):
-      assert( self.hasPubKey and self.hasPrivKey )
+      """ Verify that the stored public and private keys match """
+      assert( self.hasPubKey() and self.hasPrivKey() )
       privToPubPoint = EC_GenPt * self.privKeyInt
       xMatches = (privToPubPoint.x() == self.pubKeyXInt)
       yMatches = (privToPubPoint.y() == self.pubKeyYInt)
       return (xMatches and yMatches)
 
    def getAddr160(self):
-      if self.hasPubKey:
+      if self.hasPubKey():
          return hash160(self.pubKey_serialize())
       elif not self.addrStr == UNINITIALIZED:
          return addrStr_to_hash160(self.addrStr);
@@ -908,7 +1063,7 @@ class PyBtcAddress(object):
    
 
    def pubKey_serialize(self):
-      if not self.hasPubKey:
+      if not self.hasPubKey():
          return ''
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
@@ -926,18 +1081,16 @@ class PyBtcAddress(object):
       if leadByte==0:
          self.pubKeyXInt == UNINITIALIZED
          self.pubKeyYInt == UNINITIALIZED
-         self.hasPubKey = False
       else:
          leadByte = keyData.get(UBYTE)
          assert(leadByte == 4)
          self.pubKeyXInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
          self.pubKeyYInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
-         self.hasPubKey = True
 
 
 
    def privKey_serialize(self):
-      if not self.hasPrivKey:
+      if not self.hasPrivKey():
          return '\x00'
       else:
          privKeyBin = int_to_binary(self.privKeyInt, widthBytes=32, endOut=BIGENDIAN)
@@ -951,11 +1104,9 @@ class PyBtcAddress(object):
       leadByte = keyData.get(UBYTE)
       if leadByte==0:
          self.privKeyInt = UNINITIALIZED
-         self.hasPrivKey = False
       else:
          privKeyBin = keyData.get(BINARY_CHUNK, 32)
          self.privKeyInt = binary_to_int(privKeyBin, BIGENDIAN)
-         self.hasPrivKey = True
 
    
    def serialize(self):
@@ -981,13 +1132,13 @@ class PyBtcAddress(object):
          print 'UNINITIALIZED'
       else:
          print self.addrStr, '(BinaryLE=%s)' % binary_to_hex(self.getAddr160())
-         print '  Have Public Key: ', self.hasPubKey
-         print '  Have Private Key:', self.hasPrivKey
-         if self.hasPubKey:
+         print '  Have Public Key: ', self.hasPubKey()
+         print '  Have Private Key:', self.hasPrivKey()
+         if self.hasPubKey():
             print '  Public Key Hex (Big-Endian):  '
             print '     04', int_to_hex(self.pubKeyXInt, 32, BIGENDIAN)
             print '       ', int_to_hex(self.pubKeyYInt, 32, BIGENDIAN)
-         if withPrivKey and self.hasPrivKey:
+         if withPrivKey and self.hasPrivKey():
             print '  Private Key Hex (Big-Endian): '
             print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
       
@@ -996,18 +1147,170 @@ class PyBtcAddress(object):
 ################################################################################
 # TODO:  Finish this!
 class PyBtcWallet(object):
+   """
+   Stores a set of PyBtcAddress objects to represent a "wallet" of money. 
+   The first implementation of this class (v1.0) is the simplest, holding
+   just a set of keys without encryption.
+
+   The next implementation (v2.0) will involve private-key encryption 
+   in-place in the wallet, with encryption parameters listed at the top
+   of the file
+    
+   The final implementation will be an optional, deterministic wallet,
+   which will allow the user to create a base key, and all future addrs
+   will be created deterministically from that initial address using 
+   ellliptic-curve operations.
+
+   Wallet file will contain all addresses in blocks of text separated
+   by blank lines.  At the moment, the wallet file should have this format:
+
+      Addr:  1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s
+      PubX:  8a866b128772e12967c927097d9b47ec9667a5ef0fce55033a8fcc82d0e6f026
+      PubY:  f29c4d8d15e04bdc36c6535ffc3b27a99048fc2088788762d971c85cff7bfb67
+      Priv:  603a3ab1878f4c8c39d8ad03e2f3aa7cff7b2f1ddb4cc5972321105b0a627be7
+
+   The address line must be first, then the remaining lines can be in any
+   order with or without any data after the ':' (not all addresses/wallets
+   will contain public and private keypairs:  we may just be watching funds
+   for an offline computer that holds the keys)
+   """
+
    def __init__(self):
       self.pyAddrList = {}  # PyBtcAddress' in a dictionary indexed by addrStr
+      self.encryptParams = None
 
    def hasAddr160(self, addr160):
       return self.pyAddrList.has_key(addr160)
+
+   def addKeyData(self, pybtcaddr):
+      """
+      We add the key data ONLY if it contains more information
+      than an existing key with the same address.  Obviously,
+      if we don't have the key in our dictionary yet, we add it
+      """
+      addr160 = pybtcaddr.getAddr160()
+      if self.pyAddrList.has_key(addr160):
+         if self.pyAddrList[addr160].hasPrivKey():
+            return
+         if self.pyAddrList[addr160].hasPubKey() and not pyAddr.hasPubKey():
+            return
+      self.pyAddrList[addr160] = pybtcaddr
+      
       
    def lock(self):
       pass
 
    def unlock(self):
       pass
+
+   """  WOW, I really messed this up... I need a much better format probably binary...
+   def readPyBtcWalletFile(self, fn, verifyKeys=True, correctErrors=True):
+      wltfile = open(fn,'r')
+      wltlines = wltfile.readlines()
+      wltfile.close()
+      nextAddr = None
+      ASTR, A160, PUBX, PUBY, PRIV = range(5)
+
+      # This is a rare case where I wish I could use braces to identify
+      # the multi-level nestings
+      for line in wltlines:
+         if line.strip().startswith('#'):
+            continue
+
+         # Address line is required, but all other fields are optional
+         if line.strip().startswith('Addr'):
+            # First line of new key data
+            addr = [None]*5
+            addr[ASTR] = line.split(':')[-1].strip()
+            addr[A160] = addrStr_to_binary(addr[0])[1:21]
+         elif line.strip().startswith('PubX'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PUBX] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('PubY'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PUBY] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('Priv'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 64:
+               addr[PRIV] = hex_to_int(data[1].strip())
+         elif line.strip().startswith('Chks'):
+            data = line.strip().split(':')
+            if len(data)>1 and len(data[1]) >= 8:  # 4+ bytes
+               # Sure, there are better ways to do error correction, such as
+               # Reed-Solomon, but I enjoy having a human-readable wallet file
+               # and not having to convert data into polynomial/BCH codes...
+               privChkSum = hex_to_binary(data[1].strip())
+               if addr[PRIV]:
+                  privKeyBinary = int_to_binary(addr[PRIV], 32, LITTLEENDIAN)
+                  if not hash256(privKeyBinary).startswith(privChkSum):
+                     print '***ERROR: Private key data does not match checksum!'
+                     if correctErrors:
+                        print '          Attempting to fix key...'
+                        result = self.tryToCorrectKey(privKeyBinary, privChkSum)
+                        if result:
+                           addr[PRIV] = result
+                        else:
+                           print '      ***Could not find match :(' 
+                           print '      ***Skipping this key...'
+                           continue
+         elif len(line.strip())==0:
+            # Empty line signals end of key data
+            pyAddr = PyBtcAddress()
+            if addr[PUBX]==None and addr[PRIV]==None:
+               pyAddr.createFromPublicKeyHash160(addr[A160])
+            else 
+               # We found at least the public key
+               if addr[PRIV]==None:
+                  pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
+               else:
+                  if verifyKeys:
+                     pyAddr.createFromPrivateKey(addr[PRIV])
+                     if (pyAddr.pubKeyXInt != addr[PUBX])  or \
+                        (pyAddr.pubKeyYInt != addr[PUBY]):  
+                        print '***ERROR: Private key does not match stored public key'
+                        print '          Address in wallet file:', addr[ASTR]
+                        print '          Computed addr from Key:', pyAddr.getAddrStr()
+                        print '          Skipping this key...'
+                        continue
+                  else:
+                     # We explicitly chose not to verify private keys against
+                     # the stored public keys: this may be useful if there's
+                     # a ton of keydata.  It'll still be checked before signing
+                     pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
+                     pyAddr.privKeyInt = addr[PRIV]
+                  
+            if (pyAddr.getAddrStr() != addr[ASTR]) 
+               print '***ERROR: Address in wallet file does not match public key'
+               print '          Address in wallet file:', addr[ASTR]
+               print '          Computed addr from Key:', pyAddr.getAddrStr()
+               print '          Skipping this key...'
+               continue
+
+
+            # No matter how we got here, we have something to add to wallet
+            # But we do need to check if maybe the key is already in our
+            # wallet -- if so, we don't want to replace it if the existing
+            # PBA has more information than this entry
+            self.addKeyData(pyAddr)
+
+      # We want to potentially use this as a static method, too
+      return self
+            
+         
+   def writePyBtcWalletFile(self, fn, makeBackup=True):
+      if os.path.exists(fn) and makeBackup:
+         os.rename(fn, fn+'.backup')
+      wltfile = open(fn,'w')
+      wltlines = wltfile.readlines()
+      wltfile.close()
+      nextAddr = None
+      ASTR, A160, PUBX, PUBY, PRIV = range(5)
+   """
+   
       
+            
 
 TXOUT_SCRIPT_STANDARD      = 0
 TXOUT_SCRIPT_COINBASE      = 1
@@ -1714,13 +2017,17 @@ OP_CHECKMULTISIG = 174
 OP_CHECKMULTISIGVERIFY = 175	
 
 opnames = ['']*256
-opnames[0] =   'OP_FALSE'
+opnames[0] =   'OP_0'
+for i in range(1,76):
+   opnames[i] ='OP_PUSHDATA'
 opnames[76] =	'OP_PUSHDATA1'
 opnames[77] =	'OP_PUSHDATA2'
 opnames[78] =	'OP_PUSHDATA4'
 opnames[79] =	'OP_1NEGATE'
 opnames[81] =  'OP_1'
 opnames[81] =	'OP_TRUE'
+for i in range(1,17):
+   opnames[80+i] = 'OP_' + str(i)
 opnames[97] =	'OP_NOP'
 opnames[99] =	'OP_IF'
 opnames[100] =	'OP_NOTIF'
@@ -1804,6 +2111,8 @@ opCodeLookup['OP_PUSHDATA2'] =	77
 opCodeLookup['OP_PUSHDATA4'] =	78
 opCodeLookup['OP_1NEGATE'] =	79
 opCodeLookup['OP_1'] =  81
+for i in range(1,17):
+   opCodeLookup['OP_'+str(i)] =  80+i
 opCodeLookup['OP_TRUE'] =	81
 opCodeLookup['OP_NOP'] =	97
 opCodeLookup['OP_IF'] =	99
@@ -1906,14 +2215,17 @@ def convertScriptToOpStrings(binScript):
    error = False;
    while i < sz:
       nextOp = ord(binScript[i]);
-      if nextOp < 76:
+      if nextOp == 0:
+         opList.append("0")
+         i+=1
+      elif nextOp < 76:
          opList.append("[PUSHDATA -- " + str(nextOp) + " BYTES:]")
          binObj = binScript[i+1:i+1+nextOp]
          opList.append(binary_to_hex(binObj))
          i += nextOp+1
       elif nextOp == 76:
          nb = binary_to_int(binScript[i+1:i+2])
-         if i+1+1+nb >= sz: 
+         if i+1+1+nb > sz: 
             error = True;
             break
          binObj = binScript[i+2:i+2+nb]
@@ -1922,7 +2234,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+2
       elif nextOp == 77:
          nb = binScript[i+1:i+3];
-         if i+1+2+nb >= sz: 
+         if i+1+2+nb > sz: 
             error = True;
             break
          nbprint = min(nb,256)
@@ -1932,7 +2244,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
-         if i+1+4+nb >= sz: 
+         if i+1+4+nb > sz: 
             error = True;
             break
          nbprint = min(nb,256)
@@ -2009,13 +2321,13 @@ class PyScriptProcessor(object):
 
    def executeScript(self, binaryScript, stack=[]):
       self.stack = stack
-      stackAlt  = []
+      self.stackAlt  = []
       scriptData = BinaryUnpacker(binaryScript)
       self.lastOpCodeSepPos = None
    
       while scriptData.getRemainingSize() > 0:
          opcode = scriptData.get(UBYTE)
-         exitCode = self.executeOpCode(opcode, scriptData, self.stack)
+         exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
          if not exitCode == SCRIPT_NO_ERROR:
             return exitCode
 
@@ -2025,22 +2337,107 @@ class PyScriptProcessor(object):
    # Implementing this method exactly as in the client because it looks like
    # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
-      for i,byte in enumerate(binData):
+      if isinstance(binData, int): 
+         binData = int_to_binary(binData)
 
+      for i,byte in enumerate(binData):
          if not ord(byte) == 0:
+            # This looks like it's assuming LE encoding (?)
             if (i == len(binData)-1) and (byte==0x80):
                return False
             return True
-
       return False
          
-      
 
-   def executeOpCode(self, opcode, scriptUnpacker, stack):
+   def checkSig(self,binSig, binPubKey, txOutScript, txInTx, txInIndex, lastOpCodeSep=None):
+      """ 
+      Generic method for checking Bitcoin tx signatures.  This needs to be used for both
+      OP_CHECKSIG and OP_CHECKMULTISIG.  Step 1 is to pop signature and public key off
+      the stack, which must be done outside this method and passed in through the argument
+      list.  The remaining steps do not require access to the stack.
+      """
+
+      # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
+      subscript = txOutScript
+      if lastOpCodeSep:
+         subscript = subscript[lastOpCodeSep:]
+      
+      # 3. Signature is deleted from subscript
+      #    I'm not sure why this line is necessary - maybe for non-standard scripts?
+      lengthInBinary = int_to_binary(len(binSig))
+      subscript = subscript.replace( lengthInBinary + binSig, "")
+
+      # 4. Hashtype is popped and stored
+      hashtype = binary_to_int(binSig[-1])
+      justSig = binSig[:-1]
+
+      if not hashtype == 1:
+         print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
+         assert(False)
+
+      # 5. Make a copy of the transaction -- we will be hashing a modified version
+      txCopy = PyTx().unserialize( txInTx.serialize() )
+
+      # 6. Remove all OP_CODESEPARATORs
+      subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
+
+      # 7. All the TxIn scripts in the copy are blanked (set to empty string)
+      for txin in txCopy.inputs:
+         txin.binScript = ''
+
+      # 8. Script for the current input in the copy is set to subscript
+      txCopy.inputs[txInIndex].binScript = subscript
+
+      # 9. Prepare the signature and public key
+      senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
+      binHashCode = int_to_binary(hashtype, widthBytes=4)
+      toHash = txCopy.serialize() + binHashCode
+
+      hashToVerify = hash256(toHash)
+      hashToVerify = binary_switchEndian(hashToVerify)
+
+      # 10. Apply ECDSA signature verification
+      if senderAddr.verifyDERSignature(hashToVerify, justSig):
+         return True
+      else:
+         return False
+         
+      
+   
+
+   def executeOpCode(self, opcode, scriptUnpacker, stack, stackAlt):
+      """ 
+      Executes the next OP_CODE given the current state of the stack(s)
+      """
+
+      # TODO: Gavin clarified the effects of OP_0, and OP_1-OP_16.  
+      #       OP_0 puts an empty string onto the stack, which evaluateses to 
+      #            false and is plugged into HASH160 as ''
+      #       OP_X puts a single byte onto the stack, 0x01 to 0x10
+      #
+      #       I haven't implemented it this way yet, because I'm still missing 
+      #       some details.  Since this "works" for available scripts, I'm going
+      #       to leave it alone for now.
+
+      ##########################################################################
+      ##########################################################################
+      ### This block produces very nice debugging output for script eval!
+      #def pr(s):
+         #if isinstance(s,int):
+            #return str(s)
+         #elif isinstance(s,str):
+            #if len(s)>8:
+               #return binary_to_hex(s)[:8]
+            #else:
+               #return binary_to_hex(s)
+
+      #print '  '.join([pr(i) for i in stack])
+      #print opnames[opcode][:12].ljust(12,' ') + ':',
+      ##########################################################################
+      ##########################################################################
+
 
       stackSizeAtLeast = lambda n: (len(self.stack) >= n)
-
-      #print 'OP_CODE: ', opcode
 
       if   opcode == OP_FALSE:  
          stack.append(0)
@@ -2075,7 +2472,7 @@ class PyScriptProcessor(object):
          return OP_NOT_IMPLEMENTED
    
       elif opcode == OP_VERIFY:
-         if not castToBool(stack.pop()):
+         if not self.castToBool(stack.pop()):
             stack.append(0)
             return TX_INVALID
       elif opcode == OP_RETURN:
@@ -2088,7 +2485,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_IFDUP:
          # Looks like this method duplicates the top item if it's not zero
          if not stackSizeAtLeast(1): return SCRIPT_STACK_SIZE_ERROR
-         if castToBool(stack[-1]):
+         if self.castToBool(stack[-1]):
             stack.append(stack[-1]);
 
       elif opcode == OP_DEPTH:
@@ -2110,8 +2507,8 @@ class PyScriptProcessor(object):
       elif opcode == OP_ROLL:
          n = stack.pop()
          if not stackSizeAtLeast(n): return SCRIPT_STACK_SIZE_ERROR
-         stack.append(stack[-n])
-         del stack[-(n+1)]
+         stack.append(stack[-(n+1)])
+         del stack[-(n+2)]
       elif opcode == OP_ROT:
          if not stackSizeAtLeast(3): return SCRIPT_STACK_SIZE_ERROR
          stack.append( stack[-3] ) 
@@ -2163,7 +2560,10 @@ class PyScriptProcessor(object):
       elif opcode == OP_RIGHT:
          return OP_DISABLED
       elif opcode == OP_SIZE:
-         stack.append( len(stack[-1]) )
+         if isinstance(stack[-1], int):
+            stack.append(0)
+         else:
+            stack.append( len(stack[-1]) )
       elif opcode == OP_INVERT:
          return OP_DISABLED
       elif opcode == OP_AND:
@@ -2245,7 +2645,7 @@ class PyScriptProcessor(object):
       elif opcode == OP_BOOLOR:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if (castToBool(a) or castToBool(b)) else 0 )
+         stack.append( 1 if (self.castToBool(a) or self.castToBool(b)) else 0 )
       elif opcode == OP_NUMEQUAL:
          b = stack.pop()
          a = stack.pop()
@@ -2301,72 +2701,98 @@ class PyScriptProcessor(object):
          stack.append( sha256(bits) )
       elif opcode == OP_HASH160:
          bits = stack.pop()
-         stack.append( ripemd160(sha256(bits) ) )
+         if isinstance(bits, int):
+            bits = ''
+         stack.append( hash160(bits) )
       elif opcode == OP_HASH256:
          bits = stack.pop()
+         if isinstance(bits, int):
+            bits = ''
          stack.append( sha256(sha256(bits) ) )
       elif opcode == OP_CODESEPARATOR:
          self.lastOpCodeSepPos = scriptUnpacker.getPosition()
-      elif opcode == OP_CHECKMULTISIG:
-         return OP_NOT_IMPLEMENTED
-      elif opcode == OP_CHECKMULTISIGVERIFY:
-         return OP_NOT_IMPLEMENTED
       elif opcode == OP_CHECKSIG or opcode == OP_CHECKSIGVERIFY:
 
          # 1. Pop key and sig from the stack 
          binPubKey = stack.pop()
          binSig    = stack.pop()
 
-         # 2. Subscript is from latest OP_CODESEPARATOR until end... if DNE, use whole script
-         subscript = scriptUnpacker.getBinaryString() 
-         if not self.lastOpCodeSepPos == None:
-            subscript = subscript[self.lastOpCodeSepPos:]
-         
-         # 3. Signature is deleted from subscript
-         #    I'm not sure why this line is necessary - maybe for non-standard scripts?
-         lengthInBinary = int_to_binary(len(binSig))
-         subscript = subscript.replace( lengthInBinary + binSig, "")
-   
-         # 4. Hashtype is popped and stored
-         hashtype = binary_to_int(binSig[-1])
-         binSig = binSig[:-1]
-
-         if not hashtype == 1:
-            print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
-            assert(False)
-
-         # 5. Make a copy of the transaction -- we will be hashing a modified version
-         txCopy = PyTx().unserialize( self.txNew.serialize() )
-
-         # 6. Remove all OP_CODESEPARATORs
-         subscript.replace( int_to_binary(OP_CODESEPARATOR), '')
-
-         # 7. All the TxIn scripts in the copy are blanked (set to empty string)
-         for txin in txCopy.inputs:
-            txin.binScript = ''
-
-         # 8. Script for the current input in the copy is set to subscript
-         txCopy.inputs[self.txInIndex].binScript = subscript
-
-         # 9. Prepare the signature and public key
-         senderAddr = PyBtcAddress().createFromPublicKey(binPubKey)
-         binHashCode = int_to_binary(hashtype, widthBytes=4)
-         toHash = txCopy.serialize() + binHashCode
-
-         hashToVerify = hash256(toHash)
-
-         hashToVerify = binary_switchEndian(hashToVerify)
-         if senderAddr.verifyDERSignature(hashToVerify, binSig):
-            stack.append(1)
-         else:
-            stack.append(0)
-          
+         # 2-10. encapsulated in sep method so CheckMultiSig can use it too
+         txIsValid = self.checkSig(  binSig, \
+                                     binPubKey, \
+                                     scriptUnpacker.getBinaryString(), \
+                                     self.txNew, \
+                                     self.txInIndex, \
+                                     self.lastOpCodeSepPos)
+         stack.append(1 if txIsValid else 0)
          if opcode==OP_CHECKSIGVERIFY:
             verifyCode = self.executeOpCode(OP_VERIFY)
             if verifyCode == TX_INVALID:
                return TX_INVALID
             
+      elif opcode == OP_CHECKMULTISIG or opcode == OP_CHECKMULTISIGVERIFY:
+         # OP_CHECKMULTISIG procedure ported directly from Satoshi client code
+         # Location:  bitcoin-0.4.0-linux/src/src/script.cpp:775
+         i=1
+         if len(stack) < i:
+            return TX_INVALID
+
+         nKeys = int(stack[-i])
+         if nKeys < 0 or nKeys > 20:
+            return TX_INVALID
+
+         i += 1
+         iKey = i
+         i += nKeys
+         if len(stack) < i:
+            return TX_INVALID
+
+         nSigs = int(stack[-i])
+         if nSigs < 0 or nSigs > nKeys:
+            return TX_INVALID
+
+         iSig = i
+         i += 1
+         i += nSigs
+         if len(stack) < i:
+            return TX_INVALID
+
+         stack.pop()
+
+         # Apply the ECDSA verification to each of the supplied Sig-Key-pairs
+         enoughSigsMatch = True
+         while enoughSigsMatch and nSigs > 0:
+            binSig = stack[-iSig]
+            binKey = stack[-iKey]
+
+            if( self.checkSig(binSig, \
+                              binKey, \
+                              scriptUnpacker.getBinaryString(), \
+                              self.txNew, \
+                              self.txInIndex, \
+                              self.lastOpCodeSepPos) ):
+               iSig  += 1
+               nSigs -= 1
             
+            iKey +=1
+            nKeys -=1
+
+            if(nSigs > nKeys):
+               enoughSigsMatch = False
+
+         # Now pop the things off the stack, we only accessed in-place before
+         while i > 1:
+            i -= 1
+            stack.pop()
+
+
+         stack.append(1 if enoughSigsMatch else 0)
+
+         if opcode==OP_CHECKMULTISIGVERIFY:
+            verifyCode = self.executeOpCode(OP_VERIFY)
+            if verifyCode == TX_INVALID:
+               return TX_INVALID
+
       else:
          return SCRIPT_ERROR
 
@@ -2461,7 +2887,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
          prevTxOut  = srcTxOuts[i][1].outputs[txoutIdx]
          binToSign  = ''
 
-         assert(srcAddr.hasPrivKey)
+         assert(srcAddr.hasPrivKey())
 
          # Only implemented one type of hashing:  SIGHASH_ALL
          hashType   = 1  # SIGHASH_ALL
@@ -2602,8 +3028,8 @@ def PyEvalCoinSelect(unspentTxOutInfo, targetOutVal, minTxFee):
 
 ################################################################################
 def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
-   #selectCoin1 = PySelectCoinsSingle(unspentTxOutInfo, targetOutVal,minTxFee)
-   #selectCoin2 = PySelectCoinsDouble(unspentTxOutInfo, targetOutVal,minTxFee)
+   #selectCoin1 = PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee):
+   #selectCoin2 = PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee):
    pass
 
 
@@ -2715,10 +3141,10 @@ class PyTxDistProposal(object):
 
    def appendSignature(self, binSig, txinIndex=None):
       if txinIndex and txinIndex<len(self.pytxObject.inputs):
-         
          self.signatures[txinIndex] = binSig
-         
       else:
+         # TODO: Search inputs for which one matches
+         pass
 
    def serializeHex(self):
       bp = BinaryPacker()
