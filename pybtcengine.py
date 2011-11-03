@@ -1899,13 +1899,15 @@ OP_CHECKMULTISIGVERIFY = 175
 opnames = ['']*256
 opnames[0] =   'OP_0'
 for i in range(1,76):
-   opnames[i] ='OP_PUSHDATA0'
+   opnames[i] ='OP_PUSHDATA'
 opnames[76] =	'OP_PUSHDATA1'
 opnames[77] =	'OP_PUSHDATA2'
 opnames[78] =	'OP_PUSHDATA4'
 opnames[79] =	'OP_1NEGATE'
 opnames[81] =  'OP_1'
 opnames[81] =	'OP_TRUE'
+for i in range(1,17):
+   opnames[80+i] = 'OP_' + str(i)
 opnames[97] =	'OP_NOP'
 opnames[99] =	'OP_IF'
 opnames[100] =	'OP_NOTIF'
@@ -1989,6 +1991,8 @@ opCodeLookup['OP_PUSHDATA2'] =	77
 opCodeLookup['OP_PUSHDATA4'] =	78
 opCodeLookup['OP_1NEGATE'] =	79
 opCodeLookup['OP_1'] =  81
+for i in range(1,17):
+   opCodeLookup['OP_'+str(i)] =  80+i
 opCodeLookup['OP_TRUE'] =	81
 opCodeLookup['OP_NOP'] =	97
 opCodeLookup['OP_IF'] =	99
@@ -2281,36 +2285,36 @@ class PyScriptProcessor(object):
       """
 
       # TODO: Gavin clarified the effects of OP_0, and OP_1-OP_16.  
-      #       OP_0 puts an empty string onto the stack, which evalues to false
-      #            or can be plugged into HASH160 as ''
+      #       OP_0 puts an empty string onto the stack, which evaluateses to 
+      #            false and is plugged into HASH160 as ''
       #       OP_X puts a single byte onto the stack, 0x01 to 0x10
       #
       #       I haven't implemented it this way yet, because I'm still missing 
-      #       some details.  Since this "works" for standard scripts, I'm going
+      #       some details.  Since this "works" for available scripts, I'm going
       #       to leave it alone for now.
 
       ##########################################################################
       ##########################################################################
       ### DEBUGGING!
-      print 'MainStack:'
+      """
       def pr(s):
          if isinstance(s,int):
-            return s
+            return str(s)
          elif isinstance(s,str):
-            if len(s)>60:
-               return binary_to_hex(s)[:60] + '...'
+            if len(s)>8:
+               return binary_to_hex(s)[:8]
             else:
                return binary_to_hex(s)
 
-      for s in [pr(i) for i in stack]:
-         print '\t', s
+      print '  '.join([pr(i) for i in stack])
+      #for s in [pr(i) for i in stack]:
+         #print '\t', s
       #print 'AltStack:'
       #for s in [pr(i) for i in stackAlt]:
          #print '\t', s
 
-      print ''
-      print 'Executing:', opnames[opcode], '(',opcode,')'
-      print ''
+      print opnames[opcode][:12].ljust(12,' ') + ':',
+      """
       ##########################################################################
       ##########################################################################
 
@@ -2629,12 +2633,13 @@ class PyScriptProcessor(object):
          if nSigs < 0 or nSigs > nKeys:
             return TX_INVALID
 
-         i += 1
          iSig = i
+         i += 1
          i += nSigs
          if len(stack) < i:
             return TX_INVALID
 
+         stack.pop()
 
          # Apply the ECDSA verification to each of the supplied Sig-Key-pairs
          enoughSigsMatch = True
@@ -2642,20 +2647,14 @@ class PyScriptProcessor(object):
             binSig = stack[-iSig]
             binKey = stack[-iKey]
 
-            print "Sig", iSig, binary_to_hex(binSig)
-            print "Key", iKey, binary_to_hex(binKey)
-            
             if( self.checkSig(binSig, \
                               binKey, \
                               scriptUnpacker.getBinaryString(), \
                               self.txNew, \
                               self.txInIndex, \
                               self.lastOpCodeSepPos) ):
-               print 'Verified!'
                iSig  += 1
                nSigs -= 1
-            else:
-               print 'Verification failed!'
             
             iKey +=1
             nKeys -=1
@@ -2664,7 +2663,7 @@ class PyScriptProcessor(object):
                enoughSigsMatch = False
 
          # Now pop the things off the stack, we only accessed in-place before
-         while i > 0:
+         while i > 1:
             i -= 1
             stack.pop()
 
