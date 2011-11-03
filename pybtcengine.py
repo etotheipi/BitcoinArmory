@@ -2667,14 +2667,58 @@ def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
 # offline wallet signing (you are collecting signatures for a 1-of-1 tx only
 # involving yourself).
 class PyTxDistProposal(object):
+   """
+   PyTxDistProposal is created from a PyTx object, and represents
+   an unsigned transaction, that may require the signatures of 
+   multiple parties before being complete. 
+
+   We assume that the PyTx object has been prepared already by
+   replacing all the TxIn scripts with the scripts of the TxOuts
+   they are spending.
+
+   In other words, in order to prepare a PyTxDistProposal, you
+   will need access to the blockchain to find the txouts you are
+   spending (and thus they have to be acquired with external 
+   code, such as my CppBlockUtils SWIG module).  But once the 
+   TxDP is created, the system signing it only needs the ECDSA
+   private keys and nothing else.   This enables the device 
+   providing the signatures to be extremely lightweight.
+   """
    def __init__(self, pytx=None):
+      self.pytxObject   = UNINITIALIZED
+      self.scriptTypes  = []
+      self.signatures   = []
+      self.sigIsValid   = []
       if pytx:
-         self.setProposal(PyTx)
-      else:
-         self.pytxObject   = UNINITIALIZED
-         self.scriptTypes  = []
-         self.signatures   = []
+         self.createFromPreparedPyTx(pytx)
+               
             
+   def createFromPreparedPyTx(self, pytx):
+      sz = len(pytx.inputs)
+      self.pytxObject   = pytx
+      self.signatures   = [None]*sz
+      self.scriptTypes  = [None]*sz
+      self.addr160List  = [None]*sz
+      for i in range(sz):
+         script = str(pytx.inputs[i].binScript)
+         scrType = getTxOutScriptType(pytx.inputs[i])
+         self.scriptTypes[i] = scrType
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            recipAddr    = TxOutScriptExtractAddrStr(pytx.inputs[i])
+            addr160List[i] = addrStr_to_binary(recipAddr)
+         elif scrType==TXOUT_SCRIPT_MULTISIG:
+            addr160List[i] = multiSigExtractAddr160List(script)
+         elif scrType==TXOUT_SCRIPT_OP_EVAL:
+            pass
+
+      return self
+
+   def appendSignature(self, binSig, txinIndex=None):
+      if txinIndex and txinIndex<len(self.pytxObject.inputs):
+         
+         self.signatures[txinIndex] = binSig
+         
+      else:
 
    def serializeHex(self):
       bp = BinaryPacker()
@@ -2682,13 +2726,15 @@ class PyTxDistProposal(object):
 
    def unserialize(self, toUnpack):
       pass
+
+         
       
   
    def setProposal(self, pytxObj):
       if isinstance(pytx, PyTx):
-         self.setProposal(PyTx)
+         self.pytxObject = PyTx
       elif isinstance(pytx, str):
-         self.setProposal(PyTx().unserialize(pytx))
+         self.pytxObject = PyTx().unserialize(pytx)
 
 
    def serializeBinary(self):
@@ -2706,22 +2752,22 @@ class PyTxDistProposal(object):
          print '***ERROR: hashcode!=1 is not supported at this time!'
          return
 
-      wallet.unlock()  # should invoke decrypt/passphrase dialog
-   
       numInputs = len(self.pytxObject.inputs)
       wltAddr = []
-      for index,inp in enumerate(self.pytxObject.inputs):
-         # usually we plug in TxOuts here, but a txdp input has the txout script 
-         scriptType = getTxOutScriptType(inp)
-         if scriptType == TXOUT_SCRIPT_STANDARD or \
-            scriptType == TXOUT_SCRIPT_COINBASE:
-            addr160 = TxOutScriptExtractAddr160(inp)
+      #amtToSign = 0  # I can't get this without asking blockchain for txout vals
+      for index,txin in enumerate(self.pytxObject.inputs):
+         # usually have TxIn scripts here, but a txdp input has the txout script 
+         scriptType = getTxOutScriptType(txin)
+         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            addr160 = TxOutScriptExtractAddr160(txin)
             if wallet.hasAddr(addr160) and wallet.getAddr(addr160).hasPrivKey():
-               wltAddr.append( (wallet.getAddr(addr160), index))
+               wltAddr.append( (wallet.getAddr(addr160), index) )
    
       numMyAddr = len(wltAddr)
       print 'Total number of inputs in transaction:  ', numAddr
       print 'Number of inputs that you can sign for: ', numMyAddr
+   
+      wallet.unlock()  # should invoke decrypt/passphrase dialog
    
       for key,idx in wltAddr:
          txCopy = PyTx().unserialize(self.pytxObject.serialize())
