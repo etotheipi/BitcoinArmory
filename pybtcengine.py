@@ -409,7 +409,7 @@ def difficulty_to_binaryBits(i):
 #  Classes for reading and writing large binary objects
 ################################################################################
 ################################################################################
-UBYTE, USHORT, UINT32, UINT64, VAR_INT, FLOAT, BINARY_CHUNK = range(7)
+UINT8, UINT16, UINT32, UINT64, VAR_INT, FLOAT, BINARY_CHUNK = range(7)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
@@ -448,11 +448,11 @@ class BinaryUnpacker(object):
          value = unpack('<Q', self.binaryStr[pos:pos+8])[0]
          self.advance(8)
          return value
-      elif varType == UBYTE:
+      elif varType == UINT8:
          value = unpack('<B', self.binaryStr[pos:pos+1])[0]
          self.advance(1)
          return value
-      elif varType == USHORT:
+      elif varType == UINT16:
          value = unpack('<H', self.binaryStr[pos:pos+2])[0]
          self.advance(2)
          return value
@@ -503,9 +503,9 @@ class BinaryPacker(object):
       Need to supply the argument type you are put'ing into the stream.
       Values of BINARY_CHUNK will automatically detect the size as necessary
       """
-      if   varType == UBYTE:
+      if   varType == UINT8:
          self.binaryConcat += int_to_binary(theData, 1, endianness)
-      elif varType == USHORT:
+      elif varType == UINT16:
          self.binaryConcat += int_to_binary(theData, 2, endianness)
       elif varType == UINT32:
          self.binaryConcat += int_to_binary(theData, 4, endianness)
@@ -1058,7 +1058,7 @@ class PyBtcAddress(object):
          addrData = toUnpack
       else:
          addrData = BinaryUnpacker(toUnpack)
-      addrLen      = addrData.get(UBYTE)
+      addrLen      = addrData.get(UINT8)
       self.addrStr = addrDate.get(BINARY_CHUNK, addrLen)
    
 
@@ -1077,12 +1077,12 @@ class PyBtcAddress(object):
       else:
          keyData = BinaryUnpacker(toUnpack)
 
-      leadByte = keyData.get(UBYTE)
+      leadByte = keyData.get(UINT8)
       if leadByte==0:
          self.pubKeyXInt == UNINITIALIZED
          self.pubKeyYInt == UNINITIALIZED
       else:
-         leadByte = keyData.get(UBYTE)
+         leadByte = keyData.get(UINT8)
          assert(leadByte == 4)
          self.pubKeyXInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
          self.pubKeyYInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
@@ -1101,7 +1101,7 @@ class PyBtcAddress(object):
          keyData = toUnpack
       else:
          keyData = BinaryUnpacker(toUnpack)
-      leadByte = keyData.get(UBYTE)
+      leadByte = keyData.get(UINT8)
       if leadByte==0:
          self.privKeyInt = UNINITIALIZED
       else:
@@ -1143,171 +1143,6 @@ class PyBtcAddress(object):
             print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
       
 
-################################################################################
-################################################################################
-# TODO:  Finish this!
-class PyBtcWallet(object):
-   """
-   Stores a set of PyBtcAddress objects to represent a "wallet" of money. 
-   The first implementation of this class (v1.0) is the simplest, holding
-   just a set of keys without encryption.
-
-   The next implementation (v2.0) will involve private-key encryption 
-   in-place in the wallet, with encryption parameters listed at the top
-   of the file
-    
-   The final implementation will be an optional, deterministic wallet,
-   which will allow the user to create a base key, and all future addrs
-   will be created deterministically from that initial address using 
-   ellliptic-curve operations.
-
-   Wallet file will contain all addresses in blocks of text separated
-   by blank lines.  At the moment, the wallet file should have this format:
-
-      Addr:  1AGRxqDa5WjUKBwHB9XYEjmkv1ucoUUy1s
-      PubX:  8a866b128772e12967c927097d9b47ec9667a5ef0fce55033a8fcc82d0e6f026
-      PubY:  f29c4d8d15e04bdc36c6535ffc3b27a99048fc2088788762d971c85cff7bfb67
-      Priv:  603a3ab1878f4c8c39d8ad03e2f3aa7cff7b2f1ddb4cc5972321105b0a627be7
-
-   The address line must be first, then the remaining lines can be in any
-   order with or without any data after the ':' (not all addresses/wallets
-   will contain public and private keypairs:  we may just be watching funds
-   for an offline computer that holds the keys)
-   """
-
-   def __init__(self):
-      self.pyAddrList = {}  # PyBtcAddress' in a dictionary indexed by addrStr
-      self.encryptParams = None
-
-   def hasAddr160(self, addr160):
-      return self.pyAddrList.has_key(addr160)
-
-   def addKeyData(self, pybtcaddr):
-      """
-      We add the key data ONLY if it contains more information
-      than an existing key with the same address.  Obviously,
-      if we don't have the key in our dictionary yet, we add it
-      """
-      addr160 = pybtcaddr.getAddr160()
-      if self.pyAddrList.has_key(addr160):
-         if self.pyAddrList[addr160].hasPrivKey():
-            return
-         if self.pyAddrList[addr160].hasPubKey() and not pyAddr.hasPubKey():
-            return
-      self.pyAddrList[addr160] = pybtcaddr
-      
-      
-   def lock(self):
-      pass
-
-   def unlock(self):
-      pass
-
-   """  WOW, I really messed this up... I need a much better format probably binary...
-   def readPyBtcWalletFile(self, fn, verifyKeys=True, correctErrors=True):
-      wltfile = open(fn,'r')
-      wltlines = wltfile.readlines()
-      wltfile.close()
-      nextAddr = None
-      ASTR, A160, PUBX, PUBY, PRIV = range(5)
-
-      # This is a rare case where I wish I could use braces to identify
-      # the multi-level nestings
-      for line in wltlines:
-         if line.strip().startswith('#'):
-            continue
-
-         # Address line is required, but all other fields are optional
-         if line.strip().startswith('Addr'):
-            # First line of new key data
-            addr = [None]*5
-            addr[ASTR] = line.split(':')[-1].strip()
-            addr[A160] = addrStr_to_binary(addr[0])[1:21]
-         elif line.strip().startswith('PubX'):
-            data = line.strip().split(':')
-            if len(data)>1 and len(data[1]) >= 64:
-               addr[PUBX] = hex_to_int(data[1].strip())
-         elif line.strip().startswith('PubY'):
-            data = line.strip().split(':')
-            if len(data)>1 and len(data[1]) >= 64:
-               addr[PUBY] = hex_to_int(data[1].strip())
-         elif line.strip().startswith('Priv'):
-            data = line.strip().split(':')
-            if len(data)>1 and len(data[1]) >= 64:
-               addr[PRIV] = hex_to_int(data[1].strip())
-         elif line.strip().startswith('Chks'):
-            data = line.strip().split(':')
-            if len(data)>1 and len(data[1]) >= 8:  # 4+ bytes
-               # Sure, there are better ways to do error correction, such as
-               # Reed-Solomon, but I enjoy having a human-readable wallet file
-               # and not having to convert data into polynomial/BCH codes...
-               privChkSum = hex_to_binary(data[1].strip())
-               if addr[PRIV]:
-                  privKeyBinary = int_to_binary(addr[PRIV], 32, LITTLEENDIAN)
-                  if not hash256(privKeyBinary).startswith(privChkSum):
-                     print '***ERROR: Private key data does not match checksum!'
-                     if correctErrors:
-                        print '          Attempting to fix key...'
-                        result = self.tryToCorrectKey(privKeyBinary, privChkSum)
-                        if result:
-                           addr[PRIV] = result
-                        else:
-                           print '      ***Could not find match :(' 
-                           print '      ***Skipping this key...'
-                           continue
-         elif len(line.strip())==0:
-            # Empty line signals end of key data
-            pyAddr = PyBtcAddress()
-            if addr[PUBX]==None and addr[PRIV]==None:
-               pyAddr.createFromPublicKeyHash160(addr[A160])
-            else 
-               # We found at least the public key
-               if addr[PRIV]==None:
-                  pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
-               else:
-                  if verifyKeys:
-                     pyAddr.createFromPrivateKey(addr[PRIV])
-                     if (pyAddr.pubKeyXInt != addr[PUBX])  or \
-                        (pyAddr.pubKeyYInt != addr[PUBY]):  
-                        print '***ERROR: Private key does not match stored public key'
-                        print '          Address in wallet file:', addr[ASTR]
-                        print '          Computed addr from Key:', pyAddr.getAddrStr()
-                        print '          Skipping this key...'
-                        continue
-                  else:
-                     # We explicitly chose not to verify private keys against
-                     # the stored public keys: this may be useful if there's
-                     # a ton of keydata.  It'll still be checked before signing
-                     pyAddr.createFromPublicKey(addr[PUBX], addr[PUBY])
-                     pyAddr.privKeyInt = addr[PRIV]
-                  
-            if (pyAddr.getAddrStr() != addr[ASTR]) 
-               print '***ERROR: Address in wallet file does not match public key'
-               print '          Address in wallet file:', addr[ASTR]
-               print '          Computed addr from Key:', pyAddr.getAddrStr()
-               print '          Skipping this key...'
-               continue
-
-
-            # No matter how we got here, we have something to add to wallet
-            # But we do need to check if maybe the key is already in our
-            # wallet -- if so, we don't want to replace it if the existing
-            # PBA has more information than this entry
-            self.addKeyData(pyAddr)
-
-      # We want to potentially use this as a static method, too
-      return self
-            
-         
-   def writePyBtcWalletFile(self, fn, makeBackup=True):
-      if os.path.exists(fn) and makeBackup:
-         os.rename(fn, fn+'.backup')
-      wltfile = open(fn,'w')
-      wltlines = wltfile.readlines()
-      wltfile.close()
-      nextAddr = None
-      ASTR, A160, PUBX, PUBY, PRIV = range(5)
-   """
    
       
             
@@ -1400,6 +1235,16 @@ def TxInScriptExtractKeyAddr(txinObj):
       return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
 
 
+def multiSigExtractAddr160List(binScript):
+   addr160List = []
+   bup = BinaryUnpacker(binScript)
+   while bup.getRemainingSize() > 0:
+      nextByte = bup.get(UINT8)
+      if 0 < nextByte <= OP_PUSHDATA4:
+         # TODO: finish this!
+         pass
+
+   
 
 # Finally done with all the base conversion functions and ECDSA code
 # Now define the classes for the objects that will use this
@@ -1639,8 +1484,8 @@ class PyBlockHeader(object):
       self.nextBlkHash  = UNINITIALIZED 
       self.intDifficult = UNINITIALIZED 
       self.sumDifficult = UNINITIALIZED 
-      self.isMainChain  = False  # true until proven innocent
-      self.isOrphan     = True  # true until proven innocent
+      self.isMainChain  = False  
+      self.isOrphan     = True  
 
    def serialize(self):
       assert( not self.version == UNINITIALIZED)
@@ -1669,71 +1514,6 @@ class PyBlockHeader(object):
       self.theHash     = hash256(self.serialize())
       return self
 
-   ##### Serialize the header with all the extra information not normally
-   #     considered to be part of the header
-   def serializeWithExtra(self):
-      binData = BinaryPacker()
-      binData.put(BINARY_CHUNK, self.serialize() )
-
-      def putData(dtype, theData, nBytes):
-         unInit = theData==UNINITIALIZED
-         binData.put(UBYTE, 0 if unInit else 1)
-         if unInit:
-            binData.put(BINARY_CHUNK, '\xff'*nBytes)
-         else:
-            if dtype == BINARY_CHUNK:
-               binData.put(BINARY_CHUNK, theData, nBytes)
-            else:
-               binData.put(dtype, theData)
-             
-      # TODO: should figure out a better way to store difficulty values
-      putData(UINT32, self.numTx,        4)
-      putData(BINARY_CHUNK, self.nextBlkHash,  32)
-      putData(UINT64, self.fileByteLoc,  8)
-      putData(FLOAT,  self.sumDifficult, 4)
-      putData(UINT32, self.blkHeight,    4)
-      putData(UBYTE,  self.isMainChain,  1)
-      putData(UBYTE,  self.isOrphan,     1)
-      return binData.getBinaryString()
-
-   def unserializeWithExtra(self, toUnpack):
-      if isinstance(toUnpack, BinaryUnpacker):
-         binData = toUnpack 
-      else: 
-         binData = BinaryUnpacker( toUnpack )
-
-      self.unserialize( binData )
-
-      def getData(dtype, nBytes):
-         unInit = binData.get(UBYTE)
-         if unInit == 0:
-            binData.advance(nBytes)
-            return UNINITIALIZED 
-         else:
-            return binData.get(dtype, nBytes)
-            
-
-      self.numTx        = getData(UINT32, 4)
-      self.nextBlkHash  = getData(BINARY_CHUNK, 32)
-      self.fileByteLoc  = getData(UINT64, 8)
-      self.sumDifficult = getData(FLOAT, 4)
-      self.blkHeight    = getData(UINT32, 4)
-      self.isMainChain  = getData(UBYTE, 1)
-      self.isOrphan     = getData(UBYTE, 1)
-      #getData(self.numTx,        4)
-      #getData(self.nextBlkHash,  32)
-      #getData(self.fileByteLoc,  8)
-      #getData(self.intDifficult, 8)
-      #getData(self.sumDifficult, 8)
-      #getData(self.blkHeight,    4)
-      #getData(self.isOrphan,     1)
-      #self.numTx         = binary_to_int(self.numTx)
-      #self.fileByteLoc   = binary_to_int(self.fileByteLoc)
-      #self.intDifficult  = binary_to_int(self.intDifficult)
-      #self.sumDifficult  = binary_to_int(self.sumDifficult)
-      #self.blkHeight     = binary_to_int(self.blkHeight)
-      #self.isOrphan      = binary_to_int(self.isOrphan)
-      return self
 
    def getHash(self, endian=LITTLEENDIAN):
       assert( not self.version == UNINITIALIZED)
@@ -1940,7 +1720,21 @@ OP_PUSHDATA4 = 78
 OP_1NEGATE = 79	
 OP_1 = 81
 OP_TRUE = 81	
-#OP_2-OP_16	82-96	
+OP_2 = 82
+OP_3 = 83
+OP_4 = 84
+OP_5 = 85
+OP_6 = 86
+OP_7 = 87
+OP_8 = 88
+OP_9 = 89
+OP_10 = 90
+OP_11 = 91
+OP_12 = 92
+OP_13 = 93
+OP_14 = 94
+OP_15 = 95
+OP_16 = 96
 OP_NOP = 97	
 OP_IF = 99	
 OP_NOTIF = 100	
@@ -2280,30 +2074,61 @@ SCRIPT_NO_ERROR = 5
 
    
 class PyScriptProcessor(object):
+   """
+   Use this class to evaluate a script.  This method is more complicated
+   than some might expect, due to the fact that any OP_CHECKSIG or
+   OP_CHECKMULTISIG code requires the full transaction of the TxIn script
+   and also needs the TxOut script being spent.  Since nearly every useful
+   script will have one of these operations, this class/method assumes
+   that all that data will be supplied.
 
-   def __init__(self):
-      self.stack = []
-      self.txOld = None
-      self.txNew = None
+   To simply execute a script not requiring any crypto operations:
 
-   def setTxObjects(self, txOld, txNew, txInIndex):
-      self.txOld = PyTx().unserialize(txOld.serialize())
+      scriptIsValid = PyScriptProcessor().executeScript(binScript)
+   """
+
+   def __init__(self, txOldData=None, txNew=None, txInIndex=None):
+      self.stack   = []
+      self.txNew   = None
+      self.script1 = None
+      self.script2 = None
+      if txOldData and txNew and txInIndex:
+         self.setTxObjects(txOldData, txNew, txInIndex)
+   
+
+   def setTxObjects(self, txOldData, txNew, txInIndex):
+      """
+      The minimal amount of data necessary to evaluate a script that
+      has an signature check is the TxOut script that is being spent
+      and the entire Tx of the TxIn that is spending it.  Thus, we
+      must supply at least the txOldScript, and a txNew with its 
+      TxIn index (so we know which TxIn is spending that TxOut).  
+      It is acceptable to pass in the full TxOut or the tx of the 
+      TxOut instead of just the script itself.
+      """
       self.txNew = PyTx().unserialize(txNew.serialize())
-      self.txInIndex  = txInIndex
-      self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
-      self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
-      if not self.txOutHash == hash256(txOld.serialize()):
-         print '*** Supplied incorrect pair of transactions!'
-
       self.script1 = txNew.inputs[txInIndex].binScript
-      self.script2 = txOld.outputs[self.txOutIndex].binScript
+
+      if isinstance(txOldData, PyTx):
+         self.txInIndex  = txInIndex
+         self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
+         self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
+         if not self.txOutHash == hash256(txOldData.serialize()):
+            print '*** Supplied incorrect pair of transactions!'
+         self.script2 = txOldData.outputs[self.txOutIndex].binScript
+      elif isinstance(txOldData, PyTxOut):
+         self.script2 = txOldData.binScript
+      elif isinstance(txOldData, str):
+         self.script2 = txOldData
+
 
 
    def verifyTransactionValid(self):
-      if self.txOld==None or self.txNew==None:
+      if self.script1==None or self.txNew==None:
          raiseError('Cannot verify transactions, without setTxObjects call first!')
 
       # Execute TxIn script first
+      self.stack = []
       exitCode1 = self.executeScript(self.script1, self.stack) 
 
       if not exitCode1 == SCRIPT_NO_ERROR:
@@ -2326,7 +2151,7 @@ class PyScriptProcessor(object):
       self.lastOpCodeSepPos = None
    
       while scriptData.getRemainingSize() > 0:
-         opcode = scriptData.get(UBYTE)
+         opcode = scriptData.get(UINT8)
          exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
          if not exitCode == SCRIPT_NO_ERROR:
             return exitCode
@@ -2444,10 +2269,10 @@ class PyScriptProcessor(object):
       elif 0 < opcode < 76: 
          stack.append(scriptUnpacker.get(BINARY_CHUNK, opcode))
       elif opcode == OP_PUSHDATA1: 
-         nBytes = scriptUnpacker.get(UBYTE)
+         nBytes = scriptUnpacker.get(UINT8)
          stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_PUSHDATA2: 
-         nBytes = scriptUnpacker.get(USHORT)
+         nBytes = scriptUnpacker.get(UINT16)
          stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_PUSHDATA4:
          nBytes = scriptUnpacker.get(UINT32)
@@ -3096,7 +2921,7 @@ class PyTxDistProposal(object):
    """
    PyTxDistProposal is created from a PyTx object, and represents
    an unsigned transaction, that may require the signatures of 
-   multiple parties before being complete. 
+   multiple parties before being accepted by the network.
 
    We assume that the PyTx object has been prepared already by
    replacing all the TxIn scripts with the scripts of the TxOuts
@@ -3111,7 +2936,7 @@ class PyTxDistProposal(object):
    providing the signatures to be extremely lightweight.
    """
    def __init__(self, pytx=None):
-      self.pytxObject   = UNINITIALIZED
+      self.pytxObj   = UNINITIALIZED
       self.scriptTypes  = []
       self.signatures   = []
       self.sigIsValid   = []
@@ -3121,7 +2946,7 @@ class PyTxDistProposal(object):
             
    def createFromPreparedPyTx(self, pytx):
       sz = len(pytx.inputs)
-      self.pytxObject   = pytx
+      self.pytxObj   = pytx
       self.signatures   = [None]*sz
       self.scriptTypes  = [None]*sz
       self.addr160List  = [None]*sz
@@ -3134,17 +2959,32 @@ class PyTxDistProposal(object):
             addr160List[i] = addrStr_to_binary(recipAddr)
          elif scrType==TXOUT_SCRIPT_MULTISIG:
             addr160List[i] = multiSigExtractAddr160List(script)
-         elif scrType==TXOUT_SCRIPT_OP_EVAL:
+         elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
             pass
 
       return self
 
    def appendSignature(self, binSig, txinIndex=None):
-      if txinIndex and txinIndex<len(self.pytxObject.inputs):
-         self.signatures[txinIndex] = binSig
-      else:
-         # TODO: Search inputs for which one matches
-         pass
+      if txinIndex and txinIndex<len(self.pytxObj.inputs):
+         # check that this script is in the correct place
+         txin = self.pytxObj.inputs[txinIndex]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIndex)
+         if psp.verifyTransactionValid():
+            self.signatures[txinIndex] = binSig
+            return True
+      
+      # If we are here, we don't know which TxIn this sig is for.  Try each one
+      # (we assume that if the txinIndex was supplied, but failed to verify,
+      #  that it was accidental and we should check if it matches another one)
+      for iin in range(len(self.pytxObj.inputs)):
+         txin = self.pytxObj.inputs[iin]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, iin)
+         if psp.verifyTransactionValid():
+            self.signatures[iin] = binSig
+            return True
+
+      return False
+         
 
    def serializeHex(self):
       bp = BinaryPacker()
@@ -3152,17 +2992,7 @@ class PyTxDistProposal(object):
 
    def unserialize(self, toUnpack):
       pass
-
-         
       
-  
-   def setProposal(self, pytxObj):
-      if isinstance(pytx, PyTx):
-         self.pytxObject = PyTx
-      elif isinstance(pytx, str):
-         self.pytxObject = PyTx().unserialize(pytx)
-
-
    def serializeBinary(self):
       pass
    
@@ -3172,16 +3002,15 @@ class PyTxDistProposal(object):
    #def serializeBase58(self):
       #return binary_to_hex(self.serializeBinary())
 
-
    def signTxDistProposal(self, wallet, hashcode=1):
       if not hashcode==1:
          print '***ERROR: hashcode!=1 is not supported at this time!'
          return
 
-      numInputs = len(self.pytxObject.inputs)
+      numInputs = len(self.pytxObj.inputs)
       wltAddr = []
       #amtToSign = 0  # I can't get this without asking blockchain for txout vals
-      for index,txin in enumerate(self.pytxObject.inputs):
+      for index,txin in enumerate(self.pytxObj.inputs):
          # usually have TxIn scripts here, but a txdp input has the txout script 
          scriptType = getTxOutScriptType(txin)
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
@@ -3193,10 +3022,12 @@ class PyTxDistProposal(object):
       print 'Total number of inputs in transaction:  ', numAddr
       print 'Number of inputs that you can sign for: ', numMyAddr
    
+      ###
       wallet.unlock()  # should invoke decrypt/passphrase dialog
+      ###
    
       for key,idx in wltAddr:
-         txCopy = PyTx().unserialize(self.pytxObject.serialize())
+         txCopy = PyTx().unserialize(self.pytxObj.serialize())
          for i in range(len(txCopy.inputs)):
             if not i==idx:
                txCopy.inputs[i] = ''
@@ -3223,7 +3054,19 @@ class PyTxDistProposal(object):
             newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
                                         pubkeyLenInBinary + pubkey
    
-      wallet.lock()  # should invoke decrypt/passphrase dialog
+      ###
+      wallet.lock()  # re-secure wallet
+      ###
    
    
-   
+
+
+
+
+
+
+
+
+
+
+
