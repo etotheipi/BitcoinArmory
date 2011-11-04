@@ -1236,14 +1236,43 @@ def TxInScriptExtractKeyAddr(txinObj):
 
 
 def multiSigExtractAddr160List(binScript):
+   """ 
+   This naively searches the script for all the addresses/public keys,
+   returns a list of the addresses.  Could easily be modified to pass
+   out public keys if they are in the script
+
+   This method should work for ALL scripts, actually, not just multisig
+   scripts.  For future simplicity, I might consider removing the 
+   TxOutScriptExtractAddrStr() and TxInScriptExtractKeyAddr() and use
+   this method for every script, instead.
+   """
    addr160List = []
    bup = BinaryUnpacker(binScript)
    while bup.getRemainingSize() > 0:
       nextByte = bup.get(UINT8)
-      if 0 < nextByte <= OP_PUSHDATA4:
-         # TODO: finish this!
+      binChunk = ''
+      if 0 < nextByte < 76: 
+         nBytes = nextByte
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA1: 
+         nBytes = scriptUnpacker.get(UINT8)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA2: 
+         nBytes = scriptUnpacker.get(UINT16)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA4:
+         nBytes = scriptUnpacker.get(UINT32)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      else:
          pass
+   
+      if len(binChunk) == 20:
+         addr160List.append(binChunk)
+      elif len(binChunk) == 65:
+         newAddr = PyBtcAddress().createFromPublicKey(binChunk)
+         addr160List.append(newAddr.getAddr160())
 
+   return addr160List
    
 
 # Finally done with all the base conversion functions and ECDSA code
@@ -2154,6 +2183,14 @@ class PyScriptProcessor(object):
          opcode = scriptData.get(UINT8)
          exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
          if not exitCode == SCRIPT_NO_ERROR:
+            if exitCode==OP_NOT_IMPLEMENTED:
+               print '***ERROR: OpCodes OP_IF, OP_NOTIF, OP_ELSE, OP_ENDIF,'
+               print '          have not been implemented, yet.  This script'
+               print '          could not be evaluated.'
+            if exitCode==OP_DISABLED:
+               print '***ERROR: This script included an op code that has been'
+               print '          disabled for security reasons.  Script eval'
+               print '          failed'
             return exitCode
 
       return SCRIPT_NO_ERROR
@@ -2430,7 +2467,11 @@ class PyScriptProcessor(object):
          else:
             stack.append(0)
       elif opcode == OP_0NOTEQUAL:
-         # TODO:  The description for this opcode looks identical to OP_NOT
+         top = stack.pop()
+         if top==0: 
+            stack.append(0)
+         else:
+            stack.append(1)
          top = stack.pop()
          if top==0: 
             stack.append(1)
@@ -2633,10 +2674,14 @@ class PyScriptProcessor(object):
 #        unnecessary.  
 #
 #        Additionally, this method both creates and signs the tx:  however
-#        I need these two operations separated, so this method is even more
-#        unimportant.  However, I have left it in here for reference.  It 
-#        is also very good example code for tx-manipulations
-
+#        PyBtcEngine employs TxDistProposals which require the construction
+#        and signing to be two separate steps.  This method is not suited
+#        for most of the PyBtcEngine CONOPS.
+#     
+#        On the other hand, this method DOES work, and there is no reason
+#        not to use it if you already have PyBtcAddress-w-PrivKeys avail
+#        and have a list of inputs and outputs as described below.
+#
 # This method will take an already-selected set of TxOuts, along with 
 # PyBtcAddress objects containing necessary the private keys
 #
@@ -2644,7 +2689,6 @@ class PyScriptProcessor(object):
 #    Dst TxOut ~ {PyBtcAddr, value}
 #
 # Of course, we usually don't have the private keys of the dst addrs...
-#
 #
 def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    newTx = PyTx()
@@ -2746,109 +2790,202 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
 
 ################################################################################
+################################################################################
+#
+# SelectCoins algorithms
+#
+#   The following methods define multiple ways that one could select coins 
+#   for a given transaction.  However, the "best" solution is extremely 
+#   dependent on the variety of unspent outputs, and also the preferences
+#   of the user.  Things to take into account when selecting coins:
+#
+#     - Number of inputs:  If we have a lot of inputs in this transaction
+#                          from different addresses, then all those addresses
+#                          have now been linked together.  We want to use
+#                          as few outputs as possible
+#
+#     - Tx Fess/Size:      The bigger the transaction, in bytes, the more
+#                          fee we're going to have to pay to the miners
+#
+#     - Priority:          Low-priority transactions might require higher
+#                          fees and/or take longer to make it into the
+#                          blockchain.  Priority is the sum of TxOut
+#                          priorities:  (NumConfirm * NumBTC / SizeKB)
+#                          We especially want to avoid 0-confirmation txs
+#
+#     - Output values:     In almost every transaction, we must return
+#                          change to ourselves.  This means there will
+#                          be two outputs, one to the recipient, one to 
+#                          us.  We prefer that both outputs be about the 
+#                          same size, so that it's not clear which is the
+#                          recipient, which is the change.  But we don't
+#                          want to use too many inputs to do this.
+#                          
+#     - Sustainability:    We should pick a strategy that tends to leave our
+#                          wallet containing a variety of TxOuts that are
+#                          well-suited for future transactions to benefit.
+#                          For instance, always favoring the single TxOut
+#                          with a value close to the target, will result
+#                          in a future wallet full of tiny TxOuts.  This 
+#                          guarantees that in the future, we're going to 
+#                          have to do 10+ inputs for a single Tx.
+#           
+#
+#   The strategy is to execute a half dozen different types of SelectCoins
+#   algorithms, each with a different goal in mind.  Then we examine each
+#   of the results and evaluate a "select-score."  Use the one with the
+#   best score.  In the future, we could make the scoring algorithm based
+#   on user preferences.  We expect that depending on what the availble
+#   list looks like, some of these algorithms could produce perfect results,
+#   and in other instances *terrible* results.
+#
+################################################################################
+################################################################################
+
+
+################################################################################
 # Sorting currently implemented in C++, but just in case we need it here,
 # I might fill out this method to actually do some kind of sorting
 def PySortCoins(unspentTxOutInfo, sortMethod=1):
-   pass
-
-
-
-################################################################################
-def PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
-   pass
-
-################################################################################
-################################################################################
-# Following two methods, first arg,  assumes same methods as C++ UnspentTxOut
-# class.  This allows this method to work transparently if it is supplied
-# such a C++ list, but could just as easily be used with a custom python class
-# implementing the same set of member functions
-def PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee=0):
    """
-   This select-coins algorithm is an extremely naive implementation.  The goal
-   is to construct ANY tx that is valid, FOR NOW.  I will go back through and
-   work on optimizing it in the future.
+   This isn't exactly straightforward:  it's because we want to group
+   all TxOuts associated with the same address into the same "Unspent Output". 
+   If we are going to spend one of those outputs, we might as well spend lots
+   since it doesn't hurt our anonymity at all (though if there's too many,
+   we risk creating a tx requiring a tx fee).
 
-   We assume that the unspentTxOutInfo list is already sorted with some
-   prioritization scheme.  We will accumulate the first X highest-priority
-   elements whose sum is about 2*target, so that we can create two nearly-
-   equal-sized outputs (assuming they have that much BTC).  This is not
-   only good for output anonymity, it also prevents us from creating/accum 
-   tons of tiny inputs.  The input anonymity could probably be improved,
-   though (we might be linking too many addresses together)
-
-   TODO: it turns out this doesn't actually work well!  Finding double the amount
-         of coins necessary could result in linking a dozen other tx together
-         unnecessarily!
+   Also, as a precaution we send all the zero-confirmation UTOs to the back
+   of the list, so that they will only be used if absolutely necessary.  
+   Using a zero-confirmation TxOut is not only "unreliable", but may result
+   in mandatory tx fees
    """
+   addrMap = {}
+   for uto in unspentTxOutInfo:
+      addr = TxOutScriptExtractAddr160(uto.getScript())
+      if not addrMap.has_key(addr):
+         addrMap[addr] = [uto]
+      else:
+         addrMap[addr].append(uto)
+
+   # TODO: check this actually does what I think it does
+   zeroConfirm = []
+   priorityUTO = (lambda a: a.getNumConfirm()*a.getValue())
+   for addr,txoutList in addrMap.iteritems():
+      txoutList.sort(key=priorityUTO, reverse=True)
+      for uto in txoutList:
+         if uto.getNumConfirm() == 0:
+            zeroConfirm.append([uto])
+            del uto
+
+   priorityGrp = lambda a: max([priorityUTO(uto) for uto in a])
+   finalSortedList = []
+   for uto in sorted(addrMap.values(), key=priorityGrp)
+      finalSortedList.extend(uto)
+
+   return finalSortedList
+
+
+
+
+################################################################################
+# Now we try half a dozen different selection algorithms
+################################################################################
+
+
+
+################################################################################
+def PySelectCoins_SingleInput_SingleValueAbsMin( \
+                                    unspentTxOutInfo, targetOutVal, minFee=0):
+   """
+   This method should usually be superceded by the other SingleValue method
+   but we must have a method that accmmodates someone trying to spend exactly
+   the remainder of the coins, which means that if we add any margin to the
+   target, we won't find an answer.
+   """
+   target = targetOutVal + minFee
+   bestMatchVal = 2**64
+   bestMatchUto = None
+   for uto in unspentTxOutInfo:
+      if target < uto.getValue() < bestMatchVal:
+         bestMatchVal = uto.getValue()
+         bestMatchUto = uto
+
+   if bestMatchUto==None:
+      return []
+   else:
+      return [bestMatchUto]
+         
+
+################################################################################
+MARGIN_AMT = 0.01e8
+def PySelectCoins_SingleInput_SingleValueWithMargin( \
+                                    unspentTxOutInfo, targetOutVal, minFee=0):
+      
+   return PySelectCoins_SingleInput_SingleValueAbsMin( \
+               unspentTxOutInfo, targetOutVal+MARGIN_AMT, minFee)
    
 
-   if needsSorting:
-      PySortCoins(unspentTxOutInfo)
-
-   # Return an empty list immediately if not enough funds
-   sumValues = lambda alist: sum([t.getValue() for t in alist])
-   totalAvailBtc  = sumValues(unspentTxOutInfo)
-   if totalAvailBtc < targetOutVal + minTxFee:
-      return [[],False]
-
+################################################################################
+def PySelectCoins_SingleInput_DoubleValue( \
+                                    unspentTxOutInfo, targetOutVal, minFee=0):
    # Default target value is 2*txVal
-   idealTarget    = 2*targetOutVal + minTxFee
-
-   # List is already sorted, but for list.pop, need to reverse
-   sortedPool = list(unspentTxOutInfo)  # this line also copies the list
-   sortedPool.reverse()
+   idealTarget    = 2*targetOutVal + minFee
 
    # We will look for a single input that is within 15% of the target
    # In case the tx value is tiny rel to the fee: the minTarget calc
    # may fail to exceed the actual tx size needed, so we add an extra 
    # check to make sure we're accumulating enough
-   minTarget   = long(0.85 * idealTarget)
+   minTarget   = long(0.70 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minTxFee)
-   maxTarget   = long(1.15 * idealTarget)
-   
-   # If we don't have enough BTC at all, return empty list
+   maxTarget   = long(1.30 * idealTarget)
+
    if totalAvailBtc < minTarget:
-      minTarget = targetOutVal + minTxFee
-      maxTarget = totalAvailBtc
+      return []
 
    # If we have a good, single TxOut, let's use it
-   for txout in sortedPool:
+   for txout in unspentTxOutInfo:
       if minTarget <= txout.getValue() <= maxTarget:
          if txout.getNumConfirm() > 0:
-            return [[txout], False]      
+            return [txout]
          
-   # No easy solution, let's start accumulating high-priority inputs
+
+
+################################################################################
+def PySelectCoins_MultiInput_SingleValuePrecise( \
+                                    unspentTxOutInfo, targetOutVal, minFee=0):
+
+   minTarget = targetOutVal + minFee
+
+   # Let's start accumulating high-priority inputs
    # Every 2 inputs, we add a low-priority input to prevent them 
    # from accumulating.  If the user only has zero-confirmation Txs,
    # then this loop will select them if no other options exist.
    loopIters = 0
    selectedTxOuts = []
-   reqZeroConfTxOuts = False
    while sumValues(selectedTxOuts) < minTarget:
       loopIters += 1
       if loopIters%3 != 0:
-         selectedTxOuts.append( sortedPool.pop() )
-         if selectedTxOuts[-1].getNumConfirm() == 0:
-            reqZeroConfTxOuts = True
+         selectedTxOuts.append( unspentTxOutInfo )
       else:
          # find lowest priority non-zero-confirm txOut
          # If there aren't any: the next loop iter will use a zero-confirm
          goodIdx = 0
-         for i in range(len(sortedPool)):
-            if sortedPool[-(1+i)].getNumConfirm() != 0:
+         for i in range(len(unspentTxOutInfo)):
+            if unspentTxOutInfo[-(1+i)].getNumConfirm() != 0:
                goodIdx = i
          if goodIdx != 0:
-            selectedTxOuts.append( sortedPool[goodIdx] )
-            del sortedPool[goodIdx]
+            selectedTxOuts.append( unspentTxOutInfo[goodIdx] )
+            del unspentTxOutInfo[goodIdx]
 
-   return (selectedTxOuts, reqZeroConfTxOuts)
+   return selectedTxOuts
 
 
 ################################################################################
 def PyEvalCoinSelect(unspentTxOutInfo, targetOutVal, minTxFee):
+   
+   score = 0
 
-   return (nInputMetric, nOutputMetric, sizeMetric)
+   return score
 
 
 ################################################################################
@@ -2934,6 +3071,10 @@ class PyTxDistProposal(object):
    TxDP is created, the system signing it only needs the ECDSA
    private keys and nothing else.   This enables the device 
    providing the signatures to be extremely lightweight.
+
+   TODO:  I need to figure out how to identify whether a TxOut
+          script requires Sig-PubKey-Sig-PubKey, or just Sig-Sig
+          (or similar for N address)
    """
    def __init__(self, pytx=None):
       self.pytxObj   = UNINITIALIZED
@@ -2955,8 +3096,7 @@ class PyTxDistProposal(object):
          scrType = getTxOutScriptType(pytx.inputs[i])
          self.scriptTypes[i] = scrType
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            recipAddr    = TxOutScriptExtractAddrStr(pytx.inputs[i])
-            addr160List[i] = addrStr_to_binary(recipAddr)
+            addr160List[i] = TxOutScriptExtractAddr160(pytx.inputs[i])
          elif scrType==TXOUT_SCRIPT_MULTISIG:
             addr160List[i] = multiSigExtractAddr160List(script)
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
