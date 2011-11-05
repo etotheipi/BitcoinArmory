@@ -33,16 +33,34 @@ import os
 import pickle
 import string
 import sys
-
-#import asyncore
-#import asynchat
-#import asynhttp
+import shutil
 
 
 from struct import pack, unpack
 import hashlib 
 from pprint import pprint as pp
 from datetime import datetime
+
+VERSION = (0,5,0,0)  # (Major, Minor, Minor++, even-more-minor)
+
+def getVersionString(vquad=VERSION, numPieces=4):
+   vstr = '%d.%02d' % vquad[:2]
+   if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
+      vstr += '.%02d' % vquad[2]
+   if vquad[3] > 0 and numPieces>3:
+      vstr += '.%03d' % vquad[3]
+   return vstr
+
+def getVersionInt(vquad=VERSION, numPieces=4):
+   vint  = int(vquad[0] * 1e7)
+   if numPieces>1:
+      vint += int(vquad[1] * 1e5)
+   if numPieces>2:
+      vint += int(vquad[2] * 1e3)
+   if numPieces>3:
+      vint += int(vquad[3])
+   return vint
+   
 
 def sha1(bits):
    return hashlib.new('sha1', bits).digest()
@@ -61,16 +79,26 @@ USE_TESTNET = False
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
    BITCOIN_PORT = 8333
-   BITCOIN_MAGIC = '\xf9\xbe\xb4\xd9'
+   MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
    GENESIS_BLOCK_HASH = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
    ADDRBYTE = '\x00'
 else:
    BITCOIN_PORT = 18333
-   BITCOIN_MAGIC = '\xfa\xbf\xb5\xda'
+   MAGIC_BYTES  = '\xfa\xbf\xb5\xda'
    GENESIS_BLOCK_HASH_HEX = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
    GENESIS_BLOCK_HASH = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
    ADDRBYTE = '\x6f'
+
+
+BLOCKCHAINS = {}
+BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
+BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Test Network"
+
+NETWORKS = {}
+BLOCKCHAINS['\x00'] = "Main Network"
+BLOCKCHAINS['\x6f'] = "Test Network"
+BLOCKCHAINS['\x34'] = "Namecoin"
 
 
 def coin2str(ncoin, ndec=8):
@@ -812,9 +840,10 @@ class PyBtcAddress(object):
       self.addrStr    = UNINITIALIZED 
       self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
       self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
+      self.privKeyCrypt = UNINITIALIZED
 
    def hasPrivKey(self):
-      return (not self.privKeyInt == UNINITIALIZED)
+      return ((not self.privKeyInt == UNINITIALIZED))
 
    def hasPubKey(self):
       return ((not self.pubKeyXInt == UNINITIALIZED) and \
@@ -1064,7 +1093,7 @@ class PyBtcAddress(object):
 
    def pubKey_serialize(self):
       if not self.hasPubKey():
-         return ''
+         return '\x00'
       else:
          xBinBE = int_to_binary(self.pubKeyXInt, widthBytes=32, endOut=BIGENDIAN)
          yBinBE = int_to_binary(self.pubKeyYInt, widthBytes=32, endOut=BIGENDIAN)
@@ -1088,13 +1117,12 @@ class PyBtcAddress(object):
          self.pubKeyYInt = binary_to_int(keyData.get(BINARY_CHUNK, 32), BIGENDIAN)
 
 
-
    def privKey_serialize(self):
       if not self.hasPrivKey():
          return '\x00'
       else:
-         privKeyBin = int_to_binary(self.privKeyInt, widthBytes=32, endOut=BIGENDIAN)
-         return '\x01' + privKeyBin
+         privKeyBin = '\x80' + int_to_binary(self.privKeyInt, widthBytes=32, endOut=BIGENDIAN)
+         return privKeyBin
    def privKey_unserialize(self, toUnpack):
       # Does not recompute public key and addr -- run consistency check
       if isinstance(toUnpack, BinaryUnpacker):
@@ -2844,8 +2872,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
 
 ################################################################################
-# Sorting currently implemented in C++, but just in case we need it here,
-# I might fill out this method to actually do some kind of sorting
+# Sorting currently implemented in C++, but we implement a different kind, here
 def PySortCoins(unspentTxOutInfo, sortMethod=1):
    """
    This isn't exactly straightforward:  it's because we want to group
@@ -2854,34 +2881,33 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    since it doesn't hurt our anonymity at all (though if there's too many,
    we risk creating a tx requiring a tx fee).
 
-   Also, as a precaution we send all the zero-confirmation UTOs to the back
+   Also, as a precaution we send all the zero-confirmation UTXO's to the back
    of the list, so that they will only be used if absolutely necessary.  
    Using a zero-confirmation TxOut is not only "unreliable", but may result
    in mandatory tx fees
    """
    addrMap = {}
-   for uto in unspentTxOutInfo:
-      addr = TxOutScriptExtractAddr160(uto.getScript())
-      if not addrMap.has_key(addr):
-         addrMap[addr] = [uto]
-      else:
-         addrMap[addr].append(uto)
-
-   # TODO: check this actually does what I think it does
    zeroConfirm = []
-   priorityUTO = (lambda a: a.getNumConfirm()*a.getValue())
+   for utxo in unspentTxOutInfo:
+      if utxo.getNumConfirm() == 0:
+         zeroConfirm.append(utxo)
+      else:
+         addr = TxOutScriptExtractAddr160(utxo.getScript())
+         if not addrMap.has_key(addr):
+            addrMap[addr] = [utxo]
+         else:
+            addrMap[addr].append(utxo)
+
+   priorityUTXO = (lambda a: a.getNumConfirm()*a.getValue())
    for addr,txoutList in addrMap.iteritems():
-      txoutList.sort(key=priorityUTO, reverse=True)
-      for uto in txoutList:
-         if uto.getNumConfirm() == 0:
-            zeroConfirm.append([uto])
-            del uto
+      txoutList.sort(key=priorityUTXO, reverse=True)
 
-   priorityGrp = lambda a: max([priorityUTO(uto) for uto in a])
+   priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
    finalSortedList = []
-   for uto in sorted(addrMap.values(), key=priorityGrp)
-      finalSortedList.extend(uto)
+   for utxo in sorted(addrMap.values(), key=priorityGrp):
+      finalSortedList.extend(utxo)
 
+   finalSortedList.extend(zeroConfirm)
    return finalSortedList
 
 
@@ -2894,113 +2920,312 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
 
 
 ################################################################################
-def PySelectCoins_SingleInput_SingleValueAbsMin( \
+def PySelectCoins_SingleInput_SingleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
    """
-   This method should usually be superceded by the other SingleValue method
-   but we must have a method that accmmodates someone trying to spend exactly
-   the remainder of the coins, which means that if we add any margin to the
-   target, we won't find an answer.
-   """
-   target = targetOutVal + minFee
-   bestMatchVal = 2**64
-   bestMatchUto = None
-   for uto in unspentTxOutInfo:
-      if target < uto.getValue() < bestMatchVal:
-         bestMatchVal = uto.getValue()
-         bestMatchUto = uto
+   This method should usually be called with a small number added to target val
+   so that a tx can be constructed that has room for user to add some extra fee
+   if necessary.
 
-   if bestMatchUto==None:
+   However, we must also try calling it with the exact value, in case the user
+   is trying to spend exactly their remaining balance.
+   """
+   CENT = 0.01e8
+   target = targetOutVal + minFee
+   bestMatchVal  = 2**64
+   bestMatchUtxo = None
+   for utxo in unspentTxOutInfo:
+      if target <= utxo.getValue() < bestMatchVal:
+         bestMatchVal = utxo.getValue()
+         bestMatchUtxo = utxo
+
+   closeness = bestMatchVal - target
+   if 0 < closeness <= CENT:
+      # If we're going to have a change output, make sure it's above CENT
+      # to avoid a mandatory fee
+      try2Val  = 2**64
+      try2Utxo = None
+      for utxo in unspentTxOutInfo:
+         if target+CENT < utxo.getValue() < try2Val:
+            try2Val = utxo.getValue()
+            try2Val = utxo
+      if not try2Utxo==None:
+         bestMatchUtxo = try2Utxo
+      
+
+   if bestMatchUtxo==None:
       return []
    else:
-      return [bestMatchUto]
-         
+      return [bestMatchUtxo]
 
 ################################################################################
-MARGIN_AMT = 0.01e8
-def PySelectCoins_SingleInput_SingleValueWithMargin( \
+def PySelectCoins_MultiInput_SingleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
-      
-   return PySelectCoins_SingleInput_SingleValueAbsMin( \
-               unspentTxOutInfo, targetOutVal+MARGIN_AMT, minFee)
-   
+   """
+   This method should usually be called with a small number added to target val
+   so that a tx can be constructed that has room for user to add some extra fee
+   if necessary.
+
+   However, we must also try calling it with the exact value, in case the user
+   is trying to spend exactly their remaining balance.
+   """
+   target = targetOutVal + minFee
+   outList = []
+   sumList = 0
+   for utxo in unspentTxOutInfo:
+      sumVal += utxo.getValue()
+      outList.append(utxo)
+      if sumVal>=targetOutVal:
+         break
+         
+   return outList
+         
+
 
 ################################################################################
 def PySelectCoins_SingleInput_DoubleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
-   # Default target value is 2*txVal
+   """
+   We will look for a single input that is within 30% of the target
+   In case the tx value is tiny rel to the fee: the minTarget calc
+   may fail to exceed the actual tx size needed, so we add an extra 
+
+   We restrain the search to 25%.  If there is no one output in this
+   range, then we will return nothing, and the SingleInput_SingleValue
+   method might return a usable result
+   """
    idealTarget    = 2*targetOutVal + minFee
 
-   # We will look for a single input that is within 15% of the target
-   # In case the tx value is tiny rel to the fee: the minTarget calc
-   # may fail to exceed the actual tx size needed, so we add an extra 
    # check to make sure we're accumulating enough
-   minTarget   = long(0.70 * idealTarget)
+   minTarget   = long(0.75 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minTxFee)
-   maxTarget   = long(1.30 * idealTarget)
+   maxTarget   = long(1.25 * idealTarget)
 
    if totalAvailBtc < minTarget:
       return []
 
-   # If we have a good, single TxOut, let's use it
+   bestMatch = 2**64-1
+   bestUTXO   = None
    for txout in unspentTxOutInfo:
       if minTarget <= txout.getValue() <= maxTarget:
-         if txout.getNumConfirm() > 0:
-            return [txout]
+         if abs(txout.getValue()-idealTarget) < bestMatch:
+            bestMatch = abs(txout.getValue()-idealTarget) 
+            bestUTXO = txout
+
+   if bestUTXO==None:
+      return []
+   else:
+      return [bestUTXO]
          
-
-
 ################################################################################
-def PySelectCoins_MultiInput_SingleValuePrecise( \
+def PySelectCoins_MultiInput_DoubleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
 
-   minTarget = targetOutVal + minFee
+   idealTarget = 2.0 * targetOutVal 
+   minTarget   = long(0.70 * idealTarget)
+   minTarget   = max(minTarget, targetOutVal+minTxFee)
+   if totalAvailBtc < minTarget:
+      return []
 
-   # Let's start accumulating high-priority inputs
-   # Every 2 inputs, we add a low-priority input to prevent them 
-   # from accumulating.  If the user only has zero-confirmation Txs,
-   # then this loop will select them if no other options exist.
-   loopIters = 0
-   selectedTxOuts = []
-   while sumValues(selectedTxOuts) < minTarget:
-      loopIters += 1
-      if loopIters%3 != 0:
-         selectedTxOuts.append( unspentTxOutInfo )
-      else:
-         # find lowest priority non-zero-confirm txOut
-         # If there aren't any: the next loop iter will use a zero-confirm
-         goodIdx = 0
-         for i in range(len(unspentTxOutInfo)):
-            if unspentTxOutInfo[-(1+i)].getNumConfirm() != 0:
-               goodIdx = i
-         if goodIdx != 0:
-            selectedTxOuts.append( unspentTxOutInfo[goodIdx] )
-            del unspentTxOutInfo[goodIdx]
+   outList   = []
+   lastDiff  = 2**64-1
+   sumVal    = 0
+   for utxo in unspentTxOutInfo:
+      sumVal += utxo.getValue()
+      outList.append(utxo)
+      currDiff = abs(sumVal - idealTarget)
+      # should switch from decreasing to increasing when best match
+      if sumVal>=targetOutVal and currDiff>lastDiff:
+         del outList[-1]
+         break
+      lastDiff = currDiff
 
-   return selectedTxOuts
+   return outlist
 
 
 ################################################################################
-def PyEvalCoinSelect(unspentTxOutInfo, targetOutVal, minTxFee):
+def PySelectCoins_RandomInputs_SingleValue( \
+                                    unspentTxOutInfo, targ, minFee=0):
+   utxolist = unspentTxOutInfo[:] # make a copy
+   random.shuffle(utxolist) 
    
-   score = 0
+   return PySelectCoins_MultiInput_SingleValue(utxoList, targ, minFee)
 
+################################################################################
+def PySelectCoins_RandomInputs_DoubleValue( \
+                                    unspentTxOutInfo, targ, minFee=0):
+   utxolist = unspentTxOutInfo[:] # make a copy
+   random.shuffle(utxolist) 
+   return PySelectCoins_MultiInput_DoubleValue(utxoList, targ, minFee)
+
+
+################################################################################
+WEIGHT_ALLOWFREE  = 1e8
+WEIGHT_OUTANONYM  = 1e7
+WEIGHT_NUMADDR    = 1e7
+WEIGHT_TXSIZE     = 1e7
+WEIGHT_PRIORITY   = 1e7
+WEIGHT_ZEROCONF   = 1e8
+
+def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
+   """
+   Define a metric for deciding how good a selection of coins is.  We assign
+   an absolute value to the selection, then outside this function, pick the 
+   one with the highest score
+   """
+   if len(utxoSelectList)==0:
+      return -1
+   
+   ##################
+   # Count number of addressed being linked together
+   addrSet = set([])
+   hasZeroConf = False
+   for utxo in utxoSelectList:
+      addrSet.add(TxOutScriptExtractAddr160(utxo.getScript()))
+      if utxo.getNumConfirm() == 0:
+         hasZeroConf = True
+   numAddr = len(addrSet)
+   numAddrFactor = 9.0/(numAddr+2)**2  # max value is 1
+   
+   
+   # Gonna need the change value in a lot of other calculations
+   totalIn = sum([utxo.getValue() for utxo in utxoSelectList]) 
+   totalChange = totalIn - (targetOutVal+minTxFee)
+   isSingleOutput = (totalChange==0)
+
+   ##################
+   # Evaluate output anonanymity
+   # One good measure of anonymity is look at trailiing zeros of numSatoshi
+   # If one output is like 50.0, and nother if 27.383291, then it's fairly
+   # obvious which one is the change.  Can measure that by seeing that 50.0
+   # in satoshis has 9 trailing zeros, where as 27.383291 only has 2
+   countZeros = lambda btc:  str(btc).count('0')
+   nZeroDiff = countZeros(targetOutVal) - countZeros(totalChange)
+   nZeroFactor = 0 
+   if isSingleOutput:
+      nZeroFactor = 1
+   else:
+      if nZeroFactor==2:
+         nZeroFactor = 0.3
+      elif nZeroFactor==1:
+         nZeroFactor = 0.7
+      elif nZeroFactor<1:
+         nZeroFactor = abs(nZeroDiff) + 1
+   # If the value is negative, the wrong answer starts to look like the 
+   # correct one (about which output is recipient and which is change)
+
+
+   ##################
+   # Difference in outputs
+   outValDiff = abs(totalChange - targetOutVal)
+   diffPct = (outValDiff / max(totalChange, targetOutVal))
+   valDiffFactor = 0
+   if diffPct < 0.20:
+      valDiffFactor = 1
+   elif diffPct < 0.50:
+      valDiffFactor = 0.7
+   elif diffPct < 1.0:
+      valDiffFactor = 0.3
+   
+
+   ##################
+   # Tx size:  we don't have signatures yet, but we assume that each txin is
+   #           about 180 Bytes, TxOuts are 35, and 10 other bytes in the Tx
+   numBytes  =  10
+   numBytes += 180 * len(utxoSelectList)
+   numBytes +=  35 * (1 if totalChange==0 else 2)
+   txSizeFactor = 0
+   if numBytes<1000:
+      txSizeFactor=1
+   elif numBytes<2000:
+      txSizeFactor=0.3
+   elif numBytes<3000:
+      txSizeFactor=0
+   else:
+      txSizeFactor=-1  #if this is huge, actually subtract score
+
+
+   ##################
+   # If our change output is tiny, it might require us to pay a fee.
+   # But we shouldn't penalize this output set for change-inducing fee
+   # if the target output is similarly small.
+   CENT = 0.01e8
+   needFeeDueToChangeOutput = (totalChange<CENT and targetOutVal>CENT)
+
+
+   ##################
+   # Priority Sum:  Tx size is part of this calculation, but also independent
+   #                for part of tx-fee calculation
+   #                Also check if we have Any 0-confirmation inputs
+   dPriority = 0
+   anyZeroConfirm = False
+   for utxo in utxoSelectList:
+      if utxo.getNumConfirm() == 0:
+         anyZeroConfirm = True
+      else:
+         dPriority += utxo.getValue() + utxo.getNumConfirm()
+   dPriority = dPriority / numBytes
+   isFreeAllowed = (dPriority > 1e8*144/250) and (not needFeeDueToChangeOutput)
+
+   ##################
+   # Has any zeroConfirm
+
+   #################################################################################
+   # Finally, computer the score for this selection.  This has not been calibrated
+   # at all -- there may be an extremely undesirable weighting applied to each of 
+   # the factors
+   # 
+   # These weightings may become user-configurable in the future (or ate least,
+   # given an option of weighting profiles -- such as "max anonymity", "min fee",
+   # "balanced", etc)
+   #################################################################################
+   score  = 0
+   score += WEIGHT_ALLOWFREE * ( 1 if isFreeAllowed else 0)
+   score += WEIGHT_OUTANONYM * (nZeroFactor * valDiffFactor)/2.0
+   score += WEIGHT_PRIORITY  * log(dPriority, 10)/20.0  #
+   score += WEIGHT_TXSIZE    * txSizeFactor
+   score += WEIGHT_ZEROCONF  * ( 0 if hasZeroConf else 1)
+
+   # We want to very heavily discourage linking lots of input addresses
+   # So will will actually multiply by numAddrFactor instead of weighting it
+   score = score * numAddrFactor
    return score
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minTxFee=0, needsSorting=False):
-   #selectCoin1 = PySelectCoinsSingle(unspentTxOutInfo, targetOutVal, minTxFee):
-   #selectCoin2 = PySelectCoinsDouble(unspentTxOutInfo, targetOutVal, minTxFee):
-   pass
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01):
 
+   utxos = PySortCoins(unspentTxOutInfo)
+   
+   targExact  = targetOutVal
+   targMargin = targetOutVal+margin
+
+   selectLists = []
+   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targBtcExact,  minFee ))
+   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targBtcExact,  minFee ))
+   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targBtcMargin, minFee ))
+   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targBtcMargin, minFee ))
+   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targBtcExact,  minFee ))
+   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targBtcExact,  minFee ))
+   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targBtcMargin, minFee ))
+   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targBtcMargin, minFee ))
+   for i in range(numRand):
+      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targBtcExact,  minFee))
+      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targBtcMargin, minFee))
+   for i in range(numRand):
+      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targBtcExact,  minFee))
+      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targBtcMargin, minFee))
+
+   
+   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minTxFee)
+   return max(selectLists, key=scoreFunc)
 
    
 ################################################################################
 ################################################################################
 def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
    pytx = PyTx()
-   sumInputs  = sum([uto.getValue()  for uto in selectedTxOuts])
+   sumInputs  = sum([utxo.getValue()  for utxo in selectedTxOuts])
    sumOutputs = sum([dst[1]          for dst in dstAddrValPairs])
    txFee = sumInputs - sumOutputs
 
@@ -3203,8 +3428,234 @@ class PyTxDistProposal(object):
 
 
 
+################################################################################
+################################################################################
+#
+# The following class rigorously defines the file format for storing, loading
+# and modifying "wallet" objects.  Presumably, wallets will be used for one of
+# three purposes:
+#
+#  (1) Spend money and receive payments
+#  (2) Watching-only wallets - we have the private key, just not on this computer
+#  (3) May be watching addresses of *other* people.  There's a variety of reasons
+#      we might want to watch other peoples' addresses, but most them are not
+#      relevant to a "basic" BTC user.  Nonetheless it should be supported to
+#      watch money without considering it part of our own assets
+#
+#
+#  The file format was designed from the outset with lots of unused space to 
+#  allow for expansion without having to redefine the file format and break
+#  previous wallets.  Luckily, wallet information is cheap, so we don't have 
+#  to stress too much about saving space (100,000 addresses should take 15 MB)
+#
+#  This file is NOT for storing Tx-related information.  I want this file to
+#  be the minimal amount of information you need to secure and backup your
+#  entire wallet.  Tx information can always be recovered from examining the
+#  blockchain... your private keys cannot be.
+#
+#  We track version numbers, just in case.  We start with 1.0
+#  
+#  Version 1.0:
+#      ---
+#        fileID      -- (8)  '\xbaWALLET\x00' for wallet files
+#        version     -- (4)   floating point number, times 1e6, rounded to int
+#        magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
+#        wlt flags   -- (8)   64 bits/flags representing info about wallet
+#        wlt ID      -- (8)   first 8 bytes of first address in wallet
+#                             (this contains the network byte; mainnet, testnet)
+#        create date -- (8)   unix timestamp of when this wallet was created
+#        UNUSED      -- (256) unused space for future expansion of wallet file
+#        Short Name  -- (32)  Null-terminated user-supplied short name for wlt
+#        Long Name   -- (256) Null-terminated user-supplied description for wlt
+#      ---
+#        Crypto/KDF  -- (256) information identifying the types and parameters
+#                             of encryption used to secure wallet, and key 
+#                             stretching used to secure your passphrase.
+#                             Includes salt. (the breakdown of this field will
+#                             be described separately)
+#        Deterministic--(512) Includes private key generator (prob encrypted),
+#        Wallet Params        base public key for watching-only wallets, and 
+#                             a chain-code that identifies how keys are related
+#                             (each field also contains chksum for integrity)
+#      ---
+#        Remainder of file is for key storage, and comments about individual
+#        addresses.  
+# 
+#        PrivKey(33)  -- ECDSA private key, with a prefix byte declaring whether
+#                        this is an encrypted 32-bytes or not plain.  
+#        CheckSum(4)  -- This is the checksum of the data IN THE FILE!  If the 
+#                        PrivKey is encrypted, checksum is first 4 bytes of the
+#                        encrypted private key.  Likewise for unencrypted.  THe
+#                        goal is to make sure we don't lose our private key to
+#                        a bit/byte error somewhere (this isn't the best way to
+#                        recover from a bit/byte error, but such errors should
+#                        be rare, and the simplicity is preferred over something
+#                        like Reed-Solomon)
+#        PublicKey(64)-- 
+#        Creation Time/ --
+#        First seen time
+#        Last-seen time --
+#        TODO:  finish this!
+#                             
+#                    
+#
+#
+################################################################################
+################################################################################
+class PyBtcWallet(object):
+   """
+   This class encapsulates all the concepts and variables in a "wallet",
+   and maintains the passphrase protection, key stretching, encryption,
+   etc, required to maintain the wallet.  This class also includes the
+   file I/O methods for storing and loading wallets.
+   """
+
+   class CryptoParams(object):
+      def __init__(self):
+         self.kdf = None
+         self.cryptoPrivKey = None
+         self.cryptoPubKey = None
+
+      def kdf(self, passphrase):
+         pass
+
+      def encrypt(self, plaintext, key, *args):
+         pass
+
+      def decrypt(self, plaintext, key, *args):
+         pass
+
+      def serialize(self):
+         return '\x00'*1024
+
+      def unserialize(self, toUnpack):
+         binData = toUnpack
+         if isinstance(toUnpack):
+            binData = toUnpack.get(BINARY_CHUNK, 1024)
+
+         # Right now, nothing to do because encryption is not implemented
+         # Coming soon, though!
+         pass 
 
 
+
+   def __init__(self):
+      self.addrList = []
+      self.fileID   = '\xbaWALLET\x00'
+      self.version  = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
+      self.eofByte  = 0
+
+   
+   def getWalletVersion(self):
+      return (getVersionInt(self.version), getVersionString(self.version))
+   
+   def writeToFile(self, fn, withPrivateKeys=True, withBackup=True):
+      """
+      All data is little-endian unless you see the method explicitly
+      pass in "BIGENDIAN" as the last argument to the put() call...
+
+      Pass in withPrivateKeys=False to create a watching-only wallet.
+      """
+      if os.path.exists(fn) and withBackup:
+         shutil.copy(fn, fn+'_old');
+      
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.fileID)     
+      for i in range(4):
+         bp.put(UINT8, self.version[i])
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+
+      # TODO: Define wallet flags
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+
+      # Creation Date
+      try:
+         bp.put(UINT64, self.walletCreateTime)
+      except:
+         bp.put(UINT64, long(time.time()))
+
+
+      # TODO: Make sure firstAddr is defined
+      bp.put(BINARY_CHUNK, firstAddr[:8])
+
+      # UNUSED BINARY DATA -- maybe used to expand file format later
+      bp.put(BINARY_CHUNK, '\x00'*256)
+
+      # Short and long name/info supplied by the user (not really binary data)
+      bp.put(BINARY_CHUNK, self.shortInfo[:32].ljust( 33,'\x00'))
+      bp.put(BINARY_CHUNK, self.longInfo[:255].ljust(256,'\x00'))
+
+      # All information needed to know how to get from a passphrase/password
+      # to a decrypted private key -- all zeros if 
+      # TODO:  need to define this more rigorously, maybe layout each field here
+      bp.put(BINARY_CHUNK, self.crypto.serialize().ljust(256,'\x00'))
+      if not self.isDeterministic:
+         # TODO:  NEED VAR_INTs to identify key lengths
+         bp.put(BINARY_CHUNK, '\x00'*(1 + 32 + 4 + 64 + 4 + 32 + 4 + 256))
+      else:
+         if self.hasPrivKeyGen():
+
+            if self.privKeyIsPlain:
+               # This method does nothing if no encryption is defined
+               pkgEncr = self.crypto.encrypt(self.privKeyGen, self.encryptPub) 
+
+            pkgLen  = len(pkgEncr)
+            bp.put(VAR_INT, pkgLen)
+            bp.put(BINARY_CHUNK, pkgEncr + hash256(pkgEncr)[:4])
+
+            pubLen  = len(self.pubKeyGen)
+            bp.put(VAR_INT, pubLen)
+            bp.put(BINARY_CHUNK, self.pubKeyGen + hash256(self.pubKeyGen)[:4])
+
+            chcLen  = len(self.chainCode)
+            bp.put(VAR_INT, chcLen)
+            bp.put(BINARY_CHUNK, self.chainCode + hash256(self.chainCode)[:4])
+
+            bp.put(BINARY_CHUNK, '\x00'*256)
+
+      wltFile = open(fn, 'wb')
+      wltFile.write(bp.getBinaryString())
+      wltFile.close()
+
+      
+
+
+   def appendKeyToFile(self, fn, pbaddr, withPrivateKeys=True):
+      assert(os.path.exists(fn))
+      prevSize = os.path.getsize(fn)
+         
+      bp = BinaryPacker()
+      wltFile = open(fn, 'ab')
+
+      bp.put(UINT8, 1 if self.useEncrypt() else 0)
+      bp.put(BINARY_CHUNK, pbaddr.getAddr160())
+      if withPrivateKeys and pbaddr.hasPrivKey():
+         privKeyBin = int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN)
+         bp.put(BINARY_CHUNK, privKeyBin)
+         bp.put(BINARY_CHUNK, int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN))
+      else:
+         bp.put(BINARY_CHUNK, '\x00'*32)
+      
+      
+
+
+
+   def readFromFile(self, fn):
+      
+      magicBytes = bup.get(BINARY_CHUNK, 4)
+      if not magicBytes == MAGIC_BYTES:
+         print '***ERROR:  Requested wallet is for a different blockchain!'
+         print '           Wallet is for:', BLOCKCHAINS[magicBytes]
+         print '           PyBtcEngine:  ', BLOCKCHAINS[MAGIC_BYTES]
+         return
+      if not netByte == ADDRBYTE:
+         print '***ERROR:  Requested wallet is for a different network!'
+         print '           Wallet is for:', NETWORKS[netByte]
+         print '           PyBtcEngine:  ', NETWORKS[ADDRBYTE]
+         return
+
+   def syncToFile(self, fn):
+      pass
 
 
 

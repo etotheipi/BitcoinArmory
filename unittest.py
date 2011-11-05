@@ -162,7 +162,6 @@ print '\tAddr calc from pubkey: ', saddr.calculateAddrStr()
 print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
-"""
 ################################################################################
 addr = PyBtcAddress().generateNew()
 msg = int_to_binary(39029348428)
@@ -281,7 +280,6 @@ psp = PyScriptProcessor()
 psp.setTxObjects(tx1, tx2, 0)
 verifResult = psp.verifyTransactionValid()
 printpassorfail( verifResult)
-"""
 
 
 print '\nTest multisig addr extraction  :',
