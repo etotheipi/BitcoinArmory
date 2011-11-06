@@ -3064,17 +3064,19 @@ def PySelectCoins_RandomInputs_DoubleValue( \
 # TODO:  ADJUST WEIGHTING!
 WEIGHT_ALLOWFREE  = 100
 WEIGHT_ZEROCONF   = 100
-WEIGHT_NUMADDR    =  50
-WEIGHT_TXSIZE     =  50
-WEIGHT_OUTANONYM  =  30
 WEIGHT_PRIORITY   =  50
+WEIGHT_NUMADDR    =  50
+WEIGHT_TXSIZE     = 100
+WEIGHT_OUTANONYM  =  30
 
 def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
    """
    Define a metric for deciding how good a selection of coins is.  We assign
    an absolute value to the selection, then outside this function, pick the 
    one with the highest score
+
    """
+
    if len(utxoSelectList)==0:
       return -1
    
@@ -3185,7 +3187,7 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
    score  = 0
    score += WEIGHT_ALLOWFREE * ( 1 if isFreeAllowed else 0)
    score += WEIGHT_OUTANONYM * (nZeroFactor * valDiffFactor)/2.0
-   score += WEIGHT_PRIORITY  * math.log(dPriority, 10)/20.0  #
+   score += WEIGHT_PRIORITY  * math.log(dPriority+1, 10)/20.0  #
    score += WEIGHT_TXSIZE    * txSizeFactor
    score += WEIGHT_ZEROCONF  * ( 0 if hasZeroConf else 1)
 
@@ -3196,7 +3198,14 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01e8):
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=20, margin=0.01e8):
+   """
+   Intense algorithm for coin selection:  computes about 30 different ways to
+   select coins based on the desired target output and the min tx fee.  Then 
+   ranks the various solutions and picks the best one
+   """
+   # TODO:  NEED TO CONSIDER HOW TO CALCULATE A MINIMUM FEE AND ADD IT AUTOMATICALLY
+   #        (or rather, prompt to add it)
 
    utxos = PySortCoins(unspentTxOutInfo)
    if sum([u.getValue() for u in utxos]) < targetOutVal:
@@ -3221,16 +3230,36 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
       selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targExact,  minFee))
       selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targMargin, minFee))
 
+   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minFee)
+   finalSelection = max(selectLists, key=scoreFunc)
 
-   #for i,soln in enumerate(selectLists):
+   #for i,soln in enumerate(finalSelection):
       #print 'SelectLists[%03d]:' % i, 
       #print sum([u.getValue() for u in soln])/1e8
       #for utxo in soln:
          #utxo.pprint('   ')
-   
-   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minFee)
-   return max(selectLists, key=scoreFunc)
 
+   # TODO:  If we selected a list that has only one or two inputs, and we have
+   #        other, tiny, unspent outputs from the same addresses, we should 
+   #        throw one or two of them in to help clear them out
+   if len(finalSelection)>=3:
+      return finalSelection
+   else:
+      for sel in finalSelection:
+         addrAlreadyUsed = TxOutScriptExtractAddr160(sel)
+         for other in utxos:
+            if(  addrAlreadyUsed==TxOutScriptExtractAddr160(other) and \
+                 sel.getValue() != other.getValue() and \
+                 sel.getNumConfirm() != other.getNumConfirm() and \
+                 other.getValue() < 0.1*targetOutVal):
+               finalSelection.append(other)
+               if len(finalSelection)>=3:
+                  return finalSelection
+
+   return finalSelection
+               
+               
+   
    
 ################################################################################
 ################################################################################
