@@ -34,6 +34,7 @@ import pickle
 import string
 import sys
 import shutil
+import math
 
 
 from struct import pack, unpack
@@ -2892,19 +2893,19 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       if utxo.getNumConfirm() == 0:
          zeroConfirm.append(utxo)
       else:
-         addr = TxOutScriptExtractAddr160(utxo.getScript())
+         addr = TxOutScriptExtractAddr160(utxo)
          if not addrMap.has_key(addr):
             addrMap[addr] = [utxo]
          else:
             addrMap[addr].append(utxo)
 
-   priorityUTXO = (lambda a: a.getNumConfirm()*a.getValue())
+   priorityUTXO = (lambda a: (a.getNumConfirm()*a.getValue()**0.333))
    for addr,txoutList in addrMap.iteritems():
       txoutList.sort(key=priorityUTXO, reverse=True)
 
    priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
    finalSortedList = []
-   for utxo in sorted(addrMap.values(), key=priorityGrp):
+   for utxo in sorted(addrMap.values(), key=priorityGrp, reverse=True):
       finalSortedList.extend(utxo)
 
    finalSortedList.extend(zeroConfirm)
@@ -2971,7 +2972,7 @@ def PySelectCoins_MultiInput_SingleValue( \
    """
    target = targetOutVal + minFee
    outList = []
-   sumList = 0
+   sumVal = 0
    for utxo in unspentTxOutInfo:
       sumVal += utxo.getValue()
       outList.append(utxo)
@@ -2998,10 +2999,10 @@ def PySelectCoins_SingleInput_DoubleValue( \
 
    # check to make sure we're accumulating enough
    minTarget   = long(0.75 * idealTarget)
-   minTarget   = max(minTarget, targetOutVal+minTxFee)
+   minTarget   = max(minTarget, targetOutVal+minFee)
    maxTarget   = long(1.25 * idealTarget)
 
-   if totalAvailBtc < minTarget:
+   if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
       return []
 
    bestMatch = 2**64-1
@@ -3023,8 +3024,8 @@ def PySelectCoins_MultiInput_DoubleValue( \
 
    idealTarget = 2.0 * targetOutVal 
    minTarget   = long(0.70 * idealTarget)
-   minTarget   = max(minTarget, targetOutVal+minTxFee)
-   if totalAvailBtc < minTarget:
+   minTarget   = max(minTarget, targetOutVal+minFee)
+   if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
       return []
 
    outList   = []
@@ -3040,7 +3041,7 @@ def PySelectCoins_MultiInput_DoubleValue( \
          break
       lastDiff = currDiff
 
-   return outlist
+   return outList
 
 
 ################################################################################
@@ -3049,25 +3050,26 @@ def PySelectCoins_RandomInputs_SingleValue( \
    utxolist = unspentTxOutInfo[:] # make a copy
    random.shuffle(utxolist) 
    
-   return PySelectCoins_MultiInput_SingleValue(utxoList, targ, minFee)
+   return PySelectCoins_MultiInput_SingleValue(utxolist, targ, minFee)
 
 ################################################################################
 def PySelectCoins_RandomInputs_DoubleValue( \
                                     unspentTxOutInfo, targ, minFee=0):
    utxolist = unspentTxOutInfo[:] # make a copy
    random.shuffle(utxolist) 
-   return PySelectCoins_MultiInput_DoubleValue(utxoList, targ, minFee)
+   return PySelectCoins_MultiInput_DoubleValue(utxolist, targ, minFee)
 
 
 ################################################################################
-WEIGHT_ALLOWFREE  = 1e8
-WEIGHT_OUTANONYM  = 1e7
-WEIGHT_NUMADDR    = 1e7
-WEIGHT_TXSIZE     = 1e7
-WEIGHT_PRIORITY   = 1e7
-WEIGHT_ZEROCONF   = 1e8
+# TODO:  ADJUST WEIGHTING!
+WEIGHT_ALLOWFREE  = 100
+WEIGHT_ZEROCONF   = 100
+WEIGHT_NUMADDR    =  50
+WEIGHT_TXSIZE     =  50
+WEIGHT_OUTANONYM  =  30
+WEIGHT_PRIORITY   =  50
 
-def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
+def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
    """
    Define a metric for deciding how good a selection of coins is.  We assign
    an absolute value to the selection, then outside this function, pick the 
@@ -3081,7 +3083,7 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
    addrSet = set([])
    hasZeroConf = False
    for utxo in utxoSelectList:
-      addrSet.add(TxOutScriptExtractAddr160(utxo.getScript()))
+      addrSet.add(TxOutScriptExtractAddr160(utxo))
       if utxo.getNumConfirm() == 0:
          hasZeroConf = True
    numAddr = len(addrSet)
@@ -3089,8 +3091,9 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
    
    
    # Gonna need the change value in a lot of other calculations
+   # Also, we usually prefer larger change values
    totalIn = sum([utxo.getValue() for utxo in utxoSelectList]) 
-   totalChange = totalIn - (targetOutVal+minTxFee)
+   totalChange = totalIn - (targetOutVal+minFee)
    isSingleOutput = (totalChange==0)
 
    ##################
@@ -3182,7 +3185,7 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
    score  = 0
    score += WEIGHT_ALLOWFREE * ( 1 if isFreeAllowed else 0)
    score += WEIGHT_OUTANONYM * (nZeroFactor * valDiffFactor)/2.0
-   score += WEIGHT_PRIORITY  * log(dPriority, 10)/20.0  #
+   score += WEIGHT_PRIORITY  * math.log(dPriority, 10)/20.0  #
    score += WEIGHT_TXSIZE    * txSizeFactor
    score += WEIGHT_ZEROCONF  * ( 0 if hasZeroConf else 1)
 
@@ -3193,31 +3196,39 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minTxFee):
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01):
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01e8):
 
    utxos = PySortCoins(unspentTxOutInfo)
+   if sum([u.getValue() for u in utxos]) < targetOutVal:
+      return []
    
    targExact  = targetOutVal
    targMargin = targetOutVal+margin
 
    selectLists = []
-   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targBtcExact,  minFee ))
-   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targBtcExact,  minFee ))
-   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targBtcMargin, minFee ))
-   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targBtcMargin, minFee ))
-   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targBtcExact,  minFee ))
-   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targBtcExact,  minFee ))
-   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targBtcMargin, minFee ))
-   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targBtcMargin, minFee ))
+   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targExact,  minFee ))
+   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targExact,  minFee ))
+   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targMargin, minFee ))
+   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targMargin, minFee ))
+   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targExact,  minFee ))
+   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targExact,  minFee ))
+   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targMargin, minFee ))
+   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targMargin, minFee ))
    for i in range(numRand):
-      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targBtcExact,  minFee))
-      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targBtcMargin, minFee))
+      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targExact,  minFee))
+      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targMargin, minFee))
    for i in range(numRand):
-      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targBtcExact,  minFee))
-      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targBtcMargin, minFee))
+      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targExact,  minFee))
+      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targMargin, minFee))
 
+
+   #for i,soln in enumerate(selectLists):
+      #print 'SelectLists[%03d]:' % i, 
+      #print sum([u.getValue() for u in soln])/1e8
+      #for utxo in soln:
+         #utxo.pprint('   ')
    
-   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minTxFee)
+   scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minFee)
    return max(selectLists, key=scoreFunc)
 
    
