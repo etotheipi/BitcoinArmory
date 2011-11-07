@@ -124,6 +124,7 @@ NOHASH = '00'*32
 LITTLEENDIAN = '<';
 BIGENDIAN = '>';
 COIN = 1e8
+CENT = 1e8/100.
 UNINITIALIZED = None
 UNKNOWN = -2
 
@@ -2887,29 +2888,41 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    Using a zero-confirmation TxOut is not only "unreliable", but may result
    in mandatory tx fees
    """
-   addrMap = {}
    zeroConfirm = []
-   for utxo in unspentTxOutInfo:
-      if utxo.getNumConfirm() == 0:
-         zeroConfirm.append(utxo)
-      else:
-         addr = TxOutScriptExtractAddr160(utxo)
-         if not addrMap.has_key(addr):
-            addrMap[addr] = [utxo]
+
+   if sortMethod==0:
+      priorityFn = lambda a: a.getValue() * a.getNumConfirm()
+      return sorted(unspentTxOutInfo, key=priorityFn)
+   if sortMethod==1:
+      priorityFn = lambda a: (a.getValue() * a.getNumConfirm())**(1/3.)
+      return sorted(unspentTxOutInfo, key=priorityFn)
+   if sortMethod==2:
+      priorityFn = lambda a: (math.log(a.getValue()*a.getNumConfirm()+1)+4)**4
+      return sorted(unspentTxOutInfo, key=priorityFn)
+   if sortMethod==2:
+      addrMap = {}
+      zeroConfirm = []
+      for utxo in unspentTxOutInfo:
+         if utxo.getNumConfirm() == 0:
+            zeroConfirm.append(utxo)
          else:
-            addrMap[addr].append(utxo)
+            addr = TxOutScriptExtractAddr160(utxo)
+            if not addrMap.has_key(addr):
+               addrMap[addr] = [utxo]
+            else:
+               addrMap[addr].append(utxo)
 
-   priorityUTXO = (lambda a: (a.getNumConfirm()*a.getValue()**0.333))
-   for addr,txoutList in addrMap.iteritems():
-      txoutList.sort(key=priorityUTXO, reverse=True)
-
-   priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
-   finalSortedList = []
-   for utxo in sorted(addrMap.values(), key=priorityGrp, reverse=True):
-      finalSortedList.extend(utxo)
-
-   finalSortedList.extend(zeroConfirm)
-   return finalSortedList
+      priorityUTXO = (lambda a: (a.getNumConfirm()*a.getValue()**0.333))
+      for addr,txoutList in addrMap.iteritems():
+         txoutList.sort(key=priorityUTXO, reverse=True)
+   
+      priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
+      finalSortedList = []
+      for utxo in sorted(addrMap.values(), key=priorityGrp, reverse=True):
+         finalSortedList.extend(utxo)
+   
+      finalSortedList.extend(zeroConfirm)
+      return finalSortedList
 
 
 
@@ -2931,7 +2944,6 @@ def PySelectCoins_SingleInput_SingleValue( \
    However, we must also try calling it with the exact value, in case the user
    is trying to spend exactly their remaining balance.
    """
-   CENT = 0.01e8
    target = targetOutVal + minFee
    bestMatchVal  = 2**64
    bestMatchUtxo = None
@@ -3061,76 +3073,94 @@ def PySelectCoins_RandomInputs_DoubleValue( \
 
 
 ################################################################################
-# TODO:  ADJUST WEIGHTING!
-WEIGHT_ALLOWFREE  = 100
-WEIGHT_ZEROCONF   = 100
-WEIGHT_PRIORITY   =  50
-WEIGHT_NUMADDR    =  50
-WEIGHT_TXSIZE     = 100
-WEIGHT_OUTANONYM  =  30
-
-def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
+def getSelectCoinsScores(utxoSelectList, utxoAllList, targetOutVal, minFee):
    """
-   Define a metric for deciding how good a selection of coins is.  We assign
-   an absolute value to the selection, then outside this function, pick the 
-   one with the highest score
+   Define a metric for scoring the output of SelectCoints.  The output of 
+   this method is a tuple of scores which identify a few different factors
+   of a txOut selection that users might care about in a selectCoins algorithm.
 
+   This method only returns an absolute score, usually between 0 and 1 for 
+   each factor.  It is up to the person calling this method to decide how
+   much "weight" they want to give each one.  You could even use the scores
+   as multiplicative factors if you wanted, though they were designed with
+   the following equation in mind:   finalScore = sum(WEIGHT[i] * SCORE[i])
+
+   TODO:  I need to recalibrate some of these factors, and modify them to 
+          represent more directly what the user would be concerned about --
+          such as PayFeeFactor, AnonymityFactor, etc.  The information is
+          indirectly available with the current set of factors here
    """
 
-   if len(utxoSelectList)==0:
-      return -1
-   
-   ##################
-   # Count number of addressed being linked together
-   addrSet = set([])
-   hasZeroConf = False
-   for utxo in utxoSelectList:
-      addrSet.add(TxOutScriptExtractAddr160(utxo))
-      if utxo.getNumConfirm() == 0:
-         hasZeroConf = True
-   numAddr = len(addrSet)
-   numAddrFactor = 9.0/(numAddr+2)**2  # max value is 1
-   
-   
-   # Gonna need the change value in a lot of other calculations
-   # Also, we usually prefer larger change values
+   # Need to calculate how much the change will be returned to sender on this tx
    totalIn = sum([utxo.getValue() for utxo in utxoSelectList]) 
    totalChange = totalIn - (targetOutVal+minFee)
    isSingleOutput = (totalChange==0)
 
+   # Abort if this is an empty list (negative score) or not enough coins
+   if len(utxoSelectList)==0 or totalIn<targetOutVal+minFee:
+      return -1
+
+   
+   ##################
+   # -- Does this selection include any zero-confirmation tx?
+   # -- How many addresses are linked together by this tx?
+   addrSet = set([])
+   noZeroConf = 1
+   for utxo in utxoSelectList:
+      addrSet.add(TxOutScriptExtractAddr160(utxo))
+      if utxo.getNumConfirm() == 0:
+         noZeroConf = 0
+   numAddr = len(addrSet)
+   numAddrFactor = 4.0/(numAddr+1)**2  # values in the range (0, 1]
+   
+   
+
    ##################
    # Evaluate output anonanymity
-   # One good measure of anonymity is look at trailiing zeros of numSatoshi
+   # One good measure of anonymity is look at trailiing zeros of the value.
    # If one output is like 50.0, and nother if 27.383291, then it's fairly
    # obvious which one is the change.  Can measure that by seeing that 50.0
    # in satoshis has 9 trailing zeros, where as 27.383291 only has 2
-   countZeros = lambda btc:  str(btc).count('0')
-   nZeroDiff = countZeros(targetOutVal) - countZeros(totalChange)
-   nZeroFactor = 0 
-   if isSingleOutput:
-      nZeroFactor = 1
-   else:
-      if nZeroFactor==2:
-         nZeroFactor = 0.3
-      elif nZeroFactor==1:
-         nZeroFactor = 0.7
-      elif nZeroFactor<1:
-         nZeroFactor = abs(nZeroDiff) + 1
-   # If the value is negative, the wrong answer starts to look like the 
+   #
+   # If the diff is negative, the wrong answer starts to look like the 
    # correct one (about which output is recipient and which is change)
+   # We should give "extra credit" for those cases
+   countTrailingZeros = lambda btc:  len(str(btc)) - len(str(btc).strip('0'))
+   zeroDiff = countTrailingZeros(targetOutVal) - countTrailingZeros(totalChange)
+   outAnonFactor = 0 
+   if isSingleOutput:
+      outAnonFactor = 1
+   else:
+      if zeroDiff==2:
+         outAnonFactor = 0.2
+      elif zeroDiff==1:
+         outAnonFactor = 0.7
+      elif zeroDiff<1:
+         outAnonFactor = abs(zeroDiff) + 1
 
 
    ##################
-   # Difference in outputs
-   outValDiff = abs(totalChange - targetOutVal)
-   diffPct = (outValDiff / max(totalChange, targetOutVal))
-   valDiffFactor = 0
-   if diffPct < 0.20:
-      valDiffFactor = 1
-   elif diffPct < 0.50:
-      valDiffFactor = 0.7
-   elif diffPct < 1.0:
-      valDiffFactor = 0.3
+   # Equal inputs are anonymous-- but no point in doing this if the 
+   # trailing zeros count is way different -- i.e. does it matter if
+   # outputs a and b are close, if a=51.000, and b=47.283?  It's
+   # still pretty obvious which one is the change. (so: only execute
+   # the following block if outAnonFactor > 0)
+   #
+   # On the other hand, if we have 1.832 and 10.00, and the 10.000 is the 
+   # change, we don't really care that they're not close, it's still 
+   # damned good/deceptive output anonymity  (so: only execute
+   # the following block if outAnonFactor <= 1)
+   if 0 < outAnonFactor <= 1:
+      outValDiff = abs(totalChange - targetOutVal)
+      diffPct = (outValDiff / max(totalChange, targetOutVal))
+      if diffPct < 0.20:
+         outAnonFactor *= 1
+      elif diffPct < 0.50:
+         outAnonFactor *= 0.7
+      elif diffPct < 1.0:
+         outAnonFactor *= 0.3
+      else:
+         outAnonFactor = 0
    
 
    ##################
@@ -3140,65 +3170,125 @@ def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee):
    numBytes += 180 * len(utxoSelectList)
    numBytes +=  35 * (1 if totalChange==0 else 2)
    txSizeFactor = 0
-   if numBytes<1000:
-      txSizeFactor=1
-   elif numBytes<2000:
-      txSizeFactor=0.3
-   elif numBytes<3000:
-      txSizeFactor=0
-   else:
-      txSizeFactor=-1  #if this is huge, actually subtract score
+   numKb = int(numBytes / 1000)
+   # Will compute size factor after we see this tx priority and AllowFree
+   # results.  If the tx qualifies for free, we don't need to penalize 
+   # a 3 kB transaction vs one that is 0.5 kB
 
 
    ##################
-   # If our change output is tiny, it might require us to pay a fee.
-   # But we shouldn't penalize this output set for change-inducing fee
-   # if the target output is similarly small.
-   CENT = 0.01e8
-   needFeeDueToChangeOutput = (totalChange<CENT and targetOutVal>CENT)
-
-
-   ##################
-   # Priority Sum:  Tx size is part of this calculation, but also independent
-   #                for part of tx-fee calculation
-   #                Also check if we have Any 0-confirmation inputs
+   # Priority:  If our priority is above the 1-btc-after-1-day threshold
+   #            then we might be allowed a free tx.  But, if its priority
+   #            isn't much above this thresh, it might take a couple blocks
+   #            to be included
    dPriority = 0
    anyZeroConfirm = False
    for utxo in utxoSelectList:
       if utxo.getNumConfirm() == 0:
          anyZeroConfirm = True
       else:
-         dPriority += utxo.getValue() + utxo.getNumConfirm()
+         dPriority += utxo.getValue() * utxo.getNumConfirm()
+
    dPriority = dPriority / numBytes
-   isFreeAllowed = (dPriority > 1e8*144/250) and (not needFeeDueToChangeOutput)
+   priorityThresh = COIN * 144 / 250
+   if dPriority < priorityThresh:
+      priorityFactor = 0
+   elif dPriority < 10.0*priorityThresh:
+      priorityFactor = 0.7
+   elif dPriority < 100.0*priorityThresh:
+      priorityFactor = 0.9
+   else:
+      priorityFactor = 1.0
+
 
    ##################
-   # Has any zeroConfirm
+   # AllowFree:  If three conditions are met, then the tx can be sent safely
+   #             without a tx fee.  Granted, it may not be included in the 
+   #             current block if the free space is full, but definitely in 
+   #             the next one
+   isFreeAllowed = 0
+   if( totalChange>=CENT and targetOutVal>=CENT and \
+       dPriority >= priorityThresh and \
+       numBytes <= 3500):
+      isFreeAllowed = 1
+      
+   
+   ##################
+   # Finish size-factor calculation -- if free is allowed, kB is irrelevant
+   txSizeFactor = 0
+   if isFreeAllowed or numKb<1:
+      txSizeFactor = 1
+   else:
+      if numKb < 2:
+         txSizeFactor=0.2
+      elif numKb<3:
+         txSizeFactor=0.1
+      elif numKb<4:
+         txSizeFactor=0
+      else:
+         txSizeFactor=-1  #if this is huge, actually subtract score
+                       
+   return (isFreeAllowed, noZeroConf, priorityFactor, numAddrFactor, txSizeFactor, outAnonFactor)
 
-   #################################################################################
-   # Finally, computer the score for this selection.  This has not been calibrated
-   # at all -- there may be an extremely undesirable weighting applied to each of 
-   # the factors
-   # 
-   # These weightings may become user-configurable in the future (or ate least,
-   # given an option of weighting profiles -- such as "max anonymity", "min fee",
-   # "balanced", etc)
-   #################################################################################
+
+################################################################################
+# We define default preferences for weightings.  Weightings are used to 
+# determine the "priorities" for ranking various SelectCoins results
+# By setting the weights to different orders of magnitude, you are essentially
+# defining a sort-order:  order by FactorA, then sub-order by FactorB...
+################################################################################
+# TODO:  ADJUST WEIGHTING!
+IDX_ALLOWFREE   = 0
+IDX_NOZEROCONF  = 1
+IDX_PRIORITY    = 2
+IDX_NUMADDR     = 3
+IDX_TXSIZE      = 4
+IDX_OUTANONYM   = 5
+WEIGHTS = [None]*6
+WEIGHTS[IDX_ALLOWFREE]  = 100000
+WEIGHTS[IDX_NOZEROCONF] =    100
+WEIGHTS[IDX_PRIORITY]   =     50
+WEIGHTS[IDX_NUMADDR]    = 100000
+WEIGHTS[IDX_TXSIZE]     =    100 
+WEIGHTS[IDX_OUTANONYM]  =     30  
+
+################################################################################
+def PyEvalCoinSelect(utxoSelectList, utxoAllList, targetOutVal, minFee, weights=WEIGHTS):
+   """
+   Use a specified set of weightings and sub-scores for a unspentTxOut list, 
+   to assign an absolute "fitness" of this particular selection.  The goal of 
+   getSelectCoinsScores() is to produce weighting-agnostic subscores -- then
+   this method applies the weightings to these scores to get a final answer.
+   
+   If list A has a higher score than list B, then it's a better selection for
+   that transaction.  If you the two scores don't look right to you, then you 
+   probably just need to adjust the weightings to your liking.
+
+   These weightings may become user-configurable in the future -- likely as an
+   option of coin-selection profiles -- such as "max anonymity", "min fee",
+   "balanced", etc).
+   """
+   SCORES = getSelectCoinsScores(utxoSelectList, utxoAllList, targetOutVal, minFee)
+   if SCORES==-1:
+      return -1
+
+   # Combine all the scores
    score  = 0
-   score += WEIGHT_ALLOWFREE * ( 1 if isFreeAllowed else 0)
-   score += WEIGHT_OUTANONYM * (nZeroFactor * valDiffFactor)/2.0
-   score += WEIGHT_PRIORITY  * math.log(dPriority+1, 10)/20.0  #
-   score += WEIGHT_TXSIZE    * txSizeFactor
-   score += WEIGHT_ZEROCONF  * ( 0 if hasZeroConf else 1)
+   score += WEIGHTS[IDX_NOZEROCONF] * SCORES[IDX_NOZEROCONF]
+   score += WEIGHTS[IDX_PRIORITY]   * SCORES[IDX_PRIORITY]
+   score += WEIGHTS[IDX_NUMADDR]    * SCORES[IDX_NUMADDR]
+   score += WEIGHTS[IDX_TXSIZE]     * SCORES[IDX_TXSIZE]
+   score += WEIGHTS[IDX_OUTANONYM]  * SCORES[IDX_OUTANONYM]
+   
+   # If we're already paying a fee, why bother including this weight?
+   if minFee < 0.0005:
+      score += WEIGHTS[IDX_ALLOWFREE]  * SCORES[IDX_ALLOWFREE]
 
-   # We want to very heavily discourage linking lots of input addresses
-   # So will will actually multiply by numAddrFactor instead of weighting it
-   score = score * numAddrFactor
    return score
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=20, margin=0.01e8):
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01e8):
    """
    Intense algorithm for coin selection:  computes about 30 different ways to
    select coins based on the desired target output and the min tx fee.  Then 
@@ -3207,22 +3297,31 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=20, margin=0
    # TODO:  NEED TO CONSIDER HOW TO CALCULATE A MINIMUM FEE AND ADD IT AUTOMATICALLY
    #        (or rather, prompt to add it)
 
-   utxos = PySortCoins(unspentTxOutInfo)
-   if sum([u.getValue() for u in utxos]) < targetOutVal:
+   if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
       return []
    
+   diffSortList = []
+   diffSortList.append(PySortCoins(unspentTxOutInfo, 0))
+   diffSortList.append(PySortCoins(unspentTxOutInfo, 1))
+   diffSortList.append(PySortCoins(unspentTxOutInfo, 2))
    targExact  = targetOutVal
    targMargin = targetOutVal+margin
 
    selectLists = []
-   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targExact,  minFee ))
-   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targExact,  minFee ))
-   selectLists.append(PySelectCoins_SingleInput_SingleValue( utxos, targMargin, minFee ))
-   selectLists.append(PySelectCoins_MultiInput_SingleValue(  utxos, targMargin, minFee ))
-   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targExact,  minFee ))
-   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targExact,  minFee ))
-   selectLists.append(PySelectCoins_SingleInput_DoubleValue( utxos, targMargin, minFee ))
-   selectLists.append(PySelectCoins_MultiInput_DoubleValue(  utxos, targMargin, minFee ))
+   
+   # Start with the intelligent solutions with different sortings
+   for i in range(3):
+      selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList[i], targExact,  minFee ))
+      selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList[i], targExact,  minFee ))
+      selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList[i], targMargin, minFee ))
+      selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList[i], targMargin, minFee ))
+      selectLists.append(PySelectCoins_SingleInput_DoubleValue( diffSortList[i], targExact,  minFee ))
+      selectLists.append(PySelectCoins_MultiInput_DoubleValue(  diffSortList[i], targExact,  minFee ))
+      selectLists.append(PySelectCoins_SingleInput_DoubleValue( diffSortList[i], targMargin, minFee ))
+      selectLists.append(PySelectCoins_MultiInput_DoubleValue(  diffSortList[i], targMargin, minFee ))
+
+   # Throw in a couple random solutions, maybe we get lucky
+   utxos = unspentTxOutInfo[:]
    for i in range(numRand):
       selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targExact,  minFee))
       selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targMargin, minFee))
@@ -3232,6 +3331,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=20, margin=0
 
    scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, utxos, targetOutVal, minFee)
    finalSelection = max(selectLists, key=scoreFunc)
+   SCORES = getSelectCoinsScores(finalSelection, unspentTxOutInfo, targetOutVal, minFee)
 
    #for i,soln in enumerate(finalSelection):
       #print 'SelectLists[%03d]:' % i, 
@@ -3247,17 +3347,30 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=20, margin=0
    else:
       for sel in finalSelection:
          addrAlreadyUsed = TxOutScriptExtractAddr160(sel)
+         # First 3 conditions make sure we're not picking txOut already selected
+         # Additionally, we won't do it if we aren't already at 3xPriorityThresh
+         # (because new, small input will bring down priority)
+         # Finally, we shouldn't do this if a high score was assigned to output
+         # anonymity: this extra output cause a tx with good output anonymity to
+         # no longer possess this property
          for other in utxos:
             if(  addrAlreadyUsed==TxOutScriptExtractAddr160(other) and \
                  sel.getValue() != other.getValue() and \
                  sel.getNumConfirm() != other.getNumConfirm() and \
-                 other.getValue() < 0.1*targetOutVal):
+                 other.getValue() < 0.2*targetOutVal and \
+                 sel.getNumConfirm()*sel.getValue() > 3e8 * 144. / 250. and \
+                 other.getValue() > CENT and \
+                 SCORES[IDX_OUTANONYM] == 0):
                finalSelection.append(other)
                if len(finalSelection)>=3:
                   return finalSelection
 
    return finalSelection
                
+
+def calcMinSuggestedFee(unspentTxOutInfo, targetOutVal):
+   change = sum([u.getValue() for u in targetOutVal])
+   return 0
                
    
    
