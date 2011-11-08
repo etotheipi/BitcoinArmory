@@ -172,14 +172,6 @@ int main(void)
               << sortedUTOs[i][j].getTxOutIndex() << endl;
       }
       cout << endl;
-   //}
-   //vector<TxRef*> txs = bdm.getHeaderByHeight(151467)->getTxRefPtrList();
-   //for(int i=0; i<txs.size(); i++)
-   //{
-      //cout << "Tx: " << i << endl;
-      //txs[i]->pprint();
-      //cout << endl << txs[i]->serialize().toHexStr() << endl;
-   //}
 
 
    /////////////////////////////////////////////////////////////////////////////

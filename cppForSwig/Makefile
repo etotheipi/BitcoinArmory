@@ -6,7 +6,7 @@ COMPILER_OPTS = -c -march=native -O2 -pipe
 LINKER = g++ 
 OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o
 
-INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS -DTEST_NETWORK
+INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -Lcryptopp -lcryptopp -lpthread
 SWIG_INC += -I/usr/include/python2.7
 

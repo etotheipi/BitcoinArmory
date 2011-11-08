@@ -102,20 +102,21 @@ BLOCKCHAINS['\x6f'] = "Test Network"
 BLOCKCHAINS['\x34'] = "Namecoin"
 
 
-def coin2str(ncoin, ndec=8):
-   dispstr = str(ncoin)
-   firstChar = ' '
-   if ncoin < 0:
-      dispstr=dispstr[1:]
-      firstChar='-'
-   left = '0'
-   if abs(ncoin) > 99999999:
-      left = dispstr[:-8]
-   right = dispstr[-8:]
-   if not ndec==8:
-      right = right[:ndec]
-   return firstChar+left+'.'+right
    
+def coin2str(nSatoshi, ndec=8, rJust=False):
+   # We make sure that when we truncate digits, it's actually applying rounding
+   if ndec<8: 
+      nSatoshi += 5 * 10**(7-ndec)
+   s = str(long(nSatoshi))
+   if len(s)<9: 
+      s = s.rjust(9,'0')
+   s = s.rjust(16,' ')
+   s = s[:8] + '.' + s[8:8+ndec]
+   if ndec==0: 
+      s = s.strip('.')
+   if not rJust: 
+      s = s.strip(' ')
+   return s
    
 
 b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -1196,8 +1197,7 @@ TXIN_SCRIPT_SPENDCB  = 2
 TXIN_SCRIPT_UNKNOWN  = 3  
 
 ################################################################################
-def getTxOutScriptType(txoutObj):
-   binScript = txoutObj.binScript
+def getTxOutScriptType(binScript):
    if binScript[:2] == hex_to_binary('4104'):
       is65B = len(binScript) == 67
       lastByteMatch = binScript[-1] == int_to_binary(172)
@@ -1213,9 +1213,8 @@ def getTxOutScriptType(txoutObj):
    return TXOUT_SCRIPT_UNKNOWN
 
 ################################################################################
-def TxOutScriptExtractAddrStr(txoutObj):
-   binScript = txoutObj.binScript
-   txoutType = getTxOutScriptType(txoutObj)
+def TxOutScriptExtractAddrStr(binScript):
+   txoutType = getTxOutScriptType(binScript)
    if txoutType == TXOUT_SCRIPT_UNKNOWN:
       return '<Non-standard TxOut script>'
 
@@ -1227,11 +1226,16 @@ def TxOutScriptExtractAddrStr(txoutObj):
       return newAddr.getAddrStr()
 
 ################################################################################
-def TxOutScriptExtractAddr160(txoutObj):
-   return addrStr_to_hash160(TxOutScriptExtractAddrStr(txoutObj))
+def TxOutScriptExtractAddr160(binScript):
+   return addrStr_to_hash160(TxOutScriptExtractAddrStr(binScript))
 
 ################################################################################
 def getTxInScriptType(txinObj):
+   """
+   NOTE: this method takes a TXIN object, not just the script itself.  This 
+         is because this method needs to see the OutPoint to distinguish an
+         UNKNOWN TxIn from a coinbase-TxIn
+   """ 
    binScript = txinObj.binScript
    if txinObj.outpoint.txOutHash == EmptyHash or len(binScript) < 1:
       return TXIN_SCRIPT_COINBASE
@@ -1370,6 +1374,9 @@ class PyTxIn(object):
       self.intSeq    = txInData.get(UINT32)
       return self
 
+   def getScript(self):
+      return self.binScript
+
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(BINARY_CHUNK, self.outpoint.serialize() )
@@ -1412,6 +1419,9 @@ class PyTxOut(object):
       self.binScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
 
+   def getScript(self):
+      return self.binScript
+
    def serialize(self):
       binOut = BinaryPacker()
       binOut.put(UINT64, self.value)
@@ -1426,10 +1436,10 @@ class PyTxOut(object):
       txoutType = getTxOutScriptType(self)
       if txoutType == TXOUT_SCRIPT_COINBASE:
          print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self),)
+                              (TxOutScriptExtractAddrStr(self.binScript),)
       elif txoutType == TXOUT_SCRIPT_STANDARD:
          print indstr + indent + 'Script:   OP_DUP OP_HASH (%s) OP_EQUAL OP_CHECKSIG' % \
-                              (TxOutScriptExtractAddrStr(self),)
+                              (TxOutScriptExtractAddrStr(self.binScript),)
       else:
          print indstr + indent + 'Script:   <Non-standard script!>'
 
@@ -2874,6 +2884,51 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 ################################################################################
 ################################################################################
 
+################################################################################
+# These would normally be defined by C++ and fed in, but I've recreated
+# the C++ class here... it's really just a container, anyway
+class UnspentTxOut(object):
+   def __init__(self, addr='', val=-1, numConf=-1):
+      self.addr = addr
+      self.val  = long(val*1e8)
+      self.conf = numConf
+      self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
+   def createFromCppUtxo(self, cppUtxo):
+      self.addr = cppUtxo.getRecipientAddr()
+      self.val  = cppUtxo.getValue()
+      self.conf = cppUtxo.getNumConfirm()
+      self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
+      return self
+   def getValue(self):
+      return self.val
+   def getNumConfirm(self):
+      return self.conf
+   def getScript(self):
+      return self.binScript
+   def getRecipientAddr(self):
+      return self.addr
+   def prettyStr(self, indent=''):
+      pstr = [indent]
+      pstr.append(binary_to_hex(self.addr[:8]))
+      pstr.append(coin2str(self.val))
+      pstr.append(str(self.conf).rjust(8,' '))
+      return '  '.join(pstr)
+   def pprint(self, indent=''):
+      print self.prettyStr(indent)
+
+
+################################################################################
+# This is really just for viewing a TxOut list -- usually for debugging
+def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
+   totalSum = sum([u.getValue() for u in utxoList])
+   print headerLine, '(Total = %s BTC)' % coin2str(totalSum)
+   print '   ','Owner Address'.ljust(34),
+   print '   ','TxOutValue'.rjust(18),
+   print '   ','NumConf'.rjust(8)
+   for utxo in utxoList:
+      print '   ',hash160_to_addrStr(utxo.getRecipientAddr()).ljust(34),
+      print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
+      print '   ',str(utxo.getNumConfirm()).rjust(8)
 
 ################################################################################
 # Sorting currently implemented in C++, but we implement a different kind, here
@@ -2902,13 +2957,16 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       priorityFn = lambda a: (math.log(a.getValue()*a.getNumConfirm()+1)+4)**4
       return sorted(unspentTxOutInfo, key=priorityFn, reverse=True)
    if sortMethod==3:
+      priorityFn = lambda a: a.getValue() if a.getNumConfirm()>0 else 0
+      return sorted(unspentTxOutInfo, key=priorityFn, reverse=True)
+   if sortMethod==4:
       addrMap = {}
       zeroConfirm = []
       for utxo in unspentTxOutInfo:
          if utxo.getNumConfirm() == 0:
             zeroConfirm.append(utxo)
          else:
-            addr = TxOutScriptExtractAddr160(utxo)
+            addr = TxOutScriptExtractAddr160(utxo.getScript())
             if not addrMap.has_key(addr):
                addrMap[addr] = [utxo]
             else:
@@ -3037,7 +3095,7 @@ def PySelectCoins_MultiInput_DoubleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
 
    idealTarget = 2.0 * targetOutVal 
-   minTarget   = long(0.70 * idealTarget)
+   minTarget   = long(0.80 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minFee)
    if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
       return []
@@ -3050,7 +3108,7 @@ def PySelectCoins_MultiInput_DoubleValue( \
       outList.append(utxo)
       currDiff = abs(sumVal - idealTarget)
       # should switch from decreasing to increasing when best match
-      if sumVal>=targetOutVal and currDiff>lastDiff:
+      if sumVal>=minTarget and currDiff>lastDiff:
          del outList[-1]
          break
       lastDiff = currDiff
@@ -3058,20 +3116,6 @@ def PySelectCoins_MultiInput_DoubleValue( \
    return outList
 
 
-################################################################################
-def PySelectCoins_RandomInputs_SingleValue( \
-                                    unspentTxOutInfo, targ, minFee=0):
-   utxolist = unspentTxOutInfo[:] # make a copy
-   random.shuffle(utxolist) 
-   
-   return PySelectCoins_MultiInput_SingleValue(utxolist, targ, minFee)
-
-################################################################################
-def PySelectCoins_RandomInputs_DoubleValue( \
-                                    unspentTxOutInfo, targ, minFee=0):
-   utxolist = unspentTxOutInfo[:] # make a copy
-   random.shuffle(utxolist) 
-   return PySelectCoins_MultiInput_DoubleValue(utxolist, targ, minFee)
 
 
 ################################################################################
@@ -3108,7 +3152,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    addrSet = set([])
    noZeroConf = 1
    for utxo in utxoSelectList:
-      addrSet.add(TxOutScriptExtractAddr160(utxo))
+      addrSet.add(TxOutScriptExtractAddr160(utxo.getScript()))
       if utxo.getNumConfirm() == 0:
          noZeroConf = 0
    numAddr = len(addrSet)
@@ -3307,14 +3351,14 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
 
    if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
       return []
-   
+
    targExact  = targetOutVal
    targMargin = targetOutVal+margin
 
    selectLists = []
 
    # Start with the intelligent solutions with different sortings
-   for i in range(4):
+   for i in range(5):
       diffSortList = PySortCoins(unspentTxOutInfo, i)
       selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList, targExact,  minFee ))
       selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList, targExact,  minFee ))
@@ -3326,17 +3370,23 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
       selectLists.append(PySelectCoins_MultiInput_DoubleValue(  diffSortList, targMargin, minFee ))
 
    # Throw in a couple random solutions, maybe we get lucky
-   utxos = unspentTxOutInfo[:]
+   # But first, make a copy before in-place shuffling
+   # NOTE:  using list[:] like below, really causes a swig::vector<type> to freak out!
+   #utxos = unspentTxOutInfo[:]
+   utxos = list(unspentTxOutInfo)  
    for i in range(numRand):
-      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targExact,  minFee))
-      selectLists.append(PySelectCoins_RandomInputs_SingleValue(utxos, targMargin, minFee))
-   for i in range(numRand):
-      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targExact,  minFee))
-      selectLists.append(PySelectCoins_RandomInputs_DoubleValue(utxos, targMargin, minFee))
+      random.shuffle(utxos)
+      selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targExact,  minFee))
+      selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targExact,  minFee))
+      random.shuffle(utxos)
+      selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targMargin, minFee))
+      selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targMargin, minFee))
 
    scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, targetOutVal, minFee)
    finalSelection = max(selectLists, key=scoreFunc)
    SCORES = getSelectCoinsScores(finalSelection, targetOutVal, minFee)
+   if len(finalSelection)==0:
+      return []
 
    #for i,soln in enumerate(finalSelection):
       #print 'SelectLists[%03d]:' % i, 
@@ -3348,35 +3398,34 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
    # other, tiny, unspent outputs from the same addresses, we should 
    # throw one or two of them in to help clear them out.  However, we
    # only do so if a plethora of conditions exist:
+   #
+   # First, we only consider doing this if the tx has <5 inputs already.
+   # Also, we skip this process if the current tx doesn't have excessive
+   # priority already -- we don't want to risk de-prioritizing a tx for 
+   # this purpose.
+   #
+   # Next we sort by LOWEST value, because we really benefit from this most
+   # by clearing out tiny outputs.  Along those lines, we don't even do 
+   # unless it has low priority -- don't want to take a high-priority utxo
+   # and convert it to one that will be low-priority to start.
    # 
-   # First 3 conditions make sure we're not picking txOut already selected
-   #
-   # Next condition ensures we're adding a low-priority output and that
-   # it will remain low for a while (at least 1 day)
-   # We don't really benefit from this extra step if we include TxOuts 
-   # that are easy to spend, anyway.
-   #
-   # Additionally, we won't do it if we don't have a very high priority
-   # (because new, small input will bring down priority further), we 
-   # don't want to turn a borderline tx into a low-priority one.
-   #
    # Finally, we shouldn't do this if a high score was assigned to output
    # anonymity: this extra output may cause a tx with good output anonymity 
    # to no longer possess this property
    IDEAL_NUM_INPUTS = 5
-   if len(finalSelection)>=IDEAL_NUM_INPUTS:
+   if len(finalSelection)>=IDEAL_NUM_INPUTS or SCORES[IDX_PRIORITY]<0.5:
       return finalSelection
    else:
       for sel in finalSelection:
-         addrAlreadyUsed = TxOutScriptExtractAddr160(sel)
-         for other in utxos:
-            if(  addrAlreadyUsed==TxOutScriptExtractAddr160(other) and \
+         addrAlreadyUsed = sel.getRecipientAddr()
+         for other in sorted(unspentTxOutInfo, key=(lambda a: a.getValue())):
+            # First 3 conditions make sure we're not picking txOut already selected
+            if(  addrAlreadyUsed == other.getRecipientAddr() and \
                  sel.getValue() != other.getValue() and \
                  sel.getNumConfirm() != other.getNumConfirm() and \
+                 other not in finalSelection and \
                  other.getValue()*other.getNumConfirm() < 10*COIN*144./250. and \
-                 other.getNumConfirm() > 144 and \
-                 sel.getValue()*sel.getNumConfirm() > 10*COIN*144./250. and \
-                 other.getValue() > CENT and \
+                 other.getNumConfirm() > 0 and \
                  SCORES[IDX_OUTANONYM] == 0):
                finalSelection.append(other)
                if len(finalSelection)>=IDEAL_NUM_INPUTS:
@@ -3438,6 +3487,10 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    return [minFeeMultiplier * MIN_RELAY_TX_FEE, \
            minFeeMultiplier * MIN_TX_FEE]
                
+
+
+   
+   
    
    
 ################################################################################
@@ -3540,7 +3593,7 @@ class PyTxDistProposal(object):
          scrType = getTxOutScriptType(pytx.inputs[i])
          self.scriptTypes[i] = scrType
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160List[i] = TxOutScriptExtractAddr160(pytx.inputs[i])
+            addr160List[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
          elif scrType==TXOUT_SCRIPT_MULTISIG:
             addr160List[i] = multiSigExtractAddr160List(script)
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
@@ -3598,7 +3651,7 @@ class PyTxDistProposal(object):
          # usually have TxIn scripts here, but a txdp input has the txout script 
          scriptType = getTxOutScriptType(txin)
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160 = TxOutScriptExtractAddr160(txin)
+            addr160 = TxOutScriptExtractAddr160(txin.getScript())
             if wallet.hasAddr(addr160) and wallet.getAddr(addr160).hasPrivKey():
                wltAddr.append( (wallet.getAddr(addr160), index) )
    

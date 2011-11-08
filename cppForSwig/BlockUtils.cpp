@@ -1759,8 +1759,12 @@ BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, int sortTy
       UnspentTxOut uto(txout, currBlk);
       result.push_back(uto);
    }
-   UnspentTxOut::sortTxOutVect(result, sortType);
-   reverse(result.begin(), result.end());
+
+   if(sortType != -1)
+   {
+      UnspentTxOut::sortTxOutVect(result, sortType);
+      reverse(result.begin(), result.end());
+   }
    return result;
 }
 

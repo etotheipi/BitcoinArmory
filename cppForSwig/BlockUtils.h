@@ -606,7 +606,7 @@ public:
    void             updateWalletsAfterReorg(vector<BtcWallet*> wlt);
 
    // Use these two methods to get ALL information about your unused TxOuts
-   vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=1);
+   vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);
    vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
 
    ////////////////////////////////////////////////////////////////////////////////

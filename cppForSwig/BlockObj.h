@@ -316,12 +316,14 @@ public:
 
    void init(TxOutRef & txout, uint32_t blknum);
 
-   BinaryData getTxHash(void) const      { return txHash_;     }
-   uint32_t   getTxOutIndex(void) const  { return txOutIndex_; }
-   uint64_t   getValue(void)  const      { return value_;      }
-   uint64_t   getTxHeight(void)  const   { return txHeight_;   }
-   BinaryData getScript(void) const      { return script_;     }
-   uint32_t   getNumConfirm(void) const  { return numConfirm_; }
+   BinaryData   getTxHash(void) const      { return txHash_;     }
+   uint32_t     getTxOutIndex(void) const  { return txOutIndex_; }
+   uint64_t     getValue(void)  const      { return value_;      }
+   uint64_t     getTxHeight(void)  const   { return txHeight_;   }
+   uint32_t     getNumConfirm(void) const  { return numConfirm_; }
+
+   BinaryData const & getScript(void) const      { return script_;     }
+   BinaryData   getRecipientAddr(void) const;
 
    uint32_t   updateNumConfirm(uint32_t currBlknum);
 

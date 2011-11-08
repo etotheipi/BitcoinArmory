@@ -571,6 +571,13 @@ void UnspentTxOut::init(TxOutRef & txout, uint32_t blkNum)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+BinaryData UnspentTxOut::getRecipientAddr(void) const
+{
+   return BtcUtils::getTxOutRecipientAddr(getScript());
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
 uint32_t UnspentTxOut::updateNumConfirm(uint32_t currBlkNum)
 {
    if(txHeight_ == UINT32_MAX)
