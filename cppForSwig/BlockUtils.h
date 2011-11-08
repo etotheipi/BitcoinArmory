@@ -235,21 +235,25 @@ public:
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
    uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
    uint32_t       getLastTimestamp(void)         {return lastTimestamp_;  }
-   bool           isActive(void) const           {return isActive_;       }
-
-   void           setAddrStr20(BinaryData bd)     { address20_.copyFrom(bd); }
-   //void         setAddrStr20(BinaryDataRef bd)  { address20_.copyFrom(bd); }
-
-   void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
-   //void         setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
-
-   void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
-   //void         setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
-
    void           setFirstBlockNum(uint32_t b)   { firstBlockNum_  = b; }
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
+
+   bool           isUnused(void) { return firstBlockNum_==UINT32_MAX; }
+   bool           setUnused(void) {firstBlockNum_=UINT32_MAX; 
+                                   firstTimestamp_=UINT32_MAX;}
+
+   void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
+   void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
+   void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
+
+   //bool           isActive(void) const           {return isActive_;        }
+   //void         setAddrStr20(BinaryDataRef bd) { address20_.copyFrom(bd);}
+   //void         setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
+   //void         setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
+
+
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
@@ -328,6 +332,7 @@ public:
                       uint32_t      firstTimestamp);
 
    bool hasAddr(BinaryData const & addr20);
+
 
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newr than

@@ -69,9 +69,9 @@
 *      (10)  Blockchain verify integrity    X                    X
 *     ---------------------------------------------------------------
 *      (11)  NonStd Tx Detection            +          +         +
-*      (12)  Script pprint                  X          X         X
-*      (13)  Script OP_CHECKSIG                        X         X
-*      (14)  Arbitrary script eval                     .         .
+*      (12)  Arbitrary script parsing       X          X         X
+*      (13)  OP_CHECKSIG/CHECKMULTISIG      X          X         X
+*      (14*) Arbitrary script eval                     X         X
 *      (15)  ECDSA Sign/Verify                         X         X
 *     ---------------------------------------------------------------
 *      (16)  Address/Wallet tracking        X          X         X
@@ -80,11 +80,11 @@
 *      (19)  Reorg w/ double-spend          X                    X
 *      (20)  Add new blockdata real-time    X                    X
 *     ---------------------------------------------------------------
-       (20)  SelectCoins for tx                        .         .
+       (20)  SelectCoins for tx                        X         X
 *      (21)  Tx construct given inputs                 X         X
-*      (22*) Distr Proposals for multi-sig                  
+*      (22*) Distr Proposals/multisig                  
 *      (23)  Tx broadcast
-*      (24)  Tx fee detect/calc/handle
+*      (24)  Tx fee calculations                       X         X
 *      (25)  Blockchain download
 *
 *
@@ -106,10 +106,14 @@
 *           turn around and reimplement the signauture reading based on a real
 *           DER library, or just hack it to accept extra 0x00 bytes at the end.
 *
-*     (14)  I have tested OP_CHECKSIG in the python code fairly exhaustively.
-*           However, I have not really checked any other non-std script types.  
-*           OP_CHECKSIG is the most important, but I can't yet claim that 
-*           my scripting engine is complete
+*     (14*) I have tested a variety of very complicated scripts, mostly from
+*           the testnet, including OP_CHECKSIG and OP_CHECKMULTISIG.  Both the
+*           C++ and python code can parse all these scripts, and the python 
+*           code can execute these scripts successfully.  HOWEVER, I have 
+*           NOT implemented the OP_IF/OP_NOTIF/OP_ELSE/OP_ENDIF op-codes. 
+*           These codes require a bit of work to get right, and not currently
+*           part of any near-term isStandard() transaction types.  
+*        
 *
 *     (22*) In anticipation of supporting multi-signature transactions, I have
 *           created a specification for handling multi-sig transactions, which

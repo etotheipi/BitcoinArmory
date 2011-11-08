@@ -73,6 +73,14 @@ def ripemd160(bits):
 
 class UnserializeError(Exception):
    pass
+class BadAddressError(Exception):
+   pass
+class VerifyScriptError(Exception):
+   pass
+class FileExistsError(Exception):
+   pass
+class ECDSA_Error(Exception):
+   pass
 
 # These are overriden for testnet
 USE_TESTNET = False
@@ -104,6 +112,9 @@ BLOCKCHAINS['\x34'] = "Namecoin"
 
    
 def coin2str(nSatoshi, ndec=8, rJust=False):
+   """
+   Converts a raw value (1e-8 BTC) into a formatted string for display
+   """
    # We make sure that when we truncate digits, it's actually applying rounding
    if ndec<8: 
       nSatoshi += 5 * 10**(7-ndec)
@@ -119,26 +130,18 @@ def coin2str(nSatoshi, ndec=8, rJust=False):
    return s
    
 
-b58_digits = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-NOHASH = '00'*32
-
+# Some useful constants to be used throughout everything
+BASE58DIGITS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 LITTLEENDIAN = '<';
 BIGENDIAN = '>';
-COIN = 1e8
-CENT = 1e8/100.
+COIN = long(1e8)
+CENT = long(1e8/100.)
 UNINITIALIZED = None
 UNKNOWN = -2
 MIN_TX_FEE = 50000
 MIN_RELAY_TX_FEE = 10000
 
 
-def default_error_function(msg):
-   print ''
-   print '***ERROR*** : ', msg
-   print 'Aborting run'
-   exit(0)
-
-raiseError = default_error_function
 
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
@@ -173,12 +176,6 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
 
 
 
-def setErrorFunction( fn ):
-   raiseError = fn
-
-
-class BadAddress (Exception):
-   pass
 
 ##### Switch endian-ness #####
 def hex_switchEndian(s):
@@ -290,7 +287,7 @@ def binary_to_addrStr(binstr):
    b58 = '' 
    while n > 0:
       n, r = divmod (n, 58)
-      b58 = b58_digits[r] + b58
+      b58 = BASE58DIGITS[r] + b58
    return '1'*padding + b58
 
 
@@ -315,7 +312,7 @@ def addrStr_to_binary(addr):
    n = 0
    for ch in addr:
       n *= 58
-      n += b58_digits.index(ch)
+      n += BASE58DIGITS.index(ch)
    
    binOut = ''
    while n>0:
@@ -721,11 +718,11 @@ class lisecdsa:
          self.point = point
          n = generator.order()
          if not n:
-            raise RuntimeError, "Generator point must have order."
+            raise ECDSA_Error, "Generator point must have order."
          if not n * point == INFINITY:
-            raise RuntimeError, "Generator point order is bad."
+            raise ECDSA_Error, "Generator point order is bad."
          if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
-            raise RuntimeError, "Generator point has x or y out of range."
+            raise ECDSA_Error, "Generator point has x or y out of range."
    
       def verifies( self, hash, signature ):
          G = self.generator
@@ -760,10 +757,10 @@ class lisecdsa:
          k = random_k % n
          p1 = k * G
          r = p1.x()
-         if r == 0: raise RuntimeError, "amazingly unlucky random number r"
+         if r == 0: raise ECDSA_Error, "amazingly unlucky random number r"
          s = ( lisecdsa.inverse_mod( k, n ) * \
                   ( hash + ( self.secret_multiplier * r ) % n ) ) % n
-         if s == 0: raise RuntimeError, "amazingly unlucky random number s"
+         if s == 0: raise ECDSA_Error, "amazingly unlucky random number s"
          return lisecdsa.Signature( r, s )
    
 INFINITY = lisecdsa.Point( None, None, None )
@@ -845,7 +842,6 @@ class PyBtcAddress(object):
       self.addrStr    = UNINITIALIZED 
       self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
       self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
-      self.privKeyCrypt = UNINITIALIZED
 
    def hasPrivKey(self):
       return ((not self.privKeyInt == UNINITIALIZED))
@@ -853,6 +849,12 @@ class PyBtcAddress(object):
    def hasPubKey(self):
       return ((not self.pubKeyXInt == UNINITIALIZED) and \
               (not self.pubKeyYInt == UNINITIALIZED))
+
+   def isInitialized(self):
+      return not (self.addrStr    == UNINITIALIZED and\
+                  self.privKeyInt == UNINITIALIZED and\
+                  self.pubKeyXInt == UNINITIALIZED and\
+                  self.pubKeyYInt == UNINITIALIZED     )
 
    def generateNew(self):
       """
@@ -874,14 +876,19 @@ class PyBtcAddress(object):
       self.createFromPrivateKey(random.randrange(EC_Order))
       return self
 
-   def createFromPrivateKey(self, privKeyInt):
+   def createFromPrivateKey(self, privKey):
       """ 
       Creates address from a user-supplied random INTEGER.  
       This method DOES perform elliptic-curve operations to 
       calculate the public key, which may be 0.1 to 1 sec
       depending on your hardware
       """
-      self.privKeyInt = privKeyInt
+      if isinstance(privKey, str) and len(privKey)==32:
+         self.privKeyInt = binary_to_int(privKey)
+      elif isinstance(privKey, int) or isinstance(privKey, long):
+         self.privKeyInt = privKey
+      else:
+         raise BadAddressError, 'Private Key format unknown'
       pubKeyPoint  = EC_GenPt * self.privKeyInt
       self.pubKeyXInt = pubKeyPoint.x()
       self.pubKeyYInt = pubKeyPoint.y()
@@ -939,11 +946,23 @@ class PyBtcAddress(object):
       self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
       return self
 
-   #def createFromKeyDataInts(self, privKeyInt, pubKeyIntPair, verifyMatch=True):
-      #if verifyMatch:
-         #self.privKeyInt = privKeyInt
-         #self.checkPubPrivKeyPairMatch()
-      #return self
+   def createFromKeyDataInts(self, privKeyStr, pubKeyStr, verifyMatch=True):
+      """
+      Generally, when we read in a wallet from file, we get both a private
+      key and public key at the same time.  Here we can plug them both in
+      and skip cryptographic-match verification if we expect this to be 
+      slow.  If it is skipped here, you should call "prepareKeys" before
+      using these keys for anything, which will do the verification.
+      """
+      if not verifyMatch:
+         self.privKeyInt = binary_to_int(privKeyStr)
+         self.pubKeyXInt = binary_to_int(pubKeyStr[1:33 ], BIGENDIAN)
+         self.pubKeyYInt = binary_to_int(pubKeyStr[  33:], BIGENDIAN)
+      else:
+         self.createFromPrivateKey(privKeyStr)
+         if not self.pubKey_serialize == pubKeyStr:
+            raise BadAddressError, 'Supplied Priv/Pub keypair do not match!'
+      return self
 
    def createFromAddrStr(self, addrStr):
       """
@@ -1061,7 +1080,6 @@ class PyBtcAddress(object):
          assert(self.checkPubPrivKeyPairMatch())
 
 
-   # We make this pseudo-static so that we can use it for arbitrary address
    def checkAddressValid(self):
       return checkAddrStrValid(self.addrStr);
 
@@ -2196,21 +2214,19 @@ class PyScriptProcessor(object):
 
    def verifyTransactionValid(self):
       if self.script1==None or self.txNew==None:
-         raiseError('Cannot verify transactions, without setTxObjects call first!')
+         raise VerifyScriptError, 'Cannot verify transactions, without setTxObjects call first!'
 
       # Execute TxIn script first
       self.stack = []
       exitCode1 = self.executeScript(self.script1, self.stack) 
 
       if not exitCode1 == SCRIPT_NO_ERROR:
-         raiseError('First script failed!  Exit Code: ' + str(exitCode1))
-         return False
+         raise VerifyScriptError, ('First script failed!  Exit Code: ' + str(exitCode1))
 
       exitCode2 = self.executeScript(self.script2, self.stack) 
 
       if not exitCode2 == SCRIPT_NO_ERROR:
-         raiseError('Second script failed!  Exit Code: ' + str(exitCode2))
-         return False
+         raise VerifyScriptError, ('Second script failed!  Exit Code: ' + str(exitCode2))
 
       return self.stack[-1]==1
 
@@ -2934,16 +2950,19 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
 # Sorting currently implemented in C++, but we implement a different kind, here
 def PySortCoins(unspentTxOutInfo, sortMethod=1):
    """
-   This isn't exactly straightforward:  it's because we want to group
-   all TxOuts associated with the same address into the same "Unspent Output". 
-   If we are going to spend one of those outputs, we might as well spend lots
-   since it doesn't hurt our anonymity at all (though if there's too many,
-   we risk creating a tx requiring a tx fee).
+   Here we define a few different ways to sort a list of unspent TxOut objects.
+   Most of them are simple, some are more complex.  In particular, the last
+   method (4) tries to be intelligent, by grouping together inputs from the 
+   same address.
 
-   Also, as a precaution we send all the zero-confirmation UTXO's to the back
+   The goal is not to do the heavy lifting for SelectCoins... we simply need
+   a few different ways to sort coins so that the SelectCoins algorithms has
+   a variety of different inputs to play with.  Each sorting method is useful
+   for some types of unspent-TxOut lists, so as long as we have one good 
+   sort, the PyEvalCoinSelect method will pick it out.
+
+   As a precaution we send all the zero-confirmation UTXO's to the back
    of the list, so that they will only be used if absolutely necessary.  
-   Using a zero-confirmation TxOut is not only "unreliable", but may result
-   in mandatory tx fees
    """
    zeroConfirm = []
 
@@ -2983,6 +3002,11 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    
       finalSortedList.extend(zeroConfirm)
       return finalSortedList
+   
+   # TODO:  Add a semi-random sort method:  it will favor putting high-priority
+   #        outputs at the front of the list, but will not be deterministic
+   #        This should give us some high-fitness variation compared to sorting
+   #        uniformly
 
 
 
@@ -3346,9 +3370,6 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
    select coins based on the desired target output and the min tx fee.  Then 
    ranks the various solutions and picks the best one
    """
-   # TODO:  NEED TO CONSIDER HOW TO CALCULATE A MINIMUM FEE AND ADD IT AUTOMATICALLY
-   #        (or rather, prompt to add it)
-
    if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
       return []
 
@@ -3387,12 +3408,6 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.
    SCORES = getSelectCoinsScores(finalSelection, targetOutVal, minFee)
    if len(finalSelection)==0:
       return []
-
-   #for i,soln in enumerate(finalSelection):
-      #print 'SelectLists[%03d]:' % i, 
-      #print sum([u.getValue() for u in soln])/1e8
-      #for utxo in soln:
-         #utxo.pprint('   ')
 
    # If we selected a list that has only one or two inputs, and we have
    # other, tiny, unspent outputs from the same addresses, we should 
@@ -3441,13 +3456,13 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    (since most nodes are Satoshi clients), but there's no guarantee
    it will be included in a block -- though I'm sure there's plenty
    of miners out there will include your tx for sub-standard fee.
-   However, it's almost guaranteed that a miner will accept a fee
+   However, it's virtually guaranteed that a miner will accept a fee
    equal to the second return value from this method.
 
    We have to supply the fee that was used in the selection algorithm,
    so that we can figure out how much change there will be.  Without 
    this information, we might accidentally declare a tx to be freeAllow
-   when it actually is not
+   when it actually is not.
    """
 
    if len(selectCoinsResult)==0:
@@ -3696,239 +3711,6 @@ class PyTxDistProposal(object):
       ###
    
    
-
-
-
-
-################################################################################
-################################################################################
-#
-# The following class rigorously defines the file format for storing, loading
-# and modifying "wallet" objects.  Presumably, wallets will be used for one of
-# three purposes:
-#
-#  (1) Spend money and receive payments
-#  (2) Watching-only wallets - we have the private key, just not on this computer
-#  (3) May be watching addresses of *other* people.  There's a variety of reasons
-#      we might want to watch other peoples' addresses, but most them are not
-#      relevant to a "basic" BTC user.  Nonetheless it should be supported to
-#      watch money without considering it part of our own assets
-#
-#
-#  The file format was designed from the outset with lots of unused space to 
-#  allow for expansion without having to redefine the file format and break
-#  previous wallets.  Luckily, wallet information is cheap, so we don't have 
-#  to stress too much about saving space (100,000 addresses should take 15 MB)
-#
-#  This file is NOT for storing Tx-related information.  I want this file to
-#  be the minimal amount of information you need to secure and backup your
-#  entire wallet.  Tx information can always be recovered from examining the
-#  blockchain... your private keys cannot be.
-#
-#  We track version numbers, just in case.  We start with 1.0
-#  
-#  Version 1.0:
-#      ---
-#        fileID      -- (8)  '\xbaWALLET\x00' for wallet files
-#        version     -- (4)   floating point number, times 1e6, rounded to int
-#        magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
-#        wlt flags   -- (8)   64 bits/flags representing info about wallet
-#        wlt ID      -- (8)   first 8 bytes of first address in wallet
-#                             (this contains the network byte; mainnet, testnet)
-#        create date -- (8)   unix timestamp of when this wallet was created
-#        UNUSED      -- (256) unused space for future expansion of wallet file
-#        Short Name  -- (32)  Null-terminated user-supplied short name for wlt
-#        Long Name   -- (256) Null-terminated user-supplied description for wlt
-#      ---
-#        Crypto/KDF  -- (256) information identifying the types and parameters
-#                             of encryption used to secure wallet, and key 
-#                             stretching used to secure your passphrase.
-#                             Includes salt. (the breakdown of this field will
-#                             be described separately)
-#        Deterministic--(512) Includes private key generator (prob encrypted),
-#        Wallet Params        base public key for watching-only wallets, and 
-#                             a chain-code that identifies how keys are related
-#                             (each field also contains chksum for integrity)
-#      ---
-#        Remainder of file is for key storage, and comments about individual
-#        addresses.  
-# 
-#        PrivKey(33)  -- ECDSA private key, with a prefix byte declaring whether
-#                        this is an encrypted 32-bytes or not plain.  
-#        CheckSum(4)  -- This is the checksum of the data IN THE FILE!  If the 
-#                        PrivKey is encrypted, checksum is first 4 bytes of the
-#                        encrypted private key.  Likewise for unencrypted.  THe
-#                        goal is to make sure we don't lose our private key to
-#                        a bit/byte error somewhere (this isn't the best way to
-#                        recover from a bit/byte error, but such errors should
-#                        be rare, and the simplicity is preferred over something
-#                        like Reed-Solomon)
-#        PublicKey(64)-- 
-#        Creation Time/ --
-#        First seen time
-#        Last-seen time --
-#        TODO:  finish this!
-#                             
-#                    
-#
-#
-################################################################################
-################################################################################
-class PyBtcWallet(object):
-   """
-   This class encapsulates all the concepts and variables in a "wallet",
-   and maintains the passphrase protection, key stretching, encryption,
-   etc, required to maintain the wallet.  This class also includes the
-   file I/O methods for storing and loading wallets.
-   """
-
-   class CryptoParams(object):
-      def __init__(self):
-         self.kdf = None
-         self.cryptoPrivKey = None
-         self.cryptoPubKey = None
-
-      def kdf(self, passphrase):
-         pass
-
-      def encrypt(self, plaintext, key, *args):
-         pass
-
-      def decrypt(self, plaintext, key, *args):
-         pass
-
-      def serialize(self):
-         return '\x00'*1024
-
-      def unserialize(self, toUnpack):
-         binData = toUnpack
-         if isinstance(toUnpack):
-            binData = toUnpack.get(BINARY_CHUNK, 1024)
-
-         # Right now, nothing to do because encryption is not implemented
-         # Coming soon, though!
-         pass 
-
-
-
-   def __init__(self):
-      self.addrList = []
-      self.fileID   = '\xbaWALLET\x00'
-      self.version  = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
-      self.eofByte  = 0
-
-   
-   def getWalletVersion(self):
-      return (getVersionInt(self.version), getVersionString(self.version))
-   
-   def writeToFile(self, fn, withPrivateKeys=True, withBackup=True):
-      """
-      All data is little-endian unless you see the method explicitly
-      pass in "BIGENDIAN" as the last argument to the put() call...
-
-      Pass in withPrivateKeys=False to create a watching-only wallet.
-      """
-      if os.path.exists(fn) and withBackup:
-         shutil.copy(fn, fn+'_old');
-      
-      bp = BinaryPacker()
-      bp.put(BINARY_CHUNK, self.fileID)     
-      for i in range(4):
-         bp.put(UINT8, self.version[i])
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
-
-      # TODO: Define wallet flags
-      bp.put(BINARY_CHUNK, MAGIC_BYTES)
-
-      # Creation Date
-      try:
-         bp.put(UINT64, self.walletCreateTime)
-      except:
-         bp.put(UINT64, long(time.time()))
-
-
-      # TODO: Make sure firstAddr is defined
-      bp.put(BINARY_CHUNK, firstAddr[:8])
-
-      # UNUSED BINARY DATA -- maybe used to expand file format later
-      bp.put(BINARY_CHUNK, '\x00'*256)
-
-      # Short and long name/info supplied by the user (not really binary data)
-      bp.put(BINARY_CHUNK, self.shortInfo[:32].ljust( 33,'\x00'))
-      bp.put(BINARY_CHUNK, self.longInfo[:255].ljust(256,'\x00'))
-
-      # All information needed to know how to get from a passphrase/password
-      # to a decrypted private key -- all zeros if 
-      # TODO:  need to define this more rigorously, maybe layout each field here
-      bp.put(BINARY_CHUNK, self.crypto.serialize().ljust(256,'\x00'))
-      if not self.isDeterministic:
-         # TODO:  NEED VAR_INTs to identify key lengths
-         bp.put(BINARY_CHUNK, '\x00'*(1 + 32 + 4 + 64 + 4 + 32 + 4 + 256))
-      else:
-         if self.hasPrivKeyGen():
-
-            if self.privKeyIsPlain:
-               # This method does nothing if no encryption is defined
-               pkgEncr = self.crypto.encrypt(self.privKeyGen, self.encryptPub) 
-
-            pkgLen  = len(pkgEncr)
-            bp.put(VAR_INT, pkgLen)
-            bp.put(BINARY_CHUNK, pkgEncr + hash256(pkgEncr)[:4])
-
-            pubLen  = len(self.pubKeyGen)
-            bp.put(VAR_INT, pubLen)
-            bp.put(BINARY_CHUNK, self.pubKeyGen + hash256(self.pubKeyGen)[:4])
-
-            chcLen  = len(self.chainCode)
-            bp.put(VAR_INT, chcLen)
-            bp.put(BINARY_CHUNK, self.chainCode + hash256(self.chainCode)[:4])
-
-            bp.put(BINARY_CHUNK, '\x00'*256)
-
-      wltFile = open(fn, 'wb')
-      wltFile.write(bp.getBinaryString())
-      wltFile.close()
-
-      
-
-
-   def appendKeyToFile(self, fn, pbaddr, withPrivateKeys=True):
-      assert(os.path.exists(fn))
-      prevSize = os.path.getsize(fn)
-         
-      bp = BinaryPacker()
-      wltFile = open(fn, 'ab')
-
-      bp.put(UINT8, 1 if self.useEncrypt() else 0)
-      bp.put(BINARY_CHUNK, pbaddr.getAddr160())
-      if withPrivateKeys and pbaddr.hasPrivKey():
-         privKeyBin = int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN)
-         bp.put(BINARY_CHUNK, privKeyBin)
-         bp.put(BINARY_CHUNK, int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN))
-      else:
-         bp.put(BINARY_CHUNK, '\x00'*32)
-      
-      
-
-
-
-   def readFromFile(self, fn):
-      
-      magicBytes = bup.get(BINARY_CHUNK, 4)
-      if not magicBytes == MAGIC_BYTES:
-         print '***ERROR:  Requested wallet is for a different blockchain!'
-         print '           Wallet is for:', BLOCKCHAINS[magicBytes]
-         print '           PyBtcEngine:  ', BLOCKCHAINS[MAGIC_BYTES]
-         return
-      if not netByte == ADDRBYTE:
-         print '***ERROR:  Requested wallet is for a different network!'
-         print '           Wallet is for:', NETWORKS[netByte]
-         print '           PyBtcEngine:  ', NETWORKS[ADDRBYTE]
-         return
-
-   def syncToFile(self, fn):
-      pass
-
 
 
 
