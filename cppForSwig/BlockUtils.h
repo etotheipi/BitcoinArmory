@@ -537,6 +537,7 @@ private:
 
    static BlockDataManager_FullRAM* theOnlyBDM_;
    static bool bdmCreatedYet_;
+   bool isInitialized_;
 
 
 private:
@@ -546,6 +547,7 @@ private:
 public:
 
    static BlockDataManager_FullRAM & GetInstance(void);
+   bool isInitialized(void) { return isInitialized_;}
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);

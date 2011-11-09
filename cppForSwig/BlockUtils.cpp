@@ -568,7 +568,8 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
       isAllAddrLoaded_(false),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
-      lastBlockWasReorg_(false)
+      lastBlockWasReorg_(false),
+      isInitialized_(false)
 {
    blockchainData_NEW_.clear();
    headerHashMap_.clear();
@@ -637,6 +638,7 @@ void BlockDataManager_FullRAM::Reset(void)
    lastEOFByteLoc_ = 0;
    totalBlockchainBytes_ = 0;
 
+   isInitialized_ = false;
 }
 
 
@@ -1039,6 +1041,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
       organizeChain();
 
    // Return the number of blocks read from blkfile (this includes invalids)
+   isInitialized_ = true;
    return nBlkRead;
 }
 

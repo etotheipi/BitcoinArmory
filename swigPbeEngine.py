@@ -24,7 +24,221 @@ from sys import argv
 ################################################################################
 # Might as well create the BDM right here -- there will only ever be one, anyway
 bdm = Cpp.BlockDataManager().getBDM()
+
 ################################################################################
+def loadBlockchainFile(blkfile=None, testnet=False):
+   """
+   Looks for the blk0001.dat file in the default location for your operating
+   system.  If it is found, it is loaded into RAM and the longest chain is
+   computed.  Access to any information in the blockchain can be found via
+   the bdm object.
+   """
+   import platform
+   opsys = platform.system()
+   if blkfile==None:
+      if not testnet:
+         if 'win' in opsys.lower():
+            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
+         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
+            blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
+         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
+            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
+      else:
+         if 'win' in opsys.lower():
+            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
+         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
+            blkfile = path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
+         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
+            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/testnet/blk0001.dat')
+
+   if not path.exists(blkfile):
+      raise FileExistsError, ('File does not exist: %s' % blkfile)
+   bdm.readBlkFile_FromScratch(blkfile)
+
+
+class SignatureError(Exception):
+   pass
+
+################################################################################
+################################################################################
+# This class can be used for both multi-signature tx collection, as well as
+# offline wallet signing (you are collecting signatures for a 1-of-1 tx only
+# involving yourself).
+class PyTxDistProposal(object):
+   """
+   PyTxDistProposal is created from a PyTx object, and represents
+   an unsigned transaction, that may require the signatures of 
+   multiple parties before being accepted by the network.
+
+   We assume that the PyTx object has been prepared already by
+   replacing all the TxIn scripts with the scripts of the TxOuts
+   they are spending.
+
+   In other words, in order to prepare a PyTxDistProposal, you
+   will need access to the blockchain to find the txouts you are
+   spending (and thus they have to be acquired with external 
+   code, such as my CppBlockUtils SWIG module).  But once the 
+   TxDP is created, the system signing it only needs the ECDSA
+   private keys and nothing else.   This enables the device 
+   providing the signatures to be extremely lightweight.
+
+   TODO:  I need to figure out how to identify whether a TxOut
+          script requires Sig-PubKey-Sig-PubKey, or just Sig-Sig
+          (or similar for N address)
+   """
+   #############################################################################
+   def __init__(self, pytx=None):
+      self.pytxObj   = UNINITIALIZED
+      self.scriptTypes   = []
+      self.signatures    = []
+      self.sigIsValid    = []
+      self.inputAddrList = []
+      if pytx:
+         self.createFromPreparedPyTx(pytx)
+               
+   #############################################################################
+   def createFromPreparedPyTx(self, pytx):
+      sz = len(pytx.inputs)
+      self.pytxObj   = pytx
+      self.signatures   = [None]*sz
+      self.scriptTypes  = [None]*sz
+      self.inputAddrList  = [None]*sz
+      for i in range(sz):
+         script = str(pytx.inputs[i].binScript)
+         scrType = getTxOutScriptType(pytx.inputs[i])
+         self.scriptTypes[i] = scrType
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            self.inputAddrList[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
+         elif scrType==TXOUT_SCRIPT_MULTISIG:
+            self.inputAddrList[i] = multiSigExtractAddr160List(script)
+         elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
+            pass
+
+      return self
+
+   #############################################################################
+   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs):
+      self.pytxObj = PyTx()
+      self.pytxObj.version = 1
+      self.pytxObj.lockTime = 0
+      self.pytxObj.inputs = []
+      self.pytxObj.outputs = []
+      for utxo in utxoSelection:
+         txin = PyTxIn()
+         txin.outpoint = PyOutPoint()
+         txin.outpoint.txHash = utxo.getTxHash()
+         txin.outpoint.txOutIndex = utxo.getTxOutIndex()
+         txin.binScript = utxo.getScript() # this is the TxOut script
+         txin.intSeq = 2**32-1
+         self.pytxObj.inputs.append(txin)
+
+         self.inputAddrList.append(utxo.getRecipientAddr())
+         self.scriptTypes.append(getTxOutScriptType(utxo.getScript()))
+      for addr,value in recip160ValPairs:
+         txout = PyTxOut()
+         txout.value = value
+         txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                      getOpCode('OP_HASH160'    ), \
+                                      '\x14',                      \
+                                      addr,
+                                      getOpCode('OP_EQUALVERIFY'), \
+                                      getOpCode('OP_CHECKSIG'   )])
+         self.pytxObj.outputs.append(txout)
+      return self
+      
+
+   #############################################################################
+   def getFinalPyTx(self):
+      txOutScripts = []
+      for i,txin in enumerate(self.pytxObj.inputs):
+         txOutScripts.append(txin.binScript)
+         txin.binScript = self.signatures[i]
+
+      
+      # Now verify the signatures as they are in the final Tx
+      psp = PyScriptProcessor()
+      for i,txin in enumerate(self.pytxObj.inputs):
+         psp.setTxObjects(txOutScripts[i], self.pytxObj, i)
+         sigIsValid = psp.verifyTransactionValid()
+         #sigIsValid = self.checkSignature(self.signatures[i], i)
+         if not sigIsValid:
+            raise SignatureError, 'Signature for addr %s is not valid!' % \
+                                       hash160_to_addrStr(self.inputAddrList[i])
+         else:
+            print 'Signature', i, 'is valid!'
+      return self.pytxObj
+   
+            
+
+   #############################################################################
+   def appendSignature(self, binSig, txinIndex=None):
+      if txinIndex and txinIndex<len(self.pytxObj.inputs):
+         # check that this script is in the correct place
+         txin = self.pytxObj.inputs[txinIndex]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIndex)
+         if psp.verifyTransactionValid():
+            self.signatures[txinIndex] = binSig
+            return True
+      
+      # If we are here, we don't know which TxIn this sig is for.  Try each one
+      # (we assume that if the txinIndex was supplied, but failed to verify,
+      #  that it was accidental and we should check if it matches another one)
+      for iin in range(len(self.pytxObj.inputs)):
+         txin = self.pytxObj.inputs[iin]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, iin)
+         if psp.verifyTransactionValid():
+            self.signatures[iin] = binSig
+            return True
+      return False
+         
+
+   #############################################################################
+   def checkSignature(self, sigStr, txinIndex):
+      pass    
+   
+
+   #############################################################################
+   def pprint(self, indent=''):
+      tx = self.pytxObj
+      propID = hash256(tx.serialize())
+      print indent+'Distribution Proposal : ', binary_to_base58(propID)[:8]
+      print indent+'Transaction Version   : ', tx.version
+      print indent+'Transaction Lock Time : ', tx.lockTime
+      print indent+'Num Inputs            : ', len(tx.inputs)
+      for i,txin in enumerate(tx.inputs):
+         prevHash = txin.outpoint.txHash
+         prevIndex = txin.outpoint.txOutIndex
+         print indent,
+         #print '   PrevOut: (%s, index=%d)' % (binary_to_hex(prevHash[:8]),prevIndex),
+         print '   SrcAddr:   %s' % hash160_to_addrStr(self.inputAddrList[i]),
+         if bdm.isInitialized():
+            value = bdm.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
+            print '   Value: %s' % coin2str(value)
+      print indent+'Num Outputs           : ', len(tx.inputs)
+      for i,txout in enumerate(tx.outputs):
+         outAddr = TxOutScriptExtractAddr160(txout.binScript)
+         print indent,
+         print '   Recipient: %s, %s BTC' % (hash160_to_addrStr(outAddr), coin2str(txout.value))
+
+   def serializeHex(self):
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.pytxString) 
+
+   def unserialize(self, toUnpack):
+      pass
+      
+   def serializeBinary(self):
+      pass
+   
+   def serializeHex(self):
+      return binary_to_hex(self.serializeBinary())
+
+   #def serializeBase58(self):
+      #return binary_to_hex(self.serializeBinary())
+
+   
+
+
 
 
 ################################################################################
@@ -156,13 +370,27 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def addAddress(self, addrData, firstSeenData=[], lastSeenData=[]):
+   def addAddress(self, addrData, pubKeyStr='', firstSeenData=[], lastSeenData=[]):
+      """
+      There are a plethora of ways to add your key/address/wallet data to a
+      PyBtcWallet object:
+         - PubKeyHash160 (only the 20-byte address)
+         - Public Key (which computes address)
+         - Private Key (which computes public key and address)
+         - Private and Public key (assumes they match, skips verification)
+         - Existing PyBtcAddress object
+
+      Scanning the blockchain for transactions is remarkably faster when you
+      have information about the first and last time we've seen data in the
+      blockchain.  That way, we can skip over parts of the chain where wallet
+      data couldn't possibly exist.
+      """
       print 'Adding new address to wallet: ',
       addr160 = None
       if isinstance(addrData, PyBtcAddress) and addrData.isInitialized():
          addr160 = addrData.getAddr160()
          self.addrMap[addr160] = addrData
-      elif isInitialized(addrData, str):
+      elif isinstance(addrData, str):
          if len(addrData)==20:
             addr160 = addrData
             self.addrMap[addr160] = PyBtcAddress().createFromPublicKeyHash160(addr160)
@@ -170,7 +398,11 @@ class PyBtcWallet(object):
             addr160 = hash160(addrData.rjust(65,'\x04'))
             self.addrMap[addr160] = PyBtcAddress().createFromPublicKey(pubKeyStr)
          elif len(addrData)==32:
-            newPrivAddr = PyBtcAddress().createFromPrivateKey(addrData)
+            newPrivAddr = PyBtcAddress()
+            if len(pubKeyStr)>0:
+               newPrivAddr.createFromKeyData(addrData, pubKeyStr, False)
+            else:
+               newPrivAddr.createFromPrivateKey(addrData)
             addr160 = newPrivAddr.getAddr160()
             self.addrMap[addr160] = newPrivAddr
       else:
@@ -180,23 +412,35 @@ class PyBtcWallet(object):
 
       # Now make sure the C++ wallet is sync'd
       addrObj = self.addrMap[addr160]
-      cppAddr = PyBtcAddress()
+      cppAddr = Cpp.BtcAddress()
       cppAddr.setAddrStr20(addr160)
-      if addrObj.hasPubKey() 
+      if addrObj.hasPubKey():
          cppAddr.setPubKey65(addrObj.pubKey_serialize())
-      if addrObj.hasPrivKey() 
+      if addrObj.hasPrivKey():
          cppAddr.setPrivKey32(addrObj.privKey_serialize())
 
-      if len(firstSeenData)>0: cppAddr.setFirstBlockNum(firstSeenData[0])
-      if len(firstSeenData)>1: cppAddr.setFirstTimestamp(firstSeenData[1])
-      if len( lastSeenData)>0: cppAddr.setLastBlockNum(lastSeenData[0])
-      if len( lastSeenData)>1: cppAddr.setLastTimestamp(lastSeenData[1])
+      if len(firstSeenData)>0: cppAddr.setFirstTimestamp(firstSeenData[0])
+      if len(firstSeenData)>1: cppAddr.setFirstBlockNum(firstSeenData[1])
+      if len( lastSeenData)>0: cppAddr.setLastTimestamp(lastSeenData[0])
+      if len( lastSeenData)>1: cppAddr.setLastBlockNum(lastSeenData[1])
 
       if not self.cppWallet:
          self.cppWallet = Cpp.BtcWallet()
       self.cppWallet.addAddress_BtcAddress_(cppAddr)
-            
+      #self.appendKeyToFile(addrObj)
          
+
+   #############################################################################
+   def getFirstSeenData(self, addr20):
+      return (self.cppWallet.getAddrByHash160(addr20).getFirstTimestamp(),  \
+              self.cppWallet.getAddrByHash160(addr20).getFirstBlockNum())
+
+
+   #############################################################################
+   def getLastSeenData(self, addr20):
+      return (self.cppWallet.getAddrByHash160(addr20).getLastTimestamp(),  \
+              self.cppWallet.getAddrByHash160(addr20).getLastBlockNum())
+
 
    #############################################################################
    def addAddresses(self, addrList):
@@ -204,7 +448,7 @@ class PyBtcWallet(object):
          self.addAddress(addr)
          
    #############################################################################
-   def syncWalletWithBlockchain(self):
+   def syncWithBlockchain(self):
       bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
       bdm.scanBlockchainForTx_FromScratch(self.cppWallet)
    
@@ -212,8 +456,150 @@ class PyBtcWallet(object):
    #############################################################################
    def getUnspentTxOutList(self):
       bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
-      self.syncWalletWithBlockchain()
+      self.syncWithBlockchain()
       return bdm.getUnspentTxOutsForWallet(self.cppWallet)
+
+
+   #############################################################################
+   def getAddrByHash160(self, addr160):
+      return self.addrMap[addr160]
+
+   #############################################################################
+   def getAddrByIndex(self, i):
+      return self.addrMap.values()[i]
+   
+   #############################################################################
+   def getNewAddress(self):
+      # TODO:  will actually create new addresses, once we have a reliable PRNG
+      return self.getAddrByIndex(0)
+
+   #############################################################################
+   def hasAddr(self, addrData):
+      if isinstance(addrData, str):
+         if len(addrData) == 20:
+            return self.addrMap.has_key(addrData)
+         else:
+            return self.addrMap.has_key(base58_to_binary(addrData)[1:21])
+      elif isinstance(addrData, PyBtcAddress):
+         return self.addrMap.has_key(addrData.getAddr160())
+      else:
+         return False
+
+   #############################################################################
+   def createTransaction(self, recip20, amt, minFee=0):
+      utxos = self.getUnspentTxOutList()
+      pprintUnspentTxOutList(utxos, 'All unspent:')
+      prelimSelection = PySelectCoins(utxos, amt, minFee)
+      pprintUnspentTxOutList(prelimSelection, 'Selection of utxos for amt=%s, fee=%s' % (coin2str(amt), coin2str(minFee)))
+      feeRecommend = calcMinSuggestedFees(prelimSelection, amt, minFee)
+      print 'Recommended Fee --  AbsMin=%s, ParanoidMin=%s' % tuple([coin2str(f) for f in feeRecommend])
+      #if minFee < feeRecommend[0]:
+         #newSelection = PySelectCoins(utxos, amt, feeRecommend[0])
+         #pprintUnspentTxOutList(utxos, 'After fee calc: amt=%s, fee=%s' % (coin2str(amt), coin2str(feeRecommend[0])))
+      
+         
+      bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
+      srcInputs = []
+      for utxo in prelimSelection:
+         srcAddr = self.getAddrByHash160(utxo.getRecipientAddr())
+         txObj = bdm.getTxByHash(utxo.getTxHash())
+         txIdx = utxo.getTxOutIndex()
+         srcInputs.append( [srcAddr, txObj, txIdx] )
+
+      dstPairs = [ (PyBtcAddress().createFromPublicKeyHash160(recip20), amt) ]
+      change = sum([u.getValue() for u in prelimSelection]) - (amt+minFee)
+      #changeAddr = self.getChangeAddress()
+      changeAddr = self.getAddrByIndex(0)
+      changeAddr.pprint()
+      if change != 0:
+         dstPairs.append( [changeAddr, change] )
+
+      print 'Srcs:'
+      for src in srcInputs:
+         print src
+
+      print 'Dst:'
+      for dst in dstPairs:
+         print dst
+         
+      newTx = PyCreateAndSignTx(srcInputs, dstPairs)
+      print 'The final, proposed Tx:'
+      newTx.pprint()
+      
+      print 'Raw hex:', binary_to_hex(newTx.serialize())
+      return (newTx, feeReco)
+   
+      
+
+   #############################################################################
+   def signTxDistProposal(self, txdp, hashcode=1):
+      if not hashcode==1:
+         print '***ERROR: hashcode!=1 is not supported at this time!'
+         return
+
+      numInputs = len(txdp.pytxObj.inputs)
+      wltAddr = []
+      #amtToSign = 0  # I can't get this without asking blockchain for txout vals
+      for index,txin in enumerate(txdp.pytxObj.inputs):
+         scriptType = getTxOutScriptType(txin.binScript)
+         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            addr160 = TxOutScriptExtractAddr160(txin.getScript())
+            if self.hasAddr(addr160) and self.getAddrByHash160(addr160).hasPrivKey():
+               wltAddr.append( (self.getAddrByHash160(addr160), index) )
+   
+      numMyAddr = len(wltAddr)
+      print 'Total number of inputs in transaction:  ', numInputs
+      print 'Number of inputs that you can sign for: ', numMyAddr
+   
+      ###
+      self.unlock()  # should invoke decrypt/passphrase dialog
+      ###
+   
+      # The TxOut script is already in the TxIn script location, correctly
+      # But we still need to blank out all other scripts when signing
+      for addrObj,idx in wltAddr:
+         txOutScript = ''
+         txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
+         for i in range(len(txCopy.inputs)):
+            if i==idx:
+               txOutScript = txCopy.inputs[i].binScript
+            else:
+               txCopy.inputs[i].binScript = ''
+
+         hashCode1  = int_to_binary(hashcode, widthBytes=1)
+         hashCode4  = int_to_binary(hashcode, widthBytes=4)
+   
+         # Copy the script of the TxOut we're spending, into the txIn script
+         preHashMsg = txCopy.serialize() + hashCode4
+         binToSign  = hash256(preHashMsg)
+         binToSign  = binary_switchEndian(binToSign)
+         signature  = addrObj.generateDERSignature(binToSign)
+   
+         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
+         # Don't forget to tack on the one-byte hashcode and consider it part of sig
+         if len(txOutScript) > 25:
+            sigLenInBinary = int_to_binary(len(signature) + 1)
+            txdp.signatures.append(sigLenInBinary + signature + hashCode1)
+         else:
+            pubkey = addrObj.pubKey_serialize()
+            sigLenInBinary    = int_to_binary(len(signature) + 1)
+            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
+            txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \
+                                      pubkeyLenInBinary + pubkey)
+   
+      ###
+      self.lock()  # re-secure wallet
+      ###
+      return txdp
+   
+   
+   #############################################################################
+   def lock(self):
+      pass
+
+   #############################################################################
+   def unlock(self):
+      pass
    
    #############################################################################
    def getWalletVersion(self):
@@ -329,39 +715,10 @@ class PyBtcWallet(object):
 
 
 
-################################################################################
-def loadBlockchainFile(blkfile=None, testnet=False):
-   """
-   Looks for the blk0001.dat file in the default location for your operating
-   system.  If it is found, it is loaded into RAM and the longest chain is
-   computed.  Access to any information in the blockchain can be found via
-   the bdm object.
-   """
-   import platform
-   opsys = platform.system()
-   if blkfile==None:
-      if not testnet:
-         if 'win' in opsys.lower():
-            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
-         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
-         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
-      else:
-         if 'win' in opsys.lower():
-            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
-         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
-         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/testnet/blk0001.dat')
-
-   if not path.exists(blkfile):
-      raise FileExistsError, ('File does not exist: %s' % blkfile)
-   bdm.readBlkFile_FromScratch(blkfile)
 
 
 ################################################################################
-def ScanBlockchainForTx(PyT
+#def ScanBlockchainForTx(PyT
 
 ################################################################################
 def CreateTransaction(fromWallet, recipAddr160, btcValue):
@@ -372,6 +729,8 @@ def CreateTransaction(fromWallet, recipAddr160, btcValue):
       btcValue:      Amount to send IN BTC: will be multiplied by 1e8
 
    This method combines just about every method in 
+   """
+   pass
    
 
 

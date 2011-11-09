@@ -262,7 +262,7 @@ EmptyHash = hex_to_binary('00'*32)
  
 
 # BINARY/BASE58 CONVERSIONS
-def binary_to_addrStr(binstr):
+def binary_to_base58(binstr):
    """
    This method applies the Bitcoin-specific conversion from binary to Base58
    which may includes some extra "zero" bytes, such as is the case with the 
@@ -291,7 +291,7 @@ def binary_to_addrStr(binstr):
    return '1'*padding + b58
 
 
-def addrStr_to_binary(addr):
+def base58_to_binary(addr):
    """
    This method applies the Bitcoin-specific conversion from Base58 to binary
    which may includes some extra "zero" bytes, such as is the case with the 
@@ -342,10 +342,10 @@ def hash160_to_addrStr(binStr):
    """
    addr21 = ADDRBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
-   return binary_to_addrStr(addr25);
+   return binary_to_base58(addr25);
 
 def addrStr_to_hash160(binStr):
-   return addrStr_to_binary(binStr)[1:-4]
+   return base58_to_binary(binStr)[1:-4]
 
 
 
@@ -814,7 +814,7 @@ def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
 # Check validity of a BTC address in Base58 form
 def checkAddrStrValid(addrStr):
    """ Check that a Base58 address-string is valid on this network """
-   return checkAddrBinValid(addrStr_to_binary(addrStr))
+   return checkAddrBinValid(base58_to_binary(addrStr))
 
 
 
@@ -943,10 +943,10 @@ class PyBtcAddress(object):
       but will be permanently tied up in the network
       """
       chkSum  = hash256(netbyte + pubkeyHash160)[:4]
-      self.addrStr = binary_to_addrStr( netbyte + pubkeyHash160 + chkSum)
+      self.addrStr = binary_to_base58( netbyte + pubkeyHash160 + chkSum)
       return self
 
-   def createFromKeyDataInts(self, privKeyStr, pubKeyStr, verifyMatch=True):
+   def createFromKeyData(self, privKeyStr, pubKeyStr, verifyMatch=True):
       """
       Generally, when we read in a wallet from file, we get both a private
       key and public key at the same time.  Here we can plug them both in
@@ -981,7 +981,7 @@ class PyBtcAddress(object):
       assert( self.hasPubKey() )
       keyHash = self.getAddr160()
       chkSum  = hash256(netbyte + keyHash)[:4]
-      return  binary_to_addrStr(netbyte + keyHash + chkSum)
+      return  binary_to_base58(netbyte + keyHash + chkSum)
 
    def getAddrStr(self):
       """
@@ -1255,7 +1255,7 @@ def getTxInScriptType(txinObj):
          UNKNOWN TxIn from a coinbase-TxIn
    """ 
    binScript = txinObj.binScript
-   if txinObj.outpoint.txOutHash == EmptyHash or len(binScript) < 1:
+   if txinObj.outpoint.txHash == EmptyHash or len(binScript) < 1:
       return TXIN_SCRIPT_COINBASE
 
    b0,b1,b2,b3,b4 = binScript[:5]
@@ -1341,9 +1341,9 @@ indent = ' '*3
 
 #####
 class PyOutPoint(object):
-   #def __init__(self, txOutHash, outIndex):
-      #self.txOutHash = txOutHash
-      #self.index     = outIndex
+   #def __init__(self, txHash, txOutIndex):
+      #self.txHash = txHash
+      #self.txOutIndex     = outIndex
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
@@ -1352,23 +1352,23 @@ class PyOutPoint(object):
          opData = BinaryUnpacker( toUnpack )
 
       if opData.getRemainingSize() < 36: raise UnserializeError
-      self.txOutHash = opData.get(BINARY_CHUNK, 32)
-      self.index     = opData.get(UINT32)
+      self.txHash = opData.get(BINARY_CHUNK, 32)
+      self.txOutIndex     = opData.get(UINT32)
       return self
 
    def serialize(self):
       binOut = BinaryPacker()
-      binOut.put(BINARY_CHUNK, self.txOutHash)
-      binOut.put(UINT32, self.index)
+      binOut.put(BINARY_CHUNK, self.txHash)
+      binOut.put(UINT32, self.txOutIndex)
       return binOut.getBinaryString()
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
       print indstr + indent + 'PrevTxHash:', \
-                  binary_to_hex(self.txOutHash, endian), \
+                  binary_to_hex(self.txHash, endian), \
                   '(BE)' if endian==BIGENDIAN else '(LE)'
-      print indstr + indent + 'TxOutIndex:', self.index
+      print indstr + indent + 'TxOutIndex:', self.txOutIndex
       
 
 #####
@@ -1408,14 +1408,11 @@ class PyTxIn(object):
       print indstr + 'PyTxIn:'
       #self.outpoint.pprint(nIndent+1)
       print indstr + indent + 'PrevTxHash:', \
-                  binary_to_hex(self.outpoint.txOutHash, endian), \
+                  binary_to_hex(self.outpoint.txHash, endian), \
                       '(BE)' if endian==BIGENDIAN else '(LE)'
-      print indstr + indent + 'TxOutIndex:', self.outpoint.index
+      print indstr + indent + 'TxOutIndex:', self.outpoint.txOutIndex
       source = TxInScriptExtractKeyAddr(self)[0]
-      if 'Sign' in source:
-         print indstr + indent + 'Script:    ', '('+source+')'
-      else:
-         print indstr + indent + 'Source:    ', '('+source+')'
+      print indstr + indent + 'Script:    ', '('+binary_to_hex(self.binScript)+')'
       print indstr + indent + 'Seq:       ', self.intSeq
       
 
@@ -1451,7 +1448,7 @@ class PyTxOut(object):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
       print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
-      txoutType = getTxOutScriptType(self)
+      txoutType = getTxOutScriptType(self.binScript)
       if txoutType == TXOUT_SCRIPT_COINBASE:
          print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
                               (TxOutScriptExtractAddrStr(self.binScript),)
@@ -2197,12 +2194,12 @@ class PyScriptProcessor(object):
       """
       self.txNew = PyTx().unserialize(txNew.serialize())
       self.script1 = txNew.inputs[txInIndex].binScript
+      self.txInIndex  = txInIndex
+      self.txOutIndex = txNew.inputs[txInIndex].outpoint.txOutIndex
+      self.txHash  = txNew.inputs[txInIndex].outpoint.txHash
 
       if isinstance(txOldData, PyTx):
-         self.txInIndex  = txInIndex
-         self.txOutIndex = txNew.inputs[txInIndex].outpoint.index
-         self.txOutHash  = txNew.inputs[txInIndex].outpoint.txOutHash
-         if not self.txOutHash == hash256(txOldData.serialize()):
+         if not self.txHash == hash256(txOldData.serialize()):
             print '*** Supplied incorrect pair of transactions!'
          self.script2 = txOldData.outputs[self.txOutIndex].binScript
       elif isinstance(txOldData, PyTxOut):
@@ -2212,7 +2209,10 @@ class PyScriptProcessor(object):
 
 
 
-   def verifyTransactionValid(self):
+   def verifyTransactionValid(self, txOldData=None, txNew=None, txInIndex=-1):
+      if txOldData and txNew and txInIndex != -1:
+         self.setTxObjects(txOldData, txNew, txInIndex)
+
       if self.script1==None or self.txNew==None:
          raise VerifyScriptError, 'Cannot verify transactions, without setTxObjects call first!'
 
@@ -2755,6 +2755,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    newTx.inputs     = []
    newTx.outputs    = []
 
+
    numInputs  = len(srcTxOuts)
    numOutputs = len(dstAddrsVals)
 
@@ -2790,11 +2791,11 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       txin = PyTxIn()
       txin.outpoint = PyOutPoint()
       if(coinbaseTx):
-         txin.outpoint.txOutHash = '\x00'*32
-         txin.outpoint.index     = binary_to_int('\xff'*4)
+         txin.outpoint.txHash = '\x00'*32
+         txin.outpoint.txOutIndex     = binary_to_int('\xff'*4)
       else:
-         txin.outpoint.txOutHash = hash256(srcTxOuts[0][1].serialize())
-         txin.outpoint.index     = srcTxOuts[0][2]
+         txin.outpoint.txHash = hash256(srcTxOuts[i][1].serialize())
+         txin.outpoint.txOutIndex     = srcTxOuts[i][2]
       txin.binScript = ''
       txin.intSeq = 2**32-1
       newTx.inputs.append(txin)                                      
@@ -2914,6 +2915,8 @@ class UnspentTxOut(object):
       self.val  = cppUtxo.getValue()
       self.conf = cppUtxo.getNumConfirm()
       self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
+      self.txHash     = cppUtxo.getTxHash()
+      self.txOutIndex = cppUtxo.getTxOutIndex()
       return self
    def getValue(self):
       return self.val
@@ -2934,6 +2937,10 @@ class UnspentTxOut(object):
 
 
 ################################################################################
+def sumTxOutList(txoutList):
+   return sum([u.getValue() for u in txoutList])
+
+################################################################################
 # This is really just for viewing a TxOut list -- usually for debugging
 def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
    totalSum = sum([u.getValue() for u in utxoList])
@@ -2945,6 +2952,7 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
       print '   ',hash160_to_addrStr(utxo.getRecipientAddr()).ljust(34),
       print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
       print '   ',str(utxo.getNumConfirm()).rjust(8)
+
 
 ################################################################################
 # Sorting currently implemented in C++, but we implement a different kind, here
@@ -3364,7 +3372,7 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=5, margin=0.01e8):
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0.01e8):
    """
    Intense algorithm for coin selection:  computes about 30 different ways to
    select coins based on the desired target output and the min tx fee.  Then 
@@ -3532,8 +3540,8 @@ def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
    for inp in selectedTxOuts:
       txin = PyTxIn()
       op = PyOutPoint()
-      op.txOutHash   = inp.getTxHash()
-      op.index       = inp.getTxOutIndex()
+      op.txHash   = inp.getTxHash()
+      op.txOutIndex = inp.getTxOutIndex()
       txin.outpoint  = op
 
       txin.binScript = inp.getScript()  
@@ -3559,159 +3567,5 @@ def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
 
    pytx.lockTime = 0
    return pytx
-
-
-################################################################################
-################################################################################
-# This class can be used for both multi-signature tx collection, as well as
-# offline wallet signing (you are collecting signatures for a 1-of-1 tx only
-# involving yourself).
-class PyTxDistProposal(object):
-   """
-   PyTxDistProposal is created from a PyTx object, and represents
-   an unsigned transaction, that may require the signatures of 
-   multiple parties before being accepted by the network.
-
-   We assume that the PyTx object has been prepared already by
-   replacing all the TxIn scripts with the scripts of the TxOuts
-   they are spending.
-
-   In other words, in order to prepare a PyTxDistProposal, you
-   will need access to the blockchain to find the txouts you are
-   spending (and thus they have to be acquired with external 
-   code, such as my CppBlockUtils SWIG module).  But once the 
-   TxDP is created, the system signing it only needs the ECDSA
-   private keys and nothing else.   This enables the device 
-   providing the signatures to be extremely lightweight.
-
-   TODO:  I need to figure out how to identify whether a TxOut
-          script requires Sig-PubKey-Sig-PubKey, or just Sig-Sig
-          (or similar for N address)
-   """
-   def __init__(self, pytx=None):
-      self.pytxObj   = UNINITIALIZED
-      self.scriptTypes  = []
-      self.signatures   = []
-      self.sigIsValid   = []
-      if pytx:
-         self.createFromPreparedPyTx(pytx)
-               
-            
-   def createFromPreparedPyTx(self, pytx):
-      sz = len(pytx.inputs)
-      self.pytxObj   = pytx
-      self.signatures   = [None]*sz
-      self.scriptTypes  = [None]*sz
-      self.addr160List  = [None]*sz
-      for i in range(sz):
-         script = str(pytx.inputs[i].binScript)
-         scrType = getTxOutScriptType(pytx.inputs[i])
-         self.scriptTypes[i] = scrType
-         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160List[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
-         elif scrType==TXOUT_SCRIPT_MULTISIG:
-            addr160List[i] = multiSigExtractAddr160List(script)
-         elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
-            pass
-
-      return self
-
-   def appendSignature(self, binSig, txinIndex=None):
-      if txinIndex and txinIndex<len(self.pytxObj.inputs):
-         # check that this script is in the correct place
-         txin = self.pytxObj.inputs[txinIndex]
-         psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIndex)
-         if psp.verifyTransactionValid():
-            self.signatures[txinIndex] = binSig
-            return True
-      
-      # If we are here, we don't know which TxIn this sig is for.  Try each one
-      # (we assume that if the txinIndex was supplied, but failed to verify,
-      #  that it was accidental and we should check if it matches another one)
-      for iin in range(len(self.pytxObj.inputs)):
-         txin = self.pytxObj.inputs[iin]
-         psp = PyScriptProcessor(txin.binScript, self.pytxObj, iin)
-         if psp.verifyTransactionValid():
-            self.signatures[iin] = binSig
-            return True
-
-      return False
-         
-
-   def serializeHex(self):
-      bp = BinaryPacker()
-      bp.put(BINARY_CHUNK, self.pytxString) 
-
-   def unserialize(self, toUnpack):
-      pass
-      
-   def serializeBinary(self):
-      pass
-   
-   def serializeHex(self):
-      return binary_to_hex(self.serializeBinary())
-
-   #def serializeBase58(self):
-      #return binary_to_hex(self.serializeBinary())
-
-   def signTxDistProposal(self, wallet, hashcode=1):
-      if not hashcode==1:
-         print '***ERROR: hashcode!=1 is not supported at this time!'
-         return
-
-      numInputs = len(self.pytxObj.inputs)
-      wltAddr = []
-      #amtToSign = 0  # I can't get this without asking blockchain for txout vals
-      for index,txin in enumerate(self.pytxObj.inputs):
-         # usually have TxIn scripts here, but a txdp input has the txout script 
-         scriptType = getTxOutScriptType(txin)
-         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160 = TxOutScriptExtractAddr160(txin.getScript())
-            if wallet.hasAddr(addr160) and wallet.getAddr(addr160).hasPrivKey():
-               wltAddr.append( (wallet.getAddr(addr160), index) )
-   
-      numMyAddr = len(wltAddr)
-      print 'Total number of inputs in transaction:  ', numAddr
-      print 'Number of inputs that you can sign for: ', numMyAddr
-   
-      ###
-      wallet.unlock()  # should invoke decrypt/passphrase dialog
-      ###
-   
-      for key,idx in wltAddr:
-         txCopy = PyTx().unserialize(self.pytxObj.serialize())
-         for i in range(len(txCopy.inputs)):
-            if not i==idx:
-               txCopy.inputs[i] = ''
-
-         hashCode1  = int_to_binary(hashcode, widthBytes=1)
-         hashCode4  = int_to_binary(hashcode, widthBytes=4)
-   
-         # Copy the script of the TxOut we're spending, into the txIn script
-         txCopy.inputs[i].binScript = prevTxOut.binScript
-         preHashMsg = txCopy.serialize() + hashCode4
-         binToSign = hash256(preHashMsg)
-         binToSign = binary_switchEndian(binToSign)
-         signature = srcAddr.generateDERSignature(binToSign)
-   
-         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
-         # Don't forget to tack on the one-byte hashcode and consider it part of sig
-         if len(prevTxOut.binScript) > 30:
-            sigLenInBinary = int_to_binary(len(signature) + 1)
-            newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
-         else:
-            pubkey = srcAddr.pubKey_serialize()
-            sigLenInBinary    = int_to_binary(len(signature) + 1)
-            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
-                                        pubkeyLenInBinary + pubkey
-   
-      ###
-      wallet.lock()  # re-secure wallet
-      ###
-   
-   
-
-
 
 
