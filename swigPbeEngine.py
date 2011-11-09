@@ -149,6 +149,10 @@ class PyTxDistProposal(object):
 
    #############################################################################
    def getFinalPyTx(self):
+      # TODO: I think this actually destroys the original txdp (throws away
+      #       the original TxOut scripts.  This may not matter because the
+      #       sig is complete, but it might matter if this fails.  I should
+      #       fix this
       txOutScripts = []
       for i,txin in enumerate(self.pytxObj.inputs):
          txOutScripts.append(txin.binScript)

@@ -303,6 +303,7 @@ void BtcWallet::scanTx(TxRef & tx,
            blknum+1000         < thisAddr.getLastBlockNum()           )
          continue;  
 
+
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
@@ -372,7 +373,6 @@ void BtcWallet::scanTx(TxRef & tx,
          if( txout.getRecipientAddr() == thisAddr.getAddrStr20() )
          {
             OutPoint outpt(tx.getThisHash(), iout);      
-            unspentOutPoints_.insert(outpt);
             pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
             pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx, iout));
             insResult = txioMap_.insert(toBeInserted);
@@ -380,6 +380,8 @@ void BtcWallet::scanTx(TxRef & tx,
             TxIOPair & thisTxio = insResult.first->second;
             if(insResult.second == true)
             {
+               unspentOutPoints_.insert(outpt);
+               thisTxio.getTxOutRef().pprint();
                anyTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 

@@ -147,6 +147,7 @@ addrStr2 = hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31");
 addrStr3 = hex_to_binary("f62242a747ec1cb02afd56aac978faf05b90462e");
 addrStr4 = hex_to_binary("baa72d8650baec634cdc439c1b84a982b2e596b2");
 addrStr5 = hex_to_binary("6300bf4c5c2a724c280b893807afb976ec78a92b");
+addrStr6 = hex_to_binary('0e0aec36fe2545fb31a41164fb6954adcd96b342');
 
 # The _1_ methods are to avoid quirks with SWIG related using overloaded methods
 # requiring arguments that were typemap'd (BinaryData, in this case)
@@ -179,6 +180,7 @@ for i,l in enumerate(ledger1):
 print '\n\nAdding address to wallet that has non-std tx.  Rescan wallet:'
 cppWallet.addAddress_1_(addrStr4)
 cppWallet.addAddress_1_(addrStr5)
+cppWallet.addAddress_1_(addrStr6)
 bdm.scanBlockchainForTx_FromScratch(cppWallet);
 print 'Done!'
 
@@ -203,4 +205,8 @@ for i,l in enumerate(ledger1):
 print ''
 
 
+
+print 'Getting unspent TxOuts for addresses:'
+utxolist = bdm.getUnspentTxOutsForWallet(cppWallet)
+pprintUnspentTxOutList(utxolist, "All utxos:")
 
