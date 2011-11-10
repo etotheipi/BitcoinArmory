@@ -44,6 +44,42 @@ from datetime import datetime
 
 VERSION = (0,5,0,0)  # (Major, Minor, Minor++, even-more-minor)
 
+
+def sha1(bits):
+   return hashlib.new('sha1', bits).digest()
+def sha256(bits):
+   return hashlib.new('sha256', bits).digest()
+def ripemd160(bits):
+   return hashlib.new('ripemd160', bits).digest()
+def hash256(s):
+   """ Double-SHA256 """
+   return sha256(sha256(s))
+def hash160(s):
+   """ RIPEMD160( SHA256( binaryStr ) ) """
+   return ripemd160(sha256(s))
+
+
+################################################################################
+# Load the C++ utilites here 
+# If we have them, we can use them for accessing the blockchain, and efficient
+# ECDSA operations
+################################################################################
+useCpp = False
+try:
+   import CppBlockUtils as Cpp
+   useCpp = True
+   # Was planning to throw in C++ hashing here, for speed.
+   # But it's not actually faster -- probably slowed down
+   # by the typemap and overhead of exchanging data with C++
+except:
+   print '***WARNING:  C++ block utilities not available.'
+   print '             defaulting to [slower] python methods'
+   print '             (blockchain will not be available'
+print 'Using CppBlockUtils: ', useCpp
+   
+
+
+
 def getVersionString(vquad=VERSION, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
    if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
@@ -63,13 +99,6 @@ def getVersionInt(vquad=VERSION, numPieces=4):
    return vint
    
 
-def sha1(bits):
-   return hashlib.new('sha1', bits).digest()
-def sha256(bits):
-   return hashlib.new('sha256', bits).digest()
-def ripemd160(bits):
-   return hashlib.new('ripemd160', bits).digest()
-
 
 class UnserializeError(Exception):
    pass
@@ -80,6 +109,10 @@ class VerifyScriptError(Exception):
 class FileExistsError(Exception):
    pass
 class ECDSA_Error(Exception):
+   pass
+class PackerError(Exception):
+   pass
+class UnitializedBlockDataError(Exception):
    pass
 
 # These are overriden for testnet
@@ -325,15 +358,6 @@ def base58_to_binary(addr):
    
      
 
-##### BINARYSTR/HASHDIGEST #####
-def hash256(s):
-   """ Double-SHA256 """
-   return sha256(sha256(s))
-
-##### BINARYSTR/ADDRESSDIGEST #####
-def hash160(s):
-   """ RIPEMD160( SHA256( binaryStr ) ) """
-   return ripemd160(sha256(s))
 
 def hash160_to_addrStr(binStr):
    """ 
@@ -500,7 +524,7 @@ class BinaryUnpacker(object):
          return binOut
       
       print 'Var Type not recognized!  VarType =', varType
-      assert(False)
+      raise PackerError, "Var type not recognized!  VarType="+str(varType)
          
          
 
@@ -548,8 +572,7 @@ class BinaryPacker(object):
       elif varType == BINARY_CHUNK:
          self.binaryConcat += theData
       else:
-         print 'Var Type not recognized!  VarType =', varType
-         assert(False)
+         raise PackerError, "Var type not recognized!  VarType="+str(varType)
 
 ################################################################################
 
@@ -920,7 +943,8 @@ class PyBtcAddress(object):
          leadByte        = binary_to_int(pubkey[:1    ], BIGENDIAN)
          self.pubKeyXInt = binary_to_int(pubkey[ 1:33 ], BIGENDIAN)
          self.pubKeyYInt = binary_to_int(pubkey[   33:], BIGENDIAN)
-         assert( leadByte == 4 )
+         if leadByte != 4:
+            raise BadAddressError, 'Invalid leading byte on Public key'
       # If "contains_point" error... the supplied XY-coords are not
       # on the secp256k1 elliptic curve
       pubKeyPoint = EC_Point(EC_Curve, self.pubKeyXInt, self.pubKeyYInt)
@@ -971,14 +995,16 @@ class PyBtcAddress(object):
       errors entering/copying the address
       """
       self.addrStr = addrStr
-      assert(self.checkAddressValid())
+      if self.checkAddressValid():
+         raise BadAddressError, 'Invalid address string:'+addrStr
       return self
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):
       """
       Forces a recalculation of the address string from the public key
       """
-      assert( self.hasPubKey() )
+      if not self.hasPubKey():
+         raise BadAddressError, 'Cannot compute address string without PublicKey'
       keyHash = self.getAddr160()
       chkSum  = hash256(netbyte + keyHash)[:4]
       return  binary_to_base58(netbyte + keyHash + chkSum)
@@ -1004,7 +1030,8 @@ class PyBtcAddress(object):
 
       Optionally, you can provide your own random number 
       """
-      assert( self.hasPrivKey() )
+      if not self.hasPrivKey():
+         raise BadAddressError, 'Cannot execute ECDSA signature without private key!'
       self.prepareKeys()
       intSign = binary_to_int(binToSign)
       if extraEntropy:
@@ -1036,7 +1063,8 @@ class PyBtcAddress(object):
       """
       Applies ECDSA magic to verify a message using a PUBLIC key.
       """
-      assert(self.hasPubKey())
+      if not self.hasPubKey():
+         raise BadAddressError, 'Cannot verify ECDSA signature without public key!'
       self.prepareKeys()
       codeByte = derToVerify[0]
       nBytes   = binary_to_int(derToVerify[1])
@@ -1077,7 +1105,8 @@ class PyBtcAddress(object):
       # If we already had both a public and private key, we might consider
       # checking that they are a match
       if self.hasPubKey() and self.hasPrivKey() and checkKeyMatch:
-         assert(self.checkPubPrivKeyPairMatch())
+         if not self.checkPubPrivKeyPairMatch():
+            raise BadAddressError, 'Private key and public key do not match!'
 
 
    def checkAddressValid(self):
@@ -1412,7 +1441,8 @@ class PyTxIn(object):
                       '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.outpoint.txOutIndex
       source = TxInScriptExtractKeyAddr(self)[0]
-      print indstr + indent + 'Script:    ', '('+binary_to_hex(self.binScript)+')'
+      print indstr + indent + 'Script:    ', \
+                  '('+binary_to_hex(self.binScript)[:32]+'...)'
       print indstr + indent + 'Seq:       ', self.intSeq
       
 
@@ -1574,7 +1604,8 @@ class PyBlockHeader(object):
       self.isOrphan     = True  
 
    def serialize(self):
-      assert( not self.version == UNINITIALIZED)
+      if self.version == UNINITIALIZED:
+         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       binOut = BinaryPacker()
       binOut.put(UINT32, self.version)
       binOut.put(BINARY_CHUNK, self.prevBlkHash)
@@ -1602,7 +1633,8 @@ class PyBlockHeader(object):
 
 
    def getHash(self, endian=LITTLEENDIAN):
-      assert( not self.version == UNINITIALIZED)
+      if self.version == UNINITIALIZED:
+         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       if len(self.theHash) < 32:
          self.theHash = hash256(self.serialize())
       outHash = self.theHash 
@@ -1611,13 +1643,15 @@ class PyBlockHeader(object):
       return outHash
 
    def getHashHex(self, endian=LITTLEENDIAN):
-      assert( not self.version == UNINITIALIZED)
+      if self.version == UNINITIALIZED:
+         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       if len(self.theHash) < 32:
          self.theHash = hash256(self.serialize())
       return binary_to_hex(self.theHash, endian)
 
    def getDifficulty(self):
-      assert(not self.diffBits == UNINITIALIZED)
+      if self.diffBits == UNINITIALIZED:
+         raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
 
@@ -1661,7 +1695,8 @@ class PyBlockData(object):
       
 
    def serialize(self):
-      assert( not self.numTx == UNINITIALIZED )
+      if self.numTx == UNINITIALIZED:
+         raise UnitializedBlockDataError, 'PyBlockData object not initialized!'
       binOut = BinaryPacker()
       binOut.put(VAR_INT, self.numTx)
       for tx in self.txList:
@@ -2947,11 +2982,13 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
    print headerLine, '(Total = %s BTC)' % coin2str(totalSum)
    print '   ','Owner Address'.ljust(34),
    print '   ','TxOutValue'.rjust(18),
-   print '   ','NumConf'.rjust(8)
+   print '   ','NumConf'.rjust(8),
+   print '   ','PriorityFactor'.rjust(16)
    for utxo in utxoList:
       print '   ',hash160_to_addrStr(utxo.getRecipientAddr()).ljust(34),
       print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
-      print '   ',str(utxo.getNumConfirm()).rjust(8)
+      print '   ',str(utxo.getNumConfirm()).rjust(8),
+      print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(COIN*144.))).rjust(16)
 
 
 ################################################################################
@@ -3010,11 +3047,33 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    
       finalSortedList.extend(zeroConfirm)
       return finalSortedList
+   if sortMethod in (5, 6, 7):
+      utxoSorted = PySortCoins(unspentTxOutInfo, 1)
+      # Rotate the top 1,2 or 3 elements to the bottom of the list
+      for i in range(sortMethod-4):  
+         utxoSorted.append(utxoSorted[0])
+         del utxoSorted[0]
+      return utxoSorted
    
    # TODO:  Add a semi-random sort method:  it will favor putting high-priority
    #        outputs at the front of the list, but will not be deterministic
    #        This should give us some high-fitness variation compared to sorting
    #        uniformly
+   if sortMethod==8:
+      utxosNoZC = filter(lambda a: a.getNumConfirm()!=0, unspentTxOutInfo)
+      random.shuffle(utxosNoZC)
+      utxosNoZC.extend(filter(lambda a: a.getNumConfirm()==0, unspentTxOutInfo))
+      return utxosNoZC
+   if sortMethod==9:
+      utxoSorted = PySortCoins(unspentTxOutInfo, 1)
+      sz = len(filter(lambda a: a.getNumConfirm()!=0, utxoSorted))
+      # swap 1/3 of the values at random
+      topsz = int(min(max(round(sz/3), 5), sz))
+      for i in range(topsz):
+         pick1 = int(random.uniform(0,topsz))
+         pick2 = int(random.uniform(0,sz-topsz))
+         utxoSorted[pick1], utxoSorted[pick2] = utxoSorted[pick2], utxoSorted[pick1]
+      return utxoSorted
 
 
 
@@ -3233,7 +3292,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    # change, we don't really care that they're not close, it's still 
    # damned good/deceptive output anonymity  (so: only execute
    # the following block if outAnonFactor <= 1)
-   if 0 < outAnonFactor <= 1:
+   if 0 < outAnonFactor <= 1 and not totalChange==0:
       outValDiff = abs(totalChange - targetOutVal)
       diffPct = (outValDiff / max(totalChange, targetOutVal))
       if diffPct < 0.20:
@@ -3387,8 +3446,8 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
    selectLists = []
 
    # Start with the intelligent solutions with different sortings
-   for i in range(5):
-      diffSortList = PySortCoins(unspentTxOutInfo, i)
+   for sortMethod in range(8):
+      diffSortList = PySortCoins(unspentTxOutInfo, sortMethod)
       selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList, targExact,  minFee ))
       selectLists.append(PySelectCoins_MultiInput_SingleValue(  diffSortList, targExact,  minFee ))
       selectLists.append(PySelectCoins_SingleInput_SingleValue( diffSortList, targMargin, minFee ))
@@ -3402,15 +3461,16 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
    # But first, make a copy before in-place shuffling
    # NOTE:  using list[:] like below, really causes a swig::vector<type> to freak out!
    #utxos = unspentTxOutInfo[:]
-   utxos = list(unspentTxOutInfo)  
-   for i in range(numRand):
-      random.shuffle(utxos)
-      selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targExact,  minFee))
-      selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targExact,  minFee))
-      random.shuffle(utxos)
-      selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targMargin, minFee))
-      selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targMargin, minFee))
+   #utxos = list(unspentTxOutInfo)  
+   for method in range(8,10):
+      for i in range(numRand):
+         utxos = PySortCoins(unspentTxOutInfo, method)
+         selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targExact,  minFee))
+         selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targExact,  minFee))
+         selectLists.append(PySelectCoins_MultiInput_SingleValue(utxos, targMargin, minFee))
+         selectLists.append(PySelectCoins_MultiInput_DoubleValue(utxos, targMargin, minFee))
 
+   # Now we define PyEvalCoinSelect as our sorting metric, and find the best solution
    scoreFunc = lambda ulist: PyEvalCoinSelect(ulist, targetOutVal, minFee)
    finalSelection = max(selectLists, key=scoreFunc)
    SCORES = getSelectCoinsScores(finalSelection, targetOutVal, minFee)

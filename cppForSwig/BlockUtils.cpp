@@ -381,7 +381,6 @@ void BtcWallet::scanTx(TxRef & tx,
             if(insResult.second == true)
             {
                unspentOutPoints_.insert(outpt);
-               thisTxio.getTxOutRef().pprint();
                anyTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 

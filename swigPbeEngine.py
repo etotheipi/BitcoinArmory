@@ -118,6 +118,7 @@ class PyTxDistProposal(object):
 
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, recip160ValPairs):
+      assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
       self.pytxObj = PyTx()
       self.pytxObj.version = 1
       self.pytxObj.lockTime = 0
@@ -135,6 +136,13 @@ class PyTxDistProposal(object):
          self.inputAddrList.append(utxo.getRecipientAddr())
          self.scriptTypes.append(getTxOutScriptType(utxo.getScript()))
       for addr,value in recip160ValPairs:
+         if isinstance(addr, PyBtcAddress):
+            addr = addr.getAddr160()
+         if isinstance(addr, str):
+            if len(addr)>25:
+               addr = base58_to_binary(addr)[1:21]
+            elif len(addr)==25:
+               addr = addr[1:21]
          txout = PyTxOut()
          txout.value = value
          txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
@@ -218,7 +226,7 @@ class PyTxDistProposal(object):
          if bdm.isInitialized():
             value = bdm.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
             print '   Value: %s' % coin2str(value)
-      print indent+'Num Outputs           : ', len(tx.inputs)
+      print indent+'Num Outputs           : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
          outAddr = TxOutScriptExtractAddr160(txout.binScript)
          print indent,
@@ -453,13 +461,13 @@ class PyBtcWallet(object):
          
    #############################################################################
    def syncWithBlockchain(self):
-      bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
+      assert(bdm.isInitialized())
       bdm.scanBlockchainForTx_FromScratch(self.cppWallet)
    
 
    #############################################################################
    def getUnspentTxOutList(self):
-      bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
+      assert(bdm.isInitialized())
       self.syncWithBlockchain()
       return bdm.getUnspentTxOutsForWallet(self.cppWallet)
 
@@ -491,6 +499,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def createTransaction(self, recip20, amt, minFee=0):
+      assert(bdm.isInitialized())
       utxos = self.getUnspentTxOutList()
       pprintUnspentTxOutList(utxos, 'All unspent:')
       prelimSelection = PySelectCoins(utxos, amt, minFee)
@@ -502,7 +511,6 @@ class PyBtcWallet(object):
          #pprintUnspentTxOutList(utxos, 'After fee calc: amt=%s, fee=%s' % (coin2str(amt), coin2str(feeRecommend[0])))
       
          
-      bdm = Cpp.BlockDataManager().getBDM()  # hopefully this is init already
       srcInputs = []
       for utxo in prelimSelection:
          srcAddr = self.getAddrByHash160(utxo.getRecipientAddr())

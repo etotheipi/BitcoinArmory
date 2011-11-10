@@ -218,9 +218,16 @@ enum OPCODETYPE
 
 
 // This class holds only static methods.  
+// NOTE:  added default ctor and a few non-static, to support SWIG
+//        (-classic SWIG doesn't support static methods)
 class BtcUtils
 {
 public:
+
+   // Block of code to be called by SWIG -- i.e. made available to python
+   BtcUtils(void) {}
+   BinaryData hash256(BinaryData const & str) {return getHash256(str);}
+   BinaryData hash160(BinaryData const & str) {return getHash160(str);}
 
    // We should keep the genesis hash handy 
    static BinaryData        BadAddress_;

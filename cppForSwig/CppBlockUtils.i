@@ -16,6 +16,7 @@
 #include "BlockObj.h"
 #include "BlockObjRef.h"
 #include "BlockUtils.h"
+#include "BtcUtils.h"
 %}
 
 %include "std_string.i"
@@ -132,6 +133,7 @@ public:
 %include "BlockObj.h"
 %include "BlockObjRef.h"
 %include "BlockUtils.h"
+%include "BtcUtils.h"
 
 
 

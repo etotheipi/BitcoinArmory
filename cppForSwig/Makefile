@@ -59,6 +59,12 @@ CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h Unive
 CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
 	$(COMPILER) $(SWIG_INC) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) CppBlockUtils_wrap.cxx
 
+ECDSA_cryptopp.o: ECDSA_cryptopp.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) ECDSA_cryptopp.cpp
+
+ECDSA_test.out : ECDSA_cryptopp.cpp
+	$(LINKER) -o ECDSA_test.out $(INCLUDE_OPTS) $(LIBRARY_OPTS) ECDSA_cryptopp.cpp
+
 
 ##########################################################################
 # And now we have created all the individual object files specified with 
