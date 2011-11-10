@@ -62,7 +62,7 @@ def hash160(s):
 ################################################################################
 # Load the C++ utilites here 
 # If we have them, we can use them for accessing the blockchain, and efficient
-# ECDSA operations
+# ECDSA operations (not implemented yet)
 ################################################################################
 useCpp = False
 try:

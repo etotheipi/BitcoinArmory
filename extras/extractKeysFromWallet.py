@@ -29,9 +29,9 @@ else:
 
 def pretty(theStr, width=32):
    if len(theStr) == 130:
-      return ('\n\t\t' + theStr[2:2+64] + '\n\t\t' + theStr[2+64:])
+      return ('\t\t' + theStr[2:2+64] + '\n\t\t' + theStr[2+64:])
    else:
-      return ('\n\t\t' + theStr)
+      return ('\t\t' + theStr)
       
 
 walletBytes = wallet.read()
@@ -60,7 +60,7 @@ for i in range(len(walletBytes)):
 
             # Now search for a private key that matches
             havePrivKey = False
-            for j in [i-207,i-283]:
+            for j in [i+65+32,i+65+64]:
                if not walletBytes[j:j+2] == '\x04\x20':
                   continue
                startIdx = j+2
@@ -84,7 +84,8 @@ for i in range(len(walletBytes)):
          pass
          
 for k,v in privKeyDict.iteritems():
-   keyout.write('\nAddr: %s:\nPubK: %s\nPriv: %s' % (k,pretty(v[0]),pretty(v[1])))
+   keyout.write('\nAddrStr : %s:\nPubX(BE): %s\nPubY(BE): %s\nPriv(BE): %s' % \
+                           (k,v[0][2:2+64],v[0][2+64:2+64+64],v[1]))
 
 for k,v in pubKeyDict.iteritems():
    pubout.write('\n%s:\n\tPubKey: %s' % (k,pretty(v)))
