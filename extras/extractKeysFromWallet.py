@@ -13,9 +13,10 @@
 #
 #
 from sys import argv, path
+path.append('..')
+path.append('.')
 from pybtcengine import *
 
-path.append('..')
 
 pubfile  = 'keylistpub.txt'
 pairfile = 'keylistpair.txt'
