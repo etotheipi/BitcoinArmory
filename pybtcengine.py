@@ -995,8 +995,8 @@ class PyBtcAddress(object):
       errors entering/copying the address
       """
       self.addrStr = addrStr
-      if self.checkAddressValid():
-         raise BadAddressError, 'Invalid address string:'+addrStr
+      if not self.checkAddressValid():
+         raise BadAddressError, 'Invalid address string: '+addrStr
       return self
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):

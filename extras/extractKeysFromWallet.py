@@ -60,7 +60,7 @@ for i in range(len(walletBytes)):
 
             # Now search for a private key that matches
             havePrivKey = False
-            for j in [i+65+32,i+65+64]:
+            for j in [i-207,i-283]:
                if not walletBytes[j:j+2] == '\x04\x20':
                   continue
                startIdx = j+2
@@ -84,8 +84,8 @@ for i in range(len(walletBytes)):
          pass
          
 for k,v in privKeyDict.iteritems():
-   keyout.write('\nAddrStr : %s:\nPubX(BE): %s\nPubY(BE): %s\nPriv(BE): %s' % \
-                           (k,v[0][2:2+64],v[0][2+64:2+64+64],v[1]))
+   keyout.write('\n%s:\n\tPubX(BE): %s\n\tPubY(BE): %s\n\tPriv(BE): %s' % \
+                           (k,v[0][:64],v[0][64:64+64],v[1]))
 
 for k,v in pubKeyDict.iteritems():
    pubout.write('\n%s:\n\tPubKey: %s' % (k,pretty(v)))
