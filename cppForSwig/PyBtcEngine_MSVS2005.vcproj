@@ -368,6 +368,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\kdfRomix.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\UniversalTimer.cpp"
 				>
 			</File>
@@ -395,6 +399,10 @@
 			</File>
 			<File
 				RelativePath=".\BtcUtils.h"
+				>
+			</File>
+			<File
+				RelativePath=".\kdfRomix.h"
 				>
 			</File>
 			<File

@@ -6,6 +6,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockUtils.h"
+#include "kdfRomix.h"
 
 
 using namespace std;
@@ -23,15 +24,18 @@ void copyFile(string src, string dst)
 
 int main(void)
 {
+
+
+
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat", false);
-   //bdm.readBlkFile_FromScratch(
-            //"C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
-            //false);  // false ~ don't organize blockchain, just create maps
+   //bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat", false);
+   bdm.readBlkFile_FromScratch(
+            "C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
+            false);  // false ~ don't organize blockchain, just create maps
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -196,6 +200,7 @@ int main(void)
    //
    //        FYI: The first block is the *actual* main-network genesis block
    //
+   /*
    
    string blk04("reorgTest/blk_0_to_4.dat");
    string blk3A("reorgTest/blk_3A.dat");
@@ -331,8 +336,52 @@ int main(void)
    //
    /////////////////////////////////////////////////////////////////////////////
   
+   */
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Start Key-Derivation-Function (KDF) Tests.  
+   // ROMIX is the provably memory-hard (GPU-resistent) algorithm proposed by 
+   // Colin Percival, who is the creator of Scrypt.  
+   cout << endl << endl;
+   cout << "Executing Key-Derivation-Function (KDF) tests" << endl;
+   kdfRomix kdf(256*1024, 250);  // 128 kB of RAM needed per thread, 250 ms 
+   cout << "Printing parameters of the KDF:" << endl;
+   kdf.printKdfParams();
+
+   BinaryData passwd1("This is my first password");
+   BinaryData passwd2("This is my first password.");
+   BinaryData passwd3("This is my first password");
+   BinaryData key;
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "Executing KDF tests with longer compute time" << endl;
+   kdf.setKdfParams(256*1024, 1000);
+   cout << "Printing parameters of the KDF:" << endl;
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
 
    /////////////////////////////////////////////////////////////////////////////

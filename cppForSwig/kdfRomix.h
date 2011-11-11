@@ -58,18 +58,53 @@ class kdfRomix
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   kdfRomix(uint32_t memReqt=1048576, uint32_t numIter=1)
+   kdfRomix(uint32_t memReqt=256*1024, uint32_t targetComputeMs=250) :
+      hashFunctionName_( "sha512" ),
+      hashOutputBytes_( 64 ),
+      kdfOutputBytes_( 32 )
    {
       // SHA512 computes 64-byte outputs
-      hashFunctionName_ = "sha512";
-      hashOutputBytes_  = 64;
-      memoryReqtBytes_  = memReqt;
-      sequenceCount_    = memoryReqtBytes_ / hashOutputBytes_;
-      numIterations_    = numIter;
-      kdfOutputBytes_   = 32;
-      lookupTable_.resize(memoryReqtBytes_);
+      setKdfParams(memReqt, targetComputeMs);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   void setKdfParams(uint32_t memReqt, uint32_t targetComputeMs)
+   {
+      // Allocate memory for the lookup table
+      memoryReqtBytes_  = memReqt;
+      sequenceCount_    = memoryReqtBytes_ / hashOutputBytes_;
+      lookupTable_.resize(memoryReqtBytes_);
+
+      // Now test the speed of this system and set the number of iterations
+      // to run as many iterations as we can in 0.25s (or specified input)
+      BinaryData testKey("This is an example key to test KDF iteration speed");
+      TIMER_START("KDF_10_Iterations");
+      for(uint32_t i=0; i<10; i++)
+         testKey = DeriveKey_OneIter(testKey);
+      TIMER_STOP("KDF_10_Iterations");
+
+      double tenIters_s = UniversalTimer::instance().read("KDF_10_Iterations");
+      uint32_t msPerIter = (uint32_t)(tenIters_s * 100.);
+      numIterations_ = (uint32_t)(targetComputeMs / msPerIter);
+      numIterations_ = (numIterations_ < 1 ? 1 : numIterations_);
+      cout << "System speed test results: " << endl;
+      cout << "   10 iterations of the KDF took:  " << tenIters_s*1000 << " ms" << endl;
+      cout << "   Target computation time is:     " << targetComputeMs << " ms" << endl;
+      cout << "   Setting numIterations to:       " << numIterations_;
+   }
+
+
+   void printKdfParams(void)
+   {
+      // SHA512 computes 64-byte outputs
+      cout << "KDF Parameters:" << endl;
+      cout << "   HashFunction : " << hashFunctionName_ << endl;
+      cout << "   HashOutBytes : " << hashOutputBytes_ << endl;
+      cout << "   MemoryReqts  : " << memoryReqtBytes_ << endl;
+      cout << "   SequenceCount: " << sequenceCount_   << endl;
+      cout << "   NumIterations: " << numIterations_   << endl;
+      cout << "   KDFOutBytes  : " << kdfOutputBytes_  << endl;
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    void SingleHash(uint8_t  const * inputPtr, 
@@ -87,66 +122,71 @@ public:
    /////////////////////////////////////////////////////////////////////////////
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData DeriveKeyIteration(BinaryData const & password)
+   BinaryData DeriveKey_OneIter(BinaryData const & password)
    {
+      static CryptoPP::SHA512 sha512;
+
       // First, compute <sequenceCount_> consecutive hashes of the passphrase
       // Every iteration is stored in the next 64-bytes in the Lookup table
       uint32_t const HSZ = hashOutputBytes_;
+      lookupTable_.fill(0);
       uint8_t* frontOfLUT = lookupTable_.getPtr();
       uint8_t* nextRead  = NULL;
       uint8_t* nextWrite = NULL;
-      SingleHash(password.getPtr(), password.getSize(), frontOfLUT);
+      sha512.CalculateDigest(frontOfLUT, password.getPtr(), password.getSize());
       for(uint32_t nByte=0; nByte<memoryReqtBytes_-HSZ; nByte+=HSZ)
       {
          // Compute hash of slot i, put result in slot i+1
          nextRead  = frontOfLUT + nByte;
          nextWrite = nextRead + hashOutputBytes_;
-         SingleHash(nextRead, hashOutputBytes_, nextWrite);
+         sha512.CalculateDigest(nextWrite, nextRead, hashOutputBytes_);
       }
 
       // LookupTable should be complete, now start lookup sequence.
       // Start with the last hash from the previous step
       BinaryData X(frontOfLUT + memoryReqtBytes_ - HSZ, HSZ);
+      BinaryData Y(HSZ);
 
       // We "integerize" a hash value by taking the last 4 bytes of
       // as a uint32_t, and take modulo sequenceCount
       uint64_t* X64ptr = (uint64_t*)(X.getPtr());
+      uint64_t* Y64ptr = (uint64_t*)(Y.getPtr());
+      uint64_t* V64ptr = NULL;
       uint32_t newIndex;
       uint32_t const nXorOps = HSZ/sizeof(uint64_t);
-      for(uint32_t nSeq=0; nSeq<sequenceCount_; nSeq++)
+      for(uint32_t nSeq=0; nSeq<sequenceCount_/4; nSeq++)
       {
          // Interpret last 4 bytes of last result (mod seqCt) as next LUT index
          newIndex = *(uint32_t*)(X.getPtr()+HSZ-4) % sequenceCount_;
 
          // V represents the hash result at <newIndex>
-         uint64_t* V64ptr = (uint64_t*)(frontOfLUT + HSZ*newIndex);
+         V64ptr = (uint64_t*)(frontOfLUT + HSZ*newIndex);
 
          // xor X with V, and store the result in X
          for(int i=0; i<nXorOps; i++)
-            *(X64ptr+i) = *(X64ptr+i) ^ *(V64ptr+i);
-         
+            *(Y64ptr+i) = *(X64ptr+i) ^ *(V64ptr+i);
+
          // Hash the xor'd data to get the next index for lookup
-         SingleHash(X.getPtr(), HSZ, X.getPtr());
+         sha512.CalculateDigest(X.getPtr(), Y.getPtr(), HSZ);
       }
       // Truncate the final result to get the final key
       return X.getSliceCopy(0,kdfOutputBytes_);
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t computeNumIterationsForTime(uint32_t target_ms)
+   BinaryData DeriveKey(BinaryData const & password)
    {
-      BinaryData testKey("This is an example key to test KDF iteration speed");
-      TIMER_START("KDF_10_Iterations");
-      for(uint32_t i=0; i<10; i++)
-         testKey = DeriveKeyIteration(testKey);
-      TIMER_STOP("KDF_10_Iterations");
-
-      double tenIters_s = UniversalTimer::instance().read("KDF_10_Iterations");
-      numIterations_ = (uint32_t)(target_ms / (tenIters_s*1000.0));
-      return (numIterations_ < 1 ? 1 : numIterations_);
+      BinaryData masterKey(password);
+      for(uint32_t i=0; i<numIterations_; i++)
+         masterKey = DeriveKey_OneIter(masterKey);
+      
+      return masterKey;
    }
 
 
+   string   getHashFunctionName(void) const { return hashFunctionName_; }
+   uint32_t getMemoryReqtBytes(void)  const { return memoryReqtBytes_; }
+   uint32_t getNumIterations(void)    const { return numIterations_; }
    
 private:
    uint32_t hashOutputBytes_;
@@ -154,12 +194,12 @@ private:
    uint32_t memoryReqtBytes_;
    uint32_t kdfOutputBytes_;    // size of final key data
    string   hashFunctionName_;  // name of hash function to use (not impl)
+   BinaryData lookupTable_;
 
    uint32_t numIterations_;     // We set the ROMIX params for a given memory 
                                 // req't. Then run it numIter times to meet
                                 // the computation-time req't
                                 
-   BinaryData lookupTable_;
 
 };
 

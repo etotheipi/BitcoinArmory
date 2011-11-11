@@ -241,14 +241,14 @@ public:
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
    bool           isUnused(void) { return firstBlockNum_==UINT32_MAX; }
-   bool           setUnused(void) {firstBlockNum_=UINT32_MAX; 
+   void           setUnused(void) {firstBlockNum_=UINT32_MAX; 
                                    firstTimestamp_=UINT32_MAX;}
 
    void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
    void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
    void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
 
-   //bool           isActive(void) const           {return isActive_;        }
+   //bool         isActive(void) const           {return isActive_;        }
    //void         setAddrStr20(BinaryDataRef bd) { address20_.copyFrom(bd);}
    //void         setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
    //void         setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
