@@ -114,14 +114,14 @@ public:
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
 
-   void fill(uint8_t ch) { for(uint32_t i=0; i<nBytes_; i++) data_[i] = ch; }
+   void fill(uint8_t ch) { if(nBytes_>0) memset(getPtr(), ch, nBytes_); }
                
    uint8_t & operator[](size_t i)       { return data_[i]; }
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
    /////////////////////////////////////////////////////////////////////////////
    // This is probably inefficient, but easy
-   BinaryData operator+(BinaryData const & bd2)
+   BinaryData operator+(BinaryData const & bd2) const
    {
       BinaryData out(nBytes_ + bd2.nBytes_);
       memcpy(out.getPtr(), getPtr(), nBytes_);

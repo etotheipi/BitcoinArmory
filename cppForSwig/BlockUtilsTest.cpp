@@ -6,7 +6,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockUtils.h"
-#include "kdfRomix.h"
+#include "EncryptionUtils.h"
 
 
 using namespace std;
@@ -345,14 +345,14 @@ int main(void)
    // Colin Percival, who is the creator of Scrypt.  
    cout << endl << endl;
    cout << "Executing Key-Derivation-Function (KDF) tests" << endl;
-   kdfRomix kdf(256*1024, 250);  // 128 kB of RAM needed per thread, 250 ms 
-   cout << "Printing parameters of the KDF:" << endl;
+   KdfRomix kdf;  
+   kdf.computeKdfParams(256*1024, 250);  // 128 kB of RAM per thread, 250 ms 
    kdf.printKdfParams();
 
    BinaryData passwd1("This is my first password");
    BinaryData passwd2("This is my first password.");
    BinaryData passwd3("This is my first password");
-   BinaryData key;
+   SensitiveKeyData key;
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
    key = kdf.DeriveKey(passwd1);
@@ -367,7 +367,7 @@ int main(void)
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
    cout << "Executing KDF tests with longer compute time" << endl;
-   kdf.setKdfParams(256*1024, 1000);
+   kdf.computeKdfParams(32*1024, 1000);
    cout << "Printing parameters of the KDF:" << endl;
    kdf.printKdfParams();
 

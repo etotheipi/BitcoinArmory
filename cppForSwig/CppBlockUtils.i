@@ -17,7 +17,7 @@
 #include "BlockObjRef.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
-#include "kdfRomix.h"
+#include "EncryptionUtils.h"
 %}
 
 %include "std_string.i"
@@ -135,7 +135,7 @@ public:
 %include "BlockObjRef.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
-%include "kdfRomix.h"
+%include "EncryptionUtils.h"
 
 
 

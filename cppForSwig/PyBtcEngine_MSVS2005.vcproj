@@ -368,7 +368,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\kdfRomix.cpp"
+				RelativePath=".\EncryptionUtils.cpp"
 				>
 			</File>
 			<File
@@ -402,7 +402,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\kdfRomix.h"
+				RelativePath=".\EncryptionUtils.h"
 				>
 			</File>
 			<File
