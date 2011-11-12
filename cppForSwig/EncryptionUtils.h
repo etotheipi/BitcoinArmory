@@ -111,8 +111,11 @@ public:
 
    void dealloc(void)
    {
-      keyData_.fill(0x00);
-      munlock(keyData_.getPtr(), keyData_.getSize());
+      if(keyData_.getSize() > 0)
+      {
+         keyData_.fill(0x00);
+         munlock(keyData_.getPtr(), keyData_.getSize());
+      }
    }
 
 private:
@@ -128,10 +131,13 @@ public:
    AesCrypto(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   void Encrypt(BinaryData & data, 
-                SensitiveKeyData & key,
-                BinaryData   iv   = BinaryData(0))
+   void EncryptInPlace(BinaryData & data, 
+                       SensitiveKeyData & key,
+                       BinaryData & iv)
    {
+      cout << "   StartPlain: " << data.toHexStr() << endl;
+      cout << "   Key Data  : " << key.toHexStr() << endl;
+
       // Caller can supply their own IV/entropy, or let it be generated here
       if(iv.getSize() == 0)
       {
@@ -139,6 +145,7 @@ public:
          iv.resize(AES::BLOCKSIZE);
          prng.GenerateBlock(iv.getPtr(), AES::BLOCKSIZE);
       }
+      cout << "   IV Data   : " << iv.toHexStr() << endl;
 
       CFB_Mode<AES>::Encryption aes_enc( (byte*)key.getPtr(), 
                                                 key.getSize(), 
@@ -148,20 +155,17 @@ public:
                            (byte*)data.getPtr(), 
                                   data.getSize());
 
+      cout << "   Ciphertext: " << data.toHexStr() << endl;
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void Decrypt(BinaryData &       data, 
-                SensitiveKeyData & key,
-                BinaryData         iv   = BinaryData(0))
+   void DecryptInPlace(BinaryData &       data, 
+                       SensitiveKeyData & key,
+                       BinaryData         iv  )
    {
-      // Caller can supply their own IV/entropy, or let it be generated here
-      if(iv.getSize() == 0)
-      {
-         AutoSeededRandomPool prng;
-         iv.resize(AES::BLOCKSIZE);
-         prng.GenerateBlock(iv.getPtr(), AES::BLOCKSIZE);
-      }
+      cout << "   StrtCipher: " << data.toHexStr() << endl;
+      cout << "   Key Data  : " << key.toHexStr() << endl;
+      cout << "   IV Data   : " << iv.toHexStr() << endl;
 
       CFB_Mode<AES>::Decryption aes_enc( (byte*)key.getPtr(), 
                                                 key.getSize(), 
@@ -171,6 +175,7 @@ public:
                            (byte*)data.getPtr(), 
                                   data.getSize());
 
+      cout << "   Plaintext : " << data.toHexStr() << endl;
    }
 };
 
@@ -235,6 +240,7 @@ public:
    void usePrecomputedKdfParams(uint32_t memReqts, uint32_t numIter, BinaryData salt)
    {
       memoryReqtBytes_ = memReqts;
+      sequenceCount_   = memoryReqtBytes_ / hashOutputBytes_;
       numIterations_   = numIter;
       salt_            = salt;
    }
@@ -333,7 +339,7 @@ public:
    string       getHashFunctionName(void) const { return hashFunctionName_; }
    uint32_t     getMemoryReqtBytes(void) const  { return memoryReqtBytes_; }
    uint32_t     getNumIterations(void) const    { return numIterations_; }
-   BinaryData   getSalt(void) const             { return numIterations_; }
+   BinaryData   getSalt(void) const             { return salt_; }
    
 private:
 
