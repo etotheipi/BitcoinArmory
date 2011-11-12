@@ -393,7 +393,7 @@ void TestCrypto(void)
    cout << endl << endl;
    cout << "Executing Key-Derivation-Function (KDF) tests" << endl;
    KdfRomix kdf;  
-   kdf.computeKdfParams(256*1024, 250);  // 128 kB of RAM per thread, 250 ms 
+   kdf.computeKdfParams();
    kdf.printKdfParams();
 
    BinaryData passwd1("This is my first password");
@@ -414,8 +414,7 @@ void TestCrypto(void)
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
    cout << "Executing KDF tests with longer compute time" << endl;
-   kdf.computeKdfParams(32*1024, 1000);
-   cout << "Printing parameters of the KDF:" << endl;
+   kdf.computeKdfParams(1.0, 512*1024);
    kdf.printKdfParams();
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
@@ -440,9 +439,9 @@ void TestCrypto(void)
    testIV.createFromHex    ("80000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
    ciphertext.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
-   AesCrypto().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "Answer    : " << ciphertext.toHexStr() << endl;
-   AesCrypto().DecryptInPlace(plaintext, testKey, testIV);
+   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
+   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
+   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
 
 
    /// *** Test 2 *** ///
@@ -451,9 +450,9 @@ void TestCrypto(void)
    testIV.createFromHex    ("014730f80ac625fe84f026c60bfd547d");
    plaintext.createFromHex ("00000000000000000000000000000000");
    ciphertext.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
-   AesCrypto().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "Answer    : " << ciphertext.toHexStr() << endl;
-   AesCrypto().DecryptInPlace(plaintext, testKey, testIV);
+   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
+   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
+   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
 
 
    /// *** Test 3 *** ///
@@ -462,9 +461,9 @@ void TestCrypto(void)
    testIV.createFromHex    ("00000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
    ciphertext.createFromHex("225f068c28476605735ad671bb8f39f3");
-   AesCrypto().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "Answer    : " << ciphertext.toHexStr() << endl;
-   AesCrypto().DecryptInPlace(plaintext, testKey, testIV);
+   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
+   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
+   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
 
 
    /// My own test, for sanity (can only check the roundtrip values)
@@ -477,15 +476,15 @@ void TestCrypto(void)
    BinaryData randIV(0);  // tell the crypto to generate a random IV for me.
 
    cout << "Encrypting:" << endl;
-   AesCrypto().EncryptInPlace(secret, testKey, randIV);
+   CryptoAES().EncryptInPlace(secret, testKey, randIV);
    cout << endl << endl;
    cout << "Decrypting:" << endl;
-   AesCrypto().DecryptInPlace(secret, testKey, randIV);
+   CryptoAES().DecryptInPlace(secret, testKey, randIV);
    cout << endl << endl;
 
    // Now encrypting so I can store the encrypted data in file
    cout << "Encrypting again:" << endl;
-   AesCrypto().EncryptInPlace(secret, testKey, randIV);
+   CryptoAES().EncryptInPlace(secret, testKey, randIV);
 
    ofstream testfile("safefile.txt", ios::out);
    testfile << "KdfParams " << endl;
@@ -528,15 +527,13 @@ void TestCrypto(void)
    cout << "Attempting to decrypt with wrong passphrase" << endl;
    BinaryData passphrase = BinaryData("This is the wrong passphrase");
    newKey = newKdf.DeriveKey( passphrase );
-   AesCrypto().DecryptInPlace(cipherTry1, newKey, iv);
+   CryptoAES().DecryptInPlace(cipherTry1, newKey, iv);
 
 
    // Now try correct passphrase
-   cout << "Attempting to decrypt with wrong passphrase" << endl;
+   cout << "Attempting to decrypt with CORRECT passphrase" << endl;
    passphrase = BinaryData("This passphrase is tough to guess");
    newKey = newKdf.DeriveKey( passphrase );
-   AesCrypto().DecryptInPlace(cipherTry2, newKey, iv);
-
-
+   CryptoAES().DecryptInPlace(cipherTry2, newKey, iv);
 }
 

@@ -82,7 +82,13 @@
 
 
 using namespace std;
-using namespace CryptoPP;
+
+
+// Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
+// and also so it's easy to switch the AES MODE or PRNG, in one place
+#define BTC_AES      CryptoPP::AES
+#define BTC_AES_MODE CryptoPP::CFB_Mode
+#define BTC_PRNG     CryptoPP::AutoSeededRandomPool
 
 
 // Make sure that any time we're handling keys, we mlock/munlock it to 
@@ -123,12 +129,12 @@ private:
 };
 
 
-
-class AesCrypto
+// Leverage CryptoPP library for AES encryption/decryption
+class CryptoAES
 {
 public:
    /////////////////////////////////////////////////////////////////////////////
-   AesCrypto(void) {}
+   CryptoAES(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
    void EncryptInPlace(BinaryData & data, 
@@ -141,15 +147,15 @@ public:
       // Caller can supply their own IV/entropy, or let it be generated here
       if(iv.getSize() == 0)
       {
-         AutoSeededRandomPool prng;
-         iv.resize(AES::BLOCKSIZE);
-         prng.GenerateBlock(iv.getPtr(), AES::BLOCKSIZE);
+         BTC_PRNG prng;
+         iv.resize(BTC_AES::BLOCKSIZE);
+         prng.GenerateBlock(iv.getPtr(), BTC_AES::BLOCKSIZE);
       }
       cout << "   IV Data   : " << iv.toHexStr() << endl;
 
-      CFB_Mode<AES>::Encryption aes_enc( (byte*)key.getPtr(), 
-                                                key.getSize(), 
-                                         (byte*)iv.getPtr());
+      BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
+                                                        key.getSize(), 
+                                                 (byte*)iv.getPtr());
 
       aes_enc.ProcessData( (byte*)data.getPtr(), 
                            (byte*)data.getPtr(), 
@@ -167,9 +173,9 @@ public:
       cout << "   Key Data  : " << key.toHexStr() << endl;
       cout << "   IV Data   : " << iv.toHexStr() << endl;
 
-      CFB_Mode<AES>::Decryption aes_enc( (byte*)key.getPtr(), 
-                                                key.getSize(), 
-                                         (byte*)iv.getPtr());
+      BTC_AES_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
+                                                        key.getSize(), 
+                                                 (byte*)iv.getPtr());
 
       aes_enc.ProcessData( (byte*)data.getPtr(), 
                            (byte*)data.getPtr(), 
@@ -181,7 +187,7 @@ public:
 
 
 
-//
+// 
 class KdfRomix
 {
 public:
@@ -206,34 +212,62 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void computeKdfParams(uint32_t memReqt, uint32_t targetComputeMs)
+   void computeKdfParams(double targetComputeSec=0.25, uint32_t memReqts=0)
    {
-      // Allocate memory for the lookup table
-      memoryReqtBytes_  = memReqt;
-      sequenceCount_    = memoryReqtBytes_ / hashOutputBytes_;
-
       // Create a random salt, even though this is probably unnecessary:
       // the variation in numIter and memReqts is probably effective enough
       salt_.resize(32);
-      AutoSeededRandomPool prng;
+      BTC_PRNG prng;
       prng.GenerateBlock(salt_.getPtr(), 32);
+
+      // If memReqts is zero, we have indicated we want the system to search
+      // for the highest memory requirement that is reasonable.   We don't
+      // want to end up in a situation where 1 iteration is too slow on the
+      // system (such as smart-phone).  Even without high memory requirements,
+      // this KDF will still be computationally-heavy
+      BinaryData testKey("This is an example key to test KDF iteration speed");
+      memoryReqtBytes_  = memReqts;
+      if(memoryReqtBytes_ == 0)
+      {
+         memoryReqtBytes_ = 512;
+         uint32_t approxMs = 0;
+         while(approxMs < 30)
+         {
+            memoryReqtBytes_ *= 2;
+            sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
+            lookupTable_.resize(memoryReqtBytes_);
+
+            TIMER_RESTART("KDF_Mem_Search");
+            testKey = DeriveKey_OneIter(testKey);
+            TIMER_STOP("KDF_Mem_Search");
+            approxMs = (uint32_t)(TIMER_READ_SEC("KDF_Mem_Search") * 1000);
+         }
+      }
+
+      // Recompute here, in case we didn't enter the search above 
+      sequenceCount_    = memoryReqtBytes_ / hashOutputBytes_;
+      lookupTable_.resize(memoryReqtBytes_);
 
       // Now test the speed of this system and set the number of iterations
       // to run as many iterations as we can in 0.25s (or specified input)
-      BinaryData testKey("This is an example key to test KDF iteration speed");
-      TIMER_START("KDF_10_Iterations");
-      for(uint32_t i=0; i<10; i++)
+      TIMER_RESTART("KDF_Iterations");
+      uint32_t numTest = 5;
+      for(uint32_t i=0; i<numTest; i++)
+      {
+         BinaryData testKey("This is an example key to test KDF iteration speed");
          testKey = DeriveKey_OneIter(testKey);
-      TIMER_STOP("KDF_10_Iterations");
+      }
+      TIMER_STOP("KDF_Iterations");
 
-      double tenIters_s = UniversalTimer::instance().read("KDF_10_Iterations");
-      uint32_t msPerIter = (uint32_t)(tenIters_s * 100.);
-      numIterations_ = (uint32_t)(targetComputeMs / msPerIter);
+      double allItersSec = TIMER_READ_SEC("KDF_Iterations");
+      double perIterSec  = allItersSec / numTest;
+      numIterations_ = (uint32_t)(targetComputeSec / perIterSec);
       numIterations_ = (numIterations_ < 1 ? 1 : numIterations_);
-      cout << "System speed test results: " << endl;
-      cout << "   10 iterations of the KDF took:  " << tenIters_s*1000 << " ms" << endl;
-      cout << "   Target computation time is:     " << targetComputeMs << " ms" << endl;
-      cout << "   Setting numIterations to:       " << numIterations_ << endl;
+      cout << "System speed test results    : " << endl;
+      cout << "   Total test of the KDF took:  " << allItersSec*1000 << " ms" << endl;
+      cout << "                   to execute:  " << numTest << " iterations" << endl;
+      cout << "   Target computation time is:  " << targetComputeSec*1000 << " ms" << endl;
+      cout << "   Setting numIterations to:    " << numIterations_ << endl;
    }
 
    /////////////////////////////////////////////////////////////////////////////
