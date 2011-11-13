@@ -212,7 +212,8 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void computeKdfParams(double targetComputeSec=0.25, uint32_t memReqts=0)
+   void computeKdfParams(double   targetComputeSec  = 0.25, 
+                         uint32_t maxMemReqts       = UINT32_MAX)
    {
       // Create a random salt, even though this is probably unnecessary:
       // the variation in numIter and memReqts is probably effective enough
@@ -220,48 +221,52 @@ public:
       BTC_PRNG prng;
       prng.GenerateBlock(salt_.getPtr(), 32);
 
-      // If memReqts is zero, we have indicated we want the system to search
-      // for the highest memory requirement that is reasonable.   We don't
-      // want to end up in a situation where 1 iteration is too slow on the
-      // system (such as smart-phone).  Even without high memory requirements,
-      // this KDF will still be computationally-heavy
+      // Here, we pick the largest memory reqt that allows the executing system
+      // to compute the KDF is less than the target time.  A maximum can be 
+      // specified, in case the target system is likely to be memory-limited
+      // more than compute-speed limited
       BinaryData testKey("This is an example key to test KDF iteration speed");
-      memoryReqtBytes_  = memReqts;
-      if(memoryReqtBytes_ == 0)
-      {
-         memoryReqtBytes_ = 512;
-         uint32_t approxMs = 0;
-         while(approxMs < 30)
-         {
-            memoryReqtBytes_ *= 2;
-            sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
-            lookupTable_.resize(memoryReqtBytes_);
 
-            TIMER_RESTART("KDF_Mem_Search");
-            testKey = DeriveKey_OneIter(testKey);
-            TIMER_STOP("KDF_Mem_Search");
-            approxMs = (uint32_t)(TIMER_READ_SEC("KDF_Mem_Search") * 1000);
-         }
+      // Start the search for a memory value at 1kB
+      memoryReqtBytes_ = 1024;
+      double approxSec = 0;
+      while(approxSec <= targetComputeSec/4 && memoryReqtBytes_ < maxMemReqts)
+      {
+         memoryReqtBytes_ *= 2;
+
+         sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
+         lookupTable_.resize(memoryReqtBytes_);
+
+         TIMER_RESTART("KDF_Mem_Search");
+         testKey = DeriveKey_OneIter(testKey);
+         TIMER_STOP("KDF_Mem_Search");
+         approxSec = TIMER_READ_SEC("KDF_Mem_Search");
       }
 
       // Recompute here, in case we didn't enter the search above 
-      sequenceCount_    = memoryReqtBytes_ / hashOutputBytes_;
+      sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
       lookupTable_.resize(memoryReqtBytes_);
 
-      // Now test the speed of this system and set the number of iterations
-      // to run as many iterations as we can in 0.25s (or specified input)
-      TIMER_RESTART("KDF_Iterations");
-      uint32_t numTest = 5;
-      for(uint32_t i=0; i<numTest; i++)
+      // Depending on the search above (or if a low max memory was chosen, 
+      // we may need to do multiple iterations to achieve the desired compute
+      // time on this system.
+      double allItersSec = 0;
+      uint32_t numTest = 1;
+      while(allItersSec < 0.02)
       {
-         BinaryData testKey("This is an example key to test KDF iteration speed");
-         testKey = DeriveKey_OneIter(testKey);
+         numTest *= 2;
+         TIMER_RESTART("KDF_Time_Search");
+         for(uint32_t i=0; i<numTest; i++)
+         {
+            BinaryData testKey("This is an example key to test KDF iteration speed");
+            testKey = DeriveKey_OneIter(testKey);
+         }
+         TIMER_STOP("KDF_Time_Search");
+         allItersSec = TIMER_READ_SEC("KDF_Time_Search");
       }
-      TIMER_STOP("KDF_Iterations");
 
-      double allItersSec = TIMER_READ_SEC("KDF_Iterations");
       double perIterSec  = allItersSec / numTest;
-      numIterations_ = (uint32_t)(targetComputeSec / perIterSec);
+      numIterations_ = (uint32_t)(targetComputeSec / (perIterSec+0.0005));
       numIterations_ = (numIterations_ < 1 ? 1 : numIterations_);
       cout << "System speed test results    : " << endl;
       cout << "   Total test of the KDF took:  " << allItersSec*1000 << " ms" << endl;
