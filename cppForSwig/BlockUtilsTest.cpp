@@ -396,10 +396,10 @@ void TestCrypto(void)
    kdf.computeKdfParams();
    kdf.printKdfParams();
 
-   BinaryData passwd1("This is my first password");
-   BinaryData passwd2("This is my first password.");
-   BinaryData passwd3("This is my first password");
-   SensitiveKeyData key;
+   SecureBinaryData passwd1("This is my first password");
+   SecureBinaryData passwd2("This is my first password.");
+   SecureBinaryData passwd3("This is my first password");
+   SecureBinaryData key;
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
    key = kdf.DeriveKey(passwd1);
@@ -451,57 +451,59 @@ void TestCrypto(void)
    
    /// *** Test 1 *** ///
    cout << endl << endl;
-   BinaryData testIV, plaintext, ciphertext;
-   SensitiveKeyData testKey(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
+   SecureBinaryData testIV, plaintext, cipherTarg, cipherComp, testKey, rtPlain;
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("80000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
+
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
 
    /// *** Test 2 *** ///
    cout << endl << endl;
-   testKey.setKeyData(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("014730f80ac625fe84f026c60bfd547d");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
 
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
    /// *** Test 3 *** ///
    cout << endl << endl;
-   testKey.setKeyData(BinaryData::CreateFromHex( "ffffffffffff0000000000000000000000000000000000000000000000000000"));
+   testKey.createFromHex   ("ffffffffffff0000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("00000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("225f068c28476605735ad671bb8f39f3");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
+
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
 
    /// My own test, for sanity (can only check the roundtrip values)
    cout << endl << endl;
    cout << "Starting some kdf-aes-combined tests..." << endl;
    kdf.printKdfParams();
-   testKey = kdf.DeriveKey(BinaryData("This passphrase is tough to guess"));
-   BinaryData secret;
+   testKey = kdf.DeriveKey(SecureBinaryData("This passphrase is tough to guess"));
+   SecureBinaryData secret, cipher;
    secret.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-   BinaryData randIV(0);  // tell the crypto to generate a random IV for me.
+   SecureBinaryData randIV(0);  // tell the crypto to generate a random IV for me.
 
    cout << "Encrypting:" << endl;
-   CryptoAES().EncryptInPlace(secret, testKey, randIV);
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
    cout << endl << endl;
    cout << "Decrypting:" << endl;
-   CryptoAES().DecryptInPlace(secret, testKey, randIV);
+   secret = CryptoAES().Decrypt(cipher, testKey, randIV);
    cout << endl << endl;
 
    // Now encrypting so I can store the encrypted data in file
    cout << "Encrypting again:" << endl;
-   CryptoAES().EncryptInPlace(secret, testKey, randIV);
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
 
    ofstream testfile("safefile.txt", ios::out);
    testfile << "KdfParams " << endl;
@@ -510,12 +512,12 @@ void TestCrypto(void)
    testfile << "   HexSalt  " << kdf.getSalt().toHexStr() << endl;
    testfile << "EncryptedData" << endl;
    testfile << "   HexIV    " << randIV.toHexStr() << endl;
-   testfile << "   Cipher   " << secret.toHexStr() << endl;
+   testfile << "   Cipher   " << cipher.toHexStr() << endl;
    testfile.close();
    
    ifstream infile("safefile.txt", ios::in);
    uint32_t mem, nIters;
-   BinaryData salt, iv, cipher;
+   SecureBinaryData salt, iv;
    char deadstr[256];
    char hexstr[256];
 
@@ -523,34 +525,34 @@ void TestCrypto(void)
    infile >> deadstr >> mem;
    infile >> deadstr >> nIters;
    infile >> deadstr >> hexstr;
-   salt.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   salt.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile >> deadstr;
    infile >> deadstr >> hexstr;
-   iv.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   iv.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile >> deadstr >> hexstr;
-   cipher.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   cipher.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile.close();
    cout << endl << endl;
 
    // Will try this twice, once with correct passphrase, once without
-   BinaryData cipherTry1 = cipher;
-   BinaryData cipherTry2 = cipher;
-   SensitiveKeyData newKey;
+   SecureBinaryData cipherTry1 = cipher;
+   SecureBinaryData cipherTry2 = cipher;
+   SecureBinaryData newKey;
 
    KdfRomix newKdf(mem, nIters, salt);
    newKdf.printKdfParams();
 
    // First test with the wrong passphrase
    cout << "Attempting to decrypt with wrong passphrase" << endl;
-   BinaryData passphrase = BinaryData("This is the wrong passphrase");
+   SecureBinaryData passphrase = SecureBinaryData("This is the wrong passphrase");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().DecryptInPlace(cipherTry1, newKey, iv);
+   CryptoAES().Decrypt(cipherTry1, newKey, iv);
 
 
    // Now try correct passphrase
    cout << "Attempting to decrypt with CORRECT passphrase" << endl;
-   passphrase = BinaryData("This passphrase is tough to guess");
+   passphrase = SecureBinaryData("This passphrase is tough to guess");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().DecryptInPlace(cipherTry2, newKey, iv);
+   CryptoAES().Decrypt(cipherTry2, newKey, iv);
 }
 

@@ -45,6 +45,7 @@
 #include <algorithm>
 
 #include "cryptlib.h"
+#include "integer.h"
 #include "osrng.h"
 #include "sha.h"
 #include "aes.h"
@@ -81,6 +82,11 @@
 #endif
 
 
+// We will look for a high memory value to us in the KDF
+// But as a safety check, we should probably put a cap
+// on how much memory the KDF can use -- 32 MB is good
+#define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
+
 using namespace std;
 
 
@@ -91,294 +97,106 @@ using namespace std;
 #define BTC_PRNG     CryptoPP::AutoSeededRandomPool
 
 
-// Make sure that any time we're handling keys, we mlock/munlock it to 
-// avoid it being paged/swapped
-class SensitiveKeyData
+////////////////////////////////////////////////////////////////////////////////
+// Make sure that all crypto information is handled with page-locked data,
+// and overwritten when it's destructor is called.  For simplicity, we will
+// use this data type for all crypto data, for simplicity
+//
+class SecureBinaryData : public BinaryData
 {
 public:
-   SensitiveKeyData(void) { keyData_ = BinaryData(0); }
-   SensitiveKeyData(BinaryData const & data) { setKeyData(data); }
-   ~SensitiveKeyData(void) { dealloc(); }
-   SensitiveKeyData(SensitiveKeyData const & skd2) {setKeyData(skd2.keyData_);}
+   // We want regular BinaryData, but page-locked and secure destruction
+   SecureBinaryData(void) : BinaryData() 
+                   { lockData(); }
+   SecureBinaryData(uint32_t sz) : BinaryData(sz) 
+                   { lockData(); }
+   SecureBinaryData(BinaryData const & data) : BinaryData(data) 
+                   { lockData(); }
+   SecureBinaryData(uint8_t const * inData, size_t sz) : BinaryData(inData, sz)
+                   { lockData(); }
+   SecureBinaryData(uint8_t const * d0, uint8_t const * d1) : BinaryData(d0, d1)
+                   { lockData(); }
+   SecureBinaryData(string const & str) : BinaryData(str)
+                   { lockData(); }
+   SecureBinaryData(BinaryDataRef const & bdRef) : BinaryData(bdRef)
+                   { lockData(); }
 
-   BinaryData const &    getKeyDataRef(void) const  {return  keyData_;}
-   BinaryData const *    getKeyDataPtr(void) const  {return &keyData_;}
-   uint8_t const *       getPtr(void) const      {return  keyData_.getPtr();}
-   uint32_t              getSize(void) const        {return  keyData_.getSize();}
-   string                toBinStr(void) const { return keyData_.toBinStr(); }
-   string                toHexStr(void) const { return keyData_.toHexStr(); }
+   ~SecureBinaryData(void) { destroy(); }
 
-   void setKeyData(BinaryData const & data)
+
+   SecureBinaryData(SecureBinaryData const & sbd2) : 
+           BinaryData(sbd2.getPtr(), sbd2.getSize()) { lockData(); }
+
+
+   void resize(size_t sz)  { BinaryData::resize(sz);  lockData(); }
+   void reserve(size_t sz) { BinaryData::reserve(sz); lockData(); }
+
+
+   BinaryData    getRawCopy(void) { return BinaryData(getPtr(),    getSize()); }
+   BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
+
+   SecureBinaryData & append(SecureBinaryData & sbd2) ;
+   SecureBinaryData & operator=(SecureBinaryData const & sbd2);
+   SecureBinaryData operator+(SecureBinaryData & sbd2) const;
+
+   void lockData(void)
    {
-      dealloc();
-      keyData_.copyFrom(data);
-      mlock(keyData_.getPtr(), keyData_.getSize());
+      if(getSize() > 0)
+         mlock(getPtr(), getSize());
    }
 
-   void dealloc(void)
+   void destroy(void)
    {
-      if(keyData_.getSize() > 0)
+      if(getSize() > 0)
       {
-         keyData_.fill(0x00);
-         munlock(keyData_.getPtr(), keyData_.getSize());
+         fill(0x00);
+         munlock(getPtr(), getSize());
       }
    }
 
-private:
-   BinaryData keyData_;
-};
-
-
-// Leverage CryptoPP library for AES encryption/decryption
-class CryptoAES
-{
-public:
-   /////////////////////////////////////////////////////////////////////////////
-   CryptoAES(void) {}
-
-   /////////////////////////////////////////////////////////////////////////////
-   void EncryptInPlace(BinaryData & data, 
-                       SensitiveKeyData & key,
-                       BinaryData & iv)
-   {
-      cout << "   StartPlain: " << data.toHexStr() << endl;
-      cout << "   Key Data  : " << key.toHexStr() << endl;
-
-      // Caller can supply their own IV/entropy, or let it be generated here
-      if(iv.getSize() == 0)
-      {
-         BTC_PRNG prng;
-         iv.resize(BTC_AES::BLOCKSIZE);
-         prng.GenerateBlock(iv.getPtr(), BTC_AES::BLOCKSIZE);
-      }
-      cout << "   IV Data   : " << iv.toHexStr() << endl;
-
-      BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
-                                                        key.getSize(), 
-                                                 (byte*)iv.getPtr());
-
-      aes_enc.ProcessData( (byte*)data.getPtr(), 
-                           (byte*)data.getPtr(), 
-                                  data.getSize());
-
-      cout << "   Ciphertext: " << data.toHexStr() << endl;
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void DecryptInPlace(BinaryData &       data, 
-                       SensitiveKeyData & key,
-                       BinaryData         iv  )
-   {
-      cout << "   StrtCipher: " << data.toHexStr() << endl;
-      cout << "   Key Data  : " << key.toHexStr() << endl;
-      cout << "   IV Data   : " << iv.toHexStr() << endl;
-
-      BTC_AES_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
-                                                        key.getSize(), 
-                                                 (byte*)iv.getPtr());
-
-      aes_enc.ProcessData( (byte*)data.getPtr(), 
-                           (byte*)data.getPtr(), 
-                                  data.getSize());
-
-      cout << "   Plaintext : " << data.toHexStr() << endl;
-   }
 };
 
 
 
-// 
+
+////////////////////////////////////////////////////////////////////////////////
+// A memory-bound key-derivation function -- uses a variation of Colin 
+// Percival's ROMix algorithm: http://www.tarsnap.com/scrypt/scrypt.pdf
 class KdfRomix
 {
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   KdfRomix(void) : 
-      hashFunctionName_( "sha512" ),
-      hashOutputBytes_( 64 ),
-      kdfOutputBytes_( 32 )
-   { 
-      // Nothing to do here
-   }
+   KdfRomix(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   KdfRomix(uint32_t memReqts, uint32_t numIter, BinaryData salt) :
-      hashFunctionName_( "sha512" ),
-      hashOutputBytes_( 64 ),
-      kdfOutputBytes_( 32 )
-   {
-      usePrecomputedKdfParams(memReqts, numIter, salt);
-   }
+   KdfRomix(uint32_t memReqts, uint32_t numIter, SecureBinaryData salt);
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void computeKdfParams(double   targetComputeSec  = 0.25, 
-                         uint32_t maxMemReqts       = UINT32_MAX)
-   {
-      // Create a random salt, even though this is probably unnecessary:
-      // the variation in numIter and memReqts is probably effective enough
-      salt_.resize(32);
-      BTC_PRNG prng;
-      prng.GenerateBlock(salt_.getPtr(), 32);
-
-      // Here, we pick the largest memory reqt that allows the executing system
-      // to compute the KDF is less than the target time.  A maximum can be 
-      // specified, in case the target system is likely to be memory-limited
-      // more than compute-speed limited
-      BinaryData testKey("This is an example key to test KDF iteration speed");
-
-      // Start the search for a memory value at 1kB
-      memoryReqtBytes_ = 1024;
-      double approxSec = 0;
-      while(approxSec <= targetComputeSec/4 && memoryReqtBytes_ < maxMemReqts)
-      {
-         memoryReqtBytes_ *= 2;
-
-         sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
-         lookupTable_.resize(memoryReqtBytes_);
-
-         TIMER_RESTART("KDF_Mem_Search");
-         testKey = DeriveKey_OneIter(testKey);
-         TIMER_STOP("KDF_Mem_Search");
-         approxSec = TIMER_READ_SEC("KDF_Mem_Search");
-      }
-
-      // Recompute here, in case we didn't enter the search above 
-      sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
-      lookupTable_.resize(memoryReqtBytes_);
-
-      // Depending on the search above (or if a low max memory was chosen, 
-      // we may need to do multiple iterations to achieve the desired compute
-      // time on this system.
-      double allItersSec = 0;
-      uint32_t numTest = 1;
-      while(allItersSec < 0.02)
-      {
-         numTest *= 2;
-         TIMER_RESTART("KDF_Time_Search");
-         for(uint32_t i=0; i<numTest; i++)
-         {
-            BinaryData testKey("This is an example key to test KDF iteration speed");
-            testKey = DeriveKey_OneIter(testKey);
-         }
-         TIMER_STOP("KDF_Time_Search");
-         allItersSec = TIMER_READ_SEC("KDF_Time_Search");
-      }
-
-      double perIterSec  = allItersSec / numTest;
-      numIterations_ = (uint32_t)(targetComputeSec / (perIterSec+0.0005));
-      numIterations_ = (numIterations_ < 1 ? 1 : numIterations_);
-      cout << "System speed test results    : " << endl;
-      cout << "   Total test of the KDF took:  " << allItersSec*1000 << " ms" << endl;
-      cout << "                   to execute:  " << numTest << " iterations" << endl;
-      cout << "   Target computation time is:  " << targetComputeSec*1000 << " ms" << endl;
-      cout << "   Setting numIterations to:    " << numIterations_ << endl;
-   }
+   // Default max-memory reqt will 
+   void computeKdfParams(double   targetComputeSec=0.25, 
+                         uint32_t maxMemReqts=DEFAULT_KDF_MAX_MEMORY);
 
    /////////////////////////////////////////////////////////////////////////////
-   void usePrecomputedKdfParams(uint32_t memReqts, uint32_t numIter, BinaryData salt)
-   {
-      memoryReqtBytes_ = memReqts;
-      sequenceCount_   = memoryReqtBytes_ / hashOutputBytes_;
-      numIterations_   = numIter;
-      salt_            = salt;
-   }
+   void usePrecomputedKdfParams(uint32_t memReqts, 
+                                uint32_t numIter, 
+                                SecureBinaryData salt);
 
    /////////////////////////////////////////////////////////////////////////////
-   void printKdfParams(void)
-   {
-      // SHA512 computes 64-byte outputs
-      cout << "KDF Parameters:" << endl;
-      cout << "   HashFunction : " << hashFunctionName_ << endl;
-      cout << "   HashOutBytes : " << hashOutputBytes_ << endl;
-      cout << "   Memory/thread: " << memoryReqtBytes_ << " bytes" << endl;
-      cout << "   SequenceCount: " << sequenceCount_   << endl;
-      cout << "   NumIterations: " << numIterations_   << endl;
-      cout << "   KDFOutBytes  : " << kdfOutputBytes_  << endl;
-      cout << "   Salt         : " << salt_.toHexStr() << endl;
-   }
-
+   void printKdfParams(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData DeriveKey_OneIter(BinaryData const & password)
-   {
-      static CryptoPP::SHA512 sha512;
-
-      // Concatenate the salt/IV to the password
-      BinaryData saltedPassword = password + salt_; 
-      
-      // Prepare the lookup table
-      lookupTable_.resize(memoryReqtBytes_);
-      lookupTable_.fill(0);
-      uint32_t const HSZ = hashOutputBytes_;
-      uint8_t* frontOfLUT = lookupTable_.getPtr();
-      uint8_t* nextRead  = NULL;
-      uint8_t* nextWrite = NULL;
-
-      // First hash to seed the lookup table, input is variable length anyway
-      sha512.CalculateDigest(frontOfLUT, 
-                             saltedPassword.getPtr(), 
-                             saltedPassword.getSize());
-
-      // Compute <sequenceCount_> consecutive hashes of the passphrase
-      // Every iteration is stored in the next 64-bytes in the Lookup table
-      for(uint32_t nByte=0; nByte<memoryReqtBytes_-HSZ; nByte+=HSZ)
-      {
-         // Compute hash of slot i, put result in slot i+1
-         nextRead  = frontOfLUT + nByte;
-         nextWrite = nextRead + hashOutputBytes_;
-         sha512.CalculateDigest(nextWrite, nextRead, hashOutputBytes_);
-      }
-
-      // LookupTable should be complete, now start lookup sequence.
-      // Start with the last hash from the previous step
-      BinaryData X(frontOfLUT + memoryReqtBytes_ - HSZ, HSZ);
-      BinaryData Y(HSZ);
-
-      // We "integerize" a hash value by taking the last 4 bytes of
-      // as a uint32_t, and take modulo sequenceCount
-      uint64_t* X64ptr = (uint64_t*)(X.getPtr());
-      uint64_t* Y64ptr = (uint64_t*)(Y.getPtr());
-      uint64_t* V64ptr = NULL;
-      uint32_t newIndex;
-      uint32_t const nXorOps = HSZ/sizeof(uint64_t);
-
-      // We divide by 4 to reduce computation time -- k
-      uint32_t const nLookups = sequenceCount_ / 4;
-      for(uint32_t nSeq=0; nSeq<nLookups; nSeq++)
-      {
-         // Interpret last 4 bytes of last result (mod seqCt) as next LUT index
-         newIndex = *(uint32_t*)(X.getPtr()+HSZ-4) % sequenceCount_;
-
-         // V represents the hash result at <newIndex>
-         V64ptr = (uint64_t*)(frontOfLUT + HSZ*newIndex);
-
-         // xor X with V, and store the result in X
-         for(int i=0; i<nXorOps; i++)
-            *(Y64ptr+i) = *(X64ptr+i) ^ *(V64ptr+i);
-
-         // Hash the xor'd data to get the next index for lookup
-         sha512.CalculateDigest(X.getPtr(), Y.getPtr(), HSZ);
-      }
-      // Truncate the final result to get the final key
-      return X.getSliceCopy(0,kdfOutputBytes_);
-   }
+   SecureBinaryData DeriveKey_OneIter(SecureBinaryData const & password);
 
    /////////////////////////////////////////////////////////////////////////////
-   SensitiveKeyData DeriveKey(BinaryData const & password)
-   {
-      BinaryData masterKey(password);
-      for(uint32_t i=0; i<numIterations_; i++)
-         masterKey = DeriveKey_OneIter(masterKey);
-      
-      return SensitiveKeyData(masterKey);
-   }
+   SecureBinaryData DeriveKey(SecureBinaryData const & password);
 
-
+   /////////////////////////////////////////////////////////////////////////////
    string       getHashFunctionName(void) const { return hashFunctionName_; }
    uint32_t     getMemoryReqtBytes(void) const  { return memoryReqtBytes_; }
    uint32_t     getNumIterations(void) const    { return numIterations_; }
-   BinaryData   getSalt(void) const             { return salt_; }
+   SecureBinaryData   getSalt(void) const       { return salt_; }
    
 private:
 
@@ -388,17 +206,46 @@ private:
 
    uint32_t memoryReqtBytes_;
    uint32_t sequenceCount_;
-   BinaryData lookupTable_;
-   BinaryData salt_;            // prob not necessary amidst numIter, memReqts
+   SecureBinaryData lookupTable_;
+   SecureBinaryData salt_;            // prob not necessary amidst numIter, memReqts
                                 // but I guess it can't hurt
 
    uint32_t numIterations_;     // We set the ROMIX params for a given memory 
                                 // req't. Then run it numIter times to meet
                                 // the computation-time req't
-                                
-
 };
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Leverage CryptoPP library for AES encryption/decryption
+class CryptoAES
+{
+public:
+   CryptoAES(void) {}
+
+   SecureBinaryData Encrypt(SecureBinaryData & data, 
+                            SecureBinaryData & key,
+                            SecureBinaryData & iv);
+
+   SecureBinaryData Decrypt(SecureBinaryData & data, 
+                            SecureBinaryData & key,
+                            SecureBinaryData   iv);
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Leverage CryptoPP library for AES encryption/decryption
+/*
+class CryptoECDSA
+{
+   CryptoECDSA(void) {}
+
+   BinaryData SignString(BinaryData binToSign, SecureBinaryData privKey);
+   BinaryData VerifyString(BinaryData binToVerify, 
+                           BinaryData pubkeyX,
+                           BinaryData pubkeyY);
+};
+*/
 
 
 #endif
