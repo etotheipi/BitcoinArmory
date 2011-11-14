@@ -331,6 +331,7 @@ SecureBinaryData CryptoECDSA::SerializePrivateKey(BTC_PRIVKEY const & privKey)
    CryptoPP::Integer privateExp = privKey.GetPrivateExponent();
    SecureBinaryData privKeyData(32);
    privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize());
+   return privKeyData;
 }
    
 /////////////////////////////////////////////////////////////////////////////
@@ -355,6 +356,7 @@ BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
 
    // Validate the public key -- not sure why this needs a prng...
    static BTC_PRNG prng;
+   assert(cppPubKey.Validate(prng, 3));
    assert(cppPubKey.Validate(prng, 3));
 
    return cppPubKey;
@@ -415,12 +417,9 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
 
    static CryptoPP::SHA256  sha256;
-   static CryptoPP::Integer pubX;
-   static CryptoPP::Integer pubY;
    static CryptoPP::AutoSeededRandomPool prng;
-   static BTC_PUBKEY pubKey;
 
-   assert(pubKey.Validate(prng, 3));
+   assert(cppPubKey.Validate(prng, 3));
 
    // We execute the first SHA256 op, here.  Next one is done by Verifier
    SecureBinaryData hashVal(32);
@@ -429,7 +428,7 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
                           binMessage.getSize());
 
    // Verifying message 
-   BTC_VERIFIER verifier(pubKey); 
+   BTC_VERIFIER verifier(cppPubKey); 
    return verifier.VerifyMessage((const byte*)hashVal.getPtr(), 
                                               hashVal.getSize(),
                                  (const byte*)binSignature.getPtr(), 
