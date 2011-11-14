@@ -45,11 +45,11 @@
 #include <algorithm>
 
 #include "cryptlib.h"
-#include "integer.h"
 #include "osrng.h"
 #include "sha.h"
 #include "aes.h"
 #include "modes.h"
+#include "eccrypto.h"
 #include "filters.h"
 
 #include "BinaryData.h"
@@ -96,11 +96,21 @@ using namespace std;
 #define BTC_AES_MODE CryptoPP::CFB_Mode
 #define BTC_PRNG     CryptoPP::AutoSeededRandomPool
 
+#define BTC_ECPOINT  CryptoPP::ECP::Point
+#define BTC_ECDSA    CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>
+#define BTC_PRIVKEY  CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::PrivateKey
+#define BTC_PUBKEY   CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::PublicKey
+#define BTC_SIGNER   CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer 
+#define BTC_VERIFIER CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Verifier
+
 
 ////////////////////////////////////////////////////////////////////////////////
 // Make sure that all crypto information is handled with page-locked data,
 // and overwritten when it's destructor is called.  For simplicity, we will
 // use this data type for all crypto data, for simplicity
+//
+// I'm sure there's more elaborate ways to secure the data, but this isn't
+// bad.  We just want to make sure the class cleans up after itself
 //
 class SecureBinaryData : public BinaryData
 {
@@ -137,7 +147,9 @@ public:
 
    SecureBinaryData & append(SecureBinaryData & sbd2) ;
    SecureBinaryData & operator=(SecureBinaryData const & sbd2);
-   SecureBinaryData operator+(SecureBinaryData & sbd2) const;
+   SecureBinaryData   operator+(SecureBinaryData & sbd2) const;
+
+   static SecureBinaryData GenerateRandom(uint32_t numBytes);
 
    void lockData(void)
    {
@@ -162,6 +174,10 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // A memory-bound key-derivation function -- uses a variation of Colin 
 // Percival's ROMix algorithm: http://www.tarsnap.com/scrypt/scrypt.pdf
+//
+// The computeKdfParams method takes in a target time, T, for computation
+// on the computer executing the test.  The final KDF should take somewhere
+// between T/2 and T seconds.
 class KdfRomix
 {
 public:
@@ -223,29 +239,67 @@ class CryptoAES
 public:
    CryptoAES(void) {}
 
+   /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData Encrypt(SecureBinaryData & data, 
                             SecureBinaryData & key,
                             SecureBinaryData & iv);
 
+   /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData Decrypt(SecureBinaryData & data, 
                             SecureBinaryData & key,
                             SecureBinaryData   iv);
 };
 
 
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
-// Leverage CryptoPP library for AES encryption/decryption
-/*
+// Create a C++ interface to the Crypto++ ECDSA ops:  should be more secure
+// and much faster than the pure-python methods created by Lis
 class CryptoECDSA
 {
+public:
    CryptoECDSA(void) {}
 
-   BinaryData SignString(BinaryData binToSign, SecureBinaryData privKey);
-   BinaryData VerifyString(BinaryData binToVerify, 
-                           BinaryData pubkeyX,
-                           BinaryData pubkeyY);
+   /////////////////////////////////////////////////////////////////////////////
+   BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKeyXData,
+                             SecureBinaryData const & pubKeyYData);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData SerializePrivateKey(BTC_PRIVKEY const & privKey);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData SerializePublicKey(BTC_PUBKEY const & pubKey);
+
+   /////////////////////////////////////////////////////////////////////////////
+   BTC_PUBKEY ComputePublicKey(BTC_PRIVKEY const & cppPrivKey);
+   
+   
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData SignData(SecureBinaryData const & binToSign, 
+                             SecureBinaryData const & binPrivKey);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData SignData(SecureBinaryData const & binToSign, 
+                             BTC_PRIVKEY const & cppPrivKey);
+   
+   
+   /////////////////////////////////////////////////////////////////////////////
+   bool VerifyData(SecureBinaryData const & binMessage, 
+                   SecureBinaryData const & binSignature,
+                   SecureBinaryData const & pubkeyX,
+                   SecureBinaryData const & pubkeyY);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   bool VerifyData(SecureBinaryData const & binMessage, 
+                   SecureBinaryData const & binSignature,
+                   BTC_PUBKEY const & cppPubKey);
+                               
 };
-*/
 
 
 #endif

@@ -42,6 +42,10 @@
 #include <string>
 #include <assert.h>
 
+// We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
+#include "cryptlib.h"
+#include "osrng.h"
+
 #define DEFAULT_BUFFER_SIZE 25*1048576
 
 #include "UniversalTimer.h"
@@ -49,7 +53,6 @@
 
 using namespace std;
 
-class BtcUtils;
 class BinaryDataRef;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -325,6 +328,17 @@ public:
          data_[i] = (char1 << 4) | char2;
       }
    }
+
+
+   // Can remove this method if we don't have crypto++ linked
+   static BinaryData GenerateRandom(size_t numBytes)
+   {
+      static CryptoPP::AutoSeededRandomPool prng;
+      BinaryData randData(numBytes);
+      prng.GenerateBlock(randData.getPtr(), numBytes);
+      return randData;
+   }
+
 
    // Absorb a binary file's data into a new BinaryData object
    int32_t readBinaryFile(string filename)

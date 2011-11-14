@@ -28,6 +28,7 @@ void TestFindNonStdTx(string blkfile);
 void TestScanForWalletTx(string blkfile);
 void TestReorgBlockchain(string blkfile);
 void TestCrypto(void);
+void TestECDSA(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
@@ -59,6 +60,8 @@ int main(void)
    printTestHeader("Crypto-KDF-and-AES-methods");
    TestCrypto();
 
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -555,4 +558,30 @@ void TestCrypto(void)
    newKey = newKdf.DeriveKey( passphrase );
    CryptoAES().Decrypt(cipherTry2, newKey, iv);
 }
+
+
+
+
+
+
+void TestECDSA(void)
+{
+   SecureBinaryData msgToSign("This message came from me!");
+   SecureBinaryData privData = SecureBinaryData::GenerateRandom(32);
+
+   BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
+   BTC_PUBKEY  pubKey  = CryptoECDSA().ComputePublicKey(privKey);
+   
+   SecureBinaryData signature = CryptoECDSA().SignData(msgToSign, privKey);
+   cout << "Signature = " << signature.toHexStr() << endl;
+
+   bool isValid = CryptoECDSA().VerifyData(msgToSign, signature, pubKey);
+   cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+
+}
+
+
+
+
+
 

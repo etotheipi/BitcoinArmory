@@ -1,4 +1,11 @@
 #include "EncryptionUtils.h"
+#include "integer.h"
+#include "oids.h"
+
+//#include <openssl/ec.h>
+//#include <openssl/ecdsa.h>
+//#include <openssl/obj_mac.h>
+
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -28,6 +35,13 @@ SecureBinaryData & SecureBinaryData::operator=(SecureBinaryData const & sbd2)
    return (*this);
 }
 
+SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
+{
+   static CryptoPP::AutoSeededRandomPool prng;
+   SecureBinaryData randData(numBytes);
+   prng.GenerateBlock(randData.getPtr(), numBytes);
+   return randData;  
+}
 
 /////////////////////////////////////////////////////////////////////////////
 KdfRomix::KdfRomix(void) : 
@@ -52,9 +66,7 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
 {
    // Create a random salt, even though this is probably unnecessary:
    // the variation in numIter and memReqts is probably effective enough
-   salt_.resize(32);
-   BTC_PRNG prng;
-   prng.GenerateBlock(salt_.getPtr(), 32);
+   salt_ = SecureBinaryData::GenerateRandom(32);
 
    // Here, we pick the largest memory reqt that allows the executing system
    // to compute the KDF is less than the target time.  A maximum can be 
@@ -232,11 +244,8 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
 
    // Caller can supply their own IV/entropy, or let it be generated here
    if(iv.getSize() == 0)
-   {
-      BTC_PRNG prng;
-      iv.resize(BTC_AES::BLOCKSIZE);
-      prng.GenerateBlock(iv.getPtr(), BTC_AES::BLOCKSIZE);
-   }
+      iv = SecureBinaryData::GenerateRandom(BTC_AES::BLOCKSIZE);
+
    cout << "   IV Data   : " << iv.toHexStr() << endl;
 
    BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
@@ -283,6 +292,170 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
 
 
 
+/////////////////////////////////////////////////////////////////////////////
+BTC_PRIVKEY CryptoECDSA::ParsePrivateKey(SecureBinaryData const & privKeyData)
+{
+   BTC_PRIVKEY cppPrivKey;
+
+   CryptoPP::Integer privateExp;
+   privateExp.Decode(privKeyData.getPtr(), privKeyData.getSize());
+   cppPrivKey.Initialize(CryptoPP::ASN1::secp256k1(), privateExp);
+   return cppPrivKey;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BTC_PUBKEY CryptoECDSA::ParsePublicKey(SecureBinaryData const & pubKeyXData,
+                                       SecureBinaryData const & pubKeyYData)
+{
+   BTC_PUBKEY cppPubKey;
+
+   CryptoPP::Integer pubX;
+   CryptoPP::Integer pubY;
+   pubX.Decode(pubKeyXData.getPtr(), pubKeyXData.getSize());
+   pubY.Decode(pubKeyYData.getPtr(), pubKeyYData.getSize());
+   BTC_ECPOINT publicPoint(pubX, pubY);
+
+   // Initialize the public key with the ECP point just created
+   cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
+
+   // Validate the public key -- not sure why this needs a prng...
+   static BTC_PRNG prng;
+   assert(cppPubKey.Validate(prng, 3));
+
+   return cppPubKey;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData CryptoECDSA::SerializePrivateKey(BTC_PRIVKEY const & privKey)
+{
+   CryptoPP::Integer privateExp = privKey.GetPrivateExponent();
+   SecureBinaryData privKeyData(32);
+   privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize());
+}
+   
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData CryptoECDSA::SerializePublicKey(BTC_PUBKEY const & pubKey)
+{
+   BTC_ECPOINT publicPoint = pubKey.GetPublicElement();
+   CryptoPP::Integer pubX = publicPoint.x;
+   CryptoPP::Integer pubY = publicPoint.y;
+   SecureBinaryData pubData(65);
+   pubData.fill(0x04);  // we fill just to set the first byte...
+
+   pubX.Encode(pubData.getPtr()+1,  32);
+   pubY.Encode(pubData.getPtr()+33, 32);
+   return pubData;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+BTC_PUBKEY CryptoECDSA::ComputePublicKey(BTC_PRIVKEY const & cppPrivKey)
+{
+   BTC_PUBKEY cppPubKey;
+   cppPrivKey.MakePublicKey(cppPubKey);
+
+   // Validate the public key -- not sure why this needs a prng...
+   static BTC_PRNG prng;
+   assert(cppPubKey.Validate(prng, 3));
+
+   return cppPubKey;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
+                                       SecureBinaryData const & binPrivKey)
+{
+   BTC_PRIVKEY cppPrivKey = ParsePrivateKey(binPrivKey);
+   return SignData(binToSign, cppPrivKey);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
+                                       BTC_PRIVKEY const & cppPrivKey)
+{
+
+   // We trick the Crypto++ ECDSA module by passing it a single-hashed
+   // message, it will do the second hash before it signs it.  This is 
+   // exactly what we need.
+   static CryptoPP::SHA256  sha256;
+   static BTC_PRNG prng;
+
+   // Execute the first sha256 op -- the signer will do the other one
+   SecureBinaryData hashVal(32);
+   sha256.CalculateDigest(hashVal.getPtr(), 
+                          binToSign.getPtr(), 
+                          binToSign.getSize());
+
+   string signature;
+   BTC_SIGNER signer(cppPrivKey);
+   CryptoPP::StringSource(
+               hashVal.toBinStr(), true, new CryptoPP::SignerFilter(
+               prng, signer, new CryptoPP::StringSink(signature))); 
+  
+   return SecureBinaryData(signature);
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage, 
+                             SecureBinaryData const & binSignature,
+                             SecureBinaryData const & pubkeyX,
+                             SecureBinaryData const & pubkeyY)
+{
+   BTC_PUBKEY cppPubKey = ParsePublicKey(pubkeyX, pubkeyY);
+   return VerifyData(binMessage, binSignature, cppPubKey);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage, 
+                             SecureBinaryData const & binSignature,
+                             BTC_PUBKEY const & cppPubKey)
+                            
+{
+
+
+   static CryptoPP::SHA256  sha256;
+   static CryptoPP::Integer pubX;
+   static CryptoPP::Integer pubY;
+   static CryptoPP::AutoSeededRandomPool prng;
+   static BTC_PUBKEY pubKey;
+
+   assert(pubKey.Validate(prng, 3));
+
+   // We execute the first SHA256 op, here.  Next one is done by Verifier
+   SecureBinaryData hashVal(32);
+   sha256.CalculateDigest(hashVal.getPtr(), 
+                          binMessage.getPtr(), 
+                          binMessage.getSize());
+
+   // Verifying message 
+   BTC_VERIFIER verifier(pubKey); 
+   return verifier.VerifyMessage((const byte*)hashVal.getPtr(), 
+                                              hashVal.getSize(),
+                                 (const byte*)binSignature.getPtr(), 
+                                              binSignature.getSize());
+}
+
+
+   /* OpenSSL code (untested)
+   static SecureBinaryData sigSpace(1000);
+   static uint32_t sigSize = 0;
+
+   // Create the key object
+   EC_KEY* pubKey = EC_KEY_new_by_curve_name(NID_secp256k1);
+
+   uint8_t* pbegin = privKey.getPtr();
+   d2i_ECPrivateKey(&pubKey, &pbegin, privKey.getSize());
+
+   ECDSA_sign(0, binToSign.getPtr(), 
+                 binToSign.getSize(), 
+                 sigSpace.getPtr(), 
+                 &sigSize, 
+                 pubKey)
+
+   EC_KEY_free(pubKey);
+   return SecureBinaryData(sigSpace.getPtr(), sigSize);
+   */
 
 
 
