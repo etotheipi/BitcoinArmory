@@ -399,7 +399,7 @@ void TestCrypto(void)
    BinaryData passwd1("This is my first password");
    BinaryData passwd2("This is my first password.");
    BinaryData passwd3("This is my first password");
-   SensitiveKeyData key;
+   SecureBinaryData key;
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
    key = kdf.DeriveKey(passwd1);
@@ -435,7 +435,7 @@ void TestCrypto(void)
    /// *** Test 1 *** ///
    cout << endl << endl;
    BinaryData testIV, plaintext, ciphertext;
-   SensitiveKeyData testKey(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
+   SecureBinaryData testKey(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
    testIV.createFromHex    ("80000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
    ciphertext.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
@@ -518,7 +518,7 @@ void TestCrypto(void)
    // Will try this twice, once with correct passphrase, once without
    BinaryData cipherTry1 = cipher;
    BinaryData cipherTry2 = cipher;
-   SensitiveKeyData newKey;
+   SecureBinaryData newKey;
 
    KdfRomix newKdf(mem, nIters, salt);
    newKdf.printKdfParams();

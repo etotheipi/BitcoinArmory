@@ -27,7 +27,7 @@ pywlt = PyBtcWallet()
 #   addr160 = '0e0aec36fe2545fb31a41164fb6954adcd96b342'
 #   pubKeyHex = ('04' '8d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04'
 #                     '785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4b')
-privKeyHex = 'ffffffd8d7103877f577aa176926b18b1e004195644abb7f7dc19e3f267e7aa4'
+privKeyHex = 'a5001fd8d7103877f577aa176926b18b1e004195644abb7f7dc19e3f267e7aa4'
 pywlt.addAddress(hex_to_binary(privKeyHex))
 utxoList = pywlt.getUnspentTxOutList()
 
@@ -46,7 +46,6 @@ print 'Recommended fees:  AbsMin=%s, Suggest=%s' % tuple([coin2str(f) for f in f
 # Construct the output addresses, with a random order
 recipPairs = []
 recipPairs.append(['12irKW1XFSnnu6v5FevcC3wZ6hfvPmaEDQ', recipValue])
-recipPairs.append([recipAddr, recipValue])
 recipPairs.append(['1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk', recipValue])
 recipPairs.append(['1H3Jbv99F7Ng8oiadCovvda17CGZ9EFkPM', recipValue])
 recipPairs.append(['16jN5NhB4eoUqFrSvuNnvDEc57oz6GRNi4', recipValue])
@@ -55,6 +54,7 @@ recipPairs.append(['1PjURhoxGr6cdK5YY5SyDDY2pQhEpbZdoK', recipValue])
 recipPairs.append(['1NgBFTvqM6FsooFtkvFgf7VxzRBdXKnxpR', recipValue])
 recipPairs.append(['176msrhhemi6q8DEdpBCoTQJvRCiGV5qEm', recipValue])
 recipPairs.append(['16FSHWWyUv6wzT9qpbi7tCaovf6XX7T9xN', recipValue])
+recipPairs.append([recipAddr, recipValue])
 recipPairs.append(['1JiLbGTrVNmk6BsePVQWmBiD7DFUDmMYXw', recipValue])
 recipPairs.append(['124DJWV7vYS8DUcVan4SXcGNAubopS1BHj', recipValue])
 recipPairs.append(['1PESigPSLwsvaQAQfCDDPZM21i9m8Vqt21', recipValue])

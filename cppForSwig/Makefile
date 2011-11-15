@@ -4,10 +4,13 @@ COMPILER_OPTS = -c -march=native -O2 -pipe
 
 
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o kdfRomix.o
+OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o EncryptionUtils.o
 
-INCLUDE_OPTS += -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -Lcryptopp -lcryptopp -lpthread
+# I used to link to the cryptopp directory included with the repo,
+# but ever since adding AES, I've found that I need to link to the
+# installed libraries...
+INCLUDE_OPTS += -I/usr/include/crypto++ -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
+LIBRARY_OPTS += -lcrypto++ -lpthread
 SWIG_INC += -I/usr/include/python2.7
 
 SWIG_OPTS    += -c++ -python -classic
@@ -52,8 +55,8 @@ BlockObjRef.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockObjRef.cpp
 BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) BlockUtils.cpp
 
-kdfRomix.o: BtcUtils.h BinaryData.h kdfRomix.h  kdfRomix.cpp
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) kdfRomix.cpp
+EncryptionUtils.o: BtcUtils.h BinaryData.h EncryptionUtils.h EncryptionUtils.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) $(LIBRARY_OPTS) EncryptionUtils.cpp
 
 CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
