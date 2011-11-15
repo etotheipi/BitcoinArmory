@@ -28,14 +28,16 @@ void TestFindNonStdTx(string blkfile);
 void TestScanForWalletTx(string blkfile);
 void TestReorgBlockchain(string blkfile);
 void TestCrypto(void);
+void TestECDSA(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
 {
    cout << endl;
    for(int i=0; i<80; i++) cout << "*";
-   cout << "Execute test: " << TestName << endl;
+   cout << endl << "Execute test: " << TestName << endl;
    for(int i=0; i<80; i++) cout << "*";
+   cout << endl;
 }
 
 int main(void)
@@ -59,6 +61,8 @@ int main(void)
    printTestHeader("Crypto-KDF-and-AES-methods");
    TestCrypto();
 
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -396,9 +400,9 @@ void TestCrypto(void)
    kdf.computeKdfParams();
    kdf.printKdfParams();
 
-   BinaryData passwd1("This is my first password");
-   BinaryData passwd2("This is my first password.");
-   BinaryData passwd3("This is my first password");
+   SecureBinaryData passwd1("This is my first password");
+   SecureBinaryData passwd2("This is my first password.");
+   SecureBinaryData passwd3("This is my first password");
    SecureBinaryData key;
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
@@ -413,8 +417,9 @@ void TestCrypto(void)
    key = kdf.DeriveKey(passwd3);
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
+   /////////////////////////////////////////////////////////////////////////////
    cout << "Executing KDF tests with longer compute time" << endl;
-   kdf.computeKdfParams(1.0, 512*1024);
+   kdf.computeKdfParams(1.0);
    kdf.printKdfParams();
 
    cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
@@ -429,62 +434,80 @@ void TestCrypto(void)
    key = kdf.DeriveKey(passwd3);
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Executing KDF tests with limited memory target" << endl;
+   kdf.computeKdfParams(1.0, 256*1024);
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
    // Test AES code using NIST test vectors
    
    /// *** Test 1 *** ///
    cout << endl << endl;
-   BinaryData testIV, plaintext, ciphertext;
-   SecureBinaryData testKey(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
+   SecureBinaryData testIV, plaintext, cipherTarg, cipherComp, testKey, rtPlain;
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("80000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
+
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
 
    /// *** Test 2 *** ///
    cout << endl << endl;
-   testKey.setKeyData(BinaryData::CreateFromHex( "0000000000000000000000000000000000000000000000000000000000000000"));
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("014730f80ac625fe84f026c60bfd547d");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
 
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
    /// *** Test 3 *** ///
    cout << endl << endl;
-   testKey.setKeyData(BinaryData::CreateFromHex( "ffffffffffff0000000000000000000000000000000000000000000000000000"));
+   testKey.createFromHex   ("ffffffffffff0000000000000000000000000000000000000000000000000000");
    testIV.createFromHex    ("00000000000000000000000000000000");
    plaintext.createFromHex ("00000000000000000000000000000000");
-   ciphertext.createFromHex("225f068c28476605735ad671bb8f39f3");
-   CryptoAES().EncryptInPlace(plaintext, testKey, testIV);
-   cout << "   Answer    : " << ciphertext.toHexStr() << endl;
-   CryptoAES().DecryptInPlace(plaintext, testKey, testIV);
+   cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
+
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
 
 
    /// My own test, for sanity (can only check the roundtrip values)
    cout << endl << endl;
    cout << "Starting some kdf-aes-combined tests..." << endl;
    kdf.printKdfParams();
-   testKey = kdf.DeriveKey(BinaryData("This passphrase is tough to guess"));
-   BinaryData secret;
+   testKey = kdf.DeriveKey(SecureBinaryData("This passphrase is tough to guess"));
+   SecureBinaryData secret, cipher;
    secret.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
-   BinaryData randIV(0);  // tell the crypto to generate a random IV for me.
+   SecureBinaryData randIV(0);  // tell the crypto to generate a random IV for me.
 
    cout << "Encrypting:" << endl;
-   CryptoAES().EncryptInPlace(secret, testKey, randIV);
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
    cout << endl << endl;
    cout << "Decrypting:" << endl;
-   CryptoAES().DecryptInPlace(secret, testKey, randIV);
+   secret = CryptoAES().Decrypt(cipher, testKey, randIV);
    cout << endl << endl;
 
    // Now encrypting so I can store the encrypted data in file
    cout << "Encrypting again:" << endl;
-   CryptoAES().EncryptInPlace(secret, testKey, randIV);
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
 
    ofstream testfile("safefile.txt", ios::out);
    testfile << "KdfParams " << endl;
@@ -493,12 +516,12 @@ void TestCrypto(void)
    testfile << "   HexSalt  " << kdf.getSalt().toHexStr() << endl;
    testfile << "EncryptedData" << endl;
    testfile << "   HexIV    " << randIV.toHexStr() << endl;
-   testfile << "   Cipher   " << secret.toHexStr() << endl;
+   testfile << "   Cipher   " << cipher.toHexStr() << endl;
    testfile.close();
    
    ifstream infile("safefile.txt", ios::in);
    uint32_t mem, nIters;
-   BinaryData salt, iv, cipher;
+   SecureBinaryData salt, iv;
    char deadstr[256];
    char hexstr[256];
 
@@ -506,18 +529,18 @@ void TestCrypto(void)
    infile >> deadstr >> mem;
    infile >> deadstr >> nIters;
    infile >> deadstr >> hexstr;
-   salt.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   salt.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile >> deadstr;
    infile >> deadstr >> hexstr;
-   iv.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   iv.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile >> deadstr >> hexstr;
-   cipher.copyFrom( BinaryData::CreateFromHex(string(hexstr, 64)));
+   cipher.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
    infile.close();
    cout << endl << endl;
 
    // Will try this twice, once with correct passphrase, once without
-   BinaryData cipherTry1 = cipher;
-   BinaryData cipherTry2 = cipher;
+   SecureBinaryData cipherTry1 = cipher;
+   SecureBinaryData cipherTry2 = cipher;
    SecureBinaryData newKey;
 
    KdfRomix newKdf(mem, nIters, salt);
@@ -525,15 +548,50 @@ void TestCrypto(void)
 
    // First test with the wrong passphrase
    cout << "Attempting to decrypt with wrong passphrase" << endl;
-   BinaryData passphrase = BinaryData("This is the wrong passphrase");
+   SecureBinaryData passphrase = SecureBinaryData("This is the wrong passphrase");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().DecryptInPlace(cipherTry1, newKey, iv);
+   CryptoAES().Decrypt(cipherTry1, newKey, iv);
 
 
    // Now try correct passphrase
    cout << "Attempting to decrypt with CORRECT passphrase" << endl;
-   passphrase = BinaryData("This passphrase is tough to guess");
+   passphrase = SecureBinaryData("This passphrase is tough to guess");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().DecryptInPlace(cipherTry2, newKey, iv);
+   CryptoAES().Decrypt(cipherTry2, newKey, iv);
 }
+
+
+
+
+
+
+void TestECDSA(void)
+{
+   SecureBinaryData msgToSign("This message came from me!");
+   SecureBinaryData privData = SecureBinaryData::GenerateRandom(32);
+
+   BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
+   BTC_PUBKEY  pubKey  = CryptoECDSA().ComputePublicKey(privKey);
+   
+   SecureBinaryData signature = CryptoECDSA().SignData(msgToSign, privKey);
+   cout << "Signature = " << signature.toHexStr() << endl;
+
+   bool isValid = CryptoECDSA().VerifyData(msgToSign, signature, pubKey);
+   cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+
+   // Test signature from blockchain:
+   SecureBinaryData msg = SecureBinaryData::CreateFromHex("0100000001bb664ff716b9dfc831bcc666c1767f362ad467fcfbaf4961de92e45547daab870100000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953aeffffffff0280969800000000001976a9140817482d2e97e4be877efe59f4bae108564549f188ac7015a7000000000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae0000000001000000");
+   SecureBinaryData px = SecureBinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   SecureBinaryData py = SecureBinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   //SecureBinaryData sig = SecureBinaryData::CreateFromHex("3046022100d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6022100900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
+   SecureBinaryData sig = SecureBinaryData::CreateFromHex("d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
+   pubKey = CryptoECDSA().ParsePublicKey(px,py);
+   isValid = CryptoECDSA().VerifyData(msg, sig, pubKey);
+   cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+}
+
+
+
+
+
 
