@@ -239,14 +239,13 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
       return SecureBinaryData(0);
 
    SecureBinaryData encrData(data.getSize());
-   cout << "   StartPlain: " << data.toHexStr() << endl;
-   cout << "   Key Data  : " << key.toHexStr() << endl;
+   //cout << "   StartPlain: " << data.toHexStr() << endl;
+   //cout << "   Key Data  : " << key.toHexStr() << endl;
 
    // Caller can supply their own IV/entropy, or let it be generated here
    if(iv.getSize() == 0)
       iv = SecureBinaryData::GenerateRandom(BTC_AES::BLOCKSIZE);
 
-   cout << "   IV Data   : " << iv.toHexStr() << endl;
 
    BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
@@ -256,7 +255,8 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   cout << "   Ciphertext: " << encrData.toHexStr() << endl;
+   //cout << "   IV Data   : " << iv.toHexStr() << endl;
+   //cout << "   Ciphertext: " << encrData.toHexStr() << endl;
    return encrData;
 }
 
@@ -270,9 +270,9 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
 
    SecureBinaryData unencrData(data.getSize());
 
-   cout << "   StrtCipher: " << data.toHexStr() << endl;
-   cout << "   Key Data  : " << key.toHexStr() << endl;
-   cout << "   IV Data   : " << iv.toHexStr() << endl;
+   //cout << "   StrtCipher: " << data.toHexStr() << endl;
+   //cout << "   Key Data  : " << key.toHexStr() << endl;
+   //cout << "   IV Data   : " << iv.toHexStr() << endl;
 
    BTC_AES_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
@@ -282,7 +282,7 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   cout << "   Plaintext : " << unencrData.toHexStr() << endl;
+   //cout << "   Plaintext : " << unencrData.toHexStr() << endl;
    return unencrData;
 }
 

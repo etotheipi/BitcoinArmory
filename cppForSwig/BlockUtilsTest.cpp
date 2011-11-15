@@ -452,7 +452,6 @@ void TestCrypto(void)
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
    // Test AES code using NIST test vectors
-   
    /// *** Test 1 *** ///
    cout << endl << endl;
    SecureBinaryData testIV, plaintext, cipherTarg, cipherComp, testKey, rtPlain;
@@ -461,9 +460,12 @@ void TestCrypto(void)
    plaintext.createFromHex ("00000000000000000000000000000000");
    cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
 
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
    cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
-   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
    rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
    /// *** Test 2 *** ///
@@ -473,9 +475,12 @@ void TestCrypto(void)
    plaintext.createFromHex ("00000000000000000000000000000000");
    cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
 
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
    cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
-   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
    rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
    /// *** Test 3 *** ///
    cout << endl << endl;
@@ -484,12 +489,16 @@ void TestCrypto(void)
    plaintext.createFromHex ("00000000000000000000000000000000");
    cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
 
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
    cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
-   cout << "   Answer    : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
    rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
    /// My own test, for sanity (can only check the roundtrip values)
+   // This test is a lot more exciting with the couts uncommented in Encrypt/Decrypt
    cout << endl << endl;
    cout << "Starting some kdf-aes-combined tests..." << endl;
    kdf.printKdfParams();
