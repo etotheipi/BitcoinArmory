@@ -17,6 +17,7 @@
 #include "BlockObjRef.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
+#include "EncryptionUtils.h"
 %}
 
 %include "std_string.i"
@@ -98,5 +99,6 @@ namespace std
 %include "BlockObjRef.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
+%include "EncryptionUtils.h"
 
 

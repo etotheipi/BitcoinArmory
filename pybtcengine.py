@@ -995,8 +995,8 @@ class PyBtcAddress(object):
       errors entering/copying the address
       """
       self.addrStr = addrStr
-      if self.checkAddressValid():
-         raise BadAddressError, 'Invalid address string:'+addrStr
+      if not self.checkAddressValid():
+         raise BadAddressError, 'Invalid address string: '+addrStr
       return self
 
    def calculateAddrStr(self, netbyte=ADDRBYTE):
@@ -1058,6 +1058,8 @@ class PyBtcAddress(object):
                '\x02' + sSize + sBin
        
       return sigScr
+
+
 
    def verifyDERSignature(self, binToVerify, derToVerify):
       """
@@ -1223,7 +1225,7 @@ class PyBtcAddress(object):
             print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
       
 
-   
+
       
             
 

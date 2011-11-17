@@ -42,6 +42,10 @@
 #include <string>
 #include <assert.h>
 
+// We can remove these includes (Crypto++ ) if we remove the GenerateRandom()
+#include "cryptlib.h"
+#include "osrng.h"
+
 #define DEFAULT_BUFFER_SIZE 25*1048576
 
 #include "UniversalTimer.h"
@@ -49,7 +53,6 @@
 
 using namespace std;
 
-class BtcUtils;
 class BinaryDataRef;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -114,12 +117,14 @@ public:
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
 
+   void fill(uint8_t ch) { if(nBytes_>0) memset(getPtr(), ch, nBytes_); }
+               
    uint8_t & operator[](size_t i)       { return data_[i]; }
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
    /////////////////////////////////////////////////////////////////////////////
    // This is probably inefficient, but easy
-   BinaryData operator+(BinaryData const & bd2)
+   BinaryData operator+(BinaryData const & bd2) const
    {
       BinaryData out(nBytes_ + bd2.nBytes_);
       memcpy(out.getPtr(), getPtr(), nBytes_);
@@ -323,6 +328,17 @@ public:
          data_[i] = (char1 << 4) | char2;
       }
    }
+
+
+   // Can remove this method if we don't have crypto++ linked
+   static BinaryData GenerateRandom(size_t numBytes)
+   {
+      static CryptoPP::AutoSeededRandomPool prng;
+      BinaryData randData(numBytes);
+      prng.GenerateBlock(randData.getPtr(), numBytes);
+      return randData;
+   }
+
 
    // Absorb a binary file's data into a new BinaryData object
    int32_t readBinaryFile(string filename)

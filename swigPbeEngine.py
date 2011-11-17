@@ -21,6 +21,11 @@ from datetime import datetime
 from os import path
 from sys import argv
 
+
+
+class WalletLockError(Exception):
+   pass
+
 ################################################################################
 # Might as well create the BDM right here -- there will only ever be one, anyway
 bdm = Cpp.BlockDataManager().getBDM()
@@ -330,56 +335,100 @@ class PyTxDistProposal(object):
 #                             
 #                    
 #
+# TODO:  Error handling: need to make sure we "lock" all secure key data,
+#        espeicially during error handling... we want to frustrate an attacker
+#        that might figure out a way to throw an exception while the wallet is
+#        unlocked, to avoid having the memory zeroed out and deallocated.  
 #
 ################################################################################
 ################################################################################
+
+
+
+
+class PyPrivateKey(object):
+   def __init__(self):
+      self.assocAddr160          = ''
+      self.isLocked              = True
+      self.binPrivExpUnencrypted = SecureBinaryData()
+      self.binPrivExpEncrypted   = SecureBinaryData()
+      self.binPublicPoint        = SecureBinaryData()
+      self.binInitializationVect = ''
+      self.binChecksum           = ''
+
+
+   def lock(self):
+      self.binPrivExpUnencrypted.dealloc()
+      self.isLocked = True
+
+   def unlock(self, secureKdfResult):
+      self.binPrivExpUnencrypted = CryptoAES().Decrypt( \
+                                          self.binPrivExpEncrypted,
+                                          secureKdfResult,
+                                          self.binInitializationVect)
+      self.isLocked = False
+
+   def generateDERSignature(self, msg, extraEntropy):
+      if self.isLocked:
+         raise WalletLockError, "Cannot sign Tx when private key is locked!"
+
+      secureRandom = SecureBinaryData().GenerateRandom(32) 
+      PyBtcAddress().generateDERSignature()
+
+################################################################################
+# Use this method to
+# private key data maintained by Python
+def PyGenerateDERSignature(self, binToSign, privKey, extraEntropy=None):
+   newPBA = PyBtcAddress().createFromPrivateKey(privKey)
+   sig = newPBA.generateDERSignature(binToSign, extraEntropy)
+   # I know there's no guarantees that these del calls actually do what I
+   # want, but it doesn't hurt
+   del newPBA.privKeyInt
+   del newPBA.lisPrivKey
+   return sig
+
 class PyBtcWallet(object):
    """
    This class encapsulates all the concepts and variables in a "wallet",
    and maintains the passphrase protection, key stretching, encryption,
    etc, required to maintain the wallet.  This class also includes the
    file I/O methods for storing and loading wallets.
+
+   TODO: We desperately need to offload the ECDSA stuff to C++.  We already
+         implemented secure key-handling in C++ (though, it might need some
+         work), but ultimately this data gets recklessly passed to a 
+         PyBtcAddress object which we cannot control the same way:
+         The Python/PyBtcAddress may put the key in memory, and not
+         clean it up even after we think the object is destroyed.  And there
+         is no mlock/munlock in python, that I am aware of.
    """
-
-   #############################################################################
-   class CryptoParams(object):
-      def __init__(self):
-         self.kdf = None
-         self.cryptoPrivKey = None
-         self.cryptoPubKey = None
-
-      def kdf(self, passphrase):
-         pass
-
-      def encrypt(self, plaintext, key, *args):
-         pass
-
-      def decrypt(self, plaintext, key, *args):
-         pass
-
-      def serialize(self):
-         return '\x00'*1024
-
-      def unserialize(self, toUnpack):
-         binData = toUnpack
-         if isinstance(toUnpack):
-            binData = toUnpack.get(BINARY_CHUNK, 1024)
-
-         # Right now, nothing to do because encryption is not implemented
-         # Coming soon, though!
-         pass 
 
 
 
    #############################################################################
    def __init__(self):
-      self.addrMap  = {}
-      self.fileID   = '\xbaWALLET\x00'
-      self.version  = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
-      self.eofByte  = 0
-      self.cppWallet = None  # Mirror of PyBtcWallet in C++ object
-      self.cppInfo   = {}    # Extra info about each address to help sync
+      self.addrMap     = {}
+      self.fileID      = '\xbaWALLET\x00'
+      self.version     = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
+      self.eofByte     = 0
+      self.cppWallet   = None  # Mirror of PyBtcWallet in C++ object
+      self.cppInfo     = {}    # Extra info about each address to help sync
+      self.kdfMethod   = KdfRomix()
+      self.cryptMethod = CryptoAES()
+      self.kdfKey      = SecureBinaryData()  # KdfKey is binary
+      # Other private-key info is in actual PyPrivateKey objects
+      self.privKeyGen  = PyPrivateKey()     
+      self.otherKeys   = {}  # other, private keys, indexed by addr20
+      self.isLocked    = True
 
+   #############################################################################
+   def computeKeyDerivationParams(self, targetSec=0.25, memReqt=0):
+      self.kdf.computeKdfParams(targetSec, memReqt)
+
+   #############################################################################
+   def setKdfParams(self, memory, numIter, strSalt):
+      self.kdf = KdfRomix(memory, numIter, strSalt)
+   
 
    #############################################################################
    def addAddress(self, addrData, pubKeyStr='', firstSeenData=[], lastSeenData=[]):
@@ -497,50 +546,6 @@ class PyBtcWallet(object):
       else:
          return False
 
-   #############################################################################
-   def createTransaction(self, recip20, amt, minFee=0):
-      assert(bdm.isInitialized())
-      utxos = self.getUnspentTxOutList()
-      pprintUnspentTxOutList(utxos, 'All unspent:')
-      prelimSelection = PySelectCoins(utxos, amt, minFee)
-      pprintUnspentTxOutList(prelimSelection, 'Selection of utxos for amt=%s, fee=%s' % (coin2str(amt), coin2str(minFee)))
-      feeRecommend = calcMinSuggestedFees(prelimSelection, amt, minFee)
-      print 'Recommended Fee --  AbsMin=%s, ParanoidMin=%s' % tuple([coin2str(f) for f in feeRecommend])
-      #if minFee < feeRecommend[0]:
-         #newSelection = PySelectCoins(utxos, amt, feeRecommend[0])
-         #pprintUnspentTxOutList(utxos, 'After fee calc: amt=%s, fee=%s' % (coin2str(amt), coin2str(feeRecommend[0])))
-      
-         
-      srcInputs = []
-      for utxo in prelimSelection:
-         srcAddr = self.getAddrByHash160(utxo.getRecipientAddr())
-         txObj = bdm.getTxByHash(utxo.getTxHash())
-         txIdx = utxo.getTxOutIndex()
-         srcInputs.append( [srcAddr, txObj, txIdx] )
-
-      dstPairs = [ (PyBtcAddress().createFromPublicKeyHash160(recip20), amt) ]
-      change = sum([u.getValue() for u in prelimSelection]) - (amt+minFee)
-      #changeAddr = self.getChangeAddress()
-      changeAddr = self.getAddrByIndex(0)
-      changeAddr.pprint()
-      if change != 0:
-         dstPairs.append( [changeAddr, change] )
-
-      print 'Srcs:'
-      for src in srcInputs:
-         print src
-
-      print 'Dst:'
-      for dst in dstPairs:
-         print dst
-         
-      newTx = PyCreateAndSignTx(srcInputs, dstPairs)
-      print 'The final, proposed Tx:'
-      newTx.pprint()
-      
-      print 'Raw hex:', binary_to_hex(newTx.serialize())
-      return (newTx, feeReco)
-   
       
 
    #############################################################################
@@ -548,6 +553,10 @@ class PyBtcWallet(object):
       if not hashcode==1:
          print '***ERROR: hashcode!=1 is not supported at this time!'
          return
+
+      # If the wallet is locked, we better bail now   
+      if self.isLocked():
+         raise WalletLockError, "Cannot sign Tx when wallet is locked!"
 
       numInputs = len(txdp.pytxObj.inputs)
       wltAddr = []
@@ -563,9 +572,6 @@ class PyBtcWallet(object):
       print 'Total number of inputs in transaction:  ', numInputs
       print 'Number of inputs that you can sign for: ', numMyAddr
    
-      ###
-      self.unlock()  # should invoke decrypt/passphrase dialog
-      ###
    
       # The TxOut script is already in the TxIn script location, correctly
       # But we still need to blank out all other scripts when signing
@@ -599,19 +605,35 @@ class PyBtcWallet(object):
             txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \
                                       pubkeyLenInBinary + pubkey)
    
-      ###
-      self.lock()  # re-secure wallet
-      ###
       return txdp
    
+
+   #############################################################################
+   def unlock(self, kdfResultKey):
+      """
+      We must assume that the kdfResultKey is a SecureBinaryData object
+      containing the result of the KDF-passphrase
+      """
+      if not isinstance(kdfResultKey, SecureBinaryData):
+         raise WalletLockError, "Must pass SecureBinaryData obj to unlock func"
+
+      self.kdfKey = kdfResultKey
+      self.isLocked = False
+
+      self.privKeyGen.unlock(self.kdfKey)
+      for key in self.otherKeys:
+         key.unlock(self.kdfKey)
+
    
    #############################################################################
    def lock(self):
-      pass
+      self.kdfKey.dealloc()
 
-   #############################################################################
-   def unlock(self):
-      pass
+      self.privKeyGen.lock()
+      for key in self.otherKeys.values():
+         key.lock()
+      self.isLocked = True
+
    
    #############################################################################
    def getWalletVersion(self):

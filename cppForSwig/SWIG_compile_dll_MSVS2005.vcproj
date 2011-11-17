@@ -306,7 +306,7 @@
 				Name="VCLinkerTool"
 				AdditionalDependencies="cryptlib.lib python26.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="cryptopp\Win32\output\release;C:\Python26\libs"
+				AdditionalLibraryDirectories="cryptopp\x64\output\release;C:\Python26\libs"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"

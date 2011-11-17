@@ -6,6 +6,7 @@
 #include "BinaryData.h"
 #include "BtcUtils.h"
 #include "BlockUtils.h"
+#include "EncryptionUtils.h"
 
 
 using namespace std;
@@ -21,17 +22,75 @@ void copyFile(string src, string dst)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void TestReadAndOrganizeChain(string blkfile);
+void TestFindNonStdTx(string blkfile);
+void TestScanForWalletTx(string blkfile);
+void TestReorgBlockchain(string blkfile);
+void TestCrypto(void);
+void TestECDSA(void);
+////////////////////////////////////////////////////////////////////////////////
+
+void printTestHeader(string TestName)
+{
+   cout << endl;
+   for(int i=0; i<80; i++) cout << "*";
+   cout << endl << "Execute test: " << TestName << endl;
+   for(int i=0; i<80; i++) cout << "*";
+   cout << endl;
+}
+
 int main(void)
 {
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
 
+   string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+
+   printTestHeader("Read-and-Organize-Blockchain");
+   TestReadAndOrganizeChain(blkfile);
+
+   //printTestHeader("Find-Non-Standard-Tx");
+   //TestFindNonStdTx(blkfile);
+
+   printTestHeader("Wallet-Relevant-Tx-Scan");
+   TestScanForWalletTx(blkfile);
+
+   //printTestHeader("Blockchain-Reorg-Unit-Test");
+   //TestReorgBlockchain(blkfile);
+
+   printTestHeader("Crypto-KDF-and-AES-methods");
+   TestCrypto();
+
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
+
+   /////////////////////////////////////////////////////////////////////////////
+   // ***** Print out all timings to stdout and a csv file *****
+   //       Any method, anywhere, that called UniversalTimer
+   //       will end up having it's named timers printed out
+   //       This file can be loaded into a spreadsheet,
+   //       but it's not the prettiest thing...
+   UniversalTimer::instance().print();
+   UniversalTimer::instance().printCSV("timings.csv");
+   cout << endl << endl;
+   char pause[256];
+   cout << "enter anything to exit" << endl;
+   cin >> pause;
+}
+
+
+
+
+
+
+
+void TestReadAndOrganizeChain(string blkfile)
+{
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch("/home/alan/.bitcoin/blk0001.dat", false);
-   //bdm.readBlkFile_FromScratch(
-            //"C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat",
-            //false);  // false ~ don't organize blockchain, just create maps
+   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -44,46 +103,53 @@ int main(void)
    cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
-   //TESTNET has some 0.125-difficulty blocks which violates the assumption
-   //that it never goes below 1
-   //cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
-   //TIMER_START("Verify blk0001.dat integrity");
-   //bool isVerified = bdm.verifyBlkFileIntegrity();
-   //TIMER_STOP("Verify blk0001.dat integrity");
-   //cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
-   //cout << endl << endl;
-
-/*
-   /////////////////////////////////////////////////////////////////////////////
-   cout << "Printing genesis block information:" << endl;
-   bdm.getGenesisBlock().pprint(cout, 0, false);
+   // TESTNET has some 0.125-difficulty blocks which violates the assumption
+   // that it never goes below 1.  So, need to comment this out for testnet
+#ifndef TEST_NETWORK
+   cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
+   TIMER_START("Verify blk0001.dat integrity");
+   bool isVerified = bdm.verifyBlkFileIntegrity();
+   TIMER_STOP("Verify blk0001.dat integrity");
+   cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
    cout << endl << endl;
+#endif
+}
 
-   cout << "Printing last block information:" << endl;
-   bdm.getTopBlockHeader().pprint(cout, 0, false);
-   cout << endl << endl;
-   
 
-   /////////////////////////////////////////////////////////////////////////////
+
+void TestFindNonStdTx(string blkfile)
+{
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
+   // This is mostly just for debugging...
    bdm.findAllNonStdTx();
+   // At one point I had code to print out nonstd txinfo... not sure
+   // what happened to it...
+}
 
-*/
 
+
+void TestScanForWalletTx(string blkfile)
+{
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
    BtcWallet wlt;
    
-   // Test-network addresses
-   //myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); wlt.addAddress(myAddress);
-
+#ifndef TEST_NETWORK
    // Main-network addresses
-   //myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
+#else
+   // Test-network addresses
+   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); wlt.addAddress(myAddress);
+#endif
 
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
 
@@ -108,23 +174,6 @@ int main(void)
    }
    cout << endl << endl;
 
-/*
-   /////////////////////////////////////////////////////////////////////////////
-   myAddress.createFromHex("f62242a747ec1cb02afd56aac978faf05b90462e");
-   wlt.addAddress(myAddress);
-   myAddress.createFromHex("6300bf4c5c2a724c280b893807afb976ec78a92b");
-   wlt.addAddress(myAddress);
-   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
-
-   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
-   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
-   {
-      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
-                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
-
-   }
-*/
 
 
    cout << "Printing SORTED allAddr ledger..." << endl;
@@ -143,40 +192,46 @@ int main(void)
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Test txout aggregation, with different prioritization schemes" << endl;
-
    BtcWallet myWallet;
 
+#ifndef TEST_NETWORK
+   // TODO:  I somehow borked my list of test addresses.  Make sure I have some
+   //        test addresses in here for each network that usually has lots of 
+   //        unspent TxOuts
+   
+   // Main-network addresses
+   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); myWallet.addAddress(myAddress);
+#else
    // Testnet addresses
    //myAddress.createFromHex("d184cea7e82c775d08edd288344bcd663c3f99a2"); myWallet.addAddress(myAddress);
    //myAddress.createFromHex("205fa00890e6898b987de6ff8c0912805416cf90"); myWallet.addAddress(myAddress);
    //myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); myWallet.addAddress(myAddress);
-   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); myWallet.addAddress(myAddress);
+#endif
 
    cout << "Rescanning the blockchain for new addresses." << endl;
    bdm.scanBlockchainForTx_FromScratch(myWallet);
 
-   vector< vector<UnspentTxOut> > sortedUTOs(4);
-   //sortedUTOs[0] = bdm.getUnspentTxOutsForWallet(myWallet, 0);
-   sortedUTOs[1] = bdm.getUnspentTxOutsForWallet(myWallet, 1);
-   //sortedUTOs[2] = bdm.getUnspentTxOutsForWallet(myWallet, 2);
-   //sortedUTOs[3] = bdm.getUnspentTxOutsForWallet(myWallet, 3);
+   vector<UnspentTxOut> sortedUTOs = bdm.getUnspentTxOutsForWallet(myWallet, 1);
 
-   //for(int i=0; i<4; i++)
-   //{
-      int i=1;
-      cout << "   Sorting Method: " << i << endl;
-      cout << "   Value\t#Conf\tTxHash\tTxIdx" << endl;
-      for(int j=0; j<sortedUTOs[i].size(); j++)
-      {
-         cout << "   "
-              << sortedUTOs[i][j].getValue()/1e8 << "\t"
-              << sortedUTOs[i][j].getNumConfirm() << "\t"
-              << sortedUTOs[i][j].getTxHash().toHexStr() << "\t"
-              << sortedUTOs[i][j].getTxOutIndex() << endl;
-      }
-      cout << endl;
+   int i=1;
+   cout << "   Sorting Method: " << i << endl;
+   cout << "   Value\t#Conf\tTxHash\tTxIdx" << endl;
+   for(int j=0; j<sortedUTOs.size(); j++)
+   {
+      cout << "   "
+           << sortedUTOs[j].getValue()/1e8 << "\t"
+           << sortedUTOs[j].getNumConfirm() << "\t"
+           << sortedUTOs[j].getTxHash().toHexStr() << "\t"
+           << sortedUTOs[j].getTxOutIndex() << endl;
+   }
+   cout << endl;
+}
 
 
+
+void TestReorgBlockchain(string blkfile)
+{
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -196,7 +251,6 @@ int main(void)
    //
    //        FYI: The first block is the *actual* main-network genesis block
    //
-   
    string blk04("reorgTest/blk_0_to_4.dat");
    string blk3A("reorgTest/blk_3A.dat");
    string blk4A("reorgTest/blk_4A.dat");
@@ -219,7 +273,6 @@ int main(void)
    bdm.organizeChain();
    cout << "Done" << endl;
 
-   //
    // TODO: Let's look at the address ledger after the first chain
    //       Then look at it again after the reorg.  What we want
    //       to see is the presence of an invalidated tx, not just
@@ -262,8 +315,6 @@ int main(void)
       }
 
    }
-
-
 
    // prepare the other block to be read in
    ifstream is;
@@ -332,23 +383,224 @@ int main(void)
    /////////////////////////////////////////////////////////////////////////////
   
 
+}
 
 
+
+void TestCrypto(void)
+{
 
    /////////////////////////////////////////////////////////////////////////////
-   // ***** print out all timings to stdout and a csv file *****
-   //       this file can be loaded into a spreadsheet,
-   //       but it's not the prettiest thing...
-   UniversalTimer::instance().print();
-   UniversalTimer::instance().printCSV("timings.csv");
+   // Start Key-Derivation-Function (KDF) Tests.  
+   // ROMIX is the provably memory-hard (GPU-resistent) algorithm proposed by 
+   // Colin Percival, who is the creator of Scrypt.  
    cout << endl << endl;
+   cout << "Executing Key-Derivation-Function (KDF) tests" << endl;
+   KdfRomix kdf;  
+   kdf.computeKdfParams();
+   kdf.printKdfParams();
+
+   SecureBinaryData passwd1("This is my first password");
+   SecureBinaryData passwd2("This is my first password.");
+   SecureBinaryData passwd3("This is my first password");
+   SecureBinaryData key;
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Executing KDF tests with longer compute time" << endl;
+   kdf.computeKdfParams(1.0);
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Executing KDF tests with limited memory target" << endl;
+   kdf.computeKdfParams(1.0, 256*1024);
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   // Test AES code using NIST test vectors
+   /// *** Test 1 *** ///
+   cout << endl << endl;
+   SecureBinaryData testIV, plaintext, cipherTarg, cipherComp, testKey, rtPlain;
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
+   testIV.createFromHex    ("80000000000000000000000000000000");
+   plaintext.createFromHex ("00000000000000000000000000000000");
+   cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
+
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
+
+
+   /// *** Test 2 *** ///
+   cout << endl << endl;
+   testKey.createFromHex   ("0000000000000000000000000000000000000000000000000000000000000000");
+   testIV.createFromHex    ("014730f80ac625fe84f026c60bfd547d");
+   plaintext.createFromHex ("00000000000000000000000000000000");
+   cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
+
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
+
+   /// *** Test 3 *** ///
+   cout << endl << endl;
+   testKey.createFromHex   ("ffffffffffff0000000000000000000000000000000000000000000000000000");
+   testIV.createFromHex    ("00000000000000000000000000000000");
+   plaintext.createFromHex ("00000000000000000000000000000000");
+   cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
+
+   cout << "   Plain        : " << plaintext.toHexStr() << endl;
+   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
+   cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
+   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   cout << "   Plain        : " << rtPlain.toHexStr() << endl;
+
+
+   /// My own test, for sanity (can only check the roundtrip values)
+   // This test is a lot more exciting with the couts uncommented in Encrypt/Decrypt
+   cout << endl << endl;
+   cout << "Starting some kdf-aes-combined tests..." << endl;
+   kdf.printKdfParams();
+   testKey = kdf.DeriveKey(SecureBinaryData("This passphrase is tough to guess"));
+   SecureBinaryData secret, cipher;
+   secret.createFromHex("ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff");
+   SecureBinaryData randIV(0);  // tell the crypto to generate a random IV for me.
+
+   cout << "Encrypting:" << endl;
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+   cout << endl << endl;
+   cout << "Decrypting:" << endl;
+   secret = CryptoAES().Decrypt(cipher, testKey, randIV);
+   cout << endl << endl;
+
+   // Now encrypting so I can store the encrypted data in file
+   cout << "Encrypting again:" << endl;
+   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+
+   ofstream testfile("safefile.txt", ios::out);
+   testfile << "KdfParams " << endl;
+   testfile << "   MemReqts " << kdf.getMemoryReqtBytes() << endl;
+   testfile << "   NumIters " << kdf.getNumIterations() << endl;
+   testfile << "   HexSalt  " << kdf.getSalt().toHexStr() << endl;
+   testfile << "EncryptedData" << endl;
+   testfile << "   HexIV    " << randIV.toHexStr() << endl;
+   testfile << "   Cipher   " << cipher.toHexStr() << endl;
+   testfile.close();
    
+   ifstream infile("safefile.txt", ios::in);
+   uint32_t mem, nIters;
+   SecureBinaryData salt, iv;
+   char deadstr[256];
+   char hexstr[256];
+
+   infile >> deadstr;
+   infile >> deadstr >> mem;
+   infile >> deadstr >> nIters;
+   infile >> deadstr >> hexstr;
+   salt.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
+   infile >> deadstr;
+   infile >> deadstr >> hexstr;
+   iv.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
+   infile >> deadstr >> hexstr;
+   cipher.copyFrom( SecureBinaryData::CreateFromHex(string(hexstr, 64)));
+   infile.close();
+   cout << endl << endl;
+
+   // Will try this twice, once with correct passphrase, once without
+   SecureBinaryData cipherTry1 = cipher;
+   SecureBinaryData cipherTry2 = cipher;
+   SecureBinaryData newKey;
+
+   KdfRomix newKdf(mem, nIters, salt);
+   newKdf.printKdfParams();
+
+   // First test with the wrong passphrase
+   cout << "Attempting to decrypt with wrong passphrase" << endl;
+   SecureBinaryData passphrase = SecureBinaryData("This is the wrong passphrase");
+   newKey = newKdf.DeriveKey( passphrase );
+   CryptoAES().Decrypt(cipherTry1, newKey, iv);
 
 
-
-   char pause[256];
-   cout << "enter anything to exit" << endl;
-   cin >> pause;
-
-
+   // Now try correct passphrase
+   cout << "Attempting to decrypt with CORRECT passphrase" << endl;
+   passphrase = SecureBinaryData("This passphrase is tough to guess");
+   newKey = newKdf.DeriveKey( passphrase );
+   CryptoAES().Decrypt(cipherTry2, newKey, iv);
 }
+
+
+
+
+
+
+void TestECDSA(void)
+{
+   SecureBinaryData msgToSign("This message came from me!");
+   SecureBinaryData privData = SecureBinaryData::GenerateRandom(32);
+
+   BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
+   BTC_PUBKEY  pubKey  = CryptoECDSA().ComputePublicKey(privKey);
+   
+   SecureBinaryData signature = CryptoECDSA().SignData(msgToSign, privKey);
+   cout << "Signature = " << signature.toHexStr() << endl;
+
+   bool isValid = CryptoECDSA().VerifyData(msgToSign, signature, pubKey);
+   cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+
+   // Test signature from blockchain:
+   SecureBinaryData msg = SecureBinaryData::CreateFromHex("0100000001bb664ff716b9dfc831bcc666c1767f362ad467fcfbaf4961de92e45547daab870100000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953aeffffffff0280969800000000001976a9140817482d2e97e4be877efe59f4bae108564549f188ac7015a7000000000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae0000000001000000");
+   SecureBinaryData px = SecureBinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   SecureBinaryData py = SecureBinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   //SecureBinaryData sig = SecureBinaryData::CreateFromHex("3046022100d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6022100900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
+   SecureBinaryData sig = SecureBinaryData::CreateFromHex("d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
+   pubKey = CryptoECDSA().ParsePublicKey(px,py);
+   isValid = CryptoECDSA().VerifyData(msg, sig, pubKey);
+   cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+}
+
+
+
+
+
+
