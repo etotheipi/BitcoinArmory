@@ -72,7 +72,7 @@
 *      (12)  Arbitrary script parsing       X          X         X
 *      (13)  OP_CHECKSIG/CHECKMULTISIG      X          X         X
 *      (14*) Arbitrary script eval                     X         X
-*      (15)  ECDSA Sign/Verify                         X         X
+*      (15)  ECDSA Sign/Verify              X          X         X
 *     ---------------------------------------------------------------
 *      (16)  Address/Wallet tracking        X          X         X
 *      (17)  Scan blkchain for Tx           X                    X

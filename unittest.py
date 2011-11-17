@@ -183,12 +183,12 @@ print ''
 
 ################################################################################
 # test signing a transaction:  create two addresses and a fake Tx between them
+
+print 'Testing PyCreateAndSignTx'
 AddrA = PyBtcAddress().createFromPrivateKey(hex_to_int('aa'*32))
 AddrB = PyBtcAddress().createFromPrivateKey(hex_to_int('bb'*32))
-
-print 'Created two addresses:'
-print 'Address A:', AddrA.getAddrStr()
-print 'Address B:', AddrB.getAddrStr()
+print '   Address A:', AddrA.getAddrStr()
+print '   Address B:', AddrB.getAddrStr()
 # This TxIn will be completely ignored, so it can contain garbage
 txinA = PyTxIn()
 txinA.outpoint  = PyOutPoint().unserialize(hex_to_binary('00'*36))

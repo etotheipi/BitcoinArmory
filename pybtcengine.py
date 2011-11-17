@@ -2350,9 +2350,6 @@ class PyScriptProcessor(object):
       binHashCode = int_to_binary(hashtype, widthBytes=4)
       toHash = txCopy.serialize() + binHashCode
 
-      print 'BinToSign:', binary_to_hex(toHash)
-      print 'PubKey:', binary_to_hex(senderAddr.pubKey_serialize())
-      print 'Sig:', binary_to_hex(justSig)
       hashToVerify = hash256(toHash)
       hashToVerify = binary_switchEndian(hashToVerify)
 
