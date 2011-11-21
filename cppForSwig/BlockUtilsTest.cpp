@@ -578,7 +578,6 @@ void TestECDSA(void)
 {
    SecureBinaryData msgToSign("This message came from me!");
    SecureBinaryData privData = SecureBinaryData().GenerateRandom(32);
-
    BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
    BTC_PUBKEY  pubKey  = CryptoECDSA().ComputePublicKey(privKey);
 
@@ -637,12 +636,15 @@ void TestECDSA(void)
 
 
    // Test deterministic key generation
+   SecureBinaryData privDataOrig = SecureBinaryData().GenerateRandom(32);
+   BTC_PRIVKEY privOrig = CryptoECDSA().ParsePrivateKey(privDataOrig);
+   BTC_PUBKEY  pubOrig  = CryptoECDSA().ComputePublicKey(privOrig);
    cout << "Testing deterministic key generation" << endl;
-   cout << "   Verify again that starting pub/priv pair match: ";
-   cout << (CryptoECDSA().CheckPubPrivKeyMatch(privKey, pubKey) ? 1 : 0) << endl;
+   cout << "   Verify again that pub/priv objects pair match : ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(privOrig, pubOrig) ? 1 : 0) << endl;
 
-   SecureBinaryData binPriv = CryptoECDSA().SerializePrivateKey(privKey);
-   SecureBinaryData binPub  = CryptoECDSA().SerializePublicKey(pubKey);
+   SecureBinaryData binPriv = CryptoECDSA().SerializePrivateKey(privOrig);
+   SecureBinaryData binPub  = CryptoECDSA().SerializePublicKey(pubOrig);
    cout << "   Verify again that binary pub/priv pair match  : ";
    cout << (CryptoECDSA().CheckPubPrivKeyMatch(binPriv, binPub) ? 1 : 0) << endl;
    cout << endl;
@@ -661,8 +663,8 @@ void TestECDSA(void)
    cout << "   Verify new binary pub/priv pair match: ";
    cout << (CryptoECDSA().CheckPubPrivKeyMatch(newBinPriv, newBinPubB) ? 1 : 0) << endl;
    cout << "   New privKey:" << newBinPriv.toHexStr() << endl;
-   cout << "   New pubKeyA:" << newBinPubA.toHexStr() << endl;
-   cout << "   New pubKeyB:" << newBinPubB.toHexStr() << endl;
+   cout << "   New pubKeyA:" << newBinPubA.getSliceCopy(0,30).toHexStr() << "..." << endl;
+   cout << "   New pubKeyB:" << newBinPubB.getSliceCopy(0,30).toHexStr() << "..." << endl;
    cout << endl;
 
    

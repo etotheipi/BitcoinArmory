@@ -524,7 +524,7 @@ SecureBinaryData CryptoECDSA::ComputePrivateKeyChain(
                   a_times_b_mod_c(chaincode, origPrivExp, ecOrder);
 
    // Convert new private exponent to big-endian binary string 
-   SecureBinaryData newPrivData;
+   SecureBinaryData newPrivData(32);
    newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize());
    return newPrivData;
 }

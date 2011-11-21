@@ -1,6 +1,6 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 9.00
-# Visual Studio 2005
+Microsoft Visual Studio Solution File, Format Version 10.00
+# Visual Studio 2008
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PyBtcEngine_MSVS2005", "PyBtcEngine_MSVS2005.vcproj", "{9B73A6D3-E0A1-469F-B473-420029B3F380}"
 	ProjectSection(ProjectDependencies) = postProject
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF} = {3423EC9A-52E4-4A4D-9753-EDEBC38785EF}
@@ -50,6 +50,7 @@ Global
 		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|Win32.ActiveCfg = Release|Win32
 		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|Win32.Build.0 = Release|Win32
 		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|x64.ActiveCfg = Release|x64
+		{E5837BA8-5CA6-498D-B5C0-EDBD2E32719C}.Release|x64.Build.0 = Release|x64
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|Win32.ActiveCfg = Debug|Win32
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|Win32.Build.0 = Debug|Win32
 		{3423EC9A-52E4-4A4D-9753-EDEBC38785EF}.Debug|x64.ActiveCfg = Debug|x64
