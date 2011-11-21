@@ -8,6 +8,17 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 //
+// Implements canned routines in Crypto++ for AES encryption (for wallet
+// security), ECDSA (which is already available in the python interface,
+// but it is slow, so we might as well use the fast C++ method if avail),
+// time- and memory-hard key derivation functions (resistent to brute
+// force, and designed to be too difficult for a GPU to implement), and
+// secure binary data handling (to make sure we don't leave sensitive 
+// data floating around in application memory).
+//
+// 
+// For the KDF:
+//
 // This technique is described in Colin Percival's paper on memory-hard 
 // key-derivation functions, used to create "scrypt":
 //
@@ -19,7 +30,7 @@
 // which completely disarms GPUs of their massive parallelization capabilities
 // (for maximum parallelization, the kernel must use less than 1-2 MB/thread)
 //
-// Even with less than 1e6 sequence length, as long as it requires more than 64
+// Even with less than 1,000,000 hashes, as long as it requires more than 64
 // kB of memory, a GPU will have to store the computed lookup tables in global
 // memory, which is extremely slow for random lookup.  As a result, GPUs are 
 // no better (and possibly much worse) than a CPU for brute-forcing the passwd
@@ -28,10 +39,9 @@
 // paper.  This was chosen because it is the simplest technique that provably
 // achieves the goal of being secure, and memory-hard.
 //
-// In the future, I may add functionality to try to detect the capabilities of
-// the host system, and pick KDF parameters that guarantee at least 0.1s of 
-// compute time.  This is what the default client uses right now.
-//
+// The computeKdfParams method well test the speed of the system it is running
+// on, and try to pick the largest memory-size the system can compute in less
+// than 0.25s (or specified target).  
 //
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -82,9 +92,11 @@
 #endif
 
 
-// We will look for a high memory value to us in the KDF
+// We will look for a high memory value to use in the KDF
 // But as a safety check, we should probably put a cap
 // on how much memory the KDF can use -- 32 MB is good
+// If a KDF uses 32 MB of memory, it is undeniably easier
+// to computer on a CPU than a GPU.
 #define DEFAULT_KDF_MAX_MEMORY 32*1024*1024
 
 using namespace std;
@@ -97,20 +109,19 @@ using namespace std;
 #define BTC_PRNG     CryptoPP::AutoSeededRandomPool
 
 #define BTC_ECPOINT  CryptoPP::ECP::Point
-#define BTC_ECDSA    CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>
-#define BTC_PRIVKEY  CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::PrivateKey
-#define BTC_PUBKEY   CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::PublicKey
-#define BTC_SIGNER   CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Signer 
-#define BTC_VERIFIER CryptoPP::ECDSA<CryptoPP::ECP,CryptoPP::SHA256>::Verifier
+#define BTC_ECDSA    CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >
+#define BTC_PRIVKEY  CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PrivateKey
+#define BTC_PUBKEY   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::PublicKey
+#define BTC_SIGNER   CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Signer 
+#define BTC_VERIFIER CryptoPP::ECDSA< CryptoPP::ECP, CryptoPP::SHA256 >::Verifier
 
 
 ////////////////////////////////////////////////////////////////////////////////
 // Make sure that all crypto information is handled with page-locked data,
 // and overwritten when it's destructor is called.  For simplicity, we will
-// use this data type for all crypto data, for simplicity
-//
-// I'm sure there's more elaborate ways to secure the data, but this isn't
-// bad.  We just want to make sure the class cleans up after itself
+// use this data type for all crypto data, even for data values that aren't
+// really sensitive.  We can use the SecureBinaryData(bdObj) to convert our 
+// regular strings/BinaryData objects to secure objects
 //
 class SecureBinaryData : public BinaryData
 {
@@ -148,6 +159,8 @@ public:
    SecureBinaryData & append(SecureBinaryData & sbd2) ;
    SecureBinaryData & operator=(SecureBinaryData const & sbd2);
    SecureBinaryData   operator+(SecureBinaryData & sbd2) const;
+   //uint8_t const & operator[](size_t i) const {return BinaryData::operator[](i);}
+   bool operator==(SecureBinaryData const & sbd2) const;
 
    static SecureBinaryData GenerateRandom(uint32_t numBytes);
 
@@ -257,17 +270,26 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // Create a C++ interface to the Crypto++ ECDSA ops:  should be more secure
 // and much faster than the pure-python methods created by Lis
+//
+// These methods might as well just be static methods, but SWIG doesn't like
+// static methods.  So we will invoke these via CryptoECDSA().Function()
 class CryptoECDSA
 {
 public:
    CryptoECDSA(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
+   BTC_PRIVKEY CreateNewPrivateKey(void);
+
+   /////////////////////////////////////////////////////////////////////////////
    BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
    
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKeyXData,
-                             SecureBinaryData const & pubKeyYData);
+   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKey65B);
+
+   /////////////////////////////////////////////////////////////////////////////
+   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKeyX32B,
+                             SecureBinaryData const & pubKeyY32B);
    
    /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData SerializePrivateKey(BTC_PRIVKEY const & privKey);
@@ -277,27 +299,50 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BTC_PUBKEY ComputePublicKey(BTC_PRIVKEY const & cppPrivKey);
-   
-   
-   /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                             SecureBinaryData const & binPrivKey);
+
    
    /////////////////////////////////////////////////////////////////////////////
+   bool CheckPubPrivKeyMatch(BTC_PRIVKEY const & cppPrivKey,
+                             BTC_PUBKEY  const & cppPubKey);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // For signing and verification, pass in original, UN-HASHED binary string
    SecureBinaryData SignData(SecureBinaryData const & binToSign, 
                              BTC_PRIVKEY const & cppPrivKey);
    
    
-   /////////////////////////////////////////////////////////////////////////////
-   bool VerifyData(SecureBinaryData const & binMessage, 
-                   SecureBinaryData const & binSignature,
-                   SecureBinaryData const & pubkeyX,
-                   SecureBinaryData const & pubkeyY);
    
    /////////////////////////////////////////////////////////////////////////////
+   // For signing and verification, pass in original, UN-HASHED binary string
    bool VerifyData(SecureBinaryData const & binMessage, 
                    SecureBinaryData const & binSignature,
                    BTC_PUBKEY const & cppPubKey);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // We need to make sure that we have methods that take only secure strings
+   // and return secure strings (I don't feel like figuring out how to get 
+   // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
+
+   SecureBinaryData GenerateNewPrivateKey(void);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
+
+   /////////////////////////////////////////////////////////////////////////////
+   bool CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
+                             SecureBinaryData const & pubKey65);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // For signing and verification, pass in original, UN-HASHED binary string
+   SecureBinaryData SignData(SecureBinaryData const & binToSign, 
+                             SecureBinaryData const & binPrivKey);
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // For signing and verification, pass in original, UN-HASHED binary string
+   bool VerifyData(SecureBinaryData const & binMessage, 
+                   SecureBinaryData const & binSignature,
+                   SecureBinaryData const & pubkey65B);
                                
 };
 

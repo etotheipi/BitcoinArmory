@@ -1,5 +1,5 @@
-from pybtcengine import *
-import pybtcengine
+from btcarmoryengine import *
+import btcarmoryengine
 
 LE = LITTLEENDIAN
 BE = BIGENDIAN
@@ -7,7 +7,7 @@ BE = BIGENDIAN
 
 # Pass in the name of a function,
 def testFunction( fnName, expectedOutput, *args):
-   fn = getattr(pybtcengine, fnName)
+   fn = getattr(btcarmoryengine, fnName)
    actualOutput = fn(*args)
    testPassed = (expectedOutput == actualOutput)
    passStr = '____PASS____' if testPassed else '***FAIL***'

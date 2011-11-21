@@ -6,88 +6,87 @@
 #                                                                              #
 ################################################################################
 
-
 ********************************************************************************
 *
-* Project:  PyBtcEngine
-* Author:   Alan Reiner
-* Date:     11 July, 2011
-* Donate:   1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
+* Project:    BitcoinArmory
+* Author:     Alan Reiner
+* Orig Date:  20 November, 2011
+* Descr:      This file serves as an engine for python-based Bitcoin software.
+*             I forked this from my own project -- PyBtcEngine -- because I
+*             I needed to start including/rewriting code to use CppBlockUtils
+*             but did not want to break the pure-python-ness of PyBtcEngine. 
+*             If you are interested in in a pure-python set of bitcoin utils
+*             please go checkout the PyBtcEngine github project.  
 *
-* Descr:   PyBtcEngine is a full computational backend for Bitcoin software.
-*          It combines C++ and Python to enable *all* the functionality 
-*          necessary to write Bitcoin software, *except for networking*.
-*          The networking is more application-oriented, whereas this library
-*          is more focused on enabling you to read/interpret/construct the
-*          packets you would be exchanging on the Bitcoin network.
-*  
-*          For a demo of all the features of the library, you can see the 
-*          PyQt block-explorer I made in the pyqt directory.  If it doesn't
-           autodetect your blkfile, you can provide it as a CLI argument
+*             Of course, the biggest advatage here is that you have access to
+*             the blockchain through BlockObj/BlockObjRef/BlockUtils, as found
+*             in the CppForSWIG directory.  This is available in PyBtcEngine,
+*             but I had to split out the modules, and I didn't have a good way
+*             to maintain the pure-python module while also implementing all
+*             the great SWIG-imported C++ utilities I built.
 *
-*          This library was originally based on Sam Rushing "caesure" code,
-*          but is a complete rewrite and no longer resembles or includes any
-*          of the code he wrote.  So, I have removed his license/copyright.  
-*          Of course, he still gets a ton of credit for providing such good 
-*          reference code.  "Lis" from the Bitcoin forums also deserves a ton 
-*          of credit for writing a fantastic, dependency-less version of ECDSA.  
-*          This may enable more platforms where this code can be used, as they 
-*          don't need to have any particular crypto libraries installed
-*
-*          Note:  I am not a "real" programmer, I'm an engineer that writes 
-*                 algorithms to solve problems really quickly.  There's a few 
-*                 places I should've used inheritance but didn't.  And although
-*                 I usually am good about const correctness, it turned into a 
-*                 nightmare here, so I've mostly removed it
+*             ***NOTE***  This is still the Full-RAM implementation, which
+*                         requires holding the *entire* blockchain in memory.
+*                         In the future, I plan to try to make this more
+*                         lightweight, but I am going to forego that yet
+*                         in favor of making a utility that works for some
+*                         users (there's a lot of top-level reorg that needs
+*                         to be done to not store the entire blockchain).
+*             
+*             This module replaces the ECDSA operations, with faster ones
+*             implemented in C++ from Crypto++.  This also enables the ability
+*             to use SecureBinaryData objects for moving around private keys,
+*             though I'm not entirely clear if python-based memory management
+*             is going to properly clean up after itself, even with a page-
+*             locked, destructable data container.
 *
 ********************************************************************************
-
-********************************************************************************
+*
 * Please take a moment to donate 1.0 BTC!    1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1
+*
 ********************************************************************************
 
 ********************************************************************************
-*  STATUS:   Last Updated - 28 Oct, 2011
+*  STATUS:   Last Updated - 20 Nov, 2011
 *            Legend:   
 *                      _    not implemented
 *                      .    implemented but not tested
 *                      +    implemented and partially tested
 *                      X    implemented and tested
 *  
-*                                          C++       Python     SWIG
+*                                        BitcoinArmory
 *     ---------------------------------------------------------------
-*      (01)  Ser/Unser Block Objects        X          X         X
-*      (02)  Hash160/Hash256                X          X         X
-*      (03)  Difficulty calcs               X          X         X
-*      (04)  Address Generation                        X         X
-*      (05)  Address Verify/Manip                      X         X
-*     ---------------------------------------------------------------
-*      (06)  BlkHeaders read/scan/org       X          X         X
-*      (07)  BlkHeaders reorgs              X                    X
-*      (08)  Blockchain read/scan/org       X                    X
-*      (09)  Blockchain reorgs              X                    X
-*      (10)  Blockchain verify integrity    X                    X
-*     ---------------------------------------------------------------
-*      (11)  NonStd Tx Detection            +          +         +
-*      (12)  Arbitrary script parsing       X          X         X
-*      (13)  OP_CHECKSIG/CHECKMULTISIG      X          X         X
-*      (14*) Arbitrary script eval                     X         X
-*      (15)  ECDSA Sign/Verify              X          X         X
-*     ---------------------------------------------------------------
-*      (16)  Address/Wallet tracking        X          X         X
-*      (17)  Scan blkchain for Tx           X                    X
-*      (18)  Scan blkchain for NonStd       X                    X
-*      (19)  Reorg w/ double-spend          X                    X
-*      (20)  Add new blockdata real-time    X                    X
-*     ---------------------------------------------------------------
-       (20)  SelectCoins for tx                        X         X
-*      (21)  Tx construct given inputs                 X         X
-*      (22*) Distr Proposals/multisig                  
+*      (01)  Ser/Unser Block Objects           X
+*      (02)  Hash160/Hash256                   X
+*      (03)  Difficulty calcs                  X
+*      (04)  Address Generation                X
+*      (05)  Address Verify/Manip              X
+*     ---------------------------------------------
+*      (06)  BlkHeaders read/scan/org          X
+*      (07)  BlkHeaders reorgs                 X
+*      (08)  Blockchain read/scan/org          X
+*      (09)  Blockchain reorgs                 X
+*      (10)  Blockchain verify integrity       X
+*     ---------------------------------------------
+*      (11)  NonStd Tx Detection               +
+*      (12)  Arbitrary script parsing          X
+*      (13)  OP_CHECKSIG/CHECKMULTISIG         X
+*      (14*) Arbitrary script eval             X
+*      (15)  ECDSA Sign/Verify                 X
+*     ---------------------------------------------
+*      (16)  Address/Wallet tracking           X
+*      (17)  Scan blkchain for Tx              X
+*      (18)  Scan blkchain for NonStd          X
+*      (19)  Reorg w/ double-spend             X
+*      (20)  Add new blockdata real-time       X
+*     ---------------------------------------------
+*      (20)  SelectCoins for tx                X
+*      (21)  Tx construct given inputs         X
+*      (22*) Distr Proposals/multisig          .
 *      (23)  Tx broadcast
-*      (24)  Tx fee calculations                       X         X
+*      (24)  Tx fee calculations               X
 *      (25)  Blockchain download
-*
-*
+*      (26)  SecureBinaryData                  X
 *
 *
 * Notes:
@@ -126,11 +125,9 @@
 *      FullRAM implementation only in C++ code.  However,
 *      modern computers can handle the full blockchain in RAM right now, and 
 *      probably for the next year, so there's no hurry to do this.
-
+*
 *      Short/Medium-term future:
 *            *** NETWORKING & BLOCKCHAIN DOWNLOAD ***
-*            Deterministic address generation
-*            Wallet serialization/storage to file
 *            Convert wallet files to/from official BTC wallets (pywallet)
 *  
 ********************************************************************************
@@ -140,6 +137,11 @@
    For information on dependencies and compiling, see Using_PyBtcEngine.README
 
 ********************************************************************************
+#####
+20 Nov, 2011
+
+   *** Implemented ECDSA in C++, AES encryption, KDF, SecureBinaryData
+
 #####
 28 Oct, 2011
 

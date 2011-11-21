@@ -6,79 +6,61 @@
 #
 ################################################################################
 #
-# Project:    PyBtcEngine
+# Project:    BitcoinArmory
 # Author:     Alan Reiner
-# Orig Date:  11 July, 2011
-# Descr:      A mostly-complete BTC computational engine in Python.  Does not 
-#             do any Blockchain management, but includes just about everything
-#             else, including all the ECDSA signatures and verification.  
-#             
-#             Blockchain management is handled by the CppBlockUtils, C++ code
-#             compiled with g++ and using SWIG to convert it to a .so/.dll.  
-#             Please see Using_PyBtcEngine.README file for more information.
+# Orig Date:  20 November, 2011
+# Descr:      This file serves as an engine for python-based Bitcoin software.
+#             I forked this from my own project -- PyBtcEngine -- because I
+#             I needed to start including/rewriting code to use CppBlockUtils
+#             but did not want to break the pure-python-ness of PyBtcEngine. 
+#             If you are interested in in a pure-python set of bitcoin utils
+#             please go checkout the PyBtcEngine github project.  
 #
-#             The file pybtcengine.methods.py has a fairly complete list of
-#             methods available in this file, though it needs to be manually 
-#             generated so it's sometimes lagging the code.
-#       
+#             Of course, the biggest advatage here is that you have access to
+#             the blockchain through BlockObj/BlockObjRef/BlockUtils, as found
+#             in the CppForSWIG directory.  This is available in PyBtcEngine,
+#             but I had to split out the modules, and I didn't have a good way
+#             to maintain the pure-python module while also implementing all
+#             the great SWIG-imported C++ utilities I built.
+#             
+#             This module replaces the ECDSA operations, with faster ones
+#             implemented in C++ from Crypto++.  This also enables the ability
+#             to use SecureBinaryData objects for moving around private keys,
+#             though I'm not entirely clear if python-based memory management
+#             is going to properly clean up after itself, even with a page-
+#             locked, destructable data container.
+#
+#             In the end, this will be a single, huge, python file that should
+#             contain, LITERALLY, every computational Bitcoin operation needed
+#             to build a client application in Python, EXCEPT for networking.
+#            
+#             I will try to keep the README up-to-date with the latest features
+#             that I have implemented and tested.
 #
 ################################################################################
 
 import copy
 import hashlib
 import random
-import socket
 import time
 import os
-import pickle
 import string
 import sys
 import shutil
 import math
-
-
 from struct import pack, unpack
-import hashlib 
-from pprint import pprint as pp
 from datetime import datetime
 
+# Version Numbers 
 VERSION = (0,5,0,0)  # (Major, Minor, Minor++, even-more-minor)
 
 
-def sha1(bits):
-   return hashlib.new('sha1', bits).digest()
-def sha256(bits):
-   return hashlib.new('sha256', bits).digest()
-def ripemd160(bits):
-   return hashlib.new('ripemd160', bits).digest()
-def hash256(s):
-   """ Double-SHA256 """
-   return sha256(sha256(s))
-def hash160(s):
-   """ RIPEMD160( SHA256( binaryStr ) ) """
-   return ripemd160(sha256(s))
-
-
-################################################################################
-# Load the C++ utilites here 
-# If we have them, we can use them for accessing the blockchain, and efficient
-# ECDSA operations (not implemented yet)
-################################################################################
-useCpp = False
-try:
-   import CppBlockUtils as Cpp
-   useCpp = True
-   # Was planning to throw in C++ hashing here, for speed.
-   # But it's not actually faster -- probably slowed down
-   # by the typemap and overhead of exchanging data with C++
-except:
-   print '***WARNING:  C++ block utilities not available.'
-   print '             defaulting to [slower] python methods'
-   print '             (blockchain will not be available'
-print 'Using CppBlockUtils: ', useCpp
-   
-
-
+# Get the host operating system
+import platform
+opsys = platform.system()
+OS_WINDOWS = 'win' in opsys.lower()
+OS_LINUX = 'nix' in opsys.lower()
+OS_MAC = 'mac' in opsys.lower()
 
 def getVersionString(vquad=VERSION, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -114,6 +96,14 @@ class PackerError(Exception):
    pass
 class UnitializedBlockDataError(Exception):
    pass
+class WalletLockError(Exception):
+   pass
+class SignatureError(Exception):
+   pass
+class KeyDataError(Exception):
+   pass
+
+
 
 # These are overriden for testnet
 USE_TESTNET = False
@@ -174,8 +164,57 @@ UNKNOWN = -2
 MIN_TX_FEE = 50000
 MIN_RELAY_TX_FEE = 10000
 
+# Define all the hashing functions we're going to need.  We don't actually
+# use any of the first three directly (sha1, sha256, ripemd160), we only 
+# use hash256 and hash160 which use the first three to create the ONLY hash
+# operations we ever do in the bitcoin network
+def sha1(bits):
+   return hashlib.new('sha1', bits).digest()
+def sha256(bits):
+   return hashlib.new('sha256', bits).digest()
+def ripemd160(bits):
+   return hashlib.new('ripemd160', bits).digest()
+def hash256(s):
+   """ Double-SHA256 """
+   return sha256(sha256(s))
+def hash160(s):
+   """ RIPEMD160( SHA256( binaryStr ) ) """
+   return ripemd160(sha256(s))
 
 
+################################################################################
+# Load the C++ utilites here 
+#
+#    The SWIG/C++ block utilities give us access to the blockchain, fast ECDSA
+#    operations, and general encryption/secure-binary containers
+################################################################################
+try:
+   import CppBlockUtils as Cpp
+except:
+   print '***ERROR:  C++ block utilities not available.'
+   print '           Make sure that you have the SWIG-compiled modules'
+   print '           in the current directory (or added to the PATH)'
+   print '           Specifically, you need:'
+   print '                  CppBlockUtils.py     and'
+   elif OS_LINUX or OS_MAC:
+      print '                  _CppBlockUtils.so'
+   if OS_WINDOWS:
+      print '                  _CppBlockUtils.pyd'
+   exit(0)
+
+
+
+################################################################################
+# Might as well create the BDM right here -- there will only ever be one, anyway
+TheBDM = Cpp.BlockDataManager().getBDM()
+   
+
+
+
+
+
+
+################################################################################
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
    This is the same as pprintHex(), but returns the string instead of
@@ -194,6 +233,8 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
       outStr += theStr[i*minor:(i+1)*minor] + ' '
    return outStr
 
+
+################################################################################
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
    This method takes in a long hex string and prints it out into rows
@@ -262,6 +303,8 @@ def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    if not endIn==endOut:
       bout = hex_switchEndian(bout) 
    return bout.decode('hex_codec')
+
+
 def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
    """
    Converts binary to hexadecimal.  Endianness is only switched 
@@ -294,6 +337,7 @@ def binary_to_int(b, endIn=LITTLEENDIAN):
 EmptyHash = hex_to_binary('00'*32)
  
 
+################################################################################
 # BINARY/BASE58 CONVERSIONS
 def binary_to_base58(binstr):
    """
@@ -324,6 +368,7 @@ def binary_to_base58(binstr):
    return '1'*padding + b58
 
 
+################################################################################
 def base58_to_binary(addr):
    """
    This method applies the Bitcoin-specific conversion from Base58 to binary
@@ -358,7 +403,7 @@ def base58_to_binary(addr):
    
      
 
-
+################################################################################
 def hash160_to_addrStr(binStr):
    """ 
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
@@ -457,6 +502,36 @@ def binaryBits_to_difficulty(b):
 def difficulty_to_binaryBits(i):
    pass
    
+
+
+################################################################################
+def loadBlockchainFile(blkfile=None, testnet=False):
+   """
+   Looks for the blk0001.dat file in the default location for your operating
+   system.  If it is found, it is loaded into RAM and the longest chain is
+   computed.  Access to any information in the blockchain can be found via
+   the bdm object.
+   """
+   if blkfile==None:
+      if not testnet:
+         if 'win' in opsys.lower():
+            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
+         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
+            blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
+         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
+            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
+      else:
+         if 'win' in opsys.lower():
+            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
+         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
+            blkfile = path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
+         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
+            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/testnet/blk0001.dat')
+
+   if not path.exists(blkfile):
+      raise FileExistsError, ('File does not exist: %s' % blkfile)
+   TheBDM.readBlkFile_FromScratch(blkfile)
+
 
 ################################################################################
 ################################################################################
@@ -576,242 +651,13 @@ class BinaryPacker(object):
 
 ################################################################################
 
-
-################################################################################
-# ECDSA CLASSES
-#
-#    Based on the ECDSA code posted by Lis on the Bitcoin forums: 
-#    http://forum.bitcoin.org/index.php?topic=23241.0
-#
-################################################################################
-
-
- # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
- # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-
-################################################################################
-
-# ECDSA Import from Lis http://bitcointalk.org/index.php?topic=23241.0
-#
-################################################################################
-class lisecdsa:
-   """
-   This is the underlying ECDSA code for all Bitcoin signature/verification
-   methods.  These are really only called by PyBtcAddress objects, which act
-   as wrappers around the lisecdsa objects
-
-   Based on the ECDSA code posted by Lis on the Bitcoin forums: 
-   http://forum.bitcoin.org/index.php?topic=23241.0
-
-   NOTE:  these methods are *very* slow in a relative sense.  I believe an
-          "average" computer can do 500 ECDSA signatures/verifications per
-          second, when done in efficient C++/ASM code.  Using the python
-          code below, we achieve about 4/sec.  This is fine for regular
-          users who won't be verifying the entire blockchain, but not a 
-          good solution for more heavy-weight applications.
-   """
-   @staticmethod
-   def inverse_mod( a, m ):
-      if a < 0 or m <= a: a = a % m
-      c, d = a, m
-      uc, vc, ud, vd = 1, 0, 0, 1
-      while c != 0:
-         q, c, d = divmod( d, c ) + ( c, )
-         uc, vc, ud, vd = ud - q*uc, vd - q*vc, uc, vc
-      assert d == 1
-      if ud > 0: return ud
-      else: return ud + m
-
-   class CurveFp( object ):
-      def __init__( self, p, a, b ):
-         self.__p = p
-         self.__a = a
-         self.__b = b
-   
-      def p( self ):
-         return self.__p
-   
-      def a( self ):
-         return self.__a
-   
-      def b( self ):
-         return self.__b
-   
-      def contains_point( self, x, y ):
-         return ( y * y - ( x * x * x + self.__a * x + self.__b ) ) % self.__p == 0
-   
-   class Point( object ):
-      def __init__( self, curve, x, y, order = None ):
-         self.__curve = curve
-         self.__x = x
-         self.__y = y
-         self.__order = order
-         if self.__curve: assert self.__curve.contains_point( x, y )
-         if order: assert self * order == INFINITY
-    
-      def __add__( self, other ):
-         if other == INFINITY: return self
-         if self == INFINITY: return other
-         assert self.__curve == other.__curve
-         if self.__x == other.__x:
-            if ( self.__y + other.__y ) % self.__curve.p() == 0:
-               return INFINITY
-            else:
-               return self.double()
-   
-         p = self.__curve.p()
-         l = ( ( other.__y - self.__y ) * lisecdsa.inverse_mod(other.__x - self.__x, p) ) % p
-         x3 = ( l * l - self.__x - other.__x ) % p
-         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
-         return lisecdsa.Point( self.__curve, x3, y3 )
-   
-      def __mul__( self, other ):
-         def leftmost_bit( x ):
-            assert x > 0
-            result = 1L
-            while result <= x: result = 2 * result
-            return result / 2
-   
-         e = other
-         if self.__order: e = e % self.__order
-         if e == 0: return INFINITY
-         if self == INFINITY: return INFINITY
-         assert e > 0
-         e3 = 3 * e
-         negative_self = lisecdsa.Point( self.__curve, self.__x, -self.__y, self.__order )
-         i = leftmost_bit( e3 ) / 2
-         result = self
-         while i > 1:
-            result = result.double()
-            if ( e3 & i ) != 0 and ( e & i ) == 0: result = result + self
-            if ( e3 & i ) == 0 and ( e & i ) != 0: result = result + negative_self
-            i = i / 2
-         return result
-   
-      def __rmul__( self, other ):
-         return self * other
-   
-      def __str__( self ):
-         if self == INFINITY: return "infinity"
-         return "(%d,%d)" % ( self.__x, self.__y )
-   
-      def double( self ):
-         if self == INFINITY:
-            return INFINITY
-   
-         p = self.__curve.p()
-         a = self.__curve.a()
-         l = ( (3 * self.__x * self.__x + a) * lisecdsa.inverse_mod(2 * self.__y, p) ) % p
-         x3 = ( l * l - 2 * self.__x ) % p
-         y3 = ( l * ( self.__x - x3 ) - self.__y ) % p
-         return lisecdsa.Point( self.__curve, x3, y3 )
-   
-      def x( self ):
-         return self.__x
-   
-      def y( self ):
-         return self.__y
-   
-      def curve( self ):
-         return self.__curve
-      
-      def order( self ):
-         return self.__order
-         
-   
-   
-   # secp256k1
-   _p = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-   _r = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-   _b = 0x0000000000000000000000000000000000000000000000000000000000000007L
-   _a = 0x0000000000000000000000000000000000000000000000000000000000000000L
-   _Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-   _Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
-   
-   class Signature( object ):
-      def __init__( self, r, s ):
-         self.r = r
-         self.s = s
-         
-   class Public_key( object ):
-      def __init__( self, generator, point ):
-         self.curve = generator.curve()
-         self.generator = generator
-         self.point = point
-         n = generator.order()
-         if not n:
-            raise ECDSA_Error, "Generator point must have order."
-         if not n * point == INFINITY:
-            raise ECDSA_Error, "Generator point order is bad."
-         if point.x() < 0 or n <= point.x() or point.y() < 0 or n <= point.y():
-            raise ECDSA_Error, "Generator point has x or y out of range."
-   
-      def verifies( self, hash, signature ):
-         G = self.generator
-         n = G.order()
-         r = signature.r
-         s = signature.s
-         if r < 1 or r > n-1: return False
-         if s < 1 or s > n-1: return False
-         c = lisecdsa.inverse_mod( s, n )
-         u1 = ( hash * c ) % n
-         u2 = ( r * c ) % n
-         xy = u1 * G + u2 * self.point
-         v = xy.x() % n
-         return v == r
-   
-   class Private_key( object ):
-      def __init__( self, public_key, secret_multiplier ):
-         self.public_key = public_key
-         self.secret_multiplier = secret_multiplier
-   
-      def der( self ):
-         hex_der_key = '06052b8104000a30740201010420' + \
-                       '%064x' % self.secret_multiplier + \
-                       'a00706052b8104000aa14403420004' + \
-                       '%064x' % self.public_key.point.x() + \
-                       '%064x' % self.public_key.point.y()
-         return hex_der_key.decode('hex')
-   
-      def sign( self, hash, random_k ):
-         G = self.public_key.generator
-         n = G.order()
-         k = random_k % n
-         p1 = k * G
-         r = p1.x()
-         if r == 0: raise ECDSA_Error, "amazingly unlucky random number r"
-         s = ( lisecdsa.inverse_mod( k, n ) * \
-                  ( hash + ( self.secret_multiplier * r ) % n ) ) % n
-         if s == 0: raise ECDSA_Error, "amazingly unlucky random number s"
-         return lisecdsa.Signature( r, s )
-   
-INFINITY = lisecdsa.Point( None, None, None )
- # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-# # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
- # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # 
-   
-
-
-
 # The following params are common to ALL bitcoin elliptic curves (secp256k1)
-_p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
-_r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
-_b  = 0x0000000000000000000000000000000000000000000000000000000000000007L
-_a  = 0x0000000000000000000000000000000000000000000000000000000000000000L
-_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
-_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
-
-EC_Point = lisecdsa.Point
-EC_Curve = lisecdsa.CurveFp( _p, _a, _b )
-EC_Sig   = lisecdsa.Signature
-EC_GenPt = EC_Point( EC_Curve, _Gx, _Gy, _r )
-EC_Order = EC_GenPt.order()
-
-
-def isValidEcPoint(x,y):
-   """ This method can be used to determine if a Public key is valid """
-   return EC_Curve.contains_point(x,y)
+#_p  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2FL
+#_r  = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141L
+#_b  = 0x0000000000000000000000000000000000000000000000000000000000000007L
+#_a  = 0x0000000000000000000000000000000000000000000000000000000000000000L
+#_Gx = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
+#_Gy = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
 
 
 # We can identify an address string by its first byte upon conversion
@@ -859,25 +705,137 @@ class PyBtcAddress(object):
    if we've precomputed them before.
    """
    def __init__(self):
-      self.privKeyInt = UNINITIALIZED
-      self.pubKeyXInt = UNINITIALIZED
-      self.pubKeyYInt = UNINITIALIZED
-      self.addrStr    = UNINITIALIZED 
-      self.lisPubKey  = UNINITIALIZED  # the underlying ECDSA objects from Lis
-      self.lisPrivKey = UNINITIALIZED  # the underlying ECDSA objects from Lis
+      self.addrStr20             = ''
+      self.binPublicKey65        = Cpp.SecureBinaryData()  # 0x04 X(BE) Y(BE)
+      self.binPrivKey32_Encr     = Cpp.SecureBinaryData()  # BIG-ENDIAN
+      self.binPrivKey32_Plain    = Cpp.SecureBinaryData()
+      self.binInitializationVect = Cpp.SecureBinaryData()
+      self.binChecksum           = Cpp.SecureBinaryData()
+      self.isLocked              = True
+      self.isInitialized         = False
+      self.walletByteLoc         = -1
 
+   #############################################################################
    def hasPrivKey(self):
-      return ((not self.privKeyInt == UNINITIALIZED))
+      return (self..getSize()   != 0 or \
+              self.binPrivKey32_Plain.getSize() != 0      )
 
+   #############################################################################
    def hasPubKey(self):
-      return ((not self.pubKeyXInt == UNINITIALIZED) and \
-              (not self.pubKeyYInt == UNINITIALIZED))
+      return (self.binPublicKey65.getSize() != 0)
+
+   #############################################################################
+   def loadEncryptedKeyData(self, encrPrivKey, IV, chkSum=None, pubKey=None):
+      self.isInitialized = True
+      self.binPrivKey32_Encr = encrPrivKey
+      self.binInitializationVect = IV
+      if chkSum:
+         assert(hash256(self.binPrivKey32_Encr).startswith(chkSum))
+      if pubKey:
+         self.binPublicKey65 = pubKey  # assume 65 bytes
+
+   #############################################################################
+   def lock(self):
+      self.binPrivKey32_Plain.destroy()
+      self.isLocked = True
+
+   #############################################################################
+   def unlock(self, secureKdfOutput, skipCheck=False):
+      """
+      This method knows nothing about a key-derivation function.  It simply
+      takes in an AES key and applies it to decrypt the data.  However, it's
+      best if that AES key is actually derived from "heavy" key-derivation
+      function.  
+      """
+      self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+                                                self.binPrivKey32_Encr,
+                                                secureKdfResult,
+                                                self.binInitializationVect)
+
+      if not self.hasPubKey():
+         self.binPublicKey65 = ComputePublicKey(self.binPrivKey32_Plain)
+      else:
+         # We should usually check to make sure
+         if not skipCheck:
+            if not checkPubPrivKeyPairMatch(self.binPrivKey32_Plain, \
+                                            self.binPublicKey65)):
+               raise KeyDataError, "Stored public key does not match priv key!"
+      self.isLocked = False
+
+   #############################################################################
+   def changeEncryptionKey(self, secureOldKey, secureNewKey):
+      """
+      The new key is preferably a key generated from a "heavy" key derivation
+      function.  This method will treat it as the AES256 key to use for 
+      re-encrypting the private wallet data
+
+      Pass in None for old or new key, to specify no encryption.
+      """
+      pass
+
+   #############################################################################
+   def checkPubPrivKeyMatch(self, securePriv, securePub):
+      CryptoECDSA().checkPubPrivKeyPairMatch(securePriv, securePub)
+      
+
+
+   #############################################################################
+   def generateDERSignature(self, binMsg, extraEntropy):
+      if self.isLocked:
+         raise WalletLockError, "Cannot sign Tx when private key is locked!"
+
+      secureMsg = SecureBinaryData(binMsg)
+      sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
+      sigstr = sig.toBinStr()
+      sig_r = sigstr[:32 ]
+      sig_s = sigstr[ 32:]
+      # We add an extra 0 byte to the beginning of each value to guarantee
+      # that they are interpretted as unsigned integers.  Not always necessary
+      # but it doesn't hurt to always do it.
+      rBin   = '\x00' + sig_r
+      sBin   = '\x00' + sig_s
+      rSize  = int_to_binary(len(rBin))
+      sSize  = int_to_binary(len(sBin))
+      rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
+      sigScr = '\x30' + rsSize + \
+               '\x02' + rSize + rBin + \
+               '\x02' + sSize + sBin
+      return sigScr
+
+   #############################################################################
+   def verifyDERSignature(self, binMsgVerify, binSig):
+      if not self.hasPubKey():
+         raise KeyDataError, 'No public key available for this address!'
+
+      codeByte = binSig[0]
+      nBytes   = binary_to_int(binSig[1])
+      rsStr    = binSig[2:2+nBytes]
+      assert(codeByte == '\x30')
+      assert(nBytes == len(rsStr))
+      # Read r
+      codeByte  = rsStr[0]
+      rBytes    = binary_to_int(rsStr[1])
+      r         = rsStr[2:2+rBytes]
+      assert(codeByte == '\x02')
+      sStr      = rsStr[2+rBytes:]
+      # Read s
+      codeByte  = sStr[0]
+      sBytes    = binary_to_int(sStr[1])
+      s         = sStr[2:2+sBytes]
+      assert(codeByte == '\x02')
+      # Now we have the (r,s) values of the 
+      #lisSignature = EC_Sig(r,s)
+      #intVerify = binary_to_int(binMsgVerify)
+      #return self.lisPubKey.verifies(intVerify, lisSignature)
+
+      secVerify = SecureBinaryData(binMsgVerify)
+      secSig    = SecureBinaryData(r[-32:] + s[-32:])
+      return CryptoECDSA().VerifyData(secVerify, secSig, \
+                         CryptoECDSA().ParsePublicKey(self.binPublicKey65)
+
 
    def isInitialized(self):
-      return not (self.addrStr    == UNINITIALIZED and\
-                  self.privKeyInt == UNINITIALIZED and\
-                  self.pubKeyXInt == UNINITIALIZED and\
-                  self.pubKeyYInt == UNINITIALIZED     )
+      return not len(self.addrStr)
 
    def generateNew(self):
       """
@@ -896,15 +854,13 @@ class PyBtcAddress(object):
          pkRandInt = binary_to_int(ExternalGenRandomBytes)
          newAddr = PyBtcAddress().createFromPrivateKey(pkRandInt
       """
-      self.createFromPrivateKey(random.randrange(EC_Order))
+      #self.createFromPrivateKey(
       return self
 
    def createFromPrivateKey(self, privKey):
       """ 
       Creates address from a user-supplied random INTEGER.  
-      This method DOES perform elliptic-curve operations to 
-      calculate the public key, which may be 0.1 to 1 sec
-      depending on your hardware
+      This method DOES perform elliptic-curve operations
       """
       if isinstance(privKey, str) and len(privKey)==32:
          self.privKeyInt = binary_to_int(privKey)
@@ -2581,14 +2537,8 @@ class PyScriptProcessor(object):
          a = stack.pop()
          stack.append(a-b)
       elif opcode == OP_MUL:
-         #b = stack.pop()
-         #a = stack.pop()
-         #stack.append(float(a)*float(b))
          return OP_DISABLED
       elif opcode == OP_DIV:
-         #b = stack.pop()
-         #a = stack.pop()
-         #stack.append(float(a)/float(b))
          return OP_DISABLED
       elif opcode == OP_MOD:
          return OP_DISABLED
@@ -2941,7 +2891,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 ################################################################################
 # These would normally be defined by C++ and fed in, but I've recreated
 # the C++ class here... it's really just a container, anyway
-class UnspentTxOut(object):
+class PyUnspentTxOut(object):
    def __init__(self, addr='', val=-1, numConf=-1):
       self.addr = addr
       self.val  = long(val*1e8)
@@ -3574,60 +3524,642 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
                
 
 
-   
-   
-   
-   
+
+
+
 ################################################################################
 ################################################################################
-def PyBuildUnsignedTx(selectedTxOuts, dstAddrValPairs, force=False):
-   pytx = PyTx()
-   sumInputs  = sum([utxo.getValue()  for utxo in selectedTxOuts])
-   sumOutputs = sum([dst[1]          for dst in dstAddrValPairs])
-   txFee = sumInputs - sumOutputs
+# This class can be used for both multi-signature tx collection, as well as
+# offline wallet signing (you are collecting signatures for a 1-of-1 tx only
+# involving yourself).
+class PyTxDistProposal(object):
+   """
+   PyTxDistProposal is created from a PyTx object, and represents
+   an unsigned transaction, that may require the signatures of 
+   multiple parties before being accepted by the network.
 
-   if txFee < 0:
-      print '***ERROR:  input amount is less than output amount'
-      return PyTx()
-   elif txFee > 1e8 and not force:
-      print '***WARNING:  this transaction includes a rather large fee'
-      print '             (%0.2f).  If this was intentional, please' % txFee/1e8
-      print '             re-execute this function call with force=True'
-      return PyTx()
+   We assume that the PyTx object has been prepared already by
+   replacing all the TxIn scripts with the scripts of the TxOuts
+   they are spending.
 
-   # We put the TxOut script we're spending in the TxIn binScript
-   # In the OP_CHECKSIG procedure, we will eventually have to put
-   # this script here anyway, and then the entity signing this tx
-   # will not need any info about the blockchain if we do this
-   for inp in selectedTxOuts:
-      txin = PyTxIn()
-      op = PyOutPoint()
-      op.txHash   = inp.getTxHash()
-      op.txOutIndex = inp.getTxOutIndex()
-      txin.outpoint  = op
+   In other words, in order to prepare a PyTxDistProposal, you
+   will need access to the blockchain to find the txouts you are
+   spending (and thus they have to be acquired with external 
+   code, such as my CppBlockUtils SWIG module).  But once the 
+   TxDP is created, the system signing it only needs the ECDSA
+   private keys and nothing else.   This enables the device 
+   providing the signatures to be extremely lightweight.
 
-      txin.binScript = inp.getScript()  
-      txin.intSeq    = 0xffffffff
-      pytx.inputs.append(txin)
+   TODO:  I need to figure out how to identify whether a TxOut
+          script requires Sig-PubKey-Sig-PubKey, or just Sig-Sig
+          (or similar for N address)
+   """
+   #############################################################################
+   def __init__(self, pytx=None):
+      self.pytxObj   = UNINITIALIZED
+      self.scriptTypes   = []
+      self.signatures    = []
+      self.sigIsValid    = []
+      self.inputAddrList = []
+      if pytx:
+         self.createFromPreparedPyTx(pytx)
+               
+   #############################################################################
+   def createFromPreparedPyTx(self, pytx):
+      sz = len(pytx.inputs)
+      self.pytxObj   = pytx
+      self.signatures   = [None]*sz
+      self.scriptTypes  = [None]*sz
+      self.inputAddrList  = [None]*sz
+      for i in range(sz):
+         script = str(pytx.inputs[i].binScript)
+         scrType = getTxOutScriptType(pytx.inputs[i])
+         self.scriptTypes[i] = scrType
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            self.inputAddrList[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
+         elif scrType==TXOUT_SCRIPT_MULTISIG:
+            self.inputAddrList[i] = multiSigExtractAddr160List(script)
+         elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
+            pass
+
+      return self
+
+   #############################################################################
+   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs):
+      assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
+      self.pytxObj = PyTx()
+      self.pytxObj.version = 1
+      self.pytxObj.lockTime = 0
+      self.pytxObj.inputs = []
+      self.pytxObj.outputs = []
+      for utxo in utxoSelection:
+         txin = PyTxIn()
+         txin.outpoint = PyOutPoint()
+         txin.outpoint.txHash = utxo.getTxHash()
+         txin.outpoint.txOutIndex = utxo.getTxOutIndex()
+         txin.binScript = utxo.getScript() # this is the TxOut script
+         txin.intSeq = 2**32-1
+         self.pytxObj.inputs.append(txin)
+
+         self.inputAddrList.append(utxo.getRecipientAddr())
+         self.scriptTypes.append(getTxOutScriptType(utxo.getScript()))
+      for addr,value in recip160ValPairs:
+         if isinstance(addr, PyBtcAddress):
+            addr = addr.getAddr160()
+         if isinstance(addr, str):
+            if len(addr)>25:
+               addr = base58_to_binary(addr)[1:21]
+            elif len(addr)==25:
+               addr = addr[1:21]
+         txout = PyTxOut()
+         txout.value = value
+         txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                      getOpCode('OP_HASH160'    ), \
+                                      '\x14',                      \
+                                      addr,
+                                      getOpCode('OP_EQUALVERIFY'), \
+                                      getOpCode('OP_CHECKSIG'   )])
+         self.pytxObj.outputs.append(txout)
+      return self
       
-   # Creating the outputs is straightforward.  Always creating a
-   # std txout, which includes a 25-byte script 
-   #    (4 op-codes, 1 small var_int, 20-byte pubkey hash)
-   # This would only be different if we were building a coinbase
-   # tx, but that's for miners to do, not within the scope of
-   # PyBtcEngine library
-   for addr160,val in dstAddrValPairs:
-      txout = PyTxOut()
-      txout.value = val
-      txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                   getOpCode('OP_HASH160'    ), \
-                                   '\x14',                      \
-                                   addr160,                     \
-                                   getOpCode('OP_EQUALVERIFY'), \
-                                   getOpCode('OP_CHECKSIG'   )])
-      pytx.outputs.append(txout)
 
-   pytx.lockTime = 0
-   return pytx
+   #############################################################################
+   def getFinalPyTx(self):
+      # TODO: I think this actually destroys the original txdp (throws away
+      #       the original TxOut scripts.  This may not matter because the
+      #       sig is complete, but it might matter if this fails.  I should
+      #       fix this
+      txOutScripts = []
+      for i,txin in enumerate(self.pytxObj.inputs):
+         txOutScripts.append(txin.binScript)
+         txin.binScript = self.signatures[i]
+
+      
+      # Now verify the signatures as they are in the final Tx
+      psp = PyScriptProcessor()
+      for i,txin in enumerate(self.pytxObj.inputs):
+         psp.setTxObjects(txOutScripts[i], self.pytxObj, i)
+         sigIsValid = psp.verifyTransactionValid()
+         #sigIsValid = self.checkSignature(self.signatures[i], i)
+         if not sigIsValid:
+            raise SignatureError, 'Signature for addr %s is not valid!' % \
+                                       hash160_to_addrStr(self.inputAddrList[i])
+         else:
+            print 'Signature', i, 'is valid!'
+      return self.pytxObj
+   
+            
+
+   #############################################################################
+   def appendSignature(self, binSig, txinIndex=None):
+      if txinIndex and txinIndex<len(self.pytxObj.inputs):
+         # check that this script is in the correct place
+         txin = self.pytxObj.inputs[txinIndex]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIndex)
+         if psp.verifyTransactionValid():
+            self.signatures[txinIndex] = binSig
+            return True
+      
+      # If we are here, we don't know which TxIn this sig is for.  Try each one
+      # (we assume that if the txinIndex was supplied, but failed to verify,
+      #  that it was accidental and we should check if it matches another one)
+      for iin in range(len(self.pytxObj.inputs)):
+         txin = self.pytxObj.inputs[iin]
+         psp = PyScriptProcessor(txin.binScript, self.pytxObj, iin)
+         if psp.verifyTransactionValid():
+            self.signatures[iin] = binSig
+            return True
+      return False
+         
+
+   #############################################################################
+   def checkSignature(self, sigStr, txinIndex):
+      pass    
+   
+
+   #############################################################################
+   def pprint(self, indent=''):
+      tx = self.pytxObj
+      propID = hash256(tx.serialize())
+      print indent+'Distribution Proposal : ', binary_to_base58(propID)[:8]
+      print indent+'Transaction Version   : ', tx.version
+      print indent+'Transaction Lock Time : ', tx.lockTime
+      print indent+'Num Inputs            : ', len(tx.inputs)
+      for i,txin in enumerate(tx.inputs):
+         prevHash = txin.outpoint.txHash
+         prevIndex = txin.outpoint.txOutIndex
+         print indent,
+         #print '   PrevOut: (%s, index=%d)' % (binary_to_hex(prevHash[:8]),prevIndex),
+         print '   SrcAddr:   %s' % hash160_to_addrStr(self.inputAddrList[i]),
+         if bdm.isInitialized():
+            value = bdm.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
+            print '   Value: %s' % coin2str(value)
+      print indent+'Num Outputs           : ', len(tx.outputs)
+      for i,txout in enumerate(tx.outputs):
+         outAddr = TxOutScriptExtractAddr160(txout.binScript)
+         print indent,
+         print '   Recipient: %s, %s BTC' % (hash160_to_addrStr(outAddr), coin2str(txout.value))
+
+   def serializeHex(self):
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.pytxString) 
+
+   def unserialize(self, toUnpack):
+      pass
+      
+   def serializeBinary(self):
+      pass
+   
+   def serializeHex(self):
+      return binary_to_hex(self.serializeBinary())
+
+   #def serializeBase58(self):
+      #return binary_to_hex(self.serializeBinary())
+
+
+
+################################################################################
+################################################################################
+#
+# PyBtcWallet:
+#
+# The following class rigorously defines the file format for storing, loading
+# and modifying "wallet" objects.  Presumably, wallets will be used for one of
+# three purposes:
+#
+#  (1) Spend money and receive payments
+#  (2) Watching-only wallets - we have the private key, just not on this computer
+#  (3) May be watching addresses of *other* people.  There's a variety of reasons
+#      we might want to watch other peoples' addresses, but most them are not
+#      relevant to a "basic" BTC user.  Nonetheless it should be supported to
+#      watch money without considering it part of our own assets
+#
+#  This class is included in the combined-python-cpp module, because we really
+#  need to maintain a persistent Cpp.BtcWallet if this class is to be useful
+#  (we don't want to have to rescan the entire blockchain every time we do any
+#  wallet operations).
+#
+#  The file format was designed from the outset with lots of unused space to 
+#  allow for expansion without having to redefine the file format and break
+#  previous wallets.  Luckily, wallet information is cheap, so we don't have 
+#  to stress too much about saving space (100,000 addresses should take 15 MB)
+#
+#  This file is NOT for storing Tx-related information.  I want this file to
+#  be the minimal amount of information you need to secure and backup your
+#  entire wallet.  Tx information can always be recovered from examining the
+#  blockchain... your private keys cannot be.
+#
+#  We track version numbers, just in case.  We start with 1.0
+#  
+#  Version 1.0:
+#      ---
+#        fileID      -- (8)  '\xbaWALLET\x00' for wallet files
+#        version     -- (4)   floating point number, times 1e6, rounded to int
+#        magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
+#        wlt flags   -- (8)   64 bits/flags representing info about wallet
+#        wlt ID      -- (8)   first 8 bytes of first address in wallet
+#                             (this contains the network byte; mainnet, testnet)
+#        create date -- (8)   unix timestamp of when this wallet was created
+#        UNUSED      -- (256) unused space for future expansion of wallet file
+#        Short Name  -- (32)  Null-terminated user-supplied short name for wlt
+#        Long Name   -- (256) Null-terminated user-supplied description for wlt
+#      ---
+#        Crypto/KDF  -- (256) information identifying the types and parameters
+#                             of encryption used to secure wallet, and key 
+#                             stretching used to secure your passphrase.
+#                             Includes salt. (the breakdown of this field will
+#                             be described separately)
+#        Deterministic--(512) Includes private key generator (prob encrypted),
+#        Wallet Params        base public key for watching-only wallets, and 
+#                             a chain-code that identifies how keys are related
+#                             (each field also contains chksum for integrity)
+#      ---
+#        Remainder of file is for key storage, and comments about individual
+#        addresses.  
+# 
+#        PrivKey(33)  -- ECDSA private key, with a prefix byte declaring whether
+#                        this is an encrypted 32-bytes or not plain.  
+#        CheckSum(4)  -- This is the checksum of the data IN THE FILE!  If the 
+#                        PrivKey is encrypted, checksum is first 4 bytes of the
+#                        encrypted private key.  Likewise for unencrypted.  THe
+#                        goal is to make sure we don't lose our private key to
+#                        a bit/byte error somewhere (this isn't the best way to
+#                        recover from a bit/byte error, but such errors should
+#                        be rare, and the simplicity is preferred over something
+#                        like Reed-Solomon)
+#        PublicKey(64)-- 
+#        Creation Time/ --
+#        First seen time
+#        Last-seen time --
+#        TODO:  finish this!
+#                             
+#                    
+#
+# TODO:  Error handling: need to make sure we "lock" all secure key data,
+#        espeicially during error handling... we want to frustrate an attacker
+#        that might figure out a way to throw an exception while the wallet is
+#        unlocked, to avoid having the memory zeroed out and deallocated.  
+#
+################################################################################
+################################################################################
+class PyBtcWallet(object):
+   """
+   This class encapsulates all the concepts and variables in a "wallet",
+   and maintains the passphrase protection, key stretching, encryption,
+   etc, required to maintain the wallet.  This class also includes the
+   file I/O methods for storing and loading wallets.
+
+   TODO: We desperately need to offload the ECDSA stuff to C++.  We already
+         implemented secure key-handling in C++ (though, it might need some
+         work), but ultimately this data gets recklessly passed to a 
+         PyBtcAddress object which we cannot control the same way:
+         The Python/PyBtcAddress may put the key in memory, and not
+         clean it up even after we think the object is destroyed.  And there
+         is no mlock/munlock in python, that I am aware of.
+   """
+
+
+
+   #############################################################################
+   def __init__(self):
+      self.addrMap     = {}
+      self.fileID      = '\xbaWALLET\x00'
+      self.version     = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
+      self.eofByte     = 0
+      self.cppWallet   = None  # Mirror of PyBtcWallet in C++ object
+      self.cppInfo     = {}    # Extra info about each address to help sync
+      self.kdfMethod   = KdfRomix()
+      self.cryptMethod = CryptoAES()
+      self.kdfKey      = SecureBinaryData()  # KdfKey is binary
+      # Other private-key info is in actual PyPrivateKey objects
+      self.privKeyGen  = PyPrivateKey()     
+      self.otherKeys   = {}  # other, private keys, indexed by addr20
+      self.isLocked    = True
+
+   #############################################################################
+   def computeKeyDerivationParams(self, targetSec=0.25, memReqt=0):
+      self.kdf.computeKdfParams(targetSec, memReqt)
+
+   #############################################################################
+   def setKdfParams(self, memory, numIter, strSalt):
+      self.kdf = KdfRomix(memory, numIter, strSalt)
+   
+
+   #############################################################################
+   def addAddress(self, addrData, pubKeyStr='', firstSeenData=[], lastSeenData=[]):
+      """
+      There are a plethora of ways to add your key/address/wallet data to a
+      PyBtcWallet object:
+         - PubKeyHash160 (only the 20-byte address)
+         - Public Key (which computes address)
+         - Private Key (which computes public key and address)
+         - Private and Public key (assumes they match, skips verification)
+         - Existing PyBtcAddress object
+
+      Scanning the blockchain for transactions is remarkably faster when you
+      have information about the first and last time we've seen data in the
+      blockchain.  That way, we can skip over parts of the chain where wallet
+      data couldn't possibly exist.
+      """
+      print 'Adding new address to wallet: ',
+      addr160 = None
+      if isinstance(addrData, PyBtcAddress) and addrData.isInitialized():
+         addr160 = addrData.getAddr160()
+         self.addrMap[addr160] = addrData
+      elif isinstance(addrData, str):
+         if len(addrData)==20:
+            addr160 = addrData
+            self.addrMap[addr160] = PyBtcAddress().createFromPublicKeyHash160(addr160)
+         elif 64 <= len(addrData) <= 65:
+            addr160 = hash160(addrData.rjust(65,'\x04'))
+            self.addrMap[addr160] = PyBtcAddress().createFromPublicKey(pubKeyStr)
+         elif len(addrData)==32:
+            newPrivAddr = PyBtcAddress()
+            if len(pubKeyStr)>0:
+               newPrivAddr.createFromKeyData(addrData, pubKeyStr, False)
+            else:
+               newPrivAddr.createFromPrivateKey(addrData)
+            addr160 = newPrivAddr.getAddr160()
+            self.addrMap[addr160] = newPrivAddr
+      else:
+         print '<ERROR>'
+         raise BadAddressError, 'Improper address supplied to "addAddress()"'
+      print binary_to_hex(addr160)
+
+      # Now make sure the C++ wallet is sync'd
+      addrObj = self.addrMap[addr160]
+      cppAddr = Cpp.BtcAddress()
+      cppAddr.setAddrStr20(addr160)
+      if addrObj.hasPubKey():
+         cppAddr.setPubKey65(addrObj.pubKey_serialize())
+      if addrObj.hasPrivKey():
+         cppAddr.setPrivKey32(addrObj.privKey_serialize())
+
+      if len(firstSeenData)>0: cppAddr.setFirstTimestamp(firstSeenData[0])
+      if len(firstSeenData)>1: cppAddr.setFirstBlockNum(firstSeenData[1])
+      if len( lastSeenData)>0: cppAddr.setLastTimestamp(lastSeenData[0])
+      if len( lastSeenData)>1: cppAddr.setLastBlockNum(lastSeenData[1])
+
+      if not self.cppWallet:
+         self.cppWallet = Cpp.BtcWallet()
+      self.cppWallet.addAddress_BtcAddress_(cppAddr)
+      #self.appendKeyToFile(addrObj)
+         
+
+   #############################################################################
+   def getFirstSeenData(self, addr20):
+      return (self.cppWallet.getAddrByHash160(addr20).getFirstTimestamp(),  \
+              self.cppWallet.getAddrByHash160(addr20).getFirstBlockNum())
+
+
+   #############################################################################
+   def getLastSeenData(self, addr20):
+      return (self.cppWallet.getAddrByHash160(addr20).getLastTimestamp(),  \
+              self.cppWallet.getAddrByHash160(addr20).getLastBlockNum())
+
+
+   #############################################################################
+   def addAddresses(self, addrList):
+      for addr in addrList:
+         self.addAddress(addr)
+         
+   #############################################################################
+   def syncWithBlockchain(self):
+      assert(bdm.isInitialized())
+      bdm.scanBlockchainForTx_FromScratch(self.cppWallet)
+   
+
+   #############################################################################
+   def getUnspentTxOutList(self):
+      assert(bdm.isInitialized())
+      self.syncWithBlockchain()
+      return bdm.getUnspentTxOutsForWallet(self.cppWallet)
+
+
+   #############################################################################
+   def getAddrByHash160(self, addr160):
+      return self.addrMap[addr160]
+
+   #############################################################################
+   def getAddrByIndex(self, i):
+      return self.addrMap.values()[i]
+   
+   #############################################################################
+   def getNewAddress(self):
+      # TODO:  will actually create new addresses, once we have a reliable PRNG
+      return self.getAddrByIndex(0)
+
+   #############################################################################
+   def hasAddr(self, addrData):
+      if isinstance(addrData, str):
+         if len(addrData) == 20:
+            return self.addrMap.has_key(addrData)
+         else:
+            return self.addrMap.has_key(base58_to_binary(addrData)[1:21])
+      elif isinstance(addrData, PyBtcAddress):
+         return self.addrMap.has_key(addrData.getAddr160())
+      else:
+         return False
+
+      
+
+   #############################################################################
+   def signTxDistProposal(self, txdp, hashcode=1):
+      if not hashcode==1:
+         print '***ERROR: hashcode!=1 is not supported at this time!'
+         return
+
+      # If the wallet is locked, we better bail now   
+      if self.isLocked():
+         raise WalletLockError, "Cannot sign Tx when wallet is locked!"
+
+      numInputs = len(txdp.pytxObj.inputs)
+      wltAddr = []
+      #amtToSign = 0  # I can't get this without asking blockchain for txout vals
+      for index,txin in enumerate(txdp.pytxObj.inputs):
+         scriptType = getTxOutScriptType(txin.binScript)
+         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            addr160 = TxOutScriptExtractAddr160(txin.getScript())
+            if self.hasAddr(addr160) and self.getAddrByHash160(addr160).hasPrivKey():
+               wltAddr.append( (self.getAddrByHash160(addr160), index) )
+   
+      numMyAddr = len(wltAddr)
+      print 'Total number of inputs in transaction:  ', numInputs
+      print 'Number of inputs that you can sign for: ', numMyAddr
+   
+   
+      # The TxOut script is already in the TxIn script location, correctly
+      # But we still need to blank out all other scripts when signing
+      for addrObj,idx in wltAddr:
+         txOutScript = ''
+         txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
+         for i in range(len(txCopy.inputs)):
+            if i==idx:
+               txOutScript = txCopy.inputs[i].binScript
+            else:
+               txCopy.inputs[i].binScript = ''
+
+         hashCode1  = int_to_binary(hashcode, widthBytes=1)
+         hashCode4  = int_to_binary(hashcode, widthBytes=4)
+   
+         # Copy the script of the TxOut we're spending, into the txIn script
+         preHashMsg = txCopy.serialize() + hashCode4
+         binToSign  = hash256(preHashMsg)
+         binToSign  = binary_switchEndian(binToSign)
+         signature  = addrObj.generateDERSignature(binToSign)
+   
+         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
+         # Don't forget to tack on the one-byte hashcode and consider it part of sig
+         if len(txOutScript) > 25:
+            sigLenInBinary = int_to_binary(len(signature) + 1)
+            txdp.signatures.append(sigLenInBinary + signature + hashCode1)
+         else:
+            pubkey = addrObj.pubKey_serialize()
+            sigLenInBinary    = int_to_binary(len(signature) + 1)
+            pubkeyLenInBinary = int_to_binary(len(pubkey)   )
+            txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \
+                                      pubkeyLenInBinary + pubkey)
+   
+      return txdp
+   
+
+   #############################################################################
+   def unlock(self, kdfResultKey):
+      """
+      We must assume that the kdfResultKey is a SecureBinaryData object
+      containing the result of the KDF-passphrase
+      """
+      if not isinstance(kdfResultKey, SecureBinaryData):
+         raise WalletLockError, "Must pass SecureBinaryData obj to unlock func"
+
+      self.kdfKey = kdfResultKey
+      self.isLocked = False
+
+      self.privKeyGen.unlock(self.kdfKey)
+      for key in self.otherKeys:
+         key.unlock(self.kdfKey)
+
+   
+   #############################################################################
+   def lock(self):
+      self.kdfKey.dealloc()
+
+      self.privKeyGen.lock()
+      for key in self.otherKeys.values():
+         key.lock()
+      self.isLocked = True
+
+   
+   #############################################################################
+   def getWalletVersion(self):
+      return (getVersionInt(self.version), getVersionString(self.version))
+   
+   #############################################################################
+   def writeToFile(self, fn, withPrivateKeys=True, withBackup=True):
+      """
+      All data is little-endian unless you see the method explicitly
+      pass in "BIGENDIAN" as the last argument to the put() call...
+
+      Pass in withPrivateKeys=False to create a watching-only wallet.
+      """
+      if os.path.exists(fn) and withBackup:
+         shutil.copy(fn, fn+'_old');
+      
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.fileID)     
+      for i in range(4):
+         bp.put(UINT8, self.version[i])
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+
+      # TODO: Define wallet flags
+      bp.put(BINARY_CHUNK, MAGIC_BYTES)
+
+      # Creation Date
+      try:
+         bp.put(UINT64, self.walletCreateTime)
+      except:
+         bp.put(UINT64, long(time.time()))
+
+
+      # TODO: Make sure firstAddr is defined
+      bp.put(BINARY_CHUNK, firstAddr[:8])
+
+      # UNUSED BINARY DATA -- maybe used to expand file format later
+      bp.put(BINARY_CHUNK, '\x00'*256)
+
+      # Short and long name/info supplied by the user (not really binary data)
+      bp.put(BINARY_CHUNK, self.shortInfo[:32].ljust( 33,'\x00'))
+      bp.put(BINARY_CHUNK, self.longInfo[:255].ljust(256,'\x00'))
+
+      # All information needed to know how to get from a passphrase/password
+      # to a decrypted private key -- all zeros if 
+      # TODO:  need to define this more rigorously, maybe layout each field here
+      bp.put(BINARY_CHUNK, self.crypto.serialize().ljust(256,'\x00'))
+      if not self.isDeterministic:
+         # TODO:  NEED VAR_INTs to identify key lengths
+         bp.put(BINARY_CHUNK, '\x00'*(1 + 32 + 4 + 64 + 4 + 32 + 4 + 256))
+      else:
+         if self.hasPrivKeyGen():
+
+            if self.privKeyIsPlain:
+               # This method does nothing if no encryption is defined
+               pkgEncr = self.crypto.encrypt(self.privKeyGen, self.encryptPub) 
+
+            pkgLen  = len(pkgEncr)
+            bp.put(VAR_INT, pkgLen)
+            bp.put(BINARY_CHUNK, pkgEncr + hash256(pkgEncr)[:4])
+
+            pubLen  = len(self.pubKeyGen)
+            bp.put(VAR_INT, pubLen)
+            bp.put(BINARY_CHUNK, self.pubKeyGen + hash256(self.pubKeyGen)[:4])
+
+            chcLen  = len(self.chainCode)
+            bp.put(VAR_INT, chcLen)
+            bp.put(BINARY_CHUNK, self.chainCode + hash256(self.chainCode)[:4])
+
+            bp.put(BINARY_CHUNK, '\x00'*256)
+
+      wltFile = open(fn, 'wb')
+      wltFile.write(bp.getBinaryString())
+      wltFile.close()
+
+      
+   def appendKeyToFile(self, fn, pbaddr, withPrivateKeys=True):
+      assert(os.path.exists(fn))
+      prevSize = os.path.getsize(fn)
+         
+      bp = BinaryPacker()
+      wltFile = open(fn, 'ab')
+
+      bp.put(UINT8, 1 if self.useEncrypt() else 0)
+      bp.put(BINARY_CHUNK, pbaddr.getAddr160())
+      if withPrivateKeys and pbaddr.hasPrivKey():
+         privKeyBin = int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN)
+         bp.put(BINARY_CHUNK, privKeyBin)
+         bp.put(BINARY_CHUNK, int_to_binary(pbaddr.privKeyInt, 32, LITTLEENDIAN))
+      else:
+         bp.put(BINARY_CHUNK, '\x00'*32)
+      
+      
+
+   def readFromFile(self, fn):
+      
+      magicBytes = bup.get(BINARY_CHUNK, 4)
+      if not magicBytes == MAGIC_BYTES:
+         print '***ERROR:  Requested wallet is for a different blockchain!'
+         print '           Wallet is for:', BLOCKCHAINS[magicBytes]
+         print '           PyBtcEngine:  ', BLOCKCHAINS[MAGIC_BYTES]
+         return
+      if not netByte == ADDRBYTE:
+         print '***ERROR:  Requested wallet is for a different network!'
+         print '           Wallet is for:', NETWORKS[netByte]
+         print '           PyBtcEngine:  ', NETWORKS[ADDRBYTE]
+         return
+
+   def syncToFile(self, fn):
+      pass
+
+
+
 
 
