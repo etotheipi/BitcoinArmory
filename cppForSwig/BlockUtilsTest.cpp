@@ -634,6 +634,39 @@ void TestECDSA(void)
         << " signatures/sec" << endl;
    cout << "Timing (Verify):  " << 1/(TIMER_READ_SEC("VerifyTime")/nTest)
         << " verifies/sec" << endl;
+
+
+   // Test deterministic key generation
+   cout << "Testing deterministic key generation" << endl;
+   cout << "   Verify again that starting pub/priv pair match: ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(privKey, pubKey) ? 1 : 0) << endl;
+
+   SecureBinaryData binPriv = CryptoECDSA().SerializePrivateKey(privKey);
+   SecureBinaryData binPub  = CryptoECDSA().SerializePublicKey(pubKey);
+   cout << "   Verify again that binary pub/priv pair match  : ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(binPriv, binPub) ? 1 : 0) << endl;
+   cout << endl;
+
+   SecureBinaryData chaincode = SecureBinaryData().GenerateRandom(32);
+   cout << "   Starting privKey:" << binPriv.toHexStr() << endl;
+   cout << "   Starting pubKey :" << binPub.toHexStr() << endl;
+   cout << "   Chaincode       :" << chaincode.toHexStr() << endl;
+   cout << endl;
+   
+   SecureBinaryData newBinPriv = CryptoECDSA().ComputePrivateKeyChain(binPriv, chaincode);
+   SecureBinaryData newBinPubA = CryptoECDSA().ComputePublicKey(newBinPriv);
+   SecureBinaryData newBinPubB = CryptoECDSA().ComputePublicKeyChain(binPub, chaincode);
+   cout << "   Verify new binary pub/priv pair match: ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(newBinPriv, newBinPubA) ? 1 : 0) << endl;
+   cout << "   Verify new binary pub/priv pair match: ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(newBinPriv, newBinPubB) ? 1 : 0) << endl;
+   cout << "   New privKey:" << newBinPriv.toHexStr() << endl;
+   cout << "   New pubKeyA:" << newBinPubA.toHexStr() << endl;
+   cout << "   New pubKeyB:" << newBinPubB.toHexStr() << endl;
+   cout << endl;
+
+   
+
 }
 
 
