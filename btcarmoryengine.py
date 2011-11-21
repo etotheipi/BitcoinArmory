@@ -102,6 +102,8 @@ class SignatureError(Exception):
    pass
 class KeyDataError(Exception):
    pass
+class ChecksumError(Exception):
+   pass
 
 
 
@@ -190,6 +192,7 @@ def hash160(s):
 ################################################################################
 try:
    import CppBlockUtils as Cpp
+   from CppBlockUtils import CryptoECDSA, CryptoAES, SecureBinaryData
 except:
    print '***ERROR:  C++ block utilities not available.'
    print '           Make sure that you have the SWIG-compiled modules'
@@ -704,40 +707,151 @@ class PyBtcAddress(object):
    we don't want to spend the time verifying thousands of keypairs
    if we've precomputed them before.
    """
+   #############################################################################
    def __init__(self):
+      """
+      We use SecureBinaryData objects to store pub, priv and IV objects,
+      because that is what is required by the C++ code.  See EncryptionUtils.h
+      to see that available methods.
+
+      TODO:  Make sure that SecureBinaryData(A) works both when A is a python
+             string as well as when it's already an SBD object.
+      """ 
       self.addrStr20             = ''
-      self.binPublicKey65        = Cpp.SecureBinaryData()  # 0x04 X(BE) Y(BE)
-      self.binPrivKey32_Encr     = Cpp.SecureBinaryData()  # BIG-ENDIAN
-      self.binPrivKey32_Plain    = Cpp.SecureBinaryData()
-      self.binInitializationVect = Cpp.SecureBinaryData()
-      self.binChecksum           = Cpp.SecureBinaryData()
-      self.isLocked              = True
+      self.binPublicKey65        = SecureBinaryData()  # 0x04 X(BE) Y(BE)
+      self.binPrivKey32_Encr     = SecureBinaryData()  # BIG-ENDIAN
+      self.binPrivKey32_Plain    = SecureBinaryData()
+      self.binInitVect16         = SecureBinaryData()
+      self.binChecksum           = ''
+      self.isLocked              = False
+      self.useEncryption         = False
       self.isInitialized         = False
       self.walletByteLoc         = -1
 
    #############################################################################
    def hasPrivKey(self):
-      return (self..getSize()   != 0 or \
-              self.binPrivKey32_Plain.getSize() != 0      )
+      return (self.binPrivKey32_Encr.getSize()  != 0 or \
+              self.binPrivKey32_Plain.getSize() != 0 )
 
    #############################################################################
    def hasPubKey(self):
       return (self.binPublicKey65.getSize() != 0)
 
    #############################################################################
-   def loadEncryptedKeyData(self, encrPrivKey, IV, chkSum=None, pubKey=None):
-      self.isInitialized = True
-      self.binPrivKey32_Encr = encrPrivKey
-      self.binInitializationVect = IV
-      if chkSum:
-         assert(hash256(self.binPrivKey32_Encr).startswith(chkSum))
-      if pubKey:
-         self.binPublicKey65 = pubKey  # assume 65 bytes
+   def SerializePublicKey(self):
+      """Converts the SecureBinaryData public key to a 65-byte python string"""
+      return self.binPublicKey65.toBinStr()
 
    #############################################################################
-   def lock(self):
-      self.binPrivKey32_Plain.destroy()
-      self.isLocked = True
+   def SerializeEncryptedPrivateKey(self):
+      """Converts SecureBinaryData encrypted private key to python string"""
+      if self.hasPrivKey():
+         return self.binPrivKey32_Encr.toBinStr()
+      else:
+         return SecureBinaryData()
+
+   #############################################################################
+   # NOTE:  This method should rarely be used, since we want to avoid putting
+   #        the plaintext key into unsecured memory, ever
+   def SerializePlainPrivateKey(self):
+      if self.hasPrivKey():
+         return self.binPrivKey32_Plain.toBinStr()
+      else:
+         return SecureBinaryData()
+
+
+   #############################################################################
+   def verifyEncryptionKey(self, secureKdfKey):
+      if not self.useEncryption or not self.hasPrivKey():
+         return False
+
+      decryptedKey = = CryptoAES().Decrypt( \
+                                          self.binPrivKey32_Encr,
+                                          SecureBinaryData(secureKdfResult),
+                                          self.binInitVect16)
+      verified = False
+      if not self.isLocked:
+         if decryptedKey==self.binPrivKey32_Plain:
+            verified = True 
+      else:
+         computedPubKey = CryptoECDSA().ComputePublicKey(decryptedKey)
+         if self.hasPubKey():
+            verified = (self.binPublicKey65==computedPubKey)
+         else:
+            self.binPublicKey65 = computedPubKey
+            verified = (computedPubKey.getHash160()==self.addrStr20)
+
+      decryptedKey.destroy()
+      return verified
+         
+
+   #############################################################################
+   def createFromEncryptedKeyData(self, addr20, encrPrivKey32, IV16, \
+                                                     chkSum=None, pubKey=None):
+      # We expect both private key and IV to the right size
+      assert(encrPrivKey32.getSize()==32)
+      assert(IV16.getSize()==16)
+      self.addrStr20     = addr20
+      self.isInitialized = True
+      self.useEncryption = True
+      self.isLocked      = True
+      self.binPrivKey32_Encr = SecureBinaryData(encrPrivKey32)
+      self.binInitVect16 = SecureBinaryData(IV16)
+      if chkSum and not self.binPrivKey32_Encr.getHash256().startswith(chkSum)):
+         raise ChecksumError, "Checksum doesn't match encrypted priv key data!"
+      if pubKey:
+         self.binPublicKey65 = SecureBinaryData(pubKey)
+         if not self.binPublicKey65.getHash160()==self.addrStr20:
+            raise KeyDataError, "Public key does not match supplied address"
+
+   #############################################################################
+   def createFromPlainKeyData(self, addr20, plainPrivKey, IV16, \
+                                                      chkSum=None, pubKey=None):
+      assert(len(plainPrivKey)==32)
+      if not len(IV16)==16:
+         if not len(IV16)==0:
+            raise KeyDataError, 'Invalid IV for AES encryption (must be 16 bytes)'
+         self.binInitVect16 = SecureBinaryData(IV16)
+         self.useEncryption = False
+         self.isLocked      = False
+      else:
+         self.binInitVect16 = SecureBinaryData(IV16)
+         self.useEncryption = True
+         self.isLocked      = False
+
+      self.addrStr20     = addr20
+      self.isInitialized = True
+      self.binPrivKey32_Encr = SecureBinaryData(plainPrivKey)
+      self.binInitVect16     = SecureBinaryData(IV16)
+      if chkSum and not self.binPrivKey32_Plain.getHash256().startswith(chkSum)):
+         raise ChecksumError, "Checksum doesn't match encrypted priv key data!"
+      if pubKey:
+         self.binPublicKey65 = SecureBinaryData(pubKey)  
+         if not self.binPublicKey65.getHash160()==self.addrStr20:
+            raise KeyDataError, "Public key does not match supplied address"
+
+   #############################################################################
+   def lock(self, secureKdfKey==None):
+      # We don't want to destroy the private key if it's not supposed to be 
+      # encrypted.  Similarly, if we haven't actually saved the encrypted
+      # version, let's not lock it
+      if not self.useEncryption or not self.hasPrivKey():
+         return
+      else:
+         if self.binPrivKey32_Encr.getSize()==32:
+            self.binPrivKey32_Plain.destroy()
+            self.isLocked = True
+         else:
+            if secureKdfKey!=None:
+               self.binPrivKey32_Encr = CryptoAES().Encrypt( \
+                                                self.binPrivKey32_Plain,
+                                                SecureBinaryData(secureKdfResult),
+                                                self.binInitVect16)
+               self.binPrivKey32_Plain.destroy()
+            else:
+               raise WalletLockError, ("Trying to destroy plaintext key, but no "
+                                       "encrypted key data is available, and no "
+                                       "encryption key provided to encrypt it.")
 
    #############################################################################
    def unlock(self, secureKdfOutput, skipCheck=False):
@@ -747,20 +861,25 @@ class PyBtcAddress(object):
       best if that AES key is actually derived from "heavy" key-derivation
       function.  
       """
-      self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+      if not self.useEncryption or not self.isLocked or not self.hasPrivKey():
+         self.isLocked = False
+         return
+
+      if self.useEncryption and self.isLocked:
+         self.binPrivKey32_Plain = CryptoAES().Decrypt( \
                                                 self.binPrivKey32_Encr,
-                                                secureKdfResult,
-                                                self.binInitializationVect)
+                                                SecureBinaryData(secureKdfResult),
+                                                self.binInitVect16)
+         self.isLocked = False
 
       if not self.hasPubKey():
-         self.binPublicKey65 = ComputePublicKey(self.binPrivKey32_Plain)
+         self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
       else:
-         # We should usually check to make sure
+         # We should usually check to make sure keys match
          if not skipCheck:
             if not checkPubPrivKeyPairMatch(self.binPrivKey32_Plain, \
                                             self.binPublicKey65)):
                raise KeyDataError, "Stored public key does not match priv key!"
-      self.isLocked = False
 
    #############################################################################
    def changeEncryptionKey(self, secureOldKey, secureNewKey):
@@ -771,7 +890,11 @@ class PyBtcAddress(object):
 
       Pass in None for old or new key, to specify no encryption.
       """
-      pass
+      if not self.hasPrivKey():
+         raise KeyDataError, 'No private key available for this address!'
+      if secureOldKey!=None and useEncryption:
+         self.encryption 
+         
 
    #############################################################################
    def checkPubPrivKeyMatch(self, securePriv, securePub):
@@ -783,6 +906,9 @@ class PyBtcAddress(object):
    def generateDERSignature(self, binMsg, extraEntropy):
       if self.isLocked:
          raise WalletLockError, "Cannot sign Tx when private key is locked!"
+
+      if not self.hasPrivKey():
+         raise KeyDataError, 'Cannot sign for address without private key!'
 
       secureMsg = SecureBinaryData(binMsg)
       sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
@@ -837,24 +963,25 @@ class PyBtcAddress(object):
    def isInitialized(self):
       return not len(self.addrStr)
 
-   def generateNew(self):
+   def generateNew(self, secureKdfKey=None):
       """
-      Generates a new PyBtcAddress by using python's "random" module.  This 
-      may not be the most reliable PRNG (especially in python <=2.3), but is
-      perfectly sufficient for experimental purposes.
-
-      If the user wishes to supply his own entropy, he may provide 32 bytes
-      of random binary data in the following manner:
-
-         pkRandInt = ExternalGenRandomInteger(0, EC_Order)
-         newAddr = PyBtcAddress().createFromPrivateKey(pkRandInt
-
-      Or if the entropy is in binary:
-
-         pkRandInt = binary_to_int(ExternalGenRandomBytes)
-         newAddr = PyBtcAddress().createFromPrivateKey(pkRandInt
+      This generates a new private key directly into a secure binary container
+      and then encrypts it immediately if encryption is enabled and the AES key
+      (from KDF) is available to do so.  
       """
-      #self.createFromPrivateKey(
+      self.binPrivKey32_Plain = CryptoECDSA().GenerateNewPrivateKey()
+      self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
+      self.addrStr20 = hash160(newPubKey.toBinStr())
+
+      if self.hasEncryption():
+         if not secureKdfKey:
+            raise WalletLockError, "Cannot create new key without passphrase"
+         
+         self.binInitializationVect = SecureBinaryData().GenerateRandom(32)
+         self.binPrivKey32_Encr = CryptoAES().Encrypt(self.binPrivKey32_Plain, \
+                                                      secureKdfKey,            \
+                                                      self.binInitializationVect)
+         
       return self
 
    def createFromPrivateKey(self, privKey):
@@ -3799,6 +3926,7 @@ class PyTxDistProposal(object):
 #        espeicially during error handling... we want to frustrate an attacker
 #        that might figure out a way to throw an exception while the wallet is
 #        unlocked, to avoid having the memory zeroed out and deallocated.  
+#
 #
 ################################################################################
 ################################################################################

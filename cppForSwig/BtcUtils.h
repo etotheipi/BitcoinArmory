@@ -382,6 +382,16 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getHash160(uint8_t const * strToHash,
+                                uint32_t        nBytes)
+                          
+   {
+      BinaryData hashOutput(20);
+      getHash160(strToHash, nBytes, hashOutput);
+      return hashOutput;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static void getHash160(BinaryDataRef const & strToHash,
                           BinaryData & hashOutput)
    {

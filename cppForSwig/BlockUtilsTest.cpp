@@ -46,14 +46,14 @@ int main(void)
    string blkfile("/home/alan/.bitcoin/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
 
-   printTestHeader("Read-and-Organize-Blockchain");
-   TestReadAndOrganizeChain(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain");
+   //TestReadAndOrganizeChain(blkfile);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   printTestHeader("Wallet-Relevant-Tx-Scan");
-   TestScanForWalletTx(blkfile);
+   //printTestHeader("Wallet-Relevant-Tx-Scan");
+   //TestScanForWalletTx(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -577,26 +577,63 @@ void TestCrypto(void)
 void TestECDSA(void)
 {
    SecureBinaryData msgToSign("This message came from me!");
-   SecureBinaryData privData = SecureBinaryData::GenerateRandom(32);
+   SecureBinaryData privData = SecureBinaryData().GenerateRandom(32);
 
    BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
    BTC_PUBKEY  pubKey  = CryptoECDSA().ComputePublicKey(privKey);
+
+   // Test key-match check
+   cout << "Do the pub-priv keypair we just created match? ";
+   cout << (CryptoECDSA().CheckPubPrivKeyMatch(privKey, pubKey) ? 1 : 0) << endl;
+   cout << endl;
    
    SecureBinaryData signature = CryptoECDSA().SignData(msgToSign, privKey);
    cout << "Signature = " << signature.toHexStr() << endl;
+   cout << endl;
 
    bool isValid = CryptoECDSA().VerifyData(msgToSign, signature, pubKey);
    cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+   cout << endl;
 
    // Test signature from blockchain:
    SecureBinaryData msg = SecureBinaryData::CreateFromHex("0100000001bb664ff716b9dfc831bcc666c1767f362ad467fcfbaf4961de92e45547daab870100000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953aeffffffff0280969800000000001976a9140817482d2e97e4be877efe59f4bae108564549f188ac7015a7000000000062537a7652a269537a829178a91480677c5392220db736455533477d0bc2fba65502879b69537a829178a91402d7aa2e76d9066fb2b3c41ff8839a5c81bdca19879b69537a829178a91410039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89879b6953ae0000000001000000");
-   SecureBinaryData px = SecureBinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
-   SecureBinaryData py = SecureBinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   SecureBinaryData px  = SecureBinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   SecureBinaryData py  = SecureBinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   SecureBinaryData pub65  = SecureBinaryData::CreateFromHex("048c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
    //SecureBinaryData sig = SecureBinaryData::CreateFromHex("3046022100d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6022100900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
    SecureBinaryData sig = SecureBinaryData::CreateFromHex("d73f633f114e0e0b324d87d38d34f22966a03b072803afa99c9408201f6d6dc6900e85be52ad2278d24e7edbb7269367f5f2d6f1bd338d017ca4600087766144");
    pubKey = CryptoECDSA().ParsePublicKey(px,py);
    isValid = CryptoECDSA().VerifyData(msg, sig, pubKey);
    cout << "SigValid? = " << (isValid ? 1 : 0) << endl;
+
+
+   // Test speed on signature:
+   uint32_t nTest = 50;
+   cout << "Test signature and verification speeds"  << endl;
+   cout << "\nTiming Signing";
+   TIMER_START("SigningTime");
+   for(uint32_t i=0; i<nTest; i++)
+   {
+      // This timing includes key parsing
+      CryptoECDSA().SignData(msgToSign, privData);
+   }
+   TIMER_STOP("SigningTime");
+
+   // Test speed of verification
+   TIMER_START("VerifyTime");
+   cout << "\nTiming Verify";
+   for(uint32_t i=0; i<nTest; i++)
+   {
+      // This timing includes key parsing
+      CryptoECDSA().VerifyData(msg, sig, pub65);
+   }
+   TIMER_STOP("VerifyTime");
+
+   cout << endl;
+   cout << "Timing (Signing): " << 1/(TIMER_READ_SEC("SigningTime")/nTest)
+        << " signatures/sec" << endl;
+   cout << "Timing (Verify):  " << 1/(TIMER_READ_SEC("VerifyTime")/nTest)
+        << " verifies/sec" << endl;
 }
 
 

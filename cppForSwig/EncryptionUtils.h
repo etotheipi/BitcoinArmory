@@ -162,7 +162,13 @@ public:
    //uint8_t const & operator[](size_t i) const {return BinaryData::operator[](i);}
    bool operator==(SecureBinaryData const & sbd2) const;
 
-   static SecureBinaryData GenerateRandom(uint32_t numBytes);
+   BinaryData getHash256(void) { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
+   BinaryData getHash160(void) { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
+
+   // This would be a static method, as would be appropriate, except SWIG won't
+   // play nice with static methods.  Instead, we will just use 
+   // SecureBinaryData().GenerateRandom(32), etc
+   SecureBinaryData GenerateRandom(uint32_t numBytes);
 
    void lockData(void)
    {
@@ -324,6 +330,7 @@ public:
    // and return secure strings (I don't feel like figuring out how to get 
    // SWIG to take BTC_PUBKEY and BTC_PRIVKEY
 
+   /////////////////////////////////////////////////////////////////////////////
    SecureBinaryData GenerateNewPrivateKey(void);
    
    /////////////////////////////////////////////////////////////////////////////
@@ -343,7 +350,16 @@ public:
    bool VerifyData(SecureBinaryData const & binMessage, 
                    SecureBinaryData const & binSignature,
                    SecureBinaryData const & pubkey65B);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Deterministically generate new private key using a chaincode
+   SecureBinaryData ComputePrivateKeyChain(SecureBinaryData const & binPrivKey,
+                                           SecureBinaryData const & chainCode);
                                
+   /////////////////////////////////////////////////////////////////////////////
+   // Deterministically generate new private key using a chaincode
+   SecureBinaryData ComputePublicKeyChain(SecureBinaryData const & binPubKey,
+                                          SecureBinaryData const & chainCode);
 };
 
 
