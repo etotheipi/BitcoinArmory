@@ -1030,13 +1030,13 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def verifyDERSignature(self, binMsgVerify, binSig):
+   def verifyDERSignature(self, binMsgVerify, derSig):
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
-      codeByte = binSig[0]
-      nBytes   = binary_to_int(binSig[1])
-      rsStr    = binSig[2:2+nBytes]
+      codeByte = derSig[0]
+      nBytes   = binary_to_int(derSig[1])
+      rsStr    = derSig[2:2+nBytes]
       assert(codeByte == '\x30')
       assert(nBytes == len(rsStr))
       # Read r
@@ -1052,10 +1052,10 @@ class PyBtcAddress(object):
       assert(codeByte == '\x02')
       # Now we have the (r,s) values of the 
 
-      secVerify = SecureBinaryData(binMsgVerify)
+      secMsg    = SecureBinaryData(binMsgVerify)
       secSig    = SecureBinaryData(r[-32:] + s[-32:])
       secPubKey = SecureBinaryData(self.binPublicKey65)
-      return CryptoECDSA().VerifyData(secVerify, secSig, secPubKey)
+      return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
                  
 
 
@@ -2395,11 +2395,12 @@ class PyScriptProcessor(object):
       binHashCode = int_to_binary(hashtype, widthBytes=4)
       toHash = txCopy.serialize() + binHashCode
 
-      hashToVerify = hash256(toHash)
-      hashToVerify = binary_switchEndian(hashToVerify)
+      # Hashes are computed as part of CppBlockUtils::CryptoECDSA methods
+      ##hashToVerify = hash256(toHash)
+      ##hashToVerify = binary_switchEndian(hashToVerify)
 
       # 10. Apply ECDSA signature verification
-      if senderAddr.verifyDERSignature(hashToVerify, justSig):
+      if senderAddr.verifyDERSignature(toHash, justSig):
          return True
       else:
          return False
@@ -2901,9 +2902,12 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
          # Copy the script of the TxOut we're spending, into the txIn script
          txCopy.inputs[i].binScript = prevTxOut.binScript
          preHashMsg = txCopy.serialize() + hashCode4
-         binToSign = hash256(preHashMsg)
-         binToSign = binary_switchEndian(binToSign)
-         signature = srcAddr.generateDERSignature(binToSign)
+
+         # CppBlockUtils::CryptoECDSA modules do the hashing for us
+         ##binToSign = hash256(preHashMsg)
+         ##binToSign = binary_switchEndian(binToSign)
+
+         signature = srcAddr.generateDERSignature(preHashMsg)
 
          
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey

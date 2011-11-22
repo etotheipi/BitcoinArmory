@@ -290,7 +290,7 @@ scripts.append(hex_to_binary('527a7651a269527a829178a914731cdb75c88a01cbb9672988
 
 for scr in scripts:
    addrList = multiSigExtractAddr160List(scr)
-   print '\nNum addresses:   ', len(addrList)
+   print '\nNum addresses:   ', len(addrList), '\n   ',
    for a in addrList:
       print  PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr(),
 
