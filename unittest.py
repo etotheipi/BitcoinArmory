@@ -9,9 +9,11 @@ BE = BIGENDIAN
 Test_BasicUtils       = True
 Test_PyBlockUtils     = True
 Test_CppBlockUtils    = True
-Test_AddressSimple    = True
+Test_SimpleAddress    = True
+Test_EncryptedAddress = False
 Test_MultiSigTx       = True
 Test_TxSimpleCreate   = True
+Test_SelectCoins      = True
 Test_CryptoTiming     = True
 
 
@@ -159,7 +161,7 @@ if Test_PyBlockUtils:
 
 ################################################################################
 ################################################################################
-if Test_AddressSimple:
+if Test_SimpleAddress:
    
    # Execute the tests with Satoshi's public key from the Bitcoin specification page
    satoshiPubKeyHex = '04fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284'
@@ -215,6 +217,23 @@ if Test_AddressSimple:
    txoutA.value = 50 * (10**8)
    txoutA.binScript = '\x76\xa9\x14' + AddrA.getAddr160() + '\x88\xac'
 
+
+################################################################################
+################################################################################
+if Test_EncryptedAddress:
+   # Create an address to user for all subsequent tests
+   privKey = SecureBinaryData(hex_to_binary('aa'*32))
+   pubKey  = CryptoECDSA().ComputePublicKey(privKey)
+   addr20  = pubKey.getHash160()
+
+   # We pretend that we plugged some passphrases through a KDF
+   fakeKdfOutput1 = SecureBinaryData( hex_to_binary('11'*32) )
+   fakeKdfOutput2 = SecureBinaryData( hex_to_binary('22'*32) )
+
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, pubKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, pubKey, skipCheck=True)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, skipPubCompute=True)
 
 
 ################################################################################
@@ -425,6 +444,14 @@ if Test_CryptoTiming:
       pubKey = CryptoECDSA().ComputePublicKey(privKey)
    end = time.time()
    print '   PrivateKey --> PublicKey'.ljust(36),
+   print ':  %0.1f/sec' % (nTest/(end-start))
+
+   # Check keypair match
+   start = time.time()
+   for i in range(nTest):
+      match = CryptoECDSA().CheckPubPrivKeyMatch(privKey, pubKey)
+   end = time.time()
+   print '   PubPrivPair--> CheckMatch'.ljust(36),
    print ':  %0.1f/sec' % (nTest/(end-start))
 
    # Test signing speed

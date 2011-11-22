@@ -146,9 +146,10 @@ public:
 
    // These methods are definitely inherited, but SWIG needs them here if they
    // are to be used from python
-   uint8_t const * getPtr(void)  const { return BinaryData::getPtr();  }
-   uint8_t       * getPtr(void)        { return BinaryData::getPtr();  }
-   size_t          getSize(void) const { return BinaryData::getSize(); }
+   uint8_t const *   getPtr(void)  const { return BinaryData::getPtr();  }
+   uint8_t       *   getPtr(void)        { return BinaryData::getPtr();  }
+   size_t            getSize(void) const { return BinaryData::getSize(); }
+   SecureBinaryData  copy(void)    const { return SecureBinaryData(getPtr(), getSize());}
    
    string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
    string toBinStr(void) const          { return BinaryData::toBinStr();  }

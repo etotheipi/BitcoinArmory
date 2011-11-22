@@ -14,11 +14,11 @@
 * Descr:      This file serves as an engine for python-based Bitcoin software.
 *             I forked this from my own project -- PyBtcEngine -- because I
 *             I needed to start including/rewriting code to use CppBlockUtils
-*             but did not want to break the pure-python-ness of PyBtcEngine. 
+*             but did not want to break the pure-python methods in PyBtcEngine. 
 *             If you are interested in in a pure-python set of bitcoin utils
 *             please go checkout the PyBtcEngine github project.  
 *
-*             Of course, the biggest advatage here is that you have access to
+*             The biggest advatage of using SWIG is that you have access to
 *             the blockchain through BlockObj/BlockObjRef/BlockUtils, as found
 *             in the CppForSWIG directory.  This is available in PyBtcEngine,
 *             but I had to split out the modules, and I didn't have a good way
@@ -27,6 +27,10 @@
 *
 *             ***NOTE***  This is still the Full-RAM implementation, which
 *                         requires holding the *entire* blockchain in memory.
+*                         This is not a problem for newer computers, which 
+*                         usually have 4GB to 16GB of RAM, and this only uses
+*                         1.1 GB to hold the blockchain.
+*                    
 *                         In the future, I plan to try to make this more
 *                         lightweight, but I am going to forego that yet
 *                         in favor of making a utility that works for some

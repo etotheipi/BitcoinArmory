@@ -1,31 +1,6 @@
-################################################################################
-Testing Crypto++::AES timings
-################################################################################
-    AES Encryption with IV generation: 13299.5/sec
-    AES Encryption with supplied IV  : 11507.8/sec
-    AES Decryption with supplied IV  : 12124.1/sec
-    AES roundtrip, compare results:
-       Secret :  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-       Cipher :  5c24d6bdb56621b3dc42f29d01ba0c327e410367e43cc2e4d0d713d8a83c454e
-       Decrypt:  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-       Result :  *** PASSED *** 
-
-
-
-################################################################################
-Testing Crypto++::ECDSA timings
-################################################################################
-   PrivateKey --> PublicKey          :  753.4/sec
-   PrivateKey --> Signature          :  755.1/sec
-   PublicKey  --> SigVerified        :  130.8/sec
-   PrivateKey --> NextInChain        :  14974.3/sec
-   PublicKey  --> NextInChain        :  109.0/sec
-
-
-
-################################################################################
+*********************************************************************
 Testing key-derivation function - timings and memory usage:
-################################################################################
+*********************************************************************
    ***KDF 1:  Default params***
    ***KDF 2:  0.5s-1.0s timing, default mem***
    ***KDF 3:  0.25s-0.5s timing, 256kB max***
@@ -33,25 +8,46 @@ Testing key-derivation function - timings and memory usage:
       Hash Function:     sha512
       Mem Required :     8.0 MB
       Num Iteration:     2
-      Hex Salt Used:     8f953b5020995b464d7d5cbfabb3e...
-      Pass: "This is my password " --> Key: 1446c42ec06ffecf21b5199fe14df82f (0.183717 sec)
-      Pass: "This is my password." --> Key: 176484a5bbfe25522151e426d3853394 (0.174887 sec)
-      Pass: "This is my password " --> Key: 1446c42ec06ffecf21b5199fe14df82f (0.174840 sec)
+      Hex Salt Used:     adad20a735fa53be53a4180001ec9...
+      Pass: "This is my password " --> Key: 2e623cf21e74a229b97a48ab05848567 (0.173542 sec)
+      Pass: "This is my password." --> Key: 20570bc64cec8e34ae220108589be512 (0.172990 sec)
+      Pass: "This is my password " --> Key: 2e623cf21e74a229b97a48ab05848567 (0.173402 sec)
    Testing KDF(2)
       Hash Function:     sha512
       Mem Required :     32.0 MB
       Num Iteration:     2
-      Hex Salt Used:     64a37c25c00c9bd95fc8eefd77b7f...
-      Pass: "This is my password " --> Key: d041597c0e0a1fddf0d69cf57ab8ef50 (0.695917 sec)
-      Pass: "This is my password." --> Key: c3ab637b0e72f69ecce54d9fd9c009f8 (0.702719 sec)
-      Pass: "This is my password " --> Key: d041597c0e0a1fddf0d69cf57ab8ef50 (0.695516 sec)
+      Hex Salt Used:     ceca667f029ad0a10d1ef3ab0944c...
+      Pass: "This is my password " --> Key: 859031ea1b754907db0de9a6f63f1891 (0.747265 sec)
+      Pass: "This is my password." --> Key: 07f9d8a93707ca5503469c05ef8fe9d9 (0.694215 sec)
+      Pass: "This is my password " --> Key: 859031ea1b754907db0de9a6f63f1891 (0.688132 sec)
    Testing KDF(3)
       Hash Function:     sha512
       Mem Required :     256.0 kB
-      Num Iteration:     47
-      Hex Salt Used:     c3843c1175bddfd1935d02a36244c...
-      Pass: "This is my password " --> Key: 7a525bbd64fdbc52497df31c8f5ec669 (0.165906 sec)
-      Pass: "This is my password." --> Key: 1af480216027b77b0a8eb6e4e2bf88ef (0.161794 sec)
-      Pass: "This is my password " --> Key: 7a525bbd64fdbc52497df31c8f5ec669 (0.165756 sec)
+      Num Iteration:     90
+      Hex Salt Used:     0a888c7586609df3daf8f7dd1e2d5...
+      Pass: "This is my password " --> Key: 2125ce61ddae1656f3eb7c65a2628f11 (0.299631 sec)
+      Pass: "This is my password." --> Key: 54538eb4bba54abdc1af93eb97001a13 (0.326200 sec)
+      Pass: "This is my password " --> Key: 2125ce61ddae1656f3eb7c65a2628f11 (0.347052 sec)
 
 
+*********************************************************************
+Testing Crypto++::AES timings
+*********************************************************************
+    AES Encryption with IV generation: 15317.2/sec
+    AES Encryption with supplied IV  : 16316.4/sec
+    AES Decryption with supplied IV  : 9497.4/sec
+    AES roundtrip, compare results:
+       Secret :  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+       Cipher :  5c24d6bdb56621b3dc42f29d01ba0c327e410367e43cc2e4d0d713d8a83c454e
+       Decrypt:  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+       Result :  *** PASSED *** 
+
+*********************************************************************
+Testing Crypto++::ECDSA timings
+*********************************************************************
+   PrivateKey --> PublicKey          :  595.3/sec
+   PubPrivPair--> CheckMatch         :  205.6/sec
+   PrivateKey --> Signature          :  870.7/sec
+   PublicKey  --> SigVerified        :  129.9/sec
+   PrivateKey --> NextInChain        :  16479.3/sec
+   PublicKey  --> NextInChain        :  110.8/sec

@@ -166,6 +166,11 @@ UNKNOWN = -2
 MIN_TX_FEE = 50000
 MIN_RELAY_TX_FEE = 10000
 
+UINT8_MAX  = 2**8-1
+UINT16_MAX = 2**16-1
+UINT32_MAX = 2**32-1
+UINT64_MAX = 2**64-1
+
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only 
 # use hash256 and hash160 which use the first three to create the ONLY hash
@@ -699,18 +704,46 @@ class PyBtcAddress(object):
    """
    PyBtcAddress --
 
-   Encapsulate an address, regardless of whether it includes the 
-   private key or just an address we've seen on the network.
+   This class encapsulated EVERY kind of address object:  
+      -- Full, plaintext private-key-bearing addresses
+      -- Encrypted private key addresses, with AES locking and unlocking
+      -- Watching-only public-key addresses
+      -- Address-string-only storage, representing someone else's key
+      -- Deterministic address generation from previous addresses
 
-   Having the privateKey is the most data.  Public key is next
-   Finally, you frequently just have someone's address, without
-   even having their public key. 
+      For deterministic wallets, new addresses will be created from a chaincode
+      and the previous address.  What is implemented here is a special kind of
+      deterministic calculation that actually allows the user to securely 
+      generate new addresses even if they don't have the private key.  This 
+      method uses Diffie-Hellman shared-secret calculations to produce the new 
+      keys, and has the same level of security as all other ECDSA operations.  
+      There's a lot of fantastic benefits to doing this:
+
+         (1) If all addresses in wallet are chained, then you only need to backup
+             your wallet ONCE -- when you first create it.  Print it out, put it
+             in a safety-deposit box, or tattoo the generator key to the inside
+             of your eyelid:  it will never change.
    
-   The "createFrom" methods actually calculate the data below it
-   The serialize/unserialize methods do no extra calculation, or
-   consistency checks, because the lisecdsa library is slow, and 
-   we don't want to spend the time verifying thousands of keypairs
-   if we've precomputed them before.
+         (2) You can keep your private keys on an offline machine, and keep a
+             watching-only wallet online.  You will be able to generate new
+             keys/addresses, and verify incoming transactions, without ever
+             requiring your private key to touch the internet.
+
+         (3) If your friend has the chaincode and your first public key, they
+             too can generate new addresses for you -- allowing them to send
+             you money multiple times, with different addresses, without ever
+             needing to specifically request the addresses.
+             (the downside to this is if the chaincode is compromised, all 
+             chained addresses become de-anonymized -- but is only a loss of
+             privacy, not security)
+             
+      However, we do require some fairly complicated logic, due to the fact
+      that a user with a full, private-key-bearing wallet, may try to generate
+      a new key/address without supplying a passphrase.  If this happens, the
+      wallet logic gets very complicated -- we don't want to reject the request
+      to generate a new address, but we can't compute the private key until the
+      next time the user unlocks their wallet.  Thus, we have to save off the 
+      data they will need to create the key, to be applied on next unlock.
    """
    #############################################################################
    def __init__(self):
@@ -734,14 +767,40 @@ class PyBtcAddress(object):
       self.walletByteLoc         = -1
       self.chainIndex            = 0
 
+      # Information to be used by C++ to know where to search for transactions
+      # in the blockchain 
+      #               [unixTime, blkNum]
+      self.timeRange = [UINT32_MAX, 0]
+      self.blkRange  = [UINT32_MAX, 0]
+
+      # This feels like a hack, but it's the only way I can think to handle
+      # the case of generating new, chained addresses, even without the
+      # private key currently in memory.  i.e. - If we can't unlock the priv
+      # key when creating a new chained priv key, we will simply extend the
+      # public key, and store the last-known chain info, so that it can be
+      # generated the next time the address is unlocked
+      self.createPrivKeyNextUnlock             = False
+      self.createPrivKeyNextUnlock_IVandKey    = (None, None) # (IV,Key)
+      self.createPrivKeyNextUnlock_ChainDepth  = -1
+      self.createPrivKeyNextUnlock_Chaincode   = -1
+
    #############################################################################
    def isInitialized(self):
+      """ Keep track of whether this address has been initialized """
       return self.isInitialized
 
    #############################################################################
    def hasPrivKey(self):
+      """ 
+      We have a private key if either the plaintext, or ciphertext private-key
+      fields are non-empty.  We also consider ourselves to "have" the private
+      key if this address was chained from a key that has the private key, even
+      if we haven't computed it yet (due to not having unlocked the private key
+      before creating the new address).
+      """
       return (self.binPrivKey32_Encr.getSize()  != 0 or \
-              self.binPrivKey32_Plain.getSize() != 0 )
+              self.binPrivKey32_Plain.getSize() != 0 or \
+              self.createPrivKeyNextUnlock)
 
    #############################################################################
    def hasPubKey(self):
@@ -755,6 +814,39 @@ class PyBtcAddress(object):
    #############################################################################
    def getAddr160(self):
       return self.addStr20
+
+   #############################################################################
+   def touch(self, unixTime=None, blkNum=None):
+      """
+      Just like "touching" a file, this makes sure that the firstSeen and 
+      lastSeen fields for this address are updated to include "now"
+      """
+      if unixTime==None:
+         unixTime = time.time()
+
+      self.timeRange[0] = min(self.timeRange[0], unixTime)
+      self.timeRange[1] = max(self.timeRange[1], unixTime)
+
+      if not blkNum==None:
+         self.blkRange[0]  = min(self.blkRange[0], blkNum)
+         self.blkRange[1]  = max(self.blkRange[1], blkNum)
+   
+
+   #############################################################################
+   def isAddressUsed(self):
+      isUntouched = self.timeRange[0]==UINT32_MAX and \
+                    self.timeRange[1]==UINT32_MAX and \
+                    self.blkRange[0]==UINT32_MAX  and \
+                    self.blkRange[1]==UINT32_MAX
+      return not isUntouched
+
+   #############################################################################
+   def getTimeRange(self):
+      return (firstSeen[0], lastSeen[0])
+
+   #############################################################################
+   def getBlockNumRange(self):
+      return (firstSeen[1], lastSeen[1])
 
    #############################################################################
    def SerializePublicKey(self):
@@ -782,6 +874,9 @@ class PyBtcAddress(object):
 
    #############################################################################
    def verifyEncryptionKey(self, secureKdfKey):
+      """
+      Determine if this data is the decryption key for this encrypted address 
+      """
       if not self.useEncryption or not self.hasPrivKey():
          return False
 
@@ -804,10 +899,25 @@ class PyBtcAddress(object):
       return verified
          
 
+
    #############################################################################
    def setWalletLocByte(self, byteOffset):
       self.walletByteLoc = byteOffset
 
+   #############################################################################
+   def setInitializationVector(self, IV16=None, random=False):
+      """
+      Either set the IV through input arg, or explicitly call random=True
+      Returns the IV -- which is especially important if it is randomly gen
+      """
+      if not IV16==None:
+         self.binInitVect16 = SecureBinaryData(IV16)
+      elif random==True:
+         self.binInitVect16 = SecureBinaryData().GenerateRandom(16) 
+      else:
+         raise KeyDataError, 'setInitializationVector: set IV, or random=True'
+      return self.binInitVect16
+      
 
    #############################################################################
    def createFromEncryptedKeyData(self, addr20, encrPrivKey32, IV16, \
@@ -818,7 +928,7 @@ class PyBtcAddress(object):
       self.__init__()
       self.addrStr20     = addr20
       self.binPrivKey32_Encr = SecureBinaryData(encrPrivKey32)
-      self.binInitVect16 = SecureBinaryData(IV16)
+      self.setInitializationVector(IV16)
       self.isLocked      = True
       self.useEncryption = True
       self.isInitialized = True
@@ -830,7 +940,7 @@ class PyBtcAddress(object):
             raise KeyDataError, "Public key does not match supplied address"
 
    #############################################################################
-   def createFromPlainKeyData(self, addr20, plainPrivKey, IV16, \
+   def createFromPlainKeyData(self, addr20, plainPrivKey, IV16=None, \
                                     chkSum=None, pubKey=None, \
                                     skipCheck=False, skipPubCompute=False):
       assert(len(plainPrivKey)==32)
@@ -839,7 +949,7 @@ class PyBtcAddress(object):
       self.isInitialized = True
       self.binPrivKey32_Plain = SecureBinaryData(plainPrivKey)
 
-      if not len(IV16)==16:
+      if IV16==None or not len(IV16)==16:
          # No IV means no encryption 
          if not len(IV16)==0:
             # It looks like we tried to specify an IV, but an invalid one
@@ -865,13 +975,16 @@ class PyBtcAddress(object):
       elif not skipPubCompute:
          # No public key supplied, but we do want to calculate it
          self.binPublicKey65 = CryptoECDSA().ComputePublicKey(plainPrivKey)
+   
+      return self
          
 
    #############################################################################
-   def lock(self, secureKdfKey=None):
+   def lock(self, secureKdfKey=None, generateIVIfNecessary=False):
       # We don't want to destroy the private key if it's not supposed to be 
       # encrypted.  Similarly, if we haven't actually saved the encrypted
       # version, let's not lock it
+      newIV = False
       if not self.useEncryption or not self.hasPrivKey():
          # This isn't supposed to be encrypted, or there's no privkey to encrypt
          return
@@ -884,9 +997,11 @@ class PyBtcAddress(object):
             # Addr should be encrypted, but haven't yet encrypted priv key
             if secureKdfKey!=None:
                # We have an encryption key, use it
-               if self.binInitVect16.getSize() < 16:
-                  # Generate a new IV if we need one
+               if self.binInitVect16.getSize() < 16 and not generateIVIfNecessary:
+                  raise KeyDataError, 'No Initialization Vector available'
+               else:
                   self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
+                  newIV = True
 
                # Finally execute the encryption
                self.binPrivKey32_Encr = CryptoAES().Encrypt( \
@@ -902,6 +1017,9 @@ class PyBtcAddress(object):
                                        "encrypted key data is available, and no "
                                        "encryption key provided to encrypt it.")
 
+      # In case we changed the IV, we should let the caller know this
+      return self.binInitVect16 if newIV else SecureBinaryData()
+
 
    #############################################################################
    def unlock(self, secureKdfOutput, skipCheck=False):
@@ -911,17 +1029,42 @@ class PyBtcAddress(object):
       best if that AES key is actually derived from "heavy" key-derivation
       function.  
       """
-      if not self.useEncryption or not self.isLocked or not self.hasPrivKey():
+      if not self.useEncryption or not self.isLocked:
+         # Bail out if the wallet is unencrypted, or already unlocked
          self.isLocked = False
          return
 
-      if not self.binPrivKey32_Encr.getSize()==32:
-         raise WalletLockError, 'No encrypted private key to decrypt!'
+      
+      if self.createPrivKeyNextUnlock:
+         # This is SPECIFICALLY for the case that we didn't have the encr key
+         # available when we tried to extend our deterministic wallet, and
+         # generated a new address anyway
+         self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+                                     self.createPrivKeyNextUnlock_IVandKey[1], \
+                                     SecureBinaryData(secureKdfResult), \
+                                     self.createPrivKeyNextUnlock_IVandKey[0])
 
-      if not self.binInitVect16.getSize()==16:
-         raise WalletLockError, 'Initialization Vect (IV) is missing!'
+         for i in range(self.createPrivKeyNextUnlock_ChainDepth):
+            self.binPrivKey32_Plain = CryptoECDSA().ComputeChainedPrivateKey( \
+                                         self.binPrivKey32_Plain, \
+                                         self.createPrivKeyNextUnlock_Chaincode) 
 
-      self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+
+         # IV should have already been randomly generated, before
+         self.isLocked = False
+         self.createPrivKeyNextUnlock            = False
+         self.createPrivKeyNextUnlock_IVandKey   = []
+         self.createPrivKeyNextUnlock_ChainDepth = 0
+         self.createPrivKeyNextUnlock_Chaincode  = ''
+      else:
+
+         if not self.binPrivKey32_Encr.getSize()==32:
+            raise WalletLockError, 'No encrypted private key to decrypt!'
+
+         if not self.binInitVect16.getSize()==16:
+            raise WalletLockError, 'Initialization Vect (IV) is missing!'
+   
+         self.binPrivKey32_Plain = CryptoAES().Decrypt( \
                                         self.binPrivKey32_Encr, \
                                         SecureBinaryData(secureKdfResult), \
                                         self.binInitVect16)
@@ -930,12 +1073,13 @@ class PyBtcAddress(object):
 
       if not skipCheck:
          if not self.hasPubKey():
-            self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
+            self.binPublicKey65 = CryptoECDSA().ComputePublicKey(\
+                                                      self.binPrivKey32_Plain)
          else:
-            # We should usually check to make sure keys match, but may choose to skip
-            # if we have a lot of keys
+            # We should usually check that keys match, but may choose to skip
+            # if we have a lot of keys to load
             if not checkPubPrivKeyPairMatch(self.binPrivKey32_Plain, \
-                                          self.binPublicKey65):
+                                            self.binPublicKey65):
                raise KeyDataError, "Stored public key does not match priv key!"
 
 
@@ -956,6 +1100,9 @@ class PyBtcAddress(object):
       if self.isLocked:
          self.unlock(secureOldKey, skipCheck=False)
 
+      # Keep the old IV if we are changing the key.  IV reuse is perfectly
+      # fine for a new key, and might save us from disaster if we otherwise
+      # generated a new one and then forgot to take note of it.
       if secureNewKey==None: 
          # If we chose not to re-encrypt, make sure we clear the encryption
          self.binInitVect16     = SecureBinaryData()
@@ -965,7 +1112,6 @@ class PyBtcAddress(object):
       else:
          # Re-encrypt with new key (using new, random IV)
          self.useEncryption = True
-         self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
          self.lock(secureNewKey)
          self.isLocked = True
 
@@ -1000,7 +1146,6 @@ class PyBtcAddress(object):
             self.unlock(secureKdfKey, skipCheck=False)
 
       try:
-         # With temporary unlock, we include the finally clause 
          secureMsg = SecureBinaryData(binMsg)
          sig = CryptoECDSA().SignData(secureMsg, self.binPrivKey32_Plain)
          sigstr = sig.toBinStr()
@@ -1019,7 +1164,8 @@ class PyBtcAddress(object):
       except:
          print 'Failed signature generation'
       finally:
-         # Always re-lock the address, but if locking throws an error, ignore
+         # Always re-lock/cleanup after unlocking, even after an exception.
+         # If locking triggers an error too, we will just skip it.
          try:
             if secureKdfKey!=None: 
                self.lock(secureKdfKey)
@@ -1060,7 +1206,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def createNewRandomAddress(self, secureKdfKey=None):
+   def createNewRandomAddress(self, secureKdfKey=None, IV16=None):
       """
       This generates a new private key directly into a secure binary container
       and then encrypts it immediately if encryption is enabled and the AES key
@@ -1077,7 +1223,9 @@ class PyBtcAddress(object):
       self.isInitialized = True
 
       if secureKdfKey!=None: 
-         self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
+         self.binInitVect16 = IV16
+         if IV16==None or IV16.getSize()!=16:
+            self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
          self.lock(secureKdfKey)
          self.isLocked      = True
          self.useEncryption = True
@@ -1089,18 +1237,26 @@ class PyBtcAddress(object):
 
    #############################################################################
    def extendAddressChain(self, chaincode, secureKdfKey=None):
+      """
+      We require some fairly complicated logic here, due to the fact that a 
+      user with a full, private-key-bearing wallet, may try to generate a new
+      key/address without supplying a passphrase.  If this happens, the wallet 
+      logic gets mucked up -- we don't want to reject the request to 
+      generate a new address, but we can't compute the private key until the
+      next time the user unlocks their wallet.  Thus, we have to save off the 
+      data they will need to create the key, to be applied on next unlock.
+      """
       newAddr = PyBtcAddress()
-      
-      # TODO TODO TODO:  technically we only need the public to extend the
-      #                  the chain and produce a new address, but the
-      #                  book-keeping gets out-of-whack if I try to create
-      #                  a priv-key-addr without a private key...  need to
-      #                  figure out how to do this (otherwise, a watching-only
-      #                  wallet actually has more flexibility than an encrypted
-      #                  wallet for which we can't find the private key...)
       privKeyAvailButNotDecryptable = (self.hasPrivKey() and \
                                        self.isLocked     and \
                                        secureKdfKey==None     )
+
+      if self.chainIndex==-1:
+         # TODO: should we allow ANY address to be chained?  Or only
+         #       addresses that have their chainIndex explicitly set
+         #       to zero?  For now, we'll chain anything
+         pass
+
       if self.hasPrivKey() and not privKeyAvailButNotDecryptable:
          # We are extending a chain of private-key-bearing addresses
          if self.useEncryption:
@@ -1122,19 +1278,38 @@ class PyBtcAddress(object):
             self.lock(secureKdfKey)
          return newAddr
       else:
-         # We are extending a chain of public-key-only addresses
-         # TODO: this will get run if we couldn't unlock the private key
+         # We are extending the address based solely on its public key
          if not self.hasPubKey():
             raise KeyDataError, 'No public key available to extend chain'
-         newPub = CryptoECDSA().ComputeChainedPublicKey( \
+         newAddr.binPublicKey65 = CryptoECDSA().ComputeChainedPublicKey( \
                                     self.binPublicKey65, chaincode)
-         newAddr = newAddrPub.getHash160()
+         newAddr.addrStr20 = newAddr.getHash160()
+         newAddr.useEncryption = self.useEncryption
+         newAddr.isInitialized = True
          newAddr.chainIndex = self.chainIndex+1
+
+
          if privKeyAvailButNotDecryptable:
-            # TODO: again, figure out what to do here (or rather, how to 
-            #       handle other methods that might find it weird to have
-            #       (useEncryption and not hasPrivKey())
-            pass 
+            # *** store what is needed to recover key on next addr unlock ***
+            newAddr.isLocked      = True
+            newAddr.useEncryption = True
+            newAddr.binInitVect16 = SecureBinaryData().GenerateRandom(16)
+            newAddr.createPrivKeyNextUnlock           = True
+            newAddr.createPrivKeyNextUnlock_Chaincode = chaincode
+            newAddr.createPrivKeyNextUnlock_IVandKey = [None,None]
+            if self.createPrivKeyNextUnlock:
+               # We are chaining from address also requiring gen on next unlock
+               newAddr.createPrivKeyNextUnlock_IVandKey[0] = \
+                  self.createPrivKeyNextUnlock_IVandKey[0].copy()
+               newAddr.createPrivKeyNextUnlock_IVandKey[1] = \
+                  self.createPrivKeyNextUnlock_IVandKey[1].copy()
+               newAddr.createPrivKeyNextUnlock_ChainDepth = \
+                  self.createPrivKeyNextUnlock_ChainDepth+1
+            else:
+               # The address from which we are extending has already been generated
+               newAddr.createPrivKeyNextUnlock_IVandKey[0] = self.binInitVect16.copy()
+               newAddr.createPrivKeyNextUnlock_IVandKey[1] = self.binPrivKey32_Encr.copy()
+               newAddr.createPrivKeyNextUnlock_ChainDepth  = 1
          return newAddr
         
                
