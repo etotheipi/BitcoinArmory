@@ -220,7 +220,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // Default max-memory reqt will 
    void computeKdfParams(double   targetComputeSec=0.25, 
-                         uint32_t maxMemReqts=DEFAULT_KDF_MAX_MEMORY);
+                         uint32_t maxMemReqtsBytes=DEFAULT_KDF_MAX_MEMORY);
 
    /////////////////////////////////////////////////////////////////////////////
    void usePrecomputedKdfParams(uint32_t memReqts, 

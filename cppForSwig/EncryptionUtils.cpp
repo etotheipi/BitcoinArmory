@@ -126,11 +126,11 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
    double perIterSec  = allItersSec / numTest;
    numIterations_ = (uint32_t)(targetComputeSec / (perIterSec+0.0005));
    numIterations_ = (numIterations_ < 1 ? 1 : numIterations_);
-   cout << "System speed test results    : " << endl;
-   cout << "   Total test of the KDF took:  " << allItersSec*1000 << " ms" << endl;
-   cout << "                   to execute:  " << numTest << " iterations" << endl;
-   cout << "   Target computation time is:  " << targetComputeSec*1000 << " ms" << endl;
-   cout << "   Setting numIterations to:    " << numIterations_ << endl;
+   //cout << "System speed test results    :  " << endl;
+   //cout << "   Total test of the KDF took:  " << allItersSec*1000 << " ms" << endl;
+   //cout << "                   to execute:  " << numTest << " iterations" << endl;
+   //cout << "   Target computation time is:  " << targetComputeSec*1000 << " ms" << endl;
+   //cout << "   Setting numIterations to:    " << numIterations_ << endl;
 }
 
 
