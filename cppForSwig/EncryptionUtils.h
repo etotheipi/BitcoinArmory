@@ -144,6 +144,14 @@ public:
 
    ~SecureBinaryData(void) { destroy(); }
 
+   // These methods are definitely inherited, but SWIG needs them here if they
+   // are to be used from python
+   uint8_t const * getPtr(void)  const { return BinaryData::getPtr();  }
+   uint8_t       * getPtr(void)        { return BinaryData::getPtr();  }
+   size_t          getSize(void) const { return BinaryData::getSize(); }
+   
+   string toHexStr(bool BE=false) const { return BinaryData::toHexStr(BE);}
+   string toBinStr(void) const          { return BinaryData::toBinStr();  }
 
    SecureBinaryData(SecureBinaryData const & sbd2) : 
            BinaryData(sbd2.getPtr(), sbd2.getSize()) { lockData(); }
@@ -183,7 +191,7 @@ public:
          fill(0x00);
          munlock(getPtr(), getSize());
       }
-      self.resize(0);
+      resize(0);
    }
 
 };
@@ -286,44 +294,44 @@ public:
    CryptoECDSA(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PRIVKEY CreateNewPrivateKey(void);
+   static BTC_PRIVKEY CreateNewPrivateKey(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
+   static BTC_PRIVKEY ParsePrivateKey(SecureBinaryData const & privKeyData);
    
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKey65B);
+   static BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKey65B);
 
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKeyX32B,
-                             SecureBinaryData const & pubKeyY32B);
+   static BTC_PUBKEY ParsePublicKey(SecureBinaryData const & pubKeyX32B,
+                                    SecureBinaryData const & pubKeyY32B);
    
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData SerializePrivateKey(BTC_PRIVKEY const & privKey);
+   static SecureBinaryData SerializePrivateKey(BTC_PRIVKEY const & privKey);
    
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData SerializePublicKey(BTC_PUBKEY const & pubKey);
+   static SecureBinaryData SerializePublicKey(BTC_PUBKEY const & pubKey);
 
    /////////////////////////////////////////////////////////////////////////////
-   BTC_PUBKEY ComputePublicKey(BTC_PRIVKEY const & cppPrivKey);
+   static BTC_PUBKEY ComputePublicKey(BTC_PRIVKEY const & cppPrivKey);
 
    
    /////////////////////////////////////////////////////////////////////////////
-   bool CheckPubPrivKeyMatch(BTC_PRIVKEY const & cppPrivKey,
-                             BTC_PUBKEY  const & cppPubKey);
+   static bool CheckPubPrivKeyMatch(BTC_PRIVKEY const & cppPrivKey,
+                                    BTC_PUBKEY  const & cppPubKey);
    
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
-   SecureBinaryData SignData(SecureBinaryData const & binToSign, 
-                             BTC_PRIVKEY const & cppPrivKey);
+   static SecureBinaryData SignData(SecureBinaryData const & binToSign, 
+                                    BTC_PRIVKEY const & cppPrivKey);
    
    
    
    /////////////////////////////////////////////////////////////////////////////
    // For signing and verification, pass in original, UN-HASHED binary string
-   bool VerifyData(SecureBinaryData const & binMessage, 
-                   SecureBinaryData const & binSignature,
-                   BTC_PUBKEY const & cppPubKey);
+   static bool VerifyData(SecureBinaryData const & binMessage, 
+                          SecureBinaryData const & binSignature,
+                          BTC_PUBKEY const & cppPubKey);
 
 
    /////////////////////////////////////////////////////////////////////////////

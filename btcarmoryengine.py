@@ -199,11 +199,13 @@ except:
    print '           in the current directory (or added to the PATH)'
    print '           Specifically, you need:'
    print '                  CppBlockUtils.py     and'
-   elif OS_LINUX or OS_MAC:
+   if OS_LINUX or OS_MAC:
       print '                  _CppBlockUtils.so'
-   if OS_WINDOWS:
+   elif OS_WINDOWS:
       print '                  _CppBlockUtils.pyd'
-   exit(0)
+   else:
+      print '\n\n... UNKNOWN operating system'
+      exit(0)
 
 
 
@@ -746,8 +748,9 @@ class PyBtcAddress(object):
       return (self.binPublicKey65.getSize() != 0)
 
    #############################################################################
-   def getAddrStr(self):
-      return binary_to_base58(self.addrStr20)
+   def getAddrStr(self, netbyte=ADDRBYTE):
+      chksum = hash160(self.addrStr20)[:4]
+      return binary_to_base58(netbyte + self.addrStr20 + chksum)
 
    #############################################################################
    def getAddr160(self):
@@ -819,7 +822,7 @@ class PyBtcAddress(object):
       self.isLocked      = True
       self.useEncryption = True
       self.isInitialized = True
-      if chkSum and not self.binPrivKey32_Encr.getHash256().startswith(chkSum)):
+      if chkSum and not self.binPrivKey32_Encr.getHash256().startswith(chkSum):
          raise ChecksumError, "Checksum doesn't match encrypted priv key data!"
       if pubKey:
          self.binPublicKey65 = SecureBinaryData(pubKey)
@@ -849,7 +852,7 @@ class PyBtcAddress(object):
          self.useEncryption = True
          self.isLocked      = False
 
-      if chkSum and not self.binPrivKey32_Plain.getHash256().startswith(chkSum)):
+      if chkSum and not self.binPrivKey32_Plain.getHash256().startswith(chkSum):
          raise ChecksumError, "Checksum doesn't match plaintext priv key!"
       if pubKey:
          self.binPublicKey65 = SecureBinaryData(pubKey)  
@@ -857,7 +860,7 @@ class PyBtcAddress(object):
             raise KeyDataError, "Public key does not match supplied address"
          if not skipCheck:
             if not CryptoECDSA().CheckPubPrivKeyMatch(self.binPrivKey32_Plain,\
-                                                      self.binPublicKey65)
+                                                      self.binPublicKey65):
                raise KeyDataError, 'Supplied pub and priv key do not match!' 
       elif not skipPubCompute:
          # No public key supplied, but we do want to calculate it
@@ -1013,6 +1016,8 @@ class PyBtcAddress(object):
                   '\x02' + rSize + rBin + \
                   '\x02' + sSize + sBin
          return sigScr
+      except:
+         print 'Failed signature generation'
       finally:
          # Always re-lock the address, but if locking throws an error, ignore
          try:
@@ -1049,8 +1054,9 @@ class PyBtcAddress(object):
 
       secVerify = SecureBinaryData(binMsgVerify)
       secSig    = SecureBinaryData(r[-32:] + s[-32:])
-      return CryptoECDSA().VerifyData(secVerify, secSig, \
-                         CryptoECDSA().ParsePublicKey(self.binPublicKey65)
+      secPubKey = SecureBinaryData(self.binPublicKey65)
+      return CryptoECDSA().VerifyData(secVerify, secSig, secPubKey)
+                 
 
 
    #############################################################################
@@ -1144,12 +1150,13 @@ class PyBtcAddress(object):
       This method DOES perform elliptic-curve operations
       """
       if isinstance(privKey, str) and len(privKey)==32:
-         self.binPrivKey32_Plain = privKey
+         self.binPrivKey32_Plain = SecureBinaryData(privKey)
       elif isinstance(privKey, int) or isinstance(privKey, long):
-         self.binPrivKey32_Plain = int_to_binary(privKey, widthBytes=32, \
-                                                            endOut=BIGENDIAN)
+         binPriv = int_to_binary(privKey, widthBytes=32, endOut=BIGENDIAN)
+         self.binPrivKey32_Plain = SecureBinaryData(binPriv)
       else:
          raise KeyDataError, 'Unknown private key format'
+
       if pubKey==None:
          self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
       else:
@@ -1182,7 +1189,7 @@ class PyBtcAddress(object):
          if not CryptoECDSA().VerifyPublicKeyValid(self.binPublicKey65):
             raise KeyDataError, 'Supplied public key is not on secp256k1 curve'
       elif isinstance(pubkey, str) and len(pubkey)==65:
-         self.binPublicKey65 = pubkey
+         self.binPublicKey65 = SecureBinaryData(pubkey)
          if not CryptoECDSA().VerifyPublicKeyValid(self.binPublicKey65):
             raise KeyDataError, 'Supplied public key is not on secp256k1 curve'
       else:
@@ -1235,25 +1242,15 @@ class PyBtcAddress(object):
       chkSum  = hash256(netbyte + keyHash)[:4]
       return  binary_to_base58(netbyte + keyHash + chkSum)
 
-   def getAddrStr(self):
-      """
-      Gets the current address string, calculates it if not available
-      """
-      if self.addrStr==UNINITIALIZED:
-         return self.calculateAddrStr()
-      return self.addrStr
 
 
    def checkAddressValid(self):
       return checkAddrStrValid(self.addrStr);
 
    def getAddr160(self):
-      if self.hasPubKey():
-         return hash160(self.pubKey_serialize())
-      elif not self.addrStr == UNINITIALIZED:
-         return addrStr_to_hash160(self.addrStr);
-      else:
-         return '' 
+      if len(self.addrStr20)==0:
+         self.addrStr20 = self.binPublicKey65.getHash160()
+      return self.addrStr20
    
 
    def pprint(self, withPrivKey=False):
@@ -2915,7 +2912,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
             sigLenInBinary = int_to_binary(len(signature) + 1)
             newTx.inputs[i].binScript = sigLenInBinary + signature + hashCode1
          else:
-            pubkey = srcAddr.pubKey_serialize()
+            pubkey = srcAddr.binPublicKey65.toBinStr()
             sigLenInBinary    = int_to_binary(len(signature) + 1)
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
             newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \

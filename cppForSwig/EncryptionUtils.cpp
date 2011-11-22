@@ -432,8 +432,8 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
    SecureBinaryData pubYbin(pubKey65.getSliceRef(33,32));
    CryptoPP::Integer pubX;
    CryptoPP::Integer pubY;
-   pubX.Decode(pubKeyX32B.getPtr(), pubKeyX32B.getSize());
-   pubY.Decode(pubKeyY32B.getPtr(), pubKeyY32B.getSize());
+   pubX.Decode(pubXbin.getPtr(), pubXbin.getSize());
+   pubY.Decode(pubYbin.getPtr(), pubYbin.getSize());
    BTC_ECPOINT publicPoint(pubX, pubY);
 
    // Initialize the public key with the ECP point just created

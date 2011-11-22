@@ -163,7 +163,7 @@ print '\tAddress is valid:      ', checkAddrStrValid(satoshiAddrStr)
 
 
 ################################################################################
-addr = PyBtcAddress().generateNew()
+addr = PyBtcAddress().createNewRandomAddress()
 msg = int_to_binary(39029348428)
 theHash = hash256(msg)
 derSig = addr.generateDERSignature(theHash)
@@ -290,7 +290,7 @@ scripts.append(hex_to_binary('527a7651a269527a829178a914731cdb75c88a01cbb9672988
 
 for scr in scripts:
    addrList = multiSigExtractAddr160List(scr)
-   print '\nNum addresses:', len(addrList)
+   print '\nNum addresses:   ', len(addrList)
    for a in addrList:
-      print '   ', binary_to_hex(a), PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr()
+      print  PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr(),
 
