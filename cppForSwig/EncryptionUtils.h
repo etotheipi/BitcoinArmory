@@ -183,6 +183,7 @@ public:
          fill(0x00);
          munlock(getPtr(), getSize());
       }
+      self.resize(0);
    }
 
 };
@@ -337,6 +338,9 @@ public:
    SecureBinaryData ComputePublicKey(SecureBinaryData const & cppPrivKey);
 
    /////////////////////////////////////////////////////////////////////////////
+   bool VerifyPublicKeyValid(SecureBinaryData const & pubKey65);
+
+   /////////////////////////////////////////////////////////////////////////////
    bool CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
                              SecureBinaryData const & pubKey65);
 
@@ -353,13 +357,13 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputePrivateKeyChain(SecureBinaryData const & binPrivKey,
-                                           SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPrivateKey(SecureBinaryData const & binPrivKey,
+                                             SecureBinaryData const & chainCode);
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputePublicKeyChain(SecureBinaryData const & binPubKey,
-                                          SecureBinaryData const & chainCode);
+   SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
+                                            SecureBinaryData const & chainCode);
 };
 
 

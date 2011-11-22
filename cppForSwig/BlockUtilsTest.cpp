@@ -655,9 +655,9 @@ void TestECDSA(void)
    cout << "   Chaincode       :" << chaincode.toHexStr() << endl;
    cout << endl;
    
-   SecureBinaryData newBinPriv = CryptoECDSA().ComputePrivateKeyChain(binPriv, chaincode);
+   SecureBinaryData newBinPriv = CryptoECDSA().ComputeChainedPrivateKey(binPriv, chaincode);
    SecureBinaryData newBinPubA = CryptoECDSA().ComputePublicKey(newBinPriv);
-   SecureBinaryData newBinPubB = CryptoECDSA().ComputePublicKeyChain(binPub, chaincode);
+   SecureBinaryData newBinPubB = CryptoECDSA().ComputeChainedPublicKey(binPub, chaincode);
    cout << "   Verify new binary pub/priv pair match: ";
    cout << (CryptoECDSA().CheckPubPrivKeyMatch(newBinPriv, newBinPubA) ? 1 : 0) << endl;
    cout << "   Verify new binary pub/priv pair match: ";

@@ -343,7 +343,7 @@ BTC_PUBKEY CryptoECDSA::ParsePublicKey(SecureBinaryData const & pubKeyX32B,
    // Initialize the public key with the ECP point just created
    cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
 
-   // Validate the public key -- not sure why this needs a prng...
+   // Validate the public key -- not sure why this needs a PRNG
    static BTC_PRNG prng;
    assert(cppPubKey.Validate(prng, 3));
 
@@ -424,6 +424,27 @@ bool CryptoECDSA::CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
    return CheckPubPrivKeyMatch(privKey, pubKey);
 }
 
+bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
+{
+   // Basically just copying the ParsePublicKey method, but without
+   // the assert that would throw an error from C++
+   SecureBinaryData pubXbin(pubKey65.getSliceRef( 1,32));
+   SecureBinaryData pubYbin(pubKey65.getSliceRef(33,32));
+   CryptoPP::Integer pubX;
+   CryptoPP::Integer pubY;
+   pubX.Decode(pubKeyX32B.getPtr(), pubKeyX32B.getSize());
+   pubY.Decode(pubKeyY32B.getPtr(), pubKeyY32B.getSize());
+   BTC_ECPOINT publicPoint(pubX, pubY);
+
+   // Initialize the public key with the ECP point just created
+   BTC_PUBKEY cppPubKey;
+   cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
+
+   // Validate the public key -- not sure why this needs a PRNG
+   static BTC_PRNG prng;
+   return cppPubKey.Validate(prng, 3);
+}
+
 /////////////////////////////////////////////////////////////////////////////
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
                                        SecureBinaryData const & binPrivKey)
@@ -497,7 +518,7 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
 /////////////////////////////////////////////////////////////////////////////
 // Deterministically generate new private key using a chaincode
-SecureBinaryData CryptoECDSA::ComputePrivateKeyChain(
+SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                                  SecureBinaryData const & binPrivKey,
                                  SecureBinaryData const & chainCode)
 {
@@ -505,17 +526,12 @@ SecureBinaryData CryptoECDSA::ComputePrivateKeyChain(
    // Hard-code the order of the group
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   //static SecureBinaryData SECP256K1_ORDER_LE = SecureBinaryData::CreateFromHex(
-           //"414136d08c5ed2bf3ba048afe6dcaebafeffffffffffffffffffffffffffffff");
    
    CryptoPP::Integer chaincode, origPrivExp, ecOrder;
-
    // A 
    chaincode.Decode(chainCode.getPtr(), chainCode.getSize());
-
    // B 
    origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize());
-
    // C
    ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize());
 
@@ -530,8 +546,8 @@ SecureBinaryData CryptoECDSA::ComputePrivateKeyChain(
 }
                             
 /////////////////////////////////////////////////////////////////////////////
-// Deterministically generate new private key using a chaincode
-SecureBinaryData CryptoECDSA::ComputePublicKeyChain(
+// Deterministically generate new public key using a chaincode
+SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
                                 SecureBinaryData const & binPubKey,
                                 SecureBinaryData const & chainCode)
 {
