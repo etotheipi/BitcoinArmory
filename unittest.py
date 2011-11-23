@@ -14,7 +14,7 @@ Test_EncryptedAddress = True
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_CryptoTiming     = True
 
 
 def testFunction( fnName, expectedOutput, *args):
@@ -238,7 +238,7 @@ if Test_EncryptedAddress:
    fakeKdfOutput2 = SecureBinaryData( hex_to_binary('22'*32) )
 
    # Try to create addresses without crashing
-   print 'Testing PyBtcAddress with plaintext private key (try not to crash)'
+   print '\n\nTesting PyBtcAddress with plaintext private key (try not to crash)'
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, chkSum=privChk)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
@@ -249,46 +249,55 @@ if Test_EncryptedAddress:
 
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
 
+   theIV = SecureBinaryData(hex_to_binary('77'*16))
    # Now try locking and unlock addresses
-   print 'Testing address locking'
-   testAddr.lock(fakeKdfOutput1, generateIVIfNecessary=True)
+   print '\n\nTesting address locking'
+   testAddr.enableKeyEncryption(theIV)
+   testAddr.lock(fakeKdfOutput1)
    testAddr.pprint(indent=' '*3)
 
    encryptedKey = testAddr.serializeEncryptedPrivateKey()
    encryptionIV = testAddr.serializeInitVector()
    plainPubKey  = testAddr.serializePublicKey()
 
-   print 'Testing address unlocking'
+   print '\n\nTesting address unlocking'
    testAddr.unlock(fakeKdfOutput1)
    testAddr.pprint(indent=' '*3)
 
-   print 'Test changing passphrase (None --> KDF1)'
+   print '\n\nTest changing passphrases'
+   print '*****(None --> Key1)'
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
-   testAddr.setInitializationVector(random=True)
+   testAddr.enableKeyEncryption(theIV)
    testAddr.changeEncryptionKey(None, fakeKdfOutput1)
    testAddr.pprint(indent=' '*3)
 
-   print 'Test changing passphrase (KDF1 --> None)'
+   print '\n\n*****(Key1 --> Unencrypted)'
    testAddr.changeEncryptionKey(fakeKdfOutput1, None)
    testAddr.pprint(indent=' '*3)
       
-   print 'Test changing passphrase (KDF1 --> KDF2)'
-   testAddr.changeEncryptionKey(None, fakeKdfOutput1)
-   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
+   print '\n\n*****(Unencrypted --> Key2)'
+   testAddr.enableKeyEncryption(theIV)
+   testAddr.changeEncryptionKey(None, fakeKdfOutput2)
    testAddr.pprint(indent=' '*3)
 
-   print 'Test changing passphrase (KDF2 --> Lock --> KDF1)'
-   testAddr.lock(fakeKdfOutput2)
+   print '\n\n*****(Key2 --> Key1)'
    testAddr.changeEncryptionKey(fakeKdfOutput2, fakeKdfOutput1)
    testAddr.pprint(indent=' '*3)
 
-   print 'Test changing passphrase (KDF1 --> Lock --> None)'
-   testAddr.changeEncryptionKey(fakeKdfOutput1, None)
+   print '\n\n*****(Key1 --> Lock --> Key2)'
+   testAddr.lock(fakeKdfOutput1)
+   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
    testAddr.pprint(indent=' '*3)
 
-   print 'Test loading pre-encrypted key data'
-   testAddr2 = PyBtcAddress().createFromEncryptedKeyData(addr20, encryptedKey, encryptionIV)
+   print '\n\n*****(Key2 --> Lock --> Unencrypted)'
+   testAddr.changeEncryptionKey(fakeKdfOutput2, None)
    testAddr.pprint(indent=' '*3)
+
+   # TODO:  Gotta test pre-encrypted key handling
+   #        and chained-key unit tests
+   #print '\n\nTest loading pre-encrypted key data'
+   #testAddr2 = PyBtcAddress().createFromEncryptedKeyData(addr20, encryptedKey, encryptionIV)
+   #testAddr.pprint(indent=' '*3)
    
 
 
@@ -457,7 +466,7 @@ if Test_CryptoTiming:
    cipher  = SecureBinaryData()
    plain   = SecureBinaryData()
    
-   nTest = 1000
+   nTest = 10000
 
    # Test with no initialization vector
    start = time.time()
@@ -493,7 +502,7 @@ if Test_CryptoTiming:
    print 'Testing Crypto++::ECDSA timings'
    privKey = SecureBinaryData(hex_to_binary('aa'*32))
    pubKey  = SecureBinaryData()
-   nTest = 50
+   nTest = 100
 
    # Test Conversion from PrivKey to PubKey
    start = time.time()
@@ -526,7 +535,7 @@ if Test_CryptoTiming:
    for i in range(nTest):
       isValid = CryptoECDSA().VerifyData(msg, sig, pubKey)
    end = time.time()
-   print '   PublicKey  --> SigVerified'.ljust(36),
+   print '   PublicKey  --> VerifySig'.ljust(36),
    print ':  %0.1f/sec' % (nTest/(end-start))
 
 

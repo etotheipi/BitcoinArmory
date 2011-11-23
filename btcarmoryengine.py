@@ -764,6 +764,7 @@ class PyBtcAddress(object):
       self.isLocked              = False
       self.useEncryption         = False
       self.isInitialized         = False
+      self.keyChanged            = False   # ...since last key encryption
       self.walletByteLoc         = -1
       self.chainIndex            = 0
 
@@ -870,7 +871,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def verifyEncryptionKey(self, secureKdfKey):
+   def verifyEncryptionKey(self, secureKdfOutput):
       """
       Determine if this data is the decryption key for this encrypted address 
       """
@@ -878,7 +879,7 @@ class PyBtcAddress(object):
          return False
 
       decryptedKey = CryptoAES().Decrypt( self.binPrivKey32_Encr, \
-                                          SecureBinaryData(secureKdfResult), \
+                                          SecureBinaryData(secureKdfOutput), \
                                           self.binInitVect16)
       verified = False
       if not self.isLocked:
@@ -961,7 +962,19 @@ class PyBtcAddress(object):
       return self
 
    #############################################################################
-   def createFromPlainKeyData(self, addr20, plainPrivKey, IV16=None, \
+   def enableKeyEncryption(self, IV16=None, generateIVIfNecessary=False):
+      """
+      setIV method will raise error is we don't specify any args, but it is
+      acceptable HERE to not specify any args just to enable encryption
+      """
+      self.useEncryption = True
+      if IV16 or generateIVIfNecessary:
+         self.setInitializationVector(IV16, generateIVIfNecessary)
+      
+
+   #############################################################################
+   def createFromPlainKeyData(self, addr20, plainPrivKey, willBeEncr=False, \
+                                    generateIVIfNecessary=False, IV16=None, \
                                     chkSum=None, publicKey65=None, \
                                     skipCheck=False, skipPubCompute=False):
 
@@ -970,16 +983,12 @@ class PyBtcAddress(object):
       self.addrStr20 = addr20
       self.isInitialized = True
       self.binPrivKey32_Plain = SecureBinaryData(plainPrivKey)
+      self.isLocked = False
 
-      if not IV16 or not IV16.getSize()==16:
-         # No IV means no encryption 
-         self.binInitVect16 = SecureBinaryData()
-         self.useEncryption = False
-         self.isLocked      = False
-      else:
-         self.binInitVect16 = SecureBinaryData(IV16)
-         self.useEncryption = True
-         self.isLocked      = False
+      if willBeEncr:
+         self.enableKeyEncryption(IV16, generateIVIfNecessary)
+      elif IV16:
+         self.binInitVect16 = IV16
 
       if chkSum and not self.binPrivKey32_Plain.getHash256().startswith(chkSum):
          raise ChecksumError, "Checksum doesn't match plaintext priv key!"
@@ -999,7 +1008,7 @@ class PyBtcAddress(object):
          
 
    #############################################################################
-   def lock(self, secureKdfKey=None, generateIVIfNecessary=False):
+   def lock(self, secureKdfOutput=None, generateIVIfNecessary=False):
       # We don't want to destroy the private key if it's not supposed to be 
       # encrypted.  Similarly, if we haven't actually saved the encrypted
       # version, let's not lock it
@@ -1008,13 +1017,13 @@ class PyBtcAddress(object):
          # This isn't supposed to be encrypted, or there's no privkey to encrypt
          return
       else:
-         if self.binPrivKey32_Encr.getSize()==32:
+         if self.binPrivKey32_Encr.getSize()==32 and not self.keyChanged:
             # Addr should be encrypted, and we already have encrypted priv key
             self.binPrivKey32_Plain.destroy()
             self.isLocked = True
          else:
             # Addr should be encrypted, but haven't computed encrypted value yet
-            if secureKdfKey!=None:
+            if secureKdfOutput!=None:
                # We have an encryption key, use it
                if self.binInitVect16.getSize() < 16:
                   if not generateIVIfNecessary:
@@ -1026,17 +1035,19 @@ class PyBtcAddress(object):
                # Finally execute the encryption
                self.binPrivKey32_Encr = CryptoAES().Encrypt( \
                                                 self.binPrivKey32_Plain, \
-                                                SecureBinaryData(secureKdfResult), \
+                                                SecureBinaryData(secureKdfOutput), \
                                                 self.binInitVect16)
-               # Destroy the unencrypted version by overwriting with zeros
+               # Destroy the unencrypted key, reset the keyChanged flag
                self.binPrivKey32_Plain.destroy()
                self.isLocked = True
+               self.keyChanged = False 
             else:
                # Can't encrypt the addr because we don't have encryption key
                raise WalletLockError, ("Trying to destroy plaintext key, but no "
                                        "encrypted key data is available, and no "
                                        "encryption key provided to encrypt it.")
 
+   
       # In case we changed the IV, we should let the caller know this
       return self.binInitVect16 if newIV else SecureBinaryData()
 
@@ -1061,7 +1072,7 @@ class PyBtcAddress(object):
          # generated a new address anyway
          self.binPrivKey32_Plain = CryptoAES().Decrypt( \
                                      self.createPrivKeyNextUnlock_IVandKey[1], \
-                                     SecureBinaryData(secureKdfResult), \
+                                     SecureBinaryData(secureKdfOutput), \
                                      self.createPrivKeyNextUnlock_IVandKey[0])
 
          for i in range(self.createPrivKeyNextUnlock_ChainDepth):
@@ -1086,7 +1097,7 @@ class PyBtcAddress(object):
    
          self.binPrivKey32_Plain = CryptoAES().Decrypt( \
                                         self.binPrivKey32_Encr, \
-                                        SecureBinaryData(secureKdfResult), \
+                                        secureKdfOutput, \
                                         self.binInitVect16)
 
       self.isLocked = False
@@ -1098,7 +1109,7 @@ class PyBtcAddress(object):
          else:
             # We should usually check that keys match, but may choose to skip
             # if we have a lot of keys to load
-            if not checkPubPrivKeyPairMatch(self.binPrivKey32_Plain, \
+            if not CryptoECDSA().CheckPubPrivKeyMatch(self.binPrivKey32_Plain, \
                                             self.binPublicKey65):
                raise KeyDataError, "Stored public key does not match priv key!"
 
@@ -1113,7 +1124,7 @@ class PyBtcAddress(object):
       if not self.hasPrivKey():
          raise KeyDataError, 'No private key available to re-encrypt'
 
-      if secureOldKey==None and self.useEncryption and self.isLocked:
+      if not secureOldKey and self.useEncryption and self.isLocked:
          raise WalletLockError, 'Need old encryption key to unlock private keys'
 
       wasLocked = self.isLocked
@@ -1125,7 +1136,8 @@ class PyBtcAddress(object):
       # Keep the old IV if we are changing the key.  IV reuse is perfectly
       # fine for a new key, and might save us from disaster if we otherwise
       # generated a new one and then forgot to take note of it.
-      if secureNewKey==None: 
+      self.keyChanged = True
+      if not secureNewKey:
          # If we chose not to re-encrypt, make sure we clear the encryption
          self.binInitVect16     = SecureBinaryData()
          self.binPrivKey32_Encr = SecureBinaryData()
@@ -1135,7 +1147,7 @@ class PyBtcAddress(object):
          # Re-encrypt with new key (using new, random IV)
          self.useEncryption = True
          self.lock(secureNewKey)  # do this to make sure privKey_Encr filled
-         if self.wasLocked:
+         if wasLocked:
             self.isLocked = True
          else:
             self.unlock(secureNewKey)
@@ -1152,7 +1164,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def generateDERSignature(self, binMsg, secureKdfKey=None):
+   def generateDERSignature(self, binMsg, secureKdfOutput=None):
       """
       This generates a DER signature for this address using the private key.
       Obviously, if we don't have the private key, we throw an error.  Or if
@@ -1165,11 +1177,11 @@ class PyBtcAddress(object):
          raise KeyDataError, 'Cannot sign for address without private key!'
 
       if self.isLocked:
-         if secureKdfKey==None:
+         if secureKdfOutput==None:
             raise WalletLockError, "Cannot sign Tx when private key is locked!"
          else:
             # Wallet is locked but we have a decryption key
-            self.unlock(secureKdfKey, skipCheck=False)
+            self.unlock(secureKdfOutput, skipCheck=False)
 
       try:
          secureMsg = SecureBinaryData(binMsg)
@@ -1193,8 +1205,8 @@ class PyBtcAddress(object):
          # Always re-lock/cleanup after unlocking, even after an exception.
          # If locking triggers an error too, we will just skip it.
          try:
-            if secureKdfKey!=None: 
-               self.lock(secureKdfKey)
+            if secureKdfOutput!=None: 
+               self.lock(secureKdfOutput)
          except: 
             pass
 
@@ -1232,7 +1244,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def createNewRandomAddress(self, secureKdfKey=None, IV16=None):
+   def createNewRandomAddress(self, secureKdfOutput=None, IV16=None):
       """
       This generates a new private key directly into a secure binary container
       and then encrypts it immediately if encryption is enabled and the AES key
@@ -1248,11 +1260,11 @@ class PyBtcAddress(object):
       self.addrStr20 = self.binPublicKey65.getHash160()
       self.isInitialized = True
 
-      if secureKdfKey!=None: 
+      if secureKdfOutput!=None: 
          self.binInitVect16 = IV16
          if IV16==None or IV16.getSize()!=16:
             self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
-         self.lock(secureKdfKey)
+         self.lock(secureKdfOutput)
          self.isLocked      = True
          self.useEncryption = True
       else:
@@ -1262,7 +1274,7 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def extendAddressChain(self, chaincode, secureKdfKey=None):
+   def extendAddressChain(self, chaincode, secureKdfOutput=None):
       """
       We require some fairly complicated logic here, due to the fact that a 
       user with a full, private-key-bearing wallet, may try to generate a new
@@ -1275,7 +1287,7 @@ class PyBtcAddress(object):
       newAddr = PyBtcAddress()
       privKeyAvailButNotDecryptable = (self.hasPrivKey() and \
                                        self.isLocked     and \
-                                       secureKdfKey==None     )
+                                       secureKdfOutput==None     )
 
       if self.chainIndex==-1:
          # TODO: should we allow ANY address to be chained?  Or only
@@ -1286,9 +1298,9 @@ class PyBtcAddress(object):
       if self.hasPrivKey() and not privKeyAvailButNotDecryptable:
          # We are extending a chain of private-key-bearing addresses
          if self.useEncryption:
-            if secureKdfKey==None:
+            if secureKdfOutput==None:
                raise WalletLockError, 'Cannot create new address without passphrase'
-            self.unlock(secureKdfKey)
+            self.unlock(secureKdfOutput)
 
          newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
                                     self.binPrivKey32_Plain, chaincode)
@@ -1300,8 +1312,8 @@ class PyBtcAddress(object):
          newAddr.isInitialized = True
          newAddr.chainIndex = self.chainIndex+1
          if newAddr.useEncryption:
-            newAddr.lock(secureKdfKey)
-            self.lock(secureKdfKey)
+            newAddr.lock(secureKdfOutput)
+            self.lock(secureKdfOutput)
          return newAddr
       else:
          # We are extending the address based solely on its public key
@@ -1454,23 +1466,30 @@ class PyBtcAddress(object):
       return self.addrStr20
    
 
-   def pprint(self, withPrivKey=False, indent=''):
-      print indent + 'BTC Address:  ', self.getAddrStr()
-      print indent + 'Hash160[BE] =', binary_to_hex(self.getAddr160())
-      print indent + 'Have Keys (priv,pub) = (%s,%s)' % \
+   def pprint(self, withPrivKey=True, indent=''):
+      def pp(x, nchar=1000):
+         if x.getSize()==0:
+            return '--'*32
+         else:
+            return x.toHexStr()[:nchar]
+      print indent + 'BTC Address      :', self.getAddrStr()
+      print indent + 'Hash160[BE]      :', binary_to_hex(self.getAddr160())
+      print indent + 'Have (priv,pub)  : (%s,%s)' % \
                      (str(self.hasPrivKey()), str(self.hasPubKey()))
       if self.hasPubKey():
-         print indent + 'PubKey (BE):', '04', \
-                          binary_to_hex(self.binPublicKey65[1:33 ]), \
-                          binary_to_hex(self.binPublicKey65[  33:])
+         print indent + 'PubKeyX(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[1:33 ])
+         print indent + 'PubKeyY(BE)      :', \
+                        binary_to_hex(self.binPublicKey65.toBinStr()[  33:])
       print indent + 'Encryption parameters:'
       print indent + '   UseEncryption :', self.useEncryption
       print indent + '   IsLocked      :', self.isLocked
+      print indent + '   KeyChanged    :', self.keyChanged
       print indent + '   ChainIndex    :', self.chainIndex
-      print indent + '   InitVector    :', binary_to_hex(self.binInitVect16)
+      print indent + '   InitVector    :', pp(self.binInitVect16)
       if withPrivKey and self.hasPrivKey():
-         print indent + 'PrivKey Plain (BE): ', binary_to_hex(self.binPrivKey32_Plain)
-         print indent + 'PrivKey Ciphr (BE): ', binary_to_hex(self.binPrivKey32_Encr)
+         print indent + 'PrivKeyPlain(BE) :', pp(self.binPrivKey32_Plain)
+         print indent + 'PrivKeyCiphr(BE) :', pp(self.binPrivKey32_Encr)
       
 
 
@@ -4321,7 +4340,7 @@ class PyBtcWallet(object):
    
 
    #############################################################################
-   def unlock(self, secureKdfKey):
+   def unlock(self, secureKdfOutput):
       """
       We must assume that the kdfResultKey is a SecureBinaryData object
       containing the result of the KDF-passphrase
