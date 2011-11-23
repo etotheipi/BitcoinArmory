@@ -58,39 +58,55 @@
 *                      +    implemented and partially tested
 *                      X    implemented and tested
 *  
-*                                        BitcoinArmory
+   *                                        
 *     ---------------------------------------------------------------
-*      (01)  Ser/Unser Block Objects           X
-*      (02)  Hash160/Hash256                   X
-*      (03)  Difficulty calcs                  X
-*      (04)  Address Generation                X
-*      (05)  Address Verify/Manip              X
-*     ---------------------------------------------
-*      (06)  BlkHeaders read/scan/org          X
-*      (07)  BlkHeaders reorgs                 X
-*      (08)  Blockchain read/scan/org          X
-*      (09)  Blockchain reorgs                 X
-*      (10)  Blockchain verify integrity       X
-*     ---------------------------------------------
-*      (11)  NonStd Tx Detection               +
-*      (12)  Arbitrary script parsing          X
-*      (13)  OP_CHECKSIG/CHECKMULTISIG         X
-*      (14*) Arbitrary script eval             X
-*      (15)  ECDSA Sign/Verify                 X
-*     ---------------------------------------------
-*      (16)  Address/Wallet tracking           X
-*      (17)  Scan blkchain for Tx              X
-*      (18)  Scan blkchain for NonStd          X
-*      (19)  Reorg w/ double-spend             X
-*      (20)  Add new blockdata real-time       X
-*     ---------------------------------------------
-*      (20)  SelectCoins for tx                X
-*      (21)  Tx construct given inputs         X
-*      (22*) Distr Proposals/multisig          .
-*      (23)  Tx broadcast
-*      (24)  Tx fee calculations               X
-*      (25)  Blockchain download
-*      (26)  SecureBinaryData                  X
+*      (01)  Ser/Unser Block Objects              X
+*      (02)  Hash160/Hash256                      X
+*      (03)  Difficulty calcs                     X
+*      (04)  Address Generation                   X
+*      (05)  Address Verify/Manip                 X
+*     ---------------------------------------------------------------
+*      (06)  BlkHeaders read/scan/org             X
+*      (07)  BlkHeaders reorgs                    X
+*      (08)  Blockchain read/scan/org             X
+*      (09)  Blockchain reorgs                    X
+*      (10)  Blockchain verify integrity          X
+*     ---------------------------------------------------------------
+*      (11)  NonStd Tx Detection                  +
+*      (12)  Arbitrary script parsing             X
+*      (13)  OP_CHECKSIG/CHECKMULTISIG            X
+*      (14*) Arbitrary script eval                X
+*      (15)  ECDSA Sign/Verify                    X
+*     ---------------------------------------------------------------
+*      (16)  Address/Wallet tracking              X
+*      (17)  Scan blkchain for Tx                 X
+*      (18)  Scan blkchain for NonStd             X
+*      (19)  Reorg w/ double-spend                X
+*      (20)  Add new blockdata real-time          X
+*     ---------------------------------------------------------------
+*      (21)  SecureBinaryData                     X
+*      (22)  Crypto++ ECDSA Hooked                X
+*      (23)  Crypto++ AES Hooked                  X
+*      (24)  Crypto++ RandNumGen Hooked           X
+*      (25)  Key-derivation (time&mem bound)      X
+*     ---------------------------------------------------------------
+*      (26)  Address Encrypt (AES)                X
+*      (27)  Address Encrypt (Change Passwd)      X
+*      (28)  Deterministic Addr Gen (ECDSAPriv)   X
+*      (29)  Deterministic Addr Gen (ECDSAPub)    X
+*      (30)  Deterministic Addr Gen (Random)   
+*     ---------------------------------------------------------------
+*      (31)  PyWallet/Addr File I/O
+*      (32)  SelectCoins for tx                   X
+*      (33)  Tx fee calculations                  X
+*      (34)  Tx construct given inputs            X
+*      (35*) Distr Proposals/multisig             .
+*     ---------------------------------------------------------------
+*      (36)  Connect to localhost bitcoind
+*      (37)  Connect to nodes (bootstrap IRC)
+*      (38)  Blockchain download
+*      (39)  Get tx data not in block yet       
+*      (40)  Tx broadcast
 *
 *
 * Notes:
@@ -118,7 +134,7 @@
 *           part of any near-term isStandard() transaction types.  
 *        
 *
-*     (22*) In anticipation of supporting multi-signature transactions, I have
+*     (35*) In anticipation of supporting multi-signature transactions, I have
 *           created a specification for handling multi-sig transactions, which
 *           also happens to work well for offline wallets/transactions.  I 
 *           have called these "Distribution Proposals".  See the following BIP:

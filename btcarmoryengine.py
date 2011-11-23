@@ -51,9 +51,6 @@ import math
 from struct import pack, unpack
 from datetime import datetime
 
-# Version Numbers 
-VERSION = (0,5,0,0)  # (Major, Minor, Minor++, even-more-minor)
-
 
 # Get the host operating system
 import platform
@@ -62,7 +59,12 @@ OS_WINDOWS = 'win' in opsys.lower()
 OS_LINUX = 'nix' in opsys.lower()
 OS_MAC = 'mac' in opsys.lower()
 
-def getVersionString(vquad=VERSION, numPieces=4):
+# Version Numbers -- numDigits [var, 2, 2, 3]
+BTCARMORY_VERSION = (0,50,0,0)  # (Major, Minor, Minor++, even-more-minor)
+PYADDRESS_VERSION = (1,00,0,0)  # (Major, Minor, Minor++, even-more-minor)
+PYWALLET_VERSION  = (1,00,0,0)  # (Major, Minor, Minor++, even-more-minor)
+
+def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
    if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
       vstr += '.%02d' % vquad[2]
@@ -70,16 +72,29 @@ def getVersionString(vquad=VERSION, numPieces=4):
       vstr += '.%03d' % vquad[3]
    return vstr
 
-def getVersionInt(vquad=VERSION, numPieces=4):
+def getVersionInt(vquad, numPieces=4):
    vint  = int(vquad[0] * 1e7)
-   if numPieces>1:
-      vint += int(vquad[1] * 1e5)
+   vint += int(vquad[1] * 1e5)
    if numPieces>2:
       vint += int(vquad[2] * 1e3)
    if numPieces>3:
       vint += int(vquad[3])
    return vint
+
+def readVersionString(verStr):
+   verList = [int(piece) for piece in verStr.split('.')]
+   while len(verList)<4:
+      verList.append(0)
+   return tuple(verList)
    
+def readVersionInt(verInt):
+   verStr = str(verInt).rjust(10,'0')
+   verList = []
+   verList.append( int(verStr[       -3:]) )
+   verList.append( int(verStr[    -5:-3 ]) )
+   verList.append( int(verStr[ -7:-5    ]) )
+   verList.append( int(verStr[:-7       ]) )
+   return tuple(verList[::-1])
 
 
 class UnserializeError(Exception):
@@ -478,20 +493,50 @@ def fixChecksumError(binaryStr, chkSum, hashFunc=hash256):
    not going to bother implementing it until I need it.  If it's
    not a one-byte error, it's most likely a different problem
    """
-   check = lambda b:  hashFunc(b).startswith(chkSum)
-
-   # Maybe just the endian is off?
-   if check(binary_switchEndian(binaryStr)):
-      return binary_switchEndian(binaryStr)
-
-   binaryArray = [b[i] for b in privKeyBinary]
-   for byte in range(len(binaryArray)):
-      origByte = binaryArray[byte]
+   for byte in range(len(binaryStr)):
+      binaryArray = [binaryStr[i] for i in range(len(binaryStr))]
       for val in range(256):
          binaryArray[byte] = chr(val)
-         if check(''.join(binaryArray)):
+         if hashFunc(''.join(binaryArray)).startswith(chkSum):
             return ''.join(binaryArray)
 
+   return ''
+
+def computeChecksum(binaryStr, nBytes=4, hashFunc=hash256):
+   return hashFunc(binaryStr)[:nBytes]
+                                               
+
+def verifyChecksum(binaryStr, chkSum, hashFunc=hash256, fixIfNecessary=True, \
+                                                              beQuiet=False): 
+   """
+   Any time we are given a value and its checksum, we can use
+   this method to verify it is valid.  If it's not valid, we
+   try to correct up to a one-byte error.  Beyond that, we assume
+   that the error is caused by something other than RAM/HDD error.
+   """
+   bin1 = str(binaryStr)
+   bin2 = binary_switchEndian(binaryStr)
+   if hashFunc(bin1).startswith(chkSum):
+      return (True, bin1)
+   elif hashFunc(bin2).startswith(chkSum):
+      if not beQuiet: print '***Checksum valid for input with reversed endianness'
+      if fixIfNecessary:
+         return (True, bin2)
+      else:
+         return (False, '')
+   elif fixIfNecessary:
+      if not beQuiet: print '***Checksum error!  Attempting to fix...',
+      fixStr = fixChecksumError(binaryStr, chkSum, hashFunc)
+      if len(fixStr)>0:
+         if not beQuiet: print 'fixed!'
+         return (True, fixStr)
+      else:
+         if not beQuiet: print 'unsuccessful'
+         return (False, '')
+   else:
+      if not beQuiet: print '***Checksum error!  Aborting'
+      return (False, '')
+      
 
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
@@ -779,6 +824,7 @@ class PyBtcAddress(object):
       self.isInitialized         = False
       self.keyChanged            = False   # ...since last key encryption
       self.walletByteLoc         = -1
+      self.chaincode             = SecureBinaryData()
       self.chainIndex            = 0
 
       # Information to be used by C++ to know where to search for transactions
@@ -796,7 +842,6 @@ class PyBtcAddress(object):
       self.createPrivKeyNextUnlock             = False
       self.createPrivKeyNextUnlock_IVandKey    = (None, None) # (IV,Key)
       self.createPrivKeyNextUnlock_ChainDepth  = -1
-      self.createPrivKeyNextUnlock_Chaincode   = -1
 
    #############################################################################
    def isInitialized(self):
@@ -1114,7 +1159,7 @@ class PyBtcAddress(object):
          for i in range(self.createPrivKeyNextUnlock_ChainDepth):
             self.binPrivKey32_Plain = CryptoECDSA().ComputeChainedPrivateKey( \
                                          self.binPrivKey32_Plain, \
-                                         self.createPrivKeyNextUnlock_Chaincode) 
+                                         self.chaincode) 
 
 
          # IV should have already been randomly generated, before
@@ -1122,7 +1167,6 @@ class PyBtcAddress(object):
          self.createPrivKeyNextUnlock            = False
          self.createPrivKeyNextUnlock_IVandKey   = []
          self.createPrivKeyNextUnlock_ChainDepth = 0
-         self.createPrivKeyNextUnlock_Chaincode  = ''
 
          # Lock/Unlock to make sure encrypted private key is filled
          self.lock(secureKdfOutput)
@@ -1315,7 +1359,20 @@ class PyBtcAddress(object):
 
 
    #############################################################################
-   def extendAddressChain(self, chaincode, secureKdfOutput=None, newIV=None):
+   def setAsAddrChainRoot(self, chaincode):
+      if not chaincode.getSize()==32:
+         raise KeyDataError, 'Chaincode must be 32 bytes'
+      else:
+         self.chainIndex = -1
+         self.chaincode  = chaincode
+         
+
+   #############################################################################
+   def isAddrChainRoot(self):
+      return (self.chainIndex==-1)
+
+   #############################################################################
+   def extendAddressChain(self, secureKdfOutput=None, newIV=None):
       """
       We require some fairly complicated logic here, due to the fact that a 
       user with a full, private-key-bearing wallet, may try to generate a new
@@ -1330,11 +1387,6 @@ class PyBtcAddress(object):
                                        self.isLocked     and \
                                        not secureKdfOutput  )
 
-      if self.chainIndex==-1:
-         # TODO: should we allow ANY address to be chained?  Or only
-         #       addresses that have their chainIndex explicitly set
-         #       to zero?  For now, we'll chain anything
-         pass
 
       if self.hasPrivKey() and not privKeyAvailButNotDecryptable:
          wasLocked = self.isLocked
@@ -1347,18 +1399,17 @@ class PyBtcAddress(object):
                newIV = SecureBinaryData().GenerateRandom(16)
 
          newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
-                                    self.binPrivKey32_Plain, chaincode)
+                                    self.binPrivKey32_Plain, self.chaincode)
          newPub  = CryptoECDSA().ComputePublicKey(newPriv)
          newAddr160 = newPub.getHash160()
-         print newPriv.toHexStr()
-         print newPub.toHexStr()
          newAddr.createFromPlainKeyData(newAddr160, newPriv, \
                                        IV16=newIV, publicKey65=newPub)
 
          newAddr.addrStr20 = newPub.getHash160()
          newAddr.useEncryption = self.useEncryption
          newAddr.isInitialized = True
-         newAddr.chainIndex = self.chainIndex+1
+         newAddr.chaincode     = self.chaincode
+         newAddr.chainIndex    = self.chainIndex+1
          if newAddr.useEncryption and wasLocked:
             newAddr.lock(secureKdfOutput)
             self.lock(secureKdfOutput)
@@ -1368,10 +1419,11 @@ class PyBtcAddress(object):
          if not self.hasPubKey():
             raise KeyDataError, 'No public key available to extend chain'
          newAddr.binPublicKey65 = CryptoECDSA().ComputeChainedPublicKey( \
-                                    self.binPublicKey65, chaincode)
+                                    self.binPublicKey65, self.chaincode)
          newAddr.addrStr20 = newAddr.binPublicKey65.getHash160()
          newAddr.useEncryption = self.useEncryption
          newAddr.isInitialized = True
+         newAddr.chaincode  = self.chaincode
          newAddr.chainIndex = self.chainIndex+1
 
 
@@ -1383,7 +1435,6 @@ class PyBtcAddress(object):
                newIV = SecureBinaryData().GenerateRandom(16)
             newAddr.binInitVect16 = newIV
             newAddr.createPrivKeyNextUnlock           = True
-            newAddr.createPrivKeyNextUnlock_Chaincode = chaincode
             newAddr.createPrivKeyNextUnlock_IVandKey = [None,None]
             if self.createPrivKeyNextUnlock:
                # We are chaining from address also requiring gen on next unlock
@@ -1400,6 +1451,63 @@ class PyBtcAddress(object):
                newAddr.createPrivKeyNextUnlock_ChainDepth  = 1
          return newAddr
         
+
+   def serializeAddressData(self):
+      """
+      We define here a binary serialization scheme that will write out ALL 
+      information needed to completely reconstruct address data from file.
+      This method returns a string, but presumably will be used to write addr
+      data to file.  The following format is used.
+
+         Address160  (20 bytes) :  The 20-byte hash of the public key
+                                   This must always be the first field
+         AddressChk  ( 4 bytes) :  Checksum to make sure no error in addr160
+
+         AddrVersion ( 4 bytes) :  Early version don't specify encrypt params
+         Flags       (16 bytes) :  Addr-specific info, including encrypt params
+         ChainIndex  ( 8 bytes) :  Index in chain if deterministic addresses
+         isEncrypted ( 1 byte ) :  Is stored privKey data encrypted?
+
+         InitVect    (16 bytes) :  Initialization vector for encryption
+         InitVectChk ( 4 bytes) :  Checksum for IV
+         PrivKey     (32 bytes) :  Private key data (may be encrypted)
+         PrivKeyChk  ( 4 bytes) :  Checksum for private key data
+
+         PublicKey   (64 bytes) :  Public key for this address
+         PubKeyChk   ( 4 bytes) :  Checksum for private key data
+
+         ChainCode   (32 bytes) :  For extending deterministic wallets
+         ChainChk    ( 4 bytes) :  Checksum for chaincode
+
+         FirstTime   ( 8 bytes) :  The first time  addr was seen in blockchain
+         LastTime    ( 8 bytes) :  The last  time  addr was seen in blockchain
+         FirstBlock  ( 4 bytes) :  The first block addr was seen in blockchain
+         LastBlock   ( 4 bytes) :  The last  block addr was seen in blockchain
+
+      Flags will contain a few things, the most important being whether the
+      current address should include the private key, but doesn't because
+      the wallet/address was locked when we tried to extend it.  This will
+      chnage the meaning of some of the fields in this serialization
+      """
+      
+      # Before starting, let's construct the flags for this address
+      # For now we will use each byte as a flag, not worrying about setting bits
+      flags = ['\x00']*16
+      flags[0] = '\x01' if self.chainIndex==-1 else '\x00'
+      flags[1] = '\x01' if self.useEncryption  else '\x00'
+   
+      flags = ''.join(flags)
+      
+      
+      
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK, self.addrStr20)
+      binOut.put(BINARY_CHUNK, computeChecksum(self.addrStr20,4))
+      binOut.put(UINT32, getVersionInt(PYADDRESS_VERSION))
+      #binOut.put(UINT32
+
+      #newAddr.createPrivKeyNextUnlock           = True
+      return binOut.getBinaryString()
                
       
    #############################################################################
@@ -1536,6 +1644,7 @@ class PyBtcAddress(object):
       print indent + '   IsLocked      :', self.isLocked
       print indent + '   KeyChanged    :', self.keyChanged
       print indent + '   ChainIndex    :', self.chainIndex
+      print indent + '   Chaincode     :', pp(self.chaincode)
       print indent + '   InitVector    :', pp(self.binInitVect16)
       if withPrivKey and self.hasPrivKey():
          print indent + 'PrivKeyPlain(BE) :', pp(self.binPrivKey32_Plain)
