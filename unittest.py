@@ -6,15 +6,15 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
-Test_PyBlockUtils     = True
-Test_CppBlockUtils    = True
+Test_BasicUtils       = False
+Test_PyBlockUtils     = False
+Test_CppBlockUtils    = False
 Test_SimpleAddress    = True
-Test_EncryptedAddress = False
-Test_MultiSigTx       = True
-Test_TxSimpleCreate   = True
-Test_SelectCoins      = True
-Test_CryptoTiming     = True
+Test_EncryptedAddress = True
+Test_MultiSigTx       = False
+Test_TxSimpleCreate   = False
+Test_SelectCoins      = False
+Test_CryptoTiming     = False
 
 
 def testFunction( fnName, expectedOutput, *args):
@@ -94,20 +94,21 @@ if Test_BasicUtils:
 
 
 
+# Unserialize an reserialize
+tx1raw = hex_to_binary('01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44dd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a40689d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a000000001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+tx2raw = hex_to_binary('0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f505000000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+
+tx1 = PyTx().unserialize(tx1raw)
+tx2 = PyTx().unserialize(tx2raw)
+   
+tx1again = tx1.serialize()
+tx2again = tx2.serialize()
+   
+   
 ################################################################################
 ################################################################################
 if Test_PyBlockUtils:
 
-   # Unserialize an reserialize
-   tx1raw = hex_to_binary('01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44dd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a40689d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a000000001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
-   tx2raw = hex_to_binary('0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f505000000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
-   
-   tx1 = PyTx().unserialize(tx1raw)
-   tx2 = PyTx().unserialize(tx2raw)
-   
-   tx1again = tx1.serialize()
-   tx2again = tx2.serialize()
-   
    print ''
    print 'Testing transaction serialization round trip:'
    print '\t Tx1 == PyTx().unserialize( Tx1.serialize() ) ? ', 
@@ -221,8 +222,14 @@ if Test_SimpleAddress:
 ################################################################################
 ################################################################################
 if Test_EncryptedAddress:
-   # Create an address to user for all subsequent tests
+   print '\n'
+   print '*********************************************************************'
+   print 'Testing secure address/wallet features'
+   print '*********************************************************************'
+   print ''
+   # Create an address to use for all subsequent tests
    privKey = SecureBinaryData(hex_to_binary('aa'*32))
+   privChk = privKey.getHash256()[:4]
    pubKey  = CryptoECDSA().ComputePublicKey(privKey)
    addr20  = pubKey.getHash160()
 
@@ -230,10 +237,60 @@ if Test_EncryptedAddress:
    fakeKdfOutput1 = SecureBinaryData( hex_to_binary('11'*32) )
    fakeKdfOutput2 = SecureBinaryData( hex_to_binary('22'*32) )
 
+   # Try to create addresses without crashing
+   print 'Testing PyBtcAddress with plaintext private key (try not to crash)'
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, pubKey)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, pubKey, skipCheck=True)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, chkSum=privChk)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey, skipCheck=True)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, skipPubCompute=True)
+   testAddr.pprint(indent=' '*3)
+
+
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
+
+   # Now try locking and unlock addresses
+   print 'Testing address locking'
+   testAddr.lock(fakeKdfOutput1, generateIVIfNecessary=True)
+   testAddr.pprint(indent=' '*3)
+
+   encryptedKey = testAddr.serializeEncryptedPrivateKey()
+   encryptionIV = testAddr.serializeInitVector()
+   plainPubKey  = testAddr.serializePublicKey()
+
+   print 'Testing address unlocking'
+   testAddr.unlock(fakeKdfOutput1)
+   testAddr.pprint(indent=' '*3)
+
+   print 'Test changing passphrase (None --> KDF1)'
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
+   testAddr.setInitializationVector(random=True)
+   testAddr.changeEncryptionKey(None, fakeKdfOutput1)
+   testAddr.pprint(indent=' '*3)
+
+   print 'Test changing passphrase (KDF1 --> None)'
+   testAddr.changeEncryptionKey(fakeKdfOutput1, None)
+   testAddr.pprint(indent=' '*3)
+      
+   print 'Test changing passphrase (KDF1 --> KDF2)'
+   testAddr.changeEncryptionKey(None, fakeKdfOutput1)
+   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
+   testAddr.pprint(indent=' '*3)
+
+   print 'Test changing passphrase (KDF2 --> Lock --> KDF1)'
+   testAddr.lock(fakeKdfOutput2)
+   testAddr.changeEncryptionKey(fakeKdfOutput2, fakeKdfOutput1)
+   testAddr.pprint(indent=' '*3)
+
+   print 'Test changing passphrase (KDF1 --> Lock --> None)'
+   testAddr.changeEncryptionKey(fakeKdfOutput1, None)
+   testAddr.pprint(indent=' '*3)
+
+   print 'Test loading pre-encrypted key data'
+   testAddr2 = PyBtcAddress().createFromEncryptedKeyData(addr20, encryptedKey, encryptionIV)
+   testAddr.pprint(indent=' '*3)
+   
+
 
 
 ################################################################################

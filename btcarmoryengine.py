@@ -849,27 +849,24 @@ class PyBtcAddress(object):
       return (firstSeen[1], lastSeen[1])
 
    #############################################################################
-   def SerializePublicKey(self):
+   def serializePublicKey(self):
       """Converts the SecureBinaryData public key to a 65-byte python string"""
       return self.binPublicKey65.toBinStr()
 
    #############################################################################
-   def SerializeEncryptedPrivateKey(self):
+   def serializeEncryptedPrivateKey(self):
       """Converts SecureBinaryData encrypted private key to python string"""
-      if self.hasPrivKey():
-         return self.binPrivKey32_Encr.toBinStr()
-      else:
-         return SecureBinaryData()
+      return self.binPrivKey32_Encr.toBinStr()
 
    #############################################################################
    # NOTE:  This method should rarely be used, unless we are only printing it
    #        to the screen.  Actually, it will be used for unencrypted wallets
    #        
-   def SerializePlainPrivateKey(self):
-      if self.hasPrivKey():
-         return self.binPrivKey32_Plain.toBinStr()
-      else:
-         return SecureBinaryData()
+   def serializePlainPrivateKey(self):
+      return self.binPrivKey32_Plain.toBinStr()
+
+   def serializeInitVector(self):
+      return self.binInitVect16.toBinStr()
 
 
    #############################################################################
@@ -905,17 +902,39 @@ class PyBtcAddress(object):
       self.walletByteLoc = byteOffset
 
    #############################################################################
-   def setInitializationVector(self, IV16=None, random=False):
+   def setInitializationVector(self, IV16=None, random=False, force=False):
       """
       Either set the IV through input arg, or explicitly call random=True
       Returns the IV -- which is especially important if it is randomly gen
+
+      This method is mainly for PREVENTING you from changing an existing IV 
+      without meaning to.  Losing the IV for encrypted data is almost as bad 
+      as losing the encryption key.  Caller must use force=True in order to 
+      override this warning -- otherwise this method will abort.
       """
-      if not IV16==None:
+      if self.binInitVect16.getSize()==16:
+         if self.isLocked:
+            print '***WARNING:  Address already locked with different IV.'
+            print '             Changing IV may cause loss of keydata.'
+         else:
+            print '***WARNING:  Address already contains an initialization'
+            print '             vector.  If you change IV without updating'
+            print '             the encrypted storage, you may permanently'
+            print '             lose the encrypted data'
+
+         if force:
+            pass
+         else:
+            print '             If you really want to do this, re-execute'
+            print '             this call with force=True'
+            return ''
+            
+      if IV16:
          self.binInitVect16 = SecureBinaryData(IV16)
       elif random==True:
          self.binInitVect16 = SecureBinaryData().GenerateRandom(16) 
       else:
-         raise KeyDataError, 'setInitializationVector: set IV, or random=True'
+         raise KeyDataError, 'setInitVector: set IV data, or random=True'
       return self.binInitVect16
       
 
@@ -939,21 +958,21 @@ class PyBtcAddress(object):
          if not self.binPublicKey65.getHash160()==self.addrStr20:
             raise KeyDataError, "Public key does not match supplied address"
 
+      return self
+
    #############################################################################
    def createFromPlainKeyData(self, addr20, plainPrivKey, IV16=None, \
-                                    chkSum=None, pubKey=None, \
+                                    chkSum=None, publicKey65=None, \
                                     skipCheck=False, skipPubCompute=False):
-      assert(len(plainPrivKey)==32)
+
+      assert(plainPrivKey.getSize()==32)
       self.__init__()
       self.addrStr20 = addr20
       self.isInitialized = True
       self.binPrivKey32_Plain = SecureBinaryData(plainPrivKey)
 
-      if IV16==None or not len(IV16)==16:
+      if not IV16 or not IV16.getSize()==16:
          # No IV means no encryption 
-         if not len(IV16)==0:
-            # It looks like we tried to specify an IV, but an invalid one
-            raise KeyDataError, 'Invalid IV for AES encryption (must be 16 bytes)'
          self.binInitVect16 = SecureBinaryData()
          self.useEncryption = False
          self.isLocked      = False
@@ -964,8 +983,8 @@ class PyBtcAddress(object):
 
       if chkSum and not self.binPrivKey32_Plain.getHash256().startswith(chkSum):
          raise ChecksumError, "Checksum doesn't match plaintext priv key!"
-      if pubKey:
-         self.binPublicKey65 = SecureBinaryData(pubKey)  
+      if publicKey65:
+         self.binPublicKey65 = SecureBinaryData(publicKey65)  
          if not self.binPublicKey65.getHash160()==self.addrStr20:
             raise KeyDataError, "Public key does not match supplied address"
          if not skipCheck:
@@ -990,18 +1009,19 @@ class PyBtcAddress(object):
          return
       else:
          if self.binPrivKey32_Encr.getSize()==32:
-            # Addr should be encrypted, and we already have enrypted priv key
+            # Addr should be encrypted, and we already have encrypted priv key
             self.binPrivKey32_Plain.destroy()
             self.isLocked = True
          else:
-            # Addr should be encrypted, but haven't yet encrypted priv key
+            # Addr should be encrypted, but haven't computed encrypted value yet
             if secureKdfKey!=None:
                # We have an encryption key, use it
-               if self.binInitVect16.getSize() < 16 and not generateIVIfNecessary:
-                  raise KeyDataError, 'No Initialization Vector available'
-               else:
-                  self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
-                  newIV = True
+               if self.binInitVect16.getSize() < 16:
+                  if not generateIVIfNecessary:
+                     raise KeyDataError, 'No Initialization Vector available'
+                  else:
+                     self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
+                     newIV = True
 
                # Finally execute the encryption
                self.binPrivKey32_Encr = CryptoAES().Encrypt( \
@@ -1096,6 +1116,8 @@ class PyBtcAddress(object):
       if secureOldKey==None and self.useEncryption and self.isLocked:
          raise WalletLockError, 'Need old encryption key to unlock private keys'
 
+      wasLocked = self.isLocked
+
       # Decrypt the original key
       if self.isLocked:
          self.unlock(secureOldKey, skipCheck=False)
@@ -1112,8 +1134,12 @@ class PyBtcAddress(object):
       else:
          # Re-encrypt with new key (using new, random IV)
          self.useEncryption = True
-         self.lock(secureNewKey)
-         self.isLocked = True
+         self.lock(secureNewKey)  # do this to make sure privKey_Encr filled
+         if self.wasLocked:
+            self.isLocked = True
+         else:
+            self.unlock(secureNewKey)
+            self.isLocked = False
 
          
          
@@ -1269,7 +1295,7 @@ class PyBtcAddress(object):
          newPub  = CryptoECDSA().ComputePublicKey(newAddrPriv)
          newAddr = newAddrPub.getHash160()
          newIV = SecureBinaryData().GenerateRandom(16)
-         newAddr.createFromPlainKeyData(newAddr, newPriv, newIV, pubKey=newPub)
+         newAddr.createFromPlainKeyData(newAddr, newPriv, newIV, publicKey65=newPub)
          newAddr.useEncryption = self.useEncryption
          newAddr.isInitialized = True
          newAddr.chainIndex = self.chainIndex+1
@@ -1428,21 +1454,23 @@ class PyBtcAddress(object):
       return self.addrStr20
    
 
-   def pprint(self, withPrivKey=False):
-      print '  BTC Address:     ', 
-      if self.addrStr==UNINITIALIZED:
-         print 'UNINITIALIZED'
-      else:
-         print self.addrStr, '(BinaryLE=%s)' % binary_to_hex(self.getAddr160())
-         print '  Have Public Key: ', self.hasPubKey()
-         print '  Have Private Key:', self.hasPrivKey()
-         if self.hasPubKey():
-            print '  Public Key Hex (Big-Endian):  '
-            print '     04', int_to_hex(self.pubKeyXInt, 32, BIGENDIAN)
-            print '       ', int_to_hex(self.pubKeyYInt, 32, BIGENDIAN)
-         if withPrivKey and self.hasPrivKey():
-            print '  Private Key Hex (Big-Endian): '
-            print '       ', int_to_hex(self.privKeyInt, 32, BIGENDIAN)
+   def pprint(self, withPrivKey=False, indent=''):
+      print indent + 'BTC Address:  ', self.getAddrStr()
+      print indent + 'Hash160[BE] =', binary_to_hex(self.getAddr160())
+      print indent + 'Have Keys (priv,pub) = (%s,%s)' % \
+                     (str(self.hasPrivKey()), str(self.hasPubKey()))
+      if self.hasPubKey():
+         print indent + 'PubKey (BE):', '04', \
+                          binary_to_hex(self.binPublicKey65[1:33 ]), \
+                          binary_to_hex(self.binPublicKey65[  33:])
+      print indent + 'Encryption parameters:'
+      print indent + '   UseEncryption :', self.useEncryption
+      print indent + '   IsLocked      :', self.isLocked
+      print indent + '   ChainIndex    :', self.chainIndex
+      print indent + '   InitVector    :', binary_to_hex(self.binInitVect16)
+      if withPrivKey and self.hasPrivKey():
+         print indent + 'PrivKey Plain (BE): ', binary_to_hex(self.binPrivKey32_Plain)
+         print indent + 'PrivKey Ciphr (BE): ', binary_to_hex(self.binPrivKey32_Encr)
       
 
 
