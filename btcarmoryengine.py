@@ -513,29 +513,34 @@ def verifyChecksum(binaryStr, chkSum, hashFunc=hash256, fixIfNecessary=True, \
    this method to verify it is valid.  If it's not valid, we
    try to correct up to a one-byte error.  Beyond that, we assume
    that the error is caused by something other than RAM/HDD error.
+
+   The return value is:
+      -- No error      :  return input
+      -- One byte error:  return input with fixed byte
+      -- 2+ bytes error:  return ''
    """
    bin1 = str(binaryStr)
    bin2 = binary_switchEndian(binaryStr)
    if hashFunc(bin1).startswith(chkSum):
-      return (True, bin1)
+      return bin1
    elif hashFunc(bin2).startswith(chkSum):
       if not beQuiet: print '***Checksum valid for input with reversed endianness'
       if fixIfNecessary:
-         return (True, bin2)
+         return bin2
       else:
-         return (False, '')
+         return ''
    elif fixIfNecessary:
       if not beQuiet: print '***Checksum error!  Attempting to fix...',
       fixStr = fixChecksumError(binaryStr, chkSum, hashFunc)
       if len(fixStr)>0:
          if not beQuiet: print 'fixed!'
-         return (True, fixStr)
+         return fixStr
       else:
          if not beQuiet: print 'unsuccessful'
-         return (False, '')
+         return ''
    else:
       if not beQuiet: print '***Checksum error!  Aborting'
-      return (False, '')
+      return ''
       
 
 
@@ -682,10 +687,12 @@ class BinaryPacker(object):
       return self.getBinaryString()
       
 
-   def put(self, varType, theData, endianness=LITTLEENDIAN):
+   def put(self, varType, theData, width=None, endianness=LITTLEENDIAN):
       """
       Need to supply the argument type you are put'ing into the stream.
       Values of BINARY_CHUNK will automatically detect the size as necessary
+
+      Use width=17 to include padding of BINARY_CHUNKs to a certain width
       """
       if   varType == UINT8:
          self.binaryConcat += int_to_binary(theData, 1, endianness)
@@ -700,7 +707,12 @@ class BinaryPacker(object):
       elif varType == FLOAT:
          self.binaryConcat += pack('<f', theData)
       elif varType == BINARY_CHUNK:
-         self.binaryConcat += theData
+         if width==None:
+            self.binaryConcat += theData
+         else:
+            if len(theData)>width:
+               raise PackerError, 'Too much data to fit into fixed width field'
+            self.binaryConcat += theData.ljust(width, '\x00')
       else:
          raise PackerError, "Var type not recognized!  VarType="+str(varType)
 
@@ -1462,22 +1474,24 @@ class PyBtcAddress(object):
          Address160  (20 bytes) :  The 20-byte hash of the public key
                                    This must always be the first field
          AddressChk  ( 4 bytes) :  Checksum to make sure no error in addr160
-
          AddrVersion ( 4 bytes) :  Early version don't specify encrypt params
          Flags       (16 bytes) :  Addr-specific info, including encrypt params
+
+         ChainCode   (32 bytes) :  For extending deterministic wallets
+         ChainChk    ( 4 bytes) :  Checksum for chaincode
          ChainIndex  ( 8 bytes) :  Index in chain if deterministic addresses
-         isEncrypted ( 1 byte ) :  Is stored privKey data encrypted?
+         ChainDepth  ( 8 bytes) :  How deep addr is in chain beyond last 
+                                   computed private key (if base address was
+                                   locked when we tried to extend/chain it)
 
          InitVect    (16 bytes) :  Initialization vector for encryption
          InitVectChk ( 4 bytes) :  Checksum for IV
          PrivKey     (32 bytes) :  Private key data (may be encrypted)
          PrivKeyChk  ( 4 bytes) :  Checksum for private key data
 
-         PublicKey   (64 bytes) :  Public key for this address
+         PublicKey   (65 bytes) :  Public key for this address
          PubKeyChk   ( 4 bytes) :  Checksum for private key data
 
-         ChainCode   (32 bytes) :  For extending deterministic wallets
-         ChainChk    ( 4 bytes) :  Checksum for chaincode
 
          FirstTime   ( 8 bytes) :  The first time  addr was seen in blockchain
          LastTime    ( 8 bytes) :  The last  time  addr was seen in blockchain
@@ -1489,26 +1503,173 @@ class PyBtcAddress(object):
       the wallet/address was locked when we tried to extend it.  This will
       chnage the meaning of some of the fields in this serialization
       """
-      
       # Before starting, let's construct the flags for this address
       # For now we will use each byte as a flag, not worrying about setting bits
-      flags = ['\x00']*16
-      flags[0] = '\x01' if self.chainIndex==-1 else '\x00'
-      flags[1] = '\x01' if self.useEncryption  else '\x00'
-   
-      flags = ''.join(flags)
-      
-      
-      
-      binOut = BinaryPacker()
-      binOut.put(BINARY_CHUNK, self.addrStr20)
-      binOut.put(BINARY_CHUNK, computeChecksum(self.addrStr20,4))
-      binOut.put(UINT32, getVersionInt(PYADDRESS_VERSION))
-      #binOut.put(UINT32
+      nFlags = 16
+      flags = [False]*nFlags
+      flags[0] = self.hasPrivKey()
+      flags[1] = self.hasPubKey()
+      flags[2] = self.useEncryption
+      flags[3] = self.createPrivKeyNextUnlock
+      flags = ''.join([('\x01' if flags[i] else '\x00') for i in range(nFlags)])
 
-      #newAddr.createPrivKeyNextUnlock           = True
+      def raw(a):
+         if isinstance(a, str):
+            return a
+         else:
+            return a.toBinStr()
+
+      def chk(a):
+         if isinstance(a, str):
+            return computeChecksum(a,4)
+         else:
+            return computeChecksum(a.toBinStr(),4)
+      
+      # Use BinaryPacker "width" fields to guaranteee BINARY_CHUNK width.  
+      # Sure, if we have malformed data we might cut some of it off instead
+      # of writing it to the binary stream.  But at least we'll ALWAYS be 
+      # able to determine where each field is, and will never corrupt the
+      # whole wallet so badly we have to go hex-diving to figure out what
+      # happened.
+      binOut = BinaryPacker()
+      binOut.put(BINARY_CHUNK,   self.addrStr20,                    width=20)
+      binOut.put(BINARY_CHUNK,   chk(self.addrStr20),               width= 4)
+      binOut.put(UINT32,         getVersionInt(PYADDRESS_VERSION))
+      binOut.put(BINARY_CHUNK,   flags,                             width=16)
+
+      # Write out address-chaining parameters (for deterministic wallets)
+      binOut.put(BINARY_CHUNK,   raw(self.chaincode),               width=32)
+      binOut.put(BINARY_CHUNK,   chk(self.chaincode),               width= 4)
+      binOut.put(UINT64,         self.chainIndex)
+      binOut.put(UINT64,         self.createPrivKeyNextUnlock_ChainDepth)
+
+      # Write out whatever is appropriate for private-key data
+      # Binary-unpacker will write all 0x00 bytes if empty values are given
+      if self.useEncryption:
+         if self.createPrivKeyNextUnlock:
+            binOut.put(BINARY_CHUNK,   raw(self.createPrivKeyNextUnlock_IVandKey[0]), width=16)
+            binOut.put(BINARY_CHUNK,   chk(self.createPrivKeyNextUnlock_IVandKey[0]), width= 4)
+            binOut.put(BINARY_CHUNK,   raw(self.createPrivKeyNextUnlock_IVandKey[1]), width=32)
+            binOut.put(BINARY_CHUNK,   chk(self.createPrivKeyNextUnlock_IVandKey[1]), width= 4)
+         else:
+            binOut.put(BINARY_CHUNK,   raw(self.binInitVect16),     width=16)
+            binOut.put(BINARY_CHUNK,   chk(self.binInitVect16),     width= 4)
+            binOut.put(BINARY_CHUNK,   raw(self.binPrivKey32_Encr), width=32)
+            binOut.put(BINARY_CHUNK,   chk(self.binPrivKey32_Encr), width= 4)
+      else:
+         binOut.put(BINARY_CHUNK,   raw(self.binInitVect16),        width=16)
+         binOut.put(BINARY_CHUNK,   chk(self.binInitVect16),        width= 4)
+         binOut.put(BINARY_CHUNK,   raw(self.binPrivKey32_Plain),   width=32)
+         binOut.put(BINARY_CHUNK,   chk(self.binPrivKey32_Plain),   width=32)
+
+      binOut.put(BINARY_CHUNK, raw(self.binPublicKey65),            width=65)
+      binOut.put(BINARY_CHUNK, chk(self.binPublicKey65),            width= 4)
+
+      binOut.put(UINT64, self.timeRange[0])
+      binOut.put(UINT64, self.timeRange[1])
+      binOut.put(UINT32, self.blkRange[0])
+      binOut.put(UINT32, self.blkRange[1])
+      
       return binOut.getBinaryString()
                
+
+   #############################################################################
+   def unserializeAddressData(self, toUnpack, verifyPubKey=True):
+      """
+      We reconstruct the address from a serialized version of it.  See the help
+      text for "serializeAddressData()" for information on what fields need to
+      be included and the binary mapping
+
+      We verify all checksums, correct for one byte errors, and raise exceptions
+      for bigger problems that can't be fixed.
+      """
+      if isinstance(toUnpack, BinaryUnpacker):
+         serializedData = toUnpack 
+      else: 
+         serializedData = BinaryUnpacker( toUnpack )
+
+      # Start with a fresh new address
+      self.__init__()
+      
+      self.addrStr20 = serializedData.get(BINARY_CHUNK, 20)
+      chkAddr20      = serializedData.get(BINARY_CHUNK,  4)
+      addrVerInt     = serializedData.get(UINT32)
+      flags          = serializedData.get(BINARY_CHUNK, 16)
+      self.addrStr20 = verifyChecksum(self.addrStr20, chkAddr20)
+
+      # Before starting, let's construct the flags for this address
+      # For now we will use each byte as a flag, not worrying about setting bits
+      flags = serializedData.get(BINARY_CHUNK, 16)
+      containsPrivKey              = (flags[0]!='\x00')
+      containsPubKey               = (flags[1]!='\x00')
+      self.useEncryption           = (flags[2]!='\x00')
+      self.createPrivKeyNextUnlock = (flags[3]!='\x00')
+
+      addrChkError = False
+      if len(self.addrStr20)==0:
+         addrChkError = True
+         if not containsPrivKey and not containsPubKey:
+            raise UnserializeError, '***ERROR: Checksum mismatch in addrStr'
+         
+         
+
+      # Write out address-chaining parameters (for deterministic wallets)
+      self.chaincode   = serializedData.get(BINARY_CHUNK, 32)
+      chkChaincode     = serializedData.get(BINARY_CHUNK,  4)
+      self.chainIndex  = serializedData.get(UINT64)
+      depth            = serializedData.get(UINT64)
+
+      if depth != '\xff'*8:
+         self.createPrivKeyNextUnlock_ChainDepth = depth
+
+      # Write out whatever is appropriate for private-key data
+      # Binary-unpacker will write all 0x00 bytes if empty values are given
+      iv      = serializedData.get(BINARY_CHUNK, 16)
+      chkIv   = serializedData.get(BINARY_CHUNK,  4)
+      privKey = serializedData.get(BINARY_CHUNK, 32)
+      chkPriv = serializedData.get(BINARY_CHUNK,  4)
+      iv      = SecureBinaryData(verifyChecksum(iv, chkIv))
+      privKey = SecureBinaryData(verifyChecksum(privKey, chkPriv))
+
+      if containsPrivKey:
+         if iv.getSize()==0:
+            raise UnserializeError, '***ERROR: Checksum mismatch in IV ' +\
+                                    '('+hash160_to_addrStr(self.addrStr20)+')'
+         if privKey.getSize()==0:
+            raise UnserializeError, '***ERROR: Checksum mismatch in PrivateKey '+\
+                                    '('+hash160_to_addrStr(self.addrStr20)+')'
+
+         if self.useEncryption:
+            if self.createPrivKeyNextUnlock:
+               self.createPrivKeyNextUnlock_IVandKey[0] = SecureBinaryData(iv)
+               self.createPrivKeyNextUnlock_IVandKey[1] = SecureBinaryData(privKey)
+            else:
+               self.binInitVect16     = SecureBinaryData(iv)
+               self.binPrivKey32_Encr = SecureBinaryData(privKey)
+         else:
+            self.binInitVect16      = SecureBinaryData(iv)
+            self.binPrivKey32_Plain = SecureBinaryData(privKey)
+
+      pubKey = serializedData.get(BINARY_CHUNK, 65)
+      chkPub = serializedData.get(BINARY_CHUNK, 4)
+      pubKey = SecureBinaryData(verifyChecksum(pubKey, chkPub))
+      
+      if containsPubKey:
+         if pubKey.getSize()==65:
+            self.binPublicKey65 = pubKey
+         else:
+            raise UnserializeError, '***ERROR: Checksum mismatch in PublicKey ' +\
+                                    '('+hash160_to_addrStr(self.addrStr20)+')'
+
+      if addrChkError:
+         self.addrStr20 = self.binPublicKey65.getHash160()
+
+      self.timeRange[0] = serializedData.get(UINT64)
+      self.timeRange[0] = serializedData.get(UINT64)
+      self.blkRange[0]  = serializedData.get(UINT32)
+      self.blkRange[0]  = serializedData.get(UINT32)
+
+      return self
       
    #############################################################################
    # The following methods are the SIMPLE address operations that can be used

@@ -97,12 +97,12 @@ if Test_BasicUtils:
    dataE1 = hex_to_binary('11' + 'aa'*30 + 'ab')
    dataE2 = hex_to_binary('11' + 'aa'*29 + 'abab')
    dchk = hash256(data)[:4]
-   testFunction('verifyChecksum', (True, data), data, dchk)
-   testFunction('verifyChecksum', (True, data), dataBE, dchk, beQuiet=True)
-   testFunction('verifyChecksum', (False,''),   dataE1, dchk, hash256, False, True)  # don't fix
-   testFunction('verifyChecksum', (True, data), dataE1, dchk, hash256,  True, True)  # try fix
-   testFunction('verifyChecksum', (False,''),   dataE2, dchk, hash256, False, True)  # don't fix
-   testFunction('verifyChecksum', (False,''),   dataE2, dchk, hash256,  True, True)  # try fix
+   testFunction('verifyChecksum', data, data, dchk)
+   testFunction('verifyChecksum', data, dataBE, dchk, beQuiet=True)
+   testFunction('verifyChecksum', '',   dataE1, dchk, hash256, False, True)  # don't fix
+   testFunction('verifyChecksum', data, dataE1, dchk, hash256,  True, True)  # try fix
+   testFunction('verifyChecksum', '',   dataE2, dchk, hash256, False, True)  # don't fix
+   testFunction('verifyChecksum', '',   dataE2, dchk, hash256,  True, True)  # try fix
 
 
    verTuple = (0,50,0,0)
