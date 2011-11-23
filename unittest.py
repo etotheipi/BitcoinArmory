@@ -9,12 +9,12 @@ BE = BIGENDIAN
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
-Test_SimpleAddress    = True
+Test_SimpleAddress    = False
 Test_EncryptedAddress = True
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = True
+Test_CryptoTiming     = False
 
 
 def testFunction( fnName, expectedOutput, *args):
@@ -222,6 +222,8 @@ if Test_SimpleAddress:
 ################################################################################
 ################################################################################
 if Test_EncryptedAddress:
+   debugPrint = True
+
    print '\n'
    print '*********************************************************************'
    print 'Testing secure address/wallet features'
@@ -244,62 +246,194 @@ if Test_EncryptedAddress:
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey, skipCheck=True)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, skipPubCompute=True)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
 
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
 
    theIV = SecureBinaryData(hex_to_binary('77'*16))
    # Now try locking and unlock addresses
-   print '\n\nTesting address locking'
+   print '\nTesting address locking'
    testAddr.enableKeyEncryption(theIV)
    testAddr.lock(fakeKdfOutput1)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
-   encryptedKey = testAddr.serializeEncryptedPrivateKey()
-   encryptionIV = testAddr.serializeInitVector()
-   plainPubKey  = testAddr.serializePublicKey()
 
-   print '\n\nTesting address unlocking'
+   print '\nTesting address unlocking'
    testAddr.unlock(fakeKdfOutput1)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
    print '\n\nTest changing passphrases'
    print '*****(None --> Key1)'
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
    testAddr.enableKeyEncryption(theIV)
    testAddr.changeEncryptionKey(None, fakeKdfOutput1)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
-   print '\n\n*****(Key1 --> Unencrypted)'
+   # Save off this data for a later test
+   addr20_1      = testAddr.getAddr160()
+   encryptedKey1 = testAddr.binPrivKey32_Encr
+   encryptionIV1 = testAddr.binInitVect16
+   plainPubKey1  = testAddr.binPublicKey65
+
+   print '\n*****(Key1 --> Unencrypted)'
    testAddr.changeEncryptionKey(fakeKdfOutput1, None)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
       
-   print '\n\n*****(Unencrypted --> Key2)'
-   testAddr.enableKeyEncryption(theIV)
+   print '\n*****(Unencrypted --> Key2)'
+   print 'Still encrypted? ', testAddr.isKeyEncryptionEnabled()
+   if not testAddr.isKeyEncryptionEnabled():
+      testAddr.enableKeyEncryption(theIV)
    testAddr.changeEncryptionKey(None, fakeKdfOutput2)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
-   print '\n\n*****(Key2 --> Key1)'
+   # Save off this data for a later test
+   addr20_2      = testAddr.getAddr160()
+   encryptedKey2 = testAddr.binPrivKey32_Encr
+   encryptionIV2 = testAddr.binInitVect16
+   plainPubKey2  = testAddr.binPublicKey65
+
+   print '\n*****(Key2 --> Key1)'
+   print 'Encrypted? ', testAddr.isKeyEncryptionEnabled()
    testAddr.changeEncryptionKey(fakeKdfOutput2, fakeKdfOutput1)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
-   print '\n\n*****(Key1 --> Lock --> Key2)'
+   print '\n*****(Key1 --> Lock --> Key2)'
    testAddr.lock(fakeKdfOutput1)
    testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
-   testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
 
-   print '\n\n*****(Key2 --> Lock --> Unencrypted)'
+   print '\n*****(Key2 --> Lock --> Unencrypted)'
    testAddr.changeEncryptionKey(fakeKdfOutput2, None)
-   testAddr.pprint(indent=' '*3)
-
-   # TODO:  Gotta test pre-encrypted key handling
-   #        and chained-key unit tests
-   #print '\n\nTest loading pre-encrypted key data'
-   #testAddr2 = PyBtcAddress().createFromEncryptedKeyData(addr20, encryptedKey, encryptionIV)
-   #testAddr.pprint(indent=' '*3)
+   if debugPrint: testAddr.pprint(indent=' '*3)
    
+   print '\nEncryption Key Tests: '
+   printpassorfail(testAddr.serializePlainPrivateKey() == privKey.toBinStr())
+                    
 
+   #############################################################################
+   # TODO:  Gotta test pre-encrypted key handling
+   print '\n\nTest loading pre-encrypted key data'
+   testAddr = PyBtcAddress().createFromEncryptedKeyData(addr20_1, \
+                                                        encryptedKey1, \
+                                                        encryptionIV1)
+   if debugPrint: testAddr.pprint(indent=' '*3)
+
+   print '\n*****(EncrAddr --> Unlock1)'
+   testAddr.unlock(fakeKdfOutput1)
+   if debugPrint: testAddr.pprint(indent=' '*3)
+
+   print '\n*****(Unlock1 --> Lock1)'
+   testAddr.lock()
+   if debugPrint: testAddr.pprint(indent=' '*3)
+
+   print '\n*****(Lock1 --> Lock2)'
+   testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
+   if debugPrint: testAddr.pprint(indent=' '*3)
+
+   #############################################################################
+   # Now testing chained-key (deterministic) address generation
+   print '\n\nTest chained priv key generation'
+   print 'Starting with plain key data'
+   chaincode = SecureBinaryData('ee'*32)
+   addr0 = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
+   pub0  = addr0.binPublicKey65
+   if debugPrint: addr0.pprint(indent=' '*3)
+
+   print '\nGenerate chained PRIVATE key address'
+   print '*****(addr[0] --> addr[1])'
+   addr1 = addr0.extendAddressChain(chaincode)
+   if debugPrint: addr1.pprint(indent=' '*3)
+
+   print '\n*****(addr[0] --> addr[1]) [again]'
+   addr1a = addr0.extendAddressChain(chaincode)
+   if debugPrint: addr1a.pprint(indent=' '*3)
+
+   print '\n*****(addr[1] --> addr[2])'
+   addr2 = addr1.extendAddressChain(chaincode)
+   pub2 = addr2.binPublicKey65.copy()
+   priv2 = addr2.binPrivKey32_Plain.copy()
+   if debugPrint: addr2.pprint(indent=' '*3)
+
+   print 'Addr1.privKey == Addr1a.privKey:',
+   printpassorfail(addr1.binPublicKey65 == addr1a.binPublicKey65)
+   
+   #############################################################################
+   print '\n\nGenerate chained PUBLIC key address'
+   print '****addr[0]'
+   addr0 = PyBtcAddress().createFromPublicKeyData(pub0)
+   if debugPrint: addr0.pprint(indent=' '*3)
+
+   print '\n*****(addr[0] --> addr[1])'
+   addr1 = addr0.extendAddressChain(chaincode)
+   if debugPrint: addr1.pprint(indent=' '*3)
+
+   print '\n*****(addr[1] --> addr[2])'
+   addr2 = addr1.extendAddressChain(chaincode)
+   pub2a = addr2.binPublicKey65.copy()
+   if debugPrint: addr2.pprint(indent=' '*3)
+
+   print '\nAddr2.PublicKey == Addr2a.PublicKey:',
+   printpassorfail(pub2 == pub2a)
+
+   #############################################################################
+   print '\n\nGenerate chained keys from locked addresses'
+   addr0 = PyBtcAddress().createFromPlainKeyData( \
+                              convertKeyDataToAddress(privKey), privKey, \
+                              willBeEncr=True, IV16=theIV)
+   print '\n*****(addr[0] plain)'
+   if debugPrint: addr0.pprint(indent=' '*3)
+
+   print '\n*****(addr[0] locked)'
+   addr0.lock(fakeKdfOutput1)
+   if debugPrint: addr0.pprint(indent=' '*3)
+
+   print '\n*****(addr[0] w/Key --> addr[1])'
+   addr1 = addr0.extendAddressChain(chaincode, fakeKdfOutput1, newIV=theIV)
+   if debugPrint: addr1.pprint(indent=' '*3)
+
+   print '\n*****(addr[1] w/Key --> addr[2])'
+   addr2 = addr1.extendAddressChain(chaincode, fakeKdfOutput1, newIV=theIV)
+   addr2.unlock(fakeKdfOutput1)
+   priv2a = addr2.binPrivKey32_Plain.copy()
+   addr2.lock()
+   if debugPrint: addr2.pprint(indent=' '*3)
+
+   print '\nAddr2.priv == Addr2a.priv:',
+   printpassorfail(priv2 == priv2a)
+
+
+
+   #############################################################################
+   print '\n\nGenerate chained keys from locked addresses, no unlocking'
+   addr0 = PyBtcAddress().createFromPlainKeyData( \
+                              convertKeyDataToAddress(privKey), privKey, \
+                              willBeEncr=True, IV16=theIV)
+   print '\n*****(addr[0] locked)'
+   addr0.lock(fakeKdfOutput1)
+   if debugPrint: addr0.pprint(indent=' '*3)
+
+   print '\n*****(addr[0] locked --> addr[1] locked)'
+   addr1 = addr0.extendAddressChain(chaincode, newIV=theIV)
+   if debugPrint: addr1.pprint(indent=' '*3)
+
+   print '\n*****(addr[1] locked --> addr[2] locked)'
+   addr2 = addr1.extendAddressChain(chaincode, newIV=theIV)
+   pub2b = addr2.binPublicKey65.copy()
+   if debugPrint: addr2.pprint(indent=' '*3)
+
+   print '\nAddr2.Pub == Addr2b.pub:'
+   printpassorfail(pub2 == pub2b)
+
+   addr2.unlock(fakeKdfOutput1)
+   priv2b = addr2.binPrivKey32_Plain.copy()
+   addr2.lock()
+   
+   print '\n*****(addr[2] locked --> unlocked --> locked)'
+   if debugPrint: addr2.pprint(indent=' '*3)
+   
+   print '\nAddr2.priv == Addr2b.priv:'
+   printpassorfail(priv2 == priv2b)
 
 
 ################################################################################
@@ -358,6 +492,11 @@ if Test_TxSimpleCreate:
 ################################################################################
 ################################################################################
 if Test_MultiSigTx:
+   print '\n'
+   print '*********************************************************************'
+   print 'Testing Multi-signature transaction verification'
+   print '*********************************************************************'
+   print ''
    # 2-of-2 transaction
    tx1 = PyTx().unserialize(hex_to_binary('010000000189a0022c8291b4328338ec95179612b8ebf72067051de019a6084fb97eae0ebe000000004a4930460221009627882154854e3de066943ba96faba02bb8b80c1670a0a30d0408caa49f03df022100b625414510a2a66ebb43fffa3f4023744695380847ee1073117ec90cb60f2c8301ffffffff0210c18d0000000000434104a701496f10db6aa8acbb6a7aa14d62f4925f8da03de7f0262010025945f6ebcc3efd55b6aa4bc6f811a0dc1bbdd2644bdd81c8a63766aa11f650cd7736bbcaf8ac001bb7000000000043526b006b7dac7ca914fc1243972b59c1726735d3c5cca40e415039dce9879a6c936b7dac7ca914375dd72e03e7b5dbb49f7e843b7bef4a2cc2ce9e879a6c936b6c6ca200000000'))
    tx2 = PyTx().unserialize(hex_to_binary('01000000011c9608650a912be7fa88eecec664e6fbfa4b676708697fa99c28b3370005f32d01000000fd1701483045022017462c29efc9158cf26f2070d444bb2b087b8a0e6287a9274fa36fad30c46485022100c6d4cc6cd504f768389637df71c1ccd452e0691348d0f418130c31da8cc2a6e8014104e83c1d4079a1b36417f0544063eadbc44833a992b9667ab29b4ff252d8287687bad7581581ae385854d4e5f1fcedce7de12b1aec1cb004cabb2ec1f3de9b2e60493046022100fdc7beb27de0c3a53fbf96df7ccf9518c5fe7873eeed413ce17e4c0e8bf9c06e022100cc15103b3c2e1f49d066897fe681a12e397e87ed7ee39f1c8c4a5fef30f4c2c60141047cf315904fcc2e3e2465153d39019e0d66a8aaec1cec1178feb10d46537427239fd64b81e41651e89b89fefe6a23561d25dddc835395dd3542f83b32a1906aebffffffff01c0d8a700000000001976a914fc1243972b59c1726735d3c5cca40e415039dce988ac00000000'))
@@ -468,12 +607,14 @@ if Test_CryptoTiming:
    
    nTest = 10000
 
+   """
    # Test with no initialization vector
    start = time.time()
    for i in range(nTest):
       cipher = CryptoAES().Encrypt(secret, keyAES, noIV)
    end = time.time()
    print '    AES Encryption with IV generation: %0.1f/sec' % (nTest/(end-start))
+   """
 
    # Now using an IV
    start = time.time()
