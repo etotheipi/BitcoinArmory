@@ -878,7 +878,7 @@ class PyBtcAddress(object):
       # public key, and store the last-known chain info, so that it can be
       # generated the next time the address is unlocked
       self.createPrivKeyNextUnlock             = False
-      self.createPrivKeyNextUnlock_IVandKey    = (None, None) # (IV,Key)
+      self.createPrivKeyNextUnlock_IVandKey    = [None, None] # (IV,Key)
       self.createPrivKeyNextUnlock_ChainDepth  = -1
 
    #############################################################################
@@ -1267,7 +1267,7 @@ class PyBtcAddress(object):
          self.isLocked          = False
          self.useEncryption     = False
       else:
-         # Re-encrypt with new key (using new, random IV)
+         # Re-encrypt with new key (using same IV)
          self.useEncryption = True
          self.lock(secureNewKey)  # do this to make sure privKey_Encr filled
          if wasLocked:
@@ -1529,13 +1529,27 @@ class PyBtcAddress(object):
       the wallet/address was locked when we tried to extend it.  This will
       chnage the meaning of some of the fields in this serialization
       """
+
+      serializeWithEncryption = self.useEncryption
+
+      if self.useEncryption and \
+         self.binPrivKey32_Encr.getSize()==0 and \
+         self.binPrivKey32_Plain.getSize()>0:
+         print ''
+         print '***WARNING: you have chosen to serialize a key you hope to be'
+         print '            encrypted, but have not yet chosen a passphrase for'
+         print '            it.  The only way to serialize this wallet is with '
+         print '            the plaintext keys.  Please lock this address at'
+         print '            least once in order to enable encrypted output.'
+         serializeWithEncryption = False
+
       # Before starting, let's construct the flags for this address
       # For now we will use each byte as a flag, not worrying about setting bits
       nFlags = 16
       flags = [False]*nFlags
       flags[0] = self.hasPrivKey()
       flags[1] = self.hasPubKey()
-      flags[2] = self.useEncryption
+      flags[2] = serializeWithEncryption
       flags[3] = self.createPrivKeyNextUnlock
       flags = ''.join([('\x01' if flags[i] else '\x00') for i in range(nFlags)])
 
@@ -1571,7 +1585,7 @@ class PyBtcAddress(object):
 
       # Write out whatever is appropriate for private-key data
       # Binary-unpacker will write all 0x00 bytes if empty values are given
-      if self.useEncryption:
+      if serializeWithEncryption:
          if self.createPrivKeyNextUnlock:
             binOut.put(BINARY_CHUNK,   raw(self.createPrivKeyNextUnlock_IVandKey[0]), width=16)
             binOut.put(BINARY_CHUNK,   chk(self.createPrivKeyNextUnlock_IVandKey[0]), width= 4)

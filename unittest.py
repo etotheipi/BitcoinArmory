@@ -7,14 +7,14 @@ BE = BIGENDIAN
 
 
 Test_BasicUtils       = True
-Test_PyBlockUtils     = False
+Test_PyBlockUtils     = True
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_EncryptedAddress = True
-Test_MultiSigTx       = False
+Test_MultiSigTx       = True
 Test_TxSimpleCreate   = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_CryptoTiming     = True
 
 
 def testFunction( fnName, expectedOutput, *args, **kwargs):
@@ -37,10 +37,11 @@ def printpassorfail(abool):
    """
    Print a simple, formatted pass/fail string  
    """
+   w = 60
    if abool:
-      print '*** PASSED ***',
+      print '\n' + ' '*w + '*** PASSED ***',
    else:
-      print '___ FAILED ___',
+      print '\n' + ' '*w + '___ FAILED ___',
 
 
 
@@ -263,7 +264,8 @@ if Test_EncryptedAddress:
    print '*********************************************************************'
    print ''
 
-   debugPrint = True
+   # Enable this flag to get a TON of debugging output!
+   debugPrint = False
 
    # Create an address to use for all subsequent tests
    privKey = SecureBinaryData(hex_to_binary('aa'*32))
@@ -300,22 +302,21 @@ if Test_EncryptedAddress:
    testAddr.lock(fakeKdfOutput1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
-   #print '\nTest serializing locked address',
+   print '\nTest serializing locked address',
    serializedAddr = testAddr.serialize()
    retestAddr = PyBtcAddress().unserialize(serializedAddr)
-   #serializedRetest = retestAddr.serialize()
-   #printpassorfail(serializedAddr == serializedRetest)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    print '\nTesting address unlocking'
    testAddr.unlock(fakeKdfOutput1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
-   if debugPrint:
-      print '\nTest serializing encrypted-but-unlocked address',
-      serializedAddr = testAddr.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing encrypted-but-unlocked address',
+   serializedAddr = testAddr.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    #############################################################################
    print '\n\nTest changing passphrases'
@@ -386,12 +387,11 @@ if Test_EncryptedAddress:
    testAddr.changeEncryptionKey(fakeKdfOutput1, fakeKdfOutput2)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
-   if debugPrint:
-      print '\nTest serializing locked wallet from pre-encrypted data',
-      serializedAddr = testAddr.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing locked wallet from pre-encrypted data',
+   serializedAddr = testAddr.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    #############################################################################
    # Now testing chained-key (deterministic) address generation
@@ -403,12 +403,11 @@ if Test_EncryptedAddress:
    pub0  = addr0.binPublicKey65
    if debugPrint: addr0.pprint(indent=' '*3)
 
-   if debugPrint:
-      print '\nTest serializing address-chain-root',
-      serializedAddr = addr0.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing address-chain-root',
+   serializedAddr = addr0.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    print '\nGenerate chained PRIVATE key address'
    print '  OP(addr[0] --> addr[1])'
@@ -428,12 +427,11 @@ if Test_EncryptedAddress:
    print '\nAddr1.privKey == Addr1a.privKey:',
    printpassorfail(addr1.binPublicKey65 == addr1a.binPublicKey65)
 
-   if debugPrint:
-      print '\nTest serializing priv-key-chained',
-      serializedAddr = addr2.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing priv-key-chained',
+   serializedAddr = addr2.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
    
    #############################################################################
    print '\n\nGenerate chained PUBLIC key address'
@@ -442,12 +440,11 @@ if Test_EncryptedAddress:
    addr0.setAsAddrChainRoot(chaincode)
    if debugPrint: addr0.pprint(indent=' '*3)
 
-   if debugPrint:
-      print '\nTest serializing pub-key-only-root',
-      serializedAddr = addr0.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing pub-key-only-root',
+   serializedAddr = addr0.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    print '\n  OP(addr[0] --> addr[1])'
    addr1 = addr0.extendAddressChain()
@@ -461,12 +458,11 @@ if Test_EncryptedAddress:
    print '\nAddr2.PublicKey == Addr2a.PublicKey:',
    printpassorfail(pub2 == pub2a)
 
-   if debugPrint:
-      print '\nTest serializing pub-key-from-chain',
-      serializedAddr = addr2.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing pub-key-from-chain',
+   serializedAddr = addr2.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    #############################################################################
    print '\n\nGenerate chained keys from locked addresses'
@@ -477,14 +473,11 @@ if Test_EncryptedAddress:
    print '\n  OP(addr[0] plain)'
    if debugPrint: addr0.pprint(indent=' '*3)
 
-   if debugPrint:
-      print '\nTest serializing locked addr-chain-root',
-      serializedAddr = addr0.serialize()
-      #pprintHex(binary_to_hex(serializedAddr))
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
-      #pprintHex(binary_to_hex(serializedRetest))
+   print '\nTest serializing unlocked addr-chain-root',
+   serializedAddr = addr0.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    print '\n  OP(addr[0] locked)'
    addr0.lock(fakeKdfOutput1)
@@ -504,12 +497,11 @@ if Test_EncryptedAddress:
    print '\nAddr2.priv == Addr2a.priv:',
    printpassorfail(priv2 == priv2a)
 
-   if debugPrint:
-      print '\nTest serializing chained address from locked root',
-      serializedAddr = addr2.serialize()
-      retestAddr = PyBtcAddress().unserialize(serializedAddr)
-      #serializedRetest = retestAddr.serialize()
-      #printpassorfail(serializedAddr == serializedRetest)
+   print '\nTest serializing chained address from locked root',
+   serializedAddr = addr2.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
 
    #############################################################################
@@ -534,12 +526,22 @@ if Test_EncryptedAddress:
    print '\nAddr2.Pub == Addr2b.pub:',
    printpassorfail(pub2 == pub2b)
 
+   print '\nTest serializing priv-key-bearing address marked for unlock',
+   serializedAddr = addr2.serialize()
+   retestAddr = PyBtcAddress().unserialize(serializedAddr)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
+
    addr2.unlock(fakeKdfOutput1)
    priv2b = addr2.binPrivKey32_Plain.copy()
-   addr2.lock()
-   
-   print '\n  OP(addr[2] locked --> unlocked --> locked)'
+   print '\n  OP(addr[2] locked --> unlocked)'
    if debugPrint: addr2.pprint(indent=' '*3)
+
+
+   addr2.lock()
+   print '\n  OP(addr[2] unlocked --> locked)'
+   if debugPrint: addr2.pprint(indent=' '*3)
+   
    
    print '\nAddr2.priv == Addr2b.priv:',
    printpassorfail(priv2 == priv2b)
