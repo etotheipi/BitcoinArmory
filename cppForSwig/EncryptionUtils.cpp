@@ -12,7 +12,14 @@
 // We have to explicitly re-define some of these methods...
 SecureBinaryData & SecureBinaryData::append(SecureBinaryData & sbd2) 
 {
-   BinaryData::append(sbd2.getRawRef());
+   if(sbd2.getSize()==0) 
+      return (*this);
+
+   if(getSize()==0) 
+      BinaryData::copyFrom(sbd2.getPtr(), sbd2.getSize());
+   else
+      BinaryData::append(sbd2.getRawRef());
+
    lockData();
    return (*this);
 }
@@ -46,6 +53,7 @@ bool SecureBinaryData::operator==(SecureBinaryData const & sbd2) const
    return true;
 }
 
+/////////////////////////////////////////////////////////////////////////////
 SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 {
    static CryptoPP::AutoSeededRandomPool prng;

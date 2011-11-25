@@ -63,33 +63,39 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData(void) : data_(0), nBytes_(0)     {                         }
+   BinaryData(void) : data_(0)                 {                         }
    BinaryData(size_t sz)                       { alloc(sz);              }
    BinaryData(uint8_t const * inData, size_t sz)      
                                                { copyFrom(inData, sz);   }
    BinaryData(uint8_t const * dstart, uint8_t const * dend ) 
                                                { copyFrom(dstart, dend); }
    BinaryData(string const & str)              { copyFrom(str);          }
-   BinaryData(BinaryData const & bd) 
-   { 
-      if(bd.nBytes_!=0) 
-      {
-         alloc(bd.nBytes_);
-         copyFrom(bd);
-      }
-      else
-         nBytes_ = 0;
-   }
+   BinaryData(BinaryData const & bd)           { copyFrom(bd);           }
 
    BinaryData(BinaryDataRef const & bdRef);
+   size_t getSize(void) const               { return data_.size(); }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t const * getPtr(void) const       { return &(data_[0]); }
-   uint8_t * getPtr(void)                   { return &(data_[0]); }
-   size_t getSize(void) const               { return nBytes_; }
+   uint8_t const * getPtr(void) const       
+   { 
+      if(getSize()==0)
+         return NULL;
+      else
+         return &(data_[0]); 
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   uint8_t* getPtr(void)                   
+   { 
+      if(getSize()==0)
+         return NULL;
+      else
+         return &(data_[0]); 
+   }  
+
    BinaryDataRef getRef(void) const;
    //uint8_t const * getConstPtr(void) const  { return &(data_[0]); }
-
+   
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
    // TODO:  Got a problem when copying an empty/uninitialized BD object...
@@ -102,33 +108,32 @@ public:
    void copyFrom(BinaryDataRef const & bdr);
    void copyFrom(uint8_t const * inData, size_t sz)          
    { 
-      if(sz!=data_.size()) 
+      if(inData==NULL || sz == 0)
+         alloc(0);
+      else
       {
          alloc(sz); 
-         nBytes_ = sz;
-      }
-      if(sz > 0)
          memcpy( &(data_[0]), inData, sz);
+      }
    }
 
    /////////////////////////////////////////////////////////////////////////////
    // UNSAFE -- you don't know if outData holds enough space for this
-   void copyTo(uint8_t* outData) const { memcpy( outData, &(data_[0]), (size_t)nBytes_); }
+   void copyTo(uint8_t* outData) const { memcpy( outData, &(data_[0]), getSize()); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, &(data_[0]), (size_t)sz); }
    void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, &(data_[offset]), (size_t)sz); }
 
-   void fill(uint8_t ch) { if(nBytes_>0) memset(getPtr(), ch, nBytes_); }
+   void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
                
    uint8_t & operator[](size_t i)       { return data_[i]; }
    uint8_t   operator[](size_t i) const { return data_[i]; } 
 
    /////////////////////////////////////////////////////////////////////////////
-   // This is probably inefficient, but easy
    BinaryData operator+(BinaryData const & bd2) const
    {
-      BinaryData out(nBytes_ + bd2.nBytes_);
-      memcpy(out.getPtr(), getPtr(), nBytes_);
-      memcpy(out.getPtr()+nBytes_, bd2.getPtr(), bd2.nBytes_);
+      BinaryData out(getSize() + bd2.getSize());
+      memcpy(out.getPtr(), getPtr(), getSize());
+      memcpy(out.getPtr()+getSize(), bd2.getPtr(), bd2.getSize());
       return out;
    }
 
@@ -136,8 +141,13 @@ public:
    // This is about as efficient as we're going to get...
    BinaryData & append(BinaryData const & bd2)
    {
-      data_.insert(data_.end(), bd2.data_.begin(), bd2.data_.end());
-      nBytes_ += bd2.nBytes_;
+      if(bd2.getSize()==0) 
+         return (*this);
+   
+      if(getSize()==0) 
+         copyFrom(bd2.getPtr(), bd2.getSize());
+      else
+         data_.insert(data_.end(), bd2.data_.begin(), bd2.data_.end());
       return (*this);
    }
 
@@ -145,21 +155,12 @@ public:
    BinaryData & append(BinaryDataRef const & bd2);
 
    /////////////////////////////////////////////////////////////////////////////
-   // Not remarkably efficient, but not terrible
-   BinaryData & append(uint8_t const * str, uint32_t sz)
-   {
-      BinaryData appStr(str, sz);
-      data_.insert(data_.end(), appStr.data_.begin(), appStr.data_.end());
-      nBytes_ += sz;
-      return (*this);
-   }
+   BinaryData & append(uint8_t const * str, uint32_t sz);
 
    /////////////////////////////////////////////////////////////////////////////
-   // This is about as efficient as we're going to get...
    BinaryData & append(uint8_t byte)
    {
       data_.insert(data_.end(), byte);
-      nBytes_ += 1;
       return (*this);
    }
 
@@ -193,22 +194,22 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator<(BinaryData const & bd2) const
    {
-      int minLen = min(nBytes_, bd2.nBytes_);
+      int minLen = min(getSize(), bd2.getSize());
       for(int i=0; i<minLen; i++)
       {
          if( data_[i] == bd2.data_[i] )
             continue;
          return data_[i] < bd2.data_[i];
       }
-      return (nBytes_ < bd2.nBytes_);
+      return (getSize() < bd2.getSize());
    }
 
    /////////////////////////////////////////////////////////////////////////////
    bool operator==(BinaryData const & bd2) const
    {
-      if(nBytes_ != bd2.nBytes_)
+      if(getSize() != bd2.getSize())
          return false;
-      for(unsigned int i=0; i<nBytes_; i++)
+      for(unsigned int i=0; i<getSize(); i++)
          if( data_[i] != bd2.data_[i] )
             return false;
       return true;
@@ -220,32 +221,44 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    bool operator>(BinaryData const & bd2) const
    {
-      int minLen = min(nBytes_, bd2.nBytes_);
+      int minLen = min(getSize(), bd2.getSize());
       for(int i=0; i<minLen; i++)
       {
          if( data_[i] == bd2.data_[i] )
             continue;
          return data_[i] > bd2.data_[i];
       }
-      return (nBytes_ > bd2.nBytes_);
+      return (getSize() > bd2.getSize());
    }
 
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
-   void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), nBytes_); }
-   string toBinStr(void) const { return string((char const *)(&(data_[0])), nBytes_); }
+   void copyTo(string & str) { str.assign( (char const *)(&(data_[0])), getSize()); }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toBinStr(void) const 
+   { 
+      if(getSize()==0)
+         return string("");
+
+      return string((char const *)(&(data_[0])), getSize());
+   }
+
    char* toCharPtr(void) const  { return  (char*)(&(data_[0])); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(&(data_[0])); }
 
-   void resize(size_t sz) { data_.resize(sz); nBytes_ = sz;}
+   void resize(size_t sz) { data_.resize(sz); }
    void reserve(size_t sz) { data_.reserve(sz); }
 
    /////////////////////////////////////////////////////////////////////////////
    // Swap endianness of the bytes in the index range [pos1, pos2)
    BinaryData& swapEndian(size_t pos1=0, size_t pos2=0)
    {
+      if(getSize()==0)
+         return (*this);
+
       if(pos2 <= pos1)
-         pos2 = nBytes_;
+         pos2 = getSize();
 
       size_t totalBytes = pos2-pos1;
       for(size_t i=0; i<(totalBytes/2); i++)
@@ -269,6 +282,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    string toHexStr(bool bigEndian=false) const
    {
+      if(getSize()==0)
+         return string("");
+
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
                                         '8','9','a','b',
@@ -277,20 +293,15 @@ public:
       if(bigEndian)
          bdToHex.swapEndian();
 
-      vector<int8_t> outStr(2*nBytes_);
-      for( size_t i=0; i<nBytes_; i++)
+      vector<int8_t> outStr(2*getSize());
+      for( size_t i=0; i<getSize(); i++)
       {
          uint8_t nextByte = bdToHex.data_[i];
          outStr[2*i  ] = hexLookupTable[ (nextByte >> 4) & 0x0F ];
          outStr[2*i+1] = hexLookupTable[ (nextByte     ) & 0x0F ];
       }
-      if(nBytes_ > 0)
-      {
          
-         return string((char const *)(&(outStr[0])), 2*nBytes_);
-      }
-      else
-         return string("");
+      return string((char const *)(&(outStr[0])), 2*getSize());
    }
 
    static BinaryData CreateFromHex(string const & str)
@@ -304,18 +315,18 @@ public:
    void createFromHex(string const & str)
    {
       static uint8_t binLookupTable[256] = { 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0a, 0x0b, 0x0c, 0x0d, 
-            0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
-            0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0x0a, 0x0b, 0x0c, 0x0d, 
+         0x0e, 0x0f, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 
+         0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0             };
 
       assert(str.size()%2 == 0);
       int newLen = str.size() / 2;
@@ -351,29 +362,26 @@ public:
       uint32_t filesize = (size_t)is.tellg();
       is.seekg(0, ios::beg);
       
-      nBytes_ = filesize;
-      data_.resize(nBytes_);
-      is.read((char*)getPtr(), nBytes_);
-      return nBytes_;
+      data_.resize(getSize());
+      is.read((char*)getPtr(), getSize());
+      return getSize();
    }
 
    // For deallocating all the memory that is currently used by this BD
-   void clear(void)
-   {
-      data_.clear();
-      nBytes_=0;
-   }
+   void clear(void) { data_.clear(); }
 
 private:
    vector<uint8_t> data_;
-   size_t nBytes_;
-
 
 private:
-   void alloc(size_t sz)
-   {
-      data_ = vector<uint8_t>(sz);
-      nBytes_ = sz;
+   void alloc(size_t sz) 
+   { 
+      if(sz != getSize())
+      {
+         data_.clear();
+         data_.resize(sz);
+      }
+
    }
 
 };
@@ -461,7 +469,12 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // These are always memory-safe
    void copyTo(string & str) { str.assign( (char const *)(ptr_), nBytes_); }
-   string toBinStr(void) const { return string((char const *)(ptr_), nBytes_); }
+   string toBinStr(void) const 
+   { 
+      if(getSize()==0)
+         return string("");
+      return string((char const *)(ptr_), nBytes_); 
+   }
    char* toCharPtr(void) const  { return  (char*)(ptr_); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
@@ -662,6 +675,9 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    string toHexStr(bool bigEndian=false) const
    {
+      if(getSize() == 0)
+         return string("");
+
       static char hexLookupTable[16] = {'0','1','2','3',
                                         '4','5','6','7',
                                         '8','9','a','b',

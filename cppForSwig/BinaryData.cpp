@@ -26,7 +26,7 @@ void BinaryData::copyFrom(BinaryDataRef const & bdr)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryDataRef BinaryData::getRef(void) const
 {
-   return BinaryDataRef(getPtr(), nBytes_);
+   return BinaryDataRef(getPtr(), getSize());
 }
 
 
@@ -34,18 +34,30 @@ BinaryDataRef BinaryData::getRef(void) const
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData & BinaryData::append(BinaryDataRef const & bd2)
 {
-   data_.insert(data_.end(), bd2.getPtr(), bd2.getPtr()+bd2.getSize());
-   nBytes_ += bd2.getSize();
+   if(bd2.getSize()==0) 
+      return (*this);
+   
+   if(getSize()==0) 
+      copyFrom(bd2.getPtr(), bd2.getSize());
+   else
+      data_.insert(data_.end(), bd2.getPtr(), bd2.getPtr()+bd2.getSize());
+
    return (*this);
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+BinaryData & BinaryData::append(uint8_t const * str, uint32_t sz)
+{
+   BinaryDataRef appStr(str, sz);
+   return append(appStr);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 int32_t BinaryData::find(BinaryDataRef const & matchStr, uint32_t startPos)
 {
    int32_t finalAnswer = -1;
-   for(int32_t i=startPos; i<=(int32_t)nBytes_-(int32_t)matchStr.getSize(); i++)
+   for(int32_t i=startPos; i<=(int32_t)getSize()-(int32_t)matchStr.getSize(); i++)
    {
       if(matchStr[0] != data_[i])
          continue;
@@ -93,7 +105,7 @@ bool BinaryData::contains(BinaryDataRef const & matchStr, uint32_t startPos)
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::startsWith(BinaryDataRef const & matchStr) const
 {
-   if(matchStr.getSize() > nBytes_)
+   if(matchStr.getSize() > getSize())
       return false;
 
    for(uint32_t i=0; i<matchStr.getSize(); i++)
@@ -106,7 +118,7 @@ bool BinaryData::startsWith(BinaryDataRef const & matchStr) const
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::startsWith(BinaryData const & matchStr) const
 {
-   if(matchStr.getSize() > nBytes_)
+   if(matchStr.getSize() > getSize())
       return false;
 
    for(uint32_t i=0; i<matchStr.getSize(); i++)
@@ -120,11 +132,11 @@ bool BinaryData::startsWith(BinaryData const & matchStr) const
 bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
-   if(sz > nBytes_)
+   if(sz > getSize())
       return false;
    
    for(uint32_t i=0; i<sz; i++)
-      if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
+      if(matchStr[sz-(i+1)] != (*this)[getSize()-(i+1)])
          return false;
 
    return true;
@@ -133,11 +145,11 @@ bool BinaryData::endsWith(BinaryDataRef const & matchStr) const
 bool BinaryData::endsWith(BinaryData const & matchStr) const
 {
    uint32_t sz = matchStr.getSize();
-   if(sz > nBytes_)
+   if(sz > getSize())
       return false;
    
    for(uint32_t i=0; i<sz; i++)
-      if(matchStr[sz-(i+1)] != (*this)[nBytes_-(i+1)])
+      if(matchStr[sz-(i+1)] != (*this)[getSize()-(i+1)])
          return false;
 
    return true;
@@ -147,9 +159,9 @@ bool BinaryData::endsWith(BinaryData const & matchStr) const
 BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
-      start_pos = nBytes_ + start_pos;
+      start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > nBytes_)
+   if(start_pos + nChar > getSize())
    {
       cerr << "getSliceRef: Invalid BinaryData access" << endl;
       return BinaryDataRef();
@@ -161,9 +173,9 @@ BinaryDataRef BinaryData::getSliceRef(int32_t start_pos, uint32_t nChar) const
 BinaryData BinaryData::getSliceCopy(int32_t start_pos, uint32_t nChar) const
 {
    if(start_pos < 0) 
-      start_pos = nBytes_ + start_pos;
+      start_pos = getSize() + start_pos;
 
-   if(start_pos + nChar > nBytes_)
+   if(start_pos + nChar > getSize())
    {
       cerr << "getSliceCopy: Invalid BinaryData access" << endl;
       return BinaryData();
@@ -199,9 +211,9 @@ uint64_t BinaryRefReader::get_var_int(uint8_t* nRead)
 /////////////////////////////////////////////////////////////////////////////
 bool BinaryData::operator==(BinaryDataRef const & bd2) const
 {
-   if(nBytes_ != bd2.getSize())
+   if(getSize() != bd2.getSize())
       return false;
-   for(unsigned int i=0; i<nBytes_; i++)
+   for(unsigned int i=0; i<getSize(); i++)
       if( data_[i] != bd2[i])
          return false;
    return true;

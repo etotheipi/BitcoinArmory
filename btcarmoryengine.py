@@ -1681,14 +1681,14 @@ class PyBtcAddress(object):
                raise UnserializeError, '***ERROR: Checksum mismatch in IV ' +\
                                     '('+hash160_to_addrStr(self.addrStr20)+')'
             if self.createPrivKeyNextUnlock:
-               self.createPrivKeyNextUnlock_IVandKey[0] = SecureBinaryData(iv)
-               self.createPrivKeyNextUnlock_IVandKey[1] = SecureBinaryData(privKey)
+               self.createPrivKeyNextUnlock_IVandKey[0] = iv.copy()
+               self.createPrivKeyNextUnlock_IVandKey[1] = privKey.copy()
             else:
-               self.binInitVect16     = SecureBinaryData(iv)
-               self.binPrivKey32_Encr = SecureBinaryData(privKey)
+               self.binInitVect16     = iv.copy()
+               self.binPrivKey32_Encr = privKey.copy()
          else:
-            self.binInitVect16      = SecureBinaryData(iv)
-            self.binPrivKey32_Plain = SecureBinaryData(privKey)
+            self.binInitVect16      = iv.copy()
+            self.binPrivKey32_Plain = privKey.copy()
 
       pubKey = chkzero(serializedData.get(BINARY_CHUNK, 65))
       chkPub =         serializedData.get(BINARY_CHUNK, 4)

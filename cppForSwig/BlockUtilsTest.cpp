@@ -390,6 +390,36 @@ void TestReorgBlockchain(string blkfile)
 void TestCrypto(void)
 {
 
+   SecureBinaryData a("aaaaaaaaaa");
+   SecureBinaryData b; b.resize(5);
+   SecureBinaryData c; c.resize(0);
+
+   a.copyFrom(b);
+   b.copyFrom(c);
+   c.copyFrom(a);
+
+   a.resize(0);
+   b = a;
+   SecureBinaryData d(a); 
+
+   cout << "a=" << a.toHexStr() << endl;
+   cout << "b=" << b.toHexStr() << endl;
+   cout << "c=" << c.toHexStr() << endl;
+   cout << "d=" << d.toHexStr() << endl;
+
+   SecureBinaryData e("eeeeeeeeeeeeeeee");
+   SecureBinaryData f("ffffffff");
+   SecureBinaryData g(0);
+
+   e = g.copy();
+   e = f.copy();
+
+   cout << "e=" << e.toHexStr() << endl;
+   cout << "f=" << f.toHexStr() << endl;
+   cout << "g=" << g.toHexStr() << endl;
+   
+   
+
    /////////////////////////////////////////////////////////////////////////////
    // Start Key-Derivation-Function (KDF) Tests.  
    // ROMIX is the provably memory-hard (GPU-resistent) algorithm proposed by 
