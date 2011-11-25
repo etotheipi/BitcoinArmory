@@ -212,25 +212,25 @@ private:
 //
 // BtcAddress  
 //
+// This class is only for scanning the blockchain (information only).  It has
+// no need to keep track of the public and private keys of various addresses,
+// which is done by the python code leveraging this class.
 ////////////////////////////////////////////////////////////////////////////////
 class BtcAddress
 {
 public:
    BtcAddress(void) : 
-      address20_(0), pubKey65_(0), privKey32_(0), 
-      firstBlockNum_(0), firstTimestamp_(0), 
+      address20_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
       isActive_(false), relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
-              BinaryData    pubKey65 = BinaryData(0),
-              BinaryData    privKey32 = BinaryData(0),
               uint32_t      firstBlockNum = 0,
-              uint32_t      firstTimestamp = 0);
+              uint32_t      firstTimestamp = 0,
+              uint32_t      lastBlockNum = 0,
+              uint32_t      lastTimestamp = 0);
    
    BinaryData const &  getAddrStr20(void) const  {return address20_;      }
-   BinaryData const &  getPubKey65(void) const   {return pubKey65_;       }
-   BinaryData const &  getPrivKey32(void) const  {return privKey32_;      }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
    uint32_t       getFirstTimestamp(void) const  {return firstTimestamp_; }
    uint32_t       getLastBlockNum(void)          {return lastBlockNum_;   }
@@ -240,26 +240,15 @@ public:
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
 
-   bool           isUnused(void) { return firstBlockNum_==UINT32_MAX; }
+   bool           isUnused(void) { return (firstBlockNum_==UINT32_MAX &&
+                                           firstTimestamp_==UINT32_MAX); }
    void           setUnused(void) {firstBlockNum_=UINT32_MAX; 
                                    firstTimestamp_=UINT32_MAX;}
 
    void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
-   void           setPubKey65(BinaryData bd)     { pubKey65_.copyFrom(bd); }
-   void           setPrivKey32(BinaryData bd)    { privKey32_.copyFrom(bd);}
-
-   //bool         isActive(void) const           {return isActive_;        }
-   //void         setAddrStr20(BinaryDataRef bd) { address20_.copyFrom(bd);}
-   //void         setPubKey65(BinaryDataRef bd)  { pubKey65_.copyFrom(bd); }
-   //void         setPrivKey32(BinaryDataRef bd) { privKey32_.copyFrom(bd);}
-
-
 
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
-
-   bool havePubKey(void) { return pubKey65_.getSize() > 0; }
-   bool havePrivKey(void) { return privKey32_.getSize() > 0; }
 
    uint64_t getBalance(void);
 
@@ -273,8 +262,6 @@ public:
 
 private:
    BinaryData address20_;
-   BinaryData pubKey65_;
-   BinaryData privKey32_;
    uint32_t   firstBlockNum_;
    uint32_t   firstTimestamp_;
    uint32_t   lastBlockNum_;
@@ -302,8 +289,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
-                   BinaryData    pubKey65  = BinaryData(0),
-                   BinaryData    privKey32 = BinaryData(0),
                    uint32_t      firstBlockNum  = 0,
                    uint32_t      firstTimestamp = 0);
 
@@ -311,25 +296,18 @@ public:
    // Here I just create some extra functions that sidestep all the problems
    // but it would be nice to figure out "typemap typecheck" in SWIG...
    void addAddress_BtcAddress_(BtcAddress const & newAddr);
+
    void addAddress_1_(BinaryData    addr);
 
-   void addAddress_2_(BinaryData    addr, 
-                      BinaryData    pubKey65);
-
    void addAddress_3_(BinaryData    addr, 
-                      BinaryData    pubKey65,
-                      BinaryData    privKey32);
-
-   void addAddress_4_(BinaryData    addr, 
-                      BinaryData    pubKey65,
-                      BinaryData    privKey32,
-                      uint32_t      firstBlockNum);
-
-   void addAddress_5_(BinaryData    addr, 
-                      BinaryData    pubKey65,
-                      BinaryData    privKey32,
                       uint32_t      firstBlockNum,
                       uint32_t      firstTimestamp);
+
+   void addAddress_5_(BinaryData    addr, 
+                      uint32_t      firstBlockNum,
+                      uint32_t      firstTimestamp,
+                      uint32_t      lastBlockNum,
+                      uint32_t      lastTimestamp);
 
    bool hasAddr(BinaryData const & addr20);
 
@@ -365,14 +343,12 @@ public:
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
-
    // NOTE: These methods return raw OutPoint objects, which have to be
    //       queried through txHashMap_ to get info about the TxOuts
    //       Use this only if you have some reason to get the minimal
    //       set of information representing all TxOuts
    set<OutPoint> & getUnspentOutPoints(void)      {return unspentOutPoints_;}
    set<OutPoint> & getNonStdUnspentOutPoints(void){return nonStdUnspentOutPoints_;}
-
 
    // If we have spent TxOuts but the tx haven't made it into the blockchain
    // we need to lock them to make sure we have a record of which ones are 
@@ -391,20 +367,10 @@ private:
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
-   bitset<32>                   encryptFlags_;   // priv-key-encryp params
-   bool                         isLocked_;       // watching only, no spending
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
-
-   
-   // import future
-   BinaryData                   privKeyGenerator_;
-   BinaryData                   pubKeyGenerator_;
-   BinaryData                   chainCode_;
-   bitset<32>                   chainFlags_;
-   
 };
 
 

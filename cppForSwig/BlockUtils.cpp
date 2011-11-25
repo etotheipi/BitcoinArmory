@@ -139,17 +139,15 @@ bool LedgerEntry::operator==(LedgerEntry const & le2) const
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BtcAddress::BtcAddress(BinaryData    addr, 
-                       BinaryData    pubKey65,
-                       BinaryData    privKey32,
                        uint32_t      firstBlockNum,
-                       uint32_t      firstTimestamp) :
+                       uint32_t      firstTimestamp,
+                       uint32_t      lastBlockNum,
+                       uint32_t      lastTimestamp) :
       address20_(addr), 
-      pubKey65_(pubKey65),
-      privKey32_(privKey32),
       firstBlockNum_(firstBlockNum), 
       firstTimestamp_(firstTimestamp),
-      lastBlockNum_(0), 
-      lastTimestamp_(0)
+      lastBlockNum_(lastBlockNum), 
+      lastTimestamp_(lastTimestamp)
 { 
    relevantTxIOPtrs_.clear();
 } 
