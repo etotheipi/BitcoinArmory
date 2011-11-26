@@ -121,6 +121,10 @@ class ChecksumError(Exception):
    pass
 class WalletAddressError(Exception):
    pass
+class PassphraseError(Exception):
+   pass
+class EncryptionError(Exception):
+   pass
 
 
 
@@ -956,6 +960,12 @@ class PyBtcAddress(object):
       self.timeRange[1] = max(self.timeRange[1], unixTime)
 
    
+
+   #############################################################################
+   def copy(self):
+      newAddr = PyBtcAddress().unserialize(self.serialize())   
+      return newAddr
+
 
    #############################################################################
    def isAddressUsed(self):
@@ -4453,6 +4463,9 @@ WALLET_DATATYPE_KEYDATA = 0
 WALLET_DATATYPE_COMMENT = 1
 WALLET_DATATYPE_OPEVAL  = 2
 
+DEFAULT_COMPUTE_TIME_TARGET = 0.25
+DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
+
 ################################################################################
 ################################################################################
 class PyBtcWallet(object):
@@ -4554,6 +4567,16 @@ class PyBtcWallet(object):
    file will be present and detected, and PyBtcWallet will know to use the 
    original copy.  It is critical is to guarantee that atomic operations 
    completes before telling the user they can use this data.
+
+   Additionally, we implement key locking and unlocking, with timeout.  These
+   key locking features are only DEFINED here, not actually enforced (because
+   this is a library, not an application).  You can set the default/temporary
+   time that the KDF key is maintained in memory after the passphrase is
+   entered, and this class will keep track of when the wallet should be next
+   locked.  It is up to the application to check whether the current time
+   exceeds the lock time.  This will probably be done in a kind of heartbeat
+   method, which checks every few seconds for all sorts of things -- including
+   wallet locking.
    """
 
    #############################################################################
@@ -4576,13 +4599,14 @@ class PyBtcWallet(object):
       self.syncWithBlockchain = BLOCKCHAIN_DONOTUSE
 
       # Private key encryption details
-      self.useEncryption = False
-      self.kdf           = KdfRomix()
-      self.crypto        = CryptoAES()
-      self.kdfKey        = None
+      self.useEncryption  = False
+      self.kdf            = None
+      self.crypto         = CryptoAES()
+      self.kdfKey         = None
+      self.defaultKeyLifetime = 10    # seconds after unlock, that key is discarded 
+      self.lockWalletAtTime   = 0    # seconds after unlock, that key is discarded 
 
       # Deterministic wallet, need a root key.  Though we can still import keys
-      self.addrChainRoot     = None
       self.rootAddrFirst8 = ''
       self.lastComputedChainAddr = ''
       self.lastComputedChainSeq  = 0
@@ -4600,13 +4624,304 @@ class PyBtcWallet(object):
       self.offsetLongName  = -1
       self.offsetRootAddr  = -1
 
-   #############################################################################
-   def determineSystemSpecificKdfParams(self, targetSec=0.25, memReqt=32*1024*1024):
-      self.kdf.computeKdfParams(targetSec, memReqt)
+      self.offsetKdfParams = -1
+      self.offsetCrypto    = -1
 
    #############################################################################
-   def setKdfParams(self, memory, numIter, strSalt):
-      self.kdf = KdfRomix(memory, numIter, strSalt)
+   def testKdfComputeTime(self):
+      """
+      Experimentally determines the compute time required by this computer
+      to execute with the current key-derivation parameters.  This may be 
+      useful for when you transfer a wallet to a new computer that has 
+      different speed/memory characteristic.
+      """
+      testPassphrase = SecureBinaryData('This is a simple passphrase')
+      start = time.time()
+      self.kdf.DeriveKey(testPassphrase)
+      return (time.time()-start)
+
+   #############################################################################
+   def packKdfParams(self, binPacker, kdfObj=None)
+      if kdfObj==None:
+         kdfObj = self.kdf
+
+      binPacker.put(UINT64, kdfObj.getMemoryReqtBytes())
+      binPacker.put(UINT32, kdfObj.getNumIterations())
+      binPacker.put(BINARY_CHUNK, kdfObj.getSalt().toBinStr(), width=32)
+      
+      kdfStr = binPacker.getBinaryString()
+      binPacker.put(BINARY_CHUNK, computeChecksum(kdfStr,4), width=4)
+ 
+ 
+      
+   #############################################################################
+   def unpackKdfParams(self, binUnpacker);
+
+      allKdfData = binUnpacker.get(BINARY_CHUNK, 44)
+      kdfChksum  = binUnpacker.get(BINARY_CHUNK,  4)
+      
+      fixedKdfData = verifyChecksum(allKdfData, kdfChksum)
+      if len(fixedKdfData)==0:
+         raise UnserializeError, '***ERROR:  Corrupted KDF params, could not fix'
+      elif not fixedKdfData==allKdfData:
+         self.walletFileSafeModifyData([self.offsetKdfParams, fixedKdfData])
+         allKdfData = fixedKdfData
+         print '***WARNING: KDF params in wallet were corrupted, but fixed'
+      
+      kdfUnpacker = BinaryUnpacker(allKdfData)
+      mem   = kdfUnpacker.get(UINT64)
+      nIter = kdfUnpacker.get(UINT32)
+      salt  = kdfUnpacker.get(BINARY_CHUNK, width=32)
+      
+      kdf = KdfRomix(mem, nIter, SecureBinaryData(salt))
+      return kdf
+ 
+   #############################################################################
+   def verifyPassphrase(self, securePassphrase):
+      """ 
+      Verify a user-submitted passphrase.  This passphrase goes into
+      the key-derivation function to get actual encryption key, which
+      is what actually needs to be verified
+   
+      Since all addresses should have the same encryption, we only need
+      to verify correctness on the root key
+      """
+      kdfOutput = self.kdf.DeriveKey(securePassphrase)
+      try:
+         isValid = self.addrMap['ROOT'].verifyEncryptionKey(kdfOutput)
+         return isValid
+      finally:
+         kdfOutput.destroy()
+      
+
+   #############################################################################
+   def verifyEncryptionKey(self, secureKdfOutput):
+      """ 
+      Verify the underlying encryption key (from KDF).  
+      Since all addresses should have the same encryption, 
+      we only need to verify correctness on the root key.
+      """
+      return self.addrMap['ROOT'].verifyEncryptionKey(secureKdfOutput)
+
+
+   #############################################################################
+   def computeSystemSpecificKdfParams(self, targetSec=0.25, memReqt=32*1024*1024):
+      """ 
+      WARNING!!! DO NOT CHANGE KDF PARAMS AFTER ALREADY ENCRYPTED THE WALLET
+                 By changing them on an already-encrypted wallet, we are going
+                 to lose the original AES256-encryption keys -- which are 
+                 uniquely determined by (numIter, memReqt, salt, passphrase)
+      
+                 Only use this method before you have encrypted your wallet,
+                 in order to determine good KDF parameters based on your 
+                 computer's specific speed/memory capabilities.
+      """
+      kdf = KdfRomix()
+      kdf.computeKdfParams(targetSec, memReqt)
+      
+      mem   = kdf.getMemoryReqtBytes()
+      nIter = kdf.getNumIterations()
+      salt  = kdf.getSalt().toBinStr()
+      return (mem, nIter, salt)
+
+   #############################################################################
+   def restoreKdfParams(self, mem, numIter, secureSalt):
+      """ 
+      This method should only be used when we are loading an encrypted wallet
+      and reading the KDF params. DO NOT USE THIS TO CHANGE KDF PARAMETERS.
+      Doing so may result in data loss!
+      """
+      self.kdf = KdfRomix(mem, numIter, secureSalt)
+
+                                                
+   #############################################################################
+   def changeKdfParams(self, mem, numIter, secureSalt, securePassphrase=None):
+      """ 
+      Changing KDF changes the underlying wallet encryption which means 
+      that a KDF change is essentially an encryption change.  As such, 
+      the wallet must be unlocked if you intend to change an already-
+      encrypted wallet with KDF.
+      """
+      if self.useEncryption:
+         if not securePassphrase:
+            print ''
+            print '***ERROR:  You have requested changing the key-derivation'
+            print '           parameters on an already-encrypted wallet, which'
+            print '           requires modifying the encryption on this wallet.'
+            print '           Please unlock your wallet before attempting to'
+            print '           change the KDF parameters.'
+            raise WalletLockError, '***ERROR: cannot change KDF without unlock'
+         elif not self.verifyPassphrase(securePassphrase):
+            raise PassphraseError, '***ERROR: incorrect passphrase for wallet'
+            
+      walletUpdateList = []
+
+      newkdf = KdfRomix(mem, numIter, secureSalt)
+      bp = BinaryPacker()
+      self.packKdfParams(bp, newkdf)
+      walletUpdateList.append([self.offsetKdfParams, bp.getBinaryString()])
+
+      if not self.useEncryption:
+         # We may be setting the kdf params before enabling encryption
+         self.walletFileSafeModifyData(walletUpdateList)
+      else:
+         # Must change the encryption key: and we won't get here unless
+         # we have a passphrase to use.  This call will take the
+         self.changeWalletEncryption(securePassphrase=securePassphrase, \
+                                     extraFileUpdates=walletUpdateList) 
+
+      self.kdf = newkdf
+
+      
+      
+
+   #############################################################################
+   def createFromPublicKeyList(self, filename, sepList=":;'[]()=-_*&^%$#@!,./?"):
+      """
+      Creates a watching-only wallet based on all the public keys in a file.
+      Keys are expected to be in hex, in sequences of 64 bytes, or 65 bytes
+      with a leading 0x04 byte.
+
+      Since this is python, I don't have to require any particular format:
+      I can search the entire file for any 64- or 65-byte strings the are
+      valid public keys.  If they are there, and they are separated with any
+      kind of punctuation, this should work.
+
+      TODO: will finish this later
+
+      self.__init__()         
+      self.watchingOnly = True
+
+      newfile = open(filename,'r')
+      newdata = newfile.read()
+      newfile.close()
+
+      # Change all punctuation to the same char so split() works easier
+      for ch in sepList:
+         newdata.replace(ch, ' ')
+
+      allPieces = newdata.split()
+      for piece in allPieces:
+         if len(piece)==64:
+            potentialKey = SecureBinaryData('\x04' + piece)
+            isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
+
+      return self
+      """
+       
+   #############################################################################
+   def changeKdfParams(self, securePassphrase, mem, numIter, secureSalt):
+      """
+      This method allows you to change the KDF parameters on a wallet, SAFELY.
+      However, there is no way to change the KDF without also changing your 
+      passphrase, so this method requires the old passphrase, so that that it
+      can re-encrypt your keys using the samepassphrase, but with the enw KDF
+      parameters chosen here.  This will use the wallet-update methods to make
+      sure that the changes are applied atomically and you cannot lose data.
+      """
+         
+
+   #############################################################################
+   def changeWalletEncryption(self, securePassphrase=None, secureKdfOutput=None,
+                                       kdfTargSec=None, kdfMaxMem=None,
+                                       extraFileUpdates=[])
+      """
+      Supply the passphrase you would like to use to encrypt this wallet
+      (or supply the KDF output directly, to skip the passphrase part).
+      If encryption is already enabled, this method will attempt to re-encrypt 
+      with the new passphrase.  This fails if the wallet is already locked with 
+      a different passphrase.  If encryption is already enabled, please unlock 
+      the wallet before calling this method.
+      
+      If the KDF is already set up for this wallet, we will simply ignore the 
+      KDF-specific inputs.  Encrypt the wallet, then use "changeKdfParams"
+      method if you would like to change those parameters.
+      
+      If the KDF is NOT yet setup, this method will do it.  Supply the target
+      compute time, and maximum memory requirements, and the underlying C++
+      code will experimentally determine the "hardest" key-derivation params
+      that will run within the specified time and memory usage on the system
+      executing this method.  You should set the max memory usage very low 
+      (a few kB) for devices like smartphones, which have limited memory 
+      availability.  The KDF will then use less memory but more iterations 
+      to achieve the same compute time.
+
+      Use the extraFileUpdates to pass in other changes that need to be
+      written to the wallet file in the same atomic operations as the 
+      encryption key modifications  (this is targeted at the ChangeKdf
+      method:  we need to write the new KDF at the same time as the new
+      encrypted keys).
+      """
+
+      if self.useEncryption and self.isLocked:
+         raise WalletLockError, '***ERROR: unlock wallet to change passphrase'
+
+      if not securePassphrase and not secureKdfOutput:
+         raise EncryptionError, \
+             '***ERROR: must supply passphrase or kdfkey to change encryption'
+
+      # If we have not yet setup the key-derivation function, here we will
+      # set KDF to specified targets.  If 0s are supplied, we use 1 kB RAM
+      # and no key-stretching at all (besides 32 hashes per KDF operation)
+      if not self.kdf:
+         if not targSec:
+            targSec = DEFAULT_COMPUTE_TIME_TARGET
+         if not maxMem:
+            maxMem  = DEFAULT_MAXMEM_LIMIT
+         self.kdf = KdfRomix()
+         (mem,nit,salt) = self.computeSystemSpecificKdfParams(targSec,maxMem)
+         self.setKdfParams(mem, nit, salt, writeToFile=True)
+    
+      # Prepare passphrases for changing encryption keys
+      newKdfKey = secureKdfOutput
+      if not secureKdfOutput:
+         newKdfKey = self.kdf.DeriveKey(securePassphrase)
+
+      oldKdfKey = None
+      if self.useEncryption and not self.isLocked:
+         oldKdfKey = self.kdfKey.copy()
+
+      if oldKdfKey and newKdfKey==oldKdfKey:
+         return # Wallet is encrypted with this passphrase already
+
+      # With unlocked key data, put the rest in a try/except/finally block
+      # To make sure we destroy the temporary kdf outputs 
+      try:
+         # To do this safely, we need to stage the changes to temporary data
+         # in memory, use it to write out the new key data, and only update
+         # the wallet memory when all file operations are complete
+         #
+         # If keys were previously unencrypted, they will be not have 
+         # initialization vectors and need to be generated before encrypting.
+         # This is why we have the enableKeyEncryption() call
+         walletUpdateInfo = list(extraFileUpdates)  # make a copy
+         newAddrMap  = {}
+         for addr160,addr in self.addrMap.iteritems():
+            newAddrMap[addr160] = addr.copy()
+            newAddrMap[addr160].enableKeyEncryption(generateIVIfNecessary=True)
+            newAddrMap[addr160].changeEncryptionKey(oldKdfKey, newKdfKey)
+            walletUpdateInfo.append([addr.walletByteLoc, addr.serialize()])
+
+         # Try to update the wallet file with the new encrypted key data
+         updateSuccess = self.walletFileSafeModifyData( walletUpdateInfo )
+
+         if updateSuccess:
+            # Finally give the new data to the user
+            for addr160,addr in newAddrMap.iteritems():
+               self.addrMap[addr160] = addr.copy()
+      
+         self.useEncryption = True
+         self.isLocked = False
+         self.lockWalletAtTime = time.time() + self.defaultKeyLifetime
+      finally:
+         # Make sure we always destroy the temporary passphrase results
+         newKdfKey.destroy()
+         if oldKdfKey:
+            oldKdfKey.destroy()
+         
+
+      
+      
 
    #############################################################################
    def setWatchingOnly(self, isTrue):
@@ -4614,7 +4929,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def packHeader(self, binPacker):
-      if not self.addrChainRoot:
+      if not self.addrMap['ROOT']:
          raise WalletAddressError, '***ERROR: cannot serialize uninitialzed wallet!'         
 
       # Create the flags before we get started
@@ -4664,6 +4979,13 @@ class PyBtcWallet(object):
       # As of wallet version 1.0, there really is only one kind of 
       # encryption.  So the only information we really need to store
       # here is the KDF parameters.  
+      self.offsetCrypto    = binUnpacker.getPosition()
+      binUnpacker.advance(128)
+
+      self.offsetKdfParams = binUnpacker.getPosition()
+      numIter = binUnpacker.get(UINT32)
+      memReqt = binUnpacker.get(UINT64)
+      strSalt = SecureBinaryData(binUnpacker.get(BINARY_CHUNK, 32))
    
 
       
@@ -4671,34 +4993,12 @@ class PyBtcWallet(object):
       # Read address-chain root address data
       self.offsetRootAddr  = binUnpacker.getPosition()
       rawAddrData = binUnpacker.get(BINARY_CHUNK, self.pybtcaddrSize)
-      self.addrChainRoot = PyBtcAddress().unserialize(rawAddrData)
+      self.addrMap['ROOT'] = PyBtcAddress().unserialize(rawAddrData)
 
       # The extra kB is currently unused
       binUnpacker.advance(1024)
 
       
-      """
-   fileID      -- (8)  '\xbaWALLET\x00' for wallet files
-   version     -- (4)   getVersionInt(PYBTCWALLET_VERSION)
-   magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
-   wlt flags   -- (8)   64 bits/flags representing info about wallet
-   wlt ID      -- (8)   first 8 bytes of first address in wallet
-                        (this contains the network byte; mainnet, testnet)
-   create date -- (8)   unix timestamp of when this wallet was created
-                        (actually, the earliest creation date of any addr
-                        in this wallet -- in the case of importing addr
-                        data).  This is used to improve blockchain searching
-   Short Name  -- (32)  Null-terminated user-supplied short name for wlt
-   Long Name   -- (256) Null-terminated user-supplied description for wlt
-   Crypto/KDF  -- (256) information identifying the types and parameters
-                        of encryption used to secure wallet, and key 
-                        stretching used to secure your passphrase.
-                        Includes salt. (the breakdown of this field will
-                        be described separately)
-   KeyGenerator-- (237) The base address for a determinstic wallet.
-                        Just a serialized PyBtcAddress object.
-   Unused 1024
-      """
    #############################################################################
    def unpackNextEntry(self, binUnpacker):
       dtype   = binUnpacker.get(UINT8)
@@ -4781,7 +5081,7 @@ class PyBtcWallet(object):
       back to the PyBtcAddress objects so they know where their data is stored.
       This is useful for when we change a passphrase, or need to to update addr
       data for this wallet, then we can seek right to it to do the update. We
-      can check for an empty list to know if the file modification succeeded.
+      can check for an empty list to know if the file update succeeded.
 
       When we want to add data to the wallet file, we will do so in a completely
       recoverable way.  We define this method to make sure a backup exists when
@@ -4793,21 +5093,24 @@ class PyBtcWallet(object):
       Similarly, we have to update the backup file after updating the main file
       so we will use a similar technique with the backup_unsuccessful suffix. 
       We don't want to rely on a backup if somehow *the backup* got corrupted
-      and the original file is fine.  This all means two things:
+      and the original file is fine.  THEREFORE -- this is implemented in such
+      a way that the user should know two things:
       
          (1) No matter when the power goes out, we ALWAYS have a uncorrupted
              wallet file, and know which one it is.  Either the backup is safe, 
              or the original is safe.  Based on the flag files, we know which
              one is guaranteed to be not corrupted.
          (2) ALWAYS DO YOUR FILE OPERATIONS BEFORE INDICATING THAT THE USER'S
-             DATA IS AVAILABLE.  i.e. One way to implement adding a new address
-             to the wallet is keep it in memory, let the user use it, then write
-             it to disk later.  INSTEAD, you must write it to disk FIRST using
-             these SafeAddData/SafeModifyData methods, THEN give the new data
-             to the user:  never give it to them until you are sure that it was
-             written safely to disk
+             DATA IS AVAILABLE.  You must write it to disk FIRST using these 
+             SafeAddData/SafeModifyData methods, THEN give the new data to the 
+             user -- never give it to them until you are sure that it was
+             written safely to disk.  
 
-      
+      Number (2) is easy to screw up because you plan to write the file just 
+      AFTER the data is created and stored in local memory.  But an error 
+      might be thrown halfway which is handled higher up, but the new data
+      never made it to file.  Then there is a risk that the user uses their
+      new address that never made it into the wallet file.
       """
 
       if not os.path.exists(self.walletFileMain):
@@ -4830,6 +5133,7 @@ class PyBtcWallet(object):
          os.remove(backupUpdateFlag)
 
       
+      # Will be passing back info about all data successfully added
       oldWalletSize = os.path.getsize(self.walletFileMain)
       newDataFileLocations = []
       binpacker = BinaryPacker()
@@ -4859,9 +5163,7 @@ class PyBtcWallet(object):
       # We need to add this data to both the main wallet file, and backup
       binaryToUpdateWallet = binpacker.getBinaryString()
       
-      ##### UPDATE PRIMARY WALLET FILE
       touchFile(mainUpdateFlag)
-      #####
 
       try:
          wltfile = open(self.walletFileMain, 'ab')
@@ -4875,13 +5177,8 @@ class PyBtcWallet(object):
 
       # Write backup flag before removing main-update flag.  If we see
       # both flags, we know file IO was interrupted RIGHT HERE 
-      #####
       touchFile(backupUpdateFlag)
-      #####
-
-      #####
       os.remove(mainUpdateFlag)
-      #####
 
       try:
          backupfile = open(walletFileBackup, 'ab')
@@ -4890,9 +5187,7 @@ class PyBtcWallet(object):
       except:
          print '***WARNING: could not write backup wallet.  Permissions?'
 
-      #####
       os.remove(backupUpdateFlag)
-      #####
 
       return [oldWalletSize+loc[i] for loc in newDataFileLocations]
 
@@ -4923,21 +5218,15 @@ class PyBtcWallet(object):
       
       backupIsCorrupt = os.path.exists(backupUpdateFlag)
 
-      #####
       touchFile(backupUpdateFlag)
-      #####
       # We need to update the backup file before doing any modifications
       # to the primary wallet
       if not os.path.exists(walletFileBackup) or backupIsCorrupt:
          shutil.copy(self.walletFileMain, walletFileBackup)
-      #####
       os.remove(backupUpdateFlag)
-      #####
       
       
-      ##### UPDATE PRIMARY WALLET FILE
       touchFile(mainUpdateFlag)
-      #####
 
       try:
          wltfile = open(self.walletFileMain, 'r+b')
@@ -4949,17 +5238,12 @@ class PyBtcWallet(object):
          print '***ERROR: could not write data to wallet.  Permissions?'
          shutil.copy(walletFileBackup, self.walletFileMain)
          os.remove(mainUpdateFlag)
-         return []
+         return False
 
       # Write backup flag before removing main-update flag.  If we see
       # both flags, we know file IO was interrupted RIGHT HERE 
-      #####
       touchFile(backupUpdateFlag)
-      #####
-
-      #####
       os.remove(mainUpdateFlag)
-      #####
 
       try:
          backupfile = open(walletFileBackup, 'ab')
@@ -4968,9 +5252,8 @@ class PyBtcWallet(object):
       except:
          print '***WARNING: could not write backup wallet.  Permissions?'
 
-      #####
       os.remove(backupUpdateFlag)
-      #####
+      return True
 
 
    #############################################################################
@@ -5044,8 +5327,9 @@ class PyBtcWallet(object):
 
       # Check the header data for consistency of private-key-generator
       binHeaderData = self.unpackHeader(wltdata)
-      binChainRoot      = binHeaderData[rootOffset:rootOffset+self.pybtcaddrSize]
+      binChainRoot  = binHeaderData[rootOffset:rootOffset+self.pybtcaddrSize]
       binChainRootFixed = PyBtcAddress().unserialize(binChainRoot).serialize()
+
       if len(binChainRootFixed)==0:
          raise KeyDataError, '***ERROR: Key generator has unfixable error!'
       elif not binChainRoot==binChainRootFixed:
@@ -5140,15 +5424,15 @@ class PyBtcWallet(object):
          
 
    #############################################################################
-   def getFirstSeenData(self, addr20):
-      return (self.cppWallet.getAddrByHash160(addr20).getFirstTimestamp(),  \
-              self.cppWallet.getAddrByHash160(addr20).getFirstBlockNum())
+   #def getFirstSeenData(self, addr20):
+      #return (self.cppWallet.getAddrByHash160(addr20).getFirstTimestamp(),  \
+              #self.cppWallet.getAddrByHash160(addr20).getFirstBlockNum())
 
 
    #############################################################################
-   def getLastSeenData(self, addr20):
-      return (self.cppWallet.getAddrByHash160(addr20).getLastTimestamp(),  \
-              self.cppWallet.getAddrByHash160(addr20).getLastBlockNum())
+   #def getLastSeenData(self, addr20):
+      #return (self.cppWallet.getAddrByHash160(addr20).getLastTimestamp(),  \
+              #self.cppWallet.getAddrByHash160(addr20).getLastBlockNum())
 
 
          
@@ -5180,7 +5464,7 @@ class PyBtcWallet(object):
    def getNewAddress(self, deterministic=True):
       if len(self.lastComputedChainAddr) == 20:
          lastChain = self.addrMap[self.lastComputedChainAddr]
-         newAddr = lastChain.extendAddressChain( self.kdfKey)
+         newAddr = lastChain.extendAddressChain(self.kdfKey)
       else:
          raise WalletAddressError, 'Deterministic wallet not initialized yet'
          
@@ -5289,32 +5573,107 @@ class PyBtcWallet(object):
    
       return txdp
    
+   #############################################################################
+   def setDefaultKeyLifetime(self, newlifetime):
+      """ Set a new default lifetime for holding the unlock key. Min 2 sec """
+      self.defaultKeyLifetime = max(newlifetime, 2)
+   
+   #############################################################################
+   def checkWalletLockTimeout(self):
+      if self.isLocked and self.kdfKey and time.time()>self.lockWalletAtTime:
+         self.lock()
+         self.kdfKey.destroy()
+         self.kdfKey = None
+         self.isLocked = True
+         
+            
+
 
    #############################################################################
-   def unlock(self, secureKdfOutput):
+   def unlock(self, secureKdfOutput, tempKeyLifetime=0):
       """
       We must assume that the kdfResultKey is a SecureBinaryData object
-      containing the result of the KDF-passphrase
+      containing the result of the KDF-passphrase.  The wallet unlocked-
+      lifetime will be set to X seconds from time.time() [now] and next
+      time the checkWalletLockTimeout function is called it will be re-
+      locked.
       """
       if not isinstance(kdfResultKey, SecureBinaryData):
          raise WalletLockError, "Must pass SecureBinaryData obj to unlock func"
 
-      self.kdfKey = kdfResultKey
-      self.isLocked = False
+      if not self.verifyEncryptionKey(secureKdfOutput):
+         raise PassphraseError, "Incorrect passphrase for wallet"
 
-      self.addrChainRoot.unlock(self.kdfKey)
-      for key in self.otherKeys:
-         key.unlock(self.kdfKey)
+      # For now, I assume that all keys have the same passphrase and all
+      # unlocked successfully at the same time.
+      # It's an awful lot of work to design a wallet to consider partially-
+      # successful unlockings.
+      self.kdfKey = secureKdfOutput
+      if tempKeyLifetime==0:
+         self.lockWalletAtTime = time.time() + self.defaultKeyLifetime
+      else:
+         self.lockWalletAtTime = time.time() + tempKeyLifetime
+   
+      for addrObj in self.addrMap.values():
+         addrObj.unlock(self.kdfKey)
+
+      self.isLocked = False
 
    
    #############################################################################
    def lock(self):
-      self.kdfKey.dealloc()
+      """
+      We assume that we have already set all encryption parameters (such as
+      IVs for each key) and thus all we need to do is call the "lock" method
+      on each PyBtcAddress object.  
 
-      self.addrChainRoot.lock()
-      for key in self.otherKeys.values():
-         key.lock()
-      self.isLocked = True
+      If wallet is unlocked, try to re-lock addresses, regardless of whether
+      we have a kdfKey or not.  In some circumstances (such as when the addrs
+      have never been locked before) we will need the key to encrypt them.
+      However, in most cases, the encrypted versions are already available
+      and the PyBtcAddress objects can destroy the plaintext keys without
+      ever needing access to the encryption keys. 
+
+      ANY METHOD THAT CALLS THIS MUST CATCH WALLETLOCKERRORS UNLESS YOU ARE
+      POSITIVE THAT THE KEYS HAVE ALREADY BEEN ENCRYPTED BEFORE, OR ARE
+      ALREADY SITTING IN THE ENCRYPTED WALLET FILE.  PyBtcAddress objects
+      were designed to do this, but in case of a bug, you don't want the
+      program crashing with money-bearing private keys sitting in memory only.
+
+      TODO: If things like IVs are not set properly, we should implement 
+            a way to check for this, correct it, and update the wallet
+            file if necessary
+      """
+
+      if not self.isLocked:
+         if self.kdfKey:
+            self.kdfKey.destroy()
+            self.kdfKey = None
+         return
+
+
+      # Wallet is locked, will try to re-lock addresses, regardless of whether
+      # we have a kdfKey or not.  If a key is required, we will throw a 
+      # WalletLockError, and the caller can get the passphrase from the user,
+      # unlock the wallet, then try locking again.
+      # NOTE: If we don't have kdfKey, it is set to None, which is the default
+      #       input for PyBtcAddress::lock for "I don't have it"
+      try:
+         for addrObj in self.addrMap.values():
+            addrObj.lock(self.kdfKey)
+
+         if self.kdfKey:
+            self.kdfKey.destroy()
+            self.kdfKey = None
+         self.isLocked = True
+      except WalletLockError:
+         print '***ERROR: Locking wallet requires encryption key.  This error'
+         print '          Usually occurs on newly-encrypted wallets that have'
+         print '          never been encrypted before.'                         
+         raise WalletLockError, 'Unlock with passphrase before locking again'
+         
+
+
 
    
    #############################################################################

@@ -481,6 +481,40 @@ void TestCrypto(void)
    key = kdf.DeriveKey(passwd3);
    cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
 
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "KDF with min memory requirement (1 kB)" << endl;
+   kdf.computeKdfParams(1.0, 0);
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "KDF with 0 compute time" << endl;
+   kdf.computeKdfParams(0, 0);
+   kdf.printKdfParams();
+
+   cout << "   Password1: '" << passwd1.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd1);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password2: '" << passwd2.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd2);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
+   cout << "   Password1: '" << passwd3.toBinStr() << "'" << endl;
+   key = kdf.DeriveKey(passwd3);
+   cout << "   MasterKey: '" << key.toHexStr() << endl << endl;
+
    // Test AES code using NIST test vectors
    /// *** Test 1 *** ///
    cout << endl << endl;

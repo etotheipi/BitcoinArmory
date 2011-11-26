@@ -289,7 +289,9 @@ public:
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
                    uint32_t      firstBlockNum  = 0,
-                   uint32_t      firstTimestamp = 0);
+                   uint32_t      firstTimestamp = 0,
+                   uint32_t      lastBlockNum  = 0,
+                   uint32_t      lastTimestamp = 0);
 
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
@@ -299,14 +301,14 @@ public:
    void addAddress_1_(BinaryData    addr);
 
    void addAddress_3_(BinaryData    addr, 
-                      uint32_t      firstBlockNum,
-                      uint32_t      firstTimestamp);
+                      uint32_t      firstTimestamp,
+                      uint32_t      firstBlockNum);
 
    void addAddress_5_(BinaryData    addr, 
-                      uint32_t      firstBlockNum,
                       uint32_t      firstTimestamp,
-                      uint32_t      lastBlockNum,
-                      uint32_t      lastTimestamp);
+                      uint32_t      firstBlockNum,
+                      uint32_t      lastTimestamp,
+                      uint32_t      lastBlockNum);
 
    bool hasAddr(BinaryData const & addr20);
 

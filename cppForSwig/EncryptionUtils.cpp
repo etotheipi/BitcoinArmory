@@ -66,7 +66,9 @@ SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 KdfRomix::KdfRomix(void) : 
    hashFunctionName_( "sha512" ),
    hashOutputBytes_( 64 ),
-   kdfOutputBytes_( 32 )
+   kdfOutputBytes_( 32 ),
+   memoryReqtBytes_( 32 ),
+   numIterations_( 0 )
 { 
    // Nothing to do here
 }
@@ -86,6 +88,16 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
    // Create a random salt, even though this is probably unnecessary:
    // the variation in numIter and memReqts is probably effective enough
    salt_ = SecureBinaryData().GenerateRandom(32);
+
+   // If target compute is 0s, then this method really only generates 
+   // a random salt, and sets the other params to default minimum.
+   if(targetComputeSec == 0)
+   {
+      numIterations_ = 1;
+      memoryReqtBytes_ = 1024;
+      return;
+   }
+
 
    // Here, we pick the largest memory reqt that allows the executing system
    // to compute the KDF is less than the target time.  A maximum can be 
@@ -112,6 +124,7 @@ void KdfRomix::computeKdfParams(double targetComputeSec, uint32_t maxMemReqts)
    // Recompute here, in case we didn't enter the search above 
    sequenceCount_ = memoryReqtBytes_ / hashOutputBytes_;
    lookupTable_.resize(memoryReqtBytes_);
+
 
    // Depending on the search above (or if a low max memory was chosen, 
    // we may need to do multiple iterations to achieve the desired compute

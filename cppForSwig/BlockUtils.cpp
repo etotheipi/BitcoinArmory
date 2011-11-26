@@ -199,17 +199,15 @@ void BtcAddress::sortLedger(void)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addAddress(BinaryData    addr, 
-                           BinaryData    pubKey65,
-                           BinaryData    privKey32,
                            uint32_t      firstBlockNum,
-                           uint32_t      firstTimestamp)
+                           uint32_t      firstTimestamp,
+                           uint32_t      lastBlockNum,
+                           uint32_t      lastTimestamp)
 {
 
    BtcAddress* addrPtr = &(addrMap_[addr]);
-   *addrPtr = BtcAddress(addr, pubKey65, privKey32, 
-                         firstBlockNum, firstTimestamp);
+   *addrPtr = BtcAddress(addr, firstBlockNum, firstTimestamp);
    addrPtrVect_.push_back(addrPtr);
-   isLocked_ = false;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -237,31 +235,20 @@ void BtcWallet::addAddress_1_(BinaryData    addr)
    PDEBUG("Adding address to BtcWallet");
    addAddress(addr); 
 } 
-void BtcWallet::addAddress_2_(BinaryData    addr, 
-                              BinaryData    pubKey65)
-{  
-   addAddress(addr, pubKey65); 
-} 
 void BtcWallet::addAddress_3_(BinaryData    addr, 
-                              BinaryData    pubKey65,
-                              BinaryData    privKey32)
-{  
-   addAddress(addr, pubKey65, privKey32); 
-} 
-void BtcWallet::addAddress_4_(BinaryData    addr, 
-                              BinaryData    pubKey65,
-                              BinaryData    privKey32,
+                              uint32_t      firstTimestamp,
                               uint32_t      firstBlockNum)
 {  
-   addAddress(addr, pubKey65, privKey32, firstBlockNum); 
-} 
+   addAddress(addr, firstBlockNum, firstTimestamp); 
+}
+
 void BtcWallet::addAddress_5_(BinaryData    addr, 
-                              BinaryData    pubKey65,
-                              BinaryData    privKey32,
+                              uint32_t      firstTimestamp,
                               uint32_t      firstBlockNum,
-                              uint32_t      firstTimestamp)
+                              uint32_t      lastTimestamp,
+                              uint32_t      lastBlockNum)
 {  
-   addAddress(addr, pubKey65, privKey32, firstBlockNum, firstTimestamp); 
+   addAddress(addr, firstBlockNum, firstTimestamp, lastBlockNum, lastTimestamp); 
 }
 
 /////////////////////////////////////////////////////////////////////////////
