@@ -277,11 +277,19 @@ if Test_EncryptedAddress:
    fakeKdfOutput1 = SecureBinaryData( hex_to_binary('11'*32) )
    fakeKdfOutput2 = SecureBinaryData( hex_to_binary('22'*32) )
 
+   # Test serializing an empty address object:  we'll be using this
+   # in other methods to determine the length of an address, which
+   # will be the same for all PyBtcAddress objects, empty or not
+   print '\nTest serializing empty address'
+   serializedAddr = PyBtcAddress().serialize()
+   print 'PyBtcAddress serializations are', len(serializedAddr), 'bytes'
+   printpassorfail(True) # if we didn't crash, we win!
+
    #############################################################################
    # Try to create addresses without crashing
    print '\n\nTesting PyBtcAddress with plaintext private key (try not to crash)'
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, chkSum=privChk)
+   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, chksum=privChk)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey, skipCheck=True)
    testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, skipPubCompute=True)
@@ -292,8 +300,8 @@ if Test_EncryptedAddress:
    print '\nTest serializing unencrypted wallet',
    serializedAddr = testAddr.serialize()
    retestAddr = PyBtcAddress().unserialize(serializedAddr)
-   #serializedRetest = retestAddr.serialize()
-   #printpassorfail(serializedAddr == serializedRetest)
+   serializedRetest = retestAddr.serialize()
+   printpassorfail(serializedAddr == serializedRetest)
 
    theIV = SecureBinaryData(hex_to_binary('77'*16))
    # Now try locking and unlock addresses
@@ -337,7 +345,6 @@ if Test_EncryptedAddress:
    if debugPrint: testAddr.pprint(indent=' '*3)
       
    print '\n  OP(Unencrypted --> Key2)'
-   print 'Still encrypted? ', testAddr.isKeyEncryptionEnabled()
    if not testAddr.isKeyEncryptionEnabled():
       testAddr.enableKeyEncryption(theIV)
    testAddr.changeEncryptionKey(None, fakeKdfOutput2)
@@ -350,7 +357,6 @@ if Test_EncryptedAddress:
    plainPubKey2  = testAddr.binPublicKey65
 
    print '\n  OP(Key2 --> Key1)'
-   print 'Encrypted? ', testAddr.isKeyEncryptionEnabled()
    testAddr.changeEncryptionKey(fakeKdfOutput2, fakeKdfOutput1)
    if debugPrint: testAddr.pprint(indent=' '*3)
 

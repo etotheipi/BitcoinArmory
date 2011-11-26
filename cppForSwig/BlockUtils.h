@@ -222,7 +222,7 @@ public:
    BtcAddress(void) : 
       address20_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
-      isActive_(false), relevantTxIOPtrs_(0), ledger_(0) {}
+      relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
               uint32_t      firstBlockNum = 0,
@@ -266,7 +266,6 @@ private:
    uint32_t   firstTimestamp_;
    uint32_t   lastBlockNum_;
    uint32_t   lastTimestamp_;
-   bool       isActive_; 
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
