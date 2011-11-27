@@ -6,15 +6,16 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
-Test_PyBlockUtils     = True
+Test_BasicUtils       = False
+Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
-Test_EncryptedAddress = True
-Test_MultiSigTx       = True
+Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
+Test_EncryptedAddress = False
+Test_EncryptedWallet  = True
 Test_SelectCoins      = False
-Test_CryptoTiming     = True
+Test_CryptoTiming     = False
 
 
 def testFunction( fnName, expectedOutput, *args, **kwargs):
@@ -288,15 +289,15 @@ if Test_EncryptedAddress:
    #############################################################################
    # Try to create addresses without crashing
    print '\n\nTesting PyBtcAddress with plaintext private key (try not to crash)'
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, chksum=privChk)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey, skipCheck=True)
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, skipPubCompute=True)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, chksum=privChk)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, publicKey65=pubKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, publicKey65=pubKey, skipCheck=True)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, skipPubCompute=True)
    if debugPrint: testAddr.pprint(indent=' '*3)
 
 
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, publicKey65=pubKey)
    print '\nTest serializing unencrypted wallet',
    serializedAddr = testAddr.serialize()
    retestAddr = PyBtcAddress().unserialize(serializedAddr)
@@ -329,7 +330,7 @@ if Test_EncryptedAddress:
    #############################################################################
    print '\n\nTest changing passphrases'
    print '  OP(None --> Key1)'
-   testAddr = PyBtcAddress().createFromPlainKeyData(addr20, privKey, publicKey65=pubKey)
+   testAddr = PyBtcAddress().createFromPlainKeyData(privKey, addr20, publicKey65=pubKey)
    testAddr.enableKeyEncryption(theIV)
    testAddr.changeEncryptionKey(None, fakeKdfOutput1)
    if debugPrint: testAddr.pprint(indent=' '*3)
@@ -404,8 +405,8 @@ if Test_EncryptedAddress:
    print '\n\nTest chained priv key generation'
    print 'Starting with plain key data'
    chaincode = SecureBinaryData(hex_to_binary('ee'*32))
-   addr0 = PyBtcAddress().createFromPlainKeyData(addr20, privKey)
-   addr0.setAsAddrChainRoot(chaincode)
+   addr0 = PyBtcAddress().createFromPlainKeyData(privKey, addr20)
+   addr0.markAsRootAddr(chaincode)
    pub0  = addr0.binPublicKey65
    if debugPrint: addr0.pprint(indent=' '*3)
 
@@ -443,7 +444,7 @@ if Test_EncryptedAddress:
    print '\n\nGenerate chained PUBLIC key address'
    print '    addr[0]'
    addr0 = PyBtcAddress().createFromPublicKeyData(pub0)
-   addr0.setAsAddrChainRoot(chaincode)
+   addr0.markAsRootAddr(chaincode)
    if debugPrint: addr0.pprint(indent=' '*3)
 
    print '\nTest serializing pub-key-only-root',
@@ -472,10 +473,9 @@ if Test_EncryptedAddress:
 
    #############################################################################
    print '\n\nGenerate chained keys from locked addresses'
-   addr0 = PyBtcAddress().createFromPlainKeyData( \
-                              convertKeyDataToAddress(privKey), privKey, \
-                              willBeEncr=True, IV16=theIV)
-   addr0.setAsAddrChainRoot(chaincode)
+   addr0 = PyBtcAddress().createFromPlainKeyData( privKey, \
+                                             willBeEncr=True, IV16=theIV)
+   addr0.markAsRootAddr(chaincode)
    print '\n  OP(addr[0] plain)'
    if debugPrint: addr0.pprint(indent=' '*3)
 
@@ -512,10 +512,9 @@ if Test_EncryptedAddress:
 
    #############################################################################
    print '\n\nGenerate chained keys from locked addresses, no unlocking'
-   addr0 = PyBtcAddress().createFromPlainKeyData( \
-                              convertKeyDataToAddress(privKey), privKey, \
-                              willBeEncr=True, IV16=theIV)
-   addr0.setAsAddrChainRoot(chaincode)
+   addr0 = PyBtcAddress().createFromPlainKeyData( privKey, \
+                                          willBeEncr=True, IV16=theIV)
+   addr0.markAsRootAddr(chaincode)
    print '\n  OP(addr[0] locked)'
    addr0.lock(fakeKdfOutput1)
    if debugPrint: addr0.pprint(indent=' '*3)
@@ -552,6 +551,32 @@ if Test_EncryptedAddress:
    print '\nAddr2.priv == Addr2b.priv:',
    printpassorfail(priv2 == priv2b)
 
+
+################################################################################
+################################################################################
+if Test_EncryptedWallet:
+   print '\n'
+   print '*********************************************************************'
+   print 'Testing deterministic, encrypted wallet features'
+   print '*********************************************************************'
+   print ''
+   
+   # We need a controlled test, so we script the all the normally-random stuff
+   privKey   = SecureBinaryData('\xaa'*32)
+   chainstr  = SecureBinaryData('\xee'*32)
+   theIV     = SecureBinaryData(hex_to_binary('77'*16))
+      
+   wlt = PyBtcWallet().createNewWallet(withEncrypt=False, \
+                                       plainRootKey=privKey, \
+                                       chaincode=chainstr,   \
+                                       IV=theIV, \
+                                       shortDescr='TestWlt1_NoEncryption')
+   print 'New wallet is at:', wlt.getWalletPath()
+   wlt.pprint()
+
+   print 'Getting a new address:'
+   newAddr = wlt.getNewAddress()
+   wlt.pprint
 
 ################################################################################
 ################################################################################

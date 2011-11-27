@@ -264,8 +264,8 @@ bool BtcWallet::hasAddr(BinaryData const & addr20)
 // but I still need the time/num 
 void BtcWallet::scanTx(TxRef & tx, 
                        uint32_t txIndex,
-                       uint32_t blknum, 
-                       uint32_t blktime)
+                       uint32_t blktime,
+                       uint32_t blknum)
 {
    int64_t totalLedgerAmt = 0;
    bool anyTxInIsOurs   = false;
@@ -774,7 +774,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWal
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
          TxRef & tx = *(txlist[itx]);
-         myWallet.scanTx(tx, itx, bhr.getBlockHeight(), bhr.getTimestamp());
+         myWallet.scanTx(tx, itx, bhr.getTimestamp(), bhr.getBlockHeight());
       }
    }
    myWallet.sortLedger(); // removes invalid tx and sorts
@@ -797,7 +797,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet*
          TxRef & tx = *(txlist[itx]);
 
          for(uint32_t w=0; w<walletVect.size(); w++)
-            walletVect[w]->scanTx(tx, itx, bhr.getBlockHeight(), bhr.getTimestamp());
+            walletVect[w]->scanTx(tx, itx, bhr.getTimestamp(), bhr.getBlockHeight());
       }
    }
  

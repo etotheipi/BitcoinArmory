@@ -288,10 +288,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
-                   uint32_t      firstBlockNum  = 0,
                    uint32_t      firstTimestamp = 0,
-                   uint32_t      lastBlockNum  = 0,
-                   uint32_t      lastTimestamp = 0);
+                   uint32_t      firstBlockNum  = 0,
+                   uint32_t      lastTimestamp = 0,
+                   uint32_t      lastBlockNum  = 0);
 
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
@@ -318,8 +318,8 @@ public:
    // the block
    void       scanTx(TxRef & tx, 
                      uint32_t txIndex = UINT32_MAX,
-                     uint32_t blknum = UINT32_MAX,
-                     uint32_t blktime = UINT32_MAX);
+                     uint32_t blktime = UINT32_MAX,
+                     uint32_t blknum = UINT32_MAX);
 
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 
