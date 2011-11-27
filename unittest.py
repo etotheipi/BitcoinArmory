@@ -560,6 +560,8 @@ if Test_EncryptedWallet:
    print 'Testing deterministic, encrypted wallet features'
    print '*********************************************************************'
    print ''
+
+   debugPrint = True
    
    # We need a controlled test, so we script the all the normally-random stuff
    privKey   = SecureBinaryData('\xaa'*32)
@@ -570,13 +572,19 @@ if Test_EncryptedWallet:
                                        plainRootKey=privKey, \
                                        chaincode=chainstr,   \
                                        IV=theIV, \
-                                       shortDescr='TestWlt1_NoEncryption')
+                                       shortLabel='TestWlt1_NoEncryption')
    print 'New wallet is at:', wlt.getWalletPath()
-   wlt.pprint()
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    print 'Getting a new address:'
    newAddr = wlt.getNewAddress()
-   wlt.pprint
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   print 'Re-reading wallet from file, compare the two wallets'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrint))
 
 ################################################################################
 ################################################################################
