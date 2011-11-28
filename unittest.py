@@ -12,7 +12,7 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
+Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -562,17 +562,31 @@ if Test_EncryptedWallet:
    print ''
 
    debugPrint = True
+   debugPrintAlot = False
+
+   # Remove wallet files, need fresh dir for this test
+   try: os.remove('/home/alan/.bitcoinarmory/ArmoryWallet_Uyegv7yrkFZ_.bin')
+   except: pass
+   try: os.remove('/home/alan/.bitcoinarmory/ArmoryWallet_Uyegv7yrkFZ_backup.bin')
+   except: pass
+   try: os.remove('/home/alan/.bitcoinarmory/ArmoryWallet_Uyegv7yrkFZ_backup_unsuccessful.bin')
+   except: pass
+   try: os.remove('/home/alan/.bitcoinarmory/ArmoryWallet_Uyegv7yrkFZ_update_unsuccessful.bin')
+   except: pass
    
    # We need a controlled test, so we script the all the normally-random stuff
    privKey   = SecureBinaryData('\xaa'*32)
+   privKey2  = SecureBinaryData('\x33'*32)
    chainstr  = SecureBinaryData('\xee'*32)
    theIV     = SecureBinaryData(hex_to_binary('77'*16))
+   passphrase= SecureBinaryData('A unicode passphrase')
       
    wlt = PyBtcWallet().createNewWallet(withEncrypt=False, \
                                        plainRootKey=privKey, \
                                        chaincode=chainstr,   \
                                        IV=theIV, \
                                        shortLabel='TestWlt1_NoEncryption')
+
    print 'New wallet is at:', wlt.getWalletPath()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
@@ -580,11 +594,55 @@ if Test_EncryptedWallet:
    newAddr = wlt.getNewAddress()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
-   print 'Re-reading wallet from file, compare the two wallets'
+   print '(1) Re-reading wallet from file, compare the two wallets'
    wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
+   
+   print '\nTesting unencrypted wallet import-address'
+   addr160_2 = convertKeyDataToAddress(privKey2)
+   wlt.importExternalAddressData(addr160_2, privKey2)
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   
+   print '(2) Re-reading wallet from file, compare the two wallets'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
 
-   printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrint))
+   #############################################################################
+   # Now play with encrypted wallets
+   print '\nTesting conversion to encrypted wallet'
+
+   params = wlt.computeSystemSpecificKdfParams(0.5) # in sec 
+   kdfParams = wlt.computeSystemSpecificKdfParams(0.1)
+
+   wltPrekdf = binary_to_hex(open(wlt.walletPath,'r').read())
+
+   wlt.changeKdfParams(*kdfParams)
+
+   wltPostkdf = binary_to_hex(open(wlt.walletPath,'r').read())
+
+   print 'New KDF takes', wlt.testKdfComputeTime(), 'seconds to compute'
+   wlt.kdf.printKdfParams()
+   wlt.changeWalletEncryption( passphrase )
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   
+   wltPostEncr = binary_to_hex(open(wlt.walletPath,'r').read())
+
+   #pprintHex(wltPrekdf)
+   #pprintHex(wltPostkdf)
+   #pprintDiff(wltPrekdf, wltPostkdf)
+
+   #pprintHex(wltPostkdf)
+   #pprintHex(wltPostEncr)
+   #pprintDiff(wltPostkdf, wltPostEncr)
+
+   print '(3) Re-reading wallet from file, compare the two wallets'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
+
+
 
 ################################################################################
 ################################################################################
