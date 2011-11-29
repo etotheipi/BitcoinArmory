@@ -592,7 +592,7 @@ if Test_EncryptedWallet:
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    #############################################################################
-   print 'Getting a new address:'
+   print '(1) Getting a new address:'
    newAddr = wlt.getNewAddress()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
@@ -602,7 +602,7 @@ if Test_EncryptedWallet:
    printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
    
    #############################################################################
-   print '\nTesting unencrypted wallet import-address'
+   print '\n(2)Testing unencrypted wallet import-address'
    addr160_2 = convertKeyDataToAddress(privKey2)
    wlt.importExternalAddressData(addr160_2, privKey2)
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
@@ -614,13 +614,14 @@ if Test_EncryptedWallet:
 
    #############################################################################
    # Now play with encrypted wallets
-   print '\nTesting conversion to encrypted wallet'
+   print '\n(3)Testing conversion to encrypted wallet'
 
    kdfParams = wlt.computeSystemSpecificKdfParams(0.1)
    wlt.changeKdfParams(*kdfParams)
 
-   print 'New KDF takes', wlt.testKdfComputeTime(), 'seconds to compute'
+   print '(3)New KDF takes', wlt.testKdfComputeTime(), 'seconds to compute'
    wlt.kdf.printKdfParams()
+   kdfForUnlock = wlt.kdf.DeriveKey( passphrase )
    wlt.changeWalletEncryption( passphrase )
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
@@ -634,15 +635,24 @@ if Test_EncryptedWallet:
    #        wlt is unlocked and contains the plaintext keys, too
    #        while wlt2 does not.
 
-   print '\nLook at wlt again, after we lock it'
+   print '\n(3)Look at wlt again, before we lock it'
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    wlt.lock()
+   print '\n(3)And now it should be locked...'
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
 
    #############################################################################
-   print '\nTesting changing passphrase on encrypted wallet'
+   print '\n(4)Testing changing passphrase on encrypted wallet',
 
+   kdfForUnlock = wlt.kdf.DeriveKey( passphrase )
+   wlt.unlock( kdfForUnlock )
+   print '...to same passphrase'
    wlt.changeWalletEncryption( passphrase )
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   print 'And now testing new passphrase...'
+   wlt.changeWalletEncryption( passphrase2 )
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
    print '(4) Re-reading wallet from file, compare the two wallets'

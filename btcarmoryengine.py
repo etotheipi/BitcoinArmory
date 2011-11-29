@@ -12,9 +12,9 @@
 # Descr:      This file serves as an engine for python-based Bitcoin software.
 #             I forked this from my own project -- PyBtcEngine -- because I
 #             I needed to start including/rewriting code to use CppBlockUtils
-#             but did not want to break the pure-python-ness of PyBtcEngine. 
+#             but did not want to break the pure-python-ness of PyBtcEngine.
 #             If you are interested in in a pure-python set of bitcoin utils
-#             please go checkout the PyBtcEngine github project.  
+#             please go checkout the PyBtcEngine github project.
 #
 #             Of course, the biggest advatage here is that you have access to
 #             the blockchain through BlockObj/BlockObjRef/BlockUtils, as found
@@ -22,7 +22,7 @@
 #             but I had to split out the modules, and I didn't have a good way
 #             to maintain the pure-python module while also implementing all
 #             the great SWIG-imported C++ utilities I built.
-#             
+#
 #             This module replaces the ECDSA operations, with faster ones
 #             implemented in C++ from Crypto++.  This also enables the ability
 #             to use SecureBinaryData objects for moving around private keys,
@@ -33,7 +33,7 @@
 #             In the end, this will be a single, huge, python file that should
 #             contain, LITERALLY, every computational Bitcoin operation needed
 #             to build a client application in Python, EXCEPT for networking.
-#            
+#
 #             I will try to keep the README up-to-date with the latest features
 #             that I have implemented and tested.
 #
@@ -78,7 +78,7 @@ def readVersionString(verStr):
    while len(verList)<4:
       verList.append(0)
    return tuple(verList)
-   
+
 def readVersionInt(verInt):
    verStr = str(verInt).rjust(10,'0')
    verList = []
@@ -136,7 +136,7 @@ print '   Satoshi blk0001.dat   :', BLK0001_PATH
 print '   BitcoinArmory home dir:', ARMORY_HOME_DIR
 
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
-   os.mkdir(ARMORY_HOME_DIR)   
+   os.mkdir(ARMORY_HOME_DIR)
 
 
 
@@ -200,25 +200,25 @@ NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin"
 
 
-   
+
 def coin2str(nSatoshi, ndec=8, rJust=False):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
    """
    # We make sure that when we truncate digits, it's actually applying rounding
-   if ndec<8: 
+   if ndec<8:
       nSatoshi += 5 * 10**(7-ndec)
    s = str(long(nSatoshi))
-   if len(s)<9: 
+   if len(s)<9:
       s = s.rjust(9,'0')
    s = s.rjust(16,' ')
    s = s[:8] + '.' + s[8:8+ndec]
-   if ndec==0: 
+   if ndec==0:
       s = s.strip('.')
-   if not rJust: 
+   if not rJust:
       s = s.strip(' ')
    return s
-   
+
 
 # Some useful constants to be used throughout everything
 BASE58DIGITS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -239,7 +239,7 @@ UINT64_MAX = 2**64-1
 RightNow = time.time
 
 # Define all the hashing functions we're going to need.  We don't actually
-# use any of the first three directly (sha1, sha256, ripemd160), we only 
+# use any of the first three directly (sha1, sha256, ripemd160), we only
 # use hash256 and hash160 which use the first three to create the ONLY hash
 # operations we ever do in the bitcoin network
 def sha1(bits):
@@ -257,7 +257,7 @@ def hash160(s):
 
 
 ################################################################################
-# Load the C++ utilites here 
+# Load the C++ utilites here
 #
 #    The SWIG/C++ block utilities give us access to the blockchain, fast ECDSA
 #    operations, and general encryption/secure-binary containers
@@ -284,7 +284,7 @@ except:
 ################################################################################
 # Might as well create the BDM right here -- there will only ever be one, anyway
 TheBDM = Cpp.BlockDataManager().getBDM()
-   
+
 
 
 
@@ -303,7 +303,7 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    nchunk = int((sz-1)/minor) + 1;
    for i in range(nchunk):
       if i%major==0:
-         outStr += '\n'  + indent 
+         outStr += '\n'  + indent
          if withAddr:
             locStr = int_to_hex(i*minor/2, widthBytes=2, endOut=BIGENDIAN)
             outStr +=  '0x' + locStr + ':  '
@@ -317,11 +317,11 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    This method takes in a long hex string and prints it out into rows
    of 64 hex chars, in chunks of 8 hex characters, and with address
    markings on each row.  This means that each row displays 32 bytes,
-   which is usually pleasant.  
-   
-   The format is customizable: you can adjust the indenting of the 
-   entire block, remove address markings, or change the major/minor 
-   grouping size (major * minor = hexCharsPerRow) 
+   which is usually pleasant.
+
+   The format is customizable: you can adjust the indenting of the
+   entire block, remove address markings, or change the major/minor
+   grouping size (major * minor = hexCharsPerRow)
    """
    print prettyHex(theStr, indent, withAddr, major, minor)
 
@@ -329,8 +329,8 @@ def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
 
 def pprintDiff(str1, str2, indent=''):
    if not len(str1)==len(str2):
-      print 'pprintDiff: Strings are different length!' 
-      return 
+      print 'pprintDiff: Strings are different length!'
+      return
 
    byteDiff = []
    for i in range(len(str1)):
@@ -338,10 +338,10 @@ def pprintDiff(str1, str2, indent=''):
          byteDiff.append('-')
       else:
          byteDiff.append('X')
-      
+
    pprintHex(''.join(byteDiff), indent=indent)
 
-  
+
 
 
 ##### Switch endian-ness #####
@@ -352,12 +352,12 @@ def hex_switchEndian(s):
 def binary_switchEndian(s):
    """ Switches the endianness of a binary string """
    return s[::-1]
- 
+
 
 ##### INT/HEXSTR #####
 def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
-   """ 
-   Convert an integer (int() or long()) to hexadecimal.  Default behavior is 
+   """
+   Convert an integer (int() or long()) to hexadecimal.  Default behavior is
    to use the smallest even number of hex characters necessary, and using
    little-endian.   Use the widthBytes argument to add 0-padding where needed
    if you are expecting constant-length output.
@@ -373,7 +373,7 @@ def int_to_hex(i, widthBytes=0, endOut=LITTLEENDIAN):
          h = '0'*nZero + h
    if endOut==LITTLEENDIAN:
       h = hex_switchEndian(h)
-   return h   
+   return h
 
 def hex_to_int(h, endIn=LITTLEENDIAN):
    """
@@ -384,31 +384,31 @@ def hex_to_int(h, endIn=LITTLEENDIAN):
    if endIn==LITTLEENDIAN:
       hstr = hex_switchEndian(hstr)
    return( int(hstr, 16) )
- 
+
 
 ##### HEXSTR/BINARYSTR #####
 def hex_to_binary(h, endIn=LITTLEENDIAN, endOut=LITTLEENDIAN):
    """
-   Converts hexadecimal to binary (in a python string).  Endianness is 
+   Converts hexadecimal to binary (in a python string).  Endianness is
    only switched if (endIn != endOut)
    """
    bout = h[:]  # copies data, no references
    if not endIn==endOut:
-      bout = hex_switchEndian(bout) 
+      bout = hex_switchEndian(bout)
    return bout.decode('hex_codec')
 
 
 def binary_to_hex(b, endOut=LITTLEENDIAN, endIn=LITTLEENDIAN):
    """
-   Converts binary to hexadecimal.  Endianness is only switched 
+   Converts binary to hexadecimal.  Endianness is only switched
    if (endIn != endOut)
    """
    hout = b.encode('hex_codec')
    if not endOut==endIn:
-      hout = hex_switchEndian(hout) 
+      hout = hex_switchEndian(hout)
    return hout
 
- 
+
 ##### INT/BINARYSTR #####
 def int_to_binary(i, widthBytes=0, endOut=LITTLEENDIAN):
    """
@@ -443,19 +443,19 @@ def bitset_to_int(bitset):
    for i,bit in enumerate(bitset):
       n += (0 if bit=='0' else 1) * 2**i
    return n
-  
+
 
 EmptyHash = hex_to_binary('00'*32)
- 
+
 
 ################################################################################
 # BINARY/BASE58 CONVERSIONS
 def binary_to_base58(binstr):
    """
    This method applies the Bitcoin-specific conversion from binary to Base58
-   which may includes some extra "zero" bytes, such as is the case with the 
+   which may includes some extra "zero" bytes, such as is the case with the
    main-network addresses.
-   
+
    This method is labeled as outputting an "addrStr", but it's really this
    special kind of Base58 converter, which makes it usable for encoding other
    data, such as ECDSA keys or scripts.
@@ -471,8 +471,8 @@ def binary_to_base58(binstr):
    for ch in binstr:
       n *= 256
       n += ord(ch)
-  
-   b58 = '' 
+
+   b58 = ''
    while n > 0:
       n, r = divmod (n, 58)
       b58 = BASE58DIGITS[r] + b58
@@ -483,9 +483,9 @@ def binary_to_base58(binstr):
 def base58_to_binary(addr):
    """
    This method applies the Bitcoin-specific conversion from Base58 to binary
-   which may includes some extra "zero" bytes, such as is the case with the 
+   which may includes some extra "zero" bytes, such as is the case with the
    main-network addresses.
-   
+
    This method is labeled as inputting an "addrStr", but it's really this
    special kind of Base58 converter, which makes it usable for encoding other
    data, such as ECDSA keys or scripts.
@@ -502,23 +502,23 @@ def base58_to_binary(addr):
    for ch in addr:
       n *= 58
       n += BASE58DIGITS.index(ch)
-   
+
    binOut = ''
    while n>0:
       d,m = divmod(n,256)
-      binOut = chr(m) + binOut 
+      binOut = chr(m) + binOut
       n = d
    return '\x00'*padding + binOut
-   
 
-   
-     
+
+
+
 
 ################################################################################
 def hash160_to_addrStr(binStr):
-   """ 
+   """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
-   which includes the network byte (prefix) and 4-byte checksum (suffix) 
+   which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
    addr21 = ADDRBYTE + binStr
    addr25 = addr21 + hash256(addr21)[:4]
@@ -543,8 +543,8 @@ def float_to_btc (f):
 
 ##### And a few useful utilities #####
 def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
-   """ 
-   Converts a unix time (like those found in block headers) to a 
+   """
+   Converts a unix time (like those found in block headers) to a
    pleasant, human-readable format
    """
    dtobj = datetime.fromtimestamp(unixTime)
@@ -573,7 +573,7 @@ def unpackVarInt(hvi):
 
 
 def fixChecksumError(binaryStr, chksum, hashFunc=hash256):
-   """ 
+   """
    Will only try to correct one byte, as that would be the most
    common error case.  Correcting two bytes is feasible, but I'm
    not going to bother implementing it until I need it.  If it's
@@ -590,10 +590,10 @@ def fixChecksumError(binaryStr, chksum, hashFunc=hash256):
 
 def computeChecksum(binaryStr, nBytes=4, hashFunc=hash256):
    return hashFunc(binaryStr)[:nBytes]
-                                               
+
 
 def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
-                                                              beQuiet=False): 
+                                                              beQuiet=False):
    """
    Any time we are given a value and its checksum, we can use
    this method to verify it is valid.  If it's not valid, we
@@ -632,7 +632,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
    else:
       if not beQuiet: print '***Checksum error!  Aborting'
       return ''
-      
+
 
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
@@ -652,7 +652,7 @@ def binaryBits_to_difficulty(b):
 # TODO:  I don't actually know how to do this, yet...
 def difficulty_to_binaryBits(i):
    pass
-   
+
 
 
 ################################################################################
@@ -765,11 +765,11 @@ class BinaryUnpacker(object):
          binOut = self.binaryStr[pos:pos+sz]
          self.advance(sz)
          return binOut
-      
+
       print 'Var Type not recognized!  VarType =', varType
       raise PackerError, "Var type not recognized!  VarType="+str(varType)
-         
-         
+
+
 
 # Start a buffer for concatenating various blocks of binary data
 class BinaryPacker(object):
@@ -793,14 +793,14 @@ class BinaryPacker(object):
 
    def __str__(self):
       return self.getBinaryString()
-      
+
 
    def put(self, varType, theData, width=None, endianness=LITTLEENDIAN):
       """
       Need to supply the argument type you are put'ing into the stream.
       Values of BINARY_CHUNK will automatically detect the size as necessary
 
-      Use width=X to include padding of BINARY_CHUNKs w/ 0x00 bytes 
+      Use width=X to include padding of BINARY_CHUNKs w/ 0x00 bytes
       """
       E = endianness
       if   varType == UINT8:
@@ -858,7 +858,7 @@ def checkAddrType(addrBin):
 # Check validity of a BTC address in its binary form, as would
 # be found inside a pkScript.  Usually about 24 bytes
 def checkAddrBinValid(addrBin, netbyte=ADDRBYTE):
-   """ 
+   """
    Checks whether this address is valid for the given network
    (set at the top of pybtcengine.py)
    """
@@ -888,7 +888,7 @@ class PyBtcAddress(object):
    """
    PyBtcAddress --
 
-   This class encapsulated EVERY kind of address object:  
+   This class encapsulated EVERY kind of address object:
       -- Plaintext private-key-bearing addresses
       -- Encrypted private key addresses, with AES locking and unlocking
       -- Watching-only public-key addresses
@@ -899,17 +899,17 @@ class PyBtcAddress(object):
 
       For deterministic wallets, new addresses will be created from a chaincode
       and the previous address.  What is implemented here is a special kind of
-      deterministic calculation that actually allows the user to securely 
-      generate new addresses even if they don't have the private key.  This 
-      method uses Diffie-Hellman shared-secret calculations to produce the new 
-      keys, and has the same level of security as all other ECDSA operations.  
+      deterministic calculation that actually allows the user to securely
+      generate new addresses even if they don't have the private key.  This
+      method uses Diffie-Hellman shared-secret calculations to produce the new
+      keys, and has the same level of security as all other ECDSA operations.
       There's a lot of fantastic benefits to doing this:
 
          (1) If all addresses in wallet are chained, then you only need to backup
              your wallet ONCE -- when you first create it.  Print it out, put it
              in a safety-deposit box, or tattoo the generator key to the inside
              of your eyelid:  it will never change.
-   
+
          (2) You can keep your private keys on an offline machine, and keep a
              watching-only wallet online.  You will be able to generate new
              keys/addresses, and verify incoming transactions, without ever
@@ -919,16 +919,16 @@ class PyBtcAddress(object):
              too can generate new addresses for you -- allowing them to send
              you money multiple times, with different addresses, without ever
              needing to specifically request the addresses.
-             (the downside to this is if the chaincode is compromised, all 
+             (the downside to this is if the chaincode is compromised, all
              chained addresses become de-anonymized -- but is only a loss of
              privacy, not security)
-             
+
       However, we do require some fairly complicated logic, due to the fact
       that a user with a full, private-key-bearing wallet, may try to generate
       a new key/address without supplying a passphrase.  If this happens, the
       wallet logic gets very complicated -- we don't want to reject the request
       to generate a new address, but we can't compute the private key until the
-      next time the user unlocks their wallet.  Thus, we have to save off the 
+      next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
    """
    #############################################################################
@@ -937,7 +937,7 @@ class PyBtcAddress(object):
       We use SecureBinaryData objects to store pub, priv and IV objects,
       because that is what is required by the C++ code.  See EncryptionUtils.h
       to see that available methods.
-      """ 
+      """
       self.addrStr20             = ''
       self.binPublicKey65        = SecureBinaryData()  # 0x04 X(BE) Y(BE)
       self.binPrivKey32_Encr     = SecureBinaryData()  # BIG-ENDIAN
@@ -952,7 +952,7 @@ class PyBtcAddress(object):
       self.chainIndex            = 0
 
       # Information to be used by C++ to know where to search for transactions
-      # in the blockchain 
+      # in the blockchain
       #               [unixTime, blkNum]
       self.timeRange = [UINT32_MAX, UINT32_MAX]
       self.blkRange  = [UINT32_MAX, UINT32_MAX]
@@ -974,7 +974,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    def hasPrivKey(self):
-      """ 
+      """
       We have a private key if either the plaintext, or ciphertext private-key
       fields are non-empty.  We also consider ourselves to "have" the private
       key if this address was chained from a key that has the private key, even
@@ -1003,7 +1003,7 @@ class PyBtcAddress(object):
    #############################################################################
    def touch(self, unixTime=None, blkNum=None):
       """
-      Just like "touching" a file, this makes sure that the firstSeen and 
+      Just like "touching" a file, this makes sure that the firstSeen and
       lastSeen fields for this address are updated to include "now"
 
       If we include only a block number, we will fill in the timestamp with
@@ -1021,28 +1021,28 @@ class PyBtcAddress(object):
       self.timeRange[0] = min(self.timeRange[0], unixTime)
       self.timeRange[1] = max(self.timeRange[1], unixTime)
 
-   
+
 
    #############################################################################
    def copy(self):
-      newAddr = PyBtcAddress().unserialize(self.serialize())   
+      newAddr = PyBtcAddress().unserialize(self.serialize())
       newAddr.binPrivKey32_Plain = self.binPrivKey32_Plain.copy()
       newAddr.binPrivKey32_Encr  = self.binPrivKey32_Encr.copy()
       newAddr.binPublicKey65     = self.binPublicKey65.copy()
       newAddr.binInitVect16      = self.binInitVect16.copy()
-      newAddr.isLocked           = self.isLocked              
-      newAddr.useEncryption      = self.useEncryption         
-      newAddr.isInitialized      = self.isInitialized         
-      newAddr.keyChanged         = self.keyChanged            
-      newAddr.walletByteLoc      = self.walletByteLoc         
-      newAddr.chaincode          = self.chaincode             
-      newAddr.chainIndex         = self.chainIndex            
+      newAddr.isLocked           = self.isLocked
+      newAddr.useEncryption      = self.useEncryption
+      newAddr.isInitialized      = self.isInitialized
+      newAddr.keyChanged         = self.keyChanged
+      newAddr.walletByteLoc      = self.walletByteLoc
+      newAddr.chaincode          = self.chaincode
+      newAddr.chainIndex         = self.chainIndex
       return newAddr
 
 
    #############################################################################
    def isAddressUsed(self):
-      isUntouch = self.timeRange[0]==UINT32_MAX and self.blkRange[0]==UINT32_MAX  
+      isUntouch = self.timeRange[0]==UINT32_MAX and self.blkRange[0]==UINT32_MAX
       return not isUntouch
 
    #############################################################################
@@ -1076,7 +1076,7 @@ class PyBtcAddress(object):
    #############################################################################
    def verifyEncryptionKey(self, secureKdfOutput):
       """
-      Determine if this data is the decryption key for this encrypted address 
+      Determine if this data is the decryption key for this encrypted address
       """
       if not self.useEncryption or not self.hasPrivKey():
          return False
@@ -1084,15 +1084,16 @@ class PyBtcAddress(object):
       if self.useEncryption and not secureKdfOutput:
          print 'No encryption key supplied to verifyEncryption!'
          return False
-         
+
 
       decryptedKey = CryptoAES().Decrypt( self.binPrivKey32_Encr, \
                                           SecureBinaryData(secureKdfOutput), \
                                           self.binInitVect16)
       verified = False
+
       if not self.isLocked:
          if decryptedKey==self.binPrivKey32_Plain:
-            verified = True 
+            verified = True
       else:
          computedPubKey = CryptoECDSA().ComputePublicKey(decryptedKey)
          if self.hasPubKey():
@@ -1103,7 +1104,7 @@ class PyBtcAddress(object):
 
       decryptedKey.destroy()
       return verified
-         
+
 
 
    #############################################################################
@@ -1112,9 +1113,9 @@ class PyBtcAddress(object):
       Either set the IV through input arg, or explicitly call random=True
       Returns the IV -- which is especially important if it is randomly gen
 
-      This method is mainly for PREVENTING you from changing an existing IV 
-      without meaning to.  Losing the IV for encrypted data is almost as bad 
-      as losing the encryption key.  Caller must use force=True in order to 
+      This method is mainly for PREVENTING you from changing an existing IV
+      without meaning to.  Losing the IV for encrypted data is almost as bad
+      as losing the encryption key.  Caller must use force=True in order to
       override this warning -- otherwise this method will abort.
       """
       if self.binInitVect16.getSize()==16:
@@ -1133,11 +1134,11 @@ class PyBtcAddress(object):
             print '             If you really want to do this, re-execute'
             print '             this call with force=True'
             return ''
-            
+
       if IV16:
          self.binInitVect16 = SecureBinaryData(IV16)
       elif random==True:
-         self.binInitVect16 = SecureBinaryData().GenerateRandom(16) 
+         self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
       else:
          raise KeyDataError, 'setInitVector: set IV data, or random=True'
       return self.binInitVect16
@@ -1151,11 +1152,11 @@ class PyBtcAddress(object):
       self.useEncryption = True
       if IV16 or generateIVIfNecessary:
          self.setInitializationVector(IV16, generateIVIfNecessary)
-      
+
    #############################################################################
    def isKeyEncryptionEnabled(self):
       return self.useEncryption
-      
+
 
    #############################################################################
    def createFromEncryptedKeyData(self, addr20, encrPrivKey32, IV16, \
@@ -1190,7 +1191,7 @@ class PyBtcAddress(object):
 
       if not addr160:
          addr160 = convertKeyDataToAddress(privKey=plainPrivKey)
-      
+
       self.__init__()
       self.addrStr20 = addr160
       self.isInitialized = True
@@ -1205,19 +1206,19 @@ class PyBtcAddress(object):
       if chksum and not self.binPrivKey32_Plain.getHash256().startswith(chksum):
          raise ChecksumError, "Checksum doesn't match plaintext priv key!"
       if publicKey65:
-         self.binPublicKey65 = SecureBinaryData(publicKey65)  
+         self.binPublicKey65 = SecureBinaryData(publicKey65)
          if not self.binPublicKey65.getHash160()==self.addrStr20:
             raise KeyDataError, "Public key does not match supplied address"
          if not skipCheck:
             if not CryptoECDSA().CheckPubPrivKeyMatch(self.binPrivKey32_Plain,\
                                                       self.binPublicKey65):
-               raise KeyDataError, 'Supplied pub and priv key do not match!' 
+               raise KeyDataError, 'Supplied pub and priv key do not match!'
       elif not skipPubCompute:
          # No public key supplied, but we do want to calculate it
          self.binPublicKey65 = CryptoECDSA().ComputePublicKey(plainPrivKey)
-   
+
       return self
-         
+
    #############################################################################
    def createFromPublicKeyData(self, publicKey65, chksum=None):
 
@@ -1233,11 +1234,11 @@ class PyBtcAddress(object):
          raise ChecksumError, "Checksum doesn't match supplied public key!"
 
       return self
-         
+
 
    #############################################################################
    def lock(self, secureKdfOutput=None, generateIVIfNecessary=False):
-      # We don't want to destroy the private key if it's not supposed to be 
+      # We don't want to destroy the private key if it's not supposed to be
       # encrypted.  Similarly, if we haven't actually saved the encrypted
       # version, let's not lock it
       newIV = False
@@ -1268,14 +1269,14 @@ class PyBtcAddress(object):
                # Destroy the unencrypted key, reset the keyChanged flag
                self.binPrivKey32_Plain.destroy()
                self.isLocked = True
-               self.keyChanged = False 
+               self.keyChanged = False
             else:
                # Can't encrypt the addr because we don't have encryption key
                raise WalletLockError, ("\n\tTrying to destroy plaintext key, but no"
                                        "\n\tencrypted key data is available, and no"
                                        "\n\tencryption key provided to encrypt it.")
 
-   
+
       # In case we changed the IV, we should let the caller know this
       return self.binInitVect16 if newIV else SecureBinaryData()
 
@@ -1286,14 +1287,14 @@ class PyBtcAddress(object):
       This method knows nothing about a key-derivation function.  It simply
       takes in an AES key and applies it to decrypt the data.  However, it's
       best if that AES key is actually derived from "heavy" key-derivation
-      function.  
+      function.
       """
       if not self.useEncryption or not self.isLocked:
          # Bail out if the wallet is unencrypted, or already unlocked
          self.isLocked = False
          return
 
-      
+
       if self.createPrivKeyNextUnlock:
          # This is SPECIFICALLY for the case that we didn't have the encr key
          # available when we tried to extend our deterministic wallet, and
@@ -1306,7 +1307,7 @@ class PyBtcAddress(object):
          for i in range(self.createPrivKeyNextUnlock_ChainDepth):
             self.binPrivKey32_Plain = CryptoECDSA().ComputeChainedPrivateKey( \
                                          self.binPrivKey32_Plain, \
-                                         self.chaincode) 
+                                         self.chaincode)
 
 
          # IV should have already been randomly generated, before
@@ -1326,7 +1327,7 @@ class PyBtcAddress(object):
 
          if not self.binInitVect16.getSize()==16:
             raise WalletLockError, 'Initialization Vect (IV) is missing!'
-   
+
          self.binPrivKey32_Plain = CryptoAES().Decrypt( \
                                         self.binPrivKey32_Encr, \
                                         secureKdfOutput, \
@@ -1385,14 +1386,14 @@ class PyBtcAddress(object):
             self.unlock(secureNewKey)
             self.isLocked = False
 
-         
-         
+
+
 
    #############################################################################
    # This is more of a static method
    def checkPubPrivKeyMatch(self, securePriv, securePub):
       CryptoECDSA().checkPubPrivKeyPairMatch(securePriv, securePub)
-      
+
 
 
    #############################################################################
@@ -1437,9 +1438,9 @@ class PyBtcAddress(object):
          # Always re-lock/cleanup after unlocking, even after an exception.
          # If locking triggers an error too, we will just skip it.
          try:
-            if secureKdfOutput!=None: 
+            if secureKdfOutput!=None:
                self.lock(secureKdfOutput)
-         except: 
+         except:
             pass
 
 
@@ -1466,13 +1467,13 @@ class PyBtcAddress(object):
       sBytes    = binary_to_int(sStr[1])
       s         = sStr[2:2+sBytes]
       assert(codeByte == '\x02')
-      # Now we have the (r,s) values of the 
+      # Now we have the (r,s) values of the
 
       secMsg    = SecureBinaryData(binMsgVerify)
       secSig    = SecureBinaryData(r[-32:] + s[-32:])
       secPubKey = SecureBinaryData(self.binPublicKey65)
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
-                 
+
 
 
    #############################################################################
@@ -1480,10 +1481,10 @@ class PyBtcAddress(object):
       """
       This generates a new private key directly into a secure binary container
       and then encrypts it immediately if encryption is enabled and the AES key
-      (from KDF) is available to do so.  This behaves like a static method, 
+      (from KDF) is available to do so.  This behaves like a static method,
       returning a copy/ref to itself.
 
-      TODO:  There is no way for this method to know whether you wanted the 
+      TODO:  There is no way for this method to know whether you wanted the
              key to be encrypted forgot to provide a key
       """
       self.__init__()
@@ -1492,7 +1493,7 @@ class PyBtcAddress(object):
       self.addrStr20 = self.binPublicKey65.getHash160()
       self.isInitialized = True
 
-      if secureKdfOutput!=None: 
+      if secureKdfOutput!=None:
          self.binInitVect16 = IV16
          if IV16==None or IV16.getSize()!=16:
             self.binInitVect16 = SecureBinaryData().GenerateRandom(16)
@@ -1512,7 +1513,7 @@ class PyBtcAddress(object):
       else:
          self.chainIndex = -1
          self.chaincode  = chaincode
-         
+
 
    #############################################################################
    def isAddrChainRoot(self):
@@ -1521,12 +1522,12 @@ class PyBtcAddress(object):
    #############################################################################
    def extendAddressChain(self, secureKdfOutput=None, newIV=None):
       """
-      We require some fairly complicated logic here, due to the fact that a 
+      We require some fairly complicated logic here, due to the fact that a
       user with a full, private-key-bearing wallet, may try to generate a new
-      key/address without supplying a passphrase.  If this happens, the wallet 
-      logic gets mucked up -- we don't want to reject the request to 
+      key/address without supplying a passphrase.  If this happens, the wallet
+      logic gets mucked up -- we don't want to reject the request to
       generate a new address, but we can't compute the private key until the
-      next time the user unlocks their wallet.  Thus, we have to save off the 
+      next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
       """
       newAddr = PyBtcAddress()
@@ -1557,7 +1558,7 @@ class PyBtcAddress(object):
          newAddr.isInitialized = True
          newAddr.chaincode     = self.chaincode
          newAddr.chainIndex    = self.chainIndex+1
-         
+
          # We can't get here without a secureKdfOutput (I think)
          if newAddr.useEncryption:
             newAddr.lock(secureKdfOutput)
@@ -1601,11 +1602,11 @@ class PyBtcAddress(object):
                newAddr.createPrivKeyNextUnlock_IVandKey[1] = self.binPrivKey32_Encr.copy()
                newAddr.createPrivKeyNextUnlock_ChainDepth  = 1
          return newAddr
-        
+
 
    def serialize(self):
       """
-      We define here a binary serialization scheme that will write out ALL 
+      We define here a binary serialization scheme that will write out ALL
       information needed to completely reconstruct address data from file.
       This method returns a string, but presumably will be used to write addr
       data to file.  The following format is used.
@@ -1619,7 +1620,7 @@ class PyBtcAddress(object):
          ChainCode   (32 bytes) :  For extending deterministic wallets
          ChainChk    ( 4 bytes) :  Checksum for chaincode
          ChainIndex  ( 8 bytes) :  Index in chain if deterministic addresses
-         ChainDepth  ( 8 bytes) :  How deep addr is in chain beyond last 
+         ChainDepth  ( 8 bytes) :  How deep addr is in chain beyond last
                                    computed private key (if base address was
                                    locked when we tried to extend/chain it)
 
@@ -1671,10 +1672,10 @@ class PyBtcAddress(object):
             return computeChecksum(a,4)
          else:
             return computeChecksum(a.toBinStr(),4)
-      
-      # Use BinaryPacker "width" fields to guaranteee BINARY_CHUNK width.  
+
+      # Use BinaryPacker "width" fields to guaranteee BINARY_CHUNK width.
       # Sure, if we have malformed data we might cut some of it off instead
-      # of writing it to the binary stream.  But at least we'll ALWAYS be 
+      # of writing it to the binary stream.  But at least we'll ALWAYS be
       # able to determine where each field is, and will never corrupt the
       # whole wallet so badly we have to go hex-diving to figure out what
       # happened.
@@ -1716,9 +1717,9 @@ class PyBtcAddress(object):
       binOut.put(UINT64, self.timeRange[1])
       binOut.put(UINT32, self.blkRange[0])
       binOut.put(UINT32, self.blkRange[1])
-      
+
       return binOut.getBinaryString()
-               
+
 
    #############################################################################
    def unserialize(self, toUnpack):
@@ -1731,13 +1732,13 @@ class PyBtcAddress(object):
       for bigger problems that can't be fixed.
       """
       if isinstance(toUnpack, BinaryUnpacker):
-         serializedData = toUnpack 
-      else: 
+         serializedData = toUnpack
+      else:
          serializedData = BinaryUnpacker( toUnpack )
 
 
       def chkzero(a):
-         """ 
+         """
          Due to fixed-width fields, we will get lots of zero-bytes
          even when the binary data container was empty
          """
@@ -1749,7 +1750,7 @@ class PyBtcAddress(object):
 
       # Start with a fresh new address
       self.__init__()
-      
+
       self.addrStr20 = serializedData.get(BINARY_CHUNK, 20)
       chkAddr20      = serializedData.get(BINARY_CHUNK,  4)
       addrVerInt     = serializedData.get(UINT32)
@@ -1757,7 +1758,7 @@ class PyBtcAddress(object):
       self.addrStr20 = verifyChecksum(self.addrStr20, chkAddr20)
       flags = int_to_bitset(flags, widthBytes=8)
 
-      # Interpret the flags 
+      # Interpret the flags
       containsPrivKey              = (flags[0]=='1')
       containsPubKey               = (flags[1]=='1')
       self.useEncryption           = (flags[2]=='1')
@@ -1768,8 +1769,8 @@ class PyBtcAddress(object):
          addrChkError = True
          if not containsPrivKey and not containsPubKey:
             raise UnserializeError, 'Checksum mismatch in addrStr'
-         
-         
+
+
 
       # Write out address-chaining parameters (for deterministic wallets)
       self.chaincode   = chkzero(serializedData.get(BINARY_CHUNK, 32))
@@ -1814,11 +1815,11 @@ class PyBtcAddress(object):
       pubKey = chkzero(serializedData.get(BINARY_CHUNK, 65))
       chkPub =         serializedData.get(BINARY_CHUNK, 4)
       pubKey = SecureBinaryData(verifyChecksum(pubKey, chkPub))
-      
+
       if containsPubKey:
          if not pubKey.getSize()==65:
             if self.binPrivKey32_Plain.getSize()==32:
-               pubKey = CryptoAES().ComputePublicKey(self.binPrivKey32_Plain) 
+               pubKey = CryptoAES().ComputePublicKey(self.binPrivKey32_Plain)
             else:
                raise UnserializeError, 'Checksum mismatch in PublicKey ' +\
                                        '('+hash160_to_addrStr(self.addrStr20)+')'
@@ -1835,15 +1836,15 @@ class PyBtcAddress(object):
 
       self.isInitialized = True
       return self
-      
+
    #############################################################################
    # The following methods are the SIMPLE address operations that can be used
    # to juggle address data without worrying at all about encryption details.
    # The addresses created here can later be endowed with encryption.
    #############################################################################
    def createFromPrivateKey(self, privKey, pubKey=None, skipCheck=False):
-      """ 
-      Creates address from a user-supplied random INTEGER.  
+      """
+      Creates address from a user-supplied random INTEGER.
       This method DOES perform elliptic-curve operations
       """
       if isinstance(privKey, str) and len(privKey)==32:
@@ -1864,12 +1865,12 @@ class PyBtcAddress(object):
                                                 tempAddr.binPublicKey65))
          self.binPublicKey65 = tempAddr.binPublicKey65
          self.addrStr20 = tempAddr.addrStr20
-            
+
       self.isInitialized = True
       return self
 
    def createFromPublicKey(self, pubkey):
-      """ 
+      """
       Creates address from a user-supplied ECDSA public key.
 
       The key can be supplied as an (x,y) pair of integers, an EC_Point
@@ -1893,7 +1894,7 @@ class PyBtcAddress(object):
       else:
          raise KeyDataError, 'Unknown public key format!'
 
-      # TODO: I should do a test to see which is faster: 
+      # TODO: I should do a test to see which is faster:
       #           1) Compute the hash directly like this
       #           2) Get the string, hash it in python
       self.addrStr20 = self.binPublicKey65.getHash160()
@@ -1907,12 +1908,12 @@ class PyBtcAddress(object):
 
       In binary form without a chksum, there is no protection against byte
       errors, since there's no way to distinguish an invalid address from
-      a valid one (they both look like random data).   
-      
+      a valid one (they both look like random data).
+
       If you are creating an address using 20 bytes you obtained in an
-      unreliable manner (such as manually typing them in), you should 
+      unreliable manner (such as manually typing them in), you should
       double-check the input before sending money using the address created
-      here -- the tx will appear valid and be accepted by the network, 
+      here -- the tx will appear valid and be accepted by the network,
       but will be permanently tied up in the network
       """
       self.__init__()
@@ -1922,7 +1923,7 @@ class PyBtcAddress(object):
 
    def createFromAddrStr(self, addrStr):
       """
-      Creates an address from a Base58 address string.  Since the address 
+      Creates an address from a Base58 address string.  Since the address
       string includes a checksum, this method will fail if there was any
       errors entering/copying the address
       """
@@ -1981,11 +1982,11 @@ class PyBtcAddress(object):
          print indent + 'PrivKeyCiphr(BE) :', pp(SecureBinaryData())
       if self.createPrivKeyNextUnlock:
          print indent + '           ***** :', 'PrivKeys available on next unlock'
-      
 
 
-      
-            
+
+
+
 
 TXOUT_SCRIPT_STANDARD      = 0
 TXOUT_SCRIPT_COINBASE      = 1
@@ -2001,7 +2002,7 @@ TXOUT_SCRIPT_UNKNOWN       = 9
 TXIN_SCRIPT_STANDARD = 0
 TXIN_SCRIPT_COINBASE = 1
 TXIN_SCRIPT_SPENDCB  = 2
-TXIN_SCRIPT_UNKNOWN  = 3  
+TXIN_SCRIPT_UNKNOWN  = 3
 
 ################################################################################
 def getTxOutScriptType(binScript):
@@ -2039,10 +2040,10 @@ def TxOutScriptExtractAddr160(binScript):
 ################################################################################
 def getTxInScriptType(txinObj):
    """
-   NOTE: this method takes a TXIN object, not just the script itself.  This 
+   NOTE: this method takes a TXIN object, not just the script itself.  This
          is because this method needs to see the OutPoint to distinguish an
          UNKNOWN TxIn from a coinbase-TxIn
-   """ 
+   """
    binScript = txinObj.binScript
    if txinObj.outpoint.txHash == EmptyHash or len(binScript) < 1:
       return TXIN_SCRIPT_COINBASE
@@ -2058,15 +2059,15 @@ def getTxInScriptType(txinObj):
       return TXIN_SCRIPT_SPENDCB
    elif len(binScript)==(SigSize + PubkeySize):
       return TXIN_SCRIPT_STANDARD
-   
+
    return TXIN_SCRIPT_UNKNOWN
 
-   
+
 ################################################################################
 def TxInScriptExtractKeyAddr(txinObj):
    scrType = getTxInScriptType(txinObj)
    if scrType == TXIN_SCRIPT_STANDARD:
-      pubKeyBin = txinObj.binScript[-65:] 
+      pubKeyBin = txinObj.binScript[-65:]
       newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
       return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
    elif scrType == TXIN_SCRIPT_COINBASE:
@@ -2079,13 +2080,13 @@ def TxInScriptExtractKeyAddr(txinObj):
 
 
 def multiSigExtractAddr160List(binScript):
-   """ 
+   """
    This naively searches the script for all the addresses/public keys,
    returns a list of the addresses.  Could easily be modified to pass
    out public keys if they are in the script
 
    This method should work for ALL scripts, actually, not just multisig
-   scripts.  For future simplicity, I might consider removing the 
+   scripts.  For future simplicity, I might consider removing the
    TxOutScriptExtractAddrStr() and TxInScriptExtractKeyAddr() and use
    this method for every script, instead.
    """
@@ -2094,13 +2095,13 @@ def multiSigExtractAddr160List(binScript):
    while bup.getRemainingSize() > 0:
       nextByte = bup.get(UINT8)
       binChunk = ''
-      if 0 < nextByte < 76: 
+      if 0 < nextByte < 76:
          nBytes = nextByte
          binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA1: 
+      elif nextByte == OP_PUSHDATA1:
          nBytes = scriptUnpacker.get(UINT8)
          binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA2: 
+      elif nextByte == OP_PUSHDATA2:
          nBytes = scriptUnpacker.get(UINT16)
          binChunk = bup.get(BINARY_CHUNK, nBytes)
       elif nextByte == OP_PUSHDATA4:
@@ -2108,7 +2109,7 @@ def multiSigExtractAddr160List(binScript):
          binChunk = bup.get(BINARY_CHUNK, nBytes)
       else:
          pass
-   
+
       if len(binChunk) == 20:
          addr160List.append(binChunk)
       elif len(binChunk) == 65:
@@ -2116,7 +2117,7 @@ def multiSigExtractAddr160List(binScript):
          addr160List.append(newAddr.getAddr160())
 
    return addr160List
-   
+
 
 # Finally done with all the base conversion functions and ECDSA code
 # Now define the classes for the objects that will use this
@@ -2136,8 +2137,8 @@ class PyOutPoint(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         opData = toUnpack 
-      else: 
+         opData = toUnpack
+      else:
          opData = BinaryUnpacker( toUnpack )
 
       if opData.getRemainingSize() < 36: raise UnserializeError
@@ -2158,7 +2159,7 @@ class PyOutPoint(object):
                   binary_to_hex(self.txHash, endian), \
                   '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'TxOutIndex:', self.txOutIndex
-      
+
 
 #####
 class PyTxIn(object):
@@ -2170,11 +2171,11 @@ class PyTxIn(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         txInData = toUnpack 
-      else: 
+         txInData = toUnpack
+      else:
          txInData = BinaryUnpacker( toUnpack )
 
-      self.outpoint  = PyOutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) ) 
+      self.outpoint  = PyOutPoint().unserialize( txInData.get(BINARY_CHUNK, 36) )
       scriptSize     = txInData.get(VAR_INT)
       if txInData.getRemainingSize() < scriptSize+4: raise UnserializeError
       self.binScript = txInData.get(BINARY_CHUNK, scriptSize)
@@ -2204,7 +2205,7 @@ class PyTxIn(object):
       print indstr + indent + 'Script:    ', \
                   '('+binary_to_hex(self.binScript)[:32]+'...)'
       print indstr + indent + 'Seq:       ', self.intSeq
-      
+
 
 #####
 class PyTxOut(object):
@@ -2214,12 +2215,12 @@ class PyTxOut(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         txOutData = toUnpack 
-      else: 
+         txOutData = toUnpack
+      else:
          txOutData = BinaryUnpacker( toUnpack )
 
       self.value       = txOutData.get(UINT64)
-      scriptSize       = txOutData.get(VAR_INT) 
+      scriptSize       = txOutData.get(VAR_INT)
       if txOutData.getRemainingSize() < scriptSize: raise UnserializeError
       self.binScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
@@ -2272,8 +2273,8 @@ class PyTx(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         txData = toUnpack 
-      else: 
+         txData = toUnpack
+      else:
          txData = BinaryUnpacker( toUnpack )
 
       startPos = txData.getPosition()
@@ -2296,7 +2297,7 @@ class PyTx(object):
       if self.thisHash == UNINITIALIZED:
          self.thisHash = hash256(self.serialize())
       return self.thisHash
-      
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'Transaction:'
@@ -2313,7 +2314,7 @@ class PyTx(object):
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
 
-      
+
    def pprintHex(self, nIndent=0):
       bu = BinaryUnpacker(self.serialize())
       theSer = self.serialize()
@@ -2334,8 +2335,8 @@ class PyTx(object):
          scriptSz = bu.get(VAR_INT)
          print binary_to_hex(bu.get(BINARY_CHUNK,scriptSz))
       print binary_to_hex(bu.get(BINARY_CHUNK, 4))
-         
-      
+
+
 
 
 ################################################################################
@@ -2347,21 +2348,21 @@ class PyBlockHeader(object):
    def __init__(self):
       self.version      = 1
       self.prevBlkHash  = ''
-      self.merkleRoot   = UNINITIALIZED 
-      self.timestamp    = UNINITIALIZED 
-      self.diffBits     = UNINITIALIZED 
-      self.nonce        = UNINITIALIZED 
+      self.merkleRoot   = UNINITIALIZED
+      self.timestamp    = UNINITIALIZED
+      self.diffBits     = UNINITIALIZED
+      self.nonce        = UNINITIALIZED
       # Use these fields for storage of block information, but are not otherwise
       # part of the serialized data structure
       self.theHash      = ''
-      self.numTx        = UNINITIALIZED 
-      self.blkHeight    = UNINITIALIZED 
-      self.fileByteLoc  = UNINITIALIZED 
-      self.nextBlkHash  = UNINITIALIZED 
-      self.intDifficult = UNINITIALIZED 
-      self.sumDifficult = UNINITIALIZED 
-      self.isMainChain  = False  
-      self.isOrphan     = True  
+      self.numTx        = UNINITIALIZED
+      self.blkHeight    = UNINITIALIZED
+      self.fileByteLoc  = UNINITIALIZED
+      self.nextBlkHash  = UNINITIALIZED
+      self.intDifficult = UNINITIALIZED
+      self.sumDifficult = UNINITIALIZED
+      self.isMainChain  = False
+      self.isOrphan     = True
 
    def serialize(self):
       if self.version == UNINITIALIZED:
@@ -2378,10 +2379,10 @@ class PyBlockHeader(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         blkData = toUnpack 
-      else: 
+         blkData = toUnpack
+      else:
          blkData = BinaryUnpacker( toUnpack )
-     
+
       self.version     = blkData.get(UINT32)
       self.prevBlkHash = blkData.get(BINARY_CHUNK, 32)
       self.merkleRoot  = blkData.get(BINARY_CHUNK, 32)
@@ -2397,8 +2398,8 @@ class PyBlockHeader(object):
          raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       if len(self.theHash) < 32:
          self.theHash = hash256(self.serialize())
-      outHash = self.theHash 
-      if endian==BIGENDIAN: 
+      outHash = self.theHash
+      if endian==BIGENDIAN:
          outHash = binary_switchEndian(outHash)
       return outHash
 
@@ -2420,28 +2421,28 @@ class PyBlockHeader(object):
       print indstr + 'BlockHeader:'
       print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=endian), \
                                                       '(BE)' if endian==BIGENDIAN else '(LE)'
-      print indstr + indent + 'Version:   ', self.version     
+      print indstr + indent + 'Version:   ', self.version
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=endian), \
                                                       '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=endian), \
                                                       '(BE)' if endian==BIGENDIAN else '(LE)'
-      print indstr + indent + 'Timestamp: ', self.timestamp 
+      print indstr + indent + 'Timestamp: ', self.timestamp
       fltDiff = binaryBits_to_difficulty(self.diffBits)
       print indstr + indent + 'Difficulty:', fltDiff, '('+binary_to_hex(self.diffBits)+')'
-      print indstr + indent + 'Nonce:     ', self.nonce    
+      print indstr + indent + 'Nonce:     ', self.nonce
       if not self.blkHeight==UNINITIALIZED:
-         print indstr + indent + 'BlkHeight: ', self.blkHeight    
+         print indstr + indent + 'BlkHeight: ', self.blkHeight
       if not self.blkHeight==UNINITIALIZED:
-         print indstr + indent + 'BlkFileLoc:', self.fileByteLoc    
+         print indstr + indent + 'BlkFileLoc:', self.fileByteLoc
       if not self.nextBlkHash==UNINITIALIZED:
          #print indstr + indent + 'NextBlock: ', binary_to_hex(self.nextBlkHash)
          print indstr + indent + 'NextBlock: ', self.nextBlkHash
       if not self.numTx==UNINITIALIZED:
-         print indstr + indent + 'NumTx:     ', self.numTx    
+         print indstr + indent + 'NumTx:     ', self.numTx
       if not self.intDifficult==UNINITIALIZED:
-         print indstr + indent + 'Difficulty:', self.intDifficult    
+         print indstr + indent + 'Difficulty:', self.intDifficult
       if not self.sumDifficult==UNINITIALIZED:
-         print indstr + indent + 'DiffSum:   ', self.sumDifficult    
+         print indstr + indent + 'DiffSum:   ', self.sumDifficult
 
 
 ################################################################################
@@ -2452,7 +2453,7 @@ class PyBlockData(object):
       self.numTx      = len(txList)
       self.merkleTree = []
       self.merkleRoot = UNINITIALIZED
-      
+
 
    def serialize(self):
       if self.numTx == UNINITIALIZED:
@@ -2465,8 +2466,8 @@ class PyBlockData(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         blkData = toUnpack 
-      else: 
+         blkData = toUnpack
+      else:
          blkData = BinaryUnpacker( toUnpack )
 
       self.txList = []
@@ -2482,12 +2483,12 @@ class PyBlockData(object):
       if( self.numTx == UNINITIALIZED ):
          self.getMerkleRoot()
       return self.merkleTree[:self.numTx]
-      
+
 
    def getMerkleRoot(self):
       assert( not self.numTx == UNINITIALIZED )
       if len(self.merkleTree)==0 and not self.numTx==0:
-         #Create the merkle tree 
+         #Create the merkle tree
          self.merkleTree = [hash256(tx.serialize()) for tx in self.txList]
          sz = len(self.merkleTree)
          while sz > 1:
@@ -2510,7 +2511,7 @@ class PyBlockData(object):
       for h in self.merkleTree:
          phash = binary_to_hex(h) if not reverseHash else binary_to_hex(h, endOut=BIGENDIAN)
          print indent + '\t' + phash
-         
+
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -2520,7 +2521,7 @@ class PyBlockData(object):
       print indstr + indent + 'NumTx:       ', self.numTx
       for tx in self.txList:
          tx.pprint(nIndent+1, endian=endian)
-      
+
 
 ################################################################################
 ################################################################################
@@ -2542,8 +2543,8 @@ class PyBlock(object):
 
    def unserialize(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         blkData = toUnpack 
-      else: 
+         blkData = toUnpack
+      else:
          blkData = BinaryUnpacker( toUnpack )
 
       self.txList = []
@@ -2587,7 +2588,7 @@ class PyBlock(object):
 
 
 ################################################################################
-# 
+#
 # SCRIPTING!
 #
 ################################################################################
@@ -2595,12 +2596,12 @@ class PyBlock(object):
 # Start list of OP codes
 OP_0 = 0
 OP_FALSE = 0
-OP_PUSHDATA1 = 76	
-OP_PUSHDATA2 = 77	
-OP_PUSHDATA4 = 78	
-OP_1NEGATE = 79	
+OP_PUSHDATA1 = 76
+OP_PUSHDATA2 = 77
+OP_PUSHDATA4 = 78
+OP_1NEGATE = 79
 OP_1 = 81
-OP_TRUE = 81	
+OP_TRUE = 81
 OP_2 = 82
 OP_3 = 83
 OP_4 = 84
@@ -2616,80 +2617,80 @@ OP_13 = 93
 OP_14 = 94
 OP_15 = 95
 OP_16 = 96
-OP_NOP = 97	
-OP_IF = 99	
-OP_NOTIF = 100	
+OP_NOP = 97
+OP_IF = 99
+OP_NOTIF = 100
 OP_ELSE = 103
 OP_ENDIF = 104
-OP_VERIFY = 105	
+OP_VERIFY = 105
 OP_RETURN = 106
-OP_TOALTSTACK = 107	
-OP_FROMALTSTACK = 108	
-OP_IFDUP = 115	
-OP_DEPTH = 116	
-OP_DROP = 117	
-OP_DUP = 118	
-OP_NIP = 119	
-OP_OVER = 120	 
-OP_PICK = 121	 
-OP_ROLL = 122	 
-OP_ROT = 123	 
-OP_SWAP = 124	 
-OP_TUCK = 125	 
-OP_2DROP = 109	 
-OP_2DUP = 110	 
-OP_3DUP = 111	 
-OP_2OVER = 112	 
-OP_2ROT = 113	 
-OP_2SWAP = 114	 
-OP_CAT = 126	 
-OP_SUBSTR = 127 
-OP_LEFT = 128	 
-OP_RIGHT = 129	 
-OP_SIZE = 130	 
-OP_INVERT = 131	 
-OP_AND = 132	 
-OP_OR = 133	 
-OP_XOR = 134 
-OP_EQUAL = 135 
-OP_EQUALVERIFY = 136	 
-OP_1ADD = 139	 
-OP_1SUB = 140	 
-OP_2MUL = 141	 
-OP_2DIV = 142	 
-OP_NEGATE = 143	 
-OP_ABS = 144	 
-OP_NOT = 145	 
-OP_0NOTEQUAL = 146	 
-OP_ADD = 147	 
-OP_SUB = 148	 
-OP_MUL = 149	 
-OP_DIV = 150	 
-OP_MOD = 151	 
-OP_LSHIFT = 152	 
-OP_RSHIFT = 153	 
-OP_BOOLAND = 154	 
-OP_BOOLOR = 155	 
-OP_NUMEQUAL = 156	 
-OP_NUMEQUALVERIFY = 157	 
-OP_NUMNOTEQUAL = 158	 
-OP_LESSTHAN = 159	 
-OP_GREATERTHAN = 160	 
-OP_LESSTHANOREQUAL = 161	 
-OP_GREATERTHANOREQUAL = 162 
-OP_MIN = 163	 
-OP_MAX = 164	 
-OP_WITHIN = 165 
-OP_RIPEMD160 = 166	
-OP_SHA1 = 167	
-OP_SHA256 = 168	
-OP_HASH160 = 169	
-OP_HASH256 = 170	
-OP_CODESEPARATOR = 171	
-OP_CHECKSIG = 172	
-OP_CHECKSIGVERIFY = 173	
-OP_CHECKMULTISIG = 174	
-OP_CHECKMULTISIGVERIFY = 175	
+OP_TOALTSTACK = 107
+OP_FROMALTSTACK = 108
+OP_IFDUP = 115
+OP_DEPTH = 116
+OP_DROP = 117
+OP_DUP = 118
+OP_NIP = 119
+OP_OVER = 120
+OP_PICK = 121
+OP_ROLL = 122
+OP_ROT = 123
+OP_SWAP = 124
+OP_TUCK = 125
+OP_2DROP = 109
+OP_2DUP = 110
+OP_3DUP = 111
+OP_2OVER = 112
+OP_2ROT = 113
+OP_2SWAP = 114
+OP_CAT = 126
+OP_SUBSTR = 127
+OP_LEFT = 128
+OP_RIGHT = 129
+OP_SIZE = 130
+OP_INVERT = 131
+OP_AND = 132
+OP_OR = 133
+OP_XOR = 134
+OP_EQUAL = 135
+OP_EQUALVERIFY = 136
+OP_1ADD = 139
+OP_1SUB = 140
+OP_2MUL = 141
+OP_2DIV = 142
+OP_NEGATE = 143
+OP_ABS = 144
+OP_NOT = 145
+OP_0NOTEQUAL = 146
+OP_ADD = 147
+OP_SUB = 148
+OP_MUL = 149
+OP_DIV = 150
+OP_MOD = 151
+OP_LSHIFT = 152
+OP_RSHIFT = 153
+OP_BOOLAND = 154
+OP_BOOLOR = 155
+OP_NUMEQUAL = 156
+OP_NUMEQUALVERIFY = 157
+OP_NUMNOTEQUAL = 158
+OP_LESSTHAN = 159
+OP_GREATERTHAN = 160
+OP_LESSTHANOREQUAL = 161
+OP_GREATERTHANOREQUAL = 162
+OP_MIN = 163
+OP_MAX = 164
+OP_WITHIN = 165
+OP_RIPEMD160 = 166
+OP_SHA1 = 167
+OP_SHA256 = 168
+OP_HASH160 = 169
+OP_HASH256 = 170
+OP_CODESEPARATOR = 171
+OP_CHECKSIG = 172
+OP_CHECKSIGVERIFY = 173
+OP_CHECKMULTISIG = 174
+OP_CHECKMULTISIGVERIFY = 175
 
 opnames = ['']*256
 opnames[0] =   'OP_0'
@@ -2780,7 +2781,7 @@ opnames[175] =	'OP_CHECKMULTISIGVERIFY'
 
 
 opCodeLookup = {}
-opCodeLookup['OP_FALSE'] = 0  
+opCodeLookup['OP_FALSE'] = 0
 opCodeLookup['OP_PUSHDATA1'] =	76
 opCodeLookup['OP_PUSHDATA2'] =	77
 opCodeLookup['OP_PUSHDATA4'] =	78
@@ -2900,7 +2901,7 @@ def convertScriptToOpStrings(binScript):
          i += nextOp+1
       elif nextOp == 76:
          nb = binary_to_int(binScript[i+1:i+2])
-         if i+1+1+nb > sz: 
+         if i+1+1+nb > sz:
             error = True;
             break
          binObj = binScript[i+2:i+2+nb]
@@ -2909,7 +2910,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+2
       elif nextOp == 77:
          nb = binScript[i+1:i+3];
-         if i+1+2+nb > sz: 
+         if i+1+2+nb > sz:
             error = True;
             break
          nbprint = min(nb,256)
@@ -2919,7 +2920,7 @@ def convertScriptToOpStrings(binScript):
          i += nb+3
       elif nextOp == 78:
          nb = binScript[i+1:i+5];
-         if i+1+4+nb > sz: 
+         if i+1+4+nb > sz:
             error = True;
             break
          nbprint = min(nb,256)
@@ -2953,7 +2954,7 @@ SCRIPT_STACK_SIZE_ERROR = 3
 SCRIPT_ERROR = 4
 SCRIPT_NO_ERROR = 5
 
-   
+
 class PyScriptProcessor(object):
    """
    Use this class to evaluate a script.  This method is more complicated
@@ -2975,16 +2976,16 @@ class PyScriptProcessor(object):
       self.script2 = None
       if txOldData and txNew and txInIndex:
          self.setTxObjects(txOldData, txNew, txInIndex)
-   
+
 
    def setTxObjects(self, txOldData, txNew, txInIndex):
       """
       The minimal amount of data necessary to evaluate a script that
       has an signature check is the TxOut script that is being spent
       and the entire Tx of the TxIn that is spending it.  Thus, we
-      must supply at least the txOldScript, and a txNew with its 
-      TxIn index (so we know which TxIn is spending that TxOut).  
-      It is acceptable to pass in the full TxOut or the tx of the 
+      must supply at least the txOldScript, and a txNew with its
+      TxIn index (so we know which TxIn is spending that TxOut).
+      It is acceptable to pass in the full TxOut or the tx of the
       TxOut instead of just the script itself.
       """
       self.txNew = PyTx().unserialize(txNew.serialize())
@@ -3013,12 +3014,12 @@ class PyScriptProcessor(object):
 
       # Execute TxIn script first
       self.stack = []
-      exitCode1 = self.executeScript(self.script1, self.stack) 
+      exitCode1 = self.executeScript(self.script1, self.stack)
 
       if not exitCode1 == SCRIPT_NO_ERROR:
          raise VerifyScriptError, ('First script failed!  Exit Code: ' + str(exitCode1))
 
-      exitCode2 = self.executeScript(self.script2, self.stack) 
+      exitCode2 = self.executeScript(self.script2, self.stack)
 
       if not exitCode2 == SCRIPT_NO_ERROR:
          raise VerifyScriptError, ('Second script failed!  Exit Code: ' + str(exitCode2))
@@ -3031,7 +3032,7 @@ class PyScriptProcessor(object):
       self.stackAlt  = []
       scriptData = BinaryUnpacker(binaryScript)
       self.lastOpCodeSepPos = None
-   
+
       while scriptData.getRemainingSize() > 0:
          opcode = scriptData.get(UINT8)
          exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
@@ -3047,12 +3048,12 @@ class PyScriptProcessor(object):
             return exitCode
 
       return SCRIPT_NO_ERROR
-      
-      
+
+
    # Implementing this method exactly as in the client because it looks like
    # there could be some subtleties with how it determines "true"
    def castToBool(self, binData):
-      if isinstance(binData, int): 
+      if isinstance(binData, int):
          binData = int_to_binary(binData)
 
       for i,byte in enumerate(binData):
@@ -3062,10 +3063,10 @@ class PyScriptProcessor(object):
                return False
             return True
       return False
-         
+
 
    def checkSig(self,binSig, binPubKey, txOutScript, txInTx, txInIndex, lastOpCodeSep=None):
-      """ 
+      """
       Generic method for checking Bitcoin tx signatures.  This needs to be used for both
       OP_CHECKSIG and OP_CHECKMULTISIG.  Step 1 is to pop signature and public key off
       the stack, which must be done outside this method and passed in through the argument
@@ -3076,7 +3077,7 @@ class PyScriptProcessor(object):
       subscript = txOutScript
       if lastOpCodeSep:
          subscript = subscript[lastOpCodeSep:]
-      
+
       # 3. Signature is deleted from subscript
       #    I'm not sure why this line is necessary - maybe for non-standard scripts?
       lengthInBinary = int_to_binary(len(binSig))
@@ -3117,21 +3118,21 @@ class PyScriptProcessor(object):
          return True
       else:
          return False
-         
-      
-   
+
+
+
 
    def executeOpCode(self, opcode, scriptUnpacker, stack, stackAlt):
-      """ 
+      """
       Executes the next OP_CODE given the current state of the stack(s)
       """
 
-      # TODO: Gavin clarified the effects of OP_0, and OP_1-OP_16.  
-      #       OP_0 puts an empty string onto the stack, which evaluateses to 
+      # TODO: Gavin clarified the effects of OP_0, and OP_1-OP_16.
+      #       OP_0 puts an empty string onto the stack, which evaluateses to
       #            false and is plugged into HASH160 as ''
       #       OP_X puts a single byte onto the stack, 0x01 to 0x10
       #
-      #       I haven't implemented it this way yet, because I'm still missing 
+      #       I haven't implemented it this way yet, because I'm still missing
       #       some details.  Since this "works" for available scripts, I'm going
       #       to leave it alone for now.
 
@@ -3155,14 +3156,14 @@ class PyScriptProcessor(object):
 
       stackSizeAtLeast = lambda n: (len(self.stack) >= n)
 
-      if   opcode == OP_FALSE:  
+      if   opcode == OP_FALSE:
          stack.append(0)
-      elif 0 < opcode < 76: 
+      elif 0 < opcode < 76:
          stack.append(scriptUnpacker.get(BINARY_CHUNK, opcode))
-      elif opcode == OP_PUSHDATA1: 
+      elif opcode == OP_PUSHDATA1:
          nBytes = scriptUnpacker.get(UINT8)
          stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
-      elif opcode == OP_PUSHDATA2: 
+      elif opcode == OP_PUSHDATA2:
          nBytes = scriptUnpacker.get(UINT16)
          stack.append(scriptUnpacker.get(BINARY_CHUNK, nBytes))
       elif opcode == OP_PUSHDATA4:
@@ -3186,7 +3187,7 @@ class PyScriptProcessor(object):
          return OP_NOT_IMPLEMENTED
       elif opcode == OP_ENDIF:
          return OP_NOT_IMPLEMENTED
-   
+
       elif opcode == OP_VERIFY:
          if not self.castToBool(stack.pop()):
             stack.append(0)
@@ -3194,9 +3195,9 @@ class PyScriptProcessor(object):
       elif opcode == OP_RETURN:
          return TX_INVALID
       elif opcode == OP_TOALTSTACK:
-         stackAlt.append( stack.pop() ) 
+         stackAlt.append( stack.pop() )
       elif opcode == OP_FROMALTSTACK:
-         stack.append( stackAlt.pop() ) 
+         stack.append( stackAlt.pop() )
 
       elif opcode == OP_IFDUP:
          # Looks like this method duplicates the top item if it's not zero
@@ -3227,7 +3228,7 @@ class PyScriptProcessor(object):
          del stack[-(n+2)]
       elif opcode == OP_ROT:
          if not stackSizeAtLeast(3): return SCRIPT_STACK_SIZE_ERROR
-         stack.append( stack[-3] ) 
+         stack.append( stack[-3] )
          del stack[-4]
       elif opcode == OP_SWAP:
          if not stackSizeAtLeast(2): return SCRIPT_STACK_SIZE_ERROR
@@ -3297,7 +3298,7 @@ class PyScriptProcessor(object):
          x2 = stack.pop()
          if not x1==x2:
             stack.append(0)
-            return TX_INVALID 
+            return TX_INVALID
 
 
       elif opcode == OP_1ADD:
@@ -3316,18 +3317,18 @@ class PyScriptProcessor(object):
          stack[-1] = abs(stack[-1])
       elif opcode == OP_NOT:
          top = stack.pop()
-         if top==0: 
+         if top==0:
             stack.append(1)
          else:
             stack.append(0)
       elif opcode == OP_0NOTEQUAL:
          top = stack.pop()
-         if top==0: 
+         if top==0:
             stack.append(0)
          else:
             stack.append(1)
          top = stack.pop()
-         if top==0: 
+         if top==0:
             stack.append(1)
          else:
             stack.append(0)
@@ -3369,7 +3370,7 @@ class PyScriptProcessor(object):
          a = stack.pop()
          if not a==b:
             stack.append(0)
-            return TX_INVALID 
+            return TX_INVALID
       elif opcode == OP_NUMNOTEQUAL:
          b = stack.pop()
          a = stack.pop()
@@ -3377,19 +3378,19 @@ class PyScriptProcessor(object):
       elif opcode == OP_LESSTHAN:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if a<b else 0) 
+         stack.append( 1 if a<b else 0)
       elif opcode == OP_GREATERTHAN:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if a>b else 0) 
+         stack.append( 1 if a>b else 0)
       elif opcode == OP_LESSTHANOREQUAL:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if a<=b else 0) 
+         stack.append( 1 if a<=b else 0)
       elif opcode == OP_GREATERTHANOREQUAL:
          b = stack.pop()
          a = stack.pop()
-         stack.append( 1 if a>=b else 0) 
+         stack.append( 1 if a>=b else 0)
       elif opcode == OP_MIN:
          b = stack.pop()
          a = stack.pop()
@@ -3427,7 +3428,7 @@ class PyScriptProcessor(object):
          self.lastOpCodeSepPos = scriptUnpacker.getPosition()
       elif opcode == OP_CHECKSIG or opcode == OP_CHECKSIGVERIFY:
 
-         # 1. Pop key and sig from the stack 
+         # 1. Pop key and sig from the stack
          binPubKey = stack.pop()
          binSig    = stack.pop()
 
@@ -3443,7 +3444,7 @@ class PyScriptProcessor(object):
             verifyCode = self.executeOpCode(OP_VERIFY)
             if verifyCode == TX_INVALID:
                return TX_INVALID
-            
+
       elif opcode == OP_CHECKMULTISIG or opcode == OP_CHECKMULTISIGVERIFY:
          # OP_CHECKMULTISIG procedure ported directly from Satoshi client code
          # Location:  bitcoin-0.4.0-linux/src/src/script.cpp:775
@@ -3487,7 +3488,7 @@ class PyScriptProcessor(object):
                               self.lastOpCodeSepPos) ):
                iSig  += 1
                nSigs -= 1
-            
+
             iKey +=1
             nKeys -=1
 
@@ -3511,26 +3512,26 @@ class PyScriptProcessor(object):
          return SCRIPT_ERROR
 
       return SCRIPT_NO_ERROR
-      
-   
-         
+
+
+
 
 ################################################################################
 # NOTE:  This method was actually used to create the Blockchain-reorg unit-
 #        test, and hence why coinbase transactions are supported.  However,
 #        for normal transactions supported by PyBtcEngine, this support is
-#        unnecessary.  
+#        unnecessary.
 #
 #        Additionally, this method both creates and signs the tx:  however
 #        PyBtcEngine employs TxDistProposals which require the construction
 #        and signing to be two separate steps.  This method is not suited
 #        for most of the PyBtcEngine CONOPS.
-#     
+#
 #        On the other hand, this method DOES work, and there is no reason
 #        not to use it if you already have PyBtcAddress-w-PrivKeys avail
 #        and have a list of inputs and outputs as described below.
 #
-# This method will take an already-selected set of TxOuts, along with 
+# This method will take an already-selected set of TxOuts, along with
 # PyBtcAddress objects containing necessary the private keys
 #
 #    Src TxOut ~ {PyBtcAddr, PrevTx, PrevTxOutIdx}  --OR--  COINBASE = -1
@@ -3552,8 +3553,8 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
    coinbaseTx = False
    if numInputs==1 and srcTxOuts[0] == -1:
       coinbaseTx = True
-      
-   
+
+
    #############################
    # Fill in TxOuts first
    for i in range(numOutputs):
@@ -3571,10 +3572,10 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
                                       dstAddr.getAddr160(),        \
                                       getOpCode('OP_EQUALVERIFY'), \
                                       getOpCode('OP_CHECKSIG'   )])
-      
+
       newTx.outputs.append(txout)
 
-                                      
+
    #############################
    # Create temp TxIns with blank scripts
    for i in range(numInputs):
@@ -3588,7 +3589,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
          txin.outpoint.txOutIndex     = srcTxOuts[i][2]
       txin.binScript = ''
       txin.intSeq = 2**32-1
-      newTx.inputs.append(txin)                                      
+      newTx.inputs.append(txin)
 
 
    #############################
@@ -3622,7 +3623,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 
          signature = srcAddr.generateDERSignature(preHashMsg)
 
-         
+
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
          # Don't forget to tack on the one-byte hashcode and consider it part of sig
          if len(prevTxOut.binScript) > 30:
@@ -3634,11 +3635,11 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
             newTx.inputs[i].binScript = sigLenInBinary    + signature + hashCode1 + \
                                         pubkeyLenInBinary + pubkey
-      
+
    #############################
    # Finally, our tx is complete!
    return newTx
-   
+
 
 
 ################################################################################
@@ -3646,8 +3647,8 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 #
 # SelectCoins algorithms
 #
-#   The following methods define multiple ways that one could select coins 
-#   for a given transaction.  However, the "best" solution is extremely 
+#   The following methods define multiple ways that one could select coins
+#   for a given transaction.  However, the "best" solution is extremely
 #   dependent on the variety of unspent outputs, and also the preferences
 #   of the user.  Things to take into account when selecting coins:
 #
@@ -3667,21 +3668,21 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 #
 #     - Output values:     In almost every transaction, we must return
 #                          change to ourselves.  This means there will
-#                          be two outputs, one to the recipient, one to 
-#                          us.  We prefer that both outputs be about the 
+#                          be two outputs, one to the recipient, one to
+#                          us.  We prefer that both outputs be about the
 #                          same size, so that it's not clear which is the
 #                          recipient, which is the change.  But we don't
 #                          want to use too many inputs to do this.
-#                          
+#
 #     - Sustainability:    We should pick a strategy that tends to leave our
 #                          wallet containing a variety of TxOuts that are
 #                          well-suited for future transactions to benefit.
 #                          For instance, always favoring the single TxOut
 #                          with a value close to the target, will result
-#                          in a future wallet full of tiny TxOuts.  This 
-#                          guarantees that in the future, we're going to 
+#                          in a future wallet full of tiny TxOuts.  This
+#                          guarantees that in the future, we're going to
 #                          have to do 10+ inputs for a single Tx.
-#           
+#
 #
 #   The strategy is to execute a half dozen different types of SelectCoins
 #   algorithms, each with a different goal in mind.  Then we examine each
@@ -3755,17 +3756,17 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
    """
    Here we define a few different ways to sort a list of unspent TxOut objects.
    Most of them are simple, some are more complex.  In particular, the last
-   method (4) tries to be intelligent, by grouping together inputs from the 
+   method (4) tries to be intelligent, by grouping together inputs from the
    same address.
 
    The goal is not to do the heavy lifting for SelectCoins... we simply need
    a few different ways to sort coins so that the SelectCoins algorithms has
    a variety of different inputs to play with.  Each sorting method is useful
-   for some types of unspent-TxOut lists, so as long as we have one good 
+   for some types of unspent-TxOut lists, so as long as we have one good
    sort, the PyEvalCoinSelect method will pick it out.
 
    As a precaution we send all the zero-confirmation UTXO's to the back
-   of the list, so that they will only be used if absolutely necessary.  
+   of the list, so that they will only be used if absolutely necessary.
    """
    zeroConfirm = []
 
@@ -3797,22 +3798,22 @@ def PySortCoins(unspentTxOutInfo, sortMethod=1):
       priorityUTXO = (lambda a: (a.getNumConfirm()*a.getValue()**0.333))
       for addr,txoutList in addrMap.iteritems():
          txoutList.sort(key=priorityUTXO, reverse=True)
-   
+
       priorityGrp = lambda a: max([priorityUTXO(utxo) for utxo in a])
       finalSortedList = []
       for utxo in sorted(addrMap.values(), key=priorityGrp, reverse=True):
          finalSortedList.extend(utxo)
-   
+
       finalSortedList.extend(zeroConfirm)
       return finalSortedList
    if sortMethod in (5, 6, 7):
       utxoSorted = PySortCoins(unspentTxOutInfo, 1)
       # Rotate the top 1,2 or 3 elements to the bottom of the list
-      for i in range(sortMethod-4):  
+      for i in range(sortMethod-4):
          utxoSorted.append(utxoSorted[0])
          del utxoSorted[0]
       return utxoSorted
-   
+
    # TODO:  Add a semi-random sort method:  it will favor putting high-priority
    #        outputs at the front of the list, but will not be deterministic
    #        This should give us some high-fitness variation compared to sorting
@@ -3873,7 +3874,7 @@ def PySelectCoins_SingleInput_SingleValue( \
             try2Val = utxo
       if not try2Utxo==None:
          bestMatchUtxo = try2Utxo
-      
+
 
    if bestMatchUtxo==None:
       return []
@@ -3899,9 +3900,9 @@ def PySelectCoins_MultiInput_SingleValue( \
       outList.append(utxo)
       if sumVal>=targetOutVal:
          break
-         
+
    return outList
-         
+
 
 
 ################################################################################
@@ -3910,7 +3911,7 @@ def PySelectCoins_SingleInput_DoubleValue( \
    """
    We will look for a single input that is within 30% of the target
    In case the tx value is tiny rel to the fee: the minTarget calc
-   may fail to exceed the actual tx size needed, so we add an extra 
+   may fail to exceed the actual tx size needed, so we add an extra
 
    We restrain the search to 25%.  If there is no one output in this
    range, then we will return nothing, and the SingleInput_SingleValue
@@ -3931,19 +3932,19 @@ def PySelectCoins_SingleInput_DoubleValue( \
    for txout in unspentTxOutInfo:
       if minTarget <= txout.getValue() <= maxTarget:
          if abs(txout.getValue()-idealTarget) < bestMatch:
-            bestMatch = abs(txout.getValue()-idealTarget) 
+            bestMatch = abs(txout.getValue()-idealTarget)
             bestUTXO = txout
 
    if bestUTXO==None:
       return []
    else:
       return [bestUTXO]
-         
+
 ################################################################################
 def PySelectCoins_MultiInput_DoubleValue( \
                                     unspentTxOutInfo, targetOutVal, minFee=0):
 
-   idealTarget = 2.0 * targetOutVal 
+   idealTarget = 2.0 * targetOutVal
    minTarget   = long(0.80 * idealTarget)
    minTarget   = max(minTarget, targetOutVal+minFee)
    if sum([u.getValue() for u in unspentTxOutInfo]) < minTarget:
@@ -3970,31 +3971,31 @@ def PySelectCoins_MultiInput_DoubleValue( \
 ################################################################################
 def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    """
-   Define a metric for scoring the output of SelectCoints.  The output of 
+   Define a metric for scoring the output of SelectCoints.  The output of
    this method is a tuple of scores which identify a few different factors
    of a txOut selection that users might care about in a selectCoins algorithm.
 
-   This method only returns an absolute score, usually between 0 and 1 for 
+   This method only returns an absolute score, usually between 0 and 1 for
    each factor.  It is up to the person calling this method to decide how
    much "weight" they want to give each one.  You could even use the scores
    as multiplicative factors if you wanted, though they were designed with
    the following equation in mind:   finalScore = sum(WEIGHT[i] * SCORE[i])
 
-   TODO:  I need to recalibrate some of these factors, and modify them to 
+   TODO:  I need to recalibrate some of these factors, and modify them to
           represent more directly what the user would be concerned about --
           such as PayFeeFactor, AnonymityFactor, etc.  The information is
           indirectly available with the current set of factors here
    """
 
    # Need to calculate how much the change will be returned to sender on this tx
-   totalIn = sum([utxo.getValue() for utxo in utxoSelectList]) 
+   totalIn = sum([utxo.getValue() for utxo in utxoSelectList])
    totalChange = totalIn - (targetOutVal+minFee)
 
    # Abort if this is an empty list (negative score) or not enough coins
    if len(utxoSelectList)==0 or totalIn<targetOutVal+minFee:
       return -1
 
-   
+
    ##################
    # -- Does this selection include any zero-confirmation tx?
    # -- How many addresses are linked together by this tx?
@@ -4006,8 +4007,8 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
          noZeroConf = 0
    numAddr = len(addrSet)
    numAddrFactor = 4.0/(numAddr+1)**2  # values in the range (0, 1]
-   
-   
+
+
 
    ##################
    # Evaluate output anonanymity
@@ -4016,7 +4017,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    # obvious which one is the change.  Can measure that by seeing that 50.0
    # in satoshis has 9 trailing zeros, where as 27.383291 only has 2
    #
-   # If the diff is negative, the wrong answer starts to look like the 
+   # If the diff is negative, the wrong answer starts to look like the
    # correct one (about which output is recipient and which is change)
    # We should give "extra credit" for those cases
    def countTrailingZeros(btcVal):
@@ -4027,7 +4028,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    tgtTrailingZeros =  countTrailingZeros(targetOutVal)
    chgTrailingZeros =  countTrailingZeros(totalChange)
    zeroDiff = tgtTrailingZeros - chgTrailingZeros
-   outAnonFactor = 0 
+   outAnonFactor = 0
    if totalChange==0:
       outAnonFactor = 1
    else:
@@ -4040,14 +4041,14 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
 
 
    ##################
-   # Equal inputs are anonymous-- but no point in doing this if the 
+   # Equal inputs are anonymous-- but no point in doing this if the
    # trailing zeros count is way different -- i.e. does it matter if
    # outputs a and b are close, if a=51.000, and b=47.283?  It's
    # still pretty obvious which one is the change. (so: only execute
    # the following block if outAnonFactor > 0)
    #
-   # On the other hand, if we have 1.832 and 10.00, and the 10.000 is the 
-   # change, we don't really care that they're not close, it's still 
+   # On the other hand, if we have 1.832 and 10.00, and the 10.000 is the
+   # change, we don't really care that they're not close, it's still
    # damned good/deceptive output anonymity  (so: only execute
    # the following block if outAnonFactor <= 1)
    if 0 < outAnonFactor <= 1 and not totalChange==0:
@@ -4061,7 +4062,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
          outAnonFactor *= 0.3
       else:
          outAnonFactor = 0
-   
+
 
    ##################
    # Tx size:  we don't have signatures yet, but we assume that each txin is
@@ -4072,7 +4073,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
    txSizeFactor = 0
    numKb = int(numBytes / 1000)
    # Will compute size factor after we see this tx priority and AllowFree
-   # results.  If the tx qualifies for free, we don't need to penalize 
+   # results.  If the tx qualifies for free, we don't need to penalize
    # a 3 kB transaction vs one that is 0.5 kB
 
 
@@ -4103,17 +4104,17 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
 
    ##################
    # AllowFree:  If three conditions are met, then the tx can be sent safely
-   #             without a tx fee.  Granted, it may not be included in the 
-   #             current block if the free space is full, but definitely in 
+   #             without a tx fee.  Granted, it may not be included in the
+   #             current block if the free space is full, but definitely in
    #             the next one
    isFreeAllowed = 0
-   haveDustOutputs = (0<totalChange<CENT or targetOutVal<CENT) 
+   haveDustOutputs = (0<totalChange<CENT or targetOutVal<CENT)
    if ((not haveDustOutputs) and \
        dPriority >= priorityThresh and \
        numBytes <= 3500):
       isFreeAllowed = 1
-      
-   
+
+
    ##################
    # Finish size-factor calculation -- if free is allowed, kB is irrelevant
    txSizeFactor = 0
@@ -4128,12 +4129,12 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
          txSizeFactor=0
       else:
          txSizeFactor=-1  #if this is huge, actually subtract score
-                       
+
    return (isFreeAllowed, noZeroConf, priorityFactor, numAddrFactor, txSizeFactor, outAnonFactor)
 
 
 ################################################################################
-# We define default preferences for weightings.  Weightings are used to 
+# We define default preferences for weightings.  Weightings are used to
 # determine the "priorities" for ranking various SelectCoins results
 # By setting the weights to different orders of magnitude, you are essentially
 # defining a sort-order:  order by FactorA, then sub-order by FactorB...
@@ -4150,19 +4151,19 @@ WEIGHTS[IDX_ALLOWFREE]  =  100000
 WEIGHTS[IDX_NOZEROCONF] = 1000000  # let's avoid zero-conf if possible
 WEIGHTS[IDX_PRIORITY]   =      50
 WEIGHTS[IDX_NUMADDR]    =  100000
-WEIGHTS[IDX_TXSIZE]     =     100 
-WEIGHTS[IDX_OUTANONYM]  =      30  
+WEIGHTS[IDX_TXSIZE]     =     100
+WEIGHTS[IDX_OUTANONYM]  =      30
 
 ################################################################################
 def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    """
-   Use a specified set of weightings and sub-scores for a unspentTxOut list, 
-   to assign an absolute "fitness" of this particular selection.  The goal of 
+   Use a specified set of weightings and sub-scores for a unspentTxOut list,
+   to assign an absolute "fitness" of this particular selection.  The goal of
    getSelectCoinsScores() is to produce weighting-agnostic subscores -- then
    this method applies the weightings to these scores to get a final answer.
-   
+
    If list A has a higher score than list B, then it's a better selection for
-   that transaction.  If you the two scores don't look right to you, then you 
+   that transaction.  If you the two scores don't look right to you, then you
    probably just need to adjust the weightings to your liking.
 
    These weightings may become user-configurable in the future -- likely as an
@@ -4180,7 +4181,7 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    score += WEIGHTS[IDX_NUMADDR]    * SCORES[IDX_NUMADDR]
    score += WEIGHTS[IDX_TXSIZE]     * SCORES[IDX_TXSIZE]
    score += WEIGHTS[IDX_OUTANONYM]  * SCORES[IDX_OUTANONYM]
-   
+
    # If we're already paying a fee, why bother including this weight?
    if minFee < 0.0005:
       score += WEIGHTS[IDX_ALLOWFREE]  * SCORES[IDX_ALLOWFREE]
@@ -4192,7 +4193,7 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
 def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0.01e8):
    """
    Intense algorithm for coin selection:  computes about 30 different ways to
-   select coins based on the desired target output and the min tx fee.  Then 
+   select coins based on the desired target output and the min tx fee.  Then
    ranks the various solutions and picks the best one
    """
    if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
@@ -4219,7 +4220,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
    # But first, make a copy before in-place shuffling
    # NOTE:  using list[:] like below, really causes a swig::vector<type> to freak out!
    #utxos = unspentTxOutInfo[:]
-   #utxos = list(unspentTxOutInfo)  
+   #utxos = list(unspentTxOutInfo)
    for method in range(8,10):
       for i in range(numRand):
          utxos = PySortCoins(unspentTxOutInfo, method)
@@ -4236,22 +4237,22 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
       return []
 
    # If we selected a list that has only one or two inputs, and we have
-   # other, tiny, unspent outputs from the same addresses, we should 
+   # other, tiny, unspent outputs from the same addresses, we should
    # throw one or two of them in to help clear them out.  However, we
    # only do so if a plethora of conditions exist:
    #
    # First, we only consider doing this if the tx has <5 inputs already.
    # Also, we skip this process if the current tx doesn't have excessive
-   # priority already -- we don't want to risk de-prioritizing a tx for 
+   # priority already -- we don't want to risk de-prioritizing a tx for
    # this purpose.
    #
    # Next we sort by LOWEST value, because we really benefit from this most
-   # by clearing out tiny outputs.  Along those lines, we don't even do 
+   # by clearing out tiny outputs.  Along those lines, we don't even do
    # unless it has low priority -- don't want to take a high-priority utxo
    # and convert it to one that will be low-priority to start.
-   # 
+   #
    # Finally, we shouldn't do this if a high score was assigned to output
-   # anonymity: this extra output may cause a tx with good output anonymity 
+   # anonymity: this extra output may cause a tx with good output anonymity
    # to no longer possess this property
    IDEAL_NUM_INPUTS = 5
    if len(finalSelection)>=IDEAL_NUM_INPUTS or SCORES[IDX_PRIORITY]<0.5:
@@ -4273,7 +4274,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
                   return finalSelection
 
    return finalSelection
-               
+
 
 def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    """
@@ -4286,7 +4287,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    equal to the second return value from this method.
 
    We have to supply the fee that was used in the selection algorithm,
-   so that we can figure out how much change there will be.  Without 
+   so that we can figure out how much change there will be.  Without
    this information, we might accidentally declare a tx to be freeAllow
    when it actually is not.
    """
@@ -4310,16 +4311,16 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    prioritySum = prioritySum / numBytes
 
    # Any tiny/dust outputs?
-   haveDustOutputs = (0<change<CENT or targetOutVal<CENT) 
+   haveDustOutputs = (0<change<CENT or targetOutVal<CENT)
 
    if((not haveDustOutputs) and \
       prioritySum >= COIN * 144 / 250. and \
       numBytes <= 3600):
       return [0,0]
-   
-   # This cannot be a free transaction.  
+
+   # This cannot be a free transaction.
    minFeeMultiplier = (1 + numKb)
-   
+
    # At the moment this condition never triggers
    if minFeeMultiplier<1.0 and haveDustOutputs:
       minFeeMultiplier = 1.0
@@ -4327,7 +4328,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
 
    return [minFeeMultiplier * MIN_RELAY_TX_FEE, \
            minFeeMultiplier * MIN_TX_FEE]
-               
+
 
 
 
@@ -4341,7 +4342,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
 class PyTxDistProposal(object):
    """
    PyTxDistProposal is created from a PyTx object, and represents
-   an unsigned transaction, that may require the signatures of 
+   an unsigned transaction, that may require the signatures of
    multiple parties before being accepted by the network.
 
    We assume that the PyTx object has been prepared already by
@@ -4350,10 +4351,10 @@ class PyTxDistProposal(object):
 
    In other words, in order to prepare a PyTxDistProposal, you
    will need access to the blockchain to find the txouts you are
-   spending (and thus they have to be acquired with external 
-   code, such as my CppBlockUtils SWIG module).  But once the 
+   spending (and thus they have to be acquired with external
+   code, such as my CppBlockUtils SWIG module).  But once the
    TxDP is created, the system signing it only needs the ECDSA
-   private keys and nothing else.   This enables the device 
+   private keys and nothing else.   This enables the device
    providing the signatures to be extremely lightweight.
 
    TODO:  I need to figure out how to identify whether a TxOut
@@ -4369,7 +4370,7 @@ class PyTxDistProposal(object):
       self.inputAddrList = []
       if pytx:
          self.createFromPreparedPyTx(pytx)
-               
+
    #############################################################################
    def createFromPreparedPyTx(self, pytx):
       sz = len(pytx.inputs)
@@ -4427,7 +4428,7 @@ class PyTxDistProposal(object):
                                       getOpCode('OP_CHECKSIG'   )])
          self.pytxObj.outputs.append(txout)
       return self
-      
+
 
    #############################################################################
    def getFinalPyTx(self):
@@ -4440,7 +4441,7 @@ class PyTxDistProposal(object):
          txOutScripts.append(txin.binScript)
          txin.binScript = self.signatures[i]
 
-      
+
       # Now verify the signatures as they are in the final Tx
       psp = PyScriptProcessor()
       for i,txin in enumerate(self.pytxObj.inputs):
@@ -4453,8 +4454,8 @@ class PyTxDistProposal(object):
          else:
             print 'Signature', i, 'is valid!'
       return self.pytxObj
-   
-            
+
+
 
    #############################################################################
    def appendSignature(self, binSig, txinIndex=None):
@@ -4465,7 +4466,7 @@ class PyTxDistProposal(object):
          if psp.verifyTransactionValid():
             self.signatures[txinIndex] = binSig
             return True
-      
+
       # If we are here, we don't know which TxIn this sig is for.  Try each one
       # (we assume that if the txinIndex was supplied, but failed to verify,
       #  that it was accidental and we should check if it matches another one)
@@ -4476,12 +4477,12 @@ class PyTxDistProposal(object):
             self.signatures[iin] = binSig
             return True
       return False
-         
+
 
    #############################################################################
    def checkSignature(self, sigStr, txinIndex):
-      pass    
-   
+      pass
+
 
    #############################################################################
    def pprint(self, indent=''):
@@ -4508,14 +4509,14 @@ class PyTxDistProposal(object):
 
    def serializeHex(self):
       bp = BinaryPacker()
-      bp.put(BINARY_CHUNK, self.pytxString) 
+      bp.put(BINARY_CHUNK, self.pytxString)
 
    def unserialize(self, toUnpack):
       pass
-      
+
    def serializeBinary(self):
       pass
-   
+
    def serializeHex(self):
       return binary_to_hex(self.serializeBinary())
 
@@ -4523,12 +4524,12 @@ class PyTxDistProposal(object):
       #return binary_to_hex(self.serializeBinary())
 
 
-# Random method for creating 
+# Random method for creating
 def touchFile(fname):
    try:
       os.utime(fname, None)
    except:
-      open(fname, 'a').close() 
+      open(fname, 'a').close()
 
 BLOCKCHAIN_READONLY   = 0
 BLOCKCHAIN_READWRITE  = 1
@@ -4560,36 +4561,36 @@ class PyBtcWallet(object):
              This makes it possible to synchronize online-offline computers
              once and never again.
 
-             You can import random keys into your wallet, but if it is 
+             You can import random keys into your wallet, but if it is
              encrypted, you will have to supply a passphrase to make sure
-             it can be encrypted as well.  
+             it can be encrypted as well.
 
    Presumably, wallets will be used for one of three purposes:
-   
+
    (1) Spend money and receive payments
    (2) Watching-only wallets - have the private keys, just not on this computer
    (3) May be watching *other* people's addrs.  There's a variety of reasons
        we might want to watch other peoples' addresses, but most them are not
        relevant to a "basic" BTC user.  Nonetheless it should be supported to
        watch money without considering it part of our own assets
-   
+
    This class is included in the combined-python-cpp module, because we really
    need to maintain a persistent Cpp.BtcWallet if this class is to be useful
    (we don't want to have to rescan the entire blockchain every time we do any
    wallet operations).
-   
-   The file format was designed from the outset with lots of unused space to 
+
+   The file format was designed from the outset with lots of unused space to
    allow for expansion without having to redefine the file format and break
-   previous wallets.  Luckily, wallet information is cheap, so we don't have 
+   previous wallets.  Luckily, wallet information is cheap, so we don't have
    to stress too much about saving space (100,000 addresses should take 15 MB)
-   
+
    This file is NOT for storing Tx-related information.  I want this file to
    be the minimal amount of information you need to secure and backup your
    entire wallet.  Tx information can always be recovered from examining the
    blockchain... your private keys cannot be.
-   
+
    We track version numbers, just in case.  We start with 1.0
-   
+
    Version 1.0:
    ---
    fileID      -- (8)  '\xbaWALLET\x00' for wallet files
@@ -4609,7 +4610,7 @@ class PyBtcWallet(object):
    Long Name   -- (256) Null-terminated user-supplied description for wlt
    ---
    Crypto/KDF  -- (512) information identifying the types and parameters
-                        of encryption used to secure wallet, and key 
+                        of encryption used to secure wallet, and key
                         stretching used to secure your passphrase.
                         Includes salt. (the breakdown of this field will
                         be described separately)
@@ -4621,18 +4622,18 @@ class PyBtcWallet(object):
    Remainder of file is for key storage and various other things.  Each
    "entry" will start with a 4-byte code identifying the entry type, then
    20 bytes identifying what address the data is for, and finally then
-   the subsequent data .  So far, I have three types of entries that can 
+   the subsequent data .  So far, I have three types of entries that can
    be included:
-   
+
       \x01 -- Address/Key data (as of PyBtcAddress version 1.0, 237 bytes)
       \x02 -- Address comments (variable-width field)
       \x03 -- OP_EVAL subscript (when this is enabled, in the future)
-   
+
    Please see PyBtcAddress for information on how key data is serialized.
-   Comments (\x02) are var-width, and if a comment is changed to 
+   Comments (\x02) are var-width, and if a comment is changed to
    something longer than the existing one, we'll just blank out the old
    one and append a new one to the end of the file.  It looks like
-   
+
    02000000 01 <Addr> 4f This comment is enabled (01) with 4f characters
 
 
@@ -4642,11 +4643,11 @@ class PyBtcWallet(object):
    file.  We then modify the original, verify its integrity, and then delete
    the walletUpdateFailed file.  THEN we let the user know that their data
    has been successfully written (or that there's a new address for them to
-   use, if that's what they were requesting).  
+   use, if that's what they were requesting).
 
    If there is a power failure during file modification, the update_unsuccess
-   file will be present and detected, and PyBtcWallet will know to use the 
-   original copy.  It is critical is to guarantee that atomic operations 
+   file will be present and detected, and PyBtcWallet will know to use the
+   original copy.  It is critical is to guarantee that atomic operations
    completes before telling the user they can use this data.
 
    Additionally, we implement key locking and unlocking, with timeout.  These
@@ -4668,10 +4669,10 @@ class PyBtcWallet(object):
       self.eofByte        = 0
       self.cppWallet      = None   # Mirror of PyBtcWallet in C++ object
       self.cppInfo        = {}     # Extra info about each address to help sync
-      self.watchingOnly   = False  
+      self.watchingOnly   = False
       self.wltCreateDate  = 0
- 
-      # Three dictionaries hold all data 
+
+      # Three dictionaries hold all data
       self.addrMap     = {}  # maps 20-byte addresses to PyBtcAddress objects
       self.commentsMap = {}  # maps 20-byte addresses to user-created comments
       self.commentLocs = {}  # maps 20-byte addresses to comment locations
@@ -4686,8 +4687,8 @@ class PyBtcWallet(object):
       self.kdf            = None
       self.crypto         = None
       self.kdfKey         = None
-      self.defaultKeyLifetime = 10    # seconds after unlock, that key is discarded 
-      self.lockWalletAtTime   = 0    # seconds after unlock, that key is discarded 
+      self.defaultKeyLifetime = 10    # seconds after unlock, that key is discarded
+      self.lockWalletAtTime   = 0    # seconds after unlock, that key is discarded
       self.isLocked       = False
 
       # Deterministic wallet, need a root key.  Though we can still import keys.
@@ -4741,9 +4742,9 @@ class PyBtcWallet(object):
       as possible for your computer within the specified time target
       (default, 0.25s).  It will aim for maximizing memory usage and using
       only 1 or 2 iterations of it, but this can be changed by scaling
-      down the kdfMaxMem parameter (default 32 MB). 
+      down the kdfMaxMem parameter (default 32 MB).
 
-      If you use encryption, don't forget to supply a 32-byte passphrase, 
+      If you use encryption, don't forget to supply a 32-byte passphrase,
       created via SecureBinaryData(pythonStr).  This method will apply
       the passphrase so that the wallet is "born" encrypted.
 
@@ -4753,8 +4754,8 @@ class PyBtcWallet(object):
       keys, but does mean that you can recover your ENTIRE WALLET from
       only those 32 plaintext bytes AND the 32-byte chaincode.
 
-      We skip the atomic file operations since we don't even have 
-      a wallet file yet to safely update.  
+      We skip the atomic file operations since we don't even have
+      a wallet file yet to safely update.
       """
 
       if withEncrypt and not securePassphrase:
@@ -4772,7 +4773,7 @@ class PyBtcWallet(object):
                                                 kdfTargSec, kdfMaxMem)
          self.kdf.usePrecomputedKdfParams(mem, niter, salt)
          self.kdfKey = self.kdf.DeriveKey(securePassphrase)
-         
+
       if not plainRootKey:
          # TODO: We should find a source for injecting extra entropy
          #       At least, Crypto++ grabs from a few different sources, itself
@@ -4807,7 +4808,7 @@ class PyBtcWallet(object):
       self.lastComputedChainIndex  = firstAddr.chainIndex
       self.highestUsedChainIndex   = firstAddr.chainIndex-1
       self.wltCreateDate = long(RightNow())
-         
+
       # We don't have to worry about atomic file operations when
       # creating the wallet: so we just do it naively here.
       self.walletPath = newWalletFilePath
@@ -4819,9 +4820,9 @@ class PyBtcWallet(object):
       newfile = open(self.walletPath, 'w')
       fileData = BinaryPacker()
 
-      # packHeader method writes KDF params and root address 
+      # packHeader method writes KDF params and root address
       headerBytes = self.packHeader(fileData)
-   
+
       # We make sure we have byte locations of the two addresses, to start
       self.addrMap[first160].walletByteLoc = headerBytes + 21
 
@@ -4839,14 +4840,14 @@ class PyBtcWallet(object):
       self.cppWallet.addAddress_5_(first160,
                                              self.wltCreateDate, firstBlk, \
                                              self.wltCreateDate, firstBlk)
-                                       
+
 
       newfile.write(fileData.getBinaryString())
       newfile.close()
-      
+
       return self
 
-      
+
    #############################################################################
    def getNewAddress(self):
       if len(self.lastComputedChainAddr160) == 20:
@@ -4864,9 +4865,9 @@ class PyBtcWallet(object):
          return self.addrMap[new160]
       else:
          raise WalletAddressError, 'Deterministic wallet not initialized yet'
-         
 
-         
+
+
 
 
 
@@ -4893,19 +4894,19 @@ class PyBtcWallet(object):
       onlineWallet.commentsMap = self.commentsMap
       onlineWallet.opevalMap = self.opevalMap
 
-      onlineWallet.wltUniqueIDBin = self.wltUniqueIDBin 
-      onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160 
-      onlineWallet.lastComputedChainIndex = self.lastComputedChainSeq  
+      onlineWallet.wltUniqueIDBin = self.wltUniqueIDBin
+      onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160
+      onlineWallet.lastComputedChainIndex = self.lastComputedChainSeq
 
       newFile = open(newWallet, 'w')
       bp = BinaryPacker()
       onlineWallet.packHeader(bp)
       newFile.write(bp.getBinaryString())
-      
+
       for addr160,addrObj in self.addrMap.iteritems():
          if not addr160=='ROOT':
             newFile.write('\x01' + addr160 + addrObj.serialize())
-   
+
       for addr160,comment in self.commentsMap.iteritems():
          twoByteLength = int_to_binary(len(comment), widthBytes=2)
          newFile.write('\x02' + addr160 + twoByteLength + comment)
@@ -4921,8 +4922,8 @@ class PyBtcWallet(object):
    def testKdfComputeTime(self):
       """
       Experimentally determines the compute time required by this computer
-      to execute with the current key-derivation parameters.  This may be 
-      useful for when you transfer a wallet to a new computer that has 
+      to execute with the current key-derivation parameters.  This may be
+      useful for when you transfer a wallet to a new computer that has
       different speed/memory characteristic.
       """
       testPassphrase = SecureBinaryData('This is a simple passphrase')
@@ -4933,7 +4934,7 @@ class PyBtcWallet(object):
    #############################################################################
    def serializeKdfParams(self, kdfObj=None, binWidth=256):
       """
-      Pack key-derivation function parameters into a binary stream.  
+      Pack key-derivation function parameters into a binary stream.
       As of wallet version 1.0, there is only one KDF technique used
       in these wallets, and thus we only need to store the parameters
       of this KDF.  In the future, we may have multiple KDFs and have
@@ -4949,15 +4950,15 @@ class PyBtcWallet(object):
       binPacker.put(UINT64, kdfObj.getMemoryReqtBytes())
       binPacker.put(UINT32, kdfObj.getNumIterations())
       binPacker.put(BINARY_CHUNK, kdfObj.getSalt().toBinStr(), width=32)
-      
+
       kdfStr = binPacker.getBinaryString()
       binPacker.put(BINARY_CHUNK, computeChecksum(kdfStr,4), width=4)
       padSize = binWidth - binPacker.getSize()
       binPacker.put(BINARY_CHUNK, '\x00'*padSize)
 
       return binPacker.getBinaryString()
-      
-      
+
+
    #############################################################################
    def unserializeKdfParams(self, toUnpack, binWidth=256):
 
@@ -4966,8 +4967,8 @@ class PyBtcWallet(object):
       else:
          binUnpacker = BinaryUnpacker(toUnpack)
 
-          
-      
+
+
       allKdfData = binUnpacker.get(BINARY_CHUNK, 44)
       kdfChksum  = binUnpacker.get(BINARY_CHUNK,  4)
       kdfBytes   = len(allKdfData) + len(kdfChksum)
@@ -4975,7 +4976,7 @@ class PyBtcWallet(object):
 
       if allKdfData=='\x00'*44:
          return None
-      
+
       fixedKdfData = verifyChecksum(allKdfData, kdfChksum)
       if len(fixedKdfData)==0:
          raise UnserializeError, 'Corrupted KDF params, could not fix'
@@ -4984,19 +4985,19 @@ class PyBtcWallet(object):
                [[WLT_UPDATE_MODIFY, self.offsetKdfParams, fixedKdfData]])
          allKdfData = fixedKdfData
          print '***WARNING: KDF params in wallet were corrupted, but fixed'
-      
+
       kdfUnpacker = BinaryUnpacker(allKdfData)
       mem   = kdfUnpacker.get(UINT64)
       nIter = kdfUnpacker.get(UINT32)
       salt  = kdfUnpacker.get(BINARY_CHUNK, 32)
-      
+
       kdf = KdfRomix(mem, nIter, SecureBinaryData(salt))
       return kdf
 
- 
+
    #############################################################################
    def serializeCryptoParams(self, binWidth=256):
-      """ 
+      """
       As of wallet version 1.0, all wallets use the exact same encryption types,
       so there is nothing to serialize or unserialize.  The 256 bytes here may
       be used in the future, though.
@@ -5005,7 +5006,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def unserializeCryptoParams(self, toUnpack, binWidth=256):
-      """ 
+      """
       As of wallet version 1.0, all wallets use the exact same encryption types,
       so there is nothing to serialize or unserialize.  The 256 bytes here may
       be used in the future, though.
@@ -5015,16 +5016,16 @@ class PyBtcWallet(object):
       else:
          binUnpacker = BinaryUnpacker(toUnpack)
 
-      binUnpacker.get(BINARY_CHUNK, binWidth)      
+      binUnpacker.get(BINARY_CHUNK, binWidth)
       return CryptoAES()
 
    #############################################################################
    def verifyPassphrase(self, securePassphrase):
-      """ 
+      """
       Verify a user-submitted passphrase.  This passphrase goes into
       the key-derivation function to get actual encryption key, which
       is what actually needs to be verified
-   
+
       Since all addresses should have the same encryption, we only need
       to verify correctness on the root key
       """
@@ -5034,13 +5035,13 @@ class PyBtcWallet(object):
          return isValid
       finally:
          kdfOutput.destroy()
-      
+
 
    #############################################################################
    def verifyEncryptionKey(self, secureKdfOutput):
-      """ 
-      Verify the underlying encryption key (from KDF).  
-      Since all addresses should have the same encryption, 
+      """
+      Verify the underlying encryption key (from KDF).
+      Since all addresses should have the same encryption,
       we only need to verify correctness on the root key.
       """
       return self.addrMap['ROOT'].verifyEncryptionKey(secureKdfOutput)
@@ -5048,19 +5049,19 @@ class PyBtcWallet(object):
 
    #############################################################################
    def computeSystemSpecificKdfParams(self, targetSec=0.25, maxMem=32*1024*1024):
-      """ 
+      """
       WARNING!!! DO NOT CHANGE KDF PARAMS AFTER ALREADY ENCRYPTED THE WALLET
                  By changing them on an already-encrypted wallet, we are going
-                 to lose the original AES256-encryption keys -- which are 
+                 to lose the original AES256-encryption keys -- which are
                  uniquely determined by (numIter, memReqt, salt, passphrase)
-      
+
                  Only use this method before you have encrypted your wallet,
-                 in order to determine good KDF parameters based on your 
+                 in order to determine good KDF parameters based on your
                  computer's specific speed/memory capabilities.
       """
       kdf = KdfRomix()
       kdf.computeKdfParams(targetSec, maxMem)
-      
+
       mem   = kdf.getMemoryReqtBytes()
       nIter = kdf.getNumIterations()
       salt  = kdf.getSalt().toBinStr()
@@ -5068,19 +5069,19 @@ class PyBtcWallet(object):
 
    #############################################################################
    def restoreKdfParams(self, mem, numIter, secureSalt):
-      """ 
+      """
       This method should only be used when we are loading an encrypted wallet
-      from file.  DO NOT USE THIS TO CHANGE KDF PARAMETERS.  Doing so may 
+      from file.  DO NOT USE THIS TO CHANGE KDF PARAMETERS.  Doing so may
       result in data loss!
       """
       self.kdf = KdfRomix(mem, numIter, secureSalt)
 
-                                                
+
    #############################################################################
    def changeKdfParams(self, mem, numIter, salt, securePassphrase=None):
-      """ 
-      Changing KDF changes the wallet encryption key which means that a KDF 
-      change is essentially the same as an encryption key change.  As such, 
+      """
+      Changing KDF changes the wallet encryption key which means that a KDF
+      change is essentially the same as an encryption key change.  As such,
       the wallet must be unlocked if you intend to change an already-
       encrypted wallet with KDF.
 
@@ -5089,9 +5090,9 @@ class PyBtcWallet(object):
       compute time, and maximum memory requirements, and the underlying C++
       code will experimentally determine the "hardest" key-derivation params
       that will run within the specified time and memory usage on the system
-      executing this method.  You should set the max memory usage very low 
-      (a few kB) for devices like smartphones, which have limited memory 
-      availability.  The KDF will then use less memory but more iterations 
+      executing this method.  You should set the max memory usage very low
+      (a few kB) for devices like smartphones, which have limited memory
+      availability.  The KDF will then use less memory but more iterations
       to achieve the same compute time.
       """
       if self.useEncryption:
@@ -5105,7 +5106,7 @@ class PyBtcWallet(object):
             raise WalletLockError, 'Cannot change KDF without unlocking wallet'
          elif not self.verifyPassphrase(securePassphrase):
             raise PassphraseError, 'Incorrect passphrase to unlock wallet'
-            
+
       secureSalt = SecureBinaryData(salt)
       newkdf = KdfRomix(mem, numIter, secureSalt)
       bp = BinaryPacker()
@@ -5119,12 +5120,12 @@ class PyBtcWallet(object):
          # Must change the encryption key: and we won't get here unless
          # we have a passphrase to use.  This call will take the
          self.changeWalletEncryption(securePassphrase=securePassphrase, \
-                                     extraFileUpdates=updList) 
+                                     extraFileUpdates=updList)
       self.kdf = newkdf
 
-      
-      
-       
+
+
+
 
    #############################################################################
    def changeWalletEncryption(self, securePassphrase=None, \
@@ -5133,11 +5134,11 @@ class PyBtcWallet(object):
       """
       Supply the passphrase you would like to use to encrypt this wallet
       (or supply the KDF output directly, to skip the passphrase part).
-      This method will attempt to re-encrypt with the new passphrase.  
-      This fails if the wallet is already locked with a different passphrase.  
-      If encryption is already enabled, please unlock the wallet before 
+      This method will attempt to re-encrypt with the new passphrase.
+      This fails if the wallet is already locked with a different passphrase.
+      If encryption is already enabled, please unlock the wallet before
       calling this method.
-      
+
       Make sure you set up the key-derivation function (KDF) before changing
       from an unencrypted to an encrypted wallet.  An error will be thrown
       if you don't.  You can use something like the following
@@ -5147,12 +5148,12 @@ class PyBtcWallet(object):
          wlt.changeKdfParams(mem, nIter, salt)
 
       Use the extraFileUpdates to pass in other changes that need to be
-      written to the wallet file in the same atomic operation as the 
-      encryption key modifications.  
+      written to the wallet file in the same atomic operation as the
+      encryption key modifications.
       """
 
       oldUsedEncryption = self.useEncryption
-      if secureKdfOutput or secureKdfOutput:
+      if securePassphrase or secureKdfOutput:
          newUsesEncryption = True
       else:
          newUsesEncryption = False
@@ -5163,44 +5164,39 @@ class PyBtcWallet(object):
             raise WalletLockError, 'Must unlock wallet to change passphrase'
          else:
             oldKdfKey = self.kdfKey.copy()
-    
+
 
       if newUsesEncryption and not self.kdf:
          raise EncryptionError, 'KDF must be setup before encrypting wallet'
 
       # Prep the file-update list with extras passed in as argument
-      walletUpdateInfo = list(extraFileUpdates)  
+      walletUpdateInfo = list(extraFileUpdates)
 
       # Derive the new KDF key if a passphrase was supplied
       newKdfKey = secureKdfOutput
       if securePassphrase:
          newKdfKey = self.kdf.DeriveKey(securePassphrase)
 
-
-      if oldUsedEncryption and self.verifyPassphrase(newKdfKey):
+      if oldUsedEncryption and self.verifyEncryptionKey(newKdfKey):
          print 'Attempting to change encryption to same passphrase!'
          return # Wallet is encrypted with the new passphrase already
 
 
       # With unlocked key data, put the rest in a try/except/finally block
-      # To make sure we destroy the temporary kdf outputs 
+      # To make sure we destroy the temporary kdf outputs
       try:
-         # If keys were previously unencrypted, they will be not have 
+         # If keys were previously unencrypted, they will be not have
          # initialization vectors and need to be generated before encrypting.
          # This is why we have the enableKeyEncryption() call
 
          if not oldUsedEncryption==newUsesEncryption:
             # If there was an encryption change, we must change the flags
-            # in the wallet file in the same atomic operations as changing
-            # the stored.  We can't let them get out of sync.
-            bp = BinaryPacker()
-
+            # in the wallet file in the same atomic operation as changing
+            # the stored keys.  We can't let them get out of sync.
             self.useEncryption = newUsesEncryption
-            self.packWalletFlags(bp)
+            walletUpdateInfo.append(self.createChangeFlagsEntry())
             self.useEncryption = oldUsedEncryption
-
-            newFlagObj = bp.getBinaryString()
-            walletUpdateInfo.append([WLT_UPDATE_MODIFY, self.offsetWltFlags, newFlagObj])
+            # Restore the old flag just in case the file write fails
 
          newAddrMap  = {}
          for addr160,addr in self.addrMap.iteritems():
@@ -5219,7 +5215,7 @@ class PyBtcWallet(object):
             # Finally give the new data to the user
             for addr160,addr in newAddrMap.iteritems():
                self.addrMap[addr160] = addr.copy()
-      
+
          self.useEncryption = newUsesEncryption
          self.unlock(newKdfKey)
       finally:
@@ -5227,10 +5223,10 @@ class PyBtcWallet(object):
          newKdfKey.destroy()
          if oldKdfKey:
             oldKdfKey.destroy()
-         
 
-      
-      
+
+
+
 
    #############################################################################
    def setWatchingOnly(self, isTrue):
@@ -5246,7 +5242,7 @@ class PyBtcWallet(object):
    #############################################################################
    def setCommentForAddr160(self, addr160, newComment):
       updEntry = []
-      isNewComment = False 
+      isNewComment = False
       if self.commentsMap.has_key(addr160):
          # If there is already a comment for this address, overwrite it
          oldCommentLen = len(self.commentsMap[addr160])
@@ -5254,7 +5250,7 @@ class PyBtcWallet(object):
          # The first 23 bytes are the datatype, addr160, and 2-byte comment size
          updEntry = [WLT_UPDATE_MODIFY, oldCommentLoc+23, '\x00'*oldCommentLen]
       else:
-         isNewComment = True 
+         isNewComment = True
          updEntry = [WLT_UPDATE_ADD, WLT_DATATYPE_COMMENT, addr160, newComment]
 
       newCommentLoc = self.walletFileSafeUpdate([updEntry])
@@ -5276,7 +5272,7 @@ class PyBtcWallet(object):
    #############################################################################
    def createChangeFlagsEntry(self):
       """
-      Packs up the wallet flags and writes them atomically to the wallet file.  
+      Packs up the wallet flags and writes them atomically to the wallet file.
       """
       bp = BinaryPacker()
       self.packWalletFlags(bp)
@@ -5286,8 +5282,8 @@ class PyBtcWallet(object):
    #############################################################################
    def unpackWalletFlags(self, toUnpack):
       if isinstance(toUnpack, BinaryUnpacker):
-         flagData = toUnpack 
-      else: 
+         flagData = toUnpack
+      else:
          flagData = BinaryUnpacker( toUnpack )
 
       wltflags = flagData.get(UINT64, 8)
@@ -5299,7 +5295,7 @@ class PyBtcWallet(object):
    #############################################################################
    def packHeader(self, binPacker):
       if not self.addrMap['ROOT']:
-         raise WalletAddressError, 'Cannot serialize uninitialzed wallet!'         
+         raise WalletAddressError, 'Cannot serialize uninitialzed wallet!'
 
       startByte = binPacker.getSize()
 
@@ -5347,10 +5343,10 @@ class PyBtcWallet(object):
 
    #############################################################################
    def unpackHeader(self, binUnpacker):
-      """ 
+      """
       Unpacking the header information from a wallet file.  See the help text
-      on the base class, PyBtcWallet, for more information on the wallet 
-      serialization.  
+      on the base class, PyBtcWallet, for more information on the wallet
+      serialization.
       """
       self.fileTypeStr = binUnpacker.get(BINARY_CHUNK, 8)
       self.version     = readVersionInt(binUnpacker.get(UINT32))
@@ -5366,7 +5362,7 @@ class PyBtcWallet(object):
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
       self.wltCreateDate  = binUnpacker.get(UINT64)
 
-      # We now have both the magic bytes and network byte 
+      # We now have both the magic bytes and network byte
       if not self.magicBytes == MAGIC_BYTES:
          print '***ERROR:  Requested wallet is for a different blockchain!'
          print '           Wallet is for:', BLOCKCHAINS[self.magicBytes]
@@ -5377,7 +5373,7 @@ class PyBtcWallet(object):
          print '           Wallet is for:', NETWORKS[netByte]
          print '           PyBtcEngine:  ', NETWORKS[ADDRBYTE]
          return
-      
+
       # User-supplied description/name for wallet
       self.offsetShortName = binUnpacker.getPosition()
       self.labelShort = binUnpacker.get(BINARY_CHUNK, 32).strip('\x00')
@@ -5389,7 +5385,7 @@ class PyBtcWallet(object):
       # Read the key-derivation function parameters
       self.offsetKdfParams = binUnpacker.getPosition()
       self.kdf = self.unserializeKdfParams(binUnpacker)
-   
+
       # Read the crypto parameters
       self.offsetCrypto    = binUnpacker.getPosition()
       self.crypto = self.unserializeCryptoParams(binUnpacker)
@@ -5405,7 +5401,7 @@ class PyBtcWallet(object):
       # In wallet version 1.0, this next kB is unused -- may be used in future
       binUnpacker.advance(1024)
 
-      
+
    #############################################################################
    def unpackNextEntry(self, binUnpacker):
       dtype   = binUnpacker.get(UINT8)
@@ -5420,7 +5416,7 @@ class PyBtcWallet(object):
          raise NotImplementedError, 'OP_EVAL not support in wallet yet'
 
       return (dtype, addr160, binData)
-   
+
    #############################################################################
    def readWalletFile(self, wltpath, verifyIntegrity=True, skipBlockChainScan=False):
 
@@ -5433,7 +5429,6 @@ class PyBtcWallet(object):
       if verifyIntegrity:
          try:
             nError = self.doWalletFileConsistencyCheck(onlySyncBackup=True)
-            print 'Wallet file had', nError, ('error' if nError==1 else 'errors')
          except KeyDataError, errmsg:
             print '***ERROR:  Wallet file had unfixable errors.'
             print '***ERROR:', errmsg
@@ -5448,11 +5443,13 @@ class PyBtcWallet(object):
       self.cppWallet = Cpp.BtcWallet()
 
       print self.walletPath
-      self.unpackHeader(wltdata)  
+      self.unpackHeader(wltdata)
 
+      self.lastComputedChainIndex = -UINT32_MAX
+      self.lastComputedChainAddr160  = None
       while wltdata.getRemainingSize()>0:
          byteLocation = wltdata.getPosition()
-         dtype, addr160, binData = self.unpackNextEntry(wltdata)  
+         dtype, addr160, binData = self.unpackNextEntry(wltdata)
          if dtype==WLT_DATATYPE_KEYDATA:
             newAddr = PyBtcAddress()
             newAddr.unserialize(binData)
@@ -5460,6 +5457,9 @@ class PyBtcWallet(object):
             if newAddr.useEncryption:
                newAddr.isLocked = True
             self.addrMap[addr160] = newAddr
+            if newAddr.chainIndex > self.lastComputedChainIndex:
+               self.lastComputedChainIndex   = newAddr.chainIndex
+               self.lastComputedChainAddr160 = newAddr.getAddr160()
 
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
@@ -5470,18 +5470,18 @@ class PyBtcWallet(object):
             self.commentsMap[addr160] = binData # actually ASCII data, here
          if dtype==WLT_DATATYPE_OPEVAL:
             raise NotImplementedError, 'OP_EVAL not support in wallet yet'
-         
-   
+
+
       if (skipBlockChainScan or \
           not TheBDM.isInitialized() or \
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
          print 'Cannot sync new wallet with blockchain'
       else:
          self.syncWithBlockchain()
-         
+
       return self
 
-         
+
 
    #############################################################################
    def walletFileSafeUpdate(self, updateList):
@@ -5496,15 +5496,15 @@ class PyBtcWallet(object):
       ]
 
       The return value is the list of new file byte offsets (from beginning of
-      the file), that specify the start of each modification made to the 
-      wallet file.  For MODIFY fields, this just returns the modifyStartByte 
+      the file), that specify the start of each modification made to the
+      wallet file.  For MODIFY fields, this just returns the modifyStartByte
       field that was provided as input.  For adding data, it specifies the
       starting byte of the new field (the DATATYPE byte).  We keep this data
       in PyBtcAddress objects so that we know where to apply modifications in
       case we need to change something, like converting from unencrypted to
       encrypted private keys.
 
-      If this method fails, we simply return an empty list.  We can check for 
+      If this method fails, we simply return an empty list.  We can check for
       an empty list to know if the file update succeeded.
 
       WHY IS THIS SO COMPLICATED?  -- Because it's atomic!
@@ -5517,28 +5517,27 @@ class PyBtcWallet(object):
       from backup.
 
       Similarly, we have to update the backup file after updating the main file
-      so we will use a similar technique with the backup_unsuccessful suffix. 
+      so we will use a similar technique with the backup_unsuccessful suffix.
       We don't want to rely on a backup if somehow *the backup* got corrupted
       and the original file is fine.  THEREFORE -- this is implemented in such
       a way that the user should know two things:
-      
+
          (1) No matter when the power goes out, we ALWAYS have a uncorrupted
-             wallet file, and know which one it is.  Either the backup is safe, 
+             wallet file, and know which one it is.  Either the backup is safe,
              or the original is safe.  Based on the flag files, we know which
              one is guaranteed to be not corrupted.
          (2) ALWAYS DO YOUR FILE OPERATIONS BEFORE SETTING DATA IN MEMORY
-             You must write it to disk FIRST using this SafeUpdate method, 
-             THEN give the new data to the user -- never give it to them 
-             until you are sure that it was written safely to disk.  
+             You must write it to disk FIRST using this SafeUpdate method,
+             THEN give the new data to the user -- never give it to them
+             until you are sure that it was written safely to disk.
 
-      Number (2) is easy to screw up because you plan to write the file just 
-      AFTER the data is created and stored in local memory.  But an error 
+      Number (2) is easy to screw up because you plan to write the file just
+      AFTER the data is created and stored in local memory.  But an error
       might be thrown halfway which is handled higher up, and instead the data
       never made it to file.  Then there is a risk that the user uses their
       new address that never made it into the wallet file.
       """
 
-      print 'Updating wallet file:', self.walletPath
       if not os.path.exists(self.walletPath):
          raise FileExistsError, 'No wallet file exists to be updated!'
 
@@ -5553,7 +5552,7 @@ class PyBtcWallet(object):
       mainUpdateFlag   = fileparts[0] + 'update_unsuccessful' + fileparts[1]
       backupUpdateFlag = fileparts[0] + 'backup_unsuccessful' + fileparts[1]
 
-      
+
       # Will be passing back info about all data successfully added
       oldWalletSize = os.path.getsize(self.walletPath)
       updateLocations = []
@@ -5563,19 +5562,17 @@ class PyBtcWallet(object):
       try:
          for entry in updateList:
             modType    = entry[0]
-            updateInfo = entry[1:] 
+            updateInfo = entry[1:]
 
             if(modType==WLT_UPDATE_ADD):
                updateLocations.append(toAppend.getSize()+oldWalletSize)
                if updateInfo[0]==WLT_DATATYPE_KEYDATA:
-                  print 'Adding keydata', hash160_to_addrStr(updateInfo[1])
                   if len(updateInfo[1])!=20 or not isinstance(updateInfo[2], PyBtcAddress):
                      raise Exception, 'Data type does not match update type'
                   toAppend.put(UINT8, WLT_DATATYPE_KEYDATA)
                   toAppend.put(BINARY_CHUNK, updateInfo[1])
                   toAppend.put(BINARY_CHUNK, updateInfo[2].serialize())
                elif updateInfo[1]==WLT_DATATYPE_COMMENT:
-                  print 'Adding comment', updateInfo[2]
                   if len(updateInfo[1])!=20 or not isinstance(updateInfo[2], str):
                      raise Exception, 'Data type does not match update type'
                   toAppend.put(UINT8, WLT_DATATYPE_COMMENT)
@@ -5583,22 +5580,20 @@ class PyBtcWallet(object):
                   toAppend.put(UINT16, len(updateInfo[2]))
                   toAppend.put(BINARY_CHUNK, updateInfo[2])
                elif updateInfo[1]==WLT_DATATYPE_OPEVAL:
-                  print 'Adding OP_EVAL'
                   raise Exception, 'OP_EVAL not support in wallet yet'
             elif(modType==WLT_UPDATE_MODIFY):
-               print 'Modifying wallet file', updateInfo[0]
                updateLocations.append(updateInfo[0])
-               dataToChange.append( updateInfo ) 
+               dataToChange.append( updateInfo )
             else:
                print '***ERROR:  Unknown wallet-update type!'
                raise Exception, 'Unknown wallet-update type!'
-      except Exception as err:
-         print '***ERROR: ', err
+      except Exception:
+         print '***ERROR: '
          print '***ERROR:  Bad input to walletFileSafeUpdate'
          return []
 
       binaryToAppend = toAppend.getBinaryString()
-      
+
 
       # We need to safely modify both the main wallet file and backup
       # Start with main wallet
@@ -5614,7 +5609,7 @@ class PyBtcWallet(object):
             wltfile.seek(loc)
             wltfile.write(replStr)
          wltfile.close()
-            
+
       except:
          print '***ERROR: could not write data to wallet.  Permissions?'
          shutil.copy(walletFileBackup, self.walletPath)
@@ -5622,7 +5617,7 @@ class PyBtcWallet(object):
          return []
 
       # Write backup flag before removing main-update flag.  If we see
-      # both flags, we know file IO was interrupted RIGHT HERE 
+      # both flags, we know file IO was interrupted RIGHT HERE
       touchFile(backupUpdateFlag)
       os.remove(mainUpdateFlag)
 
@@ -5651,27 +5646,26 @@ class PyBtcWallet(object):
       """
       First we check the file-update flags (files we touched/removed during
       file modification operations), and then restore the primary wallet file
-      and backup file to the exact same state -- we know that at least one of 
-      them is guaranteed to not be corrupt, and we know based on the flags 
+      and backup file to the exact same state -- we know that at least one of
+      them is guaranteed to not be corrupt, and we know based on the flags
       which one that is -- so we execute the appropriate copy operation.
-      
+
       After we have guaranteed that main wallet and backup wallet are the
       same, we want to do a check that the data is consistent.  We do this
       by simply reading in the key-data from the wallet, unserializing it
-      and reserializing it to see if it matches -- this works due to the 
-      way the PyBtcAddress::unserialize() method works:  it verifies the 
-      checksums in the address data, and corrects errors automatically!  
-      And it's part of the unit-tests that serialize/unserialize round-trip 
+      and reserializing it to see if it matches -- this works due to the
+      way the PyBtcAddress::unserialize() method works:  it verifies the
+      checksums in the address data, and corrects errors automatically!
+      And it's part of the unit-tests that serialize/unserialize round-trip
       is guaranteed to match for all address types if there's no byte errors.
 
       If an error is detected, we do a safe-file-modify operation to re-write
       the corrected information to the wallet file, in-place.  We DO NOT
-      check comment fields, since they do not have checksums, and are not 
+      check comment fields, since they do not have checksums, and are not
       critical to protect against byte errors.
       """
 
 
-      print 'Doing consistency check on', self.walletPath
 
       if not os.path.exists(self.walletPath):
          raise FileExistsError, 'No wallet file exists to be checked!'
@@ -5681,14 +5675,14 @@ class PyBtcWallet(object):
       mainUpdateFlag   = fileparts[0] + 'update_unsuccessful' + fileparts[1]
       backupUpdateFlag = fileparts[0] + 'backup_unsuccessful' + fileparts[1]
 
-      
+
       if not os.path.exists(walletFileBackup):
          # We haven't even created a backup file, yet
          print 'Creating backup file', walletFileBackup
          touchFile(backupUpdateFlag)
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
-      
+
       if os.path.exists(backupUpdateFlag) and os.path.exists(mainUpdateFlag):
          # Here we actually have a good main file, but backup never succeeded
          print '***WARNING: error in backup file... how did that happen?'
@@ -5717,15 +5711,15 @@ class PyBtcWallet(object):
          touchFile(backupUpdateFlag)
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
-      
+
       if onlySyncBackup:
          return 0
-      
+
 
       # Now primary wallet and backup wallet are identical, check for errors
       errorsFound = 0
       updateList = []
-   
+
       wltfile = open(self.walletPath, 'r')
       wltdata = BinaryUnpacker(wltfile.read())
       wltfile.close()
@@ -5756,8 +5750,8 @@ class PyBtcWallet(object):
 
       self.walletFileSafeUpdate(updateList)
       return errorsFound
-      
-         
+
+
 
    #############################################################################
    def getTimeRangeForAddress(self, addr160):
@@ -5775,13 +5769,13 @@ class PyBtcWallet(object):
           return self.addrMap[addr160].getBlockRange()
 
 
-         
+
    #############################################################################
    def syncWithBlockchain(self):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          assert(bdm.isInitialized())
          bdm.scanBlockchainForTx_FromScratch(self.cppWallet)
-   
+
 
    #############################################################################
    def getUnspentTxOutList(self):
@@ -5801,7 +5795,7 @@ class PyBtcWallet(object):
    #############################################################################
    #def getAddrByIndex(self, i):
       #return self.addrMap.values()[i]
-   
+
 
    #############################################################################
    def importExternalAddressData(self, addr20, privKey=None, pubKey=None, \
@@ -5814,7 +5808,7 @@ class PyBtcWallet(object):
       on the address-chain, but there's nothing wrong with adding new keys
       not on the chain.
 
-      We don't know when this address was created, so we have to set its 
+      We don't know when this address was created, so we have to set its
       first/last-seen times to 0, to make sure we search the whole blockchain
       for tx related to it.  This data will be updated later after we've done
       the search and know for sure when it is "relevant".
@@ -5838,7 +5832,7 @@ class PyBtcWallet(object):
 
       if self.useEncryption and self.isLocked and privKey:
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
-      
+
 
       if privKey:
          securePrivKey = SecureBinaryData(privKey)
@@ -5867,7 +5861,7 @@ class PyBtcWallet(object):
 
       self.cppWallet.addAddress_5_(newAddr160, \
                                        firstTime, firstBlk, lastTime, lastBlk)
-      
+
 
 
    #############################################################################
@@ -5890,15 +5884,15 @@ class PyBtcWallet(object):
       correspond to that data.  Obviously, simpler is better, but as long as
       the data is encoded as in the above list and separated by whitespace or
       punctuation, this method should succeed.
-      
+
       We must throw an error if this is NOT a watching-only address and we
-      find an address without a private key.  We will need to create a 
+      find an address without a private key.  We will need to create a
       separate watching-only wallet in order to import these keys.
 
       TODO: will finish this later
       """
       """
-      self.__init__()         
+      self.__init__()
       self.watchingOnly = True
 
       newfile = open(filename,'r')
@@ -5917,7 +5911,7 @@ class PyBtcWallet(object):
 
       return self
       """
-      
+
 
 
    #############################################################################
@@ -5932,7 +5926,7 @@ class PyBtcWallet(object):
       else:
          return False
 
-      
+
 
    #############################################################################
    def signTxDistProposal(self, txdp, hashcode=1):
@@ -5940,7 +5934,7 @@ class PyBtcWallet(object):
          print '***ERROR: hashcode!=1 is not supported at this time!'
          return
 
-      # If the wallet is locked, we better bail now   
+      # If the wallet is locked, we better bail now
       if self.isLocked():
          raise WalletLockError, "Cannot sign Tx when wallet is locked!"
 
@@ -5953,12 +5947,12 @@ class PyBtcWallet(object):
             addr160 = TxOutScriptExtractAddr160(txin.getScript())
             if self.hasAddr(addr160) and self.getAddrByHash160(addr160).hasPrivKey():
                wltAddr.append( (self.getAddrByHash160(addr160), index) )
-   
+
       numMyAddr = len(wltAddr)
       print 'Total number of inputs in transaction:  ', numInputs
       print 'Number of inputs that you can sign for: ', numMyAddr
-   
-   
+
+
       # The TxOut script is already in the TxIn script location, correctly
       # But we still need to blank out all other scripts when signing
       for addrObj,idx in wltAddr:
@@ -5972,13 +5966,13 @@ class PyBtcWallet(object):
 
          hashCode1  = int_to_binary(hashcode, widthBytes=1)
          hashCode4  = int_to_binary(hashcode, widthBytes=4)
-   
+
          # Copy the script of the TxOut we're spending, into the txIn script
          preHashMsg = txCopy.serialize() + hashCode4
          binToSign  = hash256(preHashMsg)
          binToSign  = binary_switchEndian(binToSign)
          signature  = addrObj.generateDERSignature(binToSign)
-   
+
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
          # Don't forget to tack on the one-byte hashcode and consider it part of sig
          if len(txOutScript) > 25:
@@ -5990,14 +5984,14 @@ class PyBtcWallet(object):
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
             txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \
                                       pubkeyLenInBinary + pubkey)
-   
+
       return txdp
-   
+
    #############################################################################
    def setDefaultKeyLifetime(self, newlifetime):
       """ Set a new default lifetime for holding the unlock key. Min 2 sec """
       self.defaultKeyLifetime = max(newlifetime, 2)
-   
+
    #############################################################################
    def checkWalletLockTimeout(self):
       if self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
@@ -6005,8 +5999,8 @@ class PyBtcWallet(object):
          self.kdfKey.destroy()
          self.kdfKey = None
          self.isLocked = True
-         
-            
+
+
 
 
    #############################################################################
@@ -6030,26 +6024,26 @@ class PyBtcWallet(object):
          self.lockWalletAtTime = RightNow() + self.defaultKeyLifetime
       else:
          self.lockWalletAtTime = RightNow() + tempKeyLifetime
-   
+
       for addrObj in self.addrMap.values():
          addrObj.unlock(self.kdfKey)
 
       self.isLocked = False
 
-   
+
    #############################################################################
    def lock(self):
       """
       We assume that we have already set all encryption parameters (such as
       IVs for each key) and thus all we need to do is call the "lock" method
-      on each PyBtcAddress object.  
+      on each PyBtcAddress object.
 
       If wallet is unlocked, try to re-lock addresses, regardless of whether
       we have a kdfKey or not.  In some circumstances (such as when the addrs
       have never been locked before) we will need the key to encrypt them.
       However, in most cases, the encrypted versions are already available
       and the PyBtcAddress objects can destroy the plaintext keys without
-      ever needing access to the encryption keys. 
+      ever needing access to the encryption keys.
 
       ANY METHOD THAT CALLS THIS MUST CATCH WALLETLOCKERRORS UNLESS YOU ARE
       POSITIVE THAT THE KEYS HAVE ALREADY BEEN ENCRYPTED BEFORE, OR ARE
@@ -6057,20 +6051,13 @@ class PyBtcWallet(object):
       were designed to do this, but in case of a bug, you don't want the
       program crashing with money-bearing private keys sitting in memory only.
 
-      TODO: If things like IVs are not set properly, we should implement 
+      TODO: If things like IVs are not set properly, we should implement
             a way to check for this, correct it, and update the wallet
             file if necessary
       """
 
-      if not self.isLocked:
-         if self.kdfKey:
-            self.kdfKey.destroy()
-            self.kdfKey = None
-         return
-
-
-      # Wallet is locked, will try to re-lock addresses, regardless of whether
-      # we have a kdfKey or not.  If a key is required, we will throw a 
+      # Wallet is unlocked, will try to re-lock addresses, regardless of whether
+      # we have a kdfKey or not.  If a key is required, we will throw a
       # WalletLockError, and the caller can get the passphrase from the user,
       # unlock the wallet, then try locking again.
       # NOTE: If we don't have kdfKey, it is set to None, which is the default
@@ -6086,14 +6073,14 @@ class PyBtcWallet(object):
       except WalletLockError:
          print '***ERROR: Locking wallet requires encryption key.  This error'
          print '          Usually occurs on newly-encrypted wallets that have'
-         print '          never been encrypted before.'                         
+         print '          never been encrypted before.'
          raise WalletLockError, 'Unlock with passphrase before locking again'
-         
+
    #############################################################################
    def getAddrListSortedByChainIndex(self):
       """ Returns Addr160 list """
       addrList = []
-      for addr160,addrObj in self.addrMap.iteritems(): 
+      for addr160,addrObj in self.addrMap.iteritems():
          addrList.append( [addrObj.chainIndex, addr160, addrObj] )
       addrList.sort(key=lambda x: x[0])
       return addrList
@@ -6107,7 +6094,7 @@ class PyBtcWallet(object):
       print indent + '   ShortLabel:', self.labelShort
       print indent + '   LongLabel :', self.labelLong
       print ''
-      print indent + 'Root key:', self.addrMap['ROOT'].getAddrStr(), 
+      print indent + 'Root key:', self.addrMap['ROOT'].getAddrStr(),
       print '(this address is never used)'
       if allAddrInfo:
          self.addrMap['ROOT'].pprint(indent=indent)
@@ -6120,7 +6107,7 @@ class PyBtcWallet(object):
                addrObj.pprint(indent=indent)
 
 
-   
+
    #############################################################################
    def isEqualTo(self, wlt2, debug=False):
       isEqualTo = True
@@ -6140,7 +6127,7 @@ class PyBtcWallet(object):
             print prettyHex(rootstr2, indent=' '*5)
             print 'RootAddrDiff:',
             pprintDiff(rootstr1, rootstr2, indent=' '*5)
-         
+
          for addr160 in self.addrMap.keys():
             addrstr1 = binary_to_hex(self.addrMap[addr160].serialize())
             addrstr2 = binary_to_hex(wlt2.addrMap[addr160].serialize())
@@ -6157,7 +6144,7 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
-   
+
 
 
 

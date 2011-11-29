@@ -43,26 +43,27 @@ void printTestHeader(string TestName)
 int main(void)
 {
 
-   string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   //string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   string blkfile("/home/alan/desktop/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
 
-   //printTestHeader("Read-and-Organize-Blockchain");
-   //TestReadAndOrganizeChain(blkfile);
+   printTestHeader("Read-and-Organize-Blockchain");
+   TestReadAndOrganizeChain(blkfile);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   //printTestHeader("Wallet-Relevant-Tx-Scan");
-   //TestScanForWalletTx(blkfile);
+   printTestHeader("Wallet-Relevant-Tx-Scan");
+   TestScanForWalletTx(blkfile);
 
-   //printTestHeader("Blockchain-Reorg-Unit-Test");
-   //TestReorgBlockchain(blkfile);
+   printTestHeader("Blockchain-Reorg-Unit-Test");
+   TestReorgBlockchain(blkfile);
 
-   printTestHeader("Crypto-KDF-and-AES-methods");
-   TestCrypto();
+   //printTestHeader("Crypto-KDF-and-AES-methods");
+   //TestCrypto();
 
-   printTestHeader("Crypto-ECDSA-sign-verify");
-   TestECDSA();
+   //printTestHeader("Crypto-ECDSA-sign-verify");
+   //TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
