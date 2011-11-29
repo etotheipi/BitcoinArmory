@@ -6,16 +6,16 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
-Test_PyBlockUtils     = False
+Test_BasicUtils       = True
+Test_PyBlockUtils     = True
 Test_CppBlockUtils    = False
-Test_SimpleAddress    = False
-Test_MultiSigTx       = False
+Test_SimpleAddress    = True
+Test_MultiSigTx       = True
 Test_TxSimpleCreate   = False
 Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_CryptoTiming     = True
 
 
 def testFunction( fnName, expectedOutput, *args, **kwargs):
@@ -561,7 +561,7 @@ if Test_EncryptedWallet:
    print '*********************************************************************'
    print ''
 
-   debugPrint = True
+   debugPrint = False
    debugPrintAlot = False
 
    # Remove wallet files, need fresh dir for this test
@@ -649,7 +649,6 @@ if Test_EncryptedWallet:
    wlt.unlock( kdfForUnlock )
    print '...to same passphrase'
    wlt.changeWalletEncryption( passphrase )
-   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    print 'And now testing new passphrase...'
    wlt.changeWalletEncryption( passphrase2 )

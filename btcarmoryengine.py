@@ -626,8 +626,6 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
          return fixStr
       else:
          if not beQuiet: print 'unsuccessful'
-         print 'Orig data:', binary_to_hex(binaryStr)
-         print 'Checksum :', binary_to_hex(chksum)
          return ''
    else:
       if not beQuiet: print '***Checksum error!  Aborting'
@@ -1392,7 +1390,7 @@ class PyBtcAddress(object):
    #############################################################################
    # This is more of a static method
    def checkPubPrivKeyMatch(self, securePriv, securePub):
-      CryptoECDSA().checkPubPrivKeyPairMatch(securePriv, securePub)
+      CryptoECDSA().CheckPubPrivKeyMatch(securePriv, securePub)
 
 
 
@@ -1858,13 +1856,14 @@ class PyBtcAddress(object):
       if pubKey==None:
          self.binPublicKey65 = CryptoECDSA().ComputePublicKey(self.binPrivKey32_Plain)
       else:
-         tempAddr = PyBtcAddress().createFromPublicKey(pubKey)
-         if not skipCheck:
-            assert(CryptoECDSA().checkPubPrivKeyPairMatch( \
-                                                self.binPrivKey32_Plain, \
-                                                tempAddr.binPublicKey65))
-         self.binPublicKey65 = tempAddr.binPublicKey65
-         self.addrStr20 = tempAddr.addrStr20
+         self.binPublicKey65 = SecureBinaryData(pubKey)
+
+      if not skipCheck:
+         assert(CryptoECDSA().CheckPubPrivKeyMatch( \
+                                             self.binPrivKey32_Plain, \
+                                             self.binPublicKey65))
+
+      self.addrStr20 = self.binPublicKey65.getHash160()
 
       self.isInitialized = True
       return self
