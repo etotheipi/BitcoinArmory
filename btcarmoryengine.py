@@ -1150,8 +1150,11 @@ class PyBtcAddress(object):
       acceptable HERE to not specify any args just to enable encryption
       """
       self.useEncryption = True
-      if IV16 or generateIVIfNecessary:
-         self.setInitializationVector(IV16, generateIVIfNecessary)
+      if IV16:
+         self.setInitializationVector(IV16)
+      elif generateIVIfNecessary and self.binInitVect16.getSize()<16:
+         self.setInitializationVector(random=True)
+   
 
    #############################################################################
    def isKeyEncryptionEnabled(self):
@@ -4599,7 +4602,7 @@ class PyBtcWallet(object):
    version     -- (4)   getVersionInt(PYBTCWALLET_VERSION)
    magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
    wlt flags   -- (8)   64 bits/flags representing info about wallet
-   binUniqueID -- (8)   first 8 bytes of first address in wallet
+   binUniqueID -- (4)   first 4 bytes of first address in wallet
                         (rootAddr25Bytes[:4][::-1]
                         This is not intended to look like the root addr str
                         and is reversed to avoid leading '1' which makes
@@ -5370,7 +5373,7 @@ class PyBtcWallet(object):
       self.offsetWltFlags = binUnpacker.getPosition()
       self.unpackWalletFlags(binUnpacker)
 
-      # This is the first 8 bytes of the 25-byte address-chain-root address
+      # This is the first 4 bytes of the 25-byte address-chain-root address
       # This includes the network byte (i.e. main network, testnet, namecoin)
       self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 4)
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
@@ -5442,7 +5445,7 @@ class PyBtcWallet(object):
 
       if verifyIntegrity:
          try:
-            nError = self.doWalletFileConsistencyCheck(onlySyncBackup=True)
+            nError = self.doWalletFileConsistencyCheck()
          except KeyDataError, errmsg:
             print '***ERROR:  Wallet file had unfixable errors.'
             print '***ERROR:', errmsg
@@ -5560,7 +5563,7 @@ class PyBtcWallet(object):
          return []
 
       # Make sure that the primary and backup files are synced before update
-      self.doWalletFileConsistencyCheck(onlySyncBackup=True)
+      self.doWalletFileConsistencyCheck()
 
       fileparts = os.path.splitext(self.walletPath)
       walletFileBackup = fileparts[0] + 'backup'              + fileparts[1]
@@ -5628,7 +5631,7 @@ class PyBtcWallet(object):
             wltfile.write(replStr)
          wltfile.close()
 
-      except:
+      except IOError:
          print '***ERROR: could not write data to wallet.  Permissions?'
          shutil.copy(walletFileBackup, self.walletPath)
          os.remove(mainUpdateFlag)
@@ -5645,20 +5648,24 @@ class PyBtcWallet(object):
 
       # Modify backup
       try:
+         # This is for unit-testing the atomic-wallet-file-update robustness
+         if self.interruptTest3: raise InterruptTestError
+
          backupfile = open(walletFileBackup, 'ab')
          backupfile.write(binaryToAppend)
          backupfile.close()
-
-         # This is for unit-testing the atomic-wallet-file-update robustness
-         if self.interruptTest3: raise InterruptTestError
 
          backupfile = open(walletFileBackup, 'r+b')
          for loc,replStr in dataToChange:
             backupfile.seek(loc)
             backupfile.write(replStr)
          backupfile.close()
-      except:
+
+      except IOError:
          print '***WARNING: could not write backup wallet.  Permissions?'
+         shutil.copy(self.walletPath, walletFileBackup)
+         os.remove(mainUpdateFlag)
+         return []
 
       os.remove(backupUpdateFlag)
 
@@ -5667,13 +5674,15 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def doWalletFileConsistencyCheck(self, onlySyncBackup=False):
+   def doWalletFileConsistencyCheck(self, onlySyncBackup=True):
       """
       First we check the file-update flags (files we touched/removed during
       file modification operations), and then restore the primary wallet file
       and backup file to the exact same state -- we know that at least one of
       them is guaranteed to not be corrupt, and we know based on the flags
       which one that is -- so we execute the appropriate copy operation.
+
+      ***NOTE:  For now, the remaining steps are untested and unused!
 
       After we have guaranteed that main wallet and backup wallet are the
       same, we want to do a check that the data is consistent.  We do this
@@ -5719,6 +5728,10 @@ class PyBtcWallet(object):
          # main wallet file might be corrupt, copy from backup
          shutil.copy(walletFileBackup, self.walletPath)
          os.remove(mainUpdateFlag)
+      elif os.path.exists(backupUpdateFlag):
+         print '***WARNING: creation of backup was interrupted -- fixing'
+         shutil.copy(self.walletPath, walletFileBackup)
+         os.remove(backupUpdateFlag)
 
       # Now primary and backup SHOULD be identical, let's make sure
       wltfile = open(self.walletPath, 'r')

@@ -12,7 +12,7 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
+Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -689,8 +689,10 @@ if Test_EncryptedWallet:
    print ''
    print '\n(7)Doing interrupt tests to test wallet-file-update recovery'
    def hashfile(fn):
-      with open(fn,'r') as f:
-         return binary_to_hex(hash256(f.read()))[:16]
+      f = open(fn,'r')
+      d = hash256(f.read())
+      f.close()
+      return binary_to_hex(d[:8])
    
    def printfilestatus(fn):
       if os.path.exists(fn):
@@ -704,20 +706,65 @@ if Test_EncryptedWallet:
       printfilestatus(fileAupd)
       printfilestatus(fileBupd)
 
-   print '\nStarting test with the unencrypted wallet from part (6)'
+   print '\n(7a)Starting test with the unencrypted wallet from part (6)'
    printstat()
 
-   print '\nGoing to interrupt file op'
    try:
+      print 'last index:', wlt.lastComputedChainIndex
       wlt.interruptTest1 = True
-      wlt.changeWalletEncryption( securePassphrase=passphrase2 )
-      wlt.interruptTest1 = False
+      wlt.getNewAddress()
    except InterruptTestError:
+      print 'Interrupted!'
       pass
+   print 'last index:', wlt.lastComputedChainIndex
+   wlt.interruptTest1 = False
 
-   print '\nInterrupted changeWalletEncryption on primary file update'
+   print '\n(7a)Interrupted getNewAddress on primary file update'
+   printstat()
+   print '\n(7a)Do consistency check on the wallet'
+   wlt.doWalletFileConsistencyCheck()
+   printstat()
+   
+   print '\n(7b) Try interrupting at state 2'
+   printstat()
+   print 'last index:', wlt.lastComputedChainIndex
+
+   try:
+      print 'last index:', wlt.lastComputedChainIndex
+      wlt.interruptTest2 = True
+      wlt.getNewAddress()
+   except InterruptTestError:
+      print 'Interrupted!'
+      pass
+   print 'last index:', wlt.lastComputedChainIndex
+   wlt.interruptTest2 = False
+
+   print '\n(7b)Interrupted getNewAddress on between primary/backup update'
+   printstat()
+   print '\n(7b)Do consistency check on the wallet'
+   wlt.doWalletFileConsistencyCheck()
    printstat()
 
+
+   print '\n(7c) Try interrupting at state 3'
+   printstat()
+   print 'last index:', wlt.lastComputedChainIndex
+
+   try:
+      print 'last index:', wlt.lastComputedChainIndex
+      wlt.interruptTest3 = True
+      wlt.getNewAddress()
+   except InterruptTestError:
+      print 'Interrupted!'
+      pass
+   print 'last index:', wlt.lastComputedChainIndex
+   wlt.interruptTest3 = False
+
+   print '\n(7c)Interrupted getNewAddress on backup file update'
+   printstat()
+   print '\n(7c)Do consistency check on the wallet'
+   wlt.doWalletFileConsistencyCheck()
+   printstat()
 
 ################################################################################
 ################################################################################
