@@ -168,6 +168,8 @@ class PassphraseError(Exception):
    pass
 class EncryptionError(Exception):
    pass
+class InterruptTestError(Exception):
+   pass
 
 
 
@@ -1751,6 +1753,7 @@ class PyBtcAddress(object):
 
       self.addrStr20 = serializedData.get(BINARY_CHUNK, 20)
       chkAddr20      = serializedData.get(BINARY_CHUNK,  4)
+
       addrVerInt     = serializedData.get(UINT32)
       flags          = serializedData.get(UINT64)
       self.addrStr20 = verifyChecksum(self.addrStr20, chkAddr20)
@@ -4597,7 +4600,7 @@ class PyBtcWallet(object):
    magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
    wlt flags   -- (8)   64 bits/flags representing info about wallet
    binUniqueID -- (8)   first 8 bytes of first address in wallet
-                        (rootAddr25Bytes[:8][::-1]
+                        (rootAddr25Bytes[:4][::-1]
                         This is not intended to look like the root addr str
                         and is reversed to avoid leading '1' which makes
                         different IDs look too similar
@@ -4714,6 +4717,11 @@ class PyBtcWallet(object):
       self.offsetKdfParams = -1
       self.offsetCrypto    = -1
 
+      # These flags are ONLY for unit-testing the walletFileSafeUpdate function
+      self.interruptTest1  = False
+      self.interruptTest2  = False
+      self.interruptTest3  = False
+
    #############################################################################
    def getWalletVersion(self):
       return (getVersionInt(self.version), getVersionString(self.version))
@@ -4799,7 +4807,7 @@ class PyBtcWallet(object):
       # Update wallet object with the new data
       self.addrMap['ROOT'] = rootAddr
       self.addrMap[firstAddr.getAddr160()] = firstAddr
-      self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:7])[::-1]
+      self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:3])[::-1]
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
       self.labelShort = shortLabel[:32]
       self.labelLong  = longLabel[:256]
@@ -4812,7 +4820,10 @@ class PyBtcWallet(object):
       # creating the wallet: so we just do it naively here.
       self.walletPath = newWalletFilePath
       if not newWalletFilePath:
-         newName = 'ArmoryWallet_' + self.wltUniqueIDB58 + '_.bin'
+         shortName = self.labelShort.replace(' ','_')
+         for c in ',?;:\'"?/\\=+-|[]{}<>':
+            shortName = shortName.replace(c,'_')
+         newName = 'ArmoryWallet_%s_%s_.bin' % (shortName, self.wltUniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       print '   New wallet will be written to:', self.walletPath
@@ -5119,17 +5130,18 @@ class PyBtcWallet(object):
          # Must change the encryption key: and we won't get here unless
          # we have a passphrase to use.  This call will take the
          self.changeWalletEncryption(securePassphrase=securePassphrase, \
-                                     extraFileUpdates=updList)
+                                     extraFileUpdates=updList, kdfObj=newkdf)
+
       self.kdf = newkdf
 
 
 
 
-
    #############################################################################
-   def changeWalletEncryption(self, securePassphrase=None, \
-                                    secureKdfOutput=None,
-                                    extraFileUpdates=[]):
+   def changeWalletEncryption(self, secureKdfOutput=None, \
+                                    securePassphrase=None, \
+                                    extraFileUpdates=[],
+                                    kdfObj=None):
       """
       Supply the passphrase you would like to use to encrypt this wallet
       (or supply the KDF output directly, to skip the passphrase part).
@@ -5150,6 +5162,9 @@ class PyBtcWallet(object):
       written to the wallet file in the same atomic operation as the
       encryption key modifications.
       """
+
+      if not kdfObj:
+         kdfObj = self.kdf
 
       oldUsedEncryption = self.useEncryption
       if securePassphrase or secureKdfOutput:
@@ -5176,7 +5191,7 @@ class PyBtcWallet(object):
       if securePassphrase:
          newKdfKey = self.kdf.DeriveKey(securePassphrase)
 
-      if oldUsedEncryption and self.verifyEncryptionKey(newKdfKey):
+      if oldUsedEncryption and newUsesEncryption and self.verifyEncryptionKey(newKdfKey):
          print 'Attempting to change encryption to same passphrase!'
          return # Wallet is encrypted with the new passphrase already
 
@@ -5200,7 +5215,7 @@ class PyBtcWallet(object):
          newAddrMap  = {}
          for addr160,addr in self.addrMap.iteritems():
             newAddrMap[addr160] = addr.copy()
-            newAddrMap[addr160].enableKeyEncryption()
+            newAddrMap[addr160].enableKeyEncryption(generateIVIfNecessary=True)
             newAddrMap[addr160].changeEncryptionKey(oldKdfKey, newKdfKey)
             newAddrMap[addr160].walletByteLoc = addr.walletByteLoc
             walletUpdateInfo.append( \
@@ -5216,12 +5231,12 @@ class PyBtcWallet(object):
                self.addrMap[addr160] = addr.copy()
 
          self.useEncryption = newUsesEncryption
-         self.unlock(newKdfKey)
+         if newKdfKey:
+            self.unlock(newKdfKey)
       finally:
          # Make sure we always destroy the temporary passphrase results
-         newKdfKey.destroy()
-         if oldKdfKey:
-            oldKdfKey.destroy()
+         if newKdfKey: newKdfKey.destroy()
+         if oldKdfKey: oldKdfKey.destroy()
 
 
 
@@ -5306,8 +5321,8 @@ class PyBtcWallet(object):
       self.offsetWltFlags = binPacker.getSize() - startByte
       self.packWalletFlags(binPacker)
 
-      # Binary Unique ID (rootAddr25bytes[:8][::-1])
-      binPacker.put(BINARY_CHUNK, self.wltUniqueIDBin, width=8)
+      # Binary Unique ID (rootAddr25bytes[:4][::-1])
+      binPacker.put(BINARY_CHUNK, self.wltUniqueIDBin, width=4)
 
       # Unix time of wallet creations
       binPacker.put(UINT64, self.wltCreateDate)
@@ -5357,7 +5372,7 @@ class PyBtcWallet(object):
 
       # This is the first 8 bytes of the 25-byte address-chain-root address
       # This includes the network byte (i.e. main network, testnet, namecoin)
-      self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 8)
+      self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 4)
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
       self.wltCreateDate  = binUnpacker.get(UINT64)
 
@@ -5484,6 +5499,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def walletFileSafeUpdate(self, updateList):
+            
       """
       The input "toAddDataList" should be a list of triplets, such as:
       [
@@ -5603,6 +5619,9 @@ class PyBtcWallet(object):
          wltfile.write(binaryToAppend)
          wltfile.close()
 
+         # This is for unit-testing the atomic-wallet-file-update robustness
+         if self.interruptTest1: raise InterruptTestError
+
          wltfile = open(self.walletPath, 'r+b')
          for loc,replStr in dataToChange:
             wltfile.seek(loc)
@@ -5618,6 +5637,10 @@ class PyBtcWallet(object):
       # Write backup flag before removing main-update flag.  If we see
       # both flags, we know file IO was interrupted RIGHT HERE
       touchFile(backupUpdateFlag)
+
+      # This is for unit-testing the atomic-wallet-file-update robustness
+      if self.interruptTest2: raise InterruptTestError
+
       os.remove(mainUpdateFlag)
 
       # Modify backup
@@ -5625,6 +5648,9 @@ class PyBtcWallet(object):
          backupfile = open(walletFileBackup, 'ab')
          backupfile.write(binaryToAppend)
          backupfile.close()
+
+         # This is for unit-testing the atomic-wallet-file-update robustness
+         if self.interruptTest3: raise InterruptTestError
 
          backupfile = open(walletFileBackup, 'r+b')
          for loc,replStr in dataToChange:
@@ -6003,7 +6029,9 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def unlock(self, secureKdfOutput, tempKeyLifetime=0):
+   def unlock(self, secureKdfOutput=None, \
+                    securePassphrase=None, \
+                    tempKeyLifetime=0):
       """
       We must assume that the kdfResultKey is a SecureBinaryData object
       containing the result of the KDF-passphrase.  The wallet unlocked-
@@ -6011,6 +6039,16 @@ class PyBtcWallet(object):
       time the checkWalletLockTimeout function is called it will be re-
       locked.
       """
+      
+      if not secureKdfOutput and not securePassphrase:
+         raise PassphraseError, "No passphrase/key provided to unlock wallet!"
+         
+      if not secureKdfOutput:
+         if not self.kdf:
+            raise EncryptionError, 'How do we have a locked wallet w/o KDF???'
+         secureKdfOutput = self.kdf.DeriveKey(securePassphrase)
+
+
       if not self.verifyEncryptionKey(secureKdfOutput):
          raise PassphraseError, "Incorrect passphrase for wallet"
 
@@ -6101,7 +6139,7 @@ class PyBtcWallet(object):
       sortedAddrList = self.getAddrListSortedByChainIndex()
       for i,addr160,addrObj in sortedAddrList:
          if not addr160=='ROOT':
-            print indent*2 + '   Address:', addrObj.getAddrStr()
+            print '\n' + indent + 'Address:', addrObj.getAddrStr()
             if allAddrInfo:
                addrObj.pprint(indent=indent)
 
