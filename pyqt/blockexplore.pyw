@@ -25,7 +25,7 @@ __version__ = "0.0.1"
 
 sys.path.append('..')
 sys.path.append('../cppForSwig')
-from pybtcengine import *
+from btcarmoryengine import *
 from CppBlockUtils import *
 from pbemodels import *
 
