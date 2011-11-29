@@ -6,7 +6,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 sys.path.append('..')
 sys.path.append('../cppForSwig')
-from pybtcengine import *
+from btcarmoryengine import *
 from CppBlockUtils import *
 
 
