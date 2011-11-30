@@ -43,8 +43,7 @@ void printTestHeader(string TestName)
 int main(void)
 {
 
-   //string blkfile("/home/alan/.bitcoin/blk0001.dat");
-   string blkfile("/home/alan/desktop/blk0001.dat");
+   string blkfile("/home/alan/.bitcoin/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
 
    printTestHeader("Read-and-Organize-Blockchain");
@@ -56,8 +55,8 @@ int main(void)
    printTestHeader("Wallet-Relevant-Tx-Scan");
    TestScanForWalletTx(blkfile);
 
-   printTestHeader("Blockchain-Reorg-Unit-Test");
-   TestReorgBlockchain(blkfile);
+   //printTestHeader("Blockchain-Reorg-Unit-Test");
+   //TestReorgBlockchain(blkfile);
 
    //printTestHeader("Crypto-KDF-and-AES-methods");
    //TestCrypto();

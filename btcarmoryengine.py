@@ -607,22 +607,21 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       -- One byte error:  return input with fixed byte
       -- 2+ bytes error:  return ''
 
-   This method does NOT check for possible byte errors in the checksum itself
-   but this adds a lot of complexity to an already-extremely-robust process.
-   The probability of a single-byte error is ridiculously low, already, the
-   chance that the error is in the 4 byte checksum instead of the 32- or 64-byte
-   data field is even lower.
+   This method will check the checksum itself for errors, but not correct them.
+   However, for PyBtcWallet serialization, if I determine that it is a chksum
+   error and simply return the original string, then PyBtcWallet will correct
+   the checksum in the file, next time it reserializes the data. 
    """
    bin1 = str(binaryStr)
    bin2 = binary_switchEndian(binaryStr)
+
+
    if hashFunc(bin1).startswith(chksum):
       return bin1
    elif hashFunc(bin2).startswith(chksum):
       if not beQuiet: print '***Checksum valid for input with reversed endianness'
       if fixIfNecessary:
          return bin2
-      else:
-         return ''
    elif fixIfNecessary:
       if not beQuiet: print '***Checksum error!  Attempting to fix...',
       fixStr = fixChecksumError(bin1, chksum, hashFunc)
@@ -636,12 +635,20 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
          if chksum==hex_to_binary('5df6e0e2'):
             if not beQuiet: print 'fixed!'
             return ''
-         if not beQuiet: print 'unsuccessful'
-         return ''
-   else:
-      if not beQuiet: print '***Checksum error!  Aborting'
-      return ''
 
+
+   # ID a checksum byte error...
+   origHash = hashFunc(bin1)
+   for i in range(len(chksum)):
+      chkArray = [chksum[j] for j in range(len(chksum))]
+      for ch in range(256):
+         chkArray[i] = chr(ch)
+         if origHash.startswith(''.join(chkArray)):
+            print '***Checksum error!  Incorrect byte in checksum... fixed!'
+            return bin1
+
+   print 'failed'
+   return ''
 
 
 # Taken directly from rpc.cpp in reference bitcoin client, 0.3.24
@@ -665,7 +672,7 @@ def difficulty_to_binaryBits(i):
 
 
 ################################################################################
-def loadBlockchainFile(blkfile=None, testnet=False):
+def BDM_LoadBlockchainFile(blkfile=None, testnet=False):
    """
    Looks for the blk0001.dat file in the default location for your operating
    system.  If it is found, it is loaded into RAM and the longest chain is
@@ -675,20 +682,20 @@ def loadBlockchainFile(blkfile=None, testnet=False):
    if blkfile==None:
       if not testnet:
          if 'win' in opsys.lower():
-            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
+            blkfile = os.path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
          if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
+            blkfile = os.path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
          if 'mac' in opsys.lower() or 'osx' in opsys.lower():
             blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
       else:
          if 'win' in opsys.lower():
-            blkfile = path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
+            blkfile = os.path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
          if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
+            blkfile = os.path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
          if 'mac' in opsys.lower() or 'osx' in opsys.lower():
             blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/testnet/blk0001.dat')
 
-   if not path.exists(blkfile):
+   if not os.path.exists(blkfile):
       raise FileExistsError, ('File does not exist: %s' % blkfile)
    TheBDM.readBlkFile_FromScratch(blkfile)
 
@@ -1000,7 +1007,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    def getAddrStr(self, netbyte=ADDRBYTE):
-      chksum = hash160(self.addrStr20)[:4]
+      chksum = hash256(netbyte + self.addrStr20)[:4]
       return binary_to_base58(netbyte + self.addrStr20 + chksum)
 
    #############################################################################
@@ -4512,8 +4519,8 @@ class PyTxDistProposal(object):
          print indent,
          #print '   PrevOut: (%s, index=%d)' % (binary_to_hex(prevHash[:8]),prevIndex),
          print '   SrcAddr:   %s' % hash160_to_addrStr(self.inputAddrList[i]),
-         if bdm.isInitialized():
-            value = bdm.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
+         if TheBDM.isInitialized():
+            value = TheBDM.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
             print '   Value: %s' % coin2str(value)
       print indent+'Num Outputs           : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
@@ -5280,7 +5287,7 @@ class PyBtcWallet(object):
          updEntry = [WLT_UPDATE_ADD, WLT_DATATYPE_COMMENT, addr160, newComment]
 
       newCommentLoc = self.walletFileSafeUpdate([updEntry])
-      self.commentsMap[addr160] = newCommentStr
+      self.commentsMap[addr160] = newComment
 
       if isNewComment:
          self.commentLocs[addr160] = newCommentLoc
@@ -5833,16 +5840,19 @@ class PyBtcWallet(object):
    #############################################################################
    def syncWithBlockchain(self):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(bdm.isInitialized())
-         bdm.scanBlockchainForTx_FromScratch(self.cppWallet)
+         assert(TheBDM.isInitialized())
+         TheBDM.scanBlockchainForTx_FromScratch(self.cppWallet)
+      else:
+         print '***WARNING: Blockchain-sync requested, but current wallet'
+         print '            is set to BLOCKCHAIN_DONOTUSE'
 
 
    #############################################################################
    def getUnspentTxOutList(self):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(bdm.isInitialized())
+         assert(TheBDM.isInitialized())
          self.syncWithBlockchain()
-         return bdm.getUnspentTxOutsForWallet(self.cppWallet)
+         return TheBDM.getUnspentTxOutsForWallet(self.cppWallet)
       else:
          print '***Blockchain is not available for accessing wallet-tx data'
          return []

@@ -544,7 +544,7 @@ if Test_EncryptedWallet:
    print '*********************************************************************'
    print ''
 
-   debugPrint = True
+   debugPrint = False
    debugPrintAlot = False
 
    # Remove wallet files, need fresh dir for this test
@@ -807,6 +807,57 @@ if Test_EncryptedWallet:
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
 
+   print '\n(8d)Now butcher the CHECKSUM, see if correction works'
+   wltfile = open(wlt.walletPath,'r+b')
+   wltfile.seek(977); wltfile.write('\xff')
+   wltfile.close()
+   print '\n(8d) New file hashes...'
+   printstat()
+
+   print '\n(8d)Try to read wallet from file, should correct address errors'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
+   printstat()
+
+
+   exit(0)
+   #############################################################################
+   print '\n\n'
+   print '*********************************************************************'
+   print '\n(9) Finally!  Start the wallet tests involving the blockchain!'
+   BDM_LoadBlockchainFile()  # looks for blk0001.dat in satoshi client location
+
+   print '\n(9) Add an address with some money to this wallet... with comment'
+
+   wlt.importExternalAddressData( \
+      addr20=hex_to_binary('0e0aec36fe2545fb31a41164fb6954adcd96b342'), \
+      privKey=hex_to_binary('a5001fd8d7103877f577aa176926b18b1e004195644abb7f7dc19e3f267e7aa4'))
+
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   
+   wlt.setCommentForAddr160('0e0aec36fe2545fb31a41164fb6954adcd96b342', \
+      'This is my normal unit-testing address.  I sent nibor a few BTC from '+ \
+      'this address.  I did my 20-recipient anonymous send from this address')
+
+   print '\n(9) Now syncing this wallet with the blockchain'
+   # While using the blk0001.dat maintained by satoshi client, never write data
+   wlt.doBlockchainSync=BLOCKCHAIN_READONLY  
+   wlt.syncWithBlockchain()
+
+   print wlt.cppWallet
+
+   utxoList = wlt.getUnspentTxOutList()
+   pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
+
+   print '\n(9) Select inputs for a 1.1 BTC tx to myself'
+   nBTC = 1.1*COIN
+   prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
+   feeRecommended = calcMinSuggestedFees(prelimSelection, nBTC, 0)
+   pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
+                           (coin2str(recipValue), coin2str(fee)))
+   print '*Recommended fees:  AbsMin=%s, Suggest=%s' % tuple([coin2str(f) for f in feeRecommended])
+
+   # !!!
+   #forkOnlineWallet()
 
 ################################################################################
 ################################################################################

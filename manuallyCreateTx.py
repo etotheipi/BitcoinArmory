@@ -36,7 +36,7 @@ pprintUnspentTxOutList(utxoList, 'All unspent coins:')
 
    
 # Figure out a *good* selection of TxOuts to use
-prelimSelection = PySelectCoins(utxoList, 4*recipValue, fee)
+prelimSelection = PySelectCoins(utxoList, recipValue, fee)
 feeRecommended = calcMinSuggestedFees(prelimSelection, recipValue, fee)
 pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
                            (coin2str(recipValue), coin2str(fee)))
@@ -45,26 +45,9 @@ print 'Recommended fees:  AbsMin=%s, Suggest=%s' % tuple([coin2str(f) for f in f
 
 # Construct the output addresses, with a random order
 recipPairs = []
-recipPairs.append(['12irKW1XFSnnu6v5FevcC3wZ6hfvPmaEDQ', recipValue])
-recipPairs.append(['1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk', recipValue])
-recipPairs.append(['1H3Jbv99F7Ng8oiadCovvda17CGZ9EFkPM', recipValue])
-recipPairs.append(['16jN5NhB4eoUqFrSvuNnvDEc57oz6GRNi4', recipValue])
-recipPairs.append(['17aLXn2XHKH7nhwdCPaWmkY6jgr36zSjyz', recipValue])
-recipPairs.append(['1PjURhoxGr6cdK5YY5SyDDY2pQhEpbZdoK', recipValue])
-recipPairs.append(['1NgBFTvqM6FsooFtkvFgf7VxzRBdXKnxpR', recipValue])
-recipPairs.append(['176msrhhemi6q8DEdpBCoTQJvRCiGV5qEm', recipValue])
-recipPairs.append(['16FSHWWyUv6wzT9qpbi7tCaovf6XX7T9xN', recipValue])
-recipPairs.append([recipAddr, recipValue])
-recipPairs.append(['1JiLbGTrVNmk6BsePVQWmBiD7DFUDmMYXw', recipValue])
-recipPairs.append(['124DJWV7vYS8DUcVan4SXcGNAubopS1BHj', recipValue])
-recipPairs.append(['1PESigPSLwsvaQAQfCDDPZM21i9m8Vqt21', recipValue])
-recipPairs.append(['18i1rVZHMMXQwRxZuSrHZrpqUoejkV2Gh2', recipValue])
-recipPairs.append(['1PZjRprkrM93GVXNdJ5zu7C1p84weTovWj', recipValue])
-recipPairs.append(['14cKqt9e8QvgMaBrwbuykBjha1vXNtaj72', recipValue])
-recipPairs.append(['1QJUzen8xL7EyBTGnkDUX6fnoMX9TL1fU7', recipValue])
-recipPairs.append(['17iRBkToUTzDvVpXsNUT8usT6c6aEDe15R', recipValue])
-recipPairs.append(['1NVJS8DWLdrte45rc5oGvWyjrAe9y1rtFt', recipValue])
-recipPairs.append(['1MzxEf2Ck9XSC7U5y5DHQvMyPhL2UNcjSD', recipValue])
+recipPairs.append(['1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk', long(recipValue/3)])
+recipPairs.append([recipAddr, long(recipValue/3)])
+recipPairs.append(['1JiLbGTrVNmk6BsePVQWmBiD7DFUDmMYXw', long(recipValue/3)])
 #pair1 = [recipAddr, recipValue]
 #pair2 = [pywlt.getAddrByIndex(0), sumTxOutList(prelimSelection)-(recipValue+fee)]
 #if random.uniform(0,1) < 0.5:

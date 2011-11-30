@@ -9,7 +9,7 @@
 
 from sys import path as PYPATH, argv
 PYPATH.append('..')
-from pybtcengine import *
+from btcarmoryengine import *
 from datetime import datetime
 from os import path
 
