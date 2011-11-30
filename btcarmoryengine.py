@@ -226,7 +226,7 @@ def coin2str(nSatoshi, ndec=8, rJust=False):
 BASE58DIGITS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 LITTLEENDIAN = '<';
 BIGENDIAN = '>';
-COIN = long(1e8)
+ONE_BTC = long(1e8)
 CENT = long(1e8/100.)
 UNINITIALIZED = None
 UNKNOWN = -2
@@ -536,11 +536,11 @@ def addrStr_to_hash160(binStr):
 ##### FLOAT/BTC #####
 # https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
 def ubtc_to_floatStr(n):
-   return '%d.%08d' % divmod (n, COIN)
+   return '%d.%08d' % divmod (n, ONE_BTC)
 def floatStr_to_ubtc(s):
-   return long(round(float(s) * COIN))
+   return long(round(float(s) * ONE_BTC))
 def float_to_btc (f):
-   return long (round(f * COIN))
+   return long (round(f * ONE_BTC))
 
 
 ##### And a few useful utilities #####
@@ -644,7 +644,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       for ch in range(256):
          chkArray[i] = chr(ch)
          if origHash.startswith(''.join(chkArray)):
-            print '***Checksum error!  Incorrect byte in checksum... fixed!'
+            print '***Checksum error!  Incorrect byte in checksum!'
             return bin1
 
    print 'failed'
@@ -1222,7 +1222,7 @@ class PyBtcAddress(object):
       elif IV16:
          self.binInitVect16 = IV16
 
-      if chksum and not self.binPrivKey32_Plain.getHash256().startswith(chksum):
+      if chksum and not verifyChecksum(self.binPrivKey32_Plain.toBinStr(), chksum):
          raise ChecksumError, "Checksum doesn't match plaintext priv key!"
       if publicKey65:
          self.binPublicKey65 = SecureBinaryData(publicKey65)
@@ -1249,7 +1249,7 @@ class PyBtcAddress(object):
       self.isLocked = False
       self.useEncryption = False
 
-      if chksum and not self.binPublicKey65.getHash256().startswith(chksum):
+      if chksum and not verifyChecksum(self.binPublicKey65.toBinStr(), chksum):
          raise ChecksumError, "Checksum doesn't match supplied public key!"
 
       return self
@@ -2259,7 +2259,7 @@ class PyTxOut(object):
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'TxOut:'
-      print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / COIN, ')'
+      print indstr + indent + 'Value:   ', self.value, '(', float(self.value) / ONE_BTC, ')'
       txoutType = getTxOutScriptType(self.binScript)
       if txoutType == TXOUT_SCRIPT_COINBASE:
          print indstr + indent + 'Script:   PubKey(%s) OP_CHECKSIG' % \
@@ -3768,7 +3768,7 @@ def pprintUnspentTxOutList(utxoList, headerLine='Coin Selection: '):
       print '   ',hash160_to_addrStr(utxo.getRecipientAddr()).ljust(34),
       print '   ',(coin2str(utxo.getValue()) + ' BTC').rjust(18),
       print '   ',str(utxo.getNumConfirm()).rjust(8),
-      print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(COIN*144.))).rjust(16)
+      print '   ', ('%0.2f' % (utxo.getValue()*utxo.getNumConfirm()/(ONE_BTC*144.))).rjust(16)
 
 
 ################################################################################
@@ -4112,7 +4112,7 @@ def getSelectCoinsScores(utxoSelectList, targetOutVal, minFee):
          dPriority += utxo.getValue() * utxo.getNumConfirm()
 
    dPriority = dPriority / numBytes
-   priorityThresh = COIN * 144 / 250
+   priorityThresh = ONE_BTC * 144 / 250
    if dPriority < priorityThresh:
       priorityFactor = 0
    elif dPriority < 10.0*priorityThresh:
@@ -4287,7 +4287,7 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0
                  sel.getValue() != other.getValue() and \
                  sel.getNumConfirm() != other.getNumConfirm() and \
                  other not in finalSelection and \
-                 other.getValue()*other.getNumConfirm() < 10*COIN*144./250. and \
+                 other.getValue()*other.getNumConfirm() < 10*ONE_BTC*144./250. and \
                  other.getNumConfirm() > 0 and \
                  SCORES[IDX_OUTANONYM] == 0):
                finalSelection.append(other)
@@ -4335,7 +4335,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    haveDustOutputs = (0<change<CENT or targetOutVal<CENT)
 
    if((not haveDustOutputs) and \
-      prioritySum >= COIN * 144 / 250. and \
+      prioritySum >= ONE_BTC * 144 / 250. and \
       numBytes <= 3600):
       return [0,0]
 
@@ -4389,6 +4389,7 @@ class PyTxDistProposal(object):
       self.signatures    = []
       self.sigIsValid    = []
       self.inputAddrList = []
+      self.inputValues   = []
       if pytx:
          self.createFromPreparedPyTx(pytx)
 
@@ -4891,6 +4892,8 @@ class PyBtcWallet(object):
 
          self.lastComputedChainAddr160 = new160
          self.lastComputedChainIndex = newAddr.chainIndex
+         self.cppWallet.addAddress_5_(new160, UINT32_MAX, UINT32_MAX,\
+                                              UINT32_MAX, UINT32_MAX)
          return self.addrMap[new160]
       else:
          raise WalletAddressError, 'Deterministic wallet not initialized yet'
@@ -4946,6 +4949,35 @@ class PyBtcWallet(object):
       newFile.close()
       return True
 
+
+   #############################################################################
+   def supplyRootKeyForWatchingOnlyWallet(self, securePlainRootKey32, \
+                                                permanent=False):
+      """
+      If you have a watching only wallet, you might want to upgrade it to a
+      full wallet by supplying the 32-byte root private key.  Generally, this
+      will be used to make a 'permanent' upgrade to your wallet, and the new
+      keys will be written to file ( NOTE:  you should setup encryption just
+      after doing this, to make sure that the plaintext keys get wiped from
+      your wallet file).
+
+      On the other hand, if you don't want this to be a permanent upgrade,
+      this could potentially be used to maintain a watching only wallet on your
+      harddrive, and actually plug in your plaintext root key instead of an
+      encryption password whenever you want sign transactions. 
+      """
+      pass
+
+
+   #############################################################################
+   def touchAddress(self, addr20):
+      """
+      Use this to update your wallet file to recognize the first/last times
+      seen for the address.  This information will improve blockchain search
+      speed, if it knows not to search transactions that happened before they
+      were created.
+      """
+      pass
 
    #############################################################################
    def testKdfComputeTime(self):
@@ -5268,7 +5300,7 @@ class PyBtcWallet(object):
    #############################################################################
    def getCommentForAddress(self, addr160):
       if self.commentsMap.has_key(addr160):
-         return commentsMap[addr160]
+         return self.commentsMap[addr160]
       else:
          return ''
 
@@ -5868,10 +5900,11 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def importExternalAddressData(self, addr20, privKey=None, pubKey=None, \
-                                               privChk=None, pubChk=None, \
-                                               firstTime=0, firstBlk=0,
-                                               lastTime=0,  lastBlk=0):
+   def importExternalAddressData(self, privKey=None, privChk=None, \
+                                       pubKey=None,  pubChk=None, \
+                                       addr20=None,  addrChk=None, \
+                                       firstTime=0,  firstBlk=0, \
+                                       lastTime=0,   lastBlk=0):
       """
       This wallet fully supports importing external keys, even though it is
       a deterministic wallet: determinism only adds keys to the pool based
@@ -5895,23 +5928,69 @@ class PyBtcWallet(object):
          print '           watching-only wallet to import this address.'
          raise WalletAddressError, 'Cannot import non-private-key addresses'
 
+
+
+      # First do all the necessary type conversions and error corrections
+      computedPubKey = None
+      computedAddr20 = None
+      if privKey:
+         if isinstance(privKey, str):
+            privKey = SecureBinaryData(privKey)
+
+         if privChk:
+            privKey = SecureBinaryData(verifyChecksum(privKey.toBinStr(), privChk))
+
+         computedPubkey = CryptoECDSA().ComputePublicKey(privKey)
+         computedAddr20 = convertKeyDataToAddress(pubKey=computedPubkey)
+
+      # If public key is provided, we prep it so we can verify Pub/Priv match
+      if pubKey:
+         if isinstance(pubKey, str):
+            pubKey = SecureBinaryData(pubKey)
+         if pubChk:
+            pubKey = SecureBinaryData(verifyChecksum(pubKey.toBinStr(), pubChk))
+
+         if not computedAddr20:
+            computedAddr20 = convertKeyDataToAddress(pubKey=pubKey)
+
+      # The 20-byte address (pubkey hash160) should always be a python string
+      if addr20:
+         if not isinstance(pubKey, str):
+            addr20 = addr20.toBinStr()
+         if addrChk:
+            addr20 = verifyChecksum(addr20, addrChk)
+
+
+      # Now a few sanity checks
       if self.addrMap.has_key(addr20):
          print 'This address is already in your wallet!'
          return
 
+      if pubKey and not computedPubkey==pubKey:
+         raise ECDSA_Error, 'Private and public keys to be imported do not match!'
+      if addr20 and not computedAddr20==addr20:
+         raise ECDSA_Error, 'Supplied address hash does not match key data!'
 
+      addr20 = computedAddr20
+
+      # If a private key is supplied and this wallet is encrypted&locked, then 
+      # we have no way to secure the private key without unlocking the wallet.
       if self.useEncryption and self.isLocked and privKey:
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
 
 
       if privKey:
-         securePrivKey = SecureBinaryData(privKey)
-         newAddr = PyBtcAddress().createFromPlainKeyData(securePrivKey, chksum=privChk)
+         # For priv key, lots of extra encryption and verification options
+         newAddr = PyBtcAddress().createFromPlainKeyData( addr160=addr20, \
+                                  plainPrivKey=privKey, publicKey65=pubKey,  \
+                                  willBeEncr=self.useEncryption, \
+                                  generateIVIfNecessary=self.useEncryption, \
+                                  skipCheck=True, skipPubCompute=True)
       elif pubKey:
-         securePubKey = SecureBinaryData(pubKey)
-         newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey, chksum=pubChk)
+         newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey)
       else:
          newAddr = PyBtcAddress().createFromPublicKeyHash160(addr20)
+
 
       newAddr.chaincode  = SecureBinaryData('\xff'*32)
       newAddr.chainIndex = -2
@@ -5932,6 +6011,7 @@ class PyBtcWallet(object):
       self.cppWallet.addAddress_5_(newAddr160, \
                                        firstTime, firstBlk, lastTime, lastBlk)
 
+      return newAddr160
 
 
    #############################################################################
@@ -5990,7 +6070,7 @@ class PyBtcWallet(object):
          if len(addrData) == 20:
             return self.addrMap.has_key(addrData)
          else:
-            return self.addrMap.has_key(base58_to_binary(addrData)[1:21])
+            return self.addrMap.has_key(addrStr_to_hash160(addrData))
       elif isinstance(addrData, PyBtcAddress):
          return self.addrMap.has_key(addrData.getAddr160())
       else:
@@ -6015,8 +6095,8 @@ class PyBtcWallet(object):
          scriptType = getTxOutScriptType(txin.binScript)
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             addr160 = TxOutScriptExtractAddr160(txin.getScript())
-            if self.hasAddr(addr160) and self.getAddrByHash160(addr160).hasPrivKey():
-               wltAddr.append( (self.getAddrByHash160(addr160), index) )
+            if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
+               wltAddr.append( (self.addrMap[addr160], index) )
 
       numMyAddr = len(wltAddr)
       print 'Total number of inputs in transaction:  ', numInputs
@@ -6026,6 +6106,12 @@ class PyBtcWallet(object):
       # The TxOut script is already in the TxIn script location, correctly
       # But we still need to blank out all other scripts when signing
       for addrObj,idx in wltAddr:
+         if addrObj.isLocked:
+            if self.kdfKey:
+               addrObj.unlock(self.kdfKey)
+            else:
+               raise WalletLockError, 'Cannot sign tx without unlocking wallet'
+            
          txOutScript = ''
          txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
          for i in range(len(txCopy.inputs)):
@@ -6040,7 +6126,7 @@ class PyBtcWallet(object):
          # Copy the script of the TxOut we're spending, into the txIn script
          preHashMsg = txCopy.serialize() + hashCode4
          binToSign  = hash256(preHashMsg)
-         binToSign  = binary_switchEndian(binToSign)
+         #binToSign  = binary_switchEndian(binToSign)
          signature  = addrObj.generateDERSignature(binToSign)
 
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey

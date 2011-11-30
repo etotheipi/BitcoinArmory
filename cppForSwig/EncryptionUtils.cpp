@@ -54,6 +54,13 @@ bool SecureBinaryData::operator==(SecureBinaryData const & sbd2) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Swap endianness of the bytes in the index range [pos1, pos2)
+SecureBinaryData SecureBinaryData::copySwapEndian(size_t pos1, size_t pos2) const
+{
+   return SecureBinaryData(BinaryData::copySwapEndian(pos1, pos2));
+}
+
+/////////////////////////////////////////////////////////////////////////////
 SecureBinaryData SecureBinaryData::GenerateRandom(uint32_t numBytes)
 {
    static CryptoPP::AutoSeededRandomPool prng;

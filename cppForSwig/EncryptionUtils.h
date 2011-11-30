@@ -165,6 +165,8 @@ public:
    BinaryData    getRawCopy(void) { return BinaryData(getPtr(),    getSize()); }
    BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
 
+   SecureBinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const;
+
    SecureBinaryData & append(SecureBinaryData & sbd2) ;
    SecureBinaryData & operator=(SecureBinaryData const & sbd2);
    SecureBinaryData   operator+(SecureBinaryData & sbd2) const;

@@ -275,7 +275,7 @@ public:
    BinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const
    {
       BinaryData bdout(*this);
-      bdout.swapEndian();
+      bdout.swapEndian(pos1, pos2);
       return bdout;
    }
 
