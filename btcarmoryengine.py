@@ -608,7 +608,10 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       -- 2+ bytes error:  return ''
 
    This method does NOT check for possible byte errors in the checksum itself
-   though I guess it wouldn't be too hard to do so...
+   but this adds a lot of complexity to an already-extremely-robust process.
+   The probability of a single-byte error is ridiculously low, already, the
+   chance that the error is in the 4 byte checksum instead of the 32- or 64-byte
+   data field is even lower.
    """
    bin1 = str(binaryStr)
    bin2 = binary_switchEndian(binaryStr)
@@ -622,11 +625,17 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
          return ''
    elif fixIfNecessary:
       if not beQuiet: print '***Checksum error!  Attempting to fix...',
-      fixStr = fixChecksumError(binaryStr, chksum, hashFunc)
+      fixStr = fixChecksumError(bin1, chksum, hashFunc)
       if len(fixStr)>0:
          if not beQuiet: print 'fixed!'
          return fixStr
       else:
+         # ONE LAST CHECK SPECIFIC TO MY SERIALIZATION SCHEME:
+         # If the string was originally all zeros, chksum is hash256('')
+         # ...which is a known value, and frequently used in my files
+         if chksum==hex_to_binary('5df6e0e2'):
+            if not beQuiet: print 'fixed!'
+            return '\x00'*len(bin1)
          if not beQuiet: print 'unsuccessful'
          return ''
    else:
@@ -5411,6 +5420,11 @@ class PyBtcWallet(object):
       self.offsetRootAddr  = binUnpacker.getPosition()
       rawAddrData = binUnpacker.get(BINARY_CHUNK, self.pybtcaddrSize)
       self.addrMap['ROOT'] = PyBtcAddress().unserialize(rawAddrData)
+      fixedAddrData = self.addrMap['ROOT'].serialize()
+      if not rawAddrData==fixedAddrData:
+         self.walletFileSafeUpdate([ \
+            [WLT_UPDATE_MODIFY, self.offsetRootAddr, fixedAddrData]])
+
       self.addrMap['ROOT'].walletByteLoc = self.offsetRootAddr
       if self.useEncryption:
          self.addrMap['ROOT'].isLocked = True
@@ -5733,34 +5747,36 @@ class PyBtcWallet(object):
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
 
-      # Now primary and backup SHOULD be identical, let's make sure
-      wltfile = open(self.walletPath, 'r')
-      wltdata = wltfile.read()
-      wltfile.close()
-      backupfile = open(walletFileBackup, 'r')
-      backupdata = backupfile.read()
-      backupfile.close()
-      if not wltdata==backupdata:
-         # Yes, I realized we could've just copied it without even checking
-         # that they are identical, but at least this gives us a skeleton
-         # for smarter code that we might insert later
-         print '***WARNING: backup file does not match primary wallet file.'
-         print '            Assuming primary wallet file is correct...'
-         touchFile(backupUpdateFlag)
-         shutil.copy(self.walletPath, walletFileBackup)
-         os.remove(backupUpdateFlag)
-
       if onlySyncBackup:
          return 0
 
 
-      # Now primary wallet and backup wallet are identical, check for errors
+
+      """ I have absolutely no idea if any of this works, but I do think
+          it is unecessary, as I'm already handling header byte-fixes,
+          in-place when reading the header.  Just need to update all the
+          other addresses to self correct, too.
+      # If we got here, we want to do a thorough check for byte-errors
       errorsFound = 0
       updateList = []
 
       wltfile = open(self.walletPath, 'r')
-      wltdata = BinaryUnpacker(wltfile.read())
+      wltdata = wltfile.read()
       wltfile.close()
+
+      buRaw = BinaryUnpacker(wltdata)
+      buUnpack = BinaryUnpacker(wltdata)
+
+      # The following line sets all the offsets for us to pull original
+      # data from buOrig.  Then we can compare that data to the what was
+      # unserialized -- and corrected -- to check whether there was byte
+      # errors (the unserializing automatically corrects byte errors,
+      # but only in memory).
+      self.unpackHeader(buUnpack)
+      buRaw.advance(self.offsetKdfParams)
+      kdfRaw = buRaw.get(BINARY_CHUNK, 256)
+      kdfFixed = self.serializeKdfParams()
+   
 
       # Check the header data for consistency of private-key-generator
       offset = self.offsetRootAddr
@@ -5788,6 +5804,7 @@ class PyBtcWallet(object):
 
       self.walletFileSafeUpdate(updateList)
       return errorsFound
+      """
 
 
 

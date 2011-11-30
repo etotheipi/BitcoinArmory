@@ -710,13 +710,11 @@ if Test_EncryptedWallet:
    printstat()
 
    try:
-      print 'last index:', wlt.lastComputedChainIndex
       wlt.interruptTest1 = True
       wlt.getNewAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
-   print 'last index:', wlt.lastComputedChainIndex
    wlt.interruptTest1 = False
 
    print '\n(7a)Interrupted getNewAddress on primary file update'
@@ -727,16 +725,13 @@ if Test_EncryptedWallet:
    
    print '\n(7b) Try interrupting at state 2'
    printstat()
-   print 'last index:', wlt.lastComputedChainIndex
 
    try:
-      print 'last index:', wlt.lastComputedChainIndex
       wlt.interruptTest2 = True
       wlt.getNewAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
-   print 'last index:', wlt.lastComputedChainIndex
    wlt.interruptTest2 = False
 
    print '\n(7b)Interrupted getNewAddress on between primary/backup update'
@@ -748,16 +743,13 @@ if Test_EncryptedWallet:
 
    print '\n(7c) Try interrupting at state 3'
    printstat()
-   print 'last index:', wlt.lastComputedChainIndex
 
    try:
-      print 'last index:', wlt.lastComputedChainIndex
       wlt.interruptTest3 = True
       wlt.getNewAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
-   print 'last index:', wlt.lastComputedChainIndex
    wlt.interruptTest3 = False
 
    print '\n(7c)Interrupted getNewAddress on backup file update'
@@ -765,6 +757,43 @@ if Test_EncryptedWallet:
    print '\n(7c)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
    printstat()
+
+
+   #############################################################################
+   print ''
+   print '\n(8)Checksum-based byte-error correction tests!'
+   print '\n(8)Start with a good primary and backup file...'
+   printstat()
+
+   print '\n(8a)Open primary wallet, change second byte in KDF'
+   wltfile = open(wlt.walletPath,'r+b')
+   wltfile.seek(326)
+   wltfile.write('\xff')
+   wltfile.close()
+   print '\n(8a)Byte changed, look again...'
+   printstat()
+
+   print '\n(8a)Try to read wallet from file, should correct KDF error, write fix'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
+   printstat()
+
+   print '\n(8b)Open primary wallet, change a byte in each checksummed field'
+   wltfile = open(wlt.walletPath,'r+b')
+   wltfile.seek(838);  wltfile.write('\xff')
+   wltfile.seek(885);  wltfile.write('\xff')
+   wltfile.seek(929);  wltfile.write('\xff')
+   wltfile.seek(954);  wltfile.write('\xff')
+   wltfile.seek(1000);  wltfile.write('\xff')
+   wltfile.close()
+   print '\n(8b) Hash, changed...'
+   printstat()
+
+   print '\n(8b)Try to read wallet from file, should correct address errors'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
+   printstat()
+   
+   # Unfortunately, I cannot correct errors in the checksums...
+
 
 ################################################################################
 ################################################################################
