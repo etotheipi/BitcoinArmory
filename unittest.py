@@ -770,14 +770,14 @@ if Test_EncryptedWallet:
    wltfile.seek(326)
    wltfile.write('\xff')
    wltfile.close()
-   print '\n(8a)Byte changed, look again...'
+   print '\n(8a)Byte changed, file hashes:'
    printstat()
 
    print '\n(8a)Try to read wallet from file, should correct KDF error, write fix'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
 
-   print '\n(8b)Open primary wallet, change a byte in each checksummed field'
+   print '\n(8b)Change a byte in each checksummed field in root addr'
    wltfile = open(wlt.walletPath,'r+b')
    wltfile.seek(838);  wltfile.write('\xff')
    wltfile.seek(885);  wltfile.write('\xff')
@@ -785,14 +785,27 @@ if Test_EncryptedWallet:
    wltfile.seek(954);  wltfile.write('\xff')
    wltfile.seek(1000);  wltfile.write('\xff')
    wltfile.close()
-   print '\n(8b) Hash, changed...'
+   print '\n(8b) New file hashes...'
    printstat()
 
    print '\n(8b)Try to read wallet from file, should correct address errors'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
    
-   # Unfortunately, I cannot correct errors in the checksums...
+   print '\n(8c)Change a byte in each checksummed field, of first non-root addr'
+   wltfile = open(wlt.walletPath,'r+b')
+   wltfile.seek(1261+21+838);  wltfile.write('\xff')
+   wltfile.seek(1261+21+885);  wltfile.write('\xff')
+   wltfile.seek(1261+21+929);  wltfile.write('\xff')
+   wltfile.seek(1261+21+954);  wltfile.write('\xff')
+   wltfile.seek(1261+21+1000);  wltfile.write('\xff')
+   wltfile.close()
+   print '\n(8c) New file hashes...'
+   printstat()
+
+   print '\n(8c)Try to read wallet from file, should correct address errors'
+   wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
+   printstat()
 
 
 ################################################################################

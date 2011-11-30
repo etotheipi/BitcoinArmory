@@ -635,7 +635,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
          # ...which is a known value, and frequently used in my files
          if chksum==hex_to_binary('5df6e0e2'):
             if not beQuiet: print 'fixed!'
-            return '\x00'*len(bin1)
+            return ''
          if not beQuiet: print 'unsuccessful'
          return ''
    else:
@@ -5480,11 +5480,16 @@ class PyBtcWallet(object):
       self.lastComputedChainAddr160  = None
       while wltdata.getRemainingSize()>0:
          byteLocation = wltdata.getPosition()
-         dtype, addr160, binData = self.unpackNextEntry(wltdata)
+         dtype, addr160, rawData = self.unpackNextEntry(wltdata)
          if dtype==WLT_DATATYPE_KEYDATA:
             newAddr = PyBtcAddress()
-            newAddr.unserialize(binData)
+            newAddr.unserialize(rawData)
             newAddr.walletByteLoc = byteLocation + 21
+            # Fix byte errors in the address data
+            fixedAddrData = newAddr.serialize()
+            if not rawData==fixedAddrData:
+               self.walletFileSafeUpdate([ \
+                  [WLT_UPDATE_MODIFY, newAddr.walletByteLoc, fixedAddrData]])
             if newAddr.useEncryption:
                newAddr.isLocked = True
             self.addrMap[addr160] = newAddr
@@ -5498,7 +5503,7 @@ class PyBtcWallet(object):
             self.cppWallet.addAddress_5_(addr160, timeRng[0], blkRng[0], \
                                               timeRng[1], blkRng[1])
          if dtype==WLT_DATATYPE_COMMENT:
-            self.commentsMap[addr160] = binData # actually ASCII data, here
+            self.commentsMap[addr160] = rawData # actually ASCII data, here
          if dtype==WLT_DATATYPE_OPEVAL:
             raise NotImplementedError, 'OP_EVAL not support in wallet yet'
 
