@@ -544,7 +544,7 @@ if Test_EncryptedWallet:
    print '*********************************************************************'
    print ''
 
-   debugPrint = True
+   debugPrint = False
    debugPrintAlot = False
 
    # Remove wallet files, need fresh dir for this test
@@ -677,20 +677,22 @@ if Test_EncryptedWallet:
    #############################################################################
    # !!!  #forkOnlineWallet()
    # TODO:  FIGURE THIS PART OUT:  ONLINE FORKING DOESN"T QUITE WORK YET!
-   #print '\n(6)Testing forking encrypted wallet for online mode'
-   #wlt.forkOnlineWallet('OnlineVersionOfEncryptedWallet.bin')
-   #wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
-   #wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   print '\n(6)Testing forking encrypted wallet for online mode'
+   wlt.forkOnlineWallet('OnlineVersionOfEncryptedWallet.bin')
+   wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
-   #print '\n(6)Getting a new address from the online wallet'
-   #newaddr = wlt2.getNewAddress()
-   #print 'New address:', newaddr.getAddrStr()
-   #newaddr = wlt2.getNewAddress()
-   #print 'New address:', newaddr.getAddrStr()
+   print '\n(6)Getting a new address from the online wallet'
+   newaddr = wlt2.getNewAddress()
+   print 'New address:', newaddr.getAddrStr()
+   newaddr = wlt2.getNewAddress()
+   print 'New address:', newaddr.getAddrStr()
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
-   #print '\n(6) Re-reading wallet from file, compare the two wallets'
-   #wlt3 = PyBtcWallet().readWalletFile('OnlineVersionOfEncryptedWallet.bin')
-   #wlt3.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   print '\n(6) Re-reading wallet from file, compare the two wallets'
+   wlt3 = PyBtcWallet().readWalletFile('OnlineVersionOfEncryptedWallet.bin')
+   wlt3.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
 
    #############################################################################
    print '\n(7)Testing removing wallet encryption'

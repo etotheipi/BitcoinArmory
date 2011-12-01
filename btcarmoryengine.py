@@ -4872,7 +4872,7 @@ class PyBtcWallet(object):
       # Don't forget to sync the C++ wallet object
       self.cppWallet = Cpp.BtcWallet()
 
-      # 
+      # Temporarily disabling first/last-seen times
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), 0,0,0,0)
                                              #self.wltCreateDate, firstBlk, \
                                              #self.wltCreateDate, firstBlk)
@@ -4930,19 +4930,23 @@ class PyBtcWallet(object):
          newWalletFile = os.path.join(BITCOIN_HOME_DIR, wltname)
 
       onlineWallet = PyBtcWallet()
+      onlineWallet.fileTypeStr = self.fileTypeStr
+      onlineWallet.version = self.version
+      onlineWallet.magicBytes = self.magicBytes
+      onlineWallet.wltCreateDate = self.wltCreateDate
       onlineWallet.useEncryption = False
       onlineWallet.watchingOnly = True
-      onlineWallet.labelShort = shortLabel
+      onlineWallet.labelShort = (self.labelShort + '_Online')[:32]
       onlineWallet.labelLong  = longLabel
 
       newAddrMap = {}
       for addr160,addrObj in self.addrMap.iteritems():
-         newAddrMap[addr160] = addrObj.copy()
-         newAddrMap[addr160].binPrivKey32_Encr  = SecureBinaryData()
-         newAddrMap[addr160].binPrivKey32_Plain = SecureBinaryData()
-         newAddrMap[addr160].useEncryption = False
+         onlineWallet.addrMap[addr160] = addrObj.copy()
+         onlineWallet.addrMap[addr160].binPrivKey32_Encr  = SecureBinaryData()
+         onlineWallet.addrMap[addr160].binPrivKey32_Plain = SecureBinaryData()
+         onlineWallet.addrMap[addr160].useEncryption = False
+         onlineWallet.addrMap[addr160].createPrivKeyNextUnlock = False
 
-      onlineWallet.addrMap = newAddrMap
       onlineWallet.commentsMap = self.commentsMap
       onlineWallet.opevalMap = self.opevalMap
 
@@ -4955,15 +4959,15 @@ class PyBtcWallet(object):
       onlineWallet.packHeader(bp)
       newFile.write(bp.getBinaryString())
 
-      for addr160,addrObj in self.addrMap.iteritems():
+      for addr160,addrObj in onlineWallet.addrMap.iteritems():
          if not addr160=='ROOT':
-            newFile.write('\x01' + addr160 + addrObj.serialize())
+            newFile.write('\x00' + addr160 + addrObj.serialize())
 
-      for addr160,comment in self.commentsMap.iteritems():
+      for addr160,comment in onlineWallet.commentsMap.iteritems():
          twoByteLength = int_to_binary(len(comment), widthBytes=2)
-         newFile.write('\x02' + addr160 + twoByteLength + comment)
+         newFile.write('\x01' + addr160 + twoByteLength + comment)
 
-      for addr160,opevalData in self.opevalMap.iteritems():
+      for addr160,opevalData in onlineWallet.opevalMap.iteritems():
          pass
 
       newFile.close()
@@ -6188,7 +6192,22 @@ class PyBtcWallet(object):
          self.isLocked = True
 
 
+   #############################################################################
+   def lockWalletIfTimeExpired(self):
+      if RightNow() > self.lockWalletAtTime:
+         self.lock()
+   
 
+   #############################################################################
+   def setDefaultKeyLifetime(self, lifetimeInSec):
+      """
+      This is used to set (in memory only) the default time to keep the encrypt
+      key in memory after the encryption passphrase has been entered.  This is
+      NOT enforced by PyBtcWallet, but the unlock method will use it to calc a
+      unix timestamp when the wallet SHOULD be locked, and the external program
+      can use that to decide when to call the lock method.
+      """
+      self.defaultKeyLifetime = lifetimeInSec
 
    #############################################################################
    def unlock(self, secureKdfOutput=None, \
@@ -6260,7 +6279,9 @@ class PyBtcWallet(object):
       # WalletLockError, and the caller can get the passphrase from the user,
       # unlock the wallet, then try locking again.
       # NOTE: If we don't have kdfKey, it is set to None, which is the default
-      #       input for PyBtcAddress::lock for "I don't have it"
+      #       input for PyBtcAddress::lock for "I don't have it".  In most 
+      #       cases, it is actually possible to lock the wallet without the 
+      #       kdfKey because we saved the encrypted versions before unlocking
       try:
          for addr160,addrObj in self.addrMap.iteritems():
             self.addrMap[addr160].lock(self.kdfKey)
