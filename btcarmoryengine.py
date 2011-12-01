@@ -647,7 +647,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
             print '***Checksum error!  Incorrect byte in checksum!'
             return bin1
 
-   print 'failed'
+   print 'Checksum fix failed'
    return ''
 
 
@@ -970,8 +970,8 @@ class PyBtcAddress(object):
       # Information to be used by C++ to know where to search for transactions
       # in the blockchain
       #               [unixTime, blkNum]
-      self.timeRange = [UINT32_MAX, UINT32_MAX]
-      self.blkRange  = [UINT32_MAX, UINT32_MAX]
+      self.timeRange = [0,0]
+      self.blkRange  = [0,0]
 
       # This feels like a hack, but it's the only way I can think to handle
       # the case of generating new, chained addresses, even without the
@@ -2090,7 +2090,7 @@ def TxInScriptExtractKeyAddr(txinObj):
    if scrType == TXIN_SCRIPT_STANDARD:
       pubKeyBin = txinObj.binScript[-65:]
       newAddr = PyBtcAddress().createFromPublicKey(pubKeyBin)
-      return (newAddr.calculateAddrStr(), newAddr.pubKey_serialize) # LITTLE_ENDIAN
+      return (newAddr.calculateAddrStr(), newAddr.binPublicKey65.toBinStr()) # LITTLE_ENDIAN
    elif scrType == TXIN_SCRIPT_COINBASE:
       return ('[COINBASE-NO-ADDR: %s]'%binary_to_hex(txinObj.binScript), '[COINBASE-NO-PUBKEY]')
       #return ('[COINBASE-NO-ADDR]', '[COINBASE-NO-PUBKEY]')
@@ -2224,7 +2224,7 @@ class PyTxIn(object):
       print indstr + indent + 'TxOutIndex:', self.outpoint.txOutIndex
       source = TxInScriptExtractKeyAddr(self)[0]
       print indstr + indent + 'Script:    ', \
-                  '('+binary_to_hex(self.binScript)[:32]+'...)'
+                  '('+binary_to_hex(self.binScript)+')'
       print indstr + indent + 'Seq:       ', self.intSeq
 
 
@@ -3010,7 +3010,7 @@ class PyScriptProcessor(object):
       TxOut instead of just the script itself.
       """
       self.txNew = PyTx().unserialize(txNew.serialize())
-      self.script1 = txNew.inputs[txInIndex].binScript
+      self.script1 = str(txNew.inputs[txInIndex].binScript) # copy
       self.txInIndex  = txInIndex
       self.txOutIndex = txNew.inputs[txInIndex].outpoint.txOutIndex
       self.txHash  = txNew.inputs[txInIndex].outpoint.txHash
@@ -3018,17 +3018,21 @@ class PyScriptProcessor(object):
       if isinstance(txOldData, PyTx):
          if not self.txHash == hash256(txOldData.serialize()):
             print '*** Supplied incorrect pair of transactions!'
-         self.script2 = txOldData.outputs[self.txOutIndex].binScript
+         self.script2 = str(txOldData.outputs[self.txOutIndex].binScript)
       elif isinstance(txOldData, PyTxOut):
-         self.script2 = txOldData.binScript
+         self.script2 = str(txOldData.binScript)
       elif isinstance(txOldData, str):
-         self.script2 = txOldData
+         self.script2 = str(txOldData)
 
 
 
    def verifyTransactionValid(self, txOldData=None, txNew=None, txInIndex=-1):
       if txOldData and txNew and txInIndex != -1:
          self.setTxObjects(txOldData, txNew, txInIndex)
+      else:
+         txOldData = self.script2
+         txNew = self.txNew
+         txInIndex = self.txInIndex
 
       if self.script1==None or self.txNew==None:
          raise VerifyScriptError, 'Cannot verify transactions, without setTxObjects call first!'
@@ -3584,7 +3588,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
       dstAddr     = dstAddrsVals[i][0]
       if(coinbaseTx):
          txout.binScript = ''.join([  '\x41',                      \
-                                      dstAddr.pubKey_serialize(),  \
+                                      dstAddr.binPublicKey65.toBinStr(),  \
                                       getOpCode('OP_CHECKSIG'   )])
       else:
          txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
@@ -4387,6 +4391,7 @@ class PyTxDistProposal(object):
       self.pytxObj   = UNINITIALIZED
       self.scriptTypes   = []
       self.signatures    = []
+      self.txOutScripts  = []
       self.sigIsValid    = []
       self.inputAddrList = []
       self.inputValues   = []
@@ -4402,6 +4407,7 @@ class PyTxDistProposal(object):
       self.inputAddrList  = [None]*sz
       for i in range(sz):
          script = str(pytx.inputs[i].binScript)
+         self.txOutScripts.append(str(script)) # copy it
          scrType = getTxOutScriptType(pytx.inputs[i])
          self.scriptTypes[i] = scrType
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
@@ -4427,6 +4433,7 @@ class PyTxDistProposal(object):
          txin.outpoint.txHash = utxo.getTxHash()
          txin.outpoint.txOutIndex = utxo.getTxOutIndex()
          txin.binScript = utxo.getScript() # this is the TxOut script
+         self.txOutScripts.append(str(txin.binScript)) # copy it
          txin.intSeq = 2**32-1
          self.pytxObj.inputs.append(txin)
 
@@ -4441,7 +4448,7 @@ class PyTxDistProposal(object):
             elif len(addr)==25:
                addr = addr[1:21]
          txout = PyTxOut()
-         txout.value = value
+         txout.value = long(value)
          txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
                                       getOpCode('OP_HASH160'    ), \
                                       '\x14',                      \
@@ -4454,22 +4461,22 @@ class PyTxDistProposal(object):
 
    #############################################################################
    def getFinalPyTx(self):
-      # TODO: I think this actually destroys the original txdp (throws away
-      #       the original TxOut scripts.  This may not matter because the
-      #       sig is complete, but it might matter if this fails.  I should
-      #       fix this
-      txOutScripts = []
+      """
+      This converts the TxDP back into a regular PyTx object, verifying
+      signatures as it goes.  Throw an error if there is no signature 
+      or it is not valid:  the point is to call this method only after
+      all sigs have been collected.
+      """
+      # Put the signatures into the txin scripts... txOut scripts have
+      # already been saved off to self.txOutScripts
       for i,txin in enumerate(self.pytxObj.inputs):
-         txOutScripts.append(txin.binScript)
-         txin.binScript = self.signatures[i]
-
+         self.pytxObj.inputs[i].binScript = self.signatures[i]
 
       # Now verify the signatures as they are in the final Tx
       psp = PyScriptProcessor()
       for i,txin in enumerate(self.pytxObj.inputs):
-         psp.setTxObjects(txOutScripts[i], self.pytxObj, i)
+         psp.setTxObjects(self.txOutScripts[i], self.pytxObj, i)
          sigIsValid = psp.verifyTransactionValid()
-         #sigIsValid = self.checkSignature(self.signatures[i], i)
          if not sigIsValid:
             raise SignatureError, 'Signature for addr %s is not valid!' % \
                                        hash160_to_addrStr(self.inputAddrList[i])
@@ -4858,22 +4865,28 @@ class PyBtcWallet(object):
 
       fileData.put(BINARY_CHUNK, '\x00' + first160 + firstAddr.serialize())
 
-      firstBlk = UINT32_MAX
+      firstBlk = 0
       if TheBDM.isInitialized():
          firstBlk = TheBDM.getTopBlockHeader().getBlockHeight()
 
       # Don't forget to sync the C++ wallet object
       self.cppWallet = Cpp.BtcWallet()
-      self.cppWallet.addAddress_5_(rootAddr.getAddr160(),  \
-                                             self.wltCreateDate, firstBlk, \
-                                             self.wltCreateDate, firstBlk)
-      self.cppWallet.addAddress_5_(first160,
-                                             self.wltCreateDate, firstBlk, \
-                                             self.wltCreateDate, firstBlk)
+
+      # 
+      self.cppWallet.addAddress_5_(rootAddr.getAddr160(), 0,0,0,0)
+                                             #self.wltCreateDate, firstBlk, \
+                                             #self.wltCreateDate, firstBlk)
+      self.cppWallet.addAddress_5_(first160, 0,0,0,0)
+                                             #self.wltCreateDate, firstBlk, \
+                                             #self.wltCreateDate, firstBlk)
 
 
       newfile.write(fileData.getBinaryString())
       newfile.close()
+
+      fileparts = os.path.splitext(self.walletPath)
+      walletFileBackup = fileparts[0] + 'backup' + fileparts[1]
+      shutil.copy(self.walletPath, walletFileBackup)
 
       return self
 
@@ -4892,8 +4905,8 @@ class PyBtcWallet(object):
 
          self.lastComputedChainAddr160 = new160
          self.lastComputedChainIndex = newAddr.chainIndex
-         self.cppWallet.addAddress_5_(new160, UINT32_MAX, UINT32_MAX,\
-                                              UINT32_MAX, UINT32_MAX)
+         # In the future we will enable first/last seen, but not yet
+         self.cppWallet.addAddress_5_(new160, 0, 0, 0, 0)
          return self.addrMap[new160]
       else:
          raise WalletAddressError, 'Deterministic wallet not initialized yet'
@@ -4904,9 +4917,14 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def forkOnlineWallet(self, newWalletFile=None):
+   def forkOnlineWallet(self, newWalletFile=None, \
+                                    shortLabel='', longLabel=''):
+      """
+
+      """
       if not self.addrMap['ROOT'].hasPrivKey():
          print 'This wallet is already void of any private key data!'
+
 
       if not newWalletFile:
          newWalletFile = os.path.join(BITCOIN_HOME_DIR, wltname)
@@ -4914,6 +4932,8 @@ class PyBtcWallet(object):
       onlineWallet = PyBtcWallet()
       onlineWallet.useEncryption = False
       onlineWallet.watchingOnly = True
+      onlineWallet.labelShort = shortLabel
+      onlineWallet.labelLong  = longLabel
 
       newAddrMap = {}
       for addr160,addrObj in self.addrMap.iteritems():
@@ -4928,9 +4948,9 @@ class PyBtcWallet(object):
 
       onlineWallet.wltUniqueIDBin = self.wltUniqueIDBin
       onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160
-      onlineWallet.lastComputedChainIndex = self.lastComputedChainSeq
+      onlineWallet.lastComputedChainIndex = self.lastComputedChainIndex
 
-      newFile = open(newWallet, 'w')
+      newFile = open(newWalletFile, 'w')
       bp = BinaryPacker()
       onlineWallet.packHeader(bp)
       newFile.write(bp.getBinaryString())
@@ -4947,6 +4967,10 @@ class PyBtcWallet(object):
          pass
 
       newFile.close()
+
+      fileparts = os.path.splitext(newWalletFile)
+      walletFileBackup = fileparts[0] + 'backup' + fileparts[1]
+      shutil.copy(newWalletFile, walletFileBackup)
       return True
 
 
@@ -5994,8 +6018,8 @@ class PyBtcWallet(object):
 
       newAddr.chaincode  = SecureBinaryData('\xff'*32)
       newAddr.chainIndex = -2
-      newAddr.timeRange = [firstTime, firstTime]
-      newAddr.blkRange  = [firstBlk,  firstBlk ]
+      newAddr.timeRange = [firstTime, lastTime]
+      newAddr.blkRange  = [firstBlk,  lastBlk ]
       newAddr.binInitVect16  = SecureBinaryData().GenerateRandom(16)
       newAddr160 = newAddr.getAddr160()
 
@@ -6085,7 +6109,7 @@ class PyBtcWallet(object):
          return
 
       # If the wallet is locked, we better bail now
-      if self.isLocked():
+      if self.isLocked:
          raise WalletLockError, "Cannot sign Tx when wallet is locked!"
 
       numInputs = len(txdp.pytxObj.inputs)
@@ -6111,6 +6135,11 @@ class PyBtcWallet(object):
                addrObj.unlock(self.kdfKey)
             else:
                raise WalletLockError, 'Cannot sign tx without unlocking wallet'
+
+         if not addrObj.hasPubKey():
+            # Make sure the public key is available for this address
+            addrObj.binPublicKey65 = CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
+
             
          txOutScript = ''
          txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
@@ -6125,9 +6154,11 @@ class PyBtcWallet(object):
 
          # Copy the script of the TxOut we're spending, into the txIn script
          preHashMsg = txCopy.serialize() + hashCode4
-         binToSign  = hash256(preHashMsg)
+         
+         # Next two steps are now done by the CryptoECDSA module so comment out
+         #binToSign  = hash256(preHashMsg)
          #binToSign  = binary_switchEndian(binToSign)
-         signature  = addrObj.generateDERSignature(binToSign)
+         signature  = addrObj.generateDERSignature(preHashMsg)
 
          # If we are spending a Coinbase-TxOut, only need sig, no pubkey
          # Don't forget to tack on the one-byte hashcode and consider it part of sig
@@ -6135,7 +6166,7 @@ class PyBtcWallet(object):
             sigLenInBinary = int_to_binary(len(signature) + 1)
             txdp.signatures.append(sigLenInBinary + signature + hashCode1)
          else:
-            pubkey = addrObj.pubKey_serialize()
+            pubkey = addrObj.binPublicKey65.toBinStr()
             sigLenInBinary    = int_to_binary(len(signature) + 1)
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
             txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \

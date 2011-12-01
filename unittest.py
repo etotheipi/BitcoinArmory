@@ -12,7 +12,7 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = True
+Test_EncryptedAddress = False
 Test_EncryptedWallet  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -544,7 +544,7 @@ if Test_EncryptedWallet:
    print '*********************************************************************'
    print ''
 
-   debugPrint = False
+   debugPrint = True
    debugPrintAlot = False
 
    # Remove wallet files, need fresh dir for this test
@@ -675,13 +675,31 @@ if Test_EncryptedWallet:
    printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
 
    #############################################################################
-   print '\n(6)Testing removing wallet encryption'
+   # !!!  #forkOnlineWallet()
+   # TODO:  FIGURE THIS PART OUT:  ONLINE FORKING DOESN"T QUITE WORK YET!
+   #print '\n(6)Testing forking encrypted wallet for online mode'
+   #wlt.forkOnlineWallet('OnlineVersionOfEncryptedWallet.bin')
+   #wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
+   #wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   #print '\n(6)Getting a new address from the online wallet'
+   #newaddr = wlt2.getNewAddress()
+   #print 'New address:', newaddr.getAddrStr()
+   #newaddr = wlt2.getNewAddress()
+   #print 'New address:', newaddr.getAddrStr()
+
+   #print '\n(6) Re-reading wallet from file, compare the two wallets'
+   #wlt3 = PyBtcWallet().readWalletFile('OnlineVersionOfEncryptedWallet.bin')
+   #wlt3.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   #############################################################################
+   print '\n(7)Testing removing wallet encryption'
    print 'Wallet is locked?  ', wlt.isLocked
    wlt.unlock(securePassphrase=passphrase2)
    wlt.changeWalletEncryption( None )
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
-   print '\n(6) Re-reading wallet from file, compare the two wallets'
+   print '\n(7) Re-reading wallet from file, compare the two wallets'
    wlt2 = PyBtcWallet().readWalletFile(wlt.getWalletPath())
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
    printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
@@ -689,7 +707,7 @@ if Test_EncryptedWallet:
    #############################################################################
    print '\n\n'
    print '*********************************************************************'
-   print '\n(7)Doing interrupt tests to test wallet-file-update recovery'
+   print '\n(8)Doing interrupt tests to test wallet-file-update recovery'
    def hashfile(fn):
       f = open(fn,'r')
       d = hash256(f.read())
@@ -708,7 +726,7 @@ if Test_EncryptedWallet:
       printfilestatus(fileAupd)
       printfilestatus(fileBupd)
 
-   print '\n(7a)Starting test with the unencrypted wallet from part (6)'
+   print '\n(8a)Starting test with the unencrypted wallet from part (6)'
    printstat()
    correctMainHash = hashfile(fileA)
 
@@ -720,14 +738,14 @@ if Test_EncryptedWallet:
       pass
    wlt.interruptTest1 = False
 
-   print '\n(7a)Interrupted getNewAddress on primary file update'
+   print '\n(8a)Interrupted getNewAddress on primary file update'
    printstat()
-   print '\n(7a)Do consistency check on the wallet'
+   print '\n(8a)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
    printstat()
    printpassorfail(correctMainHash==hashfile(fileA))
    
-   print '\n(7b) Try interrupting at state 2'
+   print '\n(8b) Try interrupting at state 2'
    printstat()
 
    try:
@@ -738,16 +756,16 @@ if Test_EncryptedWallet:
       pass
    wlt.interruptTest2 = False
 
-   print '\n(7b)Interrupted getNewAddress on between primary/backup update'
+   print '\n(8b)Interrupted getNewAddress on between primary/backup update'
    printstat()
-   print '\n(7b)Do consistency check on the wallet'
+   print '\n(8b)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
 
 
 
-   print '\n(7c) Try interrupting at state 3'
+   print '\n(8c) Try interrupting at state 3'
    printstat()
 
    try:
@@ -758,9 +776,9 @@ if Test_EncryptedWallet:
       pass
    wlt.interruptTest3 = False
 
-   print '\n(7c)Interrupted getNewAddress on backup file update'
+   print '\n(8c)Interrupted getNewAddress on backup file update'
    printstat()
-   print '\n(7c)Do consistency check on the wallet'
+   print '\n(8c)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
@@ -769,26 +787,26 @@ if Test_EncryptedWallet:
    #############################################################################
    print '\n\n'
    print '*********************************************************************'
-   print '\n(8)Checksum-based byte-error correction tests!'
-   print '\n(8)Start with a good primary and backup file...'
+   print '\n(9)Checksum-based byte-error correction tests!'
+   print '\n(9)Start with a good primary and backup file...'
    printstat()
 
-   print '\n(8a)Open primary wallet, change second byte in KDF'
+   print '\n(9a)Open primary wallet, change second byte in KDF'
    wltfile = open(wlt.walletPath,'r+b')
    wltfile.seek(326)
    wltfile.write('\xff')
    wltfile.close()
-   print '\n(8a)Byte changed, file hashes:'
+   print '\n(9a)Byte changed, file hashes:'
    printstat()
 
-   print '\n(8a)Try to read wallet from file, should correct KDF error, write fix'
+   print '\n(9a)Try to read wallet from file, should correct KDF error, write fix'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
 
    print '\n\n'
    print '*********************************************************************'
-   print '\n(8b)Change a byte in each checksummed field in root addr'
+   print '\n(9b)Change a byte in each checksummed field in root addr'
    wltfile = open(wlt.walletPath,'r+b')
    wltfile.seek(838);  wltfile.write('\xff')
    wltfile.seek(885);  wltfile.write('\xff')
@@ -796,17 +814,17 @@ if Test_EncryptedWallet:
    wltfile.seek(954);  wltfile.write('\xff')
    wltfile.seek(1000);  wltfile.write('\xff')
    wltfile.close()
-   print '\n(8b) New file hashes...'
+   print '\n(9b) New file hashes...'
    printstat()
 
-   print '\n(8b)Try to read wallet from file, should correct address errors'
+   print '\n(9b)Try to read wallet from file, should correct address errors'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
    
    print '\n\n'
    print '*********************************************************************'
-   print '\n(8c)Change a byte in each checksummed field, of first non-root addr'
+   print '\n(9c)Change a byte in each checksummed field, of first non-root addr'
    wltfile = open(wlt.walletPath,'r+b')
    wltfile.seek(1261+21+838);  wltfile.write('\xff')
    wltfile.seek(1261+21+885);  wltfile.write('\xff')
@@ -814,24 +832,24 @@ if Test_EncryptedWallet:
    wltfile.seek(1261+21+954);  wltfile.write('\xff')
    wltfile.seek(1261+21+1000);  wltfile.write('\xff')
    wltfile.close()
-   print '\n(8c) New file hashes...'
+   print '\n(9c) New file hashes...'
    printstat()
 
-   print '\n(8c)Try to read wallet from file, should correct address errors'
+   print '\n(9c)Try to read wallet from file, should correct address errors'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
 
    print '\n\n'
    print '*********************************************************************'
-   print '\n(8d)Now butcher the CHECKSUM, see if correction works'
+   print '\n(9d)Now butcher the CHECKSUM, see if correction works'
    wltfile = open(wlt.walletPath,'r+b')
    wltfile.seek(977); wltfile.write('\xff')
    wltfile.close()
-   print '\n(8d) New file hashes...'
+   print '\n(9d) New file hashes...'
    printstat()
 
-   print '\n(8d)Try to read wallet from file, should correct address errors'
+   print '\n(9d)Try to read wallet from file, should correct address errors'
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    printstat()
    printpassorfail(hashfile(fileA)==hashfile(fileB))
@@ -840,9 +858,9 @@ if Test_EncryptedWallet:
    #############################################################################
    print '\n\n'
    print '*********************************************************************'
-   print '\n(9) Finally!  Start the wallet tests involving the blockchain!'
+   print '\n(10) Finally!  Start the wallet tests involving the blockchain!'
 
-   print '\n(9) Add an address with some money to this wallet... with comment'
+   print '\n(10) Add an address with some money to this wallet... with comment'
    binPrivKey  = hex_to_binary('a5001fd8d7103877f577aa176926b18b1e004195644abb7f7dc19e3f267e7aa4')
    binPrivKey2 = hex_to_binary('a47a7e263f9ec17d7fbb4a649541001e8bb1266917aa77f5773810d7d81f00a5')
    newAddr20 = wlt.importExternalAddressData( privKey=binPrivKey2 )
@@ -852,36 +870,30 @@ if Test_EncryptedWallet:
       'This is my normal unit-testing address.  I sent nibor a few BTC from '+ \
       'this address.  I did my 20-recipient anonymous send from this address')
 
-   print '\n(9) Reading back comment for this address'
+   print '\n(10) Reading back comment for this address'
    print '\n' + hash160_to_addrStr(newAddr20)
    print '\nComment:', wlt.getCommentForAddress(newAddr20)
 
-   print '\n(9) Make sure C++ has all the addresses:'
+   print '\n(10) Make sure C++ has all the addresses:'
    cppwlt = wlt.cppWallet
    naddr = cppwlt.getNumAddr()
    for i in range(naddr):
-      print 'Address:', hash160_to_addrStr(cppwlt.getAddrByIndex(i).getAddrStr20())
-      print cppwlt.getAddrByIndex(i).getFirstTimestamp(),
-      print cppwlt.getAddrByIndex(i).getFirstBlockNum(),
-      print cppwlt.getAddrByIndex(i).getLastTimestamp(),
-      print cppwlt.getAddrByIndex(i).getLastBlockNum()
+      print '   Address:', hash160_to_addrStr(cppwlt.getAddrByIndex(i).getAddrStr20())
 
    
-   print '\n(9) Loading blockchain from blk0001.dat'
+   print '\n(10) Loading blockchain from blk0001.dat'
    BDM_LoadBlockchainFile()  # looks for blk0001.dat in satoshi client location
 
-   print '\n(9) Now syncing this wallet with the blockchain'
+   print '\n(10) Now syncing this wallet with the blockchain'
    # While using the blk0001.dat maintained by satoshi client, never write data
    wlt.doBlockchainSync=BLOCKCHAIN_READONLY  
    wlt.syncWithBlockchain()
-
-   print wlt.cppWallet
 
    utxoList = wlt.getUnspentTxOutList()
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 
    nBTC = 0.4*ONE_BTC
-   print '\n(9) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
+   print '\n(10) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
    prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
    feeRecommended = calcMinSuggestedFees(prelimSelection, nBTC, 0)
    pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
@@ -894,20 +906,18 @@ if Test_EncryptedWallet:
          [recip, nBTC], \
          [recip, theSum-nBTC] ]
 
-   print '\n\nCreating TxDistProposal:'
+   print '\n\n(10)Creating TxDistProposal:'
    txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
-   txdp.pprint()
-
-   print '\n\nSigning the TxDP:'
-   signedTxDP = wlt.signTxDistProposal(txdp)
-   txToBroadcast = signedTxDP.getFinalPyTx()
+   print '\n\n(10)Signing the TxDP:'
+   wlt.signTxDistProposal(txdp)
+   txToBroadcast = txdp.getFinalPyTx()
+   print ''
    txToBroadcast.pprint()
+   print ''
 
-print binary_to_hex(txToBroadcast.serialize())
-pprintHex(binary_to_hex(txToBroadcast.serialize()))
+   print binary_to_hex(txToBroadcast.serialize())
+   pprintHex(binary_to_hex(txToBroadcast.serialize()))
 
-   # !!!
-   #forkOnlineWallet()
 
 ################################################################################
 ################################################################################

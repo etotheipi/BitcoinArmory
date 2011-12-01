@@ -199,14 +199,15 @@ void BtcAddress::sortLedger(void)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addAddress(BinaryData    addr, 
-                           uint32_t      firstBlockNum,
                            uint32_t      firstTimestamp,
-                           uint32_t      lastBlockNum,
-                           uint32_t      lastTimestamp)
+                           uint32_t      firstBlockNum,
+                           uint32_t      lastTimestamp,
+                           uint32_t      lastBlockNum)
 {
 
    BtcAddress* addrPtr = &(addrMap_[addr]);
-   *addrPtr = BtcAddress(addr, firstBlockNum, firstTimestamp);
+   *addrPtr = BtcAddress(addr, firstTimestamp, firstBlockNum,
+                               lastTimestamp,  lastBlockNum);
    addrPtrVect_.push_back(addrPtr);
 }
 
