@@ -58,11 +58,11 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
 
-   //printTestHeader("Crypto-KDF-and-AES-methods");
-   //TestCrypto();
+   printTestHeader("Crypto-KDF-and-AES-methods");
+   TestCrypto();
 
-   //printTestHeader("Crypto-ECDSA-sign-verify");
-   //TestECDSA();
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****

@@ -6,13 +6,13 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
-Test_PyBlockUtils     = False
+Test_BasicUtils       = True
+Test_PyBlockUtils     = True
 Test_CppBlockUtils    = False
-Test_SimpleAddress    = False
-Test_MultiSigTx       = False
-Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
+Test_SimpleAddress    = True
+Test_MultiSigTx       = True
+Test_TxSimpleCreate   = True
+Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -912,7 +912,7 @@ if Test_EncryptedWallet:
    txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
    print '\n\n(10)Signing the TxDP:'
    wlt.signTxDistProposal(txdp)
-   txToBroadcast = txdp.getFinalPyTx()
+   txToBroadcast = txdp.prepareFinalTx()
    print ''
    txToBroadcast.pprint()
    print ''
@@ -920,6 +920,38 @@ if Test_EncryptedWallet:
    print binary_to_hex(txToBroadcast.serialize())
    pprintHex(binary_to_hex(txToBroadcast.serialize()))
 
+   #############################################################################
+   print '\n\n'
+   print '*********************************************************************'
+   print '\n(11) One more blockchain test, this time with online/watching-only'
+   wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
+   wlt2.doBlockchainSync=BLOCKCHAIN_READONLY  
+   wlt2.syncWithBlockchain()
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   
+   print '\n(11) Search for unspent TxOuts for this online wallet'
+   utxoList = wlt2.getUnspentTxOutList()
+   pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
+
+   nBTC = 0.4*ONE_BTC
+   print '\n(11) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
+   prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
+   feeRecommended = calcMinSuggestedFees(prelimSelection, nBTC, 0)
+   pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
+                           (coin2str(nBTC), coin2str(0)))
+   print '*Recommended fees:  AbsMin=%s, Suggest=%s' % tuple([coin2str(f) for f in feeRecommended])
+   recip = addrStr_to_hash160('1F7G4aq9fbAhqGb9jcnsVn6CRm6dqJf3sD')
+
+   theSum = sumTxOutList(prelimSelection)
+   recipPairs = [ \
+         [recip, nBTC], \
+         [recip, theSum-nBTC] ]
+
+   print '\n\n(11)Creating TxDistProposal:'
+   txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
+   txdp.pytxObj.pprint()
+   print '\n\n(11) Attempting to sign TxDP with online wallet'
+   wlt2.signTxDistProposal(txdp)
 
 ################################################################################
 ################################################################################
@@ -1038,7 +1070,7 @@ if Test_MultiSigTx:
 
 
    for scr in scripts:
-      addrList = multiSigExtractAddr160List(scr)
+      mstype, addrList, pubList = getTxOutMultiSigInfo(scr)
       print '\nNum addresses:   ', len(addrList), '\n   ',
       for a in addrList:
          print  PyBtcAddress().createFromPublicKeyHash160(a).getAddrStr(),

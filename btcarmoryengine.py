@@ -892,10 +892,14 @@ def convertKeyDataToAddress(privKey=None, pubKey=None):
    elif privKey:
       if isinstance(privKey, str):
          privKey = SecureBinaryData(privKey)
+
       if not privKey.getSize()==32:
          raise BadAddressError, 'Invalid private key format!'
       else:
          pubKey = CryptoECDSA().ComputePublicKey(privKey)
+
+   if isinstance(pubKey,str):
+      pubKey = SecureBinaryData(pubKey)
    return pubKey.getHash160()
 
 
@@ -1470,6 +1474,10 @@ class PyBtcAddress(object):
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
+      if not isinstance(derSig, str):
+         # In case this is a SecureBinaryData object...
+         derSig = derSig.toBinStr()
+
       codeByte = derSig[0]
       nBytes   = binary_to_int(derSig[1])
       rsStr    = derSig[2:2+nBytes]
@@ -2006,57 +2014,444 @@ class PyBtcAddress(object):
 
 
 
+################################################################################
+# Identify all the codes/strings that are needed for dealing with scripts
+################################################################################
+
+# Start list of OP codes
+OP_0 = 0
+OP_FALSE = 0
+OP_PUSHDATA1 = 76
+OP_PUSHDATA2 = 77
+OP_PUSHDATA4 = 78
+OP_1NEGATE = 79
+OP_1 = 81
+OP_TRUE = 81
+OP_2 = 82
+OP_3 = 83
+OP_4 = 84
+OP_5 = 85
+OP_6 = 86
+OP_7 = 87
+OP_8 = 88
+OP_9 = 89
+OP_10 = 90
+OP_11 = 91
+OP_12 = 92
+OP_13 = 93
+OP_14 = 94
+OP_15 = 95
+OP_16 = 96
+OP_NOP = 97
+OP_IF = 99
+OP_NOTIF = 100
+OP_ELSE = 103
+OP_ENDIF = 104
+OP_VERIFY = 105
+OP_RETURN = 106
+OP_TOALTSTACK = 107
+OP_FROMALTSTACK = 108
+OP_IFDUP = 115
+OP_DEPTH = 116
+OP_DROP = 117
+OP_DUP = 118
+OP_NIP = 119
+OP_OVER = 120
+OP_PICK = 121
+OP_ROLL = 122
+OP_ROT = 123
+OP_SWAP = 124
+OP_TUCK = 125
+OP_2DROP = 109
+OP_2DUP = 110
+OP_3DUP = 111
+OP_2OVER = 112
+OP_2ROT = 113
+OP_2SWAP = 114
+OP_CAT = 126
+OP_SUBSTR = 127
+OP_LEFT = 128
+OP_RIGHT = 129
+OP_SIZE = 130
+OP_INVERT = 131
+OP_AND = 132
+OP_OR = 133
+OP_XOR = 134
+OP_EQUAL = 135
+OP_EQUALVERIFY = 136
+OP_1ADD = 139
+OP_1SUB = 140
+OP_2MUL = 141
+OP_2DIV = 142
+OP_NEGATE = 143
+OP_ABS = 144
+OP_NOT = 145
+OP_0NOTEQUAL = 146
+OP_ADD = 147
+OP_SUB = 148
+OP_MUL = 149
+OP_DIV = 150
+OP_MOD = 151
+OP_LSHIFT = 152
+OP_RSHIFT = 153
+OP_BOOLAND = 154
+OP_BOOLOR = 155
+OP_NUMEQUAL = 156
+OP_NUMEQUALVERIFY = 157
+OP_NUMNOTEQUAL = 158
+OP_LESSTHAN = 159
+OP_GREATERTHAN = 160
+OP_LESSTHANOREQUAL = 161
+OP_GREATERTHANOREQUAL = 162
+OP_MIN = 163
+OP_MAX = 164
+OP_WITHIN = 165
+OP_RIPEMD160 = 166
+OP_SHA1 = 167
+OP_SHA256 = 168
+OP_HASH160 = 169
+OP_HASH256 = 170
+OP_CODESEPARATOR = 171
+OP_CHECKSIG = 172
+OP_CHECKSIGVERIFY = 173
+OP_CHECKMULTISIG = 174
+OP_CHECKMULTISIGVERIFY = 175
+
+opnames = ['']*256
+opnames[0] =   'OP_0'
+for i in range(1,76):
+   opnames[i] ='OP_PUSHDATA'
+opnames[76] =	'OP_PUSHDATA1'
+opnames[77] =	'OP_PUSHDATA2'
+opnames[78] =	'OP_PUSHDATA4'
+opnames[79] =	'OP_1NEGATE'
+opnames[81] =  'OP_1'
+opnames[81] =	'OP_TRUE'
+for i in range(1,17):
+   opnames[80+i] = 'OP_' + str(i)
+opnames[97] =	'OP_NOP'
+opnames[99] =	'OP_IF'
+opnames[100] =	'OP_NOTIF'
+opnames[103] = 'OP_ELSE'
+opnames[104] = 'OP_ENDIF'
+opnames[105] =	'OP_VERIFY'
+opnames[106] = 'OP_RETURN'
+opnames[107] =	'OP_TOALTSTACK'
+opnames[108] =	'OP_FROMALTSTACK'
+opnames[115] =	'OP_IFDUP'
+opnames[116] =	'OP_DEPTH'
+opnames[117] =	'OP_DROP'
+opnames[118] =	'OP_DUP'
+opnames[119] =	'OP_NIP'
+opnames[120] =	'OP_OVER'
+opnames[121] =	'OP_PICK'
+opnames[122] =	'OP_ROLL'
+opnames[123] =	'OP_ROT'
+opnames[124] =	'OP_SWAP'
+opnames[125] =	'OP_TUCK'
+opnames[109] =	'OP_2DROP'
+opnames[110] =	'OP_2DUP'
+opnames[111] =	'OP_3DUP'
+opnames[112] =	'OP_2OVER'
+opnames[113] =	'OP_2ROT'
+opnames[114] =	'OP_2SWAP'
+opnames[126] =	'OP_CAT'
+opnames[127] = 'OP_SUBSTR'
+opnames[128] =	'OP_LEFT'
+opnames[129] =	'OP_RIGHT'
+opnames[130] =	'OP_SIZE'
+opnames[131] =	'OP_INVERT'
+opnames[132] =	'OP_AND'
+opnames[133] =	'OP_OR'
+opnames[134] = 'OP_XOR'
+opnames[135] = 'OP_EQUAL'
+opnames[136] =	'OP_EQUALVERIFY'
+opnames[139] =	'OP_1ADD'
+opnames[140] =	'OP_1SUB'
+opnames[141] =	'OP_2MUL'
+opnames[142] =	'OP_2DIV'
+opnames[143] =	'OP_NEGATE'
+opnames[144] =	'OP_ABS'
+opnames[145] =	'OP_NOT'
+opnames[146] =	'OP_0NOTEQUAL'
+opnames[147] =	'OP_ADD'
+opnames[148] =	'OP_SUB'
+opnames[149] =	'OP_MUL'
+opnames[150] =	'OP_DIV'
+opnames[151] =	'OP_MOD'
+opnames[152] =	'OP_LSHIFT'
+opnames[153] =	'OP_RSHIFT'
+opnames[154] =	'OP_BOOLAND'
+opnames[155] =	'OP_BOOLOR'
+opnames[156] =	'OP_NUMEQUAL'
+opnames[157] =	'OP_NUMEQUALVERIFY'
+opnames[158] =	'OP_NUMNOTEQUAL'
+opnames[159] =	'OP_LESSTHAN'
+opnames[160] =	'OP_GREATERTHAN'
+opnames[161] =	'OP_LESSTHANOREQUAL'
+opnames[162] = 'OP_GREATERTHANOREQUAL'
+opnames[163] =	'OP_MIN'
+opnames[164] =	'OP_MAX'
+opnames[165] = 'OP_WITHIN'
+opnames[166] =	'OP_RIPEMD160'
+opnames[167] =	'OP_SHA1'
+opnames[168] =	'OP_SHA256'
+opnames[169] =	'OP_HASH160'
+opnames[170] =	'OP_HASH256'
+opnames[171] =	'OP_CODESEPARATOR'
+opnames[172] =	'OP_CHECKSIG'
+opnames[173] =	'OP_CHECKSIGVERIFY'
+opnames[174] =	'OP_CHECKMULTISIG'
+opnames[175] =	'OP_CHECKMULTISIGVERIFY'
 
 
+opCodeLookup = {}
+opCodeLookup['OP_FALSE'] = 0
+opCodeLookup['OP_PUSHDATA1'] =	76
+opCodeLookup['OP_PUSHDATA2'] =	77
+opCodeLookup['OP_PUSHDATA4'] =	78
+opCodeLookup['OP_1NEGATE'] =	79
+opCodeLookup['OP_1'] =  81
+for i in range(1,17):
+   opCodeLookup['OP_'+str(i)] =  80+i
+opCodeLookup['OP_TRUE'] =	81
+opCodeLookup['OP_NOP'] =	97
+opCodeLookup['OP_IF'] =	99
+opCodeLookup['OP_NOTIF'] =	100
+opCodeLookup['OP_ELSE'] = 103
+opCodeLookup['OP_ENDIF'] = 104
+opCodeLookup['OP_VERIFY'] =	105
+opCodeLookup['OP_RETURN'] = 106
+opCodeLookup['OP_TOALTSTACK'] =	107
+opCodeLookup['OP_FROMALTSTACK'] =	108
+opCodeLookup['OP_IFDUP'] =	115
+opCodeLookup['OP_DEPTH'] =	116
+opCodeLookup['OP_DROP'] =	117
+opCodeLookup['OP_DUP'] =	118
+opCodeLookup['OP_NIP'] =	119
+opCodeLookup['OP_OVER'] =	120
+opCodeLookup['OP_PICK'] =	121
+opCodeLookup['OP_ROLL'] =	122
+opCodeLookup['OP_ROT'] =	123
+opCodeLookup['OP_SWAP'] =	124
+opCodeLookup['OP_TUCK'] =	125
+opCodeLookup['OP_2DROP'] =	109
+opCodeLookup['OP_2DUP'] =	110
+opCodeLookup['OP_3DUP'] =	111
+opCodeLookup['OP_2OVER'] =	112
+opCodeLookup['OP_2ROT'] =	113
+opCodeLookup['OP_2SWAP'] =	114
+opCodeLookup['OP_CAT'] =	126
+opCodeLookup['OP_SUBSTR'] = 127
+opCodeLookup['OP_LEFT'] =	128
+opCodeLookup['OP_RIGHT'] =	129
+opCodeLookup['OP_SIZE'] =	130
+opCodeLookup['OP_INVERT'] =	131
+opCodeLookup['OP_AND'] =	132
+opCodeLookup['OP_OR'] =	133
+opCodeLookup['OP_XOR'] = 134
+opCodeLookup['OP_EQUAL'] = 135
+opCodeLookup['OP_EQUALVERIFY'] =	136
+opCodeLookup['OP_1ADD'] =	139
+opCodeLookup['OP_1SUB'] =	140
+opCodeLookup['OP_2MUL'] =	141
+opCodeLookup['OP_2DIV'] =	142
+opCodeLookup['OP_NEGATE'] =	143
+opCodeLookup['OP_ABS'] =	144
+opCodeLookup['OP_NOT'] =	145
+opCodeLookup['OP_0NOTEQUAL'] =	146
+opCodeLookup['OP_ADD'] =	147
+opCodeLookup['OP_SUB'] =	148
+opCodeLookup['OP_MUL'] =	149
+opCodeLookup['OP_DIV'] =	150
+opCodeLookup['OP_MOD'] =	151
+opCodeLookup['OP_LSHIFT'] =	152
+opCodeLookup['OP_RSHIFT'] =	153
+opCodeLookup['OP_BOOLAND'] =	154
+opCodeLookup['OP_BOOLOR'] =	155
+opCodeLookup['OP_NUMEQUAL'] =	156
+opCodeLookup['OP_NUMEQUALVERIFY'] =	157
+opCodeLookup['OP_NUMNOTEQUAL'] =	158
+opCodeLookup['OP_LESSTHAN'] =	159
+opCodeLookup['OP_GREATERTHAN'] =	160
+opCodeLookup['OP_LESSTHANOREQUAL'] =	161
+opCodeLookup['OP_GREATERTHANOREQUAL'] = 162
+opCodeLookup['OP_MIN'] =	163
+opCodeLookup['OP_MAX'] =	164
+opCodeLookup['OP_WITHIN'] = 165
+opCodeLookup['OP_RIPEMD160'] =	166
+opCodeLookup['OP_SHA1'] =	167
+opCodeLookup['OP_SHA256'] =	168
+opCodeLookup['OP_HASH160'] =	169
+opCodeLookup['OP_HASH256'] =	170
+opCodeLookup['OP_CODESEPARATOR'] =	171
+opCodeLookup['OP_CHECKSIG'] =	172
+opCodeLookup['OP_CHECKSIGVERIFY'] =	173
+opCodeLookup['OP_CHECKMULTISIG'] =	174
+opCodeLookup['OP_CHECKMULTISIGVERIFY'] =	175
+#Word Opcode	Description
+#OP_PUBKEYHASH = 253	Represents a public key hashed with OP_HASH160.
+#OP_PUBKEY = 254	Represents a public key compatible with OP_CHECKSIG.
+#OP_INVALIDOPCODE = 255	Matches any opcode that is not yet assigned.
+#[edit] Reserved words
+#Any opcode not assigned is also reserved. Using an unassigned opcode makes the transaction invalid.
+#Word	Opcode	When used...
+#OP_RESERVED = 80	Transaction is invalid
+#OP_VER = 98	Transaction is invalid
+#OP_VERIF = 101	Transaction is invalid
+#OP_VERNOTIF = 102	Transaction is invalid
+#OP_RESERVED1 = 137	Transaction is invalid
+#OP_RESERVED2 = 138	Transaction is invalid
+#OP_NOP1 = OP_NOP10	176-185	The word is ignored.
 
-TXOUT_SCRIPT_STANDARD      = 0
-TXOUT_SCRIPT_COINBASE      = 1
-TXOUT_SCRIPT_MULTISIG      = 2
-TXOUT_SCRIPT_MULTISIG_1OF2 = 3
-TXOUT_SCRIPT_MULTISIG_2OF2 = 4
-TXOUT_SCRIPT_MULTISIG_1OF3 = 5
-TXOUT_SCRIPT_MULTISIG_2OF3 = 6
-TXOUT_SCRIPT_MULTISIG_3OF3 = 7
-TXOUT_SCRIPT_OP_EVAL       = 8
-TXOUT_SCRIPT_UNKNOWN       = 9
+
+def getOpCode(name):
+   return int_to_binary(opCodeLookup[name], widthBytes=1)
+
 
 TXIN_SCRIPT_STANDARD = 0
 TXIN_SCRIPT_COINBASE = 1
 TXIN_SCRIPT_SPENDCB  = 2
 TXIN_SCRIPT_UNKNOWN  = 3
 
+TXOUT_SCRIPT_STANDARD = 0
+TXOUT_SCRIPT_COINBASE = 1
+TXOUT_SCRIPT_MULTISIG = 2
+TXOUT_SCRIPT_OP_EVAL  = 3
+TXOUT_SCRIPT_UNKNOWN  = 4
+
+MULTISIG_1of1     = 0
+MULTISIG_1of2     = 1
+MULTISIG_2oF2     = 2
+MULTISIG_1oF3     = 3
+MULTISIG_2oF3     = 4
+MULTISIG_3oF3     = 5
+MULTISIG_AandBorC = 6
+MULTISIG_UNKNOWN  = 7
+
+
+################################################################################
+def getTxOutMultiSigInfo(binScript):
+   """
+   Gets the Multi-Sig tx type, as well as all the address-160 strings of
+   the keys that are needed to satisfy this transaction.  This currently
+   only identifies M-of-N transaction types, returning unknown otherwise.
+
+   However, the address list it returns should be valid regardless of
+   whether the type was unknown:  we assume all 20-byte chunks of data
+   are public key hashes, and 65-byte chunks are public keys.
+
+   NOTE:  Because the address list is always valid, there is no reason
+          not to use this method to extract addresses from ANY scripts,
+          not just multi-sig...
+   """
+   addr160List = []
+   pub65List   = []
+   bup = BinaryUnpacker(binScript)
+   opcodes = []
+   while bup.getRemainingSize() > 0:
+      nextByte = bup.get(UINT8)
+      binChunk = ''
+      if 0 < nextByte < 76:
+         nBytes = nextByte
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA1:
+         nBytes = scriptUnpacker.get(UINT8)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA2:
+         nBytes = scriptUnpacker.get(UINT16)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      elif nextByte == OP_PUSHDATA4:
+         nBytes = scriptUnpacker.get(UINT32)
+         binChunk = bup.get(BINARY_CHUNK, nBytes)
+      else:
+         opcodes.append(nextByte)
+         
+
+      if len(binChunk) == 20:
+         addr160List.append(binChunk)
+         pub65List.append('')
+         opcodes.append('<Addr20>')
+      elif len(binChunk) == 65:
+         addr160List.append(convertKeyDataToAddress(pubKey=binChunk))
+         pub65List.append(binChunk)
+         opcodes.append('<PubKey65>')
+
+
+   mstype = MULTISIG_UNKNOWN
+   #print 'Transaction:',
+   #for op in opcodes:
+      #print op,
+
+   # First assume that this is an M-of-N script
+   try:
+      isCMS = opcodes[-1]==getOpCode('OP_CHECKMULTISIG')
+      M = int(opcodes[ 0])
+      N = int(opcodes[-2])
+      keys  = opcodes[1:-2]
+      nPub = sum([(1 if p=='PubKey65' else 0) for p in keys])
+      if 0<M<3 and 0<N<=3 and N==nPub:
+         # We have a legit M-of-N script, figure out which one
+         if M==1 and N==1: return MULTISIG_1of1, addr160List, pub65List
+         if M==1 and N==2: return MULTISIG_1of2, addr160List, pub65List
+         if M==2 and N==2: return MULTISIG_2oF2, addr160List, pub65List
+         if M==1 and N==3: return MULTISIG_1oF3, addr160List, pub65List
+         if M==2 and N==3: return MULTISIG_2oF3, addr160List, pub65List
+         if M==3 and N==3: return MULTISIG_3oF3, addr160List, pub65List
+   except:
+      pass
+
+      
+   # Next try A-or-(B-and-C) transaction (not implemented yet
+   # I'm not sure how these transactions will look
+   try:
+      pass
+   except:
+      pass
+
+   return MULTISIG_UNKNOWN, addr160List, pub65List
+
+
 ################################################################################
 def getTxOutScriptType(binScript):
    if binScript[:2] == hex_to_binary('4104'):
       is65B = len(binScript) == 67
-      lastByteMatch = binScript[-1] == int_to_binary(172)
+      lastByteMatch = binScript[-1] == getOpCode('OP_CHECKSIG')
       if (is65B and lastByteMatch):
          return TXOUT_SCRIPT_COINBASE
    else:
-      is1 = binScript[ 0] == int_to_binary(118)
-      is2 = binScript[ 1] == int_to_binary(169)
-      is3 = binScript[-2] == int_to_binary(136)
-      is4 = binScript[-1] == int_to_binary(172)
+      is1 = binScript[ 0] == getOpCode('OP_DUP')
+      is2 = binScript[ 1] == getOpCode('OP_HASH160')
+      is3 = binScript[-2] == getOpCode('OP_EQUALVERIFY')
+      is4 = binScript[-1] == getOpCode('OP_CHECKSIG')
       if (is1 and is2 and is3 and is4):
          return TXOUT_SCRIPT_STANDARD
+
+   # If we got here, let's check if it's a standard Multi-sig type
+   mstype = getTxOutMultiSigInfo(binScript)[0]
+   if mstype!=MULTISIG_UNKNOWN:
+      return TXOUT_SCRIPT_MULTISIG
+
    return TXOUT_SCRIPT_UNKNOWN
 
 ################################################################################
 def TxOutScriptExtractAddrStr(binScript):
+   return hash160_to_addrStr(TxOutScriptExtractAddr160(binScript))
+
+################################################################################
+def TxOutScriptExtractAddr160(binScript):
    txoutType = getTxOutScriptType(binScript)
    if txoutType == TXOUT_SCRIPT_UNKNOWN:
       return '<Non-standard TxOut script>'
 
    if txoutType == TXOUT_SCRIPT_COINBASE:
-      newAddr = PyBtcAddress().createFromPublicKey(binScript[1:66])
-      return newAddr.calculateAddrStr()
+      return convertKeyDataToAddress(pubKey=binScript[1:66])
    elif txoutType == TXOUT_SCRIPT_STANDARD:
-      newAddr = PyBtcAddress().createFromPublicKeyHash160(binScript[3:23])
-      return newAddr.getAddrStr()
+      return binScript[3:23]
+   elif txoutType == TXOUT_SCRIPT_MULTISIG:
+      # Returns a list of addresses
+      return getTxOutMultiSigInfo(binScript)[1]
 
-################################################################################
-def TxOutScriptExtractAddr160(binScript):
-   return addrStr_to_hash160(TxOutScriptExtractAddrStr(binScript))
 
 ################################################################################
 def getTxInScriptType(txinObj):
@@ -2099,45 +2494,6 @@ def TxInScriptExtractKeyAddr(txinObj):
    else:
       return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
 
-
-def multiSigExtractAddr160List(binScript):
-   """
-   This naively searches the script for all the addresses/public keys,
-   returns a list of the addresses.  Could easily be modified to pass
-   out public keys if they are in the script
-
-   This method should work for ALL scripts, actually, not just multisig
-   scripts.  For future simplicity, I might consider removing the
-   TxOutScriptExtractAddrStr() and TxInScriptExtractKeyAddr() and use
-   this method for every script, instead.
-   """
-   addr160List = []
-   bup = BinaryUnpacker(binScript)
-   while bup.getRemainingSize() > 0:
-      nextByte = bup.get(UINT8)
-      binChunk = ''
-      if 0 < nextByte < 76:
-         nBytes = nextByte
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA1:
-         nBytes = scriptUnpacker.get(UINT8)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA2:
-         nBytes = scriptUnpacker.get(UINT16)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      elif nextByte == OP_PUSHDATA4:
-         nBytes = scriptUnpacker.get(UINT32)
-         binChunk = bup.get(BINARY_CHUNK, nBytes)
-      else:
-         pass
-
-      if len(binChunk) == 20:
-         addr160List.append(binChunk)
-      elif len(binChunk) == 65:
-         newAddr = PyBtcAddress().createFromPublicKey(binChunk)
-         addr160List.append(newAddr.getAddr160())
-
-   return addr160List
 
 
 # Finally done with all the base conversion functions and ECDSA code
@@ -2614,295 +2970,6 @@ class PyBlock(object):
 #
 ################################################################################
 
-# Start list of OP codes
-OP_0 = 0
-OP_FALSE = 0
-OP_PUSHDATA1 = 76
-OP_PUSHDATA2 = 77
-OP_PUSHDATA4 = 78
-OP_1NEGATE = 79
-OP_1 = 81
-OP_TRUE = 81
-OP_2 = 82
-OP_3 = 83
-OP_4 = 84
-OP_5 = 85
-OP_6 = 86
-OP_7 = 87
-OP_8 = 88
-OP_9 = 89
-OP_10 = 90
-OP_11 = 91
-OP_12 = 92
-OP_13 = 93
-OP_14 = 94
-OP_15 = 95
-OP_16 = 96
-OP_NOP = 97
-OP_IF = 99
-OP_NOTIF = 100
-OP_ELSE = 103
-OP_ENDIF = 104
-OP_VERIFY = 105
-OP_RETURN = 106
-OP_TOALTSTACK = 107
-OP_FROMALTSTACK = 108
-OP_IFDUP = 115
-OP_DEPTH = 116
-OP_DROP = 117
-OP_DUP = 118
-OP_NIP = 119
-OP_OVER = 120
-OP_PICK = 121
-OP_ROLL = 122
-OP_ROT = 123
-OP_SWAP = 124
-OP_TUCK = 125
-OP_2DROP = 109
-OP_2DUP = 110
-OP_3DUP = 111
-OP_2OVER = 112
-OP_2ROT = 113
-OP_2SWAP = 114
-OP_CAT = 126
-OP_SUBSTR = 127
-OP_LEFT = 128
-OP_RIGHT = 129
-OP_SIZE = 130
-OP_INVERT = 131
-OP_AND = 132
-OP_OR = 133
-OP_XOR = 134
-OP_EQUAL = 135
-OP_EQUALVERIFY = 136
-OP_1ADD = 139
-OP_1SUB = 140
-OP_2MUL = 141
-OP_2DIV = 142
-OP_NEGATE = 143
-OP_ABS = 144
-OP_NOT = 145
-OP_0NOTEQUAL = 146
-OP_ADD = 147
-OP_SUB = 148
-OP_MUL = 149
-OP_DIV = 150
-OP_MOD = 151
-OP_LSHIFT = 152
-OP_RSHIFT = 153
-OP_BOOLAND = 154
-OP_BOOLOR = 155
-OP_NUMEQUAL = 156
-OP_NUMEQUALVERIFY = 157
-OP_NUMNOTEQUAL = 158
-OP_LESSTHAN = 159
-OP_GREATERTHAN = 160
-OP_LESSTHANOREQUAL = 161
-OP_GREATERTHANOREQUAL = 162
-OP_MIN = 163
-OP_MAX = 164
-OP_WITHIN = 165
-OP_RIPEMD160 = 166
-OP_SHA1 = 167
-OP_SHA256 = 168
-OP_HASH160 = 169
-OP_HASH256 = 170
-OP_CODESEPARATOR = 171
-OP_CHECKSIG = 172
-OP_CHECKSIGVERIFY = 173
-OP_CHECKMULTISIG = 174
-OP_CHECKMULTISIGVERIFY = 175
-
-opnames = ['']*256
-opnames[0] =   'OP_0'
-for i in range(1,76):
-   opnames[i] ='OP_PUSHDATA'
-opnames[76] =	'OP_PUSHDATA1'
-opnames[77] =	'OP_PUSHDATA2'
-opnames[78] =	'OP_PUSHDATA4'
-opnames[79] =	'OP_1NEGATE'
-opnames[81] =  'OP_1'
-opnames[81] =	'OP_TRUE'
-for i in range(1,17):
-   opnames[80+i] = 'OP_' + str(i)
-opnames[97] =	'OP_NOP'
-opnames[99] =	'OP_IF'
-opnames[100] =	'OP_NOTIF'
-opnames[103] = 'OP_ELSE'
-opnames[104] = 'OP_ENDIF'
-opnames[105] =	'OP_VERIFY'
-opnames[106] = 'OP_RETURN'
-opnames[107] =	'OP_TOALTSTACK'
-opnames[108] =	'OP_FROMALTSTACK'
-opnames[115] =	'OP_IFDUP'
-opnames[116] =	'OP_DEPTH'
-opnames[117] =	'OP_DROP'
-opnames[118] =	'OP_DUP'
-opnames[119] =	'OP_NIP'
-opnames[120] =	'OP_OVER'
-opnames[121] =	'OP_PICK'
-opnames[122] =	'OP_ROLL'
-opnames[123] =	'OP_ROT'
-opnames[124] =	'OP_SWAP'
-opnames[125] =	'OP_TUCK'
-opnames[109] =	'OP_2DROP'
-opnames[110] =	'OP_2DUP'
-opnames[111] =	'OP_3DUP'
-opnames[112] =	'OP_2OVER'
-opnames[113] =	'OP_2ROT'
-opnames[114] =	'OP_2SWAP'
-opnames[126] =	'OP_CAT'
-opnames[127] = 'OP_SUBSTR'
-opnames[128] =	'OP_LEFT'
-opnames[129] =	'OP_RIGHT'
-opnames[130] =	'OP_SIZE'
-opnames[131] =	'OP_INVERT'
-opnames[132] =	'OP_AND'
-opnames[133] =	'OP_OR'
-opnames[134] = 'OP_XOR'
-opnames[135] = 'OP_EQUAL'
-opnames[136] =	'OP_EQUALVERIFY'
-opnames[139] =	'OP_1ADD'
-opnames[140] =	'OP_1SUB'
-opnames[141] =	'OP_2MUL'
-opnames[142] =	'OP_2DIV'
-opnames[143] =	'OP_NEGATE'
-opnames[144] =	'OP_ABS'
-opnames[145] =	'OP_NOT'
-opnames[146] =	'OP_0NOTEQUAL'
-opnames[147] =	'OP_ADD'
-opnames[148] =	'OP_SUB'
-opnames[149] =	'OP_MUL'
-opnames[150] =	'OP_DIV'
-opnames[151] =	'OP_MOD'
-opnames[152] =	'OP_LSHIFT'
-opnames[153] =	'OP_RSHIFT'
-opnames[154] =	'OP_BOOLAND'
-opnames[155] =	'OP_BOOLOR'
-opnames[156] =	'OP_NUMEQUAL'
-opnames[157] =	'OP_NUMEQUALVERIFY'
-opnames[158] =	'OP_NUMNOTEQUAL'
-opnames[159] =	'OP_LESSTHAN'
-opnames[160] =	'OP_GREATERTHAN'
-opnames[161] =	'OP_LESSTHANOREQUAL'
-opnames[162] = 'OP_GREATERTHANOREQUAL'
-opnames[163] =	'OP_MIN'
-opnames[164] =	'OP_MAX'
-opnames[165] = 'OP_WITHIN'
-opnames[166] =	'OP_RIPEMD160'
-opnames[167] =	'OP_SHA1'
-opnames[168] =	'OP_SHA256'
-opnames[169] =	'OP_HASH160'
-opnames[170] =	'OP_HASH256'
-opnames[171] =	'OP_CODESEPARATOR'
-opnames[172] =	'OP_CHECKSIG'
-opnames[173] =	'OP_CHECKSIGVERIFY'
-opnames[174] =	'OP_CHECKMULTISIG'
-opnames[175] =	'OP_CHECKMULTISIGVERIFY'
-
-
-opCodeLookup = {}
-opCodeLookup['OP_FALSE'] = 0
-opCodeLookup['OP_PUSHDATA1'] =	76
-opCodeLookup['OP_PUSHDATA2'] =	77
-opCodeLookup['OP_PUSHDATA4'] =	78
-opCodeLookup['OP_1NEGATE'] =	79
-opCodeLookup['OP_1'] =  81
-for i in range(1,17):
-   opCodeLookup['OP_'+str(i)] =  80+i
-opCodeLookup['OP_TRUE'] =	81
-opCodeLookup['OP_NOP'] =	97
-opCodeLookup['OP_IF'] =	99
-opCodeLookup['OP_NOTIF'] =	100
-opCodeLookup['OP_ELSE'] = 103
-opCodeLookup['OP_ENDIF'] = 104
-opCodeLookup['OP_VERIFY'] =	105
-opCodeLookup['OP_RETURN'] = 106
-opCodeLookup['OP_TOALTSTACK'] =	107
-opCodeLookup['OP_FROMALTSTACK'] =	108
-opCodeLookup['OP_IFDUP'] =	115
-opCodeLookup['OP_DEPTH'] =	116
-opCodeLookup['OP_DROP'] =	117
-opCodeLookup['OP_DUP'] =	118
-opCodeLookup['OP_NIP'] =	119
-opCodeLookup['OP_OVER'] =	120
-opCodeLookup['OP_PICK'] =	121
-opCodeLookup['OP_ROLL'] =	122
-opCodeLookup['OP_ROT'] =	123
-opCodeLookup['OP_SWAP'] =	124
-opCodeLookup['OP_TUCK'] =	125
-opCodeLookup['OP_2DROP'] =	109
-opCodeLookup['OP_2DUP'] =	110
-opCodeLookup['OP_3DUP'] =	111
-opCodeLookup['OP_2OVER'] =	112
-opCodeLookup['OP_2ROT'] =	113
-opCodeLookup['OP_2SWAP'] =	114
-opCodeLookup['OP_CAT'] =	126
-opCodeLookup['OP_SUBSTR'] = 127
-opCodeLookup['OP_LEFT'] =	128
-opCodeLookup['OP_RIGHT'] =	129
-opCodeLookup['OP_SIZE'] =	130
-opCodeLookup['OP_INVERT'] =	131
-opCodeLookup['OP_AND'] =	132
-opCodeLookup['OP_OR'] =	133
-opCodeLookup['OP_XOR'] = 134
-opCodeLookup['OP_EQUAL'] = 135
-opCodeLookup['OP_EQUALVERIFY'] =	136
-opCodeLookup['OP_1ADD'] =	139
-opCodeLookup['OP_1SUB'] =	140
-opCodeLookup['OP_2MUL'] =	141
-opCodeLookup['OP_2DIV'] =	142
-opCodeLookup['OP_NEGATE'] =	143
-opCodeLookup['OP_ABS'] =	144
-opCodeLookup['OP_NOT'] =	145
-opCodeLookup['OP_0NOTEQUAL'] =	146
-opCodeLookup['OP_ADD'] =	147
-opCodeLookup['OP_SUB'] =	148
-opCodeLookup['OP_MUL'] =	149
-opCodeLookup['OP_DIV'] =	150
-opCodeLookup['OP_MOD'] =	151
-opCodeLookup['OP_LSHIFT'] =	152
-opCodeLookup['OP_RSHIFT'] =	153
-opCodeLookup['OP_BOOLAND'] =	154
-opCodeLookup['OP_BOOLOR'] =	155
-opCodeLookup['OP_NUMEQUAL'] =	156
-opCodeLookup['OP_NUMEQUALVERIFY'] =	157
-opCodeLookup['OP_NUMNOTEQUAL'] =	158
-opCodeLookup['OP_LESSTHAN'] =	159
-opCodeLookup['OP_GREATERTHAN'] =	160
-opCodeLookup['OP_LESSTHANOREQUAL'] =	161
-opCodeLookup['OP_GREATERTHANOREQUAL'] = 162
-opCodeLookup['OP_MIN'] =	163
-opCodeLookup['OP_MAX'] =	164
-opCodeLookup['OP_WITHIN'] = 165
-opCodeLookup['OP_RIPEMD160'] =	166
-opCodeLookup['OP_SHA1'] =	167
-opCodeLookup['OP_SHA256'] =	168
-opCodeLookup['OP_HASH160'] =	169
-opCodeLookup['OP_HASH256'] =	170
-opCodeLookup['OP_CODESEPARATOR'] =	171
-opCodeLookup['OP_CHECKSIG'] =	172
-opCodeLookup['OP_CHECKSIGVERIFY'] =	173
-opCodeLookup['OP_CHECKMULTISIG'] =	174
-opCodeLookup['OP_CHECKMULTISIGVERIFY'] =	175
-#Word Opcode	Description
-#OP_PUBKEYHASH = 253	Represents a public key hashed with OP_HASH160.
-#OP_PUBKEY = 254	Represents a public key compatible with OP_CHECKSIG.
-#OP_INVALIDOPCODE = 255	Matches any opcode that is not yet assigned.
-#[edit] Reserved words
-#Any opcode not assigned is also reserved. Using an unassigned opcode makes the transaction invalid.
-#Word	Opcode	When used...
-#OP_RESERVED = 80	Transaction is invalid
-#OP_VER = 98	Transaction is invalid
-#OP_VERIF = 101	Transaction is invalid
-#OP_VERNOTIF = 102	Transaction is invalid
-#OP_RESERVED1 = 137	Transaction is invalid
-#OP_RESERVED2 = 138	Transaction is invalid
-#OP_NOP1 = OP_NOP10	176-185	The word is ignored.
-
-
-def getOpCode(name):
-   return int_to_binary(opCodeLookup[name], widthBytes=1)
 
 def convertScriptToOpStrings(binScript):
    opList = []
@@ -4388,12 +4455,14 @@ class PyTxDistProposal(object):
    """
    #############################################################################
    def __init__(self, pytx=None):
-      self.pytxObj   = UNINITIALIZED
+      self.pytxObj       = UNINITIALIZED
+      self.uniqueB58     = ''
       self.scriptTypes   = []
       self.signatures    = []
       self.txOutScripts  = []
       self.sigIsValid    = []
-      self.inputAddrList = []
+      self.inAddr20Lists = []
+      self.inPubKeyLists = []
       self.inputValues   = []
       if pytx:
          self.createFromPreparedPyTx(pytx)
@@ -4404,29 +4473,42 @@ class PyTxDistProposal(object):
       self.pytxObj   = pytx
       self.signatures   = [None]*sz
       self.scriptTypes  = [None]*sz
-      self.inputAddrList  = [None]*sz
+      self.inAddr20Lists  = [None]*sz
       for i in range(sz):
          script = str(pytx.inputs[i].binScript)
          self.txOutScripts.append(str(script)) # copy it
          scrType = getTxOutScriptType(pytx.inputs[i])
          self.scriptTypes[i] = scrType
+
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            self.inputAddrList[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
+            self.inAddr20Lists[i] = TxOutScriptExtractAddr160(pytx.inputs[i].getScript())
          elif scrType==TXOUT_SCRIPT_MULTISIG:
-            self.inputAddrList[i] = multiSigExtractAddr160List(script)
+            mstype, addrs, pubs = getTxOutMultiSigInfo(script)
+            self.inAddr20Lists = addrs
+            self.inPubKeyLists = pubs
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
             pass
 
+      txser = self.pytxObj.serialize()
+      txlen = len(txser)
+      self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
       return self
 
    #############################################################################
    def createFromTxOutSelection(self, utxoSelection, recip160ValPairs):
+      """
+      This creates a TxDP for a standard transaction from a list of inputs and 
+      a list of recipient-value-pairs.  
+
+      This can probably be modified easily to support CREATING multi-sig txs
+      """
       assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
       self.pytxObj = PyTx()
       self.pytxObj.version = 1
       self.pytxObj.lockTime = 0
       self.pytxObj.inputs = []
       self.pytxObj.outputs = []
+
       for utxo in utxoSelection:
          txin = PyTxIn()
          txin.outpoint = PyOutPoint()
@@ -4437,8 +4519,10 @@ class PyTxDistProposal(object):
          txin.intSeq = 2**32-1
          self.pytxObj.inputs.append(txin)
 
-         self.inputAddrList.append(utxo.getRecipientAddr())
+         self.inAddr20Lists.append(utxo.getRecipientAddr())
+         self.inPubKeyLists.append('')
          self.scriptTypes.append(getTxOutScriptType(utxo.getScript()))
+
       for addr,value in recip160ValPairs:
          if isinstance(addr, PyBtcAddress):
             addr = addr.getAddr160()
@@ -4456,61 +4540,151 @@ class PyTxDistProposal(object):
                                       getOpCode('OP_EQUALVERIFY'), \
                                       getOpCode('OP_CHECKSIG'   )])
          self.pytxObj.outputs.append(txout)
+
+      txser = self.pytxObj.serialize()
+      txlen = len(txser)
+      self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
       return self
 
 
    #############################################################################
-   def getFinalPyTx(self):
-      """
-      This converts the TxDP back into a regular PyTx object, verifying
-      signatures as it goes.  Throw an error if there is no signature 
-      or it is not valid:  the point is to call this method only after
-      all sigs have been collected.
-      """
-      # Put the signatures into the txin scripts... txOut scripts have
-      # already been saved off to self.txOutScripts
-      for i,txin in enumerate(self.pytxObj.inputs):
-         self.pytxObj.inputs[i].binScript = self.signatures[i]
-
-      # Now verify the signatures as they are in the final Tx
-      psp = PyScriptProcessor()
-      for i,txin in enumerate(self.pytxObj.inputs):
-         psp.setTxObjects(self.txOutScripts[i], self.pytxObj, i)
-         sigIsValid = psp.verifyTransactionValid()
-         if not sigIsValid:
-            raise SignatureError, 'Signature for addr %s is not valid!' % \
-                                       hash160_to_addrStr(self.inputAddrList[i])
-         else:
-            print 'Signature', i, 'is valid!'
-      return self.pytxObj
-
-
-
-   #############################################################################
    def appendSignature(self, binSig, txinIndex=None):
-      if txinIndex and txinIndex<len(self.pytxObj.inputs):
-         # check that this script is in the correct place
-         txin = self.pytxObj.inputs[txinIndex]
-         psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIndex)
-         if psp.verifyTransactionValid():
-            self.signatures[txinIndex] = binSig
-            return True
-
-      # If we are here, we don't know which TxIn this sig is for.  Try each one
-      # (we assume that if the txinIndex was supplied, but failed to verify,
-      #  that it was accidental and we should check if it matches another one)
-      for iin in range(len(self.pytxObj.inputs)):
-         txin = self.pytxObj.inputs[iin]
-         psp = PyScriptProcessor(txin.binScript, self.pytxObj, iin)
-         if psp.verifyTransactionValid():
-            self.signatures[iin] = binSig
-            return True
+      """
+      Use this to add a signature to the TxDP object in memory.
+      """
+      validForIndex = self.checkSignature(binSig, txinIndex, checkAllInputs=True)
+      if not validForIndex==-1:
+         self.signatures[validForIndex] = binSig
+         return True
+   
       return False
 
 
    #############################################################################
-   def checkSignature(self, sigStr, txinIndex):
+   def checkSignature(self, sigStr, txinIdx, checkAllInputs=False):
+      """
+      For standard transaction types, the signature field is actually the raw
+      script to be plugged into the final transaction that allows it to eval
+      to true -- except for multi-sig transactions.  We have to mangle the 
+      data a little bit if we want to use the script-processor to verify the
+      signature.  Instead, we will use the crypto ops directly.
+      """
+
+      scriptType = getTxOutScriptType(self.scriptTypes[txinIdx])
+      if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+         # For standard Tx types
+         if txinIdx==None or txinIdx<0 or txinIdx>=len(self.pytxObj.inputs):
+            pass
+         else:
+            txin = self.pytxObj.inputs[txinIdx]
+            psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIdx)
+            if psp.verifyTransactionValid():
+               self.signatures[txinIdx] = binSig
+               return txinIdx
+      elif scriptType == TXOUT_SCRIPT_MULTISIG:
+         # The signature would have to be included with all the others in
+         # order to use the script-processor to verify for us.  Instead,
+         # we have to verify the signature manually...
+
+         # Copy the script, blank out out all other scripts (assume hashcode==1)
+         txCopy = PyTx().unserialize(self.pytxObj.serialize())
+         for i in range(len(txCopy.inputs)):
+            if not i==idx:
+               txCopy.inputs[i].binScript = ''
+
+         hashCode   = binary_to_int(sigStr[-1])
+         hashCode4  = int_to_binary(hashcode, widthBytes=4)
+         preHashMsg = txCopy.serialize() + hashCode4
+         if not hashCode==1:
+            raise NotImplementedError, 'Non-standard hashcodes not supported!'
+
+         # Now check all private keys in the multi-sig TxOut script
+         for i,pubkey in enumerate(self.inPubKeyLists):
+            tempAddr = PyBtcAddress().createFromPublicKeyData(pubkey)
+            if tempAddr.verifyDERSignature(preHashMsg, sigStr):
+               return txInIdx
+         
+
+      if checkAllInputs:
+         for i in range(len(self.pytxObj.inputs)):
+            if self.checkSignature(sigStr, i, checkAllInputs=False)>0:
+               return i
+         
+      return -1
+      
+
+
+   #############################################################################
+   def prepareFinalTx(self):
+      """
+      This converts the TxDP back into a regular PyTx object, verifying
+      signatures as it goes.  Throw an error if the TxDP does not have
+      the complete set of valid signatures needed to be accepted by the 
+      network.
+      """
+      # We must make/modify a copy of the TxDP, because serialization relies
+      # on having the original TxDP intact.
+      finalTx = PyTx().unserialize(self.pytxObj.serialize())
+
+      # Put the txIn scripts together (non-trivial for multi-sig cases)
+      # then run them through the script evaluator to make sure they
+      # are valid. 
+      psp = PyScriptProcessor()
+      for i,txin in enumerate(finalTx.inputs):
+         if self.scriptTypes[i] in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            finalTx.inputs[i].binScript = self.signatures[i]
+         elif self.scriptTypes[i]==TXOUT_SCRIPT_MULTISIG:
+            raise NotImplementedError, 'MULTISIG not supported, yet'
+            
+
+         psp.setTxObjects(self.txOutScripts[i], finalTx, i)
+         sigIsValid = psp.verifyTransactionValid()
+         if not sigIsValid:
+            raise SignatureError, 'Signature for addr %s is not valid!' % \
+                                       hash160_to_addrStr(self.inAddr20Lists[i])
+         else:
+            print 'Signature', i, 'is valid!'
+      return finalTx
+
+
+
+   """
+   def serializeAscii(self):
+      txdpLines = []
+      txdpLines.append('-----BEGIN-TRANSACTION-' + self.uniqueB58 + '-----')
+      pieces = ['', 'TX','DIST', MAGIC_BYTES, self.uniqueB58, \
+                           int_to_hex(len(self.pytxObj), widthBytes=2)]
+      txdpLines.append('_'.append(pieces))
+      
+      txHex = self.pytxObj.serialize()
+      for byte in range(0,len(txHex),80):
+         txdpLines.append( txHex[byte:byte+80] )
+
+
+
+
+      bp.put(BINARY_CHUNK, '_TX_DIST_' + MAGIC_BYTES +'_'+ self.uniqueB58 +'_')
+
+
+
+
+      txdpLines.append('-------END-TRANSACTION-' + self.uniqueB58 + '-----')
+      
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, binary_to_hex(
+
+   def unserialize(self, toUnpack):
       pass
+   """
+
+   def serializeBinary(self):
+      pass
+
+   def serializeHex(self):
+      return binary_to_hex(self.serializeBinary())
+
+   #def serializeBase58(self):
+      #return binary_to_hex(self.serializeBinary())
 
 
    #############################################################################
@@ -4526,7 +4700,7 @@ class PyTxDistProposal(object):
          prevIndex = txin.outpoint.txOutIndex
          print indent,
          #print '   PrevOut: (%s, index=%d)' % (binary_to_hex(prevHash[:8]),prevIndex),
-         print '   SrcAddr:   %s' % hash160_to_addrStr(self.inputAddrList[i]),
+         print '   SrcAddr:   %s' % hash160_to_addrStr(self.inAddr20Lists[i]),
          if TheBDM.isInitialized():
             value = TheBDM.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
             print '   Value: %s' % coin2str(value)
@@ -4535,23 +4709,6 @@ class PyTxDistProposal(object):
          outAddr = TxOutScriptExtractAddr160(txout.binScript)
          print indent,
          print '   Recipient: %s, %s BTC' % (hash160_to_addrStr(outAddr), coin2str(txout.value))
-
-   def serializeHex(self):
-      bp = BinaryPacker()
-      bp.put(BINARY_CHUNK, self.pytxString)
-
-   def unserialize(self, toUnpack):
-      pass
-
-   def serializeBinary(self):
-      pass
-
-   def serializeHex(self):
-      return binary_to_hex(self.serializeBinary())
-
-   #def serializeBase58(self):
-      #return binary_to_hex(self.serializeBinary())
-
 
 # Random method for creating
 def touchFile(fname):
@@ -6121,11 +6278,22 @@ class PyBtcWallet(object):
       #amtToSign = 0  # I can't get this without asking blockchain for txout vals
       for index,txin in enumerate(txdp.pytxObj.inputs):
          scriptType = getTxOutScriptType(txin.binScript)
+         
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             addr160 = TxOutScriptExtractAddr160(txin.getScript())
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
                wltAddr.append( (self.addrMap[addr160], index) )
+         elif scriptType==TXOUT_SCRIPT_MULTISIG:
+            # Basically the same check but multiple addresses to consider
+            addrList = getTxOutMultiSigInfo(txin.getScript())[1]
+            for addr in addrList:
+               if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
+                  wltAddr.append( (self.addrMap[addr], index) )
+                  break
+                  
 
+      # WltAddr now contains a list of every input we can sign for, and the
+      # PyBtcAddress object that can be used to sign it.  Let's do it.
       numMyAddr = len(wltAddr)
       print 'Total number of inputs in transaction:  ', numInputs
       print 'Number of inputs that you can sign for: ', numMyAddr
@@ -6144,39 +6312,38 @@ class PyBtcWallet(object):
             # Make sure the public key is available for this address
             addrObj.binPublicKey65 = CryptoECDSA().ComputePublicKey(addrObj.binPrivKey32_Plain)
 
-            
-         txOutScript = ''
+         # Copy the script, blank out out all other scripts (assume hashcode==1)
          txCopy = PyTx().unserialize(txdp.pytxObj.serialize())
          for i in range(len(txCopy.inputs)):
-            if i==idx:
-               txOutScript = txCopy.inputs[i].binScript
-            else:
+            if not i==idx:
                txCopy.inputs[i].binScript = ''
 
          hashCode1  = int_to_binary(hashcode, widthBytes=1)
          hashCode4  = int_to_binary(hashcode, widthBytes=4)
-
-         # Copy the script of the TxOut we're spending, into the txIn script
          preHashMsg = txCopy.serialize() + hashCode4
-         
-         # Next two steps are now done by the CryptoECDSA module so comment out
-         #binToSign  = hash256(preHashMsg)
-         #binToSign  = binary_switchEndian(binToSign)
-         signature  = addrObj.generateDERSignature(preHashMsg)
+         signature  = addrObj.generateDERSignature(preHashMsg) + hashCode1
 
-         # If we are spending a Coinbase-TxOut, only need sig, no pubkey
-         # Don't forget to tack on the one-byte hashcode and consider it part of sig
-         if len(txOutScript) > 25:
-            sigLenInBinary = int_to_binary(len(signature) + 1)
-            txdp.signatures.append(sigLenInBinary + signature + hashCode1)
-         else:
+         # Now we attach a binary signature or full script, depending on the type
+         if txdp.scriptTypes[idx]==TXOUT_SCRIPT_COINBASE:
+            # Only need the signature to complete coinbase TxOut
+            sigLenInBinary = int_to_binary(len(signature))
+            txdp.signatures.append(sigLenInBinary + signature)
+         elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_STANDARD:
+            # Gotta include the public key, too, for standard TxOuts
             pubkey = addrObj.binPublicKey65.toBinStr()
-            sigLenInBinary    = int_to_binary(len(signature) + 1)
+            sigLenInBinary    = int_to_binary(len(signature))
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            txdp.signatures.append(sigLenInBinary    + signature + hashCode1 + \
-                                      pubkeyLenInBinary + pubkey)
+            txdp.signatures.append(sigLenInBinary    + signature + \
+                                   pubkeyLenInBinary + pubkey)
+         elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_MULTISIG:
+            # We attach just the sig for multi-sig transactions
+            sigLenInBinary = int_to_binary(len(signature))
+            txdp.signatures.append(sigLenInBinary + signature)
+         else:
+            print '***WARNING: unknown txOut script type'
 
       return txdp
+
 
    #############################################################################
    def setDefaultKeyLifetime(self, newlifetime):

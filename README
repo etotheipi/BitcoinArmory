@@ -96,7 +96,7 @@
 *      (29)  Deterministic Addr Gen (ECDSAPub)    X
 *      (30)  Deterministic Addr Gen (Random)   
 *     ---------------------------------------------------------------
-*      (31)  PyWallet/Addr File I/O
+*      (31)  PyWallet/Addr File I/O               X
 *      (32)  SelectCoins for tx                   X
 *      (33)  Tx fee calculations                  X
 *      (34)  Tx construct given inputs            X

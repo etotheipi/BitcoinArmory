@@ -234,7 +234,7 @@ SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
    uint32_t const nXorOps = HSZ/sizeof(uint64_t);
 
    // We divide by 4 to reduce computation time -- k
-   uint32_t const nLookups = sequenceCount_ / 4;
+   uint32_t const nLookups = sequenceCount_ / 2;
    for(uint32_t nSeq=0; nSeq<nLookups; nSeq++)
    {
       // Interpret last 4 bytes of last result (mod seqCt) as next LUT index
