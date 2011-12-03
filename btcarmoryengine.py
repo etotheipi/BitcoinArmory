@@ -140,36 +140,22 @@ if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
 
 
 
-class UnserializeError(Exception):
-   pass
-class BadAddressError(Exception):
-   pass
-class VerifyScriptError(Exception):
-   pass
-class FileExistsError(Exception):
-   pass
-class ECDSA_Error(Exception):
-   pass
-class PackerError(Exception):
-   pass
-class UnitializedBlockDataError(Exception):
-   pass
-class WalletLockError(Exception):
-   pass
-class SignatureError(Exception):
-   pass
-class KeyDataError(Exception):
-   pass
-class ChecksumError(Exception):
-   pass
-class WalletAddressError(Exception):
-   pass
-class PassphraseError(Exception):
-   pass
-class EncryptionError(Exception):
-   pass
-class InterruptTestError(Exception):
-   pass
+class UnserializeError(Exception): pass
+class BadAddressError(Exception): pass
+class VerifyScriptError(Exception): pass
+class FileExistsError(Exception): pass
+class ECDSA_Error(Exception): pass
+class PackerError(Exception): pass
+class UnitializedBlockDataError(Exception): pass
+class WalletLockError(Exception): pass
+class SignatureError(Exception): pass
+class KeyDataError(Exception): pass
+class ChecksumError(Exception): pass
+class WalletAddressError(Exception): pass
+class PassphraseError(Exception): pass
+class EncryptionError(Exception): pass
+class InterruptTestError(Exception): pass
+class NetworkIDError(Exception): pass
 
 
 
@@ -697,7 +683,7 @@ def BDM_LoadBlockchainFile(blkfile=None, testnet=False):
 
    if not os.path.exists(blkfile):
       raise FileExistsError, ('File does not exist: %s' % blkfile)
-   TheBDM.readBlkFile_FromScratch(blkfile)
+   return TheBDM.readBlkFile_FromScratch(blkfile)
 
 
 ################################################################################
@@ -4460,7 +4446,6 @@ class PyTxDistProposal(object):
       self.scriptTypes   = []
       self.signatures    = []
       self.txOutScripts  = []
-      self.sigIsValid    = []
       self.inAddr20Lists = []
       self.inPubKeyLists = []
       self.inputValues   = []
@@ -4470,17 +4455,17 @@ class PyTxDistProposal(object):
    #############################################################################
    def createFromPreparedPyTx(self, pytx):
       sz = len(pytx.inputs)
-      self.pytxObj   = pytx
+      self.pytxObj = pytx
       self.signatures     = [[]]*sz
       self.scriptTypes    = [None]*sz
-      self.inAddr20Lists  = ['']*sz
-      self.inPubKeyLists  = ['']*sz
+      self.inAddr20Lists  = [[]]*sz
+      self.inPubKeyLists  = [[]]*sz
+      self.inputValues    = [-1]*sz
       for i in range(sz):
          script = str(pytx.inputs[i].binScript)
          self.txOutScripts.append(str(script)) # copy it
          scrType = getTxOutScriptType(pytx.inputs[i])
          self.scriptTypes[i] = scrType
-
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             self.inAddr20Lists[i].append(TxOutScriptExtractAddr160(script))
             self.inPubKeyLists[i].append('')
@@ -4493,7 +4478,6 @@ class PyTxDistProposal(object):
             pass
 
       txser = self.pytxObj.serialize()
-      txlen = len(txser)
       self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
       return self
 
@@ -4503,7 +4487,9 @@ class PyTxDistProposal(object):
       This creates a TxDP for a standard transaction from a list of inputs and 
       a list of recipient-value-pairs.  
 
-      This can probably be modified easily to support CREATING multi-sig txs
+      NOTE:  I have modified this so that if the "recip" is not a 20-byte binary
+             string, it is instead interpretted as a SCRIPT -- which could be
+             anything, including a multi-signature transaction
       """
       assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
       self.pytxObj = PyTx()
@@ -4512,7 +4498,7 @@ class PyTxDistProposal(object):
       self.pytxObj.inputs = []
       self.pytxObj.outputs = []
 
-      for utxo in utxoSelection:
+      for iin,utxo in enumerate(utxoSelection):
          txin = PyTxIn()
          txin.outpoint = PyOutPoint()
          txin.outpoint.txHash = utxo.getTxHash()
@@ -4522,32 +4508,48 @@ class PyTxDistProposal(object):
          txin.intSeq = 2**32-1
          self.pytxObj.inputs.append(txin)
 
-         self.inAddr20Lists.append(utxo.getRecipientAddr())
-         self.inPubKeyLists.append('')
-         self.scriptTypes.append(getTxOutScriptType(utxo.getScript()))
+         stype = getTxOutScriptType(utxo.getScript())
+         self.scriptTypes.append(stype)
+         if stype in (TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_STANDARD):
+            # Only one addr/str per input
+            self.inAddr20Lists.append( [utxo.getRecipientAddr()] )
+            self.inPubKeyLists.append( [''] )
+            self.signature.append( [''] )
+         elif stype in (TXOUT_SCRIPT_MULTISIG,):
+            # May be multiple addr/str per input
+            msType, addrlist, publist = getTxOutMultiSigInfo(utxo.getScript())
+            self.inAddr20Lists.append(addrlist)
+            self.inPubKeyLists.append(publist)
+            self.signatures.append( ['']*len(addrlist) )
+            
 
-      for addr,value in recip160ValPairs:
-         if isinstance(addr, PyBtcAddress):
-            addr = addr.getAddr160()
-         if isinstance(addr, str):
-            if len(addr)>25:
-               addr = base58_to_binary(addr)[1:21]
-            elif len(addr)==25:
-               addr = addr[1:21]
+      for recipObj,value in recip160ValPairs:
          txout = PyTxOut()
          txout.value = long(value)
-         txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
-                                      getOpCode('OP_HASH160'    ), \
-                                      '\x14',                      \
-                                      addr,
-                                      getOpCode('OP_EQUALVERIFY'), \
-                                      getOpCode('OP_CHECKSIG'   )])
+
+         # Assume recipObj is either a PBA or a string
+         if isinstance(addr, PyBtcAddress):
+            recipObj = addr.getAddr160()
+
+         # Now recipObj is def a string
+         if len(recipObj)!=20:
+            # If not an address, it's a full script
+            txout.binScript = recipObj
+         else:
+            # Construct a std TxOut from addr160 str
+            txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
+                                         getOpCode('OP_HASH160'    ), \
+                                         '\x14',                      \
+                                         addr,
+                                         getOpCode('OP_EQUALVERIFY'), \
+                                         getOpCode('OP_CHECKSIG'   )])
+
          self.pytxObj.outputs.append(txout)
 
+      # Finally, we have the fully-constructed PyTx object with txin scripts
+      # replaced by the TxOut scripts they are spending
       txser = self.pytxObj.serialize()
-      txlen = len(txser)
       self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
-      self.signatures = [[]]*len(self.pytxObj.inputs)
       return self
 
 
@@ -4605,7 +4607,7 @@ class PyTxDistProposal(object):
          if not hashCode==1:
             raise NotImplementedError, 'Non-standard hashcodes not supported!'
 
-         # Now check all private keys in the multi-sig TxOut script
+         # Now check all public keys in the multi-sig TxOut script
          for i,pubkey in enumerate(self.inPubKeyLists):
             tempAddr = PyBtcAddress().createFromPublicKeyData(pubkey)
             if tempAddr.verifyDERSignature(preHashMsg, sigStr):
@@ -4661,12 +4663,13 @@ class PyTxDistProposal(object):
       return finalTx
 
 
-
-   def serializeAscii(self):
+   #############################################################################
+   def serializeAscii(self, commentStr=''):
       txdpLines = []
       txdpLines.append('-----BEGIN-TRANSACTION-' + self.uniqueB58 + '-----')
+      dpsz = len(self.pytxObj.serialize())
       pieces = ['', 'TX','DIST', MAGIC_BYTES, self.uniqueB58, \
-                           int_to_hex(len(self.pytxObj), widthBytes=2)]
+                      int_to_hex(dpsz, widthBytes=2, endOut=BIGENDIAN)]
       txdpLines.append('_'.append(pieces))
       
       txHex = binary_to_hex(self.pytxObj.serialize())
@@ -4674,22 +4677,85 @@ class PyTxDistProposal(object):
          txdpLines.append( txHex[byte:byte+80] )
 
 
-      nSigs = sum([len(s) for s in self.signatures])
-      txdpLines.append( '_TXSIGS_%02d' % nSigs )
-      for i,siglist in enumerate(self.signatures):
-         for sig in enumerate(siglist):
+      for iin,txin in self.pytxObj.inputs:
+         # TODO: come up with a better way than "0" to specify no-value-avail
+         if self.inputValues[iin]:
+            formattedVal = coin2str(self.inputValues[iin], ndec=8)
+         else:
+            formattedVal = '0'
+
+         txdpLines.append('_TXINPUT_%02d_%s' % (iin, formattedVal))
+         for s,sig in enumerate(self.signatures[iin]):
+            if len(sig)==0:
+               continue
             addrB58 = hash160_to_addrStr(self.inAddr20Lists[i][j])
-            sigsz = int_to_hex(len(sig),widthBytes=1)
+            sigsz = int_to_hex(len(sig), widthBytes=2, endOut=BIGENDIAN)
             txdpLines.append('_SIG_%s_%02d_%s' % (addrB58, i, sigsz))
             sigHex = binary_to_hex(sig)
             for byte in range(0,len(sigHex),80):
                txdpLines.append( sigHex[byte:byte+80] )
 
       txdpLines.append('-------END-TRANSACTION-' + self.uniqueB58 + '-----')
+      return '\n'.join(txdpLines)
       
 
-   def unserialize(self, toUnpack):
-      pass
+   #############################################################################
+   def unserializeAscii(self, asciiStr):
+      txdpTxt = [line.strip() for line in asciiStr.split('\n')]
+
+      def nextLine():
+         for line in txdpTxt:
+            yield line
+
+      while not ('BEGIN-TRANSACTION' in nextLine()):
+         pass
+
+      try:
+         # Get the network, dp ID and number of bytes
+         magicBytesHex, dpIdB58, dpsz = nextLine().split('_')[2:]
+         magic = hex_to_binary(magicBytesHex)
+
+         dpser = ''
+         line = nextLine()
+         while not 'TXINPUT' in line:
+            dpser += line
+            line = nextLine()
+
+         numIn = len(self.pytxObj.inputs)
+         self.createFromPreparedPyTx( PyTx().unserialize(dpser) )
+
+         # Do some sanity checks
+         if not self.uniqueB58 == dpIdB58:
+            raise UnserializeError, 'TxDP: Actual DPID does not match listed ID'
+         if not MAGIC_BYTES==magic:
+            raise NetworkIDError, 'TxDP is for diff blockchain! (%s)' % \
+                                                            BLOCKCHAINS[magic]
+
+         # We stopped before when we had the first TXINPUT line
+         while not 'END-TRANSACTION' in line: 
+            [iin, val] = line.split('_')[1:]
+            self.inputValues[iin] = float(val)*ONE_BTC
+            
+            line = nextLine()
+            while '_SIG_' line:
+               addrB58, sz, hexSig = line.split('_')[2:]
+               line = nextLine()
+               while (not '_SIG_' in line) and (not 'TXINPUT' in line):
+                  hexSig += line
+               binSig = hex_to_binary(hexSig)
+               idx, sigOrder, addr160 = self.processSignature(binSig, iin)
+               if idx == -1:
+                  raise SignatureError, 'Invalid sig: Input %d, addr=%s' % \
+                                                                (iin, addrB58)
+               if not hash160_to_addrStr(addr160)== addrB58:
+                  raise BadAddressError, 'Listed addr does not match computed addr'
+               # If we got here, the signature is valid!
+               self.signatures[iin][sigOrder] = binSig
+      except:
+         return UnserializeError, 'Could not read TxDP!'
+
+      return self
+      
 
    def serializeBinary(self):
       pass
@@ -6067,6 +6133,9 @@ class PyBtcWallet(object):
           return self.addrMap[addr160].getBlockRange()
 
 
+   #############################################################################
+   def setBlockchainSyncFlag(self, syncYes=True):
+      self.doBlockchainSync = syncYes
 
    #############################################################################
    def syncWithBlockchain(self):

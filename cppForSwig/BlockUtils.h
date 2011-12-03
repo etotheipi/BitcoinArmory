@@ -524,6 +524,7 @@ public:
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
    TxRef *          getTxByHash(BinaryData const & txHash);
+   string           getBlockfilePath(void) {return blkfilePath_;}
 
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION

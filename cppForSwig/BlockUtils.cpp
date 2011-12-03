@@ -973,6 +973,12 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
                                                            bool doOrganize)
 {
+   if(filename.compare(blkfilePath_) == 0)
+   {
+      cout << "Call to load a blockchain file that is already loaded!" << endl;
+      return 0;
+   }
+
    PDEBUG("Read blkfile from scratch");
    blkfilePath_ = filename;
    cout << "Attempting to read blockchain from file: " << blkfilePath_.c_str() << endl;
