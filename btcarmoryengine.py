@@ -51,6 +51,10 @@ import math
 from struct import pack, unpack
 from datetime import datetime
 
+
+# These are overriden for testnet
+USE_TESTNET = False
+
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0,50,0,0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1,00,0,0)  # (Major, Minor, Minor++, even-more-minor)
@@ -107,23 +111,24 @@ USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
 BLK0001_PATH     = ''
+SUBDIR = 'testnet' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    USER_HOME_DIR   = os.getenv('APPDATA')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin')
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
    BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    USER_HOME_DIR   = os.getenv('HOME')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin')
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoinarmory')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoinarmory', SUBDIR)
    BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 elif OS_MACOSX:
    OS_NAME         = 'Mac/OSX'
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
-   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin')
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory')
+   BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
    BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 else:
    print '***Unknown operating system!'
@@ -160,8 +165,6 @@ class NetworkIDError(Exception): pass
 
 
 
-# These are overriden for testnet
-USE_TESTNET = False
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
@@ -658,7 +661,7 @@ def difficulty_to_binaryBits(i):
 
 
 ################################################################################
-def BDM_LoadBlockchainFile(blkfile=None, testnet=False):
+def BDM_LoadBlockchainFile(blkfile=None):
    """
    Looks for the blk0001.dat file in the default location for your operating
    system.  If it is found, it is loaded into RAM and the longest chain is
@@ -666,7 +669,7 @@ def BDM_LoadBlockchainFile(blkfile=None, testnet=False):
    the bdm object.
    """
    if blkfile==None:
-      if not testnet:
+      if not USE_TESTNET:
          if 'win' in opsys.lower():
             blkfile = os.path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
          if 'nix' in opsys.lower() or 'nux' in opsys.lower():

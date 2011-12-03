@@ -6,17 +6,30 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
-Test_PyBlockUtils     = False
-Test_CppBlockUtils    = False
-Test_SimpleAddress    = False
-Test_MultiSigTx       = False
-Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
-Test_EncryptedWallet  = False
+Test_BasicUtils       = True
+Test_PyBlockUtils     = True
+Test_CppBlockUtils    = True
+Test_SimpleAddress    = True
+Test_MultiSigTx       = True
+Test_TxSimpleCreate   = True
+Test_EncryptedAddress = True
+Test_EncryptedWallet  = True
 Test_TxDistProposals  = True
-Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_SelectCoins      = True
+Test_CryptoTiming     = True
+
+
+'''
+import optparse
+parser = optparse.OptionParser(usage="%prog [options]\n"+
+                               "Connects to a running bitcoin node and "+
+                               "prints all or part of the best-block-chain.")
+parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
+                  help="Speak testnet protocol")
+
+(options, args) = parser.parse_args()
+'''  
+
 
 
 def testFunction( fnName, expectedOutput, *args, **kwargs):
