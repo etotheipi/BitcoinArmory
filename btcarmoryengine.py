@@ -2306,14 +2306,13 @@ TXOUT_SCRIPT_MULTISIG = 2
 TXOUT_SCRIPT_OP_EVAL  = 3
 TXOUT_SCRIPT_UNKNOWN  = 4
 
-MULTISIG_1of1     = 0
-MULTISIG_1of2     = 1
-MULTISIG_2oF2     = 2
-MULTISIG_1oF3     = 3
-MULTISIG_2oF3     = 4
-MULTISIG_3oF3     = 5
-MULTISIG_AandBorC = 6
-MULTISIG_UNKNOWN  = 7
+MULTISIG_1of1     = (1,1)
+MULTISIG_1of2     = (1,2)
+MULTISIG_2oF2     = (2,2)
+MULTISIG_1oF3     = (1,3)
+MULTISIG_2oF3     = (2,3)
+MULTISIG_3oF3     = (3,3)
+MULTISIG_UNKNOWN  = (0,0)
 
 
 ################################################################################
@@ -3048,7 +3047,7 @@ class PyScriptProcessor(object):
       self.txNew   = None
       self.script1 = None
       self.script2 = None
-      if txOldData and txNew and txInIndex:
+      if txOldData and txNew and not txInIndex==None:
          self.setTxObjects(txOldData, txNew, txInIndex)
 
 
@@ -4435,9 +4434,35 @@ class PyTxDistProposal(object):
    private keys and nothing else.   This enables the device
    providing the signatures to be extremely lightweight.
 
-   TODO:  I need to figure out how to identify whether a TxOut
-          script requires Sig-PubKey-Sig-PubKey, or just Sig-Sig
-          (or similar for N address)
+   For a given TxDP, we will be storing the following structure
+   in memory.  Use a 3-input tx as an example, with the first 
+   being a 2-of-3 multi-sig transaction (unsigned)
+      
+      self.scriptTypes    = [TXOUT_SCRIPT_MULTISIG, 
+                             TXOUT_SCRIPT_STANDARD,   
+                             TXOUT_SCRIPT_STANDARD]
+
+      self.inputValues    = [ 2313000000, 
+                              400000000, 
+                              1000000000]
+
+      self.signatures     = [ ['', '', ''],
+                              [''],
+                              [''],         ]
+
+      self.inAddr20Lists  = [ [addr1, addr2, addr3],
+                              [addr4]
+                              [addr5]         ]
+
+      # Usually only have public keys on multi-sig TxOuts
+      self.inPubKeyLists  = [ [pubKey1, pubKey2, pubKey3],
+                              ['']
+                              ['']         ]   
+
+      self.numSigsNeeded  = [ 2
+                              1
+                              1 ]
+      
    """
    #############################################################################
    def __init__(self, pytx=None):
@@ -4449,6 +4474,7 @@ class PyTxDistProposal(object):
       self.inAddr20Lists = []
       self.inPubKeyLists = []
       self.inputValues   = []
+      self.numSigsNeeded = []
       if pytx:
          self.createFromPreparedPyTx(pytx)
 
@@ -4461,19 +4487,23 @@ class PyTxDistProposal(object):
       self.inAddr20Lists  = [[]]*sz
       self.inPubKeyLists  = [[]]*sz
       self.inputValues    = [-1]*sz
+      self.numSigsNeeded  = [0]*sz
       for i in range(sz):
          script = str(pytx.inputs[i].binScript)
          self.txOutScripts.append(str(script)) # copy it
-         scrType = getTxOutScriptType(pytx.inputs[i])
+         scrType = getTxOutScriptType(pytx.inputs[i].binScript)
          self.scriptTypes[i] = scrType
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             self.inAddr20Lists[i].append(TxOutScriptExtractAddr160(script))
             self.inPubKeyLists[i].append('')
+            self.signatures[i]    = ['']
+            self.numSigsNeeded[i] = 1
          elif scrType==TXOUT_SCRIPT_MULTISIG:
             mstype, addrs, pubs = getTxOutMultiSigInfo(script)
             self.inAddr20Lists[i] = addrs
             self.inPubKeyLists[i] = pubs
-            self.signatures[i] = ['']*len(addrs)
+            self.signatures[i]    = ['']*len(addrs)
+            self.numSigsNeeded[i] = mstype[0]  # mstype for M-of-N tx is (M,N)
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
             pass
 
@@ -4507,6 +4537,7 @@ class PyTxDistProposal(object):
          self.txOutScripts.append(str(txin.binScript)) # copy it
          txin.intSeq = 2**32-1
          self.pytxObj.inputs.append(txin)
+         self.inputValues.append(utxo.getValue())
 
          stype = getTxOutScriptType(utxo.getScript())
          self.scriptTypes.append(stype)
@@ -4514,13 +4545,15 @@ class PyTxDistProposal(object):
             # Only one addr/str per input
             self.inAddr20Lists.append( [utxo.getRecipientAddr()] )
             self.inPubKeyLists.append( [''] )
-            self.signature.append( [''] )
+            self.signatures.append( [''] )
+            self.numSigsNeeded.append(1)
          elif stype in (TXOUT_SCRIPT_MULTISIG,):
             # May be multiple addr/str per input
             msType, addrlist, publist = getTxOutMultiSigInfo(utxo.getScript())
             self.inAddr20Lists.append(addrlist)
             self.inPubKeyLists.append(publist)
-            self.signatures.append( ['']*len(addrlist) )
+            self.numSigsNeeded[i] = msType[0]  # mstype for M-of-N tx is (M,N)
+            self.signatures.append( ['']*msType[1])
             
 
       for recipObj,value in recip160ValPairs:
@@ -4528,7 +4561,7 @@ class PyTxDistProposal(object):
          txout.value = long(value)
 
          # Assume recipObj is either a PBA or a string
-         if isinstance(addr, PyBtcAddress):
+         if isinstance(recipObj, PyBtcAddress):
             recipObj = addr.getAddr160()
 
          # Now recipObj is def a string
@@ -4540,7 +4573,7 @@ class PyTxDistProposal(object):
             txout.binScript = ''.join([  getOpCode('OP_DUP'        ), \
                                          getOpCode('OP_HASH160'    ), \
                                          '\x14',                      \
-                                         addr,
+                                         recipObj,
                                          getOpCode('OP_EQUALVERIFY'), \
                                          getOpCode('OP_CHECKSIG'   )])
 
@@ -4581,37 +4614,35 @@ class PyTxDistProposal(object):
       -- Addr160:       address to which this signature corresponds
       """
 
-      scriptType = getTxOutScriptType(self.scriptTypes[txinIdx])
-      if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-         # For standard Tx types
-         if txinIdx==None or txinIdx<0 or txinIdx>=len(self.pytxObj.inputs):
-            pass
-         else:
-            txin = self.pytxObj.inputs[txinIdx]
-            psp = PyScriptProcessor(txin.binScript, self.pytxObj, txinIdx)
-            if psp.verifyTransactionValid():
-               self.signatures[txinIdx].append(binSig)
-               return txinIdx, 0, TxOutScriptExtractAddr160(txin.binScript)
-
-      elif scriptType == TXOUT_SCRIPT_MULTISIG:
-         # We have to verify the signature manually...
-         # Copy the script, blank out out all other scripts (assume hashcode==1)
+      if txinIdx==None or txinIdx<0 or txinIdx>=len(self.pytxObj.inputs):
+         pass
+      else:
+         scriptType = self.scriptTypes[txinIdx]
          txCopy = PyTx().unserialize(self.pytxObj.serialize())
-         for i in range(len(txCopy.inputs)):
-            if not i==idx:
-               txCopy.inputs[i].binScript = ''
-
-         hashCode   = binary_to_int(sigStr[-1])
-         hashCode4  = int_to_binary(hashcode, widthBytes=4)
-         preHashMsg = txCopy.serialize() + hashCode4
-         if not hashCode==1:
-            raise NotImplementedError, 'Non-standard hashcodes not supported!'
-
-         # Now check all public keys in the multi-sig TxOut script
-         for i,pubkey in enumerate(self.inPubKeyLists):
-            tempAddr = PyBtcAddress().createFromPublicKeyData(pubkey)
-            if tempAddr.verifyDERSignature(preHashMsg, sigStr):
-               return txInIdx, i, hash160(pubkey)
+         if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            # For standard Tx types, sig is the script itself (copy it)
+            prevOutScript = str(txCopy.inputs[txinIdx].binScript)
+            txCopy.inputs[txinIdx].binScript = str(sigStr)
+            psp = PyScriptProcessor(prevOutScript, txCopy, txinIdx)
+            if psp.verifyTransactionValid():
+               return txinIdx, 0, TxOutScriptExtractAddr160(prevOutScript)
+         elif scriptType == TXOUT_SCRIPT_MULTISIG:
+            # We have to verify the signature manually...
+            for i in range(len(txCopy.inputs)):
+               if not i==idx:
+                  txCopy.inputs[i].binScript = ''
+   
+            hashCode   = binary_to_int(sigStr[-1])
+            hashCode4  = int_to_binary(hashcode, widthBytes=4)
+            preHashMsg = txCopy.serialize() + hashCode4
+            if not hashCode==1:
+               raise NotImplementedError, 'Non-standard hashcodes not supported!'
+   
+            # Now check all public keys in the multi-sig TxOut script
+            for i,pubkey in enumerate(self.inPubKeyLists):
+               tempAddr = PyBtcAddress().createFromPublicKeyData(pubkey)
+               if tempAddr.verifyDERSignature(preHashMsg, sigStr):
+                  return txInIdx, i, hash160(pubkey)
          
 
       if checkAllInputs:
@@ -4623,6 +4654,36 @@ class PyTxDistProposal(object):
       return -1,-1,''
       
 
+   #############################################################################
+   def checkTxHasEnoughSignatures(self, alsoVerify=False):
+      """
+      This method only counts signatures, unless verify==True
+      """
+      for i in range(len(self.pytxObj.inputs)):
+         numSigsHave = sum( [(1 if sig else 0) for sig in self.signatures[i]] )
+         if numSigsHave<self.numSigsNeeded[i]:
+            return False
+
+      if not alsoVerify:
+         return True
+
+      if not self.getBroadcastTxIfReady():
+         return False
+
+      return True
+      
+      
+      
+            
+
+   #############################################################################
+   def getBroadcastTxIfReady(self):
+      try:
+         return self.prepareFinalTx()
+      except SignatureError, msg:
+         return None
+      # Let all other exceptions go on up the chain
+   
 
    #############################################################################
    def prepareFinalTx(self):
@@ -4656,7 +4717,11 @@ class PyTxDistProposal(object):
          psp.setTxObjects(self.txOutScripts[i], finalTx, i)
          totalScriptValid = psp.verifyTransactionValid()
          if not totalScriptValid:
-            raise SignatureError, 'Invalid script/sig for input %d'%i
+            print 'Invalid script for input %d:'
+            pprintScript(finalTx.inputs[i].binScript, 2)
+            print 'Spending txout script:'
+            pprintScript(self.txOutScripts[i], 2)
+            raise SignatureError, 'Invalid script for input %d' % i
          else:
             if len(self.inAddr20Lists)==1: print 'Signature', i, 'is valid!'
             else: print 'Signatures for input', i, 'are valid!'
@@ -4664,20 +4729,21 @@ class PyTxDistProposal(object):
 
 
    #############################################################################
-   def serializeAscii(self, commentStr=''):
+   def serializeAscii(self):
       txdpLines = []
-      txdpLines.append('-----BEGIN-TRANSACTION-' + self.uniqueB58 + '-----')
+      headline = ('-----BEGIN-TRANSACTION-' + self.uniqueB58 + '-----').ljust(80,'-')
+      txdpLines.append( headline )
       dpsz = len(self.pytxObj.serialize())
-      pieces = ['', 'TX','DIST', MAGIC_BYTES, self.uniqueB58, \
+      pieces = ['', 'TXDIST', binary_to_hex(MAGIC_BYTES), self.uniqueB58, \
                       int_to_hex(dpsz, widthBytes=2, endOut=BIGENDIAN)]
-      txdpLines.append('_'.append(pieces))
+      txdpLines.append('_'.join(pieces))
       
       txHex = binary_to_hex(self.pytxObj.serialize())
       for byte in range(0,len(txHex),80):
          txdpLines.append( txHex[byte:byte+80] )
 
 
-      for iin,txin in self.pytxObj.inputs:
+      for iin,txin in enumerate(self.pytxObj.inputs):
          # TODO: come up with a better way than "0" to specify no-value-avail
          if self.inputValues[iin]:
             formattedVal = coin2str(self.inputValues[iin], ndec=8)
@@ -4688,14 +4754,15 @@ class PyTxDistProposal(object):
          for s,sig in enumerate(self.signatures[iin]):
             if len(sig)==0:
                continue
-            addrB58 = hash160_to_addrStr(self.inAddr20Lists[i][j])
+            addrB58 = hash160_to_addrStr(self.inAddr20Lists[iin][s])
             sigsz = int_to_hex(len(sig), widthBytes=2, endOut=BIGENDIAN)
-            txdpLines.append('_SIG_%s_%02d_%s' % (addrB58, i, sigsz))
+            txdpLines.append('_SIG_%s_%02d_%s' % (addrB58, iin, sigsz))
             sigHex = binary_to_hex(sig)
             for byte in range(0,len(sigHex),80):
                txdpLines.append( sigHex[byte:byte+80] )
 
-      txdpLines.append('-------END-TRANSACTION-' + self.uniqueB58 + '-----')
+      endline = ('-------END-TRANSACTION-' + self.uniqueB58 + '-----').ljust(80,'-')
+      txdpLines.append( endline )
       return '\n'.join(txdpLines)
       
 
@@ -4703,56 +4770,74 @@ class PyTxDistProposal(object):
    def unserializeAscii(self, asciiStr):
       txdpTxt = [line.strip() for line in asciiStr.split('\n')]
 
-      def nextLine():
-         for line in txdpTxt:
-            yield line
 
-      while not ('BEGIN-TRANSACTION' in nextLine()):
-         pass
+      # Why can't I figure out the best way to do this?  I thought this is what
+      # generators are for, but I was clearly mistaken...
+      # I know there's a bettery [python-]way to do this...
+      L = [0]
+      def nextLine(i):
+         s = txdpTxt[i[0]]
+         i[0] += 1
+         return s
 
-      try:
-         # Get the network, dp ID and number of bytes
-         magicBytesHex, dpIdB58, dpsz = nextLine().split('_')[2:]
-         magic = hex_to_binary(magicBytesHex)
+      line = nextLine(L)
+      while not ('BEGIN-TRANSACTION' in line):
+         line = nextLine(L)
 
-         dpser = ''
-         line = nextLine()
-         while not 'TXINPUT' in line:
-            dpser += line
-            line = nextLine()
+      #try:
+      # Get the network, dp ID and number of bytes
+      line = nextLine(L)
+      magicBytesHex, dpIdB58, dpsz = line.split('_')[2:]
+      magic = hex_to_binary(magicBytesHex)
 
-         numIn = len(self.pytxObj.inputs)
-         self.createFromPreparedPyTx( PyTx().unserialize(dpser) )
+      dpser = ''
+      line = nextLine(L)
+      while not 'TXINPUT' in line:
+         dpser += line
+         line = nextLine(L)
 
-         # Do some sanity checks
-         if not self.uniqueB58 == dpIdB58:
-            raise UnserializeError, 'TxDP: Actual DPID does not match listed ID'
-         if not MAGIC_BYTES==magic:
-            raise NetworkIDError, 'TxDP is for diff blockchain! (%s)' % \
-                                                            BLOCKCHAINS[magic]
+      dpserBin = hex_to_binary(dpser) 
+      newTx = PyTx().unserialize(dpserBin)
+      self.createFromPreparedPyTx( newTx )
+      numIn = len(self.pytxObj.inputs)
 
-         # We stopped before when we had the first TXINPUT line
-         while not 'END-TRANSACTION' in line: 
-            [iin, val] = line.split('_')[1:]
-            self.inputValues[iin] = float(val)*ONE_BTC
-            
-            line = nextLine()
-            while '_SIG_' line:
-               addrB58, sz, hexSig = line.split('_')[2:]
-               line = nextLine()
-               while (not '_SIG_' in line) and (not 'TXINPUT' in line):
-                  hexSig += line
-               binSig = hex_to_binary(hexSig)
-               idx, sigOrder, addr160 = self.processSignature(binSig, iin)
-               if idx == -1:
-                  raise SignatureError, 'Invalid sig: Input %d, addr=%s' % \
-                                                                (iin, addrB58)
-               if not hash160_to_addrStr(addr160)== addrB58:
-                  raise BadAddressError, 'Listed addr does not match computed addr'
-               # If we got here, the signature is valid!
-               self.signatures[iin][sigOrder] = binSig
-      except:
-         return UnserializeError, 'Could not read TxDP!'
+      # Do some sanity checks
+      if not self.uniqueB58 == dpIdB58:
+         raise UnserializeError, 'TxDP: Actual DPID does not match listed ID'
+      if not MAGIC_BYTES==magic:
+         raise NetworkIDError, 'TxDP is for diff blockchain! (%s)' % \
+                                                         BLOCKCHAINS[magic]
+
+      # We stopped before when we had the first TXINPUT line
+      while not 'END-TRANSACTION' in line: 
+         [iin, val] = line.split('_')[2:]
+         iin = int(iin)
+         self.inputValues[iin] = float(val)*ONE_BTC
+         
+         line = nextLine(L)
+         while '_SIG_' in line:
+            addrB58, sz, sigszHex = line.split('_')[2:]
+            sz = int(sz) 
+            sigsz = hex_to_int(sigszHex, endIn=BIGENDIAN)
+            hexSig = ''
+            line = nextLine(L)
+            while (not '_SIG_' in line)   and \
+                  (not 'TXINPUT' in line) and \
+                  (not 'END-TRANSACTION' in line):
+               hexSig += line
+               line = nextLine(L)
+            binSig = hex_to_binary(hexSig)
+            idx, sigOrder, addr160 = self.processSignature(binSig, iin)
+            if idx == -1:
+               raise SignatureError, 'Invalid sig: Input %d, addr=%s' % \
+                                                             (iin, addrB58)
+            if not hash160_to_addrStr(addr160)== addrB58:
+               raise BadAddressError, 'Listed addr does not match computed addr'
+            # If we got here, the signature is valid!
+            self.signatures[iin][sigOrder] = binSig
+
+      #except:
+         #raise UnserializeError, 'Could not read TxDP!'
 
       return self
       
@@ -4778,17 +4863,24 @@ class PyTxDistProposal(object):
       for i,txin in enumerate(tx.inputs):
          prevHash = txin.outpoint.txHash
          prevIndex = txin.outpoint.txOutIndex
-         print indent,
          #print '   PrevOut: (%s, index=%d)' % (binary_to_hex(prevHash[:8]),prevIndex),
-         print '   SrcAddr:   %s' % hash160_to_addrStr(self.inAddr20Lists[i]),
-         if TheBDM.isInitialized():
-            value = TheBDM.getTxByHash(prevHash).getTxOutRef(prevIndex).getValue()
-            print '   Value: %s' % coin2str(value)
+         print indent*2 + 'Value: %s' % self.inputValues[i]
+         print indent*2 + 'SrcScript:   %s' % binary_to_hex(self.txOutScripts[i])
+         for ns, sig in enumerate(self.signatures[i]):
+            print indent*2 + 'Sig%d = "%s"'%(ns, binary_to_hex(sig))
       print indent+'Num Outputs           : ', len(tx.outputs)
       for i,txout in enumerate(tx.outputs):
-         outAddr = TxOutScriptExtractAddr160(txout.binScript)
-         print indent,
-         print '   Recipient: %s, %s BTC' % (hash160_to_addrStr(outAddr), coin2str(txout.value))
+         print '   Recipient: %s BTC' % coin2str(txout.value),
+         scrType = getTxOutScriptType(txout.binScript)
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            print hash160_to_addrStr(TxOutScriptExtractAddr160(txout.binScript))
+         elif scrType in (TXOUT_SCRIPT_MULTISIG,):
+            mstype, addrs, pubs = getTxOutMultiSigInfo(txout.binScript)
+            print 'MULTI-SIG-SCRIPT:%d-of-%d' % mstype
+            for addr in addrs:
+               print indent*2, hash160_to_addrStr(addr)
+            
+         
 
 # Random method for creating
 def touchFile(fname):
@@ -6365,13 +6457,13 @@ class PyBtcWallet(object):
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             addr160 = TxOutScriptExtractAddr160(txin.getScript())
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
-               wltAddr.append( (self.addrMap[addr160], index) )
+               wltAddr.append( (self.addrMap[addr160], index, 0))
          elif scriptType==TXOUT_SCRIPT_MULTISIG:
             # Basically the same check but multiple addresses to consider
             addrList = getTxOutMultiSigInfo(txin.getScript())[1]
-            for addr in addrList:
+            for addrIdx, addr in enumerate(addrList):
                if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
-                  wltAddr.append( (self.addrMap[addr], index) )
+                  wltAddr.append( (self.addrMap[addr], index, addrIdx) )
                   break
                   
 
@@ -6384,7 +6476,7 @@ class PyBtcWallet(object):
 
       # The TxOut script is already in the TxIn script location, correctly
       # But we still need to blank out all other scripts when signing
-      for addrObj,idx in wltAddr:
+      for addrObj,idx, sigIdx in wltAddr:
          if addrObj.isLocked:
             if self.kdfKey:
                addrObj.unlock(self.kdfKey)
@@ -6410,18 +6502,18 @@ class PyBtcWallet(object):
          if txdp.scriptTypes[idx]==TXOUT_SCRIPT_COINBASE:
             # Only need the signature to complete coinbase TxOut
             sigLenInBinary = int_to_binary(len(signature))
-            txdp.signatures[idx].append(sigLenInBinary + signature)
+            txdp.signatures[idx][0] = sigLenInBinary + signature
          elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_STANDARD:
             # Gotta include the public key, too, for standard TxOuts
             pubkey = addrObj.binPublicKey65.toBinStr()
             sigLenInBinary    = int_to_binary(len(signature))
             pubkeyLenInBinary = int_to_binary(len(pubkey)   )
-            txdp.signatures[idx].append(sigLenInBinary    + signature + \
-                                        pubkeyLenInBinary + pubkey)
+            txdp.signatures[idx][0] = sigLenInBinary    + signature + \
+                                      pubkeyLenInBinary + pubkey
          elif txdp.scriptTypes[idx]==TXOUT_SCRIPT_MULTISIG:
             # We attach just the sig for multi-sig transactions
             sigLenInBinary = int_to_binary(len(signature))
-            txdp.signatures[idx].append(sigLenInBinary + signature)
+            txdp.signatures[idx][sigIdx] = (sigLenInBinary + signature)
          else:
             print '***WARNING: unknown txOut script type'
 

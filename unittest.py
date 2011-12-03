@@ -12,8 +12,8 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = True
-Test_EncryptedWallet  = True
+Test_EncryptedAddress = False
+Test_EncryptedWallet  = False
 Test_TxDistProposals  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -987,7 +987,7 @@ if Test_EncryptedWallet:
    print '\n(10) Add an address with some money to this wallet... with comment'
    binPrivKey = hex_to_binary('a47a7e263f9ec17d7fbb4a649541001e8bb1266917aa77f5773810d7d81f00a5')
    newAddr20 = wlt.importExternalAddressData( privKey=binPrivKey )
-   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   if debugPrint: wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
    wlt.setCommentForAddr160(newAddr20, \
       'This is my normal unit-testing address.  I sent nibor a few BTC from '+ \
@@ -1031,11 +1031,14 @@ if Test_EncryptedWallet:
 
    print '\n\n(10)Creating TxDistProposal:'
    txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
+   if debugPrint: txdp.pprint('   ')
    print '\n\n(10)Signing the TxDP:'
    wlt.signTxDistProposal(txdp)
+   if debugPrint: txdp.pprint('   ')
+
    txToBroadcast = txdp.prepareFinalTx()
    print ''
-   txToBroadcast.pprint()
+   if debugPrint: txToBroadcast.pprint()
    print ''
 
    print binary_to_hex(txToBroadcast.serialize())
@@ -1070,20 +1073,22 @@ if Test_EncryptedWallet:
 
    print '\n\n(11)Creating TxDistProposal:'
    txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
-   txdp.pytxObj.pprint()
+   if debugPrint: txdp.pytxObj.pprint()
    print '\n\n(11) Attempting to sign TxDP with online wallet'
    wlt2.signTxDistProposal(txdp)
 
 
 ################################################################################
 ################################################################################
-Test_TxDistProposals  = True
+if Test_TxDistProposals:
    print ''
    print '*********************************************************************'
    print 'Testing Tx Distribution Proposals for offline signatures'
    print '*********************************************************************'
    print ''
    print 'Create a valid tx, serialize it, unserialize it, sign it'
+
+   debugPrint = True
 
    print '\n(1) Create a wallet, add our address'
    privKey = SecureBinaryData(hex_to_binary('aa'*32))
@@ -1093,7 +1098,7 @@ Test_TxDistProposals  = True
 
    binPrivKey = hex_to_binary('a47a7e263f9ec17d7fbb4a649541001e8bb1266917aa77f5773810d7d81f00a5')
    myOwnAddr160 = wlt.importExternalAddressData( privKey=binPrivKey )
-   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   wlt.pprint(indent=' '*5, allAddrInfo=False)
    
    BDM_LoadBlockchainFile()  # looks for blk0001.dat in satoshi client location
    wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
@@ -1121,8 +1126,28 @@ Test_TxDistProposals  = True
    asciiBlock = txdp.serializeAscii()
    for l in asciiBlock.split('\n'):
       print '   ', l
-   
+
+   print '\n(1)Unserializing'
+   txdp2 = PyTxDistProposal().unserializeAscii(asciiBlock)
+   print '\n(1) TxDP has enough signatures?', txdp.checkTxHasEnoughSignatures()
       
+   print '\n(1)Sign it, now'
+   txdpSigned = wlt.signTxDistProposal(txdp2)
+   print '\n(1) Signed enough inputs?', txdpSigned.checkTxHasEnoughSignatures()
+   print '\n(1) Verified?', txdpSigned.checkTxHasEnoughSignatures(alsoVerify=True)
+
+   print '\n(1) Re-serialized signed txdp'
+   asciiBlock = txdpSigned.serializeAscii()
+   for l in asciiBlock.split('\n'):
+      print '   ', l
+   
+   print '\n(1) Preparing TxDP for broadcast'
+   txdp3 = PyTxDistProposal().unserializeAscii(asciiBlock)
+   txToBroadcast = txdpSigned.prepareFinalTx()
+   print '\n(1) Final tx to broadcast!'
+   print binary_to_hex(txToBroadcast.serialize())
+   print ''
+   pprintHex(binary_to_hex(txToBroadcast.serialize()))
 
    # TODO: test a multisig TxDP
 
