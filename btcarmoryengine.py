@@ -695,7 +695,7 @@ def BDM_LoadBlockchainFile(blkfile=None):
 #  Classes for reading and writing large binary objects
 ################################################################################
 ################################################################################
-UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, VAR_INT, FLOAT, BINARY_CHUNK = range(11)
+UINT8, UINT16, UINT32, UINT64, INT8, INT16, INT32, INT64, VAR_INT, VAR_STR, FLOAT, BINARY_CHUNK = range(12)
 
 # Seed this object with binary data, then read in its pieces sequentially
 class BinaryUnpacker(object):
@@ -762,6 +762,7 @@ class BinaryUnpacker(object):
       elif varType == VAR_INT:
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          self.advance(nBytes)
+         return value
       elif varType == VAR_STR:
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          binOut = self.binaryStr[pos+nBytes:pos+nBytes+value]
@@ -6728,9 +6729,12 @@ class PyBtcWallet(object):
 # 
 ###############################################################################
 ###############################################################################
-
 class PyMessage(object):
-   def __init__(self, cmd, pymsgObj):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+   def __init__(self, cmd='', pymsgObj=None):
       self.magic      = MAGIC_BYTES
       self.cmd        = cmd
       self.payloadObj = pymsgObj
@@ -6739,10 +6743,11 @@ class PyMessage(object):
       bp = BinaryPacker()
       bp.put(BINARY_CHUNK, self.magic,                    width= 4)
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
-      bp.put(UINT32,       len(self.payloadBin))
+      payloadBin = self.payloadObj.serialize()
+      bp.put(UINT32, len(payloadBin))
       if not self.cmd=='version' and not self.cmd=='verack':
-         bp.put(BINARY_CHUNK, hash256(self.payloadBin)[:4],     width= 4)
-      bp.put(BINARY_CHUNK, self.payloadObj.serialize())
+         bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
+      bp.put(BINARY_CHUNK, payloadBin)
       return bp.getBinaryString()
     
    def unserialize(self, toUnpack):
@@ -6751,14 +6756,30 @@ class PyMessage(object):
       else:
          msgData = BinaryUnpacker( toUnpack )
 
+
       self.magic = msgData.get(BINARY_CHUNK, 4)
       self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
       length     = msgData.get(UINT32)
-      chksum     = msgData.get(BINARY_CHUNK, 4)
+      if not self.cmd=='version' and not self.cmd=='verack':
+         chksum  = msgData.get(BINARY_CHUNK, 4)
       payload    = msgData.get(BINARY_CHUNK, length)
-      payload    = verifyChecksum(payload, chksum)
-      self.payloadObj = PyMsgMap[self.cmd].unserialize()
+      if not self.cmd=='version' and not self.cmd=='verack':
+         payload    = verifyChecksum(payload, chksum)
+      self.payloadObj = PyMsgMap[self.cmd]().unserialize(payload)
+
+      if self.magic != MAGIC_BYTES:
+         raise BadAddressError, 'Message has wrong network bytes!'
       return self
+
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Bitcoin-Network-Message -- ' + self.cmd.upper()
+      print indstr + indent + 'Magic:   ' + binary_to_hex(self.magic)
+      print indstr + indent + 'Command: ' + self.cmd
+      print indstr + indent + 'Payload: ' + str(len(self.payloadObj.serialize())) + ' bytes'
+      self.payloadObj.pprint(nIndent+1)
 
 ################################################################################
 def quad_to_str( addrQuad):
@@ -6808,19 +6829,31 @@ class PyNetAddress(object):
       self.time     = addrData.get(UINT32)
       self.services = addrData.get(UINT64)
       self.addrQuad = addrData.get(BINARY_CHUNK,16)[-4:]
-      self.port     = addrData.get(UINT16)
+      self.port     = addrData.get(UINT16, endianness=NETWORKENDIAN)
 
       self.services = int_to_bitset(self.services)
       self.addrQuad = binary_to_quad(self.addrQuad)
+      return self
 
    def serialize(self):
       bp = BinaryPacker()
       bp.put(UINT32,       self.time)
       bp.put(UINT64,       bitset_to_int(self.services))
       bp.put(BINARY_CHUNK, quad_to_binary(self.addrQuad).rjust(16,'\x00'))
-      bp.put(UINT16,       self.port)
+      bp.put(UINT16,       self.port, endianness=NETWORKENDIAN)
       return bp.getBinaryString()
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Network-Address:',
+      print indstr + indent + 'Time:  ' + unixTimeToFormatStr(self.time)
+      print indstr + indent + 'Svcs:  ' + self.services
+      print indstr + indent + 'IPv4:  ' + quad_to_str(self.addrQuad)
+      print indstr + indent + 'Port:  ' + self.port
+
+   def pprintShort(self):
+      print quad_to_str(self.addrQuad) + ':' + str(self.port)
 
 ################################################################################
 ################################################################################
@@ -6840,52 +6873,108 @@ class PyMsgAddress(object):
       self.addrList = []
       naddr = addrData.get(VAR_INT)
       for i in range(naddr):
-         self.timestamps.append( addrData.get(UINT32) )
          self.addrList.append( PyNetAddress().unserialize(addrData) )
       return self
 
    def serialize(self):
       bp = BinaryPacker()
-      bp.put(VAR_INT, len(self.addrList)
-      for tstamp, netaddr in zip(self.timestamps, self.addrList):
-         bp.put(UINT32,       tstamp)
-         bp.put(BINARY_CHUNK, netaddr.serialize(), width=26)
+      bp.put(VAR_INT, len(self.addrList))
+      for netaddr in self.addrList:
+         bp.put(BINARY_CHUNK, netaddr.serialize(), width=30)
       return bp.getBinaryString()
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(addr):',
+      for a in self.addrList:
+         a.pprintShort()
+
+   def pprintShort(self):
+      for a in self.addrList:
+         print '[' + quad_to_str(a.pprintShort()) + '], '
 
 ################################################################################
 ################################################################################
 class PyMsgVersion(object):
+
+   command = 'version'
+
+   def __init__(self, version=0, svcs='0'*16, tstamp=-1, addrRcv=PyNetAddress(), \
+                      addrFrm=PyNetAddress(), nonce=-1, sub=-1, height=-1):
+      self.version  = version
+      self.services = svcs
+      self.time     = tstamp
+      self.addrRecv = addrRcv
+      self.addrFrom = addrFrm
+      self.nonce    = nonce
+      self.subver   = sub
+      self.height0  = height
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         verData = toUnpack
+      else:
+         verData = BinaryUnpacker( toUnpack )
+
+      self.version  = verData.get(INT32)
+      self.services = int_to_bitset(verData.get(UINT64), widthBytes=8)
+      self.time     = verData.get(INT64)
+      self.addrRecv = PyNetAddress().unserialize(verData)
+      self.addrFrom = PyNetAddress().unserialize(verData)
+      self.nonce    = verData.get(UINT64)
+      self.subver   = verData.get(VAR_STR)
+      self.height0  = verData.get(INT32)
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(INT32,   self.version )
+      bp.put(UINT64,  self.services)
+      bp.put(INT64,   self.time    )  # todo, should this really be int64?
+      bp.put(BINARY_CHUNK, self.addrRecv.serialize())
+      bp.put(BINARY_CHUNK, self.addrFrom.serialize())
+      bp.put(UINT64,  self.nonce   )
+      bp.put(VAR_STR, self.subver  )
+      bp.put(INT32,   self.height0 )
+      return bp.getBinaryString()
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(version):'
+      print indstr + indent + 'Version:  ' + str(self.version)
+      print indstr + indent + 'Services: ' + bitset_to_int(self.services)
+      print indstr + indent + 'Time:     ' + unixTimeToFormatStr(self.time)
+      print indstr + indent + 'AddrTo:   ' + self.addrRecv.pprintShort()
+      print indstr + indent + 'AddrFrom: ' + self.addrFrom.pprintShort()
+      print indstr + indent + 'Nonce:    ' + str(self.nonce)
+      print indstr + indent + 'SubVer:   ' + self.subver
+      print indstr + indent + 'StartHgt: ' + self.height0
+
+################################################################################
+class PyMsgVerack(object):
    """
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
    """
 
-   command = 'version'
+   command = 'verack'
 
-   def __init__(self, version, svcs, tstamp, addrRcv, addrFrm, nonce, sub):
-      self.invList = []  # list of (type, hash) pairs
+   def __init__(self):
+      pass
 
    def unserialize(self, toUnpack):
-      if isinstance(toUnpack, BinaryUnpacker):
-         invData = toUnpack
-      else:
-         invData = BinaryUnpacker( toUnpack )
-
-      numInv = invData.get(VAR_INT)
-      for i in range(numInv):
-         invType = invData.get(UINT32)
-         invHash = invData.get(BINARY_CHUNK, 32)
-         self.invList.append( [invType, invHash] )
       return self
 
    def serialize(self):
-      bp = BinaryPacker()
-      bp.put(VAR_INT, len(self.invList))
-      for inv in self.invList:
-         bp.put(UINT32, inv[0])
-         bp.put(BINARY_CHUNK, inv[1], width=32)
-      return bp.getBinaryString()
+      return ''
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(verack)'
+
 
 ################################################################################
 ################################################################################
@@ -6921,6 +7010,15 @@ class PyMsgInv(object):
          bp.put(BINARY_CHUNK, inv[1], width=32)
       return bp.getBinaryString()
       
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(inv):'
+      for inv in self.invList:
+         print indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
+                                 binary_to_hex(inv[1])
+
 
 
 ################################################################################
@@ -6962,6 +7060,15 @@ class PyMsgGetData(object):
       return bp.getBinaryString()
       
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(getdata):'
+      for inv in self.invList:
+         print indstr + indent + ('BLOCK: ' if inv[0]==2 else 'TX   : ') + \
+                                 binary_to_hex(inv[1])
+      
+
 ################################################################################
 ################################################################################
 class PyMsgGetHeaders(object):
@@ -6988,11 +7095,20 @@ class PyMsgGetHeaders(object):
    def serialize(self):
       bp = BinaryPacker()
       bp.put(VAR_INT, self.startCount)
-      for i in range(self.startCount)
+      for i in range(self.startCount):
          bp.put(BINARY_CHUNK, self.hashStart[i], width=32)
       bp.put(BINARY_CHUNK, self.hashStop, width=32)
       return bp.getBinaryString()
    
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(getheaders):'
+      print indstr + indent + 'HashStart(s) :' + binary_to_hex(self.hashStart[0])
+      for i in range(1,len(self.hashStart)):
+         print indstr + indent + '             :' + binary_to_hex(self.hashStart[i])
+      print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
+         
 
 
 ################################################################################
@@ -7029,6 +7145,15 @@ class PyMsgGetBlocks(object):
       bp.put(BINARY_CHUNK, self.hashStart, width=32)
       return bp.getBinaryString()
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(getheaders):'
+      print indstr + indent + 'Version      :' + str(self.version)
+      print indstr + indent + 'HashStart(s) :' + binary_to_hex(self.hashStart[0])
+      for i in range(1,len(self.hashStart)):
+         print indstr + indent + '             :' + binary_to_hex(self.hashStart[i])
+      print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
 
 
 ################################################################################
@@ -7045,6 +7170,12 @@ class PyMsgTx(object):
 
    def serialize(self):
       return self.tx.serialize()
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(tx):'
+      self.tx.pprint(nIndent+1)
 
 
 
@@ -7072,12 +7203,19 @@ class PyMsgBlock(object):
 
    def serialize(self):
       bp = BinaryPacker()
-      bp.put(self.header.serialize())
+      bp.put(BINARY_CHUNK, self.header.serialize())
       bp.put(VAR_INT, len(self.txList))
       for tx in self.txList:
          bp.put(BINARY_CHUNK, tx.serialize())
       return bp.getBinaryString()
 
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(block):'
+      self.header.pprint(nIndent+1)
+      for tx in self.txList:
+         print indstr + indent + 'Tx:', binary_to_hex(tx.getHash())
 
 
 ################################################################################
@@ -7118,6 +7256,9 @@ class PyMsgAlert(object):
 PyMsgMap = {
    'tx':          PyMsgTx,
    'inv':         PyMsgInv,
+   'version':     PyMsgVersion,
+   'verack':      PyMsgVerack,
+   'addr':        PyMsgAddress,
    'getdata':     PyMsgGetData,
    'getheaders':  PyMsgGetHeaders,
    'getblocks':   PyMsgGetBlocks,

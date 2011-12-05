@@ -8,13 +8,14 @@ BE = BIGENDIAN
 
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
+Test_NetworkObjects   = True
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = True
-Test_EncryptedWallet  = True
-Test_TxDistProposals  = True
+Test_EncryptedAddress = False
+Test_EncryptedWallet  = False
+Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
@@ -251,6 +252,117 @@ if Test_SimpleAddress:
    print ''
 
 
+
+################################################################################
+################################################################################
+if Test_NetworkObjects:
+   print '\n'
+   print '*********************************************************************'
+   print 'Testing networking object ser/unser tests'
+   print '*********************************************************************'
+   print ''
+   
+   print 'Testing standard IPv4 address conversions'
+   addrQuad = (192, 168, 1, 125)
+   print addrQuad, '-->', quad_to_str(addrQuad)
+   addrBin = quad_to_binary( addrQuad)
+   print addrQuad, '-->', binary_to_hex(addrBin)
+   print binary_to_hex(addrBin), '-->', binary_to_quad(addrBin)
+   addrStr = '192.168.1.125'
+   print addrStr, '-->',  str_to_quad(addrStr)
+
+
+   netAddrHex = ('f9beb4d9 61646472 00000000 00000000'
+                 '1f000000 689dcea8 01d6c7db 4e010000'
+                 '00000000 00000000 00000000 000000ff'
+                 'ff0233b6 ec208d'                    ).replace(' ','')
+
+   invHex     = ('f9beb4d9 696e7600 00000000 00000000'
+                 '25000000 fef89552 01010000 0021eca1'
+                 '50d3f7cd 5eca5ada 7ad02f8f 3bf38420'
+                 '0cb53e8d d51b153d e92bac7a 1b'      ).replace(' ','')
+
+   getDataHex = ('f9beb4d9 67657464 61746100 00000000'
+                 '25000000 f51e33f8 01010000 0018c643'
+                 '1b6200ec 361a9e80 31c174ad 5e4fc5f9'
+                 '26b2f2df d3acdb62 7cbf87b8 20'      ).replace(' ','')
+
+   msgtxHex   = ( 
+     'f9beb4d9 74780000 00000000 00000000 02010000 18c6431b 01000000 01bc9ea8'
+     '21256fb0 eb081274 bc7afdde 6d5a4b63 6c55cfbe 2befa8f0 0a1c79e5 fc000000'
+     '008b4830 45022009 4e0a68c5 5d515b23 310cc0e2 227bbfb8 cd775bb7 f9bedff1'
+     '01ba06a0 637bee02 2100f81a 11389610 ab92d592 de1cc283 5f0804a0 49baae8b'
+     'd20b4aeb e29cbb82 6aba0141 04fc5c28 d283c217 a857ae2a bfebcf11 33dec9d5'
+     'd51bb918 c5d75326 2b3cc90a 48504bde 41993614 be6ea62e e531ce4a 4723b550'
+     'b3e50492 f320c65d 10d021a2 45ffffff ff02002f 5f1c0000 00001976 a914835b'
+     '78efa362 ad78474c 14c2043b 35adc697 706a88ac 807f3d36 00000000 1976a914'
+     '188f9581 3b59ca6b 8e9eadc6 9fecd33e c48d65de 88ac0000 0000'
+                ).replace(' ','')
+
+
+   msgVerHex  = (
+     'f9beb4d9 76657273 696f6e00 00000000 55000000 409c0000 01000000 00000000'
+     'ff4edc4e 00000000 01000000 00000000 00000000 00000000 0000ffff 7f000001'
+     '208d0100 00000000 00000000 00000000 00000000 ffff7f00 0001d447 61d0a76a'
+     '8ad8e4c7 00ffffff ff' ).replace(' ','')
+
+   
+   msgVerack  = ('f9beb4d9 76657261 636b0000 00000000 00000000').replace(' ','')
+
+
+   msgblk = ''
+   if os.path.exists('msgblock.bin'):
+      with open('msgblock.bin') as f:
+         msgblk = f.read()
+
+   msgTest = PyMessage().unserialize(hex_to_binary(msgVerHex))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+               
+   msgTest = PyMessage().unserialize(hex_to_binary(msgVerack))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+   msgTest = PyMessage().unserialize(hex_to_binary(netAddrHex))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+
+   msgTest = PyMessage().unserialize(hex_to_binary(invHex))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+
+   msgTest = PyMessage().unserialize(hex_to_binary(getDataHex))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+
+   msgTest = PyMessage().unserialize(hex_to_binary(msgtxHex))
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+
+   msgTest = PyMessage().unserialize(msgblk)
+   msgTest.pprint()
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.pprint()
+
+
+
 ################################################################################
 ################################################################################
 if Test_TxSimpleCreate:
@@ -372,6 +484,31 @@ if Test_MultiSigTx:
 
 
    # TODO:  Add some tests for the OP_CHECKMULTISIG support in TxDP
+
+
+
+
+
+################################################################################
+################################################################################
+if Test_NetworkObjects:
+   print '\n'
+   print '*********************************************************************'
+   print 'Testing secure address/wallet features'
+   print '*********************************************************************'
+   print ''
+   
+   netAddrHex = ('f9beb4d9 61646472 00000000 00000000'
+                 '1f000000 689dcea8 01d6c7db 4e010000'
+                 '00000000 00000000 00000000 000000ff'
+                 'ff0233b6 ec208d'                    ).replace(' ','')
+
+   invHex     = ('f9beb4d9 696e7600 00000000 00000000'
+                 '25000000 fef89552 01010000 0021eca1'
+                 '50d3f7cd 5eca5ada 7ad02f8f 3bf38420'
+                 '0cb53e8d d51b153d e92bac7a 1b'      ).replace(' ','')
+
+   
 
 
 ################################################################################
@@ -1130,7 +1267,7 @@ if Test_TxDistProposals:
    utxoList = wlt.getUnspentTxOutList()
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 
-   nBTC = 0.19*ONE_BTC
+   nBTC = 3.19*ONE_BTC
    print '\n(1) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
    prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
    pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
