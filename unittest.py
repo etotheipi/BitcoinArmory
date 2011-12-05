@@ -6,17 +6,17 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
-Test_PyBlockUtils     = True
-Test_CppBlockUtils    = True
-Test_SimpleAddress    = True
-Test_MultiSigTx       = True
-Test_TxSimpleCreate   = True
+Test_BasicUtils       = False
+Test_PyBlockUtils     = False
+Test_CppBlockUtils    = False
+Test_SimpleAddress    = False
+Test_MultiSigTx       = False
+Test_TxSimpleCreate   = False
 Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_TxDistProposals  = True
-Test_SelectCoins      = True
-Test_CryptoTiming     = True
+Test_SelectCoins      = False
+Test_CryptoTiming     = False
 
 
 '''
@@ -1028,7 +1028,7 @@ if Test_EncryptedWallet:
    utxoList = wlt.getUnspentTxOutList()
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 
-   nBTC = 0.4*ONE_BTC
+   nBTC = 1.4*ONE_BTC
    print '\n(10) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
    prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
    feeRecommended = calcMinSuggestedFees(prelimSelection, nBTC, 0)
@@ -1040,22 +1040,28 @@ if Test_EncryptedWallet:
    theSum = sumTxOutList(prelimSelection)
    recipPairs = [ \
          [recip, nBTC], \
-         [recip, theSum-nBTC] ]
+         [newAddr20, theSum-nBTC] ]
 
-   print '\n\n(10)Creating TxDistProposal:'
-   txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
-   if debugPrint: txdp.pprint('   ')
-   print '\n\n(10)Signing the TxDP:'
-   wlt.signTxDistProposal(txdp)
-   if debugPrint: txdp.pprint('   ')
+   if theSum==0:
+      print 'Not enough funds.  Skipping TxDP construction'
+   else:
+      print '\n\n(10)Creating TxDistProposal:'
+      txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
+      if debugPrint: txdp.pprint('   ')
+      print '\n\n(10)Signing the TxDP:'
+      wlt.signTxDistProposal(txdp)
+      if debugPrint: txdp.pprint('   ')
+   
+      txToBroadcast = txdp.prepareFinalTx()
+      print ''
+      txToBroadcast.pprint()
+      print ''
 
-   txToBroadcast = txdp.prepareFinalTx()
-   print ''
-   if debugPrint: txToBroadcast.pprint()
-   print ''
+      print binary_to_hex(txToBroadcast.serialize())
+      pprintHex(binary_to_hex(txToBroadcast.serialize()))
 
-   print binary_to_hex(txToBroadcast.serialize())
-   pprintHex(binary_to_hex(txToBroadcast.serialize()))
+
+
 
    #############################################################################
    print '\n\n'
@@ -1070,7 +1076,7 @@ if Test_EncryptedWallet:
    utxoList = wlt2.getUnspentTxOutList()
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 
-   nBTC = 0.4*ONE_BTC
+   nBTC = 1.4*ONE_BTC
    print '\n(11) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
    prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
    feeRecommended = calcMinSuggestedFees(prelimSelection, nBTC, 0)
@@ -1084,11 +1090,14 @@ if Test_EncryptedWallet:
          [recip, nBTC], \
          [recip, theSum-nBTC] ]
 
-   print '\n\n(11)Creating TxDistProposal:'
-   txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
-   if debugPrint: txdp.pytxObj.pprint()
-   print '\n\n(11) Attempting to sign TxDP with online wallet'
-   wlt2.signTxDistProposal(txdp)
+   if theSum == 0:
+      print 'Not enough funds.... skipping tx construction'
+   else:
+      print '\n\n(11)Creating TxDistProposal:'
+      txdp = PyTxDistProposal().createFromTxOutSelection(prelimSelection, recipPairs)
+      if debugPrint: txdp.pytxObj.pprint()
+      print '\n\n(11) Attempting to sign TxDP with online wallet'
+      wlt2.signTxDistProposal(txdp)
 
 
 ################################################################################

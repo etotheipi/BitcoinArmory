@@ -212,14 +212,15 @@ def coin2str(nSatoshi, ndec=8, rJust=False):
 
 
 # Some useful constants to be used throughout everything
-BASE58DIGITS = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-LITTLEENDIAN = '<';
-BIGENDIAN = '>';
-ONE_BTC = long(1e8)
-CENT = long(1e8/100.)
+BASE58DIGITS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+LITTLEENDIAN  = '<';
+BIGENDIAN     = '>';
+NETWORKENDIAN = '!';
+ONE_BTC       = long(1e8)
+CENT          = long(1e8/100.)
 UNINITIALIZED = None
-UNKNOWN = -2
-MIN_TX_FEE = 50000
+UNKNOWN       = -2
+MIN_TX_FEE    = 50000
 MIN_RELAY_TX_FEE = 10000
 
 UINT8_MAX  = 2**8-1
@@ -761,7 +762,11 @@ class BinaryUnpacker(object):
       elif varType == VAR_INT:
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          self.advance(nBytes)
-         return value
+      elif varType == VAR_STR:
+         [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
+         binOut = self.binaryStr[pos+nBytes:pos+nBytes+value]
+         self.advance(nBytes+value)
+         return binOut
       elif varType == FLOAT:
          value = unpack(E+'f', self.binaryStr[pos:pos+4])
          self.advance(4)
@@ -826,6 +831,9 @@ class BinaryPacker(object):
          self.binaryConcat += pack(E+'q', theData)
       elif varType == VAR_INT:
          self.binaryConcat += packVarInt(theData)[0]
+      elif varType == VAR_STR:
+         self.binaryConcat += packVarInt(len(theData))[0]
+         self.binaryConcat += theData
       elif varType == FLOAT:
          self.binaryConcat += pack(E+'f', theData)
       elif varType == BINARY_CHUNK:
@@ -2508,7 +2516,7 @@ class PyOutPoint(object):
 
       if opData.getRemainingSize() < 36: raise UnserializeError
       self.txHash = opData.get(BINARY_CHUNK, 32)
-      self.txOutIndex     = opData.get(UINT32)
+      self.txOutIndex = opData.get(UINT32)
       return self
 
    def serialize(self):
@@ -6709,6 +6717,419 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
+
+
+
+
+###############################################################################
+###############################################################################
+# 
+#  Networking Objects
+# 
+###############################################################################
+###############################################################################
+
+class PyMessage(object):
+   def __init__(self, cmd, pymsgObj):
+      self.magic      = MAGIC_BYTES
+      self.cmd        = cmd
+      self.payloadObj = pymsgObj
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.magic,                    width= 4)
+      bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
+      bp.put(UINT32,       len(self.payloadBin))
+      if not self.cmd=='version' and not self.cmd=='verack':
+         bp.put(BINARY_CHUNK, hash256(self.payloadBin)[:4],     width= 4)
+      bp.put(BINARY_CHUNK, self.payloadObj.serialize())
+      return bp.getBinaryString()
+    
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         msgData = toUnpack
+      else:
+         msgData = BinaryUnpacker( toUnpack )
+
+      self.magic = msgData.get(BINARY_CHUNK, 4)
+      self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
+      length     = msgData.get(UINT32)
+      chksum     = msgData.get(BINARY_CHUNK, 4)
+      payload    = msgData.get(BINARY_CHUNK, length)
+      payload    = verifyChecksum(payload, chksum)
+      self.payloadObj = PyMsgMap[self.cmd].unserialize()
+      return self
+
+################################################################################
+def quad_to_str( addrQuad):
+   return '.'.join([str(a) for a in addrQuad])
+
+def quad_to_binary( addrQuad):
+   return ''.join([chr(a) for a in addrQuad])
+
+def binary_to_quad(addrBin):
+   return [ord(a) for a in addrBin]
+
+def str_to_quad(addrBin):
+   return [int(a) for a in addrBin.split('.')]
+
+def parseNetAddress(addrObj):
+   if isinstance(addrObj, str):
+      if len(addrObj)==4:
+         return binary_to_quad(addrObj)
+      else:
+         return str_to_quad(addrObj)
+   # Probably already in the right form
+   return addrObj
+
+################################################################################
+class PyNetAddress(object):
+
+   def __init__(self, time=-1, svcs='0'*16, netaddrObj=[], port=-1):
+      """
+      For our client we will ALWAYS use svcs=0 (NODE_NETWORK=0)
+
+      time     is stored as a unix timestamp
+      services is stored as a bitset -- a string of 16 '0's or '1's
+      addrObj  is stored as a list/tuple of four UINT8s
+      port     is a regular old port number...
+      """
+      self.time     = time
+      self.services = svcs
+      self.addrQuad = parseNetAddress(netaddrObj)
+      self.port     = port
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         addrData = toUnpack
+      else:
+         addrData = BinaryUnpacker( toUnpack )
+
+      self.time     = addrData.get(UINT32)
+      self.services = addrData.get(UINT64)
+      self.addrQuad = addrData.get(BINARY_CHUNK,16)[-4:]
+      self.port     = addrData.get(UINT16)
+
+      self.services = int_to_bitset(self.services)
+      self.addrQuad = binary_to_quad(self.addrQuad)
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(UINT32,       self.time)
+      bp.put(UINT64,       bitset_to_int(self.services))
+      bp.put(BINARY_CHUNK, quad_to_binary(self.addrQuad).rjust(16,'\x00'))
+      bp.put(UINT16,       self.port)
+      return bp.getBinaryString()
+
+
+################################################################################
+################################################################################
+class PyMsgAddress(object):
+   
+   def __init__(self, tstamps=[], addrList=[]):
+      self.timestamps = tstamps   # unix timestamps
+      self.addrList   = addrList  # PyNetAddress objs
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         addrData = toUnpack
+      else:
+         addrData = BinaryUnpacker( toUnpack )
+
+      self.timestamps = []
+      self.addrList = []
+      naddr = addrData.get(VAR_INT)
+      for i in range(naddr):
+         self.timestamps.append( addrData.get(UINT32) )
+         self.addrList.append( PyNetAddress().unserialize(addrData) )
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(VAR_INT, len(self.addrList)
+      for tstamp, netaddr in zip(self.timestamps, self.addrList):
+         bp.put(UINT32,       tstamp)
+         bp.put(BINARY_CHUNK, netaddr.serialize(), width=26)
+      return bp.getBinaryString()
+
+
+################################################################################
+################################################################################
+class PyMsgVersion(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+
+   command = 'version'
+
+   def __init__(self, version, svcs, tstamp, addrRcv, addrFrm, nonce, sub):
+      self.invList = []  # list of (type, hash) pairs
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         invData = toUnpack
+      else:
+         invData = BinaryUnpacker( toUnpack )
+
+      numInv = invData.get(VAR_INT)
+      for i in range(numInv):
+         invType = invData.get(UINT32)
+         invHash = invData.get(BINARY_CHUNK, 32)
+         self.invList.append( [invType, invHash] )
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(VAR_INT, len(self.invList))
+      for inv in self.invList:
+         bp.put(UINT32, inv[0])
+         bp.put(BINARY_CHUNK, inv[1], width=32)
+      return bp.getBinaryString()
+
+################################################################################
+################################################################################
+class PyMsgInv(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+
+   command = 'inv'
+
+   def __init__(self):
+      self.invList = []  # list of (type, hash) pairs
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         invData = toUnpack
+      else:
+         invData = BinaryUnpacker( toUnpack )
+
+      numInv = invData.get(VAR_INT)
+      for i in range(numInv):
+         invType = invData.get(UINT32)
+         invHash = invData.get(BINARY_CHUNK, 32)
+         self.invList.append( [invType, invHash] )
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(VAR_INT, len(self.invList))
+      for inv in self.invList:
+         bp.put(UINT32, inv[0])
+         bp.put(BINARY_CHUNK, inv[1], width=32)
+      return bp.getBinaryString()
+      
+
+
+################################################################################
+################################################################################
+class PyMsgGetData(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+
+   command = 'getdata'
+
+   def __init__(self, invList=None):
+      if invList:
+         self.invList = invList
+      else:
+         self.invList = []
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         invData = toUnpack
+      else:
+         invData = BinaryUnpacker( toUnpack )
+
+      numInv = invData.get(VAR_INT)
+      for i in range(numInv):
+         invType = invData.get(UINT32)
+         invHash = invData.get(BINARY_CHUNK, 32)
+         self.invList.append( [invType, invHash] )
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(VAR_INT, len(self.invList))
+      for inv in self.invList:
+         bp.put(UINT32, inv[0])
+         bp.put(BINARY_CHUNK, inv[1], width=32)
+      return bp.getBinaryString()
+      
+
+################################################################################
+################################################################################
+class PyMsgGetHeaders(object):
+   command = 'getheaders'
+
+   def __init__(self, startCt=-1, hashStartList=[], hashStop=''):
+      self.startCount = startCt
+      self.hashStart  = hashStartList
+      self.hashStop   = hashStop
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         ghData = toUnpack
+      else:
+         ghData = BinaryUnpacker( toUnpack )
+
+      self.startCount = ghData.get(VAR_INT)
+      for i in range(self.startCount):
+         self.hashStart.append(ghData.get(BINARY_CHUNK, 32))
+      self.hashStop = ghData.get(BINARY_CHUNK, 32)
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(VAR_INT, self.startCount)
+      for i in range(self.startCount)
+         bp.put(BINARY_CHUNK, self.hashStart[i], width=32)
+      bp.put(BINARY_CHUNK, self.hashStop, width=32)
+      return bp.getBinaryString()
+   
+
+
+################################################################################
+################################################################################
+class PyMsgGetBlocks(object):
+   command = 'getblocks'
+
+   def __init__(self, version=1, startCt=-1, hashStartList=[], hashStop=''):
+      self.version    = 1
+      self.startCount = startCt
+      self.hashStart  = hashStartList
+      self.hashStop   = hashStop
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         gbData = toUnpack
+      else:
+         gbData = BinaryUnpacker( toUnpack )
+
+      self.version = gbData.get(UINT32)
+      self.startCount = gbData.get(VAR_INT)
+      for i in range(self.startCount):
+         self.hashStart.append(gbData.get(BINARY_CHUNK, 32))
+      self.hashStop = gbData.get(BINARY_CHUNK, 32)
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(UINT32, self.version)
+      bp.put(VAR_INT, self.startCount)
+      for i in range(self.startCount):
+         bp.put(BINARY_CHUNK,  self.hashStart[i], width=32)
+      bp.put(BINARY_CHUNK, self.hashStart, width=32)
+      return bp.getBinaryString()
+
+
+
+################################################################################
+################################################################################
+class PyMsgTx(object):
+   command = 'tx'
+
+   def __init__(self, tx=PyTx()):
+      self.tx = tx
+
+   def unserialize(self, toUnpack):
+      self.tx.unserialize(toUnpack)
+      return self
+
+   def serialize(self):
+      return self.tx.serialize()
+
+
+
+################################################################################
+################################################################################
+class PyMsgBlock(object):
+   command = 'block'
+
+   def __init__(self, header=PyBlockHeader(), txlist=[]):
+      self.header = header
+      self.txList = txlist
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         blkData = toUnpack
+      else:
+         blkData = BinaryUnpacker( toUnpack )
+
+      self.header.unserialize(blkData)
+      numTx = blkData.get(VAR_INT)
+      for i in range(numTx):
+         self.txList.append(PyTx().unserialize(blkData))
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(self.header.serialize())
+      bp.put(VAR_INT, len(self.txList))
+      for tx in self.txList:
+         bp.put(BINARY_CHUNK, tx.serialize())
+      return bp.getBinaryString()
+
+
+
+################################################################################
+class PyMsgAlert(object):
+   command = 'alert'
+
+   def __init__(self):
+      self.version = 1
+      self.relayUntil = 0
+      self.expiration = 0
+      self.uniqueID   = 0
+      self.cancelVal  = 0
+      self.cancelSet  = []
+      self.minVersion = 0
+      self.maxVersion = 0
+      self.subVerSet  = []
+      self.comment    = ''
+      self.statusBar  = ''
+      self.reserved   = ''
+      self.signature   = ''
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         blkData = toUnpack
+      else:
+         blkData = BinaryUnpacker( toUnpack )
+
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      return bp.getBinaryString()
+
+
+################################################################################
+# Use this map to figure out which object to serialize/unserialize from a cmd
+PyMsgMap = {
+   'tx':          PyMsgTx,
+   'inv':         PyMsgInv,
+   'getdata':     PyMsgGetData,
+   'getheaders':  PyMsgGetHeaders,
+   'getblocks':   PyMsgGetBlocks,
+   'block':       PyMsgBlock,
+   'alert':       PyMsgAlert }
+
+
+
+
+
+
+
 
 
 
