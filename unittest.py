@@ -355,11 +355,12 @@ if Test_NetworkObjects:
    msgTest.pprint()
 
 
-   msgTest = PyMessage().unserialize(msgblk)
-   msgTest.pprint()
-   ser = msgTest.serialize()
-   msgTest = PyMessage().unserialize(ser)
-   msgTest.pprint()
+   # 36 kB of data on the screen is unnecessary under most circumstances... 
+   #msgTest = PyMessage().unserialize(msgblk)
+   #msgTest.pprint()
+   #ser = msgTest.serialize()
+   #msgTest = PyMessage().unserialize(ser)
+   #msgTest.pprint()
 
 
 

@@ -714,6 +714,7 @@ class BinaryUnpacker(object):
    def getSize(self): return len(self.binaryStr)
    def getRemainingSize(self): return len(self.binaryStr) - self.pos
    def getBinaryString(self): return self.binaryStr
+   def getRemainingString(self): return self.binaryStr[self.pos:]
    def append(self, binaryStr): self.binaryStr += binaryStr
    def advance(self, bytesToAdvance): self.pos += bytesToAdvance
    def rewind(self, bytesToRewind): self.pos -= bytesToRewind
@@ -6765,6 +6766,8 @@ class PyMessage(object):
       payload    = msgData.get(BINARY_CHUNK, length)
       if not self.cmd=='version' and not self.cmd=='verack':
          payload    = verifyChecksum(payload, chksum)
+
+      pprintHex(binary_to_hex(payload))
       self.payloadObj = PyMsgMap[self.cmd]().unserialize(payload)
 
       if self.magic != MAGIC_BYTES:
@@ -6820,13 +6823,15 @@ class PyNetAddress(object):
       self.addrQuad = parseNetAddress(netaddrObj)
       self.port     = port
 
-   def unserialize(self, toUnpack):
+   def unserialize(self, toUnpack, hasTimeField=True):
       if isinstance(toUnpack, BinaryUnpacker):
          addrData = toUnpack
       else:
          addrData = BinaryUnpacker( toUnpack )
 
-      self.time     = addrData.get(UINT32)
+      if hasTimeField:
+         self.time     = addrData.get(UINT32)
+
       self.services = addrData.get(UINT64)
       self.addrQuad = addrData.get(BINARY_CHUNK,16)[-4:]
       self.port     = addrData.get(UINT16, endianness=NETWORKENDIAN)
@@ -6835,9 +6840,10 @@ class PyNetAddress(object):
       self.addrQuad = binary_to_quad(self.addrQuad)
       return self
 
-   def serialize(self):
+   def serialize(self, withTimeField=True):
       bp = BinaryPacker()
-      bp.put(UINT32,       self.time)
+      if withTimeField:
+         bp.put(UINT32,       self.time)
       bp.put(UINT64,       bitset_to_int(self.services))
       bp.put(BINARY_CHUNK, quad_to_binary(self.addrQuad).rjust(16,'\x00'))
       bp.put(UINT16,       self.port, endianness=NETWORKENDIAN)
@@ -6920,8 +6926,8 @@ class PyMsgVersion(object):
       self.version  = verData.get(INT32)
       self.services = int_to_bitset(verData.get(UINT64), widthBytes=8)
       self.time     = verData.get(INT64)
-      self.addrRecv = PyNetAddress().unserialize(verData)
-      self.addrFrom = PyNetAddress().unserialize(verData)
+      self.addrRecv = PyNetAddress().unserialize(verData, hasTimeField=False)
+      self.addrFrom = PyNetAddress().unserialize(verData, hasTimeField=False)
       self.nonce    = verData.get(UINT64)
       self.subver   = verData.get(VAR_STR)
       self.height0  = verData.get(INT32)
@@ -6930,10 +6936,10 @@ class PyMsgVersion(object):
    def serialize(self):
       bp = BinaryPacker()
       bp.put(INT32,   self.version )
-      bp.put(UINT64,  self.services)
+      bp.put(UINT64,  bitset_to_int(self.services))
       bp.put(INT64,   self.time    )  # todo, should this really be int64?
-      bp.put(BINARY_CHUNK, self.addrRecv.serialize())
-      bp.put(BINARY_CHUNK, self.addrFrom.serialize())
+      bp.put(BINARY_CHUNK, self.addrRecv.serialize(withTimeField=False))
+      bp.put(BINARY_CHUNK, self.addrFrom.serialize(withTimeField=False))
       bp.put(UINT64,  self.nonce   )
       bp.put(VAR_STR, self.subver  )
       bp.put(INT32,   self.height0 )
@@ -6944,13 +6950,13 @@ class PyMsgVersion(object):
       print ''
       print indstr + 'Message(version):'
       print indstr + indent + 'Version:  ' + str(self.version)
-      print indstr + indent + 'Services: ' + bitset_to_int(self.services)
+      print indstr + indent + 'Services: ' + self.services
       print indstr + indent + 'Time:     ' + unixTimeToFormatStr(self.time)
-      print indstr + indent + 'AddrTo:   ' + self.addrRecv.pprintShort()
-      print indstr + indent + 'AddrFrom: ' + self.addrFrom.pprintShort()
+      print indstr + indent + 'AddrTo:  ',;  self.addrRecv.pprintShort()
+      print indstr + indent + 'AddrFrom:',;  self.addrFrom.pprintShort()
       print indstr + indent + 'Nonce:    ' + str(self.nonce)
-      print indstr + indent + 'SubVer:   ' + self.subver
-      print indstr + indent + 'StartHgt: ' + self.height0
+      print indstr + indent + 'SubVer:  ',   self.subver
+      print indstr + indent + 'StartHgt: ' + str(self.height0)
 
 ################################################################################
 class PyMsgVerack(object):
