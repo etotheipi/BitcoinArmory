@@ -32,6 +32,7 @@ from datetime import datetime
 # 8000 lines of python to help us out...
 from btcarmoryengine import *
 
+# All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
 

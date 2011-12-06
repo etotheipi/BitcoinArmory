@@ -2550,6 +2550,11 @@ class PyOutPoint(object):
       binOut.put(UINT32, self.txOutIndex)
       return binOut.getBinaryString()
 
+
+   def copy(self):
+      return PyOutPoint().unserialize(self.serialize())
+
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'OutPoint:'
@@ -2590,6 +2595,10 @@ class PyTxIn(object):
       binOut.put(BINARY_CHUNK, self.binScript)
       binOut.put(UINT32, self.intSeq)
       return binOut.getBinaryString()
+
+   def copy(self):
+      return PyTxIn().unserialize(self.serialize())
+
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -2632,6 +2641,9 @@ class PyTxOut(object):
       binOut.put(VAR_INT, len(self.binScript))
       binOut.put(BINARY_CHUNK, self.binScript)
       return binOut.getBinaryString()
+
+   def copy(self):
+      return PyTxOut().unserialize(self.serialize())
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -2690,6 +2702,9 @@ class PyTx(object):
       self.nBytes = endPos - startPos
       self.thisHash = hash256(self.serialize())
       return self
+
+   def copy(self):
+      return PyTx().unserialize(self.serialize())
 
    def getHash(self):
       if self.thisHash == UNINITIALIZED:
@@ -2799,6 +2814,8 @@ class PyBlockHeader(object):
       self.theHash     = hash256(self.serialize())
       return self
 
+   def copy(self):
+      return PyBlockHeader().unserialize(self.serialize())
 
    def getHash(self, endian=LITTLEENDIAN):
       if self.version == UNINITIALIZED:
@@ -7497,56 +7514,13 @@ class BitcoinArmoryClient(Protocol):
             print '***!!!*** important that you wait for 6+ confirmations'
             print '***!!!*** before considering this transaction valid!'
          else:
-            self.factory.zeroConfTx[pytx.getHash()] = pytx
-            
-
+            self.factory.zeroConfTx[pytx.getHash()] = pytx.copy()
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
          print 'Received block message (ignoring)'
          pass 
                   
-                  
-               
-   
-
-         
-
-      
-
-         """
-         # Start reading the message header
-         magic = buf.get(BINARY_CHUNK, 4)
-         if not magic==MAGIC_BYTES:
-            raise NetworkIDError
-
-         cmd = buf.get(BINARY_CHUNK, 12).strip('\x00')
-         sz  = buf.get(UINT32)
-
-         # Non-version, non-verack msgs have a chksum
-         chk = None
-         if not cmd=='version' and not cmd=='verack':
-            chk = buf.get(BINARY_CHUNK, 4)
-   
-         if buf.getRemainingSize() < sz:
-            # Buffer only contains a partial message
-            break
-
-         # If we got here, there's enough data to process a full msg
-         # Fix single-byte errors via checksum, if available
-         payloadBin = buf.get(BINARY_CHUNK, sz)
-         if chk:
-            payloadBin = verifyChecksum(payloadBin, chk)
-
-         PayloadObj = PayloadMap[cmd]()
-         msgs.append(PayloadObj.unserialize(payloadBin))
-         self.recvData = buf.getRemainingString()
-
-      if not msgToProcess:
-         return
-
-      # If we got here, msgs contains a list of objects to be processed
-      """
 
    ############################################################
    def sendMessage(self, msg):
