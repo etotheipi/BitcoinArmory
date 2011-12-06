@@ -94,19 +94,20 @@
 *      (27)  Address Encrypt (Change Passwd)      X
 *      (28)  Deterministic Addr Gen (ECDSAPriv)   X
 *      (29)  Deterministic Addr Gen (ECDSAPub)    X
-*      (30)  Deterministic Addr Gen (Random)   
+*      (30)  Deterministic Addr Gen (Random)      _
 *     ---------------------------------------------------------------
 *      (31)  PyWallet/Addr File I/O               X
 *      (32)  SelectCoins for tx                   X
 *      (33)  Tx fee calculations                  X
 *      (34)  Tx construct given inputs            X
-*      (35*) Distr Proposals/multisig             .
+*      (35)  Distribution Proposals (std)         X
+*      (36*) Distribution Proposals (multi-sig)   .
 *     ---------------------------------------------------------------
-*      (36)  Connect to localhost bitcoind
-*      (37)  Connect to nodes (bootstrap IRC)
-*      (38)  Blockchain download
-*      (39)  Get tx data not in block yet       
-*      (40)  Tx broadcast
+*      (37)  Connect to localhost bitcoind        X
+*      (38)  Connect to nodes (bootstrap IRC)
+*      (39)  Blockchain download
+*      (40)  Get tx data not in block yet         X
+*      (41)  Tx broadcast                         X
 *
 *
 * Notes:
@@ -132,9 +133,8 @@
 *           NOT implemented the OP_IF/OP_NOTIF/OP_ELSE/OP_ENDIF op-codes. 
 *           These codes require a bit of work to get right, and not currently
 *           part of any near-term isStandard() transaction types.  
-*        
 *
-*     (35*) In anticipation of supporting multi-signature transactions, I have
+*     (36*) In anticipation of supporting multi-signature transactions, I have
 *           created a specification for handling multi-sig transactions, which
 *           also happens to work well for offline wallets/transactions.  I 
 *           have called these "Distribution Proposals".  See the following BIP:
@@ -144,10 +144,13 @@
 * More Notes:
 *      FullRAM implementation only in C++ code.  However,
 *      modern computers can handle the full blockchain in RAM right now, and 
-*      probably for the next year, so there's no hurry to do this.
+*      probably for the next year, so there's no hurry to restructure the code
+*      to index the blockchain into memory and scan it in batches
+*
+*      To be clear:  I WILL DO THIS, just not yet -- one of my first priorities
+*                    after an initial client release
 *
 *      Short/Medium-term future:
-*            *** NETWORKING & BLOCKCHAIN DOWNLOAD ***
 *            Convert wallet files to/from official BTC wallets (pywallet)
 *  
 ********************************************************************************
@@ -157,6 +160,121 @@
    For information on dependencies and compiling, see Using_PyBtcEngine.README
 
 ********************************************************************************
+#####
+05 Dec, 2011
+
+   ***
+   *** All crypto, addresses, deterministic wallets, TxDPs, networking!
+   ***
+
+   TONS OF NEW FEATURES, AND ALL OF IT HAS BEEN UNIT TESTED!
+
+   -- PyBtcAddress:  Complete address management, with in-place priv key 
+                     encryption, time- and memory-bound KDF, and address
+                     chaining even when locked.  By "address chaining", 
+                     we mean deterministic addresses via a chain code,
+                     applying Diffie-Hellman shared-secret logic with the
+                     32-byte chaincode as one "private key".  This produces
+                     secure deterministic wallets, and new public keys can
+                     be computed *without private keys*.  This makes it 
+                     possible to have online/watching-only wallets!
+                     
+   -- PyBtcWallet:   Complete, atomic-file-operation, error-correcting 
+                     wallet system!  Uses manual binary file format 
+                     (not susceptible to the 0.4.0 encryption bug), and
+                     uses a backup to do COMPLETELY ATOMIC file operations,
+                     guaranteeing that all wallet updates either complete
+                     without corruption, or that we have an uncorrupted
+                     file from which we can restore an interrupted op.
+         
+                     Easy private key import for physical bitcoins, or 
+                     offline storage of private keys, only to be spent
+                     when the user types/copies in the private key.
+                     
+                     Thoroughly tested all the encryption options (AES256)
+                     with encryption/passphrase changing, KDF parameter
+                     changing, wallet serialize/unserialize, single-byte
+                     error correction, adjustable lock/unlock frequency,
+                     and ONLINE-WALLET-FORK:  rewrites the wallet without
+                     any private key data, but can be used from an online
+                     to monitor transactions, and generate new addresses.
+
+   -- TxDPs:         Based on BIP 0010: 
+                        https://github.com/genjix/bips/blob/master/bip-0010.md
+                     All transaction operations in BitcoinArmory go through
+                     "Tx Distribution Proposals", which is an ASCII-able 
+                     serialization for unsigned transactions, which can be
+                     easily transmitted through email, and used to collect 
+                     signatures.  THIS IS ALSO A MECHANISM FOR THE EASIEST
+                     OFFLINE-WALLET capability, ever.  If you are using an
+                     online wallet, you "Send Coins" in the same way you 
+                     would if you had the private keys, but instead it puts
+                     a txdp file on a USB key, which can then be taken to
+                     the offline computer for signing:  THE OFFLINE COMPUTER
+                     DOES NOT NEED THE BLOCKCHAIN IN ORDER TO REVIEW AND
+                     SIGN THE TXDP.  Sign it and take back to your online 
+                     computer for broadcast.
+         
+
+   -- Multi-sig tx:  The TxDP concept is integrated so tightly into this 
+                     codebase, because it will be A CORE ELEMENT OF MULTI-
+                     SIGNATURE TRANSACTIONS!
+
+                     This exactly same technique will be used for multi-sigs,
+                     in fact, the offline-wallet signing is just a special
+                     case of a 1-of-1 multi-sig tx, solved by TxDPs.  
+                     Multi-sig support is integrated into the TxDPs/wallets, 
+                     but it has not been tested yet.  This will be tested 
+                     as soon as my testnet coins receive enough confirmations.
+
+   -- NETWORKING:    Using python-twisted and all the bitcoin network messages 
+                     I will need for getting transactions not in the blockchain 
+                     yet, and broadcasting pre-generated transactions.  
+                  
+                     NOTE: right now it only connects to localhost, requiring
+                     bitcoin/bitcoind to be running.  With the robustness of 
+                     the networking code, it should be fairly easy to implement
+                     "normal" multiple-connection node behavior... I just need
+                     to add/test the capability to collect blocks, update the
+                     blockchain, and maintain peer/address lists with a variety
+                     of connections.  This is one of my main priorities after 
+                     the first client release!
+                    
+   -- qt4reactor.py: Found a robust version of the qt4reactor, which is a
+                     combined, asynchronous event loop for both, Twisted, and
+                     PyQt4.  With this file, I can integrate my existing 
+                     networking code with PyQt UIs
+                     
+   -- Double Broadcast Detection:
+   
+                     With access to all messages moving through the network,
+                     it is easy to see whether multiple zero-confirmation txs
+                     are spending the same outputs.  This could be indicative
+                     of a double-broadcast attack, where someone sends you a 
+                     tx first, then broadcasts a competing one to the other 
+                     half of the network.  This will show up as a zero-conf tx
+                     in the user's client, and might even get 1 confirmation,
+                     before it disappears.  The attack won't succeed very
+                     often, but it's basically free for the attacker to execute
+                     it ... unless you have double-broadcast detection!
+
+                     A master list of TxOuts waiting to enter the blockchain
+                     is maintained in the BitcoinArmoryClientFactory, and a
+                     flag is raised if a tx is received which tries to spend
+                     any outputs already in the queue.  The client will usually
+                     just drop the tx because it conflicts with another one in
+                     the memory pool, but there's no reason we can't examine it
+                     for double-broadcast attacks.  An "alert" flag will be 
+                     raised in the client for two-hours, and the outer app
+                     can check the factory.doubleBroadcastAlerts for their 
+                     wallet addresses to find out if they are at risk.  
+                     A warning can be raised to say "MAKE SURE YOU WAIT FOR
+                     6 CONFIRMATIONS BEFORE ACCEPTING THIS TX.  ESPECIALLY
+                     IMPORTANT FOR THIS TX!!!"
+                     
+                     
+                     
+
 #####
 20 Nov, 2011
 

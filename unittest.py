@@ -391,12 +391,14 @@ if Test_NetworkObjects:
       from twisted.internet.defer import Deferred
       from twisted.internet import reactor
    
+      # Load blockchain so that we can test ALL the code
+      BDM_LoadBlockchainFile()
       btcNetFactory = None
    
       def restartConnection(protoObj, failReason):
          print '!Trying to restart connection'
          from twisted.internet import reactor
-         self.connectTCP(protoObj.peer[0], protoObj.peer[1], btcNetFactory)
+         reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], btcNetFactory)
    
       # On handshake complete, do nothing special, but we do want to tell it to
       # restart the connection

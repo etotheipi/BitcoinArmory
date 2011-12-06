@@ -10,12 +10,13 @@ PyBtcEngine contains over 7,000 lines of code, between the C++ and python
 libraries.  This can be very confusing for someone unfamiliar with the 
 code (you).  Below I have attempted to illustrate the CONOPS (concept of 
 operations) that the library was designed for, so you know how to use it 
-in your own development activities.  There is a bunch of sample code in
+in your own development activities.  There is a TON of sample code in
 the following three files:
 
+   [**SWIG**]   unittest.py    (this has almost everything!)
+
    [ C++    ]   cppForSwig/BlockUtilsTest.cpp
-   [ Python ]   pybtcengine.py
-   [ SWIG   ]   testswig.py and pyqt/blockexplore.pyw
+   [ Python ]   btcarmoryengine.py
 
 But of course, sample code alone does not make great documentation.  I will
 attempt to provide reference info for everything else you need to know, here.
@@ -40,8 +41,11 @@ that all features with an X in either column are accessible in SWIG.
             Linux:   Should be preinstalled...
             Windows: "http://www.python.org/getit/"
 
+   - Python Twisted -- asynchronous networking
+            Linux:   Install package 'python-twisted'
+            Windows: "http://twistedmatrix.com/trac/wiki/Downloads"
+
    - PyQt 4 (for Python 2.X)
-            (OPTIONAL - if you'd like to compile/run the block-explorer demo)
             Linux:   Install  "libqtcore4", "libqt4-dev" and "python-qt4"
             Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
                      Also will need the QtSDK
@@ -104,7 +108,15 @@ that all features with an X in either column are accessible in SWIG.
 
    
 ################################################################################
-
+#
+# NOTE:  05 Dec, 2011
+#        This documentation is accurate, but only represents a fraction of the
+#        available functionality in the libraries.  I will update this as soon
+#        as I get the first client release out of the way.  For now, you can
+#        can see most of the C++ methods below (accessed via Python), and then
+#        do an "import btcarmoryengine; help(btcarmoryengine)" to see a MASSIVE
+#        list of the available classes and methods.  Seriously... it's huge.
+#
 ################################################################################
 *** Documentation ***
 
@@ -182,9 +194,7 @@ that all features with an X in either column are accessible in SWIG.
          BtcWallet::addAddress(...)
    use:
          BtcWallet::addAddress_1_(...)
-         BtcWallet::addAddress_2_(...)
          BtcWallet::addAddress_3_(...)
-         BtcWallet::addAddress_4_(...)
          BtcWallet::addAddress_5_(...)
    The number at the end specifies how many arguments the method takes.
    The original method has 4 optional arguments, but SWIG didn't know
@@ -468,16 +478,17 @@ Class BtcAddress:
    hold an updated balance/ledger everytime it's parent BtcWallet is updated
    Since there are multiple ways to represent each field, we label each 
    member with the number of bytes
+
+   NOTE:  The C++ address objects no longer have fields for public and 
+          private keys.  All that data will be handled by Python/SWIG
    
    Useful Methods:
       BtcAddress::get/setAddrStr20()
-      BtcAddress::get/setPubKey65()
-      BtcAddress::get/setPrivKey32()
       BtcAddress::get/setFirstBlockNum()
       BtcAddress::get/setFirstTimestamp()
+      BtcAddress::get/setLastBlockNum()
+      BtcAddress::get/setLastTimestamp()
       
-      BtcAddress::havePubKey()
-      BtcAddress::havePrivKey()
       BtcAddress::getBalance()
       BtcAddress::cleanLedger()       // remove invalid entries, sort by time
 

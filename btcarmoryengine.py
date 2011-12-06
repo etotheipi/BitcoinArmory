@@ -230,6 +230,12 @@ UINT32_MAX = 2**32-1
 UINT64_MAX = 2**64-1
 
 RightNow = time.time
+MINUTE   = 60
+HOUR     = 3600
+DAY      = 24*HOUR
+WEEK     = 7*DAY
+MONTH    = 30*DAY
+YEAR     = 365*DAY
 
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only
@@ -7459,18 +7465,23 @@ class BitcoinArmoryClient(Protocol):
       self.factory.connectionFailed(self, reason)
 
 
+   ############################################################
    def processMessage(self, msg):
       # TODO:  when I start expanding this class to be more versatile,
-      #        I'll consider chaining/setting callbacks through the
-      #        calling application.
+      #        I'll consider chaining/setting callbacks from the calling
+      #        application -- but right now there's so little to do here,
+      #        I will expand it only when I need it
       msg.payload.pprint(nIndent=2)
       if msg.cmd=='inv':
          print 'Received inv message'
          invobj = msg.payload
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
-            if inv[0]==MSG_INV_BLOCK and not TheBDM.getHeaderByHash(inv[1]):
-               pass # for now, not downloading blocks
+            if inv[0]==MSG_INV_BLOCK:
+               # We'll hear about the new block via blk0001.dat... and when
+               # we do (within 5s), we should purge the zero-conf tx list
+               from twisted.internet import reactor
+               reactor.callLater(5, self.factory.purgeMemoryPool)
             if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
                print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)
@@ -7478,11 +7489,21 @@ class BitcoinArmoryClient(Protocol):
       if msg.cmd=='tx':
          print 'Received tx message'
          pytx = msg.payload.tx
-         self.factory.zeroConfTx[pytx.getHash()] = pytx
+         newAlert = self.factory.checkForDoubleBroadcast(pytx)
+         if newAlert:
+            print '***!!!*** DOUBLE-BROADCAST DETECTED!'
+            print '***!!!*** The person who just send you money may be'
+            print '***!!!*** Attempting to defraud you.  It is especially'
+            print '***!!!*** important that you wait for 6+ confirmations'
+            print '***!!!*** before considering this transaction valid!'
+         else:
+            self.factory.zeroConfTx[pytx.getHash()] = pytx
+            
+
       if msg.cmd=='block':
-         print 'Received block message (ignoring)'
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
+         print 'Received block message (ignoring)'
          pass 
                   
                   
@@ -7546,6 +7567,22 @@ class BitcoinArmoryClient(Protocol):
          self.transport.write(msg.serialize())
 
 
+   ############################################################
+   def sendTx(self, txObj):
+      """
+      This is a convenience method for the special case of sending
+      a locally-constructed transaction.  Pass in either a PyTx 
+      object, or a binary serialized tx.  It will be converted to
+      a PyMessage and forwarded to our peer(s)
+      """
+      if   isinstance(txObj, PyMessage):
+         self.sendMessage( txObj )
+      elif isinstance(txObj, PyTx()):
+         self.sendMessage( PayloadTx(txObj))
+      elif isinstance(txObj, str):
+         self.sendMessage( PayloadTx(PyTx().unserialize(txObj)) )
+         
+
 
 
 
@@ -7560,26 +7597,40 @@ class BitcoinArmoryClientFactory(ClientFactory):
    objects (BitcoinArmoryClients) can share information through this factory.
    However, at the moment, this class is designed to only create a single 
    connection -- to localhost.
+
+   Note that I am implementing a special security feature:  besides collecting
+   tx's not in the blockchain yet, I also monitor for double-broadcast events
+   which are due to two transactions being send at the same time with different
+   recipients but the same inputs.  
    """
    protocol = BitcoinArmoryClient
    zeroConfTx = {}
+   zeroConfTxOutMap = {}       #   map[OutPoint] = txHash
+   doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
+   lastAlert = 0
 
-   def __init__(self, def_handshake=None, func_loseConnect=None):
+   def __init__(self, def_handshake=None, \
+                func_loseConnect=None, \
+                func_doubleSpendAlert=None):
       """
       Initialize the ClientFactory with a deferred for when the handshake 
       finishes:  there should be only one handshake, and thus one firing 
       of the handshake-finished callback
       """
       self.zeroConfTx = {}
+      self.zeroConfTxOutMap = {}
+      self.doubleBroadcastAlerts = {}
+      self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
 
       # All other methods will be regular callbacks:  we plan to have a very
-      # static set of behaviors for each message type, called multiple times
-      # (NOTE:  actually no other callbacks:  the logic is so simple, that
+      # static set of behaviors for each message type
+      # (NOTE:  The logic for what I need right now is so simple, that
       #         I finished implementing it in a few lines of code.  When I
       #         need to expand the versatility of this class, I'll start 
       #         doing more OOP/deferreds/etc
       self.func_loseConnect = func_loseConnect
+      self.func_doubleSpendAlert = func_doubleSpendAlert
    
 
    def handshakeFinished(self, protoObj):
@@ -7589,14 +7640,54 @@ class BitcoinArmoryClientFactory(ClientFactory):
          d.callback(protoObj)
 
 
-   def purgeMemoryPool(self, Payloadblk):
+   def purgeMemoryPool(self):
+      print 'New block received: purging the memory pool'
       if not TheBDM.isInitialized():
          return
+
       # Check for tx that used to be zero-conf, but are now in blockchain
       for hsh,tx in self.zeroConfTx.iteritems():
          if TheBDM.getTxByHash(hsh):
             del self.zeroConfTx[hsh]
-         
+            # We also need to clean up the double-spend detector
+            for key,val in self.zeroConfTxOutMap.iteritems():
+               if hsh==val:
+                  del self.zeroConfTxOutMap[key]
+
+      if RightNow() > self.lastAlert + 2*HOUR:
+         # Clear out alerts after 2 hours
+         self.doubleBroadcastAlerts = {} 
+      
+      print 'Memory pool should be clean:', len(self.zeroConfTx), 'tx left:'
+      print self.zeroConfTx
+      for hsh,tx in self.zeroConfTx.iteritems():
+         print '   Tx:', tx.getHashHex()
+
+
+   def checkForDoubleBroadcast(self, pytxObj):
+      newAlerts = False
+      for txin in pytxObj.inputs:
+         op = (txin.outpoint.txHash, txin.outpoint.txOutIndex)
+         if self.zeroConfTxOutMap.has_key(op):
+            # !!! Someone tried to spend the same inputs twice !!!
+            newAlerts = True
+            self.lastAlert = RightNow()
+            prevHash = self.zeroConfTxOutMap[op]
+            prevTx = zeroConfTx[prevHash]
+            for tx in (pytxObj, prevTx):
+               # Add all recipients from both transactions
+               for txout in tx.outputs:
+                  # Search all the TxOuts for recipients
+                  addr = TxOutScriptExtractAddr160(txout.binScript)
+                  if isinstance(addrs, list):
+                     for addr in addrs:
+                        self.doubleBroadcastAlerts[addr] = tx.getHash()
+                  else:
+                     self.doubleBroadcastAlerts[addrs] = tx.getHash()
+
+      if self.func_doubleSpendAlert:
+         self.func_doubleSpendAlert()
+
 
    def connectionFailed(self, protoObj, reason):
       """
@@ -7605,7 +7696,7 @@ class BitcoinArmoryClientFactory(ClientFactory):
       that it is ready for the next connection failure
       """
       print 'Connection failed!'
-      time.sleep(1)
+      time.sleep(5)
       if self.func_loseConnect:
          self.func_loseConnect(protoObj, reason)
       #d, self.deferred_loseConnect = self.deferred_loseConnect, None
