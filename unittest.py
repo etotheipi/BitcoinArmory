@@ -8,7 +8,6 @@ BE = BIGENDIAN
 
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
-Test_NetworkObjects   = True
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
@@ -19,6 +18,8 @@ Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
+Test_NetworkObjects   = True
+Test_ReactorLoop      = True
 
 '''
 import optparse
@@ -320,18 +321,21 @@ if Test_NetworkObjects:
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
                
    msgTest = PyMessage().unserialize(hex_to_binary(msgVerack))
    msgTest.pprint()
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
    msgTest = PyMessage().unserialize(hex_to_binary(netAddrHex))
    msgTest.pprint()
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
 
    msgTest = PyMessage().unserialize(hex_to_binary(invHex))
@@ -339,6 +343,7 @@ if Test_NetworkObjects:
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
 
    msgTest = PyMessage().unserialize(hex_to_binary(getDataHex))
@@ -346,6 +351,7 @@ if Test_NetworkObjects:
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
 
    msgTest = PyMessage().unserialize(hex_to_binary(msgtxHex))
@@ -353,15 +359,54 @@ if Test_NetworkObjects:
    ser = msgTest.serialize()
    msgTest = PyMessage().unserialize(ser)
    msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
 
    # 36 kB of data on the screen is unnecessary under most circumstances... 
-   #msgTest = PyMessage().unserialize(msgblk)
+   print '\n\nTesting blk data reading:'
+   msgTest = PyMessage().unserialize(msgblk)
    #msgTest.pprint()
-   #ser = msgTest.serialize()
-   #msgTest = PyMessage().unserialize(ser)
+   msgTest.payload.header.pprint(nIndent=1)
+   print '      NumTx:     ', len(msgTest.payload.txList)
+   print '      ...\n'
+   ser = msgTest.serialize()
+   msgTest = PyMessage().unserialize(ser)
+   msgTest.payload.header.pprint(nIndent=1)
+   print '      NumTx:     ', len(msgTest.payload.txList)
+   print '      ...\n'
    #msgTest.pprint()
+   printpassorfail(ser==msgTest.serialize())
 
+
+   if Test_ReactorLoop:
+      ################################################################################
+      # Now test the networking:  must have Satoshi client open
+      print '\n\n'
+      print 'Running python-twisted networking/reactor tests'
+      print 'If this test works, it will connect to the localhost'
+      print 'Bitcoin client, display all incoming messages, and'
+      print 'request new transactions that we see from inv messages.'
+      print 'You will have to manually stop this test with ctrl-C'
+      from twisted.internet.protocol import Protocol, ClientFactory
+      from twisted.internet.defer import Deferred
+      from twisted.internet import reactor
+   
+      btcNetFactory = None
+   
+      def restartConnection(protoObj, failReason):
+         print '!Trying to restart connection'
+         from twisted.internet import reactor
+         self.connectTCP(protoObj.peer[0], protoObj.peer[1], btcNetFactory)
+   
+      # On handshake complete, do nothing special, but we do want to tell it to
+      # restart the connection
+      btcNetFactory = BitcoinArmoryClientFactory( \
+                                    def_handshake=None, \
+                                    func_loseConnect=restartConnection)
+   
+      from twisted.internet import reactor
+      reactor.connectTCP('127.0.0.1', BITCOIN_PORT, btcNetFactory)
+      reactor.run()
 
 
 ################################################################################

@@ -151,6 +151,7 @@ class VerifyScriptError(Exception): pass
 class FileExistsError(Exception): pass
 class ECDSA_Error(Exception): pass
 class PackerError(Exception): pass
+class UnpackerError(Exception): pass
 class UnitializedBlockDataError(Exception): pass
 class WalletLockError(Exception): pass
 class SignatureError(Exception): pass
@@ -726,60 +727,76 @@ class BinaryUnpacker(object):
       First argument is the data-type:  UINT32, VAR_INT, etc.
       If BINARY_CHUNK, need to supply a number of bytes to read, as well
       """
+      def sizeCheck(sz):
+         if self.getRemainingSize()<sz:
+            raise UnpackerError
+
       E = endianness
       pos = self.pos
       if varType == UINT32:
+         sizeCheck(4)
          value = unpack(E+'I', self.binaryStr[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == UINT64:
+         sizeCheck(8)
          value = unpack(E+'Q', self.binaryStr[pos:pos+8])[0]
          self.advance(8)
          return value
       elif varType == UINT8:
+         sizeCheck(1)
          value = unpack(E+'B', self.binaryStr[pos:pos+1])[0]
          self.advance(1)
          return value
       elif varType == UINT16:
+         sizeCheck(2)
          value = unpack(E+'H', self.binaryStr[pos:pos+2])[0]
          self.advance(2)
          return value
       elif varType == INT32:
+         sizeCheck(4)
          value = unpack(E+'i', self.binaryStr[pos:pos+4])[0]
          self.advance(4)
          return value
       elif varType == INT64:
+         sizeCheck(8)
          value = unpack(E+'q', self.binaryStr[pos:pos+8])[0]
          self.advance(8)
          return value
       elif varType == INT8:
+         sizeCheck(1)
          value = unpack(E+'b', self.binaryStr[pos:pos+1])[0]
          self.advance(1)
          return value
       elif varType == INT16:
+         sizeCheck(2)
          value = unpack(E+'h', self.binaryStr[pos:pos+2])[0]
          self.advance(2)
          return value
       elif varType == VAR_INT:
+         sizeCheck(1)
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          self.advance(nBytes)
          return value
       elif varType == VAR_STR:
+         sizeCheck(1)
          [value, nBytes] = unpackVarInt(self.binaryStr[pos:pos+9])
          binOut = self.binaryStr[pos+nBytes:pos+nBytes+value]
          self.advance(nBytes+value)
          return binOut
       elif varType == FLOAT:
+         sizeCheck(4)
          value = unpack(E+'f', self.binaryStr[pos:pos+4])
          self.advance(4)
          return value
       elif varType == BINARY_CHUNK:
+         sizeCheck(sz)
          binOut = self.binaryStr[pos:pos+sz]
          self.advance(sz)
          return binOut
 
       print 'Var Type not recognized!  VarType =', varType
-      raise PackerError, "Var type not recognized!  VarType="+str(varType)
+      raise UnpackerError, "Var type not recognized!  VarType="+str(varType)
 
 
 
@@ -2578,7 +2595,7 @@ class PyTxIn(object):
       print indstr + indent + 'TxOutIndex:', self.outpoint.txOutIndex
       source = TxInScriptExtractKeyAddr(self)[0]
       print indstr + indent + 'Script:    ', \
-                  '('+binary_to_hex(self.binScript)+')'
+                  '('+binary_to_hex(self.binScript)[:64]+')'
       print indstr + indent + 'Seq:       ', self.intSeq
 
 
@@ -2673,10 +2690,14 @@ class PyTx(object):
          self.thisHash = hash256(self.serialize())
       return self.thisHash
 
+   def getHashHex(self, endianness=LITTLEENDIAN):
+      return binary_to_hex(self.getHash(), endOut=endianness)
+
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'Transaction:'
-      print indstr + indent + 'TxHash:   ', binary_to_hex(self.getHash(), endian), \
+      print indstr + indent + 'TxHash:   ', self.getHashHex(endian), \
                                     '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:  ', self.version
       print indstr + indent + 'nInputs:  ', len(self.inputs)
@@ -2688,6 +2709,11 @@ class PyTx(object):
       print indstr + indent + 'Outputs: '
       for out in self.outputs:
          out.pprint(nIndent+2, endian=endian)
+
+
+
+   #def pprintShort(self, nIndent=0, endian=BIGENDIAN):
+      #print '\nTransaction: %s' % self.getHashHex()
 
 
    def pprintHex(self, nIndent=0):
@@ -2794,9 +2820,9 @@ class PyBlockHeader(object):
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'BlockHeader:'
-      print indstr + indent + 'Hash:      ', binary_to_hex( self.theHash, endOut=endian), \
-                                                      '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'Version:   ', self.version
+      print indstr + indent + 'ThisHash:  ', binary_to_hex( self.theHash, endOut=endian), \
+                                                      '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'PrevBlock: ', binary_to_hex(self.prevBlkHash, endOut=endian), \
                                                       '(BE)' if endian==BIGENDIAN else '(LE)'
       print indstr + indent + 'MerkRoot:  ', binary_to_hex(self.merkleRoot, endOut=endian), \
@@ -6730,21 +6756,65 @@ class PyBtcWallet(object):
 # 
 ###############################################################################
 ###############################################################################
+
+def quad_to_str( addrQuad):
+   return '.'.join([str(a) for a in addrQuad])
+
+def quad_to_binary( addrQuad):
+   return ''.join([chr(a) for a in addrQuad])
+
+def binary_to_quad(addrBin):
+   return [ord(a) for a in addrBin]
+
+def str_to_quad(addrBin):
+   return [int(a) for a in addrBin.split('.')]
+
+def str_to_binary(addrBin):
+   """ I should come up with a better name for this -- it's net-addr only """
+   return ''.join([chr(int(a)) for a in addrBin.split('.')])
+
+def parseNetAddress(addrObj):
+   if isinstance(addrObj, str):
+      if len(addrObj)==4:
+         return binary_to_quad(addrObj)
+      else:
+         return str_to_quad(addrObj)
+   # Probably already in the right form
+   return addrObj
+
+
+
+MSG_INV_ERROR = 0
+MSG_INV_TX    = 1
+MSG_INV_BLOCK = 2
+
+
+################################################################################
 class PyMessage(object):
    """
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
    """
-   def __init__(self, cmd='', pymsgObj=None):
-      self.magic      = MAGIC_BYTES
-      self.cmd        = cmd
-      self.payloadObj = pymsgObj
+   def __init__(self, cmd='', payload=None):
+      """
+      Can create a message by the command name, or the payload (or neither)
+      """
+      self.magic   = MAGIC_BYTES
+      self.cmd     = cmd
+      self.payload = payload
+
+      if payload:
+         self.cmd = payload.command
+      elif cmd:
+         self.payload = PayloadMap[self.cmd]()
+
+
 
    def serialize(self):
       bp = BinaryPacker()
       bp.put(BINARY_CHUNK, self.magic,                    width= 4)
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
-      payloadBin = self.payloadObj.serialize()
+      payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
       if not self.cmd=='version' and not self.cmd=='verack':
          bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
@@ -6767,11 +6837,10 @@ class PyMessage(object):
       if not self.cmd=='version' and not self.cmd=='verack':
          payload    = verifyChecksum(payload, chksum)
 
-      pprintHex(binary_to_hex(payload))
-      self.payloadObj = PyMsgMap[self.cmd]().unserialize(payload)
+      self.payload = PayloadMap[self.cmd]().unserialize(payload)
 
       if self.magic != MAGIC_BYTES:
-         raise BadAddressError, 'Message has wrong network bytes!'
+         raise NetworkIDError, 'Message has wrong network bytes!'
       return self
 
 
@@ -6781,30 +6850,9 @@ class PyMessage(object):
       print indstr + 'Bitcoin-Network-Message -- ' + self.cmd.upper()
       print indstr + indent + 'Magic:   ' + binary_to_hex(self.magic)
       print indstr + indent + 'Command: ' + self.cmd
-      print indstr + indent + 'Payload: ' + str(len(self.payloadObj.serialize())) + ' bytes'
-      self.payloadObj.pprint(nIndent+1)
+      print indstr + indent + 'Payload: ' + str(len(self.payload.serialize())) + ' bytes'
+      self.payload.pprint(nIndent+1)
 
-################################################################################
-def quad_to_str( addrQuad):
-   return '.'.join([str(a) for a in addrQuad])
-
-def quad_to_binary( addrQuad):
-   return ''.join([chr(a) for a in addrQuad])
-
-def binary_to_quad(addrBin):
-   return [ord(a) for a in addrBin]
-
-def str_to_quad(addrBin):
-   return [int(a) for a in addrBin.split('.')]
-
-def parseNetAddress(addrObj):
-   if isinstance(addrObj, str):
-      if len(addrObj)==4:
-         return binary_to_quad(addrObj)
-      else:
-         return str_to_quad(addrObj)
-   # Probably already in the right form
-   return addrObj
 
 ################################################################################
 class PyNetAddress(object):
@@ -6863,10 +6911,11 @@ class PyNetAddress(object):
 
 ################################################################################
 ################################################################################
-class PyMsgAddress(object):
+class PayloadAddr(object):
+
+   command = 'addr'
    
-   def __init__(self, tstamps=[], addrList=[]):
-      self.timestamps = tstamps   # unix timestamps
+   def __init__(self, addrList=[]):
       self.addrList   = addrList  # PyNetAddress objs
 
    def unserialize(self, toUnpack):
@@ -6875,7 +6924,6 @@ class PyMsgAddress(object):
       else:
          addrData = BinaryUnpacker( toUnpack )
 
-      self.timestamps = []
       self.addrList = []
       naddr = addrData.get(VAR_INT)
       for i in range(naddr):
@@ -6902,7 +6950,7 @@ class PyMsgAddress(object):
 
 ################################################################################
 ################################################################################
-class PyMsgVersion(object):
+class PayloadVersion(object):
 
    command = 'version'
 
@@ -6959,7 +7007,7 @@ class PyMsgVersion(object):
       print indstr + indent + 'StartHgt: ' + str(self.height0)
 
 ################################################################################
-class PyMsgVerack(object):
+class PayloadVerack(object):
    """
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
@@ -6984,7 +7032,7 @@ class PyMsgVerack(object):
 
 ################################################################################
 ################################################################################
-class PyMsgInv(object):
+class PayloadInv(object):
    """
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
@@ -7029,7 +7077,7 @@ class PyMsgInv(object):
 
 ################################################################################
 ################################################################################
-class PyMsgGetData(object):
+class PayloadGetData(object):
    """
    All payload objects have a serialize and unserialize method, making them
    easy to attach to PyMessage objects
@@ -7037,7 +7085,7 @@ class PyMsgGetData(object):
 
    command = 'getdata'
 
-   def __init__(self, invList=None):
+   def __init__(self, invList=[]):
       if invList:
          self.invList = invList
       else:
@@ -7077,7 +7125,7 @@ class PyMsgGetData(object):
 
 ################################################################################
 ################################################################################
-class PyMsgGetHeaders(object):
+class PayloadGetHeaders(object):
    command = 'getheaders'
 
    def __init__(self, startCt=-1, hashStartList=[], hashStop=''):
@@ -7119,7 +7167,7 @@ class PyMsgGetHeaders(object):
 
 ################################################################################
 ################################################################################
-class PyMsgGetBlocks(object):
+class PayloadGetBlocks(object):
    command = 'getblocks'
 
    def __init__(self, version=1, startCt=-1, hashStartList=[], hashStop=''):
@@ -7164,7 +7212,7 @@ class PyMsgGetBlocks(object):
 
 ################################################################################
 ################################################################################
-class PyMsgTx(object):
+class PayloadTx(object):
    command = 'tx'
 
    def __init__(self, tx=PyTx()):
@@ -7187,7 +7235,7 @@ class PyMsgTx(object):
 
 ################################################################################
 ################################################################################
-class PyMsgBlock(object):
+class PayloadBlock(object):
    command = 'block'
 
    def __init__(self, header=PyBlockHeader(), txlist=[]):
@@ -7201,6 +7249,7 @@ class PyMsgBlock(object):
       else:
          blkData = BinaryUnpacker( toUnpack )
 
+      self.txList = []
       self.header.unserialize(blkData)
       numTx = blkData.get(VAR_INT)
       for i in range(numTx):
@@ -7221,11 +7270,11 @@ class PyMsgBlock(object):
       print indstr + 'Message(block):'
       self.header.pprint(nIndent+1)
       for tx in self.txList:
-         print indstr + indent + 'Tx:', binary_to_hex(tx.getHash())
+         print indstr + indent + 'Tx:', tx.getHashHex()
 
 
 ################################################################################
-class PyMsgAlert(object):
+class PayloadAlert(object):
    command = 'alert'
 
    def __init__(self):
@@ -7259,26 +7308,308 @@ class PyMsgAlert(object):
 
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
-PyMsgMap = {
-   'tx':          PyMsgTx,
-   'inv':         PyMsgInv,
-   'version':     PyMsgVersion,
-   'verack':      PyMsgVerack,
-   'addr':        PyMsgAddress,
-   'getdata':     PyMsgGetData,
-   'getheaders':  PyMsgGetHeaders,
-   'getblocks':   PyMsgGetBlocks,
-   'block':       PyMsgBlock,
-   'alert':       PyMsgAlert }
+PayloadMap = {
+   'tx':          PayloadTx,
+   'inv':         PayloadInv,
+   'version':     PayloadVersion,
+   'verack':      PayloadVerack,
+   'addr':        PayloadAddr,
+   'getdata':     PayloadGetData,
+   'getheaders':  PayloadGetHeaders,
+   'getblocks':   PayloadGetBlocks,
+   'block':       PayloadBlock,
+   'alert':       PayloadAlert }
 
 
 
 
 
+try:
+   from twisted.internet.protocol import Protocol, ClientFactory
+   from twisted.internet.defer import Deferred
+except ImportError:
+   print '***Python-Twisted is not installed -- cannot enable'
+   print '   networking-related methods for BtcArmoryEngine' 
+
+
+################################################################################
+def forceDeferred(callbk):
+   if callbk:
+      if isinstance(callbk, Deferred):
+         return callbk
+      else:
+         d = Deferred()
+         d.addCallback(callbk)
+
+
+################################################################################
+#
+# Bitcoin Armory Networking:
+# 
+#    This is where I will define all the network operations needed for 
+#    BitcoinArmory to operate, using python-twisted.  There are "better"
+#    ways to do this with "reusable" code structures (i.e. using huge
+#    deferred callback chains), but this is not the central "creative" 
+#    part of the Bitcoin protocol.  I need just enough to broadcast tx
+#    and receive new tx that aren't in the blockchain yet.  Beyond that,
+#    I'll just be ignoring everything else.
+#
+################################################################################
+class BitcoinArmoryClient(Protocol):
+   """
+   This is where all the Bitcoin-specific networking stuff goes.
+   In the Twisted way, you need to inject your own chains of 
+   callbacks through the factory in order to get this class to do
+   the right thing on the various events.
+   """
+
+   ############################################################
+   def __init__(self):
+      self.recvData = ''
+      self.handshakeFinished = False
+      self.peer = []
+
+   ############################################################
+   def connectionMade(self):
+      """
+      Construct the initial version message and send it right away.
+      Everything else will be handled by dataReceived.
+      """
+      addrTo   = str_to_quad(self.transport.getPeer().host)
+      portTo   =             self.transport.getPeer().port
+      addrFrom = str_to_quad(self.transport.getHost().host)
+      portFrom =             self.transport.getHost().port
+
+      self.peer = [addrTo, portTo]
+
+      services = '0'*16
+      msgVersion = PayloadVersion()
+      msgVersion.version  = 40000   # TODO: this is what my Satoshi client says
+      msgVersion.services = services
+      msgVersion.time     = long(RightNow())
+      msgVersion.addrRecv = PyNetAddress(0, services, addrTo,   portTo  )
+      msgVersion.addrFrom = PyNetAddress(0, services, addrFrom, portFrom)
+      msgVersion.nonce    = random.randint(2**60, 2**64-1)
+      msgVersion.subver   = ''
+      msgVersion.height0  = -1
+      self.sendMessage( msgVersion )
+      
+   ############################################################
+   def dataReceived(self, data):
+      """
+      Called by the reactor when data is received over the connection. 
+      This method will do nothing if we don't receive a full message.
+      """
+
+      print '\n\nData Received:',
+      # Put the current buffer into an unpacker, process until empty
+      self.recvData += data
+      buf = BinaryUnpacker(self.recvData)
+
+      messages = []
+      while True:
+         try:
+            # recvData is only modified if the unserialize succeeds
+            messages.append( PyMessage().unserialize(buf) )
+            self.recvData = buf.getRemainingString()
+            print '\n  Message', len(messages), 'read: ',
+            print messages[-1].cmd.upper(),
+         except NetworkIDError:
+            print 'Message for a different network!' 
+            if BLOCKCHAINS.has_key(self.recvData[:4]):
+               print '(for network:', BLOCKCHAINS[self.recvData[:4]], ')'
+            # Before raising the error, we should've finished reading the msg
+            # So pop it off the front of the buffer
+            self.recvData = buf.getRemainingString()
+            return
+         except UnpackerError:
+            # Expect this error when buffer isn't full enough for a whole msg
+            break
+
+      # We might've gotten here without anything to process -- if so, bail
+      if len(messages)==0:
+         print '<Not enough data for full msg>'
+         return
+
+      # Finally, we have some message to process, let's do it
+      for msg in messages:
+         cmd = msg.cmd
+         #print '\nBuffer: '
+         #pprintHex(binary_to_hex(data), indent=' '*6)
+
+         # We process version and verackk regardless of handshakeFinished
+         if cmd=='version' and not self.handshakeFinished:
+            if msg.payload.version >= 209:
+               self.sendMessage( PayloadVerack() )
+         elif cmd=='verack':
+            self.handshakeFinished = True
+            self.factory.handshakeFinished(self)
+
+         ####################################################################
+         # Don't process any other messages unless the handshake is finished
+         if self.handshakeFinished:
+            self.processMessage(msg)
+
+
+   ############################################################
+   def connectionLost(self, reason):
+      """
+      Try to reopen connection (not impl yet)
+      """
+      self.factory.connectionFailed(self, reason)
+
+
+   def processMessage(self, msg):
+      # TODO:  when I start expanding this class to be more versatile,
+      #        I'll consider chaining/setting callbacks through the
+      #        calling application.
+      msg.payload.pprint(nIndent=2)
+      if msg.cmd=='inv':
+         print 'Received inv message'
+         invobj = msg.payload
+         getdataMsg = PyMessage('getdata')
+         for inv in invobj.invList:
+            if inv[0]==MSG_INV_BLOCK and not TheBDM.getHeaderByHash(inv[1]):
+               pass # for now, not downloading blocks
+            if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
+               print 'Requesting new tx data'
+               getdataMsg.payload.invList.append(inv)
+         self.sendMessage(getdataMsg)
+      if msg.cmd=='tx':
+         print 'Received tx message'
+         pytx = msg.payload.tx
+         self.factory.zeroConfTx[pytx.getHash()] = pytx
+      if msg.cmd=='block':
+         print 'Received block message (ignoring)'
+         # We don't care much about blocks right now --  We will find
+         # out about them when the Satoshi client updates blk0001.dat
+         pass 
+                  
+                  
+               
+   
+
+         
+
+      
+
+         """
+         # Start reading the message header
+         magic = buf.get(BINARY_CHUNK, 4)
+         if not magic==MAGIC_BYTES:
+            raise NetworkIDError
+
+         cmd = buf.get(BINARY_CHUNK, 12).strip('\x00')
+         sz  = buf.get(UINT32)
+
+         # Non-version, non-verack msgs have a chksum
+         chk = None
+         if not cmd=='version' and not cmd=='verack':
+            chk = buf.get(BINARY_CHUNK, 4)
+   
+         if buf.getRemainingSize() < sz:
+            # Buffer only contains a partial message
+            break
+
+         # If we got here, there's enough data to process a full msg
+         # Fix single-byte errors via checksum, if available
+         payloadBin = buf.get(BINARY_CHUNK, sz)
+         if chk:
+            payloadBin = verifyChecksum(payloadBin, chk)
+
+         PayloadObj = PayloadMap[cmd]()
+         msgs.append(PayloadObj.unserialize(payloadBin))
+         self.recvData = buf.getRemainingString()
+
+      if not msgToProcess:
+         return
+
+      # If we got here, msgs contains a list of objects to be processed
+      """
+
+   ############################################################
+   def sendMessage(self, msg):
+      """
+      Must pass in a PyMessage, or one of the Payload<X> types, which
+      will be converted to a PyMessage -- and then sent to the peer.
+      If you have a fully-serialized message (with header) already,
+      easy enough to user PyMessage().unserialize(binMsg)
+      """
+      if isinstance(msg, PyMessage):
+         print '\n\nSending Message:', msg.payload.command.upper()
+         pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         self.transport.write(msg.serialize())
+      else:
+         msg = PyMessage(payload=msg)
+         print '\n\nSending Message:', msg.payload.command.upper()
+         pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         self.transport.write(msg.serialize())
 
 
 
 
+
+   
+
+
+################################################################################
+################################################################################
+class BitcoinArmoryClientFactory(ClientFactory):
+   """
+   Spawns Protocol objects used for communicating over the socket.  All such
+   objects (BitcoinArmoryClients) can share information through this factory.
+   However, at the moment, this class is designed to only create a single 
+   connection -- to localhost.
+   """
+   protocol = BitcoinArmoryClient
+   zeroConfTx = {}
+
+   def __init__(self, def_handshake=None, func_loseConnect=None):
+      """
+      Initialize the ClientFactory with a deferred for when the handshake 
+      finishes:  there should be only one handshake, and thus one firing 
+      of the handshake-finished callback
+      """
+      self.zeroConfTx = {}
+      self.deferred_handshake   = forceDeferred(def_handshake)
+
+      # All other methods will be regular callbacks:  we plan to have a very
+      # static set of behaviors for each message type, called multiple times
+      # (NOTE:  actually no other callbacks:  the logic is so simple, that
+      #         I finished implementing it in a few lines of code.  When I
+      #         need to expand the versatility of this class, I'll start 
+      #         doing more OOP/deferreds/etc
+      self.func_loseConnect = func_loseConnect
+   
+
+   def handshakeFinished(self, protoObj):
+      print 'Handshake finished, connection open!'
+      if self.deferred_handshake:
+         d, self.deferred_handshake = self.deferred_handshake, None
+         d.callback(protoObj)
+
+
+   def purgeMemoryPool(self, Payloadblk):
+      if not TheBDM.isInitialized():
+         return
+      # Check for tx that used to be zero-conf, but are now in blockchain
+      for hsh,tx in self.zeroConfTx.iteritems():
+         if TheBDM.getTxByHash(hsh):
+            del self.zeroConfTx[hsh]
+         
+
+   def connectionFailed(self, protoObj, reason):
+      """
+      This method needs some serious work... I don't quite know yet how
+      to reopen the connection... and I'll need to copy the Deferred so
+      that it is ready for the next connection failure
+      """
+      print 'Connection failed!'
+      time.sleep(1)
+      if self.func_loseConnect:
+         self.func_loseConnect(protoObj, reason)
+      #d, self.deferred_loseConnect = self.deferred_loseConnect, None
+      #d.errback(reason)
 
 
 
