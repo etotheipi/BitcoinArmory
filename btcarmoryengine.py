@@ -110,29 +110,28 @@ OS_NAME          = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
-BLK0001_PATH     = ''
 SUBDIR = 'testnet' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
-   BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoinarmory', SUBDIR)
-   BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 elif OS_MACOSX:
    OS_NAME         = 'Mac/OSX'
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
-   BLK0001_PATH = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
+
+BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
+SETTINGS_PATH   = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
 
 print 'Detected Operating system:', OS_NAME
 print '   User home-directory   :', USER_HOME_DIR
@@ -5249,7 +5248,7 @@ class PyBtcWallet(object):
          shortName = self.labelName .replace(' ','_')
          for c in ',?;:\'"?/\\=+-|[]{}<>':
             shortName = shortName.replace(c,'_')
-         newName = 'ArmoryWallet_%s_%s_.bin' % (shortName, self.wltUniqueIDB58)
+         newName = 'armory_%s_%s_.wallet' % (shortName, self.wltUniqueIDB58)
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       print '   New wallet will be written to:', self.walletPath
@@ -5887,13 +5886,13 @@ class PyBtcWallet(object):
       # We now have both the magic bytes and network byte
       if not self.magicBytes == MAGIC_BYTES:
          print '***ERROR:  Requested wallet is for a different blockchain!'
-         print '           Wallet is for:', BLOCKCHAINS[self.magicBytes]
-         print '           PyBtcEngine:  ', BLOCKCHAINS[MAGIC_BYTES]
+         print '           Wallet is for:   ', BLOCKCHAINS[self.magicBytes]
+         print '           BtcArmoryEngine: ', BLOCKCHAINS[MAGIC_BYTES]
          return
       if not self.wltUniqueIDBin[-1] == ADDRBYTE:
          print '***ERROR:  Requested wallet is for a different network!'
-         print '           Wallet is for:', NETWORKS[netByte]
-         print '           PyBtcEngine:  ', NETWORKS[ADDRBYTE]
+         print '           Wallet is for:   ', NETWORKS[netByte]
+         print '           BtcArmoryEngine: ', NETWORKS[ADDRBYTE]
          return
 
       # User-supplied description/name for wallet
@@ -7745,6 +7744,7 @@ class SettingsFile(object):
          Tuple Or List Obj 2 # str1 | another str
    """
 
+   #############################################################################
    def __init__(self, path=None):
       self.settingsPath = path
       self.settingsMap = {}
@@ -7755,28 +7755,43 @@ class SettingsFile(object):
       print 'Using settings file:', self.settingsPath
       if os.path.exists(self.settingsPath):
          self.loadSettingsFile(path)
+      else:
+         self.restoreDefaults()
 
 
 
+   #############################################################################
    def pprint(self, nIndent=0):
       indstr = indent*nIndent
       print indstr + 'Settings:'
       for k,v in self.settingsMap.iteritems():
          print indstr + indent + k.ljust(15), v
 
+   #############################################################################
    def restoreDefaults(self):
-      """ Put all default settings here """
-      self.settingsMap = {}
+      """ 
+      Put all default settings here.  DNAA means "Do Not Ask Again"
+      """
+      self.settingsMap['User_Mode']           = 'Standard'  # 'Advanced'
+      self.settingsMap['Other_Wallets']       = ''
+      self.settingsMap['First_Load']          = True
+      self.settingsMap['UnlockTimeout']       = 10
+      self.settingsMap['DNAA_UnlockTimeout']  = False
 
+   #############################################################################
    def hasSetting(self, name):
       return self.settingsMap.has_key(name)
    
+   #############################################################################
    def set(self, name, value):
       self.settingsMap[name] = value
+      self.writeSettingsFile()
 
+   #############################################################################
    def get(self, name):
       return '' if not self.hasSetting(name) else self.settingsMap[name]
 
+   #############################################################################
    def writeSettingsFile(self, path=None):
       if not path:
          path = self.settingsPath
@@ -7795,10 +7810,11 @@ class SettingsFile(object):
                valStr = ' $  '.join([str(v) for v in val])
             f.write(key.ljust(20) + ' | ' + valStr + '\n')
          except:
-            print 'Invalid setting in settingsMap... skipping'
+            print 'Invalid entry in SettingsFile... skipping'
       f.close()
       
 
+   #############################################################################
    def loadSettingsFile(self, path=None):
       if not path:
          path = self.settingsPath
@@ -7814,9 +7830,17 @@ class SettingsFile(object):
       def castVal(v):
          v = v.strip()
          a,b = v.isdigit(), v.replace('.','').isdigit()
-         if a:   return int(v)
-         elif b: return float(v)
-         else:   return v
+         if a:   
+            return int(v)
+         elif b: 
+            return float(v)
+         else:   
+            if v.lower()=='true':
+               return True
+            elif v.lower()=='false':
+               return False
+            else:
+               return v
          
 
       sdata = [line.strip() for line in sdata.split('\n')]
@@ -7826,7 +7850,11 @@ class SettingsFile(object):
 
          try:
             key,vals = line.split('|')
-            self.settingsMap[key.strip()] = [castVal(v) for v in vals.split('$')]
+            valList = [castVal(v) for v in vals.split('$')]
+            if len(valList)==1:
+               self.settingsMap[key.strip()] = valList[0]
+            else:
+               self.settingsMap[key.strip()] = valList
          except:
             print 'Invalid setting in', path, ' (skipping...)'
 

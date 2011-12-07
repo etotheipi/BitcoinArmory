@@ -12,8 +12,8 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = True
-Test_EncryptedWallet  = True
+Test_EncryptedAddress = False
+Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -1197,12 +1197,7 @@ if Test_EncryptedWallet:
    printpassorfail(c3==comment3)
    printpassorfail(c2==comment2)
 
-   exit(0)
    
-
-   print '\n(10) Reading back comment for this address'
-   print '\n' + hash160_to_addrStr(newAddr20)
-   print '\nComment:', wlt.getCommentForAddress(newAddr20)
 
    #############################################################################
    print '\n\n'
@@ -1305,6 +1300,8 @@ if Test_EncryptedWallet:
       print '\n\n(11) Attempting to sign TxDP with online wallet'
       wlt2.signTxDistProposal(txdp)
 
+   os.remove('OnlineVersionOfEncryptedWallet.bin')
+   os.remove('OnlineVersionOfEncryptedWalletbackup.bin')
 
 ################################################################################
 ################################################################################
@@ -1553,6 +1550,9 @@ if Test_SettingsFile:
    settings.set('TestKey5', [1,2,3])
    settings.set('Test Key 6', 12)
    settings.set('Test Key 7', ['str1', 'str2'])
+   settings.set('TestKey8', False)
+   settings.set('TestKey9', True)
+   settings.set('TestKey10', [True, True, False])
 
    
    for key in ('TestKey1', 'TestKey2', 'TestKey3', 'TestKey4', 'TestKey5', \
