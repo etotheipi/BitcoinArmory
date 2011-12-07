@@ -4958,9 +4958,10 @@ BLOCKCHAIN_DONOTUSE   = 2
 WLT_UPDATE_ADD = 0
 WLT_UPDATE_MODIFY = 1
 
-WLT_DATATYPE_KEYDATA = 0
-WLT_DATATYPE_COMMENT = 1
-WLT_DATATYPE_OPEVAL  = 2
+WLT_DATATYPE_KEYDATA     = 0
+WLT_DATATYPE_ADDRCOMMENT = 1
+WLT_DATATYPE_TXCOMMENT   = 2
+WLT_DATATYPE_OPEVAL      = 3
 
 DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
@@ -5047,7 +5048,8 @@ class PyBtcWallet(object):
 
       \x01 -- Address/Key data (as of PyBtcAddress version 1.0, 237 bytes)
       \x02 -- Address comments (variable-width field)
-      \x03 -- OP_EVAL subscript (when this is enabled, in the future)
+      \x03 -- Address comments (variable-width field)
+      \x04 -- OP_EVAL subscript (when this is enabled, in the future)
 
    Please see PyBtcAddress for information on how key data is serialized.
    Comments (\x02) are var-width, and if a comment is changed to
@@ -5095,8 +5097,10 @@ class PyBtcWallet(object):
       # Three dictionaries hold all data
       self.addrMap     = {}  # maps 20-byte addresses to PyBtcAddress objects
       self.commentsMap = {}  # maps 20-byte addresses to user-created comments
-      self.commentLocs = {}  # maps 20-byte addresses to comment locations
+      self.commentLocs = {}  # map comment keys to wallet file locations
       self.opevalMap   = {}  # maps 20-byte addresses to OP_EVAL data (future)
+      self.labelName   = ''
+      self.labelDescr  = ''
 
       # For file sync features
       self.walletPath = ''
@@ -5129,8 +5133,8 @@ class PyBtcWallet(object):
       # doesn't require manually updating offsets if I change the format), and
       # will save us a couple lines of code later, when we need to update things
       self.offsetWltFlags  = -1
-      self.offsetShortName = -1
-      self.offsetLongName  = -1
+      self.offsetLabelName = -1
+      self.offsetLabelDescr  = -1
       self.offsetRootAddr  = -1
       self.offsetKdfParams = -1
       self.offsetCrypto    = -1
@@ -5139,6 +5143,10 @@ class PyBtcWallet(object):
       self.interruptTest1  = False
       self.interruptTest2  = False
       self.interruptTest3  = False
+
+   #############################################################################
+   def getWalletVersion(self):
+      return (getVersionInt(self.version), getVersionString(self.version))
 
    #############################################################################
    def getWalletVersion(self):
@@ -5227,8 +5235,8 @@ class PyBtcWallet(object):
       self.addrMap[firstAddr.getAddr160()] = firstAddr
       self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:3])[::-1]
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
-      self.labelShort = shortLabel[:32]
-      self.labelLong  = longLabel[:256]
+      self.labelName  = shortLabel[:32]
+      self.labelDescr  = longLabel[:256]
       self.lastComputedChainAddr160 = first160
       self.lastComputedChainIndex  = firstAddr.chainIndex
       self.highestUsedChainIndex   = firstAddr.chainIndex-1
@@ -5238,7 +5246,7 @@ class PyBtcWallet(object):
       # creating the wallet: so we just do it naively here.
       self.walletPath = newWalletFilePath
       if not newWalletFilePath:
-         shortName = self.labelShort.replace(' ','_')
+         shortName = self.labelName .replace(' ','_')
          for c in ',?;:\'"?/\\=+-|[]{}<>':
             shortName = shortName.replace(c,'_')
          newName = 'ArmoryWallet_%s_%s_.bin' % (shortName, self.wltUniqueIDB58)
@@ -5327,8 +5335,8 @@ class PyBtcWallet(object):
       onlineWallet.wltCreateDate = self.wltCreateDate
       onlineWallet.useEncryption = False
       onlineWallet.watchingOnly = True
-      onlineWallet.labelShort = (self.labelShort + '_Online')[:32]
-      onlineWallet.labelLong  = longLabel
+      onlineWallet.labelName  = (self.labelName  + '_Online')[:32]
+      onlineWallet.labelDescr  = longLabel
 
       newAddrMap = {}
       for addr160,addrObj in self.addrMap.iteritems():
@@ -5713,10 +5721,6 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def setWatchingOnly(self, isTrue):
-      self.watchingOnly = isTrue
-
-   #############################################################################
    def getCommentForAddress(self, addr160):
       if self.commentsMap.has_key(addr160):
          return self.commentsMap[addr160]
@@ -5724,24 +5728,58 @@ class PyBtcWallet(object):
          return ''
 
    #############################################################################
-   def setCommentForAddr160(self, addr160, newComment):
+   def getComment(self, hashVal):
+      """
+      This method is used for both address comments, as well as tx comments
+      In the first case, use the 20-byte binary pubkeyhash.  Use 32-byte tx
+      hash for the tx-comment case.
+      """
+      if self.commentsMap.has_key(hashVal):
+         return self.commentsMap[hashVal]
+      else:
+         return ''
+
+   #############################################################################
+   def setComment(self, hashVal, newComment):
+      """
+      This method is used for both address comments, as well as tx comments
+      In the first case, use the 20-byte binary pubkeyhash.  Use 32-byte tx
+      hash for the tx-comment case.
+      """
       updEntry = []
       isNewComment = False
-      if self.commentsMap.has_key(addr160):
+      if self.commentsMap.has_key(hashVal):
          # If there is already a comment for this address, overwrite it
-         oldCommentLen = len(self.commentsMap[addr160])
-         oldCommentLoc = self.commentLocs[addr160]
-         # The first 23 bytes are the datatype, addr160, and 2-byte comment size
-         updEntry = [WLT_UPDATE_MODIFY, oldCommentLoc+23, '\x00'*oldCommentLen]
+         oldCommentLen = len(self.commentsMap[hashVal])
+         oldCommentLoc = self.commentLocs[hashVal]
+         # The first 23 bytes are the datatype, hashVal, and 2-byte comment size
+         updEntry.append([WLT_UPDATE_MODIFY, oldCommentLoc+23, '\x00'*oldCommentLen])
       else:
          isNewComment = True
-         updEntry = [WLT_UPDATE_ADD, WLT_DATATYPE_COMMENT, addr160, newComment]
 
-      newCommentLoc = self.walletFileSafeUpdate([updEntry])
-      self.commentsMap[addr160] = newComment
+
+      dtype = WLT_DATATYPE_ADDRCOMMENT
+      if len(hashVal)>20:
+         dtype = WLT_DATATYPE_TXCOMMENT
+         
+      updEntry.append([WLT_UPDATE_ADD, dtype, hashVal, newComment])
+      newCommentLoc = self.walletFileSafeUpdate(updEntry)
+      self.commentsMap[hashVal] = newComment
 
       if isNewComment:
-         self.commentLocs[addr160] = newCommentLoc
+         # If there was a wallet overwrite, it's location is the first element
+         self.commentLocs[hashVal] = newCommentLoc[-1]
+
+   
+   #############################################################################
+   def setWalletLabels(self, lshort, llong):
+      toWriteS = lshort.ljust( 32, '\x00')
+      toWriteL = lshort.ljust(256, '\x00')
+
+      updList = []
+      updList.append([WLT_UPDATE_MODIFY, self.offsetLabelName,  toWriteS])
+      updList.append([WLT_UPDATE_MODIFY, self.offsetLabelDescr, toWriteL])
+      self.walletFileSafeUpdate(updList)
 
 
    #############################################################################
@@ -5798,12 +5836,12 @@ class PyBtcWallet(object):
       binPacker.put(UINT64, self.wltCreateDate)
 
       # User-supplied wallet label (short)
-      self.offsetShortName = binPacker.getSize() - startByte
-      binPacker.put(BINARY_CHUNK, self.labelShort, width=32)
+      self.offsetLabelName = binPacker.getSize() - startByte
+      binPacker.put(BINARY_CHUNK, self.labelName , width=32)
 
       # User-supplied wallet label (long)
-      self.offsetLongName = binPacker.getSize() - startByte
-      binPacker.put(BINARY_CHUNK, self.labelLong,  width=256)
+      self.offsetLabelDescr = binPacker.getSize() - startByte
+      binPacker.put(BINARY_CHUNK, self.labelDescr,  width=256)
 
       # Key-derivation function parameters
       self.offsetKdfParams = binPacker.getSize() - startByte
@@ -5859,12 +5897,12 @@ class PyBtcWallet(object):
          return
 
       # User-supplied description/name for wallet
-      self.offsetShortName = binUnpacker.getPosition()
-      self.labelShort = binUnpacker.get(BINARY_CHUNK, 32).strip('\x00')
+      self.offsetLabelName = binUnpacker.getPosition()
+      self.labelName  = binUnpacker.get(BINARY_CHUNK, 32).strip('\x00')
 
       # Longer user-supplied description/name for wallet
-      self.offsetLongName  = binUnpacker.getPosition()
-      self.labelLong  = binUnpacker.get(BINARY_CHUNK, 256).strip('\x00')
+      self.offsetLabelDescr  = binUnpacker.getPosition()
+      self.labelDescr  = binUnpacker.get(BINARY_CHUNK, 256).strip('\x00')
 
       # Read the key-derivation function parameters
       self.offsetKdfParams = binUnpacker.getPosition()
@@ -5894,17 +5932,23 @@ class PyBtcWallet(object):
    #############################################################################
    def unpackNextEntry(self, binUnpacker):
       dtype   = binUnpacker.get(UINT8)
-      addr160 = binUnpacker.get(BINARY_CHUNK, 20)
+      hashVal = ''
       binData = ''
       if dtype==WLT_DATATYPE_KEYDATA:
+         hashVal = binUnpacker.get(BINARY_CHUNK, 20)
          binData = binUnpacker.get(BINARY_CHUNK, self.pybtcaddrSize)
-      elif dtype==WLT_DATATYPE_COMMENT:
+      elif dtype==WLT_DATATYPE_ADDRCOMMENT:
+         hashVal = binUnpacker.get(BINARY_CHUNK, 20)
+         commentLen = binUnpacker.get(UINT16)
+         binData = binUnpacker.get(BINARY_CHUNK, commentLen)
+      elif dtype==WLT_DATATYPE_TXCOMMENT:
+         hashVal = binUnpacker.get(BINARY_CHUNK, 32)
          commentLen = binUnpacker.get(UINT16)
          binData = binUnpacker.get(BINARY_CHUNK, commentLen)
       elif dtype==WLT_DATATYPE_OPEVAL:
          raise NotImplementedError, 'OP_EVAL not support in wallet yet'
 
-      return (dtype, addr160, binData)
+      return (dtype, hashVal, binData)
 
    #############################################################################
    def readWalletFile(self, wltpath, verifyIntegrity=True, skipBlockChainScan=False):
@@ -5938,7 +5982,7 @@ class PyBtcWallet(object):
       self.lastComputedChainAddr160  = None
       while wltdata.getRemainingSize()>0:
          byteLocation = wltdata.getPosition()
-         dtype, addr160, rawData = self.unpackNextEntry(wltdata)
+         dtype, hashVal, rawData = self.unpackNextEntry(wltdata)
          if dtype==WLT_DATATYPE_KEYDATA:
             newAddr = PyBtcAddress()
             newAddr.unserialize(rawData)
@@ -5950,7 +5994,7 @@ class PyBtcWallet(object):
                   [WLT_UPDATE_MODIFY, newAddr.walletByteLoc, fixedAddrData]])
             if newAddr.useEncryption:
                newAddr.isLocked = True
-            self.addrMap[addr160] = newAddr
+            self.addrMap[hashVal] = newAddr
             if newAddr.chainIndex > self.lastComputedChainIndex:
                self.lastComputedChainIndex   = newAddr.chainIndex
                self.lastComputedChainAddr160 = newAddr.getAddr160()
@@ -5958,10 +6002,10 @@ class PyBtcWallet(object):
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
             blkRng  = newAddr.getBlockRange()
-            self.cppWallet.addAddress_5_(addr160, timeRng[0], blkRng[0], \
+            self.cppWallet.addAddress_5_(hashVal, timeRng[0], blkRng[0], \
                                               timeRng[1], blkRng[1])
-         if dtype==WLT_DATATYPE_COMMENT:
-            self.commentsMap[addr160] = rawData # actually ASCII data, here
+         if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
+            self.commentsMap[hashVal] = rawData # actually ASCII data, here
          if dtype==WLT_DATATYPE_OPEVAL:
             raise NotImplementedError, 'OP_EVAL not support in wallet yet'
 
@@ -5986,7 +6030,7 @@ class PyBtcWallet(object):
         [WLT_DATA_ADD,    WLT_DATATYPE_KEYDATA, addr160_1,  PyBtcAddrObj1]
         [WLT_DATA_ADD,    WLT_DATATYPE_KEYDATA, addr160_2,  PyBtcAddrObj2]
         [WLT_DATA_MODIFY, modifyStartByte1,  binDataForOverwrite1  ]
-        [WLT_DATA_ADD,    WLT_DATATYPE_COMMENT, addr160_3,  'Long-term savings']
+        [WLT_DATA_ADD,    WLT_DATATYPE_ADDRCOMMENT, addr160_3,  'Long-term savings']
         [WLT_DATA_MODIFY, modifyStartByte2,  binDataForOverwrite2 ]
       ]
 
@@ -6060,22 +6104,26 @@ class PyBtcWallet(object):
             updateInfo = entry[1:]
 
             if(modType==WLT_UPDATE_ADD):
+               dtype = updateInfo[0]
                updateLocations.append(toAppend.getSize()+oldWalletSize)
-               if updateInfo[0]==WLT_DATATYPE_KEYDATA:
+               if dtype==WLT_DATATYPE_KEYDATA:
                   if len(updateInfo[1])!=20 or not isinstance(updateInfo[2], PyBtcAddress):
                      raise Exception, 'Data type does not match update type'
                   toAppend.put(UINT8, WLT_DATATYPE_KEYDATA)
                   toAppend.put(BINARY_CHUNK, updateInfo[1])
                   toAppend.put(BINARY_CHUNK, updateInfo[2].serialize())
-               elif updateInfo[1]==WLT_DATATYPE_COMMENT:
-                  if len(updateInfo[1])!=20 or not isinstance(updateInfo[2], str):
+
+               elif dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
+                  if not isinstance(updateInfo[2], str):
                      raise Exception, 'Data type does not match update type'
-                  toAppend.put(UINT8, WLT_DATATYPE_COMMENT)
+                  toAppend.put(UINT8, dtype)
                   toAppend.put(BINARY_CHUNK, updateInfo[1])
                   toAppend.put(UINT16, len(updateInfo[2]))
                   toAppend.put(BINARY_CHUNK, updateInfo[2])
-               elif updateInfo[1]==WLT_DATATYPE_OPEVAL:
+
+               elif dtype==WLT_DATATYPE_OPEVAL:
                   raise Exception, 'OP_EVAL not support in wallet yet'
+
             elif(modType==WLT_UPDATE_MODIFY):
                updateLocations.append(updateInfo[0])
                dataToChange.append( updateInfo )
@@ -6715,8 +6763,8 @@ class PyBtcWallet(object):
       print indent + '   useEncrypt:', self.useEncryption
       print indent + '   watchOnly :', self.watchingOnly
       print indent + '   isLocked  :', self.isLocked
-      print indent + '   ShortLabel:', self.labelShort
-      print indent + '   LongLabel :', self.labelLong
+      print indent + '   ShortLabel:', self.labelName 
+      print indent + '   LongLabel :', self.labelDescr
       print ''
       print indent + 'Root key:', self.addrMap['ROOT'].getAddrStr(),
       print '(this address is never used)'
@@ -6736,8 +6784,8 @@ class PyBtcWallet(object):
    def isEqualTo(self, wlt2, debug=False):
       isEqualTo = True
       isEqualTo = isEqualTo and (self.wltUniqueIDB58 == wlt2.wltUniqueIDB58)
-      isEqualTo = isEqualTo and (self.labelShort == wlt2.labelShort)
-      isEqualTo = isEqualTo and (self.labelLong == wlt2.labelLong)
+      isEqualTo = isEqualTo and (self.labelName  == wlt2.labelName )
+      isEqualTo = isEqualTo and (self.labelDescr == wlt2.labelDescr)
       try:
 
          rootstr1 = binary_to_hex(self.addrMap['ROOT'].serialize())
@@ -7619,6 +7667,7 @@ class BitcoinArmoryClientFactory(ClientFactory):
       if not TheBDM.isInitialized():
          return
 
+      print 'Memory pool to be cleaned  :', len(self.zeroConfTx), 'tx left:'
       # Check for tx that used to be zero-conf, but are now in blockchain
       for hsh,tx in self.zeroConfTx.iteritems():
          if TheBDM.getTxByHash(hsh):
@@ -7633,7 +7682,6 @@ class BitcoinArmoryClientFactory(ClientFactory):
          self.doubleBroadcastAlerts = {} 
       
       print 'Memory pool should be clean:', len(self.zeroConfTx), 'tx left:'
-      print self.zeroConfTx
       for hsh,tx in self.zeroConfTx.iteritems():
          print '   Tx:', tx.getHashHex()
 
@@ -7675,6 +7723,116 @@ class BitcoinArmoryClientFactory(ClientFactory):
          self.func_loseConnect(protoObj, reason)
       #d, self.deferred_loseConnect = self.deferred_loseConnect, None
       #d.errback(reason)
+
+
+
+################################################################################
+################################################################################
+class SettingsFile(object):
+   """
+   This class could be replaced by the built-in QSettings in PyQt, except
+   that older versions of PyQt do not support the QSettings (or at least
+   I never figured it out).  Easy enough to do it here
+
+   All settings must populated with a simple datatype -- non-simple 
+   datatypes should be broken down into pieces that are simple:  numbers 
+   and strings, or lists/tuples of them.
+
+   Will write all the settings to file.  Each line will look like:
+         SingleValueSetting1 # 3824.8 
+         SingleValueSetting2 # this is a string
+         Tuple Or List Obj 1 # 12 | 43 | 13 | 33
+         Tuple Or List Obj 2 # str1 | another str
+   """
+
+   def __init__(self, path=None):
+      self.settingsPath = path
+      self.settingsMap = {}
+      self.restoreDefaults()
+      if not path:
+         self.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt') 
+
+      print 'Using settings file:', self.settingsPath
+      if os.path.exists(self.settingsPath):
+         self.loadSettingsFile(path)
+
+
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print indstr + 'Settings:'
+      for k,v in self.settingsMap.iteritems():
+         print indstr + indent + k.ljust(15), v
+
+   def restoreDefaults(self):
+      """ Put all default settings here """
+      self.settingsMap = {}
+
+   def hasSetting(self, name):
+      return self.settingsMap.has_key(name)
+   
+   def set(self, name, value):
+      self.settingsMap[name] = value
+
+   def get(self, name):
+      return '' if not self.hasSetting(name) else self.settingsMap[name]
+
+   def writeSettingsFile(self, path=None):
+      if not path:
+         path = self.settingsPath
+      f = open(path, 'w')
+      for key,val in self.settingsMap.iteritems():
+         try:
+            # Skip anything that throws an exception
+            valStr = '' 
+            if isinstance(val, str) or \
+               isinstance(val, int) or \
+               isinstance(val, float) or \
+               isinstance(val, long):
+               valStr = str(val)
+            elif isinstance(val, list) or \
+                 isinstance(val, tuple):
+               valStr = ' $  '.join([str(v) for v in val])
+            f.write(key.ljust(20) + ' | ' + valStr + '\n')
+         except:
+            print 'Invalid setting in settingsMap... skipping'
+      f.close()
+      
+
+   def loadSettingsFile(self, path=None):
+      if not path:
+         path = self.settingsPath
+
+      if not os.path.exists(path):
+         raise FileExistsError, 'Settings file DNE:', path
+
+      f = open(path, 'r')
+      sdata = f.read()
+      f.close()
+
+      # Automatically convert settings to numeric if possible
+      def castVal(v):
+         v = v.strip()
+         a,b = v.isdigit(), v.replace('.','').isdigit()
+         if a:   return int(v)
+         elif b: return float(v)
+         else:   return v
+         
+
+      sdata = [line.strip() for line in sdata.split('\n')]
+      for line in sdata:
+         if len(line.strip())==0:
+            continue
+
+         try:
+            key,vals = line.split('|')
+            self.settingsMap[key.strip()] = [castVal(v) for v in vals.split('$')]
+         except:
+            print 'Invalid setting in', path, ' (skipping...)'
+
+
+
+
 
 
 

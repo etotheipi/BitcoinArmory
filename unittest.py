@@ -12,14 +12,15 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
-Test_EncryptedWallet  = False
+Test_EncryptedAddress = True
+Test_EncryptedWallet  = True
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
-Test_NetworkObjects   = True
-Test_ReactorLoop      = True
+Test_NetworkObjects   = False
+Test_ReactorLoop      = False
+Test_SettingsFile     = True
 
 '''
 import optparse
@@ -1177,23 +1178,43 @@ if Test_EncryptedWallet:
    printpassorfail(hashfile(fileA)==hashfile(fileB))
 
 
+   print '*******'
+   print '\n(9z) Test comment I/O'
+   comment1 = 'This is my normal unit-testing address.'
+   comment2 = 'This is fake tx... no tx has this hash.'
+   comment3 = comment1 + '  Corrected!'
+   hash1 = '\x1f'*20  # address160
+   hash2 = '\x2f'*32  # tx hash
+   wlt.setComment(hash1, comment1)
+   wlt.setComment(hash2, comment2)
+   wlt.setComment(hash1, comment3)
+
+   wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
+   c3 = wlt2.getComment(hash1)
+   c2 = wlt2.getComment(hash2)
+   print c3
+   print c2
+   printpassorfail(c3==comment3)
+   printpassorfail(c2==comment2)
+
+   exit(0)
+   
+
+   print '\n(10) Reading back comment for this address'
+   print '\n' + hash160_to_addrStr(newAddr20)
+   print '\nComment:', wlt.getCommentForAddress(newAddr20)
+
    #############################################################################
    print '\n\n'
    print '*********************************************************************'
    print '\n(10) Finally!  Start the wallet tests involving the blockchain!'
 
-   print '\n(10) Add an address with some money to this wallet... with comment'
+   print '\n(10) Add an address with some money to this wallet'
    binPrivKey = hex_to_binary('a47a7e263f9ec17d7fbb4a649541001e8bb1266917aa77f5773810d7d81f00a5')
    newAddr20 = wlt.importExternalAddressData( privKey=binPrivKey )
    if debugPrint: wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
-   wlt.setCommentForAddr160(newAddr20, \
-      'This is my normal unit-testing address.  I sent nibor a few BTC from '+ \
-      'this address.  I did my 20-recipient anonymous send from this address')
 
-   print '\n(10) Reading back comment for this address'
-   print '\n' + hash160_to_addrStr(newAddr20)
-   print '\nComment:', wlt.getCommentForAddress(newAddr20)
 
    print '\n(10) Make sure C++ has all the addresses:'
    cppwlt = wlt.cppWallet
@@ -1517,6 +1538,46 @@ if Test_CryptoTiming:
 
 
 
+if Test_SettingsFile:
+   print ''
+   print '*********************************************************************'
+   print 'Testing Settings-file operations'
+   print '*********************************************************************'
+   print ''
+   
+   settings = SettingsFile()
+   settings.set('TestKey1', 32) 
+   settings.set('TestKey2', 12.3) 
+   settings.set('TestKey3', 'hello settings file')
+   settings.set('TestKey4', (1,2,3))
+   settings.set('TestKey5', [1,2,3])
+   settings.set('Test Key 6', 12)
+   settings.set('Test Key 7', ['str1', 'str2'])
+
+   
+   for key in ('TestKey1', 'TestKey2', 'TestKey3', 'TestKey4', 'TestKey5', \
+                                 'Test Key 6', 'Test Key 7', 'Test Key DNE'):
+      print key.ljust(15,' '), settings.get(key) 
+
+   settings.pprint()
+
+   testFile1 = 'settingsFile1.txt'
+   testFile2 = 'settingsFile2.txt'
+   
+   print 'Writing settings file'
+   settings.writeSettingsFile(testFile1)
+   print 'Reading in'
+   newSettings = SettingsFile(testFile1)
+   newSettings.pprint()
+   print 'Writing new settings file'
+   newSettings.writeSettingsFile(testFile2)
+
+   f1 = open(testFile1, 'r').read()
+   f2 = open(testFile2, 'r').read()
+   printpassorfail(f1==f2)
+
+   os.remove(testFile1)
+   os.remove(testFile2)
 
 
 

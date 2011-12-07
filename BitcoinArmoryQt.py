@@ -45,6 +45,10 @@ def enum(*sequential, **named):
 
 
 
+      
+
+
+TXTBL = enum("Status", "Date", "Direction", "Address", "Amount")
 
 
 
