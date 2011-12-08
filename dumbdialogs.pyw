@@ -2,82 +2,69 @@ import sys
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
+try:
+   from btcarmoryengine import *
+except ImportError:
+   print '***btcarmoryengine not available!'
 
+################################################################################
+def createToolTipObject(tiptext, iconSz=2):
+   lbl = QLabel('<font size=%d color="blue"><u>(?)</u></font>' % iconSz)
+   lbl.setToolTip('<u></u>' + tiptext)
+   return lbl
+
+################################################################################
 class DlgNewWallet(QDialog):
 
-   def __init__(self, parent=None, defaultNewWallet=True):
+   def __init__(self, parent=None):
       super(DlgNewWallet, self).__init__(parent)
 
-
-
-      # Import Wallet File section
-      """
-      self.chkImportWlt = self.QCheckBox('Import existing Armory wallet')
-      self.chkImportWlt.setChecked(not defaultNewWallet)
-
-      self.importFrame = QFrame()
-      self.importFrame.setFrameShape(QFrame.NoFrame)
-      importLayout = QHBoxLayout()
-      importLayout.addWidget(QLabel('File to import:', 0, 0)
-      importLayout.addWidget(self.fileLineEdit, 0, 1)
-      importLayout.addWidget(self.browseButton, 0, 2)
-      self.importFrame.setLayout(importLayout)
-      self.importFrame.setEnabled(defaultNewWallet)
-
-      self.chkImportWlt.conn
-      self.connect(self.chkImportWlt, SIGNAL('clicked()'),
-                   self.importFrame,  SLOT('setEnabled(bool)'))
-
-      """
-
       # Options for creating a new wallet
-      lblDlgDescr = QLabel('Create a new wallet for managing your funds.')
+      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n')
       lblDlgDescr.setWordWrap(True)
-      #self.chkNewWallet = QCheckBox('Create a new wallet to hold your funds')
-      #self.chkNewWallet.setChecked(defaultNewWallet)
 
       self.edtName = QLineEdit()
       self.edtName.setMaxLength(32)
-      lblName = QLabel("New wallet &name:")
+      lblName = QLabel("Wallet &name:")
       lblName.setBuddy(self.edtName)
 
+
       self.edtDescr = QTextEdit()
-      #self.edtDescr.setMaxLength(256)
-      lblDescr = QLabel("New wallet &description:")
+      self.edtDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+      lblDescr = QLabel("Wallet &description:")
       lblDescr.setBuddy(self.edtDescr)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
 
+
       
       # Advanced Encryption Options
-      #lblComputeDescr = QLabel('When this wallet is created, BitcoinArmory will test '
-                               #'your computer for the most time- and memory-intense '
-                               #'encryption parameters that can be performed within '
-                               #'0.25 seconds.  Below, you can change the the target '
-                               #'compute time, or put a maximum limit on the memory '
-                               #'requirement of the encryption parameters.  Higher '
-                               #'time values make it more difficult for an attacker '
-                               #'to brute-force-guess your passphrase, but also more '
-                               #'time for you to unlock your wallet.  Higher memory '
-                               #'usage will decrease the benefit of GPU-acceleration '
-                               #'in such an attack (values above 4 MB are likely to '
-                               #'render GPUs completely useless for passphrase guessing.')
-      lblComputeDescr = QLabel('Bitcoin Armory will test your system\'s speed to '
-                               'determine encryption settings that use as much memory '
-                               'as possible within 0.25 seconds (up to 32 MB). '
-                               'You can modify the defaults below.  '
-                               'By increasing the memory requirement, you are reducing '
-                               'the effectiveness of GPU-acceleration to brute-force '
-                               'your passphrase.')
+      lblComputeDescr = QLabel('Armory will test your system\'s speed to determine the most '
+                               'challenging encryption settings that can be performed '
+                               'in a given amount of time.  High settings make it extremely difficult '
+                               'for someone to guess your passphrase. This is used for all '
+                               'encrypted wallets, but the default parameters can be changed below.\n')
       lblComputeDescr.setWordWrap(True)
+      timeDescrTip = createToolTipObject(
+                               'This is the amount of time it will take for your computer '
+                               'to unlock your wallet after you enter your passphrase. '
+                               '(the actual time will be between T/2 and T).  ')
+      
       
       # Set maximum compute time
       self.edtComputeTime = QLineEdit()
       self.edtComputeTime.setText('250 ms')
       self.edtComputeTime.setMaxLength(12)
-      lblComputeTime = QLabel('Decryption compute &time (sec):\n' 
-                              '(actual compute time will between T/2 and T)')
+      lblComputeTime = QLabel('Target compute &time (s, ms):')
+      memDescrTip = createToolTipObject(
+                               'This is the <b>maximum</b> memory that will be '
+                               'used as part of the encryption process.  The actual value used '
+                               'may be lower, depending on your system\'s speed.  If a '
+                               'low value is chosen, Armory will compensate by chaining '
+                               'together more calculations to meet the target time.  High '
+                               'memory target will make GPU-acceleration useless for '
+                               'guessing your passphrase.')
       lblComputeTime.setBuddy(self.edtComputeTime)
 
 
@@ -85,28 +72,30 @@ class DlgNewWallet(QDialog):
       self.edtComputeMem = QLineEdit()
       self.edtComputeMem.setText('32.0 MB')
       self.edtComputeMem.setMaxLength(12)
-      lblComputeMem  = QLabel('Maximum &memory usage:')
+      lblComputeMem  = QLabel('Max &memory usage (kB, MB):')
       lblComputeMem.setBuddy(self.edtComputeMem)
 
       self.chkForkOnline = QCheckBox('Create an "&online" copy of this wallet')
-      lblForkOnline = QLabel('"Online" wallets are watching-only wallets that '
-                             'contains no private key data.  An "online" wallet '
-                             'can be used for generating receiving addresses '
-                             'and verifying incoming transactions, but cannot be used '
-                             'to spend any of the money in the wallet.')
-      lblForkOnline.setWordWrap(True)
-      lblForkOnline.setBuddy(self.chkForkOnline)
+
+      onlineToolTip = createToolTipObject(
+                             'An "online" wallet is a copy of your primary wallet, but '
+                             'without any sensitive data that would allow an attacker to '
+                             'obtain access to your funds.  An "online" wallet can '
+                             'generate new addresses and verify incoming payments '
+                             'but cannot be used to spend any of the funds.')
       # Fork watching-only wallet
 
 
       cryptoLayout = QGridLayout()
-      cryptoLayout.addWidget(lblComputeDescr,     0, 0, 1, 2)
+      cryptoLayout.addWidget(lblComputeDescr,     0, 0, 1, 3)
       cryptoLayout.addWidget(lblComputeTime,      1, 0, 1, 1)
       cryptoLayout.addWidget(lblComputeMem,       2, 0, 1, 1)
       cryptoLayout.addWidget(self.edtComputeTime, 1, 1, 1, 1)
+      cryptoLayout.addWidget(timeDescrTip,        1, 3, 1, 1)
       cryptoLayout.addWidget(self.edtComputeMem,  2, 1, 1, 1)
+      cryptoLayout.addWidget(memDescrTip,         2, 3, 1, 1)
       cryptoLayout.addWidget(self.chkForkOnline,  3, 0, 1, 1)
-      cryptoLayout.addWidget(lblForkOnline,       4, 0, 1, 3)
+      cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
 
       self.cryptoFrame = QFrame()
       self.cryptoFrame.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
@@ -116,72 +105,138 @@ class DlgNewWallet(QDialog):
       #self.chkWatchOnly = QCheckBox("Make this a watching-only wallet\n(no private key data)")
       self.chkUseCrypto = QCheckBox("Use wallet &encryption")
       self.chkUseCrypto.setChecked(True)
-
-      self.chkAdvCrypto = QCheckBox('Set advanced encryption options')
-      self.chkAdvCrypto.setChecked(False)
-      self.connect(self.chkAdvCrypto, SIGNAL('toggled(bool)'), \
-                   self.cryptoFrame, SLOT('setVisible(bool)'))
-
+      usecryptoTooltip = createToolTipObject(
+                                 'Encryption prevents anyone who accesses your computer '
+                                 'from being able to spend your funds, but does require '
+                                 'typing in a passphrase before you can send money. '
+                                 'You can choose to encrypt your wallet at a later time '
+                                 'through the wallet options by double clicking the wallet '
+                                 'on the dashboard.')
 
 
       
-      masterLayout = QGridLayout()
-      masterLayout.addWidget(lblDlgDescr,       1, 0, 1, 3)
-      masterLayout.addWidget(lblName,           2, 0)
-      masterLayout.addWidget(self.edtName,      2, 1, 1, 2)
-      masterLayout.addWidget(lblDescr,          3, 0)
-      masterLayout.addWidget(self.edtDescr,     3, 1, 2, 2)
-      #masterLayout.addWidget(self.chkWatchOnly, 4, 0)
-      masterLayout.addWidget(self.chkUseCrypto, 5, 0)
-      masterLayout.addWidget(self.chkAdvCrypto, 6, 0)
-      masterLayout.addWidget(self.cryptoFrame,  7, 0, 3, 3)
-     
+      self.btnAccept    = QPushButton("Accept")
+      self.btnCancel    = QPushButton("Cancel")
+      self.btnAdvCrypto = QPushButton("Adv. Encrypt Options>>>")
+      self.btnAdvCrypto.setCheckable(True)
+      self.btnbox = QDialogButtonBox()
+      self.btnbox.addButton(self.btnAdvCrypto, QDialogButtonBox.ActionRole)
+      self.btnbox.addButton(self.btnCancel,    QDialogButtonBox.RejectRole)
+      self.btnbox.addButton(self.btnAccept,    QDialogButtonBox.AcceptRole)
 
+      self.connect(self.btnAdvCrypto, SIGNAL('toggled(bool)'), \
+                   self.cryptoFrame,  SLOT('setVisible(bool)'))
+      self.connect(self.btnAccept,    SIGNAL('clicked()'), \
+                   self.verifyInputsBeforeAccept)
+      self.connect(self.btnCancel,    SIGNAL('clicked()'), \
+                   self,              SLOT('reject()'))
+
+
+      self.btnImportWlt = QPushButton("Import wallet...")
+      self.connect( self.btnImportWlt, SIGNAL("clicked()"), \
+                    self.getImportWltPath)
+      
+      masterLayout = QGridLayout()
+      masterLayout.addWidget(lblDlgDescr,       1, 0, 1, 2)
+      masterLayout.addWidget(self.btnImportWlt, 1, 2, 1, 1)
+      masterLayout.addWidget(lblName,           2, 0, 1, 1)
+      masterLayout.addWidget(self.edtName,      2, 1, 1, 2)
+      masterLayout.addWidget(lblDescr,          3, 0, 1, 1)
+      masterLayout.addWidget(self.edtDescr,     3, 1, 2, 2)
+      masterLayout.addWidget(self.chkUseCrypto, 5, 0, 1, 1)
+      masterLayout.addWidget(usecryptoTooltip,  5, 1, 1, 1)
+      masterLayout.addWidget(self.cryptoFrame,  7, 0, 3, 3)
+   
+      masterLayout.addWidget(self.btnbox,      10, 0, 1, 2)
+     
       self.setLayout(masterLayout)
 
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
 
-
-      #self.connect(okButton, SIGNAL("clicked()"),
-                   #self, SLOT("accept()"))
-      #self.connect(cancelButton, SIGNAL("clicked()"),
-                   #self, SLOT("reject()"))
-
       self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
                    self.cryptoFrame, SLOT("setEnabled(bool)"))
-
-      #self.connect(findFileButton, SIGNAL("clicked()"),
-                   #self.findWalletFile)
 
       self.setWindowTitle('Bitcoin Armory: Create/Import wallet')
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
 
 
-   #def findWalletFile(self):
-      #formats = ['*.wallet', 'All files']
-      #dlg = QFileDialog(self, 'Find wallet File', ARMORY_HOME_DIR)
-      #dlg.setFileMode(QFileDialog.ExistingFile)
-      #dlg.setNameFilters(['Wallet files (*.wallet)', 'All Files (*)'])
-      ##dlg.setNameFilters(['Wallet files (*.wallet);; All Files (*.*)')
-      #if dlg.exec_() == 1:
-         #self. dlg.selectedFiles().first()
+   def verifyInputsBeforeAccept(self):
+      wltName  = self.edtName.text()
+      wltDescr = self.edtDescr.toPlainText()
+      if len(wltName)<1:
+         QMessageBox.warning(self, 'Invalid wallet name', \
+                  'You must enter a name for this wallet, up to 32 characters.', \
+                  QMessageBox.Ok)
+         return False
+         
+      if len(wltDescr)>256:
+         reply = QMessageBox.warning(self, 'Input too long', \
+                  'The wallet description is limited to 256 characters.  Only the first '
+                  '256 characters will be used.', \
+                  QMessageBox.Ok | QMessageBox.Cancel)
+         if reply==QMessageBox.Ok:
+            self.edtDescr.setText( wltDescr[:256])
+            self.accept()
+         else:
+            return False
+      self.accept()
+            
+            
+   def getImportWltPath(self):
+      self.importFile = QFileDialog.getOpenFileName(self, 'Import Wallet File', \
+          ARMORY_HOME_DIR, 'Wallet files (*.wallet);; All files (*)') 
+      if self.importFile:
+         print self.importFile
+         self.accept()
+      
 
 
+"""
+################################################################################
+class DlgImportWallet(QDialog):
+   def __init__(self, parent=None):
+      super(DlgImportWallet, self).__init__(parent)
+   
+      lblPath = QLabel("Path to wallet file:")
+      self.edtPath = QLineEdit()
+      self.btnBrowse = QPushButton("Browse...")
+
+      layout = QHBoxLayout()
+      layout.addWidget(lblPath, 0)
+      layout.addWidget(self.edtPath, 1)
+      layout.addWidget(self.btnBrowse, 2)
+      self.connect(self.btnBrowse, SIGNAL("clicked()"), \
+                   self.openFileDialog)
+      self.setLayout(layout)
+
+      self.setWindowTitle('Import wallet file')
+      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+
+   def openFileDialog(self):
+      pass
+"""
+
+
+
+################################################################################
 class DlgChangePassphrase(QDialog):
-   def __init__(self, parent=None, firstTime=True):
+   def __init__(self, parent=None, noPrevEncrypt=True):
       super(DlgChangePassphrase, self).__init__(parent)
 
 
       layout = QGridLayout()
-      if firstTime:
-         lblDlgDescr = QLabel("Please enter an passphrase for wallet encryption")
-         layout.addWidget(lblDlgDescr, 0, 0)
+      if noPrevEncrypt:
+         lblDlgDescr = QLabel('Please enter an passphrase for wallet encryption.\n\n'
+                              'A good passphrase consists of at least 8 or more\n'
+                              'random letters, or 5 or more random words.\n')
+         lblDlgDescr.setWordWrap(True)
+         layout.addWidget(lblDlgDescr, 0, 0, 1, 2)
       else:
          lblDlgDescr = QLabel("Change your wallet encryption passphrase")
-         layout.addWidget(lblDlgDescr, 0, 0)
+         layout.addWidget(lblDlgDescr, 0, 0, 1, 2)
          self.edtPasswdOrig = QLineEdit()
-         self.edtPasswdOrig.SetEchoMode(QLineEdit.Password)
+         self.edtPasswdOrig.setEchoMode(QLineEdit.Password)
          lblCurrPasswd = QLabel('Current Passphrase:')
          layout.addWidget(lblCurrPasswd,       1, 0)
          layout.addWidget(self.edtPasswdOrig,  1, 1)
@@ -212,6 +267,12 @@ class DlgChangePassphrase(QDialog):
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
       layout.addWidget(buttonBox, 5, 0, 1, 2)
 
+      if noPrevEncrypt:
+         self.setWindowTitle("Set Encryption Passphrase")
+      else:
+         self.setWindowTitle("Change Encryption Passphrase")
+
+      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
       self.setLayout(layout)
 
@@ -243,7 +304,18 @@ class DlgChangePassphrase(QDialog):
 
    def checkPassphraseFinal(self):
       if self.checkPassphrase():
-         self.accept()
+         reply = QMessageBox.warning(self,  \
+            'WARNING!', \
+            '!!!  DO NOT FORGET YOUR PASSPHRASE  !!!\n\n'
+            'Bitcoin Armory wallet encryption is designed to be extremely difficult to '
+            'crack, even with GPU-acceleration.  No one can help you recover your coins '
+            'if you forget your passphrase, not even the developers of this software. '
+            'If you are inclined to forget your passphrase, please write it down and '
+            'store it in a secure location.\n\nAre you sure you will remember you passphrase?', \
+            QMessageBox.Yes | QMessageBox.No)
+
+         if reply == QMessageBox.Yes:
+            self.accept()
 
 
 class DlgDispWltProperties(QDialog):
@@ -257,8 +329,8 @@ if __name__=='__main__':
    app = QApplication(sys.argv)
    app.setApplicationName("DumbDialogs")
 
-   #form = DlgNewWallet(defaultNewWallet=True)
-   form = DlgChangePassphrase(firstTime=True)
+   form = DlgNewWallet()
+   #form = DlgChangePassphrase(noPrevEncrypt=True)
 
    form.show()
    app.exec_()
