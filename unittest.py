@@ -1542,7 +1542,9 @@ if Test_SettingsFile:
    print '*********************************************************************'
    print ''
    
-   settings = SettingsFile()
+   testFile1 = 'settingsFile1.txt'
+   testFile2 = 'settingsFile2.txt'
+   settings = SettingsFile(testFile1)
    settings.set('TestKey1', 32) 
    settings.set('TestKey2', 12.3) 
    settings.set('TestKey3', 'hello settings file')
@@ -1555,26 +1557,23 @@ if Test_SettingsFile:
    settings.set('TestKey10', [True, True, False])
 
    
-   for key in ('TestKey1', 'TestKey2', 'TestKey3', 'TestKey4', 'TestKey5', \
-                                 'Test Key 6', 'Test Key 7', 'Test Key DNE'):
-      print key.ljust(15,' '), settings.get(key) 
-
    settings.pprint()
 
-   testFile1 = 'settingsFile1.txt'
-   testFile2 = 'settingsFile2.txt'
-   
-   print 'Writing settings file'
-   settings.writeSettingsFile(testFile1)
+   settings.extend('TestKey2', 1.1)
+   settings.extend('TestKey4', 6)
+   settings.extend('TestKey11', 'astring')
+   settings.extend('TestKey12', 83)
+
    print 'Reading in'
    newSettings = SettingsFile(testFile1)
    newSettings.pprint()
    print 'Writing new settings file'
    newSettings.writeSettingsFile(testFile2)
 
-   f1 = open(testFile1, 'r').read()
-   f2 = open(testFile2, 'r').read()
-   printpassorfail(f1==f2)
+   with  open(testFile1, 'r') as f:
+      f1 = f.read()
+   with open(testFile2, 'r') as f:
+      f2 = f.read()
 
    os.remove(testFile1)
    os.remove(testFile2)

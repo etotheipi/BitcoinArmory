@@ -7784,7 +7784,25 @@ class SettingsFile(object):
    
    #############################################################################
    def set(self, name, value):
-      self.settingsMap[name] = value
+      if isinstance(value, tuple):
+         self.settingsMap[name] = list(value)
+      else:
+         self.settingsMap[name] = value
+      self.writeSettingsFile()
+
+   #############################################################################
+   def extend(self, name, value):
+      """ Adds/converts setting to list, appends value to the end of it """
+      if not self.settingsMap.has_key(name):
+         if isinstance(value, list) or isinstance(value, tuple):
+            self.set(name, value)
+         else:
+            self.set(name, [value])
+      elif isinstance(self.settingsMap[name], list):
+         self.settingsMap[name].append(value)
+      else:
+         origVal = self.settingsMap[name]
+         self.settingsMap[name] = [origVal, value]
       self.writeSettingsFile()
 
    #############################################################################
