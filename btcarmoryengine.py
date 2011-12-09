@@ -5160,6 +5160,94 @@ class PyBtcWallet(object):
       return self.walletPath
 
    #############################################################################
+   def getTimeRangeForAddress(self, addr160):
+      if not self.addrMap.has_key(addr160):
+         return None
+      else:
+          return self.addrMap[addr160].getTimeRange()
+
+   #############################################################################
+   def getBlockRangeForAddress(self, addr20):
+      if not self.addrMap.has_key(addr160):
+         return None
+      else:
+          return self.addrMap[addr160].getBlockRange()
+
+   #############################################################################
+   def setBlockchainSyncFlag(self, syncYes=True):
+      self.doBlockchainSync = syncYes
+
+   #############################################################################
+   def syncWithBlockchain(self):
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         assert(TheBDM.isInitialized())
+         TheBDM.scanBlockchainForTx_FromScratch(self.cppWallet)
+      else:
+         print '***WARNING: Blockchain-sync requested, but current wallet'
+         print '            is set to BLOCKCHAIN_DONOTUSE'
+
+   #############################################################################
+   def getBalance(self):
+      return sumTxOutList(self.getUnspentTxOutList())
+
+   #############################################################################
+   def getUnspentTxOutList(self):
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         assert(TheBDM.isInitialized())
+         self.syncWithBlockchain()
+         return TheBDM.getUnspentTxOutsForWallet(self.cppWallet)
+      else:
+         print '***Blockchain is not available for accessing wallet-tx data'
+         return []
+
+
+   #############################################################################
+   def getAddrByHash160(self, addr160):
+      return (None if not self.hasAddr(addr160) else self.addrMap[addr160])
+
+   #############################################################################
+   def hasAddr(self, addrData):
+      if isinstance(addrData, str):
+         if len(addrData) == 20:
+            return self.addrMap.has_key(addrData)
+         else:
+            return self.addrMap.has_key(addrStr_to_hash160(addrData))
+      elif isinstance(addrData, PyBtcAddress):
+         return self.addrMap.has_key(addrData.getAddr160())
+      else:
+         return False
+   #############################################################################
+   def setDefaultKeyLifetime(self, newlifetime):
+      """ Set a new default lifetime for holding the unlock key. Min 2 sec """
+      self.defaultKeyLifetime = max(newlifetime, 2)
+
+   #############################################################################
+   def checkWalletLockTimeout(self):
+      if self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
+         self.lock()
+         self.kdfKey.destroy()
+         self.kdfKey = None
+         self.isLocked = True
+
+
+   #############################################################################
+   def lockWalletIfTimeExpired(self):
+      if RightNow() > self.lockWalletAtTime:
+         self.lock()
+   
+
+   #############################################################################
+   def setDefaultKeyLifetime(self, lifetimeInSec):
+      """
+      This is used to set (in memory only) the default time to keep the encrypt
+      key in memory after the encryption passphrase has been entered.  This is
+      NOT enforced by PyBtcWallet, but the unlock method will use it to calc a
+      unix timestamp when the wallet SHOULD be locked, and the external program
+      can use that to decide when to call the lock method.
+      """
+      self.defaultKeyLifetime = lifetimeInSec
+
+   #############################################################################
    def createNewWallet(self, newWalletFilePath=None, \
                              plainRootKey=None, chaincode=None, \
                              withEncrypt=True, IV=None, securePassphrase=None, \
@@ -5201,7 +5289,7 @@ class PyBtcWallet(object):
       else:
          print '(with encryption)',
          self.kdf = KdfRomix()
-         (mem,niter,salt) = self.kdf.computeSystemSpecificKdfParams( \
+         (mem,niter,salt) = self.computeSystemSpecificKdfParams( \
                                                 kdfTargSec, kdfMaxMem)
          self.kdf.usePrecomputedKdfParams(mem, niter, salt)
          self.kdfKey = self.kdf.DeriveKey(securePassphrase)
@@ -5230,9 +5318,10 @@ class PyBtcWallet(object):
       first160  = firstAddr.getAddr160()
 
       # Update wallet object with the new data
+      self.useEncryption = withEncrypt
       self.addrMap['ROOT'] = rootAddr
       self.addrMap[firstAddr.getAddr160()] = firstAddr
-      self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:3])[::-1]
+      self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:5])[::-1]
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
       self.labelName  = shortLabel[:32]
       self.labelDescr  = longLabel[:256]
@@ -5248,7 +5337,7 @@ class PyBtcWallet(object):
          shortName = self.labelName .replace(' ','_')
          for c in ',?;:\'"?/\\=+-|[]{}<>':
             shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_%s_.wallet' % (shortName, self.wltUniqueIDB58)
+         newName = 'armory_%s_.wallet' % self.wltUniqueIDB58
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       print '   New wallet will be written to:', self.walletPath
@@ -5551,7 +5640,7 @@ class PyBtcWallet(object):
 
       mem   = kdf.getMemoryReqtBytes()
       nIter = kdf.getNumIterations()
-      salt  = kdf.getSalt().toBinStr()
+      salt  = SecureBinaryData(kdf.getSalt().toBinStr())
       return (mem, nIter, salt)
 
    #############################################################################
@@ -5793,7 +5882,8 @@ class PyBtcWallet(object):
    #############################################################################
    def createChangeFlagsEntry(self):
       """
-      Packs up the wallet flags and writes them atomically to the wallet file.
+      Packs up the wallet flags and returns a update-entry that can be included
+      in a walletFileSafeUpdate call.
       """
       bp = BinaryPacker()
       self.packWalletFlags(bp)
@@ -5829,7 +5919,7 @@ class PyBtcWallet(object):
       self.packWalletFlags(binPacker)
 
       # Binary Unique ID (rootAddr25bytes[:4][::-1])
-      binPacker.put(BINARY_CHUNK, self.wltUniqueIDBin, width=4)
+      binPacker.put(BINARY_CHUNK, self.wltUniqueIDBin, width=6)
 
       # Unix time of wallet creations
       binPacker.put(UINT64, self.wltCreateDate)
@@ -5879,7 +5969,7 @@ class PyBtcWallet(object):
 
       # This is the first 4 bytes of the 25-byte address-chain-root address
       # This includes the network byte (i.e. main network, testnet, namecoin)
-      self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 4)
+      self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 6)
       self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
       self.wltCreateDate  = binUnpacker.get(UINT64)
 
@@ -6012,7 +6102,7 @@ class PyBtcWallet(object):
       if (skipBlockChainScan or \
           not TheBDM.isInitialized() or \
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
-         print 'Cannot sync new wallet with blockchain'
+         pass
       else:
          self.syncWithBlockchain()
 
@@ -6318,50 +6408,6 @@ class PyBtcWallet(object):
 
 
 
-   #############################################################################
-   def getTimeRangeForAddress(self, addr160):
-      if not self.addrMap.has_key(addr160):
-         return None
-      else:
-          return self.addrMap[addr160].getTimeRange()
-
-
-   #############################################################################
-   def getBlockRangeForAddress(self, addr20):
-      if not self.addrMap.has_key(addr160):
-         return None
-      else:
-          return self.addrMap[addr160].getBlockRange()
-
-
-   #############################################################################
-   def setBlockchainSyncFlag(self, syncYes=True):
-      self.doBlockchainSync = syncYes
-
-   #############################################################################
-   def syncWithBlockchain(self):
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(TheBDM.isInitialized())
-         TheBDM.scanBlockchainForTx_FromScratch(self.cppWallet)
-      else:
-         print '***WARNING: Blockchain-sync requested, but current wallet'
-         print '            is set to BLOCKCHAIN_DONOTUSE'
-
-
-   #############################################################################
-   def getUnspentTxOutList(self):
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(TheBDM.isInitialized())
-         self.syncWithBlockchain()
-         return TheBDM.getUnspentTxOutsForWallet(self.cppWallet)
-      else:
-         print '***Blockchain is not available for accessing wallet-tx data'
-         return []
-
-
-   #############################################################################
-   def getAddrByHash160(self, addr160):
-      return self.addrMap[addr160]
 
    #############################################################################
    #def getAddrByIndex(self, i):
@@ -6533,17 +6579,6 @@ class PyBtcWallet(object):
 
 
 
-   #############################################################################
-   def hasAddr(self, addrData):
-      if isinstance(addrData, str):
-         if len(addrData) == 20:
-            return self.addrMap.has_key(addrData)
-         else:
-            return self.addrMap.has_key(addrStr_to_hash160(addrData))
-      elif isinstance(addrData, PyBtcAddress):
-         return self.addrMap.has_key(addrData.getAddr160())
-      else:
-         return False
 
 
 
@@ -6629,36 +6664,6 @@ class PyBtcWallet(object):
       return txdp
 
 
-   #############################################################################
-   def setDefaultKeyLifetime(self, newlifetime):
-      """ Set a new default lifetime for holding the unlock key. Min 2 sec """
-      self.defaultKeyLifetime = max(newlifetime, 2)
-
-   #############################################################################
-   def checkWalletLockTimeout(self):
-      if self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
-         self.lock()
-         self.kdfKey.destroy()
-         self.kdfKey = None
-         self.isLocked = True
-
-
-   #############################################################################
-   def lockWalletIfTimeExpired(self):
-      if RightNow() > self.lockWalletAtTime:
-         self.lock()
-   
-
-   #############################################################################
-   def setDefaultKeyLifetime(self, lifetimeInSec):
-      """
-      This is used to set (in memory only) the default time to keep the encrypt
-      key in memory after the encryption passphrase has been entered.  This is
-      NOT enforced by PyBtcWallet, but the unlock method will use it to calc a
-      unix timestamp when the wallet SHOULD be locked, and the external program
-      can use that to decide when to call the lock method.
-      """
-      self.defaultKeyLifetime = lifetimeInSec
 
    #############################################################################
    def unlock(self, secureKdfOutput=None, \
@@ -7471,7 +7476,7 @@ class BitcoinArmoryClient(Protocol):
       This method will do nothing if we don't receive a full message.
       """
 
-      print '\n\nData Received:',
+      #print '\n\nData Received:',
       # Put the current buffer into an unpacker, process until empty
       self.recvData += data
       buf = BinaryUnpacker(self.recvData)
@@ -7482,8 +7487,8 @@ class BitcoinArmoryClient(Protocol):
             # recvData is only modified if the unserialize succeeds
             messages.append( PyMessage().unserialize(buf) )
             self.recvData = buf.getRemainingString()
-            print '\n  Message', len(messages), 'read: ',
-            print messages[-1].cmd.upper(),
+            #print '\n  Message', len(messages), 'read: ',
+            #print messages[-1].cmd.upper(),
          except NetworkIDError:
             print 'Message for a different network!' 
             if BLOCKCHAINS.has_key(self.recvData[:4]):
@@ -7498,7 +7503,7 @@ class BitcoinArmoryClient(Protocol):
 
       # We might've gotten here without anything to process -- if so, bail
       if len(messages)==0:
-         print '<Not enough data for full msg>'
+         #print '<Not enough data for full msg>'
          return
 
       # Finally, we have some message to process, let's do it
@@ -7533,11 +7538,10 @@ class BitcoinArmoryClient(Protocol):
    def processMessage(self, msg):
       # TODO:  when I start expanding this class to be more versatile,
       #        I'll consider chaining/setting callbacks from the calling
-      #        application -- but right now there's so little to do here,
-      #        I will expand it only when I need it
+      #        application.  For now, it's pretty static.
       msg.payload.pprint(nIndent=2)
       if msg.cmd=='inv':
-         print 'Received inv message'
+         #print 'Received inv message'
          invobj = msg.payload
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
@@ -7545,13 +7549,13 @@ class BitcoinArmoryClient(Protocol):
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
                from twisted.internet import reactor
-               reactor.callLater(5, self.factory.purgeMemoryPool)
+               reactor.callLater(2, self.factory.purgeMemoryPool)
             if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
-               print 'Requesting new tx data'
+               #print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)
          self.sendMessage(getdataMsg)
       if msg.cmd=='tx':
-         print 'Received tx message'
+         #print 'Received tx message'
          pytx = msg.payload.tx
          newAlert = self.factory.checkForDoubleBroadcast(pytx)
          if newAlert:
@@ -7565,7 +7569,7 @@ class BitcoinArmoryClient(Protocol):
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
-         print 'Received block message (ignoring)'
+         #print 'Received block message (ignoring)'
          pass 
                   
 
@@ -7578,13 +7582,13 @@ class BitcoinArmoryClient(Protocol):
       easy enough to user PyMessage().unserialize(binMsg)
       """
       if isinstance(msg, PyMessage):
-         print '\n\nSending Message:', msg.payload.command.upper()
-         pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         #print '\n\nSending Message:', msg.payload.command.upper()
+         #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
          self.transport.write(msg.serialize())
       else:
          msg = PyMessage(payload=msg)
-         print '\n\nSending Message:', msg.payload.command.upper()
-         pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         #print '\n\nSending Message:', msg.payload.command.upper()
+         #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
          self.transport.write(msg.serialize())
 
 
@@ -7655,7 +7659,7 @@ class BitcoinArmoryClientFactory(ClientFactory):
    
 
    def handshakeFinished(self, protoObj):
-      print 'Handshake finished, connection open!'
+      #print 'Handshake finished, connection open!'
       if self.deferred_handshake:
          d, self.deferred_handshake = self.deferred_handshake, None
          d.callback(protoObj)
@@ -7772,6 +7776,8 @@ class SettingsFile(object):
       """ 
       Put all default settings here.  DNAA means "Do Not Ask Again"
       """
+      self.settingsMap['New_Settings_File']   = True
+      self.settingsMap['Load_Count']          = 0
       self.settingsMap['User_Mode']           = 'Standard'  # 'Advanced'
       self.settingsMap['Other_Wallets']       = ''
       self.settingsMap['First_Load']          = True
@@ -7794,20 +7800,39 @@ class SettingsFile(object):
    def extend(self, name, value):
       """ Adds/converts setting to list, appends value to the end of it """
       if not self.settingsMap.has_key(name):
-         if isinstance(value, list) or isinstance(value, tuple):
+         if isinstance(value, list):
             self.set(name, value)
          else:
             self.set(name, [value])
-      elif isinstance(self.settingsMap[name], list):
-         self.settingsMap[name].append(value)
       else:
-         origVal = self.settingsMap[name]
-         self.settingsMap[name] = [origVal, value]
+         origVal = self.get(name, expectList=True)
+         if isinstance(value, list):
+            origVal.extend(value)
+         else:
+            origVal.append(value)
+         self.settingsMap[name] = origVal
       self.writeSettingsFile()
 
    #############################################################################
-   def get(self, name):
-      return '' if not self.hasSetting(name) else self.settingsMap[name]
+   def get(self, name, expectList=False):
+      if not self.hasSetting(name) or self.settingsMap[name]=='':
+         return ([] if expectList else '')
+      else:
+         val = self.settingsMap[name]
+         if expectList:
+            if isinstance(val, list):
+               return val
+            else:
+               return [val]
+         else:
+            return val
+
+
+   #############################################################################
+   def delete(self, name):
+      if self.hasSetting(name):
+         del self.settingsMap[name]
+      self.writeSettingsFile()
 
    #############################################################################
    def writeSettingsFile(self, path=None):

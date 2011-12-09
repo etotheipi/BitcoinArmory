@@ -20,7 +20,8 @@ class DlgNewWallet(QDialog):
       super(DlgNewWallet, self).__init__(parent)
 
       # Options for creating a new wallet
-      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n')
+      lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
+                           'The name and description can be changed at any time.')
       lblDlgDescr.setWordWrap(True)
 
       self.edtName = QLineEdit()
@@ -30,8 +31,9 @@ class DlgNewWallet(QDialog):
 
 
       self.edtDescr = QTextEdit()
-      self.edtDescr.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+      self.edtDescr.setMaximumHeight(75)
       lblDescr = QLabel("Wallet &description:")
+      lblDescr.setAlignment(Qt.AlignVCenter)
       lblDescr.setBuddy(self.edtDescr)
 
       buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
@@ -141,13 +143,15 @@ class DlgNewWallet(QDialog):
       masterLayout.addWidget(self.btnImportWlt, 1, 2, 1, 1)
       masterLayout.addWidget(lblName,           2, 0, 1, 1)
       masterLayout.addWidget(self.edtName,      2, 1, 1, 2)
-      masterLayout.addWidget(lblDescr,          3, 0, 1, 1)
+      masterLayout.addWidget(lblDescr,          3, 0, 1, 2)
       masterLayout.addWidget(self.edtDescr,     3, 1, 2, 2)
       masterLayout.addWidget(self.chkUseCrypto, 5, 0, 1, 1)
       masterLayout.addWidget(usecryptoTooltip,  5, 1, 1, 1)
       masterLayout.addWidget(self.cryptoFrame,  7, 0, 3, 3)
    
       masterLayout.addWidget(self.btnbox,      10, 0, 1, 2)
+
+      masterLayout.setVerticalSpacing(15)
      
       self.setLayout(masterLayout)
 
@@ -156,7 +160,7 @@ class DlgNewWallet(QDialog):
       self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
                    self.cryptoFrame, SLOT("setEnabled(bool)"))
 
-      self.setWindowTitle('Bitcoin Armory: Create/Import wallet')
+      self.setWindowTitle('Create/Import Armory wallet')
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
 
@@ -190,32 +194,6 @@ class DlgNewWallet(QDialog):
          print self.importFile
          self.accept()
       
-
-
-"""
-################################################################################
-class DlgImportWallet(QDialog):
-   def __init__(self, parent=None):
-      super(DlgImportWallet, self).__init__(parent)
-   
-      lblPath = QLabel("Path to wallet file:")
-      self.edtPath = QLineEdit()
-      self.btnBrowse = QPushButton("Browse...")
-
-      layout = QHBoxLayout()
-      layout.addWidget(lblPath, 0)
-      layout.addWidget(self.edtPath, 1)
-      layout.addWidget(self.btnBrowse, 2)
-      self.connect(self.btnBrowse, SIGNAL("clicked()"), \
-                   self.openFileDialog)
-      self.setLayout(layout)
-
-      self.setWindowTitle('Import wallet file')
-      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
-
-   def openFileDialog(self):
-      pass
-"""
 
 
 

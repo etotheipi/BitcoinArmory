@@ -27,10 +27,16 @@ import os
 import sys
 import shutil
 import math
+import threading
 from datetime import datetime
+
+# PyQt4 Imports
+from PyQt4.QtCore import *
+from PyQt4.QtGui import *
 
 # 8000 lines of python to help us out...
 from btcarmoryengine import *
+from armorymodels import *
 
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
@@ -46,39 +52,230 @@ def enum(*sequential, **named):
 TXTBL = enum("Status", "Date", "Direction", "Address", "Amount")
 
 
-SETTINGS = None
+SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 wallets = []
 
 
-'''
-class HeaderDataModel(QAbstractTableModel):
-   def __init__(self):
-      super(HeaderDataModel, self).__init__()
-      self.bdm = BlockDataManager().getBDM()
+UserMode = enum('Standard', 'Advanced')
 
-   def rowCount(self, index=QModelIndex()):
+class ArmoryMainWindow(QMainWindow):
+   """ The primary Armory window """
 
-   def columnCount(self, index=QModelIndex()):
+   #############################################################################
+   def __init__(self, parent=None, settingsPath=None):
+      super(ArmoryMainWindow, self).__init__(parent)
 
-   def data(self, index, role=Qt.DisplayRole):
-      if role==Qt.DisplayRole:
-         if col== HEAD_DATE: return QVariant(someStr)
-      elif role==Qt.TextAlignmentRole:
-         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-         else: 
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-      elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
-      return QVariant()
+      self.extraHeartbeatFunctions = []
+      self.settingsPath = settingsPath
 
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            return QVariant( headColLabels[section] )
-      elif role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-'''
+
+      self.loadWalletsAndSettings()
+      self.setupNetworking()
+
+      self.lblAvailWlt = QLabel('Available Wallets:')
+      self.lblAvailWlt.setAlignment(Qt.AlignBottom)
+
+      self.lblLogoIcon = QLabel()
+      self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
+      self.lblLogoIcon.setAlignment(Qt.AlignRight)
+
+      self.setWindowTitle('Armory - Bitcoin Wallet Management')
+      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+
+      self.walletModel = WalletDispModel(self)
+      self.walletView  = QTableView()
+      self.walletView.setModel(self.walletModel)
+      self.walletView.setSelectionBehavior(QTableView.SelectRows)
+      self.walletView.setSelectionMode(QTableView.SingleSelection)
+      #self.headView.setMinimumSize(800,200)
+      self.walletView.horizontalHeader().setStretchLastSection(True)
+      self.walletView.verticalHeader().setDefaultSectionSize(20)
+      self.walletView.horizontalHeader().resizeSection(1, 150)
+
+      if self.usermode == UserMode.Standard:
+         self.walletView.hideColumn(0)
+         self.walletView.horizontalHeader().resizeSection(1, 200)
+
+      
+      layout = QGridLayout()
+      layout.addWidget(QLabel("Available Wallets:"), 0, 0, 1, 1)
+      layout.addWidget(self.walletView,              2, 0, 1, 2)
+      layout.addWidget(self.lblLogoIcon,             0, 1, 1, 1)
+
+      # Attach the layout to the frame that will become the central widget
+      mainFrame = QFrame()
+      mainFrame.setLayout(layout)
+      self.setCentralWidget(mainFrame)
+      self.setMinimumSize(500,300)
+
+      self.statusBar().showMessage('Blockchain loading, please wait...')
+
+      from twisted.internet import reactor
+      reactor.callLater(2.0,  self.loadBlockchain)
+      #reactor.callLater(10, form.Heartbeat)
+
+   #############################################################################
+   def setupNetworking(self):
+
+      from twisted.internet import reactor
+      def restartConnection(protoObj, failReason):
+         print '! Trying to restart connection !'
+         reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
+
+      self.NetworkingFactory = BitcoinArmoryClientFactory( \
+                                       func_loseConnect=restartConnection)
+      #reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+
+
+   #############################################################################
+   def loadWalletsAndSettings(self):
+      self.settings = SettingsFile(self.settingsPath)
+
+      # Determine if we need to do new-user operations, increment load-count
+      self.firstLoad = False
+      if self.settings.get('First_Load'): 
+         self.firstLoad = True
+         self.settings.set('First_Load', False)
+         self.settings.set('Load_Count', 1)
+      else:
+         self.settings.set('Load_Count', (self.settings.get('Load_Count')+1) % 10)
+
+      # Set the usermode, default to standard
+      if self.settings.get('User_Mode') == 'Advanced':
+         self.usermode = UserMode.Advanced
+      else:
+         self.usermode = UserMode.Standard
+
+      # Load wallets found in the .bitcoinarmory directory
+      wltPaths = self.settings.get('Other_Wallets', expectList=True)
+      self.walletMap = {}
+      self.walletIDSet = set()
+      self.walletIDList = []  # Also need an easily, deterministically-iterable list
+      self.walletBalances = []  # Also need an easily, deterministically-iterable list
+      self.walletIndices = {}  
+
+
+      print 'Loading wallets...'
+      for root,subs,files in os.walk(ARMORY_HOME_DIR):
+         for f in files:
+            if f.startswith('armory_') and f.endswith('.wallet') and \
+               not f.endswith('backup.wallet') and not ('unsuccessful' in f):
+                  wltPaths.append(os.path.join(root, f))
+
+
+      wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
+      for index,fpath in enumerate(wltPaths):
+         try:
+            wltLoad = PyBtcWallet().readWalletFile(fpath)
+            wltID = wltLoad.wltUniqueIDB58
+            if wltID in wltExclude:
+               continue
+
+            if wltID in self.walletIDSet:
+               print '***WARNING: Duplicate wallet detected,', wltID
+               print ' '*10, 'Wallet 1 (loaded): ', self.walletMap[wltID].walletPath
+               print ' '*10, 'Wallet 2 (skipped):', fpath
+            else:
+               self.walletMap[wltID] = wltLoad
+               self.walletIDSet.add(wltID)
+               self.walletIDList.append(wltID)
+               self.walletBalances.append(-1)
+               self.walletIndices[wltID] = index
+         except:
+            print '***WARNING: Wallet could not be loaded:', fpath
+            print '            skipping... '
+            raise
+                     
+
+      print 'Number of wallets read in:', len(self.walletMap)
+      for wltID, wlt in self.walletMap.iteritems():
+         print '   Wallet (%s):'.ljust(20) % wlt.wltUniqueIDB58,
+         print '"'+wlt.labelName+'"   ',
+         print '(Encrypted)' if wlt.useEncryption else '(Not Encrypted)'
+
+
+
+
+   #############################################################################
+   def getWalletForAddr160(self, addr160):
+      for wltID, wlt in self.walletMap.iteritems():
+         if wlt.hasAddr(addr160):
+            return wltID
+      return None
+
+
+   #############################################################################
+   def loadBlockchain(self):
+      print 'Loading blockchain'
+      BDM_LoadBlockchainFile()
+      if TheBDM.isInitialized():
+         self.statusBar().showMessage('Syncing wallets with blockchain...')
+         print 'Syncing wallets with blockchain...'
+         for wltID, wlt in self.walletMap.iteritems():
+            print 'Syncing', wltID
+            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            self.walletMap[wltID].syncWithBlockchain()
+            index = self.walletIndices[wltID]
+            self.walletBalances[index] = self.walletMap[wltID].getBalance()
+         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+      else:
+         self.statusBar().showMessage('! Blockchain loading failed !', 10000)
+
+      # This will force the table to refresh with new data
+      self.walletView.selectRow(-1)
+         
+
+   def Heartbeat(self, nextBeatSec=3):
+      """
+      This method is invoked when the app is initialized, and will
+      run every 3 seconds, or whatever is specified in the nextBeatSec
+      argument.
+      """
+      # Check for new blocks in the blk0001.dat file
+      if TheBDM.isInitialized():
+         newBlks = TheBDM.readBlkFileUpdate()
+         if newBlks>0:
+            pass # do something eventually
+      
+      # Check for new tx in the zeroConf pool
+      self.txNotInBlkchainYet = []
+      if TheBDM.isInitialized():
+         for hsh,tx in self.NetworkingFactory.zeroConfTx.iteritems():
+            for txout in tx.outputs:
+               addr = TxOutScriptExtractAddr160(txout.binScript)
+               if isinstance(addr, list): 
+                  continue # ignore multisig
+                  
+               for wltID, wlt in self.walletMap.iteritems():
+                  if wlt.hasAddr(addr):
+                     self.txNotInBlkchainYet.append(hsh)
+
+      for tx in self.txNotInBlkchainYet:
+         print '   ',binary_to_hex(tx)
+
+
+      for wltID, wlt in self.walletMap.iteritems():
+         # Update wallet balances
+         self.walletBalances = self.walletMap[wltID].getBalance()
+
+      for func in self.extraHeartbeatFunctions:
+         func()
+
+      reactor.callLater(nextBeatSec, self.Heartbeat)
+      
+
+"""
+We'll mess with threading, later
+class BlockchainLoader(threading.Thread):
+   def __init__(self, finishedCallback):
+      self.finishedCallback = finishedCallback
+
+   def run(self):
+      BDM_LoadBlockchainFile()
+      self.finishedCallback()
+"""
+      
+
 
 
 if __name__ == '__main__':
@@ -89,8 +286,8 @@ if __name__ == '__main__':
                      help="IP/hostname to connect to (default: %default)")
    parser.add_option("--port", dest="port", default="8333", type="int",
                      help="port to connect to (default: %default)")
-   parser.add_option("--optionsPath", dest="optpath", default=SETTINGS_PATH, type="str",
-                     help="location of your settings file")
+   parser.add_option("--settings", dest="settingsPath", default=SETTINGS_PATH, type="str",
+                     help="load Armory with a specific settings file")
    parser.add_option("--verbose", dest="verbose", action="store_true", default=False,
                      help="Print all messages sent/received")
    #parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
@@ -98,36 +295,17 @@ if __name__ == '__main__':
 
    (options, args) = parser.parse_args()
 
-   SETTINGS = SettingsFile(options.optpath)
-
-   print 'Loading wallets...'
-   for root,subs,files in os.walk(ARMORY_HOME_DIR):
-      for f in files:
-         if f.startswith('armory_') and f.endswith('.wallet') and \
-            not f.endswith('backup.wallet') and not ('unsuccessful' in f):
-               try:
-                  fpath = os.path.join(root, f)
-                  wallets.append( PyBtcWallet().readWalletFile(fpath))
-               except:
-                  pass
-
-   passphrase = SecureBinaryData("This is my super-secret passphrase no one would ever guess!")
-   print 'Number of wallets:', len(wallets)
-   for wlt in wallets:
-      print '   Wallet:', wlt.wltUniqueIDB58,
-      print '"'+wlt.labelName+'"',
-      print '(Encrypted)' if wlt.useEncryption else '(Not Encrypted)'
-      wlt.unlock(securePassphrase=passphrase)
 
 
-
-   
-
-   exit(0)
    app = QApplication(sys.argv)
    import qt4reactor
    qt4reactor.install()
 
+   form = ArmoryMainWindow(settingsPath=options.settingsPath)
+   form.show()
+
+   from twisted.internet import reactor
+   reactor.run()
 
 
 

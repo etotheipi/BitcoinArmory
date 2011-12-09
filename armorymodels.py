@@ -10,6 +10,106 @@ from btcarmoryengine import *
 from CppBlockUtils import *
 
 
+class WalletDispModel(QAbstractTableModel):
+   def __init__(self, mainWindow):
+      super(WalletDispModel, self).__init__()
+      self.main = mainWindow
+
+   def rowCount(self, index=QModelIndex()):
+      return len(self.main.walletMap)
+
+   def columnCount(self, index=QModelIndex()):
+      return 4
+
+   def data(self, index, role=Qt.DisplayRole):
+      row,col = index.row(), index.column()
+      wlt = self.main.walletMap[self.main.walletIDList[row]]
+      if role==Qt.DisplayRole:
+         if col==0: return QVariant(wlt.wltUniqueIDB58)
+         if col==1: return QVariant(wlt.labelName.ljust(32))
+         if col==2: 
+            if wlt.watchingOnly:
+               return QVariant('Watching-only')
+            elif wlt.useEncryption:
+               return QVariant('Encrypted')
+            else:
+               return QVariant('Not Encrypted')
+         if col==3: 
+            bal = self.main.walletBalances[row]
+            if bal==-1:
+               return QVariant('(...)') 
+            else:
+               if bal==0:
+                  ndigit=0
+               elif bal<1000:
+                  ndigit = 8
+               elif bal<100000:
+                  ndigit = 6
+               else:
+                  ndigit = 4
+               return QVariant(coin2str(bal, ndec=ndigit))
+      elif role==Qt.TextAlignmentRole:
+         if col in (0,1):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (2,):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (3,):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+      elif role==Qt.BackgroundColorRole:
+         return QVariant( QColor(235,235,255) )
+      return QVariant()
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      colLabels = ['ID', 'Name', 'Security', 'Balance']
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            return QVariant( colLabels[section])
+      elif role==Qt.TextAlignmentRole:
+         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
+
+
+
+
+"""
+class HeaderDataModel(QAbstractTableModel):
+   def __init__(self):
+      super(HeaderDataModel, self).__init__()
+      self.bdm = BlockDataManager().getBDM()
+
+   def rowCount(self, index=QModelIndex()):
+
+   def columnCount(self, index=QModelIndex()):
+
+   def data(self, index, role=Qt.DisplayRole):
+      nHead = self.rowCount()
+      row,col = index.row(), index.column()
+      if role==Qt.DisplayRole:
+         if col== HEAD_DATE: return QVariant(someStr)
+      elif role==Qt.TextAlignmentRole:
+         if col in (HEAD_BLKNUM, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+         else: 
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+      elif role==Qt.BackgroundColorRole:
+         return QVariant( QColor(235,235,255) )
+      return QVariant()
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            return QVariant( headColLabels[section] )
+      elif role==Qt.TextAlignmentRole:
+         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
+"""
+
+
+"""
+
+################################################################################
+# Below is PyBtcEngine testing code -- A blockchain explorer may be a nice 
+# feature in the future, but not right now -- IGNORE THIS SECTION
+################################################################################
+
 HEAD_BLKNUM, HEAD_HASH, HEAD_DIFF, HEAD_NUMTX, HEAD_BTC, HEAD_DATE = range(6)
 TX_INDEX, TX_HASH, TX_BTC, TX_SRC, TX_RECIP, TX_SIZE = range(6)
 TXIN_SRC, TXIN_BTC, TXIN_SBLK, TXIN_STYPE, TXIN_SEQ, = range(5)
@@ -316,6 +416,7 @@ class TxOutDataModel(QAbstractTableModel):
 
 
 
+"""
 
 
 

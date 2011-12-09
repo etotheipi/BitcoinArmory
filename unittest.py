@@ -62,6 +62,31 @@ def printpassorfail(abool):
       print '\n' + ' '*w + '___ FAILED ___',
 
 
+################################################################################
+# Temporary Code to run, not just test
+################################################################################
+if True:
+   # Finally, generating a new wallet so I have something to play with
+   pwd = SecureBinaryData('SuperSecurePassphrase')
+   wlt = PyBtcWallet().createNewWallet(withEncrypt=True, \
+                                       kdfTargSec=0.75, \
+                                       securePassphrase=pwd, \
+                                       shortLabel='Android wallet')
+
+   print 'New addresses:'
+   print wlt.getNewAddress()
+   print wlt.getNewAddress()
+   print wlt.getNewAddress()
+   print wlt.getNewAddress()
+   wlt.pprint()
+
+   newpath = wlt.walletPath[:]
+   del wlt
+
+   wlt2 = PyBtcWallet().readWalletFile(newpath)
+   wlt2.pprint()
+
+   exit(0)
 
 
 ################################################################################
@@ -871,10 +896,10 @@ if Test_EncryptedWallet:
    # Remove wallet files, need fresh dir for this test
    
    shortlabel = 'TestWallet1'
-   fileA    = '/home/alan/.bitcoinarmory/ArmoryWallet_%s_31cFUs_.bin' % shortlabel
-   fileB    = '/home/alan/.bitcoinarmory/ArmoryWallet_%s_31cFUs_backup.bin' % shortlabel
-   fileAupd = '/home/alan/.bitcoinarmory/ArmoryWallet_%s_31cFUs_backup_unsuccessful.bin' % shortlabel
-   fileBupd = '/home/alan/.bitcoinarmory/ArmoryWallet_%s_31cFUs_update_unsuccessful.bin' % shortlabel
+   fileA    = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_.wallet'
+   fileB    = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_backup.wallet'
+   fileAupd = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_backup_unsuccessful.wallet'
+   fileBupd = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_update_unsuccessful.wallet'
    for f in (fileA, fileB, fileAupd, fileBupd):
       print 'Removing file:', f, 
       if os.path.exists(f):
@@ -1303,6 +1328,9 @@ if Test_EncryptedWallet:
    os.remove('OnlineVersionOfEncryptedWallet.bin')
    os.remove('OnlineVersionOfEncryptedWalletbackup.bin')
 
+
+
+
 ################################################################################
 ################################################################################
 if Test_TxDistProposals:
@@ -1567,6 +1595,13 @@ if Test_SettingsFile:
    print 'Reading in'
    newSettings = SettingsFile(testFile1)
    newSettings.pprint()
+
+   print 'Expect list:'
+   print '   ',settings.get('Test Key 6')
+   print '   ',settings.get('Test Key 6', expectList=True)
+   print '   ',settings.get('Test Key 7', expectList=False)
+   print '   ',settings.get('Test Key 7', expectList=True)
+
    print 'Writing new settings file'
    newSettings.writeSettingsFile(testFile2)
 
