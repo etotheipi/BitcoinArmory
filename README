@@ -51,7 +51,7 @@
 ********************************************************************************
 
 ********************************************************************************
-*  STATUS:   Last Updated - 20 Nov, 2011
+*  STATUS:   Last Updated - 08 Dec, 2011
 *            Legend:   
 *                      _    not implemented
 *                      .    implemented but not tested
@@ -94,7 +94,7 @@
 *      (27)  Address Encrypt (Change Passwd)      X
 *      (28)  Deterministic Addr Gen (ECDSAPriv)   X
 *      (29)  Deterministic Addr Gen (ECDSAPub)    X
-*      (30)  Deterministic Addr Gen (Random)      _
+*      (30)  Deterministic Addr Gen (Random)     
 *     ---------------------------------------------------------------
 *      (31)  PyWallet/Addr File I/O               X
 *      (32)  SelectCoins for tx                   X
@@ -160,6 +160,19 @@
    For information on dependencies and compiling, see Using_PyBtcEngine.README
 
 ********************************************************************************
+#####
+08 Dec, 2011
+
+   *** Fixed major blockchain-wallet scan bottleneck! ***
+
+   Added a bulk filter to the wallet-tx scanning of the blockchain, to quickly
+   identify the 99.99%+ tx that are not ours, I got run time down to less than 
+   1 second per wallet!  And this run time should be O(log(N)) in the number 
+   of addr in the wallet.  So it may be to 2 or 3 seconds for massive wallets,
+   but it's much better than 5-15s it was before for only a few addresses (and
+   was O(N) before). 
+
+
 #####
 05 Dec, 2011
 
@@ -361,7 +374,7 @@
       -- Reading blockchain from disk:    5.4s
       -- Populating header and tx maps:  10.2s
       -- Organizing headers into chain:   0.6s
-      -- Scan blkchain for 3 addrs' tx:   2.9s
+      -- Scan blockchain or wallet-txs:   2.7s
 
    Note that these operations are all from scratch, meaning you don't need to
    keep any other files on your HDD except for your address list, and the 
