@@ -6,7 +6,7 @@
 #
 ################################################################################
 #
-# Project:    BitcoinArmory
+# Project:    Armory
 # Author:     Alan Reiner
 # Orig Date:  20 November, 2011
 # Descr:      This file serves as an engine for python-based Bitcoin software.
@@ -53,7 +53,7 @@ from datetime import datetime
 
 
 # These are overriden for testnet
-USE_TESTNET = False
+USE_TESTNET = True
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0,50,0,0)  # (Major, Minor, Minor++, even-more-minor)
@@ -93,10 +93,10 @@ def readVersionInt(verInt):
    return tuple(verList[::-1])
 
 print '********************************************************************************'
-print 'Loading BitcoinArmory Engine:'
-print '   BitcoinArmory Version:', getVersionString(BTCARMORY_VERSION)
-print '   PyBtcAddress  Version:', getVersionString(PYBTCADDRESS_VERSION)
-print '   PyBtcWallet   Version:', getVersionString(PYBTCWALLET_VERSION)
+print 'Loading Armory Engine:'
+print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+print '   PyBtcAddress Version:', getVersionString(PYBTCADDRESS_VERSION)
+print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
 
 # Get the host operating system
 import platform
@@ -115,17 +115,17 @@ if OS_WINDOWS:
    OS_NAME         = 'Windows'
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
 elif OS_LINUX:
    OS_NAME         = 'Linux'
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.bitcoinarmory', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
 elif OS_MACOSX:
    OS_NAME         = 'Mac/OSX'
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
-   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'BitcoinArmory', SUBDIR)
+   ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
 else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
@@ -137,7 +137,7 @@ print 'Detected Operating system:', OS_NAME
 print '   User home-directory   :', USER_HOME_DIR
 print '   Satoshi BTC directory :', BTC_HOME_DIR
 print '   Satoshi blk0001.dat   :', BLK0001_PATH
-print '   BitcoinArmory home dir:', ARMORY_HOME_DIR
+print '   Armory home dir       :', ARMORY_HOME_DIR
 
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
    os.mkdir(ARMORY_HOME_DIR)
@@ -209,6 +209,14 @@ def coin2str(nSatoshi, ndec=8, rJust=False):
    if not rJust:
       s = s.strip(' ')
    return s
+
+# This is a sweet trick for create enum-like dictionaries. 
+# Either automatically numbers (*args), or name-val pairs (**kwargs)
+#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    return type('Enum', (), enums)
+
 
 
 # Some useful constants to be used throughout everything
@@ -5191,6 +5199,19 @@ class PyBtcWallet(object):
       return sumTxOutList(self.getUnspentTxOutList())
 
    #############################################################################
+   def getTxLedger(self, addr160=None):
+      """ 
+      Gets the complete ledger for a specific address, or the wallet as a whole.
+      """
+      if addr160==None:
+         return self.cppWallet.getTxLedger()
+      else:
+         if not self.hasAddr(addr160):
+            return []
+         else:
+            return self.cppWallet.getAddrByHash160(addr160).getTxLedger()
+
+   #############################################################################
    def getUnspentTxOutList(self):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          assert(TheBDM.isInitialized())
@@ -5216,6 +5237,8 @@ class PyBtcWallet(object):
          return self.addrMap.has_key(addrData.getAddr160())
       else:
          return False
+
+
    #############################################################################
    def setDefaultKeyLifetime(self, newlifetime):
       """ Set a new default lifetime for holding the unlock key. Min 2 sec """
@@ -5335,8 +5358,9 @@ class PyBtcWallet(object):
       self.walletPath = newWalletFilePath
       if not newWalletFilePath:
          shortName = self.labelName .replace(' ','_')
-         for c in ',?;:\'"?/\\=+-|[]{}<>':
-            shortName = shortName.replace(c,'_')
+         # This was really only needed when we were putting name in filename
+         #for c in ',?;:\'"?/\\=+-|[]{}<>':
+            #shortName = shortName.replace(c,'_')
          newName = 'armory_%s_.wallet' % self.wltUniqueIDB58
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
@@ -5414,7 +5438,9 @@ class PyBtcWallet(object):
 
 
       if not newWalletFile:
-         newWalletFile = os.path.join(BITCOIN_HOME_DIR, wltname)
+         wltpieces = os.path.splitext(self.walletPath)
+         wltname = wltpieces[0] + 'Online' + wltpieces[1]
+         newWalletFile = os.path.join(ARMORY_HOME_DIR, wltname)
 
       onlineWallet = PyBtcWallet()
       onlineWallet.fileTypeStr = self.fileTypeStr
@@ -5423,7 +5449,7 @@ class PyBtcWallet(object):
       onlineWallet.wltCreateDate = self.wltCreateDate
       onlineWallet.useEncryption = False
       onlineWallet.watchingOnly = True
-      onlineWallet.labelName  = (self.labelName  + '_Online')[:32]
+      onlineWallet.labelName  = (self.labelName  + ' (Watch-Only)')[:32]
       onlineWallet.labelDescr  = longLabel
 
       newAddrMap = {}
@@ -5860,7 +5886,7 @@ class PyBtcWallet(object):
 
    
    #############################################################################
-   def setWalletLabels(self, lshort, llong):
+   def setWalletLabels(self, lshort, llong=''):
       toWriteS = lshort.ljust( 32, '\x00')
       toWriteL = lshort.ljust(256, '\x00')
 
@@ -5977,12 +6003,12 @@ class PyBtcWallet(object):
       if not self.magicBytes == MAGIC_BYTES:
          print '***ERROR:  Requested wallet is for a different blockchain!'
          print '           Wallet is for:   ', BLOCKCHAINS[self.magicBytes]
-         print '           BtcArmoryEngine: ', BLOCKCHAINS[MAGIC_BYTES]
+         print '           ArmoryEngine:    ', BLOCKCHAINS[MAGIC_BYTES]
          return
       if not self.wltUniqueIDBin[-1] == ADDRBYTE:
          print '***ERROR:  Requested wallet is for a different network!'
          print '           Wallet is for:   ', NETWORKS[netByte]
-         print '           BtcArmoryEngine: ', NETWORKS[ADDRBYTE]
+         print '           ArmoryEngine:    ', NETWORKS[ADDRBYTE]
          return
 
       # User-supplied description/name for wallet
@@ -6753,13 +6779,29 @@ class PyBtcWallet(object):
          raise WalletLockError, 'Unlock with passphrase before locking again'
 
    #############################################################################
-   def getAddrListSortedByChainIndex(self):
+   def getAddrListSortedByChainIndex(self, withRoot=False):
       """ Returns Addr160 list """
       addrList = []
       for addr160,addrObj in self.addrMap.iteritems():
+         if not withRoot and addr160=='ROOT':
+            continue
          addrList.append( [addrObj.chainIndex, addr160, addrObj] )
+
       addrList.sort(key=lambda x: x[0])
       return addrList
+
+   #############################################################################
+   def getAddrList(self, withRoot=False):
+      """ Returns list of PyBtcAddress objects """
+      addrList = []
+      for addr160,addrObj in self.addrMap.iteritems():
+         if not withRoot and addr160=='ROOT':
+            continue
+         # I assume these will be references, not copies
+         addrList.append( addrObj )
+      return addrList
+
+
 
    #############################################################################
    def pprint(self, indent='', allAddrInfo=True):
@@ -6775,7 +6817,7 @@ class PyBtcWallet(object):
       if allAddrInfo:
          self.addrMap['ROOT'].pprint(indent=indent)
       print indent + 'All usable keys:'
-      sortedAddrList = self.getAddrListSortedByChainIndex()
+      sortedAddrList = self.getAddrListSortedByChainIndex(withRoot=True)
       for i,addr160,addrObj in sortedAddrList:
          if not addr160=='ROOT':
             print '\n' + indent + 'Address:', addrObj.getAddrStr()
@@ -7404,7 +7446,7 @@ try:
    from twisted.internet.defer import Deferred
 except ImportError:
    print '***Python-Twisted is not installed -- cannot enable'
-   print '   networking-related methods for BtcArmoryEngine' 
+   print '   networking-related methods for ArmoryEngine' 
 
 
 ################################################################################
@@ -7419,10 +7461,10 @@ def forceDeferred(callbk):
 
 ################################################################################
 #
-# Bitcoin Armory Networking:
+# Armory Networking:
 # 
 #    This is where I will define all the network operations needed for 
-#    BitcoinArmory to operate, using python-twisted.  There are "better"
+#    Armory to operate, using python-twisted.  There are "better"
 #    ways to do this with "reusable" code structures (i.e. using huge
 #    deferred callback chains), but this is not the central "creative" 
 #    part of the Bitcoin protocol.  I need just enough to broadcast tx
@@ -7430,7 +7472,7 @@ def forceDeferred(callbk):
 #    I'll just be ignoring everything else.
 #
 ################################################################################
-class BitcoinArmoryClient(Protocol):
+class ArmoryClient(Protocol):
    """
    This is where all the Bitcoin-specific networking stuff goes.
    In the Twisted way, you need to inject your own chains of 
@@ -7566,6 +7608,7 @@ class BitcoinArmoryClient(Protocol):
             print '***!!!*** before considering this transaction valid!'
          else:
             self.factory.zeroConfTx[pytx.getHash()] = pytx.copy()
+            self.factory.zeroConfTxTime[pytx.getHash()] = RightNow()
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
@@ -7616,10 +7659,10 @@ class BitcoinArmoryClient(Protocol):
 
 ################################################################################
 ################################################################################
-class BitcoinArmoryClientFactory(ClientFactory):
+class ArmoryClientFactory(ClientFactory):
    """
    Spawns Protocol objects used for communicating over the socket.  All such
-   objects (BitcoinArmoryClients) can share information through this factory.
+   objects (ArmoryClients) can share information through this factory.
    However, at the moment, this class is designed to only create a single 
    connection -- to localhost.
 
@@ -7628,8 +7671,9 @@ class BitcoinArmoryClientFactory(ClientFactory):
    which are due to two transactions being send at the same time with different
    recipients but the same inputs.  
    """
-   protocol = BitcoinArmoryClient
+   protocol = ArmoryClient
    zeroConfTx = {}
+   zeroConfTxTime = {}
    zeroConfTxOutMap = {}       #   map[OutPoint] = txHash
    doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
    lastAlert = 0
@@ -7675,6 +7719,7 @@ class BitcoinArmoryClientFactory(ClientFactory):
       for hsh,tx in self.zeroConfTx.iteritems():
          if TheBDM.getTxByHash(hsh):
             del self.zeroConfTx[hsh]
+            del self.zeroConfTxTime[hsh]
             # We also need to clean up the double-spend detector
             for key,val in self.zeroConfTxOutMap.iteritems():
                if hsh==val:

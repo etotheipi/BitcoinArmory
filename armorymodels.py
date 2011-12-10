@@ -6,11 +6,24 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 sys.path.append('..')
 sys.path.append('../cppForSwig')
-from btcarmoryengine import *
+from armoryengine import *
 from CppBlockUtils import *
 
 
+Colors = enum(LightBlue= QColor(215,215,255), \
+              LightGray= QColor(235,235,235), \
+              DarkGray=  QColor( 64, 64, 64), \
+              Green=     QColor(  0,100,  0), \
+              Red=       QColor(100,  0,  0), \
+              Black=     QColor(  0,  0,  0)  \
+                                              )
+
+
 class WalletDispModel(QAbstractTableModel):
+   
+   # The columns enumeration
+   COL = enum('ID', 'Name', 'Secure', 'Bal')
+
    def __init__(self, mainWindow):
       super(WalletDispModel, self).__init__()
       self.main = mainWindow
@@ -22,42 +35,58 @@ class WalletDispModel(QAbstractTableModel):
       return 4
 
    def data(self, index, role=Qt.DisplayRole):
+      COL = self.COL
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
+      wltID = wlt.wltUniqueIDB58
       if role==Qt.DisplayRole:
-         if col==0: return QVariant(wlt.wltUniqueIDB58)
-         if col==1: return QVariant(wlt.labelName.ljust(32))
-         if col==2: 
+         if col==COL.ID: 
+            return QVariant(wltID)
+         if col==COL.Name: 
+            return QVariant(wlt.labelName.ljust(32))
+         if col==COL.Secure: 
             if wlt.watchingOnly:
-               return QVariant('Watching-only')
+               if wltID in self.main.walletOfflines:
+                  return QVariant('Offline Keys')
+               else:
+                  return QVariant('Watching-only')
             elif wlt.useEncryption:
                return QVariant('Encrypted')
             else:
                return QVariant('Not Encrypted')
-         if col==3: 
+         if col==COL.Bal: 
             bal = self.main.walletBalances[row]
             if bal==-1:
                return QVariant('(...)') 
             else:
                if bal==0:
-                  ndigit=0
+                  ndigit=1
                elif bal<1000:
                   ndigit = 8
                elif bal<100000:
                   ndigit = 6
                else:
                   ndigit = 4
-               return QVariant(coin2str(bal, ndec=ndigit))
+               dispStr = [c for c in coin2str(bal, ndec=8)]
+               dispStr[-8+ndigit:] = ' '*(8-ndigit)
+               return QVariant(''.join(dispStr))
       elif role==Qt.TextAlignmentRole:
          if col in (0,1):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          elif col in (2,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (3,):
-            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         return QVariant( QColor(235,235,255) )
+         if wlt.watchingOnly and not wltID in self.main.walletOfflines:
+            return QVariant( Colors.LightGray )
+         else:
+            return QVariant( Colors.LightBlue )
+      elif role==Qt.FontRole:
+         if col==3:
+            return QFont("DejaVu Sans Mono", 10)
       return QVariant()
+
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       colLabels = ['ID', 'Name', 'Security', 'Balance']
@@ -68,6 +97,132 @@ class WalletDispModel(QAbstractTableModel):
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
+
+   # This might work for checkbox-in-tableview
+   #QStandardItemModel* tableModel = new QStandardItemModel();
+   #// create text item
+   #tableModel->setItem(0, 0, new QStandardItem("text item"));
+   #// create check box item
+   #QStandardItem* item0 = new QStandardItem(true);
+   #item0->setCheckable(true);
+   #item0->setCheckState(Qt::Checked);
+   #item0->setText("some text");
+   #tableModel->setItem(0, 1, item0);
+   #// set model
+   #ui->tableView->setModel(tableModel);
+
+   # Perhaps delegate for rich text in QTableViews
+   #void SpinBoxDelegate::paint(QPainter *painter, const QStyleOptionViewItem &option, const QModelIndex &index) const
+   #{
+        #QTextDocument document;
+        #QVariant value = index.data(Qt::DisplayRole);
+        #if (value.isValid() && !value.isNull()) {
+             #QString text("<span style='background-color: lightgreen'>This</span> is highlighted.");
+        #text.append(" (");
+        #text.append(value.toString());
+        #text.append(")");
+        #document.setHtml(text);
+        #painter->translate(option.rect.topLeft());
+        #document.drawContents(painter);
+        #painter->translate(-option.rect.topLeft());
+   #}
+
+################################################################################
+class ActivityDispModel(QAbstractTableModel):
+
+   COL = enum('Status', 'Date', 'WltID', 'WltName', 'Comment', 'TxDir', 'Amount')
+
+   def __init__(self, mainWindow):
+      super(ActivityDispModel, self).__init__()
+      self.main = mainWindow
+
+   def rowCount(self, index=QModelIndex()):
+      return int(self.main.ledgerSize)
+
+   def columnCount(self, index=QModelIndex()):
+      return 7
+
+   def data(self, index, role=Qt.DisplayRole):
+      COL = self.COL
+      row,col = index.row(), index.column()
+      wltID,le = self.main.combinedLedger[row]
+      nConf = self.main.latestBlockNum - le.getBlockNum()
+      if le.getBlockNum() >= 0xffffffff:
+         nConf = 0
+
+      if role==Qt.DisplayRole:
+         # A little more pre-processing before display
+         blkheader = TheBDM.getHeaderByHeight(le.getBlockNum())
+         txtime = blkheader.getTimestamp()
+         txHash = le.getTxHash()
+         if nConf == 0:
+            txtime = self.main.NetworkingFactory.zeroConfTxTime[txHash]
+         
+         if col==COL.Status: 
+            return QVariant(nConf)
+         if col==COL.Date: 
+            return QVariant(unixTimeToFormatStr(txtime))
+         if col==COL.WltID: 
+            return QVariant(wltID)
+         if col==COL.WltName: 
+            wlt = self.main.walletMap[wltID]
+            return QVariant(wlt.labelName)
+         if col==COL.Comment: 
+            wlt = self.main.walletMap[wltID]
+            if wlt.commentsMap.has_key(txHash):
+               return QVariant(wlt.commentsMap[txHash])
+         if col==COL.TxDir:
+            if le.getValue()>0:
+               return QVariant('Recv')
+            else:
+               return QVariant('Sent')
+         if col==COL.Amount:
+            return QVariant( coin2str(le.getValue()) )
+      elif role==Qt.TextAlignmentRole:
+         if col in (COL.Status, COL.Date, COL.TxDir):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (COL.WltID, COL.Comment):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (COL.Amount,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+      elif role==Qt.BackgroundColorRole:
+         if self.main.walletMap[wltID].watchingOnly and \
+                           not wltID in self.main.walletOfflines:
+            return QVariant( Colors.LightGray )
+         else:
+            return QVariant( Colors.LightBlue )
+      elif role==Qt.ForegroundRole:
+         if col==COL.Amount:
+            if   le.getValue()>0: return QVariant(Colors.Green)
+            elif le.getValue()<0: return QVariant(Colors.Red)
+            else:                 return QVariant(Colors.DarkGray)
+               
+
+      return QVariant()
+
+
+
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COL = self.COL
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL.Status: 
+               return QVariant('#')
+            if section==COL.Date: 
+               return QVariant('Date')
+            if section==COL.WltID: 
+               return QVariant('(ID)')
+            if section==COL.WltName: 
+               return QVariant('Wallet')
+            if section==COL.Comment: 
+               return QVariant('Comments')
+            if section==COL.TxDir:
+               return QVariant('Tx/Rx')
+            if section==COL.Amount:
+               return QVariant('Amount')
+      elif role==Qt.TextAlignmentRole:
+         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
 """

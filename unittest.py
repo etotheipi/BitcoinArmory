@@ -1,6 +1,6 @@
-from btcarmoryengine import *
+from armoryengine import *
 import CppBlockUtils as Cpp
-import btcarmoryengine 
+import armoryengine 
 
 LE = LITTLEENDIAN
 BE = BIGENDIAN
@@ -40,7 +40,7 @@ def testFunction( fnName, expectedOutput, *args, **kwargs):
    Provide a function name, inputs and some known outputs
    Prints a pass/fail string if the outputs match
    """
-   fn = getattr(btcarmoryengine, fnName)
+   fn = getattr(armoryengine, fnName)
    actualOutput = fn(*args,**kwargs)
    testPassed = (expectedOutput == actualOutput)
    passStr = '____PASS____' if testPassed else '***FAIL***'
@@ -61,32 +61,6 @@ def printpassorfail(abool):
    else:
       print '\n' + ' '*w + '___ FAILED ___',
 
-
-################################################################################
-# Temporary Code to run, not just test
-################################################################################
-if True:
-   # Finally, generating a new wallet so I have something to play with
-   pwd = SecureBinaryData('SuperSecurePassphrase')
-   wlt = PyBtcWallet().createNewWallet(withEncrypt=True, \
-                                       kdfTargSec=0.75, \
-                                       securePassphrase=pwd, \
-                                       shortLabel='Android wallet')
-
-   print 'New addresses:'
-   print wlt.getNewAddress()
-   print wlt.getNewAddress()
-   print wlt.getNewAddress()
-   print wlt.getNewAddress()
-   wlt.pprint()
-
-   newpath = wlt.walletPath[:]
-   del wlt
-
-   wlt2 = PyBtcWallet().readWalletFile(newpath)
-   wlt2.pprint()
-
-   exit(0)
 
 
 ################################################################################

@@ -274,42 +274,59 @@ void BtcWallet::scanTx(TxRef & tx,
    vector<bool> thisTxInIsOurs (tx.getNumTxIn(),  false);
    vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
 
+   uint8_t const * txStartPtr = tx.getPtr();
+
    // Since 99.99%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
-   // redundant computation to the tx that are ours.
-   //
-   // TODO: We may even consider doing lower-level ops to pull
-   //       out the exact information we need from the binary 
-   //       stream, and avoid constructing TxInRef/TxOutRef objs
+   // redundant computation to the tx that are ours.  In fact,
+   // we will skip the TxInRef/TxOutRef computations and take the
+   // pointers directly the data we want
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
-      if(txioMap_.find(tx.getTxInRef(iin).getOutPoint()) != 
-                                                   txioMap_.end())
+      static OutPoint op;
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      if(txioMap_.find(op) != txioMap_.end())
          anyTxInIsOurs = true;
    }
+
+   // TxOuts are a little more complicated, because we have to process each
+   // different type separately.  Nonetheless, 99% of transactions use the
+   // 25-byte repr which is ridiculously fast
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
-      // Check our wallets to see if we have any output addresses
-      static TxOutRef txout;
-      txout = tx.getTxOutRef(iout);
+      static uint8_t scriptLenFirstByte;
+      static BinaryData addr20(20);
 
-      // Make sure we capture the non-std scripts
-      if( txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN )
+      uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
+      scriptLenFirstByte = *(uint8_t*)ptr;
+      switch(scriptLenFirstByte)
       {
+      case 25:
+         // Std TxOut with 25-byte script
+         addr20.copyFrom(ptr+4, 20);
+         if( hasAddr(addr20) )
+            anyTxOutIsOurs = true;
+         break;
+      case 67:
+         // Std spend-coinbase TxOut script
+         static BinaryData addr20(20);
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
+         if( hasAddr(addr20) )
+            anyTxOutIsOurs = true;
+         break;
+      default:
+         TxOutRef txout = tx.getTxOutRef(iout);
          for(uint32_t i=0; i<addrPtrVect_.size(); i++)
          {
             BtcAddress & thisAddr = *(addrPtrVect_[i]);
             BinaryData const & addr20 = thisAddr.getAddrStr20();
-
-               if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
-                  scanNonStdTx(blknum, txIndex, tx, iout, thisAddr);
-               continue;
+            if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
+               scanNonStdTx(blknum, txIndex, tx, iout, thisAddr);
+            continue;
          }
+         break;
       }
-
-      if( hasAddr(txout.getRecipientAddr()) )
-         anyTxOutIsOurs = true;
    }
    
 
@@ -474,6 +491,34 @@ void BtcWallet::scanTx(TxRef & tx,
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+// This is kind of a hack:  I forgot the possibility that we might need
+// to do temporary scan of some Tx data without actually adding it to
+// the wallet yet (because we need to process zero-conf transactions,
+// but can't update the wallets until we have a verified blk number).
+// Perhaps this was an oversight to not design the wallets and Ledger
+// Entry objects to handle this situation, but for now we will leave
+// what's working alone, and outsource a solution to this method:
+//
+// (1)  Create a new wallet
+// (2)  Copy in all the addresses of this wallet
+// (3)  Run scanTx on all the zero-conf tx, using 0xffffffff for blknum
+// (4)  Return the combined ledger for the zero-conf addresses
+// (5)  Maintain this ledger separately in the calling calling code
+// (6)  Throw away this ledger whenever a new block is received, rescan
+vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
+                                              vector<TxRef*> zcList)
+{
+   // Prepare fresh, temporary wallet with same addresses
+   BtcWallet tempWlt;
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+
+   for(uint32_t i=0; i<zcList.size(); i++)
+      tempWlt.scanTx(*zcList[i], 0, 0xffffffff, 0xffffffff);
+
+   return tempWlt.ledgerAllAddr_;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 // Make a separate method here so we can get creative with how to handle these

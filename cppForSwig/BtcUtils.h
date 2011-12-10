@@ -382,6 +382,21 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   static void getHash160_NoSafetyCheck(
+                          uint8_t const * strToHash,
+                          uint32_t        nBytes,
+                          BinaryData &    hashOutput)
+   {
+      static CryptoPP::SHA256 sha256_;
+      static CryptoPP::RIPEMD160 ripemd160_;
+      static BinaryData bd32(32);
+
+      sha256_.CalculateDigest(bd32.getPtr(), strToHash, nBytes);
+      ripemd160_.CalculateDigest(hashOutput.getPtr(), bd32.getPtr(), 32);
+
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData getHash160(uint8_t const * strToHash,
                                 uint32_t        nBytes)
                           

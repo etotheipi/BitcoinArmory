@@ -6,7 +6,7 @@
 ##                                                                            ##
 ################################################################################
 
-PyBtcEngine contains over 7,000 lines of code, between the C++ and python
+Armory contains over 15,000 lines of code, between the C++ and python
 libraries.  This can be very confusing for someone unfamiliar with the 
 code (you).  Below I have attempted to illustrate the CONOPS (concept of 
 operations) that the library was designed for, so you know how to use it 
@@ -16,7 +16,7 @@ the following three files:
    [**SWIG**]   unittest.py    (this has almost everything!)
 
    [ C++    ]   cppForSwig/BlockUtilsTest.cpp
-   [ Python ]   btcarmoryengine.py
+   [ Python ]   armoryengine.py
 
 But of course, sample code alone does not make great documentation.  I will
 attempt to provide reference info for everything else you need to know, here.
@@ -114,7 +114,7 @@ that all features with an X in either column are accessible in SWIG.
 #        available functionality in the libraries.  I will update this as soon
 #        as I get the first client release out of the way.  For now, you can
 #        can see most of the C++ methods below (accessed via Python), and then
-#        do an "import btcarmoryengine; help(btcarmoryengine)" to see a MASSIVE
+#        do an "import armoryengine; help(armoryengine)" to see a MASSIVE
 #        list of the available classes and methods.  Seriously... it's huge.
 #
 ################################################################################

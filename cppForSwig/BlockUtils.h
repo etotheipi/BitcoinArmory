@@ -321,6 +321,9 @@ public:
                      uint32_t blktime = UINT32_MAX,
                      uint32_t blknum = UINT32_MAX);
 
+   vector<LedgerEntry>  getLedgerEntriesForZeroConfTxList(
+                                          vector<TxRef*> zcList);
+
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 
                            TxRef&   txref,

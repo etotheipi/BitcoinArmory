@@ -350,6 +350,9 @@ public:
    uint64_t           getTxStartByte(void) { return fileByteLoc_; }
    void               setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
 
+   uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
+   uint32_t           getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
+
    Tx              getCopy(void) const;
    BlockHeaderRef* getHeaderPtr(void)  const { return headerPtr_; }
    void            setHeaderPtr(BlockHeaderRef* bhr)   { headerPtr_ = bhr; }

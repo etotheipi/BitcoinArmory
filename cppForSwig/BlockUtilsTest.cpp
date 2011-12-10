@@ -143,6 +143,7 @@ void TestScanForWalletTx(string blkfile)
    myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
    myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
    myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
 #else
    // Test-network addresses
    myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14"); wlt.addAddress(myAddress);
@@ -189,6 +190,29 @@ void TestScanForWalletTx(string blkfile)
            
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Need to test the const-scan of a random tx-list without updating the wlt
+   cout << "\nTesting tx-list wallet scan for zero-conf tx..." << endl;
+   vector<TxRef*> txlist;
+   for(uint32_t blk=0; blk<300; blk++)
+   {
+      BlockHeaderRef* bhr = bdm.getHeaderByHeight(blk);
+      vector<TxRef*> blkTxList = bhr->getTxRefPtrList();
+      txlist.insert(txlist.end(), blkTxList.begin(), blkTxList.end());
+   }
+   vector<LedgerEntry> testLedger;
+   testLedger = wlt.getLedgerEntriesForZeroConfTxList(txlist);
+   for(uint32_t j=0; j<testLedger.size(); j++)
+   {  
+      cout << "    Tx: " 
+           << testLedger[j].getAddrStr20().toHexStr() << "  "
+           << testLedger[j].getValue()/1e8 << " (" 
+           << testLedger[j].getBlockNum()
+           << ")  TxHash: " << testLedger[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
+           
+   }
+
+   exit(0);
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Test txout aggregation, with different prioritization schemes" << endl;

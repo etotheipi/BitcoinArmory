@@ -8,7 +8,7 @@
 
 ********************************************************************************
 *
-* Project:    BitcoinArmory
+* Project:    Armory
 * Author:     Alan Reiner
 * Orig Date:  20 November, 2011
 * Descr:      This file serves as an engine for python-based Bitcoin software.
@@ -201,7 +201,7 @@
 
    -- TxDPs:         Based on BIP 0010: 
                         https://github.com/genjix/bips/blob/master/bip-0010.md
-                     All transaction operations in BitcoinArmory go through
+                     All transaction operations in Armory go through
                      "Tx Distribution Proposals", which is an ASCII-able 
                      serialization for unsigned transactions, which can be
                      easily transmitted through email, and used to collect 
@@ -259,7 +259,7 @@
                      it ... unless you have double-broadcast detection!
 
                      A master list of TxOuts waiting to enter the blockchain
-                     is maintained in the BitcoinArmoryClientFactory, and a
+                     is maintained in the ArmoryClientFactory, and a
                      flag is raised if a tx is received which tries to spend
                      any outputs already in the queue.  The client will usually
                      just drop the tx because it conflicts with another one in

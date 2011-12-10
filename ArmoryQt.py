@@ -1,4 +1,3 @@
-#! /usr/bin/python
 ################################################################################
 #
 # Copyright (C) 2011, Alan C. Reiner    <alan.reiner@gmail.com>
@@ -7,7 +6,7 @@
 #
 ################################################################################
 #
-# Project:    BitcoinArmory          (https://github.com/etotheipi/BitcoinArmory)
+# Project:    Armory                (https://github.com/etotheipi/BitcoinArmory)
 # Author:     Alan Reiner
 # Orig Date:  20 November, 2011
 # Descr:      This file serves as an engine for python-based Bitcoin software.
@@ -35,21 +34,13 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
 # 8000 lines of python to help us out...
-from btcarmoryengine import *
+from armoryengine import *
 from armorymodels import *
 
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
 
-# This is an amazing trick for create enum-like dictionaries. 
-# Either automatically numbers (*args), or name-val pairs (**kwargs)
-#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    return type('Enum', (), enums)
-
-TXTBL = enum("Status", "Date", "Direction", "Address", "Amount")
 
 
 SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -71,6 +62,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.loadWalletsAndSettings()
       self.setupNetworking()
+      self.loadBlockchain()
 
       self.lblAvailWlt = QLabel('Available Wallets:')
       self.lblAvailWlt.setAlignment(Qt.AlignBottom)
@@ -82,6 +74,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setWindowTitle('Armory - Bitcoin Wallet Management')
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
+      # Table for all the wallets
       self.walletModel = WalletDispModel(self)
       self.walletView  = QTableView()
       self.walletView.setModel(self.walletModel)
@@ -96,17 +89,29 @@ class ArmoryMainWindow(QMainWindow):
          self.walletView.hideColumn(0)
          self.walletView.horizontalHeader().resizeSection(1, 200)
 
+      # Table to display ledger/activity
+      self.ledgerModel = ActivityDispModel(self)
+      self.ledgerView  = QTableView()
+      self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
+      self.ledgerView.setSelectionMode(QTableView.SingleSelection)
+      self.ledgerView.horizontalHeader().setStretchLastSection(True)
+      self.ledgerView.verticalHeader().setDefaultSectionSize(25)
+      self.ledgerView.horizontalHeader().resizeSection(1, 150)
+
       
       layout = QGridLayout()
-      layout.addWidget(QLabel("Available Wallets:"), 0, 0, 1, 1)
-      layout.addWidget(self.walletView,              2, 0, 1, 2)
-      layout.addWidget(self.lblLogoIcon,             0, 1, 1, 1)
+      layout.addWidget(self.lblLogoIcon,             0, 2, 1, 1)
+      layout.addWidget(QLabel("Available Wallets:"), 1, 0, 1, 1)
+      layout.addWidget(self.walletView,              2, 0, 3, 2)
+      layout.addWidget(QLabel("Transactions:"),      5, 0, 1, 1)
+      layout.addWidget(self.ledgerView,              6, 0, 3, 3)
 
       # Attach the layout to the frame that will become the central widget
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
-      self.setMinimumSize(500,300)
+      self.setMinimumSize(700,700)
 
       self.statusBar().showMessage('Blockchain loading, please wait...')
 
@@ -122,9 +127,11 @@ class ArmoryMainWindow(QMainWindow):
          print '! Trying to restart connection !'
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
-      self.NetworkingFactory = BitcoinArmoryClientFactory( \
+      self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=restartConnection)
       #reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+
+
 
 
    #############################################################################
@@ -146,29 +153,39 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.usermode = UserMode.Standard
 
-      # Load wallets found in the .bitcoinarmory directory
+      # Load wallets found in the .armory directory
       wltPaths = self.settings.get('Other_Wallets', expectList=True)
       self.walletMap = {}
-      self.walletIDSet = set()
-      self.walletIDList = []  # Also need an easily, deterministically-iterable list
-      self.walletBalances = []  # Also need an easily, deterministically-iterable list
       self.walletIndices = {}  
+      self.walletIDSet = set()
 
+      # I need some linear lists for accessing by index
+      self.walletIDList = []   
+      self.walletBalances = []  
+      self.walletSubLedgers = []  
+      self.walletLedgers = []
+      self.combinedLedger = []
+      self.ledgerSize = 0
+
+      self.latestBlockNum = 0
+
+      # Use this store IDs of wallets that are watching-only, 
+      self.walletOfflines = set()
 
       print 'Loading wallets...'
-      for root,subs,files in os.walk(ARMORY_HOME_DIR):
-         for f in files:
-            if f.startswith('armory_') and f.endswith('.wallet') and \
-               not f.endswith('backup.wallet') and not ('unsuccessful' in f):
-                  wltPaths.append(os.path.join(root, f))
+      for f in os.listdir(ARMORY_HOME_DIR):
+         if f.startswith('armory_') and f.endswith('.wallet') and \
+            not f.endswith('backup.wallet') and not ('unsuccessful' in f):
+               wltPaths.append(os.path.join(root, f))
 
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
-      for index,fpath in enumerate(wltPaths):
+      wltOffline = self.settings.get('Offline_WalletIDs', expectList=True)
+      for fpath in wltPaths:
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
             wltID = wltLoad.wltUniqueIDB58
-            if wltID in wltExclude:
+            if fpath in wltExclude:
                continue
 
             if wltID in self.walletIDSet:
@@ -176,11 +193,17 @@ class ArmoryMainWindow(QMainWindow):
                print ' '*10, 'Wallet 1 (loaded): ', self.walletMap[wltID].walletPath
                print ' '*10, 'Wallet 2 (skipped):', fpath
             else:
+               # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
+               self.walletIndices[wltID] = len(self.walletMap)-1
+
+               # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
                self.walletBalances.append(-1)
-               self.walletIndices[wltID] = index
+
+               if wltID in wltOffline or fpath in wltOffline:
+                  self.walletOfflines.add(wltID)
          except:
             print '***WARNING: Wallet could not be loaded:', fpath
             print '            skipping... '
@@ -207,7 +230,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def loadBlockchain(self):
       print 'Loading blockchain'
+
       BDM_LoadBlockchainFile()
+
+      # Now that theb blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
          self.statusBar().showMessage('Syncing wallets with blockchain...')
          print 'Syncing wallets with blockchain...'
@@ -215,15 +241,101 @@ class ArmoryMainWindow(QMainWindow):
             print 'Syncing', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
-            index = self.walletIndices[wltID]
-            self.walletBalances[index] = self.walletMap[wltID].getBalance()
+
+            # We need to mirror all blockchain & wallet data in linear lists
+            wltIndex = self.walletIndices[wltID]
+
+            self.walletBalances[wltIndex] = wlt.getBalance()
+            self.walletSubLedgers.append([])
+            for addrIndex,addr in enumerate(wlt.getAddrList()):
+               addr20 = addr.getAddr160()
+               self.walletSubLedgers[-1].append(wlt.getTxLedger(addr20))
+
+            t = wlt.getTxLedger()
+            print wltID, len(t)
+            self.walletLedgers.append(wlt.getTxLedger())
+            
+         self.createCombinedLedger()
+         self.ledgerSize = len(self.combinedLedger)
+         self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+         print len(self.combinedLedger), self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
 
       # This will force the table to refresh with new data
-      self.walletView.selectRow(-1)
+      #for row in range(len(self.walletMap)):
+         #self.walletView.selectRow(row)
+      #self.walletView.selectRow(0)
          
+   def createZeroConfLedger(self, wlt):
+      """
+      This is kind of hacky, but I don't want to disrupt the C++ code
+      too much to implement a *proper* solution... which is that I need
+      to find a way to process zero-confirmation transactions and produce
+      ledger entries for them, the same as all the other [past] txs.
+      
+      So, I added TxRef::getLedgerEntriesForZeroConfTxList to the C++ code
+      (name was created to be annoying so maybe I remove/replace later).
+      Then we carefully create TxRef objects to pass into it and copy out
+      the resulting list.  But since these are TxREF objects, they need
+      to point to persistent memory, which is why the following loops are
+      weird:  they are guaranteed to create data once, and not move it 
+      around in memory, so that my TxRef objects don't get mangled.  We
+      only need them long enough to get the vector<LedgerEntry> result.
+
+      (to be more specific, I'm pretty sure this should work no matter
+       how wacky python's memory mgmt is, unless it moves list data around
+       in memory between calls)
+      """
+      # We are starting with a map of PyTx objects
+      zcMap   = self.NetworkingFactory.zeroConfTx
+      timeMap = self.NetworkingFactory.zeroConfTxTime
+      #print 'ZeroConfListSize:', len(zcMap)
+      zcTxBinList = []
+      zcTxRefList = []
+      zcTxRefPtrList = vector_TxRefPtr(0)
+      zcTxTimeList = []
+      # Create persistent list of serialized Tx objects (language-agnostic)
+      for zchash in zcMap.keys():
+         zcTxBinList.append( zcMap[zchash].serialize() )
+         zcTxTimeList.append(timeMap[zchash])
+      # Create list of TxRef objects
+      for zc in zcTxBinList:
+         zcTxRefList.append( TxRef(zc) )
+      # Python will cast to pointers when we try to add to a vector<TxRef*>
+      for zc in zcTxRefList:
+         zcTxRefPtrList.push_back(zc)
+   
+      # At this point, we will get a vector<LedgerEntry> list and TxRefs
+      # can safely go out of scope
+      return wlt.cppWallet.getLedgerEntriesForZeroConfTxList(zcTxRefPtrList)
+   
+
+   def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
+      """
+      Create a ledger to display on the main screen, that consists of ledger
+      entries of any SUBSET of available wallets.
+      """
+      start = RightNow()
+      if wltIDList==None:
+         wltIDList = self.walletIDList
+
+      self.combinedLedger = []
+      #for wltID,wlt in self.walletMap.iteritems():
+      for wltID in wltIDList:
+         wlt = self.walletMap[wltID]
+         index = self.walletIndices[wltID]
+         # Make sure the ledgers are up to date and then combine and sort
+         #self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
+         id_le_pairs   = [ [wltID, le] for le in self.walletLedgers[index] ]
+         id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
+         self.combinedLedger.extend(id_le_pairs)
+         self.combinedLedger.extend(id_le_zcpairs)
+
+      self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
+      print 'Combined ledger:', (RightNow()-start), 'sec', len(self.combinedLedger)
+      
 
    def Heartbeat(self, nextBeatSec=3):
       """
@@ -236,8 +348,15 @@ class ArmoryMainWindow(QMainWindow):
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
             pass # do something eventually
+         else:
+            self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+
+
       
       # Check for new tx in the zeroConf pool
+      self.createCombinedLedger()
+
+      """
       self.txNotInBlkchainYet = []
       if TheBDM.isInitialized():
          for hsh,tx in self.NetworkingFactory.zeroConfTx.iteritems():
@@ -252,6 +371,7 @@ class ArmoryMainWindow(QMainWindow):
 
       for tx in self.txNotInBlkchainYet:
          print '   ',binary_to_hex(tx)
+      """
 
 
       for wltID, wlt in self.walletMap.iteritems():
