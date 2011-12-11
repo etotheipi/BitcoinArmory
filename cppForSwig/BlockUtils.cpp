@@ -328,12 +328,12 @@ void BtcWallet::scanTx(TxRef & tx,
          break;
       }
    }
-   
-
    if( !anyTxOutIsOurs && !anyTxInIsOurs)
       return;
 
-   ///// LOOP OVER ALL ADDRESSES ////
+
+   // END BULK FILTER:  Remaining processing can be inefficient and it will
+   // be virtually irrelevant (but it's not *THAT* bad).
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -364,6 +364,10 @@ void BtcWallet::scanTx(TxRef & tx,
          if(txioIter != txioMap_.end())
          {
             TxIOPair & txio  = txioIter->second;
+            // If we scan multiple times, need to avoid multiple entries
+            if(txio.hasTxIn())
+               continue;
+
             TxOutRef const  & txout = txio.getTxOutRef();
             //if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
             if(txout.getRecipientAddr()==thisAddr.getAddrStr20()  && 
@@ -478,14 +482,19 @@ void BtcWallet::scanTx(TxRef & tx,
 
    if(anyTxInIsOurs || anyTxOutIsOurs)
    {
-      txrefList_.push_back(&tx);
-      ledgerAllAddr_.push_back(LedgerEntry( BinaryData(0),
-                                            totalLedgerAmt, 
-                                            blknum, 
-                                            tx.getThisHash(), 
-                                            txIndex,
-                                            isSentToSelf,
-                                            isChangeBack));
+      // Without this conditional, we get multiple entries if we ever
+      // scan the same tx multiple times
+      if(txrefSet_.count(&tx) == 0)
+      {
+         txrefSet_.insert(&tx);
+         ledgerAllAddr_.push_back(LedgerEntry( BinaryData(0),
+                                               totalLedgerAmt, 
+                                               blknum, 
+                                               tx.getThisHash(), 
+                                               txIndex,
+                                               isSentToSelf,
+                                               isChangeBack));
+      }
 
    }
 }

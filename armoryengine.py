@@ -237,12 +237,15 @@ UINT32_MAX = 2**32-1
 UINT64_MAX = 2**64-1
 
 RightNow = time.time
+SECOND   = 1
 MINUTE   = 60
 HOUR     = 3600
 DAY      = 24*HOUR
 WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
+
+
 
 # Define all the hashing functions we're going to need.  We don't actually
 # use any of the first three directly (sha1, sha256, ripemd160), we only
@@ -4973,6 +4976,9 @@ WLT_DATATYPE_OPEVAL      = 3
 DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
 
+
+WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
+
 ################################################################################
 ################################################################################
 class PyBtcWallet(object):
@@ -5301,6 +5307,13 @@ class PyBtcWallet(object):
       a wallet file yet to safely update.
       """
 
+      if securePassphrase:
+         securePassphrase = SecureBinaryData(securePassphrase)
+      if plainRootKey:
+         plainRootKey = SecureBinaryData(plainRootKey)
+      if chaincode:
+         chaincode = SecureBinaryData(chaincode)
+
       if withEncrypt and not securePassphrase:
          raise EncryptionError, 'Cannot create encrypted wallet without passphrase'
 
@@ -5439,7 +5452,7 @@ class PyBtcWallet(object):
 
       if not newWalletFile:
          wltpieces = os.path.splitext(self.walletPath)
-         wltname = wltpieces[0] + 'Online' + wltpieces[1]
+         wltname = wltpieces[0] + 'WatchingOnly' + wltpieces[1]
          newWalletFile = os.path.join(ARMORY_HOME_DIR, wltname)
 
       onlineWallet = PyBtcWallet()

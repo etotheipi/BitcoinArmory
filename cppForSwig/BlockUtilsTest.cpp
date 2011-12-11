@@ -43,7 +43,8 @@ void printTestHeader(string TestName)
 int main(void)
 {
 
-   string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   //string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
 
    printTestHeader("Read-and-Organize-Blockchain");
@@ -146,14 +147,16 @@ void TestScanForWalletTx(string blkfile)
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
 #else
    // Test-network addresses
-   myAddress.createFromHex("abda0c878dd7b4197daa9622d96704a606d2cd14"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("baa72d8650baec634cdc439c1b84a982b2e596b2"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("fce711782829bd68727f9a39d27fb31dbf3f4cbf"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("f39c9c229d0671e87f3f9814567e2cd9c37f2227"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("60fc04f27a4a7509cf081bd6b0bf4d1ae6ad9985"); wlt.addAddress(myAddress);
 #endif
 
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
 
+   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
+   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
    
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;

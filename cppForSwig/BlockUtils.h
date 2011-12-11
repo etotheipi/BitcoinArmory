@@ -370,7 +370,7 @@ private:
    set<OutPoint>                unspentOutPoints_;
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
-   vector<TxRef*>               txrefList_;      // aggregation of all relevant Tx
+   set<TxRef*>                  txrefSet_;      // aggregation of all relevant Tx
 
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;

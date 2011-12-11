@@ -9,12 +9,14 @@
 # Project:    Armory                (https://github.com/etotheipi/BitcoinArmory)
 # Author:     Alan Reiner
 # Orig Date:  20 November, 2011
-# Descr:      This file serves as an engine for python-based Bitcoin software.
-#             I forked this from my own project -- PyBtcEngine -- because I
-#             I needed to start including/rewriting code to use CppBlockUtils
-#             but did not want to break the pure-python-ness of PyBtcEngine.
-#             If you are interested in in a pure-python set of bitcoin utils
-#             please go checkout the PyBtcEngine github project.
+#
+# Descr:      This is the client/GUI for Armory.  Complete wallet management,
+#             encryption, offline private keys, watching-only wallets, and
+#             hopefully multi-signature transactions.
+#
+#             The features of the underlying library (armoryengine.py) make 
+#             this considerably simpler than it could've been, but my PyQt 
+#             skills leave much to be desired.
 #
 #
 ################################################################################
@@ -36,6 +38,8 @@ from PyQt4.QtGui import *
 # 8000 lines of python to help us out...
 from armoryengine import *
 from armorymodels import *
+from stddialogs   import *
+from qtdefines    import *
 
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
@@ -43,11 +47,7 @@ from twisted.internet.defer import Deferred
 
 
 
-SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-wallets = []
 
-
-UserMode = enum('Standard', 'Advanced')
 
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
@@ -57,6 +57,7 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.extraHeartbeatFunctions = []
+      self.extraHeartbeatFunctions.append(self.createCombinedLedger)
       self.settingsPath = settingsPath
 
 
@@ -75,19 +76,39 @@ class ArmoryMainWindow(QMainWindow):
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
       # Table for all the wallets
-      self.walletModel = WalletDispModel(self)
-      self.walletView  = QTableView()
-      self.walletView.setModel(self.walletModel)
-      self.walletView.setSelectionBehavior(QTableView.SelectRows)
-      self.walletView.setSelectionMode(QTableView.SingleSelection)
-      #self.headView.setMinimumSize(800,200)
-      self.walletView.horizontalHeader().setStretchLastSection(True)
-      self.walletView.verticalHeader().setDefaultSectionSize(20)
-      self.walletView.horizontalHeader().resizeSection(1, 150)
+      self.walletModel = AllWalletsDispModel(self)
+      self.walletsView  = QTableView()
 
-      if self.usermode == UserMode.Standard:
-         self.walletView.hideColumn(0)
-         self.walletView.horizontalHeader().resizeSection(1, 200)
+      # We should really start using font-metrics more, for sizing
+      w,h = tightSize(self.walletsView, 80)
+      viewWidth  = 1.2*w
+      sectionSz  = 1.5*h
+      viewHeight = 5*h
+      
+      self.walletsView.setModel(self.walletModel)
+      self.walletsView.setSelectionBehavior(QTableView.SelectRows)
+      self.walletsView.setSelectionMode(QTableView.SingleSelection)
+      #self.headView.setMinimumSize(800,200)
+      self.walletsView.horizontalHeader().setStretchLastSection(True)
+      self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.walletsView.setMinimumSize(viewWidth, viewHeight)
+
+
+      if self.usermode == USERMODE.Standard:
+         self.walletsView.hideColumn(0)
+         self.walletsView.horizontalHeader().resizeSection(1, 0.60*viewWidth)
+         self.walletsView.horizontalHeader().resizeSection(2, 0.20*viewWidth)
+         self.walletsView.horizontalHeader().resizeSection(3, 0.20*viewWidth)
+      else:
+         self.walletsView.horizontalHeader().resizeSection(0, 0.15*viewWidth)
+         self.walletsView.horizontalHeader().resizeSection(1, 0.45*viewWidth)
+         self.walletsView.horizontalHeader().resizeSection(2, 0.18*viewWidth)
+         self.walletsView.horizontalHeader().resizeSection(3, 0.18*viewWidth)
+
+
+      self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.execDlgWalletDetails)
+                  
 
       # Table to display ledger/activity
       self.ledgerModel = ActivityDispModel(self)
@@ -103,7 +124,7 @@ class ArmoryMainWindow(QMainWindow):
       layout = QGridLayout()
       layout.addWidget(self.lblLogoIcon,             0, 2, 1, 1)
       layout.addWidget(QLabel("Available Wallets:"), 1, 0, 1, 1)
-      layout.addWidget(self.walletView,              2, 0, 3, 2)
+      layout.addWidget(self.walletsView,             2, 0, 3, 2)
       layout.addWidget(QLabel("Transactions:"),      5, 0, 1, 1)
       layout.addWidget(self.ledgerView,              6, 0, 3, 3)
 
@@ -111,12 +132,12 @@ class ArmoryMainWindow(QMainWindow):
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
-      self.setMinimumSize(700,700)
+      self.setMinimumSize(900,700)
 
-      self.statusBar().showMessage('Blockchain loading, please wait...')
+      #self.statusBar().showMessage('Blockchain loading, please wait...')
 
       from twisted.internet import reactor
-      reactor.callLater(2.0,  self.loadBlockchain)
+      #reactor.callLater(2.0,  self.loadBlockchain)
       #reactor.callLater(10, form.Heartbeat)
 
    #############################################################################
@@ -149,9 +170,9 @@ class ArmoryMainWindow(QMainWindow):
 
       # Set the usermode, default to standard
       if self.settings.get('User_Mode') == 'Advanced':
-         self.usermode = UserMode.Advanced
+         self.usermode = USERMODE.Advanced
       else:
-         self.usermode = UserMode.Standard
+         self.usermode = USERMODE.Standard
 
       # Load wallets found in the .armory directory
       wltPaths = self.settings.get('Other_Wallets', expectList=True)
@@ -176,7 +197,7 @@ class ArmoryMainWindow(QMainWindow):
       for f in os.listdir(ARMORY_HOME_DIR):
          if f.startswith('armory_') and f.endswith('.wallet') and \
             not f.endswith('backup.wallet') and not ('unsuccessful' in f):
-               wltPaths.append(os.path.join(root, f))
+               wltPaths.append(os.path.join(ARMORY_HOME_DIR, f))
 
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
@@ -218,6 +239,17 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+   #############################################################################
+   def determineWalletType(self, wlt):
+      if wlt.watchingOnly:
+         if wlt.wltUniqueIDB58 in self.walletOfflines:
+            return [WLTTYPES.Offline, 'Offline']
+         else:
+            return [WLTTYPES.WatchOnly, 'Watching-Only']
+      elif wlt.useEncryption:
+         return [WLTTYPES.Crypt, 'Encrypted']
+      else:
+         return [WLTTYPES.Plain, 'Not Encrypted']
 
    #############################################################################
    def getWalletForAddr160(self, addr160):
@@ -249,7 +281,9 @@ class ArmoryMainWindow(QMainWindow):
             self.walletSubLedgers.append([])
             for addrIndex,addr in enumerate(wlt.getAddrList()):
                addr20 = addr.getAddr160()
-               self.walletSubLedgers[-1].append(wlt.getTxLedger(addr20))
+               ledger = wlt.getTxLedger(addr20)
+               print ' '*30, 'subledger: sz =', len(ledger)
+               self.walletSubLedgers[-1].append(ledger)
 
             t = wlt.getTxLedger()
             print wltID, len(t)
@@ -264,9 +298,7 @@ class ArmoryMainWindow(QMainWindow):
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
 
       # This will force the table to refresh with new data
-      #for row in range(len(self.walletMap)):
-         #self.walletView.selectRow(row)
-      #self.walletView.selectRow(0)
+      #self.walletModel.reset()
          
    def createZeroConfLedger(self, wlt):
       """
@@ -327,15 +359,25 @@ class ArmoryMainWindow(QMainWindow):
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
          # Make sure the ledgers are up to date and then combine and sort
-         #self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
+         self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
          id_le_pairs   = [ [wltID, le] for le in self.walletLedgers[index] ]
-         id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
+         #id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
          self.combinedLedger.extend(id_le_pairs)
-         self.combinedLedger.extend(id_le_zcpairs)
+         #self.combinedLedger.extend(id_le_zcpairs)
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       print 'Combined ledger:', (RightNow()-start), 'sec', len(self.combinedLedger)
       
+
+   def execDlgWalletDetails(self, index):
+      wlt = self.walletMap[self.walletIDList[index.row()]]
+      dialog = DlgWalletDetails(wlt, self.usermode, self)
+      
+      # I think I don't actually need to do anything here:  the dialog 
+      # updates the wallet data directly, if necessary
+      dialog.exec_()
+         
+         
 
    def Heartbeat(self, nextBeatSec=3):
       """
@@ -350,29 +392,7 @@ class ArmoryMainWindow(QMainWindow):
             pass # do something eventually
          else:
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
-
-
       
-      # Check for new tx in the zeroConf pool
-      self.createCombinedLedger()
-
-      """
-      self.txNotInBlkchainYet = []
-      if TheBDM.isInitialized():
-         for hsh,tx in self.NetworkingFactory.zeroConfTx.iteritems():
-            for txout in tx.outputs:
-               addr = TxOutScriptExtractAddr160(txout.binScript)
-               if isinstance(addr, list): 
-                  continue # ignore multisig
-                  
-               for wltID, wlt in self.walletMap.iteritems():
-                  if wlt.hasAddr(addr):
-                     self.txNotInBlkchainYet.append(hsh)
-
-      for tx in self.txNotInBlkchainYet:
-         print '   ',binary_to_hex(tx)
-      """
-
 
       for wltID, wlt in self.walletMap.iteritems():
          # Update wallet balances
@@ -381,21 +401,16 @@ class ArmoryMainWindow(QMainWindow):
       for func in self.extraHeartbeatFunctions:
          func()
 
+
+
       reactor.callLater(nextBeatSec, self.Heartbeat)
       
 
-"""
-We'll mess with threading, later
-class BlockchainLoader(threading.Thread):
-   def __init__(self, finishedCallback):
-      self.finishedCallback = finishedCallback
 
-   def run(self):
-      BDM_LoadBlockchainFile()
-      self.finishedCallback()
-"""
+
       
 
+   
 
 
 if __name__ == '__main__':
@@ -429,3 +444,31 @@ if __name__ == '__main__':
 
 
 
+"""
+We'll mess with threading, later
+class BlockchainLoader(threading.Thread):
+   def __init__(self, finishedCallback):
+      self.finishedCallback = finishedCallback
+
+   def run(self):
+      BDM_LoadBlockchainFile()
+      self.finishedCallback()
+"""
+
+
+"""
+      self.txNotInBlkchainYet = []
+      if TheBDM.isInitialized():
+         for hsh,tx in self.NetworkingFactory.zeroConfTx.iteritems():
+            for txout in tx.outputs:
+               addr = TxOutScriptExtractAddr160(txout.binScript)
+               if isinstance(addr, list): 
+                  continue # ignore multisig
+                  
+               for wltID, wlt in self.walletMap.iteritems():
+                  if wlt.hasAddr(addr):
+                     self.txNotInBlkchainYet.append(hsh)
+
+      for tx in self.txNotInBlkchainYet:
+         print '   ',binary_to_hex(tx)
+"""

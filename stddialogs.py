@@ -1,11 +1,10 @@
 import sys
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
+from qtdefines import *
 
-try:
-   from btcarmoryengine import *
-except ImportError:
-   print '***btcarmoryengine not available!'
+from armoryengine import *
+from armorymodels import *
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
@@ -14,6 +13,37 @@ def createToolTipObject(tiptext, iconSz=2):
    return lbl
 
 ################################################################################
+class DlgUnlockWallet(QDialog):
+   def __init__(self, parent=None):
+      super(DlgUnlockWallet, self).__init__(parent)
+
+      lblDescr  = QLabel("Enter your passphrase to unlock this wallet")
+      lblPasswd = QLabel("Passphrase:")
+      self.edtPasswd = QLineEdit()
+      self.edtPasswd.setEchoMode(QLineEdit.Password)
+      fm = QFontMetricsF(QFont(self.font()))
+      self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+      self.btnAccept = QPushButton("Unlcok")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,       1, 0, 1, 2)
+      layout.addWidget(lblPasswd,      2, 0, 1, 1)
+      layout.addWidget(self.edPasswd,  2, 1, 1, 1)
+      layout.addWidget(buttonBox,      3, 1, 1, 2)
+
+      self.setLayout(layout)
+      #btngrp = self.QButtonGroup()
+      #self.QRadioButton()
+      #lbl
+   
+
 class DlgNewWallet(QDialog):
 
    def __init__(self, parent=None):
@@ -31,6 +61,7 @@ class DlgNewWallet(QDialog):
 
 
       self.edtDescr = QTextEdit()
+      
       self.edtDescr.setMaximumHeight(75)
       lblDescr = QLabel("Wallet &description:")
       lblDescr.setAlignment(Qt.AlignVCenter)
@@ -158,7 +189,7 @@ class DlgNewWallet(QDialog):
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
 
       self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
-                   self.cryptoFrame, SLOT("setEnabled(bool)"))
+                   self.cryptoFrame,  SLOT("setEnabled(bool)"))
 
       self.setWindowTitle('Create/Import Armory wallet')
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
@@ -233,10 +264,20 @@ class DlgChangePassphrase(QDialog):
       layout.addWidget(self.edtPasswd1, 2,1)
       layout.addWidget(self.edtPasswd2, 3,1)
 
-      
       self.lblMatches = QLabel(' '*20)
       self.lblMatches.setTextFormat(Qt.RichText)
       layout.addWidget(self.lblMatches, 4,1)
+
+
+      self.chkDisableCrypt = QCheckBox('Disable encryption for this wallet')
+      if not noPrevEncrypt:
+         self.connect(self.chkDisableCrypt, SIGNAL('clicked()'), \
+                      self,                 SLOT('disablePassphraseBoxes(bool)'))
+         layout.addWidget(self.chkDisableCrypt, 4,0)
+         
+
+      
+         
 
       self.btnAccept = QPushButton("Accept")
       self.btnCancel = QPushButton("Cancel")
@@ -265,6 +306,10 @@ class DlgChangePassphrase(QDialog):
       self.connect(self.btnCancel, SIGNAL('clicked()'), \
                    self,           SLOT('reject()'))
 
+
+   def disablePassphraseBoxes(self, noEncrypt=True):
+      self.edtPasswd1.setEnabled(not noEncrypt) 
+      self.edtPasswd2.setEnabled(not noEncrypt) 
 
 
    def checkPassphrase(self):
@@ -296,9 +341,173 @@ class DlgChangePassphrase(QDialog):
             self.accept()
 
 
-class DlgDispWltProperties(QDialog):
-   def __init__(self, parent=None):
-      super(DlgDispWltProperties, self).__init__(parent)
+#class DlgDispWltProperties(QDialog):
+   #def __init__(self, parent=None):
+      #super(DlgDispWltProperties, self).__init__(parent)
+
+
+################################################################################
+class DlgChangeLabels(QDialog):
+   def __init__(self, currName='', currDescr='', parent=None):
+      super(DlgChangeLabels, self).__init__(parent)
+
+      self.edtName = QLineEdit()
+      self.edtName.setMaxLength(32)
+      lblName = QLabel("Wallet &name:")
+      lblName.setBuddy(self.edtName)
+
+      self.edtDescr = QTextEdit()
+      fm = QFontMetricsF(QFont(self.edtDescr.font()))
+      self.edtDescr.setMaximumHeight(fm.height()*4.2)
+      lblDescr = QLabel("Wallet &description:")
+      lblDescr.setAlignment(Qt.AlignVCenter)
+      lblDescr.setBuddy(self.edtDescr)
+
+      self.edtName.setText(currName)
+      self.edtDescr.setText(currDescr)
+
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      layout.addWidget(lblName,         1, 0, 1, 1)
+      layout.addWidget(self.edtName,    1, 1, 1, 1)
+      layout.addWidget(lblDescr,        2, 0, 1, 1)
+      layout.addWidget(self.edtDescr,   2, 1, 2, 1)
+      layout.addWidget(buttonBox,       4, 0, 1, 2)
+      self.setLayout(layout)
+
+      
+################################################################################
+class DlgWalletDetails(QDialog):
+   """ For displaying the details of a specific wallet, with options """ 
+
+   #############################################################################
+   def __init__(self, wlt, usermode=USERMODE.Standard, parent=None):
+      super(DlgWalletDetails, self).__init__(parent)
+      self.setAttribute(Qt.WA_DeleteOnClose)
+
+      self.wlt = wlt
+      self.usermode = usermode
+      wlttype, typestr = parent.determineWalletType(wlt)
+
+      self.labels = [wlt.labelName, wlt.labelDescr]
+      self.passphrase = ''
+      
+      lblWltDetails = QLabel('Wallet Details:')
+      indstr = indent*2
+      lineSep = '\n' + indstr
+      just = lambda x: x.ljust(20)
+      wltDetailsStr = []
+      wltDetailsStr.append( 'Wallet ID: ' + wlt.wltUniqueIDB58)
+      wltDetailsStr.append( just('Security: ') + typestr)
+      wltDetailsStr.append( just('#Addresses: ') + str(len(wlt.addrMap)-1))
+      wltDetailsStr.append( '')
+      wltDetailsStr.append( just('Name: ') + self.labels[0])
+      wltDetailsStr.append( just('Description: ') + self.labels[1])
+   
+      if wlttype==WLTTYPES.Crypt:
+         wltDetailsStr.append( just('Encryption: ') + 'AES256')
+         wltDetailsStr.append( just('Key-Derivation: ') + 'ROMix KDF')
+         kdftime = wlt.testKdfComputeTime()
+         kdfmem = wlt.kdf.getMemoryReqtBytes()
+         kdfmemstr = str(kdfmem/1024)+' kB'
+         if kdfmem >= 1024*1024:
+            kdfmemstr = str(kdfmem/(1024*1024))+' MB'
+         wltDetailsStr.append( just('KDF Compute Time: ') + '%0.3f seconds'%kdftime)
+         wltDetailsStr.append( just('KDF Compute Mem: ') + kdfmemstr)
+
+      w,h = relaxedSize(self,30)
+      width,hgt  = w, 12*h
+      
+      self.txtDetails = QTextBrowser()
+      self.txtDetails.setText(lineSep.join(wltDetailsStr) )
+      self.txtDetails.setMinimumSize(width, hgt)
+      self.txtDetails.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+
+      lblAddrList = QLabel('Addresses in Wallet:')
+      self.wltAddrModel = WalletAddrDispModel(wlt, self)
+      self.wltAddrView  = QTableView()
+      self.wltAddrView.setModel(self.wltAddrModel)
+      self.wltAddrView.setSelectionBehavior(QTableView.SelectRows)
+      self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
+      self.wltAddrView.horizontalHeader().setStretchLastSection(True)
+      self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
+
+      #self.wltAddrView.horizontalHeader().resizeSection(1, 150)
+      #if self.usermode == USERMODE.Standard:
+         #self.walletsView.hideColumn(0)
+         #self.walletsView.horizontalHeader().resizeSection(1, 200)
+
+      
+
+      # Now add all the options buttons, dependent on the type of wallet.
+      buttonBox = QDialogButtonBox()
+
+      btn1 = QPushButton('Change Labels')
+      self.connect(btn1, SIGNAL('clicked()'), self.changeLabels)
+      buttonBox.addButton(btn1, QDialogButtonBox.ActionRole)
+
+      btn2 = QPushButton('Change Encryption')
+      self.connect(btn2, SIGNAL('clicked()'), self.changeEncryption)
+      buttonBox.addButton(btn2, QDialogButtonBox.ActionRole)
+
+      if wlttype==WLTTYPES.Crypt and usermode==USERMODE.Advanced:
+         btn3 = QPushButton('Change KDF Params')
+         self.connect(btn3, SIGNAL('clicked()'), self.changeKdf)
+         buttonBox.addButton(btn3, QDialogButtonBox.ActionRole)
+
+
+      btn4 = QPushButton('<<< Go Back')
+      self.connect(btn4, SIGNAL('clicked()'), self.accept)
+
+      layout = QGridLayout()
+      layout.addWidget(lblWltDetails,         0, 0, 1, 2)
+      layout.addWidget(self.txtDetails,       1, 0, 1, 2)
+      layout.addWidget(lblAddrList,           0, 1, 1, 1)
+      layout.addWidget(self.wltAddrView,      1, 1, 1, 3)
+      layout.addWidget(btn4,                  2, 0, 1, 1)
+      layout.addWidget(buttonBox,             2, 2, 1, 3)
+      self.setLayout(layout)
+      
+      self.setWindowTitle('Wallet Details')
+
+      
+   def changeLabels(self):
+      dlgLabels = DlgChangeLabels(self.wlt.labelName, self.wlt.labelDescr, self)
+      if dlgLabels.exec_():
+         self.newLabels = dlgLabels
+
+   def changeEncryption(self):
+      dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
+      if dlgCrypt.exec_():
+         self.disableEncryption = dlgCrypt.chkDisableCrypt.isChecked()
+         origPassphrase = dlgCrypt.edtPasswdOrig
+         newPassphrase = dlgCrypt.edtPasswd1
+
+         if self.wlt.useEncryption:
+            if self.wlt.verifyPassphrase(origPassphrase):
+               self.wlt.unlock(securePassphrase=origPassphrase)
+            else:
+               # Even if the wallet is already unlocked, enter pwd again to change it
+               QMessageBox.critical(self, 'Invalid Passphrase', \
+                     'Previous passphrase is not correct!  Could not unlock wallet.', \
+                     QMessageBox.Ok)
+         
+         
+         if self.disableEncryption:
+            self.wlt.changeWalletEncryption(None, None)
+         else:
+            if not self.wlt.useEncryption:
+               kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
+               self.wlt.changeKdfParams(*kdfParams)
+            self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
+      
+
+   def changeKdf(self):
+      pass
 
 
 

@@ -19,13 +19,13 @@ Colors = enum(LightBlue= QColor(215,215,255), \
                                               )
 
 
-class WalletDispModel(QAbstractTableModel):
+class AllWalletsDispModel(QAbstractTableModel):
    
    # The columns enumeration
    COL = enum('ID', 'Name', 'Secure', 'Bal')
 
    def __init__(self, mainWindow):
-      super(WalletDispModel, self).__init__()
+      super(AllWalletsDispModel, self).__init__()
       self.main = mainWindow
 
    def rowCount(self, index=QModelIndex()):
@@ -45,15 +45,8 @@ class WalletDispModel(QAbstractTableModel):
          if col==COL.Name: 
             return QVariant(wlt.labelName.ljust(32))
          if col==COL.Secure: 
-            if wlt.watchingOnly:
-               if wltID in self.main.walletOfflines:
-                  return QVariant('Offline Keys')
-               else:
-                  return QVariant('Watching-only')
-            elif wlt.useEncryption:
-               return QVariant('Encrypted')
-            else:
-               return QVariant('Not Encrypted')
+            wtype,typestr = self.main.determineWalletType(wlt)
+            return QVariant(typestr)
          if col==COL.Bal: 
             bal = self.main.walletBalances[row]
             if bal==-1:
@@ -207,23 +200,79 @@ class ActivityDispModel(QAbstractTableModel):
       COL = self.COL
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Status: 
-               return QVariant('#')
-            if section==COL.Date: 
-               return QVariant('Date')
-            if section==COL.WltID: 
-               return QVariant('(ID)')
-            if section==COL.WltName: 
-               return QVariant('Wallet')
-            if section==COL.Comment: 
-               return QVariant('Comments')
-            if section==COL.TxDir:
-               return QVariant('Tx/Rx')
-            if section==COL.Amount:
-               return QVariant('Amount')
+            if section==COL.Status:  return QVariant('#')
+            if section==COL.Date:    return QVariant('Date')
+            if section==COL.WltID:   return QVariant('(ID)')
+            if section==COL.WltName: return QVariant('Wallet')
+            if section==COL.Comment: return QVariant('Comments')
+            if section==COL.TxDir:   return QVariant('Tx/Rx')
+            if section==COL.Amount:  return QVariant('Amount')
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
+
+
+class WalletAddrDispModel(QAbstractTableModel):
+   
+   # The columns enumeration
+   COL = enum('Address', 'Comment', 'NumTx', 'Balance')
+
+   def __init__(self, wlt, mainWindow):
+      super(WalletAddrDispModel, self).__init__()
+      self.main = mainWindow
+      self.wlt = wlt
+      self.addr160List = wlt.addrMap.keys()
+      self.addr160List.remove('ROOT')
+      
+
+   def rowCount(self, index=QModelIndex()):
+      return len(self.addr160List)
+
+   def columnCount(self, index=QModelIndex()):
+      return 4
+
+   def data(self, index, role=Qt.DisplayRole):
+      COL = self.COL
+      row,col = index.row(), index.column()
+      addr = self.wlt.addrMap[self.addr160List[row]]
+      addr160 = addr.getAddr160()
+      addrB58 = addr.getAddrStr()
+      if role==Qt.DisplayRole:
+         if col==COL.Address: 
+            return QVariant( addrB58 )
+         if col==COL.Comment: 
+            if addr160 in self.wlt.commentsMap:
+               return QVariant( self.wlt.commentsMap[addr160] )
+            else:
+               return QVariant('')
+         if col==COL.NumTx: 
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            return QVariant( len(cppAddr.getTxLedger()) )
+         if col==COL.Balance: 
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            return QVariant( cppAddr.getBalance() )
+
+      return QVariant()
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COL = self.COL
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL.Address: return QVariant( 'Address' )
+            if section==COL.Comment: return QVariant( 'Comment' )
+            if section==COL.NumTx:   return QVariant( '#Tx'     )
+            if section==COL.Balance: return QVariant( 'Balance' )
+         elif role==Qt.TextAlignmentRole:
+            if section in (COL.Address, COL.Comment):
+               return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+            elif section in (COL.NumTx,):
+               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            elif section in (COL.Balance,):
+               return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+
+      return QVariant()
+            
+      
 
 """
 class HeaderDataModel(QAbstractTableModel):
