@@ -391,42 +391,34 @@ class DlgWalletDetails(QDialog):
 
       self.wlt = wlt
       self.usermode = usermode
-      wlttype, typestr = parent.determineWalletType(wlt)
+      self.main = parent
+      wlttype, typestr = determineWalletType(wlt, parent)
 
       self.labels = [wlt.labelName, wlt.labelDescr]
       self.passphrase = ''
       
-      lblWltDetails = QLabel('Wallet Details:')
-      indstr = indent*2
-      lineSep = '\n' + indstr
-      just = lambda x: x.ljust(20)
-      wltDetailsStr = []
-      wltDetailsStr.append( 'Wallet ID: ' + wlt.wltUniqueIDB58)
-      wltDetailsStr.append( just('Security: ') + typestr)
-      wltDetailsStr.append( just('#Addresses: ') + str(len(wlt.addrMap)-1))
-      wltDetailsStr.append( '')
-      wltDetailsStr.append( just('Name: ') + self.labels[0])
-      wltDetailsStr.append( just('Description: ') + self.labels[1])
-   
-      if wlttype==WLTTYPES.Crypt:
-         wltDetailsStr.append( just('Encryption: ') + 'AES256')
-         wltDetailsStr.append( just('Key-Derivation: ') + 'ROMix KDF')
-         kdftime = wlt.testKdfComputeTime()
-         kdfmem = wlt.kdf.getMemoryReqtBytes()
-         kdfmemstr = str(kdfmem/1024)+' kB'
-         if kdfmem >= 1024*1024:
-            kdfmemstr = str(kdfmem/(1024*1024))+' MB'
-         wltDetailsStr.append( just('KDF Compute Time: ') + '%0.3f seconds'%kdftime)
-         wltDetailsStr.append( just('KDF Compute Mem: ') + kdfmemstr)
-
-      w,h = relaxedSize(self,30)
-      width,hgt  = w, 12*h
+      w,h = relaxedSize(self,60)
+      viewWidth,viewHeight  = w, 10*h
       
-      self.txtDetails = QTextBrowser()
-      self.txtDetails.setText(lineSep.join(wltDetailsStr) )
-      self.txtDetails.setMinimumSize(width, hgt)
-      self.txtDetails.setSizePolicy(QSizePolicy.MinimumExpanding, QSizePolicy.Preferred)
+      # Wallet Info/Details
+      #lblWltDetails = QLabel('Wallet Information:')
+      #self.wltDetailsModel = WalletDetailsModel(wlt, parent)
+      #self.wltDetailsView = QTableView()
+      #self.wltDetailsView.setModel(self.wltDetailsModel)
+      #self.wltDetailsView.setShowGrid(False)
+      #self.wltDetailsView.setWordWrap(True)
+      #self.wltDetailsView.setMinimumSize(viewWidth, viewHeight)
+      #self.wltDetailsView.resizeRowsToContents()
+      #self.wltDetailsView.verticalHeader().setStretchLastSection(True)
+      #self.wltDetailsView.horizontalHeader().resizeSection(0, 0.2*w)
+      #self.wltDetailsView.horizontalHeader().setStretchLastSection(True)
+      #self.wltDetailsView.horizontalHeader().setVisible(False)
+      #self.wltDetailsView.verticalHeader().setVisible(False)
+      
+      frm = getWltDetailsFrame(wlt, typestr, self.main.usermode)
 
+
+      # Address view
       lblAddrList = QLabel('Addresses in Wallet:')
       self.wltAddrModel = WalletAddrDispModel(wlt, self)
       self.wltAddrView  = QTableView()
@@ -435,6 +427,7 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
+      initialColResize(self.wltAddrView, [0.2, 0.7, 64, 0.3])
 
       #self.wltAddrView.horizontalHeader().resizeSection(1, 150)
       #if self.usermode == USERMODE.Standard:
@@ -464,12 +457,11 @@ class DlgWalletDetails(QDialog):
       self.connect(btn4, SIGNAL('clicked()'), self.accept)
 
       layout = QGridLayout()
-      layout.addWidget(lblWltDetails,         0, 0, 1, 2)
-      layout.addWidget(self.txtDetails,       1, 0, 1, 2)
-      layout.addWidget(lblAddrList,           0, 1, 1, 1)
-      layout.addWidget(self.wltAddrView,      1, 1, 1, 3)
-      layout.addWidget(btn4,                  2, 0, 1, 1)
-      layout.addWidget(buttonBox,             2, 2, 1, 3)
+      layout.addWidget(frm,                   1, 0, 3, 4)
+      #layout.addWidget(lblAddrList,           4, 0, 1, 1)
+      layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
+      layout.addWidget(btn4,                  7, 0, 1, 1)
+      layout.addWidget(buttonBox,             7, 2, 1, 2)
       self.setLayout(layout)
       
       self.setWindowTitle('Wallet Details')
@@ -508,6 +500,101 @@ class DlgWalletDetails(QDialog):
 
    def changeKdf(self):
       pass
+
+
+
+def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
+
+   dispCrypto = wlt.useEncryption and (usermode==USERMODE.Advanced or \
+                                       usermode==USERMODE.Developer)
+   if dispCrypto:
+      kdftimestr = "%0.3f seconds" % wlt.testKdfComputeTime()
+      mem = wlt.kdf.getMemoryReqtBytes()
+      kdfmemstr = str(mem/1024)+' kB'
+      if mem >= 1024*1024:
+         kdfmemstr = str(mem/(1024*1024))+' MB'
+
+
+   labelNames = []
+   labelNames.append(QLabel('Wallet Name:'))
+   labelNames.append(QLabel('Description:'))
+
+   labelNames.append(QLabel('Wallet ID:'))
+   labelNames.append(QLabel('#Addresses:'))
+   labelNames.append(QLabel('Security:'))
+
+
+   if dispCrypto:
+      labelNames.append(QLabel('Encryption:'))
+      labelNames.append(QLabel('Time to Unlock:'))
+      labelNames.append(QLabel('Memory to Unlock:'))
+
+   labelValues = []
+   labelValues.append(QLabel(wlt.labelName))
+   labelValues.append(QLabel(wlt.labelDescr))
+
+   labelValues.append(QLabel(wlt.wltUniqueIDB58))
+   labelValues.append(QLabel(str(len(wlt.addrMap)-1)))
+   labelValues.append(QLabel(typestr))
+
+
+   if dispCrypto:
+      labelValues.append(QLabel('AES256'))
+      labelValues.append(QLabel(kdftimestr))
+      labelValues.append(QLabel(kdfmemstr))
+
+   for lbl in labelNames:
+      lbl.setTextFormat(Qt.RichText)
+      lbl.setText( '<b>' + lbl.text() + '</b>')
+      lbl.setContentsMargins(10, 0, 10, 0)
+
+
+   for lbl in labelValues:
+      lbl.setText( '<i>' + lbl.text() + '</i>')
+      lbl.setContentsMargins(10, 0, 10, 0)
+      lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                  Qt.TextSelectableByKeyboard)
+
+   labelNames[1].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   labelValues[1].setWordWrap(True)
+   labelValues[1].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+   layout = QGridLayout()
+   layout.addWidget(labelNames[0], 0, 0); layout.addWidget(labelValues[0], 0, 1)
+   layout.addWidget(labelNames[1], 1, 0); layout.addWidget(labelValues[1], 1, 1, 2, 1)
+
+   layout.addWidget(labelNames[2], 0, 2); layout.addWidget(labelValues[2], 0, 3)
+   layout.addWidget(labelNames[3], 1, 2); layout.addWidget(labelValues[3], 1, 3)
+   layout.addWidget(labelNames[4], 2, 2); layout.addWidget(labelValues[4], 2, 3)
+
+
+   if dispCrypto:
+      layout.addWidget(labelNames[5], 0, 4); layout.addWidget(labelValues[5], 0, 5)
+      layout.addWidget(labelNames[6], 1, 4); layout.addWidget(labelValues[6], 1, 5)
+      layout.addWidget(labelNames[7], 2, 4); layout.addWidget(labelValues[7], 2, 5)
+   else:
+      empty = QLabel(' '*20)
+      layout.addWidget(empty, 0, 4); layout.addWidget(empty, 0, 5)
+      layout.addWidget(empty, 1, 4); layout.addWidget(empty, 1, 5)
+      layout.addWidget(empty, 2, 4); layout.addWidget(empty, 2, 5)
+      
+
+   infoFrame = QFrame()
+   infoFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+   infoFrame.setLayout(layout)
+   
+   return infoFrame
+
+
+################################################################################
+class DlgSetComment(QDialog):
+   """ This will be a dumb dialog for retrieving a comment from user """
+
+   #############################################################################
+   def __init__(self, currComment='', parent=None):
+      super(DlgWalletDetails, self).__init__(parent)
+
+      setWindowTitle('Add/Change Comment')
 
 
 

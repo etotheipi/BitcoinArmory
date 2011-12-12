@@ -4977,7 +4977,6 @@ DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
 
 
-WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 
 ################################################################################
 ################################################################################
@@ -5118,6 +5117,7 @@ class PyBtcWallet(object):
       # For file sync features
       self.walletPath = ''
       self.doBlockchainSync = BLOCKCHAIN_DONOTUSE
+      self.lastSyncBlockNum = 0
 
       # Private key encryption details
       self.useEncryption  = False
@@ -5195,7 +5195,8 @@ class PyBtcWallet(object):
    def syncWithBlockchain(self):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          assert(TheBDM.isInitialized())
-         TheBDM.scanBlockchainForTx_FromScratch(self.cppWallet)
+         TheBDM.scanBlockchainForTx(self.cppWallet, self.lastSyncBlockNum)
+         self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:
          print '***WARNING: Blockchain-sync requested, but current wallet'
          print '            is set to BLOCKCHAIN_DONOTUSE'

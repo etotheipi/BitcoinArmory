@@ -65,45 +65,40 @@ class ArmoryMainWindow(QMainWindow):
       self.setupNetworking()
       self.loadBlockchain()
 
-      self.lblAvailWlt = QLabel('Available Wallets:')
-      self.lblAvailWlt.setAlignment(Qt.AlignBottom)
 
       self.lblLogoIcon = QLabel()
-      self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
-      self.lblLogoIcon.setAlignment(Qt.AlignRight)
+      #self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
+      self.lblLogoIcon.setPixmap(QPixmap('/home/alan/desktop/armory_fulllogo_64.png'))
+      self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.setWindowTitle('Armory - Bitcoin Wallet Management')
-      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+      #self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon('/home/alan/desktop/armory_logo_32x32.png'))
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
       self.walletsView  = QTableView()
 
       # We should really start using font-metrics more, for sizing
-      w,h = tightSize(self.walletsView, 80)
+      w,h = tightSizeNChar(self.walletsView, 80)
       viewWidth  = 1.2*w
       sectionSz  = 1.5*h
-      viewHeight = 5*h
+      viewHeight = 4.4*sectionSz
       
       self.walletsView.setModel(self.walletModel)
       self.walletsView.setSelectionBehavior(QTableView.SelectRows)
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
-      #self.headView.setMinimumSize(800,200)
-      self.walletsView.horizontalHeader().setStretchLastSection(True)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
-      self.walletsView.setMinimumSize(viewWidth, viewHeight)
+      self.walletsView.setMinimumSize(viewWidth, 4.4*sectionSz)
 
 
       if self.usermode == USERMODE.Standard:
+         initialColResize(self.walletsView, [0, 0.6, 0.2, 0.2])
          self.walletsView.hideColumn(0)
-         self.walletsView.horizontalHeader().resizeSection(1, 0.60*viewWidth)
-         self.walletsView.horizontalHeader().resizeSection(2, 0.20*viewWidth)
-         self.walletsView.horizontalHeader().resizeSection(3, 0.20*viewWidth)
       else:
-         self.walletsView.horizontalHeader().resizeSection(0, 0.15*viewWidth)
-         self.walletsView.horizontalHeader().resizeSection(1, 0.45*viewWidth)
-         self.walletsView.horizontalHeader().resizeSection(2, 0.18*viewWidth)
-         self.walletsView.horizontalHeader().resizeSection(3, 0.18*viewWidth)
+         initialColResize(self.walletsView, [0.15, 0.45, 0.18, 0.18])
+
+   
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
@@ -111,28 +106,81 @@ class ArmoryMainWindow(QMainWindow):
                   
 
       # Table to display ledger/activity
-      self.ledgerModel = ActivityDispModel(self)
+      self.ledgerModel = LedgerDispModel(self)
       self.ledgerView  = QTableView()
+
+      w,h = tightSizeNChar(self.ledgerView, 110)
+      viewWidth = 1.2*w
+      sectionSz = 1.3*h
+      viewHeight = 6.4*sectionSz
+
       self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
-      self.ledgerView.horizontalHeader().setStretchLastSection(True)
-      self.ledgerView.verticalHeader().setDefaultSectionSize(25)
-      self.ledgerView.horizontalHeader().resizeSection(1, 150)
+      self.ledgerView.verticalHeader().setDefaultSectionSize(sectionSz)
+      self.ledgerView.verticalHeader().hide()
+      self.ledgerView.setMinimumSize(viewWidth, viewHeight)
+      #self.walletsView.setStretchFactor(4)
+
+      dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
+      nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
+      initialColResize(self.ledgerView, [20, dateWidth, 72, 0.35, 0.45, 0.3])
+
+
+
+      self.lblTotalBal = QLabel('<b>Balance (All Wallets)</b>:')
+      self.lblMyBal    = QLabel('<b>Balance (Mine only)</b>:')
+      #self.lblTotalBal = QLabel('<b>Balance (All Wallets)</b>:')
+      #self.lblMyBal    = QLabel('<b>Balance (Mine only)</b>:')
+
+
+      # Put the Wallet info into it's own little box
+      wltFrame = QFrame()
+      wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      wltLayout = QVBoxLayout()
+      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>:"))
+      wltLayout.addWidget(self.walletsView)
+      wltFrame.setLayout(wltLayout)
+
+      # Do the same with the Ledger
+      ledgFrame = QFrame()
+      ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      ledgLayout = QVBoxLayout()
+      ledgLayout.addWidget(QLabel("<b>Activity for all wallets</b>:"))
+      ledgLayout.addWidget(self.ledgerView)
+      ledgFrame.setLayout(ledgLayout)
+      
+
+      btnAddWallet = QPushButton("Add Wallet...")
+      btnWltProps  = QPushButton("Wallet Properties...")
+      btnImportWlt = QPushButton("Import Wallet...")
+      btnSendBtc   = QPushButton("Send Bitcoins...")
+      btnRecvBtc   = QPushButton("Receive Bitcoins...")
+
+      # QTableView.selectedIndexes to get the selection
+
+      layout = QVBoxLayout()
+      layout.addWidget(btnAddWallet)
+      layout.addWidget(btnWltProps)
+      layout.addWidget(btnImportWlt)
+      layout.addWidget(btnSendBtc)
+      layout.addWidget(btnRecvBtc)
+      btnFrame = QFrame()
+      btnFrame.setLayout(layout)
 
       
       layout = QGridLayout()
-      layout.addWidget(self.lblLogoIcon,             0, 2, 1, 1)
-      layout.addWidget(QLabel("Available Wallets:"), 1, 0, 1, 1)
-      layout.addWidget(self.walletsView,             2, 0, 3, 2)
-      layout.addWidget(QLabel("Transactions:"),      5, 0, 1, 1)
-      layout.addWidget(self.ledgerView,              6, 0, 3, 3)
+      layout.addWidget(self.lblLogoIcon,  0, 0, 1, 2)
+      layout.addWidget(btnFrame,          1, 0, 2, 2)
+      layout.addWidget(wltFrame,          0, 2, 3, 2)
+      layout.addWidget(ledgFrame,         3, 0, 4, 4)
 
       # Attach the layout to the frame that will become the central widget
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
-      self.setMinimumSize(900,700)
+      self.setMinimumSize(900,300)
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
@@ -235,21 +283,11 @@ class ArmoryMainWindow(QMainWindow):
       for wltID, wlt in self.walletMap.iteritems():
          print '   Wallet (%s):'.ljust(20) % wlt.wltUniqueIDB58,
          print '"'+wlt.labelName+'"   ',
-         print '(Encrypted)' if wlt.useEncryption else '(Not Encrypted)'
+         print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
 
 
+   
 
-   #############################################################################
-   def determineWalletType(self, wlt):
-      if wlt.watchingOnly:
-         if wlt.wltUniqueIDB58 in self.walletOfflines:
-            return [WLTTYPES.Offline, 'Offline']
-         else:
-            return [WLTTYPES.WatchOnly, 'Watching-Only']
-      elif wlt.useEncryption:
-         return [WLTTYPES.Crypt, 'Encrypted']
-      else:
-         return [WLTTYPES.Plain, 'Not Encrypted']
 
    #############################################################################
    def getWalletForAddr160(self, addr160):
@@ -282,11 +320,9 @@ class ArmoryMainWindow(QMainWindow):
             for addrIndex,addr in enumerate(wlt.getAddrList()):
                addr20 = addr.getAddr160()
                ledger = wlt.getTxLedger(addr20)
-               print ' '*30, 'subledger: sz =', len(ledger)
                self.walletSubLedgers[-1].append(ledger)
 
             t = wlt.getTxLedger()
-            print wltID, len(t)
             self.walletLedgers.append(wlt.getTxLedger())
             
          self.createCombinedLedger()

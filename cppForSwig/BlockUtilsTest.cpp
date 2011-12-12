@@ -155,9 +155,9 @@ void TestScanForWalletTx(string blkfile)
 
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
 
-   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
-   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
-   TIMER_WRAP(bdm.scanBlockchainForTx_FromScratch(wlt));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
    
    cout << "Checking balance of all addresses: " << wlt.getNumAddr() << " addrs" << endl;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
@@ -236,7 +236,7 @@ void TestScanForWalletTx(string blkfile)
 #endif
 
    cout << "Rescanning the blockchain for new addresses." << endl;
-   bdm.scanBlockchainForTx_FromScratch(myWallet);
+   bdm.scanBlockchainForTx(myWallet);
 
    vector<UnspentTxOut> sortedUTOs = bdm.getUnspentTxOutsForWallet(myWallet, 1);
 
@@ -309,7 +309,7 @@ void TestReorgBlockchain(string blkfile)
    //       to figure out what happened to this money they thought
    //       they had.
    cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
-   bdm.scanBlockchainForTx_FromScratch(wlt2);
+   bdm.scanBlockchainForTx(wlt2);
    vector<LedgerEntry> const & ledgerAll2 = wlt2.getTxLedger();
    for(uint32_t j=0; j<ledgerAll2.size(); j++)
    {  
@@ -365,7 +365,7 @@ void TestReorgBlockchain(string blkfile)
    if(result[ADD_BLOCK_CAUSED_REORG] == true)
    {
       cout << "Reorg happened after pushing block 5A" << endl;
-      bdm.scanBlockchainForTx_FromScratch(wlt2);
+      bdm.scanBlockchainForTx(wlt2);
       bdm.updateWalletAfterReorg(wlt2);
    }
 

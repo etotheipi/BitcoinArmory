@@ -560,8 +560,12 @@ public:
    vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
-   void scanBlockchainForTx_FromScratch(BtcWallet & myWallet);
-   void scanBlockchainForTx_FromScratch(vector<BtcWallet*> walletVect);
+   void scanBlockchainForTx(BtcWallet & myWallet,
+                            uint32_t startBlknum=0,
+                            uint32_t endBlknum=0xffffffff);
+   void scanBlockchainForTx(vector<BtcWallet*> walletVect,
+                            uint32_t startBlknum=0,
+                            uint32_t endBlknum=0xffffffff);
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, bool doOrganize=true);

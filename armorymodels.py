@@ -8,14 +8,17 @@ sys.path.append('..')
 sys.path.append('../cppForSwig')
 from armoryengine import *
 from CppBlockUtils import *
+from qtdefines import *
 
 
-Colors = enum(LightBlue= QColor(215,215,255), \
-              LightGray= QColor(235,235,235), \
-              DarkGray=  QColor( 64, 64, 64), \
-              Green=     QColor(  0,100,  0), \
-              Red=       QColor(100,  0,  0), \
-              Black=     QColor(  0,  0,  0)  \
+Colors = enum(LightBlue=   QColor(215,215,255), \
+              LightGreen=  QColor(225,255,225), \
+              LightGray=   QColor(235,235,235), \
+              LighterGray= QColor(245,245,245), \
+              DarkGray=    QColor( 64, 64, 64), \
+              Green=       QColor(  0,100,  0), \
+              Red=         QColor(100,  0,  0), \
+              Black=       QColor(  0,  0,  0)  \
                                               )
 
 
@@ -45,7 +48,7 @@ class AllWalletsDispModel(QAbstractTableModel):
          if col==COL.Name: 
             return QVariant(wlt.labelName.ljust(32))
          if col==COL.Secure: 
-            wtype,typestr = self.main.determineWalletType(wlt)
+            wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          if col==COL.Bal: 
             bal = self.main.walletBalances[row]
@@ -121,19 +124,19 @@ class AllWalletsDispModel(QAbstractTableModel):
    #}
 
 ################################################################################
-class ActivityDispModel(QAbstractTableModel):
+class LedgerDispModel(QAbstractTableModel):
 
-   COL = enum('Status', 'Date', 'WltID', 'WltName', 'Comment', 'TxDir', 'Amount')
+   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount')
 
    def __init__(self, mainWindow):
-      super(ActivityDispModel, self).__init__()
+      super(LedgerDispModel, self).__init__()
       self.main = mainWindow
 
    def rowCount(self, index=QModelIndex()):
       return int(self.main.ledgerSize)
 
    def columnCount(self, index=QModelIndex()):
-      return 7
+      return 6
 
    def data(self, index, role=Qt.DisplayRole):
       COL = self.COL
@@ -151,33 +154,47 @@ class ActivityDispModel(QAbstractTableModel):
          if nConf == 0:
             txtime = self.main.NetworkingFactory.zeroConfTxTime[txHash]
          
-         if col==COL.Status: 
+         if col==COL.NumConf: 
             return QVariant(nConf)
-         if col==COL.Date: 
+         elif col==COL.Date: 
             return QVariant(unixTimeToFormatStr(txtime))
-         if col==COL.WltID: 
-            return QVariant(wltID)
-         if col==COL.WltName: 
+         elif col==COL.TxDir:
+            return QVariant(le.getValue())
+            #if le.getValue()>0:
+               #return QVariant('Recv')
+            #else:
+               #return QVariant('Sent')
+         elif col==COL.WltName: 
             wlt = self.main.walletMap[wltID]
             return QVariant(wlt.labelName)
-         if col==COL.Comment: 
+         elif col==COL.Comment: 
             wlt = self.main.walletMap[wltID]
             if wlt.commentsMap.has_key(txHash):
                return QVariant(wlt.commentsMap[txHash])
-         if col==COL.TxDir:
-            if le.getValue()>0:
-               return QVariant('Recv')
-            else:
-               return QVariant('Sent')
-         if col==COL.Amount:
+         elif col==COL.Amount:
             return QVariant( coin2str(le.getValue()) )
       elif role==Qt.TextAlignmentRole:
-         if col in (COL.Status, COL.Date, COL.TxDir):
+         if col in (COL.NumConf,  COL.TxDir):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (COL.WltID, COL.Comment):
+         elif col in (COL.Comment, COL.Date):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          elif col in (COL.Amount,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+      elif role==Qt.DecorationRole:
+         if col==COL.NumConf:
+            return QVariant(nConf)
+            #icons = ['icons/conf%d.png'%i for i in range(6)]
+            #if nConf<6:
+               #return QVariant(QIcon(icons[nConf]))
+            #else:
+               #return QVariant(QIcon('icons/conf6_chk_blue.png'))
+         if col==COL.TxDir:
+            return QVariant('In') if le.getValue()>0 else QVariant('Out')
+               
+            #if le.getValue()>0:
+               #return QVariant(QIcon('icons/moneyIn.png'))
+            #else:
+               #return QVariant(QIcon('icons/moneyOut.png'))
       elif role==Qt.BackgroundColorRole:
          if self.main.walletMap[wltID].watchingOnly and \
                            not wltID in self.main.walletOfflines:
@@ -189,6 +206,18 @@ class ActivityDispModel(QAbstractTableModel):
             if   le.getValue()>0: return QVariant(Colors.Green)
             elif le.getValue()<0: return QVariant(Colors.Red)
             else:                 return QVariant(Colors.DarkGray)
+      elif role==Qt.ToolTipRole:
+         if col==COL.NumConf:
+            if nConf>5:
+               return QVariant('Transaction confirmed!')
+            else:
+               tooltipStr = '%d/6 confirmations'%nConf
+               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
+                               'confirmations is usually acceptable.\n'
+                               'For larger transactions, you should\n'
+                               'wait at least 6 confirmations before\n'
+                               'considering the transaction valid.')
+               return QVariant(tooltipStr)
                
 
       return QVariant()
@@ -200,18 +229,64 @@ class ActivityDispModel(QAbstractTableModel):
       COL = self.COL
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Status:  return QVariant('#')
+            if section==COL.NumConf:  return QVariant()
             if section==COL.Date:    return QVariant('Date')
-            if section==COL.WltID:   return QVariant('(ID)')
             if section==COL.WltName: return QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
-            if section==COL.TxDir:   return QVariant('Tx/Rx')
+            if section==COL.TxDir:   return QVariant()
             if section==COL.Amount:  return QVariant('Amount')
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
 
+class LedgerDispDelegate(QStyledItemDelegate):
+
+   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount')
+
+   def __init__(self, parent=None):
+      super(LedgerDispDelegate, self).__init__(parent)   
+
+
+   def paint(self, painter, option, index):
+      bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      if index.column() == self.COL.NumConf:
+         nConf = index.model().data(index).toInt()[0]
+         pixmaps = ['icons/conf%d.png'%i for i in range(6)]
+         if nConf<6:
+            image = QImage(pixmaps[nConf])
+         else:
+            image = QImage('icons/conf6_chk_blue.png')
+         painter.fillRect(option.rect, bgcolor)
+         pixmap = QPixmap.fromImage(image)
+         pixmap.scaled(70, 30, Qt.KeepAspectRatio)
+         painter.drawPixmap(option.rect, pixmap)
+      elif index.column() == self.COL.TxDir:
+         txdir = str(index.model().data(index).toInt())
+         image = QImage()
+         if txdir[0] > 0:
+            image = QImage('icons/moneyIn.png')
+         else:
+            image = QImage('icons/moneyOut.png')
+         painter.fillRect(option.rect, bgcolor)
+         pixmap = QPixmap.fromImage(image)
+         pixmap.scaled(70, 30, Qt.KeepAspectRatio)
+         painter.drawPixmap(option.rect, pixmap)
+      else:
+         QStyledItemDelegate.paint(self, painter, option, index)
+
+   def sizeHint(self, option, index):
+      if index.column()==self.COL.NumConf:
+         return QSize(28,28)
+      elif index.column()==self.COL.TxDir:
+         return QSize(28,28)
+      return QStyledItemDelegate.sizeHint(self, option, index)
+
+
+
+
+
+################################################################################
 class WalletAddrDispModel(QAbstractTableModel):
    
    # The columns enumeration
@@ -250,7 +325,30 @@ class WalletAddrDispModel(QAbstractTableModel):
             return QVariant( len(cppAddr.getTxLedger()) )
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( cppAddr.getBalance() )
+            return QVariant( coin2str(cppAddr.getBalance()) )
+      elif role==Qt.TextAlignmentRole:
+         if col in (COL.Address, COL.Comment):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (COL.NumTx,):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (COL.Balance,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+      elif role==Qt.ForegroundRole:
+         if col==COL.Balance:
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            val = cppAddr.getBalance()
+            if   val>0: return QVariant(Colors.Green)
+            else:       return QVariant(Colors.DarkGray)
+      elif role==Qt.FontRole:
+         if col==COL.Balance:
+            return QFont("DejaVu Sans Mono", 10)
+      elif role==Qt.BackgroundColorRole:
+         cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+         val = cppAddr.getBalance()
+         if val>0:
+            return QVariant( Colors.LightGreen )
+         else:
+            return QVariant( Colors.LighterGray )
 
       return QVariant()
 
@@ -273,6 +371,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       return QVariant()
             
       
+
 
 """
 class HeaderDataModel(QAbstractTableModel):

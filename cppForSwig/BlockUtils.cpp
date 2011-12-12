@@ -859,11 +859,16 @@ vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData cons
 
 /////////////////////////////////////////////////////////////////////////////
 // This is an intense search, using every tool we've created so far!
-void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWallet)
+void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
+                                                   uint32_t startBlknum,
+                                                   uint32_t endBlknum)
 {
-   PDEBUG("Scanning blockchain for tx, from scratch");
+   PDEBUG("Scanning blockchain for tx");
+
+   uint32_t nHeaders = headersByHeight_.size();
+   endBlknum = (endBlknum > nHeaders ? nHeaders : endBlknum);
    ///// LOOP OVER ALL HEADERS ////
-   for(uint32_t h=0; h<headersByHeight_.size(); h++)
+   for(uint32_t h=startBlknum; h<endBlknum; h++)
    {
       BlockHeaderRef & bhr = *(headersByHeight_[h]);
       vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
@@ -880,11 +885,16 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(BtcWallet & myWal
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch(vector<BtcWallet*> walletVect)
+void BlockDataManager_FullRAM::scanBlockchainForTx(vector<BtcWallet*> walletVect,
+                                                   uint32_t startBlknum,
+                                                   uint32_t endBlknum)
 {
    PDEBUG("Scanning blockchain for tx, from scratch");
+
+   uint32_t nHeaders = headersByHeight_.size();
+   endBlknum = (endBlknum > nHeaders ? nHeaders : endBlknum);
    ///// LOOP OVER ALL HEADERS ////
-   for(uint32_t h=0; h<headersByHeight_.size(); h++)
+   for(uint32_t h=startBlknum; h<endBlknum; h++)
    {
       BlockHeaderRef & bhr = *(headersByHeight_[h]);
       vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
