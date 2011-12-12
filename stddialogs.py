@@ -591,12 +591,16 @@ class DlgSetComment(QDialog):
    """ This will be a dumb dialog for retrieving a comment from user """
 
    #############################################################################
-   def __init__(self, currComment='', parent=None):
+   def __init__(self, currComment='', ctype='' parent=None):
       super(DlgWalletDetails, self).__init__(parent)
 
-      setWindowTitle('Add/Change Comment')
+      self.setWindowTitle('Add/Change Comment')
+      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
 
-
+      buttonBox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
+      self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
 
 
 if __name__=='__main__':
