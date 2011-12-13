@@ -124,7 +124,80 @@ class AllWalletsDispModel(QAbstractTableModel):
    #}
 
 ################################################################################
+class LedgerDispModelSimple(QAbstractTableModel):
+   """ Displays an Nx7 table of pre-formatted/processed ledger entries """
+
+   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount', 'isOther', 'WltID')
+
+   def __init__(self, table2D):
+      super(LedgerDispModelSimple, self).__init__()
+      self.ledger = table2D
+
+   def rowCount(self, index=QModelIndex()):
+      return len(self.ledger)
+
+   def columnCount(self, index=QModelIndex()):
+      return 6
+
+   def data(self, index, role=Qt.DisplayRole):
+      COL = self.COL
+      row,col = index.row(), index.column()
+      rowData = self.ledger[row]
+
+      if role==Qt.DisplayRole:
+         return QVariant(rowData[col])
+      elif role==Qt.TextAlignmentRole:
+         if col in (COL.NumConf,  COL.TxDir):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (COL.Comment, COL.Date):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (COL.Amount,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+      elif role==Qt.DecorationRole:
+         pass
+      elif role==Qt.BackgroundColorRole:
+         if not rowData[COL.isOther]:
+            return QVariant( Colors.LightBlue )
+         else:
+            return QVariant( Colors.LightGray )
+      elif role==Qt.ForegroundRole:
+         if col==COL.Amount:
+            if   rowData[COL.Amount]>0: return QVariant(Colors.Green)
+            elif rowData[COL.Amount]<0: return QVariant(Colors.Red)
+            else:                       return QVariant(Colors.DarkGray)
+      elif role==Qt.ToolTipRole:
+         if col==COL.NumConf:
+            if rowData[COL.NumConf]>5:
+               return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
+            else:
+               tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
+               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
+                               'confirmations is usually acceptable.\n'
+                               'For larger transactions, you should\n'
+                               'wait at least 6 confirmations before\n'
+                               'considering the transaction valid.')
+               return QVariant(tooltipStr)
+
+      return QVariant()
+
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COL = self.COL
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL.NumConf:  return QVariant()
+            if section==COL.Date:    return QVariant('Date')
+            if section==COL.WltName: return QVariant('Wallet')
+            if section==COL.Comment: return QVariant('Comments')
+            if section==COL.TxDir:   return QVariant()
+            if section==COL.Amount:  return QVariant('Amount')
+      elif role==Qt.TextAlignmentRole:
+         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
+
+
+################################################################################
 class LedgerDispModel(QAbstractTableModel):
+   """ Displays an Nx7 table of pre-formatted/processed ledger entries """
 
    COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount')
 
@@ -142,7 +215,7 @@ class LedgerDispModel(QAbstractTableModel):
       COL = self.COL
       row,col = index.row(), index.column()
       wltID,le = self.main.combinedLedger[row]
-      nConf = self.main.latestBlockNum - le.getBlockNum()
+      nConf = self.main.latestBlockNum - le.getBlockNum()+1
       if le.getBlockNum() >= 0xffffffff:
          nConf = 0
 
@@ -188,9 +261,6 @@ class LedgerDispModel(QAbstractTableModel):
                #return QVariant(QIcon(icons[nConf]))
             #else:
                #return QVariant(QIcon('icons/conf6_chk_blue.png'))
-         if col==COL.TxDir:
-            return QVariant('In') if le.getValue()>0 else QVariant('Out')
-               
             #if le.getValue()>0:
                #return QVariant(QIcon('icons/moneyIn.png'))
             #else:
@@ -209,7 +279,7 @@ class LedgerDispModel(QAbstractTableModel):
       elif role==Qt.ToolTipRole:
          if col==COL.NumConf:
             if nConf>5:
-               return QVariant('Transaction confirmed!')
+               return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
                tooltipStr = '%d/6 confirmations'%nConf
                tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
@@ -250,6 +320,9 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
    def paint(self, painter, option, index):
       bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      if option.state & QStyle.State_Selected:
+         bgcolor = QApplication.palette().highlight().color()
+
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
          pixmaps = ['icons/conf%d.png'%i for i in range(6)]

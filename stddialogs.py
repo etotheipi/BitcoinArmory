@@ -61,7 +61,6 @@ class DlgNewWallet(QDialog):
 
 
       self.edtDescr = QTextEdit()
-      
       self.edtDescr.setMaximumHeight(75)
       lblDescr = QLabel("Wallet &description:")
       lblDescr.setAlignment(Qt.AlignVCenter)
@@ -591,7 +590,7 @@ class DlgSetComment(QDialog):
    """ This will be a dumb dialog for retrieving a comment from user """
 
    #############################################################################
-   def __init__(self, currComment='', ctype='' parent=None):
+   def __init__(self, currComment='', ctype='', parent=None):
       super(DlgWalletDetails, self).__init__(parent)
 
       self.setWindowTitle('Add/Change Comment')
@@ -601,6 +600,19 @@ class DlgSetComment(QDialog):
                                    QDialogButtonBox.Cancel)
       self.connect(buttonBox, SIGNAL('accepted()'), self.accept)
       self.connect(buttonBox, SIGNAL('rejected()'), self.reject)
+
+      layout = QGridLayout()
+      lbl = None
+      if     ctype and     currComment: lbl = QLabel('Change %s comment:'%ctype)
+      if not ctype and     currComment: lbl = QLabel('Change comment:')
+      if     ctype and not currComment: lbl = QLabel('Add %s comment:'%ctype)
+      if not ctype and not currComment: lbl = QLabel('Add comment:')
+      self.edtComment = QLineEdit()
+      self.edtComment.setText(currComment)
+      layout.addWidget(lbl, 0,0)
+      layout.addWidget(self.edtComment, 0,1)
+      layout.addWidget(buttonBox, 1,0, 1, 2)
+      self.setLayout(layout)
 
 
 if __name__=='__main__':

@@ -63,8 +63,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.loadWalletsAndSettings()
       self.setupNetworking()
-      self.loadBlockchain()
-
 
       self.lblLogoIcon = QLabel()
       #self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
@@ -106,7 +104,8 @@ class ArmoryMainWindow(QMainWindow):
                   
 
       # Table to display ledger/activity
-      self.ledgerModel = LedgerDispModel(self)
+      self.ledgerTable = []
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
       self.ledgerView  = QTableView()
 
       w,h = tightSizeNChar(self.ledgerView, 110)
@@ -128,11 +127,8 @@ class ArmoryMainWindow(QMainWindow):
       initialColResize(self.ledgerView, [20, dateWidth, 72, 0.35, 0.45, 0.3])
 
 
+      #self.connect(self.ledgerView, 'doubleClicked(QModelIndex)', self.
 
-      self.lblTotalBal = QLabel('<b>Balance (All Wallets)</b>:')
-      self.lblMyBal    = QLabel('<b>Balance (Mine only)</b>:')
-      #self.lblTotalBal = QLabel('<b>Balance (All Wallets)</b>:')
-      #self.lblMyBal    = QLabel('<b>Balance (Mine only)</b>:')
 
 
       # Put the Wallet info into it's own little box
@@ -143,29 +139,58 @@ class ArmoryMainWindow(QMainWindow):
       wltLayout.addWidget(self.walletsView)
       wltFrame.setLayout(wltLayout)
 
-      # Do the same with the Ledger
+      btngrpWalletType = QButtonGroup()
+      self.rdoAllWallets = QRadioButton('All wallets')
+      self.rdoMyWallets  = QRadioButton('My wallets')
+      self.rdoWatchOnly  = QRadioButton('Watching-only')
+      btngrpWalletType.addButton(self.rdoAllWallets)
+      btngrpWalletType.addButton(self.rdoMyWallets)
+      btngrpWalletType.addButton(self.rdoWatchOnly)
+      self.rdoAllWallets.setChecked(True)
+      btngrpWalletType.setExclusive(True)
+
+      self.connect(self.rdoAllWallets, SIGNAL('clicked()'), self.createCombinedLedger)
+      self.connect(self.rdoMyWallets,  SIGNAL('clicked()'), self.createCombinedLedger)
+      self.connect(self.rdoWatchOnly,  SIGNAL('clicked()'), self.createCombinedLedger)
+
+
+      self.lblTotalFunds  = QLabel()
+      self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+      self.lblUnconfirmed = QLabel()
+      self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
+      # Now add the ledger to the bottom of the window
       ledgFrame = QFrame()
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
-      ledgLayout = QVBoxLayout()
-      ledgLayout.addWidget(QLabel("<b>Activity for all wallets</b>:"))
-      ledgLayout.addWidget(self.ledgerView)
+      ledgLayout = QGridLayout()
+      ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
+      ledgLayout.addWidget(self.rdoAllWallets,        0,1)
+      ledgLayout.addWidget(self.rdoMyWallets,         0,2)
+      ledgLayout.addWidget(self.rdoWatchOnly,         0,3)
+      ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
+      ledgLayout.addWidget(self.lblTotalFunds,        4,2, 1,2)
+      ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
       ledgFrame.setLayout(ledgLayout)
-      
 
-      btnAddWallet = QPushButton("Add Wallet...")
-      btnWltProps  = QPushButton("Wallet Properties...")
-      btnImportWlt = QPushButton("Import Wallet...")
-      btnSendBtc   = QPushButton("Send Bitcoins...")
-      btnRecvBtc   = QPushButton("Receive Bitcoins...")
+      
+     
+
+      btnSendBtc   = QPushButton("Send Bitcoins")
+      btnRecvBtc   = QPushButton("Receive Bitcoins")
+
+      btnWltProps  = QPushButton("Wallet Properties")
+      btnAddWallet = QPushButton("Add Wallet")
+      btnImportWlt = QPushButton("Import Wallet")
 
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
-      layout.addWidget(btnAddWallet)
-      layout.addWidget(btnWltProps)
-      layout.addWidget(btnImportWlt)
       layout.addWidget(btnSendBtc)
       layout.addWidget(btnRecvBtc)
+      layout.addWidget(btnWltProps)
+      layout.addWidget(btnAddWallet)
+      layout.addWidget(btnImportWlt)
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
 
@@ -185,6 +210,11 @@ class ArmoryMainWindow(QMainWindow):
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
       from twisted.internet import reactor
+      self.loadBlockchain()
+      self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
+      self.ledgerView.setModel(self.ledgerModel)
+
       #reactor.callLater(2.0,  self.loadBlockchain)
       #reactor.callLater(10, form.Heartbeat)
 
@@ -297,11 +327,14 @@ class ArmoryMainWindow(QMainWindow):
       return None
 
 
+
+
    #############################################################################
    def loadBlockchain(self):
       print 'Loading blockchain'
 
       BDM_LoadBlockchainFile()
+      self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
 
       # Now that theb blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
@@ -322,20 +355,20 @@ class ArmoryMainWindow(QMainWindow):
                ledger = wlt.getTxLedger(addr20)
                self.walletSubLedgers[-1].append(ledger)
 
-            t = wlt.getTxLedger()
             self.walletLedgers.append(wlt.getTxLedger())
             
-         self.createCombinedLedger()
+         self.createCombinedLedger(self.walletIDList)
          self.ledgerSize = len(self.combinedLedger)
-         self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
-         print len(self.combinedLedger), self.latestBlockNum
+         print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
 
       # This will force the table to refresh with new data
-      #self.walletModel.reset()
+      self.walletModel.reset()
          
+
+   #############################################################################
    def createZeroConfLedger(self, wlt):
       """
       This is kind of hacky, but I don't want to disrupt the C++ code
@@ -380,6 +413,7 @@ class ArmoryMainWindow(QMainWindow):
       return wlt.cppWallet.getLedgerEntriesForZeroConfTxList(zcTxRefPtrList)
    
 
+   #############################################################################
    def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
       """
       Create a ledger to display on the main screen, that consists of ledger
@@ -387,7 +421,21 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
-         wltIDList = self.walletIDList
+
+         def filt(wid, whichWay):
+            # Filter wallets depending on type
+            wtype = determineWalletType(self.walletMap[wid], self)[0]
+            if whichWay:  return wtype!=WLTTYPES.WatchOnly
+            else:         return wtype==WLTTYPES.WatchOnly
+
+         if self.rdoAllWallets.isChecked():
+            wltIDList = self.walletIDList
+         elif self.rdoMyWallets.isChecked():
+            wltIDList = filter(lambda x: filt(x, True), self.walletIDList)
+         elif self.rdoWatchOnly.isChecked():
+            wltIDList = filter(lambda x: filt(x, False), self.walletIDList)
+
+      print wltIDList
 
       self.combinedLedger = []
       #for wltID,wlt in self.walletMap.iteritems():
@@ -402,17 +450,95 @@ class ArmoryMainWindow(QMainWindow):
          #self.combinedLedger.extend(id_le_zcpairs)
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
+      self.ledgerSize = len(self.combinedLedger)
       print 'Combined ledger:', (RightNow()-start), 'sec', len(self.combinedLedger)
+
+      # Many MainWindow objects haven't been created yet... 
+      # let's try to update them and fail silently if they don't exist
+      try:
+         self.ledgerModel.reset()
+
+         totFund, unconfFund = 0,0
+         for wlt,le in self.combinedLedger:
+            if (self.latestBlockNum-le.getBlockNum()+1) < 6:
+               unconfFund += le.getValue()
+            else:
+               totFund += le.getValue()
+               
+         uncolor = 'red' if unconfFund>0 else 'black'
+         self.lblUnconfirmed.setText( \
+            '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
+         self.lblTotalFunds.setText( \
+            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
+
+         # Finally, update the ledger table
+         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
+         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
+         self.ledgerView.setModel(self.ledgerModel)
+         
+
+      except AttributeError:
+         pass
       
 
+   #############################################################################
+   def convertLedgerToTable(self, ledger):
+      
+      table2D = []
+      for wltID,le in ledger: 
+         row = []
+         nConf = self.latestBlockNum - le.getBlockNum()+1
+         wlt = self.walletMap[wltID]
+         if le.getBlockNum() >= 0xffffffff: nConf = 0
+         # NumConf
+         row.append(nConf)
+
+         # Date
+         if nConf>0: txtime = TheBDM.getTopBlockHeader().getTimestamp()
+         else:       txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
+         row.append(unixTimeToFormatStr(txtime))
+
+         # TxDir (actually just the amt... use the sign of the amt for what you want)
+         row.append(le.getValue())
+
+         # Wlt Name
+         row.append(self.walletMap[wltID].labelName)
+         
+         # Comment
+         if wlt.commentsMap.has_key(le.getTxHash()):
+            row.append(wlt.commentsMap[le.getTxHash()])
+         else:
+            row.append('')
+
+         # Amount
+         row.append(coin2str(le.getValue()))
+
+         # Is this money mine?
+         row.append( wlt.watchingOnly and (not wltID in self.walletOfflines) )
+
+         # WltID
+         row.append( wltID )
+
+         # Finally, attach the row to the table
+         table2D.append(row)
+
+      return table2D
+
+
+   #############################################################################
    def execDlgWalletDetails(self, index):
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self)
-      
       # I think I don't actually need to do anything here:  the dialog 
       # updates the wallet data directly, if necessary
       dialog.exec_()
          
+
+   #############################################################################
+   def execChangeComment(self, index):
+      # I think I don't actually need to do anything here:  the dialog 
+      # updates the wallet data directly, if necessary
+      dialog.exec_()
          
 
    def Heartbeat(self, nextBeatSec=3):
