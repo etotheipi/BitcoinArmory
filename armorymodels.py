@@ -21,11 +21,16 @@ Colors = enum(LightBlue=   QColor(215,215,255), \
               Black=       QColor(  0,  0,  0)  \
                                               )
 
+WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
+LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
+                   'Comment', 'Amount', 'isOther', 'WltID', 'TxHash')
+ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Balance')
+
+
 
 class AllWalletsDispModel(QAbstractTableModel):
    
    # The columns enumeration
-   COL = enum('ID', 'Name', 'Secure', 'Bal')
 
    def __init__(self, mainWindow):
       super(AllWalletsDispModel, self).__init__()
@@ -38,7 +43,7 @@ class AllWalletsDispModel(QAbstractTableModel):
       return 4
 
    def data(self, index, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = WLTVIEWCOLS
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
       wltID = wlt.wltUniqueIDB58
@@ -74,7 +79,7 @@ class AllWalletsDispModel(QAbstractTableModel):
          elif col in (3,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         if wlt.watchingOnly and not wltID in self.main.walletOfflines:
+         if determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly:
             return QVariant( Colors.LightGray )
          else:
             return QVariant( Colors.LightBlue )
@@ -127,7 +132,6 @@ class AllWalletsDispModel(QAbstractTableModel):
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx7 table of pre-formatted/processed ledger entries """
 
-   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount', 'isOther', 'WltID')
 
    def __init__(self, table2D):
       super(LedgerDispModelSimple, self).__init__()
@@ -137,14 +141,16 @@ class LedgerDispModelSimple(QAbstractTableModel):
       return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
-      return 6
+      return 9
 
    def data(self, index, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = LEDGERCOLS
       row,col = index.row(), index.column()
       rowData = self.ledger[row]
 
       if role==Qt.DisplayRole:
+         if col==COL.TxHash:
+            return QVariant(binary_to_hex(rowData[col]))
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
          if col in (COL.NumConf,  COL.TxDir):
@@ -182,15 +188,18 @@ class LedgerDispModelSimple(QAbstractTableModel):
 
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = LEDGERCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.NumConf:  return QVariant()
+            if section==COL.NumConf: return QVariant()
             if section==COL.Date:    return QVariant('Date')
             if section==COL.WltName: return QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
             if section==COL.TxDir:   return QVariant()
             if section==COL.Amount:  return QVariant('Amount')
+            if section==COL.isOther: return QVariant('Other Owner')
+            if section==COL.WltID:   return QVariant('Wallet ID')
+            if section==COL.TxHash:  return QVariant('Tx Hash (LE)')
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
@@ -198,8 +207,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
 ################################################################################
 class LedgerDispModel(QAbstractTableModel):
    """ Displays an Nx7 table of pre-formatted/processed ledger entries """
-
-   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount')
 
    def __init__(self, mainWindow):
       super(LedgerDispModel, self).__init__()
@@ -212,9 +219,10 @@ class LedgerDispModel(QAbstractTableModel):
       return 6
 
    def data(self, index, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = LEDGERCOLS
       row,col = index.row(), index.column()
       wltID,le = self.main.combinedLedger[row]
+      wlt = self.main.walletMap[wltID]
       nConf = self.main.latestBlockNum - le.getBlockNum()+1
       if le.getBlockNum() >= 0xffffffff:
          nConf = 0
@@ -238,10 +246,8 @@ class LedgerDispModel(QAbstractTableModel):
             #else:
                #return QVariant('Sent')
          elif col==COL.WltName: 
-            wlt = self.main.walletMap[wltID]
             return QVariant(wlt.labelName)
          elif col==COL.Comment: 
-            wlt = self.main.walletMap[wltID]
             if wlt.commentsMap.has_key(txHash):
                return QVariant(wlt.commentsMap[txHash])
          elif col==COL.Amount:
@@ -266,8 +272,7 @@ class LedgerDispModel(QAbstractTableModel):
             #else:
                #return QVariant(QIcon('icons/moneyOut.png'))
       elif role==Qt.BackgroundColorRole:
-         if self.main.walletMap[wltID].watchingOnly and \
-                           not wltID in self.main.walletOfflines:
+         if determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly:
             return QVariant( Colors.LightGray )
          else:
             return QVariant( Colors.LightBlue )
@@ -312,7 +317,7 @@ class LedgerDispModel(QAbstractTableModel):
 
 class LedgerDispDelegate(QStyledItemDelegate):
 
-   COL = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', 'Amount')
+   COL = LEDGERCOLS
 
    def __init__(self, parent=None):
       super(LedgerDispDelegate, self).__init__(parent)   
@@ -362,9 +367,6 @@ class LedgerDispDelegate(QStyledItemDelegate):
 ################################################################################
 class WalletAddrDispModel(QAbstractTableModel):
    
-   # The columns enumeration
-   COL = enum('Address', 'Comment', 'NumTx', 'Balance')
-
    def __init__(self, wlt, mainWindow):
       super(WalletAddrDispModel, self).__init__()
       self.main = mainWindow
@@ -380,7 +382,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       return 4
 
    def data(self, index, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = ADDRESSCOLS
       row,col = index.row(), index.column()
       addr = self.wlt.addrMap[self.addr160List[row]]
       addr160 = addr.getAddr160()
@@ -426,7 +428,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       return QVariant()
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      COL = self.COL
+      COL = ADDRESSCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.Address: return QVariant( 'Address' )

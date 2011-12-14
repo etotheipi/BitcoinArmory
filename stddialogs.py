@@ -377,6 +377,8 @@ class DlgChangeLabels(QDialog):
       layout.addWidget(self.edtDescr,   2, 1, 2, 1)
       layout.addWidget(buttonBox,       4, 0, 1, 2)
       self.setLayout(layout)
+   
+      self.setWindowTitle('Wallet Descriptions')
 
       
 ################################################################################
@@ -395,26 +397,12 @@ class DlgWalletDetails(QDialog):
 
       self.labels = [wlt.labelName, wlt.labelDescr]
       self.passphrase = ''
+      self.setMinimumSize(800,400)
       
-      w,h = relaxedSize(self,60)
+      w,h = relaxedSizeNChar(self,60)
       viewWidth,viewHeight  = w, 10*h
       
-      # Wallet Info/Details
-      #lblWltDetails = QLabel('Wallet Information:')
-      #self.wltDetailsModel = WalletDetailsModel(wlt, parent)
-      #self.wltDetailsView = QTableView()
-      #self.wltDetailsView.setModel(self.wltDetailsModel)
-      #self.wltDetailsView.setShowGrid(False)
-      #self.wltDetailsView.setWordWrap(True)
-      #self.wltDetailsView.setMinimumSize(viewWidth, viewHeight)
-      #self.wltDetailsView.resizeRowsToContents()
-      #self.wltDetailsView.verticalHeader().setStretchLastSection(True)
-      #self.wltDetailsView.horizontalHeader().resizeSection(0, 0.2*w)
-      #self.wltDetailsView.horizontalHeader().setStretchLastSection(True)
-      #self.wltDetailsView.horizontalHeader().setVisible(False)
-      #self.wltDetailsView.verticalHeader().setVisible(False)
-      
-      frm = getWltDetailsFrame(wlt, typestr, self.main.usermode)
+      self.frm = getWltDetailsFrame(wlt, typestr, self.main.usermode)
 
 
       # Address view
@@ -428,10 +416,10 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
       initialColResize(self.wltAddrView, [0.2, 0.7, 64, 0.3])
 
-      #self.wltAddrView.horizontalHeader().resizeSection(1, 150)
-      #if self.usermode == USERMODE.Standard:
-         #self.walletsView.hideColumn(0)
-         #self.walletsView.horizontalHeader().resizeSection(1, 200)
+   
+      uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
+      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
+                   
 
       
 
@@ -456,8 +444,7 @@ class DlgWalletDetails(QDialog):
       self.connect(btn4, SIGNAL('clicked()'), self.accept)
 
       layout = QGridLayout()
-      layout.addWidget(frm,                   1, 0, 3, 4)
-      #layout.addWidget(lblAddrList,           4, 0, 1, 1)
+      layout.addWidget(self.frm,              1, 0, 3, 4)
       layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
       layout.addWidget(btn4,                  7, 0, 1, 1)
       layout.addWidget(buttonBox,             7, 2, 1, 2)
@@ -469,7 +456,10 @@ class DlgWalletDetails(QDialog):
    def changeLabels(self):
       dlgLabels = DlgChangeLabels(self.wlt.labelName, self.wlt.labelDescr, self)
       if dlgLabels.exec_():
-         self.newLabels = dlgLabels
+         # Make sure to use methods like this which not only update in memory,
+         # but guarantees the file is updated, too
+         self.wlt.setWalletLabels(str(dlgLabels.edtName.text()), 
+                                  str(dlgLabels.edtDescr.toPlainText()))
 
    def changeEncryption(self):
       dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
@@ -498,6 +488,10 @@ class DlgWalletDetails(QDialog):
       
 
    def changeKdf(self):
+      """ 
+      This is a low-priority feature.  I mean, the PyBtcWallet class has this
+      feature implemented, but I don't have a GUI for it
+      """
       pass
 
 
@@ -513,69 +507,171 @@ def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
       if mem >= 1024*1024:
          kdfmemstr = str(mem/(1024*1024))+' MB'
 
+   FIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', 'Crypto', 'Time', 'Mem')
 
-   labelNames = []
-   labelNames.append(QLabel('Wallet Name:'))
-   labelNames.append(QLabel('Description:'))
+   tooltips = [[]]*9
 
-   labelNames.append(QLabel('Wallet ID:'))
-   labelNames.append(QLabel('#Addresses:'))
-   labelNames.append(QLabel('Security:'))
+   tooltips[FIELDS.Name] = createToolTipObject(
+         'This is the name stored with the wallet file.  Click on the '
+         '"Change Labels" button at the bottom of this '
+         'window to change this field' )
+
+   tooltips[FIELDS.Descr] = createToolTipObject(
+         'This is the description of the wallet stored in the wallet file.  '
+         'Press the "Change Labels" button at the bottom of this '
+         'window to change this field' )
+
+   tooltips[FIELDS.WltID] = createToolTipObject(
+         'This is a unique identifier for your wallet, like '
+         'a serial number.  No other wallet should have this same ID '
+         'unless it is a copy of this wallet, regardless of whether '
+         'the name and description match.')
+
+   tooltips[FIELDS.NumAddr] = createToolTipObject(
+         'The number of addresses generated so far for this wallet.  '
+         'This includes addresses imported manually')
+
+   if typestr=='Offline':
+      tooltips[FIELDS.Secure] = createToolTipObject(
+         'Offline:  This is a "Watching-Only" wallet that you have identified '
+         'belongs to you, but you cannot spend any of the wallet funds '
+         'using this wallet.  This kind of wallet '
+         'is usually stored on an internet-connected computer, to manage '
+         'incoming transactions, but the private keys needed '
+         'to spend the money are stored on an offline computer.')
+   elif typestr=='Watching-Only':
+      tooltips[FIELDS.Secure] = createToolTipObject(
+         'Watching-Only:  You can only watch addresses in this wallet '
+         'but cannot spend any of the funds.')
+   elif typestr=='No Encryption':
+      tooltips[FIELDS.Secure] = createToolTipObject(
+         'No Encryption: This wallet contains private keys, and does not require '
+         'a passphrase to spend funds available to this wallet.  If someone '
+         'else obtains a copy of this wallet, they can also spend your funds!  '
+         '(You can click the "Change Encryption" button at the bottom of this '
+         'window to enabled encryption)')
+   elif typestr=='Encrypted':
+      tooltips[FIELDS.Secure] = createToolTipObject(
+         'This wallet contains the private keys needed to spend this wallet\'s '
+         'funds, but they are encrypted on your harddrive.  The wallet must be '
+         '"unlocked" with the correct passphrase before you can spend any of the '
+         'funds.  You can still generate new addresses and monitor incoming '
+         'transactions, even with a locked wallet.')
+
+   tooltips[FIELDS.Crypto] = createToolTipObject(
+         'The encryption used to secure your wallet keys' )
+
+   tooltips[FIELDS.Time] = createToolTipObject(
+         'This is exactly how long it takes your computer to unlock your '
+         'wallet after you have entered your passphrase.  If someone got '
+         'ahold of your wallet, this is approximately how long it would take '
+         'them to for each guess of your passphrase.')
+
+   tooltips[FIELDS.Mem] = createToolTipObject(
+         'This is the amount of memory required to unlock your wallet. '
+         'Memory values above 2 MB pretty much guarantee that GPU-acceleration '
+         'will be useless for guessing your passphrase')
+
+   labelNames = [[]]*9
+   labelNames[FIELDS.Name]    = QLabel('Wallet Name:')
+   labelNames[FIELDS.Descr]   = QLabel('Description:')
+
+   labelNames[FIELDS.WltID]   = QLabel('Wallet ID:')
+   labelNames[FIELDS.NumAddr] = QLabel('#Addresses:')
+   labelNames[FIELDS.Secure]  = QLabel('Security:')
+
+   # TODO:  Add wallet path/location to this!
+
+   if dispCrypto:
+      labelNames[FIELDS.Crypto] = QLabel('Encryption:')
+      labelNames[FIELDS.Time]   = QLabel('Time to Unlock:')
+      labelNames[FIELDS.Mem]    = QLabel('Memory to Unlock:')
+
+   labelValues = [[]]*9
+   labelValues[FIELDS.Name]    = QLabel(wlt.labelName)
+   labelValues[FIELDS.Descr]   = QLabel(wlt.labelDescr)
+
+   labelValues[FIELDS.WltID]   = QLabel(wlt.wltUniqueIDB58)
+   labelValues[FIELDS.NumAddr] = QLabel(str(len(wlt.addrMap)-1))
+   labelValues[FIELDS.Secure]  = QLabel(typestr)
 
 
    if dispCrypto:
-      labelNames.append(QLabel('Encryption:'))
-      labelNames.append(QLabel('Time to Unlock:'))
-      labelNames.append(QLabel('Memory to Unlock:'))
+      labelValues[FIELDS.Crypto] = QLabel('AES256')
+      labelValues[FIELDS.Time]   = QLabel(kdftimestr)
+      labelValues[FIELDS.Mem]    = QLabel(kdfmemstr)
 
-   labelValues = []
-   labelValues.append(QLabel(wlt.labelName))
-   labelValues.append(QLabel(wlt.labelDescr))
-
-   labelValues.append(QLabel(wlt.wltUniqueIDB58))
-   labelValues.append(QLabel(str(len(wlt.addrMap)-1)))
-   labelValues.append(QLabel(typestr))
-
-
-   if dispCrypto:
-      labelValues.append(QLabel('AES256'))
-      labelValues.append(QLabel(kdftimestr))
-      labelValues.append(QLabel(kdfmemstr))
+   for ttip in tooltips:
+      try:
+         ttip.setAlignment(Qt.AlignRight | Qt.AlignTop)
+         w,h = relaxedSizeStr(ttip, '(?)') 
+         ttip.setMaximumSize(w,h)
+      except AttributeError:
+         pass
 
    for lbl in labelNames:
-      lbl.setTextFormat(Qt.RichText)
-      lbl.setText( '<b>' + lbl.text() + '</b>')
-      lbl.setContentsMargins(10, 0, 10, 0)
+      try:
+         lbl.setTextFormat(Qt.RichText)
+         lbl.setText( '<b>' + lbl.text() + '</b>')
+         lbl.setContentsMargins(0, 0, 0, 0)
+      except AttributeError:
+         pass
 
 
    for lbl in labelValues:
-      lbl.setText( '<i>' + lbl.text() + '</i>')
-      lbl.setContentsMargins(10, 0, 10, 0)
-      lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | \
-                                  Qt.TextSelectableByKeyboard)
+      try:
+         lbl.setText( '<i>' + lbl.text() + '</i>')
+         lbl.setContentsMargins(10, 0, 10, 0)
+         lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                     Qt.TextSelectableByKeyboard)
+      except AttributeError:
+         pass
 
-   labelNames[1].setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   labelValues[1].setWordWrap(True)
-   labelValues[1].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   labelNames[FIELDS.Descr].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   labelValues[FIELDS.Descr].setWordWrap(True)
+   labelValues[FIELDS.Descr].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+
+   lblEmpty = QLabel(' '*20)
 
    layout = QGridLayout()
-   layout.addWidget(labelNames[0], 0, 0); layout.addWidget(labelValues[0], 0, 1)
-   layout.addWidget(labelNames[1], 1, 0); layout.addWidget(labelValues[1], 1, 1, 2, 1)
+   layout.addWidget(tooltips[FIELDS.Name],        0, 0); 
+   layout.addWidget(labelNames[FIELDS.Name],      0, 1); 
+   layout.addWidget(labelValues[FIELDS.Name],     0, 2)
 
-   layout.addWidget(labelNames[2], 0, 2); layout.addWidget(labelValues[2], 0, 3)
-   layout.addWidget(labelNames[3], 1, 2); layout.addWidget(labelValues[3], 1, 3)
-   layout.addWidget(labelNames[4], 2, 2); layout.addWidget(labelValues[4], 2, 3)
+   layout.addWidget(tooltips[FIELDS.Descr],       1, 0); 
+   layout.addWidget(labelNames[FIELDS.Descr],     1, 1); 
+   layout.addWidget(labelValues[FIELDS.Descr],    1, 2, 3, 1)
+
+   layout.addWidget(tooltips[FIELDS.WltID],       0, 3); 
+   layout.addWidget(labelNames[FIELDS.WltID],     0, 4); 
+   layout.addWidget(labelValues[FIELDS.WltID],    0, 5)
+
+   layout.addWidget(tooltips[FIELDS.NumAddr],     1, 3); 
+   layout.addWidget(labelNames[FIELDS.NumAddr],   1, 4); 
+   layout.addWidget(labelValues[FIELDS.NumAddr],  1, 5)
+
+   layout.addWidget(tooltips[FIELDS.Secure],      2, 3); 
+   layout.addWidget(labelNames[FIELDS.Secure],    2, 4); 
+   layout.addWidget(labelValues[FIELDS.Secure],   2, 5)
 
 
    if dispCrypto:
-      layout.addWidget(labelNames[5], 0, 4); layout.addWidget(labelValues[5], 0, 5)
-      layout.addWidget(labelNames[6], 1, 4); layout.addWidget(labelValues[6], 1, 5)
-      layout.addWidget(labelNames[7], 2, 4); layout.addWidget(labelValues[7], 2, 5)
+      layout.addWidget(tooltips[FIELDS.Crypto],    0, 6); 
+      layout.addWidget(labelNames[FIELDS.Crypto],  0, 7); 
+      layout.addWidget(labelValues[FIELDS.Crypto], 0, 8)
+
+      layout.addWidget(tooltips[FIELDS.Time],      1, 6); 
+      layout.addWidget(labelNames[FIELDS.Time],    1, 7); 
+      layout.addWidget(labelValues[FIELDS.Time],   1, 8)
+
+      layout.addWidget(tooltips[FIELDS.Mem],       2, 6); 
+      layout.addWidget(labelNames[FIELDS.Mem],     2, 7); 
+      layout.addWidget(labelValues[FIELDS.Mem],    2, 8)
    else:
-      empty = QLabel(' '*20)
-      layout.addWidget(empty, 0, 4); layout.addWidget(empty, 0, 5)
-      layout.addWidget(empty, 1, 4); layout.addWidget(empty, 1, 5)
-      layout.addWidget(empty, 2, 4); layout.addWidget(empty, 2, 5)
+      #layout.addWidget(lblEmpty, 0, 4); layout.addWidget(lblEmpty, 0, 5)
+      #layout.addWidget(lblEmpty, 1, 4); layout.addWidget(lblEmpty, 1, 5)
+      #layout.addWidget(lblEmpty, 2, 4); layout.addWidget(lblEmpty, 2, 5)
+      pass
       
 
    infoFrame = QFrame()
@@ -591,7 +687,7 @@ class DlgSetComment(QDialog):
 
    #############################################################################
    def __init__(self, currComment='', ctype='', parent=None):
-      super(DlgWalletDetails, self).__init__(parent)
+      super(DlgSetComment, self).__init__(parent)
 
       self.setWindowTitle('Add/Change Comment')
       self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
@@ -609,9 +705,13 @@ class DlgSetComment(QDialog):
       if not ctype and not currComment: lbl = QLabel('Add comment:')
       self.edtComment = QLineEdit()
       self.edtComment.setText(currComment)
-      layout.addWidget(lbl, 0,0)
-      layout.addWidget(self.edtComment, 0,1)
-      layout.addWidget(buttonBox, 1,0, 1, 2)
+      h,w = relaxedSizeNChar(self, 50)
+      self.edtComment.setMinimumSize(h,w)
+      #h = self.edtComment.height()
+      #self.edtComment.setMinimumSize(h, 200)
+      layout.addWidget(lbl,             0,0)
+      layout.addWidget(self.edtComment, 1,0)
+      layout.addWidget(buttonBox,       2,0)
       self.setLayout(layout)
 
 

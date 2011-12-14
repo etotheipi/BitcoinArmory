@@ -121,13 +121,22 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.verticalHeader().hide()
       self.ledgerView.setMinimumSize(viewWidth, viewHeight)
       #self.walletsView.setStretchFactor(4)
+      self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+      self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
+      #if self.usermode==USERMODE.Standard:
       initialColResize(self.ledgerView, [20, dateWidth, 72, 0.35, 0.45, 0.3])
+      #elif self.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
+         #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
+         #self.ledgerView.setColumnHidden(LEDGERCOLS.TxHash, False)
 
 
-      #self.connect(self.ledgerView, 'doubleClicked(QModelIndex)', self.
+      utcflv = lambda x: self.updateTxCommentFromView(self.ledgerView)
+      self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), utcflv)
 
 
 
@@ -139,20 +148,13 @@ class ArmoryMainWindow(QMainWindow):
       wltLayout.addWidget(self.walletsView)
       wltFrame.setLayout(wltLayout)
 
-      btngrpWalletType = QButtonGroup()
-      self.rdoAllWallets = QRadioButton('All wallets')
-      self.rdoMyWallets  = QRadioButton('My wallets')
-      self.rdoWatchOnly  = QRadioButton('Watching-only')
-      btngrpWalletType.addButton(self.rdoAllWallets)
-      btngrpWalletType.addButton(self.rdoMyWallets)
-      btngrpWalletType.addButton(self.rdoWatchOnly)
-      self.rdoAllWallets.setChecked(True)
-      btngrpWalletType.setExclusive(True)
+      # Combo box to filter ledger display
+      self.comboWalletSelect = QComboBox()
+      #self.comboWalletSelect.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+      self.populateLedgerComboBox()
 
-      self.connect(self.rdoAllWallets, SIGNAL('clicked()'), self.createCombinedLedger)
-      self.connect(self.rdoMyWallets,  SIGNAL('clicked()'), self.createCombinedLedger)
-      self.connect(self.rdoWatchOnly,  SIGNAL('clicked()'), self.createCombinedLedger)
-
+      ccl = lambda x: self.createCombinedLedger() # ignore the arg
+      self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
       self.lblTotalFunds  = QLabel()
       self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -165,9 +167,7 @@ class ArmoryMainWindow(QMainWindow):
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
-      ledgLayout.addWidget(self.rdoAllWallets,        0,1)
-      ledgLayout.addWidget(self.rdoMyWallets,         0,2)
-      ledgLayout.addWidget(self.rdoWatchOnly,         0,3)
+      ledgLayout.addWidget(self.comboWalletSelect,    0,1, 1,2)
       ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
       ledgLayout.addWidget(self.lblTotalFunds,        4,2, 1,2)
       ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
@@ -205,7 +205,10 @@ class ArmoryMainWindow(QMainWindow):
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
+      #if self.usermode==USERMODE.Standard:
       self.setMinimumSize(900,300)
+      #else:
+         #self.setMinimumSize(1200,300)
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
@@ -244,13 +247,14 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('First_Load', False)
          self.settings.set('Load_Count', 1)
       else:
-         self.settings.set('Load_Count', (self.settings.get('Load_Count')+1) % 10)
+         self.settings.set('Load_Count', (self.settings.get('Load_Count')+1) % 100)
 
       # Set the usermode, default to standard
+      self.usermode = USERMODE.Standard
       if self.settings.get('User_Mode') == 'Advanced':
          self.usermode = USERMODE.Advanced
-      else:
-         self.usermode = USERMODE.Standard
+      elif self.settings.get('User_Mode') == 'Developer':
+         self.usermode = USERMODE.Developer
 
       # Load wallets found in the .armory directory
       wltPaths = self.settings.get('Other_Wallets', expectList=True)
@@ -268,8 +272,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.latestBlockNum = 0
 
-      # Use this store IDs of wallets that are watching-only, 
-      self.walletOfflines = set()
 
       print 'Loading wallets...'
       for f in os.listdir(ARMORY_HOME_DIR):
@@ -284,7 +286,7 @@ class ArmoryMainWindow(QMainWindow):
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
             wltID = wltLoad.wltUniqueIDB58
-            if fpath in wltExclude:
+            if fpath in wltExclude or wltID in wltExclude:
                continue
 
             if wltID in self.walletIDSet:
@@ -300,15 +302,31 @@ class ArmoryMainWindow(QMainWindow):
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
                self.walletBalances.append(-1)
-
-               if wltID in wltOffline or fpath in wltOffline:
-                  self.walletOfflines.add(wltID)
          except:
             print '***WARNING: Wallet could not be loaded:', fpath
             print '            skipping... '
             raise
                      
 
+      # We will use the settings file to store other:  we will have one entry
+      # for each wallet and it will contain a list of strings (dict-esque)
+      # that we might want to store about that wallet, that cannot be stored
+      # in the wallet file itself:
+      #   Wallet_287cFxkr3_IsMine     |  True
+      #   Wallet_287cFxkr3_BelongsTo  |  Joe the plumber
+      self.wltExtraProps = {}
+      for name,val in self.settings.getAllSettings().iteritems():
+         parts = name.split('_')
+         if len(parts)==3 and parts[0]=='Wallet' and self.walletMap.has_key(parts[1]):
+            # The last part is the prop name and the value is the property 
+            propName=parts[2]
+            if not self.wltExtraProps.has_key(wltID):
+               self.wltExtraProps[wltID] = {}
+            self.wltExtraProps[wltID][propName] = self.settings.get(name)
+
+         
+            
+      
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
          print '   Wallet (%s):'.ljust(20) % wlt.wltUniqueIDB58,
@@ -317,6 +335,18 @@ class ArmoryMainWindow(QMainWindow):
 
 
    
+   #############################################################################
+   def getWltExtraProp(self, wltID, propName):
+      try:
+         return self.wltExtraProps[wltID]
+      except KeyError:
+         return ''
+
+   #############################################################################
+   def setWltExtraProp(self, wltID, propName, value):
+      key = 'Wallet_%s_%s' % (wltID, propName)
+      self.wltExtraProps[wltID][propName] = value
+      self.settings.set(key, value)
 
 
    #############################################################################
@@ -421,24 +451,35 @@ class ArmoryMainWindow(QMainWindow):
       """
       start = RightNow()
       if wltIDList==None:
+         # Create a list of [wltID, type] pairs
+         typelist = [[wid, determineWalletType(self.walletMap[wid], self)[0]] \
+                                                      for wid in self.walletIDList]
 
-         def filt(wid, whichWay):
-            # Filter wallets depending on type
-            wtype = determineWalletType(self.walletMap[wid], self)[0]
-            if whichWay:  return wtype!=WLTTYPES.WatchOnly
-            else:         return wtype==WLTTYPES.WatchOnly
-
-         if self.rdoAllWallets.isChecked():
-            wltIDList = self.walletIDList
-         elif self.rdoMyWallets.isChecked():
-            wltIDList = filter(lambda x: filt(x, True), self.walletIDList)
-         elif self.rdoWatchOnly.isChecked():
-            wltIDList = filter(lambda x: filt(x, False), self.walletIDList)
+         # We need to figure out which wallets to combine here...
+         currIdx  =     self.comboWalletSelect.currentIndex()
+         currText = str(self.comboWalletSelect.currentText()).lower()
+         if currIdx>=4:
+            wltIDList = [self.walletIDList[currIdx-6]]
+         else:
+            listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
+            listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
+            listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
+            listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
+            if 'all wall' in currText:  # that's stupidly annoying bug:  'all' is in "wALLets"
+               wltIDList = self.walletIDList
+            elif 'my' in currText:
+               wltIDList = listOffline + listCrypt + listPlain
+            elif 'offline' in currText:
+               wltIDList = listOffline
+            elif 'other' in currText:
+               wltIDList = listWatching
+            else:
+               raise WalletExistsError, 'Bad combo-box selection:', currText
+               
 
       print wltIDList
 
       self.combinedLedger = []
-      #for wltID,wlt in self.walletMap.iteritems():
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
@@ -514,16 +555,39 @@ class ArmoryMainWindow(QMainWindow):
          row.append(coin2str(le.getValue()))
 
          # Is this money mine?
-         row.append( wlt.watchingOnly and (not wltID in self.walletOfflines) )
+         row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
 
          # WltID
          row.append( wltID )
+
+         # WltID
+         row.append( le.getTxHash() )
 
          # Finally, attach the row to the table
          table2D.append(row)
 
       return table2D
 
+      
+   #############################################################################
+   def walletListChanged(self):
+      self.populateLedgerComboBox()
+      #self.comboWalletSelect.setCurrentItem(0)
+      self.walletsView.reset()
+      self.createCombinedLedger()
+
+
+   #############################################################################
+   def populateLedgerComboBox(self):
+      self.comboWalletSelect.addItem( 'All Wallets'       )
+      self.comboWalletSelect.addItem( 'My Wallets'        )
+      self.comboWalletSelect.addItem( 'Offline Wallets'   )
+      self.comboWalletSelect.addItem( 'Other\'s wallets'  )
+      for wltID in self.walletIDList:
+         self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
+      self.comboWalletSelect.insertSeparator(4)
+      self.comboWalletSelect.insertSeparator(4)
+      
 
    #############################################################################
    def execDlgWalletDetails(self, index):
@@ -532,15 +596,39 @@ class ArmoryMainWindow(QMainWindow):
       # I think I don't actually need to do anything here:  the dialog 
       # updates the wallet data directly, if necessary
       dialog.exec_()
+      # Okay, well we do need to make sure that any changes are reflected in views
+      self.walletListChanged()
          
+         
+         
+   #############################################################################
+   def updateTxCommentFromView(self, view):
+      index = view.selectedIndexes()[0]
+      row, col = index.row(), index.column()
+      currComment = str(view.model().index(row, LEDGERCOLS.Comment).data().toString())
+      wltID       = str(view.model().index(row, LEDGERCOLS.WltID  ).data().toString())
+      txHash      = str(view.model().index(row, LEDGERCOLS.TxHash ).data().toString())
+
+      dialog = DlgSetComment(currComment, 'Transaction', self)
+      if dialog.exec_():
+         newComment = str(dialog.edtComment.text())
+         self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
+         self.walletListChanged()
 
    #############################################################################
-   def execChangeComment(self, index):
-      # I think I don't actually need to do anything here:  the dialog 
-      # updates the wallet data directly, if necessary
-      dialog.exec_()
-         
+   def updateAddressCommentFromView(self, view, wlt):
+      index = view.selectedIndexes()[0]
+      row, col = index.row(), index.column()
+      currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
+      addrStr     = str(view.model().index(row, ADDRESSCOLS.Address).data().toString())
 
+      dialog = DlgSetComment(currComment, 'Address', self)
+      if dialog.exec_():
+         newComment = str(dialog.edtComment.text())
+         addr160 = addrStr_to_hash160(addrStr)
+         wlt.setComment(addr160, newComment)
+
+   #############################################################################
    def Heartbeat(self, nextBeatSec=3):
       """
       This method is invoked when the app is initialized, and will
@@ -559,6 +647,7 @@ class ArmoryMainWindow(QMainWindow):
       for wltID, wlt in self.walletMap.iteritems():
          # Update wallet balances
          self.walletBalances = self.walletMap[wltID].getBalance()
+         wlt.checkWalletLockTimeout()
 
       for func in self.extraHeartbeatFunctions:
          func()

@@ -26,7 +26,15 @@ def tightSizeStr(obj, theStr):
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return szWidth, szHeight
    
-def relaxedSize(obj, nChar):
+def relaxedSizeStr(obj, theStr):
+   """
+   Approximates the size of a row text, nchars long, adds some margin
+   """
+   fm = QFontMetricsF(QFont(obj.font()))
+   szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
+   return 1.3*szWidth, 1.3*szHeight
+
+def relaxedSizeNChar(obj, nChar):
    """
    Approximates the size of a row text, nchars long, adds some margin
    """
@@ -38,7 +46,7 @@ def relaxedSize(obj, nChar):
 #############################################################################
 def determineWalletType(wlt, wndw):
    if wlt.watchingOnly:
-      if wlt.wltUniqueIDB58 in wndw.walletOfflines:
+      if wndw.getWltExtraProp(wlt.wltUniqueIDB58,'IsMine'):
          return [WLTTYPES.Offline, 'Offline']
       else:
          return [WLTTYPES.WatchOnly, 'Watching-Only']

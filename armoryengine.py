@@ -161,6 +161,7 @@ class PassphraseError(Exception): pass
 class EncryptionError(Exception): pass
 class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
+class WalletExistsError(Exception): pass
 
 
 
@@ -5253,17 +5254,13 @@ class PyBtcWallet(object):
 
    #############################################################################
    def checkWalletLockTimeout(self):
-      if self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
+      if not self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
          self.lock()
          self.kdfKey.destroy()
          self.kdfKey = None
          self.isLocked = True
 
 
-   #############################################################################
-   def lockWalletIfTimeExpired(self):
-      if RightNow() > self.lockWalletAtTime:
-         self.lock()
    
 
    #############################################################################
@@ -5877,11 +5874,13 @@ class PyBtcWallet(object):
       updEntry = []
       isNewComment = False
       if self.commentsMap.has_key(hashVal):
+         print binary_to_hex(hashVal)
          # If there is already a comment for this address, overwrite it
          oldCommentLen = len(self.commentsMap[hashVal])
          oldCommentLoc = self.commentLocs[hashVal]
          # The first 23 bytes are the datatype, hashVal, and 2-byte comment size
-         updEntry.append([WLT_UPDATE_MODIFY, oldCommentLoc+23, '\x00'*oldCommentLen])
+         offset = 1 + len(hashVal) + 2
+         updEntry.append([WLT_UPDATE_MODIFY, oldCommentLoc+offset, '\x00'*oldCommentLen])
       else:
          isNewComment = True
 
@@ -5902,12 +5901,14 @@ class PyBtcWallet(object):
    #############################################################################
    def setWalletLabels(self, lshort, llong=''):
       toWriteS = lshort.ljust( 32, '\x00')
-      toWriteL = lshort.ljust(256, '\x00')
+      toWriteL = llong.ljust(256, '\x00')
 
       updList = []
       updList.append([WLT_UPDATE_MODIFY, self.offsetLabelName,  toWriteS])
       updList.append([WLT_UPDATE_MODIFY, self.offsetLabelDescr, toWriteL])
       self.walletFileSafeUpdate(updList)
+      self.labelName = toWriteS
+      self.labelDescr = toWriteL
 
 
    #############################################################################
@@ -6135,6 +6136,7 @@ class PyBtcWallet(object):
                                               timeRng[1], blkRng[1])
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
+            self.commentLocs[hashVal] = byteLocation
          if dtype==WLT_DATATYPE_OPEVAL:
             raise NotImplementedError, 'OP_EVAL not support in wallet yet'
 
@@ -7886,6 +7888,9 @@ class SettingsFile(object):
          else:
             return val
 
+   #############################################################################
+   def getAllSettings(self):
+      return self.settingsMap
 
    #############################################################################
    def delete(self, name):
@@ -7910,7 +7915,7 @@ class SettingsFile(object):
             elif isinstance(val, list) or \
                  isinstance(val, tuple):
                valStr = ' $  '.join([str(v) for v in val])
-            f.write(key.ljust(20) + ' | ' + valStr + '\n')
+            f.write(key.ljust(36) + ' | ' + valStr + '\n')
          except:
             print 'Invalid entry in SettingsFile... skipping'
       f.close()
