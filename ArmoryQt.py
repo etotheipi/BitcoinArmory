@@ -182,7 +182,10 @@ class ArmoryMainWindow(QMainWindow):
       btnWltProps  = QPushButton("Wallet Properties")
       btnAddWallet = QPushButton("Add Wallet")
       btnImportWlt = QPushButton("Import Wallet")
+ 
 
+      self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
+   
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -474,10 +477,8 @@ class ArmoryMainWindow(QMainWindow):
             elif 'other' in currText:
                wltIDList = listWatching
             else:
-               raise WalletExistsError, 'Bad combo-box selection:', currText
+               raise WalletExistsError, 'Bad combo-box selection: ' + currText
                
-
-      print wltIDList
 
       self.combinedLedger = []
       for wltID in wltIDList:
@@ -492,7 +493,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
-      print 'Combined ledger:', (RightNow()-start), 'sec', len(self.combinedLedger)
 
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
@@ -579,11 +579,14 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def populateLedgerComboBox(self):
+      self.comboWalletSelect.clear()
       self.comboWalletSelect.addItem( 'All Wallets'       )
       self.comboWalletSelect.addItem( 'My Wallets'        )
       self.comboWalletSelect.addItem( 'Offline Wallets'   )
       self.comboWalletSelect.addItem( 'Other\'s wallets'  )
       for wltID in self.walletIDList:
+         print wltID
+         self.walletMap[wltID].pprint()
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
       self.comboWalletSelect.insertSeparator(4)
@@ -627,6 +630,76 @@ class ArmoryMainWindow(QMainWindow):
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(addrStr)
          wlt.setComment(addr160, newComment)
+
+
+   
+   #############################################################################
+   def createNewWallet(self):
+      dlg = DlgNewWallet(self)
+      if dlg.exec_():
+         name     = str(dlg.edtName.text())
+         descr    = str(dlg.edtDescr.toPlainText())
+         kdfSec   = dlg.kdfSec
+         kdfBytes = dlg.kdfBytes
+         doFork   = dlg.chkForkOnline.isChecked() 
+         # If this will be encrypted, we'll need to get their passphrase
+         passwd = []
+         if dlg.chkUseCrypto.isChecked():
+            dlgPasswd = DlgChangePassphrase(QDialog)
+            if dlgPasswd.exec_():
+               passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
+            else:
+               return # no passphrase == abort new wallet
+      else:
+         return False
+
+      newWallet = None
+      if passwd:
+          newWallet = PyBtcWallet().createNewWallet( \
+                                           withEncrypt=True, \
+                                           securePassphrase=passwd, \
+                                           kdfTargSec=kdfSec, \
+                                           kdfMaxMem=kdfBytes, \
+                                           shortLabel=name, \
+                                           longLabel=descr)
+      else:
+          newWallet = PyBtcWallet().createNewWallet( \
+                                           withEncrypt=False, \
+                                           shortLabel=name, \
+                                           longLabel=descr)
+      # Update the maps/dictionaries
+      newWltID = newWallet.wltUniqueIDB58
+      self.walletMap[newWltID] = newWallet
+      self.walletIndices[newWltID] = len(self.walletMap)-1
+
+      # Maintain some linear lists of wallet info
+      self.walletIDSet.add(newWltID)
+      self.walletIDList.append(newWltID)
+      self.walletBalances.append(0)
+      self.walletLedgers.append([])
+      self.walletListChanged()
+
+
+      if doFork:
+         dlgfork = DlgForkWallet(self)
+         if dlgfork.exec_():
+            newPath = str(dlgfork.edtPath.text())
+            newWallet.forkOnlineWallet(newPath)
+
+
+   #############################################################################
+   def deleteWallet(self, wltID):
+      pass
+     
+      if wlt.cppWallet.getBalance() > 0:
+         # WARNING:  WALLET TO BE DELETED STILL CONTAINS MONEY
+         QMessageBox.warning(self)
+            
+            
+
+   #############################################################################
+   def addrViewDblClicked(self, index, wlt):
+      uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=3):
@@ -690,7 +763,14 @@ if __name__ == '__main__':
    form = ArmoryMainWindow(settingsPath=options.settingsPath)
    form.show()
 
+   # TODO:  How the hell do I get it to shutdown when the MainWindow is closed?
    from twisted.internet import reactor
+   def endProgram():
+      app.quit()
+      sys.exit()
+   app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
+   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
+   app.setQuitOnLastWindowClosed(True)
    reactor.run()
 
 

@@ -24,7 +24,7 @@ class DlgUnlockWallet(QDialog):
       fm = QFontMetricsF(QFont(self.font()))
       self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
-      self.btnAccept = QPushButton("Unlcok")
+      self.btnAccept = QPushButton("Unlock")
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -44,6 +44,7 @@ class DlgUnlockWallet(QDialog):
       #lbl
    
 
+################################################################################
 class DlgNewWallet(QDialog):
 
    def __init__(self, parent=None):
@@ -196,6 +197,8 @@ class DlgNewWallet(QDialog):
 
 
    def verifyInputsBeforeAccept(self):
+
+      ### Confirm that the name and descr are within size limits #######
       wltName  = self.edtName.text()
       wltDescr = self.edtDescr.toPlainText()
       if len(wltName)<1:
@@ -211,9 +214,34 @@ class DlgNewWallet(QDialog):
                   QMessageBox.Ok | QMessageBox.Cancel)
          if reply==QMessageBox.Ok:
             self.edtDescr.setText( wltDescr[:256])
-            self.accept()
          else:
             return False
+
+      ### Check that the KDF inputs are well-formed ####################
+      try:
+         kdfT, kdfUnit = str(self.edtComputeTime.text()).split(' ') 
+         if kdfUnit.lower()=='ms':
+            self.kdfSec = float(kdfT)/1000.
+         elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
+            self.kdfSec = float(kdfT)
+
+         kdfM, kdfUnit = str(self.edtComputeMem.text()).split(' ')
+         if kdfUnit.lower()=='mb':
+            self.kdfBytes = round(float(kdfM))*(1024.0**2) 
+         if kdfUnit.lower()=='kb':
+            self.kdfBytes = round(float(kdfM))*(1024.0)
+
+         print self.kdfSec, self.kdfBytes
+      except:
+         raise
+         QMessageBox.critical(self, 'Invalid KDF Parameters', \
+            'The KDF parameters that you entered are not valid.  Please '
+            'specify KDF time in seconds or milliseconds, such as '
+            '"250 ms" or "2.1 s".  And specify memory as kB or MB, such as '
+            '"32 MB" or "256 kB". ', QMessageBox.Ok)
+         return False
+         
+      
       self.accept()
             
             
@@ -317,7 +345,7 @@ class DlgChangePassphrase(QDialog):
       if not p1==p2:
          self.lblMatches.setText('<font color="red"><b>Passphrases do not match!</b></font>')
          return False
-      if len(p1)<6:
+      if len(p1)<5:
          self.lblMatches.setText('<font color="red"><b>Passphrase is too short!</b></font>')
          return False
       self.lblMatches.setText('<font color="green"><b>Passphrases match!</b></font>')
@@ -393,7 +421,7 @@ class DlgWalletDetails(QDialog):
       self.wlt = wlt
       self.usermode = usermode
       self.main = parent
-      wlttype, typestr = determineWalletType(wlt, parent)
+      self.wlttype, self.typestr = determineWalletType(wlt, parent)
 
       self.labels = [wlt.labelName, wlt.labelDescr]
       self.passphrase = ''
@@ -402,7 +430,7 @@ class DlgWalletDetails(QDialog):
       w,h = relaxedSizeNChar(self,60)
       viewWidth,viewHeight  = w, 10*h
       
-      self.frm = getWltDetailsFrame(wlt, typestr, self.main.usermode)
+      self.frm = getWltDetailsFrame(wlt, self.typestr, self.main.usermode)
 
 
       # Address view
@@ -420,8 +448,11 @@ class DlgWalletDetails(QDialog):
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
                    
+      #self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   #self.main,        SLOT('addrViewDblClicked(QModelIndex)'))
+      #clip = QApplication.clipboard()
+      #def copyAddrToClipboard()
 
-      
 
       # Now add all the options buttons, dependent on the type of wallet.
       buttonBox = QDialogButtonBox()
@@ -430,11 +461,12 @@ class DlgWalletDetails(QDialog):
       self.connect(btn1, SIGNAL('clicked()'), self.changeLabels)
       buttonBox.addButton(btn1, QDialogButtonBox.ActionRole)
 
-      btn2 = QPushButton('Change Encryption')
-      self.connect(btn2, SIGNAL('clicked()'), self.changeEncryption)
-      buttonBox.addButton(btn2, QDialogButtonBox.ActionRole)
+      if not self.wlttype==WLTTYPES.WatchOnly:
+         btn2 = QPushButton('Change Encryption')
+         self.connect(btn2, SIGNAL('clicked()'), self.changeEncryption)
+         buttonBox.addButton(btn2, QDialogButtonBox.ActionRole)
 
-      if wlttype==WLTTYPES.Crypt and usermode==USERMODE.Advanced:
+      if self.wlttype==WLTTYPES.Crypt and usermode==USERMODE.Advanced:
          btn3 = QPushButton('Change KDF Params')
          self.connect(btn3, SIGNAL('clicked()'), self.changeKdf)
          buttonBox.addButton(btn3, QDialogButtonBox.ActionRole)
@@ -460,6 +492,9 @@ class DlgWalletDetails(QDialog):
          # but guarantees the file is updated, too
          self.wlt.setWalletLabels(str(dlgLabels.edtName.text()), 
                                   str(dlgLabels.edtDescr.toPlainText()))
+
+         self.frm = getWltDetailsFrame(self.wlt, self.typestr, self.main.usermode)
+
 
    def changeEncryption(self):
       dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
@@ -495,6 +530,12 @@ class DlgWalletDetails(QDialog):
       pass
 
 
+class DlgImportWallet(QDialog):
+   #############################################################################
+   def __init__(self, wlt, usermode=USERMODE.Standard, parent=None):
+      super(DlgImportWallet, self).__init__(parent)
+      self.setAttribute(Qt.WA_DeleteOnClose)
+
 
 def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
 
@@ -522,9 +563,9 @@ def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
          'window to change this field' )
 
    tooltips[FIELDS.WltID] = createToolTipObject(
-         'This is a unique identifier for your wallet, like '
-         'a serial number.  No other wallet should have this same ID '
-         'unless it is a copy of this wallet, regardless of whether '
+         'This is a unique identifier for this wallet, based on the root key.  '
+         'No other wallet can have the same ID '
+         'unless it is a copy of this one, regardless of whether '
          'the name and description match.')
 
    tooltips[FIELDS.NumAddr] = createToolTipObject(
@@ -584,8 +625,8 @@ def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
 
    if dispCrypto:
       labelNames[FIELDS.Crypto] = QLabel('Encryption:')
-      labelNames[FIELDS.Time]   = QLabel('Time to Unlock:')
-      labelNames[FIELDS.Mem]    = QLabel('Memory to Unlock:')
+      labelNames[FIELDS.Time]   = QLabel('Unlock Time:')
+      labelNames[FIELDS.Mem]    = QLabel('Unlock Memory:')
 
    labelValues = [[]]*9
    labelValues[FIELDS.Name]    = QLabel(wlt.labelName)
@@ -614,6 +655,8 @@ def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
          lbl.setTextFormat(Qt.RichText)
          lbl.setText( '<b>' + lbl.text() + '</b>')
          lbl.setContentsMargins(0, 0, 0, 0)
+         w,h = tightSizeStr(lbl, '9'*14)
+         lbl.setMaximumSize(w,h)
       except AttributeError:
          pass
 

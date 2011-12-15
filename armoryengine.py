@@ -5893,9 +5893,8 @@ class PyBtcWallet(object):
       newCommentLoc = self.walletFileSafeUpdate(updEntry)
       self.commentsMap[hashVal] = newComment
 
-      if isNewComment:
-         # If there was a wallet overwrite, it's location is the first element
-         self.commentLocs[hashVal] = newCommentLoc[-1]
+      # If there was a wallet overwrite, it's location is the first element
+      self.commentLocs[hashVal] = newCommentLoc[-1]
 
    
    #############################################################################
