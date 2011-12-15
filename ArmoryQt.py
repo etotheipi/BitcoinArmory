@@ -215,11 +215,19 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      from twisted.internet import reactor
       self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
       self.ledgerView.setModel(self.ledgerModel)
+      from twisted.internet import reactor
+
+      ##########################################################################
+      # Set up menu and actions
+      self.menu = self.menuBar()
+      self.menusList = []
+      self.menusList.append( self.menu.addMenu('&File') )
+      self.menusList.append( self.menu.addMenu('&Wallet') )
+      
 
       #reactor.callLater(2.0,  self.loadBlockchain)
       #reactor.callLater(10, form.Heartbeat)
@@ -468,13 +476,14 @@ class ArmoryMainWindow(QMainWindow):
             listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
             listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
             listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
-            if 'all wall' in currText:  # that's stupidly annoying bug:  'all' is in "wALLets"
+            
+            if currIdx==0:
                wltIDList = self.walletIDList
-            elif 'my' in currText:
+            elif currIdx==1:
                wltIDList = listOffline + listCrypt + listPlain
-            elif 'offline' in currText:
+            elif currIdx==2:
                wltIDList = listOffline
-            elif 'other' in currText:
+            elif currIdx==3:
                wltIDList = listWatching
             else:
                raise WalletExistsError, 'Bad combo-box selection: ' + currText
@@ -571,9 +580,9 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def walletListChanged(self):
+      self.walletModel.reset()
       self.populateLedgerComboBox()
       #self.comboWalletSelect.setCurrentItem(0)
-      self.walletsView.reset()
       self.createCombinedLedger()
 
 
@@ -586,7 +595,6 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWalletSelect.addItem( 'Other\'s wallets'  )
       for wltID in self.walletIDList:
          print wltID
-         self.walletMap[wltID].pprint()
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
       self.comboWalletSelect.insertSeparator(4)
@@ -645,7 +653,7 @@ class ArmoryMainWindow(QMainWindow):
          # If this will be encrypted, we'll need to get their passphrase
          passwd = []
          if dlg.chkUseCrypto.isChecked():
-            dlgPasswd = DlgChangePassphrase(QDialog)
+            dlgPasswd = DlgChangePassphrase(self)
             if dlgPasswd.exec_():
                passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
             else:
@@ -667,6 +675,7 @@ class ArmoryMainWindow(QMainWindow):
                                            withEncrypt=False, \
                                            shortLabel=name, \
                                            longLabel=descr)
+
       # Update the maps/dictionaries
       newWltID = newWallet.wltUniqueIDB58
       self.walletMap[newWltID] = newWallet

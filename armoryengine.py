@@ -5323,6 +5323,7 @@ class PyBtcWallet(object):
       else:
          print '(with encryption)',
          self.kdf = KdfRomix()
+         print kdfTargSec, kdfMaxMem
          (mem,niter,salt) = self.computeSystemSpecificKdfParams( \
                                                 kdfTargSec, kdfMaxMem)
          self.kdf.usePrecomputedKdfParams(mem, niter, salt)
@@ -5673,7 +5674,7 @@ class PyBtcWallet(object):
                  computer's specific speed/memory capabilities.
       """
       kdf = KdfRomix()
-      kdf.computeKdfParams(targetSec, maxMem)
+      kdf.computeKdfParams(targetSec, long(maxMem))
 
       mem   = kdf.getMemoryReqtBytes()
       nIter = kdf.getNumIterations()

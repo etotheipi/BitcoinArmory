@@ -711,9 +711,9 @@ def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
       layout.addWidget(labelNames[FIELDS.Mem],     2, 7); 
       layout.addWidget(labelValues[FIELDS.Mem],    2, 8)
    else:
-      #layout.addWidget(lblEmpty, 0, 4); layout.addWidget(lblEmpty, 0, 5)
-      #layout.addWidget(lblEmpty, 1, 4); layout.addWidget(lblEmpty, 1, 5)
-      #layout.addWidget(lblEmpty, 2, 4); layout.addWidget(lblEmpty, 2, 5)
+      layout.addWidget(lblEmpty, 0, 4); layout.addWidget(lblEmpty, 0, 5)
+      layout.addWidget(lblEmpty, 1, 4); layout.addWidget(lblEmpty, 1, 5)
+      layout.addWidget(lblEmpty, 2, 4); layout.addWidget(lblEmpty, 2, 5)
       pass
       
 

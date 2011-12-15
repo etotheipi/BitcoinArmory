@@ -65,17 +65,17 @@ def printpassorfail(abool):
 
 
 
-wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
-addrlist = wlt.getAddrListSortedByChainIndex()
-firstAddr160 = addrlist[0][1]
-print 'Setting first comment'
-wlt.setComment(firstAddr160, 'This is a new comment')
-print 'Setting second comment'
-wlt.setComment(firstAddr160, '')
+#wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
+#addrlist = wlt.getAddrListSortedByChainIndex()
+#firstAddr160 = addrlist[0][1]
+#print 'Setting first comment'
+#wlt.setComment(firstAddr160, 'This is a new comment')
+#print 'Setting second comment'
+#wlt.setComment(firstAddr160, '')
 
-print 'Rereading wallet'
-wlt2 = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
-exit(0)
+#print 'Rereading wallet'
+#wlt2 = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
+#exit(0)
 
 
 ################################################################################
