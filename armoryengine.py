@@ -5114,6 +5114,7 @@ class PyBtcWallet(object):
       self.opevalMap   = {}  # maps 20-byte addresses to OP_EVAL data (future)
       self.labelName   = ''
       self.labelDescr  = ''
+      self.linearAddr160List = []
 
       # For file sync features
       self.walletPath = ''
@@ -5364,6 +5365,7 @@ class PyBtcWallet(object):
       self.lastComputedChainIndex  = firstAddr.chainIndex
       self.highestUsedChainIndex   = firstAddr.chainIndex-1
       self.wltCreateDate = long(RightNow())
+      self.linearAddr160List = [first160]
 
       # We don't have to worry about atomic file operations when
       # creating the wallet: so we just do it naively here.
@@ -5420,6 +5422,7 @@ class PyBtcWallet(object):
          mostRecentAddr = self.addrMap[self.lastComputedChainAddr160]
          newAddr = mostRecentAddr.extendAddressChain(self.kdfKey)
          new160 = newAddr.getAddr160()
+         self.linearAddr160List.append(new160)
 
          newDataLoc = self.walletFileSafeUpdate( \
             [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, new160, newAddr]])
@@ -6128,12 +6131,13 @@ class PyBtcWallet(object):
             if newAddr.chainIndex > self.lastComputedChainIndex:
                self.lastComputedChainIndex   = newAddr.chainIndex
                self.lastComputedChainAddr160 = newAddr.getAddr160()
+            self.linearAddr160List.append(newAddr.getAddr160())
 
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
             blkRng  = newAddr.getBlockRange()
             self.cppWallet.addAddress_5_(hashVal, timeRng[0], blkRng[0], \
-                                              timeRng[1], blkRng[1])
+                                                  timeRng[1], blkRng[1])
          if dtype in (WLT_DATATYPE_ADDRCOMMENT, WLT_DATATYPE_TXCOMMENT):
             self.commentsMap[hashVal] = rawData # actually ASCII data, here
             self.commentLocs[hashVal] = byteLocation
@@ -6560,6 +6564,7 @@ class PyBtcWallet(object):
          [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, newAddr160, newAddr]])
       self.addrMap[newAddr160] = newAddr.copy()
       self.addrMap[newAddr160].walletByteLoc = newDataLoc[0] + 21
+      self.linearAddr160List.append(newAddr160)
       if self.useEncryption and self.kdfKey:
          self.addrMap[newAddr160].lock(self.kdfKey)
          if not self.isLocked:
@@ -6817,6 +6822,17 @@ class PyBtcWallet(object):
          addrList.append( addrObj )
       return addrList
 
+
+   #############################################################################
+   def getLinearAddr160List(self, withImported=True):
+      """ 
+      Retrieves a list of addresses, by hash, in the order they 
+      appear in the wallet file.  Can ignore the imported addresses
+      to get only chained addresses, if necessary
+      """
+      
+      return [self.addrMap[a160] for a160 in self.linearAddr160List]
+      
 
 
    #############################################################################

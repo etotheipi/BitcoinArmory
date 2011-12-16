@@ -5,6 +5,7 @@ from qtdefines import *
 
 from armoryengine import *
 from armorymodels import *
+from qlabelbutton import *
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
@@ -345,7 +346,7 @@ class DlgChangePassphrase(QDialog):
       if not p1==p2:
          self.lblMatches.setText('<font color="red"><b>Passphrases do not match!</b></font>')
          return False
-      if len(p1)<5:
+      if len(p1)<5 and not self.chkDisableCrypt.isChecked():
          self.lblMatches.setText('<font color="red"><b>Passphrase is too short!</b></font>')
          return False
       self.lblMatches.setText('<font color="green"><b>Passphrases match!</b></font>')
@@ -442,6 +443,7 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
+      self.wltAddrView.setMinimumWidth(800)
       initialColResize(self.wltAddrView, [0.2, 0.7, 64, 0.3])
 
    
@@ -455,31 +457,68 @@ class DlgWalletDetails(QDialog):
 
 
       # Now add all the options buttons, dependent on the type of wallet.
-      buttonBox = QDialogButtonBox()
 
-      btn1 = QPushButton('Change Labels')
-      self.connect(btn1, SIGNAL('clicked()'), self.changeLabels)
-      buttonBox.addButton(btn1, QDialogButtonBox.ActionRole)
+      lbtnChangeLabels = QLabelButton('Change Wallet Name/Description');
+      self.connect(lbtnChangeLabels, SIGNAL('clicked()'), self.changeLabels)
 
-      if not self.wlttype==WLTTYPES.WatchOnly:
-         btn2 = QPushButton('Change Encryption')
-         self.connect(btn2, SIGNAL('clicked()'), self.changeEncryption)
-         buttonBox.addButton(btn2, QDialogButtonBox.ActionRole)
+      s = ''
+      if self.wlt.useEncryption:
+         s = 'Change or Remove Passphrase'
+      else:
+         s = 'Encrypt Wallet'
+      lbtnChangeCrypto = QLabelButton(s)
+      self.connect(lbtnChangeCrypto, SIGNAL('clicked()'), self.changeEncryption)
 
-      if self.wlttype==WLTTYPES.Crypt and usermode==USERMODE.Advanced:
-         btn3 = QPushButton('Change KDF Params')
-         self.connect(btn3, SIGNAL('clicked()'), self.changeKdf)
-         buttonBox.addButton(btn3, QDialogButtonBox.ActionRole)
+      lbtnGenAddr = QLabelButton('Get New Address')
+      lbtnForkWlt = QLabelButton('Fork Watching-Only Wallet Copy')
+      lbtnIsMyWlt = QLabelButton('This is my wallet!')
+      lbtnMkPaper = QLabelButton('Make Paper Backup')
+      lbtnExport  = QLabelButton('Export wallet backup')
+      lbtnRemove  = QLabelButton('Delete/Remove wallet')
+
+
+      optFrame = QFrame()
+      optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      optLayout = QVBoxLayout()
+      optLayout.addWidget(lbtnChangeLabels)
+      optLayout.addWidget(lbtnChangeCrypto)
+      optLayout.addWidget(lbtnGenAddr)
+      optLayout.addWidget(lbtnForkWlt)
+      optLayout.addWidget(lbtnIsMyWlt)
+      optLayout.addWidget(lbtnMkPaper)
+      optLayout.addWidget(lbtnExport)
+      optLayout.addWidget(lbtnRemove)
+      optLayout.addStretch()
+      optFrame.setLayout(optLayout)
+
+      #buttonBox = QDialogButtonBox()
+
+      #btn1 = QPushButton('Change Labels')
+      #self.connect(btn1, SIGNAL('clicked()'), self.changeLabels)
+      #buttonBox.addButton(btn1, QDialogButtonBox.ActionRole)
+
+      #if not self.wlttype==WLTTYPES.WatchOnly:
+         #btn2 = QPushButton('Change Encryption')
+         #self.connect(btn2, SIGNAL('clicked()'), self.changeEncryption)
+         #buttonBox.addButton(btn2, QDialogButtonBox.ActionRole)
+
+      #if self.wlttype==WLTTYPES.Crypt and usermode==USERMODE.Advanced:
+         #btn3 = QPushButton('Change KDF Params')
+         #self.connect(btn3, SIGNAL('clicked()'), self.changeKdf)
+         #buttonBox.addButton(btn3, QDialogButtonBox.ActionRole)
 
 
       btn4 = QPushButton('<<< Go Back')
       self.connect(btn4, SIGNAL('clicked()'), self.accept)
 
       layout = QGridLayout()
-      layout.addWidget(self.frm,              1, 0, 3, 4)
-      layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
-      layout.addWidget(btn4,                  7, 0, 1, 1)
-      layout.addWidget(buttonBox,             7, 2, 1, 2)
+      layout.addWidget(self.frm,              0, 0, 3, 4)
+      layout.addWidget(self.wltAddrView,      4, 0, 2, 4)
+      layout.addWidget(btn4,                  6, 0, 1, 1)
+      #layout.addWidget(buttonBox,             7, 2, 1, 2)
+      layout.addWidget(QLabel("Available Actions:"), \
+                                              0, 4)
+      layout.addWidget(optFrame,              1, 4, 8, 2)
       self.setLayout(layout)
       
       self.setWindowTitle('Wallet Details')
@@ -500,10 +539,10 @@ class DlgWalletDetails(QDialog):
       dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
       if dlgCrypt.exec_():
          self.disableEncryption = dlgCrypt.chkDisableCrypt.isChecked()
-         origPassphrase = dlgCrypt.edtPasswdOrig
-         newPassphrase = dlgCrypt.edtPasswd1
+         newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
 
          if self.wlt.useEncryption:
+            origPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswdOrig.text()))
             if self.wlt.verifyPassphrase(origPassphrase):
                self.wlt.unlock(securePassphrase=origPassphrase)
             else:
@@ -520,7 +559,11 @@ class DlgWalletDetails(QDialog):
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
+            self.accept()
       
+
+   def getNewAddress(self):
+      pass 
 
    def changeKdf(self):
       """ 
@@ -530,13 +573,92 @@ class DlgWalletDetails(QDialog):
       pass
 
 
+#############################################################################
 class DlgImportWallet(QDialog):
-   #############################################################################
-   def __init__(self, wlt, usermode=USERMODE.Standard, parent=None):
+   def __init__(self, parent=None):
       super(DlgImportWallet, self).__init__(parent)
       self.setAttribute(Qt.WA_DeleteOnClose)
+      self.main = parent
+
+      lblImportDescr = QLabel('Chose the wallet import source:')
+      self.btnImportFile  = QPushButton("Import from &file")
+      self.btnImportPaper = QPushButton("Import from &paper backup")
+
+      self.btnImportFile.setMinimumWidth(300)
+      self.connect( self.btnImportFile, SIGNAL("clicked()"), \
+                    self.getImportWltPath)
+
+      self.connect( self.btnImportFile, SIGNAL("clicked()"), \
+                    self.execImportPaperDlg)
+
+      ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
+                                 '.wallet extension.  Any wallet that you import will ' 
+                                 'be copied into your settings directory, and maintained '
+                                 'from there.  The original wallet file will not be touched.')
+
+      ttip2 = createToolTipObject('If you have previously made a paper backup of '
+                                  'a wallet, you can manually enter the wallet '
+                                  'data into Armory to recover the wallet.')
 
 
+      w,h = relaxedSizeStr(ttip1, '(?)') 
+      for ttip in (ttip1, ttip2):
+         ttip.setMaximumSize(w,h)
+         ttip.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+      # Set up the layout
+      layout = QGridLayout()
+      layout.addWidget(lblImportDescr,      0,0, 1, 2)
+      layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
+      layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
+
+      if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         lbl = QLabel('You can manually add wallets to armory by copying them '
+                      'into your application directory:  ' + ARMORY_HOME_DIR)
+         lbl.setWordWrap(True)
+         layout.addWidget(lbl, 3,0, 1, 2); 
+         if self.main.usermode==USERMODE.Developer:
+            lbl = QLabel('Any files in the application data directory above are '
+                         'used in the application if the first 8 bytes of the file '
+                         'are "\\xbaWALLET\\x00".  Wallets in this directory can be '
+                         'ignored by adding an <i>Excluded_Wallets</i> option to the '
+                         'ArmorySettings.txt file.  Reference by full path or wallet ID.')
+            lbl.setWordWrap(True)
+            layout.addWidget(lbl, 4,0, 1, 2); 
+
+      btnCancel = QPushButton('Cancel')
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      layout.addWidget(btnCancel, 5,0, 1,1);
+
+      self.setLayout(layout)
+      self.setWindowTitle('Import Wallet')
+      
+
+   def getImportWltPath(self):
+      self.importFile = QFileDialog.getOpenFileName(self, 'Import Wallet File', \
+          ARMORY_HOME_DIR, 'Wallet files (*.wallet);; All files (*.*)') 
+      if self.importFile:
+         print 'Importing:', self.importFile
+         self.importType_file = True
+         self.importType_paper = False
+         self.accept()
+
+      
+   def execImportPaperDlg(self):
+      self.importType_file = False
+      self.importType_paper = True
+      
+
+
+
+#############################################################################
+class DlgImportPaperWallet(QDialog):
+   def __init__(self, parent=None):
+      super(DlgImportWallet, self).__init__(parent)
+      
+
+
+#############################################################################
 def getWltDetailsFrame(wlt, typestr, usermode=USERMODE.Standard):
 
    dispCrypto = wlt.useEncryption and (usermode==USERMODE.Advanced or \

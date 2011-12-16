@@ -140,12 +140,26 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+      btnAddWallet = QPushButton("Add Wallet")
+      btnImportWlt = QPushButton("Import Wallet")
+      self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
+      self.connect(btnImportWlt, SIGNAL('clicked()'), self.execImportWallet)
+
+      layout = QHBoxLayout()
+      layout.addSpacing(100)
+      layout.addWidget(btnAddWallet)
+      layout.addWidget(btnImportWlt)
+      frmAddImport = QFrame()
+      frmAddImport.setFrameShape(QFrame.NoFrame)
+
       # Put the Wallet info into it's own little box
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
-      wltLayout = QVBoxLayout()
-      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>:"))
-      wltLayout.addWidget(self.walletsView)
+      wltLayout = QGridLayout()
+      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>:"), 0,0)
+      wltLayout.addWidget(btnAddWallet, 0,1)
+      wltLayout.addWidget(btnImportWlt, 0,2)
+      wltLayout.addWidget(self.walletsView, 1,0, 1,3)
       wltFrame.setLayout(wltLayout)
 
       # Combo box to filter ledger display
@@ -173,18 +187,12 @@ class ArmoryMainWindow(QMainWindow):
       ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
       ledgFrame.setLayout(ledgLayout)
 
-      
-     
 
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
-
       btnWltProps  = QPushButton("Wallet Properties")
-      btnAddWallet = QPushButton("Add Wallet")
-      btnImportWlt = QPushButton("Import Wallet")
  
 
-      self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
    
       # QTableView.selectedIndexes to get the selection
 
@@ -192,8 +200,6 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnSendBtc)
       layout.addWidget(btnRecvBtc)
       layout.addWidget(btnWltProps)
-      layout.addWidget(btnAddWallet)
-      layout.addWidget(btnImportWlt)
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
 
@@ -223,14 +229,86 @@ class ArmoryMainWindow(QMainWindow):
 
       ##########################################################################
       # Set up menu and actions
+      MENUS = enum('File', 'Wallet', 'User')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       self.menusList.append( self.menu.addMenu('&Wallet') )
+      self.menusList.append( self.menu.addMenu('&User') )
       
+      def chngStd(b): 
+         if b: self.setUserMode(USERMODE.Standard)
+      def chngAdv(b): 
+         if b: self.setUserMode(USERMODE.Advanced)
+      def chngDev(b): 
+         if b: self.setUserMode(USERMODE.Developer)
 
+      modeActGrp = QActionGroup(self)
+      actSetModeStd = self.createAction('&Standard',  chngStd, True)
+      actSetModeAdv = self.createAction('&Advanced',  chngAdv, True)
+      actSetModeDev = self.createAction('&Developer', chngDev, True)
+
+      modeActGrp.addAction(actSetModeStd)
+      modeActGrp.addAction(actSetModeAdv)
+      modeActGrp.addAction(actSetModeDev)
+
+      self.menusList[MENUS.User].addAction(actSetModeStd)
+      self.menusList[MENUS.User].addAction(actSetModeAdv)
+      self.menusList[MENUS.User].addAction(actSetModeDev)
+
+      currmode = self.settings.get('User_Mode')
+      if not currmode: 
+         # On first run, set to standard mode
+         actSetModeStd.setChecked(True)
+      else:
+         if currmode==USERMODE.Standard:   actSetModeStd.setChecked(True)
+         if currmode==USERMODE.Advanced:   actSetModeAdv.setChecked(True)
+         if currmode==USERMODE.Developer:  actSetModeDev.setChecked(True)
+
+      
       #reactor.callLater(2.0,  self.loadBlockchain)
       #reactor.callLater(10, form.Heartbeat)
+
+   
+   #############################################################################
+   def createAction(self,  txt, slot, isCheckable=False, \
+                           ttip=None, iconpath=None, shortcut=None):
+      """
+      Modeled from the "Rapid GUI Programming with Python and Qt" book, page 174
+      """
+      icon = QIcon()
+      if iconpath:
+         icon = QIcon(iconpath)
+
+      theAction = QAction(icon, txt, self) 
+   
+      if isCheckable:
+         theAction.setCheckable(True)
+         self.connect(theAction, SIGNAL('toggled(bool)'), slot)
+      else:
+         self.connect(theAction, SIGNAL('triggered()'), slot)
+
+      if ttip:
+         theAction.setToolTip(ttip)
+         theAction.setStatusTip(ttip)
+
+      if shortcut:
+         theAction.setShortcut(shortcut)
+      
+      return theAction
+
+
+   #############################################################################
+   def setUserMode(self, mode):
+      self.usermode = mode
+      if mode==USERMODE.Standard:
+         self.settings.set('User_Mode', 'Standard')
+      if mode==USERMODE.Advanced:
+         self.settings.set('User_Mode', 'Advanced')
+      if mode==USERMODE.Developer:
+         self.settings.set('User_Mode', 'Developer')
+      
+
 
    #############################################################################
    def setupNetworking(self):
@@ -286,9 +364,13 @@ class ArmoryMainWindow(QMainWindow):
 
       print 'Loading wallets...'
       for f in os.listdir(ARMORY_HOME_DIR):
-         if f.startswith('armory_') and f.endswith('.wallet') and \
-            not f.endswith('backup.wallet') and not ('unsuccessful' in f):
-               wltPaths.append(os.path.join(ARMORY_HOME_DIR, f))
+         fullPath = os.path.join(ARMORY_HOME_DIR, f)
+         if os.path.isfile(fullPath) and not fullPath.endswith('backup.wallet'):
+            openfile = open(fullPath, 'r')
+            first8 = openfile.read(8) 
+            openfile.close()
+            if first8=='\xbaWALLET\x00':
+               wltPaths.append(fullPath)
 
 
       wltExclude = self.settings.get('Excluded_Wallets', expectList=True)
@@ -469,6 +551,7 @@ class ArmoryMainWindow(QMainWindow):
          # We need to figure out which wallets to combine here...
          currIdx  =     self.comboWalletSelect.currentIndex()
          currText = str(self.comboWalletSelect.currentText()).lower()
+         print 'CurrIdx:', currIdx, 'CurrText: "' + currText + '"'
          if currIdx>=4:
             wltIDList = [self.walletIDList[currIdx-6]]
          else:
@@ -640,6 +723,45 @@ class ArmoryMainWindow(QMainWindow):
          wlt.setComment(addr160, newComment)
 
 
+   #############################################################################
+   def addWalletToApplication(self, newWallet, walletIsNew=True):
+      # Update the maps/dictionaries
+      newWltID = newWallet.wltUniqueIDB58
+      self.walletMap[newWltID] = newWallet
+      self.walletIndices[newWltID] = len(self.walletMap)-1
+
+      # Maintain some linear lists of wallet info
+      self.walletIDSet.add(newWltID)
+      self.walletIDList.append(newWltID)
+
+      ledger = []
+      wlt = self.walletMap[newWltID]
+      if not walletIsNew:
+         # We may need to search the blockchain for existing tx
+         wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+         wlt.syncWithBlockchain()
+
+         self.walletBalances.append(wlt.getBalance())
+         self.walletSubLedgers.append([])
+         for addr160 in wlt.getLinearAddr160List():
+            ledger = wlt.getTxLedger(addr160)
+            self.walletSubLedgers[-1].append(ledger)
+         self.walletLedgers.append(wlt.getTxLedger())
+      else:
+         self.walletBalances.append(0)
+         self.walletLedgers.append([])
+         self.walletSubLedgers.append([])
+         self.walletSubLedgers[-1].append([])
+
+
+      self.walletListChanged()
+
+      
+   #############################################################################
+   def removeWalletFromApplication(self):
+
+      self.walletListChanged()
+
    
    #############################################################################
    def createNewWallet(self):
@@ -677,17 +799,18 @@ class ArmoryMainWindow(QMainWindow):
                                            longLabel=descr)
 
       # Update the maps/dictionaries
-      newWltID = newWallet.wltUniqueIDB58
-      self.walletMap[newWltID] = newWallet
-      self.walletIndices[newWltID] = len(self.walletMap)-1
+      #newWltID = newWallet.wltUniqueIDB58
+      #self.walletMap[newWltID] = newWallet
+      #self.walletIndices[newWltID] = len(self.walletMap)-1
 
       # Maintain some linear lists of wallet info
-      self.walletIDSet.add(newWltID)
-      self.walletIDList.append(newWltID)
-      self.walletBalances.append(0)
-      self.walletLedgers.append([])
-      self.walletListChanged()
+      #self.walletIDSet.add(newWltID)
+      #self.walletIDList.append(newWltID)
+      #self.walletBalances.append(0)
+      #self.walletLedgers.append([])
+      #self.walletListChanged()
 
+      self.addWalletToApplication(newWallet)
 
       if doFork:
          dlgfork = DlgForkWallet(self)
@@ -705,6 +828,47 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.warning(self)
             
             
+   #############################################################################
+   def execImportWallet(self):
+      dlg = DlgImportWallet(self)
+      if dlg.exec_():
+
+         if dlg.importType_file:
+            if not os.path.exists(self.importFile):
+               raise FileExistsError, 'How did the dlg pick a wallet file that DNE?'
+
+            fname = self.getUniqueWalletFilename(self.importFile)
+            newpath = os.path.join(ARMORY_HOME_DIR, fname)
+
+            print 'Copying imported wallet to:', newpath
+            shutil.copy(self.importFile, newpath)
+            self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath))
+         elif dlg.importType_paper:
+            dlgPaper = DlgImportPaperWallet(self)
+            if dlgPaper.exec_():
+               self.addWalletToApplication(dlgPaper.wlt)
+         else:
+            return
+
+   
+   #############################################################################
+   def getUniqueWalletFilename(self, wltPath):
+      root,fname = os.path.split(wltPath)
+      base,ext   = os.path.splitext(fname)
+      if not ext=='.wallet':
+         fname = base+'.wallet'
+      currHomeList = os.listdir(ARMORY_HOME_DIR)
+      newIndex = 2
+      while fname in currHomeList:
+         # If we already have a wallet by this name, must adjust name
+         base,ext = os.path.splitext(fname)
+         fname='%s_%02d.wallet'%(base, newIndex)
+         newIndex+=1
+         if newIndex==99:
+            raise WalletExistsError, ('Cannot find unique filename for wallet.'  
+                                      'Too many duplicates!')
+      return fname
+         
 
    #############################################################################
    def addrViewDblClicked(self, index, wlt):

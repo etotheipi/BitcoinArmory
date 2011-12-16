@@ -11,15 +11,6 @@ from CppBlockUtils import *
 from qtdefines import *
 
 
-Colors = enum(LightBlue=   QColor(215,215,255), \
-              LightGreen=  QColor(225,255,225), \
-              LightGray=   QColor(235,235,235), \
-              LighterGray= QColor(245,245,245), \
-              DarkGray=    QColor( 64, 64, 64), \
-              Green=       QColor(  0,100,  0), \
-              Red=         QColor(100,  0,  0), \
-              Black=       QColor(  0,  0,  0)  \
-                                              )
 
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
