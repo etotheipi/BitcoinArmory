@@ -13,12 +13,18 @@ def color_to_style_str(c):
 class QLabelButton(QLabel):
 
    def __init__(self, txt, colorOn=Colors.LightBlue):  
-      QLabel.__init__(self, txt)  
+      QLabel.__init__(self, '<font color=#00009f><u>'+txt+'</u></font>')  
+      self.plainText = txt
       self.bgColorOffStr = color_to_style_str(QApplication.palette().window().color())
       self.bgColorOnStr  = color_to_style_str(QColor(colorOn))
-      w,h = relaxedSizeStr(self, txt)
-      self.setMaximumSize(w,1.2*h)
+
+   def setText(self, txt):
+      QLabel.setText(self, '<font color=#00009f><u>'+txt+'</u></font>')  
   
+   def sizeHint(self):
+      w,h = relaxedSizeStr(self, self.plainText)
+      return QSize(w,1.2*h)
+
    def mouseReleaseEvent(self, ev):  
       self.emit(SIGNAL('clicked()'))  
 

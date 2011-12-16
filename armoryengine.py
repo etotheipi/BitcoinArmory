@@ -5115,6 +5115,8 @@ class PyBtcWallet(object):
       self.labelName   = ''
       self.labelDescr  = ''
       self.linearAddr160List = []
+      self.chainIndexMap = {}
+      self.addrPoolSize = 500
 
       # For file sync features
       self.walletPath = ''
@@ -5366,6 +5368,7 @@ class PyBtcWallet(object):
       self.highestUsedChainIndex   = firstAddr.chainIndex-1
       self.wltCreateDate = long(RightNow())
       self.linearAddr160List = [first160]
+      self.chainIndexMap[firstAddr.chainIndex] = first160
 
       # We don't have to worry about atomic file operations when
       # creating the wallet: so we just do it naively here.
@@ -5418,6 +5421,14 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getNewAddress(self):
+      if self.lastComputedChainIndex - self.highestUsedChainIndex < \
+                                                            self.addrPoolSize/2:
+         self.fillAddressPool(self.addrPoolSize)
+
+      self.highestUsedChainIndex += 1
+      return self.getAddress160ByChainIndex(self.highestUsedChainIndex)
+
+      """
       if len(self.lastComputedChainAddr160) == 20:
          mostRecentAddr = self.addrMap[self.lastComputedChainAddr160]
          newAddr = mostRecentAddr.extendAddressChain(self.kdfKey)
@@ -5436,18 +5447,58 @@ class PyBtcWallet(object):
          return self.addrMap[new160]
       else:
          raise WalletAddressError, 'Deterministic wallet not initialized yet'
+      """
+
+   #############################################################################
+   #def getNewUnusedAddress(self):
+      
+
+
+   #############################################################################
+   def computeNextAddress(self, addr160=None):
+      """
+      Use this to extend the chain beyond the last-computed address.
+
+      We will usually be computing the next address from the tip of the 
+      chain, but I suppose someone messing with the file format may
+      leave gaps in the chain requiring some to be generated in the middle
+      """
+      if not addr160:
+         addr160 = self.lastComputedChainAddr160
+
+      newAddr = self.addrMap[addr160].extendAddressChain(self.kdfKey)
+      new160 = newAddr.getAddr160()
+      newDataLoc = self.walletFileSafeUpdate( \
+         [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, new160, newAddr]])
+      self.addrMap[new160] = newAddr
+      self.addrMap[new160].walletByteLoc = newDataLoc[0] + 21
+
+      if newAddr.chainIndex > self.lastComputedChainIndex:
+         self.lastComputedChainAddr160 = new160
+         self.lastComputedChainIndex = newAddr.chainIndex
+
+      self.linearAddr160List.append(new160)
+      self.chainIndexMap[newAddr.chainIndex] = new160
+
+      # In the future we will enable first/last seen, but not yet
+      self.cppWallet.addAddress_5_(new160, 0, 0, 0, 0)
+      return new160
+      
 
 
 
-
+   #############################################################################
+   def fillAddressPool(self, numPool=500):
+      gap = self.lastComputedChainIndex - self.highestUsedChainIndex
+      numToCreate = max(numPool - gap, 0)
+      for i in range(numToCreate):
+         self.computeNextAddress()
+         
 
 
    #############################################################################
    def forkOnlineWallet(self, newWalletFile=None, \
                                     shortLabel='', longLabel=''):
-      """
-
-      """
       if not self.addrMap['ROOT'].hasPrivKey():
          print 'This wallet is already void of any private key data!'
 
@@ -6132,6 +6183,7 @@ class PyBtcWallet(object):
                self.lastComputedChainIndex   = newAddr.chainIndex
                self.lastComputedChainAddr160 = newAddr.getAddr160()
             self.linearAddr160List.append(newAddr.getAddr160())
+            self.chainIndexMap[newAddr.chainIndex] = newAddr.getAddr160()
 
             # Update the parallel C++ object that scans the blockchain for us
             timeRng = newAddr.getTimeRange()
@@ -6803,20 +6855,18 @@ class PyBtcWallet(object):
    def getAddrListSortedByChainIndex(self, withRoot=False):
       """ Returns Addr160 list """
       addrList = []
-      for addr160,addrObj in self.addrMap.iteritems():
-         if not withRoot and addr160=='ROOT':
-            continue
-         addrList.append( [addrObj.chainIndex, addr160, addrObj] )
+      for addr160 in self.linearAddr160List:
+         addrList.append( [addrObj.chainIndex, addr160, self.addrMap[addr160]] )
 
       addrList.sort(key=lambda x: x[0])
       return addrList
 
    #############################################################################
-   def getAddrList(self, withRoot=False):
+   def getAddrList(self):
       """ Returns list of PyBtcAddress objects """
       addrList = []
       for addr160,addrObj in self.addrMap.iteritems():
-         if not withRoot and addr160=='ROOT':
+         if addr160=='ROOT':
             continue
          # I assume these will be references, not copies
          addrList.append( addrObj )
@@ -6830,9 +6880,44 @@ class PyBtcWallet(object):
       appear in the wallet file.  Can ignore the imported addresses
       to get only chained addresses, if necessary
       """
+      return [self.addrMap[a160] for a160 in self.linearAddr160List \
+           if ( (self.addrMap[a160].chainIndex>=0 or withImported) and \
+                                                          not a160=='ROOT')]
       
-      return [self.addrMap[a160] for a160 in self.linearAddr160List]
-      
+
+   #############################################################################
+   def getAddress160ByChainIndex(self, desiredIdx):
+      """
+      It should be safe to assume that if the index is less than the highest 
+      computed, it will be in the chainIndexMap, but I don't like making such
+      assumptions.  Perhaps something went wrong with the wallet, or it was
+      manually reconstructed and has holes in the chain.  We will regenerate
+      addresses up to that point, if necessary (but nothing past the value
+      self.lastComputedChainIndex.
+      """
+      if desiredIdx>self.lastComputedChainIndex or desiredIdx<0:
+         # I removed the option for fillPoolIfNecessary, because of the risk
+         # that a bug may lead to generation of billions of addresses, which
+         # would saturate the system's resources and fill the HDD.
+         raise WalletAddressError, 'Chain index is out of range'
+         
+
+      if self.chainIndexMap.has_key(desiredIdx):
+         return self.chainIndexMap[desiredIdx]
+      else:
+         # Somehow the address isn't here, even though it is less than the
+         # last computed index
+         closestIdx = 0
+         for idx,addr160 in self.chainIndexMap.iteritems():
+            if closestIdx<idx<=desiredIdx:
+               closestIdx = idx
+               
+         gap = desiredIdx - closestIdx
+         extend160 = self.chainIndexMap[closestIdx]
+         for i in range(gap+1):
+            extend160 = computeNextAddress(extend160)
+            if desiredIdx==self.addrMap[extend160].chainIndex:
+               return self.chainIndexMap[desiredIdx]
 
 
    #############################################################################
@@ -6849,7 +6934,7 @@ class PyBtcWallet(object):
       if allAddrInfo:
          self.addrMap['ROOT'].pprint(indent=indent)
       print indent + 'All usable keys:'
-      sortedAddrList = self.getAddrListSortedByChainIndex(withRoot=True)
+      sortedAddrList = self.getAddrListSortedByChainIndex()
       for i,addr160,addrObj in sortedAddrList:
          if not addr160=='ROOT':
             print '\n' + indent + 'Address:', addrObj.getAddrStr()

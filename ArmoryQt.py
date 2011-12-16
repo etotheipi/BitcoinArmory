@@ -64,6 +64,10 @@ class ArmoryMainWindow(QMainWindow):
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
+      # Keep a persistent printer object for paper backups
+      self.printer = QPrinter(QPrinter.HighResolution)
+      self.printer.setPageSize(QPrinter.Letter)
+
       self.lblLogoIcon = QLabel()
       #self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
       self.lblLogoIcon.setPixmap(QPixmap('/home/alan/desktop/armory_fulllogo_64.png'))
@@ -257,13 +261,17 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.User].addAction(actSetModeDev)
 
       currmode = self.settings.get('User_Mode')
+      print currmode
       if not currmode: 
          # On first run, set to standard mode
          actSetModeStd.setChecked(True)
       else:
-         if currmode==USERMODE.Standard:   actSetModeStd.setChecked(True)
-         if currmode==USERMODE.Advanced:   actSetModeAdv.setChecked(True)
-         if currmode==USERMODE.Developer:  actSetModeDev.setChecked(True)
+         if currmode==USERMODE.Standard:   
+            actSetModeStd.setChecked(True)
+         if currmode==USERMODE.Advanced:   
+            actSetModeAdv.setChecked(True)
+         if currmode==USERMODE.Developer:  
+            actSetModeDev.setChecked(True)
 
       
       #reactor.callLater(2.0,  self.loadBlockchain)
@@ -412,6 +420,7 @@ class ArmoryMainWindow(QMainWindow):
          parts = name.split('_')
          if len(parts)==3 and parts[0]=='Wallet' and self.walletMap.has_key(parts[1]):
             # The last part is the prop name and the value is the property 
+            wltID=parts[1]
             propName=parts[2]
             if not self.wltExtraProps.has_key(wltID):
                self.wltExtraProps[wltID] = {}
@@ -431,15 +440,28 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def getWltExtraProp(self, wltID, propName):
       try:
-         return self.wltExtraProps[wltID]
+         return self.wltExtraProps[wltID][propName]
       except KeyError:
          return ''
 
    #############################################################################
    def setWltExtraProp(self, wltID, propName, value):
       key = 'Wallet_%s_%s' % (wltID, propName)
+      if not self.wltExtraProps.has_key(wltID):
+         self.wltExtraProps[wltID] = {}
+      print wltID, propName, value, key
       self.wltExtraProps[wltID][propName] = value
       self.settings.set(key, value)
+
+   #############################################################################
+   def toggleIsMine(self, wltID):
+      alreadyMine = self.getWltExtraProp(wltID, 'IsMine')
+      if alreadyMine:
+         self.setWltExtraProp(wltID, 'IsMine', False)
+      else:
+         self.setWltExtraProp(wltID, 'IsMine', True)
+   
+   
 
 
    #############################################################################
@@ -569,7 +591,7 @@ class ArmoryMainWindow(QMainWindow):
             elif currIdx==3:
                wltIDList = listWatching
             else:
-               raise WalletExistsError, 'Bad combo-box selection: ' + currText
+               raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
                
 
       self.combinedLedger = []
@@ -904,6 +926,8 @@ class ArmoryMainWindow(QMainWindow):
       
 
 
+class DlgPaperBackup(QDialog):
+   pass
 
       
 
