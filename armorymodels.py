@@ -362,8 +362,11 @@ class WalletAddrDispModel(QAbstractTableModel):
       super(WalletAddrDispModel, self).__init__()
       self.main = mainWindow
       self.wlt = wlt
-      self.addr160List = wlt.addrMap.keys()
-      self.addr160List.remove('ROOT')
+      self.addr160List = [a.getAddr160() for a in wlt.getLinearAddrList()]
+      
+   def reset(self):
+      self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
+      QAbstractTableModel.reset(self)
       
 
    def rowCount(self, index=QModelIndex()):

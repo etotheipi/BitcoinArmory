@@ -12,8 +12,8 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = False
-Test_EncryptedWallet  = False
+Test_EncryptedAddress = True
+Test_EncryptedWallet  = True
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -1001,7 +1001,8 @@ if Test_EncryptedWallet:
    print '\n(5) Get new address from locked wallet'
    print 'Locking wallet'
    wlt.lock()
-   wlt.getNewAddress()
+   for i in range(10):
+      wlt.getNewAddress()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
    print '\n(5) Re-reading wallet from file, compare the two wallets'
@@ -1011,9 +1012,8 @@ if Test_EncryptedWallet:
 
    #############################################################################
    # !!!  #forkOnlineWallet()
-   # TODO:  FIGURE THIS PART OUT:  ONLINE FORKING DOESN"T QUITE WORK YET!
    print '\n(6)Testing forking encrypted wallet for online mode'
-   wlt.forkOnlineWallet('OnlineVersionOfEncryptedWallet.bin')
+   wlt.forkWallet('OnlineVersionOfEncryptedWallet.bin')
    wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 

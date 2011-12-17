@@ -56,9 +56,9 @@ from datetime import datetime
 USE_TESTNET = True
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0,50,0,0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCADDRESS_VERSION = (1,00,0,0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCWALLET_VERSION  = (1,00,0,0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+PYBTCWALLET_VERSION  = (1, 10, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -5042,6 +5042,7 @@ class PyBtcWallet(object):
                         data).  This is used to improve blockchain searching
    Short Name  -- (32)  Null-terminated user-supplied short name for wlt
    Long Name   -- (256) Null-terminated user-supplied description for wlt
+   Highest Used-- (8)   The chain index of the highest used address
    ---
    Crypto/KDF  -- (512) information identifying the types and parameters
                         of encryption used to secure wallet, and key
@@ -5116,7 +5117,7 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
-      self.addrPoolSize = 500
+      self.addrPoolSize = 200
 
       # For file sync features
       self.walletPath = ''
@@ -5139,7 +5140,7 @@ class PyBtcWallet(object):
       self.wltUniqueIDB58 = ''   # Base58 version of reversed-wltUniqueIDBin
       self.lastComputedChainAddr160  = ''
       self.lastComputedChainIndex = 0
-      self.highestUsedChainIndex  = -1
+      self.highestUsedChainIndex  = 0 
 
       # All PyBtcAddress serializations are exact same size, figure it out now
       self.pybtcaddrSize = len(PyBtcAddress().serialize())
@@ -5152,6 +5153,7 @@ class PyBtcWallet(object):
       self.offsetWltFlags  = -1
       self.offsetLabelName = -1
       self.offsetLabelDescr  = -1
+      self.offsetTopUsed   = -1
       self.offsetRootAddr  = -1
       self.offsetKdfParams = -1
       self.offsetCrypto    = -1
@@ -5426,7 +5428,8 @@ class PyBtcWallet(object):
          self.fillAddressPool(self.addrPoolSize)
 
       self.highestUsedChainIndex += 1
-      return self.getAddress160ByChainIndex(self.highestUsedChainIndex)
+      new160 = self.getAddress160ByChainIndex(self.highestUsedChainIndex)
+      return self.addrMap[new160]
 
       """
       if len(self.lastComputedChainAddr160) == 20:
@@ -5494,19 +5497,66 @@ class PyBtcWallet(object):
       for i in range(numToCreate):
          self.computeNextAddress()
          
+   #############################################################################
+   def detectHighestUsedIndex(self, writeResultToWallet=False):
+      if not TheBDM.isInitialized():
+         print 'Cannot detect any usage information without the blockchain'
+         return -1
+
+      oldSync = self.doBlockchainSync
+      self.doBlockchainSync = BLOCKCHAIN_READONLY
+      self.syncWithBlockchain()
+      self.doBlockchainSync = oldSync
+
+      highestIndex = 0
+      for addr in self.getLinearAddrList(withAddrPool=True):
+         a160 = addr.getAddr160()
+         if len(self.getTxLedger(a160)) > 0:
+            highestIndex = max(highestIndex, addr.chainIndex)
+
+      if writeResultToWallet:
+         self.highestUsedChainIndex = highestIndex
+         self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, self.offsetTopUsed, \
+                                      int_to_binary(highestIndex, widthBytes=8)]])
+
+
+      return highestIndex
+      
 
 
    #############################################################################
-   def forkOnlineWallet(self, newWalletFile=None, \
-                                    shortLabel='', longLabel=''):
-      if not self.addrMap['ROOT'].hasPrivKey():
+   def writeFreshWalletFile(self, path, newName='', newDescr=''):
+      newFile = open(path, 'w')
+      bp = BinaryPacker()
+      self.packHeader(bp)
+      newFile.write(bp.getBinaryString())
+
+      for addr160,addrObj in self.addrMap.iteritems():
+         if not addr160=='ROOT':
+            newFile.write('\x00' + addr160 + addrObj.serialize())
+
+      for hashVal,comment in self.commentsMap.iteritems():
+         twoByteLength = int_to_binary(len(comment), widthBytes=2)
+         if len(hashVal)==20:
+            typestr = int_to_binary(WLT_DATATYPE_ADDRCOMMENT)
+            newFile.write(typestr + hashVal + twoByteLength + comment)
+         elif len(hashVal)==32:
+            typestr = int_to_binary(WLT_DATATYPE_TXCOMMENT)
+            newFile.write(typestr + hashVal + twoByteLength + comment)
+
+      for addr160,opevalData in self.opevalMap.iteritems():
+         pass
+
+      newFile.close()
+   
+
+   #############################################################################
+   def forkOnlineWallet(self, newWalletFile, shortLabel='', longLabel=''):
+      """
+      Make a copy of this wallet that contains no private key data
+      """
+      if noPriv and not self.addrMap['ROOT'].hasPrivKey():
          print 'This wallet is already void of any private key data!'
-
-
-      if not newWalletFile:
-         wltpieces = os.path.splitext(self.walletPath)
-         wltname = wltpieces[0] + 'WatchingOnly' + wltpieces[1]
-         newWalletFile = os.path.join(ARMORY_HOME_DIR, wltname)
 
       onlineWallet = PyBtcWallet()
       onlineWallet.fileTypeStr = self.fileTypeStr
@@ -5515,8 +5565,14 @@ class PyBtcWallet(object):
       onlineWallet.wltCreateDate = self.wltCreateDate
       onlineWallet.useEncryption = False
       onlineWallet.watchingOnly = True
-      onlineWallet.labelName  = (self.labelName  + ' (Watch-Only)')[:32]
-      onlineWallet.labelDescr  = longLabel
+
+      if not shortLabel:
+         shortLabel = self.labelName
+      if not longLabel:
+         longLabel = self.labelDescr
+
+      onlineWallet.labelName  = (shortLabel + ' (Watch)')[:32]
+      onlineWallet.labelDescr = (longLabel + ' (Watching-only copy)')[:256]
 
       newAddrMap = {}
       for addr160,addrObj in self.addrMap.iteritems():
@@ -5533,27 +5589,7 @@ class PyBtcWallet(object):
       onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160
       onlineWallet.lastComputedChainIndex = self.lastComputedChainIndex
 
-      newFile = open(newWalletFile, 'w')
-      bp = BinaryPacker()
-      onlineWallet.packHeader(bp)
-      newFile.write(bp.getBinaryString())
-
-      for addr160,addrObj in onlineWallet.addrMap.iteritems():
-         if not addr160=='ROOT':
-            newFile.write('\x00' + addr160 + addrObj.serialize())
-
-      for addr160,comment in onlineWallet.commentsMap.iteritems():
-         twoByteLength = int_to_binary(len(comment), widthBytes=2)
-         newFile.write('\x01' + addr160 + twoByteLength + comment)
-
-      for addr160,opevalData in onlineWallet.opevalMap.iteritems():
-         pass
-
-      newFile.close()
-
-      fileparts = os.path.splitext(newWalletFile)
-      walletFileBackup = fileparts[0] + 'backup' + fileparts[1]
-      shutil.copy(newWalletFile, walletFileBackup)
+      onlineWallet.writeFreshWalletFile(newWalletFile, shortLabel, longLabel)
       return True
 
 
@@ -6027,6 +6063,11 @@ class PyBtcWallet(object):
       self.offsetLabelDescr = binPacker.getSize() - startByte
       binPacker.put(BINARY_CHUNK, self.labelDescr,  width=256)
 
+      # Highest used address: 
+      if getVersionInt(self.version) >= getVersionInt((1, 10, 0, 0)):
+         self.offsetTopUsed = binPacker.getSize() - startByte
+         binPacker.put(INT64, self.highestUsedChainIndex)
+
       # Key-derivation function parameters
       self.offsetKdfParams = binPacker.getSize() - startByte
       binPacker.put(BINARY_CHUNK, self.serializeKdfParams(), width=256)
@@ -6087,6 +6128,12 @@ class PyBtcWallet(object):
       # Longer user-supplied description/name for wallet
       self.offsetLabelDescr  = binUnpacker.getPosition()
       self.labelDescr  = binUnpacker.get(BINARY_CHUNK, 256).strip('\x00')
+
+      # Highest used address: 
+      print self.version
+      if getVersionInt(self.version) >= getVersionInt((1, 10, 0, 0)):
+         self.offsetTopUsed = binUnpacker.getPosition()
+         self.highestUsedChainIndex = binUnpacker.get(INT64)
 
       # Read the key-derivation function parameters
       self.offsetKdfParams = binUnpacker.getPosition()
@@ -6856,7 +6903,8 @@ class PyBtcWallet(object):
       """ Returns Addr160 list """
       addrList = []
       for addr160 in self.linearAddr160List:
-         addrList.append( [addrObj.chainIndex, addr160, self.addrMap[addr160]] )
+         addr=self.addrMap[addr160]
+         addrList.append( [addr.chainIndex, addr160, addr] )
 
       addrList.sort(key=lambda x: x[0])
       return addrList
@@ -6874,15 +6922,24 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def getLinearAddr160List(self, withImported=True):
+   def getLinearAddrList(self, withImported=True, withAddrPool=False):
       """ 
       Retrieves a list of addresses, by hash, in the order they 
       appear in the wallet file.  Can ignore the imported addresses
-      to get only chained addresses, if necessary
+      to get only chained addresses, if necessary.
+
+      I could do this with one list comprehension, but it would be long.
+      I'm resisting the urge...
       """
-      return [self.addrMap[a160] for a160 in self.linearAddr160List \
-           if ( (self.addrMap[a160].chainIndex>=0 or withImported) and \
-                                                          not a160=='ROOT')]
+      addrList = []
+      for a160 in self.linearAddr160List:
+         addr = self.addrMap[a160]
+         if not a160=='ROOT' and (withImported or addr.chainIndex>=0):
+            # Either we want imported addresses, or this isn't one
+            if (withAddrPool or addr.chainIndex<=self.highestUsedChainIndex):
+               addrList.append(addr)
+         
+      return addrList
       
 
    #############################################################################

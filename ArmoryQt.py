@@ -449,7 +449,6 @@ class ArmoryMainWindow(QMainWindow):
       key = 'Wallet_%s_%s' % (wltID, propName)
       if not self.wltExtraProps.has_key(wltID):
          self.wltExtraProps[wltID] = {}
-      print wltID, propName, value, key
       self.wltExtraProps[wltID][propName] = value
       self.settings.set(key, value)
 
@@ -591,7 +590,8 @@ class ArmoryMainWindow(QMainWindow):
             elif currIdx==3:
                wltIDList = listWatching
             else:
-               raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
+               pass
+               #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
                
 
       self.combinedLedger = []
@@ -765,8 +765,8 @@ class ArmoryMainWindow(QMainWindow):
 
          self.walletBalances.append(wlt.getBalance())
          self.walletSubLedgers.append([])
-         for addr160 in wlt.getLinearAddr160List():
-            ledger = wlt.getTxLedger(addr160)
+         for addr in wlt.getLinearAddrList():
+            ledger = wlt.getTxLedger(addr.getAddr160())
             self.walletSubLedgers[-1].append(ledger)
          self.walletLedgers.append(wlt.getTxLedger())
       else:
@@ -838,7 +838,7 @@ class ArmoryMainWindow(QMainWindow):
          dlgfork = DlgForkWallet(self)
          if dlgfork.exec_():
             newPath = str(dlgfork.edtPath.text())
-            newWallet.forkOnlineWallet(newPath)
+            newWallet.forkWallet(newPath)
 
 
    #############################################################################
