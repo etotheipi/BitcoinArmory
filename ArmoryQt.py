@@ -185,7 +185,7 @@ class ArmoryMainWindow(QMainWindow):
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
-      ledgLayout.addWidget(self.comboWalletSelect,    0,1, 1,2)
+      ledgLayout.addWidget(self.comboWalletSelect,    4,0, 2,1)
       ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
       ledgLayout.addWidget(self.lblTotalFunds,        4,2, 1,2)
       ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
@@ -572,7 +572,6 @@ class ArmoryMainWindow(QMainWindow):
          # We need to figure out which wallets to combine here...
          currIdx  =     self.comboWalletSelect.currentIndex()
          currText = str(self.comboWalletSelect.currentText()).lower()
-         print 'CurrIdx:', currIdx, 'CurrText: "' + currText + '"'
          if currIdx>=4:
             wltIDList = [self.walletIDList[currIdx-6]]
          else:
@@ -595,6 +594,8 @@ class ArmoryMainWindow(QMainWindow):
                
 
       self.combinedLedger = []
+      if not wltIDList:
+         return
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
@@ -699,7 +700,6 @@ class ArmoryMainWindow(QMainWindow):
       self.comboWalletSelect.addItem( 'Offline Wallets'   )
       self.comboWalletSelect.addItem( 'Other\'s wallets'  )
       for wltID in self.walletIDList:
-         print wltID
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
       self.comboWalletSelect.insertSeparator(4)
@@ -926,8 +926,6 @@ class ArmoryMainWindow(QMainWindow):
       
 
 
-class DlgPaperBackup(QDialog):
-   pass
 
       
 

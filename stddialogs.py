@@ -523,9 +523,10 @@ class DlgWalletDetails(QDialog):
       lbtnGenAddr = QLabelButton('Get New Address')
       lbtnForkWlt = QLabelButton('Fork Watching-Only Wallet Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
-      lbtnExport  = QLabelButton('Export wallet backup')
-      lbtnRemove  = QLabelButton('Delete/Remove wallet')
+      lbtnExport  = QLabelButton('Make Digital Backup')
+      lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
+      self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
@@ -550,11 +551,27 @@ class DlgWalletDetails(QDialog):
       self.frm = QFrame()
       self.setWltDetailsFrame()
 
+      lblTotal  = QLabel(); lblTotal.setAlignment( Qt.AlignRight | Qt.AlignVCenter)
+      lblUnconf = QLabel(); lblUnconf.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      totFund, unconfFund = 0,0
+      for le in self.wlt.getTxLedger():
+         if (self.main.latestBlockNum-le.getBlockNum()+1) < 6:
+            unconfFund += le.getValue()
+         else:
+            totFund += le.getValue()
+      uncolor = 'red' if unconfFund>0 else 'black'
+      lblTotal.setText( \
+         '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
+      lblUnconf.setText( \
+         '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
+
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0, 3, 4)
       layout.addWidget(self.wltAddrView,      4, 0, 2, 4)
-      layout.addWidget(btnGoBack,             6, 0, 1, 1)
-      #layout.addWidget(buttonBox,             7, 2, 1, 2)
+      layout.addWidget(btnGoBack,             6, 0, 2, 1)
+      layout.addWidget(lblTotal,              6, 3, 1, 1)
+      layout.addWidget(lblUnconf,             7, 3, 1, 1)
+
       layout.addWidget(QLabel("Available Actions:"), \
                                               0, 4)
       layout.addWidget(optFrame,              1, 4, 8, 2)
@@ -616,6 +633,12 @@ class DlgWalletDetails(QDialog):
       feature implemented, but I don't have a GUI for it
       """
       pass
+
+   def execPrintDlg(self):
+      dlg = DlgPaperBackup(self.wlt, self)
+      dlg.exec_()
+      
+
 
    # A possible way to remove an existing layout 
    #def setLayout(self, layout):
@@ -735,7 +758,7 @@ class DlgWalletDetails(QDialog):
       self.labelValues[WLTFIELDS.Descr]   = QLabel(self.wlt.labelDescr)
    
       self.labelValues[WLTFIELDS.WltID]     = QLabel(self.wlt.wltUniqueIDB58)
-      self.labelValues[WLTFIELDS.NumAddr]   = QLabel(str(len(self.wlt.addrMap)-1))
+      self.labelValues[WLTFIELDS.NumAddr]   = QLabel(str(len(self.wlt.getLinearAddrList())))
       self.labelValues[WLTFIELDS.Secure]    = QLabel(self.typestr)
       self.labelValues[WLTFIELDS.BelongsTo] = QLabel('')
 
@@ -854,6 +877,7 @@ class DlgWalletDetails(QDialog):
             self.main.setWltExtraProp(self.wltID, 'IsMine', True)
             self.main.setWltExtraProp(self.wltID, 'BelongsTo', '')
             self.labelValues[WLTFIELDS.BelongsTo].setText('You own this wallet')
+            self.labelValues[WLTFIELDS.Secure].setText('<i>Offline</i>')
          else:
             owner = str(dlg.edtOwnerString.text())  
             self.main.setWltExtraProp(self.wltID, 'IsMine', False)
@@ -863,6 +887,7 @@ class DlgWalletDetails(QDialog):
                self.labelValues[WLTFIELDS.BelongsTo].setText(owner)
             else:
                self.labelValues[WLTFIELDS.BelongsTo].setText('Someone else')
+            self.labelValues[WLTFIELDS.Secure].setText('<i>Watching-only</i>')
          
 
 
@@ -1044,6 +1069,129 @@ class DlgSetComment(QDialog):
       self.setLayout(layout)
 
 
+try:
+   from qrcodenative import *
+except ImportError:
+   print 'QR-generation code not available...'
+
+PAPER_DPI       = 72
+PAPER_A4_WIDTH  =  8.5*PAPER_DPI
+PAPER_A4_HEIGHT = 11.0*PAPER_DPI
+
+class GfxViewPaper(QGraphicsView):
+   def __init__(self, parent=None):
+      super(GfxViewPaper, self).__init__(parent)
+      self.setRenderHint(QPainter.TextAntialiasing) 
+
+class GfxItemText(QGraphicsTextItem):
+   def __init__(self, text, position, scene, font=QFont('Courier', 8)):
+      super(GfxItemText, self).__init__(text)
+      self.setFont(font)
+      self.setPos(position)
+   
+class GfxItemQRCode(QGraphicsItem):
+   """
+   Converts binary data to base58, and encodes the Base58 characters in
+   the QR-code.  It seems weird to use Base58 instead of binary, but the
+   QR-code has no problem with the size, instead, we want the data in the
+   QR-code to match exactly what is human-readable on the page, which is
+   in Base58.
+   """
+   def __init__(self, position, scene, rawDataToEncode, physPxPerMod=10):
+      super(GfxItemQRCode, self).__init__()
+      self.setPos(position)
+      
+      sz=4
+      success=False
+      while sz<20:
+         try:
+            # 6 is a good size for a QR-code: If you pick too small (i.e. cannot
+            # fit all the data requested), you will get a type error.  Raise this
+            # number to get ever-more-massive QR codes which fit more data
+            self.qr = QRCode(sz, QRErrorCorrectLevel.H)
+            self.qr.addData(rawDataToEncode)
+            success=True
+            break
+         except TypeError:
+            #print 'Failed to generate QR code:  likely too much data for the size'
+            pass
+
+      print 'QR-generation succeeded?  ', success
+      print 'Size of QR code is', sz
+      self.qr.make()
+      print 'Module count =',self.qr.getModuleCount()
+      size1D = self.qr.getModuleCount()*physPxPerMod
+      self.Rect = QRectF(0,0, size1D, size1D)
+         
+
+   def boundingRect(self):
+      return self.Rect
+
+   def paint(self, painter, option, widget=None):
+      painter.setPen(Qt.NoPen)
+      painter.setBrush(QBrush(QColor(Colors.Black)))
+
+      nModule1D = self.qr.getModuleCount()
+      modSz = self.Rect.height() / nModule1D
+      for r in range(nModule1D):
+         for c in range(nModule1D):
+            if (self.qr.isDark(r, c) ):
+               painter.drawRect(r*modSz, c*modSz, modSz, modSz)
+               #x = (c + offset) * boxsize
+               #y = (r + offset) * boxsize
+               #b = [(x,y),(x+boxsize,y+boxsize)]
+               #d.rectangle(b,fill="black")
+
+      
+
+class DlgPaperBackup(QDialog):
+   def __init__(self, wlt, parent=None):
+      super(DlgPaperBackup, self).__init__(parent)
+   
+      self.main = parent
+      self.wlt = wlt
+
+      self.view = GfxViewPaper()
+      self.scene = QGraphicsScene(self)
+      self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
+      self.view.setScene(self.scene)
+
+      #szQR  = 200
+      posQR = QPointF(50, 50)
+      objQR = GfxItemQRCode( posQR, self.scene, 'www.bitcoinarmory.com', 200)
+      self.scene.addItem( objQR)
+
+      btnPrint = QPushButton('&Print...')
+      self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
+
+      bbox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                              QDialogButtonBox.Cancel)
+      self.connect(bbox, SIGNAL('accepted()'), self.accept)
+      self.connect(bbox, SIGNAL('rejected()'), self.reject)
+
+
+      layout = QGridLayout()
+      layout.addWidget(self.view, 0,0, 3,4)
+      layout.addWidget(btnPrint,  3,0, 1,1)
+      layout.addWidget(bbox,      3,2, 1,2)
+
+      self.setLayout(layout)
+      
+       
+   def print_(self):
+      dialog = QPrintDialog(self.printer)
+      if dialog.exec_():
+          painter = QPainter(self.printer)
+          painter.setRenderHint(QPainter.TextAntialiasing)
+          self.scene.render(painter)
+
+
+
+
+
+
+################################################################################
+################################################################################
 if __name__=='__main__':
    app = QApplication(sys.argv)
    app.setApplicationName("dumbdialogs")
@@ -1053,6 +1201,9 @@ if __name__=='__main__':
 
    form.show()
    app.exec_()
+
+
+
 
 
 
