@@ -221,7 +221,8 @@ def enum(*sequential, **named):
 
 
 # Some useful constants to be used throughout everything
-BASE58DIGITS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
 LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
@@ -455,6 +456,7 @@ def bitset_to_int(bitset):
    return n
 
 
+
 EmptyHash = hex_to_binary('00'*32)
 
 
@@ -485,7 +487,7 @@ def binary_to_base58(binstr):
    b58 = ''
    while n > 0:
       n, r = divmod (n, 58)
-      b58 = BASE58DIGITS[r] + b58
+      b58 = BASE58CHARS[r] + b58
    return '1'*padding + b58
 
 
@@ -511,7 +513,7 @@ def base58_to_binary(addr):
    n = 0
    for ch in addr:
       n *= 58
-      n += BASE58DIGITS.index(ch)
+      n += BASE58CHARS.index(ch)
 
    binOut = ''
    while n>0:
@@ -520,6 +522,43 @@ def base58_to_binary(addr):
       n = d
    return '\x00'*padding + binOut
 
+
+###### Typing-friendly Base16 #####
+def binary_to_typingBase16(binstr):
+   """
+   Implements "hexadecimal" encoding but using only easy-to-type
+   characters in the alphabet.  Hex usually includes the digits 0-9
+   which can be slow to type, even for good typists.  On the other
+   hand, by changing the alphabet to common, easily distinguishable,
+   lowercase characters, typing such strings will become dramatically
+   faster (use case is private keys to be entered manually... Base58
+   is less characters, but might be slower to type for some people
+   """
+   n = 0
+   for ch in binstr:
+      n *= 256
+      n += ord(ch)
+
+   b16 = ''
+   while n > 0:
+      n, r = divmod (n, 16)
+      b16 = BASE16CHARS[r] + b16
+   return b16.rjust(len(binstr)*2, BASE16CHARS[0])
+
+
+def typingBase16_to_binary(b16str):
+   n = 0
+   for ch in b16str:
+      n *= 16
+      n += BASE16CHARS.index(ch)
+
+   binOut = ''
+   while n>0:
+      d,m = divmod(n,256)
+      binOut = chr(m) + binOut
+      n = d
+   return binOut.rjust(len(b16str)/2,'\x00')
+   
 
 
 
@@ -6158,6 +6197,11 @@ class PyBtcWallet(object):
 
       # In wallet version 1.0, this next kB is unused -- may be used in future
       binUnpacker.advance(1024)
+
+      # TODO: automatic conversion if the code uses a newer wallet
+      #       version than the wallet... got a manual script, but it
+      #       would be nice to autodetect and correct
+      #convertVersion
 
 
    #############################################################################

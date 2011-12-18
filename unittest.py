@@ -77,6 +77,13 @@ def printpassorfail(abool):
 #wlt2 = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
 #exit(0)
 
+print 'Start:', h
+print 'B16  :', b16
+print 'R/T  :', hagain
+
+exit(0)
+
+
 
 ################################################################################
 ################################################################################
@@ -105,6 +112,11 @@ if Test_BasicUtils:
    testFunction('hex_to_int',    i,    hstr, BIGENDIAN)
    testFunction('int_to_binary', bstr, i   , 2, BIGENDIAN)
    testFunction('binary_to_int', i,    bstr, BIGENDIAN)
+
+   #h   = '00000123456789abcdef000000'
+   #ans = 'aaaaabcdeghjknrsuwxyaaaaaa'
+   #testFunction('binary_to_typingBase16', ans, h  )
+   #testFunction('typingBase16_to_binary', h,   ans)
    
    blockhead = '010000001d8f4ec0443e1f19f305e488c1085c95de7cc3fd25e0d2c5bb5d0000000000009762547903d36881a86751f3f5049e23050113f779735ef82734ebf0b4450081d8c8c84db3936a1a334b035b'
    blockhash   = '1195e67a7a6d0674bbd28ae096d602e1f038c8254b49dfe79d47000000000000'

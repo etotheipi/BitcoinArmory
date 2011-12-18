@@ -27,14 +27,20 @@ def tightSizeNChar(obj, nChar):
    depending on the specific text
    """
 
-   fm = QFontMetricsF(QFont(obj.font()))
+   try:
+      fm = QFontMetricsF(QFont(obj.font()))
+   except AttributeError:
+      fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect('abcfgijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return szWidth, szHeight
 
 def tightSizeStr(obj, theStr):
    """ Measure a specific string """
-   fm = QFontMetricsF(QFont(obj.font()))
+   try:
+      fm = QFontMetricsF(QFont(obj.font()))
+   except AttributeError:
+      fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return szWidth, szHeight
    
@@ -42,7 +48,10 @@ def relaxedSizeStr(obj, theStr):
    """
    Approximates the size of a row text, nchars long, adds some margin
    """
-   fm = QFontMetricsF(QFont(obj.font()))
+   try:
+      fm = QFontMetricsF(QFont(obj.font()))
+   except AttributeError:
+      fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return 1.3*szWidth, 1.3*szHeight
 
@@ -50,7 +59,10 @@ def relaxedSizeNChar(obj, nChar):
    """
    Approximates the size of a row text, nchars long, adds some margin
    """
-   fm = QFontMetricsF(QFont(obj.font()))
+   try:
+      fm = QFontMetricsF(QFont(obj.font()))
+   except AttributeError:
+      fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect('abcfg ijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return 1.3*szWidth, 1.5*szHeight

@@ -69,13 +69,13 @@ class ArmoryMainWindow(QMainWindow):
       self.printer.setPageSize(QPrinter.Letter)
 
       self.lblLogoIcon = QLabel()
-      #self.lblLogoIcon.setPixmap(QPixmap('icons/armory_logo_64x64.png'))
-      self.lblLogoIcon.setPixmap(QPixmap('/home/alan/desktop/armory_fulllogo_64.png'))
+      #self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_64x64.png'))
+      self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.setWindowTitle('Armory - Bitcoin Wallet Management')
-      #self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
-      self.setWindowIcon(QIcon('/home/alan/desktop/armory_logo_32x32.png'))
+      #self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon('img/armory_icon_32x32.png'))
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)

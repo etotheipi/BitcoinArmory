@@ -17,8 +17,11 @@ def createToolTipObject(tiptext, iconSz=2):
 
 ################################################################################
 class DlgUnlockWallet(QDialog):
-   def __init__(self, parent=None):
+   def __init__(self, wlt, parent=None):
       super(DlgUnlockWallet, self).__init__(parent)
+
+      self.wlt = wlt
+      self.main = parent
 
       lblDescr  = QLabel("Enter your passphrase to unlock this wallet")
       lblPasswd = QLabel("Passphrase:")
@@ -30,7 +33,7 @@ class DlgUnlockWallet(QDialog):
 
       self.btnAccept = QPushButton("Unlock")
       self.btnCancel = QPushButton("Cancel")
-      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.acceptPassphrase)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
       buttonBox = QDialogButtonBox()
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
@@ -43,6 +46,19 @@ class DlgUnlockWallet(QDialog):
       layout.addWidget(buttonBox,      3, 1, 1, 2)
 
       self.setLayout(layout)
+
+   def acceptPassphrase(self):
+      securePwd = SecureBinaryData(str(edtPasswd.text()))
+      try:
+         self.wlt.unlock(securePassphrase=securePwd)
+         self.accept()
+      except PassphraseError:
+         QMessageBox.critical(self, 'Invalid Passphrase', \
+           'You entered your confirmation passphrase incorrectly!', QMessageBox.Ok)
+         self.edtPasswd.setText('')
+         return
+
+      
       #btngrp = self.QButtonGroup()
       #self.QRadioButton()
       #lbl
@@ -196,7 +212,7 @@ class DlgNewWallet(QDialog):
                    self.cryptoFrame,  SLOT("setEnabled(bool)"))
 
       self.setWindowTitle('Create/Import Armory wallet')
-      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
 
 
@@ -326,7 +342,7 @@ class DlgChangePassphrase(QDialog):
       else:
          self.setWindowTitle("Change Encryption Passphrase")
 
-      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
       self.setLayout(layout)
 
@@ -384,7 +400,7 @@ class DlgPasswd3(QDialog):
    def __init__(self, parent=None):
       super(DlgPasswd3, self).__init__(parent)
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('icons/Warning64x64'))
+      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -1046,7 +1062,7 @@ class DlgSetComment(QDialog):
       super(DlgSetComment, self).__init__(parent)
 
       self.setWindowTitle('add/change comment')
-      self.setWindowIcon(QIcon('icons/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
@@ -1078,16 +1094,58 @@ PAPER_DPI       = 72
 PAPER_A4_WIDTH  =  8.5*PAPER_DPI
 PAPER_A4_HEIGHT = 11.0*PAPER_DPI
 
+
+###### Typing-friendly Base16 #####
+#  Implements "hexadecimal" encoding but using only easy-to-type
+#  characters in the alphabet.  Hex usually includes the digits 0-9
+#  which can be slow to type, even for good typists.  On the other
+#  hand, by changing the alphabet to common, easily distinguishable,
+#  lowercase characters, typing such strings will become dramatically
+#  faster.  Additionally, some default encodings of QRCodes do not
+#  preserve the capitalization of the letters, meaning that Base58
+#  is not a feasible options
+NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
+BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+hex_to_base16_map = {}
+base16_to_hex_map = {}
+for n,b in zip(NORMALCHARS,BASE16CHARS):
+   hex_to_base16_map[n] = b
+   base16_to_hex_map[b] = n
+
+def binary_to_typingBase16(binstr):
+   return ''.join([hex_to_base16_map[c] for c in binary_to_hex(binstr)])
+
+def typingBase16_to_binary(b16str):
+   return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
+
+
+
 class GfxViewPaper(QGraphicsView):
    def __init__(self, parent=None):
       super(GfxViewPaper, self).__init__(parent)
       self.setRenderHint(QPainter.TextAntialiasing) 
 
 class GfxItemText(QGraphicsTextItem):
-   def __init__(self, text, position, scene, font=QFont('Courier', 8)):
+   """
+   So far, I'm pretty bad ad setting the boundingRect properly.  I have 
+   hacked it to be usable for this specific situation, but it's not very
+   reusable...
+   """
+   def __init__(self, text, position, scene, font=QFont('Courier', 8), lineWidth=None):
       super(GfxItemText, self).__init__(text)
       self.setFont(font)
       self.setPos(position)
+      if lineWidth:
+         self.setTextWidth(lineWidth)
+
+   def boundingRect(self):
+      w,h = relaxedSizeStr(self, self.toPlainText())
+      nLine=1
+      if self.textWidth()>0:
+         twid = self.textWidth()
+         nLine = max(1, int(float(w) / float(twid) + 0.5))
+      return QRectF(0, 0, w, nLine*(1.5*h))
+
    
 class GfxItemQRCode(QGraphicsItem):
    """
@@ -1096,12 +1154,17 @@ class GfxItemQRCode(QGraphicsItem):
    QR-code has no problem with the size, instead, we want the data in the
    QR-code to match exactly what is human-readable on the page, which is
    in Base58.
+
+   You must supply exactly one of "totalSize" or "modSize".  TotalSize
+   guarantees that the QR code will fit insides box of a given size.  
+   ModSize is how big each module/pixel of the QR code is, which means 
+   that a bigger QR block results in a bigger physical size on paper.
    """
-   def __init__(self, position, scene, rawDataToEncode, physPxPerMod=10):
+   def __init__(self, position, scene, rawDataToEncode, totalSize=None, modSize=None):
       super(GfxItemQRCode, self).__init__()
       self.setPos(position)
       
-      sz=4
+      sz=3
       success=False
       while sz<20:
          try:
@@ -1110,19 +1173,26 @@ class GfxItemQRCode(QGraphicsItem):
             # number to get ever-more-massive QR codes which fit more data
             self.qr = QRCode(sz, QRErrorCorrectLevel.H)
             self.qr.addData(rawDataToEncode)
+            self.qr.make()
             success=True
             break
          except TypeError:
             #print 'Failed to generate QR code:  likely too much data for the size'
+            sz += 1
             pass
 
-      print 'QR-generation succeeded?  ', success
-      print 'Size of QR code is', sz
-      self.qr.make()
-      print 'Module count =',self.qr.getModuleCount()
-      size1D = self.qr.getModuleCount()*physPxPerMod
-      self.Rect = QRectF(0,0, size1D, size1D)
+      
+      self.modCt = self.qr.getModuleCount()
+      if totalSize==None and not modSize==None:
+         totalSize = float(self.modCt)*float(modSize)
+      self.modSz = round(float(totalSize)/ float(self.modCt) - 0.5)
+      # Readjust totalsize to make sure that 
+      totalSize = self.modCt*self.modSz
+      self.Rect = QRectF(0,0, totalSize, totalSize)
          
+      print 'QR-generated?', success, ' : Size of QRcode is', sz, \
+                           ' : boxCount =', self.qr.getModuleCount()
+
 
    def boundingRect(self):
       return self.Rect
@@ -1131,35 +1201,194 @@ class GfxItemQRCode(QGraphicsItem):
       painter.setPen(Qt.NoPen)
       painter.setBrush(QBrush(QColor(Colors.Black)))
 
-      nModule1D = self.qr.getModuleCount()
-      modSz = self.Rect.height() / nModule1D
-      for r in range(nModule1D):
-         for c in range(nModule1D):
-            if (self.qr.isDark(r, c) ):
-               painter.drawRect(r*modSz, c*modSz, modSz, modSz)
-               #x = (c + offset) * boxsize
-               #y = (r + offset) * boxsize
-               #b = [(x,y),(x+boxsize,y+boxsize)]
-               #d.rectangle(b,fill="black")
+      print self.Rect.height(), self.modCt, self.modSz
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if (self.qr.isDark(c, r) ):
+               painter.drawRect(*[self.modSz*a for a in [r,c,1,1]])
 
       
 
 class DlgPaperBackup(QDialog):
+   """
+   Open up a "Make Paper Backup" dialog, so the user can print out a hard
+   copy of whatever data they need to recover their wallet should they lose
+   it.  
+
+   TODO:  Currently only does chain-coded keys.  Support for printing imported
+          keys as well, well be added later.
+
+   I have to forego using SecureBinaryData objects for most of these methods
+   (in order to manipulate the private keys for printing), but I don't think
+   this is a big deal, because printing would be infrequent
+   """
    def __init__(self, wlt, parent=None):
       super(DlgPaperBackup, self).__init__(parent)
-   
-      self.main = parent
-      self.wlt = wlt
 
+      self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
+      self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
+      if wlt.useEncryption and wlt.isLocked:
+         dlg = DlgUnlockWallet(wlt, parent)
+         if dlg.exec_():
+            self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
+         else:
+            # If we canceled out of unlocking, we can't print...
+            self.reject()
+            
+
+                
       self.view = GfxViewPaper()
       self.scene = QGraphicsScene(self)
       self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
       self.view.setScene(self.scene)
 
-      #szQR  = 200
-      posQR = QPointF(50, 50)
-      objQR = GfxItemQRCode( posQR, self.scene, 'www.bitcoinarmory.com', 200)
-      self.scene.addItem( objQR)
+
+      sizeQR = 100
+      INCH = 72
+      paperMargin = 0.5*INCH
+      
+      leftEdge = 0.5*INCH
+      topEdge  = 0.5*INCH
+
+      FontVar = QFont('Times',   10)
+      FontFix = QFont('Courier', 9)
+
+      GlobalPos = QPointF(leftEdge, topEdge)
+      # I guess I still don't understand the copy/ref stuff... this didn't work
+      #def movePosRight(g, x):    
+         #g += QPointF(x,0)
+      #def movePosDown(g, y):    
+         #g += QPointF(0,y)
+      #def setPosFromLeft(g, x):    
+         #g = QPointF(x, g.y())
+      #def setPosFromTop(g, y):    
+         #g = QPointF(g.x(), y)
+      #def moveNewLine(g, pixelsDown):
+         #g = QPointF(leftEdge, g.y()+pixelsDown)
+
+      # Draw the logo in the top-left
+      logoPixmap = QPixmap('img/armory_logo_h36.png') 
+      logo = QGraphicsPixmapItem( logoPixmap )
+      logo.setPos( GlobalPos )
+      logo.setMatrix( QMatrix() )
+      self.scene.addItem(logo)
+      logoRect = logo.boundingRect()
+      #moveNewLine(GlobalPos, int(logoRect.height()*1.3 + 0.5))
+      GlobalPos = QPointF(leftEdge, GlobalPos.y()+int(logoRect.height()*1.3 + 0.5))
+      
+      txt = GfxItemText('Paper Backup for Armory Wallet', GlobalPos, self.scene, QFont('Times', 14))
+      self.scene.addItem( txt )
+      #moveNewLine(GlobalPos, 30)
+      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
+
+      txt = GfxItemText('Wallet Unique ID: ', GlobalPos, self.scene, FontVar)
+      self.scene.addItem( txt )
+      #movePosRight(GlobalPos, relaxedSizeStr(FontFix, 'W'*20)[0])
+      GlobalPos = QPointF(GlobalPos.x()+relaxedSizeStr(FontFix, 'W'*14)[0], GlobalPos.y())
+
+      txt = GfxItemText(wlt.wltUniqueIDB58, GlobalPos, self.scene, FontVar)
+      self.scene.addItem( txt )
+      #moveNewLine(GlobalPos, 20)
+      #GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
+      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 20)
+
+      txt = GfxItemText('Wallet Name: ', GlobalPos, self.scene, FontVar)
+      self.scene.addItem( txt )
+      #movePosRight(GlobalPos, relaxedSizeStr(FontFix, 'W'*20)[0])
+      GlobalPos = QPointF(GlobalPos.x()+relaxedSizeStr(FontFix, 'W'*14)[0], GlobalPos.y())
+
+      txt = GfxItemText(wlt.labelName, GlobalPos, self.scene, FontVar)
+      self.scene.addItem( txt )
+      #moveNewLine(GlobalPos, 20)
+      #GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
+      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 20)
+
+
+
+      #moveNewLine(GlobalPos, 20)
+      GlobalPos = QPointF(leftEdge, GlobalPos.y()+20)
+      warnMsg = ('WARNING: This page displays unprotected private-key data needed '
+                 'to reconstruct your wallet, and spend your funds.  Please keep '
+                 'this page in a safe place where only trusted persons can access it.')
+
+      wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
+      txt = GfxItemText(warnMsg, GlobalPos, self.scene, FontVar, lineWidth=wrapWidth)
+      self.scene.addItem(txt)
+
+      GlobalPos = QPointF(leftEdge, GlobalPos.y()+75)
+      
+
+
+      # Start drawing the actual wallet data
+      self.binPriv0     = self.binPriv.toBinStr()[:16]
+      self.binPriv1     = self.binPriv.toBinStr()[16:]
+      self.binChain0    = self.binChain.toBinStr()[:16]
+      self.binChain1    = self.binChain.toBinStr()[16:]
+      self.binPriv0Chk  = computeChecksum(self.binPriv0, nBytes=2)
+      self.binPriv1Chk  = computeChecksum(self.binPriv1, nBytes=2)
+      self.binChain0Chk = computeChecksum(self.binChain0, nBytes=2)
+      self.binChain1Chk = computeChecksum(self.binChain1, nBytes=2)
+
+      rawTxt = []
+      for data,chk in [(self.binPriv0, self.binPriv0Chk), \
+                       (self.binPriv1, self.binPriv1Chk), \
+                       (self.binChain0, self.binChain0Chk), \
+                       (self.binChain1, self.binChain1Chk)]:
+         rawTxt.append([])
+         data16 = binary_to_typingBase16(data)
+         chk16  = binary_to_typingBase16(chk)
+         for c in range(0,32,4):
+            rawTxt[-1].append( data16[c:c+4] )
+         rawTxt[-1].append( chk16 )
+      
+      
+
+      quadWidth,quadHeight = relaxedSizeStr(FontFix, 'abcd ')
+      quadWidth+=8  # for some reason, even the relaxed size is too small...
+
+      rootPrefix  = GfxItemText('Root Key:',   GlobalPos, self.scene, QFont('Times', 12))
+      chainPrefix = GfxItemText('Chain Code:', GlobalPos, self.scene, QFont('Times', 12))
+      rowPrefixSz = max( rootPrefix.boundingRect().width(), \
+                         chainPrefix.boundingRect().width()) + 0.2*INCH
+      
+      topOfRow0 = GlobalPos.y()
+      topOfRow2 = GlobalPos.y() + 2*quadHeight
+
+      for r,row in enumerate(rawTxt):
+         #moveNewLine(GlobalPos, quadHeight)
+         GlobalPos = QPointF(leftEdge, GlobalPos.y()+quadHeight)
+         if r==0: 
+            rootPrefix.setPos(GlobalPos)
+            self.scene.addItem(rootPrefix)
+         elif r==2:
+            chainPrefix.setPos(GlobalPos)
+            self.scene.addItem(chainPrefix)
+
+         #movePosRight(GlobalPos, rowPrefixSz)
+         GlobalPos = QPointF(GlobalPos.x()+rowPrefixSz, GlobalPos.y())
+         for c,strQuad in enumerate(row):
+            obj = GfxItemText(strQuad, GlobalPos, self.scene, FontFix)
+            self.scene.addItem(obj)
+            #movePosRight(GlobalPos, quadWidth)
+            GlobalPos = QPointF(GlobalPos.x()+quadWidth, GlobalPos.y())
+         
+         
+
+      SIZE = 150
+      qrRightSide = PAPER_A4_WIDTH - paperMargin
+      qrLeftEdge  = qrRightSide - SIZE
+      qrTopStart  = topEdge + 0.5*paperMargin  # a little more margin
+      #qrWidth = min(qrRightSide - qrLeftEdge, 150)
+      #print 'qrLeft  =', qrLeftEdge
+      #print 'qrRight =', qrRightSide
+      #print 'qrWidth =', qrWidth
+      qrPos = QPointF(qrLeftEdge, qrTopStart)
+      #for row in rawTxt:
+         #fullRow = ' '.join(
+      data = '\n'.join([' '.join(row) for row in rawTxt])
+      objQR = GfxItemQRCode( qrPos, self.scene, data, SIZE)
+      self.scene.addItem( objQR )
+
 
       btnPrint = QPushButton('&Print...')
       self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
@@ -1179,6 +1408,8 @@ class DlgPaperBackup(QDialog):
       
        
    def print_(self):
+      self.printer = QPrinter(QPrinter.HighResolution)
+      self.printer.setPageSize(QPrinter.Letter)
       dialog = QPrintDialog(self.printer)
       if dialog.exec_():
           painter = QPainter(self.printer)
