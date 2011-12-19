@@ -523,41 +523,6 @@ def base58_to_binary(addr):
    return '\x00'*padding + binOut
 
 
-###### Typing-friendly Base16 #####
-def binary_to_typingBase16(binstr):
-   """
-   Implements "hexadecimal" encoding but using only easy-to-type
-   characters in the alphabet.  Hex usually includes the digits 0-9
-   which can be slow to type, even for good typists.  On the other
-   hand, by changing the alphabet to common, easily distinguishable,
-   lowercase characters, typing such strings will become dramatically
-   faster (use case is private keys to be entered manually... Base58
-   is less characters, but might be slower to type for some people
-   """
-   n = 0
-   for ch in binstr:
-      n *= 256
-      n += ord(ch)
-
-   b16 = ''
-   while n > 0:
-      n, r = divmod (n, 16)
-      b16 = BASE16CHARS[r] + b16
-   return b16.rjust(len(binstr)*2, BASE16CHARS[0])
-
-
-def typingBase16_to_binary(b16str):
-   n = 0
-   for ch in b16str:
-      n *= 16
-      n += BASE16CHARS.index(ch)
-
-   binOut = ''
-   while n>0:
-      d,m = divmod(n,256)
-      binOut = chr(m) + binOut
-      n = d
-   return binOut.rjust(len(b16str)/2,'\x00')
    
 
 
@@ -5140,7 +5105,7 @@ class PyBtcWallet(object):
    def __init__(self):
       self.fileTypeStr    = '\xbaWALLET\x00'
       self.magicBytes     = MAGIC_BYTES
-      self.version        = (1,0,0,0)  # (Major, Minor, Minor++, even-more-minor)
+      self.version        = PYBTCWALLET_VERSION  # (Major, Minor, Minor++, even-more-minor)
       self.eofByte        = 0
       self.cppWallet      = None   # Mirror of PyBtcWallet in C++ object
       self.cppInfo        = {}     # Extra info about each address to help sync
@@ -5175,8 +5140,8 @@ class PyBtcWallet(object):
       # Deterministic wallet, need a root key.  Though we can still import keys.
       # The unique ID contains the network byte (id[-1]) but is not intended to
       # resemble the address of the root key
-      self.wltUniqueIDBin = ''
-      self.wltUniqueIDB58 = ''   # Base58 version of reversed-wltUniqueIDBin
+      self.uniqueIDBin = ''
+      self.uniqueIDB58 = ''   # Base58 version of reversed-uniqueIDBin
       self.lastComputedChainAddr160  = ''
       self.lastComputedChainIndex = 0
       self.highestUsedChainIndex  = 0 
@@ -5400,8 +5365,8 @@ class PyBtcWallet(object):
       self.useEncryption = withEncrypt
       self.addrMap['ROOT'] = rootAddr
       self.addrMap[firstAddr.getAddr160()] = firstAddr
-      self.wltUniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:5])[::-1]
-      self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
+      self.uniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:5])[::-1]
+      self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
       self.labelName  = shortLabel[:32]
       self.labelDescr  = longLabel[:256]
       self.lastComputedChainAddr160 = first160
@@ -5419,7 +5384,7 @@ class PyBtcWallet(object):
          # This was really only needed when we were putting name in filename
          #for c in ',?;:\'"?/\\=+-|[]{}<>':
             #shortName = shortName.replace(c,'_')
-         newName = 'armory_%s_.wallet' % self.wltUniqueIDB58
+         newName = 'armory_%s_.wallet' % self.uniqueIDB58
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       print '   New wallet will be written to:', self.walletPath
@@ -5530,14 +5495,33 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def fillAddressPool(self, numPool=500):
+   def fillAddressPool(self, numPool=None):
+      if not numPool:
+         numPool = self.addrPoolSize
+
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       for i in range(numToCreate):
          self.computeNextAddress()
+      return self.lastComputedChainIndex
          
    #############################################################################
    def detectHighestUsedIndex(self, writeResultToWallet=False):
+      """
+      This method is used to find the highestUsedChainIndex value of the 
+      wallet WITHIN its address pool.  It will NOT extend its address pool
+      in this search, because it is assumed that the wallet couldn't have
+      used any addresses it had not calculated yet.
+
+      If you have a wallet IMPORT, though, of a wallet that has been used
+      before but does not have this information stored with it, then you
+      should be using the next method:
+
+            self.freshImportFindHighestIndex()
+
+      which will actually extend the address pool as necessary to find the
+      highest address used.      
+      """
       if not TheBDM.isInitialized():
          print 'Cannot detect any usage information without the blockchain'
          return -1
@@ -5560,7 +5544,44 @@ class PyBtcWallet(object):
 
 
       return highestIndex
-      
+
+
+   #############################################################################
+   def freshImportFindHighestIndex(self, stepSize=None):
+      """ 
+      This is much like detectHighestUsedIndex, except this will extend the
+      address pool as necessary.  It assumes that you have a fresh wallet
+      that has been used before, but was deleted and restored from its root
+      key and chaincode, and thus we don't know if only 10 or 10,000 addresses
+      were used.
+
+      If this was an exceptionally active wallet, it's possible that we
+      may need to manually increase the step size to be sure we find  
+      everything.  In fact, there is no way to tell FOR SURE what is the
+      last addressed used: one must make an assumption that the wallet 
+      never calculated more than X addresses without receiving a payment...
+      """
+      if not stepSize:
+         stepSize = self.addrPoolSize
+
+      topCompute = 0
+      topUsed    = 0
+      oldPoolSize = self.addrPoolSize
+      self.addrPoolSize = stepSize
+      # When we hit the highest address, the topCompute value will extend
+      # out [stepsize] addresses beyond topUsed, and the topUsed will not
+      # change, thus escaping the while loop
+      nWhile = 0
+      while topCompute - topUsed < 0.9*stepSize:
+         topCompute = self.fillAddressPool(stepSize)
+         topUsed = self.detectHighestUsedIndex(True)
+         nWhile += 1
+         if nWhile>10000:
+            raise WalletAddressError, 'Escaping inf loop in freshImport...'
+            
+
+      self.addrPoolSize = oldPoolSize
+      return topUsed
 
 
    #############################################################################
@@ -5624,7 +5645,7 @@ class PyBtcWallet(object):
       onlineWallet.commentsMap = self.commentsMap
       onlineWallet.opevalMap = self.opevalMap
 
-      onlineWallet.wltUniqueIDBin = self.wltUniqueIDBin
+      onlineWallet.uniqueIDBin = self.uniqueIDBin
       onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160
       onlineWallet.lastComputedChainIndex = self.lastComputedChainIndex
 
@@ -6089,7 +6110,7 @@ class PyBtcWallet(object):
       self.packWalletFlags(binPacker)
 
       # Binary Unique ID (rootAddr25bytes[:4][::-1])
-      binPacker.put(BINARY_CHUNK, self.wltUniqueIDBin, width=6)
+      binPacker.put(BINARY_CHUNK, self.uniqueIDBin, width=6)
 
       # Unix time of wallet creations
       binPacker.put(UINT64, self.wltCreateDate)
@@ -6144,8 +6165,8 @@ class PyBtcWallet(object):
 
       # This is the first 4 bytes of the 25-byte address-chain-root address
       # This includes the network byte (i.e. main network, testnet, namecoin)
-      self.wltUniqueIDBin = binUnpacker.get(BINARY_CHUNK, 6)
-      self.wltUniqueIDB58 = binary_to_base58(self.wltUniqueIDBin)
+      self.uniqueIDBin = binUnpacker.get(BINARY_CHUNK, 6)
+      self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
       self.wltCreateDate  = binUnpacker.get(UINT64)
 
       # We now have both the magic bytes and network byte
@@ -6154,7 +6175,7 @@ class PyBtcWallet(object):
          print '           Wallet is for:   ', BLOCKCHAINS[self.magicBytes]
          print '           ArmoryEngine:    ', BLOCKCHAINS[MAGIC_BYTES]
          return
-      if not self.wltUniqueIDBin[-1] == ADDRBYTE:
+      if not self.uniqueIDBin[-1] == ADDRBYTE:
          print '***ERROR:  Requested wallet is for a different network!'
          print '           Wallet is for:   ', NETWORKS[netByte]
          print '           ArmoryEngine:    ', NETWORKS[ADDRBYTE]
@@ -6194,6 +6215,7 @@ class PyBtcWallet(object):
       self.addrMap['ROOT'].walletByteLoc = self.offsetRootAddr
       if self.useEncryption:
          self.addrMap['ROOT'].isLocked = True
+         self.isLocked = True
 
       # In wallet version 1.0, this next kB is unused -- may be used in future
       binUnpacker.advance(1024)
@@ -7023,7 +7045,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def pprint(self, indent='', allAddrInfo=True):
-      print indent + 'PyBtcWallet  :', self.wltUniqueIDB58
+      print indent + 'PyBtcWallet  :', self.uniqueIDB58
       print indent + '   useEncrypt:', self.useEncryption
       print indent + '   watchOnly :', self.watchingOnly
       print indent + '   isLocked  :', self.isLocked
@@ -7047,7 +7069,7 @@ class PyBtcWallet(object):
    #############################################################################
    def isEqualTo(self, wlt2, debug=False):
       isEqualTo = True
-      isEqualTo = isEqualTo and (self.wltUniqueIDB58 == wlt2.wltUniqueIDB58)
+      isEqualTo = isEqualTo and (self.uniqueIDB58 == wlt2.uniqueIDB58)
       isEqualTo = isEqualTo and (self.labelName  == wlt2.labelName )
       isEqualTo = isEqualTo and (self.labelDescr == wlt2.labelDescr)
       try:

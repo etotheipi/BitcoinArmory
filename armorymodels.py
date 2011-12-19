@@ -37,7 +37,7 @@ class AllWalletsDispModel(QAbstractTableModel):
       COL = WLTVIEWCOLS
       row,col = index.row(), index.column()
       wlt = self.main.walletMap[self.main.walletIDList[row]]
-      wltID = wlt.wltUniqueIDB58
+      wltID = wlt.uniqueIDB58
       if role==Qt.DisplayRole:
          if col==COL.ID: 
             return QVariant(wltID)

@@ -386,7 +386,7 @@ class ArmoryMainWindow(QMainWindow):
       for fpath in wltPaths:
          try:
             wltLoad = PyBtcWallet().readWalletFile(fpath)
-            wltID = wltLoad.wltUniqueIDB58
+            wltID = wltLoad.uniqueIDB58
             if fpath in wltExclude or wltID in wltExclude:
                continue
 
@@ -431,7 +431,7 @@ class ArmoryMainWindow(QMainWindow):
       
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
-         print '   Wallet (%s):'.ljust(20) % wlt.wltUniqueIDB58,
+         print '   Wallet (%s):'.ljust(20) % wlt.uniqueIDB58,
          print '"'+wlt.labelName+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
 
@@ -748,7 +748,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       # Update the maps/dictionaries
-      newWltID = newWallet.wltUniqueIDB58
+      newWltID = newWallet.uniqueIDB58
       self.walletMap[newWltID] = newWallet
       self.walletIndices[newWltID] = len(self.walletMap)-1
 
@@ -821,7 +821,7 @@ class ArmoryMainWindow(QMainWindow):
                                            longLabel=descr)
 
       # Update the maps/dictionaries
-      #newWltID = newWallet.wltUniqueIDB58
+      #newWltID = newWallet.uniqueIDB58
       #self.walletMap[newWltID] = newWallet
       #self.walletIndices[newWltID] = len(self.walletMap)-1
 
@@ -852,6 +852,7 @@ class ArmoryMainWindow(QMainWindow):
             
    #############################################################################
    def execImportWallet(self):
+      print 'Executing!'
       dlg = DlgImportWallet(self)
       if dlg.exec_():
 
@@ -868,7 +869,11 @@ class ArmoryMainWindow(QMainWindow):
          elif dlg.importType_paper:
             dlgPaper = DlgImportPaperWallet(self)
             if dlgPaper.exec_():
-               self.addWalletToApplication(dlgPaper.wlt)
+               print 'Raw import successful.  Searching blockchain for tx data...'
+               highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+               print 'The highest index used was:', highestIdx
+               self.addWalletToApplication(dlgPaper.newWallet)
+               print 'Import Complete!'
          else:
             return
 

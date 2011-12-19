@@ -42,19 +42,19 @@ class DlgUnlockWallet(QDialog):
       layout = QGridLayout()
       layout.addWidget(lblDescr,       1, 0, 1, 2)
       layout.addWidget(lblPasswd,      2, 0, 1, 1)
-      layout.addWidget(self.edPasswd,  2, 1, 1, 1)
+      layout.addWidget(self.edtPasswd, 2, 1, 1, 1)
       layout.addWidget(buttonBox,      3, 1, 1, 2)
 
       self.setLayout(layout)
 
    def acceptPassphrase(self):
-      securePwd = SecureBinaryData(str(edtPasswd.text()))
+      securePwd = SecureBinaryData(str(self.edtPasswd.text()))
       try:
          self.wlt.unlock(securePassphrase=securePwd)
          self.accept()
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
-           'You entered your confirmation passphrase incorrectly!', QMessageBox.Ok)
+           'That passphrase is not correct!', QMessageBox.Ok)
          self.edtPasswd.setText('')
          return
 
@@ -637,6 +637,7 @@ class DlgWalletDetails(QDialog):
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
+            self.labelValues[WLTFIELDS.Crypto].setText('Encrypted')
             #self.accept()
       
 
@@ -651,6 +652,11 @@ class DlgWalletDetails(QDialog):
       pass
 
    def execPrintDlg(self):
+      if self.wlt.isLocked:
+         unlockdlg = DlgUnlockWallet(self.wlt, self)
+         if not unlockdlg.exec_():
+            return
+
       dlg = DlgPaperBackup(self.wlt, self)
       dlg.exec_()
       
@@ -673,7 +679,7 @@ class DlgWalletDetails(QDialog):
    def setWltDetailsFrame(self):
       dispCrypto = self.wlt.useEncryption and (self.usermode==USERMODE.Advanced or \
                                                self.usermode==USERMODE.Developer)
-      self.wltID = self.wlt.wltUniqueIDB58
+      self.wltID = self.wlt.uniqueIDB58
 
       if dispCrypto:
          kdftimestr = "%0.3f seconds" % self.wlt.testKdfComputeTime()
@@ -773,7 +779,7 @@ class DlgWalletDetails(QDialog):
       self.labelValues[WLTFIELDS.Name]    = QLabel(self.wlt.labelName)
       self.labelValues[WLTFIELDS.Descr]   = QLabel(self.wlt.labelDescr)
    
-      self.labelValues[WLTFIELDS.WltID]     = QLabel(self.wlt.wltUniqueIDB58)
+      self.labelValues[WLTFIELDS.WltID]     = QLabel(self.wlt.uniqueIDB58)
       self.labelValues[WLTFIELDS.NumAddr]   = QLabel(str(len(self.wlt.getLinearAddrList())))
       self.labelValues[WLTFIELDS.Secure]    = QLabel(self.typestr)
       self.labelValues[WLTFIELDS.BelongsTo] = QLabel('')
@@ -978,11 +984,12 @@ class DlgImportWallet(QDialog):
       self.btnImportPaper = QPushButton("Import from &paper backup")
 
       self.btnImportFile.setMinimumWidth(300)
+
       self.connect( self.btnImportFile, SIGNAL("clicked()"), \
                     self.getImportWltPath)
 
-      self.connect( self.btnImportFile, SIGNAL("clicked()"), \
-                    self.execImportPaperDlg)
+      self.connect( self.btnImportPaper, SIGNAL('clicked()'), \
+                    self.acceptPaper)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
                                  '.wallet extension.  Any wallet that you import will ' 
@@ -1037,17 +1044,151 @@ class DlgImportWallet(QDialog):
          self.accept()
 
       
-   def execImportPaperDlg(self):
+   def acceptPaper(self):
+      """
+      We will accept this dialog but signal to the caller that paper-import
+      was selected so that it can open the dialog for itself
+      """
       self.importType_file = False
       self.importType_paper = True
+      self.accept()
       
 
 
 
 #############################################################################
 class DlgImportPaperWallet(QDialog):
+
+   wltDataLines = [[]]*4
+   prevChars    = ['']*4
+
    def __init__(self, parent=None):
       super(DlgImportPaperWallet, self).__init__(parent)
+
+      self.main = parent
+      ROOT0, ROOT1, CHAIN0, CHAIN1 = range(4)
+      self.lineEdits = [QLineEdit() for i in range(4)]
+      self.prevChars = ['' for i in range(4)]
+
+      for i,edt in enumerate(self.lineEdits):
+         # I screwed up the ref/copy, this loop only connected the last one...
+         #theSlot = lambda: self.autoSpacerFunction(i)
+         #self.connect(edt, SIGNAL('textChanged(QString)'), theSlot)
+         edt.setMinimumWidth( tightSizeNChar(edt, 50)[0] )
+
+      # Just do it manually because it's guaranteed to work!
+      slot = lambda: self.autoSpacerFunction(0)
+      self.connect(self.lineEdits[0], SIGNAL('textEdited(QString)'), slot)
+
+      slot = lambda: self.autoSpacerFunction(1)
+      self.connect(self.lineEdits[1], SIGNAL('textEdited(QString)'), slot)
+
+      slot = lambda: self.autoSpacerFunction(2)
+      self.connect(self.lineEdits[2], SIGNAL('textEdited(QString)'), slot)
+
+      slot = lambda: self.autoSpacerFunction(3)
+      self.connect(self.lineEdits[3], SIGNAL('textEdited(QString)'), slot)
+
+      buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonbox, SIGNAL('accepted()'), self.verifyUserInput)
+      self.connect(buttonbox, SIGNAL('rejected()'), self.reject)
+
+      self.labels = [QLabel() for i in range(4)]
+      self.labels[0].setText('Root Key (1)')
+      self.labels[1].setText('Root Key (2)')
+      self.labels[2].setText('Chain Code (1)')
+      self.labels[3].setText('Chain Code (2)')
+
+      layout = QGridLayout()
+      layout.addWidget(QLabel('Enter the characters exactly as they are printed:'), 0,0, 1, 2)
+      for i,edt in enumerate(self.lineEdits):
+         layout.addWidget( self.labels[i],    i+1, 0)
+         layout.addWidget( self.lineEdits[i], i+1, 1)
+
+      layout.addWidget(buttonbox,  5, 0, 1, 2)
+      self.setLayout(layout)
+      
+
+
+   def autoSpacerFunction(self, i):
+      currStr = str(self.lineEdits[i].text())
+      currLen = len(currStr)
+
+      modAtEnd = ((currStr[:-1] == self.prevChars[i]     ) or \
+                  (currStr      == self.prevChars[i][:-1])     )
+      edt = self.lineEdits[i]
+      if currLen>len(self.prevChars[i]) and modAtEnd and currLen%5==4:
+         self.lineEdits[i].setText(currStr+' ')
+         self.lineEdits[i].cursorForward(False, 1)
+      elif currLen<len(self.prevChars[i]) and modAtEnd and currLen%5==0 and currLen!=0:
+         self.lineEdits[i].setText(currStr[:-1])
+
+      if not modAtEnd:
+         rawStr = str(self.lineEdits[i].text()).replace(' ','')
+         print rawStr
+         quads = [rawStr[j:j+4] for j in range(0,currLen, 4)]
+         print quads
+         self.lineEdits[i].setText(' '.join(quads))
+      
+      self.prevChars[i] = str(self.lineEdits[i].text())
+   
+
+   def verifyUserInput(self):
+      for i in range(4):
+         rawStr = typingBase16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
+         data, chk = rawStr[:16], rawStr[16:]
+         print len(data), len(chk)
+         data = verifyChecksum(data, chk)
+         if len(data)==0:
+            reply = QMessageBox.question(self, 'Verify Wallet ID', \
+               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
+               'printed on your paper backup?  If not, click "No" and reenter '
+               'key and chain-code data again.',
+               QMessageBox.Yes | QMessageBox.No)
+            #print 'BadData!'
+            #self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
+            #return
+
+         self.wltDataLines[i] = data
+
+      # If we got here, the data is valid, let's create the wallet and accept the dlg
+      privKey = ''.join(self.wltDataLines[:2])
+      chain   = ''.join(self.wltDataLines[2:])
+      print binary_to_hex(privKey)
+      print binary_to_hex(chain)
+      print binary_to_hex(privKey)
+      print binary_to_hex(chain)
+       
+      root = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
+      newWltID = binary_to_base58((ADDRBYTE + root.getAddr160()[:5])[::-1])
+
+      if self.main.walletMap.has_key(newWltID):
+         QMessageBox.question(self, 'Duplicate Wallet!', \
+               'The data you entered is for a wallet with a ID: \n\n \t' +
+               newWltID + '\n\n! This wallet is already loaded into Armory !\n'
+               '  You can only import wallets you do not already own!', \
+               QMessageBox.Ok)
+         return
+         
+      
+      
+      reply = QMessageBox.question(self, 'Verify Wallet ID', \
+               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
+               'printed on your paper backup?  If not, click "No" and reenter '
+               'key and chain-code data again.',
+               QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.No:
+         return
+      else:
+         self.newWallet = PyBtcWallet().createNewWallet(  \
+                                 plainRootKey=SecureBinaryData(privKey), \
+                                 chaincode=SecureBinaryData(chain), \
+                                 withEncrypt=False)
+         self.newWallet.setWalletLabels('PaperBackup - '+newWltID)
+         self.accept()
       
 
 
@@ -1225,8 +1366,16 @@ class DlgPaperBackup(QDialog):
    def __init__(self, wlt, parent=None):
       super(DlgPaperBackup, self).__init__(parent)
 
+
+      if not wlt.addrMap['ROOT'].hasPrivKey():
+         QMessageBox.warning(self, 'Move along...', \
+           'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
+         self.reject()
+
+
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
+      print wlt.useEncryption, wlt.isLocked
       if wlt.useEncryption and wlt.isLocked:
          dlg = DlgUnlockWallet(wlt, parent)
          if dlg.exec_():
@@ -1245,7 +1394,7 @@ class DlgPaperBackup(QDialog):
 
       sizeQR = 100
       INCH = 72
-      paperMargin = 0.5*INCH
+      paperMargin = 0.8*INCH
       
       leftEdge = 0.5*INCH
       topEdge  = 0.5*INCH
@@ -1286,7 +1435,7 @@ class DlgPaperBackup(QDialog):
       #movePosRight(GlobalPos, relaxedSizeStr(FontFix, 'W'*20)[0])
       GlobalPos = QPointF(GlobalPos.x()+relaxedSizeStr(FontFix, 'W'*14)[0], GlobalPos.y())
 
-      txt = GfxItemText(wlt.wltUniqueIDB58, GlobalPos, self.scene, FontVar)
+      txt = GfxItemText(wlt.uniqueIDB58, GlobalPos, self.scene, FontVar)
       self.scene.addItem( txt )
       #moveNewLine(GlobalPos, 20)
       #GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
@@ -1306,7 +1455,7 @@ class DlgPaperBackup(QDialog):
 
 
       #moveNewLine(GlobalPos, 20)
-      GlobalPos = QPointF(leftEdge, GlobalPos.y()+20)
+      GlobalPos = QPointF(leftEdge, GlobalPos.y()+50)
       warnMsg = ('WARNING: This page displays unprotected private-key data needed '
                  'to reconstruct your wallet, and spend your funds.  Please keep '
                  'this page in a safe place where only trusted persons can access it.')
@@ -1374,7 +1523,7 @@ class DlgPaperBackup(QDialog):
          
          
 
-      SIZE = 150
+      SIZE = 170
       qrRightSide = PAPER_A4_WIDTH - paperMargin
       qrLeftEdge  = qrRightSide - SIZE
       qrTopStart  = topEdge + 0.5*paperMargin  # a little more margin
@@ -1405,6 +1554,9 @@ class DlgPaperBackup(QDialog):
       layout.addWidget(bbox,      3,2, 1,2)
 
       self.setLayout(layout)
+
+      self.setWindowIcon(QIcon('img/printer_icon.png'))
+      self.setWindowTitle('Print Wallet Backup')
       
        
    def print_(self):
