@@ -5615,7 +5615,7 @@ class PyBtcWallet(object):
       """
       Make a copy of this wallet that contains no private key data
       """
-      if noPriv and not self.addrMap['ROOT'].hasPrivKey():
+      if not self.addrMap['ROOT'].hasPrivKey():
          print 'This wallet is already void of any private key data!'
 
       onlineWallet = PyBtcWallet()

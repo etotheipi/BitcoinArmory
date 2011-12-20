@@ -16,7 +16,7 @@ Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_CryptoTiming     = True
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -77,11 +77,11 @@ def printpassorfail(abool):
 #wlt2 = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
 #exit(0)
 
-print 'Start:', h
-print 'B16  :', b16
-print 'R/T  :', hagain
+#print 'Start:', h
+#print 'B16  :', b16
+#print 'R/T  :', hagain
 
-exit(0)
+#exit(0)
 
 
 
@@ -897,10 +897,15 @@ if Test_EncryptedWallet:
    # Remove wallet files, need fresh dir for this test
    
    shortlabel = 'TestWallet1'
-   fileA    = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_.wallet'
-   fileB    = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_backup.wallet'
-   fileAupd = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_backup_unsuccessful.wallet'
-   fileBupd = '/home/alan/.bitcoinarmory/armory_6Q168oJ7_update_unsuccessful.wallet'
+   wltID = '6Q168oJ7'
+   if USE_TESTNET:
+      wltID = '6Q168oL2'
+      
+   fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % wltID)
+   fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % wltID)
+   fileAupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup_unsuccessful.wallet' % wltID)
+   fileBupd = os.path.join(ARMORY_HOME_DIR, 'armory_%s_update_unsuccessful.wallet' % wltID)
+
    for f in (fileA, fileB, fileAupd, fileBupd):
       print 'Removing file:', f, 
       if os.path.exists(f):
@@ -1025,7 +1030,7 @@ if Test_EncryptedWallet:
    #############################################################################
    # !!!  #forkOnlineWallet()
    print '\n(6)Testing forking encrypted wallet for online mode'
-   wlt.forkWallet('OnlineVersionOfEncryptedWallet.bin')
+   wlt.forkOnlineWallet('OnlineVersionOfEncryptedWallet.bin')
    wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 

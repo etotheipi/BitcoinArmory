@@ -204,6 +204,7 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnSendBtc)
       layout.addWidget(btnRecvBtc)
       layout.addWidget(btnWltProps)
+      layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
 
@@ -594,7 +595,7 @@ class ArmoryMainWindow(QMainWindow):
                
 
       self.combinedLedger = []
-      if not wltIDList:
+      if wltIDList==None:
          return
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
@@ -763,12 +764,12 @@ class ArmoryMainWindow(QMainWindow):
          wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          wlt.syncWithBlockchain()
 
-         self.walletBalances.append(wlt.getBalance())
          self.walletSubLedgers.append([])
          for addr in wlt.getLinearAddrList():
             ledger = wlt.getTxLedger(addr.getAddr160())
             self.walletSubLedgers[-1].append(ledger)
          self.walletLedgers.append(wlt.getTxLedger())
+         self.walletBalances.append(wlt.getBalance())
       else:
          self.walletBalances.append(0)
          self.walletLedgers.append([])
@@ -865,14 +866,15 @@ class ArmoryMainWindow(QMainWindow):
 
             print 'Copying imported wallet to:', newpath
             shutil.copy(self.importFile, newpath)
-            self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath))
+            self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
+                                                               walletIsNew=False)
          elif dlg.importType_paper:
             dlgPaper = DlgImportPaperWallet(self)
             if dlgPaper.exec_():
                print 'Raw import successful.  Searching blockchain for tx data...'
                highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
                print 'The highest index used was:', highestIdx
-               self.addWalletToApplication(dlgPaper.newWallet)
+               self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
                print 'Import Complete!'
          else:
             return

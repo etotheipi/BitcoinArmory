@@ -631,12 +631,14 @@ class DlgWalletDetails(QDialog):
          if self.disableEncryption:
             self.wlt.changeWalletEncryption(None, None)
             #self.accept()
+            print 'Should change to no encryption...'
             self.labelValues[WLTFIELDS.Crypto].setText('No Encryption')
          else:
             if not self.wlt.useEncryption:
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
+            print 'Should change to encrypted...'
             self.labelValues[WLTFIELDS.Crypto].setText('Encrypted')
             #self.accept()
       
@@ -994,7 +996,7 @@ class DlgImportWallet(QDialog):
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
                                  '.wallet extension.  Any wallet that you import will ' 
                                  'be copied into your settings directory, and maintained '
-                                 'from there.  The original wallet file will not be touched.')
+                                 'there.  The original wallet file will not be touched.')
 
       ttip2 = createToolTipObject('If you have previously made a paper backup of '
                                   'a wallet, you can manually enter the wallet '
@@ -1095,13 +1097,19 @@ class DlgImportPaperWallet(QDialog):
       self.connect(buttonbox, SIGNAL('rejected()'), self.reject)
 
       self.labels = [QLabel() for i in range(4)]
-      self.labels[0].setText('Root Key (1)')
-      self.labels[1].setText('Root Key (2)')
-      self.labels[2].setText('Chain Code (1)')
-      self.labels[3].setText('Chain Code (2)')
+      self.labels[0].setText('Root Key')
+      self.labels[1].setText('')
+      self.labels[2].setText('Chain Code')
+      self.labels[3].setText('')
 
+      lblDescr = QLabel( 
+          'Enter the characters exactly as they are printed on the '
+          'paper-backup page.  Alternatively, you can scan the QR '
+          'code from another application, then copy&paste into the '
+          'entry boxes below.')
+      lblDescr.setWordWrap(True)
       layout = QGridLayout()
-      layout.addWidget(QLabel('Enter the characters exactly as they are printed:'), 0,0, 1, 2)
+      layout.addWidget(lblDescr, 0,0, 1, 2)
       for i,edt in enumerate(self.lineEdits):
          layout.addWidget( self.labels[i],    i+1, 0)
          layout.addWidget( self.lineEdits[i], i+1, 1)
@@ -1126,40 +1134,45 @@ class DlgImportPaperWallet(QDialog):
 
       if not modAtEnd:
          rawStr = str(self.lineEdits[i].text()).replace(' ','')
-         print rawStr
          quads = [rawStr[j:j+4] for j in range(0,currLen, 4)]
-         print quads
          self.lineEdits[i].setText(' '.join(quads))
       
       self.prevChars[i] = str(self.lineEdits[i].text())
    
 
    def verifyUserInput(self):
+      nError = 0
       for i in range(4):
-         rawStr = typingBase16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
+         rawStr = easyType16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
          data, chk = rawStr[:16], rawStr[16:]
-         print len(data), len(chk)
-         data = verifyChecksum(data, chk)
-         if len(data)==0:
-            reply = QMessageBox.question(self, 'Verify Wallet ID', \
-               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
-               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
-               'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.',
-               QMessageBox.Yes | QMessageBox.No)
-            #print 'BadData!'
-            #self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
-            #return
+         fixedData = verifyChecksum(data, chk)
+         if len(fixedData)==0:
+            reply = QMessageBox.critical(self, 'Verify Wallet ID', \
+               'There is an error in the data you entered that could not be '
+               'fixed automatically.  Please double-check that you entered the '
+               'text exactly as it appears on the wallet-backup page.', \
+               QMessageBox.Ok)
+            print 'BadData!'
+            self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
+            return
+         if not fixedData==data:
+            data = fixedData
+            nError+=1
 
          self.wltDataLines[i] = data
 
+      if nError>0:
+         pluralStr = 'error' if nError==1 else 'errors'
+         QMessageBox.question(self, 'Errors Corrected!', \
+            'Detected ' + str(nError) + ' ' + pluralStr + ' '
+            'in the data you entered.  Armory attempted to fix the ' + 
+            pluralStr + ' but it is not always right.  Be sure '
+            'to verify the "Wallet Unique ID" closely on the next window.', \
+            QMessageBox.Ok)
+            
       # If we got here, the data is valid, let's create the wallet and accept the dlg
       privKey = ''.join(self.wltDataLines[:2])
       chain   = ''.join(self.wltDataLines[2:])
-      print binary_to_hex(privKey)
-      print binary_to_hex(chain)
-      print binary_to_hex(privKey)
-      print binary_to_hex(chain)
        
       root = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
       newWltID = binary_to_base58((ADDRBYTE + root.getAddr160()[:5])[::-1])
@@ -1178,7 +1191,7 @@ class DlgImportPaperWallet(QDialog):
                'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
                newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
                'printed on your paper backup?  If not, click "No" and reenter '
-               'key and chain-code data again.',
+               'key and chain-code data again.', \
                QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.No:
          return
@@ -1246,17 +1259,18 @@ PAPER_A4_HEIGHT = 11.0*PAPER_DPI
 #  preserve the capitalization of the letters, meaning that Base58
 #  is not a feasible options
 NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
-BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+#BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+BASE16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
 hex_to_base16_map = {}
 base16_to_hex_map = {}
 for n,b in zip(NORMALCHARS,BASE16CHARS):
    hex_to_base16_map[n] = b
    base16_to_hex_map[b] = n
 
-def binary_to_typingBase16(binstr):
+def binary_to_easyType16(binstr):
    return ''.join([hex_to_base16_map[c] for c in binary_to_hex(binstr)])
 
-def typingBase16_to_binary(b16str):
+def easyType16_to_binary(b16str):
    return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
 
 
@@ -1375,7 +1389,6 @@ class DlgPaperBackup(QDialog):
 
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
-      print wlt.useEncryption, wlt.isLocked
       if wlt.useEncryption and wlt.isLocked:
          dlg = DlgUnlockWallet(wlt, parent)
          if dlg.exec_():
@@ -1484,8 +1497,8 @@ class DlgPaperBackup(QDialog):
                        (self.binChain0, self.binChain0Chk), \
                        (self.binChain1, self.binChain1Chk)]:
          rawTxt.append([])
-         data16 = binary_to_typingBase16(data)
-         chk16  = binary_to_typingBase16(chk)
+         data16 = binary_to_easyType16(data)
+         chk16  = binary_to_easyType16(chk)
          for c in range(0,32,4):
             rawTxt[-1].append( data16[c:c+4] )
          rawTxt[-1].append( chk16 )
@@ -1525,7 +1538,7 @@ class DlgPaperBackup(QDialog):
 
       SIZE = 170
       qrRightSide = PAPER_A4_WIDTH - paperMargin
-      qrLeftEdge  = qrRightSide - SIZE
+      qrLeftEdge  = qrRightSide - SIZE - 25
       qrTopStart  = topEdge + 0.5*paperMargin  # a little more margin
       #qrWidth = min(qrRightSide - qrLeftEdge, 150)
       #print 'qrLeft  =', qrLeftEdge
