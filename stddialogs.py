@@ -683,6 +683,11 @@ class DlgWalletDetails(QDialog):
          if not unlockdlg.exec_():
             return
 
+      if not self.wlt.addrMap['ROOT'].hasPrivKey():
+         QMessageBox.warning(self, 'Move along...', \
+           'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
+         return 
+
       dlg = DlgPaperBackup(self.wlt, self)
       dlg.exec_()
       
@@ -1466,22 +1471,42 @@ class DlgRemoveWallet(QDialog):
          wlt.syncWithBlockchain()
          bal = wlt.getBalance()
          lbls.append([])
-         lbls[3].append(QLabel('Balance:'))
+         lbls[3].append(QLabel('Current Balance:'))
          if bal>0:
-            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, 4)+'</b></font>'))
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal)+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
             wltEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal, 4)))
+            lbls[3].append(QLabel(coin2str(bal) + ' BTC'))
 
+
+      # Add two WARNING images on either side of dialog
+      lblWarnImg = QLabel()
+      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      lblWarnImg2 = QLabel()
+      lblWarnImg2.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      # Add the warning text and images to the top of the dialog
       layout = QGridLayout()
-      layout.addWidget(lblWarning,  0, 0, 1, 3)
-      layout.addWidget(lblWarning2, 1, 0, 1, 3)
+      layout.addWidget(lblWarning,  0, 1, 1, 1)
+      layout.addWidget(lblWarning2, 1, 1, 1, 1)
+      layout.addWidget(lblWarnImg,  0, 0, 2, 1)
+      layout.addWidget(lblWarnImg2,  0, 2, 2, 1)
+
+      frmInfo = QFrame()
+      frmInfo.setFrameStyle(QFrame.Box|QFrame.Plain)
+      frmInfo.setLineWidth(3)
+      frmInfoLayout = QGridLayout()
       for i in range(len(lbls)):
          lbls[i][0].setText('<b>'+lbls[i][0].text()+'</b>')
          lbls[i][0].setTextFormat(Qt.RichText)
-         layout.addWidget(lbls[i][0],  2+i, 0)
-         layout.addWidget(lbls[i][1],  2+i, 1, 1, 2)
+         frmInfoLayout.addWidget(lbls[i][0],  i, 0)
+         frmInfoLayout.addWidget(lbls[i][1],  i, 1, 1, 2)
+
+      frmInfo.setLayout(frmInfoLayout)
+      layout.addWidget(frmInfo, 2, 0, 2, 3)
 
       if not wltEmpty:
          lbl = QLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
@@ -1490,27 +1515,28 @@ class DlgRemoveWallet(QDialog):
          lbl.setTextFormat(Qt.RichText)
          lbl.setWordWrap(True)
          lbls.append(lbl)
-         layout.addWidget(lbl, len(lbls)+1, 0, 1, 3)
+         layout.addWidget(lbl, 4, 0, 1, 3)
 
-      self.radioExclude = QRadioButton('Keep wallet file but "exclude" from Armory')
+      self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
       self.radioDelete  = QRadioButton('Permanently delete this wallet')
       self.radioWatch   = QRadioButton('Convert wallet to watching-only wallet')
 
       # Make sure that there can only be one selection
-      btngrp = QButtonGroup()
+      btngrp = QButtonGroup(self)
       btngrp.addButton(self.radioExclude)
       btngrp.addButton(self.radioDelete)
       btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
-      lblExcludeDescr = QLabel('This will remove the wallet from the main Armory '
-                              'display, and any funds available to this wallet '
-                              'will no longer be considered part of your balance.  '
+      lblExcludeDescr = QLabel('This will not delete any files, but will add this '
+                              'wallet to the "ignore list."  This means that Armory '
+                              'will no longer show this wallet in the main screen '
+                              'and none of its funds will be added to your balance.  '
                               'You can re-include this wallet in Armory at a later '
                               'time by selecting the "Excluded Wallets..." option '
                               'in the "Wallets" menu.')
       lblDeleteDescr = QLabel('This will delete the wallet file, removing '
-                              'all private keys from your settings directory.  '
+                              'all its private keys from your settings directory.  '
                               'If you intend to keep using addresses from this '
                               'wallet, do not select this option unless the wallet '
                               'is backed up elsewhere.')
@@ -1523,26 +1549,37 @@ class DlgRemoveWallet(QDialog):
                               'remove the private data from this system for security.</i>  '
                               '(This will delete the private keys, so make sure they '
                               'are backed in some way before selecting this option).')
+
+      if wlt.watchingOnly:
+         lblDeleteDescr = QLabel('This will delete the wallet file from your system.  '
+                                 'Since this is a watching-only wallet, no private keys '
+                                 'will be deleted.')
+         
       for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
          lbl.setWordWrap(True)
          lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
 
       self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
 
-      startRow = len(lbls)+2
+      startRow = 5 if wltEmpty else 4
+      self.frm = []
       for rdo,lbl in [(self.radioExclude, lblExcludeDescr), \
                       (self.radioDelete,  lblDeleteDescr), \
                       (self.radioWatch,   lblWatchDescr)]:
-
          startRow +=1 
-         frm = QFrame()
-         frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+         self.frm.append(QFrame())
+         self.frm[-1].setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
          frmLayout = QHBoxLayout()
          frmLayout.addWidget(rdo)
          frmLayout.addWidget(lbl)
-         frm.setLayout(frmLayout)
-         layout.addWidget(frm, startRow, 0, 1, 3)
+         self.frm[-1].setLayout(frmLayout)
+         layout.addWidget(self.frm[-1], startRow, 0, 1, 3)
+
       self.radioExclude.setChecked(True)
+
+      if wlt.watchingOnly:
+         self.frm[-1].setVisible(False)
+         
    
       startRow +=1
       layout.addWidget( self.chkPrintBackup, startRow, 0, 1, 3)
@@ -1561,6 +1598,7 @@ class DlgRemoveWallet(QDialog):
       layout.addWidget(buttonBox, startRow, 0, 1, 3)
 
       self.setLayout(layout)
+      self.setWindowTitle('Delete Wallet Options')
 
       
    def removeWallet(self, wlt):
@@ -1576,6 +1614,8 @@ class DlgRemoveWallet(QDialog):
       # If they only want to exclude the wallet, we will add it to the excluded
       # list and remove it from the application.  The wallet files will remain
       # in the settings directory but will be ignored by Armory
+
+      wltID = wlt.uniqueIDB58
       if self.radioExclude.isChecked():
          reply = QMessageBox.warning(self, 'Verify Intentions', \
            'Are you sure you want to remove this wallet from your Armory '
@@ -1585,8 +1625,10 @@ class DlgRemoveWallet(QDialog):
            QMessageBox.Yes | QMessageBox.Cancel)
 
          if reply==QMessageBox.Yes:
-            self.main.main.removeWalletFromApplication(wlt.uniqueIDB58)
+            self.main.main.removeWalletFromApplication(wltID)
             self.main.main.settings.extend('Excluded_Wallets', wlt.walletPath)
+            self.main.main.statusBar().showMessage( \
+                     'Wallet '+wltID+' was added to the ignore list.', 20000)
             self.main.accept()
             self.accept()
          else:
@@ -1599,7 +1641,6 @@ class DlgRemoveWallet(QDialog):
            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
          if reply==QMessageBox.Yes:
 
-            wltID = wlt.uniqueIDB58
             thepath = wlt.walletPath
             thepathpieces = os.path.splitext(wlt.walletPath)
             thepathBackup = thepathpieces[0] + 'backup' + thepathpieces[1]
@@ -1607,24 +1648,35 @@ class DlgRemoveWallet(QDialog):
             if self.radioWatch.isChecked():
                print '***Converting to watching-only wallet'
                newWltPath = thepathpieces[0] + '_WatchOnly' + thepathpieces[1]
-               newWlt = wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
+               wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
+               newWlt = PyBtcWallet().readWalletFile(newWltPath)
                newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
                newWlt.syncWithBlockchain()
 
-               os.path.remove(thepath)
-               os.path.remove(thepathBackup)
+               os.remove(thepath)
+               os.remove(thepathBackup)
                self.main.main.walletMap[wltID] = newWlt
+               self.main.main.statusBar().showMessage( \
+                     'Wallet '+wltID+' was replaced with a watching-only wallet.', 10000)
             elif self.radioDelete.isChecked():
                print '***Completely deleting wallet'
-               os.path.remove(thepath)
-               os.path.remove(thepathBackup)
-               removeWalletFromApplication(wlt) 
+               os.remove(thepath)
+               os.remove(thepathBackup)
+               self.main.main.removeWalletFromApplication(wltID) 
+               self.main.main.statusBar().showMessage( \
+                     'Wallet '+wltID+' was deleted!', 10000)
 
             self.main.accept()
             self.accept()
          else:
             self.reject()
 
+
+class DlgAddressProperties(QDialog):
+   def __init__(self, wlt, parent=None):
+      super(DlgAddressProperties, self).__init__(parent)
+
+   
 
       
          
@@ -1647,10 +1699,6 @@ class DlgPaperBackup(QDialog):
       super(DlgPaperBackup, self).__init__(parent)
 
 
-      if not wlt.addrMap['ROOT'].hasPrivKey():
-         QMessageBox.warning(self, 'Move along...', \
-           'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
-         self.reject()
 
 
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()

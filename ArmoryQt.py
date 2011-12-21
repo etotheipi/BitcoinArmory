@@ -197,6 +197,7 @@ class ArmoryMainWindow(QMainWindow):
       btnWltProps  = QPushButton("Wallet Properties")
  
 
+      self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
    
       # QTableView.selectedIndexes to get the selection
 
@@ -711,13 +712,12 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
-   def execDlgWalletDetails(self, index):
+   def execDlgWalletDetails(self, index=None):
+      if index==None:
+         index = self.walletsView.selectedIndexes()[0]
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self)
-      # I think I don't actually need to do anything here:  the dialog 
-      # updates the wallet data directly, if necessary
       dialog.exec_()
-      # Okay, well we do need to make sure that any changes are reflected in views
       self.walletListChanged()
          
          
@@ -788,10 +788,6 @@ class ArmoryMainWindow(QMainWindow):
    def removeWalletFromApplication(self, wltID):
 
       idx = -1
-      print self.walletBalances
-      print self.walletIndices
-      print self.walletIDList
-      print self.walletIDSet
       try:
          idx = self.walletIndices[wltID]
       except KeyError:
@@ -810,12 +806,6 @@ class ArmoryMainWindow(QMainWindow):
       for i,wltID in enumerate(self.walletIDList):
          self.walletIndices[wltID] = i
 
-      print '\n\nAfter removal but before walletListChanged'
-      print self.walletMap
-      print self.walletIndices
-      print self.walletIDSet
-      print self.walletIDList
-      print self.walletBalances
       self.walletListChanged()
 
    
@@ -832,7 +822,7 @@ class ArmoryMainWindow(QMainWindow):
          descr    = str(dlg.edtDescr.toPlainText())
          kdfSec   = dlg.kdfSec
          kdfBytes = dlg.kdfBytes
-         doFork   = dlg.chkForkOnline.isChecked() 
+
          # If this will be encrypted, we'll need to get their passphrase
          passwd = []
          if dlg.chkUseCrypto.isChecked():
@@ -873,11 +863,10 @@ class ArmoryMainWindow(QMainWindow):
 
       self.addWalletToApplication(newWallet)
 
-      if doFork:
-         dlgfork = DlgForkWallet(self)
-         if dlgfork.exec_():
-            newPath = str(dlgfork.edtPath.text())
-            newWallet.forkWallet(newPath)
+      if dlg.chkPrintPaper.isChecked():
+         dlg = DlgPaperBackup(newWallet, self)
+         dlg.exec_()
+
 
 
    #############################################################################
