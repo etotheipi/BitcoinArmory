@@ -20,7 +20,7 @@ Test_CryptoTiming     = True
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
-Test_SettingsFile     = True
+Test_SettingsFile     = False
 
 '''
 import optparse
@@ -927,6 +927,7 @@ if Test_EncryptedWallet:
                                        chaincode=chainstr,   \
                                        IV=theIV, \
                                        shortLabel=shortlabel)
+   wlt.addrPoolSize = 5
 
    print 'New wallet is at:', wlt.getWalletPath()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
@@ -950,6 +951,21 @@ if Test_EncryptedWallet:
    wlt2 = PyBtcWallet().readWalletFile(wlt.walletPath)
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
    printpassorfail(wlt.isEqualTo(wlt2, debug=debugPrintAlot))
+
+   print '\n(2a)Testing deleteImportedAddress'
+   print '\nWallet size before delete:',  os.path.getsize(wlt.walletPath)
+   print '\n#Addresses before delete:', len(wlt.linearAddr160List)
+   toDelete160 = convertKeyDataToAddress(privKey2)
+   wlt.deleteImportedAddress(toDelete160)
+   print '\nWallet size after delete:',  os.path.getsize(wlt.walletPath)
+   print '\n(2a) #Addresses after delete:', len(wlt.linearAddr160List)
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   print '\n(2a) Reimporting address for remaining tests'
+   print '\nWallet size before reimport:',  os.path.getsize(wlt.walletPath)
+   wlt.importExternalAddressData(privKey=privKey2)
+   print '\nWallet size after  reimport:',  os.path.getsize(wlt.walletPath)
+   wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    #############################################################################
    # Now play with encrypted wallets

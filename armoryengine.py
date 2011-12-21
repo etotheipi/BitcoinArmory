@@ -4977,6 +4977,7 @@ WLT_DATATYPE_KEYDATA     = 0
 WLT_DATATYPE_ADDRCOMMENT = 1
 WLT_DATATYPE_TXCOMMENT   = 2
 WLT_DATATYPE_OPEVAL      = 3
+WLT_DATATYPE_DELETED     = 4
 
 DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
@@ -6244,6 +6245,10 @@ class PyBtcWallet(object):
          binData = binUnpacker.get(BINARY_CHUNK, commentLen)
       elif dtype==WLT_DATATYPE_OPEVAL:
          raise NotImplementedError, 'OP_EVAL not support in wallet yet'
+      elif dtype==WLT_DATATYPE_DELETED:
+         deletedLen = binUnpacker.get(UINT16)
+         binUnpacker.advance(deletedLen)
+         
 
       return (dtype, hashVal, binData)
 
@@ -6308,6 +6313,8 @@ class PyBtcWallet(object):
             self.commentLocs[hashVal] = byteLocation
          if dtype==WLT_DATATYPE_OPEVAL:
             raise NotImplementedError, 'OP_EVAL not support in wallet yet'
+         if dtype==WLT_DATATYPE_DELETED:
+            pass
 
 
       if (skipBlockChainScan or \
@@ -6624,6 +6631,40 @@ class PyBtcWallet(object):
    #def getAddrByIndex(self, i):
       #return self.addrMap.values()[i]
 
+   #############################################################################
+   def deleteImportedAddress(self, addr160):
+      """
+      We want to overwrite a particular key in the wallet.  Before overwriting
+      the data looks like this:
+         [  \x00  |  <20-byte addr160>  |  <237-byte keydata> ]
+      And we want it to look like:
+         [  \x04  |  <2-byte length>  | \x00\x00\x00... ]
+      So we need to construct a wallet-update vector to modify the data
+      starting at the first byte, replace it with 0x04, specifies how many
+      bytes are in the deleted entry, and then actually overwrite those 
+      bytes with 0s
+      """
+
+      if not self.addrMap[addr160].chainIndex==-2:
+         raise WalletAddressError, 'You can only delete imported addresses!'
+
+      overwriteLoc = self.addrMap[addr160].walletByteLoc - 21
+      overwriteLen = 20 + self.pybtcaddrSize - 2
+
+      overwriteBin = ''
+      overwriteBin += int_to_binary(WLT_DATATYPE_DELETED, widthBytes=1)
+      overwriteBin += int_to_binary(overwriteLen,         widthBytes=2)
+      overwriteBin += '\x00'*overwriteLen
+
+      self.walletFileSafeUpdate([[WLT_UPDATE_MODIFY, overwriteLoc, overwriteBin]])
+
+      # IMPORTANT:  we need to update the wallet structures to reflect the
+      #             new state of the wallet.  This will actually be easiest
+      #             if we just "forget" the current wallet state and re-read
+      #             the wallet from file
+      wltPath = self.walletPath
+      self.readWalletFile(wltPath)
+      
 
    #############################################################################
    def importExternalAddressData(self, privKey=None, privChk=None, \
@@ -6698,6 +6739,9 @@ class PyBtcWallet(object):
          raise ECDSA_Error, 'Supplied address hash does not match key data!'
 
       addr20 = computedAddr20
+      
+      if self.addrMap.has_key(addr20):
+         return None
 
       # If a private key is supplied and this wallet is encrypted&locked, then 
       # we have no way to secure the private key without unlocking the wallet.

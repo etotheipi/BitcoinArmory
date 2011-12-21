@@ -144,7 +144,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      btnAddWallet = QPushButton("Add Wallet")
+      btnAddWallet = QPushButton("Create New Wallet")
       btnImportWlt = QPushButton("Import Wallet")
       self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
       self.connect(btnImportWlt, SIGNAL('clicked()'), self.execImportWallet)

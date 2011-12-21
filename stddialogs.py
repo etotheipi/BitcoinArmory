@@ -130,6 +130,8 @@ class DlgNewWallet(QDialog):
       lblComputeMem  = QLabel('Max &memory usage (kB, MB):')
       lblComputeMem.setBuddy(self.edtComputeMem)
 
+      self.edtComputeTime.setMaximumWidth( tightSizeNChar(self, 20)[0] )
+      self.edtComputeMem.setMaximumWidth( tightSizeNChar(self, 20)[0] )
 
       #self.chkForkOnline = QCheckBox('Create an "&online" copy of this wallet')
 
@@ -431,8 +433,11 @@ class DlgPasswd3(QDialog):
          'Bitcoin Armory wallet encryption is designed to be extremely difficult to '
          'crack, even with GPU-acceleration.  No one can help you recover your coins '
          'if you forget your passphrase, not even the developers of this software. '
-         'If you are inclined to forget your passphrase, please write it down and '
-         'store it in a secure location.')
+         'If you are inclined to forget your passphrase, please either write it down '
+         'or print a paper backup of you wallet and keep it in a secure location. '
+         '<font color="gray">(A paper backup can be used to restore a wallet without '
+         'knowing the passphrase, but will not be able to restore any imported addresses).')
+      lblWarnTxt2.setTextFormat(Qt.RichText)
 
       lblWarnTxt3 = QLabel( \
          'If you are sure you will remember it, you will have no problem '
@@ -532,8 +537,7 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
       self.wltAddrView.setMinimumWidth(800)
-      initialColResize(self.wltAddrView, [0.2, 0.5, 64, 0.3])
-
+      initialColResize(self.wltAddrView, [0.2, 0.5, 64, 80, 0.3])
    
       # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
@@ -559,26 +563,30 @@ class DlgWalletDetails(QDialog):
          lbtnChangeCrypto = QLabelButton(s)
          self.connect(lbtnChangeCrypto, SIGNAL('clicked()'), self.changeEncryption)
 
-      lbtnGenAddr = QLabelButton('Get New Address')
-      lbtnForkWlt = QLabelButton('Fork Watching-Only Wallet Copy')
+      lbtnGenAddr = QLabelButton('Generate New Address')
+      lbtnImportA = QLabelButton('Import External Address')
+      lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
       lbtnExport  = QLabelButton('Make Digital Backup')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
       self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
       self.connect(lbtnRemove, SIGNAL('clicked()'), self.execRemoveDlg)
+      self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       optLayout = QVBoxLayout()
       optLayout.addWidget(lbtnChangeLabels)
 
-      if not self.wlt.watchingOnly:
-         optLayout.addWidget(lbtnChangeCrypto)
-
       optLayout.addWidget(lbtnGenAddr)
-      optLayout.addWidget(lbtnForkWlt)
-      optLayout.addWidget(lbtnMkPaper)
+
+      if not self.wlt.watchingOnly:
+         optLayout.addWidget(lbtnForkWlt)
+         optLayout.addWidget(lbtnChangeCrypto)
+         optLayout.addWidget(lbtnImportA)
+         optLayout.addWidget(lbtnMkPaper)
+
       optLayout.addWidget(lbtnExport)
       optLayout.addWidget(lbtnRemove)
       optLayout.addStretch()
@@ -621,6 +629,18 @@ class DlgWalletDetails(QDialog):
 
       
 
+   #############################################################################
+   def dblClickAddressView(self, index):
+      model = index.model()
+      if index.column()==ADDRESSCOLS.Comment:
+         self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
+      else:
+         dlg = DlgAddressInfo(self, addr)
+         dlg.exec_()
+         #currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
+
+
+   #############################################################################
    def changeLabels(self):
       dlgLabels = DlgChangeLabels(self.wlt.labelName, self.wlt.labelDescr, self)
       if dlgLabels.exec_():
@@ -635,6 +655,7 @@ class DlgWalletDetails(QDialog):
          self.labelValues[WLTFIELDS.Descr].setText(newDescr)
 
 
+   #############################################################################
    def changeEncryption(self):
       dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
       if dlgCrypt.exec_():
@@ -655,15 +676,14 @@ class DlgWalletDetails(QDialog):
          if self.disableEncryption:
             self.wlt.changeWalletEncryption(None, None)
             #self.accept()
-            print 'Should change to no encryption...'
-            self.labelValues[WLTFIELDS.Crypto].setText('No Encryption')
+            self.labelValues[WLTFIELDS.Secure].setText('No Encryption')
          else:
             if not self.wlt.useEncryption:
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
-            print 'Should change to encrypted...'
-            self.labelValues[WLTFIELDS.Crypto].setText('Encrypted')
+            print self.labelValues
+            self.labelValues[WLTFIELDS.Secure].setText('Encrypted')
             #self.accept()
       
 
@@ -695,6 +715,23 @@ class DlgWalletDetails(QDialog):
       dlg = DlgRemoveWallet(self.wlt, self)
       if dlg.exec_():
          pass # not sure that I don't handle everything in the dialog itself
+
+   def execImportAddress(self):
+   
+         
+      if not self.main.settings.hasSetting('DNAA_ImportWarning') \
+         or not self.main.settings.get('DNAA_ImportWarning'):
+         DlgImportWarning(self).exec_()
+
+
+      # Now we are past the [potential] warning box.  Actually open
+      # The import dialog, now
+      dlg = DlgImportAddress(self.wlt, self)
+      dlg.exec_()
+         
+      
+   
+         
          
 
 
@@ -1008,6 +1045,180 @@ class DlgWalletDetails(QDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
+
+#############################################################################
+# Display a warning box about import backups, etc
+class DlgImportWarning(QDialog):
+   def __init__(self, parent=None):
+      super(DlgImportWarning, self).__init__(parent)
+      self.main=parent
+      lblWarn = QLabel( 'Armory supports importing of external '
+            'addresses into your wallet, including encryption, '
+            'but imported addresses will <b>not</b> be included '
+            'in paper backups.  Watching-only wallets will include '
+            'imported addresses if the watching-only wallet was '
+            'created after the address was imported.')
+      lblWarn.setTextFormat(Qt.RichText)
+      lblWarn.setWordWrap(True)
+
+      lblWarnImg = QLabel()
+      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      self.chkDNAA = QCheckBox('Do not show this message again')
+      bbox = QDialogButtonBox( QDialogButtonBox.Ok )
+      self.connect(bbox, SIGNAL('accepted()'), self.acceptWarning)
+      layout = QGridLayout()
+      layout.addWidget(lblWarnImg,   0,0, 1,1)
+      layout.addWidget(lblWarn,      0,1, 1,1)
+      layout.addWidget(bbox,         1,0, 1,2)
+      layout.addWidget(self.chkDNAA, 2,0, 1,2)
+      self.setLayout(layout)
+      self.setWindowTitle('Warning')
+
+   def acceptWarning(self):
+      if self.chkDNAA.isChecked():
+         self.main.settings.set('DNAA_ImportWarning', True)
+      self.accept()
+
+
+
+#############################################################################
+class DlgImportAddress(QDialog):
+   def __init__(self, wlt, parent=None):
+      super(DlgImportAddress, self).__init__(parent)
+
+      self.wlt = wlt
+      self.main = parent
+      descrText = ('If you have a private key that you would like to '
+                   'add to this wallet, please enter it below.  If it '
+                   'is in a format supported by Armory, it will be '
+                   'detected automatically and imported appropriately.  ')
+      if self.main.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         descrText += ('Supported formats are any hexadecimal or Base58 '
+                       'representation of a 32-byte private key, and '
+                       'mini-private-key format not requiring PBKDF2.  '
+                       '(PBKDF2 support will be added in the future).')
+         
+      lblDescr = QLabel(descrText)
+      lblDescr.setWordWrap(True)
+
+
+      lblPrivData = QLabel('Private Key Data:')
+      self.edtPrivData = QLineEdit()
+      self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*60)[0])
+
+      buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                                   QDialogButtonBox.Cancel)
+      self.connect(buttonbox, SIGNAL('accepted()'), self.processUserString)
+      self.connect(buttonbox, SIGNAL('rejected()'), self.reject)
+
+      
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,          0, 0, 1, 2)
+      layout.addWidget(lblPrivData,       1, 0, 1, 1)
+      layout.addWidget(self.edtPrivData,  1, 1, 1, 1)
+      layout.addWidget(buttonbox,         2, 0, 1, 2)
+
+      self.setWindowTitle('Private Key Import')
+      self.setLayout(layout)
+
+
+
+   def processUserString(self):
+      theStr = str(self.edtPrivData.text()).strip()
+      hexChars = '01234567890abcdef'
+      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
+      b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
+      canBeHex = hexCount==len(theStr)
+      canBeB58 = b58Count==len(theStr)
+
+      binEntry = ''
+      if canBeB58 and not canBeHex:
+         binEntry = base58_to_binary(theStr)
+
+      if canBeHex:  
+         binEntry = hex_to_binary(theStr)
+
+      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==0x80):
+         if len(theStr)==36:
+            keydata = hex_to_binary(theStr[:64 ])
+            chk     = hex_to_binary(theStr[ 64:])
+            binEntry = verifyChecksum(keydata, chk)
+         else:
+            # Assume leading 0x80 byte, and 4 byte checksum
+            keydata = hex_to_binary(theStr[1:1+64 ])
+            chk     = hex_to_binary(theStr[  1+64:])
+            binEntry = verifyChecksum(keydata, chk)
+
+         if binEntry=='':
+            QMessageBox.warning(self, 'Entry Error',
+               'The private key data you supplied appears to '
+               'contain a consistency check.  This consistency '
+               'check failed.  Please verify you entered the '
+               'key data correctly.', QMessageBox.Ok)
+            return
+
+      binKeyData, addr160, addrStr = '','',''
+      # Regardless of format, if this is a valid key, it should be 32 bytes
+      if len(binEntry)==32:
+         # Support raw private keys
+         binKeyData = binEntry
+         addr160 = convertKeyDataToAddress(privKey=binKeyData)
+         addrStr = hash160_to_addrStr(addr160)
+
+         reply = QMessageBox.question(self, 'Verify Address', \
+               'The key data you entered appears to correspond to '
+               'the following Bitcoin address:\n\n\t' + addrStr +
+               '\n\nIs this the correct address?',
+                QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+         if reply==QMessageBox.Cancel:
+            return 
+         else:
+            if reply==QMessageBox.No:
+               binKeyData = binary_switchEndian(binEntry)
+               addr160 = convertKeyDataToAddress(privKey=binKeyData)
+               addrStr = hash160_to_addrStr(addr160)
+               reply = QMessageBox.question(self, 'Try Again', \
+                     'It is possible that the key was supplied in a '
+                     '"reversed" form.  When the data you provide is '
+                     'reversed, the following address is obtained:\n\n\t '
+                     + addrStr + '\n\nIs this the correct address?', \
+                     QMessageBox.Yes | QMessageBox.No)
+               if reply==QMessageBox.No:
+                  binKeyData='' 
+
+      if binKeyData=='':
+         reply = QMessageBox.critical(self, 'Invalid Key Format', \
+               'The data you supplied is not a recognized format '
+               'for private key data.', \
+               QMessageBox.Ok)
+         return
+
+      # Finally, let's add the address to the wallet
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         dlg = DlgUnlockWallet(wlt, self.main.main)
+         if not dlg.exec_():
+            reply = QMessageBox.critical(self, 'Wallet is locked',
+               'New private key data cannot be imported unless the wallet is '
+               'unlocked.  Please try again when you have the passphrase.',\
+               QMessageBox.Ok)
+
+      self.wlt.importExternalAddressData( privKey=binKeyData)
+      self.main.main.statusBar().showMessage( 'Successful import of address ' \
+                                 + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
+      
+      if TheBDM.isInitialized():
+         self.wlt.syncWithBlockchain()
+
+      self.main.wltAddrView.reset()
+      self.main.main.walletListChanged()
+      self.accept()
+
+
 #############################################################################
 class DlgImportWallet(QDialog):
    def __init__(self, parent=None):
@@ -1090,6 +1301,13 @@ class DlgImportWallet(QDialog):
       self.accept()
       
 
+class DlgAddressInfo(QDialog):
+   def __init__(self, wlt, addr160, parent=None):
+      super(DlgAddressInfo, self).__init__(parent)
+
+      
+      self.setLayout(layout)
+      self.setWindowTitle('Address Info - ' + hash160_to_addrStr(addr160))
 
 
 #############################################################################
@@ -1234,6 +1452,7 @@ class DlgImportPaperWallet(QDialog):
       privKey = ''.join(self.wltDataLines[:2])
       chain   = ''.join(self.wltDataLines[2:])
        
+kdjlfdkj
       root = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
       newWltID = binary_to_base58((ADDRBYTE + root.getAddr160()[:5])[::-1])
 
@@ -1288,7 +1507,7 @@ class DlgSetComment(QDialog):
    def __init__(self, currcomment='', ctype='', parent=None):
       super(DlgSetComment, self).__init__(parent)
 
-      self.setWindowTitle('add/change comment')
+      self.setWindowTitle('Add or Change Comment')
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \

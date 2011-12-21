@@ -15,7 +15,7 @@ from qtdefines import *
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
                    'Comment', 'Amount', 'isOther', 'WltID', 'TxHash')
-ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Balance')
+ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
 
 
@@ -364,7 +364,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       return len(self.addr160List)
 
    def columnCount(self, index=QModelIndex()):
-      return 4
+      return 5
 
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRESSCOLS
@@ -383,13 +383,18 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.NumTx: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( len(cppAddr.getTxLedger()) )
+         if col==COL.Imported:
+            if self.wlt.addrMap[addr160].chainIndex==-2:
+               return QVariant('Imported')
+            else:
+               return QVariant()
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( coin2str(cppAddr.getBalance()) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         elif col in (COL.NumTx,):
+         elif col in (COL.NumTx,COL.Imported):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
@@ -416,10 +421,11 @@ class WalletAddrDispModel(QAbstractTableModel):
       COL = ADDRESSCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Address: return QVariant( 'Address' )
-            if section==COL.Comment: return QVariant( 'Comment' )
-            if section==COL.NumTx:   return QVariant( '#Tx'     )
-            if section==COL.Balance: return QVariant( 'Balance' )
+            if section==COL.Address:  return QVariant( 'Address' )
+            if section==COL.Comment:  return QVariant( 'Comment' )
+            if section==COL.NumTx:    return QVariant( '#Tx'     )
+            if section==COL.Imported: return QVariant( ''        )
+            if section==COL.Balance:  return QVariant( 'Balance' )
          elif role==Qt.TextAlignmentRole:
             if section in (COL.Address, COL.Comment):
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
