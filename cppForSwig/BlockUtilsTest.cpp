@@ -47,14 +47,14 @@ int main(void)
    string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
 
-   printTestHeader("Read-and-Organize-Blockchain");
-   TestReadAndOrganizeChain(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain");
+   //TestReadAndOrganizeChain(blkfile);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   printTestHeader("Wallet-Relevant-Tx-Scan");
-   TestScanForWalletTx(blkfile);
+   //printTestHeader("Wallet-Relevant-Tx-Scan");
+   //TestScanForWalletTx(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);

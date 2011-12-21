@@ -4,6 +4,7 @@ from PyQt4.QtGui  import *
 
 SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE = enum('Standard', 'Advanced', 'Developer')
+ARMORYMODE = enum('WITH_BLOCKCHAIN', 'WALLET_ONLY')
 WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')

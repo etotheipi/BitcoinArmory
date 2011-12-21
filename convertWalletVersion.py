@@ -15,7 +15,7 @@ for f in os.listdir(ARMORY_HOME_DIR):
 
 for fpath in wltPaths:
    wltLoad = PyBtcWallet().readWalletFile(fpath)
-   wltID = wltLoad.wltUniqueIDB58
+   wltID = wltLoad.uniqueIDB58
    print 'Read wallet:', wltID, 'version:', wltLoad.version
    oldPath = wltLoad.walletPath
    print 'Will upgrade version to:', oldPath, PYBTCWALLET_VERSION

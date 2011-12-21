@@ -50,6 +50,9 @@ that all features with an X in either column are accessible in SWIG.
             Windows: "http://www.riverbankcomputing.co.uk/software/pyqt/download"
                      Also will need the QtSDK
 
+   - qt4reactor.py -- combined eventloop for PyQt and Twisted
+            All OS:   https://launchpad.net/qt4reactor
+
    - py2exe
             (OPTIONAL - if you want to make a standalone executable in Windows)
             Windows: http://www.py2exe.org/

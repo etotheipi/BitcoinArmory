@@ -546,10 +546,32 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
 
 /////////////////////////////////////////////////////////////////////////////
 // Deterministically generate new private key using a chaincode
+// Changed:  added using the hash of the public key to the mix
+//           b/c multiplying by the chaincode alone is too "linear"
+//           (there's no reason to believe it's insecure, but it doesn't
+//           hurt to add some extra entropy/non-linearity to the chain
+//           generation process)
 SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                                  SecureBinaryData const & binPrivKey,
-                                 SecureBinaryData const & chainCode)
+                                 SecureBinaryData const & chainCode,
+                                 SecureBinaryData binPubKey)
 {
+
+   if( binPubKey.getSize()==0 )
+      binPubKey = ComputePublicKey(binPrivKey);
+
+   // Adding extra entropy to chaincode by xor'ing with hash256 of pubkey
+   BinaryData chainMod  = binPubKey.getHash256();
+   BinaryData chainOrig = chainCode.getRawCopy();
+   BinaryData chainXor(32);
+      
+   for(uint8_t i=0; i<8; i++)
+   {
+      uint8_t offset = 4*i;
+      *(uint32_t*)(chainXor.getPtr()+offset) =
+                           *(uint32_t*)( chainMod.getPtr()+offset) ^ 
+                           *(uint32_t*)(chainOrig.getPtr()+offset);
+   }
 
    // Hard-code the order of the group
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData().CreateFromHex(
@@ -557,7 +579,7 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
    
    CryptoPP::Integer chaincode, origPrivExp, ecOrder;
    // A 
-   chaincode.Decode(chainCode.getPtr(), chainCode.getSize());
+   chaincode.Decode(chainXor.getPtr(), chainXor.getSize());
    // B 
    origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize());
    // C
@@ -582,9 +604,22 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData::CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
+   // Added extra entropy to chaincode by xor'ing with hash256 of pubkey
+   BinaryData chainMod  = binPubKey.getHash256();
+   BinaryData chainOrig = chainCode.getRawCopy();
+   BinaryData chainXor(32);
+      
+   for(uint8_t i=0; i<8; i++)
+   {
+      uint8_t offset = 4*i;
+      *(uint32_t*)(chainXor.getPtr()+offset) =
+                           *(uint32_t*)( chainMod.getPtr()+offset) ^ 
+                           *(uint32_t*)(chainOrig.getPtr()+offset);
+   }
+
    // Parse the chaincode as a big-endian integer
    CryptoPP::Integer chaincode;
-   chaincode.Decode(chainCode.getPtr(), chainCode.getSize());
+   chaincode.Decode(chainXor.getPtr(), chainXor.getSize());
 
    // "new" init as "old", to make sure it's initialized on the correct curve
    BTC_PUBKEY oldPubKey = ParsePublicKey(binPubKey); 

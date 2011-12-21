@@ -162,7 +162,7 @@ public:
    void reserve(size_t sz) { BinaryData::reserve(sz); lockData(); }
 
 
-   BinaryData    getRawCopy(void) { return BinaryData(getPtr(),    getSize()); }
+   BinaryData    getRawCopy(void) const { return BinaryData(getPtr(), getSize()); }
    BinaryDataRef getRawRef(void)  { return BinaryDataRef(getPtr(), getSize()); }
 
    SecureBinaryData copySwapEndian(size_t pos1=0, size_t pos2=0) const;
@@ -173,8 +173,8 @@ public:
    //uint8_t const & operator[](size_t i) const {return BinaryData::operator[](i);}
    bool operator==(SecureBinaryData const & sbd2) const;
 
-   BinaryData getHash256(void) { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
-   BinaryData getHash160(void) { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
+   BinaryData getHash256(void) const { return BtcUtils::getHash256(getPtr(), (uint32_t)getSize()); }
+   BinaryData getHash160(void) const { return BtcUtils::getHash160(getPtr(), (uint32_t)getSize()); }
 
    // This would be a static method, as would be appropriate, except SWIG won't
    // play nice with static methods.  Instead, we will just use 
@@ -368,8 +368,15 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode
-   SecureBinaryData ComputeChainedPrivateKey(SecureBinaryData const & binPrivKey,
-                                             SecureBinaryData const & chainCode);
+   // Changed:  Added using the hash of the public key to the mix
+   //           b/c multiplying by the chaincode alone is too "linear"
+   //           (there's no reason to believe it's insecure, but it doesn't
+   //           hurt to add some extra entropy/non-linearity to the chain
+   //           generation process)
+   SecureBinaryData ComputeChainedPrivateKey(
+                     SecureBinaryData const & binPrivKey,
+                     SecureBinaryData const & chainCode,
+                     SecureBinaryData binPubKey=SecureBinaryData());
                                
    /////////////////////////////////////////////////////////////////////////////
    // Deterministically generate new private key using a chaincode

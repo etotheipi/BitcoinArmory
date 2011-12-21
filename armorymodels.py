@@ -253,15 +253,6 @@ class LedgerDispModel(QAbstractTableModel):
       elif role==Qt.DecorationRole:
          if col==COL.NumConf:
             return QVariant(nConf)
-            #icons = ['icons/conf%d.png'%i for i in range(6)]
-            #if nConf<6:
-               #return QVariant(QIcon(icons[nConf]))
-            #else:
-               #return QVariant(QIcon('icons/conf6_chk_blue.png'))
-            #if le.getValue()>0:
-               #return QVariant(QIcon('icons/moneyIn.png'))
-            #else:
-               #return QVariant(QIcon('icons/moneyOut.png'))
       elif role==Qt.BackgroundColorRole:
          if determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly:
             return QVariant( Colors.LightGray )
@@ -321,25 +312,25 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
-         pixmaps = ['icons/conf%d.png'%i for i in range(6)]
+         pixmaps = ['img/conf%d.png'%i for i in range(6)]
          if nConf<6:
             image = QImage(pixmaps[nConf])
          else:
-            image = QImage('icons/conf6_chk_blue.png')
+            image = QImage('img/conf6_chk_blue.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
-         pixmap.scaled(70, 30, Qt.KeepAspectRatio)
+         #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
          painter.drawPixmap(option.rect, pixmap)
       elif index.column() == self.COL.TxDir:
          txdir = str(index.model().data(index).toInt())
          image = QImage()
          if txdir[0] > 0:
-            image = QImage('icons/moneyIn.png')
+            image = QImage('img/moneyIn.png')
          else:
-            image = QImage('icons/moneyOut.png')
+            image = QImage('img/moneyOut.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
-         pixmap.scaled(70, 30, Qt.KeepAspectRatio)
+         #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
          painter.drawPixmap(option.rect, pixmap)
       else:
          QStyledItemDelegate.paint(self, painter, option, index)

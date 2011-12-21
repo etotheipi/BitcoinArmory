@@ -436,6 +436,10 @@ class ArmoryMainWindow(QMainWindow):
          print '"'+wlt.labelName+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
 
+      savedDir = self.settings.get('LastDirectory')
+      if len(savedDir) or not os.path.exists(savedDir):
+         savedDir = ARMORY_HOME_DIR
+      self.lastDirectory = savedDir
 
    
    #############################################################################
@@ -781,8 +785,37 @@ class ArmoryMainWindow(QMainWindow):
 
       
    #############################################################################
-   def removeWalletFromApplication(self):
+   def removeWalletFromApplication(self, wltID):
 
+      idx = -1
+      print self.walletBalances
+      print self.walletIndices
+      print self.walletIDList
+      print self.walletIDSet
+      try:
+         idx = self.walletIndices[wltID]
+      except KeyError:
+         print 'Invalid wallet ID passed to "removeWalletFromApplication"'
+         raise WalletExistsError
+
+      del self.walletMap[wltID]
+      del self.walletIndices[wltID]
+      self.walletIDSet.remove(wltID)
+      del self.walletIDList[idx]
+      del self.walletLedgers[idx]
+      del self.walletSubLedgers[idx]
+      del self.walletBalances[idx]
+
+      # Reconstruct walletIndices
+      for i,wltID in enumerate(self.walletIDList):
+         self.walletIndices[wltID] = i
+
+      print '\n\nAfter removal but before walletListChanged'
+      print self.walletMap
+      print self.walletIndices
+      print self.walletIDSet
+      print self.walletIDList
+      print self.walletBalances
       self.walletListChanged()
 
    
@@ -790,6 +823,11 @@ class ArmoryMainWindow(QMainWindow):
    def createNewWallet(self):
       dlg = DlgNewWallet(self)
       if dlg.exec_():
+
+         if dlg.selectedImport:
+            self.execImportWallet()
+            return
+            
          name     = str(dlg.edtName.text())
          descr    = str(dlg.edtDescr.toPlainText())
          kdfSec   = dlg.kdfSec
@@ -957,13 +995,30 @@ if __name__ == '__main__':
    (options, args) = parser.parse_args()
 
 
+   armorymode = ARMORYMODE.WITH_BLOCKCHAIN
+   try:
+      import urllib2
+      response=urllib2.urlopen('http://google.com',timeout=1)
+   except (ImportError, urllib2.URLError):
+      dlg = DlgGetArmoryModeSelection()
+      if dlg.exec_():
+         if dlg.wltonly:
+            armorymode = ARMORYMODE.WALLET_ONLY
+         
 
    app = QApplication(sys.argv)
    import qt4reactor
    qt4reactor.install()
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath)
-   form.show()
+
+   if armorymode == ARMORYMODE.WITH_BLOCKCHAIN:
+      form = ArmoryMainWindow(settingsPath=options.settingsPath)
+      form.show()
+   elif armorymode == ARMORYMODE.WALLET_ONLY:
+      form = ArmoryWalletMgmtWindow(settingsPath=options.settingsPath)
+      form.show()
+
+
 
    # TODO:  How the hell do I get it to shutdown when the MainWindow is closed?
    from twisted.internet import reactor

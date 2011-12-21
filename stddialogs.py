@@ -70,6 +70,8 @@ class DlgNewWallet(QDialog):
    def __init__(self, parent=None):
       super(DlgNewWallet, self).__init__(parent)
 
+      self.selectedImport = False
+
       # Options for creating a new wallet
       lblDlgDescr = QLabel('Create a new wallet for managing your funds.\n'
                            'The name and description can be changed at any time.')
@@ -128,14 +130,15 @@ class DlgNewWallet(QDialog):
       lblComputeMem  = QLabel('Max &memory usage (kB, MB):')
       lblComputeMem.setBuddy(self.edtComputeMem)
 
-      self.chkForkOnline = QCheckBox('Create an "&online" copy of this wallet')
 
-      onlineToolTip = createToolTipObject(
-                             'An "online" wallet is a copy of your primary wallet, but '
-                             'without any sensitive data that would allow an attacker to '
-                             'obtain access to your funds.  An "online" wallet can '
-                             'generate new addresses and verify incoming payments '
-                             'but cannot be used to spend any of the funds.')
+      #self.chkForkOnline = QCheckBox('Create an "&online" copy of this wallet')
+
+      #onlineToolTip = createToolTipObject(
+                             #'An "online" wallet is a copy of your primary wallet, but '
+                             #'without any sensitive data that would allow an attacker to '
+                             #'obtain access to your funds.  An "online" wallet can '
+                             #'generate new addresses and verify incoming payments '
+                             #'but cannot be used to spend any of the funds.')
       # Fork watching-only wallet
 
 
@@ -147,25 +150,39 @@ class DlgNewWallet(QDialog):
       cryptoLayout.addWidget(timeDescrTip,        1, 3, 1, 1)
       cryptoLayout.addWidget(self.edtComputeMem,  2, 1, 1, 1)
       cryptoLayout.addWidget(memDescrTip,         2, 3, 1, 1)
-      cryptoLayout.addWidget(self.chkForkOnline,  3, 0, 1, 1)
-      cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
+      #cryptoLayout.addWidget(self.chkForkOnline,  3, 0, 1, 1)
+      #cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
 
       self.cryptoFrame = QFrame()
       self.cryptoFrame.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
       self.cryptoFrame.setLayout(cryptoLayout)
       self.cryptoFrame.setVisible(False)
 
-      #self.chkWatchOnly = QCheckBox("Make this a watching-only wallet\n(no private key data)")
-      self.chkUseCrypto = QCheckBox("Use wallet &encryption")
+      self.chkUseCrypto  = QCheckBox("Use wallet &encryption")
       self.chkUseCrypto.setChecked(True)
       usecryptoTooltip = createToolTipObject(
                                  'Encryption prevents anyone who accesses your computer '
-                                 'from being able to spend your funds, but does require '
-                                 'typing in a passphrase before you can send money. '
+                                 '(or wallet file) from being able to spend your money, but it '
+                                 'will require '
+                                 'typing in a passphrase every time you want send money.'
+                                 'However, you *can* still see incoming transactions and '
+                                 'generate new receiving addresses without supplying your '
+                                 'passphrase.\n\n '
                                  'You can choose to encrypt your wallet at a later time '
-                                 'through the wallet options by double clicking the wallet '
-                                 'on the dashboard.')
+                                 'through the wallet properties dialog by double clicking '
+                                 'the wallet on the dashboard.')
 
+      # For a new wallet, the user may want to print out a paper backup
+      self.chkPrintPaper = QCheckBox("Print a paper-backup of this wallet")
+      paperBackupTooltip = createToolTipObject(
+                  'A paper-backup allows you to recover your wallet/funds even '
+                  'if you lose your original wallet file, any time in the future. '
+                  'Because Armory uses "deterministic wallets," '
+                  'a single backup when the wallet is first made is sufficient '
+                  'for all future transactions (except ones to imported '
+                  'addresses).\n\n'
+                  'Anyone who gets ahold of your paper backup will be able to spend '
+                  'the money in your wallet, so please secure it appropriately.')
 
       
       self.btnAccept    = QPushButton("Accept")
@@ -187,22 +204,24 @@ class DlgNewWallet(QDialog):
 
       self.btnImportWlt = QPushButton("Import wallet...")
       self.connect( self.btnImportWlt, SIGNAL("clicked()"), \
-                    self.getImportWltPath)
+                    self.importButtonClicked)
       
       masterLayout = QGridLayout()
-      masterLayout.addWidget(lblDlgDescr,       1, 0, 1, 2)
-      masterLayout.addWidget(self.btnImportWlt, 1, 2, 1, 1)
-      masterLayout.addWidget(lblName,           2, 0, 1, 1)
-      masterLayout.addWidget(self.edtName,      2, 1, 1, 2)
-      masterLayout.addWidget(lblDescr,          3, 0, 1, 2)
-      masterLayout.addWidget(self.edtDescr,     3, 1, 2, 2)
-      masterLayout.addWidget(self.chkUseCrypto, 5, 0, 1, 1)
-      masterLayout.addWidget(usecryptoTooltip,  5, 1, 1, 1)
-      masterLayout.addWidget(self.cryptoFrame,  7, 0, 3, 3)
+      masterLayout.addWidget(lblDlgDescr,        1, 0, 1, 2)
+      masterLayout.addWidget(self.btnImportWlt,  1, 2, 1, 1)
+      masterLayout.addWidget(lblName,            2, 0, 1, 1)
+      masterLayout.addWidget(self.edtName,       2, 1, 1, 2)
+      masterLayout.addWidget(lblDescr,           3, 0, 1, 2)
+      masterLayout.addWidget(self.edtDescr,      3, 1, 2, 2)
+      masterLayout.addWidget(self.chkUseCrypto,  5, 0, 1, 1)
+      masterLayout.addWidget(usecryptoTooltip,   5, 1, 1, 1)
+      masterLayout.addWidget(self.chkPrintPaper, 6, 0, 1, 1)
+      masterLayout.addWidget(paperBackupTooltip, 6, 1, 1, 1)
+      masterLayout.addWidget(self.cryptoFrame,   8, 0, 3, 3)
    
-      masterLayout.addWidget(self.btnbox,      10, 0, 1, 2)
+      masterLayout.addWidget(self.btnbox,       11, 0, 1, 2)
 
-      masterLayout.setVerticalSpacing(15)
+      masterLayout.setVerticalSpacing(5)
      
       self.setLayout(masterLayout)
 
@@ -215,6 +234,10 @@ class DlgNewWallet(QDialog):
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
 
+
+   def importButtonClicked(self):
+      self.selectedImport = True
+      self.accept()
 
    def verifyInputsBeforeAccept(self):
 
@@ -543,6 +566,7 @@ class DlgWalletDetails(QDialog):
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
       self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
+      self.connect(lbtnRemove, SIGNAL('clicked()'), self.execRemoveDlg)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
@@ -662,6 +686,11 @@ class DlgWalletDetails(QDialog):
       dlg = DlgPaperBackup(self.wlt, self)
       dlg.exec_()
       
+   def execRemoveDlg(self):
+      dlg = DlgRemoveWallet(self.wlt, self)
+      if dlg.exec_():
+         pass # not sure that I don't handle everything in the dialog itself
+         
 
 
    # A possible way to remove an existing layout 
@@ -1102,26 +1131,51 @@ class DlgImportPaperWallet(QDialog):
       self.labels[2].setText('Chain Code')
       self.labels[3].setText('')
 
-      lblDescr = QLabel( 
+      lblDescr1 = QLabel( 
           'Enter the characters exactly as they are printed on the '
           'paper-backup page.  Alternatively, you can scan the QR '
           'code from another application, then copy&paste into the '
           'entry boxes below.')
-      lblDescr.setWordWrap(True)
-      layout = QGridLayout()
-      layout.addWidget(lblDescr, 0,0, 1, 2)
-      for i,edt in enumerate(self.lineEdits):
-         layout.addWidget( self.labels[i],    i+1, 0)
-         layout.addWidget( self.lineEdits[i], i+1, 1)
+      lblDescr2 = QLabel( 
+          'The data can be entered <i>with</i> or <i>without</i> '
+          'spaces, and up to '
+          'one character per line will be corrected automatically.')
+      for lbl in (lblDescr1, lblDescr2):
+         lbl.setTextFormat(Qt.RichText)
+         lbl.setWordWrap(True)
 
-      layout.addWidget(buttonbox,  5, 0, 1, 2)
+      layout = QGridLayout()
+      layout.addWidget(lblDescr1, 0, 0, 1, 2)
+      layout.addWidget(lblDescr2, 1, 0, 1, 2)
+      for i,edt in enumerate(self.lineEdits):
+         layout.addWidget( self.labels[i],    i+2, 0)
+         layout.addWidget( self.lineEdits[i], i+2, 1)
+
+      layout.addWidget(buttonbox,  6, 0, 1, 2)
+      layout.setVerticalSpacing(10)
       self.setLayout(layout)
       
 
 
    def autoSpacerFunction(self, i):
       currStr = str(self.lineEdits[i].text())
+      rawStr  = currStr.replace(' ','')
+      if len(rawStr) > 36:
+         rawStr = rawStr[:36]
+
+      if len(rawStr)==36:
+         quads = [rawStr[j:j+4] for j in range(0,36, 4)]
+         self.lineEdits[i].setText(' '.join(quads))
+         
+      """
+      currStr = str(self.lineEdits[i].text())
       currLen = len(currStr)
+
+      rawStr  = currStr.replace(' ','')
+      rawLen  = len(rawStr)
+
+      if rawLen > 36:
+         rawStr = rawStr[:36]
 
       modAtEnd = ((currStr[:-1] == self.prevChars[i]     ) or \
                   (currStr      == self.prevChars[i][:-1])     )
@@ -1138,6 +1192,7 @@ class DlgImportPaperWallet(QDialog):
          self.lineEdits[i].setText(' '.join(quads))
       
       self.prevChars[i] = str(self.lineEdits[i].text())
+      """
    
 
    def verifyUserInput(self):
@@ -1205,6 +1260,19 @@ class DlgImportPaperWallet(QDialog):
       
 
 
+class DlgSaveWalletCopy(QDialog):
+   def __init__(self, filetypeList=['Wallet files (*.wallet)'], parent=None):
+      super(DlgSaveWalletCopy, self).__init__(parent)
+
+      #if parent.lastDirectory:
+         #startDir = parent.
+
+      typelist = list(filetypeList) # make a copy
+      typelist.append('All files (*)')
+      self.saveFile = QFileDialog.getSaveFileName(self, 'Save Wallet File', \
+                                       self.lastDirectory, ';; '.join(typelist))
+
+      self.lastDirectory = os.path.split(self.saveFile)[0]
 
 
 ################################################################################
@@ -1362,6 +1430,204 @@ class GfxItemQRCode(QGraphicsItem):
             if (self.qr.isDark(c, r) ):
                painter.drawRect(*[self.modSz*a for a in [r,c,1,1]])
 
+
+class DlgRemoveWallet(QDialog):
+   def __init__(self, wlt, parent=None):
+      super(DlgRemoveWallet, self).__init__(parent)
+      
+      self.main = parent
+      wltID = wlt.uniqueIDB58
+      wltName = wlt.labelName
+      wltDescr = wlt.labelDescr
+      lblWarning = QLabel( '<b>!!! WARNING !!!</b>\n\n')
+      lblWarning.setTextFormat(Qt.RichText)
+      lblWarning.setAlignment(Qt.AlignHCenter)
+
+      lblWarning2 = QLabel( '<i>You have requested that the following wallet '
+                            'be removed from Armory:</i>')
+      lblWarning.setTextFormat(Qt.RichText)
+      lblWarning.setWordWrap(True)
+      lblWarning.setAlignment(Qt.AlignHCenter)
+
+      lbls = []
+      lbls.append([])
+      lbls[0].append(QLabel('Wallet Unique ID:'))
+      lbls[0].append(QLabel(wltID))
+      lbls.append([])
+      lbls[1].append(QLabel('Wallet Name:'))
+      lbls[1].append(QLabel(wlt.labelName))
+      lbls.append([])
+      lbls[2].append(QLabel('Description:'))
+      lbls[2].append(QLabel(wlt.labelDescr))
+      lbls[2][-1].setWordWrap(True)
+
+      wltEmpty = True
+      if TheBDM.isInitialized():
+         wlt.syncWithBlockchain()
+         bal = wlt.getBalance()
+         lbls.append([])
+         lbls[3].append(QLabel('Balance:'))
+         if bal>0:
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, 4)+'</b></font>'))
+            lbls[3][-1].setTextFormat(Qt.RichText)
+            wltEmpty = False
+         else:
+            lbls[3].append(QLabel(coin2str(bal, 4)))
+
+      layout = QGridLayout()
+      layout.addWidget(lblWarning,  0, 0, 1, 3)
+      layout.addWidget(lblWarning2, 1, 0, 1, 3)
+      for i in range(len(lbls)):
+         lbls[i][0].setText('<b>'+lbls[i][0].text()+'</b>')
+         lbls[i][0].setTextFormat(Qt.RichText)
+         layout.addWidget(lbls[i][0],  2+i, 0)
+         layout.addWidget(lbls[i][1],  2+i, 1, 1, 2)
+
+      if not wltEmpty:
+         lbl = QLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
+                      'have a backup on paper or saved to a another location '
+                      'outside your settings directory.</b>')
+         lbl.setTextFormat(Qt.RichText)
+         lbl.setWordWrap(True)
+         lbls.append(lbl)
+         layout.addWidget(lbl, len(lbls)+1, 0, 1, 3)
+
+      self.radioExclude = QRadioButton('Keep wallet file but "exclude" from Armory')
+      self.radioDelete  = QRadioButton('Permanently delete this wallet')
+      self.radioWatch   = QRadioButton('Convert wallet to watching-only wallet')
+
+      # Make sure that there can only be one selection
+      btngrp = QButtonGroup()
+      btngrp.addButton(self.radioExclude)
+      btngrp.addButton(self.radioDelete)
+      btngrp.addButton(self.radioWatch)
+      btngrp.setExclusive(True)
+
+      lblExcludeDescr = QLabel('This will remove the wallet from the main Armory '
+                              'display, and any funds available to this wallet '
+                              'will no longer be considered part of your balance.  '
+                              'You can re-include this wallet in Armory at a later '
+                              'time by selecting the "Excluded Wallets..." option '
+                              'in the "Wallets" menu.')
+      lblDeleteDescr = QLabel('This will delete the wallet file, removing '
+                              'all private keys from your settings directory.  '
+                              'If you intend to keep using addresses from this '
+                              'wallet, do not select this option unless the wallet '
+                              'is backed up elsewhere.')
+      lblWatchDescr  = QLabel('This will delete the private keys from your wallet, '
+                              'leaving you with a watching-only wallet, which can be '
+                              'used to generate addresses and monitor incoming '
+                              'payments.  This option would be used if you created '
+                              'the wallet on this computer <i>in order to transfer '
+                              'it to a different computer or device and want to '
+                              'remove the private data from this system for security.</i>  '
+                              '(This will delete the private keys, so make sure they '
+                              'are backed in some way before selecting this option).')
+      for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
+         lbl.setWordWrap(True)
+         lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
+
+      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
+
+      startRow = len(lbls)+2
+      for rdo,lbl in [(self.radioExclude, lblExcludeDescr), \
+                      (self.radioDelete,  lblDeleteDescr), \
+                      (self.radioWatch,   lblWatchDescr)]:
+
+         startRow +=1 
+         frm = QFrame()
+         frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+         frmLayout = QHBoxLayout()
+         frmLayout.addWidget(rdo)
+         frmLayout.addWidget(lbl)
+         frm.setLayout(frmLayout)
+         layout.addWidget(frm, startRow, 0, 1, 3)
+      self.radioExclude.setChecked(True)
+   
+      startRow +=1
+      layout.addWidget( self.chkPrintBackup, startRow, 0, 1, 3)
+
+      
+      rmWalletSlot = lambda: self.removeWallet(wlt)
+
+      startRow +=1
+      self.btnDelete = QPushButton("Delete")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnDelete, SIGNAL('clicked()'), rmWalletSlot)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnDelete, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      layout.addWidget(buttonBox, startRow, 0, 1, 3)
+
+      self.setLayout(layout)
+
+      
+   def removeWallet(self, wlt):
+
+      # Open the print dialog.  If they hit cancel at any time, then 
+      # we go back to the primary wallet-remove dialog without any other action
+      if self.chkPrintBackup.isChecked():      
+         dlg = DlgPaperBackup(wlt, self)
+         if not dlg.exec_():
+            return
+            
+            
+      # If they only want to exclude the wallet, we will add it to the excluded
+      # list and remove it from the application.  The wallet files will remain
+      # in the settings directory but will be ignored by Armory
+      if self.radioExclude.isChecked():
+         reply = QMessageBox.warning(self, 'Verify Intentions', \
+           'Are you sure you want to remove this wallet from your Armory '
+           'dashboard?  The wallet file will not be deleted, but you will '
+           'no longer have access to the wallet or its funds unless you '
+           're-enable it through the "Wallets"->"Excluded Wallets" menu. ', \
+           QMessageBox.Yes | QMessageBox.Cancel)
+
+         if reply==QMessageBox.Yes:
+            self.main.main.removeWalletFromApplication(wlt.uniqueIDB58)
+            self.main.main.settings.extend('Excluded_Wallets', wlt.walletPath)
+            self.main.accept()
+            self.accept()
+         else:
+            self.reject()
+      else:
+         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+           'Are you absolutely sure you want to permanently delete '
+           'this wallet?  Unless this wallet is saved on another device '
+           'you will permanently lose access to all the addresses in this '
+           'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+         if reply==QMessageBox.Yes:
+
+            wltID = wlt.uniqueIDB58
+            thepath = wlt.walletPath
+            thepathpieces = os.path.splitext(wlt.walletPath)
+            thepathBackup = thepathpieces[0] + 'backup' + thepathpieces[1]
+
+            if self.radioWatch.isChecked():
+               print '***Converting to watching-only wallet'
+               newWltPath = thepathpieces[0] + '_WatchOnly' + thepathpieces[1]
+               newWlt = wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
+               newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+               newWlt.syncWithBlockchain()
+
+               os.path.remove(thepath)
+               os.path.remove(thepathBackup)
+               self.main.main.walletMap[wltID] = newWlt
+            elif self.radioDelete.isChecked():
+               print '***Completely deleting wallet'
+               os.path.remove(thepath)
+               os.path.remove(thepathBackup)
+               removeWalletFromApplication(wlt) 
+
+            self.main.accept()
+            self.accept()
+         else:
+            self.reject()
+
+
+      
+         
       
 
 class DlgPaperBackup(QDialog):
@@ -1437,40 +1703,32 @@ class DlgPaperBackup(QDialog):
       logoRect = logo.boundingRect()
       #moveNewLine(GlobalPos, int(logoRect.height()*1.3 + 0.5))
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+int(logoRect.height()*1.3 + 0.5))
+
+      def addInfoLine(field, val, pos):
+         txt = GfxItemText(field, pos, self.scene, FontVar)
+         self.scene.addItem( txt )
+         pos = QPointF(pos.x()+relaxedSizeStr(FontFix, 'W'*15)[0], pos.y())
+   
+         txt = GfxItemText(val, pos, self.scene, FontVar)
+         self.scene.addItem( txt )
+         pos = QPointF(leftEdge, pos.y() + 20)
+         return pos
+         
       
       txt = GfxItemText('Paper Backup for Armory Wallet', GlobalPos, self.scene, QFont('Times', 14))
       self.scene.addItem( txt )
       #moveNewLine(GlobalPos, 30)
       GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
 
-      txt = GfxItemText('Wallet Unique ID: ', GlobalPos, self.scene, FontVar)
-      self.scene.addItem( txt )
-      #movePosRight(GlobalPos, relaxedSizeStr(FontFix, 'W'*20)[0])
-      GlobalPos = QPointF(GlobalPos.x()+relaxedSizeStr(FontFix, 'W'*14)[0], GlobalPos.y())
-
-      txt = GfxItemText(wlt.uniqueIDB58, GlobalPos, self.scene, FontVar)
-      self.scene.addItem( txt )
-      #moveNewLine(GlobalPos, 20)
-      #GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
-      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 20)
-
-      txt = GfxItemText('Wallet Name: ', GlobalPos, self.scene, FontVar)
-      self.scene.addItem( txt )
-      #movePosRight(GlobalPos, relaxedSizeStr(FontFix, 'W'*20)[0])
-      GlobalPos = QPointF(GlobalPos.x()+relaxedSizeStr(FontFix, 'W'*14)[0], GlobalPos.y())
-
-      txt = GfxItemText(wlt.labelName, GlobalPos, self.scene, FontVar)
-      self.scene.addItem( txt )
-      #moveNewLine(GlobalPos, 20)
-      #GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
-      GlobalPos = QPointF(leftEdge, GlobalPos.y() + 20)
-
+      GlobalPos = addInfoLine('Wallet Name:', wlt.labelName, GlobalPos)
+      GlobalPos = addInfoLine('Wallet Unique ID:', wlt.uniqueIDB58, GlobalPos)
+      GlobalPos = addInfoLine('Wallet Version:', getVersionString(wlt.version), GlobalPos)
 
 
       #moveNewLine(GlobalPos, 20)
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+50)
       warnMsg = ('WARNING: This page displays unprotected private-key data needed '
-                 'to reconstruct your wallet, and spend your funds.  Please keep '
+                 'to reconstruct your wallet and spend your funds.  Please keep '
                  'this page in a safe place where only trusted persons can access it.')
 
       wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
@@ -1480,8 +1738,12 @@ class DlgPaperBackup(QDialog):
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+75)
       
 
-
       # Start drawing the actual wallet data
+      # The checksums are really more to determine if an error was made,
+      # as opposed to correcting the errors.  It will attempt to correct
+      # the errors, but there's a high (relatively speaking) chance that
+      # it will do so incorrectly.  In such a case, the user can just 
+      # re-enter all the data (it's annoying, but should be infrequent)
       self.binPriv0     = self.binPriv.toBinStr()[:16]
       self.binPriv1     = self.binPriv.toBinStr()[16:]
       self.binChain0    = self.binChain.toBinStr()[:16]
