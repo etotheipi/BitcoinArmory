@@ -437,11 +437,28 @@ class ArmoryMainWindow(QMainWindow):
          print '"'+wlt.labelName+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
 
+
+      # Get the last directory
       savedDir = self.settings.get('LastDirectory')
-      if len(savedDir) or not os.path.exists(savedDir):
+      if len(savedDir)==0 or not os.path.exists(savedDir):
          savedDir = ARMORY_HOME_DIR
       self.lastDirectory = savedDir
+      self.settings.set('LastDirectory', savedDir)
 
+
+   def getFileSave(self, title='Save Wallet File', ffilter=['Wallet files (*.wallet)']):
+      lastDir = self.settings.get('LastDirectory')
+      if len(lastDir)==0 or not os.path.exists(lastDir):
+         lastDir = ARMORY_HOME_DIR
+
+      types = list(ffilter)
+      types.append('All files (*)')
+      typesStr = ';; '.join(types)
+      sfile = QFileDialog.getSaveFileName(self, title, lastDir, typesStr)
+      
+
+   def getFileLoad(self):
+      pass
    
    #############################################################################
    def getWltExtraProp(self, wltID, propName):

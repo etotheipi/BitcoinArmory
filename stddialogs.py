@@ -46,6 +46,7 @@ class DlgUnlockWallet(QDialog):
       layout.addWidget(buttonBox,      3, 1, 1, 2)
 
       self.setLayout(layout)
+      self.setWindowTitle('Unlock Wallet - ', wlt.uniqueIDB58)
 
    def acceptPassphrase(self):
       securePwd = SecureBinaryData(str(self.edtPasswd.text()))
@@ -565,6 +566,8 @@ class DlgWalletDetails(QDialog):
 
       lbtnGenAddr = QLabelButton('Generate New Address')
       lbtnImportA = QLabelButton('Import External Address')
+      lbtnDeleteA = QLabelButton('Remove Imported Address')
+
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
       lbtnExport  = QLabelButton('Make Digital Backup')
@@ -573,6 +576,7 @@ class DlgWalletDetails(QDialog):
       self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
       self.connect(lbtnRemove, SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
+      self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
@@ -585,6 +589,7 @@ class DlgWalletDetails(QDialog):
          optLayout.addWidget(lbtnForkWlt)
          optLayout.addWidget(lbtnChangeCrypto)
          optLayout.addWidget(lbtnImportA)
+         optLayout.addWidget(lbtnDeleteA)
          optLayout.addWidget(lbtnMkPaper)
 
       optLayout.addWidget(lbtnExport)
@@ -716,13 +721,14 @@ class DlgWalletDetails(QDialog):
       if dlg.exec_():
          pass # not sure that I don't handle everything in the dialog itself
 
+
+   def execDeleteAddress(self):
+      pass
+
    def execImportAddress(self):
-   
-         
       if not self.main.settings.hasSetting('DNAA_ImportWarning') \
          or not self.main.settings.get('DNAA_ImportWarning'):
          DlgImportWarning(self).exec_()
-
 
       # Now we are past the [potential] warning box.  Actually open
       # The import dialog, now
@@ -1452,9 +1458,9 @@ class DlgImportPaperWallet(QDialog):
       privKey = ''.join(self.wltDataLines[:2])
       chain   = ''.join(self.wltDataLines[2:])
        
-kdjlfdkj
-      root = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
-      newWltID = binary_to_base58((ADDRBYTE + root.getAddr160()[:5])[::-1])
+      root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
+      first = root.extendAddressChain()
+      newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \

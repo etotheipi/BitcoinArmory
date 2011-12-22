@@ -928,9 +928,12 @@ if Test_EncryptedWallet:
                                        IV=theIV, \
                                        shortLabel=shortlabel)
    wlt.addrPoolSize = 5
+   wlt.detectHighestUsedIndex(True)
 
    print 'New wallet is at:', wlt.getWalletPath()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+
 
    #############################################################################
    print '\n(1) Getting a new address:'

@@ -58,7 +58,7 @@ USE_TESTNET = True
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCWALLET_VERSION  = (1, 20, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -5176,9 +5176,6 @@ class PyBtcWallet(object):
    def getWalletVersion(self):
       return (getVersionInt(self.version), getVersionString(self.version))
 
-   #############################################################################
-   #def getDefaultWalletPath(self):
-      #return (getVersionInt(self.version), getVersionString(self.version))
 
    #############################################################################
    def getWalletPath(self):
@@ -5363,10 +5360,13 @@ class PyBtcWallet(object):
       first160  = firstAddr.getAddr160()
 
       # Update wallet object with the new data
+      # NEW IN WALLET VERSION 1.35:  unique ID is now based on
+      # the first chained address: this guarantees that the unique ID
+      # is based not only on the private key, BUT ALSO THE CHAIN CODE
       self.useEncryption = withEncrypt
       self.addrMap['ROOT'] = rootAddr
       self.addrMap[firstAddr.getAddr160()] = firstAddr
-      self.uniqueIDBin = (ADDRBYTE + rootAddr.getAddr160()[:5])[::-1]
+      self.uniqueIDBin = (ADDRBYTE + firstAddr.getAddr160()[:5])[::-1]
       self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
       self.labelName  = shortLabel[:32]
       self.labelDescr  = longLabel[:256]
@@ -5419,9 +5419,12 @@ class PyBtcWallet(object):
       newfile.write(fileData.getBinaryString())
       newfile.close()
 
-      fileparts = os.path.splitext(self.walletPath)
-      walletFileBackup = fileparts[0] + 'backup' + fileparts[1]
+      walletFileBackup = self.getWalletPath('backup')
       shutil.copy(self.walletPath, walletFileBackup)
+
+      # Let's fill the address pool while we have the KDF key in memory.
+      # It will get a lot more expensive if we do it 
+      self.fillAddressPool(self.addrPoolSize)
 
       return self
 
@@ -5724,6 +5727,7 @@ class PyBtcWallet(object):
       return binPacker.getBinaryString()
 
 
+
    #############################################################################
    def unserializeKdfParams(self, toUnpack, binWidth=256):
 
@@ -5995,6 +5999,59 @@ class PyBtcWallet(object):
 
 
 
+   #############################################################################
+   def getWalletPath(self, nameSuffix=None):
+      fpath = self.walletPath
+
+      if self.walletPath=='':
+         fpath = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % self.uniqueIDB58)
+
+      if not nameSuffix==None:
+         pieces = os.path.splitext(fpath)
+         if not pieces[0].endswith('_'):
+            fpath = pieces[0] + '_' + nameSuffix + pieces[1]
+         else:
+            fpath = pieces[0] + nameSuffix + pieces[1]
+      return fpath
+
+   #############################################################################
+   def upgradeWalletVersion(self ):
+      """
+      This function will be called on any wallet that has a version older than
+      the current PYBTCWALLET_VERSION.  It will incrementally apply version
+      upgrade logic, starting at the current version.  Every time the version
+      in increased, I will add another conditional to the end to further 
+      the upgrade process
+      """
+      if self.version==PYBTCWALLET_VERSION:
+         return
+
+      if getVersionInt(self.version) < getVersionInt( (1, 35, 0, 0) ):
+         print '   Upgrading from version', self.version, '...'
+         firstAddr = self.addrMap['ROOT'].extendAddressChain()
+         self.uniqueIDBin =  (ADDRBYTE + firstAddr.getAddr160()[:5])[::-1]
+         self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
+         self.version = (1, 35, 0, 0)
+
+      #if getVersionInt(self.version) < getVersionInt( (1, 50, 0, 0) ):
+      # ...
+
+      self.version = PYBTCWALLET_VERSION
+
+      # Shuffle wallet files:  save new one to temp, delete old, rename new
+      print self.walletPath
+      oldBackupOrig = self.getWalletPath('backup')
+      oldBackupSave = self.getWalletPath('oldversion_backup')
+
+      shutil.move(self.walletPath, oldBackupSave) 
+      os.remove(oldBackupOrig)
+
+      # With the old version copied, we can overwrite the current wallet.
+      # When the new 
+      self.writeFreshWalletFile(self.walletPath)
+      self.readWalletFile(self.walletPath)
+
+      print '   Upgraded wallet to version', PYBTCWALLET_VERSION
 
 
    #############################################################################
@@ -6110,7 +6167,7 @@ class PyBtcWallet(object):
       self.offsetWltFlags = binPacker.getSize() - startByte
       self.packWalletFlags(binPacker)
 
-      # Binary Unique ID (rootAddr25bytes[:4][::-1])
+      # Binary Unique ID (firstAddr25bytes[:6][::-1])
       binPacker.put(BINARY_CHUNK, self.uniqueIDBin, width=6)
 
       # Unix time of wallet creations
@@ -6324,6 +6381,13 @@ class PyBtcWallet(object):
       else:
          self.syncWithBlockchain()
 
+
+      ### Update the wallet version if necessary ###
+      if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
+         print '*** UPGRADING WALLET VERSION '
+         self.upgradeWalletVersion()
+         print '*** UPGRADE COMPLETE!'
+
       return self
 
 
@@ -6393,10 +6457,9 @@ class PyBtcWallet(object):
       # Make sure that the primary and backup files are synced before update
       self.doWalletFileConsistencyCheck()
 
-      fileparts = os.path.splitext(self.walletPath)
-      walletFileBackup = fileparts[0] + 'backup'              + fileparts[1]
-      mainUpdateFlag   = fileparts[0] + 'update_unsuccessful' + fileparts[1]
-      backupUpdateFlag = fileparts[0] + 'backup_unsuccessful' + fileparts[1]
+      walletFileBackup = self.getWalletPath('backup')
+      mainUpdateFlag   = self.getWalletPath('update_unsuccessful')
+      backupUpdateFlag = self.getWalletPath('backup_unsuccessful')
 
 
       # Will be passing back info about all data successfully added
@@ -6536,11 +6599,9 @@ class PyBtcWallet(object):
       if not os.path.exists(self.walletPath):
          raise FileExistsError, 'No wallet file exists to be checked!'
 
-      fileparts = os.path.splitext(self.walletPath)
-      walletFileBackup = fileparts[0] + 'backup'              + fileparts[1]
-      mainUpdateFlag   = fileparts[0] + 'update_unsuccessful' + fileparts[1]
-      backupUpdateFlag = fileparts[0] + 'backup_unsuccessful' + fileparts[1]
-
+      walletFileBackup = self.getWalletPath('backup')
+      mainUpdateFlag   = self.getWalletPath('update_unsuccessful')
+      backupUpdateFlag = self.getWalletPath('backup_unsuccessful')
 
       if not os.path.exists(walletFileBackup):
          # We haven't even created a backup file, yet
