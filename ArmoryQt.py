@@ -983,7 +983,8 @@ class ArmoryMainWindow(QMainWindow):
    
 
 
-if __name__ == '__main__':
+if 1:
+#if __name__ == '__main__':
  
    import optparse
    parser = optparse.OptionParser(usage="%prog [options]\n")

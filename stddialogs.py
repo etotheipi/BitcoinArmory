@@ -1463,9 +1463,9 @@ class DlgImportWallet(QDialog):
                     self.acceptPaper)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
-                                 '.wallet extension.  Any wallet that you import will ' 
-                                 'be copied into your settings directory, and maintained '
-                                 'there.  The original wallet file will not be touched.')
+                                  '.wallet extension.  Any wallet that you import will ' 
+                                  'be copied into your settings directory, and maintained '
+                                  'there.  The original wallet file will not be touched.')
 
       ttip2 = createToolTipObject('If you have previously made a paper backup of '
                                   'a wallet, you can manually enter the wallet '
@@ -1677,15 +1677,16 @@ class DlgImportPaperWallet(QDialog):
       chain   = ''.join(self.wltDataLines[2:])
        
       root  = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(privKey))
+      root.chaincode = SecureBinaryData(chain)
       first = root.extendAddressChain()
       newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
 
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
-               newWltID + '\n\n! This wallet is already loaded into Armory !\n'
-               '  You can only import wallets you do not already own!', \
-               QMessageBox.Ok)
+               newWltID + '\n\n<b>You cannot import a wallet that you '
+               'already own!</b>', QMessageBox.Ok)
+         self.accept()
          return
          
       

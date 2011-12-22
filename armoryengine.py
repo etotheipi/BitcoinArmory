@@ -1614,6 +1614,10 @@ class PyBtcAddress(object):
       next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
       """
+
+      if not self.chaincode.getSize() == 32:
+         raise KeyDataError, 'No chaincode has been defined to extend chain'
+
       newAddr = PyBtcAddress()
       privKeyAvailButNotDecryptable = (self.hasPrivKey() and \
                                        self.isLocked     and \
@@ -1630,8 +1634,15 @@ class PyBtcAddress(object):
          if not newIV:
             newIV = SecureBinaryData().GenerateRandom(16)
 
-         newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
-                                    self.binPrivKey32_Plain, self.chaincode)
+         if self.hasPubKey():
+            newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+                                    self.binPrivKey32_Plain, \
+                                    self.chaincode, \
+                                    self.binPublicKey65)
+         else:
+            newPriv = CryptoECDSA().ComputeChainedPrivateKey( \
+                                    self.binPrivKey32_Plain, \
+                                    self.chaincode)
          newPub  = CryptoECDSA().ComputePublicKey(newPriv)
          newAddr160 = newPub.getHash160()
          newAddr.createFromPlainKeyData(newPriv, newAddr160, \

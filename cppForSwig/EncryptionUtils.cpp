@@ -560,6 +560,16 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
    if( binPubKey.getSize()==0 )
       binPubKey = ComputePublicKey(binPrivKey);
 
+   if( binPrivKey.getSize() != 32 || chainCode.getSize() != 32)
+   {
+      cerr << "***ERROR:  Invalid private key or chaincode (both must be 32B)";
+      cerr << endl;
+      cerr << "BinPrivKey: " << binPrivKey.getSize() << endl;
+      cerr << "BinPrivKey: " << binPrivKey.toHexStr() << endl;
+      cerr << "BinChain  : " << chainCode.getSize() << endl;
+      cerr << "BinChain  : " << chainCode.toHexStr() << endl;
+   }
+
    // Adding extra entropy to chaincode by xor'ing with hash256 of pubkey
    BinaryData chainMod  = binPubKey.getHash256();
    BinaryData chainOrig = chainCode.getRawCopy();

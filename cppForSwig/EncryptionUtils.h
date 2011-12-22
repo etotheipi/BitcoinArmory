@@ -43,6 +43,11 @@
 // on, and try to pick the largest memory-size the system can compute in less
 // than 0.25s (or specified target).  
 //
+//
+// NOTE:  If you are getting an error about invalid argument types, from python,
+//        it is usually because you passed in a BinaryData/Python-string instead
+//        of a SecureBinaryData object
+//
 ////////////////////////////////////////////////////////////////////////////////
 
 #ifndef _ENCRYPTION_UTILS_
