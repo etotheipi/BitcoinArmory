@@ -353,7 +353,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       super(WalletAddrDispModel, self).__init__()
       self.main = mainWindow
       self.wlt = wlt
-      self.addr160List = [a.getAddr160() for a in wlt.getLinearAddrList()]
+      self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
       
    def reset(self):
       self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]

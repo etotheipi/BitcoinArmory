@@ -941,6 +941,26 @@ def convertKeyDataToAddress(privKey=None, pubKey=None):
 
 
 
+def decodeMiniPrivateKey(keyStr):
+   """
+   Converts a 22, 26 or 30-character Base58 mini private key into a 
+   32-byte binary private key.  
+   """
+   if not len(keyStr) in (22,26,30):
+      return ''
+
+   keyQ = keyStr + '?'
+   theHash = sha256(keyQ)
+   
+   if binary_to_hex(theHash[0]) == '01':
+      raise KeyDataError, 'PBKDF2-based mini private keys not supported!'
+   elif binary_to_hex(theHash[0]) != '00':
+      raise KeyDataError, 'Invalid mini private key... double check the entry'
+   
+   return sha256(keyStr)
+   
+
+
 class PyBtcAddress(object):
    """
    PyBtcAddress --
@@ -5428,14 +5448,28 @@ class PyBtcWallet(object):
 
       return self
 
+   #############################################################################
+   def advanceHighestIndex(self, ct=1):
+      topIndex = self.highestUsedChainIndex + ct
+      topIndex = min(topIndex, self.lastComputedChainIndex)
+      topIndex = max(topIndex, 0)
+
+      self.highestUsedChainIndex = topIndex
+      self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, self.offsetTopUsed, \
+                    int_to_binary(self.highestUsedChainIndex, widthBytes=8)]])
+      
+   #############################################################################
+   def rewindHighestIndex(self, ct=1):
+      self.advanceHighestIndex(-ct)
+
 
    #############################################################################
-   def getNewAddress(self):
+   def getNextUnusedAddress(self):
       if self.lastComputedChainIndex - self.highestUsedChainIndex < \
-                                                            self.addrPoolSize/2:
+                                              max(self.addrPoolSize-1,1):
          self.fillAddressPool(self.addrPoolSize)
 
-      self.highestUsedChainIndex += 1
+      self.advanceHighestIndex(1)
       new160 = self.getAddress160ByChainIndex(self.highestUsedChainIndex)
       return self.addrMap[new160]
 

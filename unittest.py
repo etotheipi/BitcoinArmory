@@ -6,7 +6,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
+Test_BasicUtils       = True
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -60,6 +60,7 @@ def printpassorfail(abool):
       print '\n' + ' '*w + '*** PASSED ***',
    else:
       print '\n' + ' '*w + '___ FAILED ___',
+
 
 
 
@@ -173,6 +174,11 @@ if Test_BasicUtils:
    testFunction('getVersionInt',      verInt, verTuple)
    testFunction('readVersionString',  verTuple, verStr)
    testFunction('readVersionInt',     verTuple, verInt)
+
+   miniKey  = 'S4b3N3oGqDqR5jNuxEvDwf'
+   miniPriv = hex_to_binary('0c28fca386c7a227600b2fe50b7cae11ec86d3bf1fbe471be89827e19d72aa1d')
+   testFunction('decodeMiniPrivateKey', miniPriv, miniKey)
+   
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary('01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44dd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a40689d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a000000001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
