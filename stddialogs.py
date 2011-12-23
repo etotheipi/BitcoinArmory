@@ -46,7 +46,7 @@ class DlgUnlockWallet(QDialog):
       layout.addWidget(buttonBox,      3, 1, 1, 2)
 
       self.setLayout(layout)
-      self.setWindowTitle('Unlock Wallet - ', wlt.uniqueIDB58)
+      self.setWindowTitle('Unlock Wallet - ' + wlt.uniqueIDB58)
 
    def acceptPassphrase(self):
       securePwd = SecureBinaryData(str(self.edtPasswd.text()))
@@ -585,20 +585,22 @@ class DlgWalletDetails(QDialog):
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       optLayout = QVBoxLayout()
-      optLayout.addWidget(lbtnChangeLabels)
 
-      optLayout.addWidget(lbtnGenAddr)
+      hasPriv = not self.wlt.watchingOnly
+      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
 
-      if not self.wlt.watchingOnly:
-         optLayout.addWidget(lbtnForkWlt)
-         optLayout.addWidget(lbtnChangeCrypto)
-         optLayout.addWidget(lbtnImportA)
-         optLayout.addWidget(lbtnDeleteA)
-         optLayout.addWidget(lbtnMkPaper)
-         optLayout.addWidget(lbtnSweepA)
+      if True:              optLayout.addWidget(lbtnGenAddr)
+      if hasPriv:           optLayout.addWidget(lbtnChangeCrypto)
+      if True:              optLayout.addWidget(lbtnChangeLabels)
 
-      optLayout.addWidget(lbtnExport)
-      optLayout.addWidget(lbtnRemove)
+      if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
+      if hasPriv:           optLayout.addWidget(lbtnDeleteA)
+      if hasPriv:           optLayout.addWidget(lbtnSweepA)
+
+      if hasPriv:           optLayout.addWidget(lbtnForkWlt)
+      if True:              optLayout.addWidget(lbtnRemove)
+      if hasPriv:           optLayout.addWidget(lbtnMkPaper)
+      if hasPriv:           optLayout.addWidget(lbtnExport)
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
 
@@ -767,9 +769,26 @@ class DlgWalletDetails(QDialog):
 
 
    def saveWalletCopy(self):
-
-      path = openFil
-      self.wlt
+      savePath = self.main.getFileSave()
+      doIt = False
+      if not os.path.exists(savePath):
+         doIt = True
+      else:
+         reply = QMessageBox.warning(self, 'Overwrite file?', \
+               'The selected file already exists:\n\n'
+               + savePath + '\n\nDo you want to overwrite it?',
+               QMessageBox.Yes | QMessageBox.No)
+         if reply == QMessageBox.Yes:
+            doIt = True
+         else:
+            doIt = False
+         
+      if doIt: 
+         self.wlt.writeFreshWalletFile(savePath)
+         self.main.statusBar
+         self.main.statusBar().showMessage( \
+            'Successfully copied wallet to ' + savePath, 10000)
+      
       
          
       
@@ -1100,6 +1119,22 @@ class DlgNewAddressDisp(QDialog):
       self.addr = wlt.getNextUnusedAddress()
       self.main = parent
 
+      try:
+         wlttype = determineWalletType( self.wlt, self.main.main)[0]
+      except:
+         wlttype = determineWalletType( self.wlt, self.main)[0]
+
+      notMyWallet = (wlttype==WLTTYPES.WatchOnly)
+      if notMyWallet:
+         QMessageBox.warning(self, 'Not your wallet!', \
+            'You have chosen to generate and address for a wallet that '
+            'does not appear to belong to you!  Any money sent to this '
+            'wallet will not appear in your total balance.\n\n'
+            'If this is actually your wallet (and you maintain the private '
+            'keys on a separate computer), then please change the '
+            '"Belongs To" field in the wallet-properties for this wallet.', \
+            QMessageBox.Ok)
+         
 
       lblDescr = QLabel( \
             'The following address has been generated for you to use '
@@ -1128,6 +1163,12 @@ class DlgNewAddressDisp(QDialog):
       frmNewAddrLayout.addWidget(lblDescr,        0,0, 1,2)
       frmNewAddrLayout.addWidget(self.edtNewAddr, 1,0, 1,1)
       frmNewAddrLayout.addWidget(tooltip1,        1,1, 1,1)
+
+      #if not notMyWallet:
+         #palette = QPalette()
+         #palette.setColor( QPalette.WindowText, Colors.LightBlue )
+         #frmNewAddr.setPalette( palette );
+         #frmNewAddr.setAutoFillBackground( True );
 
       frmCopy = QFrame()
       frmCopy.setFrameShape(QFrame.NoFrame)
@@ -1163,9 +1204,9 @@ class DlgNewAddressDisp(QDialog):
 
       
       lblRecvWlt = QLabel( \
-            'Any money sent to this address now, and in the future, will '
-            'appear in the following wallet:')
+            'Money sent to this address will appear in the following wallet:')
       lblRecvWlt.setWordWrap(True)
+      lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       lblRecvWltID = QLabel( \
             '<b>"%s"</b>  (%s)' % (wlt.labelName, wlt.uniqueIDB58))
@@ -1202,7 +1243,12 @@ class DlgNewAddressDisp(QDialog):
 
       self.setLayout(layout) 
       self.setWindowTitle('New Receiving Address')
-      self.main.wltAddrModel.reset()
+
+      try:
+         self.main.wltAddrModel.reset()
+      except AttributeError:
+         # Sometimes this is called from a dialog that doesn't have an addr model
+         pass
    
 
    def acceptNewAddr(self):
@@ -1463,7 +1509,7 @@ class DlgImportWallet(QDialog):
                     self.acceptPaper)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
-                                  '.wallet extension.  Any wallet that you import will ' 
+                                  '*.wallet extension.  Any wallet that you import will ' 
                                   'be copied into your settings directory, and maintained '
                                   'there.  The original wallet file will not be touched.')
 
@@ -1506,8 +1552,7 @@ class DlgImportWallet(QDialog):
       
 
    def getImportWltPath(self):
-      self.importFile = QFileDialog.getOpenFileName(self, 'Import Wallet File', \
-          ARMORY_HOME_DIR, 'Wallet files (*.wallet);; All files (*.*)') 
+      self.importFile = self.main.getFileLoad('Import Wallet File')
       if self.importFile:
          print 'Importing:', self.importFile
          self.importType_file = True
@@ -1684,8 +1729,8 @@ class DlgImportPaperWallet(QDialog):
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
-               newWltID + '\n\n<b>You cannot import a wallet that you '
-               'already own!</b>', QMessageBox.Ok)
+               newWltID + '\n\n!!!You already own this wallet!!!\n  '
+               'Nothing to do...', QMessageBox.Ok)
          self.accept()
          return
          
@@ -2244,6 +2289,131 @@ class DlgRemoveAddress(QDialog):
          self.reject()
 
 
+
+class DlgWalletSelect(QDialog):
+   def __init__(self, parent=None,  firstSelect=None, onlyMyWallets=False, wltIDList=None):
+      super(DlgWalletSelect, self).__init__(parent)
+
+      self.main = parent
+      self.lstWallets = QListWidget()
+
+      if wltIDList==None:
+         wltIDList = list(self.main.walletIDList)
+      
+
+      self.rowList = []
+      
+      selectedRow = 0
+      self.selectedID = None
+      nrows = 0
+      if len(wltIDList)>0:
+         self.selectedID = wltIDList[0]
+         for r,wltID in enumerate(wltIDList):
+            wlt = self.main.walletMap[wltID]
+            wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+            if onlyMyWallets and wlttype==WLTTYPES.WatchOnly:
+               continue
+            self.lstWallets.addItem(QListWidgetItem(wlt.labelName))
+            self.rowList.append([wltID])
+         
+            if wltID==firstSelect:
+               selectedRow = nrows
+               self.selectedID = wltID
+            nrows += 1
+            
+         self.lstWallets.setCurrentRow(selectedRow)
+      
+      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.showWalletInfo)
+      self.lstWallets.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+
+      layout = QGridLayout()
+      layout.addWidget(QLabel("Select Wallet:"), 0, 0,  1, 1)
+      layout.addWidget(self.lstWallets,          1, 0,  3, 1)
+
+
+
+      lbls = []
+      lbls.append( QLabel("Wallet ID:") )
+      lbls.append( QLabel("Name:"))
+      lbls.append( QLabel("Description:"))
+      lbls.append( QLabel("Current Balance:"))
+
+      for i in range(len(lbls)):
+         lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+         lbls[i].setTextFormat(Qt.RichText)
+         lbls[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+         lbls[i].setText('<b>'+str(lbls[i].text())+'</b>')
+
+      self.dispID = QLabel()
+      self.dispName = QLabel()
+      self.dispDescr = QLabel()
+      self.dispBal = QLabel()
+
+      self.dispBal.setTextFormat(Qt.RichText)
+      self.dispDescr.setWordWrap(True)
+      
+
+      frm = QFrame()
+      frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frmLayout = QGridLayout()
+      for i in range(len(lbls)):
+         frmLayout.addWidget(lbls[i], i, 0,  1, 1)
+
+      self.dispID.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.dispDescr.setMinimumWidth( tightSizeNChar(self.dispDescr, 40)[0])
+      frmLayout.addWidget(self.dispID,    0, 2, 1, 1)
+      frmLayout.addWidget(self.dispName,  1, 2, 1, 1)
+      frmLayout.addWidget(self.dispDescr, 2, 2, 1, 1)
+      frmLayout.addWidget(self.dispBal,   3, 2, 1, 1)
+      #for i in range(len(displays)):
+         #displays[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+         #frmLayout.addWidget(displays[i], i, 1, 1, 1)
+
+      frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
+      frm.setLayout(frmLayout)
+      
+
+      buttonBox = QDialogButtonBox()
+      btnAccept = QPushButton('Ok')
+      btnCancel = QPushButton('Cancel')
+      self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(btnCancel, QDialogButtonBox.RejectRole)
+      layout.addWidget(frm,                     1, 1,  3, 2)
+      layout.addWidget(buttonBox,               4, 0,  1, 3)
+
+      self.setLayout(layout)
+
+      if not self.selectedID==None:
+         self.showWalletInfo()
+
+      self.setWindowTitle('Select Wallet')
+
+
+
+   def showWalletInfo(self, i=0):
+      currRow = self.lstWallets.currentRow()
+      wltID = self.rowList[currRow][0]
+      wlt = self.main.walletMap[wltID]
+      self.dispID.setText(wltID)
+      self.dispName.setText(wlt.labelName)
+      self.dispDescr.setText(wlt.labelDescr)
+      self.dispBal.setText(coin2str(wlt.getBalance()))
+      self.selectedID=wltID
+
+
+class DlgSendBitcoins(QDialog):
+   def __init__(self, wlt, parent=None):
+      super(DlgSendBitcoins, self).__init__(parent)
+
+      
+      self.setLayout(layout)
+      self.setWindowTitle('Send Bitcoins')
 
 
 class DlgAddressProperties(QDialog):

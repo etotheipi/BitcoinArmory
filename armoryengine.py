@@ -6429,9 +6429,10 @@ class PyBtcWallet(object):
 
       ### Update the wallet version if necessary ###
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
-         print '*** UPGRADING WALLET VERSION '
-         self.upgradeWalletVersion()
-         print '*** UPGRADE COMPLETE!'
+         if verifyIntegrity:
+            print '*** UPGRADING WALLET VERSION '
+            self.upgradeWalletVersion()
+            print '*** UPGRADE COMPLETE!'
 
       return self
 

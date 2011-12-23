@@ -199,6 +199,8 @@ class ArmoryMainWindow(QMainWindow):
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
    
+      self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
+      self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -446,6 +448,7 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set('LastDirectory', savedDir)
 
 
+   #############################################################################
    def getFileSave(self, title='Save Wallet File', ffilter=['Wallet files (*.wallet)']):
       lastDir = self.settings.get('LastDirectory')
       if len(lastDir)==0 or not os.path.exists(lastDir):
@@ -454,11 +457,28 @@ class ArmoryMainWindow(QMainWindow):
       types = list(ffilter)
       types.append('All files (*)')
       typesStr = ';; '.join(types)
-      sfile = QFileDialog.getSaveFileName(self, title, lastDir, typesStr)
+      fullPath = unicode(QFileDialog.getSaveFileName(self, title, lastDir, typesStr))
       
 
-   def getFileLoad(self):
-      pass
+      fdir,fname = os.path.split(fullPath)
+      self.settings.set('LastDirectory', fdir)
+      return fullPath
+      
+
+   #############################################################################
+   def getFileLoad(self, title='Load Wallet File', ffilter=['Wallet files (*.wallet)']):
+      lastDir = self.settings.get('LastDirectory')
+      if len(lastDir)==0 or not os.path.exists(lastDir):
+         lastDir = ARMORY_HOME_DIR
+
+      types = list(ffilter)
+      types.append('All files (*)')
+      typesStr = ';; '.join(types)
+      fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr))
+
+      fdir,fname = os.path.split(fullPath)
+      self.settings.set('LastDirectory', fdir)
+      return fullPath
    
    #############################################################################
    def getWltExtraProp(self, wltID, propName):
@@ -731,7 +751,11 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def execDlgWalletDetails(self, index=None):
       if index==None:
-         index = self.walletsView.selectedIndexes()[0]
+         index = self.walletsView.selectedIndexes()
+         if len(index)==0:
+            return
+         index = index[0]
+         
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self)
       dialog.exec_()
@@ -902,14 +926,26 @@ class ArmoryMainWindow(QMainWindow):
       if dlg.exec_():
 
          if dlg.importType_file:
-            if not os.path.exists(self.importFile):
+            if not os.path.exists(dlg.importFile):
                raise FileExistsError, 'How did the dlg pick a wallet file that DNE?'
 
-            fname = self.getUniqueWalletFilename(self.importFile)
+            wlt = PyBtcWallet().readWalletFile(dlg.importFile, verifyIntegrity=False, \
+                                                               skipBlockChainScan=True)
+            wltID = wlt.uniqueIDB58
+
+            if self.walletMap.has_key(wltID):
+               QMessageBox.warning(self, 'Duplicate Wallet!', \
+                  'You selected a wallet that has the same ID as one already '
+                  'in your wallet (%s)!  If you would like to import it anyway, '
+                  'please delete the duplicate wallet in Armory, first.'%wltID, \
+                  QMessageBox.Ok)
+               return
+
+            fname = self.getUniqueWalletFilename(dlg.importFile)
             newpath = os.path.join(ARMORY_HOME_DIR, fname)
 
             print 'Copying imported wallet to:', newpath
-            shutil.copy(self.importFile, newpath)
+            shutil.copy(dlg.importFile, newpath)
             self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
                                                                walletIsNew=False)
          elif dlg.importType_paper:
@@ -947,6 +983,35 @@ class ArmoryMainWindow(QMainWindow):
    def addrViewDblClicked(self, index, wlt):
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
+
+
+   #############################################################################
+   def clickSendBitcoins(self):
+      wltSelect = self.walletsView.selectedIndexes()
+      wltID = None
+      if len(wltSelect)>0:
+         row = wltSelect[0].row()
+         wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
+      dlg = DlgWalletSelect(self, wltID, onlyMyWallets=True)
+      if dlg.exec_():
+         wltID = dlg.selectedID 
+         wlt = self.walletMap[wltID]
+   
+
+   #############################################################################
+   def clickReceiveCoins(self):
+      wltSelect = self.walletsView.selectedIndexes()
+      wltID = None
+      if len(wltSelect)>0:
+         row = wltSelect[0].row()
+         wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
+      dlg = DlgWalletSelect(self, wltID, onlyMyWallets=True)
+      if dlg.exec_():
+         wltID = dlg.selectedID 
+         wlt = self.walletMap[wltID]
+         dlgaddr = DlgNewAddressDisp(wlt, self)
+         dlgaddr.exec_()
+
    #############################################################################
    def Heartbeat(self, nextBeatSec=3):
       """
@@ -983,8 +1048,7 @@ class ArmoryMainWindow(QMainWindow):
    
 
 
-if 1:
-#if __name__ == '__main__':
+if __name__ == '__main__':
  
    import optparse
    parser = optparse.OptionParser(usage="%prog [options]\n")
