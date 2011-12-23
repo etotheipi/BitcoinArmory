@@ -8283,6 +8283,7 @@ class SettingsFile(object):
             # Skip anything that throws an exception
             valStr = '' 
             if isinstance(val, str) or \
+               isinstance(val, unicode) or \
                isinstance(val, int) or \
                isinstance(val, float) or \
                isinstance(val, long):

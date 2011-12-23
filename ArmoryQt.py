@@ -461,7 +461,8 @@ class ArmoryMainWindow(QMainWindow):
       
 
       fdir,fname = os.path.split(fullPath)
-      self.settings.set('LastDirectory', fdir)
+      if fdir:
+         self.settings.set('LastDirectory', fdir)
       return fullPath
       
 
@@ -476,7 +477,6 @@ class ArmoryMainWindow(QMainWindow):
       typesStr = ';; '.join(types)
       fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr))
 
-      fdir,fname = os.path.split(fullPath)
       self.settings.set('LastDirectory', fdir)
       return fullPath
    
@@ -757,7 +757,7 @@ class ArmoryMainWindow(QMainWindow):
          index = index[0]
          
       wlt = self.walletMap[self.walletIDList[index.row()]]
-      dialog = DlgWalletDetails(wlt, self.usermode, self)
+      dialog = DlgWalletDetails(wlt, self.usermode, self, self)
       dialog.exec_()
       self.walletListChanged()
          
@@ -771,7 +771,7 @@ class ArmoryMainWindow(QMainWindow):
       wltID       = str(view.model().index(row, LEDGERCOLS.WltID  ).data().toString())
       txHash      = str(view.model().index(row, LEDGERCOLS.TxHash ).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Transaction', self)
+      dialog = DlgSetComment(currComment, 'Transaction', self, self)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
@@ -784,7 +784,7 @@ class ArmoryMainWindow(QMainWindow):
       currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
       addrStr     = str(view.model().index(row, ADDRESSCOLS.Address).data().toString())
 
-      dialog = DlgSetComment(currComment, 'Address', self)
+      dialog = DlgSetComment(currComment, 'Address', self, self)
       if dialog.exec_():
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(addrStr)
@@ -852,7 +852,7 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def createNewWallet(self):
-      dlg = DlgNewWallet(self)
+      dlg = DlgNewWallet(self, self)
       if dlg.exec_():
 
          if dlg.selectedImport:
@@ -867,7 +867,7 @@ class ArmoryMainWindow(QMainWindow):
          # If this will be encrypted, we'll need to get their passphrase
          passwd = []
          if dlg.chkUseCrypto.isChecked():
-            dlgPasswd = DlgChangePassphrase(self)
+            dlgPasswd = DlgChangePassphrase(self, self)
             if dlgPasswd.exec_():
                passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
             else:
@@ -905,7 +905,7 @@ class ArmoryMainWindow(QMainWindow):
       self.addWalletToApplication(newWallet)
 
       if dlg.chkPrintPaper.isChecked():
-         dlg = DlgPaperBackup(newWallet, self)
+         dlg = DlgPaperBackup(newWallet, self, self)
          dlg.exec_()
 
 
@@ -922,7 +922,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def execImportWallet(self):
       print 'Executing!'
-      dlg = DlgImportWallet(self)
+      dlg = DlgImportWallet(self, self)
       if dlg.exec_():
 
          if dlg.importType_file:
@@ -949,7 +949,7 @@ class ArmoryMainWindow(QMainWindow):
             self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
                                                                walletIsNew=False)
          elif dlg.importType_paper:
-            dlgPaper = DlgImportPaperWallet(self)
+            dlgPaper = DlgImportPaperWallet(self, self)
             if dlgPaper.exec_():
                print 'Raw import successful.  Searching blockchain for tx data...'
                highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
@@ -992,10 +992,13 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltSelect)>0:
          row = wltSelect[0].row()
          wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-      dlg = DlgWalletSelect(self, wltID, onlyMyWallets=True)
+      dlg = DlgWalletSelect(self, self, wltID, onlyMyWallets=True)
       if dlg.exec_():
          wltID = dlg.selectedID 
          wlt = self.walletMap[wltID]
+
+         dlgSend = DlgSendBitcoins(wlt, self, self)
+         dlgSend.exec_()
    
 
    #############################################################################
@@ -1005,11 +1008,11 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltSelect)>0:
          row = wltSelect[0].row()
          wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-      dlg = DlgWalletSelect(self, wltID, onlyMyWallets=True)
+      dlg = DlgWalletSelect(self, self, wltID, onlyMyWallets=True)
       if dlg.exec_():
          wltID = dlg.selectedID 
          wlt = self.walletMap[wltID]
-         dlgaddr = DlgNewAddressDisp(wlt, self)
+         dlgaddr = DlgNewAddressDisp(wlt, self, self)
          dlgaddr.exec_()
 
    #############################################################################
@@ -1071,7 +1074,7 @@ if __name__ == '__main__':
       import urllib2
       response=urllib2.urlopen('http://google.com',timeout=1)
    except (ImportError, urllib2.URLError):
-      dlg = DlgGetArmoryModeSelection()
+      dlg = DlgGetArmoryModeSelection(self,self)
       if dlg.exec_():
          if dlg.wltonly:
             armorymode = ARMORYMODE.WALLET_ONLY

@@ -17,11 +17,12 @@ def createToolTipObject(tiptext, iconSz=2):
 
 ################################################################################
 class DlgUnlockWallet(QDialog):
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgUnlockWallet, self).__init__(parent)
 
       self.wlt = wlt
-      self.main = parent
+      self.parent = parent
+      self.main   = main
 
       lblDescr  = QLabel("Enter your passphrase to unlock this wallet")
       lblPasswd = QLabel("Passphrase:")
@@ -68,7 +69,7 @@ class DlgUnlockWallet(QDialog):
 ################################################################################
 class DlgNewWallet(QDialog):
 
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(DlgNewWallet, self).__init__(parent)
 
       self.selectedImport = False
@@ -303,7 +304,7 @@ class DlgNewWallet(QDialog):
 
 ################################################################################
 class DlgChangePassphrase(QDialog):
-   def __init__(self, parent=None, noPrevEncrypt=True):
+   def __init__(self, parent=None, main=None, noPrevEncrypt=True):
       super(DlgChangePassphrase, self).__init__(parent)
 
 
@@ -410,7 +411,7 @@ class DlgChangePassphrase(QDialog):
          self.accept()
       else:
          if self.checkPassphrase():
-            dlg = DlgPasswd3(self)
+            dlg = DlgPasswd3(self, self.main)
             if dlg.exec_():
                if not str(dlg.edtPasswd3.text()) == str(self.edtPasswd1.text()):
                   QMessageBox.critical(self, 'Invalid Passphrase', \
@@ -423,7 +424,7 @@ class DlgChangePassphrase(QDialog):
 
 
 class DlgPasswd3(QDialog):
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(DlgPasswd3, self).__init__(parent)
       lblWarnImg = QLabel()
       lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
@@ -470,7 +471,7 @@ class DlgPasswd3(QDialog):
 
 ################################################################################
 class DlgChangeLabels(QDialog):
-   def __init__(self, currName='', currDescr='', parent=None):
+   def __init__(self, currName='', currDescr='', parent=None, main=None):
       super(DlgChangeLabels, self).__init__(parent)
 
       self.edtName = QLineEdit()
@@ -510,13 +511,14 @@ class DlgWalletDetails(QDialog):
    """ For displaying the details of a specific wallet, with options """ 
 
    #############################################################################
-   def __init__(self, wlt, usermode=USERMODE.Standard, parent=None):
+   def __init__(self, wlt, usermode=USERMODE.Standard, parent=None, main=None):
       super(DlgWalletDetails, self).__init__(parent)
       self.setAttribute(Qt.WA_DeleteOnClose)
 
       self.wlt = wlt
       self.usermode = usermode
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       self.wlttype, self.typestr = determineWalletType(wlt, parent)
 
       self.labels = [wlt.labelName, wlt.labelDescr]
@@ -647,14 +649,14 @@ class DlgWalletDetails(QDialog):
       if index.column()==ADDRESSCOLS.Comment:
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
       else:
-         dlg = DlgAddressInfo(self, addr)
+         dlg = DlgAddressInfo(wlt, addr, self, self.main)
          dlg.exec_()
          #currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
 
 
    #############################################################################
    def changeLabels(self):
-      dlgLabels = DlgChangeLabels(self.wlt.labelName, self.wlt.labelDescr, self)
+      dlgLabels = DlgChangeLabels(self.wlt.labelName, self.wlt.labelDescr, self, self.main)
       if dlgLabels.exec_():
          # Make sure to use methods like this which not only update in memory,
          # but guarantees the file is updated, too
@@ -669,7 +671,7 @@ class DlgWalletDetails(QDialog):
 
    #############################################################################
    def changeEncryption(self):
-      dlgCrypt = DlgChangePassphrase(self, not self.wlt.useEncryption)
+      dlgCrypt = DlgChangePassphrase(self, self.main, not self.wlt.useEncryption)
       if dlgCrypt.exec_():
          self.disableEncryption = dlgCrypt.chkDisableCrypt.isChecked()
          newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
@@ -703,7 +705,7 @@ class DlgWalletDetails(QDialog):
       
 
    def getNewAddress(self):
-      dlg = DlgNewAddressDisp(self.wlt, self)
+      dlg = DlgNewAddressDisp(self.wlt, self, self.main)
       dlg.exec_()
        
 
@@ -716,7 +718,7 @@ class DlgWalletDetails(QDialog):
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
-         unlockdlg = DlgUnlockWallet(self.wlt, self)
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
          if not unlockdlg.exec_():
             return
 
@@ -725,7 +727,7 @@ class DlgWalletDetails(QDialog):
            'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
          return 
 
-      dlg = DlgPaperBackup(self.wlt, self)
+      dlg = DlgPaperBackup(self.wlt, self, self.main)
       dlg.exec_()
       
    def execRemoveDlg(self):
@@ -770,20 +772,7 @@ class DlgWalletDetails(QDialog):
 
    def saveWalletCopy(self):
       savePath = self.main.getFileSave()
-      doIt = False
-      if not os.path.exists(savePath):
-         doIt = True
-      else:
-         reply = QMessageBox.warning(self, 'Overwrite file?', \
-               'The selected file already exists:\n\n'
-               + savePath + '\n\nDo you want to overwrite it?',
-               QMessageBox.Yes | QMessageBox.No)
-         if reply == QMessageBox.Yes:
-            doIt = True
-         else:
-            doIt = False
-         
-      if doIt: 
+      if len(savePath)>0:
          self.wlt.writeFreshWalletFile(savePath)
          self.main.statusBar
          self.main.statusBar().showMessage( \
@@ -1049,7 +1038,7 @@ class DlgWalletDetails(QDialog):
 
 
    class dlgChangeOwner(QDialog):
-      def __init__(self, wltID, parent=None):
+      def __init__(self, wltID, parent=None, main=None):
          super(parent.dlgChangeOwner, self).__init__(parent)
 
          layout = QGridLayout()
@@ -1112,33 +1101,44 @@ class DlgNewAddressDisp(QDialog):
    We just generated a new address, let's show it to the user and let them
    a comment to it, if they want.
    """
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgNewAddressDisp, self).__init__(parent)
 
       self.wlt  = wlt
       self.addr = wlt.getNextUnusedAddress()
-      self.main = parent
+      self.parent = parent
+      self.main   = main
 
-      try:
-         wlttype = determineWalletType( self.wlt, self.main.main)[0]
-      except:
-         wlttype = determineWalletType( self.wlt, self.main)[0]
+      wlttype = determineWalletType( self.wlt, self.main)[0]
 
-      notMyWallet = (wlttype==WLTTYPES.WatchOnly)
+      notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
+      offlineWallet = (wlttype==WLTTYPES.Offline)
       if notMyWallet:
          QMessageBox.warning(self, 'Not your wallet!', \
-            'You have chosen to generate and address for a wallet that '
-            'does not appear to belong to you!  Any money sent to this '
-            'wallet will not appear in your total balance.\n\n'
-            'If this is actually your wallet (and you maintain the private '
-            'keys on a separate computer), then please change the '
+            'You are getting an address for a wallet that '
+            'does not appear to belong to you.  Any money sent to this '
+            'wallet will not appear in your total balance, and cannot '
+            'be spent from this computer.\n\n'
+            'If this is actually your wallet (perhaps you maintain the full '
+            'wallet on a separate computer), then please change the '
             '"Belongs To" field in the wallet-properties for this wallet.', \
+            QMessageBox.Ok)
+
+      if offlineWallet:
+         QMessageBox.warning(self, 'Is this really your wallet?', \
+            'You are getting an address for a wallet that '
+            'you have specified belongs to you, but you cannot actually '
+            'spend the funds from this computer.  This is usually the case when '
+            'you keep the full wallet on a separate computer for security '
+            'purposes.\n\n'
+            'If this does not sound right, then please do not use the following '
+            'address.  Instead, change the wallet properties "Belongs To" field '
+            'to specify that this wallet is not actually yours.', \
             QMessageBox.Ok)
          
 
       lblDescr = QLabel( \
-            'The following address has been generated for you to use '
-            'to receive Bitcoins:')
+            'The following address can be used to to receive Bitcoins:')
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
       self.edtNewAddr.setText(self.addr.getAddrStr())
@@ -1164,11 +1164,11 @@ class DlgNewAddressDisp(QDialog):
       frmNewAddrLayout.addWidget(self.edtNewAddr, 1,0, 1,1)
       frmNewAddrLayout.addWidget(tooltip1,        1,1, 1,1)
 
-      #if not notMyWallet:
-         #palette = QPalette()
-         #palette.setColor( QPalette.WindowText, Colors.LightBlue )
-         #frmNewAddr.setPalette( palette );
-         #frmNewAddr.setAutoFillBackground( True );
+      if not notMyWallet:
+         palette = QPalette()
+         palette.setColor( QPalette.Base, Colors.LightBlue )
+         self.edtNewAddr.setPalette( palette );
+         self.edtNewAddr.setAutoFillBackground( True );
 
       frmCopy = QFrame()
       frmCopy.setFrameShape(QFrame.NoFrame)
@@ -1205,8 +1205,10 @@ class DlgNewAddressDisp(QDialog):
       
       lblRecvWlt = QLabel( \
             'Money sent to this address will appear in the following wallet:')
+      
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      lblRecvWlt.setMinimumWidth( tightSizeStr(lblRecvWlt, lblRecvWlt.text())[0])
 
       lblRecvWltID = QLabel( \
             '<b>"%s"</b>  (%s)' % (wlt.labelName, wlt.uniqueIDB58))
@@ -1243,6 +1245,7 @@ class DlgNewAddressDisp(QDialog):
 
       self.setLayout(layout) 
       self.setWindowTitle('New Receiving Address')
+      self.setFocus()
 
       try:
          self.main.wltAddrModel.reset()
@@ -1273,7 +1276,7 @@ class DlgNewAddressDisp(QDialog):
 #############################################################################
 # Display a warning box about import backups, etc
 class DlgImportWarning(QDialog):
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(DlgImportWarning, self).__init__(parent)
       self.main=parent
       lblWarn = QLabel( 'Armory supports importing of external '
@@ -1302,23 +1305,24 @@ class DlgImportWarning(QDialog):
 
    def acceptWarning(self):
       if self.chkDNAA.isChecked():
-         self.main.main.settings.set('DNAA_ImportWarning', True)
+         self.main.settings.set('DNAA_ImportWarning', True)
       self.accept()
 
 
 
 #############################################################################
 class DlgImportAddress(QDialog):
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgImportAddress, self).__init__(parent)
 
       self.wlt = wlt
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       descrText = ('If you have a private key that you would like to '
                    'add to this wallet, please enter it below.  If it '
                    'is in a format supported by Armory, it will be '
                    'detected and imported appropriately.  ')
-      if self.main.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+      if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
          descrText += ('Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
                        'without checksums), and mini-private-key format '
@@ -1327,34 +1331,55 @@ class DlgImportAddress(QDialog):
       lblDescr = QLabel(descrText)
       lblDescr.setWordWrap(True)
 
-      lblWarn = QLabel( \
-            '<font color="red"><b>Warning</b></font>: Do not import private '
-            'keys/addresses <b>unless '
-            'you know for sure that you are the only person who has access '
-            'to it</b>.  If you received this key from another party, that party '
-            'will be able to spend any Bitcoins it currently holds, and future '
-            'Bitcoins sent to it.')
-      lblWarn.setWordWrap(True)
+
+
+      ## Import option
+      self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                      'into your wallet\n'
+                                      'Select this option if someone else gave you this key')
+      self.radioImport = QRadioButton('Import this address to your wallet\n'
+                                      'Only select this option if you are positive '
+                                      'that no one else has access to this key')
 
       sweepTooltip = createToolTipObject( \
-         'If you want to import a private key but you are not sure whether you '
-         'have exclusive access to it, you should create a new wallet just for '
-         'importing questionable private keys.  Any funds sent to this untrusted '
-         'address will be shown as belonging to you, even though the person who '
-         'gave it to you may still be able to spend it.')
+         'You should never add an untrusted key to your wallet.  By choosing this '
+         'option, you are only moving the funds into your wallet, but not the key '
+         'itself.  You should use this option for Casascius physical Bitcoins.')
       sweepTooltip.setMaximumWidth(relaxedSizeStr(sweepTooltip, '(?)')[0])
 
-      self.chkSweep = QCheckBox( \
-         'Only transfer the funds from this address to my wallet, but do not '
-         'import the key. (Not implemented just yet...)')
-      lblWarn.setTextFormat(Qt.RichText)
+      importTooltip = createToolTipObject( \
+         'This option will make the key part of your wallet, meaning that it '
+         'can be used to securely receive future payments.  Never select this '
+         'option for private keys that other people may have access to.')
+      importTooltip.setMaximumWidth(relaxedSizeStr(importTooltip, '(?)')[0])
+
+
+      # Make sure that there can only be one selection
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.radioSweep)
+      btngrp.addButton(self.radioImport)
+      btngrp.setExclusive(True)
+      self.radioSweep.setChecked(True)
+
+
+      #lblWarn = QLabel( \
+            #'<font color="red"><b>Warning</b></font>: Do not import private '
+            #'keys/addresses <b>unless '
+            #'you know for sure that you are the only person who has access '
+            #'to it</b>.  If you received this key from another party, that party '
+            #'will be able to spend any Bitcoins it currently holds, and future '
+            #'Bitcoins sent to it.')
+      #lblWarn.setWordWrap(True)
+      #lblWarn.setTextFormat(Qt.RichText)
 
       frmWarn = QFrame()
       frmWarn.setFrameStyle(QFrame.Box|QFrame.Plain)
       frmWarnLayout = QGridLayout()
-      frmWarnLayout.addWidget(lblWarn,         0,0, 1,1)
-      frmWarnLayout.addWidget(sweepTooltip,    0,1, 1,1)
-      frmWarnLayout.addWidget(self.chkSweep,   1,0, 1,2)
+      #frmWarnLayout.addWidget(lblWarn,         0,0, 1,1)
+      frmWarnLayout.addWidget(self.radioSweep,    0,0, 1,1)
+      frmWarnLayout.addWidget(self.radioImport,   1,0, 1,1)
+      frmWarnLayout.addWidget(sweepTooltip,  0,1, 1,1)
+      frmWarnLayout.addWidget(importTooltip, 1,1, 1,1)
       frmWarn.setLayout(frmWarnLayout)
 
 
@@ -1468,33 +1493,37 @@ class DlgImportAddress(QDialog):
                QMessageBox.Ok)
          return
 
-      # Finally, let's add the address to the wallet
-      if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(wlt, self.main.main)
-         if not dlg.exec_():
-            reply = QMessageBox.critical(self, 'Wallet is locked',
-               'New private key data cannot be imported unless the wallet is '
-               'unlocked.  Please try again when you have the passphrase.',\
-               QMessageBox.Ok)
+      # Finally, let's add the address to the wallet, or sweep the funds
+      if self.radioSweep.isChecked():
+         pass # TODO: add the tx-construct-broadcast method here
+      elif self.radioImport.isChecked():
+         if self.wlt.useEncryption and self.wlt.isLocked:
+            dlg = DlgUnlockWallet(wlt, self.main)
+            if not dlg.exec_():
+               reply = QMessageBox.critical(self, 'Wallet is locked',
+                  'New private key data cannot be imported unless the wallet is '
+                  'unlocked.  Please try again when you have the passphrase.',\
+                  QMessageBox.Ok)
 
-      self.wlt.importExternalAddressData( privKey=binKeyData)
-      self.main.main.statusBar().showMessage( 'Successful import of address ' \
+         self.wlt.importExternalAddressData( privKey=binKeyData)
+         self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
       
       self.main.wltAddrModel.reset()
       if TheBDM.isInitialized():
          self.wlt.syncWithBlockchain()
 
-      self.main.main.walletListChanged()
+      self.main.walletListChanged()
       self.accept()
 
 
 #############################################################################
 class DlgImportWallet(QDialog):
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(DlgImportWallet, self).__init__(parent)
       self.setAttribute(Qt.WA_DeleteOnClose)
-      self.main = parent
+      self.parent = parent
+      self.main   = main
 
       lblImportDescr = QLabel('Chose the wallet import source:')
       self.btnImportFile  = QPushButton("Import from &file")
@@ -1571,7 +1600,7 @@ class DlgImportWallet(QDialog):
       
 
 class DlgAddressInfo(QDialog):
-   def __init__(self, wlt, addr160, parent=None):
+   def __init__(self, wlt, addr160, parent=None, main=None):
       super(DlgAddressInfo, self).__init__(parent)
 
       
@@ -1585,10 +1614,11 @@ class DlgImportPaperWallet(QDialog):
    wltDataLines = [[]]*4
    prevChars    = ['']*4
 
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(DlgImportPaperWallet, self).__init__(parent)
 
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       ROOT0, ROOT1, CHAIN0, CHAIN1 = range(4)
       self.lineEdits = [QLineEdit() for i in range(4)]
       self.prevChars = ['' for i in range(4)]
@@ -1754,27 +1784,13 @@ class DlgImportPaperWallet(QDialog):
       
 
 
-class DlgSaveWalletCopy(QDialog):
-   def __init__(self, filetypeList=['Wallet files (*.wallet)'], parent=None):
-      super(DlgSaveWalletCopy, self).__init__(parent)
-
-      #if parent.lastDirectory:
-         #startDir = parent.
-
-      typelist = list(filetypeList) # make a copy
-      typelist.append('All files (*)')
-      self.saveFile = QFileDialog.getSaveFileName(self, 'Save Wallet File', \
-                                       self.lastDirectory, ';; '.join(typelist))
-
-      self.lastDirectory = os.path.split(self.saveFile)[0]
-
 
 ################################################################################
 class DlgSetComment(QDialog):
    """ This will be a dumb dialog for retrieving a comment from user """
 
    #############################################################################
-   def __init__(self, currcomment='', ctype='', parent=None):
+   def __init__(self, currcomment='', ctype='', parent=None, main=None):
       super(DlgSetComment, self).__init__(parent)
 
       self.setWindowTitle('Add or Change Comment')
@@ -1838,7 +1854,7 @@ def easyType16_to_binary(b16str):
 
 
 class GfxViewPaper(QGraphicsView):
-   def __init__(self, parent=None):
+   def __init__(self, parent=None, main=None):
       super(GfxViewPaper, self).__init__(parent)
       self.setRenderHint(QPainter.TextAntialiasing) 
 
@@ -1926,10 +1942,11 @@ class GfxItemQRCode(QGraphicsItem):
 
 
 class DlgRemoveWallet(QDialog):
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgRemoveWallet, self).__init__(parent)
       
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       wltID = wlt.uniqueIDB58
       wltName = wlt.labelName
       wltDescr = wlt.labelDescr
@@ -2095,7 +2112,7 @@ class DlgRemoveWallet(QDialog):
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
       if self.chkPrintBackup.isChecked():      
-         dlg = DlgPaperBackup(wlt, self)
+         dlg = DlgPaperBackup(wlt, self, self.main)
          if not dlg.exec_():
             return
             
@@ -2114,9 +2131,9 @@ class DlgRemoveWallet(QDialog):
            QMessageBox.Yes | QMessageBox.Cancel)
 
          if reply==QMessageBox.Yes:
-            self.main.main.removeWalletFromApplication(wltID)
-            self.main.main.settings.extend('Excluded_Wallets', wlt.walletPath)
-            self.main.main.statusBar().showMessage( \
+            self.main.removeWalletFromApplication(wltID)
+            self.main.settings.extend('Excluded_Wallets', wlt.walletPath)
+            self.main.statusBar().showMessage( \
                      'Wallet '+wltID+' was added to the ignore list.', 20000)
             self.main.accept()
             self.accept()
@@ -2144,15 +2161,15 @@ class DlgRemoveWallet(QDialog):
 
                os.remove(thepath)
                os.remove(thepathBackup)
-               self.main.main.walletMap[wltID] = newWlt
-               self.main.main.statusBar().showMessage( \
+               self.main.walletMap[wltID] = newWlt
+               self.main.statusBar().showMessage( \
                      'Wallet '+wltID+' was replaced with a watching-only wallet.', 10000)
             elif self.radioDelete.isChecked():
                print '***Completely deleting wallet'
                os.remove(thepath)
                os.remove(thepathBackup)
-               self.main.main.removeWalletFromApplication(wltID) 
-               self.main.main.statusBar().showMessage( \
+               self.main.removeWalletFromApplication(wltID) 
+               self.main.statusBar().showMessage( \
                      'Wallet '+wltID+' was deleted!', 10000)
 
             self.main.accept()
@@ -2162,7 +2179,7 @@ class DlgRemoveWallet(QDialog):
 
 
 class DlgRemoveAddress(QDialog):
-   def __init__(self, wlt, addr160, parent=None):
+   def __init__(self, wlt, addr160, parent=None, main=None):
       super(DlgRemoveAddress, self).__init__(parent)
       
       if not wlt.hasAddr(addr160):
@@ -2173,7 +2190,8 @@ class DlgRemoveAddress(QDialog):
                                    'Can only delete imported addresses.')
 
 
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       self.wlt  = wlt
       self.addr = wlt.addrMap[addr160]
       self.comm = wlt.getCommentForAddress(addr160)
@@ -2264,7 +2282,7 @@ class DlgRemoveAddress(QDialog):
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
       #if self.chkPrintBackup.isChecked():      
-         #dlg = DlgPaperBackup(wlt, self)
+         #dlg = DlgPaperBackup(wlt, self, self.main)
          #if not dlg.exec_():
             #return
             
@@ -2275,8 +2293,8 @@ class DlgRemoveAddress(QDialog):
            'to anyone in the past, make sure that they know not to '
            'use it again, since any Bitcoins sent to it will be '
            'inaccessible.\n\n '
-           '(if you are maintaining an external copy of this address '
-           'please ignore this warning)\n\n'
+           'If you are maintaining an external copy of this address '
+           'please ignore this warning\n\n'
            'Are you absolutely sure you want to delete ' + 
            self.addr.getAddrStr() + '?', \
            QMessageBox.Yes | QMessageBox.Cancel)
@@ -2291,10 +2309,11 @@ class DlgRemoveAddress(QDialog):
 
 
 class DlgWalletSelect(QDialog):
-   def __init__(self, parent=None,  firstSelect=None, onlyMyWallets=False, wltIDList=None):
+   def __init__(self, parent=None, main=None,  firstSelect=None, onlyMyWallets=False, wltIDList=None):
       super(DlgWalletSelect, self).__init__(parent)
 
-      self.main = parent
+      self.parent = parent
+      self.main   = main
       self.lstWallets = QListWidget()
 
       if wltIDList==None:
@@ -2403,21 +2422,117 @@ class DlgWalletSelect(QDialog):
       self.dispID.setText(wltID)
       self.dispName.setText(wlt.labelName)
       self.dispDescr.setText(wlt.labelDescr)
-      self.dispBal.setText(coin2str(wlt.getBalance()))
+      
+      bal = wlt.getBalance()
+      if bal==0:
+         self.dispBal.setText('<font color="red"><b>0.0000</b></font>')
+      else:
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance())+'</b>')
+      self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
 
 class DlgSendBitcoins(QDialog):
-   def __init__(self, wlt, parent=None):
+   COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgSendBitcoins, self).__init__(parent)
 
-      
+      self.widgetTable = []
+
+      layout = QGridLayout()
+      self.scrollRecipArea = QScrollArea()
+      lblRecip = QLabel( \
+         '<b>Enter Recipients</b>:  In most cases, you will only be specifying '
+         'one recipient, but you can combine any number of transactions into one '
+         'wallet operation by specifying more (you only have to unlock your wallet '
+         'once).  Blank entries will be ignored')
+      lblRecip.setWordWrap(True)
+
+      layout.addWidget(lblRecip,              0, 2, 1, 2)
+
+      layout.addWidget(self.scrollRecipArea,  1, 2, 4, 2)
+
+      self.makeRecipFrame(3)
+
       self.setLayout(layout)
       self.setWindowTitle('Send Bitcoins')
 
 
+   def makeRecipFrame(self, nRecip):
+      inputs = [[]]*nRecip
+      prevNRecip = len(self.widgetTable)
+      nRecip = max(nRecip, 1)
+      for i in range(nRecip):
+         if i<prevNRecip and i<nRecip:
+            for j in (1,3,5):
+               inputs[i].append(self.widgetTable[i][j].text())
+
+      frmRecip = QFrame()
+      frmRecip.setFrameStyle(QFrame.NoFrame)
+      frmRecipLayout = QVBoxLayout()
+
+      FontVar = QFont('Times',   10)
+      FontFix = QFont('Courier', 10)
+      
+      COLS = self.COLS 
+      
+      self.widgetTable = []
+      for i in range(nRecip):
+         self.widgetTable.append([])
+
+         self.widgetTable[-1].append( QLabel('Address %d:' % i) )
+
+         self.widgetTable[-1].append( QLineEdit() )
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(QLineEdit(), 40)[0])
+         self.widgetTable[-1][-1].setFont(FontVar)
+
+         self.widgetTable[-1].append( QLabel('BTC:') )
+
+         self.widgetTable[-1].append( QLineEdit() )
+         self.widgetTable[-1][-1].setFont(FontFix)
+         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(FontFix, 12)[0])
+      
+         self.widgetTable[-1].append( QLabel('Comment:') )
+
+         self.widgetTable[-1].append( QLineEdit() )
+         self.widgetTable[-1][-1].setFont(FontVar)
+
+         subfrm = QFrame()
+         subfrm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+         subLayout = QGridLayout()
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr], 0, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],    0, 1, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblBtc],  0, 2, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],     0, 3, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm], 1, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],    1, 1, 1, 3)
+         subfrm.setLayout(subLayout)
+
+         frmRecipLayout.addWidget(subfrm)
+
+      btnFrm = QFrame()
+      btnFrm.setFrameStyle(QFrame.NoFrame)
+      btnLayout = QHBoxLayout()
+      lbtnAddRecip = QLabelButton('+ Recipient')
+      lbtnRmRecip  = QLabelButton('- Recipient')
+      self.connect(lbtnAddRecip, SIGNAL('clicked()'), lambda: self.makeRecipFrame(nRecip+1))
+      self.connect(lbtnRmRecip,  SIGNAL('clicked()'), lambda: self.makeRecipFrame(nRecip-1))
+      btnLayout.addStretch()
+      btnLayout.addWidget(lbtnAddRecip)
+      btnLayout.addWidget(lbtnRmRecip)
+      btnFrm.setLayout(btnLayout)
+
+      frmRecipLayout.addWidget(btnFrm)
+      frmRecipLayout.addStretch()
+      frmRecip.setLayout(frmRecipLayout)
+      #return frmRecip
+      self.scrollRecipArea.setWidget(frmRecip)
+
+
+
+
 class DlgAddressProperties(QDialog):
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgAddressProperties, self).__init__(parent)
 
    
@@ -2439,16 +2554,14 @@ class DlgPaperBackup(QDialog):
    (in order to manipulate the private keys for printing), but I don't think
    this is a big deal, because printing would be infrequent
    """
-   def __init__(self, wlt, parent=None):
+   def __init__(self, wlt, parent=None, main=None):
       super(DlgPaperBackup, self).__init__(parent)
-
-
 
 
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
       if wlt.useEncryption and wlt.isLocked:
-         dlg = DlgUnlockWallet(wlt, parent)
+         dlg = DlgUnlockWallet(wlt, parent, main)
          if dlg.exec_():
             self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
          else:
