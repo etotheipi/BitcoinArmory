@@ -60,6 +60,8 @@ BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
+ARMORY_DONATION_ADDR = '1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1'
+
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
    if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
@@ -5153,7 +5155,7 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
-      self.addrPoolSize = 200
+      self.addrPoolSize = 100
 
       # For file sync features
       self.walletPath = ''
@@ -5695,8 +5697,9 @@ class PyBtcWallet(object):
       onlineWallet.opevalMap = self.opevalMap
 
       onlineWallet.uniqueIDBin = self.uniqueIDBin
+      onlineWallet.highestUsedChainIndex     = self.highestUsedChainIndex
       onlineWallet.lastComputedChainAddr160  = self.lastComputedChainAddr160
-      onlineWallet.lastComputedChainIndex = self.lastComputedChainIndex
+      onlineWallet.lastComputedChainIndex    = self.lastComputedChainIndex
 
       onlineWallet.writeFreshWalletFile(newWalletFile, shortLabel, longLabel)
       return onlineWallet
@@ -8266,6 +8269,20 @@ class SettingsFile(object):
    #############################################################################
    def getAllSettings(self):
       return self.settingsMap
+
+   #############################################################################
+   def getSettingOrSetDefault(self, name, defaultVal, expectList=False):
+      output = defaultVal
+      if self.hasSetting(name):
+         output = self.get(name)
+      else:
+         self.set(name, defaultVal)
+
+      return output
+
+ 
+
+
 
    #############################################################################
    def delete(self, name):

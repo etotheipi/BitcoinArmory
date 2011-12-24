@@ -16,7 +16,7 @@ Test_EncryptedAddress = True
 Test_EncryptedWallet  = True
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = True
+Test_CryptoTiming     = False
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -943,7 +943,7 @@ if Test_EncryptedWallet:
 
    #############################################################################
    print '\n(1) Getting a new address:'
-   newAddr = wlt.getNewAddress()
+   newAddr = wlt.getNextUnusedAddress()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    print '\n(1) Re-reading wallet from file, compare the two wallets'
@@ -1044,7 +1044,7 @@ if Test_EncryptedWallet:
    print 'Locking wallet'
    wlt.lock()
    for i in range(10):
-      wlt.getNewAddress()
+      wlt.getNextUnusedAddress()
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
    
    print '\n(5) Re-reading wallet from file, compare the two wallets'
@@ -1059,11 +1059,18 @@ if Test_EncryptedWallet:
    wlt2.readWalletFile('OnlineVersionOfEncryptedWallet.bin')
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
-   print '\n(6)Getting a new address from the online wallet'
-   newaddr = wlt2.getNewAddress()
-   print 'New address:', newaddr.getAddrStr()
-   newaddr = wlt2.getNewAddress()
-   print 'New address:', newaddr.getAddrStr()
+   print '\n(6)Getting a new addresses from both wallets'
+   for i in range(100):
+      wlt.getNextUnusedAddress()
+      wlt2.getNextUnusedAddress()
+
+   newaddr1 = wlt.getNextUnusedAddress()
+   print 'New address (reg):   ', newaddr1.getAddrStr()
+   newaddr2 = wlt2.getNextUnusedAddress()
+   print 'New address (online):', newaddr2.getAddrStr()
+
+   printpassorfail(newaddr1.getAddr160() == newaddr2.getAddr160())
+
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    print '\n(6) Re-reading wallet from file, compare the two wallets'
@@ -1111,13 +1118,13 @@ if Test_EncryptedWallet:
 
    try:
       wlt.interruptTest1 = True
-      wlt.getNewAddress()
+      wlt.getNextUnusedAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
    wlt.interruptTest1 = False
 
-   print '\n(8a)Interrupted getNewAddress on primary file update'
+   print '\n(8a)Interrupted getNextUnusedAddress on primary file update'
    printstat()
    print '\n(8a)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
@@ -1129,13 +1136,13 @@ if Test_EncryptedWallet:
 
    try:
       wlt.interruptTest2 = True
-      wlt.getNewAddress()
+      wlt.getNextUnusedAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
    wlt.interruptTest2 = False
 
-   print '\n(8b)Interrupted getNewAddress on between primary/backup update'
+   print '\n(8b)Interrupted getNextUnusedAddress on between primary/backup update'
    printstat()
    print '\n(8b)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()
@@ -1149,13 +1156,13 @@ if Test_EncryptedWallet:
 
    try:
       wlt.interruptTest3 = True
-      wlt.getNewAddress()
+      wlt.getNextUnusedAddress()
    except InterruptTestError:
       print 'Interrupted!'
       pass
    wlt.interruptTest3 = False
 
-   print '\n(8c)Interrupted getNewAddress on backup file update'
+   print '\n(8c)Interrupted getNextUnusedAddress on backup file update'
    printstat()
    print '\n(8c)Do consistency check on the wallet'
    wlt.doWalletFileConsistencyCheck()

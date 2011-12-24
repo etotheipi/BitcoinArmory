@@ -16,7 +16,8 @@ Colors = enum(LightBlue=   QColor(215,215,255), \
               LighterGray= QColor(245,245,245), \
               DarkGray=    QColor( 64, 64, 64), \
               Green=       QColor(  0,100,  0), \
-              Red=         QColor(100,  0,  0), \
+              DarkRed=     QColor( 75,  0,  0), \
+              Red=         QColor(140,  0,  0), \
               Black=       QColor(  0,  0,  0)  \
                                                  )
 

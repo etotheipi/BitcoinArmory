@@ -35,3 +35,7 @@ class QLabelButton(QLabel):
    def leaveEvent(self, ev):
       ssStr = "QLabel { background-color : %s }" % self.bgColorOffStr
       self.setStyleSheet(ssStr)
+
+
+
+

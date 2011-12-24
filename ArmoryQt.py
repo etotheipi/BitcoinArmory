@@ -195,6 +195,7 @@ class ArmoryMainWindow(QMainWindow):
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
+      btnWltProps  = QPushButton("Unsigned Transactions")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
@@ -910,13 +911,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-   #############################################################################
-   def deleteWallet(self, wltID):
-      pass
-     
-      if wlt.cppWallet.getBalance() > 0:
-         # WARNING:  WALLET TO BE DELETED STILL CONTAINS MONEY
-         QMessageBox.warning(self)
             
             
    #############################################################################
@@ -997,6 +991,11 @@ class ArmoryMainWindow(QMainWindow):
          wltID = dlg.selectedID 
          wlt = self.walletMap[wltID]
 
+         wlttype = determineWalletType(wlt, self)[0]
+         #if wlttype=WLTTYPES.WatchOnly:
+            #QMessageBox.warning(self, '
+         #elif wlttype==WLTTYPES.Offline:
+
          dlgSend = DlgSendBitcoins(wlt, self, self)
          dlgSend.exec_()
    
@@ -1072,7 +1071,7 @@ if __name__ == '__main__':
    armorymode = ARMORYMODE.WITH_BLOCKCHAIN
    try:
       import urllib2
-      response=urllib2.urlopen('http://google.com',timeout=1)
+      response=urllib2.urlopen('http://google.com',timeout=2)
    except (ImportError, urllib2.URLError):
       dlg = DlgGetArmoryModeSelection(self,self)
       if dlg.exec_():

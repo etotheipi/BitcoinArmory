@@ -13,6 +13,7 @@ MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 def createToolTipObject(tiptext, iconSz=2):
    lbl = QLabel('<font size=%d color="blue"><u>(?)</u></font>' % iconSz)
    lbl.setToolTip('<u></u>' + tiptext)
+   lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
    return lbl
 
 ################################################################################
@@ -565,7 +566,8 @@ class DlgWalletDetails(QDialog):
          lbtnChangeCrypto = QLabelButton(s)
          self.connect(lbtnChangeCrypto, SIGNAL('clicked()'), self.changeEncryption)
 
-      lbtnGenAddr = QLabelButton('Generate New Address')
+      lbtnSendBtc = QLabelButton('Send Bitcoins')
+      lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import External Address')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
@@ -583,6 +585,7 @@ class DlgWalletDetails(QDialog):
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
       self.connect(lbtnExport,  SIGNAL('clicked()'), self.saveWalletCopy)
+      self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
@@ -591,18 +594,29 @@ class DlgWalletDetails(QDialog):
       hasPriv = not self.wlt.watchingOnly
       adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
 
+      def createVBoxSeparator():
+         frm = QFrame()
+         frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
+         return frm
+
+      if hasPriv:           optLayout.addWidget(lbtnSendBtc)
       if True:              optLayout.addWidget(lbtnGenAddr)
       if hasPriv:           optLayout.addWidget(lbtnChangeCrypto)
       if True:              optLayout.addWidget(lbtnChangeLabels)
 
+      if True:              optLayout.addWidget(createVBoxSeparator())
+
+      if hasPriv:           optLayout.addWidget(lbtnMkPaper)
+      if True:              optLayout.addWidget(lbtnExport)
+      if hasPriv:           optLayout.addWidget(lbtnForkWlt)
+
+      if True:              optLayout.addWidget(createVBoxSeparator())
+
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv:           optLayout.addWidget(lbtnDeleteA)
       if hasPriv:           optLayout.addWidget(lbtnSweepA)
-
-      if hasPriv:           optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
-      if hasPriv:           optLayout.addWidget(lbtnMkPaper)
-      if hasPriv:           optLayout.addWidget(lbtnExport)
+
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
 
@@ -731,7 +745,7 @@ class DlgWalletDetails(QDialog):
       dlg.exec_()
       
    def execRemoveDlg(self):
-      dlg = DlgRemoveWallet(self.wlt, self)
+      dlg = DlgRemoveWallet(self.wlt, self, self.main)
       if dlg.exec_():
          pass # not sure that I don't handle everything in the dialog itself
 
@@ -759,13 +773,13 @@ class DlgWalletDetails(QDialog):
 
 
    def execImportAddress(self):
-      if not self.main.settings.hasSetting('DNAA_ImportWarning') \
-         or not self.main.settings.get('DNAA_ImportWarning'):
+      doWarn = self.main.settings.getSettingOrSetDefault('DNAA_ImportWarning', False)
+      if doWarn:
          DlgImportWarning(self).exec_()
 
       # Now we are past the [potential] warning box.  Actually open
       # The import dialog, now
-      dlg = DlgImportAddress(self.wlt, self)
+      dlg = DlgImportAddress(self.wlt, self, self.main)
       dlg.exec_()
 
 
@@ -779,8 +793,12 @@ class DlgWalletDetails(QDialog):
             'Successfully copied wallet to ' + savePath, 10000)
       
       
-         
-      
+   def forkOnlineWallet(self):
+      saveLoc = self.main.getFileSave('Save Watching-Only Copy')
+      if not saveLoc.endswith('.wallet'):
+         saveLoc += '.wallet'
+      self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
+                             '(Watching-Only) ' + self.wlt.labelDescr)
    
          
          
@@ -1167,6 +1185,9 @@ class DlgNewAddressDisp(QDialog):
       if not notMyWallet:
          palette = QPalette()
          palette.setColor( QPalette.Base, Colors.LightBlue )
+         boldFont = self.edtNewAddr.font()
+         boldFont.setWeight(QFont.Bold)
+         self.edtNewAddr.setFont(boldFont)
          self.edtNewAddr.setPalette( palette );
          self.edtNewAddr.setAutoFillBackground( True );
 
@@ -1185,11 +1206,11 @@ class DlgNewAddressDisp(QDialog):
 
       lblCommDescr = QLabel( \
             '(Optional) You can specify a comment to be stored with '
-            'this address in your wallet.  The comment can be changed '
-            'at a later time in the Address properties dialog.')
+            'this address.  The comment can be changed '
+            'at a later time in the wallet properties dialog.')
       lblCommDescr.setWordWrap(True)
-      lblComm = QLabel('Comment:')
-      lblComm.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      #lblComm = QLabel('Comment:')
+      #lblComm.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       self.edtComm = QTextEdit()
       tightHeight = tightSizeNChar(self.edtComm, 1)[1]
       self.edtComm.setMaximumHeight(tightHeight*3.2)
@@ -1198,8 +1219,8 @@ class DlgNewAddressDisp(QDialog):
       frmComment.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
       frmCommentLayout = QGridLayout()
       frmCommentLayout.addWidget(lblCommDescr,    0,0, 1,2)
-      frmCommentLayout.addWidget(lblComm,         1,0, 1,1)
-      frmCommentLayout.addWidget(self.edtComm,    1,1, 2,1)
+      #frmCommentLayout.addWidget(lblComm,         1,0, 1,1)
+      frmCommentLayout.addWidget(self.edtComm,    1,0, 2,2)
       frmComment.setLayout(frmCommentLayout)
 
       
@@ -1248,7 +1269,7 @@ class DlgNewAddressDisp(QDialog):
       self.setFocus()
 
       try:
-         self.main.wltAddrModel.reset()
+         self.parent.wltAddrModel.reset()
       except AttributeError:
          # Sometimes this is called from a dialog that doesn't have an addr model
          pass
@@ -1322,8 +1343,14 @@ class DlgImportAddress(QDialog):
                    'add to this wallet, please enter it below.  If it '
                    'is in a format supported by Armory, it will be '
                    'detected and imported appropriately.  ')
-      if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
-         descrText += ('Supported formats are any hexadecimal or Base58 '
+
+      #if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         #descrText += ('Supported formats are any hexadecimal or Base58 '
+                       #'representation of a 32-byte private key (with or '
+                       #'without checksums), and mini-private-key format '
+                       #'used on Casascius physical bitcoins.')
+      privTooltip = createToolTipObject( \
+                       'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
                        'without checksums), and mini-private-key format '
                        'used on Casascius physical bitcoins.')
@@ -1345,13 +1372,11 @@ class DlgImportAddress(QDialog):
          'You should never add an untrusted key to your wallet.  By choosing this '
          'option, you are only moving the funds into your wallet, but not the key '
          'itself.  You should use this option for Casascius physical Bitcoins.')
-      sweepTooltip.setMaximumWidth(relaxedSizeStr(sweepTooltip, '(?)')[0])
 
       importTooltip = createToolTipObject( \
          'This option will make the key part of your wallet, meaning that it '
          'can be used to securely receive future payments.  Never select this '
          'option for private keys that other people may have access to.')
-      importTooltip.setMaximumWidth(relaxedSizeStr(importTooltip, '(?)')[0])
 
 
       # Make sure that there can only be one selection
@@ -1395,11 +1420,12 @@ class DlgImportAddress(QDialog):
       
 
       layout = QGridLayout()
-      layout.addWidget(lblDescr,          0, 0, 1, 2)
+      layout.addWidget(lblDescr,          0, 0, 1, 3)
       layout.addWidget(lblPrivData,       1, 0, 1, 1)
       layout.addWidget(self.edtPrivData,  1, 1, 1, 1)
-      layout.addWidget(frmWarn,           2, 0, 1, 2)
-      layout.addWidget(buttonbox,         4, 0, 1, 2)
+      layout.addWidget(privTooltip,       1, 2, 1, 1)
+      layout.addWidget(frmWarn,           2, 0, 1, 3)
+      layout.addWidget(buttonbox,         4, 0, 1, 3)
 
       self.setWindowTitle('Private Key Import')
       self.setLayout(layout)
@@ -1947,6 +1973,7 @@ class DlgRemoveWallet(QDialog):
       
       self.parent = parent
       self.main   = main
+
       wltID = wlt.uniqueIDB58
       wltName = wlt.labelName
       wltDescr = wlt.labelDescr
@@ -2025,7 +2052,7 @@ class DlgRemoveWallet(QDialog):
 
       self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
       self.radioDelete  = QRadioButton('Permanently delete this wallet')
-      self.radioWatch   = QRadioButton('Convert wallet to watching-only wallet')
+      self.radioWatch   = QRadioButton('Delete private keys only, make watching-only')
 
       # Make sure that there can only be one selection
       btngrp = QButtonGroup(self)
@@ -2052,9 +2079,7 @@ class DlgRemoveWallet(QDialog):
                               'payments.  This option would be used if you created '
                               'the wallet on this computer <i>in order to transfer '
                               'it to a different computer or device and want to '
-                              'remove the private data from this system for security.</i>  '
-                              '(This will delete the private keys, so make sure they '
-                              'are backed up in some way before selecting this option).')
+                              'remove the private data from this system for security.</i>')
 
       if wlt.watchingOnly:
          lblDeleteDescr = QLabel('This will delete the wallet file from your system.  '
@@ -2089,6 +2114,9 @@ class DlgRemoveWallet(QDialog):
    
       startRow +=1
       layout.addWidget( self.chkPrintBackup, startRow, 0, 1, 3)
+
+      if wlt.watchingOnly:
+         self.chkPrintBackup.setVisible(False)
 
       
       rmWalletSlot = lambda: self.removeWallet(wlt)
@@ -2147,13 +2175,12 @@ class DlgRemoveWallet(QDialog):
            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
          if reply==QMessageBox.Yes:
 
-            thepath = wlt.walletPath
-            thepathpieces = os.path.splitext(wlt.walletPath)
-            thepathBackup = thepathpieces[0] + 'backup' + thepathpieces[1]
+            thepath       = wlt.getWalletPath()
+            thepathBackup = wlt.getWalletPath('backup')
 
             if self.radioWatch.isChecked():
                print '***Converting to watching-only wallet'
-               newWltPath = thepathpieces[0] + '_WatchOnly' + thepathpieces[1]
+               newWltPath = wlt.getWalletPath('WatchOnly')
                wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
                newWlt = PyBtcWallet().readWalletFile(newWltPath)
                newWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
@@ -2172,7 +2199,7 @@ class DlgRemoveWallet(QDialog):
                self.main.statusBar().showMessage( \
                      'Wallet '+wltID+' was deleted!', 10000)
 
-            self.main.accept()
+            self.parent.accept()
             self.accept()
          else:
             self.reject()
@@ -2432,58 +2459,198 @@ class DlgWalletSelect(QDialog):
       self.selectedID=wltID
 
 
+
+################################################################################
+def getWalletInfoFrame(wlt):
+   """
+   I *should* be using this method for the wallet-select, too, but I couldn't
+   figure out how to swap frames from the layout after a selection switch
+   """
+   wltID = wlt.uniqueIDB58
+   lbls = []
+   lbls.append( QLabel("Wallet ID:") )
+   lbls.append( QLabel("Name:"))
+   lbls.append( QLabel("Description:"))
+   lbls.append( QLabel("Current Balance:"))
+
+   for i in range(len(lbls)):
+      lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      lbls[i].setTextFormat(Qt.RichText)
+      lbls[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+      lbls[i].setText('<b>'+str(lbls[i].text())+'</b>')
+
+   dispID = QLabel(wltID)
+   dispName = QLabel(wlt.labelName)
+   dispDescr = QLabel(wlt.labelDescr)
+   dispBal = QLabel()
+
+   # Format balance if necessary
+   bal = wlt.getBalance()
+   dispBal.setTextFormat(Qt.RichText) 
+   if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
+   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance())+'</b>')
+
+   dispBal.setTextFormat(Qt.RichText)
+   dispDescr.setWordWrap(True)
+      
+
+   frm = QFrame()
+   frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+   frmLayout = QGridLayout()
+   for i in range(len(lbls)):
+      frmLayout.addWidget(lbls[i], i, 0,  1, 1)
+
+   dispID.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+   dispDescr.setMinimumWidth( tightSizeNChar(dispDescr, 40)[0])
+   frmLayout.addWidget(dispID,    0, 2, 1, 1)
+   frmLayout.addWidget(dispName,  1, 2, 1, 1)
+   frmLayout.addWidget(dispDescr, 2, 2, 1, 1)
+   frmLayout.addWidget(dispBal,   3, 2, 1, 1)
+   #for i in range(len(displays)):
+      #displays[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
+      #frmLayout.addWidget(displays[i], i, 1, 1, 1)
+
+   frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
+   frm.setLayout(frmLayout)
+
+   return frm
+
+
 class DlgSendBitcoins(QDialog):
    COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None):
       super(DlgSendBitcoins, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main  
+
+      txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+
       self.widgetTable = []
 
       layout = QGridLayout()
       self.scrollRecipArea = QScrollArea()
+      #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
       lblRecip = QLabel( \
          '<b>Enter Recipients</b>:  In most cases, you will only be specifying '
          'one recipient, but you can combine any number of transactions into one '
-         'wallet operation by specifying more (you only have to unlock your wallet '
-         'once).  Blank entries will be ignored')
+         'wallet operation by specifying more.  Blank entries will be ignored')
       lblRecip.setWordWrap(True)
 
-      layout.addWidget(lblRecip,              0, 2, 1, 2)
+      layout.addWidget(QLabel('Sending wallet:'),  0, 0, 1, 1)
+      layout.addWidget(getWalletInfoFrame(wlt),    1, 0, 1, 1)
+      layout.addWidget(lblRecip,                   0, 1, 1, 2)
+      layout.addWidget(self.scrollRecipArea,       1, 1, 4, 2)
 
-      layout.addWidget(self.scrollRecipArea,  1, 2, 4, 2)
+      
+      btnFrame = QFrame()
+      btnFrameLayout = QGridLayout()
+      if not wlt.watchingOnly:
+         ttip = createToolTipObject(\
+            'Press this button to initiate the transaction.  There will be '
+            'a confirmation dialog before the coins are actually sent')
+         btn = QPushButton('Send!')
+         self.connect(btn, SIGNAL('clicked()'), self.createTxAndBroadcast)
+         btnFrameLayout.addWidget(btn,  0,0, 1,1)
+         btnFrameLayout.addWidget(ttip, 0,1, 1,1)
+      else:
+         ttip = createToolTipObject(\
+            'You do not have the ability to sign this transaction '
+            'from this computer.  Press this button to see options '
+            'for obtaining the appropriate signatures.')
+            
+         btn = QPushButton('Create Unsigned Transaction')
+         self.connect(btn, SIGNAL('clicked()'), self.createTxDPAndDisplay)
+         btnFrameLayout.addWidget(btn,  0,0, 1,1)
+         btnFrameLayout.addWidget(ttip, 0,1, 1,1)
+         
+      btnDonate = QPushButton("Donate")
+      ttipDonate = createToolTipObject( \
+         'Making this software was a lot of work.  You can give back '
+         'by adding a small donation to the developers of Armory.  '
+         'Default donation is 0.5 BTC, but you can change '
+         'the amount before executing the transaction.')
+      self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
+      btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
+      btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
+      btnFrame.setLayout(btnFrameLayout)
 
-      self.makeRecipFrame(3)
-
+      layout.addWidget(btnFrame,   2,0, 1,1)
       self.setLayout(layout)
+      self.makeRecipFrame(3)
       self.setWindowTitle('Send Bitcoins')
 
 
+
+   #############################################################################
+   def createTxAndBroadcast(self):
+
+      okayToSend = True
+      for i in range(len(self.widgetTable)):
+         # Verify validity of address strings
+         addrStr = str(self.widgetTable[i][self.COLS.Addr].text())
+         if not checkAddrStrValid(addrStr):
+            okayToSend = False
+            palette = QPalette()
+            palette.setColor( QPalette.Base, Colors.Red )
+            boldFont = self.widgetTable[i][self.COLS.Addr].font()
+            boldFont.setWeight(QFont.Bold)
+            self.widgetTable[i][self.COLS.Addr].setFont(boldFont)
+            self.widgetTable[i][self.COLS.Addr].setPalette( palette );
+            self.widgetTable[i][self.COLS.Addr].setAutoFillBackground( True );
+
+      
+            
+   #############################################################################
+   def addDonation(self):
+      COLS = self.COLS
+      lastIsEmpty = True
+      for col in (COLS.Addr, COLS.Btc, COLS.Comm):
+         if len(str(self.widgetTable[-1][col].text()))>0:
+            lastIsEmpty = False
+         
+      if not lastIsEmpty:
+         self.makeRecipFrame( len(self.widgetTable)+1 )
+
+      self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
+      self.widgetTable[-1][self.COLS.Btc].setText('0.50')
+      self.widgetTable[-1][self.COLS.Comm].setText(\
+            'Donation to Armory developers.  Thank you for your generosity!')
+
+   #####################################################################
    def makeRecipFrame(self, nRecip):
-      inputs = [[]]*nRecip
       prevNRecip = len(self.widgetTable)
       nRecip = max(nRecip, 1)
+      inputs = []
       for i in range(nRecip):
          if i<prevNRecip and i<nRecip:
+            inputs.append([])
             for j in (1,3,5):
-               inputs[i].append(self.widgetTable[i][j].text())
+               inputs[-1].append(str(self.widgetTable[i][j].text()))
+
 
       frmRecip = QFrame()
       frmRecip.setFrameStyle(QFrame.NoFrame)
       frmRecipLayout = QVBoxLayout()
 
-      FontVar = QFont('Times',   10)
-      FontFix = QFont('Courier', 10)
+      FontVar = QFont('Times',   12)
+      FontFix = QFont('Courier', 12)
       
       COLS = self.COLS 
       
       self.widgetTable = []
+      maxHeight = tightSizeNChar(FontVar, 1)[1]+2
       for i in range(nRecip):
          self.widgetTable.append([])
 
          self.widgetTable[-1].append( QLabel('Address %d:' % i) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(QLineEdit(), 40)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(FontVar, 35)[0])
+         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
          self.widgetTable[-1][-1].setFont(FontVar)
 
          self.widgetTable[-1].append( QLabel('BTC:') )
@@ -2491,11 +2658,19 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(FontFix)
          self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(FontFix, 12)[0])
+         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
+         self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
          self.widgetTable[-1].append( QLabel('Comment:') )
 
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(FontVar)
+         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
+
+         if i<nRecip and i<prevNRecip:
+            self.widgetTable[-1][COLS.Addr].setText( inputs[i][0] )
+            self.widgetTable[-1][COLS.Btc ].setText( inputs[i][1] )
+            self.widgetTable[-1][COLS.Comm].setText( inputs[i][2] )
 
          subfrm = QFrame()
          subfrm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
@@ -2506,15 +2681,20 @@ class DlgSendBitcoins(QDialog):
          subLayout.addWidget(self.widgetTable[-1][COLS.Btc],     0, 3, 1, 1)
          subLayout.addWidget(self.widgetTable[-1][COLS.LblComm], 1, 0, 1, 1)
          subLayout.addWidget(self.widgetTable[-1][COLS.Comm],    1, 1, 1, 3)
+         subLayout.setContentsMargins(15,15,15,15)
+         subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
 
          frmRecipLayout.addWidget(subfrm)
 
+         
       btnFrm = QFrame()
       btnFrm.setFrameStyle(QFrame.NoFrame)
       btnLayout = QHBoxLayout()
       lbtnAddRecip = QLabelButton('+ Recipient')
+      lbtnAddRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lbtnRmRecip  = QLabelButton('- Recipient')
+      lbtnRmRecip.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.connect(lbtnAddRecip, SIGNAL('clicked()'), lambda: self.makeRecipFrame(nRecip+1))
       self.connect(lbtnRmRecip,  SIGNAL('clicked()'), lambda: self.makeRecipFrame(nRecip-1))
       btnLayout.addStretch()
