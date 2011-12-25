@@ -435,7 +435,7 @@ if Test_NetworkObjects:
    
       # On handshake complete, do nothing special, but we do want to tell it to
       # restart the connection
-      btcNetFactory = BitcoinArmoryClientFactory( \
+      btcNetFactory = ArmoryClientFactory( \
                                     def_handshake=None, \
                                     func_loseConnect=restartConnection)
    

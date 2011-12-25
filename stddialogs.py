@@ -5,16 +5,9 @@ from qtdefines import *
 
 from armoryengine import *
 from armorymodels import *
-from qlabelbutton import *
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
-################################################################################
-def createToolTipObject(tiptext, iconSz=2):
-   lbl = QLabel('<font size=%d color="blue"><u>(?)</u></font>' % iconSz)
-   lbl.setToolTip('<u></u>' + tiptext)
-   lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
-   return lbl
 
 ################################################################################
 class DlgUnlockWallet(QDialog):
@@ -308,6 +301,9 @@ class DlgChangePassphrase(QDialog):
    def __init__(self, parent=None, main=None, noPrevEncrypt=True):
       super(DlgChangePassphrase, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
+
 
       layout = QGridLayout()
       if noPrevEncrypt:
@@ -353,9 +349,6 @@ class DlgChangePassphrase(QDialog):
          self.connect(self.chkDisableCrypt, SIGNAL('toggled(bool)'), \
                       self.disablePassphraseBoxes)
          layout.addWidget(self.chkDisableCrypt, 4,0)
-         
-
-      
          
 
       self.btnAccept = QPushButton("Accept")
@@ -428,7 +421,7 @@ class DlgPasswd3(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgPasswd3, self).__init__(parent)
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -540,7 +533,7 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
       self.wltAddrView.setMinimumWidth(800)
-      initialColResize(self.wltAddrView, [0.2, 0.5, 64, 80, 0.3])
+      initialColResize(self.wltAddrView, [0.2, 0.4, 64, 80, 0.3])
    
       # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
@@ -609,13 +602,13 @@ class DlgWalletDetails(QDialog):
       if hasPriv:           optLayout.addWidget(lbtnMkPaper)
       if True:              optLayout.addWidget(lbtnExport)
       if hasPriv:           optLayout.addWidget(lbtnForkWlt)
+      if True:              optLayout.addWidget(lbtnRemove)
 
-      if True:              optLayout.addWidget(createVBoxSeparator())
+      if adv:              optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
-      if hasPriv:           optLayout.addWidget(lbtnDeleteA)
-      if hasPriv:           optLayout.addWidget(lbtnSweepA)
-      if True:              optLayout.addWidget(lbtnRemove)
+      if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
+      if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
 
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
@@ -773,9 +766,15 @@ class DlgWalletDetails(QDialog):
 
 
    def execImportAddress(self):
-      doWarn = self.main.settings.getSettingOrSetDefault('DNAA_ImportWarning', False)
-      if doWarn:
-         DlgImportWarning(self).exec_()
+      if not self.main.settings.getSettingOrSetDefault('DNAA_ImportWarning', False):
+         result = MsgBoxWithDNAA(MSGBOX.Warning, 'Import Address Warning', \
+                       'Armory supports importing of external '
+                       'addresses into your wallet, including encryption, '
+                       'but imported addresses <b>cannot</b> be protected/saved '
+                       'by a paper backups.  Watching-only wallets will include '
+                       'imported addresses if the watching-only wallet was '
+                       'created after the address was imported.', None)
+         self.main.settings.set('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
       # The import dialog, now
@@ -1132,27 +1131,38 @@ class DlgNewAddressDisp(QDialog):
       notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
       offlineWallet = (wlttype==WLTTYPES.Offline)
       if notMyWallet:
-         QMessageBox.warning(self, 'Not your wallet!', \
-            'You are getting an address for a wallet that '
-            'does not appear to belong to you.  Any money sent to this '
-            'wallet will not appear in your total balance, and cannot '
-            'be spent from this computer.\n\n'
-            'If this is actually your wallet (perhaps you maintain the full '
-            'wallet on a separate computer), then please change the '
-            '"Belongs To" field in the wallet-properties for this wallet.', \
-            QMessageBox.Ok)
+         dnaaThisWallet = self.main.getWltExtraProp(wlt.uniqueIDB58, 'DnaaRecv')
+         if not dnaaThisWallet:
+            result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+                  'You are getting an address for a wallet that '
+                  'does not appear to belong to you.  Any money sent to this '
+                  'address will not appear in your total balance, and cannot '
+                  'be spent from this computer.\n\n'
+                  'If this is actually your wallet (perhaps you maintain the full '
+                  'wallet on a separate computer), then please change the '
+                  '"Belongs To" field in the wallet-properties for this wallet.', \
+                  'Do not show this warning again', wCancel=True)
+            self.main.settings.set('DnaaRecv', result[1])
+            if result[0]==False:
+               return
 
       if offlineWallet:
-         QMessageBox.warning(self, 'Is this really your wallet?', \
-            'You are getting an address for a wallet that '
-            'you have specified belongs to you, but you cannot actually '
-            'spend the funds from this computer.  This is usually the case when '
-            'you keep the full wallet on a separate computer for security '
-            'purposes.\n\n'
-            'If this does not sound right, then please do not use the following '
-            'address.  Instead, change the wallet properties "Belongs To" field '
-            'to specify that this wallet is not actually yours.', \
-            QMessageBox.Ok)
+         dnaaThisWallet = self.main.getWltExtraProp(wlt.uniqueIDB58, 'DnaaRecv')
+         if not dnaaThisWallet:
+            result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+                  'You are getting an address for a wallet that '
+                  'you have specified belongs to you, but you cannot actually '
+                  'spend the funds from this computer.  This is usually the case when '
+                  'you keep the full wallet on a separate computer for security '
+                  'purposes.\n\n'
+                  'If this does not sound right, then please do not use the following '
+                  'address.  Instead, change the wallet properties "Belongs To" field '
+                  'to specify that this wallet is not actually yours.', \
+                  'Do not show this warning again', wCancel=True)
+            self.main.settings.set('DnaaRecv', result[1])
+            if result[0]==False:
+               return
+
          
 
       lblDescr = QLabel( \
@@ -1310,7 +1320,7 @@ class DlgImportWarning(QDialog):
       lblWarn.setWordWrap(True)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.chkDNAA = QCheckBox('Do not show this message again')
@@ -2015,10 +2025,10 @@ class DlgRemoveWallet(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -2261,10 +2271,10 @@ class DlgRemoveAddress(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/Warning64x64'))
+      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning64.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -2521,11 +2531,16 @@ def getWalletInfoFrame(wlt):
 
 class DlgSendBitcoins(QDialog):
    COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
+   FontVar = QFont('Times',   10)
+   FontFix = QFont('Courier', 10)
+
    def __init__(self, wlt, parent=None, main=None):
       super(DlgSendBitcoins, self).__init__(parent)
+      self.maxHeight = tightSizeNChar(self.FontVar, 1)[1]+8
 
       self.parent = parent
       self.main   = main  
+      self.wlt    = wlt  
 
       txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
 
@@ -2534,29 +2549,74 @@ class DlgSendBitcoins(QDialog):
       layout = QGridLayout()
       self.scrollRecipArea = QScrollArea()
       #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-      lblRecip = QLabel( \
-         '<b>Enter Recipients</b>:  In most cases, you will only be specifying '
-         'one recipient, but you can combine any number of transactions into one '
-         'wallet operation by specifying more.  Blank entries will be ignored')
-      lblRecip.setWordWrap(True)
+      lblRecip = QRichLabel('<b>Enter Recipients:</b>')
+         #'<b>Enter Recipients</b>:  In most cases, you will only be specifying '
+         #'one recipient, but you can combine any number of transactions into one '
+         #'wallet operation by specifying more.  Blank entries will be ignored')
+         
 
-      layout.addWidget(QLabel('Sending wallet:'),  0, 0, 1, 1)
-      layout.addWidget(getWalletInfoFrame(wlt),    1, 0, 1, 1)
-      layout.addWidget(lblRecip,                   0, 1, 1, 2)
-      layout.addWidget(self.scrollRecipArea,       1, 1, 4, 2)
+      lblSend = QRichLabel('<b>Sending from Wallet:</b>')
+      lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+      self.frmInfo = getWalletInfoFrame(wlt)
+      layout.addWidget(lblSend,       0, 0, 1, 1)
+      layout.addWidget(self.frmInfo,  1, 0, 1, 1)
+
+      lbtnTxFeeOpt = QLabelButton('More Info')
+      self.connect(lbtnTxFeeOpt, SIGNAL('clicked()'), self.txFeeOptions)
+      feetip = createToolTipObject( \
+            'Transaction fees go to users who contribute computing power to '
+            'keep the Bitcoin network secure, and guarantees that your transaciton '
+            'is processed as soon as possible.  Most transactions '
+            '<b>do not require</b> a fee but it is recommended to include one anyway '
+            'for timely processing.  You will will be prompted if a higher fee is '
+            'recommended than specified here.')
+
+      self.edtFeeAmt = QLineEdit()
+      self.edtFeeAmt.setFont(self.FontFix)
+      self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
+      self.edtFeeAmt.setMaximumHeight(self.maxHeight)
+      self.edtFeeAmt.setAlignment(Qt.AlignRight)
+      self.edtFeeAmt.setText(coin2str(MIN_TX_FEE, ndec=4))
+
+      spacer = QSpacerItem(20, 1)
+
+      layout.addWidget(lblRecip,                   0, 1, 1, 5)
+      layout.addWidget(self.scrollRecipArea,       1, 1, 4, 5)
+
+
+      btnSend = QPushButton('Send!')
+      self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
+      if wlt.watchingOnly:
+         btn.setEnabled(False)
+
+      txFrm = makeStripFrame('Horiz', [QLabel('Transaction Fee:'), \
+                                       self.edtFeeAmt, \
+                                       feetip, \
+                                       spacer, \
+                                       lbtnTxFeeOpt, \
+                                       'stretch', \
+                                       btnSend])
+      layout.addWidget(txFrm, 5,1, 1,5)
+      #layout.addWidget(QLabel('Transaction Fee:'), 5, 1, 1, 1)
+      #layout.addWidget(self.edtFeeAmt,             5, 2, 1, 1)
+      #layout.addWidget(feetip,                     5, 3, 1, 1)
+      #layout.addItem(  spacer,                     5, 4, 1, 1)
+      #layout.addWidget(lbtnTxFeeOpt,               5, 5, 1, 1)
+
+      
 
       
       btnFrame = QFrame()
       btnFrameLayout = QGridLayout()
-      if not wlt.watchingOnly:
-         ttip = createToolTipObject(\
-            'Press this button to initiate the transaction.  There will be '
-            'a confirmation dialog before the coins are actually sent')
-         btn = QPushButton('Send!')
-         self.connect(btn, SIGNAL('clicked()'), self.createTxAndBroadcast)
-         btnFrameLayout.addWidget(btn,  0,0, 1,1)
-         btnFrameLayout.addWidget(ttip, 0,1, 1,1)
-      else:
+      if wlt.watchingOnly:
+         #ttip = createToolTipObject(\
+            #'Press this button to initiate the transaction.  There will be '
+            #'a confirmation window before the coins are actually sent.')
+         #btn = QPushButton('Send!')
+         #self.connect(btn, SIGNAL('clicked()'), self.createTxAndBroadcast)
+         #btnFrameLayout.addWidget(btn,  0,0, 1,1)
+         #btnFrameLayout.addWidget(ttip, 0,1, 1,1)
+      #else:
          ttip = createToolTipObject(\
             'You do not have the ability to sign this transaction '
             'from this computer.  Press this button to see options '
@@ -2567,7 +2627,7 @@ class DlgSendBitcoins(QDialog):
          btnFrameLayout.addWidget(btn,  0,0, 1,1)
          btnFrameLayout.addWidget(ttip, 0,1, 1,1)
          
-      btnDonate = QPushButton("Donate")
+      btnDonate = QPushButton("Add Donation")
       ttipDonate = createToolTipObject( \
          'Making this software was a lot of work.  You can give back '
          'by adding a small donation to the developers of Armory.  '
@@ -2580,28 +2640,186 @@ class DlgSendBitcoins(QDialog):
 
       layout.addWidget(btnFrame,   2,0, 1,1)
       self.setLayout(layout)
-      self.makeRecipFrame(3)
+      self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
+
+
+   #############################################################################
+   def createTxDPAndDisplay(self):
+      txdp = self.validateInputsGetTxDP()
 
 
 
    #############################################################################
    def createTxAndBroadcast(self):
+      txdp = self.validateInputsGetTxDP()
 
+      try:
+         if self.wlt.isLocked:
+            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+            if not unlockdlg.exec_():
+               QMessageBox.critical(self, 'Wallet is Locked', \
+                  'Cannot sign transaction while your wallet is locked. ', \
+                  QMessageBox.Ok)
+              
+
+         txdp = self.wlt.signTxDistProposal(txdp)
+         finalTx = txdp.prepareFinalTx()
+         finalTx.pprint()
+         print '\n\n'
+         print binary_to_hex(finalTx.serialize())
+         print txdp.serializeAscii()
+      except:
+         # TODO: not sure what errors to catch here, yet...
+         raise
+
+
+
+   #############################################################################
+   def validateInputsGetTxDP(self):
+      COLS = self.COLS
       okayToSend = True
+      addrBytes = []
       for i in range(len(self.widgetTable)):
          # Verify validity of address strings
-         addrStr = str(self.widgetTable[i][self.COLS.Addr].text())
-         if not checkAddrStrValid(addrStr):
+         addrStr = str(self.widgetTable[i][COLS.Addr].text())
+         addrIsValid = False
+         try:
+            addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
+            addrIsValid = (addrBytes[i]==ADDRBYTE)
+         except ValueError:
+            addrType.append(-1)
+
+ 
+         if not addrIsValid:
             okayToSend = False
             palette = QPalette()
-            palette.setColor( QPalette.Base, Colors.Red )
-            boldFont = self.widgetTable[i][self.COLS.Addr].font()
+            palette.setColor( QPalette.Base, Colors.LightRed )
+            boldFont = self.widgetTable[i][COLS.Addr].font()
             boldFont.setWeight(QFont.Bold)
-            self.widgetTable[i][self.COLS.Addr].setFont(boldFont)
-            self.widgetTable[i][self.COLS.Addr].setPalette( palette );
-            self.widgetTable[i][self.COLS.Addr].setAutoFillBackground( True );
+            self.widgetTable[i][COLS.Addr].setFont(boldFont)
+            self.widgetTable[i][COLS.Addr].setPalette( palette );
+            self.widgetTable[i][COLS.Addr].setAutoFillBackground( True );
 
+      numChkFail  = sum([1 if b==-1       else 0 for b in addrBytes])
+      numWrongNet = sum([0 if b==ADDRBYTE else 1 for b in addrBytes])
+      if not okayToSend:
+         QMessageBox.critical(self, 'Invalid Address', \
+           'You have entered %d invalid addresses.  The errors have been '
+           'highlighted on the entry screen.' % (numChkFail+numWrongNet), \
+           QMessageBox.Ok)
+
+         for i in range(len(self.widgetTable)):
+            if addrBytes[i]!=-1 and addrBytes[i]!=ADDRBYTE:
+               net = 'Unknown Network'
+               if NETWORKS.has_key(addrBytes[i]):
+                  net = NETWORKS[addrBytes[i]]
+               QMessageBox.warning(self, 'Wrong Network!', \
+                  'Address %d is for the wrong network!  You are on the %s '
+                  'and the address you supplied is for the the '
+                  '%s!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+         return
+
+
+      # Construct recipValuePairs and check that all metrics check out
+      recipValuePairs = []
+      for i in range(len(self.widgetTable)):
+         totalSend = 0
+         try:
+            recipStr = str(self.widgetTable[i][COLS.Addr].text())
+            valueStr = str(self.widgetTable[i][COLS.Btc].text())
+            feeStr   = str(self.edtFeeAmt.text())
+
+            if '.' in valueStr and len(valueStr.split('.')[-1])>8:
+               QMessageBox.critical(self, 'Too much precision', \
+                   'Bitcoins can only be '
+                   'specified down to 8 decimal places:  the smallest value '
+                   'that can be sent is  0.0000 0001 BTC', QMessageBox.Ok)
+               return
+         except:
+            # TODO: figure out the types of errors we need to deal with, here
+            raise
+
+         try:
+            value = int(float(valueStr) * ONE_BTC + 0.5)
+         except ValueError:
+            QMessageBox.critical(self, 'Invalid Value String', \
+                'The value you specified '
+                'to send to address %d is invalid.' % (i+1,), QMessageBox.Ok)
+            return
+
+         try:
+            fee = round(float(feeStr) * ONE_BTC)
+         except ValueError:
+            QMessageBox(self, 'Invalid Value String', 'The fee you specified '
+                'is invalid.', QMessageBox.Ok)
+            return
+            
+         totalSend += value
+         recip160 = addrStr_to_hash160(recipStr)
+         recipValuePairs.append( (recip160, value) )
+
+         
+      bal = self.wlt.getBalance()
+      if totalSend+fee > bal:
+         QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
+            '%s BTC, but you only have %s BTC in this wallet!' % \
+               (coin2str(totalSend), coin2str(bal)), QMessageBox.Ok)
+         return
+      
+
+      # Get unspent outs for this wallet:
+      utxoList = self.wlt.getUnspentTxOutList()
+      utxoSelect = PySelectCoins(utxoList, totalSend, fee)
+
+
+
+      # TODO:  I should use a while loop/iteration to make sure that the fee
+      #        change does (extremely unlikely) induce another, higher fee
+      #        that should have been the actual fee to be used.  However,
+      #        the extremely rare situations where this would happen, I think 
+      #        it will be okay to send a slightly sub-optimal fee.  I'll add 
+      #        this to my TODO list.
+      minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
+      if fee<minFeeRec[1]:
+         extraMsg = ''
+         if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+            extraMsg = ('\n\n(It is not recommended to override this behavior, '
+                        'but as an advanced user, you can go into the settings file '
+                        'and manually change the "OverrideMinFee" property to '
+                        'True.  Do so at your own risk, as many transactions '
+                        'have been known to "get stuck" when insufficient fee '
+                        'was included)')
+         allowOkay = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
+         reply = QMessageBox.warning(self, 'Insufficient Fee', \
+            'The fee you have specified (%s BTC) is insufficient for the size '
+            'and priority of your transaction.  You must include at least '
+            '%s BTC to send this transaction.  Do you agree to the fee of %s BTC?  ' % \
+            (fee, minFeeRec[1], minFeeRec[1]) + extraMsg,  QMessageBox.Yes | QMessageBox.No)
+         if reply == QMessageBox.No:
+            return
+
+         fee = minFeeRec[1]
+         utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
+      
+      if len(utxoSelect)==0:
+         QMessageBox.critical(self, 'Coin Selection Error', \
+            'SelectCoins returned a list of size zero.  This is problematic '
+            'and probably not your fault.', QMessageBox.Ok)
+         
+
+      ### IF we got here, everything should be good to go... generate a new
+      #   address, calculate the change (add to recip list) and do our thing.
+      totalTxSelect = sum([u.getValue() for u in utxoSelect])
+      totalChange = totalTxSelect - (totalSend + fee)
+      recipValuePairs.append( [self.wlt.getNextUnusedAddress(), totalChange])
+   
+      # Anonymize the outputs
+      random.shuffle(recipValuePairs)
+      txdp = PyTxDistProposal().createFromTxOutSelection( utxoSelect, \
+                                                          recipValuePairs)
+
+      return txdp
       
             
    #############################################################################
@@ -2612,7 +2830,7 @@ class DlgSendBitcoins(QDialog):
          if len(str(self.widgetTable[-1][col].text()))>0:
             lastIsEmpty = False
          
-      if not lastIsEmpty:
+      if not lastIsEmpty or len(self.widgetTable)==1:
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
@@ -2636,36 +2854,33 @@ class DlgSendBitcoins(QDialog):
       frmRecip.setFrameStyle(QFrame.NoFrame)
       frmRecipLayout = QVBoxLayout()
 
-      FontVar = QFont('Times',   12)
-      FontFix = QFont('Courier', 12)
-      
       COLS = self.COLS 
       
       self.widgetTable = []
-      maxHeight = tightSizeNChar(FontVar, 1)[1]+2
       for i in range(nRecip):
          self.widgetTable.append([])
 
-         self.widgetTable[-1].append( QLabel('Address %d:' % i) )
+         print i
+         self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(FontVar, 35)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
-         self.widgetTable[-1][-1].setFont(FontVar)
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(self.FontVar, 45)[0])
+         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[-1][-1].setFont(self.FontVar)
 
          self.widgetTable[-1].append( QLabel('BTC:') )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(FontFix)
-         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(FontFix, 12)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
+         self.widgetTable[-1][-1].setFont(self.FontFix)
+         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(self.FontFix, 16)[0])
+         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
          self.widgetTable[-1].append( QLabel('Comment:') )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(FontVar)
-         self.widgetTable[-1][-1].setMaximumHeight(maxHeight)
+         self.widgetTable[-1][-1].setFont(self.FontVar)
+         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
 
          if i<nRecip and i<prevNRecip:
             self.widgetTable[-1][COLS.Addr].setText( inputs[i][0] )
@@ -2702,12 +2917,35 @@ class DlgSendBitcoins(QDialog):
       btnLayout.addWidget(lbtnRmRecip)
       btnFrm.setLayout(btnLayout)
 
+      #widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblBtc, COLS.Btc]
+      #minScrollWidth = sum([self.widgetTable[0][col].width() for col in widgetsForWidth])
+
       frmRecipLayout.addWidget(btnFrm)
       frmRecipLayout.addStretch()
       frmRecip.setLayout(frmRecipLayout)
       #return frmRecip
       self.scrollRecipArea.setWidget(frmRecip)
 
+
+   def txFeeOptions(self):
+      dlg = DlgTxFeeOptions(self, self, self.main)
+      if dlg.exec_():
+         # TODO: do something!
+         pass
+
+
+class DlgTxFeeOptions(QDialog):
+   def __init__(self, wlt, parent=None, main=None):
+      super(DlgTxFeeOptions, self).__init__(parent)
+
+      lblDescr = QLabel( \
+         'Transaction fees go to people who contribute processing power to '
+         'the Bitcoin network to process transactions and keep it secure.') 
+      lblDescr2 = QLabel( \
+         'Nearly all transactions are guaranteed to be '
+         'processed if a fee of 0.0005 BTC is included (less than $0.01 USD).  You '
+         'will be prompted for confirmation if a higher fee amount is required for '
+         'your transaction.')
 
 
 
@@ -2738,6 +2976,8 @@ class DlgPaperBackup(QDialog):
       super(DlgPaperBackup, self).__init__(parent)
 
 
+      
+
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
       if wlt.useEncryption and wlt.isLocked:
@@ -2763,8 +3003,8 @@ class DlgPaperBackup(QDialog):
       leftEdge = 0.5*INCH
       topEdge  = 0.5*INCH
 
-      FontVar = QFont('Times',   10)
-      FontFix = QFont('Courier', 9)
+      self.FontVar = QFont('Times',   10)
+      self.FontFix = QFont('Courier', 9)
 
       GlobalPos = QPointF(leftEdge, topEdge)
       # I guess I still don't understand the copy/ref stuff... this didn't work
@@ -2790,11 +3030,11 @@ class DlgPaperBackup(QDialog):
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+int(logoRect.height()*1.3 + 0.5))
 
       def addInfoLine(field, val, pos):
-         txt = GfxItemText(field, pos, self.scene, FontVar)
+         txt = GfxItemText(field, pos, self.scene, self.FontVar)
          self.scene.addItem( txt )
-         pos = QPointF(pos.x()+relaxedSizeStr(FontFix, 'W'*15)[0], pos.y())
+         pos = QPointF(pos.x()+relaxedSizeStr(self.FontFix, 'W'*15)[0], pos.y())
    
-         txt = GfxItemText(val, pos, self.scene, FontVar)
+         txt = GfxItemText(val, pos, self.scene, self.FontVar)
          self.scene.addItem( txt )
          pos = QPointF(leftEdge, pos.y() + 20)
          return pos
@@ -2817,7 +3057,7 @@ class DlgPaperBackup(QDialog):
                  'this page in a safe place where only trusted persons can access it.')
 
       wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
-      txt = GfxItemText(warnMsg, GlobalPos, self.scene, FontVar, lineWidth=wrapWidth)
+      txt = GfxItemText(warnMsg, GlobalPos, self.scene, self.FontVar, lineWidth=wrapWidth)
       self.scene.addItem(txt)
 
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+75)
@@ -2852,7 +3092,7 @@ class DlgPaperBackup(QDialog):
       
       
 
-      quadWidth,quadHeight = relaxedSizeStr(FontFix, 'abcd ')
+      quadWidth,quadHeight = relaxedSizeStr(self.FontFix, 'abcd ')
       quadWidth+=8  # for some reason, even the relaxed size is too small...
 
       rootPrefix  = GfxItemText('Root Key:',   GlobalPos, self.scene, QFont('Times', 12))
@@ -2876,7 +3116,7 @@ class DlgPaperBackup(QDialog):
          #movePosRight(GlobalPos, rowPrefixSz)
          GlobalPos = QPointF(GlobalPos.x()+rowPrefixSz, GlobalPos.y())
          for c,strQuad in enumerate(row):
-            obj = GfxItemText(strQuad, GlobalPos, self.scene, FontFix)
+            obj = GfxItemText(strQuad, GlobalPos, self.scene, self.FontFix)
             self.scene.addItem(obj)
             #movePosRight(GlobalPos, quadWidth)
             GlobalPos = QPointF(GlobalPos.x()+quadWidth, GlobalPos.y())

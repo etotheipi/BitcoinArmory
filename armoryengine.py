@@ -191,7 +191,7 @@ BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Test Network"
 NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
-NETWORKS['\x34'] = "Namecoin"
+NETWORKS['\x34'] = "Namecoin Network"
 
 
 
@@ -212,6 +212,14 @@ def coin2str(nSatoshi, ndec=8, rJust=False):
    if not rJust:
       s = s.strip(' ')
    return s
+
+
+#def coin2str_min(nSatoshi, rJust=False):
+   #ndec = 8
+   ##while ndec>0 and nSatoshi%(10**-ndec)
+   #for i in range(8, 0, -1):
+      #if  
+   
 
 # This is a sweet trick for create enum-like dictionaries. 
 # Either automatically numbers (*args), or name-val pairs (**kwargs)
@@ -255,6 +263,7 @@ YEAR     = 365*DAY
 # use any of the first three directly (sha1, sha256, ripemd160), we only
 # use hash256 and hash160 which use the first three to create the ONLY hash
 # operations we ever do in the bitcoin network
+# UPDATE:  mini-private-key format requires vanilla sha256... 
 def sha1(bits):
    return hashlib.new('sha1', bits).digest()
 def sha256(bits):
@@ -3888,7 +3897,7 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 class PyUnspentTxOut(object):
    def __init__(self, addr='', val=-1, numConf=-1):
       self.addr = addr
-      self.val  = long(val*1e8)
+      self.val  = long(val*ONE_BTC)
       self.conf = numConf
       self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
    def createFromCppUtxo(self, cppUtxo):
@@ -4377,7 +4386,7 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
 
 
 ################################################################################
-def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=0.01e8):
+def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=CENT):
    """
    Intense algorithm for coin selection:  computes about 30 different ways to
    select coins based on the desired target output and the min tx fee.  Then
@@ -4672,7 +4681,7 @@ class PyTxDistProposal(object):
 
          # Assume recipObj is either a PBA or a string
          if isinstance(recipObj, PyBtcAddress):
-            recipObj = addr.getAddr160()
+            recipObj = recipObj.getAddr160()
 
          # Now recipObj is def a string
          if len(recipObj)!=20:
@@ -5159,7 +5168,7 @@ class PyBtcWallet(object):
 
       # For file sync features
       self.walletPath = ''
-      self.doBlockchainSync = BLOCKCHAIN_DONOTUSE
+      self.doBlockchainSync = BLOCKCHAIN_READONLY
       self.lastSyncBlockNum = 0
 
       # Private key encryption details
@@ -8062,7 +8071,7 @@ class ArmoryClientFactory(ClientFactory):
 
    Note that I am implementing a special security feature:  besides collecting
    tx's not in the blockchain yet, I also monitor for double-broadcast events
-   which are due to two transactions being send at the same time with different
+   which are due to two transactions being sent at the same time with different
    recipients but the same inputs.  
    """
    protocol = ArmoryClient

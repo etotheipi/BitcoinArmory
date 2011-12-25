@@ -109,7 +109,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Table to display ledger/activity
       self.ledgerTable = []
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView  = QTableView()
 
       w,h = tightSizeNChar(self.ledgerView, 110)
@@ -195,7 +195,7 @@ class ArmoryMainWindow(QMainWindow):
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
-      btnWltProps  = QPushButton("Unsigned Transactions")
+      btnUnsigned  = QPushButton("Unsigned Transactions")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
@@ -208,6 +208,7 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnSendBtc)
       layout.addWidget(btnRecvBtc)
       layout.addWidget(btnWltProps)
+      layout.addWidget(btnUnsigned)
       layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
@@ -232,7 +233,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView.setModel(self.ledgerModel)
       from twisted.internet import reactor
 
@@ -328,12 +329,16 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       def restartConnection(protoObj, failReason):
-         print '! Trying to restart connection !'
-         reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
+         QMessageBox.critical(self, 'Lost Connection', \
+            'Connection to Satoshi client was interrupted.  Please make sure '
+            'bitcoin/bitcoind is running, and restart Armory', QMessageBox.Ok)
+         #print '! Trying to restart connection !'
+         #reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
       self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=restartConnection)
-      #reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+      reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+      print 'Connected to localhost! (I think...)'
 
 
 
@@ -673,7 +678,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable)
+         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
          self.ledgerView.setModel(self.ledgerModel)
          
 
@@ -1069,14 +1074,14 @@ if __name__ == '__main__':
 
 
    armorymode = ARMORYMODE.WITH_BLOCKCHAIN
-   try:
-      import urllib2
-      response=urllib2.urlopen('http://google.com',timeout=2)
-   except (ImportError, urllib2.URLError):
-      dlg = DlgGetArmoryModeSelection(self,self)
-      if dlg.exec_():
-         if dlg.wltonly:
-            armorymode = ARMORYMODE.WALLET_ONLY
+   #try:
+      #import urllib2
+      #response=urllib2.urlopen('http://google.com',timeout=1)
+   #except (ImportError, urllib2.URLError):
+      #dlg = DlgGetArmoryModeSelection(self,self)
+      #if dlg.exec_():
+         #if dlg.wltonly:
+            #armorymode = ARMORYMODE.WALLET_ONLY
          
 
    app = QApplication(sys.argv)

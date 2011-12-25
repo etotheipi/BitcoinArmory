@@ -122,11 +122,11 @@ class AllWalletsDispModel(QAbstractTableModel):
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx7 table of pre-formatted/processed ledger entries """
-
-
-   def __init__(self, table2D):
+   def __init__(self, table2D, parent=None, main=None):
       super(LedgerDispModelSimple, self).__init__()
       self.ledger = table2D
+      self.parent = parent
+      self.main   = main
 
    def rowCount(self, index=QModelIndex()):
       return len(self.ledger)
@@ -138,6 +138,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       COL = LEDGERCOLS
       row,col = index.row(), index.column()
       rowData = self.ledger[row]
+      nConf = rowData[0]
 
       if role==Qt.DisplayRole:
          if col==COL.TxHash:
@@ -312,11 +313,11 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
-         pixmaps = ['img/conf%d.png'%i for i in range(6)]
+         pixmaps = ['img/conf%dt.png'%i for i in range(6)]
          if nConf<6:
             image = QImage(pixmaps[nConf])
          else:
-            image = QImage('img/conf6_chk_blue.png')
+            image = QImage('img/conf6t.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
