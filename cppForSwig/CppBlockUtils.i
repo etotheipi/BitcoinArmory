@@ -33,7 +33,6 @@
 %typedef int                int32_t;
 %typedef long long          int64_t;
 %typedef unsigned int       size_t;
-%typedef long int64_t;
 %typedef unsigned int TXIN_SCRIPT_TYPE;
 %typedef unsigned int TXOUT_SCRIPT_TYPE;
 

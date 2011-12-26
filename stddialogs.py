@@ -547,7 +547,7 @@ class DlgWalletDetails(QDialog):
 
       # Now add all the options buttons, dependent on the type of wallet.
 
-      lbtnChangeLabels = QLabelButton('Change Wallet Name/Description');
+      lbtnChangeLabels = QLabelButton('Change Wallet Labels');
       self.connect(lbtnChangeLabels, SIGNAL('clicked()'), self.changeLabels)
 
       if not self.wlt.watchingOnly:
@@ -572,6 +572,7 @@ class DlgWalletDetails(QDialog):
 
       lbtnUnspent  = QLabelButton('View unspent transactions')
 
+      self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
       self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
@@ -715,6 +716,12 @@ class DlgWalletDetails(QDialog):
       dlg = DlgNewAddressDisp(self.wlt, self, self.main)
       dlg.exec_()
        
+
+   def execSendBtc(self):
+      dlgSend = DlgSendBitcoins(self.wlt, self, self.main)
+      dlgSend.exec_()
+   
+
 
    def changeKdf(self):
       """ 
@@ -933,8 +940,10 @@ class DlgWalletDetails(QDialog):
             owner = self.main.getWltExtraProp(self.wltID, 'BelongsTo')
             if owner=='':
                self.labelValues[WLTFIELDS.BelongsTo] = QLabelButton('Someone else...')
+               self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             else:
                self.labelValues[WLTFIELDS.BelongsTo] = QLabelButton(owner)
+               self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
          self.connect(self.labelValues[WLTFIELDS.BelongsTo], SIGNAL('clicked()'), \
                       self.execSetOwner)
@@ -1293,6 +1302,10 @@ class DlgNewAddressDisp(QDialog):
 
    def rejectNewAddr(self):
       self.wlt.rewindHighestIndex(1)
+      try:
+         self.parent.reject()
+      except AttributeError:
+         pass
       self.reject()
 
    def setClipboard(self):
@@ -2016,11 +2029,11 @@ class DlgRemoveWallet(QDialog):
          lbls.append([])
          lbls[3].append(QLabel('Current Balance:'))
          if bal>0:
-            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal)+' BTC</b></font>'))
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, chopZeros=6)+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
             wltEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, chopZeros=6) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2071,19 +2084,22 @@ class DlgRemoveWallet(QDialog):
       btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
-      lblExcludeDescr = QLabel('This will not delete any files, but will add this '
+      ttipExclude = createToolTipObject( \
+                              'This will not delete any files, but will add this '
                               'wallet to the "ignore list."  This means that Armory '
                               'will no longer show this wallet in the main screen '
                               'and none of its funds will be added to your balance.  '
                               'You can re-include this wallet in Armory at a later '
                               'time by selecting the "Excluded Wallets..." option '
                               'in the "Wallets" menu.')
-      lblDeleteDescr = QLabel('This will delete the wallet file, removing '
+      ttipDelete = createToolTipObject( \
+                              'This will delete the wallet file, removing '
                               'all its private keys from your settings directory.  '
                               'If you intend to keep using addresses from this '
                               'wallet, do not select this option unless the wallet '
                               'is backed up elsewhere.')
-      lblWatchDescr  = QLabel('This will delete the private keys from your wallet, '
+      ttipWatch = createToolTipObject( \
+                              'This will delete the private keys from your wallet, '
                               'leaving you with a watching-only wallet, which can be '
                               'used to generate addresses and monitor incoming '
                               'payments.  This option would be used if you created '
@@ -2092,41 +2108,60 @@ class DlgRemoveWallet(QDialog):
                               'remove the private data from this system for security.</i>')
 
       if wlt.watchingOnly:
-         lblDeleteDescr = QLabel('This will delete the wallet file from your system.  '
+         ttipDelete = createToolTipObject('This will delete the wallet file from your system.  '
                                  'Since this is a watching-only wallet, no private keys '
                                  'will be deleted.')
          
-      for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
-         lbl.setWordWrap(True)
-         lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
+      #for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
+         #lbl.setWordWrap(True)
+         #lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
 
       self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
 
-      startRow = 5 if wltEmpty else 4
       self.frm = []
-      for rdo,lbl in [(self.radioExclude, lblExcludeDescr), \
-                      (self.radioDelete,  lblDeleteDescr), \
-                      (self.radioWatch,   lblWatchDescr)]:
-         startRow +=1 
+
+      rdoFrm = QFrame()
+      rdoFrm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      rdoLayout = QGridLayout()
+      
+      startRow = 0
+      for rdo,ttip in [(self.radioExclude, ttipExclude), \
+                       (self.radioDelete,  ttipDelete), \
+                       (self.radioWatch,   ttipWatch)]:
          self.frm.append(QFrame())
-         self.frm[-1].setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+         #self.frm[-1].setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+         self.frm[-1].setFrameStyle(QFrame.NoFrame)
          frmLayout = QHBoxLayout()
          frmLayout.addWidget(rdo)
-         frmLayout.addWidget(lbl)
+         ttip.setAlignment(Qt.AlignLeft | Qt.AlignVCenter) 
+         frmLayout.addWidget(ttip)
+         frmLayout.addStretch()
          self.frm[-1].setLayout(frmLayout)
-         layout.addWidget(self.frm[-1], startRow, 0, 1, 3)
+         rdoLayout.addWidget(self.frm[-1], startRow, 0, 1, 3)
+         startRow +=1 
+
 
       self.radioExclude.setChecked(True)
+      rdoFrm.setLayout(rdoLayout)
+
+      startRow = 6 if wltEmpty else 5
+      layout.addWidget(rdoFrm, startRow, 0, 1, 3)
 
       if wlt.watchingOnly:
          self.frm[-1].setVisible(False)
          
    
+      printTtip = createToolTipObject( \
+         'If this box is checked, you will have the ability to print off an '
+         'unencrypted version of your wallet before it is deleted.  <b>If '
+         'printing is unsuccessful, please press *CANCEL* on the print dialog '
+         'to prevent the delete operation from continuing</b>')
+      printFrm = makeLayoutStrip('Horiz', [self.chkPrintBackup, printTtip, 'Stretch'])
       startRow +=1
-      layout.addWidget( self.chkPrintBackup, startRow, 0, 1, 3)
+      layout.addWidget( printFrm, startRow, 0, 1, 3)
 
       if wlt.watchingOnly:
-         self.chkPrintBackup.setVisible(False)
+         printFrm.setVisible(False)
 
       
       rmWalletSlot = lambda: self.removeWallet(wlt)
@@ -2262,11 +2297,11 @@ class DlgRemoveAddress(QDialog):
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance:'))
          if bal>0:
-            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal)+' BTC</b></font>'))
+            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, chopZeros=6)+' BTC</b></font>'))
             lbls[-1][-1].setTextFormat(Qt.RichText)
             addrEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, chopZeros=6) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2382,6 +2417,7 @@ class DlgWalletSelect(QDialog):
       self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.showWalletInfo)
       self.lstWallets.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
+      self.connect(self.lstWallets, SIGNAL('itemDoubleClicked()'), self.dblclick)
 
       layout = QGridLayout()
       layout.addWidget(QLabel("Select Wallet:"), 0, 0,  1, 1)
@@ -2462,12 +2498,18 @@ class DlgWalletSelect(QDialog):
       
       bal = wlt.getBalance()
       if bal==0:
-         self.dispBal.setText('<font color="red"><b>0.0000</b></font>')
+         self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance())+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), chopZeros=6)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
+
+   def dblclick(self, *args):
+      print 'Doubleclick!'
+      currRow = self.lstWallets.currentRow()
+      self.selectedID = self.rowList[currRow][0]
+      self.accept()
 
 
 ################################################################################
@@ -2498,7 +2540,7 @@ def getWalletInfoFrame(wlt):
    bal = wlt.getBalance()
    dispBal.setTextFormat(Qt.RichText) 
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance())+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), chopZeros=6)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -2527,6 +2569,77 @@ def getWalletInfoFrame(wlt):
    frm.setLayout(frmLayout)
 
    return frm
+
+
+
+
+class DlgConfirmSend(QDialog):
+   FontVar = QFont('Times',   10)
+   FontFix = QFont('Courier', 10)
+
+   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None):
+      super(DlgConfirmSend, self).__init__(parent)
+      
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt
+
+      layout = QGridLayout()
+
+
+      lblInfoImg = QLabel()
+      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info64.png'))
+      lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+
+      sumStr = coin2str(sum([rv[1] for rv in recipValPairs])+fee, chopZeros=6)
+
+      lblMsg = QRichLabel(
+         'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
+         'specified the following distribution:' % (sumStr, wlt.labelName, wlt.uniqueIDB58))
+
+
+      recipLbls = []
+      ffixBold = self.FontFix
+      ffixBold.setWeight(QFont.Bold)
+      for rv in recipValPairs:
+         #recipLbls.append(QRichLabel('<font face="DejaVu Sans Mono">' + 
+                              #hash160_to_addrStr(rv[0])[:12] + '... : '  +
+                              #coin2str(rv[1], chopZeros=4) + '</font>'))
+         recipLbls.append(QLabel( hash160_to_addrStr(rv[0]) + ' : '  +
+                                  coin2str(rv[1], rJust=True, chopZeros=4)))
+         recipLbls[-1].setFont(ffixBold)
+         print rv
+
+
+      if fee>0:
+         recipLbls.append(QSpacerItem(20,20))
+         recipLbls.append(QLabel( 'Transaction Fee : '.ljust(36)  +
+                           coin2str(fee, rJust=True, chopZeros=4)))
+         recipLbls[-1].setFont(self.FontFix)
+
+      self.btnAccept = QPushButton("Send")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      
+      layout.addWidget(lblInfoImg,           0, 0,   1, 1)
+      layout.addWidget(lblMsg,               0, 1,   1, 1)
+
+      lblFrm = makeLayoutStrip('Vert', recipLbls, QFrame.StyledPanel|QFrame.Raised)
+      layout.addWidget(lblFrm,               1, 1,   1, 1)
+
+      r = len(recipLbls)+1
+      layout.addWidget(QLabel('Are you sure you want to execute this transaction?'), 2, 1,  1, 1)
+      layout.addWidget(buttonBox,            3, 1,  1, 1)
+      layout.setSpacing(20)
+
+      self.setLayout(layout)
+      self.setMinimumWidth(350)
+      
 
 
 class DlgSendBitcoins(QDialog):
@@ -2587,9 +2700,9 @@ class DlgSendBitcoins(QDialog):
       btnSend = QPushButton('Send!')
       self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
       if wlt.watchingOnly:
-         btn.setEnabled(False)
+         btnSend.setEnabled(False)
 
-      txFrm = makeStripFrame('Horiz', [QLabel('Transaction Fee:'), \
+      txFrm = makeLayoutStrip('Horiz', [QLabel('Transaction Fee:'), \
                                        self.edtFeeAmt, \
                                        feetip, \
                                        spacer, \
@@ -2642,6 +2755,7 @@ class DlgSendBitcoins(QDialog):
       self.setLayout(layout)
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
+      self.setMinimumHeight(self.maxHeight*20)
 
 
    #############################################################################
@@ -2652,26 +2766,52 @@ class DlgSendBitcoins(QDialog):
 
    #############################################################################
    def createTxAndBroadcast(self):
+      self.txValues = []
+      self.origRVPairs = []
       txdp = self.validateInputsGetTxDP()
-
-      try:
-         if self.wlt.isLocked:
-            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
-            if not unlockdlg.exec_():
-               QMessageBox.critical(self, 'Wallet is Locked', \
-                  'Cannot sign transaction while your wallet is locked. ', \
-                  QMessageBox.Ok)
+      if not self.txValues:
+         QMessageBox.critical(self, 'Tx Construction Failed', \
+            'Unknown error trying to create transaction', \
+            QMessageBox.Ok)
+         
+      
+      totalOutStr = coin2str(self.txValues[0])
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main)
+      if dlg.exec_():
+      
+      #confirmStr = 'You are about to send %s BTC:' % coin2str(sum(self.txValues[:2]))
+      #for rvpair in self.origRVPairs:
+         #confirmStr += '\n%s: \t%s BTC' % (hash160_to_addrStr(rvpair[0])[:15]+'...', \
+                                                     #coin2str(rvpair[1]))
+      #confirmStr += '\nWith a total transaction fee, %s BTC' % coin2str(self.txValues[1])
+      #
+      #reply = QMessageBox.information(self, 'Confirm Recipients:', confirmStr, \
+                     #QMessageBox.Yes | QMessageBox.Cancel)
+        
+      #if reply==QMessageBox.Yes:
+         try:
+            if self.wlt.isLocked:
+               unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+               if not unlockdlg.exec_():
+                  QMessageBox.critical(self, 'Wallet is Locked', \
+                     'Cannot sign transaction while your wallet is locked. ', \
+                     QMessageBox.Ok)
+                  return
               
 
-         txdp = self.wlt.signTxDistProposal(txdp)
-         finalTx = txdp.prepareFinalTx()
-         finalTx.pprint()
-         print '\n\n'
-         print binary_to_hex(finalTx.serialize())
-         print txdp.serializeAscii()
-      except:
-         # TODO: not sure what errors to catch here, yet...
-         raise
+            txdp = self.wlt.signTxDistProposal(txdp)
+            finalTx = txdp.prepareFinalTx()
+            finalTx.pprint()
+            print '\n\n'
+            print binary_to_hex(finalTx.serialize())
+            print txdp.serializeAscii()
+            print 'Sending Tx' 
+            self.main.NetworkingFactory.sendTx(finalTx)
+            print 'Done!'
+            self.accept()
+         except:
+            # TODO: not sure what errors to catch here, yet...
+            raise
 
 
 
@@ -2723,8 +2863,8 @@ class DlgSendBitcoins(QDialog):
 
       # Construct recipValuePairs and check that all metrics check out
       recipValuePairs = []
+      totalSend = 0
       for i in range(len(self.widgetTable)):
-         totalSend = 0
          try:
             recipStr = str(self.widgetTable[i][COLS.Addr].text())
             valueStr = str(self.widgetTable[i][COLS.Btc].text())
@@ -2764,7 +2904,7 @@ class DlgSendBitcoins(QDialog):
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
             '%s BTC, but you only have %s BTC in this wallet!' % \
-               (coin2str(totalSend), coin2str(bal)), QMessageBox.Ok)
+               (coin2str(totalSend, chopZeros=6), coin2str(bal, chopZeros=6)), QMessageBox.Ok)
          return
       
 
@@ -2799,7 +2939,7 @@ class DlgSendBitcoins(QDialog):
          if reply == QMessageBox.No:
             return
 
-         fee = minFeeRec[1]
+         fee = long(minFeeRec[1])
          utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
       
       if len(utxoSelect)==0:
@@ -2812,14 +2952,18 @@ class DlgSendBitcoins(QDialog):
       #   address, calculate the change (add to recip list) and do our thing.
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
-      recipValuePairs.append( [self.wlt.getNextUnusedAddress(), totalChange])
+
+      self.origRVPairs = list(recipValuePairs)
+      recipValuePairs.append( [self.wlt.getNextUnusedAddress().getAddr160(), totalChange])
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
       txdp = PyTxDistProposal().createFromTxOutSelection( utxoSelect, \
                                                           recipValuePairs)
 
+      self.txValues = [totalSend, fee, totalChange]
       return txdp
+
       
             
    #############################################################################
@@ -2860,7 +3004,6 @@ class DlgSendBitcoins(QDialog):
       for i in range(nRecip):
          self.widgetTable.append([])
 
-         print i
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
@@ -3127,13 +3270,7 @@ class DlgPaperBackup(QDialog):
       qrRightSide = PAPER_A4_WIDTH - paperMargin
       qrLeftEdge  = qrRightSide - SIZE - 25
       qrTopStart  = topEdge + 0.5*paperMargin  # a little more margin
-      #qrWidth = min(qrRightSide - qrLeftEdge, 150)
-      #print 'qrLeft  =', qrLeftEdge
-      #print 'qrRight =', qrRightSide
-      #print 'qrWidth =', qrWidth
       qrPos = QPointF(qrLeftEdge, qrTopStart)
-      #for row in rawTxt:
-         #fullRow = ' '.join(
       data = '\n'.join([' '.join(row) for row in rawTxt])
       objQR = GfxItemQRCode( qrPos, self.scene, data, SIZE)
       self.scene.addItem( objQR )

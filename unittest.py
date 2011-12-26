@@ -12,8 +12,8 @@ Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
-Test_EncryptedAddress = True
-Test_EncryptedWallet  = True
+Test_EncryptedAddress = False
+Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
@@ -178,7 +178,36 @@ if Test_BasicUtils:
    miniKey  = 'S4b3N3oGqDqR5jNuxEvDwf'
    miniPriv = hex_to_binary('0c28fca386c7a227600b2fe50b7cae11ec86d3bf1fbe471be89827e19d72aa1d')
    testFunction('decodeMiniPrivateKey', miniPriv, miniKey)
+
+   print 'Testing coin2str method'
+   def printC2S(c):
+      print str(c).rjust(16),
+      print coin2str(c).rjust(16),
+      print coin2str(c,4).rjust(16),
+      print coin2str(c,2).rjust(16),
+      print coin2str(c,0).rjust(16),
+      print coin2str(c,8, maxZeros=6).rjust(16),
+      print coin2str(c,8, maxZeros=2).rjust(16),
+      print coin2str(c,6, maxZeros=4).rjust(16)
+   printC2S(0)
+   printC2S(1)
+   printC2S(100)
+   printC2S(10000)
+   printC2S(10000000)
+   printC2S(10000099080)
+   printC2S(10000099000)
+   printC2S(10000909001)
+   printC2S(10009980000)
+   printC2S(-1)
+   printC2S(-100)
+   printC2S(-10000)
+   printC2S(-10000000)
+   printC2S(-10000090000)
+   printC2S(-10000990000)
+   printC2S(-10009090001)
+   printC2S(-10001090000)
    
+
 
 # Unserialize an reserialize
 tx1raw = hex_to_binary('01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44dd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a40689d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a000000001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
@@ -460,7 +489,7 @@ if Test_TxSimpleCreate:
    txinA.sequence  = hex_to_binary('ff'*4)
    
    txoutA = PyTxOut()
-   txoutA.value = 50 * (10**8)
+   txoutA.value = 50 * ONE_BTC
    txoutA.binScript = '\x76\xa9\x14' + AddrA.getAddr160() + '\x88\xac'
 
    tx1 = PyTx()

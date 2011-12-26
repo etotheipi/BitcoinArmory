@@ -183,7 +183,6 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
          
          msgIcon = QLabel()
          fpix = ''
-         dtitle = ''
          if dtype==MSGBOX.Info:
             fpix = 'img/MsgBox_info64.png'
             if not dmsg:  dmsg = 'Do not show this message again'
@@ -239,10 +238,11 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
 
    dlg = dlgWarn(wtype, title, msg, dnaaMsg, wCancel) 
    result = dlg.exec_()
+   
    return (result, dlg.chkDnaa.isChecked())
 
  
-def makeStripFrame(dirStr, widgetList, style=QFrame.NoFrame):
+def makeLayoutStrip(dirStr, widgetList, style=QFrame.NoFrame):
    frm = QFrame()
    frm.setFrameStyle(style)
 

@@ -651,9 +651,9 @@ class ArmoryMainWindow(QMainWindow):
          # Make sure the ledgers are up to date and then combine and sort
          self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
          id_le_pairs   = [ [wltID, le] for le in self.walletLedgers[index] ]
-         #id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
+         id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
          self.combinedLedger.extend(id_le_pairs)
-         #self.combinedLedger.extend(id_le_zcpairs)
+         self.combinedLedger.extend(id_le_zcpairs)
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
@@ -692,7 +692,11 @@ class ArmoryMainWindow(QMainWindow):
       table2D = []
       for wltID,le in ledger: 
          row = []
+
          nConf = self.latestBlockNum - le.getBlockNum()+1
+         if le.getBlockNum()>=0xffffffff:
+            nConf=0
+
          wlt = self.walletMap[wltID]
          if le.getBlockNum() >= 0xffffffff: nConf = 0
          # NumConf
@@ -704,7 +708,7 @@ class ArmoryMainWindow(QMainWindow):
          row.append(unixTimeToFormatStr(txtime))
 
          # TxDir (actually just the amt... use the sign of the amt for what you want)
-         row.append(le.getValue())
+         row.append(coin2str(le.getValue(), chopZeros=6))
 
          # Wlt Name
          row.append(self.walletMap[wltID].labelName)
@@ -716,7 +720,7 @@ class ArmoryMainWindow(QMainWindow):
             row.append('')
 
          # Amount
-         row.append(coin2str(le.getValue()))
+         row.append(coin2str(le.getValue(), chopZeros=6))
 
          # Is this money mine?
          row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
@@ -1030,8 +1034,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
-            pass # do something eventually
-         else:
+            self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       
 

@@ -61,6 +61,8 @@ PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1'
+if USE_TESTNET:
+   ARMORY_DONATION_ADDR = 'mqQPaNevruP9nRDioszUBAuUqE7zKyHgNc'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -164,6 +166,7 @@ class EncryptionError(Exception): pass
 class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
 class WalletExistsError(Exception): pass
+class ConnectionError(Exception): pass
 
 
 
@@ -195,31 +198,43 @@ NETWORKS['\x34'] = "Namecoin Network"
 
 
 
-def coin2str(nSatoshi, ndec=8, rJust=False):
+def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
-   """
-   # We make sure that when we truncate digits, it's actually applying rounding
-   if ndec<8:
-      nSatoshi += 5 * 10**(7-ndec)
-   s = str(long(nSatoshi))
-   if len(s)<9:
-      s = s.rjust(9,'0')
-   s = s.rjust(16,' ')
-   s = s[:8] + '.' + s[8:8+ndec]
-   if ndec==0:
-      s = s.strip('.')
-   if not rJust:
-      s = s.strip(' ')
-   return s
-
-
-#def coin2str_min(nSatoshi, rJust=False):
-   #ndec = 8
-   ##while ndec>0 and nSatoshi%(10**-ndec)
-   #for i in range(8, 0, -1):
-      #if  
    
+   ndec, guarantees that we get get a least N decimal places in our result
+
+   maxZeros means we will replace zeros with spaces up to M decimal places
+   in order to declutter the amount field
+
+   """
+
+   nBtc = float(nSatoshi) / float(ONE_BTC)
+   s = '0.0'
+   if   ndec==8:  s = '%0.8f' % (nBtc,)
+   elif ndec==7:  s = '%0.7f' % (nBtc,)
+   elif ndec==6:  s = '%0.6f' % (nBtc,)
+   elif ndec==5:  s = '%0.5f' % (nBtc,)
+   elif ndec==4:  s = '%0.4f' % (nBtc,)
+   elif ndec==3:  s = '%0.3f' % (nBtc,)
+   elif ndec==2:  s = '%0.2f' % (nBtc,)
+   elif ndec==1:  s = '%0.1f' % (nBtc,)
+   elif ndec==0:  s = '%0.0f' % (nBtc,)
+
+   s = s.rjust(18, ' ')
+
+
+   if maxZeros < ndec:
+      maxChop = ndec - maxZeros
+      nChop = min(len(s) - len(str(s.strip('0'))), maxChop)
+      if nChop>0:
+         s  = s[:-nChop] + nChop*' '
+
+   if not rJust:
+      s.strip(' ')
+
+   return s
+    
 
 # This is a sweet trick for create enum-like dictionaries. 
 # Either automatically numbers (*args), or name-val pairs (**kwargs)
@@ -4640,6 +4655,9 @@ class PyTxDistProposal(object):
              string, it is instead interpretted as a SCRIPT -- which could be
              anything, including a multi-signature transaction
       """
+      pprintUnspentTxOutList(utxoSelection)
+      print sumTxOutList(utxoSelection)
+      print sum([a[1] for a in recip160ValPairs])
       assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
       self.pytxObj = PyTx()
       self.pytxObj.version = 1
@@ -7470,6 +7488,31 @@ class PayloadAddr(object):
 
 ################################################################################
 ################################################################################
+class PayloadPing(object):
+   """
+   All payload objects have a serialize and unserialize method, making them
+   easy to attach to PyMessage objects
+   """
+   command = 'ping'
+
+   def __init__(self):
+      pass
+
+   def unserialize(self, toUnpack):
+      return self
+
+   def serialize(self):
+      return ''
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(ping)'
+
+      
+
+################################################################################
+################################################################################
 class PayloadVersion(object):
 
    command = 'version'
@@ -7829,6 +7872,7 @@ class PayloadAlert(object):
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
+   'ping':        PayloadPing,
    'tx':          PayloadTx,
    'inv':         PayloadInv,
    'version':     PayloadVersion,
@@ -7948,14 +7992,13 @@ class ArmoryClient(Protocol):
 
       # We might've gotten here without anything to process -- if so, bail
       if len(messages)==0:
-         #print '<Not enough data for full msg>'
          return
 
       # Finally, we have some message to process, let's do it
       for msg in messages:
          cmd = msg.cmd
-         #print '\nBuffer: '
-         #pprintHex(binary_to_hex(data), indent=' '*6)
+         print '\nBuffer: '
+         pprintHex(binary_to_hex(data), indent=' '*6)
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
@@ -8048,7 +8091,7 @@ class ArmoryClient(Protocol):
       """
       if   isinstance(txObj, PyMessage):
          self.sendMessage( txObj )
-      elif isinstance(txObj, PyTx()):
+      elif isinstance(txObj, PyTx):
          self.sendMessage( PayloadTx(txObj))
       elif isinstance(txObj, str):
          self.sendMessage( PayloadTx(PyTx().unserialize(txObj)) )
@@ -8103,10 +8146,13 @@ class ArmoryClientFactory(ClientFactory):
       #         doing more OOP/deferreds/etc
       self.func_loseConnect = func_loseConnect
       self.func_doubleSpendAlert = func_doubleSpendAlert
+
+      self.proto = None
    
 
    def handshakeFinished(self, protoObj):
-      #print 'Handshake finished, connection open!'
+      print 'Handshake finished, connection open!'
+      self.proto = protoObj
       if self.deferred_handshake:
          d, self.deferred_handshake = self.deferred_handshake, None
          d.callback(protoObj)
@@ -8174,6 +8220,14 @@ class ArmoryClientFactory(ClientFactory):
          self.func_loseConnect(protoObj, reason)
       #d, self.deferred_loseConnect = self.deferred_loseConnect, None
       #d.errback(reason)
+
+
+   #############################################################################
+   def sendTx(self, pytxObj):
+      if self.proto:
+         self.proto.sendTx(pytxObj)
+      else:
+         raise ConnectionError, 'Connection to localhost DNE.'
 
 
 

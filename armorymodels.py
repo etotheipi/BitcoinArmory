@@ -59,7 +59,7 @@ class AllWalletsDispModel(QAbstractTableModel):
                   ndigit = 6
                else:
                   ndigit = 4
-               dispStr = [c for c in coin2str(bal, ndec=8)]
+               dispStr = [c for c in coin2str(bal, chopZeros=6)]
                dispStr[-8+ndigit:] = ' '*(8-ndigit)
                return QVariant(''.join(dispStr))
       elif role==Qt.TextAlignmentRole:
@@ -160,9 +160,15 @@ class LedgerDispModelSimple(QAbstractTableModel):
             return QVariant( Colors.LightGray )
       elif role==Qt.ForegroundRole:
          if col==COL.Amount:
-            if   rowData[COL.Amount]>0: return QVariant(Colors.Green)
-            elif rowData[COL.Amount]<0: return QVariant(Colors.Red)
-            else:                       return QVariant(Colors.DarkGray)
+            amt = float(rowData[COL.Amount])
+            if   amt>0: return QVariant(Colors.Green)
+            elif amt<0: return QVariant(Colors.Red)
+            else:       return QVariant(Colors.DarkGray)
+      elif role==Qt.FontRole:
+         if col==COL.Amount:
+            f = QFont("DejaVu Sans Mono", 10)
+            f.setWeight(QFont.Bold)
+            return f
       elif role==Qt.ToolTipRole:
          if col==COL.NumConf:
             if rowData[COL.NumConf]>5:
@@ -196,106 +202,6 @@ class LedgerDispModelSimple(QAbstractTableModel):
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
 
 
-################################################################################
-class LedgerDispModel(QAbstractTableModel):
-   """ Displays an Nx7 table of pre-formatted/processed ledger entries """
-
-   def __init__(self, mainWindow):
-      super(LedgerDispModel, self).__init__()
-      self.main = mainWindow
-
-   def rowCount(self, index=QModelIndex()):
-      return int(self.main.ledgerSize)
-
-   def columnCount(self, index=QModelIndex()):
-      return 6
-
-   def data(self, index, role=Qt.DisplayRole):
-      COL = LEDGERCOLS
-      row,col = index.row(), index.column()
-      wltID,le = self.main.combinedLedger[row]
-      wlt = self.main.walletMap[wltID]
-      nConf = self.main.latestBlockNum - le.getBlockNum()+1
-      if le.getBlockNum() >= 0xffffffff:
-         nConf = 0
-
-      if role==Qt.DisplayRole:
-         # A little more pre-processing before display
-         blkheader = TheBDM.getHeaderByHeight(le.getBlockNum())
-         txtime = blkheader.getTimestamp()
-         txHash = le.getTxHash()
-         if nConf == 0:
-            txtime = self.main.NetworkingFactory.zeroConfTxTime[txHash]
-         
-         if col==COL.NumConf: 
-            return QVariant(nConf)
-         elif col==COL.Date: 
-            return QVariant(unixTimeToFormatStr(txtime))
-         elif col==COL.TxDir:
-            return QVariant(le.getValue())
-            #if le.getValue()>0:
-               #return QVariant('Recv')
-            #else:
-               #return QVariant('Sent')
-         elif col==COL.WltName: 
-            return QVariant(wlt.labelName)
-         elif col==COL.Comment: 
-            if wlt.commentsMap.has_key(txHash):
-               return QVariant(wlt.commentsMap[txHash])
-         elif col==COL.Amount:
-            return QVariant( coin2str(le.getValue()) )
-      elif role==Qt.TextAlignmentRole:
-         if col in (COL.NumConf,  COL.TxDir):
-            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (COL.Comment, COL.Date):
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         elif col in (COL.Amount,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-      elif role==Qt.DecorationRole:
-         if col==COL.NumConf:
-            return QVariant(nConf)
-      elif role==Qt.BackgroundColorRole:
-         if determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly:
-            return QVariant( Colors.LightGray )
-         else:
-            return QVariant( Colors.LightBlue )
-      elif role==Qt.ForegroundRole:
-         if col==COL.Amount:
-            if   le.getValue()>0: return QVariant(Colors.Green)
-            elif le.getValue()<0: return QVariant(Colors.Red)
-            else:                 return QVariant(Colors.DarkGray)
-      elif role==Qt.ToolTipRole:
-         if col==COL.NumConf:
-            if nConf>5:
-               return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
-            else:
-               tooltipStr = '%d/6 confirmations'%nConf
-               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
-                               'confirmations is usually acceptable.\n'
-                               'For larger transactions, you should\n'
-                               'wait at least 6 confirmations before\n'
-                               'considering the transaction valid.')
-               return QVariant(tooltipStr)
-               
-
-      return QVariant()
-
-
-
-
-   def headerData(self, section, orientation, role=Qt.DisplayRole):
-      COL = self.COL
-      if role==Qt.DisplayRole:
-         if orientation==Qt.Horizontal:
-            if section==COL.NumConf:  return QVariant()
-            if section==COL.Date:    return QVariant('Date')
-            if section==COL.WltName: return QVariant('Wallet')
-            if section==COL.Comment: return QVariant('Comments')
-            if section==COL.TxDir:   return QVariant()
-            if section==COL.Amount:  return QVariant('Amount')
-      elif role==Qt.TextAlignmentRole:
-         return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-
 
 
 class LedgerDispDelegate(QStyledItemDelegate):
@@ -323,12 +229,16 @@ class LedgerDispDelegate(QStyledItemDelegate):
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
          painter.drawPixmap(option.rect, pixmap)
       elif index.column() == self.COL.TxDir:
-         txdir = str(index.model().data(index).toInt())
+         # This is frustrating... QVariant doesn't support 64-bit ints
+         # So I have to pass the amt as string, then convert here to long
+         txdir = str(index.model().data(index).toString()).strip()
          image = QImage()
-         if txdir[0] > 0:
-            image = QImage('img/moneyIn.png')
-         else:
+         if txdir[0].startswith('-'):
             image = QImage('img/moneyOut.png')
+         elif len(txdir[0].strip('-').replace('.','')) == txdir[0].count('0'):
+            image = QImage('img/moneySelf.png')
+         else:
+            image = QImage('img/moneyIn.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
@@ -391,7 +301,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant()
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( coin2str(cppAddr.getBalance()) )
+            return QVariant( coin2str(cppAddr.getBalance(), chopZeros=6) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
