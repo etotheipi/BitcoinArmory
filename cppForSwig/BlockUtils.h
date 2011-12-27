@@ -250,7 +250,7 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   uint64_t getBalance(void);
+   uint64_t getBalance(set<OutPoint> const * lockedList=NULL);
 
    vector<LedgerEntry> & getTxLedger(void) { return ledger_;           }
    vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
@@ -357,8 +357,15 @@ public:
    // If we have spent TxOuts but the tx haven't made it into the blockchain
    // we need to lock them to make sure we have a record of which ones are 
    // available to sign more Txs
-   void   lockTxOut(OutPoint op) {lockedTxOuts_.insert(op);}
-   void unlockTxOut(OutPoint op) {lockedTxOuts_.erase( op);}
+   void   lockTxOut(OutPoint const & op);
+   void unlockTxOut(OutPoint const & op);
+   void clearLocked(void)        {lockedTxOuts_.clear();   }
+
+   void   lockTxOutSwig(BinaryData const & hash, uint32_t idx);
+   void unlockTxOutSwig(BinaryData const & hash, uint32_t idx);
+
+   bool isTxOutLocked(OutPoint const & op);
+   vector<OutPoint> getLockedTxOutList(void);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;

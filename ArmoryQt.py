@@ -332,11 +332,18 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.critical(self, 'Lost Connection', \
             'Connection to Satoshi client was interrupted.  Please make sure '
             'bitcoin/bitcoind is running, and restart Armory', QMessageBox.Ok)
-         #print '! Trying to restart connection !'
-         #reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
+         print '! Trying to restart connection !'
+         reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
+
+      def lockTxOutsAsNecessary(pytxObj):
+         for wlt in self.walletMap.itervalues():
+            wlt.lockTxOutsOnNewTx(pytxObj)
 
       self.NetworkingFactory = ArmoryClientFactory( \
-                                       func_loseConnect=restartConnection)
+                                       func_loseConnect=restartConnection, \
+                                       func_newTx=lockTxOutsAsNecessary)
+      self.NetworkingFactory.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
+      self.NetworkingFactory.loadMemoryPool()
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
       print 'Connected to localhost! (I think...)'
 
@@ -703,12 +710,12 @@ class ArmoryMainWindow(QMainWindow):
          row.append(nConf)
 
          # Date
-         if nConf>0: txtime = TheBDM.getTopBlockHeader().getTimestamp()
+         if nConf>0: txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
          else:       txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
          row.append(unixTimeToFormatStr(txtime))
 
          # TxDir (actually just the amt... use the sign of the amt for what you want)
-         row.append(coin2str(le.getValue(), chopZeros=6))
+         row.append(coin2str(le.getValue(), maxZeros=2))
 
          # Wlt Name
          row.append(self.walletMap[wltID].labelName)
@@ -720,7 +727,7 @@ class ArmoryMainWindow(QMainWindow):
             row.append('')
 
          # Amount
-         row.append(coin2str(le.getValue(), chopZeros=6))
+         row.append(coin2str(le.getValue(), maxZeros=2))
 
          # Is this money mine?
          row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
@@ -1036,6 +1043,7 @@ class ArmoryMainWindow(QMainWindow):
          if newBlks>0:
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+            print 'New Block! :', self.latestBlockNum
       
 
       for wltID, wlt in self.walletMap.iteritems():

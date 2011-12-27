@@ -233,8 +233,24 @@ def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    if not rJust:
       s.strip(' ')
 
+   if abs(nSatoshi)>=ONE_BTC and maxZeros==0:
+      s = s.replace('.','')
+
    return s
     
+
+def coin2str_approx(nSatoshi, sigfig=3):
+   posVal = nSatoshi
+   isNeg = False
+   if nSatoshi<0:
+      isNeg = True
+      posVal *= -1
+      
+   nDig = max(round(math.log(posVal+1, 10)-0.5), 0)
+   nChop = max(nDig-2, 0 )
+   approxVal = round((10**nChop) * round(posVal / (10**nChop)))
+   return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
+
 
 # This is a sweet trick for create enum-like dictionaries. 
 # Either automatically numbers (*args), or name-val pairs (**kwargs)
@@ -4887,7 +4903,7 @@ class PyTxDistProposal(object):
          else:
             formattedVal = '0'
 
-         txdpLines.append('_TXINPUT_%02d_%s' % (iin, formattedVal))
+         txdpLines.append('_TXINPUT_%02d_%s' % (iin, formattedVal.strip()))
          for s,sig in enumerate(self.signatures[iin]):
             if len(sig)==0:
                continue
@@ -5328,6 +5344,14 @@ class PyBtcWallet(object):
          self.isLocked = True
 
 
+
+   #############################################################################
+   def lockTxOutsOnNewTx(self, pytxObj):
+      pprintUnspentTxOutList(self.getUnspentTxOutList())
+      for txin in pytxObj.inputs:
+         self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, txin.outpoint.txOutIndex)
+      pprintUnspentTxOutList(self.getUnspentTxOutList())
+         
    
 
    #############################################################################
@@ -8055,6 +8079,8 @@ class ArmoryClient(Protocol):
          else:
             self.factory.zeroConfTx[pytx.getHash()] = pytx.copy()
             self.factory.zeroConfTxTime[pytx.getHash()] = RightNow()
+            self.factory.saveMemoryPool()
+            self.factory.func_newTx(pytx)
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
@@ -8124,8 +8150,11 @@ class ArmoryClientFactory(ClientFactory):
    doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
    lastAlert = 0
 
-   def __init__(self, def_handshake=None, \
+   #############################################################################
+   def __init__(self, \
+                def_handshake=None, \
                 func_loseConnect=None, \
+                func_newTx=None, \
                 func_doubleSpendAlert=None):
       """
       Initialize the ClientFactory with a deferred for when the handshake 
@@ -8137,6 +8166,7 @@ class ArmoryClientFactory(ClientFactory):
       self.doubleBroadcastAlerts = {}
       self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
+      self.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
 
       # All other methods will be regular callbacks:  we plan to have a very
       # static set of behaviors for each message type
@@ -8146,10 +8176,49 @@ class ArmoryClientFactory(ClientFactory):
       #         doing more OOP/deferreds/etc
       self.func_loseConnect = func_loseConnect
       self.func_doubleSpendAlert = func_doubleSpendAlert
+      self.func_newTx = func_newTx
 
       self.proto = None
+
+   
+   #############################################################################
+   def saveMemoryPool(self, fname=None):
+      if fname==None:
+         fname = self.fileMemPool
+      outfile = open(fname,'w')
+      for hsh,tx in self.zeroConfTx.iteritems():
+         outfile.write(int_to_binary(int(self.zeroConfTxTime[hsh]), widthBytes=8))
+         outfile.write(tx.serialize())
+      outfile.close()
    
 
+
+   #############################################################################
+   def loadMemoryPool(self, fname=None):
+      if fname==None:
+         fname = self.fileMemPool
+      if not os.path.exists(fname):
+         print '***WARNING: No memory pool file... assuming empty' 
+         return
+
+      outfile = open(fname,'r')
+      binunpack = BinaryUnpacker(outfile.read())
+      outfile.close()
+      
+      try:
+         while binunpack.getRemainingSize() > 0:
+            txtime = binunpack.get(UINT64)
+            tx = PyTx().unserialize(binunpack)
+            self.zeroConfTxTime[tx.getHash()] = txtime
+            self.zeroConfTx[tx.getHash()] = tx 
+      except:
+         print '***WARNING: error reading memory pool... remaining will be skipped'
+         pass
+      
+
+
+
+   #############################################################################
    def handshakeFinished(self, protoObj):
       print 'Handshake finished, connection open!'
       self.proto = protoObj

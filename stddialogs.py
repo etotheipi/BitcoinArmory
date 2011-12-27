@@ -272,7 +272,7 @@ class DlgNewWallet(QDialog):
          if kdfUnit.lower()=='kb':
             self.kdfBytes = round(float(kdfM))*(1024.0)
 
-         print self.kdfSec, self.kdfBytes
+         print 'KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes'
       except:
          raise
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
@@ -401,7 +401,6 @@ class DlgChangePassphrase(QDialog):
 
    def checkPassphraseFinal(self):
       if self.chkDisableCrypt.isChecked():
-         print 'ChkDisable:', self.chkDisableCrypt.isChecked()
          self.accept()
       else:
          if self.checkPassphrase():
@@ -602,10 +601,10 @@ class DlgWalletDetails(QDialog):
 
       if hasPriv:           optLayout.addWidget(lbtnMkPaper)
       if True:              optLayout.addWidget(lbtnExport)
-      if hasPriv:           optLayout.addWidget(lbtnForkWlt)
+      if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
 
-      if adv:              optLayout.addWidget(createVBoxSeparator())
+      if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
@@ -707,7 +706,6 @@ class DlgWalletDetails(QDialog):
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
-            print self.labelValues
             self.labelValues[WLTFIELDS.Secure].setText('Encrypted')
             #self.accept()
       
@@ -2029,11 +2027,11 @@ class DlgRemoveWallet(QDialog):
          lbls.append([])
          lbls[3].append(QLabel('Current Balance:'))
          if bal>0:
-            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, chopZeros=6)+' BTC</b></font>'))
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=2)+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
             wltEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal, chopZeros=6) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, maxZeros=2) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2297,11 +2295,11 @@ class DlgRemoveAddress(QDialog):
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance:'))
          if bal>0:
-            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, chopZeros=6)+' BTC</b></font>'))
+            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=2)+' BTC</b></font>'))
             lbls[-1][-1].setTextFormat(Qt.RichText)
             addrEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal, chopZeros=6) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, maxZeros=2) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2353,10 +2351,10 @@ class DlgRemoveAddress(QDialog):
 
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
-      #if self.chkPrintBackup.isChecked():      
-         #dlg = DlgPaperBackup(wlt, self, self.main)
-         #if not dlg.exec_():
-            #return
+      if self.chkPrintBackup.isChecked():      
+         dlg = DlgPaperBackup(wlt, self, self.main)
+         if not dlg.exec_():
+            return
             
             
       reply = QMessageBox.warning(self, 'One more time...', \
@@ -2500,7 +2498,7 @@ class DlgWalletSelect(QDialog):
       if bal==0:
          self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), chopZeros=6)+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=2)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
@@ -2540,7 +2538,7 @@ def getWalletInfoFrame(wlt):
    bal = wlt.getBalance()
    dispBal.setTextFormat(Qt.RichText) 
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), chopZeros=6)+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=2)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -2588,10 +2586,11 @@ class DlgConfirmSend(QDialog):
 
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info64.png'))
+      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info32.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
-      sumStr = coin2str(sum([rv[1] for rv in recipValPairs])+fee, chopZeros=6)
+      totalSend = sum([rv[1] for rv in recipValPairs]) + fee
+      sumStr = coin2str(totalSend, maxZeros=2)
 
       lblMsg = QRichLabel(
          'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
@@ -2602,20 +2601,23 @@ class DlgConfirmSend(QDialog):
       ffixBold = self.FontFix
       ffixBold.setWeight(QFont.Bold)
       for rv in recipValPairs:
-         #recipLbls.append(QRichLabel('<font face="DejaVu Sans Mono">' + 
-                              #hash160_to_addrStr(rv[0])[:12] + '... : '  +
-                              #coin2str(rv[1], chopZeros=4) + '</font>'))
          recipLbls.append(QLabel( hash160_to_addrStr(rv[0]) + ' : '  +
-                                  coin2str(rv[1], rJust=True, chopZeros=4)))
+                                  coin2str(rv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
-         print rv
 
 
       if fee>0:
-         recipLbls.append(QSpacerItem(20,20))
-         recipLbls.append(QLabel( 'Transaction Fee : '.ljust(36)  +
-                           coin2str(fee, rJust=True, chopZeros=4)))
+         recipLbls.append(QSpacerItem(10,10))
+         recipLbls.append(QLabel( 'Transaction Fee : '.ljust(37)  +
+                           coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(self.FontFix)
+
+      hline = QFrame()
+      hline.setFrameStyle(QFrame.HLine | QFrame.Sunken)
+      recipLbls.append(hline)
+      recipLbls.append(QLabel( 'Total Bitcoins : '.ljust(37)  +
+                        coin2str(totalSend, rJust=True, maxZeros=4)))
+      recipLbls[-1].setFont(self.FontFix)
 
       self.btnAccept = QPushButton("Send")
       self.btnCancel = QPushButton("Cancel")
@@ -2640,6 +2642,32 @@ class DlgConfirmSend(QDialog):
       self.setLayout(layout)
       self.setMinimumWidth(350)
       
+
+class DlgDisplayTx(QDialog):
+   #COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
+   #FontVar = QFont('Times',   10)
+   #FontFix = QFont('Courier', 10)
+
+   def __init__(self, txHash, wlt, parent=None, main=None):
+      super(DlgDisplayTx, self).__init__(parent)
+
+      layout = QGridLayout()
+     
+      
+      lblQRichLabel('Transaction Information')
+
+      frmTxData = QFrame()
+      frmTxData.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmTxDataLayout = QGridLayout()
+      frmTxDataLayout.addWidget()
+      if self.main.usermode==Standard:
+         pass
+         
+      
+
+
+      self.setLayout(layout)
+      self.setWindowTitle('Transaction Details')      
 
 
 class DlgSendBitcoins(QDialog):
@@ -2677,11 +2705,12 @@ class DlgSendBitcoins(QDialog):
       lbtnTxFeeOpt = QLabelButton('More Info')
       self.connect(lbtnTxFeeOpt, SIGNAL('clicked()'), self.txFeeOptions)
       feetip = createToolTipObject( \
-            'Transaction fees go to users who contribute computing power to '
+            'Transaction fees go to other users who contribute computing power to '
             'keep the Bitcoin network secure, and guarantees that your transaciton '
-            'is processed as soon as possible.  Most transactions '
-            '<b>do not require</b> a fee but it is recommended to include one anyway '
-            'for timely processing.  You will will be prompted if a higher fee is '
+            'is processed quickly.   <b>Most transactions '
+            'do not require</b> a fee but it is recommended to include one anyway '
+            'since it guarantees quick processing for less than $0.01 USD.  '  
+            'You will will be prompted if a higher fee is '
             'recommended than specified here.')
 
       self.edtFeeAmt = QLineEdit()
@@ -2768,6 +2797,7 @@ class DlgSendBitcoins(QDialog):
    def createTxAndBroadcast(self):
       self.txValues = []
       self.origRVPairs = []
+      self.comments = []
       txdp = self.validateInputsGetTxDP()
       if not self.txValues:
          QMessageBox.critical(self, 'Tx Construction Failed', \
@@ -2778,17 +2808,6 @@ class DlgSendBitcoins(QDialog):
       totalOutStr = coin2str(self.txValues[0])
       dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main)
       if dlg.exec_():
-      
-      #confirmStr = 'You are about to send %s BTC:' % coin2str(sum(self.txValues[:2]))
-      #for rvpair in self.origRVPairs:
-         #confirmStr += '\n%s: \t%s BTC' % (hash160_to_addrStr(rvpair[0])[:15]+'...', \
-                                                     #coin2str(rvpair[1]))
-      #confirmStr += '\nWith a total transaction fee, %s BTC' % coin2str(self.txValues[1])
-      #
-      #reply = QMessageBox.information(self, 'Confirm Recipients:', confirmStr, \
-                     #QMessageBox.Yes | QMessageBox.Cancel)
-        
-      #if reply==QMessageBox.Yes:
          try:
             if self.wlt.isLocked:
                unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
@@ -2798,6 +2817,16 @@ class DlgSendBitcoins(QDialog):
                      QMessageBox.Ok)
                   return
               
+            
+            print self.origRVPairs
+            print self.comments
+            if len(self.comments)==1:
+               commentStr = self.comments[0]
+            else:
+               for i in range(len(self.comments)):
+                  if len(self.comments[i].strip())>0:
+            
+            #self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
 
             txdp = self.wlt.signTxDistProposal(txdp)
             finalTx = txdp.prepareFinalTx()
@@ -2807,6 +2836,8 @@ class DlgSendBitcoins(QDialog):
             print txdp.serializeAscii()
             print 'Sending Tx' 
             self.main.NetworkingFactory.sendTx(finalTx)
+            self.wlt.lockTxOutsOnNewTx(finalTx.copy())
+            self.main.NetworkingFactory.saveMemoryPool()
             print 'Done!'
             self.accept()
          except:
@@ -2840,6 +2871,7 @@ class DlgSendBitcoins(QDialog):
             self.widgetTable[i][COLS.Addr].setFont(boldFont)
             self.widgetTable[i][COLS.Addr].setPalette( palette );
             self.widgetTable[i][COLS.Addr].setAutoFillBackground( True );
+
 
       numChkFail  = sum([1 if b==-1       else 0 for b in addrBytes])
       numWrongNet = sum([0 if b==ADDRBYTE else 1 for b in addrBytes])
@@ -2898,13 +2930,14 @@ class DlgSendBitcoins(QDialog):
          totalSend += value
          recip160 = addrStr_to_hash160(recipStr)
          recipValuePairs.append( (recip160, value) )
+         self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
          
       bal = self.wlt.getBalance()
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
             '%s BTC, but you only have %s BTC in this wallet!' % \
-               (coin2str(totalSend, chopZeros=6), coin2str(bal, chopZeros=6)), QMessageBox.Ok)
+               (coin2str(totalSend, maxZeros=2), coin2str(bal, maxZeros=2)), QMessageBox.Ok)
          return
       
 

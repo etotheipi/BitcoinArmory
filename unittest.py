@@ -188,16 +188,19 @@ if Test_BasicUtils:
       print coin2str(c,0).rjust(16),
       print coin2str(c,8, maxZeros=6).rjust(16),
       print coin2str(c,8, maxZeros=2).rjust(16),
-      print coin2str(c,6, maxZeros=4).rjust(16)
+      print coin2str(c,6, maxZeros=4).rjust(16),
+      print coin2str_approx(c,3)
    printC2S(0)
    printC2S(1)
    printC2S(100)
    printC2S(10000)
+   printC2S(10111)
    printC2S(10000000)
    printC2S(10000099080)
    printC2S(10000099000)
    printC2S(10000909001)
-   printC2S(10009980000)
+   printC2S(12345678900)
+   printC2S(98753178900)
    printC2S(-1)
    printC2S(-100)
    printC2S(-10000)

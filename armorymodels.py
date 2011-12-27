@@ -17,6 +17,8 @@ LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
                    'Comment', 'Amount', 'isOther', 'WltID', 'TxHash')
 ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
+TXINCOLS  = enum('Sender', 'Btc', 'FromBlock', 'ScrType', 'Sequence')
+TXOUTCOLS = enum('Recip', 'Btc', 'ScrType')
 
 
 class AllWalletsDispModel(QAbstractTableModel):
@@ -59,7 +61,7 @@ class AllWalletsDispModel(QAbstractTableModel):
                   ndigit = 6
                else:
                   ndigit = 4
-               dispStr = [c for c in coin2str(bal, chopZeros=6)]
+               dispStr = [c for c in coin2str(bal, maxZeros=2)]
                dispStr[-8+ndigit:] = ' '*(8-ndigit)
                return QVariant(''.join(dispStr))
       elif role==Qt.TextAlignmentRole:
@@ -159,6 +161,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.LightGray )
       elif role==Qt.ForegroundRole:
+         if nConf <= 2:
+            return QVariant(Colors.MidGray)
+         elif nConf <= 4:
+            return QVariant(Colors.Gray)
+         
          if col==COL.Amount:
             amt = float(rowData[COL.Amount])
             if   amt>0: return QVariant(Colors.Green)
@@ -175,11 +182,11 @@ class LedgerDispModelSimple(QAbstractTableModel):
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
                tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
-               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
+               tooltipStr += ( '\n\nFor small transactions, 3 or 4\n'
                                'confirmations is usually acceptable.\n'
                                'For larger transactions, you should\n'
-                               'wait at least 6 confirmations before\n'
-                               'considering the transaction valid.')
+                               'wait for 6 confirmations before\n'
+                               'trusting that the transaction valid.')
                return QVariant(tooltipStr)
 
       return QVariant()
@@ -301,7 +308,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant()
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( coin2str(cppAddr.getBalance(), chopZeros=6) )
+            return QVariant( coin2str(cppAddr.getBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -349,8 +356,8 @@ class WalletAddrDispModel(QAbstractTableModel):
             
       
 
-
 """
+
 class HeaderDataModel(QAbstractTableModel):
    def __init__(self):
       super(HeaderDataModel, self).__init__()
@@ -380,10 +387,8 @@ class HeaderDataModel(QAbstractTableModel):
             return QVariant( headColLabels[section] )
       elif role==Qt.TextAlignmentRole:
          return QVariant( int(Qt.AlignHCenter | Qt.AlignVCenter) )
-"""
 
 
-"""
 
 ################################################################################
 # Below is PyBtcEngine testing code -- A blockchain explorer may be a nice 
@@ -415,6 +420,7 @@ txinColLabels = {TXIN_SRC:    'Sender', \
 txoutColLabels ={TXOUT_RECIP: 'Recipient',\
                  TXOUT_BTC:   'BTC', \
                  TXOUT_STYPE: 'Script Type'}
+
 
 b2h = lambda x: binary_to_hex(x)
 h2b = lambda x: hex_to_binary(x)
@@ -570,28 +576,25 @@ class TxDataModel(QAbstractTableModel):
 
 class TxInDataModel(QAbstractTableModel):
 
-   def __init__(self):
+   def __init__(self,tx):
       super(TxInDataModel, self).__init__()
       self.bdm = BlockDataManager().getBDM()
       self.endianSelect = BIGENDIAN
-      self.txSelect = None 
+      self.tx = tx.copy()
 
    def rowCount(self, index=QModelIndex()):
-      if self.txSelect:
-         return self.txSelect.getNumTxIn()
-      return 0
+      return self.tx.getNumTxIn()
+
 
    def columnCount(self, index=QModelIndex()):
-      return len(txinColLabels)
+      return 5
 
    def data(self, index, role=Qt.DisplayRole):
       nTxIn = self.rowCount()
       row,col = index.row(), index.column()
-      if not index.isValid() or not (0<= row < nTxIn):
-         return QVariant()
 
       if role==Qt.DisplayRole:
-         cppTxIn = self.txSelect.getTxInRef(row)
+         cppTxIn = self.tx.getTxInRef(row)
          if cppTxIn == None:
             return QVariant()
          if col == TXIN_SRC:
@@ -601,7 +604,7 @@ class TxInDataModel(QAbstractTableModel):
             return QVariant(hash160_to_addrStr(addr20))
          elif col== TXIN_BTC:
             if cppTxIn.isCoinbase():
-               return QVariant("%0.4f" % float(self.txSelect.getSumOfOutputs()/1e8))
+               return QVariant("%0.4f" % float(self.tx.getSumOfOutputs()/1e8))
             return QVariant("%0.4f" % float(self.bdm.getSentValue(cppTxIn)/1e8))
          elif col== TXIN_STYPE:
             if cppTxIn.isScriptStandard():
@@ -695,8 +698,8 @@ class TxOutDataModel(QAbstractTableModel):
             return QVariant( txoutColLabels[section] )
 
 
-
 """
+
 
 
 

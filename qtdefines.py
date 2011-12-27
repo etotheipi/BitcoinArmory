@@ -14,7 +14,8 @@ MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
 Colors = enum(LightBlue=   QColor(215,215,255), \
               LightGreen=  QColor(225,255,225), \
               LightGray=   QColor(235,235,235), \
-              LighterGray= QColor(245,245,245), \
+              MidGray=     QColor(170,170,170), \
+              Gray=        QColor(128,128,128), \
               DarkGray=    QColor( 64, 64, 64), \
               Green=       QColor(  0,100,  0), \
               DarkRed=     QColor( 75,  0,  0), \

@@ -155,14 +155,20 @@ BtcAddress::BtcAddress(BinaryData    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcAddress::getBalance(void)
+uint64_t BtcAddress::getBalance(set<OutPoint> const * lockedOPs)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isUnspent() &&
-         relevantTxIOPtrs_[i]->getTxRefOfOutput().isMainBranch())
-         balance += relevantTxIOPtrs_[i]->getValue();
+      TxIOPair & txio = *relevantTxIOPtrs_[i];
+
+      // If this TxOut is locked, skip it
+      if(lockedOPs != NULL && 
+         lockedOPs->find(txio.getOutPoint()) != lockedOPs->end())
+            continue;
+
+      if(txio.isUnspent() && txio.getTxRefOfOutput().isMainBranch())
+         balance += txio.getValue();
    }
    return balance;
 }
@@ -592,8 +598,11 @@ uint64_t BtcWallet::getBalance(void)
         unspentIter++)
    {
       TxIOPair & txio = txioMap_[*unspentIter];
-      if(txio.getTxRefOfOutput().isMainBranch())
+      if(txio.getTxRefOfOutput().isMainBranch() && 
+         !isTxOutLocked(*unspentIter))
+      {
          balance += txioMap_[*unspentIter].getValue();
+      }
    }
    return balance;
 }
@@ -602,14 +611,14 @@ uint64_t BtcWallet::getBalance(void)
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcWallet::getBalance(uint32_t i)
 {
-   return addrPtrVect_[i]->getBalance();
+   return addrPtrVect_[i]->getBalance(&lockedTxOuts_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 uint64_t BtcWallet::getBalance(BinaryData const & addr20)
 {
    assert(hasAddr(addr20)); 
-   return addrMap_[addr20].getBalance();
+   return addrMap_[addr20].getBalance(&lockedTxOuts_);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -636,7 +645,53 @@ void BtcWallet::sortLedger(void)
    sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::lockTxOut(OutPoint const & op) 
+{
+   set<OutPoint> & unspentOps = getUnspentOutPoints();
+   if(unspentOps.find(op)!=unspentOps.end())
+      lockedTxOuts_.insert(op);  
+}
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::unlockTxOut(OutPoint const & op) 
+{
+   set<OutPoint> & unspentOps = getUnspentOutPoints();
+   if(unspentOps.find(op)!=unspentOps.end())
+      if(lockedTxOuts_.find(op)!=lockedTxOuts_.end())
+         lockedTxOuts_.erase(op);  
+}
+
+
+void BtcWallet::lockTxOutSwig(BinaryData const & hash, uint32_t idx)
+{
+   OutPoint op(hash, idx);
+   lockTxOut(op);
+}
+void BtcWallet::unlockTxOutSwig(BinaryData const & hash, uint32_t idx)
+{
+   OutPoint op(hash, idx);
+   unlockTxOut(op);
+}
+
+bool BtcWallet::isTxOutLocked(OutPoint const & op) 
+{
+   return (lockedTxOuts_.find(op)!=lockedTxOuts_.end());
+}
+
+
+vector<OutPoint> BtcWallet::getLockedTxOutList(void)
+{
+   vector<OutPoint> out(0);
+   set<OutPoint>::iterator unspentIter;
+   for( unspentIter  = lockedTxOuts_.begin(); 
+        unspentIter != lockedTxOuts_.end(); 
+        unspentIter++)
+   {
+      out.push_back(*unspentIter);
+   }
+   return out;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -1856,11 +1911,14 @@ BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, int sortTy
        opIter != unspentOps.end();
        opIter++)
    {
-      TxRef & tx = *(getTxByHash(opIter->getTxHash()));
-      uint32_t currBlk = getTopBlockHeader().getBlockHeight();
-      TxOutRef txout = tx.getTxOutRef(opIter->getTxOutIndex());
-      UnspentTxOut uto(txout, currBlk);
-      result.push_back(uto);
+      if( !wlt.isTxOutLocked(*opIter) )
+      { 
+         TxRef & tx = *(getTxByHash(opIter->getTxHash()));
+         uint32_t currBlk = getTopBlockHeader().getBlockHeight();
+         TxOutRef txout = tx.getTxOutRef(opIter->getTxOutIndex());
+         UnspentTxOut uto(txout, currBlk);
+         result.push_back(uto);
+      }
    }
 
    if(sortType != -1)
@@ -1875,6 +1933,7 @@ BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, int sortTy
 vector<UnspentTxOut> 
 BlockDataManager_FullRAM::getNonStdUnspentTxOutsForWallet( BtcWallet & wlt)
 {
+   cout << "Not implemented yet to retrieve non-std TxOuts..."<< endl;
    return vector<UnspentTxOut>(0);
 }
 
