@@ -2573,7 +2573,7 @@ def getTxInScriptType(txinObj):
       return TXIN_SCRIPT_COINBASE
 
    b0,b1,b2,b3,b4 = binScript[:5]
-   if not (b1=='\x03' and b3=='\x02'):
+   if not (b1=='\x30' and b3=='\x02'):
       return TXIN_SCRIPT_UNKNOWN
 
    SigSize = binary_to_int(b2) + 3
@@ -2581,7 +2581,7 @@ def getTxInScriptType(txinObj):
 
    if len(binScript)==SigSize:
       return TXIN_SCRIPT_SPENDCB
-   elif len(binScript)==(SigSize + PubkeySize):
+   elif len(binScript)==(SigSize + PubkeySize + 1):
       return TXIN_SCRIPT_STANDARD
 
    return TXIN_SCRIPT_UNKNOWN
@@ -7307,6 +7307,37 @@ class PyBtcWallet(object):
          return False
 
       return isEqualTo
+
+
+
+
+"""
+class PyLedgerEntry(object):
+   def __init__(self):
+      self.addr20       = UNINITIALIZED
+      self.value        = UNINITIALIZED
+      self.blockNum     = UNINITIALIZED
+      self.txHash       = UNINITIALIZED
+      self.index        = UNINITIALIZED
+      self.isValid      = UNINITIALIZED
+      self.isSentToSelf = UNINITIALIZED
+      self.isChangeBack = UNINITIALIZED
+
+   def createForWalletFromTx(self, wlt, tx):
+      numIn  = len(tx.inputs)
+      numOut = len(tx.outputs)
+
+      
+
+   //    addr20_    -  useless - originally had a purpose, but lost it
+   //    value_     -  total debit/credit on WALLET balance, in Satoshis (1e-8 BTC)
+   //    blockNum_  -  block height of the block in which this tx was included
+   //    txHash_    -  hash of this tx 
+   //    index_     -  index of the tx in the block
+   //    isValid_   -  default to true -- invalidated due to reorg/double-spend
+   //    isSentToSelf_ - if we supplied inputs and rx ALL outputs
+   //    isChangeBack_ - if we supplied inputs and rx ANY outputs
+"""
 
 
 

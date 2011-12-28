@@ -66,23 +66,36 @@ def printpassorfail(abool):
 
 
 
-#wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
-#addrlist = wlt.getAddrListSortedByChainIndex()
-#firstAddr160 = addrlist[0][1]
-#print 'Setting first comment'
-#wlt.setComment(firstAddr160, 'This is a new comment')
-#print 'Setting second comment'
-#wlt.setComment(firstAddr160, '')
 
-#print 'Rereading wallet'
-#wlt2 = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2huewxxCW_Online.wallet')
-#exit(0)
 
-#print 'Start:', h
-#print 'B16  :', b16
-#print 'R/T  :', hagain
+binTx = hex_to_binary('010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000')
 
-#exit(0)
+tx = PyTx().unserialize(binTx)
+tx.pprint()
+
+
+print 'Wallet Info'
+wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2zftxAA7Q_.wallet')
+#wlt.pprint('    ')
+
+le = wlt.cppWallet.getWalletLedgerEntryForTx(binTx)
+le.pprint()
+
+les = wlt.cppWallet.getAddrLedgerEntriesForTx(binTx)
+for le in les:
+   le.pprint()
+
+print 'Inputs:'
+for i in tx.inputs:
+   a,b = TxInScriptExtractKeyAddr(i)
+   print '   ',a, binary_to_hex(addrStr_to_hash160(a))
+
+print 'Outputs:'
+for o in tx.outputs:
+   astr = TxOutScriptExtractAddrStr(o.binScript)
+   print '   ',astr, binary_to_hex(addrStr_to_hash160(astr))
+
+exit(0)
 
 
 

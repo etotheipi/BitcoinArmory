@@ -148,9 +148,12 @@ void TestScanForWalletTx(string blkfile)
 #else
    // Test-network addresses
    myAddress.createFromHex("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("fce711782829bd68727f9a39d27fb31dbf3f4cbf"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("f39c9c229d0671e87f3f9814567e2cd9c37f2227"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("60fc04f27a4a7509cf081bd6b0bf4d1ae6ad9985"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); wlt.addAddress(myAddress);
 #endif
 
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
@@ -193,29 +196,7 @@ void TestScanForWalletTx(string blkfile)
            
    }
 
-   /////////////////////////////////////////////////////////////////////////////
-   // Need to test the const-scan of a random tx-list without updating the wlt
-   cout << "\nTesting tx-list wallet scan for zero-conf tx..." << endl;
-   vector<TxRef*> txlist;
-   for(uint32_t blk=0; blk<300; blk++)
-   {
-      BlockHeaderRef* bhr = bdm.getHeaderByHeight(blk);
-      vector<TxRef*> blkTxList = bhr->getTxRefPtrList();
-      txlist.insert(txlist.end(), blkTxList.begin(), blkTxList.end());
-   }
-   vector<LedgerEntry> testLedger;
-   testLedger = wlt.getLedgerEntriesForZeroConfTxList(txlist);
-   for(uint32_t j=0; j<testLedger.size(); j++)
-   {  
-      cout << "    Tx: " 
-           << testLedger[j].getAddrStr20().toHexStr() << "  "
-           << testLedger[j].getValue()/1e8 << " (" 
-           << testLedger[j].getBlockNum()
-           << ")  TxHash: " << testLedger[j].getTxHash().getSliceCopy(0,4).toHexStr() << endl;
-           
-   }
 
-   exit(0);
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Test txout aggregation, with different prioritization schemes" << endl;
@@ -252,6 +233,31 @@ void TestScanForWalletTx(string blkfile)
            << sortedUTOs[j].getTxOutIndex() << endl;
    }
    cout << endl;
+
+
+   cout << "Testing scanning of zero-conf tx" << endl;
+   BtcWallet zcWlt;
+   myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); zcWlt.addAddress(myAddress);
+   //bdm.scanBlockchainForTx(zcWlt);
+   
+
+   // Test the zero-conf ledger-entry detection
+   BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
+
+   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
+   le.pprint();
+
+   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
+   for(int i=0; i<levect.size(); i++)
+   {
+      levect[i].pprint();
+   }
+   
+
 }
 
 

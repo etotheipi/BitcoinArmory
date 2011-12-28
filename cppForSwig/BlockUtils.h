@@ -185,11 +185,14 @@ public:
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
+   void setAddr20(BinaryData const & bd) { addr20_.copyFrom(bd); }
    void setValid(bool b=true) { isValid_ = b; }
    void changeBlkNum(uint32_t newHgt) {blockNum_ = newHgt; }
       
    bool operator<(LedgerEntry const & le2) const;
    bool operator==(LedgerEntry const & le2) const;
+
+   void pprint(void);
 
 private:
    
@@ -321,8 +324,9 @@ public:
                      uint32_t blktime = UINT32_MAX,
                      uint32_t blknum = UINT32_MAX);
 
-   vector<LedgerEntry>  getLedgerEntriesForZeroConfTxList(
-                                          vector<TxRef*> zcList);
+   vector<LedgerEntry>  getLedgerEntriesForZeroConfTxList( vector<TxRef*> zcList);
+   LedgerEntry          getWalletLedgerEntryForTx(BinaryData const & zcBin);
+   vector<LedgerEntry>  getAddrLedgerEntriesForTx(BinaryData const & zcBin);
 
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 

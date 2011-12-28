@@ -115,14 +115,13 @@ class AllWalletsDispModel(QAbstractTableModel):
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
    """ Displays an Nx7 table of pre-formatted/processed ledger entries """
-   def __init__(self, table2D, parent=None, main=None):
+   def __init__(self, parent=None, main=None):
       super(LedgerDispModelSimple, self).__init__()
-      self.ledger = table2D
       self.parent = parent
       self.main   = main
 
    def rowCount(self, index=QModelIndex()):
-      return len(self.ledger)
+      return len(self.main.ledgerTable)
 
    def columnCount(self, index=QModelIndex()):
       return 10
@@ -130,7 +129,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
       row,col = index.row(), index.column()
-      rowData = self.ledger[row]
+      rowData = self.main.ledgerTable[row]
       nConf = rowData[0]
 
       if role==Qt.DisplayRole:
@@ -168,7 +167,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             f.setWeight(QFont.Bold)
             return f
       elif role==Qt.ToolTipRole:
-         if col==COL.NumConf:
+         if col in (COL.NumConf, COL.Date):
             if rowData[COL.NumConf]>5:
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:

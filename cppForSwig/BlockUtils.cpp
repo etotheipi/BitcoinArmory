@@ -131,6 +131,20 @@ bool LedgerEntry::operator==(LedgerEntry const & le2) const
    return (blockNum_ == le2.blockNum_ && index_ == le2.index_);
 }
 
+void LedgerEntry::pprint(void)
+{
+   cout << "LedgerEntry: " << endl;
+   cout << "   Addr20  : " << getAddrStr20().toHexStr() << endl;
+   cout << "   Value   : " << getValue()/1e8 << endl;
+   cout << "   BlkNum  : " << getBlockNum() << endl;
+   cout << "   TxHash  : " << getTxHash().toHexStr() << endl;
+   cout << "   TxIndex : " << getIndex() << endl;
+   cout << "   isValid : " << (isValid() ? 1 : 0) << endl;
+   cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
+   cout << "   isChange: " << (isChangeBack() ? 1 : 0) << endl;
+   cout << endl;
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -530,6 +544,57 @@ vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
       tempWlt.scanTx(*zcList[i], 0, 0xffffffff, 0xffffffff);
 
    return tempWlt.ledgerAllAddr_;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// The above method didn't work... python memory management is weirder than 
+// I thought.  However, I know I can pass BinaryData in, and so I will just 
+// copy it locally and then I don't have to worry about memory mgmt.
+LedgerEntry BtcWallet::getWalletLedgerEntryForTx(BinaryData const & zcBin)
+{
+   // Prepare fresh, temporary wallet with same addresses
+   BtcWallet tempWlt;
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+
+   BinaryData txBin(zcBin);
+   TxRef txref(txBin);
+   tempWlt.scanTx(txref, 0, 0xffffffff, 0xffffffff);
+
+   if(tempWlt.ledgerAllAddr_.size() > 0)
+      return tempWlt.ledgerAllAddr_[0];
+   else
+      return LedgerEntry();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// The above method didn't work... python memory management is weirder than 
+// I thought.  However, I know I can pass BinaryData in, and so I will just 
+// copy it locally and then I don't have to worry about memory mgmt.
+vector<LedgerEntry> BtcWallet::getAddrLedgerEntriesForTx(BinaryData const & zcBin)
+{
+   // Prepare fresh, temporary wallet with same addresses
+   BtcWallet tempWlt;
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+
+   BinaryData txBin(zcBin);
+   TxRef txref(txBin);
+   tempWlt.scanTx(txref, 0, 0xffffffff, 0xffffffff);
+
+   vector<LedgerEntry> leVect(0);
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+   {
+      vector<LedgerEntry> & les = addrPtrVect_[i]->getTxLedger();
+      for(uint32_t j=0; j<les.size(); j++)
+      {
+         les[j].setAddr20(addrPtrVect_[i]->getAddrStr20());
+         leVect.push_back(les[j]);
+      }
+   }
+
+   return leVect;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

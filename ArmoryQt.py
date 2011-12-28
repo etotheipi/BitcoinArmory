@@ -62,7 +62,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.extraHeartbeatFunctions = []
       #self.extraHeartbeatFunctions.append(self.NetworkingFactory.purgeMemoryPool)
-      self.extraHeartbeatFunctions.append(self.createCombinedLedger)
+      #self.extraHeartbeatFunctions.append(self.createCombinedLedger)
 
       # Keep a persistent printer object for paper backups
       self.printer = QPrinter(QPrinter.HighResolution)
@@ -109,7 +109,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Table to display ledger/activity
       self.ledgerTable = []
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+      self.ledgerModel = LedgerDispModelSimple(self, self)
       self.ledgerView  = QTableView()
 
       w,h = tightSizeNChar(self.ledgerView, 110)
@@ -238,7 +238,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+      self.ledgerModel = LedgerDispModelSimple(self, self)
       self.ledgerView.setModel(self.ledgerModel)
       from twisted.internet import reactor
 
@@ -398,6 +398,9 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerSize = 0
 
       self.latestBlockNum = 0
+
+      self.zeroConfWltLEs = {}
+      self.zeroConfAddrLEs = {}
 
 
       print 'Loading wallets...'
@@ -582,7 +585,7 @@ class ArmoryMainWindow(QMainWindow):
          
 
    #############################################################################
-   def createZeroConfLedger(self, wlt):
+   def updateZeroConfLedger(self, wlt):
       """
       This is kind of hacky, but I don't want to disrupt the C++ code
       too much to implement a *proper* solution... which is that I need
@@ -601,8 +604,11 @@ class ArmoryMainWindow(QMainWindow):
       (to be more specific, I'm pretty sure this should work no matter
        how wacky python's memory mgmt is, unless it moves list data around
        in memory between calls)
-      """
+      print '***Creating zero-conf ledger',
       # We are starting with a map of PyTx objects
+
+      """
+      """
       zcMap   = self.NetworkingFactory.zeroConfTx
       timeMap = self.NetworkingFactory.zeroConfTxTime
       #print 'ZeroConfListSize:', len(zcMap)
@@ -624,6 +630,63 @@ class ArmoryMainWindow(QMainWindow):
       # At this point, we will get a vector<LedgerEntry> list and TxRefs
       # can safely go out of scope
       return wlt.cppWallet.getLedgerEntriesForZeroConfTxList(zcTxRefPtrList)
+      """
+      """
+      Need to convert the zeroConfTxList maintained by NetworkingFactory into
+      LedgerEntry objects that can be inclued in the ledger views.  We use
+      a special C++ method specifically for scanning zero-conf tx without 
+      affecting the underlying wallets.
+
+      zeroConfWltLEs [wltID][txHash]          =   LedgerEntry()
+      zeroConfAddrLEs[wltID][txHash][addr160] = [ LedgerEntry(), LedgerEntry(), ... ]
+
+      """
+      wltID = wlt.uniqueIDB58
+      if not self.zeroConfWltLEs.has_key(wltID):  self.zeroConfWltLEs[wltID] = {}
+      if not self.zeroConfAddrLEs.has_key(wltID): self.zeroConfAddrLEs[wltID] = {}
+
+      for txHash,pytx in self.NetworkingFactory.zeroConfTx.iteritems():
+         # Delete entries that made it into the blockchain
+         if TheBDM.isInitialized() and TheBDM.getTxByHash(txHash):
+            if self.zeroConfWltLEs[wltID].has_key(txHash):
+               del self.zeroConfWltLEs[wltID][txHash]
+               del self.zeroConfAddrLEs[wltID][txHash]
+
+
+         # Add wallet-level ledger entries for zero-conf list
+         le = wlt.cppWallet.getWalletLedgerEntryForTx(pytx.serialize())
+         if len(le.getAddrStr20())>0:
+            if not self.zeroConfWltLEs[wltID].has_key(txHash):
+               le.pprint()
+               self.zeroConfWltLEs[wltID][txHash] = le
+
+
+            # Add address-level ledger entries for zero-conf list
+            leVect = wlt.cppWallet.getAddrLedgerEntriesForTx(pytx.serialize())
+            for lev in leVect:
+               # Make sure we have an entry for this tx
+               if not self.zeroConfAddrLEs[wltID].has_key(txHash):
+                  self.zeroConfAddrLEs[wltID][txHash] = {}
+   
+               # Make sure we have an sub-entry for this address
+               addr20 = le.getAddrStr20()
+               if not self.zeroConfAddrLEs[wltID][txHash].has_key(addr20):
+                  self.zeroConfAddrLEs[wltID][txHash][addr20] = []
+   
+               # Now actually add this ledger entry to the addr le list
+               alreadyInList = False
+               for existingLE in self.zeroConfAddrLEs[wltID][txHash][addr20]:
+                  if lev.getIndex() == existingLE.getIndex():
+                     alreadyInList = True
+   
+               if not alreadyInList:
+                  self.zeroConfAddrLEs[wltID][txHash][addr20].append(lev)
+                  lev.pprint()
+
+         
+      
+       
+      
    
 
    #############################################################################
@@ -632,6 +695,7 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
+      print '---Creating combined ledger'
       start = RightNow()
       if wltIDList==None:
          # Create a list of [wltID, type] pairs
@@ -665,15 +729,20 @@ class ArmoryMainWindow(QMainWindow):
       self.combinedLedger = []
       if wltIDList==None:
          return
+
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
-         # Make sure the ledgers are up to date and then combine and sort
+
+         # Add the LedgerEntries from the blockchain
          self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
-         id_le_pairs   = [ [wltID, le] for le in self.walletLedgers[index] ]
-         id_le_zcpairs = [ [wltID, le] for le in self.createZeroConfLedger(wlt)]
+         id_le_pairs = [ [wltID, le] for le in self.walletLedgers[index] ]
          self.combinedLedger.extend(id_le_pairs)
-         self.combinedLedger.extend(id_le_zcpairs)
+
+         # Calculate and add the LedgerEntries from zero-conf tx
+         self.updateZeroConfLedger(wlt)
+         for hsh,le in self.zeroConfWltLEs[wltID].iteritems():
+            self.combinedLedger.append([wltID, le])
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
@@ -681,7 +750,6 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-         self.ledgerModel.reset()
 
          totFund, unconfFund = 0,0
          for wlt,le in self.combinedLedger:
@@ -698,8 +766,10 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+         self.ledgerModel = LedgerDispModelSimple(self, self)
          self.ledgerView.setModel(self.ledgerModel)
+         #self.ledgerModel.reset()
+
          
 
       except AttributeError:

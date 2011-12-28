@@ -2975,7 +2975,7 @@ class DlgSendBitcoins(QDialog):
             extraMsg = ('\n\n(It is not recommended to override this behavior, '
                         'but as an advanced user, you can go into the settings file '
                         'and manually change the "OverrideMinFee" property to '
-                        'True.  Do so at your own risk, as many transactions '
+                        '"True".  Do so at your own risk, as many transactions '
                         'have been known to "get stuck" when insufficient fee '
                         'was included)')
          allowOkay = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
