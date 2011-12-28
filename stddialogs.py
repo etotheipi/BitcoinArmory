@@ -2415,7 +2415,7 @@ class DlgWalletSelect(QDialog):
       self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.showWalletInfo)
       self.lstWallets.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
 
-      self.connect(self.lstWallets, SIGNAL('itemDoubleClicked()'), self.dblclick)
+      self.connect(self.lstWallets, SIGNAL('itemDoubleClicked(QListWidgetItem *)'), self.dblclick)
 
       layout = QGridLayout()
       layout.addWidget(QLabel("Select Wallet:"), 0, 0,  1, 1)
@@ -2504,7 +2504,6 @@ class DlgWalletSelect(QDialog):
 
 
    def dblclick(self, *args):
-      print 'Doubleclick!'
       currRow = self.lstWallets.currentRow()
       self.selectedID = self.rowList[currRow][0]
       self.accept()
@@ -2641,6 +2640,7 @@ class DlgConfirmSend(QDialog):
 
       self.setLayout(layout)
       self.setMinimumWidth(350)
+      self.setWindowTitle('Confirm Transaction')
       
 
 class DlgDisplayTx(QDialog):
@@ -2799,13 +2799,16 @@ class DlgSendBitcoins(QDialog):
       self.origRVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
+      if not txdp:
+         return
+
       if not self.txValues:
          QMessageBox.critical(self, 'Tx Construction Failed', \
             'Unknown error trying to create transaction', \
             QMessageBox.Ok)
          
       
-      totalOutStr = coin2str(self.txValues[0])
+      #totalOutStr = coin2str(self.txValues[0])
       dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main)
       if dlg.exec_():
          try:
@@ -2820,22 +2823,29 @@ class DlgSendBitcoins(QDialog):
             
             print self.origRVPairs
             print self.comments
+            commentStr = ''
             if len(self.comments)==1:
                commentStr = self.comments[0]
             else:
                for i in range(len(self.comments)):
+                  amt = self.origRVPairs[i][1]
                   if len(self.comments[i].strip())>0:
+                     commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
             
-            #self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
+            print commentStr
 
             txdp = self.wlt.signTxDistProposal(txdp)
             finalTx = txdp.prepareFinalTx()
             finalTx.pprint()
+            if len(commentStr)>0:
+               self.wlt.setComment(finalTx.getHash(), commentStr)
+            print self.wlt.commentsMap
             print '\n\n'
             print binary_to_hex(finalTx.serialize())
             print txdp.serializeAscii()
             print 'Sending Tx' 
             self.main.NetworkingFactory.sendTx(finalTx)
+            self.main.NetworkingFactory.addTxToMemoryPool(finalTx)
             self.wlt.lockTxOutsOnNewTx(finalTx.copy())
             self.main.NetworkingFactory.saveMemoryPool()
             print 'Done!'
@@ -2853,7 +2863,8 @@ class DlgSendBitcoins(QDialog):
       addrBytes = []
       for i in range(len(self.widgetTable)):
          # Verify validity of address strings
-         addrStr = str(self.widgetTable[i][COLS.Addr].text())
+         addrStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
+         self.widgetTable[i][COLS.Addr].setText(addrStr) # overwrite w/ stripped
          addrIsValid = False
          try:
             addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
@@ -2890,7 +2901,7 @@ class DlgSendBitcoins(QDialog):
                   'Address %d is for the wrong network!  You are on the %s '
                   'and the address you supplied is for the the '
                   '%s!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
-         return
+         return False
 
 
       # Construct recipValuePairs and check that all metrics check out
@@ -2907,7 +2918,7 @@ class DlgSendBitcoins(QDialog):
                    'Bitcoins can only be '
                    'specified down to 8 decimal places:  the smallest value '
                    'that can be sent is  0.0000 0001 BTC', QMessageBox.Ok)
-               return
+               return False
          except:
             # TODO: figure out the types of errors we need to deal with, here
             raise
@@ -2918,14 +2929,14 @@ class DlgSendBitcoins(QDialog):
             QMessageBox.critical(self, 'Invalid Value String', \
                 'The value you specified '
                 'to send to address %d is invalid.' % (i+1,), QMessageBox.Ok)
-            return
+            return False
 
          try:
             fee = round(float(feeStr) * ONE_BTC)
          except ValueError:
             QMessageBox(self, 'Invalid Value String', 'The fee you specified '
                 'is invalid.', QMessageBox.Ok)
-            return
+            return False
             
          totalSend += value
          recip160 = addrStr_to_hash160(recipStr)
@@ -2937,8 +2948,10 @@ class DlgSendBitcoins(QDialog):
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
             '%s BTC, but you only have %s BTC in this wallet!' % \
-               (coin2str(totalSend, maxZeros=2), coin2str(bal, maxZeros=2)), QMessageBox.Ok)
-         return
+               (coin2str(totalSend, maxZeros=2).strip(), \
+                coin2str(bal, maxZeros=2).strip()), \
+            QMessageBox.Ok)
+         return False
       
 
       # Get unspent outs for this wallet:
@@ -2956,6 +2969,8 @@ class DlgSendBitcoins(QDialog):
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
       if fee<minFeeRec[1]:
          extraMsg = ''
+         feeStr = coin2str(fee, maxZeros=0).strip()
+         minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
          if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
             extraMsg = ('\n\n(It is not recommended to override this behavior, '
                         'but as an advanced user, you can go into the settings file '
@@ -2967,10 +2982,10 @@ class DlgSendBitcoins(QDialog):
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
-            '%s BTC to send this transaction.  Do you agree to the fee of %s BTC?  ' % \
-            (fee, minFeeRec[1], minFeeRec[1]) + extraMsg,  QMessageBox.Yes | QMessageBox.No)
+            '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
+            (feeStr, minRecStr, minRecStr) + extraMsg,  QMessageBox.Yes | QMessageBox.No)
          if reply == QMessageBox.No:
-            return
+            return False
 
          fee = long(minFeeRec[1])
          utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)

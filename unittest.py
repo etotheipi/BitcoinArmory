@@ -196,6 +196,8 @@ if Test_BasicUtils:
    printC2S(10000)
    printC2S(10111)
    printC2S(10000000)
+   printC2S(100000000)
+   printC2S(1241110000)
    printC2S(10000099080)
    printC2S(10000099000)
    printC2S(10000909001)

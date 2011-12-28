@@ -233,8 +233,7 @@ def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    if not rJust:
       s.strip(' ')
 
-   if abs(nSatoshi)>=ONE_BTC and maxZeros==0:
-      s = s.replace('.','')
+   s = s.replace('. ','  ')
 
    return s
     
@@ -2719,6 +2718,9 @@ class PyTxOut(object):
       if txOutData.getRemainingSize() < scriptSize: raise UnserializeError
       self.binScript = txOutData.get(BINARY_CHUNK, scriptSize)
       return self
+
+   def getValue(self):
+      return self.value
 
    def getScript(self):
       return self.binScript
@@ -5347,10 +5349,8 @@ class PyBtcWallet(object):
 
    #############################################################################
    def lockTxOutsOnNewTx(self, pytxObj):
-      pprintUnspentTxOutList(self.getUnspentTxOutList())
       for txin in pytxObj.inputs:
          self.cppWallet.lockTxOutSwig(txin.outpoint.txHash, txin.outpoint.txOutIndex)
-      pprintUnspentTxOutList(self.getUnspentTxOutList())
          
    
 
@@ -8077,15 +8077,15 @@ class ArmoryClient(Protocol):
             print '***!!!*** important that you wait for 6+ confirmations'
             print '***!!!*** before considering this transaction valid!'
          else:
-            self.factory.zeroConfTx[pytx.getHash()] = pytx.copy()
-            self.factory.zeroConfTxTime[pytx.getHash()] = RightNow()
+            self.factory.addTxToMemoryPool(pytx)
             self.factory.saveMemoryPool()
             self.factory.func_newTx(pytx)
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
          #print 'Received block message (ignoring)'
-         pass 
+         from twisted.internet import reactor
+         reactor.callLater(2, self.factory.purgeMemoryPool)
                   
 
    ############################################################
@@ -8216,6 +8216,11 @@ class ArmoryClientFactory(ClientFactory):
          pass
       
 
+   #############################################################################
+   def addTxToMemoryPool(self, pytx):
+      self.zeroConfTx[pytx.getHash()] = pytx.copy()
+      self.zeroConfTxTime[pytx.getHash()] = RightNow()
+      
 
 
    #############################################################################
@@ -8227,31 +8232,43 @@ class ArmoryClientFactory(ClientFactory):
          d.callback(protoObj)
 
 
+   #############################################################################
    def purgeMemoryPool(self):
-      print 'New block received: purging the memory pool'
+      #print 'Purging the memory pool'
       if not TheBDM.isInitialized():
          return
 
-      print 'Memory pool to be cleaned  :', len(self.zeroConfTx), 'tx left:'
+      #print 'Memory pool to be cleaned  :', len(self.zeroConfTx), 'tx left:'
       # Check for tx that used to be zero-conf, but are now in blockchain
+      txHashToRm = []
+      txHashToRmDBD = []
       for hsh,tx in self.zeroConfTx.iteritems():
          if TheBDM.getTxByHash(hsh):
-            del self.zeroConfTx[hsh]
-            del self.zeroConfTxTime[hsh]
-            # We also need to clean up the double-spend detector
+            txHashToRm.append(hsh)
+            # We also need to clean up the double-broadcast detector
             for key,val in self.zeroConfTxOutMap.iteritems():
                if hsh==val:
-                  del self.zeroConfTxOutMap[key]
+                  txHashToRmDBD.append(key)
+
+      for hsh in txHashToRm:
+         del self.zeroConfTx[hsh]
+         del self.zeroConfTxTime[hsh]
+
+      for key in txHashToRmDBD:
+         del self.zeroConfTxOutMap[key]
 
       if RightNow() > self.lastAlert + 2*HOUR:
          # Clear out alerts after 2 hours
          self.doubleBroadcastAlerts = {} 
       
-      print 'Memory pool should be clean:', len(self.zeroConfTx), 'tx left:'
-      for hsh,tx in self.zeroConfTx.iteritems():
-         print '   Tx:', tx.getHashHex()
+      #print 'Memory pool should be clean:', len(self.zeroConfTx), 'tx left:'
+      #for hsh,tx in self.zeroConfTx.iteritems():
+         #print '   Tx:', tx.getHashHex()
+
+      self.saveMemoryPool()
 
 
+   #############################################################################
    def checkForDoubleBroadcast(self, pytxObj):
       newAlerts = False
       for txin in pytxObj.inputs:
@@ -8277,6 +8294,7 @@ class ArmoryClientFactory(ClientFactory):
          self.func_doubleSpendAlert()
 
 
+   #############################################################################
    def connectionFailed(self, protoObj, reason):
       """
       This method needs some serious work... I don't quite know yet how

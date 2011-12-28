@@ -56,13 +56,13 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None, settingsPath=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-      self.extraHeartbeatFunctions = []
-      self.extraHeartbeatFunctions.append(self.createCombinedLedger)
       self.settingsPath = settingsPath
-
-
       self.loadWalletsAndSettings()
       self.setupNetworking()
+
+      self.extraHeartbeatFunctions = []
+      #self.extraHeartbeatFunctions.append(self.NetworkingFactory.purgeMemoryPool)
+      self.extraHeartbeatFunctions.append(self.createCombinedLedger)
 
       # Keep a persistent printer object for paper backups
       self.printer = QPrinter(QPrinter.HighResolution)
@@ -128,6 +128,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+      self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
@@ -196,12 +197,14 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
       btnUnsigned  = QPushButton("Unsigned Transactions")
+      btnMemPool   = QPushButton("See memory pool")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
    
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
+      self.connect(btnMemPool,  SIGNAL('clicked()'), self.printZeroConf)
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -209,6 +212,8 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnRecvBtc)
       layout.addWidget(btnWltProps)
       layout.addWidget(btnUnsigned)
+      if self.usermode==USERMODE.Developer:
+         layout.addWidget(btnMemPool)
       layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
@@ -281,7 +286,15 @@ class ArmoryMainWindow(QMainWindow):
 
       
       #reactor.callLater(2.0,  self.loadBlockchain)
-      #reactor.callLater(10, form.Heartbeat)
+      reactor.callLater(5, self.Heartbeat)
+
+
+   #############################################################################
+   def printZeroConf(self):
+      print 'Printing memory pool:'
+      for k,v in self.NetworkingFactory.zeroConfTx.iteritems():
+         print binary_to_hex(k), ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
+      self.NetworkingFactory.purgeMemoryPool()
 
    
    #############################################################################
@@ -603,7 +616,7 @@ class ArmoryMainWindow(QMainWindow):
          zcTxTimeList.append(timeMap[zchash])
       # Create list of TxRef objects
       for zc in zcTxBinList:
-         zcTxRefList.append( TxRef(zc) )
+         zcTxRefList.append( TxRef().createFromStr(zc) )
       # Python will cast to pointers when we try to add to a vector<TxRef*>
       for zc in zcTxRefList:
          zcTxRefPtrList.push_back(zc)
@@ -694,6 +707,22 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
+   def getFeeForTx(self, txHash):
+      if TheBDM.isInitialized():
+         txref = TheBDM.getTxByHash(txHash)
+         if not txref:
+            print 'Why no txref? ', binary_to_hex(txHash)
+            return 0
+
+         valIn, valOut = 0,0
+         for i in range(txref.getNumTxIn()):
+            valIn += TheBDM.getSentValue(txref.getTxInRef(i))
+         for i in range(txref.getNumTxOut()):
+            valOut += txref.getTxOutRef(i).getValue()
+         return valIn - valOut
+      
+
+   #############################################################################
    def convertLedgerToTable(self, ledger):
       
       table2D = []
@@ -703,6 +732,15 @@ class ArmoryMainWindow(QMainWindow):
          nConf = self.latestBlockNum - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
             nConf=0
+
+         # We need to compute the fee by adding inputs and outputs...
+         amt = le.getValue()
+         removeFee = self.settings.getSettingOrSetDefault('DispRmFee', True)
+         if TheBDM.isInitialized() and removeFee and amt<0:
+            theFee = self.getFeeForTx(le.getTxHash())
+            amt += theFee
+            
+            
 
          wlt = self.walletMap[wltID]
          if le.getBlockNum() >= 0xffffffff: nConf = 0
@@ -727,7 +765,7 @@ class ArmoryMainWindow(QMainWindow):
             row.append('')
 
          # Amount
-         row.append(coin2str(le.getValue(), maxZeros=2))
+         row.append(coin2str(amt, maxZeros=2))
 
          # Is this money mine?
          row.append( determineWalletType(wlt, self)[0]==WLTTYPES.WatchOnly)
@@ -737,6 +775,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # WltID
          row.append( le.getTxHash() )
+
+         # Sent-to-self
+         row.append( le.isSentToSelf() )
 
          # Finally, attach the row to the table
          table2D.append(row)
@@ -1031,12 +1072,13 @@ class ArmoryMainWindow(QMainWindow):
          dlgaddr.exec_()
 
    #############################################################################
-   def Heartbeat(self, nextBeatSec=3):
+   def Heartbeat(self, nextBeatSec=2):
       """
       This method is invoked when the app is initialized, and will
-      run every 3 seconds, or whatever is specified in the nextBeatSec
+      run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
+      print '.',
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()
@@ -1046,15 +1088,14 @@ class ArmoryMainWindow(QMainWindow):
             print 'New Block! :', self.latestBlockNum
       
 
-      for wltID, wlt in self.walletMap.iteritems():
+      #for wltID, wlt in self.walletMap.iteritems():
+      for idx,wltID in enumerate(self.walletIDList):
          # Update wallet balances
-         self.walletBalances = self.walletMap[wltID].getBalance()
-         wlt.checkWalletLockTimeout()
+         self.walletBalances[idx] = self.walletMap[wltID].getBalance()
+         self.walletMap[wltID].checkWalletLockTimeout()
 
       for func in self.extraHeartbeatFunctions:
          func()
-
-
 
       reactor.callLater(nextBeatSec, self.Heartbeat)
       

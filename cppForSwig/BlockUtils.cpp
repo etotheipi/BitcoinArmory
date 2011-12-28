@@ -282,10 +282,14 @@ void BtcWallet::scanTx(TxRef & tx,
 
    uint8_t const * txStartPtr = tx.getPtr();
 
-   // Since 99.99%+ of all transactions are not ours, let's do the 
+
+   ////////////////////////////////////////////////////////////////////////////
+   // START TX BULK FILTER
+   ////////////////////////////////////////////////////////////////////////////
+   // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
-   // we will skip the TxInRef/TxOutRef computations and take the
+   // we will skip the TxInRef/TxOutRef convenience methods and follow the
    // pointers directly the data we want
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
@@ -334,27 +338,20 @@ void BtcWallet::scanTx(TxRef & tx,
          break;
       }
    }
+
    if( !anyTxOutIsOurs && !anyTxInIsOurs)
       return;
 
+   ////////////////////////////////////////////////////////////////////////////
+   // END BULK FILTER
+   ////////////////////////////////////////////////////////////////////////////
 
-   // END BULK FILTER:  Remaining processing can be inefficient and it will
+   // Remaining processing can be inefficient and it will
    // be virtually irrelevant (but it's not *THAT* bad).
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
       BinaryData const & addr20 = thisAddr.getAddrStr20();
-
-      // Removed time-conditionals, because I think it will be faster
-      // to search all tx, but do a map-has-key check instead
-      // If this block is before known addr creation time, no point in scanning
-      // If this block is before last addr seen time, already seen it!
-      // Added a week or 1000 blocks buffer to be safe, and make sure I don't
-      // discard a reorg block or some other silly boundary case
-      //if(  blktime+(3600*24*7) < thisAddr.getLastTimestamp() ||
-           //blknum+1000         < thisAddr.getLastBlockNum()           )
-         //continue;  
-
 
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
