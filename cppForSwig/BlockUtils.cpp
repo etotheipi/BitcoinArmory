@@ -556,7 +556,11 @@ LedgerEntry BtcWallet::getWalletLedgerEntryForTx(BinaryData const & zcBin)
    // Prepare fresh, temporary wallet with same addresses
    BtcWallet tempWlt;
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+   {
+      BtcAddress newAddr(addrPtrVect_[i]->getAddrStr20());
+      newAddr.copyTxIOListFrom(*addrPtrVect_[i]);
+      tempWlt.addAddress(newAddr);
+   }
 
    BinaryData txBin(zcBin);
    TxRef txref(txBin);
@@ -577,7 +581,11 @@ vector<LedgerEntry> BtcWallet::getAddrLedgerEntriesForTx(BinaryData const & zcBi
    // Prepare fresh, temporary wallet with same addresses
    BtcWallet tempWlt;
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+   {
+      BtcAddress newAddr(addrPtrVect_[i]->getAddrStr20());
+      newAddr.copyTxIOListFrom(*addrPtrVect_[i]);
+      tempWlt.addAddress(newAddr);
+   }
 
    BinaryData txBin(zcBin);
    TxRef txref(txBin);
@@ -754,6 +762,14 @@ vector<OutPoint> BtcWallet::getLockedTxOutList(void)
    }
    return out;
 }
+
+bool BtcWallet::isOutPointMine(BinaryData const & hsh, uint32_t idx)
+{
+   OutPoint op(hsh, idx);
+   return (txioMap_.find(op)!=txioMap_.end());
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////

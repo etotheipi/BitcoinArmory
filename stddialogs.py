@@ -1256,11 +1256,11 @@ class DlgNewAddressDisp(QDialog):
    
       buttonBox = QDialogButtonBox()
       self.btnDone   = QPushButton("Done")
-      self.btnCancel = QPushButton("Cancel")
+      #self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnDone,   SIGNAL('clicked()'), self.acceptNewAddr)
-      self.connect(self.btnCancel, SIGNAL('clicked()'), self.rejectNewAddr)
+      #self.connect(self.btnCancel, SIGNAL('clicked()'), self.rejectNewAddr)
       buttonBox.addButton(self.btnDone,   QDialogButtonBox.AcceptRole)
-      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      #buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
 
 
@@ -1299,7 +1299,7 @@ class DlgNewAddressDisp(QDialog):
       self.accept()
 
    def rejectNewAddr(self):
-      self.wlt.rewindHighestIndex(1)
+      #self.wlt.rewindHighestIndex(1)
       try:
          self.parent.reject()
       except AttributeError:
@@ -2379,7 +2379,8 @@ class DlgRemoveAddress(QDialog):
 
 
 class DlgWalletSelect(QDialog):
-   def __init__(self, parent=None, main=None,  firstSelect=None, onlyMyWallets=False, wltIDList=None):
+   def __init__(self, parent=None, main=None,  title='Select Wallet:', \
+                             firstSelect=None, onlyMyWallets=False, wltIDList=None):
       super(DlgWalletSelect, self).__init__(parent)
 
       self.parent = parent
@@ -2418,7 +2419,7 @@ class DlgWalletSelect(QDialog):
       self.connect(self.lstWallets, SIGNAL('itemDoubleClicked(QListWidgetItem *)'), self.dblclick)
 
       layout = QGridLayout()
-      layout.addWidget(QLabel("Select Wallet:"), 0, 0,  1, 1)
+      layout.addWidget(QLabel(title), 0, 0,  1, 1)
       layout.addWidget(self.lstWallets,          1, 0,  3, 1)
 
 
@@ -2643,31 +2644,6 @@ class DlgConfirmSend(QDialog):
       self.setWindowTitle('Confirm Transaction')
       
 
-class DlgDisplayTx(QDialog):
-   #COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
-   #FontVar = QFont('Times',   10)
-   #FontFix = QFont('Courier', 10)
-
-   def __init__(self, txHash, wlt, parent=None, main=None):
-      super(DlgDisplayTx, self).__init__(parent)
-
-      layout = QGridLayout()
-     
-      
-      lblQRichLabel('Transaction Information')
-
-      frmTxData = QFrame()
-      frmTxData.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-      frmTxDataLayout = QGridLayout()
-      frmTxDataLayout.addWidget()
-      if self.main.usermode==Standard:
-         pass
-         
-      
-
-
-      self.setLayout(layout)
-      self.setWindowTitle('Transaction Details')      
 
 
 class DlgSendBitcoins(QDialog):
@@ -2691,9 +2667,10 @@ class DlgSendBitcoins(QDialog):
       self.scrollRecipArea = QScrollArea()
       #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
-         #'<b>Enter Recipients</b>:  In most cases, you will only be specifying '
-         #'one recipient, but you can combine any number of transactions into one '
-         #'wallet operation by specifying more.  Blank entries will be ignored')
+      lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+      #'<b>Enter Recipients</b>:  In most cases, you will only be specifying '
+      #'one recipient, but you can combine any number of transactions into one '
+      #'wallet operation by specifying more.  Blank entries will be ignored')
          
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
@@ -2739,11 +2716,6 @@ class DlgSendBitcoins(QDialog):
                                        'stretch', \
                                        btnSend])
       layout.addWidget(txFrm, 5,1, 1,5)
-      #layout.addWidget(QLabel('Transaction Fee:'), 5, 1, 1, 1)
-      #layout.addWidget(self.edtFeeAmt,             5, 2, 1, 1)
-      #layout.addWidget(feetip,                     5, 3, 1, 1)
-      #layout.addItem(  spacer,                     5, 4, 1, 1)
-      #layout.addWidget(lbtnTxFeeOpt,               5, 5, 1, 1)
 
       
 
@@ -2751,14 +2723,6 @@ class DlgSendBitcoins(QDialog):
       btnFrame = QFrame()
       btnFrameLayout = QGridLayout()
       if wlt.watchingOnly:
-         #ttip = createToolTipObject(\
-            #'Press this button to initiate the transaction.  There will be '
-            #'a confirmation window before the coins are actually sent.')
-         #btn = QPushButton('Send!')
-         #self.connect(btn, SIGNAL('clicked()'), self.createTxAndBroadcast)
-         #btnFrameLayout.addWidget(btn,  0,0, 1,1)
-         #btnFrameLayout.addWidget(ttip, 0,1, 1,1)
-      #else:
          ttip = createToolTipObject(\
             'You do not have the ability to sign this transaction '
             'from this computer.  Press this button to see options '
@@ -2843,14 +2807,16 @@ class DlgSendBitcoins(QDialog):
             print '\n\n'
             print binary_to_hex(finalTx.serialize())
             print txdp.serializeAscii()
-            print 'Sending Tx' 
+            print 'Sending Tx,', binary_to_hex(finalTx.getHash())
             self.main.NetworkingFactory.sendTx(finalTx)
+            # TODO:  MAKE SURE THE TX WAS ACCEPTED?
             self.main.NetworkingFactory.addTxToMemoryPool(finalTx)
             self.wlt.lockTxOutsOnNewTx(finalTx.copy())
             self.main.NetworkingFactory.saveMemoryPool()
             print 'Done!'
             self.accept()
          except:
+            print 'Issue sending!'
             # TODO: not sure what errors to catch here, yet...
             raise
 
@@ -3125,6 +3091,7 @@ class DlgSendBitcoins(QDialog):
          pass
 
 
+################################################################################
 class DlgTxFeeOptions(QDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgTxFeeOptions, self).__init__(parent)
@@ -3139,16 +3106,324 @@ class DlgTxFeeOptions(QDialog):
          'your transaction.')
 
 
-
+################################################################################
 class DlgAddressProperties(QDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgAddressProperties, self).__init__(parent)
 
    
 
-      
+
+def extractTxInfo(pytx, zcTimeList=None):
+   txHash    = pytx.getHash()
+   txHashHex = binary_to_hex(txHash)
+   txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx = [None]*7
+
+   txOutToList = []
+   sumTxOut = 0
+   for txout in pytx.outputs:
+      txOutToList.append([])
+
+      scrType = getTxOutScriptType(txout.binScript)
+      txOutToList[-1].append(scrType)
+      txOutToList[-1].append(txout.value)
+      if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+         txOutToList[-1].append(TxOutScriptExtractAddr160(txout.binScript))
+      elif scrType in (TXOUT_SCRIPT_MULTISIG,):
+         mstype, addr160s, pubs = getTxOutMultiSigInfo(txout.binScript)
+         txOutToList[-1].append(addr160s)
+         txOutToList[-1].append(pubs)
+         txOutToList[-1].append(mstype[0]) # this is M (from M-of-N)
+      elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
+         print 'No OP_EVAL support yet!'
+         txOutToList[-1].append(txout.binScript)
+      elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
+         print 'Unknown TxOut type'
+         txOutToList[-1].append(txout.binScript)
+      else:
+         print 'How did we miss TXOUT_SCRIPT_UNKNOWN txout type?'
+      sumTxOut += txout.value
+  
+
+   if TheBDM.isInitialized(): 
+      txref = TheBDM.getTxByHash(txHash)
+      if txref:
+         headref = txref.getHeaderPtr()
+         txTime  = headref.getTimestamp()
+         txBlk   = headref.getBlockHeight()
+         txIdx   = txref.getBlockTxIndex()
+      else:
+         if zcTimeList and zcTimeList.has_key(txHash):
+            txTime = zcTimeList[txHash]
+            txBlk  = 2**32-1
+
+      #else:
+         ## Check the zero-conf pool for the tx
+         #if zcList==None or not zcList.has_key(txHash):
+            #print 'Trying to get TxInfo for tx that does not exist'
+            #return None
+         #else:
          
+      txinFromList = []
+      for i in range(txref.getNumTxIn()):
+         txinFromList.append([])
+         cppTxin = txref.getTxInRef(i)
+         txinFromList[-1].append(TheBDM.getPrevTxOut(cppTxin))
+         txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
+         txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
+      sumTxIn = sum([x[2] for x in txinFromList])
+
+   return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
+   
+
+
+
+
+#def createTxInfoFrameStd(pytx, le, wlt=None):
+
+
       
+class DlgDispTxInfo(QDialog):
+   def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None):
+      """
+      This got freakin' complicated, because I'm trying to handle
+      wallet/nowallet, BDM/noBDM and Std/Adv/Dev modes all at once. 
+
+      We can override the user mode as an input argument, in case a std
+      user decides they want to see the tx in adv/dev mode
+      """
+      super(DlgDispTxInfo, self).__init__(parent)
+      self.parent = parent
+      self.main   = main  
+
+      if mode==None:
+         mode = self.main.usermode
+
+      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
+      data = extractTxInfo(pytx, self.main.NetworkingFactory.zeroConfTxTime)
+      txHash = data[FIELDS.Hash]
+
+      haveWallet = (wlt!=None)
+      haveBDM    = TheBDM.isInitialized()
+
+      # Should try to identify what is change and what's not
+      wltLE = None
+      wltSumIn = None
+      IsNonStandard = False
+      totalIn = None
+      fee = None
+      othersIn = None
+      wltSumOut = 0
+      txAmt = data[FIELDS.SumOut]
+
+      # Collect our own outputs only, and ID non-std tx
+      for val in data[FIELDS.OutList]:
+         scrType = val[0]
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            if haveWallet and wlt.hasAddr(val[2]):
+               wltSumOut += val[1]
+         else:
+            IsNonStandard = True
+      totalOut = data[FIELDS.SumOut]
+      othersOut = totalOut - wltSumOut
+
+      txdir = None 
+      changeIndex = None
+      if haveBDM and haveWallet:
+         fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
+         ldgr = wlt.getTxLedger()
+         for le in ldgr:
+            if le.getTxHash()==txHash:
+               wltLE = le
+               txAmt = le.getValue()
+               if le.isSentToSelf():
+                  txdir = 'Self'
+                  txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
+               else:
+                  if le.getValue() > 0:
+                     txdir = 'Recv'
+                  if le.getValue() < 0:
+                     txdir = 'Send'
+                     txAmt += fee
+               break
+
+
+
+
+      if IsNonStandard:
+         # TODO:  Need to do something with this non-std tx!
+         print '***Non-std transaction!'
+         return
+
+
+
+
+      dispAllRecip = False
+      if not haveWallet:
+         dispAllAddr = True
+
+
+      layout = QGridLayout()
+      lblDescr = QLabel('Transaction Information:') 
+
+      layout.addWidget(lblDescr,     0,0,  1,1)
+   
+      frm = QFrame()
+      frm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmLayout = QGridLayout()
+
+      lbls = []
+
+      lbls.append([])
+      lbls[-1].append(createToolTipObject('Unique identifier for this transaction'))
+      lbls[-1].append(QLabel('Transaction ID:'))
+      lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash]) ))
+
+      if not data[FIELDS.Time]==None:
+         lbls.append([])
+         if data[FIELDS.Blk]>=2**32-1:
+            lbls[-1].append(createToolTipObject( 
+                  'The time that you computer first saw this transaction'))
+         else:
+            lbls[-1].append(createToolTipObject( 
+                  'All transactions are eventually included in a "block."  The '
+                  'time shown here is the time that the block entered the "blockchain."'))
+         lbls[-1].append(QLabel('Transaction Time:'))
+         lbls[-1].append(QLabel( unixTimeToFormatStr(data[FIELDS.Time]) ))
+
+      if not data[FIELDS.Blk]==None:
+         nConf = 0
+         if data[FIELDS.Blk]>=2**32-1:
+            lbls.append([])
+            lbls[-1].append(createToolTipObject(
+                  'This transaction has not yet been included in a block.  '
+                  'It usually takes 5-20 minutes for a transaction to get '
+                  'included in a block after the user hits the "Send" button.'))
+            lbls[-1].append(QLabel('Block Number:'))
+            lbls[-1].append(QRichLabel( '<i>Not in the blockchain yet</i>' ))
+         else:
+            if not data[FIELDS.Idx]==None and mode==USERMODE.Developer:
+               idxStr = '  (Tx #%d)'%data[FIELDS.Idx]
+            lbls.append([])
+            lbls[-1].append(createToolTipObject( 
+                  'Every transaction is eventually included in a "block" which '
+                  'is where the transaction is permanently recorded.  A new block '
+                  'is produced approximately every 10 minutes.'))
+            lbls[-1].append(QLabel('Included in Block:'))
+            lbls[-1].append(QRichLabel( str(data[FIELDS.Blk]) + idxStr ))
+            if TheBDM.isInitialized():
+               nConf = TheBDM.getTopBlockHeader().getBlockHeight() - data[FIELDS.Blk] + 1
+               lbls.append([])
+               lbls[-1].append(createToolTipObject( 
+                     'The number of blocks that have been produced since '
+                     'this transaction entered the blockchain.  A transaciton '
+                     'with 6 more confirmations is nearly impossible to reverse.'))
+               lbls[-1].append(QLabel('Number of Confirmations:'))
+               lbls[-1].append(QRichLabel( str(nConf)))
+
+
+
+
+      if dispAllRecip:
+         lbls.append([])
+         lbls[-1].append(createToolTipObject(
+               'Most transactions have at least a recipient output and a '
+               'returned-change output.  You do not have enough enough information '
+               'to determine which is which, and so this fields shows the <b>sum</b> '
+               'of both outputs.  '))
+         lbls[-1].append(QLabel('Sum of Outputs:'))
+         lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=2).strip() + '  BTC' ))
+      else:
+         lbls.append([])
+         lbls[-1].append(createToolTipObject(
+               'The value shown here is the net effect on your '
+               'wallet.  All other outputs have been ignored.'))
+         lbls[-1].append(QLabel('Transaction Amount:'))
+         lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=2).strip()  + '  BTC'))
+                     
+      
+      if not data[FIELDS.SumIn]==None:
+         fee = data[FIELDS.SumIn]-data[FIELDS.SumOut]
+         lbls.append([])
+         lbls[-1].append(createToolTipObject( 
+            'Transaction fees go to users supplying the Bitcoin network with '
+            'computing power for processing transactions and maintaining security.'))
+         lbls[-1].append(QLabel('Tx Fee Paid:'))
+         lbls[-1].append(QLabel( coin2str(fee, maxZeros=0).strip() + '  BTC'))
+
+
+      for row,lbl3 in enumerate(lbls):
+         for i in range(3):
+            lbl3[i].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            lbl3[i].setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                            Qt.TextSelectableByKeyboard)
+            frmLayout.addWidget(lbl3[i], row, 2*i,  1,1)
+
+      spacer = QSpacerItem(20,20)
+      frmLayout.addItem(spacer,  0, 3, len(lbls), 1)
+            
+
+      if haveWallet and haveBDM:
+         ignoreList = []
+         if mode==USERMODE.Standard:
+            ignoreList = [changeIndex]
+         self.txOutModel = TxOutDispModel(pytx, self.main, ignoreList)
+         self.txOutView  = QTableView()
+         self.txOutView.setModel(self.txOutModel)
+         self.txOutView.setSelectionBehavior(QTableView.SelectRows)
+         self.txOutView.setSelectionMode(QTableView.NoSelection)
+         self.txOutView.horizontalHeader().setStretchLastSection(True)
+         self.txOutView.verticalHeader().setDefaultSectionSize(20)
+         w,h = tightSizeNChar(self.txOutView, 1)
+         self.txOutView.setMinimumHeight = 4*(1.3*h)
+         #self.txOutView.setMinimumWidth(800)
+         initialColResize(self.txOutView, [0.5, 0.3, 0.3])
+         if mode==USERMODE.Standard:
+            self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
+
+
+
+
+
+
+      scrollRecipArea = QScrollArea()
+      frmRecip = QFrame()
+      frmRecip.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frmRecipLayout = QGridLayout()
+      for val in data[FIELDS.OutList]:
+         if dispAllRecip or wlt.hasAddr(val[2]):
+            frmRecipLayout 
+
+      lblRecv = QLabel('Receiving addresses:')
+      lbtnSwitchMode = None
+      if mode==USERMODE.Standard:
+         lbtnSwitchMode = QLabelButton('Advanced View')
+      else:
+         lbtnSwitchMode = QLabelButton('Standard View')
+
+      receivingLine = makeLayoutStrip('Horiz', [lblRecv, 'Stretch', lbtnSwitchMode])
+      
+      frm.setLayout(frmLayout)
+      layout.addWidget(frm, 2, 0,  1,1) 
+      layout.addWidget(receivingLine, 3,0, 1,1)
+      layout.addWidget(self.txOutView, 4,0, 1,1)
+
+      bbox = QDialogButtonBox(QDialogButtonBox.Ok)
+      self.connect(bbox, SIGNAL('accepted()'), self.accept)
+      layout.addWidget(bbox, 5,0, 1,1)
+
+      self.setLayout(layout)
+      self.setWindowTitle('Transaction Info')
+
+
+
+
+
+      
+class DlgTxInfoAdv(QDialog):
+   def __init__(self, pytx, wlt, parent=None, main=None):
+      super(DlgTxInfoAdv, self).__init__(parent)
+         
 
 class DlgPaperBackup(QDialog):
    """

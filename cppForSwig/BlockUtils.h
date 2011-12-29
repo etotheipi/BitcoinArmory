@@ -222,6 +222,7 @@ private:
 class BtcAddress
 {
 public:
+
    BtcAddress(void) : 
       address20_(0), firstBlockNum_(0), firstTimestamp_(0), 
       lastBlockNum_(0), lastTimestamp_(0), 
@@ -262,6 +263,13 @@ public:
    void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
    void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
 
+   // This really shouldn't ever be used except for the zero-conf ops  
+   void copyTxIOListFrom(BtcAddress const & addr2)
+   {
+      relevantTxIOPtrs_.clear();
+      for(uint32_t i=0; i<addr2.relevantTxIOPtrs_.size(); i++)
+         relevantTxIOPtrs_.push_back(addr2.relevantTxIOPtrs_[i]);
+   }
 
 private:
    BinaryData address20_;
@@ -370,6 +378,8 @@ public:
 
    bool isTxOutLocked(OutPoint const & op);
    vector<OutPoint> getLockedTxOutList(void);
+
+   bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;

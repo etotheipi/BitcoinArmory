@@ -2603,6 +2603,14 @@ def TxInScriptExtractKeyAddr(txinObj):
       return ('[UNKNOWN-TXIN]', '[UNKNOWN-TXIN]')
 
 
+################################################################################
+def TxInScriptExtractAddr160IfAvail(txinObj):
+   if getTxInScriptType(txinObj) == TXIN_SCRIPT_STANDARD:
+      pubKeyBin = txinObj.binScript[-65:]
+      return hash160(pubKeyBin)
+   else:
+      return ''
+
 
 # Finally done with all the base conversion functions and ECDSA code
 # Now define the classes for the objects that will use this
@@ -2690,7 +2698,6 @@ class PyTxIn(object):
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'PyTxIn:'
-      #self.outpoint.pprint(nIndent+1)
       print indstr + indent + 'PrevTxHash:', \
                   binary_to_hex(self.outpoint.txHash, endian), \
                       '(BE)' if endian==BIGENDIAN else '(LE)'
@@ -2698,6 +2705,9 @@ class PyTxIn(object):
       source = TxInScriptExtractKeyAddr(self)[0]
       print indstr + indent + 'Script:    ', \
                   '('+binary_to_hex(self.binScript)[:64]+')'
+      inAddr160 = TxInScriptExtractAddr160IfAvail(self)
+      if len(inAddr160)>0:
+         print indstr + indent + 'Sender:    ', hash160_to_addrStr(inAddr160)
       print indstr + indent + 'Seq:       ', self.intSeq
 
 
@@ -8070,11 +8080,11 @@ class ArmoryClient(Protocol):
 
 
    ############################################################
-   def connectionLost(self, reason):
-      """
-      Try to reopen connection (not impl yet)
-      """
-      self.factory.connectionFailed(self, reason)
+   #def connectionLost(self, reason):
+      #"""
+      #Try to reopen connection (not impl yet)
+      #"""
+      #self.factory.connectionFailed(self, reason)
 
 
    ############################################################
@@ -8249,8 +8259,9 @@ class ArmoryClientFactory(ClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      self.zeroConfTx[pytx.getHash()] = pytx.copy()
-      self.zeroConfTxTime[pytx.getHash()] = RightNow()
+      txHash = pytx.getHash()
+      self.zeroConfTx[txHash] = pytx.copy()
+      self.zeroConfTxTime[txHash] = RightNow()
       
 
 
@@ -8324,6 +8335,10 @@ class ArmoryClientFactory(ClientFactory):
       if self.func_doubleSpendAlert:
          self.func_doubleSpendAlert()
 
+
+   #############################################################################
+   def clientConnectionLost(self, connector, reason):
+      connector.connect()
 
    #############################################################################
    def connectionFailed(self, protoObj, reason):

@@ -140,8 +140,9 @@ class ArmoryMainWindow(QMainWindow):
          #self.ledgerView.setColumnHidden(LEDGERCOLS.TxHash, False)
 
 
-      utcflv = lambda x: self.updateTxCommentFromView(self.ledgerView)
-      self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), utcflv)
+      
+      self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.dblClickLedger)
 
 
 
@@ -655,7 +656,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # Add wallet-level ledger entries for zero-conf list
          le = wlt.cppWallet.getWalletLedgerEntryForTx(pytx.serialize())
-         if len(le.getAddrStr20())>0:
+         if le.getIndex()<2**32-1:
             if not self.zeroConfWltLEs[wltID].has_key(txHash):
                le.pprint()
                self.zeroConfWltLEs[wltID][txHash] = le
@@ -792,6 +793,27 @@ class ArmoryMainWindow(QMainWindow):
          return valIn - valOut
       
 
+   def determineSentToSelfAmt(self, le, wlt):
+      amt = 0
+      if TheBDM.isInitialized() and le.isSentToSelf():
+         txref = TheBDM.getTxByHash(le.getTxHash())
+         maxChainIndex = -5
+         txOutChangeVal = 0
+         txOutIndex = -1
+         valSum = 0
+         for i in range(txref.getNumTxOut()):
+            valSum += txref.getTxOutRef(i).getValue()
+            addr160 = txref.getTxOutRef(i).getRecipientAddr()
+            addr    = wlt.getAddrByHash160(addr160)
+            if addr.chainIndex > maxChainIndex:
+               maxChainIndex = addr.chainIndex
+               txOutChangeVal = txref.getTxOutRef(i).getValue()
+               txOutIndex = i
+                  
+         amt = valSum - txOutChangeVal
+      return (amt, txOutIndex)
+      
+
    #############################################################################
    def convertLedgerToTable(self, ledger):
       
@@ -799,6 +821,7 @@ class ArmoryMainWindow(QMainWindow):
       for wltID,le in ledger: 
          row = []
 
+         wlt = self.walletMap[wltID]
          nConf = self.latestBlockNum - le.getBlockNum()+1
          if le.getBlockNum()>=0xffffffff:
             nConf=0
@@ -809,17 +832,28 @@ class ArmoryMainWindow(QMainWindow):
          if TheBDM.isInitialized() and removeFee and amt<0:
             theFee = self.getFeeForTx(le.getTxHash())
             amt += theFee
-            
+
+         # If this was sent-to-self... we should display the actual specified
+         # value when the transaction was executed.  This is pretty difficult 
+         # when both "recipient" and "change" are indistinguishable... but
+         # They're actually not because we ALWAYS generate a new address to
+         # for change , which means the change address MUST have a higher 
+         # chain index
+         if le.isSentToSelf():
+            amt = self.determineSentToSelfAmt(le, wlt)[0]
             
 
-         wlt = self.walletMap[wltID]
          if le.getBlockNum() >= 0xffffffff: nConf = 0
          # NumConf
          row.append(nConf)
 
          # Date
-         if nConf>0: txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
-         else:       txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
+         if nConf>0: 
+            txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
+         else:       
+            le.pprint()
+            #txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
+            txtime = 1e9
          row.append(unixTimeToFormatStr(txtime))
 
          # TxDir (actually just the amt... use the sign of the amt for what you want)
@@ -843,7 +877,7 @@ class ArmoryMainWindow(QMainWindow):
          # WltID
          row.append( wltID )
 
-         # WltID
+         # TxHash
          row.append( le.getTxHash() )
 
          # Sent-to-self
@@ -1105,6 +1139,31 @@ class ArmoryMainWindow(QMainWindow):
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
 
 
+   #############################################################################
+   def dblClickLedger(self, index):
+      if index.column()==LEDGERCOLS.Comment:
+         self.updateTxCommentFromView(self.ledgerView)
+      else:
+         row = index.row()
+         txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+         wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+
+         pytx = None
+         if self.NetworkingFactory.zeroConfTx.has_key(txHash):
+            pytx = self.NetworkingFactory.zeroConfTx[txHash]
+         if TheBDM.isInitialized():
+            cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
+            if cppTx:
+               pytx = PyTx().unserialize(cppTx.serialize())
+
+         if pytx==None:
+            QMessageBox.critical(self, 'Invalid Tx:',
+            'The transaction ID requested to be displayed does not exist in '
+            'the blockchain or the zero-conf tx list...?', QMessageBox.Ok)
+            return
+
+         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self).exec_()
+
 
    #############################################################################
    def clickSendBitcoins(self):
@@ -1113,7 +1172,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(wltSelect)>0:
          row = wltSelect[0].row()
          wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-      dlg = DlgWalletSelect(self, self, wltID, onlyMyWallets=True)
+      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=True)
       if dlg.exec_():
          wltID = dlg.selectedID 
          wlt = self.walletMap[wltID]
