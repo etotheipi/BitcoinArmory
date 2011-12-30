@@ -2612,6 +2612,16 @@ def TxInScriptExtractAddr160IfAvail(txinObj):
       return ''
 
 
+TXOUT_TYPE_NAMES = { TXOUT_SCRIPT_STANDARD: 'Standard', \
+                     TXOUT_SCRIPT_COINBASE: 'Coinbase', \
+                     TXOUT_SCRIPT_MULTISIG: 'Multi-Signature', \
+                     TXOUT_SCRIPT_UNKNOWN:  '<Unrecognized>', \
+                     TXOUT_SCRIPT_OP_EVAL:  'OP-EVAL' }
+TXIN_TYPE_NAMES = {  TXIN_SCRIPT_STANDARD:  'Standard', \
+                     TXIN_SCRIPT_COINBASE:  'Coinbase', \
+                     TXIN_SCRIPT_SPENDCB:   'Spend-CB', \
+                     TXIN_SCRIPT_UNKNOWN:   '<Unrecognized>'}
+
 # Finally done with all the base conversion functions and ECDSA code
 # Now define the classes for the objects that will use this
 

@@ -2027,11 +2027,11 @@ class DlgRemoveWallet(QDialog):
          lbls.append([])
          lbls[3].append(QLabel('Current Balance:'))
          if bal>0:
-            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=2)+' BTC</b></font>'))
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1)+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
             wltEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal, maxZeros=2) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, maxZeros=1) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2295,11 +2295,11 @@ class DlgRemoveAddress(QDialog):
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance:'))
          if bal>0:
-            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=2)+' BTC</b></font>'))
+            lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1)+' BTC</b></font>'))
             lbls[-1][-1].setTextFormat(Qt.RichText)
             addrEmpty = False
          else:
-            lbls[3].append(QLabel(coin2str(bal, maxZeros=2) + ' BTC'))
+            lbls[3].append(QLabel(coin2str(bal, maxZeros=1) + ' BTC'))
 
 
       # Add two WARNING images on either side of dialog
@@ -2499,7 +2499,7 @@ class DlgWalletSelect(QDialog):
       if bal==0:
          self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=2)+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
@@ -2538,7 +2538,7 @@ def getWalletInfoFrame(wlt):
    bal = wlt.getBalance()
    dispBal.setTextFormat(Qt.RichText) 
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=2)+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -2590,7 +2590,7 @@ class DlgConfirmSend(QDialog):
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       totalSend = sum([rv[1] for rv in recipValPairs]) + fee
-      sumStr = coin2str(totalSend, maxZeros=2)
+      sumStr = coin2str(totalSend, maxZeros=1)
 
       lblMsg = QRichLabel(
          'You are about to spend <b>%s BTC</b> from wallet "<b>%s</b>" (%s).  You '
@@ -2850,12 +2850,11 @@ class DlgSendBitcoins(QDialog):
             self.widgetTable[i][COLS.Addr].setAutoFillBackground( True );
 
 
-      numChkFail  = sum([1 if b==-1       else 0 for b in addrBytes])
-      numWrongNet = sum([0 if b==ADDRBYTE else 1 for b in addrBytes])
+      numChkFail  = sum([1 if b==-1 or b!=ADDRBYTE else 0 for b in addrBytes])
       if not okayToSend:
          QMessageBox.critical(self, 'Invalid Address', \
            'You have entered %d invalid addresses.  The errors have been '
-           'highlighted on the entry screen.' % (numChkFail+numWrongNet), \
+           'highlighted on the entry screen.' % (numChkFail), \
            QMessageBox.Ok)
 
          for i in range(len(self.widgetTable)):
@@ -2992,7 +2991,7 @@ class DlgSendBitcoins(QDialog):
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
-      self.widgetTable[-1][self.COLS.Btc].setText('0.50')
+      self.widgetTable[-1][self.COLS.Btc].setText('1.00')
       self.widgetTable[-1][self.COLS.Comm].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
 
@@ -3157,21 +3156,20 @@ def extractTxInfo(pytx, zcTimeList=None):
             txTime = zcTimeList[txHash]
             txBlk  = 2**32-1
 
-      #else:
-         ## Check the zero-conf pool for the tx
-         #if zcList==None or not zcList.has_key(txHash):
-            #print 'Trying to get TxInfo for tx that does not exist'
-            #return None
-         #else:
          
       txinFromList = []
       for i in range(txref.getNumTxIn()):
+         # Use BDM to get all the info about the TxOut being spent
+         # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
          txinFromList.append([])
          cppTxin = txref.getTxInRef(i)
-         txinFromList[-1].append(TheBDM.getPrevTxOut(cppTxin))
+         prevTxOut = TheBDM.getPrevTxOut(cppTxin)
          txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
          txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-      sumTxIn = sum([x[2] for x in txinFromList])
+         txinFromList[-1].append(prevTxOut.getParentTxPtr().getHeaderPtr().getBlockHeight())
+         txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
+         txinFromList[-1].append(prevTxOut.getIndex())
+      sumTxIn = sum([x[1] for x in txinFromList])
 
    return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
    
@@ -3208,27 +3206,25 @@ class DlgDispTxInfo(QDialog):
 
       # Should try to identify what is change and what's not
       wltLE = None
-      wltSumIn = None
       IsNonStandard = False
-      totalIn = None
       fee = None
-      othersIn = None
-      wltSumOut = 0
       txAmt = data[FIELDS.SumOut]
 
       # Collect our own outputs only, and ID non-std tx
-      for val in data[FIELDS.OutList]:
-         scrType = val[0]
+      rvPairSelf  = []
+      rvPairOther = []
+      for scrType, amt, recip in data[FIELDS.OutList]:
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            if haveWallet and wlt.hasAddr(val[2]):
-               wltSumOut += val[1]
+            if haveWallet and wlt.hasAddr(recip):
+               rvPairSelf.append( [recip, amt] )
+            else:
+               rvPairOther.append( [recip, amt] )
          else:
             IsNonStandard = True
-      totalOut = data[FIELDS.SumOut]
-      othersOut = totalOut - wltSumOut
 
       txdir = None 
       changeIndex = None
+      rvPairDisp = None
       if haveBDM and haveWallet:
          fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
          ldgr = wlt.getTxLedger()
@@ -3236,24 +3232,40 @@ class DlgDispTxInfo(QDialog):
             if le.getTxHash()==txHash:
                wltLE = le
                txAmt = le.getValue()
+
+               # If we found the LE for this tx, then we can display much
+               # more useful information... like ignoring change outputs,
                if le.isSentToSelf():
-                  txdir = 'Self'
+                  txdir = 'Sent-to-Self'
                   txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
+                  rvPairDisp = []
+                  for i,triplet in enumerate(data[FIELDS.OutList]):
+                     if not i==changeIndex:
+                        rvPairDisp.append([triplet[2], triplet[1]])
                else:
                   if le.getValue() > 0:
-                     txdir = 'Recv'
+                     txdir = 'Received'
+                     rvPairDisp = rvPairSelf
                   if le.getValue() < 0:
-                     txdir = 'Send'
+                     txdir = 'Sent'
+                     rvPairDisp = rvPairOther
                      txAmt += fee
                break
-
-
 
 
       if IsNonStandard:
          # TODO:  Need to do something with this non-std tx!
          print '***Non-std transaction!'
-         return
+         QMessageBox.critical(self, 'Non-Standard Transaction', \
+           'This is a non-standard transaction, which cannot be '
+           'interpretted by this program.  DO NOT ASSUME that you '
+           'own these Bitcoins, even if you see your address in '
+           'any part of the transaction.  Only an expert can tell '
+           'you if and how these coins can be redeemed!  \n\n'
+           'If you would like more information, please copy the '
+           'information on the next window into an email and send '
+           'it to alan.reiner@gmail.com.', QMessageBox.Ok)
+         mode=USERMODE.Developer
 
 
 
@@ -3271,13 +3283,44 @@ class DlgDispTxInfo(QDialog):
       frm = QFrame()
       frm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
       frmLayout = QGridLayout()
-
       lbls = []
 
+
+
+      # Show the transaction ID, with the user's preferred endianness
+      # I hate BE, but block-explorer requires it so it's probably a better default
+      endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
+      estr = ''
+      if mode in (USERMODE.Advanced, USERMODE.Developer):
+         estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
+   
       lbls.append([])
       lbls[-1].append(createToolTipObject('Unique identifier for this transaction'))
-      lbls[-1].append(QLabel('Transaction ID:'))
-      lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash]) ))
+      lbls[-1].append(QLabel('Transaction ID' + estr + ':'))
+      if endianness==BIGENDIAN:
+         lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash], endOut=BIGENDIAN) ))
+      if endianness==BIGENDIAN:
+         lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash], endOut=LITTLEENDIAN) ))
+
+
+      if mode in (USERMODE.Developer,):
+         # Add protocol version and locktime to the display
+         lbls.append([])
+         lbls[-1].append(createToolTipObject('Bitcoin Protocol Version Number'))
+         lbls[-1].append(QLabel('Tx Version:'))
+         lbls[-1].append(QLabel( str(pytx.version)))
+
+         lbls.append([])
+         lbls[-1].append(createToolTipObject(
+            'The time at which this transaction becomes valid.'))
+         lbls[-1].append(QLabel('Lock-Time:'))
+         if pytx.lockTime==0: 
+            lbls[-1].append(QLabel('Immediate (0)'))
+         elif pytx.lockTime<500000000:
+            lbls[-1].append(QLabel('Block %d' % pytx.lockTime))
+         else:
+            lbls[-1].append(QLabel(unixTimeToFormatStr(pytx.lockTime)))
+
 
       if not data[FIELDS.Time]==None:
          lbls.append([])
@@ -3302,6 +3345,7 @@ class DlgDispTxInfo(QDialog):
             lbls[-1].append(QLabel('Block Number:'))
             lbls[-1].append(QRichLabel( '<i>Not in the blockchain yet</i>' ))
          else:
+            idxStr = ''
             if not data[FIELDS.Idx]==None and mode==USERMODE.Developer:
                idxStr = '  (Tx #%d)'%data[FIELDS.Idx]
             lbls.append([])
@@ -3318,28 +3362,38 @@ class DlgDispTxInfo(QDialog):
                      'The number of blocks that have been produced since '
                      'this transaction entered the blockchain.  A transaciton '
                      'with 6 more confirmations is nearly impossible to reverse.'))
-               lbls[-1].append(QLabel('Number of Confirmations:'))
+               lbls[-1].append(QLabel('Confirmations:'))
                lbls[-1].append(QRichLabel( str(nConf)))
 
 
 
 
-      if dispAllRecip:
+      if rvPairDisp==None:
          lbls.append([])
          lbls[-1].append(createToolTipObject(
                'Most transactions have at least a recipient output and a '
                'returned-change output.  You do not have enough enough information '
                'to determine which is which, and so this fields shows the <b>sum</b> '
-               'of both outputs.  '))
+               'of both recipients and returned-change.  '))
          lbls[-1].append(QLabel('Sum of Outputs:'))
-         lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=2).strip() + '  BTC' ))
+         lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=1).strip() + '  BTC' ))
       else:
+         lbls.append([])
+         lbls[-1].append(createToolTipObject(
+               'Bitcoins were either sent or received, or sent-to-self'))
+         lbls[-1].append(QLabel('Transaction Direction:'))
+         lbls[-1].append(QRichLabel( txdir ))
+
          lbls.append([])
          lbls[-1].append(createToolTipObject(
                'The value shown here is the net effect on your '
                'wallet.  All other outputs have been ignored.'))
          lbls[-1].append(QLabel('Transaction Amount:'))
-         lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=2).strip()  + '  BTC'))
+         lbls[-1].append(QRichLabel( coin2str(txAmt, maxZeros=1).strip()  + '  BTC'))
+         if txAmt<0:
+            lbls[-1][-1].setText('<font color="red">'+lbls[-1][-1].text()+'</font> ')
+         elif txAmt>0:
+            lbls[-1][-1].setText('<font color="green">'+lbls[-1][-1].text()+'</font> ')
                      
       
       if not data[FIELDS.SumIn]==None:
@@ -3352,36 +3406,119 @@ class DlgDispTxInfo(QDialog):
          lbls[-1].append(QLabel( coin2str(fee, maxZeros=0).strip() + '  BTC'))
 
 
+
+
+
+      lastRow = 0
       for row,lbl3 in enumerate(lbls):
+         lastRow = row
          for i in range(3):
             lbl3[i].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             lbl3[i].setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                             Qt.TextSelectableByKeyboard)
-            frmLayout.addWidget(lbl3[i], row, 2*i,  1,1)
+         frmLayout.addWidget(lbl3[0], row, 0,  1,1)
+         frmLayout.addWidget(lbl3[1], row, 1,  1,1)
+         frmLayout.addWidget(lbl3[2], row, 3,  1,2)
 
       spacer = QSpacerItem(20,20)
-      frmLayout.addItem(spacer,  0, 3, len(lbls), 1)
+      frmLayout.addItem(spacer,  0, 2, len(lbls), 1)
+
+      # Show the list of recipients, if possible
+      numShow = 3
+      rlbls = []
+      if not rvPairDisp==None:
+         numRV = len(rvPairDisp)
+         for i,rv in enumerate(rvPairDisp):
+            rlbls.append([])
+            if i==0:
+               rlbls[-1].append(createToolTipObject( 
+                  'All outputs of the transaction <b>excluding</b> change-'
+                  'back-to-sender outputs.  If this list does not look '
+                  'correct, it is possible that the change-output was '
+                  'detected incorrectly -- please check the complete '
+                  'input/output list below.'))
+               rlbls[-1].append(QLabel('Recipients:'))
+            else:
+               rlbls[-1].extend([QLabel(), QLabel()])
+            rlbls[-1].append(QLabel(hash160_to_addrStr(rv[0])))
+            rlbls[-1].append(QLabel(coin2str(rv[1], maxZeros=1) + '  BTC'))
+            ffixBold = QFont("DejaVu Sans Mono", 10)
+            ffixBold.setWeight(QFont.Bold)
+            rlbls[-1][-1].setFont(ffixBold)
+               
+            if numRV>numShow and i==numShow-2:
+               moreStr = '<%d more recipients>' % (numShow-numRV)
+               rlbls.append([])
+               rlbls[-1].extend([QLabel(), QLabel(), QLabel(moreStr), QLabel()])
+               break
             
 
-      if haveWallet and haveBDM:
-         ignoreList = []
-         if mode==USERMODE.Standard:
-            ignoreList = [changeIndex]
-         self.txOutModel = TxOutDispModel(pytx, self.main, ignoreList)
-         self.txOutView  = QTableView()
-         self.txOutView.setModel(self.txOutModel)
-         self.txOutView.setSelectionBehavior(QTableView.SelectRows)
-         self.txOutView.setSelectionMode(QTableView.NoSelection)
-         self.txOutView.horizontalHeader().setStretchLastSection(True)
-         self.txOutView.verticalHeader().setDefaultSectionSize(20)
-         w,h = tightSizeNChar(self.txOutView, 1)
-         self.txOutView.setMinimumHeight = 4*(1.3*h)
-         #self.txOutView.setMinimumWidth(800)
-         initialColResize(self.txOutView, [0.5, 0.3, 0.3])
-         if mode==USERMODE.Standard:
-            self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
+         ###
+         for i,lbl4 in enumerate(rlbls):
+            for i in range(4):
+               lbl4[i].setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                            Qt.TextSelectableByKeyboard)
+            row = lastRow + 1 + i
+            frmLayout.addWidget(lbl4[0], row, 0,  1,1)
+            frmLayout.addWidget(lbl4[1], row, 1,  1,1)
+            frmLayout.addWidget(lbl4[2], row, 3,  1,1)
+            frmLayout.addWidget(lbl4[3], row, 4,  1,1)
+         
 
 
+            
+
+      # List of TxOuts/Recipients
+      self.txOutModel = TxOutDispModel(pytx, self.main)
+      self.txOutView  = QTableView()
+      self.txOutView.setModel(self.txOutModel)
+      self.txOutView.setSelectionBehavior(QTableView.SelectRows)
+      self.txOutView.setSelectionMode(QTableView.SingleSelection)
+      self.txOutView.horizontalHeader().setStretchLastSection(True)
+      self.txOutView.verticalHeader().setDefaultSectionSize(20)
+      w,h = tightSizeNChar(self.txOutView, 1)
+      self.txOutView.setMinimumHeight = 4*(1.3*h)
+      #self.txOutView.setMinimumWidth(800)
+      self.txOutView.hideColumn(TXOUTCOLS.Script) 
+      if mode==USERMODE.Standard:
+         initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0])
+         self.txOutView.hideColumn(TXOUTCOLS.WltID) 
+         self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
+      else:
+         initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0.25, 0])
+
+
+      self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
+      self.txInView = QTableView()
+      self.txInView.setModel(self.txInModel)
+      self.txInView.setSelectionBehavior(QTableView.SelectRows)
+      self.txInView.setSelectionMode(QTableView.SingleSelection)
+      self.txInView.horizontalHeader().setStretchLastSection(True)
+      self.txInView.verticalHeader().setDefaultSectionSize(20)
+      self.txOutView.hideColumn(TXINCOLS.OutPt) 
+      self.txOutView.hideColumn(TXINCOLS.OutIdx) 
+      self.txOutView.hideColumn(TXINCOLS.Script) 
+      if haveBDM:
+         if mode==USERMODE.Standard:
+            initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
+            self.txOutView.hideColumn(TXINCOLS.WltID) 
+            self.txOutView.hideColumn(TXINCOLS.FromBlk) 
+            self.txOutView.hideColumn(TXINCOLS.ScrType) 
+            self.txOutView.hideColumn(TXINCOLS.Sequence) 
+         elif mode==USERMODE.Advanced:
+            initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0, 0])
+            self.txOutView.hideColumn(TXINCOLS.FromBlk) 
+            self.txOutView.hideColumn(TXINCOLS.Sequence) 
+         elif mode==USERMODE.Developer:
+            initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0.1, 0.1, 0.1, 0])
+      #else:
+         #if mode==USERMODE.Standard:
+            #initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
+            #self.txOutView.hideColumn(TXINCOLS.WltID) 
+            #self.txOutView.hideColumn(TXINCOLS.ScrType) 
+         #elif mode==USERMODE.Advanced:
+            #initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0.2, 0])
+         
 
 
 
@@ -3406,11 +3543,12 @@ class DlgDispTxInfo(QDialog):
       frm.setLayout(frmLayout)
       layout.addWidget(frm, 2, 0,  1,1) 
       layout.addWidget(receivingLine, 3,0, 1,1)
-      layout.addWidget(self.txOutView, 4,0, 1,1)
+      layout.addWidget(self.txInView, 4,0, 1,1)
+      layout.addWidget(self.txOutView, 5,0, 1,1)
 
       bbox = QDialogButtonBox(QDialogButtonBox.Ok)
       self.connect(bbox, SIGNAL('accepted()'), self.accept)
-      layout.addWidget(bbox, 5,0, 1,1)
+      layout.addWidget(bbox, 6,0, 1,1)
 
       self.setLayout(layout)
       self.setWindowTitle('Transaction Info')

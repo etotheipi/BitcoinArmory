@@ -87,15 +87,14 @@ def determineWalletType(wlt, wndw):
 
 
 
+#############################################################################
 def initialColResize(tblViewObj, sizeList):
    """
-   Use a dictionary to communicate appropriate sizes, such as:
-      [  ('Fixed',    50)   # pixels
-         ('Fixed',   200)   # pixels
-         ('Percent', 0.3)   # percent of remaining width
-         ('Percent', 0.7) ]
-   We assume that all percentages are below 1, all fixed >1.  Thus
-   we dont' even need the labels...
+   We assume that all percentages are below 1, all fixed >1.  
+   TODO:  This seems to almost work.  providing exactly 100% input will
+          actually result in somewhere between 75% and 125% (approx).  
+          For now, I have to experiment with initial values a few times
+          before getting it to a satisfactory initial size.
    """   
    totalWidth = tblViewObj.width()
    fixedCols, pctCols = [],[]

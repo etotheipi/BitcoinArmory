@@ -95,7 +95,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.6, 0.2, 0.2])
+         initialColResize(self.walletsView, [0, 0.5, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
          initialColResize(self.walletsView, [0.15, 0.45, 0.18, 0.18])
@@ -198,6 +198,7 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
       btnUnsigned  = QPushButton("Unsigned Transactions")
+      btnDevTools  = QPushButton("Developer Tools")
       btnMemPool   = QPushButton("See memory pool")
  
 
@@ -206,6 +207,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnMemPool,  SIGNAL('clicked()'), self.printZeroConf)
+      self.connect(btnDevTools, SIGNAL('clicked()'), self.openDevTools)
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -214,6 +216,7 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnWltProps)
       layout.addWidget(btnUnsigned)
       if self.usermode==USERMODE.Developer:
+         layout.addWidget(btnDevTools)
          layout.addWidget(btnMemPool)
       layout.addStretch()
       btnFrame = QFrame()
@@ -289,6 +292,10 @@ class ArmoryMainWindow(QMainWindow):
       #reactor.callLater(2.0,  self.loadBlockchain)
       reactor.callLater(5, self.Heartbeat)
 
+
+   #############################################################################
+   def openDevTools(self):
+      pass
 
    #############################################################################
    def printZeroConf(self):
@@ -793,7 +800,14 @@ class ArmoryMainWindow(QMainWindow):
          return valIn - valOut
       
 
+   #############################################################################
    def determineSentToSelfAmt(self, le, wlt):
+      """
+      NOTE:  this method works ONLY because we always generate a new address
+             whenever creating a change-output, which means it must have a
+             higher chainIndex than all other addresses.  If you did something 
+             creative with this tx, this may not actually work.
+      """
       amt = 0
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
@@ -1229,8 +1243,18 @@ class ArmoryMainWindow(QMainWindow):
       reactor.callLater(nextBeatSec, self.Heartbeat)
       
 
-
-
+   #############################################################################
+   def closeEvent(self, event):
+      '''
+      Seriously, I could not figure out how to exit gracefully, so the next
+      best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
+      '''
+      from twisted.internet import reactor
+      print 'Attempting to close the main window!'
+      reactor.stop()
+      sys.exit()
+      event.accept()
+      
       
 
    

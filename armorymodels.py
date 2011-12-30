@@ -17,8 +17,9 @@ LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
                    'Comment', 'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf')
 ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
-TXINCOLS  = enum('Sender', 'Btc', 'FromBlock', 'ScrType', 'Sequence')
-TXOUTCOLS = enum('Recip', 'Btc', 'ScrType')
+TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
+                                       'ScrType', 'Sequence', 'Script')
+TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType', 'Script')
 
 
 class AllWalletsDispModel(QAbstractTableModel):
@@ -135,7 +136,9 @@ class LedgerDispModelSimple(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if col==COL.TxHash:
             return QVariant(binary_to_hex(rowData[col]))
+         ###
          return QVariant(rowData[col])
+         ###
       elif role==Qt.TextAlignmentRole:
          if col in (COL.NumConf,  COL.TxDir):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
@@ -372,60 +375,159 @@ class WalletAddrDispModel(QAbstractTableModel):
       return QVariant()
             
       
-#TXINCOLS  = enum('Sender', 'Btc', 'FromBlock', 'ScrType', 'Sequence')
-#TXOUTCOLS = enum('Recip', 'Btc', 'ScrType')
 
+################################################################################
+class TxInDispModel(QAbstractTableModel):
+   def __init__(self,  pytx, txinListFromBDM=None, main=None):
+      super(TxInDispModel, self).__init__()
+      self.tx = pytx.copy()
+      self.main = main
+      self.txInList = []
+      self.dispTable = []
+      
+      for i,txin in enumerate(self.tx.inputs):
+         self.dispTable.append([])
+         wltID = ''
+         scrType = getTxInScriptType(txin)
+         if not txinListFromBDM==None:
+            # We had a BDM to help us get info on each input -- use it
+            recip160,val,blk,hsh,idx = txinListFromBDM[i]
+            if main:
+               wltID = self.main.getWalletForAddr160(recip160)
+            self.dispTable[-1].append(wltID)
+            self.dispTable[-1].append(hash160_to_addrStr(recip160))
+            self.dispTable[-1].append(coin2str(val, maxZeros=1))
+            self.dispTable[-1].append(hsh)
+            self.dispTable[-1].append(idx)
+            self.dispTable[-1].append(blk)
+            self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
+            self.dispTable[-1].append(txin.binScript)
+         else:
+            # We don't have any info from the BDM, display whatever we can
+            # (which usually isn't much)
+            recipAddr = '<Unknown>'
+            if scrType in (TXIN_SCRIPT_STANDARD,):
+               recipAddr = TxInScriptExtractAddr160IfAvail(txin)
+               if main:
+                  wltID = self.main.getWalletForAddr160(recip)
+            self.dispTable[-1].append(wltID)
+            self.dispTable[-1].append(recipAddr)
+            self.dispTable[-1].append(coin2str(val, maxZeros=1))
+            self.dispTable[-1].append('')
+            self.dispTable[-1].append('')
+            self.dispTable[-1].append('')
+            self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
+            self.dispTable[-1].append(txin.binScript)
+
+
+
+   def rowCount(self, index=QModelIndex()):
+      return len(self.dispTable)
+
+   def columnCount(self, index=QModelIndex()):
+      return 9
+
+   #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence')
+   def data(self, index, role=Qt.DisplayRole):
+      row,col = index.row(), index.column()
+      if role==Qt.DisplayRole:
+         return QVariant(self.dispTable[row][col])
+      elif role==Qt.TextAlignmentRole:
+         if col in (TXINCOLS.WltID, TXINCOLS.Sender, TXINCOLS.Btc, TXINCOLS.Outpt):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (TXINCOLS.OutIdx, TXINCOLS.FromBlk, TXINCOLS.Btc, TXINCOLS.Outpt):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+      elif role==Qt.BackgroundColorRole:
+         if self.dispTable[row][TXINCOLS.WltID]:
+            wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+            if wtype==WLTTYPES.WatchOnly:
+               return QVariant( Colors.LightGray )
+            else:
+               return QVariant( Colors.LightBlue )
+      elif role==Qt.FontRole:
+         if col==TXINCOLS.Btc:
+            return QFont("DejaVu Sans Mono", 10)
+
+      return QVariant()
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==TXINCOLS.WltID:    return QVariant('WltID')
+            if section==TXINCOLS.Sender:   return QVariant('Sender')
+            if section==TXINCOLS.Btc:      return QVariant('Amount')
+            if section==TXINCOLS.OutPt:    return QVariant('Prev. Tx Hash')
+            if section==TXINCOLS.OutIdx:   return QVariant('Index')
+            if section==TXINCOLS.FromBlk:  return QVariant('From Block#')
+            if section==TXINCOLS.ScrType:  return QVariant('Script Type')
+            if section==TXINCOLS.Sequence: return QVariant('Sequence')
+            if section==TXINCOLS.Script:   return QVariant('Script')
+      elif role==Qt.TextAlignmentRole:
+         if orientation==Qt.Horizontal:
+            if col in (TXINCOLS.WltID, TXINCOLS.Sender, TXINCOLS.Btc, TXINCOLS.Outpt):
+               return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+            elif col in (TXINCOLS.OutIdx, TXINCOLS.FromBlk, TXINCOLS.Btc, TXINCOLS.Outpt):
+               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+      return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+
+
+
+
+
+
+################################################################################
 class TxOutDispModel(QAbstractTableModel):
-   def __init__(self,  pytx, main=None, ignoreIndex=[]):
+   def __init__(self,  pytx, main=None, chngbackIndex=[]):
       super(TxOutDispModel, self).__init__()
       self.tx = pytx.copy()
    
       self.main = main
       self.txOutList = []
-      self.mineList = []
+      self.wltIDList = []
       for i,txout in enumerate(self.tx.outputs):
-         if not i in ignoreIndex:
-            recip160 = TxOutScriptExtractAddr160(txout.binScript)
-            self.txOutList.append(txout)
-            self.mineList.append(main.getWalletForAddr160(recip160))
+         recip160 = TxOutScriptExtractAddr160(txout.binScript)
+         self.txOutList.append(txout)
+         if main:
+            self.wltIDList.append(main.getWalletForAddr160(recip160))
+         else:
+            self.wltIDList.append('')
 
    def rowCount(self, index=QModelIndex()):
       return len(self.txOutList)
 
    def columnCount(self, index=QModelIndex()):
-      return 3
+      return 4
 
+   #TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType')
    def data(self, index, role=Qt.DisplayRole):
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
       stype = getTxOutScriptType(txout.binScript)
+      wltID = self.wltIDList[row]
       if role==Qt.DisplayRole:
+         if col==TXOUTCOLS.WltID:   return QVariant(wltID)
+         if col==TXOUTCOLS.ScrType: return QVariant(TXOUT_TYPE_NAMES[stype])
+         if col==TXOUTCOLS.Script:  return QVariant(txout.binScript)
          if stype==TXOUT_SCRIPT_STANDARD:
             if col==TXOUTCOLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
             if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-            if col==TXOUTCOLS.ScrType: return QVariant('Standard')
          if stype==TXOUT_SCRIPT_COINBASE:
             if col==TXOUTCOLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
             if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-            if col==TXOUTCOLS.ScrType: return QVariant('Coinbase')
          if stype==TXOUT_SCRIPT_MULTISIG:
             if col==TXOUTCOLS.Recip:   return QVariant('[[Multiple]]')
             if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-            if col==TXOUTCOLS.ScrType: return QVariant('Multi-Signature')
          if stype==TXOUT_SCRIPT_UNKNOWN:
             if col==TXOUTCOLS.Recip:   return QVariant('[[Non-Standard]]')
             if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-            if col==TXOUTCOLS.ScrType: return QVariant('Unknown')
          if stype==TXOUT_SCRIPT_OP_EVAL:
             if col==TXOUTCOLS.Recip:   return QVariant('[[OP-EVAL]]')
             if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
-            if col==TXOUTCOLS.ScrType: return QVariant('OP_EVAL')
       elif role==Qt.TextAlignmentRole:
          if col==TXOUTCOLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==TXOUTCOLS.Btc:     return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          if col==TXOUTCOLS.ScrType: return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         wltID = self.mineList[row]
          if wltID:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
@@ -441,14 +543,17 @@ class TxOutDispModel(QAbstractTableModel):
    def headerData(self, section, orientation, role=Qt.DisplayRole):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==TXOUTCOLS.Recip:   return QVariant("Recipient")
-            if section==TXOUTCOLS.Btc:     return QVariant("Amount")
-            if section==TXOUTCOLS.ScrType: return QVariant("Script Type")
+            if section==TXOUTCOLS.WltID:   return QVariant('Wallet ID')
+            if section==TXOUTCOLS.Recip:   return QVariant('Recipient')
+            if section==TXOUTCOLS.Btc:     return QVariant('Amount')
+            if section==TXOUTCOLS.ScrType: return QVariant('Script Type')
       elif role==Qt.TextAlignmentRole:
-         if section==TXOUTCOLS.Recip:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
-         if section==TXOUTCOLS.Btc:     return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
-         if section==TXOUTCOLS.ScrType: return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
-         return QVariant(int(Qt.AlignVCenter | Qt.AlignVCenter))
+         if orientation==Qt.Horizontal:
+            if section==TXOUTCOLS.WltID:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
+            if section==TXOUTCOLS.Recip:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
+            if section==TXOUTCOLS.Btc:     return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
+            if section==TXOUTCOLS.ScrType: return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
+      return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
 """
 
