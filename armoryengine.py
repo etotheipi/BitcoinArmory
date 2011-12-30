@@ -2421,7 +2421,8 @@ def getOpCode(name):
 TXIN_SCRIPT_STANDARD = 0
 TXIN_SCRIPT_COINBASE = 1
 TXIN_SCRIPT_SPENDCB  = 2
-TXIN_SCRIPT_UNKNOWN  = 3
+TXIN_SCRIPT_UNSIGNED = 3
+TXIN_SCRIPT_UNKNOWN  = 4
 
 TXOUT_SCRIPT_STANDARD = 0
 TXOUT_SCRIPT_COINBASE = 1
@@ -2437,6 +2438,16 @@ MULTISIG_2oF3     = (2,3)
 MULTISIG_3oF3     = (3,3)
 MULTISIG_UNKNOWN  = (0,0)
 
+TXOUT_TYPE_NAMES = { TXOUT_SCRIPT_STANDARD: 'Standard', \
+                     TXOUT_SCRIPT_COINBASE: 'Coinbase', \
+                     TXOUT_SCRIPT_MULTISIG: 'Multi-Signature', \
+                     TXOUT_SCRIPT_UNKNOWN:  '<Unrecognized>', \
+                     TXOUT_SCRIPT_OP_EVAL:  'OP-EVAL' }
+TXIN_TYPE_NAMES = {  TXIN_SCRIPT_STANDARD:  'Standard', \
+                     TXIN_SCRIPT_COINBASE:  'Coinbase', \
+                     TXIN_SCRIPT_SPENDCB:   'Spend-CB', \
+                     TXIN_SCRIPT_UNSIGNED:  'Unsigned', \
+                     TXIN_SCRIPT_UNKNOWN:   '<Unrecognized>'}
 
 ################################################################################
 def getTxOutMultiSigInfo(binScript):
@@ -2569,6 +2580,8 @@ def getTxInScriptType(txinObj):
          UNKNOWN TxIn from a coinbase-TxIn
    """
    binScript = txinObj.binScript
+   if len(binScript)==0:
+      return TXIN_SCRIPT_UNSIGNED
    if txinObj.outpoint.txHash == EmptyHash or len(binScript) < 1:
       return TXIN_SCRIPT_COINBASE
 
@@ -2612,15 +2625,6 @@ def TxInScriptExtractAddr160IfAvail(txinObj):
       return ''
 
 
-TXOUT_TYPE_NAMES = { TXOUT_SCRIPT_STANDARD: 'Standard', \
-                     TXOUT_SCRIPT_COINBASE: 'Coinbase', \
-                     TXOUT_SCRIPT_MULTISIG: 'Multi-Signature', \
-                     TXOUT_SCRIPT_UNKNOWN:  '<Unrecognized>', \
-                     TXOUT_SCRIPT_OP_EVAL:  'OP-EVAL' }
-TXIN_TYPE_NAMES = {  TXIN_SCRIPT_STANDARD:  'Standard', \
-                     TXIN_SCRIPT_COINBASE:  'Coinbase', \
-                     TXIN_SCRIPT_SPENDCB:   'Spend-CB', \
-                     TXIN_SCRIPT_UNKNOWN:   '<Unrecognized>'}
 
 # Finally done with all the base conversion functions and ECDSA code
 # Now define the classes for the objects that will use this

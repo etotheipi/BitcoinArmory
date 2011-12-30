@@ -3158,18 +3158,32 @@ def extractTxInfo(pytx, zcTimeList=None):
 
          
       txinFromList = []
+      haveAllInput=True
       for i in range(txref.getNumTxIn()):
          # Use BDM to get all the info about the TxOut being spent
          # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
          txinFromList.append([])
          cppTxin = txref.getTxInRef(i)
-         prevTxOut = TheBDM.getPrevTxOut(cppTxin)
-         txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
-         txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-         txinFromList[-1].append(prevTxOut.getParentTxPtr().getHeaderPtr().getBlockHeight())
-         txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
-         txinFromList[-1].append(prevTxOut.getIndex())
-      sumTxIn = sum([x[1] for x in txinFromList])
+         prevTxHash = cppTxin.getOutPoint().getTxHash()
+         if TheBDM.getTxByHash(prevTxHash):
+            prevTxOut = TheBDM.getPrevTxOut(cppTxin)
+            txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
+            txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
+            txinFromList[-1].append(prevTxOut.getParentTxPtr().getHeaderPtr().getBlockHeight())
+            txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
+            txinFromList[-1].append(prevTxOut.getIndex())
+         else:
+            haveAllInput=False
+            txinFromList[-1].append('')
+            txinFromList[-1].append('')
+            txinFromList[-1].append('')
+            txinFromList[-1].append('')
+            txinFromList[-1].append('')
+
+      if haveAllInput:
+         sumTxIn = sum([x[1] for x in txinFromList])
+      else:
+         sumTxIn = None
 
    return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
    
@@ -3213,14 +3227,21 @@ class DlgDispTxInfo(QDialog):
       # Collect our own outputs only, and ID non-std tx
       rvPairSelf  = []
       rvPairOther = []
+      indicesSelf = []
+      indicesOther = []
+      indicesMakeGray = []
+      idx = 0
       for scrType, amt, recip in data[FIELDS.OutList]:
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
             if haveWallet and wlt.hasAddr(recip):
                rvPairSelf.append( [recip, amt] )
+               indicesSelf.append( idx )
             else:
                rvPairOther.append( [recip, amt] )
+               indicesOther.append( idx )
          else:
             IsNonStandard = True
+         idx+=1
 
       txdir = None 
       changeIndex = None
@@ -3242,14 +3263,18 @@ class DlgDispTxInfo(QDialog):
                   for i,triplet in enumerate(data[FIELDS.OutList]):
                      if not i==changeIndex:
                         rvPairDisp.append([triplet[2], triplet[1]])
+                     else:
+                        indicesMakeGray.append(i)
                else:
                   if le.getValue() > 0:
                      txdir = 'Received'
                      rvPairDisp = rvPairSelf
+                     indicesMakeGray.extend(indicesOther)
                   if le.getValue() < 0:
                      txdir = 'Sent'
                      rvPairDisp = rvPairOther
                      txAmt += fee
+                     indicesMakeGray.extend(indicesSelf)
                break
 
 
@@ -3267,12 +3292,6 @@ class DlgDispTxInfo(QDialog):
            'it to alan.reiner@gmail.com.', QMessageBox.Ok)
          mode=USERMODE.Developer
 
-
-
-
-      dispAllRecip = False
-      if not haveWallet:
-         dispAllAddr = True
 
 
       layout = QGridLayout()
@@ -3369,12 +3388,13 @@ class DlgDispTxInfo(QDialog):
 
 
       if rvPairDisp==None:
+         # Couldn't determine recip/change outputs
          lbls.append([])
          lbls[-1].append(createToolTipObject(
                'Most transactions have at least a recipient output and a '
                'returned-change output.  You do not have enough enough information '
-               'to determine which is which, and so this fields shows the <b>sum</b> '
-               'of both recipients and returned-change.  '))
+               'to determine which is which, and so this fields shows the sum '
+               'of <b>all</b> outputs.'))
          lbls[-1].append(QLabel('Sum of Outputs:'))
          lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=1).strip() + '  BTC' ))
       else:
@@ -3466,28 +3486,11 @@ class DlgDispTxInfo(QDialog):
          
 
 
-            
-
-      # List of TxOuts/Recipients
-      self.txOutModel = TxOutDispModel(pytx, self.main)
-      self.txOutView  = QTableView()
-      self.txOutView.setModel(self.txOutModel)
-      self.txOutView.setSelectionBehavior(QTableView.SelectRows)
-      self.txOutView.setSelectionMode(QTableView.SingleSelection)
-      self.txOutView.horizontalHeader().setStretchLastSection(True)
-      self.txOutView.verticalHeader().setDefaultSectionSize(20)
-      w,h = tightSizeNChar(self.txOutView, 1)
-      self.txOutView.setMinimumHeight = 4*(1.3*h)
-      #self.txOutView.setMinimumWidth(800)
-      self.txOutView.hideColumn(TXOUTCOLS.Script) 
-      if mode==USERMODE.Standard:
-         initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0])
-         self.txOutView.hideColumn(TXOUTCOLS.WltID) 
-         self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
-      else:
-         initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0.25, 0])
-
-
+      # TxIns/Senders
+      FontFix = QFont('DejaVu Sans Mono', 10)
+      wWlt = 100
+      wAddr = 200
+      wAmt = tightSizeNChar(FontFix, 20)[0]
       self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
       self.txInView = QTableView()
       self.txInView.setModel(self.txInModel)
@@ -3495,66 +3498,129 @@ class DlgDispTxInfo(QDialog):
       self.txInView.setSelectionMode(QTableView.SingleSelection)
       self.txInView.horizontalHeader().setStretchLastSection(True)
       self.txInView.verticalHeader().setDefaultSectionSize(20)
-      self.txOutView.hideColumn(TXINCOLS.OutPt) 
-      self.txOutView.hideColumn(TXINCOLS.OutIdx) 
-      self.txOutView.hideColumn(TXINCOLS.Script) 
+      self.txInView.verticalHeader().hide()
+      w,h = tightSizeNChar(self.txInView, 1)
+      self.txInView.setMinimumHeight(2*(1.3*h))
+      self.txInView.setMaximumHeight(5*(1.3*h))
+      self.txInView.hideColumn(TXINCOLS.OutPt) 
+      self.txInView.hideColumn(TXINCOLS.OutIdx) 
+      self.txInView.hideColumn(TXINCOLS.Script) 
       if haveBDM:
          if mode==USERMODE.Standard:
-            initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
-            self.txOutView.hideColumn(TXINCOLS.WltID) 
-            self.txOutView.hideColumn(TXINCOLS.FromBlk) 
-            self.txOutView.hideColumn(TXINCOLS.ScrType) 
-            self.txOutView.hideColumn(TXINCOLS.Sequence) 
+            initialColResize(self.txInView, [wWlt, wAddr*1.5, wAmt, 0, 0, 0, 0, 0, 0])
+            self.txInView.hideColumn(TXINCOLS.FromBlk) 
+            self.txInView.hideColumn(TXINCOLS.ScrType) 
+            self.txInView.hideColumn(TXINCOLS.Sequence) 
          elif mode==USERMODE.Advanced:
-            initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0, 0])
-            self.txOutView.hideColumn(TXINCOLS.FromBlk) 
-            self.txOutView.hideColumn(TXINCOLS.Sequence) 
+            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
+            self.txInView.hideColumn(TXINCOLS.FromBlk) 
+            self.txInView.hideColumn(TXINCOLS.Sequence) 
          elif mode==USERMODE.Developer:
-            initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0.1, 0.1, 0.1, 0])
+            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0.1, 0.1, 0.1, 0])
       #else:
          #if mode==USERMODE.Standard:
-            #initialColResize(self.txOutView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
-            #self.txOutView.hideColumn(TXINCOLS.WltID) 
-            #self.txOutView.hideColumn(TXINCOLS.ScrType) 
+            #initialColResize(self.txInView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
+            #self.txInView.hideColumn(TXINCOLS.WltID) 
+            #self.txInView.hideColumn(TXINCOLS.ScrType) 
          #elif mode==USERMODE.Advanced:
-            #initialColResize(self.txOutView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0.2, 0])
+            #initialColResize(self.txInView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0.2, 0])
+            
+
+      # List of TxOuts/Recipients
+      self.txOutModel = TxOutDispModel(pytx,  self.main, idxGray=indicesMakeGray)
+      self.txOutView  = QTableView()
+      self.txOutView.setModel(self.txOutModel)
+      self.txOutView.setSelectionBehavior(QTableView.SelectRows)
+      self.txOutView.setSelectionMode(QTableView.SingleSelection)
+      self.txOutView.horizontalHeader().setStretchLastSection(True)
+      self.txOutView.verticalHeader().setDefaultSectionSize(20)
+      self.txOutView.verticalHeader().hide()
+      self.txOutView.setMinimumHeight(2*(1.3*h))
+      self.txOutView.setMaximumHeight(5*(1.3*h))
+      #self.txOutView.setMinimumHeight(800)
+      self.txOutView.hideColumn(TXOUTCOLS.Script) 
+      if mode==USERMODE.Standard:
+         initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0, 0])
+         self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
+      else:
+         initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
+
+
+      self.frmIOList = QFrame()
+      self.frmIOList.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frmIOListLayout = QGridLayout()
+
+      lblInputs = QLabel('Transaction Inputs (Sending addresses):')
+      ttipText = ('All transactions require previous transaction outputs as '
+                  'inputs.  ')
+      if not haveBDM:
+         ttipText += ('<b>Since the blockchain is not available, not all input '
+                      'information is available</b>.  You need to view this '
+                      'transaction on a system with an internet connection '
+                      '(and blockchain) if you want to see the complete information.')
+      else:
+         ttipText+=  ('Each input is like an $X bill.  Usually there are more inputs '
+                      'than necessary for the transaction, and there will be an extra '
+                      'output returning change to the sender')
+      ttipInputs = createToolTipObject(ttipText)
+
+      lblOutputs = QLabel('Transaction Outputs (Receiving addresses):')
+      ttipOutputs = createToolTipObject(
+                  'This shows all outputs of the transactions.  If there were '
+                  'more inputs than the size of the transaction, there '
+                  'will be an extra change-back-to-sender output, much like '
+                  'change returned when buying a candy bar with a $20 bill.  '
+                  'If any change outputs were identified they have been '
+                  'displayed with a light gray text color.')
          
 
 
+      inStrip  = makeLayoutStrip('Horiz', [lblInputs,  ttipInputs,  'Stretch'])
+      outStrip = makeLayoutStrip('Horiz', [lblOutputs, ttipOutputs, 'Stretch'])
+      
+      frmIOListLayout.addWidget(inStrip,        0,0, 1,1)
+      frmIOListLayout.addWidget(self.txInView,  1,0, 1,1)
+      frmIOListLayout.addWidget(outStrip,       2,0, 1,1)
+      frmIOListLayout.addWidget(self.txOutView, 3,0, 1,1)
+      self.frmIOList.setLayout(frmIOListLayout)
 
+         
+      self.btnIOList = QPushButton('')
+      self.btnOk     = QPushButton('Ok')
+      self.btnIOList.setCheckable(True)
+      self.connect(self.btnIOList, SIGNAL('clicked()'), self.extraInfoClicked)
+      self.connect(self.btnOk,     SIGNAL('clicked()'), self.accept)
+      btnStrip = makeLayoutStrip('Horiz', [self.btnIOList, 'Stretch', self.btnOk])
 
-      scrollRecipArea = QScrollArea()
-      frmRecip = QFrame()
-      frmRecip.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
-      frmRecipLayout = QGridLayout()
-      for val in data[FIELDS.OutList]:
-         if dispAllRecip or wlt.hasAddr(val[2]):
-            frmRecipLayout 
-
-      lblRecv = QLabel('Receiving addresses:')
-      lbtnSwitchMode = None
       if mode==USERMODE.Standard:
-         lbtnSwitchMode = QLabelButton('Advanced View')
+         self.btnIOList.setChecked(False)
       else:
-         lbtnSwitchMode = QLabelButton('Standard View')
+         self.btnIOList.setChecked(True)
+      self.extraInfoClicked()
 
-      receivingLine = makeLayoutStrip('Horiz', [lblRecv, 'Stretch', lbtnSwitchMode])
       
       frm.setLayout(frmLayout)
       layout.addWidget(frm, 2, 0,  1,1) 
-      layout.addWidget(receivingLine, 3,0, 1,1)
-      layout.addWidget(self.txInView, 4,0, 1,1)
-      layout.addWidget(self.txOutView, 5,0, 1,1)
+      layout.addWidget(self.frmIOList, 3,0, 1,1)
+      layout.addWidget(btnStrip, 4,0, 1,1)
 
-      bbox = QDialogButtonBox(QDialogButtonBox.Ok)
-      self.connect(bbox, SIGNAL('accepted()'), self.accept)
-      layout.addWidget(bbox, 6,0, 1,1)
+      #bbox = QDialogButtonBox(QDialogButtonBox.Ok)
+      #self.connect(bbox, SIGNAL('accepted()'), self.accept)
+      #layout.addWidget(bbox, 6,0, 1,1)
 
       self.setLayout(layout)
+      self.layout().setSizeConstraint(QLayout.SetFixedSize)
       self.setWindowTitle('Transaction Info')
 
 
 
+   def extraInfoClicked(self):
+      if self.btnIOList.isChecked():
+         self.frmIOList.setVisible(True)
+         self.btnIOList.setText('<<< Less Info')
+      else:
+         self.frmIOList.setVisible(False)
+         self.btnIOList.setText('Advanced >>>') 
 
 
       

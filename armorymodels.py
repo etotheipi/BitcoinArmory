@@ -389,7 +389,7 @@ class TxInDispModel(QAbstractTableModel):
          self.dispTable.append([])
          wltID = ''
          scrType = getTxInScriptType(txin)
-         if not txinListFromBDM==None:
+         if not txinListFromBDM==None and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
             recip160,val,blk,hsh,idx = txinListFromBDM[i]
             if main:
@@ -397,9 +397,10 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(hash160_to_addrStr(recip160))
             self.dispTable[-1].append(coin2str(val, maxZeros=1))
-            self.dispTable[-1].append(hsh)
+            self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
+            self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(txin.binScript)
          else:
@@ -412,10 +413,11 @@ class TxInDispModel(QAbstractTableModel):
                   wltID = self.main.getWalletForAddr160(recip)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(recipAddr)
-            self.dispTable[-1].append(coin2str(val, maxZeros=1))
+            self.dispTable[-1].append('<Unknown>')
+            self.dispTable[-1].append(binary_to_hex(txin.outpoint.txHash))
+            self.dispTable[-1].append(str(txin.outpoint.txOutIndex))
             self.dispTable[-1].append('')
-            self.dispTable[-1].append('')
-            self.dispTable[-1].append('')
+            self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(txin.binScript)
 
@@ -425,50 +427,56 @@ class TxInDispModel(QAbstractTableModel):
       return len(self.dispTable)
 
    def columnCount(self, index=QModelIndex()):
-      return 9
+      return 8
 
-   #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence')
+   #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence', 'Script')
    def data(self, index, role=Qt.DisplayRole):
+      COLS = TXINCOLS
       row,col = index.row(), index.column()
+
+      wltID = self.dispTable[row][COLS.WltID]
       if role==Qt.DisplayRole:
          return QVariant(self.dispTable[row][col])
       elif role==Qt.TextAlignmentRole:
-         if col in (TXINCOLS.WltID, TXINCOLS.Sender, TXINCOLS.Btc, TXINCOLS.Outpt):
+         if col in (COLS.WltID, COLS.Sender, COLS.OutPt):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         elif col in (TXINCOLS.OutIdx, TXINCOLS.FromBlk, TXINCOLS.Btc, TXINCOLS.Outpt):
+         elif col in (COLS.OutIdx, COLS.FromBlk, COLS.Sequence, COLS.ScrType):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (COLS.Btc,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         if self.dispTable[row][TXINCOLS.WltID]:
+         if self.dispTable[row][COLS.WltID]:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
                return QVariant( Colors.LightGray )
             else:
                return QVariant( Colors.LightBlue )
       elif role==Qt.FontRole:
-         if col==TXINCOLS.Btc:
+         if col==COLS.Btc:
             return QFont("DejaVu Sans Mono", 10)
 
       return QVariant()
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COLS = TXINCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==TXINCOLS.WltID:    return QVariant('WltID')
-            if section==TXINCOLS.Sender:   return QVariant('Sender')
-            if section==TXINCOLS.Btc:      return QVariant('Amount')
-            if section==TXINCOLS.OutPt:    return QVariant('Prev. Tx Hash')
-            if section==TXINCOLS.OutIdx:   return QVariant('Index')
-            if section==TXINCOLS.FromBlk:  return QVariant('From Block#')
-            if section==TXINCOLS.ScrType:  return QVariant('Script Type')
-            if section==TXINCOLS.Sequence: return QVariant('Sequence')
-            if section==TXINCOLS.Script:   return QVariant('Script')
+            if section==COLS.WltID:    return QVariant('WltID')
+            if section==COLS.Sender:   return QVariant('Sender')
+            if section==COLS.Btc:      return QVariant('Amount')
+            if section==COLS.OutPt:    return QVariant('Prev. Tx Hash')
+            if section==COLS.OutIdx:   return QVariant('Index')
+            if section==COLS.FromBlk:  return QVariant('From Block#')
+            if section==COLS.ScrType:  return QVariant('Script Type')
+            if section==COLS.Sequence: return QVariant('Sequence')
+            if section==COLS.Script:   return QVariant('Script')
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
-            if col in (TXINCOLS.WltID, TXINCOLS.Sender, TXINCOLS.Btc, TXINCOLS.Outpt):
+            if section in (COLS.WltID, COLS.Sender, COLS.OutPt):
                return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-            elif col in (TXINCOLS.OutIdx, TXINCOLS.FromBlk, TXINCOLS.Btc, TXINCOLS.Outpt):
+            elif section in (COLS.OutIdx, COLS.FromBlk, COLS.Btc, COLS.Sequence, COLS.ScrType):
                return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-      return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
 
 
@@ -477,13 +485,14 @@ class TxInDispModel(QAbstractTableModel):
 
 ################################################################################
 class TxOutDispModel(QAbstractTableModel):
-   def __init__(self,  pytx, main=None, chngbackIndex=[]):
+   def __init__(self,  pytx, main=None, idxGray=[]):
       super(TxOutDispModel, self).__init__()
       self.tx = pytx.copy()
    
       self.main = main
       self.txOutList = []
       self.wltIDList = []
+      self.idxGray = idxGray
       for i,txout in enumerate(self.tx.outputs):
          recip160 = TxOutScriptExtractAddr160(txout.binScript)
          self.txOutList.append(txout)
@@ -500,33 +509,37 @@ class TxOutDispModel(QAbstractTableModel):
 
    #TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType')
    def data(self, index, role=Qt.DisplayRole):
+      COLS = TXOUTCOLS
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
       stype = getTxOutScriptType(txout.binScript)
       wltID = self.wltIDList[row]
       if role==Qt.DisplayRole:
-         if col==TXOUTCOLS.WltID:   return QVariant(wltID)
-         if col==TXOUTCOLS.ScrType: return QVariant(TXOUT_TYPE_NAMES[stype])
-         if col==TXOUTCOLS.Script:  return QVariant(txout.binScript)
+         if col==COLS.WltID:   return QVariant(wltID)
+         if col==COLS.ScrType: return QVariant(TXOUT_TYPE_NAMES[stype])
+         if col==COLS.Script:  return QVariant(txout.binScript)
          if stype==TXOUT_SCRIPT_STANDARD:
-            if col==TXOUTCOLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
+            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if stype==TXOUT_SCRIPT_COINBASE:
-            if col==TXOUTCOLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
-            if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+            if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
+            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if stype==TXOUT_SCRIPT_MULTISIG:
-            if col==TXOUTCOLS.Recip:   return QVariant('[[Multiple]]')
-            if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+            if col==COLS.Recip:   return QVariant('[[Multiple]]')
+            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if stype==TXOUT_SCRIPT_UNKNOWN:
-            if col==TXOUTCOLS.Recip:   return QVariant('[[Non-Standard]]')
-            if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+            if col==COLS.Recip:   return QVariant('[[Non-Standard]]')
+            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
          if stype==TXOUT_SCRIPT_OP_EVAL:
-            if col==TXOUTCOLS.Recip:   return QVariant('[[OP-EVAL]]')
-            if col==TXOUTCOLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
+            if col==COLS.Recip:   return QVariant('[[OP-EVAL]]')
+            if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))
       elif role==Qt.TextAlignmentRole:
-         if col==TXOUTCOLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         if col==TXOUTCOLS.Btc:     return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         if col==TXOUTCOLS.ScrType: return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         if col==COLS.Recip:   return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         if col==COLS.Btc:     return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+         if col==COLS.ScrType: return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+      elif role==Qt.ForegroundRole:
+         if row in self.idxGray:
+            return QVariant(Colors.MidGray)
       elif role==Qt.BackgroundColorRole:
          if wltID:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
@@ -535,25 +548,26 @@ class TxOutDispModel(QAbstractTableModel):
             else:
                return QVariant( Colors.LightBlue )
       elif role==Qt.FontRole:
-         if col==TXOUTCOLS.Btc:
+         if col==COLS.Btc:
             return QFont("DejaVu Sans Mono", 10)
 
       return QVariant()
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COLS = TXOUTCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==TXOUTCOLS.WltID:   return QVariant('Wallet ID')
-            if section==TXOUTCOLS.Recip:   return QVariant('Recipient')
-            if section==TXOUTCOLS.Btc:     return QVariant('Amount')
-            if section==TXOUTCOLS.ScrType: return QVariant('Script Type')
+            if section==COLS.WltID:   return QVariant('Wallet ID')
+            if section==COLS.Recip:   return QVariant('Recipient')
+            if section==COLS.Btc:     return QVariant('Amount')
+            if section==COLS.ScrType: return QVariant('Script Type')
       elif role==Qt.TextAlignmentRole:
          if orientation==Qt.Horizontal:
-            if section==TXOUTCOLS.WltID:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
-            if section==TXOUTCOLS.Recip:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
-            if section==TXOUTCOLS.Btc:     return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
-            if section==TXOUTCOLS.ScrType: return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
-      return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            if section==COLS.WltID:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
+            if section==COLS.Recip:   return QVariant(Qt.AlignLeft | Qt.AlignVCenter)
+            if section==COLS.Btc:     return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
+            if section==COLS.ScrType: return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
+         return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
 """
 
