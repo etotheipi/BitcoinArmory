@@ -548,7 +548,7 @@ class ArmoryMainWindow(QMainWindow):
       for wltID, wlt in self.walletMap.iteritems():
          if wlt.hasAddr(addr160):
             return wltID
-      return None
+      return ''
 
 
 
@@ -1086,6 +1086,14 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+   #############################################################################
+   def getUnspentTxOutsForAddr160(self, addr160):
+      cppWlt = Cpp.BtcWallet()
+      cppWlt.addAddress_1_(addr160)
+      cppWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+      cppWlt.syncWithBlockchain()
+      return TheBDM.getUnspentTxOutsForWallet(cppWlt)
+   
             
             
    #############################################################################

@@ -1542,6 +1542,19 @@ class DlgImportAddress(QDialog):
 
       # Finally, let's add the address to the wallet, or sweep the funds
       if self.radioSweep.isChecked():
+         if not TheBDM.isInitialized():
+            reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
+               'You need access to the internet and the blockchain in order '
+               'to find the balance of this address and sweep its funds. ', \
+               QMessageBox.Ok)
+            return
+
+         newAddr = PyBtcAddress().createFromPlainKeyData(binKeyData)
+         newCppWlt = Cpp.BtcWallet()
+         newCppWlt.addAddress_1_()
+         reply = QMessageBox.warning(self, 'Verify Sweep', \
+           'You are about to move all funds '
+           QMessageBox.Yes | QMessageBox.Cancel)
          pass # TODO: add the tx-construct-broadcast method here
       elif self.radioImport.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
