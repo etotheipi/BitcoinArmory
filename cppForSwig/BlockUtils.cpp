@@ -1369,7 +1369,8 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
 
 
    // Finally, update the last known blkfile size and return nBlks added
-   PDEBUG2("Added new blocks to memory pool: ", nBlkRead);
+   //PDEBUG2("Added new blocks to memory pool: ", nBlkRead);
+   cout << "Added new blocks to memory pool: " << nBlkRead << endl;
    lastEOFByteLoc_ = filesize;
    return nBlkRead;
 }

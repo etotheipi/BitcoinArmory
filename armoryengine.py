@@ -28,14 +28,8 @@
 #             to use SecureBinaryData objects for moving around private keys,
 #             though I'm not entirely clear if python-based memory management
 #             is going to properly clean up after itself, even with a page-
-#             locked, destructable data container.
+#             locked, self-destructing data container.
 #
-#             In the end, this will be a single, huge, python file that should
-#             contain, LITERALLY, every computational Bitcoin operation needed
-#             to build a client application in Python, EXCEPT for networking.
-#
-#             I will try to keep the README up-to-date with the latest features
-#             that I have implemented and tested.
 #
 ################################################################################
 

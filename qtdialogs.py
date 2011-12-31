@@ -932,10 +932,10 @@ class DlgWalletDetails(QDialog):
 
       # Set the owner appropriately
       if self.wlt.watchingOnly:
-         if self.main.getWltExtraProp(self.wltID, 'IsMine'):
+         if self.main.getWltSetting(self.wltID, 'IsMine'):
             self.labelValues[WLTFIELDS.BelongsTo] = QLabelButton('You own this wallet')
          else:
-            owner = self.main.getWltExtraProp(self.wltID, 'BelongsTo')
+            owner = self.main.getWltSetting(self.wltID, 'BelongsTo')
             if owner=='':
                self.labelValues[WLTFIELDS.BelongsTo] = QLabelButton('Someone else...')
                self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
@@ -1044,14 +1044,14 @@ class DlgWalletDetails(QDialog):
       dlg = self.dlgChangeOwner(self.wltID, self) 
       if dlg.exec_():
          if dlg.chkIsMine.isChecked():
-            self.main.setWltExtraProp(self.wltID, 'IsMine', True)
-            self.main.setWltExtraProp(self.wltID, 'BelongsTo', '')
+            self.main.setWltSetting(self.wltID, 'IsMine', True)
+            self.main.setWltSetting(self.wltID, 'BelongsTo', '')
             self.labelValues[WLTFIELDS.BelongsTo].setText('You own this wallet')
             self.labelValues[WLTFIELDS.Secure].setText('<i>Offline</i>')
          else:
             owner = str(dlg.edtOwnerString.text())  
-            self.main.setWltExtraProp(self.wltID, 'IsMine', False)
-            self.main.setWltExtraProp(self.wltID, 'BelongsTo', owner)
+            self.main.setWltSetting(self.wltID, 'IsMine', False)
+            self.main.setWltSetting(self.wltID, 'BelongsTo', owner)
                
             if len(owner)>0:
                self.labelValues[WLTFIELDS.BelongsTo].setText(owner)
@@ -1068,7 +1068,7 @@ class DlgWalletDetails(QDialog):
          layout = QGridLayout()
          self.chkIsMine = QCheckBox('This wallet is mine')
          self.edtOwnerString = QLineEdit() 
-         if parent.main.getWltExtraProp(wltID, 'IsMine'):
+         if parent.main.getWltSetting(wltID, 'IsMine'):
             lblDescr = QLabel(
                'The funds in this wallet are currently identified as '
                'belonging to <b><i>you</i></b>.  As such, any funds '
@@ -1084,7 +1084,7 @@ class DlgWalletDetails(QDialog):
             self.chkIsMine.setChecked(True)
             self.edtOwnerString.setEnabled(False)
          else:
-            owner = parent.main.getWltExtraProp(wltID, 'BelongsTo')
+            owner = parent.main.getWltSetting(wltID, 'BelongsTo')
             if owner=='':
                owner='someone else'
             else:
@@ -1137,38 +1137,38 @@ class DlgNewAddressDisp(QDialog):
 
       notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
       offlineWallet = (wlttype==WLTTYPES.Offline)
-      if notMyWallet:
-         dnaaThisWallet = self.main.getWltExtraProp(wlt.uniqueIDB58, 'DnaaRecv')
-         if not dnaaThisWallet:
-            result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-                  'You are getting an address for a wallet that '
-                  'does not appear to belong to you.  Any money sent to this '
-                  'address will not appear in your total balance, and cannot '
-                  'be spent from this computer.\n\n'
-                  'If this is actually your wallet (perhaps you maintain the full '
-                  'wallet on a separate computer), then please change the '
-                  '"Belongs To" field in the wallet-properties for this wallet.', \
-                  'Do not show this warning again', wCancel=True)
-            self.main.settings.set('DnaaRecv', result[1])
-            if result[0]==False:
-               return
+      dnaaPropName = 'Wallet_%s_%s' % (self.wlt.uniqueIDB58, 'DNAA_RecvOther')
+      dnaaThisWallet = self.main.settings.getSettingOrSetDefault(dnaaPropName, False)
+      if notMyWallet and not dnaaThisWallet:
+         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+               'You are getting an address for a wallet that '
+               'does not appear to belong to you.  Any money sent to this '
+               'address will not appear in your total balance, and cannot '
+               'be spent from this computer.<br><br>'
+               'If this is actually your wallet (perhaps you maintain the full '
+               'wallet on a separate computer), then please change the '
+               '"Belongs To" field in the wallet-properties for this wallet.', \
+               'Do not show this warning again', wCancel=True)
+         self.main.settings.set(dnaaPropName, result[1])
+         if result[0]==False:
+            self.reject()
+            return
 
-      if offlineWallet:
-         dnaaThisWallet = self.main.getWltExtraProp(wlt.uniqueIDB58, 'DnaaRecv')
-         if not dnaaThisWallet:
-            result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-                  'You are getting an address for a wallet that '
-                  'you have specified belongs to you, but you cannot actually '
-                  'spend the funds from this computer.  This is usually the case when '
-                  'you keep the full wallet on a separate computer for security '
-                  'purposes.\n\n'
-                  'If this does not sound right, then please do not use the following '
-                  'address.  Instead, change the wallet properties "Belongs To" field '
-                  'to specify that this wallet is not actually yours.', \
-                  'Do not show this warning again', wCancel=True)
-            self.main.settings.set('DnaaRecv', result[1])
-            if result[0]==False:
-               return
+      if offlineWallet and not dnaaThisWallet:
+         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+               'You are getting an address for a wallet that '
+               'you have specified belongs to you, but you cannot actually '
+               'spend the funds from this computer.  This is usually the case when '
+               'you keep the full wallet on a separate computer for security '
+               'purposes.<br><br>'
+               'If this does not sound right, then please do not use the following '
+               'address.  Instead, change the wallet properties "Belongs To" field '
+               'to specify that this wallet is not actually yours.', \
+               'Do not show this warning again', wCancel=True)
+         self.main.settings.set(dnaaPropName, result[1])
+         if result[0]==False:
+            self.reject()
+            return
 
          
 
@@ -1552,9 +1552,9 @@ class DlgImportAddress(QDialog):
          newAddr = PyBtcAddress().createFromPlainKeyData(binKeyData)
          newCppWlt = Cpp.BtcWallet()
          newCppWlt.addAddress_1_()
-         reply = QMessageBox.warning(self, 'Verify Sweep', \
-           'You are about to move all funds '
-           QMessageBox.Yes | QMessageBox.Cancel)
+         #reply = QMessageBox.warning(self, 'Verify Sweep', \
+           #'You are about to move all funds '
+           #QMessageBox.Yes | QMessageBox.Cancel)
          pass # TODO: add the tx-construct-broadcast method here
       elif self.radioImport.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
@@ -3480,7 +3480,7 @@ class DlgDispTxInfo(QDialog):
             rlbls[-1][-1].setFont(ffixBold)
                
             if numRV>numShow and i==numShow-2:
-               moreStr = '<%d more recipients>' % (numShow-numRV)
+               moreStr = '[%d more recipients]' % (numRV-numShow+1)
                rlbls.append([])
                rlbls[-1].extend([QLabel(), QLabel(), QLabel(moreStr), QLabel()])
                break
@@ -3488,8 +3488,8 @@ class DlgDispTxInfo(QDialog):
 
          ###
          for i,lbl4 in enumerate(rlbls):
-            for i in range(4):
-               lbl4[i].setTextInteractionFlags(Qt.TextSelectableByMouse | \
+            for j in range(4):
+               lbl4[j].setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                             Qt.TextSelectableByKeyboard)
             row = lastRow + 1 + i
             frmLayout.addWidget(lbl4[0], row, 0,  1,1)
@@ -3500,10 +3500,11 @@ class DlgDispTxInfo(QDialog):
 
 
       # TxIns/Senders
+      FontVar = QFont('Times',  10)
       FontFix = QFont('DejaVu Sans Mono', 10)
-      wWlt = 100
-      wAddr = 200
-      wAmt = tightSizeNChar(FontFix, 20)[0]
+      wWlt = relaxedSizeStr(FontVar, 'A'*10)[0]
+      wAddr = relaxedSizeStr(FontVar, 'A'*31)[0]
+      wAmt = relaxedSizeStr(FontFix, 'A'*20)[0]
       self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
       self.txInView = QTableView()
       self.txInView.setModel(self.txInModel)
@@ -3529,14 +3530,7 @@ class DlgDispTxInfo(QDialog):
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
          elif mode==USERMODE.Developer:
-            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0.1, 0.1, 0.1, 0])
-      #else:
-         #if mode==USERMODE.Standard:
-            #initialColResize(self.txInView, [0, 0.6, 0.5, 0, 0, 0, 0, 0, 0])
-            #self.txInView.hideColumn(TXINCOLS.WltID) 
-            #self.txInView.hideColumn(TXINCOLS.ScrType) 
-         #elif mode==USERMODE.Advanced:
-            #initialColResize(self.txInView, [0.2, 0.45, 0.25, 0, 0, 0, 0.2, 0.2, 0])
+            self.txInView.resizeColumnsToContents()
             
 
       # List of TxOuts/Recipients
@@ -3545,19 +3539,40 @@ class DlgDispTxInfo(QDialog):
       self.txOutView.setModel(self.txOutModel)
       self.txOutView.setSelectionBehavior(QTableView.SelectRows)
       self.txOutView.setSelectionMode(QTableView.SingleSelection)
-      self.txOutView.horizontalHeader().setStretchLastSection(True)
       self.txOutView.verticalHeader().setDefaultSectionSize(20)
       self.txOutView.verticalHeader().hide()
       self.txOutView.setMinimumHeight(2*(1.3*h))
       self.txOutView.setMaximumHeight(5*(1.3*h))
-      #self.txOutView.setMinimumHeight(800)
+      initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
       self.txOutView.hideColumn(TXOUTCOLS.Script) 
       if mode==USERMODE.Standard:
-         initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0, 0])
          self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
-      else:
+         initialColResize(self.txOutView, [wWlt, wAddr, 0.25, 0, 0])
+         self.txOutView.horizontalHeader().setStretchLastSection(True)
+      elif mode==USERMODE.Advanced:
          initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
+      elif mode==USERMODE.Developer:
+         initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
+      #self.txOutView.resizeColumnsToContents()
 
+
+      self.lblTxioInfo = QRichLabel('')
+      self.lblTxioInfo.setMinimumWidth( tightSizeNChar(self.lblTxioInfo, 30)[0])
+      self.connect(self.txInView, SIGNAL('clicked(QModelIndex)'), \
+                   lambda: self.dispTxioInfo('In'))
+      self.connect(self.txOutView, SIGNAL('clicked(QModelIndex)'), \
+                   lambda: self.dispTxioInfo('Out'))
+      
+      #scrFrm = QFrame()
+      #scrFrm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      #scrFrmLayout = Q
+      
+
+      self.scriptArea = QScrollArea()
+      self.scriptArea.setWidget(self.lblTxioInfo)
+      self.scriptFrm = makeLayoutStrip('Horiz', [self.scriptArea])
+      #self.scriptFrm.setMaximumWidth(150)
+      self.scriptArea.setMaximumWidth(200)
 
       self.frmIOList = QFrame()
       self.frmIOList.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
@@ -3579,22 +3594,19 @@ class DlgDispTxInfo(QDialog):
 
       lblOutputs = QLabel('Transaction Outputs (Receiving addresses):')
       ttipOutputs = createToolTipObject(
-                  'This shows all outputs of the transactions.  If there were '
-                  'more inputs than the size of the transaction, there '
-                  'will be an extra change-back-to-sender output, much like '
-                  'change returned when buying a candy bar with a $20 bill.  '
-                  'If any change outputs were identified they have been '
-                  'displayed with a light gray text color.')
+                  'Shows <b>all</b> outputs, including the change-back-to-sender output '
+                  'if there is one for this transaction.')
          
 
 
       inStrip  = makeLayoutStrip('Horiz', [lblInputs,  ttipInputs,  'Stretch'])
       outStrip = makeLayoutStrip('Horiz', [lblOutputs, ttipOutputs, 'Stretch'])
       
-      frmIOListLayout.addWidget(inStrip,        0,0, 1,1)
-      frmIOListLayout.addWidget(self.txInView,  1,0, 1,1)
-      frmIOListLayout.addWidget(outStrip,       2,0, 1,1)
-      frmIOListLayout.addWidget(self.txOutView, 3,0, 1,1)
+      frmIOListLayout.addWidget(inStrip,          0,0, 1,1)
+      frmIOListLayout.addWidget(self.txInView,    1,0, 1,1)
+      frmIOListLayout.addWidget(outStrip,         2,0, 1,1)
+      frmIOListLayout.addWidget(self.txOutView,   3,0, 1,1)
+      #frmIOListLayout.addWidget(self.lblTxioInfo, 0,1, 4,1)
       self.frmIOList.setLayout(frmIOListLayout)
 
          
@@ -3613,9 +3625,10 @@ class DlgDispTxInfo(QDialog):
 
       
       frm.setLayout(frmLayout)
-      layout.addWidget(frm, 2, 0,  1,1) 
-      layout.addWidget(self.frmIOList, 3,0, 1,1)
-      layout.addWidget(btnStrip, 4,0, 1,1)
+      layout.addWidget(frm,               2,0, 1,1) 
+      layout.addWidget(self.scriptArea,   2,1, 1,1)
+      layout.addWidget(self.frmIOList,    3,0, 1,2)
+      layout.addWidget(btnStrip,          4,0, 1,2)
 
       #bbox = QDialogButtonBox(QDialogButtonBox.Ok)
       #self.connect(bbox, SIGNAL('accepted()'), self.accept)
@@ -3630,11 +3643,51 @@ class DlgDispTxInfo(QDialog):
    def extraInfoClicked(self):
       if self.btnIOList.isChecked():
          self.frmIOList.setVisible(True)
+         self.scriptArea.setVisible(True)
          self.btnIOList.setText('<<< Less Info')
       else:
          self.frmIOList.setVisible(False)
+         self.scriptArea.setVisible(False)
          self.btnIOList.setText('Advanced >>>') 
 
+   def dispTxioInfo(self, InOrOut):
+      hexScript = None
+      headStr = None
+      if InOrOut=='In':
+         selection = self.txInView.selectedIndexes()
+         if len(selection)==0:
+            return
+         row = selection[0].row()
+         hexScript = str(self.txInView.model().index(row, TXINCOLS.Script).data().toString())
+         headStr = 'TxIn Script:'
+      elif InOrOut=='Out':
+         selection = self.txOutView.selectedIndexes()
+         if len(selection)==0:
+            return
+         row = selection[0].row()
+         hexScript = str(self.txOutView.model().index(row, TXOUTCOLS.Script).data().toString())
+         headStr = 'TxOut Script:'
+
+
+      if hexScript:
+         oplist = convertScriptToOpStrings(hex_to_binary(hexScript))
+         opprint = []
+         for op in oplist:
+            if len(op)==40 and not '[' in op:
+               opprint.append(op + ' <font color="gray">(%s)</font>' % hash160_to_addrStr(hex_to_binary(op)))
+            elif len(op)==130 and not '[' in op:
+               opprint.append(op + ' <font color="gray">(%s)</font>' % hash160_to_addrStr(hash160(hex_to_binary(op))))
+            else:
+               opprint.append(op)
+         lblScript = QRichLabel('')
+         lblScript.setText('<b>Script:</b><br><br>' + '<br>'.join(opprint))
+         lblScript.setWordWrap(False)
+         lblScript.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                        Qt.TextSelectableByKeyboard)
+
+         self.scriptArea.setWidget( makeLayoutStrip('Vert', [lblScript]))
+         self.scriptArea.setMaximumWidth(200)
+         
 
       
 class DlgTxInfoAdv(QDialog):

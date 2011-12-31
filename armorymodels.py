@@ -402,7 +402,7 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(blk)
             self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
-            self.dispTable[-1].append(txin.binScript)
+            self.dispTable[-1].append(binary_to_hex(txin.binScript))
          else:
             # We don't have any info from the BDM, display whatever we can
             # (which usually isn't much)
@@ -419,7 +419,7 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append('')
             self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
-            self.dispTable[-1].append(txin.binScript)
+            self.dispTable[-1].append(binary_to_hex(txin.binScript))
 
 
 
@@ -427,7 +427,7 @@ class TxInDispModel(QAbstractTableModel):
       return len(self.dispTable)
 
    def columnCount(self, index=QModelIndex()):
-      return 8
+      return 9
 
    #TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', 'ScrType', 'Sequence', 'Script')
    def data(self, index, role=Qt.DisplayRole):
@@ -461,7 +461,7 @@ class TxInDispModel(QAbstractTableModel):
       COLS = TXINCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COLS.WltID:    return QVariant('WltID')
+            if section==COLS.WltID:    return QVariant('Wallet ID')
             if section==COLS.Sender:   return QVariant('Sender')
             if section==COLS.Btc:      return QVariant('Amount')
             if section==COLS.OutPt:    return QVariant('Prev. Tx Hash')
@@ -505,7 +505,7 @@ class TxOutDispModel(QAbstractTableModel):
       return len(self.txOutList)
 
    def columnCount(self, index=QModelIndex()):
-      return 4
+      return 5
 
    #TXOUTCOLS = enum('WltID', 'Recip', 'Btc', 'ScrType')
    def data(self, index, role=Qt.DisplayRole):
@@ -513,11 +513,15 @@ class TxOutDispModel(QAbstractTableModel):
       row,col = index.row(), index.column()
       txout = self.txOutList[row]
       stype = getTxOutScriptType(txout.binScript)
+      stypeStr = TXOUT_TYPE_NAMES[stype]
       wltID = self.wltIDList[row]
+      if stype==TXOUT_SCRIPT_MULTISIG:
+         mstype = getTxOutMultiSigInfo(txout.binScript)[0]
+         stypeStr = 'Multi-Signature (%d-of-%d)' % mstype
       if role==Qt.DisplayRole:
          if col==COLS.WltID:   return QVariant(wltID)
-         if col==COLS.ScrType: return QVariant(TXOUT_TYPE_NAMES[stype])
-         if col==COLS.Script:  return QVariant(txout.binScript)
+         if col==COLS.ScrType: return QVariant(stypeStr)
+         if col==COLS.Script:  return QVariant(binary_to_hex(txout.binScript))
          if stype==TXOUT_SCRIPT_STANDARD:
             if col==COLS.Recip:   return QVariant(TxOutScriptExtractAddrStr(txout.binScript))
             if col==COLS.Btc:     return QVariant(coin2str(txout.getValue(),maxZeros=2))

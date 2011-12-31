@@ -38,7 +38,7 @@ from PyQt4.QtGui import *
 # 8000 lines of python to help us out...
 from armoryengine import *
 from armorymodels import *
-from stddialogs   import *
+from qtdialogs    import *
 from qtdefines    import *
 
 # All the twisted/networking functionality
@@ -342,6 +342,9 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('User_Mode', 'Advanced')
       if mode==USERMODE.Developer:
          self.settings.set('User_Mode', 'Developer')
+      QMessageBox.information(self,'Restart Required', \
+         'You must restart Armory in order for the user-mode switching '
+         'to take effect.', QMessageBox.Ok)
       
 
 
@@ -456,16 +459,16 @@ class ArmoryMainWindow(QMainWindow):
       # in the wallet file itself:
       #   Wallet_287cFxkr3_IsMine     |  True
       #   Wallet_287cFxkr3_BelongsTo  |  Joe the plumber
-      self.wltExtraProps = {}
-      for name,val in self.settings.getAllSettings().iteritems():
-         parts = name.split('_')
-         if len(parts)==3 and parts[0]=='Wallet' and self.walletMap.has_key(parts[1]):
-            # The last part is the prop name and the value is the property 
-            wltID=parts[1]
-            propName=parts[2]
-            if not self.wltExtraProps.has_key(wltID):
-               self.wltExtraProps[wltID] = {}
-            self.wltExtraProps[wltID][propName] = self.settings.get(name)
+      #self.wltExtraProps = {}
+      #for name,val in self.settings.getAllSettings().iteritems():
+         #parts = name.split('_')
+         #if len(parts)>=3 and parts[0]=='Wallet' and self.walletMap.has_key(parts[1]):
+            ## The last part is the prop name and the value is the property 
+            #wltID=parts[1]
+            #propName=parts[2:]
+            #if not self.wltExtraProps.has_key(wltID):
+               #self.wltExtraProps[wltID] = {}
+            #self.wltExtraProps[wltID][propName] = self.settings.get(name)
 
          
             
@@ -517,28 +520,27 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.set('LastDirectory', fdir)
       return fullPath
    
-   #############################################################################
-   def getWltExtraProp(self, wltID, propName):
+   ##############################################################################
+   def getWltSetting(self, wltID, propName):
+      wltPropName = 'Wallet_%s_%s' % (wltID, propName)
       try:
-         return self.wltExtraProps[wltID][propName]
+         return self.settings.get(wltPropName)
       except KeyError:
          return ''
 
    #############################################################################
-   def setWltExtraProp(self, wltID, propName, value):
-      key = 'Wallet_%s_%s' % (wltID, propName)
-      if not self.wltExtraProps.has_key(wltID):
-         self.wltExtraProps[wltID] = {}
-      self.wltExtraProps[wltID][propName] = value
-      self.settings.set(key, value)
+   def setWltSetting(self, wltID, propName, value):
+      wltPropName = 'Wallet_%s_%s' % (wltID, propName)
+      self.settings.set(wltPropName, value)
+
 
    #############################################################################
    def toggleIsMine(self, wltID):
-      alreadyMine = self.getWltExtraProp(wltID, 'IsMine')
+      alreadyMine = self.getWltSetting(wltID, 'IsMine')
       if alreadyMine:
-         self.setWltExtraProp(wltID, 'IsMine', False)
+         self.setWltSetting(wltID, 'IsMine', False)
       else:
-         self.setWltExtraProp(wltID, 'IsMine', True)
+         self.setWltSetting(wltID, 'IsMine', True)
    
    
 
