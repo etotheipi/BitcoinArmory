@@ -3220,9 +3220,11 @@ class DlgDispTxInfo(QDialog):
       super(DlgDispTxInfo, self).__init__(parent)
       self.parent = parent
       self.main   = main  
+      self.mode   = mode
+      self.pytx   = pytx.copy()
 
-      if mode==None:
-         mode = self.main.usermode
+      if self.mode==None:
+         self.mode = self.main.usermode
 
       FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
       data = extractTxInfo(pytx, self.main.NetworkingFactory.zeroConfTxTime)
@@ -3303,7 +3305,7 @@ class DlgDispTxInfo(QDialog):
            'If you would like more information, please copy the '
            'information on the next window into an email and send '
            'it to alan.reiner@gmail.com.', QMessageBox.Ok)
-         mode=USERMODE.Developer
+         self.mode=USERMODE.Developer
 
 
 
@@ -3323,7 +3325,7 @@ class DlgDispTxInfo(QDialog):
       # I hate BE, but block-explorer requires it so it's probably a better default
       endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
       estr = ''
-      if mode in (USERMODE.Advanced, USERMODE.Developer):
+      if self.mode in (USERMODE.Advanced, USERMODE.Developer):
          estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
    
       lbls.append([])
@@ -3335,7 +3337,7 @@ class DlgDispTxInfo(QDialog):
          lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash], endOut=LITTLEENDIAN) ))
 
 
-      if mode in (USERMODE.Developer,):
+      if self.mode in (USERMODE.Developer,):
          # Add protocol version and locktime to the display
          lbls.append([])
          lbls[-1].append(createToolTipObject('Bitcoin Protocol Version Number'))
@@ -3353,6 +3355,16 @@ class DlgDispTxInfo(QDialog):
          else:
             lbls[-1].append(QLabel(unixTimeToFormatStr(pytx.lockTime)))
 
+
+      
+      lbls.append([])
+      lbls[-1].append(createToolTipObject('Comment stored for this transaction in this wallet'))
+      lbls[-1].append(QLabel('User Comment:'))
+      if wlt.getComment(txHash):
+         lbls[-1].append(QLabel(wlt.getComment(txHash)))
+      else:
+         lbls[-1].append(QRichLabel('<font color="gray">[None]</font>'))
+      
 
       if not data[FIELDS.Time]==None:
          lbls.append([])
@@ -3378,7 +3390,7 @@ class DlgDispTxInfo(QDialog):
             lbls[-1].append(QRichLabel( '<i>Not in the blockchain yet</i>' ))
          else:
             idxStr = ''
-            if not data[FIELDS.Idx]==None and mode==USERMODE.Developer:
+            if not data[FIELDS.Idx]==None and self.mode==USERMODE.Developer:
                idxStr = '  (Tx #%d)'%data[FIELDS.Idx]
             lbls.append([])
             lbls[-1].append(createToolTipObject( 
@@ -3520,16 +3532,18 @@ class DlgDispTxInfo(QDialog):
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 
       if haveBDM:
-         if mode==USERMODE.Standard:
+         if self.mode==USERMODE.Standard:
             initialColResize(self.txInView, [wWlt, wAddr*1.5, wAmt, 0, 0, 0, 0, 0, 0])
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.ScrType) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
-         elif mode==USERMODE.Advanced:
-            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
+            self.txInView.setSelectionMode(QTableView.NoSelection)
+         elif self.mode==USERMODE.Advanced:
+            initialColResize(self.txInView, [0.8*wWlt, 0.8*wAddr, 0.6*wAmt, 0, 0, 0, 0.2, 0, 0])
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
-         elif mode==USERMODE.Developer:
+            self.txInView.setSelectionMode(QTableView.NoSelection)
+         elif self.mode==USERMODE.Developer:
             self.txInView.resizeColumnsToContents()
             
 
@@ -3545,13 +3559,15 @@ class DlgDispTxInfo(QDialog):
       self.txOutView.setMaximumHeight(5*(1.3*h))
       initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
       self.txOutView.hideColumn(TXOUTCOLS.Script) 
-      if mode==USERMODE.Standard:
+      if self.mode==USERMODE.Standard:
          self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
          initialColResize(self.txOutView, [wWlt, wAddr, 0.25, 0, 0])
          self.txOutView.horizontalHeader().setStretchLastSection(True)
-      elif mode==USERMODE.Advanced:
-         initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
-      elif mode==USERMODE.Developer:
+         self.txOutView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Advanced:
+         initialColResize(self.txOutView, [0.8*wWlt, 0.8*wAddr, 0.6*wAmt, 0.25, 0])
+         self.txOutView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Developer:
          initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
       #self.txOutView.resizeColumnsToContents()
 
@@ -3611,13 +3627,16 @@ class DlgDispTxInfo(QDialog):
 
          
       self.btnIOList = QPushButton('')
+      self.btnCopy   = QPushButton('Copy Raw Tx')
+      self.lblCopied = QRichLabel('')
       self.btnOk     = QPushButton('Ok')
       self.btnIOList.setCheckable(True)
       self.connect(self.btnIOList, SIGNAL('clicked()'), self.extraInfoClicked)
       self.connect(self.btnOk,     SIGNAL('clicked()'), self.accept)
-      btnStrip = makeLayoutStrip('Horiz', [self.btnIOList, 'Stretch', self.btnOk])
+      self.connect(self.btnCopy,   SIGNAL('clicked()'), self.copyRawTx)
+      btnStrip = makeLayoutStrip('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
 
-      if mode==USERMODE.Standard:
+      if self.mode==USERMODE.Standard:
          self.btnIOList.setChecked(False)
       else:
          self.btnIOList.setChecked(True)
@@ -3643,11 +3662,15 @@ class DlgDispTxInfo(QDialog):
    def extraInfoClicked(self):
       if self.btnIOList.isChecked():
          self.frmIOList.setVisible(True)
-         self.scriptArea.setVisible(True)
+         self.btnCopy.setVisible(True)
+         self.lblCopied.setVisible(True)
+         self.scriptArea.setVisible(self.mode==USERMODE.Developer)
          self.btnIOList.setText('<<< Less Info')
       else:
          self.frmIOList.setVisible(False)
          self.scriptArea.setVisible(False)
+         self.btnCopy.setVisible(False)
+         self.lblCopied.setVisible(False)
          self.btnIOList.setText('Advanced >>>') 
 
    def dispTxioInfo(self, InOrOut):
@@ -3688,6 +3711,12 @@ class DlgDispTxInfo(QDialog):
          self.scriptArea.setWidget( makeLayoutStrip('Vert', [lblScript]))
          self.scriptArea.setMaximumWidth(200)
          
+   def copyRawTx(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(binary_to_hex(self.pytx.serialize()))
+      self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+      
 
       
 class DlgTxInfoAdv(QDialog):
