@@ -420,7 +420,7 @@ class DlgPasswd3(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgPasswd3, self).__init__(parent)
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -562,7 +562,7 @@ class DlgWalletDetails(QDialog):
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import External Address')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
-      lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
+      #lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
 
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
@@ -608,7 +608,7 @@ class DlgWalletDetails(QDialog):
 
       if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
       if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
-      if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
+      #if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
 
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
@@ -1058,6 +1058,8 @@ class DlgWalletDetails(QDialog):
             else:
                self.labelValues[WLTFIELDS.BelongsTo].setText('Someone else')
             self.labelValues[WLTFIELDS.Secure].setText('<i>Watching-only</i>')
+            self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            self.labelValues[WLTFIELDS.Secure].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          
 
 
@@ -1533,6 +1535,8 @@ class DlgImportAddress(QDialog):
                   if reply==QMessageBox.No:
                      binKeyData='' 
 
+      
+
       if binKeyData=='':
          reply = QMessageBox.critical(self, 'Invalid Key Format', \
                'The data you supplied is not a recognized format '
@@ -1542,20 +1546,57 @@ class DlgImportAddress(QDialog):
 
       # Finally, let's add the address to the wallet, or sweep the funds
       if self.radioSweep.isChecked():
+         if self.wlt.hasAddr(addr160):
+            result = QMessageBox.warning(self, 'Duplicate Address', \
+            'The address you are trying to sweep is already part of this '
+            'wallet.  You can still sweep it to a new address, but it will '
+            'have no effect on your overall balance (in fact, it might be '
+            'negative if you have to pay a fee for the transfer)\n\n'
+            'Do you still want to sweep this key?', \
+            QMessageBox.Yes | QMessageBox.Cancel)
+            if not result==QMessageBox.Yes:
+               return
+   
          if not TheBDM.isInitialized():
             reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
-               'You need access to the internet and the blockchain in order '
-               'to find the balance of this address and sweep its funds. ', \
-               QMessageBox.Ok)
+            'You need access to the internet and the blockchain in order '
+            'to find the balance of this address and sweep its funds. ', \
+            QMessageBox.Ok)
             return
 
-         newAddr = PyBtcAddress().createFromPlainKeyData(binKeyData)
-         newCppWlt = Cpp.BtcWallet()
-         newCppWlt.addAddress_1_()
+         # Create the address object for the addr to be swept
+         oldAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
+         targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+         finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
+         if outVal==0:
+            if fee>0:
+               QMessageBox.critical(self, 'Cannot sweep',\
+               'You cannot sweep the funds in this address, because the '
+               'transaction fee would be equal to or exceed the amount '
+               'swept.', QMessageBox.Ok)
+               return
+            else:
+               QMessageBox.critical(self, 'Nothing to do', \
+               'The private key you have provided does not appear to contain '
+               'any funds.  There is nothing to sweep.', \
+               QMessageBox.Ok)
+               return
+
+
          #reply = QMessageBox.warning(self, 'Verify Sweep', \
-           #'You are about to move all funds '
+           #'You are about to sweep all funds from address \n\n%s\n\n to your '
+           #'current wallet \n\n"%s" [%s]\n\n  The total amount to be '
+           #'transferred is \n\n%s %s\n\nDo you want to continue?' % \
+               #(oldAddr.getAddrStr(), self.wlt.labelName, self.wlt.uniqueIDB58, outStr, feeStr), \
            #QMessageBox.Yes | QMessageBox.Cancel)
-         pass # TODO: add the tx-construct-broadcast method here
+         #if reply==QMessageBox.Yes:
+      
+         # Finally, if we got here, we're ready to broadcast!
+         dispIn  = 'address <b>%s</b>' % oldAddr.getAddrStr()
+         dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+         if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
+            self.main.broadcastTransaction(finishedTx, dryRun=False)
+            
       elif self.radioImport.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(wlt, self.main)
@@ -1565,16 +1606,69 @@ class DlgImportAddress(QDialog):
                   'unlocked.  Please try again when you have the passphrase.',\
                   QMessageBox.Ok)
 
+         if self.wlt.hasAddr(addr160):
+            QMessageBox.critical(self, 'Duplicate Address', \
+            'The address you are trying to import is already part of your '
+            'wallet.  Address cannot be imported', QMessageBox.Ok)
+            return
+
          self.wlt.importExternalAddressData( privKey=binKeyData)
          self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
       
-      self.main.wltAddrModel.reset()
+      try:
+         self.parent.wltAddrModel.reset()
+      except:
+         pass
+
       if TheBDM.isInitialized():
          self.wlt.syncWithBlockchain()
 
       self.main.walletListChanged()
       self.accept()
+
+
+
+
+class DlgVerifySweep(QDialog):
+   def __init__(self, inputStr, outputStr, outVal, fee, parent=None, main=None):
+      super(DlgVerifySweep, self).__init__(parent)
+
+      lblQuestion = QRichLabel( \
+            'You are about to <i>sweep</i> all funds from the specified address '
+            'to your wallet.  Please confirm the action:')
+      
+
+      outStr = coin2str(outVal,maxZeros=2)
+      feeStr = ('') if (fee==0) else ('(Fee: %s)' % coin2str(fee,maxZeros=0))
+
+      frm = QFrame()
+      frm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmLayout = QGridLayout()
+      #frmLayout.addWidget(QRichLabel('Funds will be <i>swept</i>...'), 0,0, 1,2)
+      frmLayout.addWidget(QRichLabel('      From ' + inputStr, doWrap=False), 1,0, 1,2)
+      frmLayout.addWidget(QRichLabel('      To ' + outputStr, doWrap=False),  2,0, 1,2)
+      frmLayout.addWidget(QRichLabel('      Total %s BTC %s'%(outStr,feeStr), doWrap=False),  3,0, 1,2)
+      frm.setLayout(frmLayout)
+
+      lblFinalConfirm = QLabel('Are you sure you want to execute this transaction?')
+
+      bbox = QDialogButtonBox(QDialogButtonBox.Ok | \
+                              QDialogButtonBox.Cancel)
+      self.connect(bbox, SIGNAL('accepted()'), self.accept)
+      self.connect(bbox, SIGNAL('rejected()'), self.reject)
+
+      lblWarnImg = QLabel()
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+
+      layout = QHBoxLayout()
+      layout.addWidget(lblWarnImg)
+      layout.addWidget(makeLayoutStrip('Vert',[lblQuestion, frm, lblFinalConfirm, bbox]))
+      self.setLayout(layout)
+
+      self.setWindowTitle('Confirm Sweep')
+
 
 
 #############################################################################
@@ -2049,10 +2143,10 @@ class DlgRemoveWallet(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -2317,10 +2411,10 @@ class DlgRemoveAddress(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -2599,7 +2693,7 @@ class DlgConfirmSend(QDialog):
 
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info32.png'))
+      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       totalSend = sum([rv[1] for rv in recipValPairs]) + fee
@@ -2820,13 +2914,7 @@ class DlgSendBitcoins(QDialog):
             print '\n\n'
             print binary_to_hex(finalTx.serialize())
             print txdp.serializeAscii()
-            print 'Sending Tx,', binary_to_hex(finalTx.getHash())
-            self.main.NetworkingFactory.sendTx(finalTx)
-            # TODO:  MAKE SURE THE TX WAS ACCEPTED?
-            self.main.NetworkingFactory.addTxToMemoryPool(finalTx)
-            self.wlt.lockTxOutsOnNewTx(finalTx.copy())
-            self.main.NetworkingFactory.saveMemoryPool()
-            print 'Done!'
+            self.main.broadcastTransaction(finalTx)
             self.accept()
          except:
             print 'Issue sending!'
@@ -3610,8 +3698,8 @@ class DlgDispTxInfo(QDialog):
 
       lblOutputs = QLabel('Transaction Outputs (Receiving addresses):')
       ttipOutputs = createToolTipObject(
-                  'Shows <b>all</b> outputs, including the change-back-to-sender output '
-                  'if there is one for this transaction.')
+                  'Shows <b>all</b> outputs, including other recipients '
+                  'of the same transaction, and change-back-to-sender outputs.')
          
 
 

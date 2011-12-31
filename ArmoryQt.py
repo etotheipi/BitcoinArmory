@@ -82,7 +82,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView  = QTableView()
 
       # We should really start using font-metrics more, for sizing
-      w,h = tightSizeNChar(self.walletsView, 80)
+      w,h = tightSizeNChar(self.walletsView, 70)
       viewWidth  = 1.2*w
       sectionSz  = 1.5*h
       viewHeight = 4.4*sectionSz
@@ -95,10 +95,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.5, 0.2, 0.2])
+         initialColResize(self.walletsView, [0, 0.4, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.45, 0.18, 0.18])
+         initialColResize(self.walletsView, [0.15, 0.35, 0.18, 0.18])
 
    
 
@@ -162,7 +162,7 @@ class ArmoryMainWindow(QMainWindow):
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       wltLayout = QGridLayout()
-      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>:"), 0,0)
+      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>"), 0,0)
       wltLayout.addWidget(btnAddWallet, 0,1)
       wltLayout.addWidget(btnImportWlt, 0,2)
       wltLayout.addWidget(self.walletsView, 1,0, 1,3)
@@ -214,7 +214,9 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnSendBtc)
       layout.addWidget(btnRecvBtc)
       layout.addWidget(btnWltProps)
-      layout.addWidget(btnUnsigned)
+      
+      if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         layout.addWidget(btnUnsigned)
       if self.usermode==USERMODE.Developer:
          layout.addWidget(btnDevTools)
          layout.addWidget(btnMemPool)
@@ -292,6 +294,10 @@ class ArmoryMainWindow(QMainWindow):
       #reactor.callLater(2.0,  self.loadBlockchain)
       reactor.callLater(5, self.Heartbeat)
 
+
+   #############################################################################
+   def sizeHint(self):
+      return QSize(1000, 650)
 
    #############################################################################
    def openDevTools(self):
@@ -780,8 +786,6 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setModel(self.ledgerModel)
          #self.ledgerModel.reset()
 
-         
-
       except AttributeError:
          pass
       
@@ -1088,13 +1092,67 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+
+   def createSweepAddrTx(self, addrToSweepList, sweepTo160, forceZeroFee=False):
+      """
+      This method takes a list of addresses (likely just created from private
+      key data), finds all their unspent TxOuts, and creates a signed tx that
+      transfers 100% of the funds to the sweepTO160 address.  It doesn't 
+      actually execute the transaction, but it will return a broadcast-ready
+      PyTx object that the user can confirm.  TxFee is automatically calc'd
+      and deducted from the output value, if necessary
+      """
+      if not isinstance(addrToSweepList, (list, tuple)):
+         addrToSweepList = [addrToSweepList]
+      addr160List = [a.getAddr160() for a in addrToSweepList]
+      getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
+
+      utxoList = getUnspentTxOutsForAddrList(addr160List)
+      outValue = sumTxOutList(utxoList)
+
+      pprintUnspentTxOutList(utxoList)
+      print 'OutValue:', outValue
+      
+
+      inputSide = []
+      for utxo in utxoList:
+         # The PyCreateAndSignTx method require PyTx and PyBtcAddress objects
+         CppPrevTx = TheBDM.getTxByHash(utxo.getTxHash()) 
+         PyPrevTx = PyTx().unserialize(CppPrevTx.serialize())
+         addr160 = utxo.getRecipientAddr()
+         inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
+
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0)
+
+      if minFee[1] > 0 and \
+         not forceZeroFee and \
+         not self.settings.getSettingOrSetDefault('OverrideMinFee', False):
+         print 'Subtracting fee from Sweep-output'
+         outValue -= minFee[1]
+      outputSide = []
+      outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
+
+      pytx = PyCreateAndSignTx(inputSide, outputSide)
+      pytx.pprint()
+      return (pytx, outValue, minFee[1])
+
+
+
    #############################################################################
-   def getUnspentTxOutsForAddr160(self, addr160):
-      cppWlt = Cpp.BtcWallet()
-      cppWlt.addAddress_1_(addr160)
-      cppWlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-      cppWlt.syncWithBlockchain()
-      return TheBDM.getUnspentTxOutsForWallet(cppWlt)
+   def broadcastTransaction(self, pytx, dryRun=False):
+      if dryRun:
+         pytx.pprint()
+         #DlgDispTxInfo(pytx, None, self, self).exec_()
+      else:
+         # TODO:  MAKE SURE THE TX WAS ACCEPTED?
+         print 'Sending Tx,', binary_to_hex(pytx.getHash())
+         self.NetworkingFactory.sendTx(pytx)
+         self.NetworkingFactory.addTxToMemoryPool(pytx)
+         for wltID,wlt in self.walletMap.iteritems():
+            self.wlt.lockTxOutsOnNewTx(pytx.copy())
+         self.NetworkingFactory.saveMemoryPool()
+         print 'Done!'
+      
    
             
             
@@ -1231,14 +1289,25 @@ class ArmoryMainWindow(QMainWindow):
       run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
-      print '.',
+      #print '.',
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()
          if newBlks>0:
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+            didAffectUs = False
+            for wltID in self.walletMap.keys():
+               prevLedgerSize = len(self.walletMap[wltID].getTxLedger())
+               self.walletMap[wltID].syncWithBlockchain()
+               newLedgerSize = len(self.walletMap[wltID].getTxLedger())
+               didAffectUs = (prevLedgerSize != newLedgerSize)
+         
             print 'New Block! :', self.latestBlockNum
+            if didAffectUs:
+               print 'New Block contained a transaction relevant to us!'
+               self.walletListChanged()
+            self.createCombinedLedger()
       
 
       #for wltID, wlt in self.walletMap.iteritems():
@@ -1259,6 +1328,7 @@ class ArmoryMainWindow(QMainWindow):
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
+      self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
       reactor.stop()

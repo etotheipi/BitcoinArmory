@@ -3762,6 +3762,34 @@ class PyScriptProcessor(object):
 
 
 
+################################################################################
+def getUnspentTxOutsForAddrList(addr160List):
+   """
+   You have a list of addresses (or just one) and you want to get all the 
+   unspent TxOuts for it.  This can either be for computing its balance, or
+   for sweeping the address(es).
+
+   This will return a list of pairs of [addr160, utxoObj]
+
+   This isn't the most efficient method for producing the pairs
+
+
+   NOTE:  At the moment, this only gets STANDARD TxOuts... non-std uses 
+          a different BDM call
+   """
+   if not isinstance(addr160List, (list,tuple)):
+      addr160List = [addr160List]
+
+   cppWlt = Cpp.BtcWallet()
+   for addr in addr160List:
+      if isinstance(addr, PyBtcAddress):
+         cppWlt.addAddress_1_(addr.getAddr160())
+      else:
+         cppWlt.addAddress_1_(addr)
+
+   TheBDM.scanBlockchainForTx(cppWlt)
+   return TheBDM.getUnspentTxOutsForWallet(cppWlt)
+
 
 ################################################################################
 # NOTE:  This method was actually used to create the Blockchain-reorg unit-
@@ -3947,10 +3975,11 @@ def PyCreateAndSignTx(srcTxOuts, dstAddrsVals):
 # the C++ class here... it's really just a container, anyway
 class PyUnspentTxOut(object):
    def __init__(self, addr='', val=-1, numConf=-1):
-      self.addr = addr
-      self.val  = long(val*ONE_BTC)
-      self.conf = numConf
-      self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
+      pass
+      #self.addr = addr
+      #self.val  = long(val*ONE_BTC)
+      #self.conf = numConf
+      #self.binScript = '\x76\xa9\x14' + self.addr + '\x88\xac'
    def createFromCppUtxo(self, cppUtxo):
       self.addr = cppUtxo.getRecipientAddr()
       self.val  = cppUtxo.getValue()
@@ -3959,6 +3988,10 @@ class PyUnspentTxOut(object):
       self.txHash     = cppUtxo.getTxHash()
       self.txOutIndex = cppUtxo.getTxOutIndex()
       return self
+   def getTxHash(self):
+      return self.txHash
+   def getTxOutIndex(self):
+      return self.txOutIndex
    def getValue(self):
       return self.val
    def getNumConfirm(self):
@@ -7328,6 +7361,23 @@ class PyBtcWallet(object):
 
 
 
+def pprintLedgerEntry(le, indent=''):
+   
+   if len(le.getAddrStr20())==20:
+      addrStr = hash160_to_addrStr(le.getAddrStr20())[:12]
+   else:
+      addrStr = ''
+
+   leVal = coin2str(le.getValue(), maxZeros=1)
+   txType = ''
+   if le.isSentToSelf():
+      txType = 'ToSelf'
+   else:
+      txType = 'Recv' if le.getValue()>0 else 'Sent'
+
+   blkStr = str(le.getBlockNum())
+   print indent + 'LE %s %s %s %s' % \
+            (addrStr.ljust(15), leVal, txType.ljust(8), blkStr.ljust(8))
 
 """
 class PyLedgerEntry(object):

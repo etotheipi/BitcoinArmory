@@ -154,6 +154,7 @@ void TestScanForWalletTx(string blkfile)
    myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); wlt.addAddress(myAddress);
    myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); wlt.addAddress(myAddress);
    myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("61d62799e52bc8ee514976a19d67478f25df2bb1"); wlt.addAddress(myAddress);
 #endif
 
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);

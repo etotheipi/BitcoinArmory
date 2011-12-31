@@ -8,7 +8,7 @@ BE = BIGENDIAN
 
 Test_BasicUtils       = True
 Test_PyBlockUtils     = False
-Test_CppBlockUtils    = False
+Test_CppBlockUtils    = True
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -62,40 +62,34 @@ def printpassorfail(abool):
       print '\n' + ' '*w + '___ FAILED ___',
 
 
+#binTx = hex_to_binary('010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000')
+
+#tx = PyTx().unserialize(binTx)
+#tx.pprint()
 
 
-
-
-
-
-binTx = hex_to_binary('010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000')
-
-tx = PyTx().unserialize(binTx)
-tx.pprint()
-
-
-print 'Wallet Info'
-wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2zftxAA7Q_.wallet')
+#print 'Wallet Info'
+#wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2zftxAA7Q_.wallet')
 #wlt.pprint('    ')
 
-le = wlt.cppWallet.getWalletLedgerEntryForTx(binTx)
-le.pprint()
+#le = wlt.cppWallet.getWalletLedgerEntryForTx(binTx)
+#le.pprint()
 
-les = wlt.cppWallet.getAddrLedgerEntriesForTx(binTx)
-for le in les:
-   le.pprint()
+#les = wlt.cppWallet.getAddrLedgerEntriesForTx(binTx)
+#for le in les:
+   #le.pprint()
 
-print 'Inputs:'
-for i in tx.inputs:
-   a,b = TxInScriptExtractKeyAddr(i)
-   print '   ',a, binary_to_hex(addrStr_to_hash160(a))
+#print 'Inputs:'
+#for i in tx.inputs:
+   #a,b = TxInScriptExtractKeyAddr(i)
+   #print '   ',a, binary_to_hex(addrStr_to_hash160(a))
 
-print 'Outputs:'
-for o in tx.outputs:
-   astr = TxOutScriptExtractAddrStr(o.binScript)
-   print '   ',astr, binary_to_hex(addrStr_to_hash160(astr))
+#print 'Outputs:'
+#for o in tx.outputs:
+   #astr = TxOutScriptExtractAddrStr(o.binScript)
+   #print '   ',astr, binary_to_hex(addrStr_to_hash160(astr))
 
-exit(0)
+#exit(0)
 
 
 
@@ -291,6 +285,71 @@ if Test_PyBlockUtils:
    print ''
    print ''
    
+
+################################################################################
+################################################################################
+if Test_CppBlockUtils:
+
+   print '\n\nLoading Blockchain from:', BLK0001_PATH
+   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print 'Done!'
+
+
+   print '\n\nCurrent Top Block is:', TheBDM.getTopBlockHeader().getBlockHeight()
+   TheBDM.getTopBlockHeader().pprint()
+
+
+   #print '\n\nChecking integrity of blockchain:'
+   #result = TheBDM.verifyBlkFileIntegrity()
+   #print 'Done!',
+   #if result==True:
+      #print 'No errors detected in the blk0001.dat file'
+   #else:
+      #print 'Integrity check failed!  Something is wrong with your blk0001.dat file.'
+
+   cppWlt = Cpp.BtcWallet()
+
+   if not USE_TESTNET:
+      cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
+      cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
+      cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
+      cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
+      cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+   else:
+      # Test-network addresses
+      cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
+      cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
+      cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
+      cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
+      cppWlt.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
+      cppWlt.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
+      cppWlt.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
+      cppWlt.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
+
+   # We do the scan three times to make sure that there are no problems
+   # with rescanning the same tx's multiple times (it's bound to happen 
+   # so might as well make sure it's robust)
+   TheBDM.scanBlockchainForTx(cppWlt)
+   TheBDM.scanBlockchainForTx(cppWlt)
+   TheBDM.scanBlockchainForTx(cppWlt)
+
+   nAddr = cppWlt.getNumAddr()
+   print 'Address Balances:'
+   for i in range(nAddr):
+      cppAddr = cppWlt.getAddrByIndex(i)
+      bal = cppAddr.getBalance()
+      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+
+   leVect = cppWlt.getTxLedger()
+   print '\n\nLedger for all Addr:'
+   for le in leVect:
+      pprintLedgerEntry(le, ' '*3)
+   
+
+
+   #TestNonStd
+   # Not sure what happened to this test...
+   #bdm.findAllNonStdTx();
 
 
 ################################################################################
