@@ -42,6 +42,8 @@ void printTestHeader(string TestName)
 
 int main(void)
 {
+   BlockDataManager_FullRAM::GetInstance().SelectNetwork("Test");
+   
 
    //string blkfile("/home/alan/.bitcoin/blk0001.dat");
    string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");

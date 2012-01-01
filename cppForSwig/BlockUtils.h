@@ -531,6 +531,12 @@ private:
    bool isInitialized_;
 
 
+   // These will be set for the specific network we are testing
+   BinaryData GenesisHash_;
+   BinaryData GenesisTxHash_;
+   BinaryData MagicBytes_;
+
+
 private:
    // Set the constructor to private so that only one can ever be created
    BlockDataManager_FullRAM(void);
@@ -539,6 +545,10 @@ public:
 
    static BlockDataManager_FullRAM & GetInstance(void);
    bool isInitialized(void) { return isInitialized_;}
+   void SetBtcNetworkParams( BinaryData const & GenHash,
+                             BinaryData const & GenTxHash,
+                             BinaryData const & MagicBytes);
+   void SelectNetwork(string netName);
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);

@@ -107,14 +107,15 @@ void BlockHeaderRef::unserialize(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockHeaderRef::serializeWholeBlock(bool withLead8Bytes) const
+BinaryData BlockHeaderRef::serializeWholeBlock(BinaryData const & magic, 
+                                               bool withLead8Bytes) const
 {
    BinaryWriter serializedBlock;
    uint32_t blksize = getBlockSize();
    if(withLead8Bytes)
    {
       serializedBlock.reserve(blksize + 8);
-      serializedBlock.put_BinaryData(BtcUtils::MagicBytes_);
+      serializedBlock.put_BinaryData(magic);
       serializedBlock.put_uint32_t(blksize);
    }
    else

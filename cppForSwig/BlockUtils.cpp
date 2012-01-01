@@ -786,7 +786,10 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
       lastBlockWasReorg_(false),
-      isInitialized_(false)
+      isInitialized_(false),
+      GenesisHash_(0),
+      GenesisTxHash_(0),
+      MagicBytes_(0)
 {
    blockchainData_NEW_.clear();
    headerHashMap_.clear();
@@ -800,6 +803,49 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+// We must set the network-specific data for this blockchain
+//
+// bdm.SetBtcNetworkParams( 
+//       BinaryData::CreateFromHex(MAINNET_GENESIS_HASH_HEX),
+//       BinaryData::CreateFromHex(MAINNET_GENESIS_TX_HASH_HEX),
+//       BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES));
+//
+// The above call will work 
+void BlockDataManager_FullRAM::SetBtcNetworkParams(
+                                    BinaryData const & GenHash,
+                                    BinaryData const & GenTxHash,
+                                    BinaryData const & MagicBytes)
+{
+   GenesisHash_.copyFrom(GenHash);
+   GenesisTxHash_.copyFrom(GenTxHash);
+   MagicBytes_.copyFrom(MagicBytes);
+}
+
+
+void BlockDataManager_FullRAM::SelectNetwork(string netName)
+{
+   if(netName.compare("Main") == 0)
+   {
+      SetBtcNetworkParams( 
+         BinaryData::CreateFromHex(MAINNET_GENESIS_HASH_HEX),
+         BinaryData::CreateFromHex(MAINNET_GENESIS_TX_HASH_HEX),
+         BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES));
+   }
+   else if(netName.compare("Test") == 0)
+   {
+      SetBtcNetworkParams( 
+         BinaryData::CreateFromHex(TESTNET_GENESIS_HASH_HEX),
+         BinaryData::CreateFromHex(TESTNET_GENESIS_TX_HASH_HEX),
+         BinaryData::CreateFromHex(TESTNET_MAGIC_BYTES));
+   }
+   else
+   {
+      cout << "ERROR: Unrecognized network name" << endl;
+      cerr << "ERROR: Unrecognized network name" << endl;
+   }
+      
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // The only way to "create" a BDM is with this method, which creates it
@@ -896,7 +942,7 @@ BlockHeaderRef & BlockDataManager_FullRAM::getTopBlockHeader(void)
 BlockHeaderRef & BlockDataManager_FullRAM::getGenesisBlock(void) 
 {
    if(genBlockPtr_ == NULL)
-      genBlockPtr_ = &(headerHashMap_[BtcUtils::GenesisHash_]);
+      genBlockPtr_ = &(headerHashMap_[GenesisHash_]);
    return *genBlockPtr_;
 }
 
@@ -1216,6 +1262,15 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
    if(filename.compare(blkfilePath_) == 0)
    {
       cout << "Call to load a blockchain file that is already loaded!" << endl;
+      return 0;
+   }
+
+   if(GenesisHash_.getSize() == 0)
+   {
+      cout << "***ERROR:  Must set network params before loading blockchain!"
+           << endl;
+      cerr << "***ERROR:  Must set network params before loading blockchain!"
+           << endl;
       return 0;
    }
 
@@ -1760,7 +1815,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
    genBlock.isFinishedCalc_ = true;
    genBlock.isInitialized_  = true; 
    genBlock.txPtrList_      = vector<TxRef*>(1);
-   genBlock.txPtrList_[0]   = getTxByHash(BtcUtils::GenesisTxHash_);
+   genBlock.txPtrList_[0]   = getTxByHash(GenesisTxHash_);
    genBlock.txPtrList_[0]->setMainBranch(true);
    genBlock.txPtrList_[0]->setHeaderPtr(&genBlock);
 
