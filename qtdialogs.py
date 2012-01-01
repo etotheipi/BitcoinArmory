@@ -934,6 +934,7 @@ class DlgWalletDetails(QDialog):
       if self.wlt.watchingOnly:
          if self.main.getWltSetting(self.wltID, 'IsMine'):
             self.labelValues[WLTFIELDS.BelongsTo] = QLabelButton('You own this wallet')
+            self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          else:
             owner = self.main.getWltSetting(self.wltID, 'BelongsTo')
             if owner=='':
@@ -1047,6 +1048,7 @@ class DlgWalletDetails(QDialog):
             self.main.setWltSetting(self.wltID, 'IsMine', True)
             self.main.setWltSetting(self.wltID, 'BelongsTo', '')
             self.labelValues[WLTFIELDS.BelongsTo].setText('You own this wallet')
+            self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.labelValues[WLTFIELDS.Secure].setText('<i>Offline</i>')
          else:
             owner = str(dlg.edtOwnerString.text())  
@@ -1568,19 +1570,19 @@ class DlgImportAddress(QDialog):
          oldAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
          finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
+         if outVal<=fee:
+            QMessageBox.critical(self, 'Cannot sweep',\
+            'You cannot sweep the funds from this address, because the '
+            'transaction fee would be equal to or greater than the amount '
+            'swept.', QMessageBox.Ok)
+            return
+
          if outVal==0:
-            if fee>0:
-               QMessageBox.critical(self, 'Cannot sweep',\
-               'You cannot sweep the funds in this address, because the '
-               'transaction fee would be equal to or exceed the amount '
-               'swept.', QMessageBox.Ok)
-               return
-            else:
-               QMessageBox.critical(self, 'Nothing to do', \
-               'The private key you have provided does not appear to contain '
-               'any funds.  There is nothing to sweep.', \
-               QMessageBox.Ok)
-               return
+            QMessageBox.critical(self, 'Nothing to do', \
+            'The private key you have provided does not appear to contain '
+            'any funds.  There is nothing to sweep.', \
+            QMessageBox.Ok)
+            return
 
 
          #reply = QMessageBox.warning(self, 'Verify Sweep', \
@@ -1755,19 +1757,119 @@ class DlgImportWallet(QDialog):
 
 #############################################################################
 class DlgAddressInfo(QDialog):
-   def __init__(self, wlt, addr160, parent=None, main=None):
+   def __init__(self, wlt, addr160, parent=None, main=None, mode=None):
       super(DlgAddressInfo, self).__init__(parent)
 
       self.parent = parent
       self.main   = main
       self.wlt    = wlt
+      self.addr   = self.wlt.getAddrByHash160(addr160)
+
+      self.addrLedger = wlt.getTxLedger(addr160)
+      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
+      self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+
+
+      self.mode = mode
+      if mode==None:
+         if main==None:
+            self.mode = USERMODE.Standard
+         else:
+            self.mode = self.main.usermode
+      
+
+      dlgLayout = QGridLayout()
+      cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+      addrStr = self.addr.getAddrStr()
+
+
+
+      lblDescr = QLabel('Information for address:  ' + addrStr)
+      
+      frmInfo = QFrame()
+      frmInfo.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmInfoLayout = QGridLayout()
+
+      lbls = []
+
+      # Hash160
+      if mode in (USERMODE.Advanced, USERMODE.Developer):
+         bin25   = binary_to_hex(base58_to_binary(addrStr))
+         lbls.append([])
+         lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
+         lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
+         h160Str = binary_to_hex(bin25[1:-4])
+         if mode==USERMODE.Developer:
+            network = binary_to_hex(bin25[:1    ])
+            hash160 = binary_to_hex(bin25[ 1:-4 ])
+            addrChk = binary_to_hex(bin25[   -4:])
+            h160Str += '%s (Network: %s / Checksum: %s)' % (hash160, network, addrChk)
+         lbls[-1].append( QLabel(h160Str))
+
+
+
+      lbls.append([])
+      lbls[-1].append( QLabel(''))
+      lbls[-1].append( QRichLabel('<b>Address:</b>'))
+      lbls[-1].append( QLabel( addrStr))
+
+
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( 
+         'Address type is either <i>Imported</i> or <i>Deterministic</i>.  '
+         'Determinstic '  
+         'addresses are part of base wallet, and are protected by all types '
+         'of wallet backups, regardless of when the backup was performed.  '
+         'Imported addresses are only protected by digital backups, and only '
+         'if the backup was performed after it was imported.'))
+           
+      lbls[-1].append( QRichLabel('<b>Address Type:</b>'))
+      if self.addr.chainIndex==-2:
+         lbls[-1].append( QLabel('Imported') )
+      else:
+         lbls[-1].append( QLabel('Deterministic') )
+
+
+      # Current Balance of address
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( 
+            'The current balance based on transactions already in the blockchain.  '
+            'This only includes transactions with 1 or more confirmations.'))
+      lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
+      balStr = coin2str(cppAddr.getBalance(), maxZeros=1)
+      if cppAddr.getBalance()>0:
+         lbls[-1].append( QRichLabel( '<font color="green">' + balStr.strip() + '</font> BTC' ))
+      else:   
+         lbls[-1].append( QRichLabel( balStr.strip() + ' BTC'))
+
+
+      # Number of transactions
+      txHashes = set() 
+      for le in self.addrLedger:
+         txHashes.add(le.getTxHash())
+         
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( 
+            'The total number of transactions in which this address was involved'))
+      lbls[-1].append( QRichLabel('<b>Transaction Count:</b>') )
+      lbls[-1].append( QLabel(str(len(txHashes))))
+      
+            
+
+
+
+      for i in range(len(lbls)):
+         for j in range(1,3):
+            lbls[i][j].setTextInteractionFlags( Qt.TextSelectableByMouse | \
+                                                Qt.TextSelectableByKeyboard)
+         for j in range(3):
+            frmInfoLayout.addWidget(lbls[i][j], i,j, 1,1)
+
+      frmInfo.setLayout(frmInfoLayout)
+      dlgLayout.addWidget(frmInfo, 0,0, 1,1)
 
 
       ### Set up the address ledger
-      self.addrLedger = wlt.getTxLedger(addr160)
-      self.fullLedger = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
-      self.ledgerTable = self.main.convertLedgerToTable(self.fullLedger)
-
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
       self.ledgerView = QTableView()
       self.ledgerView.setModel(self.ledgerModel)
@@ -1787,100 +1889,268 @@ class DlgAddressInfo(QDialog):
       self.ledgerView.setMinimumWidth(650)
       dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       initialColResize(self.ledgerView, [20, dateWidth, 72, 0, 0.45, 0.3])
-      
 
-      pyAddr  = self.wlt.getAddrByHash160(addr160)
-      cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+      ttipLedger = createToolTipObject( \
+            'Unlike the wallet-level ledger, this table shows every '
+            'transaction <i>input</i> and <i>output</i> as a separate entry.  '
+            'As such, there may be multiple entries for a single transaction, '
+            'which sometimes happens when and address is used to send money, '
+            'and receive the change, as part of the same transaciton.' )
+      lblLedger = QLabel('All Address Activity:')
 
-      addrStr = addr.getAddrStr()
-
-
-
-      lblDescr = QLabel('Information for address:  ' + addrStr)
-      
-      frmInfo = QFrame()
-      frmInfo.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
-      frmInfoLayout = QGridLayout()
-
-      lbls = []
-
-      # Current Balance of address
-      lbls.append([])
-      lbls[-1].append( createToolTipObject( 
-            'The current balance based on transactions already in the blockchain.  '
-            'This does not include transactions with zero confirmations'))
-      lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
-      lbls[-1].append( QMoneyLabel(cppAddr.getBalance(), wBold=True))
+      lblstrip = makeLayoutStrip('Horiz', [lblLedger, ttipLedger, 'Stretch'])
+      frmLedger = makeLayoutStrip('Vert', [lblstrip, self.ledgerView])
+      dlgLayout.addWidget(frmLedger, 1,0,  1,1)
 
 
-      # Number of transactions
-            
+      # Now add the right-hand-side option buttons
+      lbtnCopyAddr = QLabelButton('Copy Address to Clipboard')
+      lbtnMkPaper  = QLabelButton('Make Paper Backup')
+      lbtnViewKeys = QLabelButton('View Address Keys')
+      lbtnSweepA   = QLabelButton('Sweep Address')
+      lbtnDelete   = QLabelButton('Delete Address')
+      lbtnUnspent  = QLabelButton('View unspent TxOuts')
 
-      lbls.append([])
-      lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
-      lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
-      lbls[-1].append( QLabel(binary_to_hex(addr160)))
-
-
-      for i in range(len(lbls)):
-         for j in range(1,3):
-            lbls[i][j].setTextInteractionFlags( Qt.TextSelectableByMouse | \
-                                                Qt.TextSelectableByKeyboard)
-
-      layout = QGridLayout()
-      layout.addWidget(self.ledgerView, 0,0)
-      self.setLayout(layout)
-      self.setWindowTitle('Address Information')
-
-
-      # Right-hand-side options
-      lbtnGenAddr = QLabelButton('Make Paper Backup')
-      lbtnGenAddr = QLabelButton('Make Paper Backup')
-      lbtnSendBtc = QLabelButton('Sweep Address')
-      lbtnRemove  = QLabelButton('Delete/Remove Wallet')
-      lbtnUnspent  = QLabelButton('View unspent Outputs')
-
-      self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
-      self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
-      self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
-      self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
-      self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
-      self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
-      self.connect(lbtnExport,  SIGNAL('clicked()'), self.saveWalletCopy)
-      self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
+      self.connect(lbtnCopyAddr, SIGNAL('clicked()'), self.copyAddr)
+      self.connect(lbtnMkPaper,  SIGNAL('clicked()'), self.makePaper)
+      self.connect(lbtnViewKeys, SIGNAL('clicked()'), self.viewKeys)
+      self.connect(lbtnSweepA,   SIGNAL('clicked()'), self.sweepAddr)
+      self.connect(lbtnDelete,   SIGNAL('clicked()'), self.deleteAddr)
+      self.connect(lbtnUnspent,  SIGNAL('clicked()'), self.viewUnspent)
 
       optFrame = QFrame()
       optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       optLayout = QVBoxLayout()
 
-      hasPriv = not self.wlt.watchingOnly
+      hasPriv = self.addr.hasPrivKey()
       adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
 
-      def createVBoxSeparator():
-         frm = QFrame()
-         frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
-         return frm
+      #def createVBoxSeparator():
+         #frm = QFrame()
+         #frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
+         #return frm
+      #if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
 
-      if hasPriv:           optLayout.addWidget(lbtnSendBtc)
-      if True:              optLayout.addWidget(lbtnGenAddr)
-      if hasPriv:           optLayout.addWidget(lbtnChangeCrypto)
-      if True:              optLayout.addWidget(lbtnChangeLabels)
+      self.lblCopied = QRichLabel('')
+      self.lblCopied.setMinimumHeight(tightSizeNChar(self.lblCopied, 1)[1])
+      if True:           optLayout.addWidget(self.lblCopied)
+      if True:           optLayout.addWidget(lbtnCopyAddr)
+      if adv:            optLayout.addWidget(lbtnViewKeys)
 
-      if True:              optLayout.addWidget(createVBoxSeparator())
+      if True:           optLayout.addWidget(lbtnSweepA)
+      if adv:            optLayout.addWidget(lbtnDelete)
+      if adv:            optLayout.addWidget(lbtnUnspent)
 
-      if hasPriv:           optLayout.addWidget(lbtnMkPaper)
-      if True:              optLayout.addWidget(lbtnExport)
-      if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
-      if True:              optLayout.addWidget(lbtnRemove)
-
-      if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
-
-      if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
-      if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
-      #if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
+      if False:          optLayout.addWidget(lbtnMkPaper)  
 
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
+      
+      rightFrm = makeLayoutStrip('Vert', [QLabel('Available Actions:'), optFrame])
+      dlgLayout.addWidget(rightFrm,  0,1, 2,1)
+
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Address Information')
+
+
+   def copyAddr(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.addr.getAddrStr())
+      self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      self.lblCopied.setText('<i>Copied!</i>')
+
+   def makePaper(self):
+      pass
+
+   def viewKeys(self):
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'Wallet is Locked', \
+               'Key information will not include the private key data.', \
+               QMessageBox.Ok)
+
+      addr = self.addr.copy()
+      dlg = DlgShowKeys(addr, self, self.main)
+      dlg.exec_()
+   
+
+   def sweepAddr(self):
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'Wallet is Locked', \
+               'Cannot sweep an address while its keys are locked.', \
+               QMessageBox.Ok)
+            return
+
+      
+      addrToSweep = self.addr.copy()
+      targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+      finishedTx, outVal, fee = self.main.createSweepAddrTx(addrToSweep, targAddr160)
+
+      if outVal<=fee:
+         QMessageBox.critical(self, 'Cannot sweep',\
+         'You cannot sweep the funds from this address, because the '
+         'transaction fee would be equal to or greater than the amount '
+         'swept.', QMessageBox.Ok)
+         return
+
+      if outVal==0:
+         QMessageBox.critical(self, 'Nothing to do', \
+         'This address does not contain any funds.  There is nothing to sweep.', \
+         QMessageBox.Ok)
+         return
+
+      QMessageBox.information(self, 'Sweep Address Funds', \
+      '<i>Sweeping</i> an address will transfer all funds from the selected '
+      'address to another address in your wallet.  This action is not normally '
+      'necessary because it is rare for one address in a wallet to be compromised '
+      'but not the others.  \n\n'
+      'If you believe that your entire wallet has been compromised, '
+      'you should instead send all the funds from this wallet to another address '
+      'or wallet.', QMessageBox.Ok)
+      
+      # Finally, if we got here, we're ready to broadcast!
+      dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
+      dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+      if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
+         self.main.broadcastTransaction(finishedTx, dryRun=False)
+
+   def deleteAddr(self):
+      pass
+   def viewUnspent(self):
+      pass
+
+
+#############################################################################
+class DlgShowKeys(QDialog):
+
+   def __init__(self, addr, parent=None, main=None):
+      super(DlgShowKeys, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.addr   = addr
+
+      
+      lblWarn = QRichLabel('')
+      plainPriv = False
+      if addr.binPrivKey32_Plain.getSize()>0:
+         plainPriv = True
+         lblWarn = QRichLabel( \
+            '<font color="red"><b>Warning:</b> the unencrypted private keys '
+            'for this address are shown below.  They are "private" because '
+            'anyone who obtains access can spend the money held '
+            'by this address.  Please protect this information the '
+            'same as you protect your wallet</font>')
+      warnFrm = makeLayoutStrip('Horiz', [lblWarn])
+
+      endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
+      estr = 'BE' if endianness==BIGENDIAN else 'LE'
+      def formatBinData(binStr, endian=LITTLEENDIAN):
+         binHex = binary_to_hex(binStr)
+         if endian!=LITTLEENDIAN:
+            binHex = hex_switchEndian(binHex)   
+         binHexPieces = [binHex[i:i+8] for i in range(0, len(binHex), 8)]
+         return ' '.join(binHexPieces)
+
+
+      lblDescr = QRichLabel('Key Data for: <b>%s</b>' % self.addr.getAddrStr())
+
+      lbls = []
+      #lbls.append([])
+      #lbls[-1].append(QLabel(''))
+      #lbls[-1].append(QRichLabel('<b>Address:</b>'))
+      #lbls[-1].append(QLabel(addr.getAddrStr()))
+
+
+      lbls.append([])
+      binKey = self.addr.binPrivKey32_Plain.toBinStr()
+      lbls[-1].append(createToolTipObject( \
+            'The raw form of the private key for this address.  It is '
+            '32-bytes of randomly generated data'))
+      lbls[-1].append(QRichLabel('Private Key (hex,%s):' % estr))
+      if plainPriv:
+         lbls[-1].append( QLabel( formatBinData(binKey) ) )
+      else:
+         lbls[-1].append(QRichLabel('<i>[[ ENCRYPTED ]]</i>'))
+
+      if plainPriv:
+         lbls.append([])
+         lbls[-1].append(createToolTipObject( \
+               'This is a more compact form of the private key, and includes '
+               'a checksum for error detection.'))
+         lbls[-1].append(QRichLabel('Private Key (Base58):'))
+         b58Key = '\x80' + binKey
+         b58Key = binary_to_base58(b58Key + computeChecksum(b58Key))
+         lbls[-1].append( QLabel(' '.join([b58Key[i:i+6] for i in range(0, len(b58Key), 6)])))
+         
+      
+
+      lbls.append([])
+      lbls[-1].append(createToolTipObject( \
+               'The raw public key data.  This is the X-coordinate of '
+               'the Elliptic-curve public key point.'))
+      lbls[-1].append(QRichLabel('Public Key X (%s):' % estr))
+      lbls[-1].append(QRichLabel(formatBinData(self.addr.binPublicKey65.toBinStr()[1:1+32])))
+      
+
+      lbls.append([])
+      lbls[-1].append(createToolTipObject( \
+               'The raw public key data.  This is the Y-coordinate of '
+               'the Elliptic-curve public key point.'))
+      lbls[-1].append(QRichLabel('Public Key Y (%s):' % estr))
+      lbls[-1].append(QRichLabel(formatBinData(self.addr.binPublicKey65.toBinStr()[1+32:1+32+32])))
+
+
+      bin25   = self.addr.getAddr160()
+      network = binary_to_hex(bin25[:1    ])
+      hash160 = binary_to_hex(bin25[ 1:-4 ])
+      addrChk = binary_to_hex(bin25[   -4:])
+      h160Str = '%s (Network: %s / Checksum: %s)' % (hash160, network, addrChk)
+
+      lbls.append([])
+      lbls[-1].append(createToolTipObject( \
+               'This is the hexadecimal version if the address string'))
+      lbls[-1].append(QRichLabel('Public Key Hash:'))
+      lbls[-1].append(QLabel(h160Str))
+
+      frmKeyData = QFrame()
+      frmKeyData.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmKeyDataLayout = QGridLayout()
+
+
+      # Now set the label properties and jam them into an information frame
+      FontVar = QFont('Times',   10)
+      FontFix = QFont('Courier', 10)
+      for row,lbl3 in enumerate(lbls):
+         lbl3[1].setFont(FontVar)
+         lbl3[2].setFont(FontFix)
+         lbl3[2].setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                         Qt.TextSelectableByKeyboard)
+
+         for j in range(3):
+            frmKeyDataLayout.addWidget(lbl3[j], row, j)
+
+      
+      frmKeyData.setLayout(frmKeyDataLayout)
+
+      bbox = QDialogButtonBox(QDialogButtonBox.Ok)
+      self.connect(bbox, SIGNAL('accepted()'), self.accept)
+
+      
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblWarn)
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(frmKeyData)
+      dlgLayout.addWidget(bbox)
+   
+      
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Address Key Information')
+
 
 
 #############################################################################

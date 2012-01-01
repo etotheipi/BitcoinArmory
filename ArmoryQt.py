@@ -1107,7 +1107,7 @@ class ArmoryMainWindow(QMainWindow):
       transfers 100% of the funds to the sweepTO160 address.  It doesn't 
       actually execute the transaction, but it will return a broadcast-ready
       PyTx object that the user can confirm.  TxFee is automatically calc'd
-      and deducted from the output value, if necessary
+      and deducted from the output value, if necessary.
       """
       if not isinstance(addrToSweepList, (list, tuple)):
          addrToSweepList = [addrToSweepList]
@@ -1129,19 +1129,19 @@ class ArmoryMainWindow(QMainWindow):
          addr160 = utxo.getRecipientAddr()
          inputSide.append([getAddr(addr160), PyPrevTx, utxo.getTxOutIndex()])
 
-      minFee = calcMinSuggestedFees(utxoList, outValue, 0)
+      minFee = calcMinSuggestedFees(utxoList, outValue, 0)[1]
 
-      if minFee[1] > 0 and \
+      if minFee > 0 and \
          not forceZeroFee and \
          not self.settings.getSettingOrSetDefault('OverrideMinFee', False):
          print 'Subtracting fee from Sweep-output'
-         outValue -= minFee[1]
+         outValue -= minFee
       outputSide = []
       outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
       pytx.pprint()
-      return (pytx, outValue, minFee[1])
+      return (pytx, outValue, minFee)
 
 
 
@@ -1156,7 +1156,7 @@ class ArmoryMainWindow(QMainWindow):
          self.NetworkingFactory.sendTx(pytx)
          self.NetworkingFactory.addTxToMemoryPool(pytx)
          for wltID,wlt in self.walletMap.iteritems():
-            self.wlt.lockTxOutsOnNewTx(pytx.copy())
+            wlt.lockTxOutsOnNewTx(pytx.copy())
          self.NetworkingFactory.saveMemoryPool()
          print 'Done!'
       
@@ -1314,6 +1314,7 @@ class ArmoryMainWindow(QMainWindow):
             if didAffectUs:
                print 'New Block contained a transaction relevant to us!'
                self.walletListChanged()
+            self.NetworkingFactory.purgeMemoryPool()
             self.createCombinedLedger()
       
 

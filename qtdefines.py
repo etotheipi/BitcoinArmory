@@ -148,6 +148,7 @@ class QMoneyLabel(QLabel):
          self.setText('<font color="green">%s</font>' % valStr)
       else:
          self.setText('%s' % valStr)
+      self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
 class QLabelButton(QLabel):
 
