@@ -131,6 +131,23 @@ class QRichLabel(QLabel):
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
 
+class QMoneyLabel(QLabel):
+   def __init__(self, nBtc, ndec=8, maxZeros=2, wColor=True, wBold=False):
+      QLabel.__init__(self, coin2str(nBtc))
+
+      theFont = QFont("DejaVu Sans Mono", 10)
+      if wBold:
+         theFont.setWeight(QFont.Bold)
+
+      self.setFont(theFont)
+      self.setWordWrap(False)
+      valStr = coin2str(nBtc, ndec=ndec, maxZeros=maxZeros)
+      if nBtc < 0 and wColor:
+         self.setText('<font color="red">%s</font>' % valStr)
+      elif nBtc > 0 and wColor:
+         self.setText('<font color="green">%s</font>' % valStr)
+      else:
+         self.setText('%s' % valStr)
 
 class QLabelButton(QLabel):
 

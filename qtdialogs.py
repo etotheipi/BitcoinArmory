@@ -536,10 +536,10 @@ class DlgWalletDetails(QDialog):
    
       # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
-      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
+      #self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
                    
-      #self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
-                   #self.main,        SLOT('addrViewDblClicked(QModelIndex)'))
+      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.dblClickAddressView)
       #clip = QApplication.clipboard()
       #def copyAddrToClipboard()
 
@@ -656,9 +656,9 @@ class DlgWalletDetails(QDialog):
       if index.column()==ADDRESSCOLS.Comment:
          self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
       else:
-         dlg = DlgAddressInfo(wlt, addr, self, self.main)
+         addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
+         dlg = DlgAddressInfo(self.wlt, addrStr_to_hash160(addrStr), self, self.main)
          dlg.exec_()
-         #currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
 
 
    #############################################################################
@@ -1753,13 +1753,134 @@ class DlgImportWallet(QDialog):
       self.accept()
       
 
+#############################################################################
 class DlgAddressInfo(QDialog):
    def __init__(self, wlt, addr160, parent=None, main=None):
       super(DlgAddressInfo, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt
+
+
+      ### Set up the address ledger
+      self.addrLedger = wlt.getTxLedger(addr160)
+      self.fullLedger = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
+      self.ledgerTable = self.main.convertLedgerToTable(self.fullLedger)
+
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self.main)
+      self.ledgerView = QTableView()
+      self.ledgerView.setModel(self.ledgerModel)
+      self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
+
+      self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+      self.ledgerView.hideColumn(LEDGERCOLS.WltName)
+      self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+      self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+
+      self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
+      self.ledgerView.setSelectionMode(QTableView.SingleSelection)
+      self.ledgerView.horizontalHeader().setStretchLastSection(True)
+      self.ledgerView.verticalHeader().setDefaultSectionSize(20)
+      self.ledgerView.verticalHeader().hide()
+      self.ledgerView.setMinimumWidth(650)
+      dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
+      initialColResize(self.ledgerView, [20, dateWidth, 72, 0, 0.45, 0.3])
       
+
+      pyAddr  = self.wlt.getAddrByHash160(addr160)
+      cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+
+      addrStr = addr.getAddrStr()
+
+
+
+      lblDescr = QLabel('Information for address:  ' + addrStr)
+      
+      frmInfo = QFrame()
+      frmInfo.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmInfoLayout = QGridLayout()
+
+      lbls = []
+
+      # Current Balance of address
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( 
+            'The current balance based on transactions already in the blockchain.  '
+            'This does not include transactions with zero confirmations'))
+      lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
+      lbls[-1].append( QMoneyLabel(cppAddr.getBalance(), wBold=True))
+
+
+      # Number of transactions
+            
+
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
+      lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
+      lbls[-1].append( QLabel(binary_to_hex(addr160)))
+
+
+      for i in range(len(lbls)):
+         for j in range(1,3):
+            lbls[i][j].setTextInteractionFlags( Qt.TextSelectableByMouse | \
+                                                Qt.TextSelectableByKeyboard)
+
+      layout = QGridLayout()
+      layout.addWidget(self.ledgerView, 0,0)
       self.setLayout(layout)
-      self.setWindowTitle('Address Info - ' + hash160_to_addrStr(addr160))
+      self.setWindowTitle('Address Information')
+
+
+      # Right-hand-side options
+      lbtnGenAddr = QLabelButton('Make Paper Backup')
+      lbtnGenAddr = QLabelButton('Make Paper Backup')
+      lbtnSendBtc = QLabelButton('Sweep Address')
+      lbtnRemove  = QLabelButton('Delete/Remove Wallet')
+      lbtnUnspent  = QLabelButton('View unspent Outputs')
+
+      self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
+      self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
+      self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
+      self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
+      self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
+      self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
+      self.connect(lbtnExport,  SIGNAL('clicked()'), self.saveWalletCopy)
+      self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
+
+      optFrame = QFrame()
+      optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      optLayout = QVBoxLayout()
+
+      hasPriv = not self.wlt.watchingOnly
+      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
+
+      def createVBoxSeparator():
+         frm = QFrame()
+         frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
+         return frm
+
+      if hasPriv:           optLayout.addWidget(lbtnSendBtc)
+      if True:              optLayout.addWidget(lbtnGenAddr)
+      if hasPriv:           optLayout.addWidget(lbtnChangeCrypto)
+      if True:              optLayout.addWidget(lbtnChangeLabels)
+
+      if True:              optLayout.addWidget(createVBoxSeparator())
+
+      if hasPriv:           optLayout.addWidget(lbtnMkPaper)
+      if True:              optLayout.addWidget(lbtnExport)
+      if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
+      if True:              optLayout.addWidget(lbtnRemove)
+
+      if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
+
+      if hasPriv and adv:   optLayout.addWidget(lbtnImportA)
+      if hasPriv and adv:   optLayout.addWidget(lbtnDeleteA)
+      #if hasPriv and adv:   optLayout.addWidget(lbtnSweepA)
+
+      optLayout.addStretch()
+      optFrame.setLayout(optLayout)
 
 
 #############################################################################
@@ -3376,7 +3497,6 @@ class DlgDispTxInfo(QDialog):
                   if le.getValue() < 0:
                      txdir = 'Sent'
                      rvPairDisp = rvPairOther
-                     txAmt += fee
                      indicesMakeGray.extend(indicesSelf)
                break
 
@@ -3520,7 +3640,7 @@ class DlgDispTxInfo(QDialog):
          lbls.append([])
          lbls[-1].append(createToolTipObject(
                'The value shown here is the net effect on your '
-               'wallet.  All other outputs have been ignored.'))
+               'wallet, including transaction fee.'))
          lbls[-1].append(QLabel('Transaction Amount:'))
          lbls[-1].append(QRichLabel( coin2str(txAmt, maxZeros=1).strip()  + '  BTC'))
          if txAmt<0:
@@ -3574,7 +3694,10 @@ class DlgDispTxInfo(QDialog):
             else:
                rlbls[-1].extend([QLabel(), QLabel()])
             rlbls[-1].append(QLabel(hash160_to_addrStr(rv[0])))
-            rlbls[-1].append(QLabel(coin2str(rv[1], maxZeros=1) + '  BTC'))
+            if numRV>1:
+               rlbls[-1].append(QLabel(coin2str(rv[1], maxZeros=1) + '  BTC'))
+            else:
+               rlbls[-1].append(QLabel(''))
             ffixBold = QFont("DejaVu Sans Mono", 10)
             ffixBold.setWeight(QFont.Bold)
             rlbls[-1][-1].setFont(ffixBold)

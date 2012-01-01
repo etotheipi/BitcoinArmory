@@ -56,6 +56,7 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None, settingsPath=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
+      
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
@@ -109,7 +110,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Table to display ledger/activity
       self.ledgerTable = []
-      self.ledgerModel = LedgerDispModelSimple(self, self)
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView  = QTableView()
 
       w,h = tightSizeNChar(self.ledgerView, 110)
@@ -244,7 +245,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-      self.ledgerModel = LedgerDispModelSimple(self, self)
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView.setModel(self.ledgerModel)
       from twisted.internet import reactor
 
@@ -386,12 +387,17 @@ class ArmoryMainWindow(QMainWindow):
 
       # Determine if we need to do new-user operations, increment load-count
       self.firstLoad = False
-      if self.settings.get('First_Load'): 
+      if self.settings.getSettingOrSetDefault('First_Load', True):
          self.firstLoad = True
          self.settings.set('First_Load', False)
+         self.settings.set('First_Load_Date', long(RightNow()))
          self.settings.set('Load_Count', 1)
+         self.settings.set('AdvFeature_UseCt', 0)
       else:
          self.settings.set('Load_Count', (self.settings.get('Load_Count')+1) % 100)
+         firstDate = self.settings.getSettingOrSetDefault('First_Load_Date', RightNow())
+         daysSinceFirst = (RightNow() - firstDate) / (60*60*24)
+         
 
       # Set the usermode, default to standard
       self.usermode = USERMODE.Standard
@@ -413,6 +419,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletLedgers = []
       self.combinedLedger = []
       self.ledgerSize = 0
+      self.ledgerTable = []
 
       self.latestBlockNum = 0
 
@@ -782,7 +789,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel = LedgerDispModelSimple(self, self)
+         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
          self.ledgerView.setModel(self.ledgerModel)
          #self.ledgerModel.reset()
 
@@ -871,9 +878,9 @@ class ArmoryMainWindow(QMainWindow):
          if nConf>0: 
             txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
          else:       
-            le.pprint()
+            pass
+            txtime = 2**32-1
             #txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
-            txtime = 1e9
          row.append(unixTimeToFormatStr(txtime))
 
          # TxDir (actually just the amt... use the sign of the amt for what you want)
@@ -898,7 +905,7 @@ class ArmoryMainWindow(QMainWindow):
          row.append( wltID )
 
          # TxHash
-         row.append( le.getTxHash() )
+         row.append( binary_to_hex(le.getTxHash() ))
 
          # Sent-to-self
          row.append( le.isSentToSelf() )

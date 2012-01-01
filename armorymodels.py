@@ -115,14 +115,15 @@ class AllWalletsDispModel(QAbstractTableModel):
 
 ################################################################################
 class LedgerDispModelSimple(QAbstractTableModel):
-   """ Displays an Nx7 table of pre-formatted/processed ledger entries """
-   def __init__(self, parent=None, main=None):
+   """ Displays an Nx10 table of pre-formatted/processed ledger entries """
+   def __init__(self, ledgerTable, parent=None, main=None):
       super(LedgerDispModelSimple, self).__init__()
       self.parent = parent
       self.main   = main
+      self.ledger = ledgerTable
 
    def rowCount(self, index=QModelIndex()):
-      return len(self.main.ledgerTable)
+      return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
       return 10
@@ -130,12 +131,10 @@ class LedgerDispModelSimple(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
       row,col = index.row(), index.column()
-      rowData = self.main.ledgerTable[row]
+      rowData = self.ledger[row]
       nConf = rowData[0]
 
       if role==Qt.DisplayRole:
-         if col==COL.TxHash:
-            return QVariant(binary_to_hex(rowData[col]))
          ###
          return QVariant(rowData[col])
          ###
