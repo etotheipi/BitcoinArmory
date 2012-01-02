@@ -17,7 +17,7 @@
   <PropertyGroup Label="Globals">
     <ProjectGuid>{610511B9-F1E5-468B-904C-B0F6F077F903}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>PyBtcEngine</RootNamespace>
+    <RootNamespace>BitcoinArmory</RootNamespace>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

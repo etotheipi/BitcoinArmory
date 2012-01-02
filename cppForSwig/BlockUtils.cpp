@@ -324,22 +324,23 @@ void BtcWallet::scanTx(TxRef & tx,
 
       uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
-      switch(scriptLenFirstByte)
+      if(scriptLenFirstByte == 25)
       {
-      case 25:
          // Std TxOut with 25-byte script
          addr20.copyFrom(ptr+4, 20);
          if( hasAddr(addr20) )
             anyTxOutIsOurs = true;
-         break;
-      case 67:
+      }
+      else if(scriptLenFirstByte==67)
+      {
          // Std spend-coinbase TxOut script
          static BinaryData addr20(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
          if( hasAddr(addr20) )
             anyTxOutIsOurs = true;
-         break;
-      default:
+      }
+      else
+      {
          TxOutRef txout = tx.getTxOutRef(iout);
          for(uint32_t i=0; i<addrPtrVect_.size(); i++)
          {
@@ -547,6 +548,44 @@ vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
 }
 
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Need to copy the TxIOMap (objects) to the new wallet, then update the child
+// addresses with pointers to the new TxIO objects, not the old ones.  This 
+// allows us to scan new transactions in a temporary wallet, without affecting
+// the original wallet
+void BtcWallet::makeTempCopyForZcScan(BtcWallet & tempWlt)
+{
+
+   tempWlt.txioMap_          = txioMap_;
+   tempWlt.unspentOutPoints_ = unspentOutPoints_;
+   tempWlt.lockedTxOuts_     = lockedTxOuts_;
+   tempWlt.orphanTxIns_      = orphanTxIns_;
+   tempWlt.txrefSet_         = txrefSet_;
+
+   tempWlt.nonStdTxioMap_    = nonStdTxioMap_;
+   tempWlt.nonStdUnspentOutPoints_ = nonStdUnspentOutPoints_;
+
+   // Need to copy the address objects, but with TxIOPair* to the temp-wlt TxIOs
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+   {
+      BtcAddress & origAddr = *addrPtrVect_[i];
+      tempWlt.addAddress( origAddr.getAddrStr20() );
+
+      vector<TxIOPair*> & origTxioList = origAddr.getTxIOList();
+      for(uint32_t j=0; j<origTxioList.size(); j++)
+      {
+         TxIOPair * txioPtr = origTxioList[j];
+         OutPoint op = txioPtr->getOutPoint();
+         BtcAddress & newAddr = tempWlt.getAddrByHash160(origAddr.getAddrStr20());
+         newAddr.addTxIO(tempWlt.txioMap_[op]);
+      }
+   }
+}
+
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // The above method didn't work... python memory management is weirder than 
 // I thought.  However, I know I can pass BinaryData in, and so I will just 
@@ -555,12 +594,7 @@ LedgerEntry BtcWallet::getWalletLedgerEntryForTx(BinaryData const & zcBin)
 {
    // Prepare fresh, temporary wallet with same addresses
    BtcWallet tempWlt;
-   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-   {
-      BtcAddress newAddr(addrPtrVect_[i]->getAddrStr20());
-      newAddr.copyTxIOListFrom(*addrPtrVect_[i]);
-      tempWlt.addAddress(newAddr);
-   }
+   makeTempCopyForZcScan(tempWlt);
 
    BinaryData txBin(zcBin);
    TxRef txref(txBin);
@@ -580,12 +614,7 @@ vector<LedgerEntry> BtcWallet::getAddrLedgerEntriesForTx(BinaryData const & zcBi
 {
    // Prepare fresh, temporary wallet with same addresses
    BtcWallet tempWlt;
-   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-   {
-      BtcAddress newAddr(addrPtrVect_[i]->getAddrStr20());
-      newAddr.copyTxIOListFrom(*addrPtrVect_[i]);
-      tempWlt.addAddress(newAddr);
-   }
+   makeTempCopyForZcScan(tempWlt);
 
    BinaryData txBin(zcBin);
    TxRef txref(txBin);

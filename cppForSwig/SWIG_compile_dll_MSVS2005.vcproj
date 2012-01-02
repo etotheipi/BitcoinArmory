@@ -253,7 +253,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Combine compiled libraries and PyQt gui into .exe"
-				CommandLine="copy win32\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd; &#x0D;&#x0A;python ../pyqt/setup.py py2exe --includes sip,hashlib -d ../pyqtexplore"
+				CommandLine="copy win32\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd;&#x0D;&#x0A;python ../pyqt/setup.py py2exe --includes sip,hashlib -d ../pyqtexplore&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
@@ -334,7 +334,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Combine compiled libraries and PyQt gui into .exe"
-				CommandLine="copy x64\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd&#x0D;&#x0A;; python ../pyqt/setup.py py2exe --includes sip,hashlib -d ../pyqtexplore"
+				CommandLine="copy x64\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd&#x0D;&#x0A;; python ../setup.py py2exe --includes sip,hashlib -d .."
 			/>
 		</Configuration>
 	</Configurations>

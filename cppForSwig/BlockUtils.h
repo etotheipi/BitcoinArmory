@@ -263,13 +263,6 @@ public:
    void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
    void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
 
-   // This really shouldn't ever be used except for the zero-conf ops  
-   void copyTxIOListFrom(BtcAddress const & addr2)
-   {
-      relevantTxIOPtrs_.clear();
-      for(uint32_t i=0; i<addr2.relevantTxIOPtrs_.size(); i++)
-         relevantTxIOPtrs_.push_back(addr2.relevantTxIOPtrs_[i]);
-   }
 
 private:
    BinaryData address20_;
@@ -380,6 +373,9 @@ public:
    vector<OutPoint> getLockedTxOutList(void);
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
+
+   // This really shouldn't ever be used except for the zero-conf ops  
+   void makeTempCopyForZcScan(BtcWallet & tempWlt);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;

@@ -46,8 +46,8 @@ int main(void)
    
 
    //string blkfile("/home/alan/.bitcoin/blk0001.dat");
-   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
-   //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/blk0001.dat");
+   //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
+   string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
    printTestHeader("Read-and-Organize-Blockchain");
    TestReadAndOrganizeChain(blkfile);
@@ -108,14 +108,14 @@ void TestReadAndOrganizeChain(string blkfile)
    /////////////////////////////////////////////////////////////////////////////
    // TESTNET has some 0.125-difficulty blocks which violates the assumption
    // that it never goes below 1.  So, need to comment this out for testnet
-#ifndef TEST_NETWORK
+   /*  For whatever reason, this doesn't work on testnet...
    cout << "Verify integrity of blockchain file (merkleroots leading zeros on headers)" << endl;
    TIMER_START("Verify blk0001.dat integrity");
    bool isVerified = bdm.verifyBlkFileIntegrity();
    TIMER_STOP("Verify blk0001.dat integrity");
    cout << "Done!   Your blkfile " << (isVerified ? "is good!" : " HAS ERRORS") << endl;
    cout << endl << endl;
-#endif
+   */
 }
 
 
@@ -239,22 +239,30 @@ void TestScanForWalletTx(string blkfile)
 
 
    cout << "Testing scanning of zero-conf tx" << endl;
+   cout << "(This test only works on the testnet, using the snapshot of the blockchain in testnet_zctest)" << endl;
    BtcWallet zcWlt;
-   myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); zcWlt.addAddress(myAddress);
-   //bdm.scanBlockchainForTx(zcWlt);
+   //myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); zcWlt.addAddress(myAddress);
+   //myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); zcWlt.addAddress(myAddress);
+   //myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); zcWlt.addAddress(myAddress);
+   //myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); zcWlt.addAddress(myAddress);
+   //myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); zcWlt.addAddress(myAddress);
    
+   myAddress.createFromHex("dbc51f25da9eaeaf201a2170e708276e70607352"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("ba329bec1e6f2fccf5e337ce93773ec89cf6f9a0"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("62a30712644ae99a8e6d8a5ffa5a0911112b4480"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("374d0c87437216ddf6a5576b6af7073f4853df4f"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("f2e6ca0bceef41b6a7f10b995de36fc8e2770865"); zcWlt.addAddress(myAddress);
+   myAddress.createFromHex("7166ed42fec99ae755524f0397c89b4ec934fd78"); zcWlt.addAddress(myAddress);
+
+   bdm.scanBlockchainForTx(zcWlt);
 
    // Test the zero-conf ledger-entry detection
-   BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
+   BinaryData txSelf1 = BinaryData::CreateFromHex("0100000001665868d616b2f8611e224c6b6dd715d4762058c6d76a340c93eed325d765d068010000008c4930460221009f91bb539c6a8ac7cc86636cd4522f9958e5dfea4de3d296de93bba8223fa7fd022100f9b4929f2e298b16b32dd4104a0f166bc5dc9e6ed6c23f130deda951b6f4fb07014104a964c4aa00bfb79d6ff2ccc0f313b83f888b6d5f436294812629ec55ccc4bad3206399159b9eeccfbe50b6bff541fa109113e5ca6157e21ad377ec602359b7dfffffffff01b01df505000000001976a91462a30712644ae99a8e6d8a5ffa5a0911112b448088ac00000000");
 
-   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
+   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf1);
    le.pprint();
 
-   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
+   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf1);
    for(int i=0; i<levect.size(); i++)
    {
       levect[i].pprint();

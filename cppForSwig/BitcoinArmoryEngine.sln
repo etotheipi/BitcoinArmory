@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 11.00
 # Visual Studio 2010
-Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "PyBtcEngine", "PyBtcEngine.vcxproj", "{610511B9-F1E5-468B-904C-B0F6F077F903}"
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "BitcoinArmoryEngine", "BitcoinArmoryEngine.vcxproj", "{610511B9-F1E5-468B-904C-B0F6F077F903}"
 	ProjectSection(ProjectDependencies) = postProject
 		{B1055DA3-83CE-47BF-98E6-2850E3411D39} = {B1055DA3-83CE-47BF-98E6-2850E3411D39}
 	EndProjectSection
