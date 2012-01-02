@@ -57,6 +57,7 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
       
+      
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
@@ -208,7 +209,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnMemPool,  SIGNAL('clicked()'), self.printZeroConf)
-      self.connect(btnDevTools, SIGNAL('clicked()'), self.openDevTools)
+      self.connect(btnDevTools, SIGNAL('clicked()'), self.openToolsDlg)
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -225,6 +226,13 @@ class ArmoryMainWindow(QMainWindow):
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
 
+      
+      lblInfo = QLabel('Armory Version %s (alpha) / %s User Mode' % \
+               (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
+      lblInfo.setFont(QFont('Times', 10))
+      lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      layout.addWidget(lblInfo)
+               
       
       layout = QGridLayout()
       layout.addWidget(self.lblLogoIcon,  0, 0, 1, 2)
@@ -292,7 +300,9 @@ class ArmoryMainWindow(QMainWindow):
             actSetModeDev.setChecked(True)
 
       
-      #reactor.callLater(2.0,  self.loadBlockchain)
+
+      reactor.callLater(0.1,  self.execIntroDialog)
+
       reactor.callLater(5, self.Heartbeat)
 
 
@@ -301,7 +311,7 @@ class ArmoryMainWindow(QMainWindow):
       return QSize(1000, 650)
 
    #############################################################################
-   def openDevTools(self):
+   def openToolsDlg(self):
       pass
 
    #############################################################################
@@ -311,6 +321,20 @@ class ArmoryMainWindow(QMainWindow):
          print binary_to_hex(k), ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
       self.NetworkingFactory.purgeMemoryPool()
 
+
+   #############################################################################
+   def execIntroDialog(self):
+      if not self.settings.getSettingOrSetDefault('DNAA_IntroDialog', False):
+         dlg = DlgIntroMessage(self, self)
+         result = dlg.exec_()
+
+         if dlg.chkDnaaIntroDlg.isChecked():
+            self.settings.set('DNAA_IntroDialog', True)
+
+         if dlg.requestCreate:
+            self.createNewWallet()
+            
+      
    
    #############################################################################
    def createAction(self,  txt, slot, isCheckable=False, \
@@ -384,6 +408,13 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def loadWalletsAndSettings(self):
       self.settings = SettingsFile(self.settingsPath)
+
+      self.settings.getSettingOrSetDefault('First_Load',         True)
+      self.settings.getSettingOrSetDefault('Load_Count',         0)
+      self.settings.getSettingOrSetDefault('User_Mode',          'Advanced')
+      self.settings.getSettingOrSetDefault('UnlockTimeout',      10)
+      self.settings.getSettingOrSetDefault('DNAA_UnlockTimeout', False)
+
 
       # Determine if we need to do new-user operations, increment load-count
       self.firstLoad = False
@@ -1382,6 +1413,14 @@ if __name__ == '__main__':
    qt4reactor.install()
 
 
+      
+   pixLogo = QPixmap('img/splashlogo.png')
+   #SPLASH = QSplashScreen(pixLogo, Qt.WindowStaysOnTopHint)
+   SPLASH = QSplashScreen(pixLogo)
+   SPLASH.setMask(pixLogo.mask())
+   SPLASH.show()
+   app.processEvents()
+
    if armorymode == ARMORYMODE.WITH_BLOCKCHAIN:
       form = ArmoryMainWindow(settingsPath=options.settingsPath)
       form.show()
@@ -1390,8 +1429,8 @@ if __name__ == '__main__':
       form.show()
 
 
+   SPLASH.finish(form)
 
-   # TODO:  How the hell do I get it to shutdown when the MainWindow is closed?
    from twisted.internet import reactor
    def endProgram():
       app.quit()

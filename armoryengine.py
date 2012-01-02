@@ -8127,8 +8127,8 @@ class ArmoryClient(Protocol):
       # Finally, we have some message to process, let's do it
       for msg in messages:
          cmd = msg.cmd
-         print '\nBuffer: '
-         pprintHex(binary_to_hex(data), indent=' '*6)
+         #print '\nBuffer: '
+         #pprintHex(binary_to_hex(data), indent=' '*6)
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
@@ -8157,7 +8157,7 @@ class ArmoryClient(Protocol):
       # TODO:  when I start expanding this class to be more versatile,
       #        I'll consider chaining/setting callbacks from the calling
       #        application.  For now, it's pretty static.
-      msg.payload.pprint(nIndent=2)
+      #msg.payload.pprint(nIndent=2)
       if msg.cmd=='inv':
          #print 'Received inv message'
          invobj = msg.payload

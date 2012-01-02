@@ -141,13 +141,15 @@ class DlgNewWallet(QDialog):
 
 
       cryptoLayout = QGridLayout()
-      cryptoLayout.addWidget(lblComputeDescr,     0, 0, 1, 3)
-      cryptoLayout.addWidget(lblComputeTime,      1, 0, 1, 1)
-      cryptoLayout.addWidget(lblComputeMem,       2, 0, 1, 1)
-      cryptoLayout.addWidget(self.edtComputeTime, 1, 1, 1, 1)
-      cryptoLayout.addWidget(timeDescrTip,        1, 3, 1, 1)
-      cryptoLayout.addWidget(self.edtComputeMem,  2, 1, 1, 1)
-      cryptoLayout.addWidget(memDescrTip,         2, 3, 1, 1)
+      cryptoLayout.addWidget(lblComputeDescr,     0, 0,  1, 3)
+
+      cryptoLayout.addWidget(timeDescrTip,        1, 0,  1, 1)
+      cryptoLayout.addWidget(lblComputeTime,      1, 1,  1, 1)
+      cryptoLayout.addWidget(self.edtComputeTime, 1, 2,  1, 1)
+
+      cryptoLayout.addWidget(memDescrTip,         2, 0,  1, 1)
+      cryptoLayout.addWidget(lblComputeMem,       2, 1,  1, 1)
+      cryptoLayout.addWidget(self.edtComputeMem,  2, 2,  1, 1)
       #cryptoLayout.addWidget(self.chkForkOnline,  3, 0, 1, 1)
       #cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
 
@@ -1335,7 +1337,7 @@ class DlgImportWarning(QDialog):
       lblWarn.setWordWrap(True)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning64.png'))
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.chkDNAA = QCheckBox('Do not show this message again')
@@ -2152,6 +2154,117 @@ class DlgShowKeys(QDialog):
       self.setWindowTitle('Address Key Information')
 
 
+#############################################################################
+class DlgIntroMessage(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgIntroMessage, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main  
+
+      lblInfoImg = QLabel()
+      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
+      lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+      lblInfoImg.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+      lblInfoImg.setMaximumWidth(50)
+
+      lblWelcome = QRichLabel('<b>Welcome to Armory!</b>')
+      lblWelcome.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      lblWelcome.setFont(QFont('Times', 14))
+      lblSlogan  = QRichLabel('<i>The most advanced Bitcoin Client on Earth!</i>')
+      lblSlogan.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      lblDescr = QRichLabel( \
+         '<b>You are about to use the most feature-packed, easiest-to-use '
+         'Bitcoin client in existence</b>.  But please remember, this software '
+         'is still <i>alpha</i>, which means that it should not be '
+         'trusted to handle any serious amounts of money.  '
+         'Armory developers will not be held '
+         'responsible for loss of funds due to software defects!'  )
+
+      lblShouldKnow = QRichLabel( \
+         '<b>While this software is in <i>alpha</i></b>, it requires your system '
+         'to hold the entire blockchain in RAM.  This will have serious '
+         'impacts on your system\'s performance if you are on the main Bitcoin '
+         'network, unless you have 4GB or RAM or more.  If this is a problem, please '
+         'wait for the <i>beta</i> release, which will have a file-based blockchain '
+         'option and will be network-independent of the Satoshi client.')
+
+      lblMustDo = QRichLabel('<b>In order to use this software:</b>')
+      strReqts = []
+      strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
+                      'the same network (Main-net or Testnet)')
+      strReqts.append('Blockchain held in memory:  requires about 1.5 '
+                      'GB of RAM (plus Satoshi client RAM)')
+      strReqts.append('Uses the blockchain file maintained by Satoshi '
+                      'client (blk0001.dat)')
+      strReqts.append('<i>Advanced</i> user-mode is default, but <i>Standard</i> and <i>Developer</i> are also available')
+      lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
+
+      lblContact = QRichLabel( \
+         '<b>If you are impressed with this software, please consider pressing '
+         'the "Donate" button on your next transaction!</b>')
+
+      spacer = lambda: QSpacerItem(20,20, QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+
+      frmText = makeLayoutStrip('Vert', [lblWelcome,    spacer(), \
+                                         lblDescr,      spacer(), \
+                                         lblShouldKnow, spacer(), \
+                                         lblMustDo,               \
+                                         lblReqts,      spacer(), \
+                                         lblContact     ])
+
+      
+
+      self.chkDnaaIntroDlg = QCheckBox('Do not show this window again')
+
+      self.requestCreate = False
+      buttonBox = QDialogButtonBox()
+      if len(self.main.walletMap)==0:
+         self.btnCreate = QPushButton("Create Your First Wallet!")
+         self.btnCancel = QPushButton("Skip")
+         self.connect(self.btnCreate, SIGNAL('clicked()'), self.createClicked)
+         self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+         buttonBox.addButton(self.btnCreate, QDialogButtonBox.AcceptRole)
+         buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+         self.chkDnaaIntroDlg.setVisible(False)
+      else:
+         self.btnOkay = QPushButton("Okay!")
+         self.connect(self.btnOkay, SIGNAL('clicked()'), self.accept)
+         buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
+
+      
+      frmIcon = makeLayoutStrip('Vert', [lblInfoImg, 'Stretch'])
+      frmIcon.setMaximumWidth(60)
+      frmBtn = makeLayoutStrip('Horiz', [self.chkDnaaIntroDlg, 'Stretch', buttonBox])
+
+      dlgLayout = QGridLayout()
+      dlgLayout.addWidget(frmIcon,    0, 0,   1, 1)
+      dlgLayout.addWidget(frmText,    0, 1,   1, 1)
+      dlgLayout.addWidget(frmBtn,     1, 0,   1, 2)
+      
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Greetings!')
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setMinimumWidth(750)
+   
+
+   def createClicked(self):
+      self.requestCreate = True
+      self.accept()
+
+
+   def sizeHint(self):
+      return QSize(750, 500)
+
+
+
+
+#class DlgPesterDonate(QDialog):
+  
+
+
 
 #############################################################################
 class DlgImportPaperWallet(QDialog):
@@ -2885,6 +2998,15 @@ class DlgWalletSelect(QDialog):
       self.main   = main
       self.lstWallets = QListWidget()
 
+      if self.main and len(self.main.walletMap)==0:
+         QMessageBox.critical(self, 'No Wallets!', \
+            'There are no wallets to select from.  Please create or import '
+            'a wallet first.', QMessageBox.Ok)
+         self.accept()
+         return
+      
+         
+
       if wltIDList==None:
          wltIDList = list(self.main.walletIDList)
       
@@ -3149,7 +3271,7 @@ class DlgSendBitcoins(QDialog):
    FontVar = QFont('Times',   10)
    FontFix = QFont('Courier', 10)
 
-   def __init__(self, wlt, parent=None, main=None):
+   def __init__(self, wlt, parent=None, main=None, donateIsDefault=False):
       super(DlgSendBitcoins, self).__init__(parent)
       self.maxHeight = tightSizeNChar(self.FontVar, 1)[1]+8
 
@@ -3247,6 +3369,35 @@ class DlgSendBitcoins(QDialog):
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight*20)
+
+      loadCount      = self.main.get('Load_Count')
+      alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
+      lastPestering  = self.main.getSettingOrSetDefault('DonateLastPester', 0)
+      donateFreq     = self.main.getSettingOrSetDefault('DonateFreq', 1)
+      dnaaDonate     = self.main.getSettingOrSetDefault('DonateDNAA', False)
+      if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
+         not loadCount==lastPestering and not dnaaDonate:
+         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
+            '<i>Armory</i> is the result of over 1,000 hours of development '
+            'and many months of anti-social behavior.  Yet, this software has been '
+            'given to you for free, to benefit the greater Bitcoin community! '
+            '<br><br>However, continued development may not be possible without '
+            'donations.  If you are satisfied with this software, please consider '
+            'donating what you think this software would be worth as a commercial '
+            'application.'
+            '<br><br>Are you willing to donate to the Armory developers? If you '
+            'select "Yes," a donation field will be added to your '
+            'next transaction (you will have the opportunity to change the amount '
+            'before sending the transaction).', None)
+
+         if result[0]==True:
+            self.addDonation()
+
+         if result[1]==True:
+            self.main.set('DonateDNAA', True)
+      
+            
+         
 
 
    #############################################################################

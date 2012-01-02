@@ -10,6 +10,13 @@ WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')
 MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
  
+def UserModeStr(mode):
+   if mode==USERMODE.Standard:
+      return 'Standard'
+   elif mode==USERMODE.Advanced:
+      return 'Advanced'
+   elif mode==USERMODE.Developer:
+      return 'Developer'
 
 Colors = enum(LightBlue=   QColor(215,215,255), \
               LightGreen=  QColor(225,255,225), \
@@ -196,7 +203,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
    
 
    class dlgWarn(QDialog):
-      def __init__(self, dtype, dtitle, wmsg, dmsg, withCancel=False): 
+      def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
          super(dlgWarn, self).__init__(None)
          
          msgIcon = QLabel()
@@ -231,13 +238,23 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
          lblMsg.setMinimumSize( w, 3.2*h )
 
          buttonbox = QDialogButtonBox()
-         btnOk = QPushButton('Ok')
-         self.connect(btnOk, SIGNAL('clicked()'), self.accept)
-         buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
-         if withCancel:
-            btnOk = QPushButton('Cancel')
-            self.connect(btnOk, SIGNAL('clicked()'), self.reject)
-            buttonbox.addButton(btnOk, QDialogButtonBox.RejectRole)
+
+         if dtype==MSGBOX.Question:
+            btnYes = QPushButton('Yes')
+            btnNo  = QPushButton('No')
+            self.connect(btnYes, SIGNAL('clicked()'), self.accept)
+            self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
+            buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
+            buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
+
+         else:
+            btnOk = QPushButton('Ok')
+            self.connect(btnOk, SIGNAL('clicked()'), self.accept)
+            buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
+            if withCancel:
+               btnOk = QPushButton('Cancel')
+               self.connect(btnOk, SIGNAL('clicked()'), self.reject)
+               buttonbox.addButton(btnOk, QDialogButtonBox.RejectRole)
             
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)

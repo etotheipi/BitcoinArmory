@@ -1,0 +1,810 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!-- Created with Inkscape (http://www.inkscape.org/) -->
+
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   xmlns:xlink="http://www.w3.org/1999/xlink"
+   xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+   xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+   width="744.09448819"
+   height="1052.3622047"
+   id="svg4109"
+   version="1.1"
+   inkscape:version="0.47 r22583"
+   sodipodi:docname="inkscapeIconFactory.svg">
+  <defs
+     id="defs4111">
+    <inkscape:perspective
+       sodipodi:type="inkscape:persp3d"
+       inkscape:vp_x="0 : 526.18109 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_z="744.09448 : 526.18109 : 1"
+       inkscape:persp3d-origin="372.04724 : 350.78739 : 1"
+       id="perspective4117" />
+    <inkscape:perspective
+       id="perspective4102"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4652"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4683"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4729"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4788"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4819"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4850"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4910"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective4947"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5071"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5102"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5102-6"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5102-63"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5102-8"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5102-4"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5193"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5207"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5231"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5253"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5311"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5325"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5339"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5442"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5460"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5482"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5518"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5550"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5633"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+    <inkscape:perspective
+       id="perspective5663"
+       inkscape:persp3d-origin="0.5 : 0.33333333 : 1"
+       inkscape:vp_z="1 : 0.5 : 1"
+       inkscape:vp_y="0 : 1000 : 0"
+       inkscape:vp_x="0 : 0.5 : 1"
+       sodipodi:type="inkscape:persp3d" />
+  </defs>
+  <sodipodi:namedview
+     id="base"
+     pagecolor="#ffffff"
+     bordercolor="#666666"
+     borderopacity="1.0"
+     inkscape:pageopacity="0.0"
+     inkscape:pageshadow="2"
+     inkscape:zoom="2.56"
+     inkscape:cx="226.39642"
+     inkscape:cy="801.40046"
+     inkscape:document-units="px"
+     inkscape:current-layer="layer1"
+     showgrid="false"
+     inkscape:window-width="1920"
+     inkscape:window-height="1125"
+     inkscape:window-x="0"
+     inkscape:window-y="24"
+     inkscape:window-maximized="1" />
+  <metadata
+     id="metadata4114">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title></dc:title>
+      </cc:Work>
+    </rdf:RDF>
+  </metadata>
+  <g
+     inkscape:label="Layer 1"
+     inkscape:groupmode="layer"
+     id="layer1">
+    <g
+       id="g5617"
+       transform="matrix(0.58192912,0,0,0.58192912,17.17001,224.81636)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/lockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path5450"
+         d="m 206.20365,286.57571 c 0.53683,-26.52357 13.86826,-25.38766 13.86826,-25.38766"
+         style="fill:none;stroke:#007800;stroke-width:7.44611788;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path5450-3"
+         d="m 233.31918,286.86647 c -0.3542,-26.53305 -13.69247,-25.68112 -13.69247,-25.68112"
+         style="fill:none;stroke:#007800;stroke-width:7.44611788;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+    </g>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-662.78967,-388.68151)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/img/conf0t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896"><rect
+           id="rect4898"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900">0</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-8"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:1;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(2.7540634,0,0,2.7540634,-292.16717,-224.48309)"><flowRegion
+         id="flowRegion4896-7"><rect
+           id="rect4898-2"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306" /></flowRegion><flowPara
+         id="flowPara4900-1" /></flowRoot>    <g
+       id="g4752-3"
+       transform="translate(-0.60364179,67.53496)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/img/conf0t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-0"
+         d="m 175.03245,130.54147 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-1"
+         d="m 210.21356,168.11146 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-0"
+         d="m 209.96753,130.54147 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="165.51392"
+         x="175.75259"
+         height="2.0386658"
+         width="33.468021"
+         id="rect4642-64"
+         style="fill:#c60000;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4758-3"
+       transform="translate(-0.60364179,66.10638)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf1.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-0"
+         d="m 216.99674,131.97005 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-8"
+         d="m 252.17785,169.54004 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-1"
+         d="m 251.93182,131.97005 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="163.72821"
+         x="217.71687"
+         height="5.2529516"
+         width="33.468021"
+         id="rect4642-6-0"
+         style="fill:#c64d00;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4764-1"
+       transform="translate(-0.60364179,65.57067)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf2.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-1"
+         d="m 259.13959,132.50576 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-8"
+         d="m 294.3207,170.07575 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-9"
+         d="m 294.07467,132.50576 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="156.58534"
+         x="259.85971"
+         height="12.931523"
+         width="33.468021"
+         id="rect4642-6-9-3"
+         style="fill:#c68700;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4933-8"
+       transform="translate(-0.60364179,66.55282)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf3.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-5-51"
+         d="m 300.21103,131.52361 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-3-6"
+         d="m 335.39214,169.09361 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-2-7"
+         d="m 335.14611,131.52361 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="149.53177"
+         x="300.93115"
+         height="19.002953"
+         width="33.468021"
+         id="rect4642-6-9-4-9"
+         style="fill:#b5a700;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4888-7"
+       transform="translate(-0.60364179,66.82067)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf4.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-5-5-6"
+         d="m 343.06817,131.25576 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-3-7-6"
+         d="m 378.24928,168.82576 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-2-6-74"
+         d="m 378.00325,131.25576 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="143.01392"
+         x="343.78827"
+         height="25.252953"
+         width="33.468021"
+         id="rect4642-6-9-4-3-1"
+         style="fill:#79a700;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4882-0"
+       transform="translate(-0.60364179,66.41753)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf5.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-5-5-9-0"
+         d="m 385.58333,131.6589 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-3-7-5-53"
+         d="m 420.76444,169.2289 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-2-6-7-0"
+         d="m 420.51841,131.6589 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="138.11377"
+         x="386.30341"
+         height="30.556253"
+         width="33.468021"
+         id="rect4642-6-9-4-3-4-8"
+         style="fill:#2ca700;fill-opacity:1;stroke:none" />
+    </g>
+    <g
+       id="g4876-4"
+       transform="translate(-0.60364179,66.28245)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-5-5-9-8-9"
+         d="m 428.646,131.79398 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-3-7-5-5-4"
+         d="m 463.82711,169.36398 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-2-6-7-3-9"
+         d="m 463.58108,131.79398 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="131.68285"
+         x="429.36606"
+         height="37.122246"
+         width="33.468021"
+         id="rect4642-6-9-4-3-4-4-1"
+         style="fill:#2ca700;fill-opacity:1;stroke:none" />
+    </g>
+    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-618.58222,-455.46527)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf1t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896-2"><rect
+           id="rect4898-21"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9">1</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5-3"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-575.8423,-455.28811)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf2t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896-2-8"><rect
+           id="rect4898-21-7"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9-7">2</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5-5"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-535.07924,-455.47839)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf3t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896-2-5"><rect
+           id="rect4898-21-74"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9-3">3</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5-9"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-492.17617,-455.46527)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf4t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896-2-2"><rect
+           id="rect4898-21-9"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9-6">4</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5-1"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-449.62164,-455.65554)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf5t.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72"><flowRegion
+         id="flowRegion4896-2-52"><rect
+           id="rect4898-21-99"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9-0">5</flowPara></flowRoot>    <flowRoot
+       xml:space="preserve"
+       id="flowRoot4894-5-7"
+       style="font-size:6px;font-style:normal;font-weight:normal;fill:#000000;fill-opacity:0.43540667;stroke:none;font-family:Bitstream Vera Sans"
+       transform="matrix(4.4791701,0,0,4.4791701,-408.70367,-389.5028)"><flowRegion
+         id="flowRegion4896-2-9"><rect
+           id="rect4898-21-92"
+           width="46.467018"
+           height="47.224632"
+           x="188.89853"
+           y="131.10306"
+           style="fill:#000000;fill-opacity:0.43540667" /></flowRegion><flowPara
+         id="flowPara4900-9-4" /></flowRoot>    <image
+       y="183.2271"
+       x="497.90036"
+       id="image5195"
+       height="32"
+       width="32"
+       xlink:href="file:///home/alan/projects/bitcoin/BitcoinArmory/icons/checkmark32_blue.png" />
+    <image
+       y="164.13678"
+       x="470.57532"
+       id="image5209"
+       height="32"
+       width="30.342718"
+       xlink:href="file:///home/alan/projects/bitcoin/BitcoinArmory/icons/checkmark32_orange.png"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6_chk.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <path
+       style="fill:#0000ff;fill-opacity:0.80888893;stroke:none"
+       d="m 433.74372,150.37616 c 9.26296,8.35343 11.22997,13.95285 11.22997,13.95285 l 16.76476,-31.65303 -17.07736,23.30535 -10.91737,-5.60517 z"
+       id="path5221"
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6_chk_blue.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <path
+       style="fill:#ff9600;fill-opacity:0.80888893;stroke:none"
+       d="m 499.75991,282.21886 c 9.26296,8.35343 11.22997,13.95285 11.22997,13.95285 l 16.76476,-31.65303 -17.07736,23.30535 -10.91737,-5.60517 z"
+       id="path5221-2"
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6_chk_orange.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <g
+       id="g4876-4-8"
+       transform="translate(50.794699,84.938703)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6_chk_orange.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path4035-9-9-5-5-9-8-9-4"
+         d="m 428.646,131.79398 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-8-0-6-3-7-5-5-4-1"
+         d="m 463.82711,169.36398 -35.42713,0"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path4035-7-7-4-2-6-7-3-9-8"
+         d="m 463.58108,131.79398 0,38.28427"
+         style="fill:none;stroke:#000000;stroke-width:1.5;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <rect
+         ry="0"
+         y="131.68285"
+         x="429.36606"
+         height="37.122246"
+         width="33.468021"
+         id="rect4642-6-9-4-3-4-4-1-5"
+         style="fill:#2ca700;fill-opacity:1;stroke:none" />
+    </g>
+    <path
+       style="fill:#ff9600;fill-opacity:0.80888893;stroke:none"
+       d="m 168.36596,276.13228 c 9.26296,8.35343 11.22997,13.95285 11.22997,13.95285 l 16.76476,-31.65303 -17.07736,23.30535 -10.91737,-5.60517 z"
+       id="path5221-2-0"
+       sodipodi:nodetypes="ccccc"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/conf6_chk_orange.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <image
+       y="293.05215"
+       x="310.89807"
+       id="image5313"
+       height="23.451855"
+       width="29.416161"
+       xlink:href="file:///home/alan/projects/bitcoin/BitcoinArmory/icons/arrow_right_green_24x24.png"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/moneyIn.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <image
+       y="293.05215"
+       x="374.60504"
+       id="image5327"
+       height="23.451855"
+       width="29.416161"
+       xlink:href="file:///home/alan/projects/bitcoin/BitcoinArmory/icons/arrow_right_red_24x24.png"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/moneyOut.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <rect
+       style="fill:none;stroke:#000000;stroke-width:0.95097339;stroke-opacity:1"
+       id="rect5345"
+       width="94.040169"
+       height="36.027184"
+       x="310.43961"
+       y="286.97412"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/moneyIn.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <image
+       y="286.89877"
+       x="339.798"
+       id="image5444"
+       height="35.758583"
+       width="33.520237"
+       xlink:href="file:///home/alan/projects/bitcoin/BitcoinArmory/icons/wallet_16x12.png"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/moneyIn.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <rect
+       style="fill:#009400;fill-opacity:1;stroke:#000000;stroke-width:0.33775678;stroke-opacity:1"
+       id="rect5448"
+       width="24.997629"
+       height="19.371841"
+       x="132.55676"
+       y="390.20737"
+       ry="2.0545893"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/lockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <g
+       id="g5536"
+       transform="matrix(0.3780641,0,0,0.3780641,106.98934,299.94689)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/lockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         transform="matrix(3.0909091,0,0,3.0909091,-567.37295,-642.97578)"
+         d="m 217.65631,291.53186 c 0,0.83902 -0.68016,1.51918 -1.51918,1.51918 -0.83902,0 -1.51917,-0.68016 -1.51917,-1.51918 0,-0.83902 0.68015,-1.51917 1.51917,-1.51917 0.83902,0 1.51918,0.68015 1.51918,1.51917 z"
+         sodipodi:ry="1.5191747"
+         sodipodi:rx="1.5191747"
+         sodipodi:cy="291.53186"
+         sodipodi:cx="216.13713"
+         id="path5506"
+         style="fill:#000000;fill-opacity:1;stroke:none"
+         sodipodi:type="arc" />
+      <g
+         style="fill:#000000;fill-opacity:1"
+         transform="matrix(0.78875359,0,0,1,20.884691,-1.3671875)"
+         id="g5532">
+        <path
+           style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+           d="m 101.09417,257.9719 -6.352909,18.2301 6.625929,0"
+           id="path5508" />
+        <path
+           style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"
+           d="m 101.25693,257.99322 6.35291,18.2301 -6.62593,0"
+           id="path5508-1" />
+      </g>
+    </g>
+    <g
+       id="g5621"
+       transform="matrix(0.58192912,0,0,0.58192912,155.59252,219.96862)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/unlockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <path
+         id="path5450-6"
+         d="m 157.55655,287.85916 c 0.53683,-26.52357 13.86826,-25.38765 13.86826,-25.38765"
+         style="fill:none;stroke:#ba0000;stroke-width:7.44611788;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+      <path
+         id="path5450-3-7"
+         d="M 184.67208,288.14993 C 184.31788,261.61688 170.97961,262.4688 170.97961,262.4688"
+         style="fill:none;stroke:#ba0000;stroke-width:7.44611788;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-opacity:1;stroke-dasharray:none" />
+    </g>
+    <g
+       id="g5647"
+       transform="matrix(0.58192912,0,0,0.58192912,111.06844,181.55254)"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/unlockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72">
+      <rect
+         ry="3.5306523"
+         y="351.78632"
+         x="204.74069"
+         height="33.289005"
+         width="42.956486"
+         id="rect5448-5"
+         style="fill:#ca0000;fill-opacity:1;stroke:#000000;stroke-width:0.58040881;stroke-opacity:1" />
+      <g
+         transform="matrix(0.6496738,0,0,0.6496738,160.80504,196.6807)"
+         id="g5536-3">
+        <path
+           sodipodi:type="arc"
+           style="fill:#000000;fill-opacity:1;stroke:none"
+           id="path5506-6"
+           sodipodi:cx="216.13713"
+           sodipodi:cy="291.53186"
+           sodipodi:rx="1.5191747"
+           sodipodi:ry="1.5191747"
+           d="m 217.65631,291.53186 c 0,0.83902 -0.68016,1.51918 -1.51918,1.51918 -0.83902,0 -1.51917,-0.68016 -1.51917,-1.51918 0,-0.83902 0.68015,-1.51917 1.51917,-1.51917 0.83902,0 1.51918,0.68015 1.51918,1.51917 z"
+           transform="matrix(3.0909091,0,0,3.0909091,-567.37295,-642.97578)" />
+        <g
+           id="g5532-0"
+           transform="matrix(0.78875359,0,0,1,20.884691,-1.3671875)"
+           style="fill:#000000;fill-opacity:1">
+          <path
+             id="path5508-5"
+             d="m 101.09417,257.9719 -6.352909,18.2301 6.625929,0"
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+          <path
+             id="path5508-1-7"
+             d="m 101.25693,257.99322 6.35291,18.2301 -6.62593,0"
+             style="fill:#000000;fill-opacity:1;stroke:#000000;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1" />
+        </g>
+      </g>
+    </g>
+    <rect
+       style="fill:none;stroke:none"
+       id="rect5345-9"
+       width="50.022804"
+       height="37.646072"
+       x="217.70042"
+       y="369.43021"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/unlockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+    <rect
+       style="fill:none;stroke:none"
+       id="rect5345-9-2"
+       width="50.022804"
+       height="37.646072"
+       x="120.04417"
+       y="373.95645"
+       inkscape:export-filename="/home/alan/projects/bitcoin/BitcoinArmory/icons/lockedIcon.png"
+       inkscape:export-xdpi="72"
+       inkscape:export-ydpi="72" />
+  </g>
+</svg>
