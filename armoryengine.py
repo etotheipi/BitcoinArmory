@@ -5399,9 +5399,12 @@ class PyBtcWallet(object):
    def checkWalletLockTimeout(self):
       if not self.isLocked and self.kdfKey and RightNow()>self.lockWalletAtTime:
          self.lock()
-         self.kdfKey.destroy()
+         if self.kdfKey:
+            self.kdfKey.destroy()
          self.kdfKey = None
-         self.isLocked = True
+
+         if self.useEncryption:
+            self.isLocked = True
 
 
 

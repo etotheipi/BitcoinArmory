@@ -162,12 +162,8 @@ class DlgNewWallet(QDialog):
       self.chkUseCrypto.setChecked(True)
       usecryptoTooltip = createToolTipObject(
                                  'Encryption prevents anyone who accesses your computer '
-                                 '(or wallet file) from being able to spend your money, but it '
-                                 'will require '
-                                 'typing in a passphrase every time you want send money.'
-                                 'However, you *can* still see incoming transactions and '
-                                 'generate new receiving addresses without supplying your '
-                                 'passphrase.\n\n '
+                                 'or wallet file from being able to spend your money, as  '
+                                 'long as they do not have the passphrase.'
                                  'You can choose to encrypt your wallet at a later time '
                                  'through the wallet properties dialog by double clicking '
                                  'the wallet on the dashboard.')
@@ -1796,7 +1792,7 @@ class DlgAddressInfo(QDialog):
 
       # Hash160
       if mode in (USERMODE.Advanced, USERMODE.Developer):
-         bin25   = binary_to_hex(base58_to_binary(addrStr))
+         bin25   = base58_to_binary(addrStr)
          lbls.append([])
          lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
          lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
@@ -2059,7 +2055,7 @@ class DlgShowKeys(QDialog):
          return ' '.join(binHexPieces)
 
 
-      lblDescr = QRichLabel('Key Data for: <b>%s</b>' % self.addr.getAddrStr())
+      lblDescr = QRichLabel('Key Data for address: <b>%s</b>' % self.addr.getAddrStr())
 
       lbls = []
       #lbls.append([])
@@ -2107,7 +2103,7 @@ class DlgShowKeys(QDialog):
       lbls[-1].append(QRichLabel(formatBinData(self.addr.binPublicKey65.toBinStr()[1+32:1+32+32])))
 
 
-      bin25   = self.addr.getAddr160()
+      bin25   = base58_to_binary(self.addr.getAddrStr())
       network = binary_to_hex(bin25[:1    ])
       hash160 = binary_to_hex(bin25[ 1:-4 ])
       addrChk = binary_to_hex(bin25[   -4:])
@@ -2132,6 +2128,7 @@ class DlgShowKeys(QDialog):
          lbl3[2].setFont(FontFix)
          lbl3[2].setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                          Qt.TextSelectableByKeyboard)
+         lbl3[2].setWordWrap(False)
 
          for j in range(3):
             frmKeyDataLayout.addWidget(lbl3[j], row, j)
@@ -2638,7 +2635,7 @@ class DlgRemoveWallet(QDialog):
          lbls.append([])
          lbls[3].append(QLabel('Current Balance:'))
          if bal>0:
-            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1)+' BTC</b></font>'))
+            lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1).strip()+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
             wltEmpty = False
          else:
@@ -3370,13 +3367,13 @@ class DlgSendBitcoins(QDialog):
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight*20)
 
-      loadCount      = self.main.get('Load_Count')
-      alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
-      lastPestering  = self.main.getSettingOrSetDefault('DonateLastPester', 0)
-      donateFreq     = self.main.getSettingOrSetDefault('DonateFreq', 1)
-      dnaaDonate     = self.main.getSettingOrSetDefault('DonateDNAA', False)
+      loadCount      = self.main.settings.get('Load_Count')
+      alreadyDonated = self.main.settings.getSettingOrSetDefault('DonateAlready', False)
+      lastPestering  = self.main.settings.getSettingOrSetDefault('DonateLastPester', 0)
+      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 1)
+      dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
-         not loadCount==lastPestering and not dnaaDonate:
+         not loadCount==lastPestering and not dnaaDonate and wlt.getBalance() > 0.01:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
             'and many months of anti-social behavior.  Yet, this software has been '
@@ -3390,8 +3387,13 @@ class DlgSendBitcoins(QDialog):
             'next transaction (you will have the opportunity to change the amount '
             'before sending the transaction).', None)
 
+         self.main.settings.set('DonateLastPester', loadCount)
+
          if result[0]==True:
-            self.addDonation()
+            bal = wlt.getBalance() 
+            bal = max(bal, 0.001)
+            bal = min(bal, 1.0)
+            self.addDonation(bal)
 
          if result[1]==True:
             self.main.set('DonateDNAA', True)
@@ -3533,6 +3535,8 @@ class DlgSendBitcoins(QDialog):
 
          try:
             value = int(float(valueStr) * ONE_BTC + 0.5)
+            if value==0:
+               continue
          except ValueError:
             QMessageBox.critical(self, 'Invalid Value String', \
                 'The value you specified '
@@ -3623,7 +3627,7 @@ class DlgSendBitcoins(QDialog):
       
             
    #############################################################################
-   def addDonation(self):
+   def addDonation(self, amt=1.0):
       COLS = self.COLS
       lastIsEmpty = True
       for col in (COLS.Addr, COLS.Btc, COLS.Comm):
@@ -3634,7 +3638,7 @@ class DlgSendBitcoins(QDialog):
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
-      self.widgetTable[-1][self.COLS.Btc].setText('1.00')
+      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
       self.widgetTable[-1][self.COLS.Comm].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
 

@@ -286,7 +286,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.User].addAction(actSetModeAdv)
       self.menusList[MENUS.User].addAction(actSetModeDev)
 
-      currmode = self.settings.get('User_Mode')
+      currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
       if not currmode: 
          # On first run, set to standard mode
@@ -698,13 +698,20 @@ class ArmoryMainWindow(QMainWindow):
       wltID = wlt.uniqueIDB58
       if not self.zeroConfWltLEs.has_key(wltID):  self.zeroConfWltLEs[wltID] = {}
       if not self.zeroConfAddrLEs.has_key(wltID): self.zeroConfAddrLEs[wltID] = {}
-
+   
       for txHash,pytx in self.NetworkingFactory.zeroConfTx.iteritems():
          # Delete entries that made it into the blockchain
          if TheBDM.isInitialized() and TheBDM.getTxByHash(txHash):
             if self.zeroConfWltLEs[wltID].has_key(txHash):
                del self.zeroConfWltLEs[wltID][txHash]
-               del self.zeroConfAddrLEs[wltID][txHash]
+               try: 
+                  del self.zeroConfAddrLEs[wltID][txHash]
+               except KeyError:
+                  print "No zero conf addr:"
+                  for hsh,le in self.zeroConfAddrLEs[wltID].iteritems():
+                     print binary_to_hex(hsh),
+                     le.pprint()
+                  pass
 
 
          # Add wallet-level ledger entries for zero-conf list
