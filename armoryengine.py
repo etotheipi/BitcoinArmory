@@ -47,7 +47,7 @@ from datetime import datetime
 
 
 # These are overriden for testnet
-USE_TESTNET = True
+USE_TESTNET = False
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
@@ -5534,7 +5534,7 @@ class PyBtcWallet(object):
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
       print '   New wallet will be written to:', self.walletPath
-      newfile = open(self.walletPath, 'w')
+      newfile = open(self.walletPath, 'wb')
       fileData = BinaryPacker()
 
       # packHeader method writes KDF params and root address
@@ -5749,7 +5749,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def writeFreshWalletFile(self, path, newName='', newDescr=''):
-      newFile = open(path, 'w')
+      newFile = open(path, 'wb')
       bp = BinaryPacker()
       self.packHeader(bp)
       newFile.write(bp.getBinaryString())
@@ -6403,15 +6403,17 @@ class PyBtcWallet(object):
       self.offsetLabelName = binUnpacker.getPosition()
       self.labelName  = binUnpacker.get(BINARY_CHUNK, 32).strip('\x00')
 
+
       # Longer user-supplied description/name for wallet
       self.offsetLabelDescr  = binUnpacker.getPosition()
       self.labelDescr  = binUnpacker.get(BINARY_CHUNK, 256).strip('\x00')
 
+
       # Highest used address: 
-      print self.version
       if getVersionInt(self.version) >= getVersionInt((1, 10, 0, 0)):
          self.offsetTopUsed = binUnpacker.getPosition()
          self.highestUsedChainIndex = binUnpacker.get(INT64)
+
 
       # Read the key-derivation function parameters
       self.offsetKdfParams = binUnpacker.getPosition()
@@ -6423,6 +6425,8 @@ class PyBtcWallet(object):
 
       # Read address-chain root address data
       self.offsetRootAddr  = binUnpacker.getPosition()
+      
+
       rawAddrData = binUnpacker.get(BINARY_CHUNK, self.pybtcaddrSize)
       self.addrMap['ROOT'] = PyBtcAddress().unserialize(rawAddrData)
       fixedAddrData = self.addrMap['ROOT'].serialize()
@@ -6488,7 +6492,7 @@ class PyBtcWallet(object):
 
       print 'Reading wallet file:', self.walletPath
 
-      wltfile = open(wltpath, 'r')
+      wltfile = open(wltpath, 'rb')
       wltdata = BinaryUnpacker(wltfile.read())
       wltfile.close()
 
@@ -6800,7 +6804,7 @@ class PyBtcWallet(object):
       errorsFound = 0
       updateList = []
 
-      wltfile = open(self.walletPath, 'r')
+      wltfile = open(self.walletPath, 'rb')
       wltdata = wltfile.read()
       wltfile.close()
 
@@ -7038,7 +7042,7 @@ class PyBtcWallet(object):
       self.__init__()
       self.watchingOnly = True
 
-      newfile = open(filename,'r')
+      newfile = open(filename,'rb')
       newdata = newfile.read()
       newfile.close()
 
@@ -8294,7 +8298,7 @@ class ArmoryClientFactory(ClientFactory):
    def saveMemoryPool(self, fname=None):
       if fname==None:
          fname = self.fileMemPool
-      outfile = open(fname,'w')
+      outfile = open(fname,'wb')
       for hsh,tx in self.zeroConfTx.iteritems():
          outfile.write(int_to_binary(int(self.zeroConfTxTime[hsh]), widthBytes=8))
          outfile.write(tx.serialize())
@@ -8310,7 +8314,7 @@ class ArmoryClientFactory(ClientFactory):
          print '***WARNING: No memory pool file... assuming empty' 
          return
 
-      outfile = open(fname,'r')
+      outfile = open(fname,'rb')
       binunpack = BinaryUnpacker(outfile.read())
       outfile.close()
       
@@ -8586,7 +8590,7 @@ class SettingsFile(object):
       if not os.path.exists(path):
          raise FileExistsError, 'Settings file DNE:', path
 
-      f = open(path, 'r')
+      f = open(path, 'rb')
       sdata = f.read()
       f.close()
 

@@ -257,12 +257,12 @@ void TestScanForWalletTx(string blkfile)
    bdm.scanBlockchainForTx(zcWlt);
 
    // Test the zero-conf ledger-entry detection
-   BinaryData txSelf1 = BinaryData::CreateFromHex("0100000001665868d616b2f8611e224c6b6dd715d4762058c6d76a340c93eed325d765d068010000008c4930460221009f91bb539c6a8ac7cc86636cd4522f9958e5dfea4de3d296de93bba8223fa7fd022100f9b4929f2e298b16b32dd4104a0f166bc5dc9e6ed6c23f130deda951b6f4fb07014104a964c4aa00bfb79d6ff2ccc0f313b83f888b6d5f436294812629ec55ccc4bad3206399159b9eeccfbe50b6bff541fa109113e5ca6157e21ad377ec602359b7dfffffffff01b01df505000000001976a91462a30712644ae99a8e6d8a5ffa5a0911112b448088ac00000000");
+   BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
 
-   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf1);
+   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
    le.pprint();
 
-   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf1);
+   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
    for(int i=0; i<levect.size(); i++)
    {
       levect[i].pprint();
