@@ -507,6 +507,8 @@ class DlgWalletDetails(QDialog):
       super(DlgWalletDetails, self).__init__(parent)
       self.setAttribute(Qt.WA_DeleteOnClose)
 
+      wlt.pprint()
+
       self.wlt = wlt
       self.usermode = usermode
       self.parent = parent

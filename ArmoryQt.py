@@ -863,6 +863,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
          if not txref:
+            print 'Why on earth does this happen?  Some tx we got from the blockchain... we can\'t find in the blockchain!'
             return (-999, -999)
          if txref.getNumTxOut()==1:
             return (txref.getTxOutRef(0).getValue(), -1)

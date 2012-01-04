@@ -61,7 +61,7 @@ PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1'
 if USE_TESTNET:
-   ARMORY_DONATION_ADDR = 'mqQPaNevruP9nRDioszUBAuUqE7zKyHgNc'
+   ARMORY_DONATION_ADDR = 'mqqpanevrup9nrdioszubauuqe7zkyhgnc'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -1444,7 +1444,7 @@ class PyBtcAddress(object):
          self.createPrivKeyNextUnlock_ChainDepth = 0
 
          # Lock/Unlock to make sure encrypted private key is filled
-         self.lock(secureKdfOutput)
+         self.lock(secureKdfOutput,generateIVIfNecessary=True)
          self.unlock(secureKdfOutput)
 
       else:
@@ -5272,7 +5272,10 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
-      self.addrPoolSize = 5
+      if USE_TESTNET:
+         self.addrPoolSize = 5  # this makes debugging so much easier!
+      else:
+         self.addrPoolSize = 100
 
       # For file sync features
       self.walletPath = ''
@@ -7201,7 +7204,12 @@ class PyBtcWallet(object):
          self.lockWalletAtTime = RightNow() + tempKeyLifetime
 
       for addrObj in self.addrMap.values():
+         needToSaveAddrAfterUnlock = addrObj.createPrivKeyNextUnlock
          addrObj.unlock(self.kdfKey)
+         if needToSaveAddrAfterUnlock:
+            updateLoc = addrObj.walletByteLoc 
+            self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, addrObj.walletByteLoc, \
+                                                addrObj.serialize()]])
 
       self.isLocked = False
 
