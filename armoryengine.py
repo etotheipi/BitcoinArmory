@@ -51,6 +51,8 @@ from struct import pack, unpack
 from datetime import datetime
 
 
+# These are overriden for testnet
+USE_TESTNET = True
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
