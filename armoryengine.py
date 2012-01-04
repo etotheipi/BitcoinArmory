@@ -33,6 +33,11 @@
 #
 ################################################################################
 
+
+
+USE_TESTNET = True
+   
+
 import copy
 import hashlib
 import random
@@ -46,8 +51,6 @@ from struct import pack, unpack
 from datetime import datetime
 
 
-# These are overriden for testnet
-USE_TESTNET = False
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
@@ -138,7 +141,7 @@ print '   Satoshi blk0001.dat   :', BLK0001_PATH
 print '   Armory home dir       :', ARMORY_HOME_DIR
 
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
-   os.mkdir(ARMORY_HOME_DIR)
+   os.makedirs(ARMORY_HOME_DIR)
 
 
 
@@ -1857,6 +1860,15 @@ class PyBtcAddress(object):
 
       return binOut.getBinaryString()
 
+   #############################################################################
+   def scanBlockchainForAddress(self):
+      if TheBDM.isInitialized():
+         cppWlt = Cpp.BtcWallet()
+         cppWlt.addAddress_1_(self.getAddr160())
+         TheBDM.scanBlockchainForTx(cppWlt)
+         utxoList = cppWlt.getUnspentTxOutList()
+         bal = cppWlt.getBalance()
+         return (bal, utxoList)
 
    #############################################################################
    def unserialize(self, toUnpack):
@@ -5258,7 +5270,7 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
-      self.addrPoolSize = 100
+      self.addrPoolSize = 5
 
       # For file sync features
       self.walletPath = ''
@@ -5554,11 +5566,7 @@ class PyBtcWallet(object):
 
       # Temporarily disabling first/last-seen times
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), 0,0,0,0)
-                                             #self.wltCreateDate, firstBlk, \
-                                             #self.wltCreateDate, firstBlk)
       self.cppWallet.addAddress_5_(first160, 0,0,0,0)
-                                             #self.wltCreateDate, firstBlk, \
-                                             #self.wltCreateDate, firstBlk)
 
 
       newfile.write(fileData.getBinaryString())
@@ -5568,9 +5576,14 @@ class PyBtcWallet(object):
       shutil.copy(self.walletPath, walletFileBackup)
 
       # Let's fill the address pool while we have the KDF key in memory.
-      # It will get a lot more expensive if we do it 
+      # It will get a lot more expensive if we do it on the next unlock
       self.fillAddressPool(self.addrPoolSize)
 
+      if self.useEncryption:
+         print 'Unlock-Lock seq just to make encr key data is available to lock '
+         print 'without the encryption key'
+         self.unlock(secureKdfOutput=self.kdfKey)
+         self.lock()
       return self
 
    #############################################################################
@@ -6971,7 +6984,7 @@ class PyBtcWallet(object):
 
       # If a private key is supplied and this wallet is encrypted&locked, then 
       # we have no way to secure the private key without unlocking the wallet.
-      if self.useEncryption and self.isLocked and privKey:
+      if self.useEncryption and privKey and not self.kdfKey:
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
 
 
@@ -6982,6 +6995,10 @@ class PyBtcWallet(object):
                                   willBeEncr=self.useEncryption, \
                                   generateIVIfNecessary=self.useEncryption, \
                                   skipCheck=True, skipPubCompute=True)
+         if self.useEncryption:
+            newAddr.lock(self.kdfKey)
+            newAddr.unlock(self.kdfKey)
+
       elif pubKey:
          newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey)
       else:
@@ -6992,7 +7009,7 @@ class PyBtcWallet(object):
       newAddr.chainIndex = -2
       newAddr.timeRange = [firstTime, lastTime]
       newAddr.blkRange  = [firstBlk,  lastBlk ]
-      newAddr.binInitVect16  = SecureBinaryData().GenerateRandom(16)
+      #newAddr.binInitVect16  = SecureBinaryData().GenerateRandom(16)
       newAddr160 = newAddr.getAddr160()
 
       newDataLoc = self.walletFileSafeUpdate( \

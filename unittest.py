@@ -6,9 +6,9 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
+Test_BasicUtils       = False
 Test_PyBlockUtils     = False
-Test_CppBlockUtils    = True
+Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -16,7 +16,7 @@ Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
-Test_CryptoTiming     = False
+Test_CryptoTiming     = True
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -1003,7 +1003,7 @@ if Test_EncryptedWallet:
    print '*********************************************************************'
    print ''
 
-   debugPrint = False
+   debugPrint = True
    debugPrintAlot = False
 
    # Remove wallet files, need fresh dir for this test
@@ -1011,7 +1011,7 @@ if Test_EncryptedWallet:
    shortlabel = 'TestWallet1'
    wltID = '6Q168oJ7'
    if USE_TESTNET:
-      wltID = '6Q168oL2'
+      wltID = '3VB8XSoY'
       
    fileA    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_.wallet' % wltID)
    fileB    = os.path.join(ARMORY_HOME_DIR, 'armory_%s_backup.wallet' % wltID)
@@ -1081,6 +1081,45 @@ if Test_EncryptedWallet:
    wlt.importExternalAddressData(privKey=privKey2)
    print '\nWallet size after  reimport:',  os.path.getsize(wlt.walletPath)
    wlt.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+
+   print '\n(2b)Testing ENCRYPTED wallet import-address'
+   privKey3  = SecureBinaryData('\xbb'*32)
+   privKey4  = SecureBinaryData('\x44'*32)
+   chainstr2  = SecureBinaryData('\xdd'*32)
+   theIV2     = SecureBinaryData(hex_to_binary('66'*16))
+   passphrase2= SecureBinaryData('hello')
+   wltE = PyBtcWallet().createNewWallet(withEncrypt=True, \
+                                       plainRootKey=privKey3, \
+                                       securePassphrase=passphrase2, \
+                                       chaincode=chainstr2,   \
+                                       IV=theIV2, \
+                                       shortLabel=shortlabel)
+
+   try:
+      wltE.importExternalAddressData(privKey=privKey2)
+      wltE.pprint(indent=' '*5, allAddrInfo=debugPrint)
+      printpassorfail(False)
+      print 'FAILED!  We should have thrown an error about importing into a '
+      print '         locked wallet...'
+   except:
+      printpassorfail(True)
+
+
+   wltE.unlock(securePassphrase=passphrase2)
+   wltE.importExternalAddressData(privKey=privKey2)
+   wltE.pprint(indent=' '*5, allAddrInfo=debugPrint)
+
+   print '\n(2b) Re-reading wallet from file, compare the two wallets'
+   wlt2 = PyBtcWallet().readWalletFile(wltE.walletPath)
+   wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
+   printpassorfail(wltE.isEqualTo(wlt2, debug=debugPrintAlot))
+   
+
+   print '\n(2b) Unlocking wlt2 after re-reading locked-import-wallet'
+   wlt2.unlock(securePassphrase=passphrase2)
+
+
 
    #############################################################################
    # Now play with encrypted wallets
@@ -1166,7 +1205,7 @@ if Test_EncryptedWallet:
    wlt2.pprint(indent=' '*5, allAddrInfo=debugPrint)
 
    print '\n(6)Getting a new addresses from both wallets'
-   for i in range(100):
+   for i in range(wlt.addrPoolSize*2):
       wlt.getNextUnusedAddress()
       wlt2.getNextUnusedAddress()
 

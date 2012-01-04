@@ -332,7 +332,7 @@ class ArmoryMainWindow(QMainWindow):
             self.settings.set('DNAA_IntroDialog', True)
 
          if dlg.requestCreate:
-            self.createNewWallet()
+            self.createNewWallet(initLabel='Primary Wallet')
             
       
    
@@ -718,7 +718,7 @@ class ArmoryMainWindow(QMainWindow):
          le = wlt.cppWallet.getWalletLedgerEntryForTx(pytx.serialize())
          if le.getIndex()<2**32-1:
             if not self.zeroConfWltLEs[wltID].has_key(txHash):
-               le.pprint()
+               #le.pprint()
                self.zeroConfWltLEs[wltID][txHash] = le
 
 
@@ -742,7 +742,7 @@ class ArmoryMainWindow(QMainWindow):
    
                if not alreadyInList:
                   self.zeroConfAddrLEs[wltID][txHash][addr20].append(lev)
-                  lev.pprint()
+                  #lev.pprint()
 
          
       
@@ -862,6 +862,10 @@ class ArmoryMainWindow(QMainWindow):
       amt = 0
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
+         if not txref:
+            return (-999, -999)
+         if txref.getNumTxOut()==1:
+            return (txref.getTxOutRef(0).getValue(), -1)
          maxChainIndex = -5
          txOutChangeVal = 0
          txOutIndex = -1
@@ -870,7 +874,7 @@ class ArmoryMainWindow(QMainWindow):
             valSum += txref.getTxOutRef(i).getValue()
             addr160 = txref.getTxOutRef(i).getRecipientAddr()
             addr    = wlt.getAddrByHash160(addr160)
-            if addr.chainIndex > maxChainIndex:
+            if addr and addr.chainIndex > maxChainIndex:
                maxChainIndex = addr.chainIndex
                txOutChangeVal = txref.getTxOutRef(i).getValue()
                txOutIndex = i
@@ -893,7 +897,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # We need to compute the fee by adding inputs and outputs...
          amt = le.getValue()
-         removeFee = self.settings.getSettingOrSetDefault('DispRmFee', True)
+         removeFee = self.settings.getSettingOrSetDefault('DispRmFee', False)
          if TheBDM.isInitialized() and removeFee and amt<0:
             theFee = self.getFeeForTx(le.getTxHash())
             amt += theFee
@@ -917,7 +921,7 @@ class ArmoryMainWindow(QMainWindow):
             txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
          else:       
             pass
-            txtime = 2**32-1
+            txtime = 0
             #txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
          row.append(unixTimeToFormatStr(txtime))
 
@@ -1078,8 +1082,8 @@ class ArmoryMainWindow(QMainWindow):
 
    
    #############################################################################
-   def createNewWallet(self):
-      dlg = DlgNewWallet(self, self)
+   def createNewWallet(self, initLabel=''):
+      dlg = DlgNewWallet(self, self, initLabel=initLabel)
       if dlg.exec_():
 
          if dlg.selectedImport:
@@ -1134,6 +1138,8 @@ class ArmoryMainWindow(QMainWindow):
       if dlg.chkPrintPaper.isChecked():
          dlg = DlgPaperBackup(newWallet, self, self)
          dlg.exec_()
+
+
 
 
 
@@ -1276,10 +1282,11 @@ class ArmoryMainWindow(QMainWindow):
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
 
          pytx = None
-         if self.NetworkingFactory.zeroConfTx.has_key(txHash):
-            pytx = self.NetworkingFactory.zeroConfTx[txHash]
+         txHashBin = hex_to_binary(txHash)
+         if self.NetworkingFactory.zeroConfTx.has_key(txHashBin):
+            pytx = self.NetworkingFactory.zeroConfTx[txHashBin]
          if TheBDM.isInitialized():
-            cppTx = TheBDM.getTxByHash(hex_to_binary(txHash))
+            cppTx = TheBDM.getTxByHash(txHashBin)
             if cppTx:
                pytx = PyTx().unserialize(cppTx.serialize())
 
@@ -1386,7 +1393,7 @@ class ArmoryMainWindow(QMainWindow):
    
 
 
-if __name__ == '__main__':
+if 1:  #__name__ == '__main__':
  
    import optparse
    parser = optparse.OptionParser(usage="%prog [options]\n")

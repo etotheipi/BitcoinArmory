@@ -52,16 +52,29 @@ that all features with an X in either column are accessible in SWIG.
 
    - qt4reactor.py -- combined eventloop for PyQt and Twisted
             All OS:   https://launchpad.net/qt4reactor
-
+            Windows Only:  qt4reactor relies on pywin32 (for win32event module)
+                        http://sourceforge.net/projects/pywin32/files/pywin32/Build216/
    - py2exe
             (OPTIONAL - if you want to make a standalone executable in Windows)
             Windows: http://www.py2exe.org/
+
 
 
 *** Compiling ***
 
    Linux:   From the cppForSwig directory "make" to make the C++ code alone, 
             "make swig" to create and compile the SWIG wrappers
+
+
+            sudo apt-get install git-core build-essential libcrypto++-dev swig libqtcore4 libqt4-dev python-qt4 python-dev python-twisted
+            git clone git://github.com/etotheipi/BitcoinArmory.git
+            cd BitcoinArmory
+            git checkout qtdev
+            cd cppForSwig
+            make swig
+            cd ..
+            python ArmoryQt.py
+
    
    Windows: MSVS 2010 vcxproj included but not maintained.  Only compiles C++.
             MSVS 2005 vcproj included.  Setup to compile everything,

@@ -63,7 +63,7 @@ class DlgUnlockWallet(QDialog):
 ################################################################################
 class DlgNewWallet(QDialog):
 
-   def __init__(self, parent=None, main=None):
+   def __init__(self, parent=None, main=None, initLabel=''):
       super(DlgNewWallet, self).__init__(parent)
 
       self.selectedImport = False
@@ -75,6 +75,7 @@ class DlgNewWallet(QDialog):
 
       self.edtName = QLineEdit()
       self.edtName.setMaxLength(32)
+      self.edtName.setText(initLabel)
       lblName = QLabel("Wallet &name:")
       lblName.setBuddy(self.edtName)
 
@@ -758,7 +759,7 @@ class DlgWalletDetails(QDialog):
       addrStr = str(self.wltAddrView.model().index(row, ADDRESSCOLS.Address).data().toString())
       addr160 = addrStr_to_hash160(addrStr)
       if self.wlt.addrMap[addr160].chainIndex==-2:
-         dlg = DlgRemoveAddress(self.wlt, addr160,  self)
+         dlg = DlgRemoveAddress(self.wlt, addr160,  self, self.main)
          dlg.exec_()
       else:
          QMessageBox.warning(self, 'Invalid Selection', \
@@ -1599,12 +1600,13 @@ class DlgImportAddress(QDialog):
             
       elif self.radioImport.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(wlt, self.main)
+            dlg = DlgUnlockWallet(self.wlt, self.main)
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'New private key data cannot be imported unless the wallet is '
                   'unlocked.  Please try again when you have the passphrase.',\
                   QMessageBox.Ok)
+               return
 
          if self.wlt.hasAddr(addr160):
             QMessageBox.critical(self, 'Duplicate Address', \
@@ -1612,7 +1614,7 @@ class DlgImportAddress(QDialog):
             'wallet.  Address cannot be imported', QMessageBox.Ok)
             return
 
-         self.wlt.importExternalAddressData( privKey=binKeyData)
+         self.wlt.importExternalAddressData( privKey=SecureBinaryData(binKeyData))
          self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
       
@@ -2040,9 +2042,9 @@ class DlgShowKeys(QDialog):
          lblWarn = QRichLabel( \
             '<font color="red"><b>Warning:</b> the unencrypted private keys '
             'for this address are shown below.  They are "private" because '
-            'anyone who obtains access can spend the money held '
+            'anyone who obtains them can spend the money held '
             'by this address.  Please protect this information the '
-            'same as you protect your wallet</font>')
+            'same as you protect your wallet.</font>')
       warnFrm = makeLayoutStrip('Horiz', [lblWarn])
 
       endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
@@ -2070,7 +2072,9 @@ class DlgShowKeys(QDialog):
             'The raw form of the private key for this address.  It is '
             '32-bytes of randomly generated data'))
       lbls[-1].append(QRichLabel('Private Key (hex,%s):' % estr))
-      if plainPriv:
+      if not addr.hasPrivKey():
+         lbls[-1].append(QRichLabel('<i>[[ No Private Key in Watching-Only Wallet ]]</i>'))
+      elif plainPriv:
          lbls[-1].append( QLabel( formatBinData(binKey) ) )
       else:
          lbls[-1].append(QRichLabel('<i>[[ ENCRYPTED ]]</i>'))
@@ -2191,6 +2195,8 @@ class DlgIntroMessage(QDialog):
       strReqts = []
       strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
                       'the same network (Main-net or Testnet)')
+      strReqts.append('<b>Please</b> make sure the Satoshi client is sync\'d '
+                      'with the blockchain before loading Armory.')
       strReqts.append('Blockchain held in memory:  requires about 1.5 '
                       'GB of RAM (plus Satoshi client RAM)')
       strReqts.append('Uses the blockchain file maintained by Satoshi '
@@ -2959,10 +2965,10 @@ class DlgRemoveAddress(QDialog):
 
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
-      if self.chkPrintBackup.isChecked():      
-         dlg = DlgPaperBackup(wlt, self, self.main)
-         if not dlg.exec_():
-            return
+      #if self.chkPrintBackup.isChecked():      
+         #dlg = DlgPaperBackup(wlt, self, self.main)
+         #if not dlg.exec_():
+            #return
             
             
       reply = QMessageBox.warning(self, 'One more time...', \
@@ -2979,8 +2985,13 @@ class DlgRemoveAddress(QDialog):
 
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
-         self.main.wltAddrModel.reset()
+         try:
+            self.parent.accept()
+            self.main.wltAddrModel.reset()
+         except AttributeError:
+            pass
          self.accept()
+         
       else:
          self.reject()
 
@@ -3370,7 +3381,7 @@ class DlgSendBitcoins(QDialog):
       loadCount      = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.settings.getSettingOrSetDefault('DonateAlready', False)
       lastPestering  = self.main.settings.getSettingOrSetDefault('DonateLastPester', 0)
-      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 1)
+      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 10)
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
          not loadCount==lastPestering and not dnaaDonate and wlt.getBalance() > 0.01:
@@ -3396,7 +3407,7 @@ class DlgSendBitcoins(QDialog):
             self.addDonation(bal)
 
          if result[1]==True:
-            self.main.set('DonateDNAA', True)
+            self.main.settings.set('DonateDNAA', True)
       
             
          
@@ -3907,13 +3918,18 @@ class DlgDispTxInfo(QDialog):
                # more useful information... like ignoring change outputs,
                if le.isSentToSelf():
                   txdir = 'Sent-to-Self'
-                  txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
                   rvPairDisp = []
-                  for i,triplet in enumerate(data[FIELDS.OutList]):
-                     if not i==changeIndex:
-                        rvPairDisp.append([triplet[2], triplet[1]])
-                     else:
-                        indicesMakeGray.append(i)
+                  if len(pytx.outputs):
+                     txAmt = fee
+                     triplet = data[FIELDS.OutList][0]
+                     rvPairDisp.append([triplet[2], triplet[1]])
+                  else:
+                     txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
+                     for i,triplet in enumerate(data[FIELDS.OutList]):
+                        if not i==changeIndex:
+                           rvPairDisp.append([triplet[2], triplet[1]])
+                        else:
+                           indicesMakeGray.append(i)
                else:
                   if le.getValue() > 0:
                      txdir = 'Received'

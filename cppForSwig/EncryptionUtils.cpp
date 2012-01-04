@@ -7,6 +7,9 @@
 //#include <openssl/obj_mac.h>
 
 
+#define CRYPTO_DEBUG true
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 // We have to explicitly re-define some of these methods...
@@ -274,6 +277,15 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
                                     SecureBinaryData & key,
                                     SecureBinaryData & iv)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+
    if(data.getSize() == 0)
       return SecureBinaryData(0);
 
@@ -304,6 +316,15 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
                                     SecureBinaryData & key,
                                     SecureBinaryData   iv  )
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+
    if(data.getSize() == 0)
       return SecureBinaryData(0);
 
@@ -447,6 +468,13 @@ bool CryptoECDSA::CheckPubPrivKeyMatch(BTC_PRIVKEY const & cppPrivKey,
 bool CryptoECDSA::CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
                                        SecureBinaryData const & pubKey65)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "CheckPubPrivKeyMatch:" << endl;
+      cout << "   BinPrv: " << privKey32.toHexStr() << endl;
+      cout << "   BinPub: " << pubKey65.toHexStr() << endl;
+   }
+
    BTC_PRIVKEY privKey = ParsePrivateKey(privKey32);
    BTC_PUBKEY  pubKey  = ParsePublicKey(pubKey65);
    return CheckPubPrivKeyMatch(privKey, pubKey);
@@ -454,6 +482,11 @@ bool CryptoECDSA::CheckPubPrivKeyMatch(SecureBinaryData const & privKey32,
 
 bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "BinPub: " << pubKey65.toHexStr() << endl;
+   }
+
    // Basically just copying the ParsePublicKey method, but without
    // the assert that would throw an error from C++
    SecureBinaryData pubXbin(pubKey65.getSliceRef( 1,32));
@@ -477,6 +510,12 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
 SecureBinaryData CryptoECDSA::SignData(SecureBinaryData const & binToSign, 
                                        SecureBinaryData const & binPrivKey)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "SignData:" << endl;
+      cout << "   BinSgn: " << binToSign.getSize() << " " << binToSign.toHexStr() << endl;
+      cout << "   BinPrv: " << binPrivKey.getSize() << " " << binPrivKey.toHexStr() << endl;
+   }
    BTC_PRIVKEY cppPrivKey = ParsePrivateKey(binPrivKey);
    return SignData(binToSign, cppPrivKey);
 }
@@ -513,6 +552,14 @@ bool CryptoECDSA::VerifyData(SecureBinaryData const & binMessage,
                              SecureBinaryData const & binSignature,
                              SecureBinaryData const & pubkey65B)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "VerifyData:" << endl;
+      cout << "   BinMsg: " << binMessage.toHexStr() << endl;
+      cout << "   BinSig: " << binSignature.toHexStr() << endl;
+      cout << "   BinPub: " << pubkey65B.toHexStr() << endl;
+   }
+
    BTC_PUBKEY cppPubKey = ParsePublicKey(pubkey65B);
    return VerifyData(binMessage, binSignature, cppPubKey);
 }
@@ -556,6 +603,14 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
                                  SecureBinaryData const & chainCode,
                                  SecureBinaryData binPubKey)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "ComputeChainedPrivateKey:" << endl;
+      cout << "   BinPrv: " << binPrivKey.toHexStr() << endl;
+      cout << "   BinChn: " << chainCode.toHexStr() << endl;
+      cout << "   BinPub: " << binPubKey.toHexStr() << endl;
+   }
+
 
    if( binPubKey.getSize()==0 )
       binPubKey = ComputePublicKey(binPrivKey);
@@ -611,6 +666,12 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
                                 SecureBinaryData const & binPubKey,
                                 SecureBinaryData const & chainCode)
 {
+   if(CRYPTO_DEBUG)
+   {
+      cout << "ComputeChainedPUBLICKey:" << endl;
+      cout << "   BinPub: " << binPubKey.toHexStr() << endl;
+      cout << "   BinChn: " << chainCode.toHexStr() << endl;
+   }
    static SecureBinaryData SECP256K1_ORDER_BE = SecureBinaryData::CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
 
