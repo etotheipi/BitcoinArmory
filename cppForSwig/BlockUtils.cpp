@@ -1433,14 +1433,13 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
          if(!blockIsNewTop)
          {
             cout << "Block data did not extend the main chain!" << endl;
-            // TODO:  Not sure if there's anything we need to do if this block
-            //        didn't extend the main chain.
+            // TODO:  add anything extra to do here (is there anything?)
          }
    
          if(blockchainReorg)
          {
-            cout << "This block forced a reorg!  (and we're going to do nothing...)" << endl;
-            //TODO:  do something important (besides seg-faulting)
+            cout << "This block forced a reorg!  (and we're going to do nothing else...)" << endl;
+            // TODO:  add anything extra to do here (is there anything?)
          }
       }
       

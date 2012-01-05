@@ -46,8 +46,8 @@ int main(void)
    
 
    //string blkfile("/home/alan/.bitcoin/blk0001.dat");
-   //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
-   string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
+   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
+   //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
    printTestHeader("Read-and-Organize-Blockchain");
    TestReadAndOrganizeChain(blkfile);
@@ -61,11 +61,11 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
 
-   //printTestHeader("Crypto-KDF-and-AES-methods");
-   //TestCrypto();
+   printTestHeader("Crypto-KDF-and-AES-methods");
+   TestCrypto();
 
-   //printTestHeader("Crypto-ECDSA-sign-verify");
-   //TestECDSA();
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -774,8 +774,6 @@ void TestECDSA(void)
    cout << "   New pubKeyA:" << newBinPubA.getSliceCopy(0,30).toHexStr() << "..." << endl;
    cout << "   New pubKeyB:" << newBinPubB.getSliceCopy(0,30).toHexStr() << "..." << endl;
    cout << endl;
-
-   
 
 }
 

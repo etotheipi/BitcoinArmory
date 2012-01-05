@@ -507,7 +507,6 @@ class DlgWalletDetails(QDialog):
       super(DlgWalletDetails, self).__init__(parent)
       self.setAttribute(Qt.WA_DeleteOnClose)
 
-      wlt.pprint()
 
       self.wlt = wlt
       self.usermode = usermode
@@ -3383,10 +3382,10 @@ class DlgSendBitcoins(QDialog):
       loadCount      = self.main.settings.get('Load_Count')
       alreadyDonated = self.main.settings.getSettingOrSetDefault('DonateAlready', False)
       lastPestering  = self.main.settings.getSettingOrSetDefault('DonateLastPester', 0)
-      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 10)
+      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 20)
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
-         not loadCount==lastPestering and not dnaaDonate and wlt.getBalance() > 0.01:
+         not loadCount==lastPestering and not dnaaDonate and wlt.getBalance() > 5*ONE_BTC:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
             'and many months of anti-social behavior.  Yet, this software has been '
@@ -3397,16 +3396,13 @@ class DlgSendBitcoins(QDialog):
             'application.'
             '<br><br>Are you willing to donate to the Armory developers? If you '
             'select "Yes," a donation field will be added to your '
-            'next transaction (you will have the opportunity to change the amount '
-            'before sending the transaction).', None)
+            'next transaction (you will have the opportunity to remove or change '
+            'the amount before sending the transaction).', None)
 
          self.main.settings.set('DonateLastPester', loadCount)
 
          if result[0]==True:
-            bal = wlt.getBalance() 
-            bal = max(bal, 0.001)
-            bal = min(bal, 1.0)
-            self.addDonation(bal)
+            self.addDonation(long(0.99 * ONE_BTC))
 
          if result[1]==True:
             self.main.settings.set('DonateDNAA', True)
@@ -3640,7 +3636,7 @@ class DlgSendBitcoins(QDialog):
       
             
    #############################################################################
-   def addDonation(self, amt=1.0):
+   def addDonation(self, amt=ONE_BTC):
       COLS = self.COLS
       lastIsEmpty = True
       for col in (COLS.Addr, COLS.Btc, COLS.Comm):

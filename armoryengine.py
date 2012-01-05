@@ -8462,6 +8462,28 @@ class ArmoryClientFactory(ClientFactory):
          raise ConnectionError, 'Connection to localhost DNE.'
 
 
+class FakeClientFactory(ClientFactory):
+   """
+   A fake class that has the same methods as an ArmoryClientFactory,
+   but doesn't do anything.  If there is no internet, then we want 
+   to be able to use the same calls
+   """
+   #############################################################################
+   def __init__(self, \
+                def_handshake=None, \
+                func_loseConnect=None, \
+                func_newTx=None, \
+                func_doubleSpendAlert=None): pass
+   def saveMemoryPool(self, fname=None): pass
+   def loadMemoryPool(self, fname=None): pass
+   def addTxToMemoryPool(self, pytx): pass
+   def handshakeFinished(self, protoObj): pass
+   def purgeMemoryPool(self): pass
+   def checkForDoubleBroadcast(self, pytxObj): pass
+   def clientConnectionLost(self, connector, reason): pass
+   def connectionFailed(self, protoObj, reason): pass
+   def sendTx(self, pytxObj): pass
+
 
 ################################################################################
 ################################################################################
@@ -8486,7 +8508,6 @@ class SettingsFile(object):
    def __init__(self, path=None):
       self.settingsPath = path
       self.settingsMap = {}
-      self.restoreDefaults()
       if not path:
          self.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt') 
 
@@ -8505,18 +8526,6 @@ class SettingsFile(object):
       for k,v in self.settingsMap.iteritems():
          print indstr + indent + k.ljust(15), v
 
-   #############################################################################
-   def restoreDefaults(self):
-      """ 
-      Put all default settings here.  DNAA means "Do Not Ask Again"
-      """
-      self.settingsMap['New_Settings_File']   = True
-      self.settingsMap['Load_Count']          = 0
-      self.settingsMap['User_Mode']           = 'Standard'  # 'Advanced'
-      self.settingsMap['Other_Wallets']       = ''
-      self.settingsMap['First_Load']          = True
-      self.settingsMap['UnlockTimeout']       = 10
-      self.settingsMap['DNAA_UnlockTimeout']  = False
 
    #############################################################################
    def hasSetting(self, name):

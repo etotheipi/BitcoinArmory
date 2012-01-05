@@ -109,6 +109,7 @@ using namespace std;
 
 // Use this to avoid "using namespace CryptoPP" (which confuses SWIG)
 // and also so it's easy to switch the AES MODE or PRNG, in one place
+#define UNSIGNED     ((CryptoPP::Integer::Signedness)(0))
 #define BTC_AES      CryptoPP::AES
 #define BTC_AES_MODE CryptoPP::CFB_Mode
 #define BTC_PRNG     CryptoPP::AutoSeededRandomPool

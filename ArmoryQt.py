@@ -53,14 +53,21 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None):
+   def __init__(self, parent=None, settingsPath=None, armorymode='Online'):
       super(ArmoryMainWindow, self).__init__(parent)
 
-      
+      self.armorymode = armorymode
+      haveBlkFile = os.path.exists(BLK0001_PATH)
+
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
-      self.setupNetworking()
+
+      if self.armorymode=='Online':
+         self.setupNetworking()
+      else:
+         # This implements all the same methods, but they do nothing
+         self.NetworkingFactory = FakeClientFactory()
 
       self.extraHeartbeatFunctions = []
       #self.extraHeartbeatFunctions.append(self.NetworkingFactory.purgeMemoryPool)
@@ -72,12 +79,17 @@ class ArmoryMainWindow(QMainWindow):
 
       self.lblLogoIcon = QLabel()
       #self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_64x64.png'))
-      self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
-      self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      self.setWindowTitle('Armory - Bitcoin Wallet Management')
+      if USE_TESTNET:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowIcon(QIcon('img/armory_icon_green_32x32.png'))
+         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_green_h72.png'))
+      else:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
+         self.setWindowIcon(QIcon('img/armory_icon_32x32.png'))
+         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
+      self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       #self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
-      self.setWindowIcon(QIcon('img/armory_icon_32x32.png'))
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
@@ -201,14 +213,12 @@ class ArmoryMainWindow(QMainWindow):
       btnWltProps  = QPushButton("Wallet Properties")
       btnUnsigned  = QPushButton("Unsigned Transactions")
       btnDevTools  = QPushButton("Developer Tools")
-      btnMemPool   = QPushButton("See memory pool")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
    
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
-      self.connect(btnMemPool,  SIGNAL('clicked()'), self.printZeroConf)
       self.connect(btnDevTools, SIGNAL('clicked()'), self.openToolsDlg)
       # QTableView.selectedIndexes to get the selection
 
@@ -221,7 +231,6 @@ class ArmoryMainWindow(QMainWindow):
          layout.addWidget(btnUnsigned)
       if self.usermode==USERMODE.Developer:
          layout.addWidget(btnDevTools)
-         layout.addWidget(btnMemPool)
       layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
@@ -259,12 +268,14 @@ class ArmoryMainWindow(QMainWindow):
 
       ##########################################################################
       # Set up menu and actions
-      MENUS = enum('File', 'Wallet', 'User')
+      MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
+      self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Network') )
       
       def chngStd(b): 
          if b: self.setUserMode(USERMODE.Standard)
@@ -286,6 +297,21 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.User].addAction(actSetModeAdv)
       self.menusList[MENUS.User].addAction(actSetModeDev)
 
+
+      # Network stuff (for now, temporary 
+      def memClear(): self.memoryPoolAction('clear')
+      def memPurge(): self.memoryPoolAction('purge')
+      def memPrint(): self.memoryPoolAction('print')
+      actClearMemPool = self.createAction('&Clear',  memClear)
+      actPrintMemPool = self.createAction('&Print',  memPrint)
+      actPurgeMemPool = self.createAction('&Purge',  memPurge)
+
+      self.menusList[MENUS.Network].addAction(actClearMemPool)
+      self.menusList[MENUS.Network].addAction(actPrintMemPool)
+      self.menusList[MENUS.Network].addAction(actPurgeMemPool)
+
+      self.NetworkingFactory.purgeMemoryPool()
+
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
       if not currmode: 
@@ -304,6 +330,25 @@ class ArmoryMainWindow(QMainWindow):
       reactor.callLater(0.1,  self.execIntroDialog)
 
       reactor.callLater(5, self.Heartbeat)
+
+
+
+   #############################################################################
+   def memoryPoolAction(self, opString):
+      if opString.lower()=='clear':
+         self.NetworkingFactory.zeroConfTx.clear()
+         self.NetworkingFactory.zeroConfTxTime.clear()
+         self.NetworkingFactory.saveMemoryPool()
+      elif opString.lower()=='print':
+         for k,v in self.NetworkingFactory.zeroConfTx.iteritems():
+            print binary_to_hex(k), 
+            print ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
+      elif opString.lower()=='purge':
+         print 'Before purging:'
+         self.memoryPoolAction('Print')
+         self.NetworkingFactory.purgeMemoryPool()
+         print 'After purging:'
+         self.memoryPoolAction('Print')
 
 
    #############################################################################
@@ -400,7 +445,6 @@ class ArmoryMainWindow(QMainWindow):
       self.NetworkingFactory.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
       self.NetworkingFactory.loadMemoryPool()
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
-      print 'Connected to localhost! (I think...)'
 
 
 
@@ -864,7 +908,7 @@ class ArmoryMainWindow(QMainWindow):
          txref = TheBDM.getTxByHash(le.getTxHash())
          if not txref:
             print 'Why on earth does this happen?  Some tx we got from the blockchain... we can\'t find in the blockchain!'
-            return (-999, -999)
+            return (0, 0)
          if txref.getNumTxOut()==1:
             return (txref.getTxOutRef(0).getValue(), -1)
          maxChainIndex = -5
@@ -1412,16 +1456,21 @@ if 1:  #__name__ == '__main__':
    (options, args) = parser.parse_args()
 
 
-   armorymode = ARMORYMODE.WITH_BLOCKCHAIN
-   #try:
-      #import urllib2
-      #response=urllib2.urlopen('http://google.com',timeout=1)
-   #except (ImportError, urllib2.URLError):
-      #dlg = DlgGetArmoryModeSelection(self,self)
-      #if dlg.exec_():
-         #if dlg.wltonly:
-            #armorymode = ARMORYMODE.WALLET_ONLY
+   armorymode   = 'Offline'
+   haveBlk0001  = False
+   try:
+      import urllib2
+      response=urllib2.urlopen('http://google.com',timeout=1)
+      armorymode='Online'
+   except (ImportError, urllib2.URLError):
+      dlg = DlgGetArmoryModeSelection(self,self)
+      if dlg.exec_():
+         if dlg.wltonly:
+            armorymode = 'Offline'
          
+
+   
+
 
    app = QApplication(sys.argv)
    import qt4reactor
@@ -1430,18 +1479,13 @@ if 1:  #__name__ == '__main__':
 
       
    pixLogo = QPixmap('img/splashlogo.png')
-   #SPLASH = QSplashScreen(pixLogo, Qt.WindowStaysOnTopHint)
    SPLASH = QSplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()
    app.processEvents()
 
-   if armorymode == ARMORYMODE.WITH_BLOCKCHAIN:
-      form = ArmoryMainWindow(settingsPath=options.settingsPath)
-      form.show()
-   elif armorymode == ARMORYMODE.WALLET_ONLY:
-      form = ArmoryWalletMgmtWindow(settingsPath=options.settingsPath)
-      form.show()
+   form = ArmoryMainWindow(settingsPath=options.settingsPath, armorymode=armorymode)
+   form.show()
 
 
    SPLASH.finish(form)

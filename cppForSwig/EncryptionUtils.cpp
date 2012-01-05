@@ -7,7 +7,7 @@
 //#include <openssl/obj_mac.h>
 
 
-#define CRYPTO_DEBUG true
+#define CRYPTO_DEBUG false
 
 
 
@@ -236,7 +236,7 @@ SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
    uint32_t newIndex;
    uint32_t const nXorOps = HSZ/sizeof(uint64_t);
 
-   // We divide by 4 to reduce computation time -- k
+   // We divide by 2 to reduce computation time -- k
    uint32_t const nLookups = sequenceCount_ / 2;
    for(uint32_t nSeq=0; nSeq<nLookups; nSeq++)
    {
@@ -363,7 +363,7 @@ BTC_PRIVKEY CryptoECDSA::ParsePrivateKey(SecureBinaryData const & privKeyData)
    BTC_PRIVKEY cppPrivKey;
 
    CryptoPP::Integer privateExp;
-   privateExp.Decode(privKeyData.getPtr(), privKeyData.getSize());
+   privateExp.Decode(privKeyData.getPtr(), privKeyData.getSize(), UNSIGNED);
    cppPrivKey.Initialize(CryptoPP::ASN1::secp256k1(), privateExp);
    return cppPrivKey;
 }
@@ -385,8 +385,8 @@ BTC_PUBKEY CryptoECDSA::ParsePublicKey(SecureBinaryData const & pubKeyX32B,
 
    CryptoPP::Integer pubX;
    CryptoPP::Integer pubY;
-   pubX.Decode(pubKeyX32B.getPtr(), pubKeyX32B.getSize());
-   pubY.Decode(pubKeyY32B.getPtr(), pubKeyY32B.getSize());
+   pubX.Decode(pubKeyX32B.getPtr(), pubKeyX32B.getSize(), UNSIGNED);
+   pubY.Decode(pubKeyY32B.getPtr(), pubKeyY32B.getSize(), UNSIGNED);
    BTC_ECPOINT publicPoint(pubX, pubY);
 
    // Initialize the public key with the ECP point just created
@@ -493,8 +493,8 @@ bool CryptoECDSA::VerifyPublicKeyValid(SecureBinaryData const & pubKey65)
    SecureBinaryData pubYbin(pubKey65.getSliceRef(33,32));
    CryptoPP::Integer pubX;
    CryptoPP::Integer pubY;
-   pubX.Decode(pubXbin.getPtr(), pubXbin.getSize());
-   pubY.Decode(pubYbin.getPtr(), pubYbin.getSize());
+   pubX.Decode(pubXbin.getPtr(), pubXbin.getSize(), UNSIGNED);
+   pubY.Decode(pubYbin.getPtr(), pubYbin.getSize(), UNSIGNED);
    BTC_ECPOINT publicPoint(pubX, pubY);
 
    // Initialize the public key with the ECP point just created
@@ -644,11 +644,11 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
    
    CryptoPP::Integer chaincode, origPrivExp, ecOrder;
    // A 
-   chaincode.Decode(chainXor.getPtr(), chainXor.getSize());
+   chaincode.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
    // B 
-   origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize());
+   origPrivExp.Decode(binPrivKey.getPtr(), binPrivKey.getSize(), UNSIGNED);
    // C
-   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize());
+   ecOrder.Decode(SECP256K1_ORDER_BE.getPtr(), SECP256K1_ORDER_BE.getSize(), UNSIGNED);
 
    // A*B mod C will get us a new private key exponent
    CryptoPP::Integer newPrivExponent = 
@@ -690,7 +690,7 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 
    // Parse the chaincode as a big-endian integer
    CryptoPP::Integer chaincode;
-   chaincode.Decode(chainXor.getPtr(), chainXor.getSize());
+   chaincode.Decode(chainXor.getPtr(), chainXor.getSize(), UNSIGNED);
 
    // "new" init as "old", to make sure it's initialized on the correct curve
    BTC_PUBKEY oldPubKey = ParsePublicKey(binPubKey); 
