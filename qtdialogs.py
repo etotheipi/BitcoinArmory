@@ -559,6 +559,8 @@ class DlgWalletDetails(QDialog):
          self.connect(lbtnChangeCrypto, SIGNAL('clicked()'), self.changeEncryption)
 
       lbtnSendBtc = QLabelButton('Send Bitcoins')
+      if self.wlt.watchingOnly:
+         lbtnSendBtc = QLabelButton('Prepare Send-Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import External Address')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
@@ -592,7 +594,7 @@ class DlgWalletDetails(QDialog):
          frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
          return frm
 
-      if hasPriv:           optLayout.addWidget(lbtnSendBtc)
+      if True:              optLayout.addWidget(lbtnSendBtc)
       if True:              optLayout.addWidget(lbtnGenAddr)
       if hasPriv:           optLayout.addWidget(lbtnChangeCrypto)
       if True:              optLayout.addWidget(lbtnChangeLabels)
@@ -1667,7 +1669,7 @@ class DlgVerifySweep(QDialog):
 
       layout = QHBoxLayout()
       layout.addWidget(lblWarnImg)
-      layout.addWidget(makeLayoutStrip('Vert',[lblQuestion, frm, lblFinalConfirm, bbox]))
+      layout.addWidget(makeLayoutFrame('Vert',[lblQuestion, frm, lblFinalConfirm, bbox]))
       self.setLayout(layout)
 
       self.setWindowTitle('Confirm Sweep')
@@ -1899,8 +1901,8 @@ class DlgAddressInfo(QDialog):
             'and receive the change, as part of the same transaciton.' )
       lblLedger = QLabel('All Address Activity:')
 
-      lblstrip = makeLayoutStrip('Horiz', [lblLedger, ttipLedger, 'Stretch'])
-      frmLedger = makeLayoutStrip('Vert', [lblstrip, self.ledgerView])
+      lblstrip = makeLayoutFrame('Horiz', [lblLedger, ttipLedger, 'Stretch'])
+      frmLedger = makeLayoutFrame('Vert', [lblstrip, self.ledgerView])
       dlgLayout.addWidget(frmLedger, 1,0,  1,1)
 
 
@@ -1934,7 +1936,6 @@ class DlgAddressInfo(QDialog):
 
       self.lblCopied = QRichLabel('')
       self.lblCopied.setMinimumHeight(tightSizeNChar(self.lblCopied, 1)[1])
-      if True:           optLayout.addWidget(self.lblCopied)
       if True:           optLayout.addWidget(lbtnCopyAddr)
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
@@ -1943,11 +1944,13 @@ class DlgAddressInfo(QDialog):
       if adv:            optLayout.addWidget(lbtnUnspent)
 
       if False:          optLayout.addWidget(lbtnMkPaper)  
+      if False:          optLayout.addStretch()
+      if True:           optLayout.addWidget(self.lblCopied)
 
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
       
-      rightFrm = makeLayoutStrip('Vert', [QLabel('Available Actions:'), optFrame])
+      rightFrm = makeLayoutFrame('Vert', [QLabel('Available Actions:'), optFrame])
       dlgLayout.addWidget(rightFrm,  0,1, 2,1)
 
       self.setLayout(dlgLayout)
@@ -2046,7 +2049,7 @@ class DlgShowKeys(QDialog):
             'anyone who obtains them can spend the money held '
             'by this address.  Please protect this information the '
             'same as you protect your wallet.</font>')
-      warnFrm = makeLayoutStrip('Horiz', [lblWarn])
+      warnFrm = makeLayoutFrame('Horiz', [lblWarn])
 
       endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
       estr = 'BE' if endianness==BIGENDIAN else 'LE'
@@ -2202,7 +2205,6 @@ class DlgIntroMessage(QDialog):
                       'GB of RAM (plus Satoshi client RAM)')
       strReqts.append('Uses the blockchain file maintained by Satoshi '
                       'client (blk0001.dat)')
-      strReqts.append('<i>Advanced</i> user-mode is default, but <i>Standard</i> and <i>Developer</i> are also available')
       lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
 
       lblContact = QRichLabel( \
@@ -2212,7 +2214,7 @@ class DlgIntroMessage(QDialog):
       spacer = lambda: QSpacerItem(20,20, QSizePolicy.Fixed, QSizePolicy.Expanding)
 
 
-      frmText = makeLayoutStrip('Vert', [lblWelcome,    spacer(), \
+      frmText = makeLayoutFrame('Vert', [lblWelcome,    spacer(), \
                                          lblDescr,      spacer(), \
                                          lblShouldKnow, spacer(), \
                                          lblMustDo,               \
@@ -2239,9 +2241,9 @@ class DlgIntroMessage(QDialog):
          buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
 
       
-      frmIcon = makeLayoutStrip('Vert', [lblInfoImg, 'Stretch'])
+      frmIcon = makeLayoutFrame('Vert', [lblInfoImg, 'Stretch'])
       frmIcon.setMaximumWidth(60)
-      frmBtn = makeLayoutStrip('Horiz', [self.chkDnaaIntroDlg, 'Stretch', buttonBox])
+      frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, 'Stretch', buttonBox])
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmIcon,    0, 0,   1, 1)
@@ -2769,7 +2771,7 @@ class DlgRemoveWallet(QDialog):
          'unencrypted version of your wallet before it is deleted.  <b>If '
          'printing is unsuccessful, please press *CANCEL* on the print dialog '
          'to prevent the delete operation from continuing</b>')
-      printFrm = makeLayoutStrip('Horiz', [self.chkPrintBackup, printTtip, 'Stretch'])
+      printFrm = makeLayoutFrame('Horiz', [self.chkPrintBackup, printTtip, 'Stretch'])
       startRow +=1
       layout.addWidget( printFrm, startRow, 0, 1, 3)
 
@@ -3260,7 +3262,7 @@ class DlgConfirmSend(QDialog):
       layout.addWidget(lblInfoImg,           0, 0,   1, 1)
       layout.addWidget(lblMsg,               0, 1,   1, 1)
 
-      lblFrm = makeLayoutStrip('Vert', recipLbls, QFrame.StyledPanel|QFrame.Raised)
+      lblFrm = makeLayoutFrame('Vert', recipLbls, QFrame.StyledPanel|QFrame.Raised)
       layout.addWidget(lblFrm,               1, 1,   1, 1)
 
       r = len(recipLbls)+1
@@ -3302,18 +3304,12 @@ class DlgSendBitcoins(QDialog):
       #'wallet operation by specifying more.  Blank entries will be ignored')
          
 
-      lblSend = QRichLabel('<b>Sending from Wallet:</b>')
-      lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-      self.frmInfo = getWalletInfoFrame(wlt)
-      layout.addWidget(lblSend,       0, 0, 1, 1)
-      layout.addWidget(self.frmInfo,  1, 0, 1, 1)
-
       lbtnTxFeeOpt = QLabelButton('More Info')
       self.connect(lbtnTxFeeOpt, SIGNAL('clicked()'), self.txFeeOptions)
       feetip = createToolTipObject( \
             'Transaction fees go to other users who contribute computing power to '
             'keep the Bitcoin network secure, and guarantees that your transaciton '
-            'is processed quickly.   <b>Most transactions '
+            'is confirmed in the "blockchain."   <b>Most transactions '
             'do not require</b> a fee but it is recommended to include one anyway '
             'since it guarantees quick processing for less than $0.01 USD.  '  
             'You will will be prompted if a higher fee is '
@@ -3334,10 +3330,8 @@ class DlgSendBitcoins(QDialog):
 
       btnSend = QPushButton('Send!')
       self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
-      if wlt.watchingOnly:
-         btnSend.setEnabled(False)
 
-      txFrm = makeLayoutStrip('Horiz', [QLabel('Transaction Fee:'), \
+      txFrm = makeLayoutFrame('Horiz', [QLabel('Transaction Fee:'), \
                                        self.edtFeeAmt, \
                                        feetip, \
                                        spacer, \
@@ -3349,32 +3343,72 @@ class DlgSendBitcoins(QDialog):
       
 
       
-      btnFrame = QFrame()
-      btnFrameLayout = QGridLayout()
-      if wlt.watchingOnly:
-         ttip = createToolTipObject(\
-            'You do not have the ability to sign this transaction '
-            'from this computer.  Press this button to see options '
-            'for obtaining the appropriate signatures.')
+      self.frmInfo = getWalletInfoFrame(wlt)
+      lblNoSend = QRichLabel('')
+      btnUnsigned = QRichLabel('')
+      ttipUnsigned = QRichLabel('')
+
+      if wlt.watchingOnly or not self.main.isOnline:
+         if self.main.isOnline:
+            lblNoSend = QRichLabel( \
+               '<font color=#550000>'
+               'This is an "offline" wallet, which means that the '
+               'private keys needed to send Bitcoins are not on this computer. '
+               'However, you can create the transaction you would like to '
+               'spend, then Armory will provide you with a file that can '
+               'signed by the computer that <i>does</i> have the private '
+               'keys.</font>')
+         else:
+            lblNoSend = QRichLabel( \
+               '<font color=#550000>'
+               'You can sign this transaction, but you do not have '
+               'access to the Bitcoin network in order to broadcast '
+               'it.  However, you can create the transaction that '
+               'you <i>want</i> to send, and then broadcast it from a computer '
+               'that <i>is</i> connected to the network.</font>')
+         ttipUnsigned = createToolTipObject( \
+            'After clicking this button, you will be given options for '
+            'completing this transaction.')
             
-         btn = QPushButton('Create Unsigned Transaction')
-         self.connect(btn, SIGNAL('clicked()'), self.createTxDPAndDisplay)
-         btnFrameLayout.addWidget(btn,  0,0, 1,1)
-         btnFrameLayout.addWidget(ttip, 0,1, 1,1)
+         btnUnsigned = QPushButton('Create Unsigned Transaction')
+         self.connect(btnUnsigned, SIGNAL('clicked()'), self.createTxDPAndDisplay)
+         btnSend.setToolTip('You cannot send any Bitcoins from this wallet, from this computer')
+         btnSend.setEnabled(False)
+
          
       btnDonate = QPushButton("Add Donation")
       ttipDonate = createToolTipObject( \
          'Making this software was a lot of work.  You can give back '
          'by adding a small donation to the developers of Armory.  '
-         'Default donation is 0.5 BTC, but you can change '
-         'the amount before executing the transaction.')
+         'You will have the ability to change the donation amount '
+         'before finalizing the transaction.')
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
-      btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
-      btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
-      btnFrame.setLayout(btnFrameLayout)
 
-      layout.addWidget(btnFrame,   2,0, 1,1)
+      #btnFrame = QFrame()
+      #btnFrame.setFrameStyle(QFrame.NoFrame)
+      #btnFrameLayout = QGridLayout()
+      #btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
+      #btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
+      #btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
+      #btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
+      #btnFrame.setLayout(btnFrameLayout)
+
+      frmUnsigned   = makeLayoutFrame('Horiz', [btnUnsigned, ttipUnsigned])
+      frmDonate     = makeLayoutFrame('Horiz', [btnDonate, ttipDonate])
+      frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], QFrame.StyledPanel|QFrame.Sunken )
+      frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
+                                                frmUnsigned, \
+                                                frmDonate, \
+                                                'space(50)', \
+                                                frmNoSend], QFrame.StyledPanel|QFrame.Sunken)
+
+      lblSend = QRichLabel('<b>Sending from Wallet:</b>')
+      lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
+
+      layout.addWidget(lblSend,       0,0,  1,1)
+      layout.addWidget(frmBottomLeft, 1,0,  5,1)
       self.setLayout(layout)
+
       self.makeRecipFrame(1)
       self.setWindowTitle('Send Bitcoins')
       self.setMinimumHeight(self.maxHeight*20)
@@ -3413,7 +3447,10 @@ class DlgSendBitcoins(QDialog):
 
    #############################################################################
    def createTxDPAndDisplay(self):
+      self.comments = []
       txdp = self.validateInputsGetTxDP()
+      dlg = DlgReturnUnsignedTxDP(self.wlt, txdp, self, self.main)
+      dlg.exec_()
 
 
 
@@ -3568,8 +3605,8 @@ class DlgSendBitcoins(QDialog):
       bal = self.wlt.getBalance()
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
-            '%s BTC, but you only have %s BTC in this wallet!' % \
-               (coin2str(totalSend, maxZeros=2).strip(), \
+            '%s BTC (including tx fee), but you only have %s BTC in this wallet! (' % \
+               (coin2str(totalSend+fee, maxZeros=2).strip(), \
                 coin2str(bal, maxZeros=2).strip()), \
             QMessageBox.Ok)
          return False
@@ -3745,6 +3782,103 @@ class DlgSendBitcoins(QDialog):
          # TODO: do something!
          pass
 
+
+
+class DlgReturnUnsignedTxDP(QDialog):
+   def __init__(self, wlt, txdp, parent=None, main=None):
+      super(DlgReturnUnsignedTxDP, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.txdp   = txdp
+      self.wlt    = wlt
+
+      lblDescr = QRichLabel( \
+         'The chunk of data shown to the right is the complete transaction you just '
+         'requested, but missing the signatures needed to be valid.  You must '
+         'transfer this data to the computer or person that holds the private '
+         'keys for this wallet.<br><br>'
+         ''
+         'If you own this wallet but keep the full-wallet on a separate computer '
+         'you should save this data as a file to a USB key, and then load it '
+         'with the "Unsigned Transactions" button in Armory on the offline '
+         'computer.  Once the transaction is signed, bring the USB key '
+         'back to this computer to finalize (broadcast) it. <br><br>'
+         ''
+         'If this wallet actually belongs to another party, and you are making '
+         'a transaction <i>proposal</i>, then you need to send this data to '
+         'the other party for <i>them</i> to sign it.  <i>There is no sensitive '
+         'information in this block of text</i>, so it is acceptable to copy&paste '
+         'it directly inline into an email message.  The other party can then '
+         'copy the data from the email into Armory to review, sign the transaction.')
+
+      ttipBip0010 = createToolTipObject( \
+         'The serialization used in this block of data is based on BIP 0010, '
+         'which is a standard proposed by Armory developers for simple execution '
+         'of offline transactions and multi-signature transactions.  Any other '
+         'client software that implements BIP 0010 will be able to recognize '
+         'this block of data, and take appropriate action without having Armory '
+         'software available.   Technical details of BIP 0010 can be found at: '
+         'https://en.bitcoin.it/wiki/BIP_0010')
+
+      
+      btnSave = QPushButton('Save as file...')
+      self.connect(btnSave, SIGNAL('clicked()'), self.doSaveFile)
+      ttipSave = createToolTipObject( \
+         'Save this data to a USB key or other device, to be transferred to '
+         'the computer that contains the private keys for this wallet.')
+
+      btnClipboard = QPushButton('Copy to clipboard')
+      self.connect(btnClipboard, SIGNAL('clicked()'), self.copyAsciiTxDP)
+      self.lblCopied = QRichLabel('')
+      self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      ttipClipboard = createToolTipObject( \
+         'Copy the transaction data to the clipboard, so that it can be '
+         'pasted into an email or a text document.')
+
+      FontFixed = QFont('DejaVu Sans Mono', 10) 
+      self.txtTxDP = QTextEdit()
+      self.txtTxDP.setFont( FontFixed )
+      self.txtTxDP.setMinimumWidth(  tightSizeStr(FontFixed,'0'*90)[0] )
+      self.txtTxDP.setMinimumHeight( tightSizeStr(FontFixed,'0')[1] * 12.2 )
+      self.txtTxDP.setText(txdp.serializeAscii())
+      self.txtTxDP.setReadOnly(True)
+
+
+      self.btnDone = QPushButton("Done")
+      self.connect(self.btnDone, SIGNAL('clicked()'), self.accept)
+
+
+      dlgLayout = QGridLayout()
+      frmDescription = makeLayoutFrame('Horiz', [lblDescr], QFrame.StyledPanel|QFrame.Sunken)
+      dlgLayout.addWidget(frmDescription,  0,0, 1,2)
+      dlgLayout.addWidget(btnSave,         1,0, 1,1)
+      dlgLayout.addWidget(ttipSave,        1,1, 1,1)
+      dlgLayout.addWidget(btnClipboard,    2,0, 1,1)
+      dlgLayout.addWidget(ttipClipboard,   2,1, 1,1)
+      dlgLayout.addWidget(self.lblCopied,  3,0, 1,2)
+
+      dlgLayout.addWidget(self.txtTxDP,    0,2, 4,1)
+
+      dlgLayout.addWidget(makeLayoutFrame('Horiz', ['Stretch', self.btnDone]), 4,0, 1,3)
+
+      self.setLayout(dlgLayout)
+      self.setWindowTitle("Unsigned Transaction")
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+
+   def copyAsciiTxDP(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.txtTxDP.toPlainText())
+      self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+
+   def doSaveFile(self):
+      toSave = getFileSave('Save Unsigned Transaction', ['Armory Transactions (*.unsigned.tx)'])
+      theFile = open(toSave, 'w')
+      theFile.write(self.txtTxDP.toPlainText())
+      theFile.close()
+      
 
 ################################################################################
 class DlgTxFeeOptions(QDialog):
@@ -4236,7 +4370,7 @@ class DlgDispTxInfo(QDialog):
 
       self.scriptArea = QScrollArea()
       self.scriptArea.setWidget(self.lblTxioInfo)
-      self.scriptFrm = makeLayoutStrip('Horiz', [self.scriptArea])
+      self.scriptFrm = makeLayoutFrame('Horiz', [self.scriptArea])
       #self.scriptFrm.setMaximumWidth(150)
       self.scriptArea.setMaximumWidth(200)
 
@@ -4265,8 +4399,8 @@ class DlgDispTxInfo(QDialog):
          
 
 
-      inStrip  = makeLayoutStrip('Horiz', [lblInputs,  ttipInputs,  'Stretch'])
-      outStrip = makeLayoutStrip('Horiz', [lblOutputs, ttipOutputs, 'Stretch'])
+      inStrip  = makeLayoutFrame('Horiz', [lblInputs,  ttipInputs,  'Stretch'])
+      outStrip = makeLayoutFrame('Horiz', [lblOutputs, ttipOutputs, 'Stretch'])
       
       frmIOListLayout.addWidget(inStrip,          0,0, 1,1)
       frmIOListLayout.addWidget(self.txInView,    1,0, 1,1)
@@ -4284,7 +4418,7 @@ class DlgDispTxInfo(QDialog):
       self.connect(self.btnIOList, SIGNAL('clicked()'), self.extraInfoClicked)
       self.connect(self.btnOk,     SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCopy,   SIGNAL('clicked()'), self.copyRawTx)
-      btnStrip = makeLayoutStrip('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
+      btnStrip = makeLayoutFrame('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
 
       if self.mode==USERMODE.Standard:
          self.btnIOList.setChecked(False)
@@ -4358,7 +4492,7 @@ class DlgDispTxInfo(QDialog):
          lblScript.setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                         Qt.TextSelectableByKeyboard)
 
-         self.scriptArea.setWidget( makeLayoutStrip('Vert', [lblScript]))
+         self.scriptArea.setWidget( makeLayoutFrame('Vert', [lblScript]))
          self.scriptArea.setMaximumWidth(200)
          
    def copyRawTx(self):
@@ -4579,7 +4713,61 @@ class DlgPaperBackup(QDialog):
 
 
 
+class DlgBadConnection(QDialog):
+   def __init__(self, haveInternet, haveSatoshi, parent=None):
+      super(DlgBadConnection, self).__init__(parent)
 
+      layout = QGridLayout()
+      lblWarnImg = QLabel()
+      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
+
+      lblDescr = QLabel()
+      if not haveInternet:
+         lblDescr = QRichLabel( \
+            'Armory was not able to detect an internet connection, so Armory '
+            'will operate in "Offline" mode.  In this mode, only wallet'
+            '-management and unsigned-transaction functionality will be available. '
+            '<br><br>'
+            'If this is an error, please check your internet connection and '
+            'restart Armory.<br><br>Would you like to continue in "Offline" mode? ')
+      elif haveInternet and not haveSatoshi:
+         lblDescr = QRichLabel( \
+            'Armory was not able to detect the presence of the Satoshi Bitcoin '
+            'client (available at http://www.bitcoin.org).  Please make sure that '
+            'the Satoshi client is... <br><br><b>(1)</b> ...open and connected to the network '
+            '<br><b>(2)</b> ...on the same network as Armory (main-network or test-network)'
+            '<br><b>(3)</b> ...synchronized with the blockchain before '
+            'starting Armory<br><br>Without the Satoshi client open, you will only '
+            'be able to run Armory in "Offline" mode, which will not have access '
+            'to new blockchain data, and you will not be able to send outgoing '
+            'transactions<br><br>If you do not want to be in "Offline" mode, please '
+            'restart Armory after the Satoshi client is open and synchronized with '
+            'the network')
+      else:
+         # Nothing to do -- we shouldn't have even gotten here
+         return
+         
+      
+         
+      lblDescr.setMinimumWidth(500)
+      self.btnAccept = QPushButton("Continue in Offline Mode")
+      self.btnCancel = QPushButton("Close Armory")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), parent.closeEvent)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout.addWidget(lblWarnImg,         0,1, 2,1)
+      layout.addWidget(lblDescr,           0,2, 1,1)
+      layout.addWidget(buttonBox,          1,2, 1,1)
+
+      self.setLayout(layout)
+      self.setWindowTitle('Network not available')
+
+
+   
 
 
 ################################################################################

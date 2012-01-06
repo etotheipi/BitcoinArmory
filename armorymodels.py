@@ -13,8 +13,8 @@ from qtdefines import *
 
 
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
-LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', \
-                   'Comment', 'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf')
+LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', \
+                   'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
@@ -126,7 +126,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
-      return 10
+      return 11
 
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
@@ -135,9 +135,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       nConf = rowData[0]
 
       if role==Qt.DisplayRole:
-         ###
          return QVariant(rowData[col])
-         ###
       elif role==Qt.TextAlignmentRole:
          if col in (COL.NumConf,  COL.TxDir):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
@@ -153,6 +151,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.LightGray )
       elif role==Qt.ForegroundRole:
+         if self.index(index.row(),COL.DoubleSpend).data().toBool():
+            return QVariant(Colors.Red)
          if nConf <= 2:
             return QVariant(Colors.MidGray)
          elif nConf <= 4:

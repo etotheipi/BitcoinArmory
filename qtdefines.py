@@ -277,7 +277,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
    return (result, dlg.chkDnaa.isChecked())
 
  
-def makeLayoutStrip(dirStr, widgetList, style=QFrame.NoFrame):
+def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    frm = QFrame()
    frm.setFrameStyle(style)
 
@@ -288,6 +288,14 @@ def makeLayoutStrip(dirStr, widgetList, style=QFrame.NoFrame):
    for w in widgetList:
       if isinstance(w,str) and w.lower()=='stretch':
          frmLayout.addStretch()
+      elif isinstance(w,str) and w.lower().startswith('space'):
+         # expect "spacer(30)"
+         first = w.index('(')+1 
+         last  = w.index(')')
+         wid,hgt = int(w[first:last]), 1
+         if dirStr.lower().startswith('vert'):
+            wid,hgt = hgt,wid
+         frmLayout.addItem( QSpacerItem(wid,hgt) )
       elif isinstance(w,QSpacerItem):
          frmLayout.addItem(w)
       else:

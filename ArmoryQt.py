@@ -53,25 +53,17 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None, armorymode='Online'):
+   def __init__(self, parent=None, settingsPath=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-      self.armorymode = armorymode
-      haveBlkFile = os.path.exists(BLK0001_PATH)
+      self.haveBlkFile = os.path.exists(BLK0001_PATH)
 
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
-
-      if self.armorymode=='Online':
-         self.setupNetworking()
-      else:
-         # This implements all the same methods, but they do nothing
-         self.NetworkingFactory = FakeClientFactory()
+      self.setupNetworking()
 
       self.extraHeartbeatFunctions = []
-      #self.extraHeartbeatFunctions.append(self.NetworkingFactory.purgeMemoryPool)
-      #self.extraHeartbeatFunctions.append(self.createCombinedLedger)
 
       # Keep a persistent printer object for paper backups
       self.printer = QPrinter(QPrinter.HighResolution)
@@ -211,15 +203,15 @@ class ArmoryMainWindow(QMainWindow):
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
-      btnUnsigned  = QPushButton("Unsigned Transactions")
+      btnOfflineTx = QPushButton("Offline Transactions")
       btnDevTools  = QPushButton("Developer Tools")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
-   
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnDevTools, SIGNAL('clicked()'), self.openToolsDlg)
+      self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
       # QTableView.selectedIndexes to get the selection
 
       layout = QVBoxLayout()
@@ -228,7 +220,7 @@ class ArmoryMainWindow(QMainWindow):
       layout.addWidget(btnWltProps)
       
       if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
-         layout.addWidget(btnUnsigned)
+         layout.addWidget(btnOfflineTx)
       if self.usermode==USERMODE.Developer:
          layout.addWidget(btnDevTools)
       layout.addStretch()
@@ -302,10 +294,12 @@ class ArmoryMainWindow(QMainWindow):
       def memClear(): self.memoryPoolAction('clear')
       def memPurge(): self.memoryPoolAction('purge')
       def memPrint(): self.memoryPoolAction('print')
+      actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
       actClearMemPool = self.createAction('&Clear',  memClear)
       actPrintMemPool = self.createAction('&Print',  memPrint)
       actPurgeMemPool = self.createAction('&Purge',  memPurge)
 
+      self.menusList[MENUS.Network].addAction(actEnableMemPool)
       self.menusList[MENUS.Network].addAction(actClearMemPool)
       self.menusList[MENUS.Network].addAction(actPrintMemPool)
       self.menusList[MENUS.Network].addAction(actPurgeMemPool)
@@ -334,6 +328,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def execOfflineTx(self):
+      pass   
+
+   #############################################################################
    def memoryPoolAction(self, opString):
       if opString.lower()=='clear':
          self.NetworkingFactory.zeroConfTx.clear()
@@ -350,6 +348,20 @@ class ArmoryMainWindow(QMainWindow):
          print 'After purging:'
          self.memoryPoolAction('Print')
 
+   def enableMemoryPool(self, doEnable):
+      if doEnable: 
+         QMessageBox.information(self,'Zero-Confirmation Transactions', \
+         'Zero-confirmation transactions in Armory are not handled well.  A short-'
+         'term solution has been implemented, but it usually results in extra, '
+         'ghost transactions appearing in the wallet ledger.  Please do not consider '
+         'any such transactions to be truth, until you see them with 1 or more '
+         'confirmations. \n\n'
+         'You can use the "Network" menu to clear or purge the memory pool if '
+         'too many transactions appear. \n\n'
+         'This feature will be fixed in the following release.', QMessageBox.Ok)
+         self.settings.set('ZeroConfEnable', True)
+      else:
+         self.settings.set('ZeroConfEnable', False)
 
    #############################################################################
    def sizeHint(self):
@@ -359,12 +371,6 @@ class ArmoryMainWindow(QMainWindow):
    def openToolsDlg(self):
       pass
 
-   #############################################################################
-   def printZeroConf(self):
-      print 'Printing memory pool:'
-      for k,v in self.NetworkingFactory.zeroConfTx.iteritems():
-         print binary_to_hex(k), ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
-      self.NetworkingFactory.purgeMemoryPool()
 
 
    #############################################################################
@@ -427,6 +433,46 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setupNetworking(self):
 
+      internetAvail = False
+      satoshiAvail  = False
+
+
+      # Check for Satoshi-client connection
+      import socket
+      s = socket.socket()
+      try:
+         s.connect(('127.0.0.1', BITCOIN_PORT))
+         s.close()
+         self.satoshiAvail = True
+      except:
+         self.satoshiAvail = False
+         
+
+
+      # Check general internet connection
+      try:
+         import urllib2
+         response=urllib2.urlopen('http://google.com', timeout=1)
+         self.internetAvail = True
+      except ImportError:
+         print 'No module urllib2 -- cannot determine if internet is available'
+      except urllib2.URLError:
+         # In the extremely rare case that google might be down...
+         try:
+            response=urllib2.urlopen('http://microsoft.com', timeout=1)
+         except urllib2.URLError:
+            self.internetAvail = False
+         
+      self.isOnline = (self.internetAvail and self.satoshiAvail)
+
+      if not self.isOnline:
+         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self)
+         dlg.exec_()
+         self.NetworkingFactory = FakeClientFactory()
+         return
+   
+
+
       from twisted.internet import reactor
       def restartConnection(protoObj, failReason):
          QMessageBox.critical(self, 'Lost Connection', \
@@ -458,6 +504,7 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.getSettingOrSetDefault('User_Mode',          'Advanced')
       self.settings.getSettingOrSetDefault('UnlockTimeout',      10)
       self.settings.getSettingOrSetDefault('DNAA_UnlockTimeout', False)
+      self.settings.getSettingOrSetDefault('ZeroConfEnable',     False)
 
 
       # Determine if we need to do new-user operations, increment load-count
@@ -541,25 +588,6 @@ class ArmoryMainWindow(QMainWindow):
             raise
                      
 
-      # We will use the settings file to store other:  we will have one entry
-      # for each wallet and it will contain a list of strings (dict-esque)
-      # that we might want to store about that wallet, that cannot be stored
-      # in the wallet file itself:
-      #   Wallet_287cFxkr3_IsMine     |  True
-      #   Wallet_287cFxkr3_BelongsTo  |  Joe the plumber
-      #self.wltExtraProps = {}
-      #for name,val in self.settings.getAllSettings().iteritems():
-         #parts = name.split('_')
-         #if len(parts)>=3 and parts[0]=='Wallet' and self.walletMap.has_key(parts[1]):
-            ## The last part is the prop name and the value is the property 
-            #wltID=parts[1]
-            #propName=parts[2:]
-            #if not self.wltExtraProps.has_key(wltID):
-               #self.wltExtraProps[wltID] = {}
-            #self.wltExtraProps[wltID][propName] = self.settings.get(name)
-
-         
-            
       
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
@@ -847,7 +875,8 @@ class ArmoryMainWindow(QMainWindow):
          # Calculate and add the LedgerEntries from zero-conf tx
          self.updateZeroConfLedger(wlt)
          for hsh,le in self.zeroConfWltLEs[wltID].iteritems():
-            self.combinedLedger.append([wltID, le])
+            if self.settings.get('ZeroConfEnable'):
+               self.combinedLedger.append([wltID, le])
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
@@ -996,6 +1025,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # Sent-to-self
          row.append( le.isSentToSelf() )
+
+         # Tx was invalidated!  (double=spend!)
+         row.append( not le.isValid())
 
          # Finally, attach the row to the table
          table2D.append(row)
@@ -1421,15 +1453,18 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
-   def closeEvent(self, event):
+   def closeEvent(self, event=None):
       '''
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
-      self.NetworkingFactory.saveMemoryPool()
+      #self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
-      reactor.stop()
+      try:
+         reactor.stop()
+      except: 
+         pass
       sys.exit()
       event.accept()
       
@@ -1450,26 +1485,11 @@ if 1:  #__name__ == '__main__':
                      help="load Armory with a specific settings file")
    parser.add_option("--verbose", dest="verbose", action="store_true", default=False,
                      help="Print all messages sent/received")
-   #parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
-                     #help="Speak testnet protocol")
+   parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
+                     help="Use the testnet protocol")
 
    (options, args) = parser.parse_args()
 
-
-   armorymode   = 'Offline'
-   haveBlk0001  = False
-   try:
-      import urllib2
-      response=urllib2.urlopen('http://google.com',timeout=1)
-      armorymode='Online'
-   except (ImportError, urllib2.URLError):
-      dlg = DlgGetArmoryModeSelection(self,self)
-      if dlg.exec_():
-         if dlg.wltonly:
-            armorymode = 'Offline'
-         
-
-   
 
 
    app = QApplication(sys.argv)
@@ -1484,7 +1504,7 @@ if 1:  #__name__ == '__main__':
    SPLASH.show()
    app.processEvents()
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath, armorymode=armorymode)
+   form = ArmoryMainWindow(settingsPath=options.settingsPath)
    form.show()
 
 

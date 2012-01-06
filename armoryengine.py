@@ -35,7 +35,6 @@
 
 
 
-USE_TESTNET = True
    
 
 import copy
@@ -51,8 +50,13 @@ from struct import pack, unpack
 from datetime import datetime
 
 
-# These are overriden for testnet
-USE_TESTNET = True
+from sys import argv
+
+
+# Use CLI args to determine testnet or not
+USE_TESTNET = ('--testnet' in argv)
+   
+
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
@@ -173,7 +177,7 @@ class ConnectionError(Exception): pass
 
 ##### MAIN NETWORK IS DEFAULT #####
 if not USE_TESTNET:
-   # TODO:  The testnet genesis tx hash can't be the same...
+   # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
@@ -8469,6 +8473,10 @@ class FakeClientFactory(ClientFactory):
    to be able to use the same calls
    """
    #############################################################################
+   zeroConfTx = {}
+   zeroConfTxTime = {}
+   zeroConfTxOutMap = {}       #   map[OutPoint] = txHash
+   doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
    def __init__(self, \
                 def_handshake=None, \
                 func_loseConnect=None, \
