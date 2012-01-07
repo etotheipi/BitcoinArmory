@@ -1927,6 +1927,7 @@ class DlgAddressInfo(QDialog):
 
       hasPriv = self.addr.hasPrivKey()
       adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
+      watch = self.wlt.watchingOnly
 
       #def createVBoxSeparator():
          #frm = QFrame()
@@ -1939,7 +1940,7 @@ class DlgAddressInfo(QDialog):
       if True:           optLayout.addWidget(lbtnCopyAddr)
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
-      if True:           optLayout.addWidget(lbtnSweepA)
+      if not watch:      optLayout.addWidget(lbtnSweepA)
       if adv:            optLayout.addWidget(lbtnDelete)
       if adv:            optLayout.addWidget(lbtnUnspent)
 
@@ -3797,28 +3798,29 @@ class DlgReturnUnsignedTxDP(QDialog):
       lblDescr = QRichLabel('')
       if determineWalletType(wlt, self.main)[0]==WLTTYPES.Offline:
          lblDescr = QRichLabel( \
-         'The chunk of data shown below is the complete transaction you just '
+         'The block of data shown below is the complete transaction you just '
          'requested, but is invalid because it does not contain the appropriate '
          'signatures.  You must '
          'take this data to the computer holding the private keys for this '
          'wallet to get the necessary signatures, then bring back the completed '
          'transaction to be broadcast to the Bitcoin network.'
          '<br><br>'
-         'The best way to proceed is to press the "Save as file..." button '
-         'to save the *.unsigned.tx file to a USB key or other removable media.  '
-         'Then take the removable drive to the offline computer, press the '
-         '"Offline Transactions" button in Armory, then use the "Load from file..." '
-         'button to read it from the USB key.  As long as the appropriate wallet '
-         'is on that computer, you will be given an option to sign it.'
+         'If the other computer is offline, press the "Save as file..." button '
+         'to copy the *.unsigned.tx file to a USB key or other removable media.  '
+         'Take the file to the offline computer, and use the '
+         '"Offline Transactions" dialog to load the transaction data and sign it '
+         '(the filename suffix will be changed to *.signed.tx).'
+         '<br><br>'
+         'If the computer with the private keys is internet-connected, you can copy '
+         'the text directly into an email, and then sign and broadcast using Armory '
+         'on that other computer.'
          '<br><br>'
          '<font color=#550000>'
-         'Once this transaction has been signed, bring the *.signed.tx file back '
-         'to this computer and hit the "Ready to Broadcast" button below.  '
-         'Alternatively, you can close '
-         'this dialog, and finalize the transaction later by using the '
-         '"Offline Transactions" button on the main window.  (The transaction can '
-         'actually be finalized from <i>any</i> computer running Armory and '
-         'connected to the Bitcoin network)'
+         'If you\'d like, you can close '
+         'this window and finalize the transaction later by using the '
+         '"Offline Transactions" button on the main window.  In fact, the '
+         'transaction can be finalized from <i>any</i> computer that is '
+         'running Armory and connected to the Bitcoin network.'
          '</font>')
       elif determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly: 
          lblDescr = QRichLabel( \
@@ -3864,7 +3866,7 @@ class DlgReturnUnsignedTxDP(QDialog):
       lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
       lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
       FontFixed = QFont('DejaVu Sans Mono', 8) 
-      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*7.2)
+      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*8.2)
 
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
@@ -3885,24 +3887,34 @@ class DlgReturnUnsignedTxDP(QDialog):
       self.txtSigned.setMaximumWidth(w)
       self.txtSigned.setMaximumHeight(h)
       self.txtSigned.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      self.txtSigned.setText("Copy signed transaction into this box")
+      self.txtSigned.setText('<font color="gray">When you are ready, load the signed transaction from ' 
+                             'file or copy&paste the text into this box.</font>')
       self.txtSignedCleared = False
       self.txtSigned.setTextColor(Colors.MidGray)
       self.connect(self.txtSigned, SIGNAL('cursorPositionChanged()'), self.txtSignedFirstClick)
       
       self.lblRight = QRichLabel('')
+      self.lblRight.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      btnLoad = QPushButton("Load from file...")
+      self.connect(btnLoad, SIGNAL('clicked()'), self.execLoadSig)
+      ttipLoad = createToolTipObject( \
+         'If you have the signed transaction in a file (such as USB you just '
+         'inserted), use this button to load the *.signed.tx file')
+
 
       self.btnReady = QPushButton("Ready to Broadcast!")
-      self.connect(self.btnReady, SIGNAL('clicked()'), self.execBroadcastDlg)
+      self.connect(self.btnReady, SIGNAL('clicked()'), self.execBroadcast)
       ttipReady = createToolTipObject( \
          'If you have already gotten the necessary signatures from the offline '
          'computer, click this button.')
-      btnLater = QPushButton("Close this Window")
+
+      btnLater = QPushButton("Close Window")
       self.connect(btnLater, SIGNAL('clicked()'), self.reject)
       ttipLater = createToolTipObject( \
          'If you do not want to broadcast this transaction, or will do so later '
-         'you can close this window, and your wallet will not be affected at all.'
-         'If you do plan to broadcast later, please use the "Offline Transactions" '
+         'you can close this window, and your wallet will remain untouched.  '
+         'If you plan to broadcast later, please use the "Offline Transactions" '
          'button on the main window.')
 
       frmLower = QFrame()
@@ -3917,51 +3929,31 @@ class DlgReturnUnsignedTxDP(QDialog):
       frmLowerLayout.addWidget(self.lblCopied,2,1,  1,2)
 
       frmLowerLayout.addWidget(HLINE(),       3,0,  1,3)
-      frmLowerLayout.addWidget(self.txtSigned,4,0,  3,1)
-      frmLowerLayout.addWidget(self.btnReady, 4,1,  1,1)
-      frmLowerLayout.addWidget(ttipReady,     4,2,  1,1)
-      frmLowerLayout.addWidget(btnLater,      5,1,  1,1)
-      frmLowerLayout.addWidget(ttipLater,     5,2,  1,1)
+      frmLowerLayout.addWidget(self.txtSigned,4,0,  4,1)
+      frmLowerLayout.addWidget(btnLoad,       4,1,  1,1)
+      frmLowerLayout.addWidget(ttipLoad,      4,2,  1,1)
+      frmLowerLayout.addWidget(self.btnReady, 5,1,  1,1)
+      frmLowerLayout.addWidget(ttipReady,     5,2,  1,1)
       frmLowerLayout.addWidget(self.lblRight, 6,1,  1,2)
+      frmLowerLayout.addWidget(btnLater,      7,1,  1,1)
+      frmLowerLayout.addWidget(ttipLater,     7,2,  1,1)
+
+
+      #frmCancel = makeLayoutFrame('Horiz', ['Stretch', ttipLater, btnLater])
 
       frmLower.setLayout(frmLowerLayout)
       self.btnReady.setEnabled(False)
 
-      #frmBtns = QFrame()
-      #frmBtnsLayout = QGridLayout()
-      #frmBtnsLayout.addWidget(btnSave,  0,0);  frmBtnsLayout.addWidget(ttipSave,  0,1)
-      #frmBtnsLayout.addWidget(btnCopy,  1,0);  frmBtnsLayout.addWidget(ttipCopy,  1,1)
-      #frmBtnsLayout.addWidget(self.lblCopied,  2,0);  
-      #frmBtnsLayout.addWidget(HLINE(),  3,0, 1,2)
-      #frmBtnsLayout.addItem(  QSpacerItem(1, 20), 4,0, 1,1)
-      #frmBtnsLayout.addWidget(self.btnReady, 5,0);  frmBtnsLayout.addWidget(ttipReady, 5,1)
-      #frmBtnsLayout.addWidget(btnLater, 6,0);  frmBtnsLayout.addWidget(ttipLater, 6,1)
-      #frmBtns.setLayout(frmBtnsLayout)
-
-      #frmBtnsWStretch = makeLayoutFrame('Vert', [frmBtns, 'Stretch'])
-
       frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
-
       frmUpper = makeLayoutFrame('Horiz', [lblDescr], QFrame.StyledPanel|QFrame.Sunken)
-      #frmLower = makeLayoutFrame('Horiz', [self.txtTxDP, frmBtnsWStretch], QFrame.StyledPanel|QFrame.Sunken)
 
-      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(10)', frmUTX, frmLower])
+      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(5)', frmUTX, frmLower])
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmAll)
-      #dlgLayout.addWidget(frmDescription,  0,0, 1,4)
-
-      #dlgLayout.addWidget(lblUTX,          1,0, 1,4)
-
-      #dlgLayout.addWidget(self.txtTxDP,    2,0, 1,1)
-      #dlgLayout.addWidget(btnSave,         1,2, 1,1)
-      #dlgLayout.addWidget(ttipSave,        1,1, 1,1)
-      #dlgLayout.addWidget(self.lblCopied,  3,0, 1,2)
-      #dlgLayout.addWidget(makeLayoutFrame('Horiz', ['Stretch', self.btnDone]), 6,0, 1,2)
-
 
       self.setLayout(dlgLayout)
-      self.setWindowTitle("Completing the Transaction...")
+      self.setWindowTitle("Offline Transaction")
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
    def copyAsciiTxDP(self):
@@ -3987,7 +3979,6 @@ class DlgReturnUnsignedTxDP(QDialog):
       dlg.exec_()
       
    def txtSignedFirstClick(self):
-      print 'Clicked!'
       if not self.txtSignedCleared:
          self.txtSignedCleared = True
          self.txtSigned.setText('')
@@ -4002,8 +3993,7 @@ class DlgReturnUnsignedTxDP(QDialog):
          return
 
       try:
-         print self.txtSigned.toPlainText()
-         txdpSigned = PyTxDistProposal().unserializeAscii(self.txtSigned.toPlainText())
+         txdpSigned = PyTxDistProposal().unserializeAscii(str(self.txtSigned.toPlainText()))
          enoughSigs = txdpSigned.checkTxHasEnoughSignatures()
          sigsValid  = txdpSigned.checkTxHasEnoughSignatures(alsoVerify=True)
          if not enoughSigs:
@@ -4015,7 +4005,6 @@ class DlgReturnUnsignedTxDP(QDialog):
             self.btnReady.setEnabled(False)
             return
       except:
-         print 'excepted!'
          self.lblRight.setText(a + 'Unrecognized Input!' + b)
          self.btnReady.setEnabled(False)
          return
@@ -4023,6 +4012,25 @@ class DlgReturnUnsignedTxDP(QDialog):
       self.lblRight.setText('<b><i><font color="green">Signature Valid!</font></i></b>')
       self.btnReady.setEnabled(True)
       
+   def execLoadSig(self):
+      fn = self.main.getFileLoad( title = 'Load Signed Transaction', \
+                                  ffilter=['Signed Transactions (*.signed.tx)'])
+      fileobj = open(fn, 'r')
+      txdpStr = fileobj.read()
+      fileobj.close()
+      self.txtSigned.setText(txdpStr)
+      self.txtSignedFirstClick()
+
+   def execBroadcast(self):
+      txdpSigned = PyTxDistProposal().unserializeAscii(str(self.txtSigned.toPlainText()))
+      finalTx = txdpSigned.getBroadcastTxIfReady()
+      if finalTx==None:
+         QMessageBox.critical(self, 'Error', \
+           'There was an error finalizing the transaction.  Double-check '
+           'that the correct data was loaded into the text box',  QMessageBox.Ok)
+         return
+
+      self.main.broadcastTransaction(finalTx)
 
 
 ################################################################################

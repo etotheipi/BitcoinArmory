@@ -1274,9 +1274,10 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
+      pytx.pprint()
       if dryRun:
-         pytx.pprint()
          #DlgDispTxInfo(pytx, None, self, self).exec_()
+         return
       else:
          # TODO:  MAKE SURE THE TX WAS ACCEPTED?
          print 'Sending Tx,', binary_to_hex(pytx.getHash())
