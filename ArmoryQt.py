@@ -1494,6 +1494,8 @@ if 1:  #__name__ == '__main__':
                      help="Print all messages sent/received")
    parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                      help="Use the testnet protocol")
+   parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
+                     help="Use the testnet protocol")
 
    (options, args) = parser.parse_args()
 

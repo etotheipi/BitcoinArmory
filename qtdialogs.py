@@ -1414,20 +1414,9 @@ class DlgImportAddress(QDialog):
       self.radioSweep.setChecked(True)
 
 
-      #lblWarn = QLabel( \
-            #'<font color="red"><b>Warning</b></font>: Do not import private '
-            #'keys/addresses <b>unless '
-            #'you know for sure that you are the only person who has access '
-            #'to it</b>.  If you received this key from another party, that party '
-            #'will be able to spend any Bitcoins it currently holds, and future '
-            #'Bitcoins sent to it.')
-      #lblWarn.setWordWrap(True)
-      #lblWarn.setTextFormat(Qt.RichText)
-
       frmWarn = QFrame()
       frmWarn.setFrameStyle(QFrame.Box|QFrame.Plain)
       frmWarnLayout = QGridLayout()
-      #frmWarnLayout.addWidget(lblWarn,         0,0, 1,1)
       frmWarnLayout.addWidget(self.radioSweep,    0,0, 1,1)
       frmWarnLayout.addWidget(self.radioImport,   1,0, 1,1)
       frmWarnLayout.addWidget(sweepTooltip,  0,1, 1,1)
@@ -1490,16 +1479,17 @@ class DlgImportAddress(QDialog):
       if canBeHex:  
          binEntry = hex_to_binary(theStr)
 
-      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==0x80):
+      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
          if len(theStr)==36:
-            keydata = hex_to_binary(theStr[:64 ])
-            chk     = hex_to_binary(theStr[ 64:])
+            keydata = binEntry[:32 ]
+            chk     = binEntry[ 32:]
             binEntry = verifyChecksum(keydata, chk)
          else:
             # Assume leading 0x80 byte, and 4 byte checksum
-            keydata = hex_to_binary(theStr[1:1+64 ])
-            chk     = hex_to_binary(theStr[  1+64:])
+            keydata = binEntry[ :1+32 ]
+            chk     = binEntry[  1+32:]
             binEntry = verifyChecksum(keydata, chk)
+            binEntry = binEntry[1:]
 
          if binEntry=='':
             QMessageBox.warning(self, 'Entry Error',
