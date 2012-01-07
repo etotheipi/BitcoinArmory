@@ -10,6 +10,19 @@ WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')
 MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
  
+
+def HLINE(style=QFrame.Plain):
+   qf = QFrame()
+   qf.setFrameStyle(QFrame.HLine | style)
+   return qf
+
+def VLINE(style=QFrame.Plain):
+   qf = QFrame()
+   qf.setFrameStyle(QFrame.VLine | style)
+   return qf
+
+
+
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
       return 'Standard'
@@ -296,6 +309,13 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
          if dirStr.lower().startswith('vert'):
             wid,hgt = hgt,wid
          frmLayout.addItem( QSpacerItem(wid,hgt) )
+      elif isinstance(w,str) and w.lower().startswith('line'):
+         frmLine = QFrame()
+         if dirStr.lower().startswith('vert'):
+            frmLine.setFrameStyle(QFrame.HLine | QFrame.Plain)
+         else:
+            frmLine.setFrameStyle(QFrame.VLine | QFrame.Plain)
+         frmLayout.addWidget(frmLine)
       elif isinstance(w,QSpacerItem):
          frmLayout.addItem(w)
       else:

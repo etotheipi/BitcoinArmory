@@ -54,7 +54,7 @@ from sys import argv
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = ('--testnet' in argv)
+USE_TESTNET = not ('--mainnet' in argv)
    
 
 
@@ -5002,8 +5002,7 @@ class PyTxDistProposal(object):
       txdpTxt = [line.strip() for line in asciiStr.split('\n')]
 
 
-      # Why can't I figure out the best way to do this?  I thought this is what
-      # generators are for, but I was clearly mistaken...
+      # Why can't I figure out the best way to do this with generators?
       # I know there's a bettery [python-]way to do this...
       L = [0]
       def nextLine(i):

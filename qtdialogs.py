@@ -560,7 +560,7 @@ class DlgWalletDetails(QDialog):
 
       lbtnSendBtc = QLabelButton('Send Bitcoins')
       if self.wlt.watchingOnly:
-         lbtnSendBtc = QLabelButton('Prepare Send-Transaction')
+         lbtnSendBtc = QLabelButton('Prepare Offline Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import External Address')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
@@ -1944,7 +1944,7 @@ class DlgAddressInfo(QDialog):
       if adv:            optLayout.addWidget(lbtnUnspent)
 
       if False:          optLayout.addWidget(lbtnMkPaper)  
-      if False:          optLayout.addStretch()
+      if True:           optLayout.addStretch()
       if True:           optLayout.addWidget(self.lblCopied)
 
       optLayout.addStretch()
@@ -3419,7 +3419,8 @@ class DlgSendBitcoins(QDialog):
       donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 20)
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
-         not loadCount==lastPestering and not dnaaDonate and wlt.getBalance() > 5*ONE_BTC:
+         not loadCount==lastPestering and not dnaaDonate and \
+         wlt.getBalance() > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
             'and many months of anti-social behavior.  Yet, this software has been '
@@ -3430,8 +3431,8 @@ class DlgSendBitcoins(QDialog):
             'application.'
             '<br><br>Are you willing to donate to the Armory developers? If you '
             'select "Yes," a donation field will be added to your '
-            'next transaction (you will have the opportunity to remove or change '
-            'the amount before sending the transaction).', None)
+            'next transaction.  You will have the opportunity to remove or change '
+            'the amount before sending the transaction.', None)
 
          self.main.settings.set('DonateLastPester', loadCount)
 
@@ -3793,34 +3794,57 @@ class DlgReturnUnsignedTxDP(QDialog):
       self.txdp   = txdp
       self.wlt    = wlt
 
-      lblDescr = QRichLabel( \
-         'The chunk of data shown to the right is the complete transaction you just '
-         'requested, but missing the signatures needed to be valid.  You must '
-         'transfer this data to the computer or person that holds the private '
-         'keys for this wallet.<br><br>'
-         ''
-         'If you own this wallet but keep the full-wallet on a separate computer '
-         'you should save this data as a file to a USB key, and then load it '
-         'with the "Unsigned Transactions" button in Armory on the offline '
-         'computer.  Once the transaction is signed, bring the USB key '
-         'back to this computer to finalize (broadcast) it. <br><br>'
-         ''
-         'If this wallet actually belongs to another party, and you are making '
-         'a transaction <i>proposal</i>, then you need to send this data to '
-         'the other party for <i>them</i> to sign it.  <i>There is no sensitive '
-         'information in this block of text</i>, so it is acceptable to copy&paste '
-         'it directly inline into an email message.  The other party can then '
-         'copy the data from the email into Armory to review, sign the transaction.')
+      lblDescr = QRichLabel('')
+      if determineWalletType(wlt, self.main)[0]==WLTTYPES.Offline:
+         lblDescr = QRichLabel( \
+         'The chunk of data shown below is the complete transaction you just '
+         'requested, but is invalid because it does not contain the appropriate '
+         'signatures.  You must '
+         'take this data to the computer holding the private keys for this '
+         'wallet to get the necessary signatures, then bring back the completed '
+         'transaction to be broadcast to the Bitcoin network.'
+         '<br><br>'
+         'The best way to proceed is to press the "Save as file..." button '
+         'to save the *.unsigned.tx file to a USB key or other removable media.  '
+         'Then take the removable drive to the offline computer, press the '
+         '"Offline Transactions" button in Armory, then use the "Load from file..." '
+         'button to read it from the USB key.  As long as the appropriate wallet '
+         'is on that computer, you will be given an option to sign it.'
+         '<br><br>'
+         '<font color=#550000>'
+         'Once this transaction has been signed, bring the *.signed.tx file back '
+         'to this computer and hit the "Ready to Broadcast" button below.  '
+         'Alternatively, you can close '
+         'this dialog, and finalize the transaction later by using the '
+         '"Offline Transactions" button on the main window.  (The transaction can '
+         'actually be finalized from <i>any</i> computer running Armory and '
+         'connected to the Bitcoin network)'
+         '</font>')
+      elif determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly: 
+         lblDescr = QRichLabel( \
+         'The chunk of data shown below is the complete transaction you just '
+         'requested, but without the signatures needed to be valid.  '
+         '<br><br>'
+         'In order to complete this transaction, you need to send this '
+         'chunk of data (the proposed transaction) to the party who holds the '
+         'private keys for this wallet.  They can load this data into Armory '
+         'and broadcast the transaction if they chose to sign it. ')
 
       ttipBip0010 = createToolTipObject( \
          'The serialization used in this block of data is based on BIP 0010, '
-         'which is a standard proposed by Armory developers for simple execution '
-         'of offline transactions and multi-signature transactions.  Any other '
-         'client software that implements BIP 0010 will be able to recognize '
+         'which is a standard proposed by the core Armory Developer (Alan Reiner) '
+         'for simple execution of offline transactions and multi-signature '
+         'transactions.  Any other client software that implements BIP 0010 '
+         'will be able to recognize '
          'this block of data, and take appropriate action without having Armory '
          'software available.   Technical details of BIP 0010 can be found at: '
          'https://en.bitcoin.it/wiki/BIP_0010')
 
+
+      ttipDataIsSafe = createToolTipObject( \
+         'There is no security-sensitive information in this data below, so '
+         'it is perfectly safe to copy-and-paste it into an '
+         'email message, or save it to a borrowed USB key.')
       
       btnSave = QPushButton('Save as file...')
       self.connect(btnSave, SIGNAL('clicked()'), self.doSaveFile)
@@ -3828,57 +3852,203 @@ class DlgReturnUnsignedTxDP(QDialog):
          'Save this data to a USB key or other device, to be transferred to '
          'the computer that contains the private keys for this wallet.')
 
-      btnClipboard = QPushButton('Copy to clipboard')
-      self.connect(btnClipboard, SIGNAL('clicked()'), self.copyAsciiTxDP)
-      self.lblCopied = QRichLabel('')
+      btnCopy = QPushButton('Copy to clipboard')
+      self.connect(btnCopy, SIGNAL('clicked()'), self.copyAsciiTxDP)
+      self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      ttipClipboard = createToolTipObject( \
+      ttipCopy = createToolTipObject( \
          'Copy the transaction data to the clipboard, so that it can be '
          'pasted into an email or a text document.')
 
-      FontFixed = QFont('DejaVu Sans Mono', 10) 
+      lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
+      lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
+      FontFixed = QFont('DejaVu Sans Mono', 8) 
+      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*7.2)
+
+      # Wow, I just cannot get the txtEdits to be the right size without
+      # forcing them very explicitly
       self.txtTxDP = QTextEdit()
       self.txtTxDP.setFont( FontFixed )
-      self.txtTxDP.setMinimumWidth(  tightSizeStr(FontFixed,'0'*90)[0] )
-      self.txtTxDP.setMinimumHeight( tightSizeStr(FontFixed,'0')[1] * 12.2 )
+      self.txtTxDP.setMinimumWidth(w)
+      self.txtTxDP.setMinimumHeight(h)
+      self.txtTxDP.setMaximumWidth(w)
+      self.txtTxDP.setMaximumHeight(h)
       self.txtTxDP.setText(txdp.serializeAscii())
       self.txtTxDP.setReadOnly(True)
+      self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
+      self.txtSigned = QTextEdit()
+      self.txtSigned.setFont( FontFixed )
+      self.txtSigned.setMinimumWidth(w)
+      self.txtSigned.setMinimumHeight(h)
+      self.txtSigned.setMaximumWidth(w)
+      self.txtSigned.setMaximumHeight(h)
+      self.txtSigned.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
+      self.txtSigned.setText("Copy signed transaction into this box")
+      self.txtSignedCleared = False
+      self.txtSigned.setTextColor(Colors.MidGray)
+      self.connect(self.txtSigned, SIGNAL('cursorPositionChanged()'), self.txtSignedFirstClick)
+      
+      self.lblRight = QRichLabel('')
 
-      self.btnDone = QPushButton("Done")
-      self.connect(self.btnDone, SIGNAL('clicked()'), self.accept)
+      self.btnReady = QPushButton("Ready to Broadcast!")
+      self.connect(self.btnReady, SIGNAL('clicked()'), self.execBroadcastDlg)
+      ttipReady = createToolTipObject( \
+         'If you have already gotten the necessary signatures from the offline '
+         'computer, click this button.')
+      btnLater = QPushButton("Close this Window")
+      self.connect(btnLater, SIGNAL('clicked()'), self.reject)
+      ttipLater = createToolTipObject( \
+         'If you do not want to broadcast this transaction, or will do so later '
+         'you can close this window, and your wallet will not be affected at all.'
+         'If you do plan to broadcast later, please use the "Offline Transactions" '
+         'button on the main window.')
 
+      frmLower = QFrame()
+      frmLower.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frmLowerLayout = QGridLayout()
+      
+      frmLowerLayout.addWidget(self.txtTxDP,  0,0,  3,1)
+      frmLowerLayout.addWidget(btnSave,       0,1,  1,1)
+      frmLowerLayout.addWidget(ttipSave,      0,2,  1,1)
+      frmLowerLayout.addWidget(btnCopy,       1,1,  1,1)
+      frmLowerLayout.addWidget(ttipCopy,      1,2,  1,1)
+      frmLowerLayout.addWidget(self.lblCopied,2,1,  1,2)
+
+      frmLowerLayout.addWidget(HLINE(),       3,0,  1,3)
+      frmLowerLayout.addWidget(self.txtSigned,4,0,  3,1)
+      frmLowerLayout.addWidget(self.btnReady, 4,1,  1,1)
+      frmLowerLayout.addWidget(ttipReady,     4,2,  1,1)
+      frmLowerLayout.addWidget(btnLater,      5,1,  1,1)
+      frmLowerLayout.addWidget(ttipLater,     5,2,  1,1)
+      frmLowerLayout.addWidget(self.lblRight, 6,1,  1,2)
+
+      frmLower.setLayout(frmLowerLayout)
+      self.btnReady.setEnabled(False)
+
+      #frmBtns = QFrame()
+      #frmBtnsLayout = QGridLayout()
+      #frmBtnsLayout.addWidget(btnSave,  0,0);  frmBtnsLayout.addWidget(ttipSave,  0,1)
+      #frmBtnsLayout.addWidget(btnCopy,  1,0);  frmBtnsLayout.addWidget(ttipCopy,  1,1)
+      #frmBtnsLayout.addWidget(self.lblCopied,  2,0);  
+      #frmBtnsLayout.addWidget(HLINE(),  3,0, 1,2)
+      #frmBtnsLayout.addItem(  QSpacerItem(1, 20), 4,0, 1,1)
+      #frmBtnsLayout.addWidget(self.btnReady, 5,0);  frmBtnsLayout.addWidget(ttipReady, 5,1)
+      #frmBtnsLayout.addWidget(btnLater, 6,0);  frmBtnsLayout.addWidget(ttipLater, 6,1)
+      #frmBtns.setLayout(frmBtnsLayout)
+
+      #frmBtnsWStretch = makeLayoutFrame('Vert', [frmBtns, 'Stretch'])
+
+      frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
+
+      frmUpper = makeLayoutFrame('Horiz', [lblDescr], QFrame.StyledPanel|QFrame.Sunken)
+      #frmLower = makeLayoutFrame('Horiz', [self.txtTxDP, frmBtnsWStretch], QFrame.StyledPanel|QFrame.Sunken)
+
+      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(10)', frmUTX, frmLower])
 
       dlgLayout = QGridLayout()
-      frmDescription = makeLayoutFrame('Horiz', [lblDescr], QFrame.StyledPanel|QFrame.Sunken)
-      dlgLayout.addWidget(frmDescription,  0,0, 1,2)
-      dlgLayout.addWidget(btnSave,         1,0, 1,1)
-      dlgLayout.addWidget(ttipSave,        1,1, 1,1)
-      dlgLayout.addWidget(btnClipboard,    2,0, 1,1)
-      dlgLayout.addWidget(ttipClipboard,   2,1, 1,1)
-      dlgLayout.addWidget(self.lblCopied,  3,0, 1,2)
+      dlgLayout.addWidget(frmAll)
+      #dlgLayout.addWidget(frmDescription,  0,0, 1,4)
 
-      dlgLayout.addWidget(self.txtTxDP,    0,2, 4,1)
+      #dlgLayout.addWidget(lblUTX,          1,0, 1,4)
 
-      dlgLayout.addWidget(makeLayoutFrame('Horiz', ['Stretch', self.btnDone]), 4,0, 1,3)
+      #dlgLayout.addWidget(self.txtTxDP,    2,0, 1,1)
+      #dlgLayout.addWidget(btnSave,         1,2, 1,1)
+      #dlgLayout.addWidget(ttipSave,        1,1, 1,1)
+      #dlgLayout.addWidget(self.lblCopied,  3,0, 1,2)
+      #dlgLayout.addWidget(makeLayoutFrame('Horiz', ['Stretch', self.btnDone]), 6,0, 1,2)
+
 
       self.setLayout(dlgLayout)
-      self.setWindowTitle("Unsigned Transaction")
+      self.setWindowTitle("Completing the Transaction...")
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
    def copyAsciiTxDP(self):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(self.txtTxDP.toPlainText())
-      self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+      self.lblCopied.setText('<i>Copied!</i>')
 
    def doSaveFile(self):
-      toSave = getFileSave('Save Unsigned Transaction', ['Armory Transactions (*.unsigned.tx)'])
-      theFile = open(toSave, 'w')
-      theFile.write(self.txtTxDP.toPlainText())
-      theFile.close()
+      dpid = self.txdp.uniqueB58
+      toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
+                                      ['Armory Transactions (*.unsigned.tx)'], \
+                                      'armory_%s.unsigned.tx' % dpid)
+      try:
+         theFile = open(toSave, 'w')
+         theFile.write(self.txtTxDP.toPlainText())
+         theFile.close()
+      except IOError:
+         pass
+
+   def execBroadcastDlg(self):
+      dlg = DlgReviewTXDP(self, self.main)
+      dlg.exec_()
       
+   def txtSignedFirstClick(self):
+      print 'Clicked!'
+      if not self.txtSignedCleared:
+         self.txtSignedCleared = True
+         self.txtSigned.setText('')
+         self.txtSigned.setTextColor(Colors.Black)
+
+      txt = str(self.txtSigned.toPlainText())
+      a,b = '<b><i><font color="red">', '</font></i></b>'
+      lblText = ''
+      if not txt.startswith('-----BEGIN-TRANSACTION'):
+         self.lblRight.setText('')
+         self.btnReady.setEnabled(False)
+         return
+
+      try:
+         print self.txtSigned.toPlainText()
+         txdpSigned = PyTxDistProposal().unserializeAscii(self.txtSigned.toPlainText())
+         enoughSigs = txdpSigned.checkTxHasEnoughSignatures()
+         sigsValid  = txdpSigned.checkTxHasEnoughSignatures(alsoVerify=True)
+         if not enoughSigs:
+            self.lblRight.setText(a + 'Not Signed!' + b)
+            self.btnReady.setEnabled(False)
+            return
+         if not sigsValid:
+            self.lblRight.setText(a + 'Invalid Signature!' + b)
+            self.btnReady.setEnabled(False)
+            return
+      except:
+         print 'excepted!'
+         self.lblRight.setText(a + 'Unrecognized Input!' + b)
+         self.btnReady.setEnabled(False)
+         return
+
+      self.lblRight.setText('<b><i><font color="green">Signature Valid!</font></i></b>')
+      self.btnReady.setEnabled(True)
+      
+
+
+################################################################################
+class DlgBroadcastTx(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgReviewTXDP, self).__init__(parent)
+
+
+      
+
+################################################################################
+class DlgReviewOfflineTx(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgReviewTXDP, self).__init__(parent)
+
+      lblDescr = QRichLabel( \
+         'The following transaction has been proposed, to be sent from one '
+         'of your wallets:' )
+
+
+      self.setWindowTitle('Review Offline Transaction')
+      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+
+      
+      
+
 
 ################################################################################
 class DlgTxFeeOptions(QDialog):

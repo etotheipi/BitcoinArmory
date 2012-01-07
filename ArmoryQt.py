@@ -135,6 +135,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+      self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
@@ -605,15 +606,20 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getFileSave(self, title='Save Wallet File', ffilter=['Wallet files (*.wallet)']):
-      lastDir = self.settings.get('LastDirectory')
-      if len(lastDir)==0 or not os.path.exists(lastDir):
-         lastDir = ARMORY_HOME_DIR
+   def getFileSave(self, title='Save Wallet File', \
+                         ffilter=['Wallet files (*.wallet)'], \
+                         defaultFilename=None):
+      startPath = self.settings.get('LastDirectory')
+      if len(startPath)==0 or not os.path.exists(startPath):
+         startPath = ARMORY_HOME_DIR
 
+      if not defaultFilename==None:
+         startPath = os.path.join(startPath, defaultFilename)
+      
       types = list(ffilter)
       types.append('All files (*)')
       typesStr = ';; '.join(types)
-      fullPath = unicode(QFileDialog.getSaveFileName(self, title, lastDir, typesStr))
+      fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr))
       
 
       fdir,fname = os.path.split(fullPath)
@@ -1046,10 +1052,10 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def populateLedgerComboBox(self):
       self.comboWalletSelect.clear()
-      self.comboWalletSelect.addItem( 'All Wallets'       )
       self.comboWalletSelect.addItem( 'My Wallets'        )
       self.comboWalletSelect.addItem( 'Offline Wallets'   )
       self.comboWalletSelect.addItem( 'Other\'s wallets'  )
+      self.comboWalletSelect.addItem( 'All Wallets'       )
       for wltID in self.walletIDList:
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
