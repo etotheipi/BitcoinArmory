@@ -75,6 +75,12 @@ that all features with an X in either column are accessible in SWIG.
             cd ..
             python ArmoryQt.py
 
+
+            NOTE:  If you get a "undefined reference in QtCore.so", it's likely
+                   due to another library installed that hijacked the system
+                   Qt installation.  In my case, it was a CUDA installation
+                   which provided its own, older version of QtCore which was 
+                   causing this issue.
    
    Windows: MSVS 2010 vcxproj included but not maintained.  Only compiles C++.
             MSVS 2005 vcproj included.  Setup to compile everything,

@@ -330,7 +330,28 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execOfflineTx(self):
-      pass   
+      dlg = DlgOfflineSelect(self, self)
+      if dlg.exec_():
+         # If we got here, one of three buttons was clicked.
+         if dlg.do_create:
+            selectWlt = []
+            for wltID in self.walletIDList:
+               if self.walletMap[wltID].watchingOnly:
+                  selectWlt.append(wltID)
+            dlg = DlgWalletSelect(self, self, 'Wallet for Offline Transaction...', \
+                                                      wltIDList=selectWlt)
+            if not dlg.exec_():
+               return
+            else:
+               wltID = dlg.selectedID 
+               wlt = self.walletMap[wltID]
+               dlgSend = DlgSendBitcoins(wlt, self, self)
+               dlgSend.exec_()
+               return
+         if dlg.do_review:
+            print 'review'
+         if dlg.do_broadc:
+            print 'broadc'
 
    #############################################################################
    def memoryPoolAction(self, opString):
@@ -834,7 +855,6 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
-      print '---Creating combined ledger'
       start = RightNow()
       if wltIDList==None:
          # Create a list of [wltID, type] pairs
@@ -1067,6 +1087,9 @@ class ArmoryMainWindow(QMainWindow):
       if index==None:
          index = self.walletsView.selectedIndexes()
          if len(index)==0:
+            QMessageBox.warning(self, 'Select a Wallet', \
+               'Please select a wallet on the right, to see its properties.', \
+               QMessageBox.Ok)
             return
          index = index[0]
          
@@ -1279,16 +1302,33 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         # TODO:  MAKE SURE THE TX WAS ACCEPTED?
          print 'Sending Tx,', binary_to_hex(pytx.getHash())
          self.NetworkingFactory.sendTx(pytx)
+         print 'Done!'
+
+         # Wait one sec, then send an inv to the Satoshi
+         # client asking for the same tx back.  This has two great benefits:
+         #   (1)  The tx was accepted by the network (it'd be dropped if it 
+         #        was invalid)
+         #   (2)  The memory-pool operations will be handled through existing 
+         #        NetworkingFactory code.  Don't need to duplicate anything 
+         #        here.
+         #time.sleep(1)
+         #self.checkForTxInNetwork(pytx.getHash())
+      
+         # TODO:  MAKE SURE THE TX WAS ACCEPTED?
+         # But I'm not ready to implement this, so far now I'll just assume 
+         # it worked... will be fixed in the next release
          self.NetworkingFactory.addTxToMemoryPool(pytx)
          for wltID,wlt in self.walletMap.iteritems():
             wlt.lockTxOutsOnNewTx(pytx.copy())
          self.NetworkingFactory.saveMemoryPool()
-         print 'Done!'
-      
+
    
+   #############################################################################
+   #def checkForTxInNetwork(self, txHash):
+      #self.NetworkingFactory.sendMessage
+      
             
             
    #############################################################################
@@ -1394,12 +1434,7 @@ class ArmoryMainWindow(QMainWindow):
       if dlg.exec_():
          wltID = dlg.selectedID 
          wlt = self.walletMap[wltID]
-
          wlttype = determineWalletType(wlt, self)[0]
-         #if wlttype=WLTTYPES.WatchOnly:
-            #QMessageBox.warning(self, '
-         #elif wlttype==WLTTYPES.Offline:
-
          dlgSend = DlgSendBitcoins(wlt, self, self)
          dlgSend.exec_()
    
