@@ -9,6 +9,9 @@ WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')
 MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
+
+STYLE_SUNKEN = QFrame.StyledPanel | QFrame.Sunken
+STYLE_RAISED = QFrame.StyledPanel | QFrame.Raised
  
 
 def HLINE(style=QFrame.Plain):

@@ -873,13 +873,13 @@ class ArmoryMainWindow(QMainWindow):
             listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
             
             if currIdx==0:
-               wltIDList = self.walletIDList
-            elif currIdx==1:
                wltIDList = listOffline + listCrypt + listPlain
-            elif currIdx==2:
+            elif currIdx==1:
                wltIDList = listOffline
-            elif currIdx==3:
+            elif currIdx==2:
                wltIDList = listWatching
+            elif currIdx==3:
+               wltIDList = self.walletIDList
             else:
                pass
                #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
@@ -962,7 +962,6 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
          if not txref:
-            print 'Why on earth does this happen?  Some tx we got from the blockchain... we can\'t find in the blockchain!'
             return (0, 0)
          if txref.getNumTxOut()==1:
             return (txref.getTxOutRef(0).getValue(), -1)
@@ -1267,8 +1266,8 @@ class ArmoryMainWindow(QMainWindow):
       utxoList = getUnspentTxOutsForAddrList(addr160List)
       outValue = sumTxOutList(utxoList)
 
-      pprintUnspentTxOutList(utxoList)
-      print 'OutValue:', outValue
+      #pprintUnspentTxOutList(utxoList)
+      #print 'OutValue:', outValue
       
 
       inputSide = []
@@ -1290,7 +1289,7 @@ class ArmoryMainWindow(QMainWindow):
       outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
-      pytx.pprint()
+      #pytx.pprint()
       return (pytx, outValue, minFee)
 
 

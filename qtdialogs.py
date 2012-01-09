@@ -156,7 +156,7 @@ class DlgNewWallet(QDialog):
       #cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
 
       self.cryptoFrame = QFrame()
-      self.cryptoFrame.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      self.cryptoFrame.setFrameStyle(STYLE_SUNKEN)
       self.cryptoFrame.setLayout(cryptoLayout)
       self.cryptoFrame.setVisible(False)
 
@@ -569,6 +569,7 @@ class DlgWalletDetails(QDialog):
 
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
+      lbtnVwKeys  = QLabelButton('Save Individual Keys')
       lbtnExport  = QLabelButton('Make Digital Backup')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
@@ -577,6 +578,7 @@ class DlgWalletDetails(QDialog):
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
       self.connect(lbtnMkPaper, SIGNAL('clicked()'), self.execPrintDlg)
+      self.connect(lbtnVwKeys,  SIGNAL('clicked()'), self.execKeyList)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
@@ -603,6 +605,7 @@ class DlgWalletDetails(QDialog):
       if True:              optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv:           optLayout.addWidget(lbtnMkPaper)
+      if True:              optLayout.addWidget(lbtnVwKeys)
       if True:              optLayout.addWidget(lbtnExport)
       if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
@@ -750,6 +753,9 @@ class DlgWalletDetails(QDialog):
       if dlg.exec_():
          pass # not sure that I don't handle everything in the dialog itself
 
+   def execKeyList(self):
+      dlg = DlgShowKeyList(self.wlt, self, self.main)
+      dlg.exec_()
 
    def execDeleteAddress(self):
       selectedList = self.wltAddrView.selectedIndexes()
@@ -792,7 +798,8 @@ class DlgWalletDetails(QDialog):
 
 
    def saveWalletCopy(self):
-      savePath = self.main.getFileSave()
+      fn = 'armory_%s_.wallet' % self.wlt.uniqueIDB58
+      savePath = self.main.getFileSave(defaultFilename=fn)
       if len(savePath)>0:
          self.wlt.writeFreshWalletFile(savePath)
          self.main.statusBar
@@ -1200,7 +1207,7 @@ class DlgNewAddressDisp(QDialog):
             'with reusing any address.' )
 
       frmNewAddr = QFrame()
-      frmNewAddr.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmNewAddr.setFrameStyle(STYLE_RAISED)
       frmNewAddrLayout = QGridLayout()
       frmNewAddrLayout.addWidget(lblDescr,        0,0, 1,2)
       frmNewAddrLayout.addWidget(self.edtNewAddr, 1,0, 1,1)
@@ -1240,7 +1247,7 @@ class DlgNewAddressDisp(QDialog):
       self.edtComm.setMaximumHeight(tightHeight*3.2)
 
       frmComment = QFrame()
-      frmComment.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmComment.setFrameStyle(STYLE_RAISED)
       frmCommentLayout = QGridLayout()
       frmCommentLayout.addWidget(lblCommDescr,    0,0, 1,2)
       #frmCommentLayout.addWidget(lblComm,         1,0, 1,1)
@@ -1273,7 +1280,7 @@ class DlgNewAddressDisp(QDialog):
 
 
       frmWlt = QFrame()
-      frmWlt.setFrameShape(QFrame.StyledPanel | QFrame.Raised)
+      frmWlt.setFrameShape(STYLE_RAISED)
       frmWltLayout = QVBoxLayout()
       frmWltLayout.addWidget(lblRecvWlt)
       frmWltLayout.addWidget(lblRecvWltID)
@@ -1639,7 +1646,7 @@ class DlgVerifySweep(QDialog):
       feeStr = ('') if (fee==0) else ('(Fee: %s)' % coin2str(fee,maxZeros=0))
 
       frm = QFrame()
-      frm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frm.setFrameStyle(STYLE_RAISED)
       frmLayout = QGridLayout()
       #frmLayout.addWidget(QRichLabel('Funds will be <i>swept</i>...'), 0,0, 1,2)
       frmLayout.addWidget(QRichLabel('      From ' + inputStr, doWrap=False), 1,0, 1,2)
@@ -1781,7 +1788,7 @@ class DlgAddressInfo(QDialog):
       lblDescr = QLabel('Information for address:  ' + addrStr)
       
       frmInfo = QFrame()
-      frmInfo.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmInfo.setFrameStyle(STYLE_RAISED)
       frmInfoLayout = QGridLayout()
 
       lbls = []
@@ -1945,6 +1952,11 @@ class DlgAddressInfo(QDialog):
       
       rightFrm = makeLayoutFrame('Vert', [QLabel('Available Actions:'), optFrame])
       dlgLayout.addWidget(rightFrm,  0,1, 2,1)
+
+      btnGoBack = QPushButton('<<< Go Back')
+      self.connect(btnGoBack, SIGNAL('clicked()'), self.reject)
+      bottomStrip = makeLayoutFrame('Horiz', [btnGoBack, 'Stretch'])
+      dlgLayout.addWidget(bottomStrip,  2,0, 1,2)
 
       self.setLayout(dlgLayout)
       self.setWindowTitle('Address Information')
@@ -2117,7 +2129,7 @@ class DlgShowKeys(QDialog):
       lbls[-1].append(QLabel(h160Str))
 
       frmKeyData = QFrame()
-      frmKeyData.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frmKeyData.setFrameStyle(STYLE_RAISED)
       frmKeyDataLayout = QGridLayout()
 
 
@@ -2729,7 +2741,7 @@ class DlgRemoveWallet(QDialog):
       self.frm = []
 
       rdoFrm = QFrame()
-      rdoFrm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      rdoFrm.setFrameStyle(STYLE_RAISED)
       rdoLayout = QGridLayout()
       
       startRow = 0
@@ -2737,7 +2749,7 @@ class DlgRemoveWallet(QDialog):
                        (self.radioDelete,  ttipDelete), \
                        (self.radioWatch,   ttipWatch)]:
          self.frm.append(QFrame())
-         #self.frm[-1].setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+         #self.frm[-1].setFrameStyle(STYLE_SUNKEN)
          self.frm[-1].setFrameStyle(QFrame.NoFrame)
          frmLayout = QHBoxLayout()
          frmLayout.addWidget(rdo)
@@ -3070,7 +3082,7 @@ class DlgWalletSelect(QDialog):
       
 
       frm = QFrame()
-      frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frm.setFrameStyle(STYLE_SUNKEN)
       frmLayout = QGridLayout()
       for i in range(len(lbls)):
          frmLayout.addWidget(lbls[i], i, 0,  1, 1)
@@ -3169,7 +3181,7 @@ def getWalletInfoFrame(wlt):
       
 
    frm = QFrame()
-   frm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+   frm.setFrameStyle(STYLE_SUNKEN)
    frmLayout = QGridLayout()
    for i in range(len(lbls)):
       frmLayout.addWidget(lbls[i], i, 0,  1, 1)
@@ -3262,7 +3274,7 @@ class DlgConfirmSend(QDialog):
       layout.addWidget(lblInfoImg,           0, 0,   1, 1)
       layout.addWidget(lblMsg,               0, 1,   1, 1)
 
-      lblFrm = makeLayoutFrame('Vert', recipLbls, QFrame.StyledPanel|QFrame.Raised)
+      lblFrm = makeLayoutFrame('Vert', recipLbls, STYLE_RAISED)
       layout.addWidget(lblFrm,               1, 1,   1, 1)
 
       r = len(recipLbls)+1
@@ -3403,7 +3415,7 @@ class DlgSendBitcoins(QDialog):
       #frmUnsigned   = makeLayoutFrame('Horiz', [btnUnsigned, ttipUnsigned])
       #frmDonate     = makeLayoutFrame('Horiz', [btnDonate, ttipDonate])
 
-      frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], QFrame.StyledPanel|QFrame.Sunken )
+      frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], STYLE_SUNKEN)
       if not wlt.watchingOnly:
          frmNoSend.setVisible(False)
          if self.main.usermode==USERMODE.Standard:
@@ -3413,7 +3425,7 @@ class DlgSendBitcoins(QDialog):
       frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
                                                 btnFrame, \
                                                 'Stretch', \
-                                                frmNoSend], QFrame.StyledPanel|QFrame.Sunken)
+                                                frmNoSend], STYLE_SUNKEN)
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
@@ -3768,7 +3780,7 @@ class DlgSendBitcoins(QDialog):
             self.widgetTable[-1][COLS.Comm].setText( inputs[i][2] )
 
          subfrm = QFrame()
-         subfrm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+         subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
          subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr], 0, 0, 1, 1)
          subLayout.addWidget(self.widgetTable[-1][COLS.Addr],    0, 1, 1, 1)
@@ -3996,7 +4008,7 @@ class DlgOfflineTxCreated(QDialog):
          
 
       frmLower = QFrame()
-      frmLower.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      frmLower.setFrameStyle(STYLE_RAISED)
       frmLowerLayout = QGridLayout()
       
       frmLowerLayout.addWidget(self.txtTxDP,  0,0,  3,1)
@@ -4038,7 +4050,7 @@ class DlgOfflineTxCreated(QDialog):
       frmLower.setLayout(frmLowerLayout)
 
       frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
-      frmUpper = makeLayoutFrame('Horiz', [lblDescr], QFrame.StyledPanel|QFrame.Sunken)
+      frmUpper = makeLayoutFrame('Horiz', [lblDescr], STYLE_SUNKEN)
 
       frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(5)', frmUTX, frmLower, bottomStrip])
 
@@ -4066,7 +4078,7 @@ class DlgOfflineTxCreated(QDialog):
       dpid = self.txdp.uniqueB58
       toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
                                       ['Armory Transactions (*.unsigned.tx)'], \
-                                      'armory_%s.unsigned.tx' % dpid)
+                                      'armory_%s_.unsigned.tx' % dpid)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtTxDP.toPlainText())
@@ -4079,7 +4091,7 @@ class DlgOfflineTxCreated(QDialog):
       dpid = self.txdp.uniqueB58
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
-                                      'armory_%s.signed.tx' % dpid)
+                                      'armory_%s_.signed.tx' % dpid)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtSigned.toPlainText())
@@ -4118,6 +4130,7 @@ class DlgOfflineTxCreated(QDialog):
             self.btnReady.setEnabled(False)
             return
       except:
+         # One of the rare few times I ever catch-all exception
          self.lblRight.setText(a + 'Unrecognized Input!' + b)
          self.btnReady.setEnabled(False)
          return
@@ -4249,7 +4262,7 @@ class DlgOfflineSelect(QDialog):
       frmOptions.setLayout(frmOptionsLayout)
 
       frmDescr = makeLayoutFrame('Horiz', ['Space(10)', lblDescr, 'Space(10)'], \
-                                             QFrame.StyledPanel | QFrame.Sunken)
+                                             STYLE_SUNKEN)
       frmCancel = makeLayoutFrame('Horiz', [btnCancel, 'Stretch'])
 
       dlgLayout = QGridLayout()
@@ -4265,19 +4278,417 @@ class DlgOfflineSelect(QDialog):
 
 ################################################################################
 class DlgReviewOfflineTx(QDialog):
+   """
+   We will make the assumption that this dialog is used ONLY for outgoing 
+   transactions from your wallet.  This simplifies the logic if we don't 
+   have to identify input senders/values, and handle the cases where those 
+   may not be specified
+   """
    def __init__(self, parent=None, main=None):
       super(DlgReviewTXDP, self).__init__(parent)
+
+
+      self.parent = parent
+      self.main   = main
+
 
       lblDescr = QRichLabel( \
          'The following transaction has been proposed, to be sent from one '
          'of your wallets:' )
 
 
+      self.frmInfo = QFrame()
+      self.frmInfo.setFrameStyle(STYLE_SUNKEN)
+
+      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*8.2)
+      self.txtTxDP = QTextEdit()
+      self.txtTxDP.setFont( FontFixed )
+      self.txtTxDP.sizeHint = lambda: QSize(w,h)
+      self.txtTxDP.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+
+      self.connect(self.txtTxDP, SIGNAL('cursorPositionChanged()'), self.txtChanged)
+      
+
       self.setWindowTitle('Review Offline Transaction')
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
       
+
+   def processTxDP(self):
+      txdpStr = str(self.txtTxDP.toPlainText())
+      txdpValid = True
+      try:
+         txdpObj = PyTxDistProposal().unserializeAscii(txdpStr)
+         enoughSigs = txdpSigned.checkTxHasEnoughSignatures()
+         sigsValid  = txdpSigned.checkTxHasEnoughSignatures(alsoVerify=True)
+      except:
+         # One of the rare few times I ever catch-all exception
+         txdpValid = False
+         self.makeReviewFrame(None)
+         return
+
+      if not enoughSigs or not sigsValid or not txdpValid:
+         self.btnReady.setEnabled(False)
+
+      if not txdpValid:
+         if len(txdpStr)>0:
+            self.lblStatus.setText('<b>Unrecognized Input!</b>')
+         else:
+            self.lblStatus.setText('')
+      elif not enoughSigs:
+         self.lblStatus.setText('<b>Not Signed Yet</b>')
+      elif not sigsValid:
+         self.lblStatus.setText('<b>Signature is invalid</b>')
       
+
+      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
+      data = extractTxInfo(pytx, self.main.NetworkingFactory.zeroConfTxTime)
+
+      # NOTE:  We assume this is an OUTGOING transaction.  When I pull in the
+      #        multi-sig code, I will have to either make a different dialog,
+      #        or add some logic to this one
+      toWlts = set()
+      myOutSum = 0
+      theirOutSum = 0
+      rvRecips = []
+      for scrType, amt, recip in data[FIELDS.OutList]:
+         wltID = self.main.getWalletForAddr160(recip)
+         if wltID:
+            toWlts.add(wltID)
+            myOutSum += amt
+         else:
+            rvRecips.append( [recip, amt] )
+            indicesSelf.append( idx )
+            theirOutSum += amt
+
+      myInSum = data[FIELDS.SumIn]  # because we assume all are ours
+
+      if myInSum == None:
+         fee = None
+      else:
+         fee = amtIn - amtOut
+         
+      leValue = theirOutSum
+
+      print 'Printing from processtxdp'
+      print txdp.pytxObj.pprint()
+      print 'WltID:   ' 
+      for wltid in fromWlts:  
+         print '   ', wltid
+      print 'MyInSum: ', myInSum
+      print 'MyOtSum: ', myOutSum
+      print 'ThOtSum: ', theirOutSum
+      print 'leValue: ', coin2str(leValue)
+      print 'fee:     ', coin2str(fee)
+      
+      if len(fromWlts)==1:
+         self.makeReviewFrame(txdpObj, self.main.walletMap[fromWlts.pop()], leValue, fee, rvPairSelf)
+      elif len(fromWlts)==0:
+         QMessageBox(self, 'Unrelated Transaction', \
+            'This transaction appears to have no relationship to any of the wallets '
+            'stored on this computer.  Did you load the correct transaction?', \
+            QMessageBox.Ok)
+         self.makeReviewFrame(txdpObj, None, None, None, [])
+      else:
+         QMessageBox(self, 'Multiple Wallets', \
+            'Somehow, you have obtained a transaction that actually pulls from more '
+            'than one wallet.  The support for handling multi-wallet signatures is '
+            'not currently implemented (this also could have happened if you imported '
+            'the same private key into two different wallets).', \
+            QMessageBox.Ok)
+         self.makeReviewFrame(None)
+         return
+
+
+   ############################################################################
+   def makeReviewFrame(self, txdp=None, wlt=None, leValue=None, fee=None, \
+                                                            recipValPairs=[]):
+
+      lbls = []
+      
+      ###
+      lbls.append([])
+      lbls[-1].append( createToolTipObject( \
+            'This is wallet from which the offline transaction spends Bitcoins'))
+      lbls[-1].append( QRichLabel('<b>Wallet:</b>'))
+      if txdp==None: lbls[-1].append( QRichLabel(''))
+      else:          lbls[-1].append( QRichLabel(wlt.uniqueIDB58))
+
+      ###
+      lbls.append([])
+      lbls[-1].append( createToolTipObject('The name of the wallet'))
+      lbls[-1].append( QRichLabel('<b>Wallet Label:</b>'))
+      if wlt==None: lbls[-1].append( QRichLabel(''))
+      else:         lbls[-1].append( QRichLabel(wlt.labelName))
+      
+      ###
+      lbls.append([])
+      lbls[-1].append( createToolTipObject('Net effect on this wallet\'s balance'))
+      lbls[-1].append( QRichLabel('<b>Transaction Amount:</b>'))
+      if leValue==None: lbls[-1].append( QRichLabel(''))
+      else:             lbls[-1].append( QMoneyLabel(leValue) )
+
+      if not fee==None:
+         lbls.append([])
+         lbls[-1].append( createToolTipObject('The transaction fee paid on this transaction'))
+         lbls[-1].append( QRichLabel('<b>Transaction Fee:</b>'))
+         lbls[-1].append( QMoneyLabel(fee) )
+
+      lbls.append([])
+      
+      
+
+
+      frmInfoLayout = QGridLayout()
+
+      self.frmInfo.setLayout(frmInfoLayout)
+
+
+################################################################################
+class DlgShowKeyList(QDialog):
+   def __init__(self, wlt, parent=None, main=None):
+      super(DlgShowKeyList, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt
+
+
+      self.havePriv = True
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         self.havePriv = False
+         dlg = DlgUnlockWallet(wlt, parent, main)
+         if dlg.exec_():
+            self.havePriv = True
+
+      # NOTE/WARNING:  We have to make copies (in RAM) of the unencrypted
+      #                keys, or else we will have to type in our address
+      #                every 10s if we want to modify the key list.  This
+      #                isn't likely a bit problem, but it's not ideal, 
+      #                either.  Not much I can do about, though...
+      #                (at least:  once this dialog is closed, all the 
+      #                garbage should be collected...)
+      self.addrCopies = []
+      for addr in self.wlt.getLinearAddrList():
+         self.addrCopies.append(addr.copy())
+         
+
+      lblDescr = QRichLabel( \
+         'Use this window to display as much or as little information '
+         'as desired, about each address currently in your wallet.  This '
+         'data can be copied into a file or spreadsheet for record '
+         'keeping or for paper backup.<br><br>'
+         'Note that <i>all</i> keys are backed up here, including '
+         'imported keys, but only deterministic keys that have been '
+         'generated <i>so far</i> (a new key is created every time you '
+         'click "Receive Bitcoins").  If you would like a permanent backup '
+         'of the deterministic part of your wallet, then use the "Make '
+         'Paper Backup" button in the wallet properties window.  However, '
+         'a paper backup does not save your imported keys.')
+
+
+      txtFont = QFont('DejaVu Sans Mono', 8)
+      self.txtBox = QTextEdit()
+      self.txtBox.setFont(txtFont)
+      w,h = tightSizeNChar(txtFont, 110)
+      self.txtBox.setFont(txtFont)
+      self.txtBox.setMinimumWidth(w)
+      self.txtBox.setMaximumWidth(w)
+      self.txtBox.setMinimumHeight(h*3.2)
+      self.txtBox.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Preferred)
+      
+      # Create a list of checkboxes and then some ID word to identify what
+      # to put there
+      self.chkList = {}
+      self.chkList['AddrStr']   = QCheckBox('Address String')
+      self.chkList['PubKeyHash']= QCheckBox('Hash160 (LE)')
+      self.chkList['PrivCrypt'] = QCheckBox('Private Key (Encrypted)')
+      self.chkList['PrivHexBE'] = QCheckBox('Private Key (Plain Hex, BE)')
+      self.chkList['PrivHexLE'] = QCheckBox('Private Key (Plain Hex, LE)')
+      self.chkList['PrivB58']   = QCheckBox('Private Key (Plain Base58)')
+      self.chkList['PubKey']    = QCheckBox('Public Key (BE)')
+      self.chkList['InitVect']  = QCheckBox('Initialization Vect (if encrypted)')
+      self.chkList['ChainIndex']= QCheckBox('Chain Index')
+      self.chkList['AddrType']  = QCheckBox('Address Type (Deterministic or Imported)')
+
+      self.chkList['AddrStr'   ].setChecked(True )
+      self.chkList['PubKeyHash'].setChecked(False)
+      self.chkList['PrivCrypt' ].setChecked(False)
+      self.chkList['PrivHexBE' ].setChecked(True )
+      self.chkList['PrivHexLE' ].setChecked(False)
+      self.chkList['PrivB58'   ].setChecked(True )
+      self.chkList['PubKey'    ].setChecked(False)
+      self.chkList['InitVect'  ].setChecked(False)
+      self.chkList['ChainIndex'].setChecked(False)
+      self.chkList['AddrType'  ].setChecked(False)
+
+      namelist = ['AddrStr','PubKeyHash','PrivCrypt','PrivHexBE', \
+                  'PrivHexLE','PrivB58','PubKey','InitVect', \
+                  'ChainIndex','AddrType']
+
+      for name in self.chkList.keys():
+         self.connect(self.chkList[name], SIGNAL('toggled(bool)'), \
+                      self.rewriteList)
+
+
+      self.chkImportedOnly = QCheckBox('Imported Addresses Only')
+      #self.chkCSV = QCheckBox('Display in CSV format')
+
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
+      if std:
+         self.chkList['PubKeyHash'].setVisible(False)
+         self.chkList['PrivCrypt' ].setVisible(False)
+         self.chkList['PrivHexLE' ].setVisible(False)
+         self.chkList['InitVect'  ].setVisible(False)
+         self.chkList['ChainIndex'].setVisible(False)
+         self.chkList['AddrType  '].setVisible(False)
+      elif adv:
+         self.chkList['PubKeyHash'].setVisible(False)
+         self.chkList['InitVect'  ].setVisible(False)
+         self.chkList['ChainIndex'].setVisible(False)
+         self.chkList['AddrType'  ].setVisible(False)
+
+
+      chkBoxList = [self.chkList[n] for n in namelist] 
+      chkBoxList.append('Line')
+      chkBoxList.append(self.chkImportedOnly)
+      #chkBoxList.append(self.chkCSV)
+
+      frmChks = makeLayoutFrame('Vert', [self.chkList[n] for n in namelist], \
+                                 STYLE_SUNKEN)
+
+
+      btnGoBack = QPushButton('<<< Go Back')
+   #def copyToClipboard(self):
+   #def saveToFile(self):
+      btnSaveFile = QPushButton('Save to File...')
+      btnCopyClip = QPushButton('Copy to Clipboard')
+      self.lblCopied = QRichLabel('')
+
+      self.connect(btnGoBack, SIGNAL('clicked()'), self.accept)
+      frmGoBack = makeLayoutFrame('Horiz', [btnGoBack, \
+                                            'Stretch', \
+                                            self.lblCopied, \
+                                            btnCopyClip, \
+                                            btnSaveFile])
+
+      frmDescr = makeLayoutFrame('Horiz',  [lblDescr], STYLE_SUNKEN)
+
+      if not self.havePriv or (self.wlt.useEncryption and self.wlt.isLocked):
+         self.chkList['PrivCrypt'].setEnabled(False)
+         self.chkList['PrivCrypt'].setChecked(False)
+         self.chkList['PrivHexBE'].setEnabled(False)
+         self.chkList['PrivHexBE'].setChecked(False)
+         self.chkList['PrivHexLE'].setEnabled(False)
+         self.chkList['PrivHexLE'].setChecked(False)
+         self.chkList['PrivB58'  ].setEnabled(False)
+         self.chkList['PrivB58'  ].setChecked(False)
+
+      dlgLayout = QGridLayout()
+      dlgLayout.addWidget(frmDescr,    0,0, 1,1)
+      dlgLayout.addWidget(frmChks,     0,1, 1,1)
+      dlgLayout.addWidget(self.txtBox, 1,0, 1,2)
+      dlgLayout.addWidget(frmGoBack,   2,0, 1,2)
+
+      self.setLayout(dlgLayout)
+      self.rewriteList()
+      self.setWindowTitle('All Wallet Keys')
+
+         
+
+   def rewriteList(self, *args):
+      # Wallet Details:
+      #  Wlt Labels,
+      #  Chain Code:
+      #  Highest Chain index used
+      #  List of Addresses
+      #namelist = ['AddrStr','PubKeyHash','PrivCrypt','PrivHexBE', \
+                  #'PrivHexLE','PrivB58','PubKey','InitVect', \
+                  #'ChainIndex','AddrType']
+      def fmtBin(s, nB=4, sw=False):
+         h = binary_to_hex(s)
+         if sw: 
+            h = hex_switchEndian(h)
+         return ' '.join([h[i:i+nB] for i in range(0, len(h), nB)])
+
+      L = []
+      L.append('Wallet ID:    ' + self.wlt.uniqueIDB58)
+      L.append('Wallet Name:  ' + self.wlt.labelName)
+      if self.main.usermode==USERMODE.Developer:
+         L.append('Chain Code:   ' + fmtBin(wlt.addrMap['ROOT'].chaincode.toBinStr()))
+         L.append('Highest Used: ' + str(wlt.highestUsedChainIndex))
+
+      self.havePriv = False
+      #c = ',' if self.chkCSV.isChecked() else '' 
+      for addr in self.addrCopies:
+         if self.chkList['AddrStr'   ].isChecked():  
+            L.append(                   addr.getAddrStr())
+         if self.chkList['PubKeyHash'].isChecked(): 
+            L.append(                  '   Hash160   : ' + fmtBin(addr.getAddr160()))
+         if self.chkList['PrivCrypt' ].isChecked():  
+            L.append(                  '   PrivCrypt : ' + fmtBin(addr.binPrivKey32_Encr.toBinStr()))
+         if self.chkList['PrivHexBE' ].isChecked():  
+            L.append(                  '   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr(), sw=True))
+            self.havePriv = True
+         if self.chkList['PrivHexLE' ].isChecked(): 
+            L.append(                  '   PrivHexLE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
+            self.havePriv = True
+         if self.chkList['PrivB58'   ].isChecked(): 
+            pBin = '\x80' + addr.binPrivKey32_Plain.toBinStr()
+            pChk = computeChecksum(pBin, nBytes=4)
+            pB58 = binary_to_base58(pBin + pChk)
+            pB58Stretch = ' '.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
+            L.append(                  '   PrivBase58: ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
+            self.havePriv = True
+         if self.chkList['PubKey'    ].isChecked():  
+            L.append(                  '   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
+            L.append(                  '   PublicY   : ' + fmtBin(addr.binPublicKey65.toBinStr()[  33:]))
+         if self.chkList['InitVect'  ].isChecked():  
+            L.append(                  '   InitVect  : ' + fmtBin(addr.binInitVect16.toBinStr()))
+         if self.chkList['ChainIndex'].isChecked(): 
+            L.append(                  '   ChainIndex: ' + str(addr.chainIndex))
+         if self.chkList['AddrType'  ].isChecked():
+            t = addr.chainIndex
+            L.append(                  '   Addr Type : ' + 'Imported' if t==-2 else 'Deterministic')
+
+      self.txtBox.setText('\n'.join(L))
+
+      
+   def saveToFile(self):
+      if self.havePriv:
+         if not self.main.settings.getSettingOrSetDefault('DNAA_WarnPrintKeys', False):
+            result = MsgBoxWithDNAA(MSGBOX.Warning, 'Plaintext Private Keys', \
+                  '<font color="red">WARNING:</font> The data you are about '
+                  'to save contains private keys.  Anyone who gains access '
+                  'to private keys can spend the money held by the associated '
+                  'address.  Please make sure that only trusted persons can '
+                  'access the file you are about to save. <br><br>Are you sure '
+                  'you want to continue?', withCancel=True)
+            if not result[0]:
+               return
+            self.main.settings.set('DNAA_WarnPrintKeys', result[1])
+            
+      wltID = self.wlt.uniqueIDB58
+      fn = self.main.getFileSave(title='Save Key List', \
+                                 ffilter='Text Files (*.txt)', \
+                                 defaultFilename='keylist_%s_.txt'%wltID)
+      if len(fn)>0:
+         fileobj = open(fn,'w')
+         fileobj.write(str(self.txtBox.toPlainText()))
+         fileobj.close()
+               
+
+
+   def copyToClipboard(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(self.txtBox.toPlainText()))
+      self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+               
+
+            
 
 
 ################################################################################
@@ -4303,9 +4714,16 @@ class DlgAddressProperties(QDialog):
    
 
 
+################################################################################
 def extractTxInfo(pytx, zcTimeList=None):
+
+   
+   pytxdp = None
+   if isinstance(pytx, PyTxDistProposal):
+      pytxdp = pytx
+      pytx = pytxdp.pytxObj.copy()
+      
    txHash    = pytx.getHash()
-   txHashHex = binary_to_hex(txHash)
    txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx = [None]*7
 
    txOutToList = []
@@ -4334,6 +4752,7 @@ def extractTxInfo(pytx, zcTimeList=None):
       sumTxOut += txout.value
   
 
+   haveAllInput=True
    if TheBDM.isInitialized(): 
       txref = TheBDM.getTxByHash(txHash)
       if txref:
@@ -4345,13 +4764,12 @@ def extractTxInfo(pytx, zcTimeList=None):
          if zcTimeList and zcTimeList.has_key(txHash):
             txTime = zcTimeList[txHash]
             txBlk  = 2**32-1
-
-         
-      txinFromList = []
-      haveAllInput=True
+   
+   txinFromList = []
+   if TheBDM.isInitialized():
+      # Use BDM to get all the info about the TxOut being spent
+      # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
       for i in range(txref.getNumTxIn()):
-         # Use BDM to get all the info about the TxOut being spent
-         # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
          txinFromList.append([])
          cppTxin = txref.getTxInRef(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
@@ -4364,16 +4782,35 @@ def extractTxInfo(pytx, zcTimeList=None):
             txinFromList[-1].append(prevTxOut.getIndex())
          else:
             haveAllInput=False
-            txinFromList[-1].append('')
+            txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
             txinFromList[-1].append('')
             txinFromList[-1].append('')
             txinFromList[-1].append('')
             txinFromList[-1].append('')
 
-      if haveAllInput:
-         sumTxIn = sum([x[1] for x in txinFromList])
-      else:
-         sumTxIn = None
+   elif not pytxdp==None:
+      for i,txin in enumerate(pytxdp.pytxObj.inputs):
+         # TxDPs contains the prevOut scripts in the currIn script fields
+         txinFromList[-1].append(TxOutScriptExtractAddr160(txin.binScript))
+         txinFromList[-1].append(pytxdp.inputValues[i])
+         txinFromList[-1].append('')
+         txinFromList[-1].append('')
+         txinFromList[-1].append('')
+   else:  # BDM is not initialized
+      for i,txin in enumerate(pytx.inputs):
+         haveAllInput=False
+         txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
+         txinFromList[-1].append('')
+         txinFromList[-1].append('')
+         txinFromList[-1].append('')
+         txinFromList[-1].append('')
+         
+      
+
+   if haveAllInput:
+      sumTxIn = sum([x[1] for x in txinFromList])
+   else:
+      sumTxIn = None
 
    return [txHash, txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx]
    
@@ -4496,7 +4933,7 @@ class DlgDispTxInfo(QDialog):
       layout.addWidget(lblDescr,     0,0,  1,1)
    
       frm = QFrame()
-      frm.setFrameStyle(QFrame.StyledPanel | QFrame.Raised)
+      frm.setFrameStyle(STYLE_RAISED)
       frmLayout = QGridLayout()
       lbls = []
 
@@ -4764,7 +5201,7 @@ class DlgDispTxInfo(QDialog):
                    lambda: self.dispTxioInfo('Out'))
       
       #scrFrm = QFrame()
-      #scrFrm.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      #scrFrm.setFrameStyle(STYLE_SUNKEN)
       #scrFrmLayout = Q
       
 
@@ -4775,7 +5212,7 @@ class DlgDispTxInfo(QDialog):
       self.scriptArea.setMaximumWidth(200)
 
       self.frmIOList = QFrame()
-      self.frmIOList.setFrameStyle(QFrame.StyledPanel|QFrame.Sunken)
+      self.frmIOList.setFrameStyle(STYLE_SUNKEN)
       frmIOListLayout = QGridLayout()
 
       lblInputs = QLabel('Transaction Inputs (Sending addresses):')

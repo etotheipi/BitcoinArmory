@@ -388,7 +388,7 @@ class TxInDispModel(QAbstractTableModel):
          self.dispTable.append([])
          wltID = ''
          scrType = getTxInScriptType(txin)
-         if not txinListFromBDM==None and len(txinListFromBDM[i][0])>0:
+         if txinListFromBDM and len(txinListFromBDM[i][0])>0:
             # We had a BDM to help us get info on each input -- use it
             recip160,val,blk,hsh,idx = txinListFromBDM[i]
             if main:

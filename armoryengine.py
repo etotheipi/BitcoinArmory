@@ -63,9 +63,7 @@ BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
-ARMORY_DONATION_ADDR = '1Gffm7LKXcNFPrtxy6yF4JBoe5rVka4sn1'
-if USE_TESTNET:
-   ARMORY_DONATION_ADDR = 'mqqpanevrup9nrdioszubauuqe7zkyhgnc'
+ARMORY_DONATION_ADDR = '1QBDLYTDFHHZAABYSKGKPWKLSXZWCCJQBX'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -8456,6 +8454,14 @@ class ArmoryClientFactory(ClientFactory):
       #d, self.deferred_loseConnect = self.deferred_loseConnect, None
       #d.errback(reason)
 
+   #############################################################################
+   def checkForTx(self, txHash):
+      if self.proto:
+         self.proto.sendTx(pytxObj)
+      else:
+         raise ConnectionError, 'Connection to localhost DNE.'
+      
+      
 
    #############################################################################
    def sendTx(self, pytxObj):
