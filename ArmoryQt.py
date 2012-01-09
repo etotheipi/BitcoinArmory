@@ -637,7 +637,7 @@ class ArmoryMainWindow(QMainWindow):
       if not defaultFilename==None:
          startPath = os.path.join(startPath, defaultFilename)
       
-      types = list(ffilter)
+      types = ffilter
       types.append('All files (*)')
       typesStr = ';; '.join(types)
       fullPath = unicode(QFileDialog.getSaveFileName(self, title, startPath, typesStr))

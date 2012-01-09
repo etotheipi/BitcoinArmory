@@ -6997,7 +6997,7 @@ class PyBtcWallet(object):
       if privKey:
          # For priv key, lots of extra encryption and verification options
          newAddr = PyBtcAddress().createFromPlainKeyData( addr160=addr20, \
-                                  plainPrivKey=privKey, publicKey65=pubKey,  \
+                                  plainPrivKey=privKey, publicKey65=computedPubkey,  \
                                   willBeEncr=self.useEncryption, \
                                   generateIVIfNecessary=self.useEncryption, \
                                   skipCheck=True, skipPubCompute=True)
@@ -7029,7 +7029,7 @@ class PyBtcWallet(object):
             self.addrMap[newAddr160].unlock(self.kdfKey)
 
       self.cppWallet.addAddress_5_(newAddr160, \
-                                       firstTime, firstBlk, lastTime, lastBlk)
+                                   firstTime, firstBlk, lastTime, lastBlk)
 
       return newAddr160
 

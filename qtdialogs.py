@@ -569,7 +569,7 @@ class DlgWalletDetails(QDialog):
 
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
       lbtnMkPaper = QLabelButton('Make Paper Backup')
-      lbtnVwKeys  = QLabelButton('Save Individual Keys')
+      lbtnVwKeys  = QLabelButton('Backup Individual Keys')
       lbtnExport  = QLabelButton('Make Digital Backup')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
@@ -1817,18 +1817,19 @@ class DlgAddressInfo(QDialog):
 
       lbls.append([])
       lbls[-1].append( createToolTipObject( 
-         'Address type is either <i>Imported</i> or <i>Deterministic</i>.  '
-         'Determinstic '  
-         'addresses are part of base wallet, and are protected by all types '
-         'of wallet backups, regardless of when the backup was performed.  '
-         'Imported addresses are only protected by digital backups, and only '
-         'if the backup was performed after it was imported.'))
+         'Address type is either <i>Imported</i> or <i>Permanent</i>.  '
+         '<i>Permanent</i> '  
+         'addresses are part of base wallet, and are protected by printed '
+         'paper backups, regardless of when the backup was performed.  '
+         'Imported addresses are only protected by digital backups, or manually '
+         'printing the individual keys list, and only if it was backed up '
+         '<i>after</i> the keys were imported.'))
            
       lbls[-1].append( QRichLabel('<b>Address Type:</b>'))
       if self.addr.chainIndex==-2:
          lbls[-1].append( QLabel('Imported') )
       else:
-         lbls[-1].append( QLabel('Deterministic') )
+         lbls[-1].append( QLabel('Permanent') )
 
 
       # Current Balance of address
@@ -4473,22 +4474,34 @@ class DlgShowKeyList(QDialog):
          self.addrCopies.append(addr.copy())
          
 
-      lblDescr = QRichLabel( \
-         'Use this window to display as much or as little information '
-         'as desired, about each address currently in your wallet.  This '
-         'data can be copied into a file or spreadsheet for record '
-         'keeping or for paper backup.<br><br>'
-         'Note that <i>all</i> keys are backed up here, including '
-         'imported keys, but only deterministic keys that have been '
-         'generated <i>so far</i> (a new key is created every time you '
-         'click "Receive Bitcoins").  If you would like a permanent backup '
-         'of the deterministic part of your wallet, then use the "Make '
-         'Paper Backup" button in the wallet properties window.  However, '
-         'a paper backup does not save your imported keys.')
+      self.strDescrReg = ( \
+         'Use the checkboxes on the left to control the amount of '
+         'information displayed below.  The resulting data can be '
+         'saved to file, or copied directly into a text file or '
+         'spreadsheet.'
+         '<br><br>'
+         'The information here is for <i>all</i> keys in this wallet, '
+         'including imported keys.  However, since permanent keys are '
+         'generated as they are requested (via "Receive Bitcoins" button), '
+         'only permanent keys that you have used before, will be protected '
+         'by backing up the list below.  If you want a permanent backup of '
+         'your base wallet (excluding imported keys), then please print '
+         'a regular paper backup.'
+         '<br><br>')
+      self.strDescrWarn = ( \
+         '<font color="red">Warning:</font> The text box below contains '
+         'the plaintext (unencrypted) private keys for each of '
+         'the addresses in this wallet.  This information can be used '
+         'to spend the money associated with those addresses, so please '
+         'protect it like you protect the rest of your wallet.')
+
+      self.lblDescr = QRichLabel('')
+      self.lblDescr.setAlignment(Qt.AlignLeft |Qt.AlignTop)
 
 
       txtFont = QFont('DejaVu Sans Mono', 8)
       self.txtBox = QTextEdit()
+      self.txtBox.setReadOnly(True)
       self.txtBox.setFont(txtFont)
       w,h = tightSizeNChar(txtFont, 110)
       self.txtBox.setFont(txtFont)
@@ -4509,22 +4522,20 @@ class DlgShowKeyList(QDialog):
       self.chkList['PubKey']    = QCheckBox('Public Key (BE)')
       self.chkList['InitVect']  = QCheckBox('Initialization Vect (if encrypted)')
       self.chkList['ChainIndex']= QCheckBox('Chain Index')
-      self.chkList['AddrType']  = QCheckBox('Address Type (Deterministic or Imported)')
 
       self.chkList['AddrStr'   ].setChecked(True )
       self.chkList['PubKeyHash'].setChecked(False)
+      self.chkList['PrivB58'   ].setChecked(True )
       self.chkList['PrivCrypt' ].setChecked(False)
       self.chkList['PrivHexBE' ].setChecked(True )
       self.chkList['PrivHexLE' ].setChecked(False)
-      self.chkList['PrivB58'   ].setChecked(True )
       self.chkList['PubKey'    ].setChecked(False)
       self.chkList['InitVect'  ].setChecked(False)
       self.chkList['ChainIndex'].setChecked(False)
-      self.chkList['AddrType'  ].setChecked(False)
 
-      namelist = ['AddrStr','PubKeyHash','PrivCrypt','PrivHexBE', \
-                  'PrivHexLE','PrivB58','PubKey','InitVect', \
-                  'ChainIndex','AddrType']
+      namelist = ['AddrStr','PubKeyHash','PrivB58','PrivCrypt', \
+                  'PrivHexBE', 'PrivHexLE','PubKey','InitVect', \
+                  'ChainIndex']
 
       for name in self.chkList.keys():
          self.connect(self.chkList[name], SIGNAL('toggled(bool)'), \
@@ -4532,6 +4543,8 @@ class DlgShowKeyList(QDialog):
 
 
       self.chkImportedOnly = QCheckBox('Imported Addresses Only')
+      self.connect(self.chkImportedOnly, SIGNAL('toggled(bool)'), \
+                      self.rewriteList)
       #self.chkCSV = QCheckBox('Display in CSV format')
 
       std = (self.main.usermode==USERMODE.Standard)
@@ -4543,12 +4556,10 @@ class DlgShowKeyList(QDialog):
          self.chkList['PrivHexLE' ].setVisible(False)
          self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
-         self.chkList['AddrType  '].setVisible(False)
       elif adv:
          self.chkList['PubKeyHash'].setVisible(False)
          self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
-         self.chkList['AddrType'  ].setVisible(False)
 
 
       chkBoxList = [self.chkList[n] for n in namelist] 
@@ -4556,29 +4567,26 @@ class DlgShowKeyList(QDialog):
       chkBoxList.append(self.chkImportedOnly)
       #chkBoxList.append(self.chkCSV)
 
-      frmChks = makeLayoutFrame('Vert', [self.chkList[n] for n in namelist], \
-                                 STYLE_SUNKEN)
+      frmChks = makeLayoutFrame('Vert', chkBoxList, STYLE_SUNKEN)
 
 
       btnGoBack = QPushButton('<<< Go Back')
-   #def copyToClipboard(self):
-   #def saveToFile(self):
       btnSaveFile = QPushButton('Save to File...')
       btnCopyClip = QPushButton('Copy to Clipboard')
       self.lblCopied = QRichLabel('')
 
-      self.connect(btnGoBack, SIGNAL('clicked()'), self.accept)
+      self.connect(btnGoBack,   SIGNAL('clicked()'), self.accept)
+      self.connect(btnSaveFile, SIGNAL('clicked()'), self.saveToFile)
+      self.connect(btnCopyClip, SIGNAL('clicked()'), self.copyToClipboard)
       frmGoBack = makeLayoutFrame('Horiz', [btnGoBack, \
                                             'Stretch', \
                                             self.lblCopied, \
                                             btnCopyClip, \
                                             btnSaveFile])
 
-      frmDescr = makeLayoutFrame('Horiz',  [lblDescr], STYLE_SUNKEN)
+      frmDescr = makeLayoutFrame('Horiz',  [self.lblDescr], STYLE_SUNKEN)
 
       if not self.havePriv or (self.wlt.useEncryption and self.wlt.isLocked):
-         self.chkList['PrivCrypt'].setEnabled(False)
-         self.chkList['PrivCrypt'].setChecked(False)
          self.chkList['PrivHexBE'].setEnabled(False)
          self.chkList['PrivHexBE'].setChecked(False)
          self.chkList['PrivHexLE'].setEnabled(False)
@@ -4604,9 +4612,6 @@ class DlgShowKeyList(QDialog):
       #  Chain Code:
       #  Highest Chain index used
       #  List of Addresses
-      #namelist = ['AddrStr','PubKeyHash','PrivCrypt','PrivHexBE', \
-                  #'PrivHexLE','PrivB58','PubKey','InitVect', \
-                  #'ChainIndex','AddrType']
       def fmtBin(s, nB=4, sw=False):
          h = binary_to_hex(s)
          if sw: 
@@ -4617,16 +4622,27 @@ class DlgShowKeyList(QDialog):
       L.append('Wallet ID:    ' + self.wlt.uniqueIDB58)
       L.append('Wallet Name:  ' + self.wlt.labelName)
       if self.main.usermode==USERMODE.Developer:
-         L.append('Chain Code:   ' + fmtBin(wlt.addrMap['ROOT'].chaincode.toBinStr()))
-         L.append('Highest Used: ' + str(wlt.highestUsedChainIndex))
+         L.append('Chain Code:   ' + fmtBin(self.wlt.addrMap['ROOT'].chaincode.toBinStr()))
+         L.append('Highest Used: ' + str(self.wlt.highestUsedChainIndex))
+      L.append('')
 
       self.havePriv = False
       #c = ',' if self.chkCSV.isChecked() else '' 
       for addr in self.addrCopies:
+         if self.chkImportedOnly.isChecked() and not addr.chainIndex==-2:
+            continue
+         extraLbl = '   (Imported)' if addr.chainIndex==-2 else ''
          if self.chkList['AddrStr'   ].isChecked():  
-            L.append(                   addr.getAddrStr())
+            L.append(                   addr.getAddrStr() + extraLbl)
          if self.chkList['PubKeyHash'].isChecked(): 
             L.append(                  '   Hash160   : ' + fmtBin(addr.getAddr160()))
+         if self.chkList['PrivB58'   ].isChecked(): 
+            pBin = '\x80' + addr.binPrivKey32_Plain.toBinStr()
+            pChk = computeChecksum(pBin, nBytes=4)
+            pB58 = binary_to_base58(pBin + pChk)
+            pB58Stretch = ' '.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
+            L.append(                  '   PrivBase58: ' + pB58Stretch)
+            self.havePriv = True
          if self.chkList['PrivCrypt' ].isChecked():  
             L.append(                  '   PrivCrypt : ' + fmtBin(addr.binPrivKey32_Encr.toBinStr()))
          if self.chkList['PrivHexBE' ].isChecked():  
@@ -4635,13 +4651,6 @@ class DlgShowKeyList(QDialog):
          if self.chkList['PrivHexLE' ].isChecked(): 
             L.append(                  '   PrivHexLE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
             self.havePriv = True
-         if self.chkList['PrivB58'   ].isChecked(): 
-            pBin = '\x80' + addr.binPrivKey32_Plain.toBinStr()
-            pChk = computeChecksum(pBin, nBytes=4)
-            pB58 = binary_to_base58(pBin + pChk)
-            pB58Stretch = ' '.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
-            L.append(                  '   PrivBase58: ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
-            self.havePriv = True
          if self.chkList['PubKey'    ].isChecked():  
             L.append(                  '   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
             L.append(                  '   PublicY   : ' + fmtBin(addr.binPublicKey65.toBinStr()[  33:]))
@@ -4649,30 +4658,30 @@ class DlgShowKeyList(QDialog):
             L.append(                  '   InitVect  : ' + fmtBin(addr.binInitVect16.toBinStr()))
          if self.chkList['ChainIndex'].isChecked(): 
             L.append(                  '   ChainIndex: ' + str(addr.chainIndex))
-         if self.chkList['AddrType'  ].isChecked():
-            t = addr.chainIndex
-            L.append(                  '   Addr Type : ' + 'Imported' if t==-2 else 'Deterministic')
 
       self.txtBox.setText('\n'.join(L))
+      if self.havePriv:
+         self.lblDescr.setText(self.strDescrReg + self.strDescrWarn)
+      else:
+         self.lblDescr.setText(self.strDescrReg)
 
       
    def saveToFile(self):
       if self.havePriv:
          if not self.main.settings.getSettingOrSetDefault('DNAA_WarnPrintKeys', False):
-            result = MsgBoxWithDNAA(MSGBOX.Warning, 'Plaintext Private Keys', \
-                  '<font color="red">WARNING:</font> The data you are about '
-                  'to save contains private keys.  Anyone who gains access '
-                  'to private keys can spend the money held by the associated '
-                  'address.  Please make sure that only trusted persons can '
-                  'access the file you are about to save. <br><br>Are you sure '
-                  'you want to continue?', withCancel=True)
+            result = MsgBoxWithDNAA(MSGBOX.Warning, title='Plaintext Private Keys', \
+                  msg='<font color="red"><b>REMEMBER:</b></font> The data you '
+                  'are about to save contains private keys.  Please make sure '
+                  'that only trusted persons will have access to this file.'
+                  '<br><br>Are you sure you want to continue?', \
+                  dnaaMsg=None, wCancel=True)
             if not result[0]:
                return
             self.main.settings.set('DNAA_WarnPrintKeys', result[1])
             
       wltID = self.wlt.uniqueIDB58
       fn = self.main.getFileSave(title='Save Key List', \
-                                 ffilter='Text Files (*.txt)', \
+                                 ffilter=['Text Files (*.txt)'], \
                                  defaultFilename='keylist_%s_.txt'%wltID)
       if len(fn)>0:
          fileobj = open(fn,'w')
@@ -4685,7 +4694,7 @@ class DlgShowKeyList(QDialog):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(str(self.txtBox.toPlainText()))
-      self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+      self.lblCopied.setText('<i>Copied!</i>')
                
 
             
