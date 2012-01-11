@@ -269,6 +269,11 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList.append( self.menu.addMenu('&User') )
       self.menusList.append( self.menu.addMenu('&Tools') )
       self.menusList.append( self.menu.addMenu('&Network') )
+
+
+      actCloseApp = self.createAction('&Quit Armory', self.closeEvent)
+      self.menusList[MENUS.File].addAction(actCloseApp)
+
       
       def chngStd(b): 
          if b: self.setUserMode(USERMODE.Standard)
@@ -330,10 +335,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execOfflineTx(self):
-      dlg = DlgOfflineSelect(self, self)
-      if dlg.exec_():
+      dlgSelect = DlgOfflineSelect(self, self)
+      if dlgSelect.exec_():
+
          # If we got here, one of three buttons was clicked.
-         if dlg.do_create:
+         if dlgSelect.do_create:
             selectWlt = []
             for wltID in self.walletIDList:
                if self.walletMap[wltID].watchingOnly:
@@ -348,10 +354,15 @@ class ArmoryMainWindow(QMainWindow):
                dlgSend = DlgSendBitcoins(wlt, self, self)
                dlgSend.exec_()
                return
-         if dlg.do_review:
-            print 'review'
-         if dlg.do_broadc:
-            print 'broadc'
+
+         elif dlgSelect.do_review:
+            dlg = DlgReviewOfflineTx(self,self)
+            dlg.exec_()
+
+         elif dlgSelect.do_broadc:
+            dlg = DlgReviewOfflineTx(self,self)
+            dlg.exec_()
+
 
    #############################################################################
    def memoryPoolAction(self, opString):
@@ -660,7 +671,7 @@ class ArmoryMainWindow(QMainWindow):
       typesStr = ';; '.join(types)
       fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr))
 
-      self.settings.set('LastDirectory', fdir)
+      self.settings.set('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
    
    ##############################################################################

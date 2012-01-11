@@ -1896,9 +1896,9 @@ class DlgAddressInfo(QDialog):
       ttipLedger = createToolTipObject( \
             'Unlike the wallet-level ledger, this table shows every '
             'transaction <i>input</i> and <i>output</i> as a separate entry.  '
-            'As such, there may be multiple entries for a single transaction, '
-            'which sometimes happens when and address is used to send money, '
-            'and receive the change, as part of the same transaciton.' )
+            'Therefore, there may be multiple entries for a single transaction, '
+            'which will happen if money was sent-to-self (explicitly, or as '
+            'the change-back-to-self address).')
       lblLedger = QLabel('All Address Activity:')
 
       lblstrip = makeLayoutFrame('Horiz', [lblLedger, ttipLedger, 'Stretch'])
@@ -2507,7 +2507,6 @@ PAPER_A4_HEIGHT = 11.0*PAPER_DPI
 #  preserve the capitalization of the letters, meaning that Base58
 #  is not a feasible options
 NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
-#BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
 BASE16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
 hex_to_base16_map = {}
 base16_to_hex_map = {}
@@ -3670,32 +3669,61 @@ class DlgSendBitcoins(QDialog):
       #        this to my TODO list.
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
       if fee<minFeeRec[1]:
+
+         overrideMin = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
+         if totalSend+minFeeRec[1] > bal:
+            # Need to adjust this based on overrideMin flag
+            QMessageBox.warning(self, 'Insufficient Balance', \
+               'You have specified a valid amount to send, but the required '
+               'transaction fee causes this transaction to exceed your balance.  '
+               'In order to send this transaction, you will be required to '
+               'pay a fee of ' + coin2str(minFeeRec[1], maxZeros=0).strip() + '.' 
+               'Please go back and adjust the value of your transaction, not '
+               'to exceed ' + coin2str(bal-minFeeRec[1], maxZeros=0).strip() + 
+               ' BTC.', \
+               QMessageBox.Ok)
+            self.edtFeeAmt.setText(coin2str(minFeeRec[1]))
+            return
+                        
+
          extraMsg = ''
          feeStr = coin2str(fee, maxZeros=0).strip()
          minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
+
+         msgBtns = QMessageBox.Yes | QMessageBox.Cancel
          if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
-            extraMsg = ('\n\n(It is not recommended to override this behavior, '
-                        'but as an advanced user, you can go into the settings file '
-                        'and manually change the "OverrideMinFee" property to '
-                        '"True".  Do so at your own risk, as many transactions '
-                        'have been known to "get stuck" when insufficient fee '
-                        'was included)')
-         allowOkay = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
+            if not overrideMin:
+               extraMsg = ('\n\n(It is not recommended to override this behavior, '
+                           'but as an advanced user, you can go into the settings file '
+                           'and manually change the "OverrideMinFee" property to '
+                           '"True".  Do so at your own risk, as many transactions '
+                           'have been known to "get stuck" when insufficient fee '
+                           'was included)')
+
+         if overrideMin:
+            msgBtns = QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            extraMsg = ('\n\nYou have disbled mandatory transaction fees.  '
+                        'Clicking "No" will send the transaction with the '
+                        'original fee that you specified.')
+
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr) + extraMsg,  QMessageBox.Yes | QMessageBox.No)
-         if reply == QMessageBox.No:
+            (feeStr, minRecStr, minRecStr) + extraMsg,  msgBtns)
+         if reply == QMessageBox.Cancel:
             return False
-
-         fee = long(minFeeRec[1])
-         utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
+         if reply == QMessageBox.No:
+            pass
+         elif reply==QMessageBox.Yes:
+            fee = long(minFeeRec[1])
+            utxoSelect = PySelectCoins(utxoSelect, totalSend, fee)
       
       if len(utxoSelect)==0:
          QMessageBox.critical(self, 'Coin Selection Error', \
             'SelectCoins returned a list of size zero.  This is problematic '
             'and probably not your fault.', QMessageBox.Ok)
+         return
          
 
       ### IF we got here, everything should be good to go... generate a new
@@ -4208,10 +4236,11 @@ class DlgOfflineSelect(QDialog):
          '\t(2) <u>Off</u>line: Get the transaction signed<br>'
          '\t(3) <u>On</u>line:  Broadcast the signed transaction<br><br>'
          'The following three buttons correspond to the three steps above.  '
-         'Steps 1 and 3 do not have to be performed on the same system.  For instance, '
+         'Steps 1 and 3 do <u>not</u> have to be performed on the same system.  '
+         'For instance, '
          'if the "offline" computer is actually just a different internet-connected '
          'computer, then both Step 2 and Step 3 can be performed by that computer '
-         'alone.')
+         'alone (and the unsigned transaction can be transmitted via email).')
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Review and Sign an Offline Transaction')
@@ -4248,15 +4277,15 @@ class DlgOfflineSelect(QDialog):
       frmOptions.setFrameStyle(QFrame.Box | QFrame.Plain)
       frmOptionsLayout = QGridLayout()
       frmOptionsLayout.addWidget(btnCreate,  0,0)
-      frmOptionsLayout.addWidget(btnReview,  2,0)
-      frmOptionsLayout.addWidget(btnBroadc,  4,0)
-
       frmOptionsLayout.addWidget(lblCreate,  0,2)
+      frmOptionsLayout.addWidget(HLINE(),  1,0, 1,3)
+      frmOptionsLayout.addWidget(btnReview,  2,0)
       frmOptionsLayout.addWidget(lblReview,  2,2)
+      frmOptionsLayout.addWidget(HLINE(),  3,0, 1,3)
+      frmOptionsLayout.addWidget(btnBroadc,  4,0)
       frmOptionsLayout.addWidget(lblBroadc,  4,2)
 
-      frmOptionsLayout.addWidget(HLINE(),  1,0, 1,3)
-      frmOptionsLayout.addWidget(HLINE(),  3,0, 1,3)
+
 
 
       frmOptionsLayout.addItem(QSpacerItem(20,20),  0,1, 3,1)
@@ -4286,163 +4315,435 @@ class DlgReviewOfflineTx(QDialog):
    may not be specified
    """
    def __init__(self, parent=None, main=None):
-      super(DlgReviewTXDP, self).__init__(parent)
+      super(DlgReviewOfflineTx, self).__init__(parent)
 
 
       self.parent = parent
       self.main   = main
+      self.wlt    = None
+      self.sentToSelfWarn = False
 
 
       lblDescr = QRichLabel( \
-         'The following transaction has been proposed, to be sent from one '
-         'of your wallets:' )
+         'Copy or load a transaction from file into the text box below.  '
+         'If the transaction is unsigned and you have the correct wallet, '
+         'you will have the opportunity to sign it.  If it is already signed '
+         'you will have the opportunity to broadcast it to '
+         'the Bitcoin Network to make it final.')
 
 
-      self.frmInfo = QFrame()
-      self.frmInfo.setFrameStyle(STYLE_SUNKEN)
 
+      FontFixed = QFont('DejaVu Sans Mono', 8) 
       w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*8.2)
       self.txtTxDP = QTextEdit()
       self.txtTxDP.setFont( FontFixed )
       self.txtTxDP.sizeHint = lambda: QSize(w,h)
-      self.txtTxDP.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
+      self.txtTxDP.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
-      self.connect(self.txtTxDP, SIGNAL('cursorPositionChanged()'), self.txtChanged)
+      self.btnSign      = QPushButton('Sign')
+      self.btnBroadcast = QPushButton('Broadcast')
+      self.btnSave      = QPushButton('Save file...')
+      self.btnLoad      = QPushButton('Load file...')
+      self.btnCopy      = QPushButton('Copy Text')
+      self.lblCopied    = QRichLabel('')
+      self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+      self.btnSign.setEnabled(False)
+      self.btnBroadcast.setEnabled(False)
+
+      self.connect(self.txtTxDP, SIGNAL('cursorPositionChanged()'), self.processTxDP)
       
 
+      self.connect(self.btnSign,      SIGNAL('clicked()'), self.signTx)
+      self.connect(self.btnBroadcast, SIGNAL('clicked()'), self.broadTx)
+      self.connect(self.btnSave,      SIGNAL('clicked()'), self.saveTx)
+      self.connect(self.btnLoad,      SIGNAL('clicked()'), self.loadTx)
+      self.connect(self.btnCopy,      SIGNAL('clicked()'), self.copyTx)
+
+      self.lblStatus = QRichLabel('')
+      self.lblStatus.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      self.lblStatus.setMinimumWidth( relaxedSizeStr(self.lblStatus, 'Signature is Invalid!')[0] )
+      frmStatus = makeLayoutFrame('Horiz', [self.lblStatus], STYLE_SUNKEN)
+      frmBtn = makeLayoutFrame('Vert', [ self.btnSign, \
+                                         self.btnBroadcast, \
+                                         self.btnSave, \
+                                         self.btnLoad, \
+                                         self.btnCopy, \
+                                         self.lblCopied, \
+                                         'Stretch', \
+                                         frmStatus])
+
+      frmTxtBox = makeLayoutFrame('Horiz', [self.txtTxDP, frmBtn], STYLE_SUNKEN)
+
+      btnGoBack = QPushButton('<<< Go Back')
+      self.connect(btnGoBack,   SIGNAL('clicked()'), self.accept)
+      frmGoBack = makeLayoutFrame('Horiz', [btnGoBack, 'Stretch'])
+      
+
+      frmDescr = makeLayoutFrame('Horiz', [lblDescr], STYLE_RAISED)
+
+
+      # Finally, let's make small info frame, with a button to link to the 
+      # full info
+      self.infoLbls = []
+
+      
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject( \
+            'This is wallet from which the offline transaction spends Bitcoins'))
+      self.infoLbls[-1].append( QRichLabel('<b>Wallet:</b>'))
+      self.infoLbls[-1].append( QRichLabel(''))
+
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject('The name of the wallet'))
+      self.infoLbls[-1].append( QRichLabel('<b>Wallet Label:</b>'))
+      self.infoLbls[-1].append( QRichLabel(''))
+      
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject( \
+         'A unique string that identifies an <i>unsigned</i> transaction.  '
+         'This is different than the ID that the transaction will have when '
+         'it is finally broadcast, because the broadcast ID cannot be '
+         'calculated without all the signatures'))
+      self.infoLbls[-1].append( QRichLabel('<b>Pre-Broadcast ID:</b>'))
+      self.infoLbls[-1].append( QRichLabel(''))
+
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject('Net effect on this wallet\'s balance'))
+      self.infoLbls[-1].append( QRichLabel('<b>Transaction Amount:</b>'))
+      self.infoLbls[-1].append( QRichLabel(''))
+
+
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject( \
+            'Total number of transaction recipients, excluding change transactions.'))
+      self.infoLbls[-1].append( QRichLabel('<b># Recipients:</b>'))
+      self.infoLbls[-1].append( QRichLabel(''))
+
+      ###
+      self.infoLbls.append([])
+      self.infoLbls[-1].append( createToolTipObject( \
+            'Click for more details about this transaction'))
+      self.infoLbls[-1].append( QRichLabel('<b>More Info:</b>'))
+      self.infoLbls[-1].append( QLabelButton('Click Here') )
+
+
+      self.connect(self.infoLbls[-1][-1], SIGNAL('clicked()'), self.execMoreTxInfo)
+
+      frmInfoLayout = QGridLayout()
+      for r in range(len(self.infoLbls)):
+         for c in range(len(self.infoLbls[r])):
+            frmInfoLayout.addWidget( self.infoLbls[r][c],  r,c,  1,1 )
+
+      frmInfo = QFrame()
+      frmInfo.setFrameStyle(STYLE_SUNKEN)
+      frmInfo.setLayout(frmInfoLayout)
+
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(frmDescr)
+      dlgLayout.addWidget(frmTxtBox)
+      dlgLayout.addWidget(frmInfo)
+      dlgLayout.addWidget(frmGoBack)
+
+      self.setLayout(dlgLayout)
+      self.processTxDP()
+      
       self.setWindowTitle('Review Offline Transaction')
       self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
       
 
    def processTxDP(self):
+      # TODO:  it wouldn't be TOO hard to modify this dialog to take 
+      #        arbitrary hex-serialized transactions for broadcast... 
+      #        but it's not trivial either (for instance, I assume 
+      #        that we have inputs values, etc)
+      self.wlt = None
       txdpStr = str(self.txtTxDP.toPlainText())
-      txdpValid = True
       try:
-         txdpObj = PyTxDistProposal().unserializeAscii(txdpStr)
-         enoughSigs = txdpSigned.checkTxHasEnoughSignatures()
-         sigsValid  = txdpSigned.checkTxHasEnoughSignatures(alsoVerify=True)
+         self.txdpObj = PyTxDistProposal().unserializeAscii(txdpStr)
+         self.enoughSigs = self.txdpObj.checkTxHasEnoughSignatures()
+         self.sigsValid  = self.txdpObj.checkTxHasEnoughSignatures(alsoVerify=True)
+         self.txdpValid = True
       except:
          # One of the rare few times I ever catch-all exception
-         txdpValid = False
+         self.txdpObj = None
+         self.txdpValid = False
          self.makeReviewFrame(None)
          return
 
-      if not enoughSigs or not sigsValid or not txdpValid:
-         self.btnReady.setEnabled(False)
+      if not self.enoughSigs or not self.sigsValid or not self.txdpValid:
+         self.btnBroadcast.setEnabled(False)
+      else:
+         self.btnBroadcast.setEnabled(True)
 
-      if not txdpValid:
+      if not self.txdpValid:
          if len(txdpStr)>0:
             self.lblStatus.setText('<b>Unrecognized Input!</b>')
          else:
             self.lblStatus.setText('')
-      elif not enoughSigs:
+         self.btnSign.setEnabled(False)
+         self.btnBroadcast.setEnabled(False)
+      elif not self.enoughSigs:
          self.lblStatus.setText('<b>Not Signed Yet</b>')
-      elif not sigsValid:
+         self.btnSign.setEnabled(True)
+         self.btnBroadcast.setEnabled(False)
+      elif not self.sigsValid:
          self.lblStatus.setText('<b>Signature is invalid</b>')
+         self.btnSign.setEnabled(True)
+         self.btnBroadcast.setEnabled(False)
       
-
-      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(pytx, self.main.NetworkingFactory.zeroConfTxTime)
 
       # NOTE:  We assume this is an OUTGOING transaction.  When I pull in the
       #        multi-sig code, I will have to either make a different dialog,
       #        or add some logic to this one
+      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
+      data = extractTxInfo(self.txdpObj)
+
+      # Collect the input wallets (hopefully just one of them)
+      fromWlts = set()
+      for recip,amt,a,b,c in data[FIELDS.InList]:
+         wltID = self.main.getWalletForAddr160(recip)
+         if not wltID=='':
+            fromWlts.add(wltID)
+
+      if len(fromWlts)>1:
+         QMessageBox.warning(self, 'Multiple Input Wallets', \
+            'Somehow, you have obtained a transaction that actually pulls from more '
+            'than one wallet.  The support for handling multi-wallet signatures is '
+            'not currently implemented (this also could have happened if you imported '
+            'the same private key into two different wallets).' ,QMessageBox.Ok)
+         self.makeReviewFrame(None)
+         return
+      elif len(fromWlts)==0:
+         QMessageBox(self, 'Unrelated Transaction', \
+            'This transaction appears to have no relationship to any of the wallets '
+            'stored on this computer.  Did you load the correct transaction?', \
+            QMessageBox.Ok)
+         self.makeReviewFrame(self.txdpObj, None, None, None, [])
+         return
+
+      spendWltID = fromWlts.pop()
+      self.wlt = self.main.walletMap[spendWltID]
+      
+
       toWlts = set()
       myOutSum = 0
       theirOutSum = 0
-      rvRecips = []
+      rvPairs = []
+      self.idxSelf = []
+      idx = 0
       for scrType, amt, recip in data[FIELDS.OutList]:
          wltID = self.main.getWalletForAddr160(recip)
-         if wltID:
+         if wltID==spendWltID:
             toWlts.add(wltID)
+            self.idxSelf.append(idx)
             myOutSum += amt
          else:
-            rvRecips.append( [recip, amt] )
-            indicesSelf.append( idx )
+            rvPairs.append( [recip, amt] )
             theirOutSum += amt
+         idx += 1
+
+         
 
       myInSum = data[FIELDS.SumIn]  # because we assume all are ours
 
       if myInSum == None:
          fee = None
       else:
-         fee = amtIn - amtOut
+         fee = myInSum - data[FIELDS.SumOut]
          
       leValue = theirOutSum
 
       print 'Printing from processtxdp'
-      print txdp.pytxObj.pprint()
+      print self.txdpObj.pytxObj.pprint()
       print 'WltID:   ' 
-      for wltid in fromWlts:  
-         print '   ', wltid
       print 'MyInSum: ', myInSum
       print 'MyOtSum: ', myOutSum
       print 'ThOtSum: ', theirOutSum
       print 'leValue: ', coin2str(leValue)
       print 'fee:     ', coin2str(fee)
       
-      if len(fromWlts)==1:
-         self.makeReviewFrame(txdpObj, self.main.walletMap[fromWlts.pop()], leValue, fee, rvPairSelf)
-      elif len(fromWlts)==0:
-         QMessageBox(self, 'Unrelated Transaction', \
-            'This transaction appears to have no relationship to any of the wallets '
-            'stored on this computer.  Did you load the correct transaction?', \
-            QMessageBox.Ok)
-         self.makeReviewFrame(txdpObj, None, None, None, [])
-      else:
-         QMessageBox(self, 'Multiple Wallets', \
-            'Somehow, you have obtained a transaction that actually pulls from more '
-            'than one wallet.  The support for handling multi-wallet signatures is '
-            'not currently implemented (this also could have happened if you imported '
-            'the same private key into two different wallets).', \
-            QMessageBox.Ok)
-         self.makeReviewFrame(None)
-         return
+      self.makeReviewFrame(self.txdpObj, spendWltID, leValue)
 
 
    ############################################################################
-   def makeReviewFrame(self, txdp=None, wlt=None, leValue=None, fee=None, \
-                                                            recipValPairs=[]):
+   def makeReviewFrame(self, txdp=None, wltID=None, leValue=None):
 
-      lbls = []
-      
+      self.wlt = None
+      if wltID:
+         self.wlt = self.main.walletMap[wltID]
+         
       ###
-      lbls.append([])
-      lbls[-1].append( createToolTipObject( \
-            'This is wallet from which the offline transaction spends Bitcoins'))
-      lbls[-1].append( QRichLabel('<b>Wallet:</b>'))
-      if txdp==None: lbls[-1].append( QRichLabel(''))
-      else:          lbls[-1].append( QRichLabel(wlt.uniqueIDB58))
+      if txdp==None: self.infoLbls[0][2].setText('')
+      else:          self.infoLbls[0][2].setText(wltID)
 
       ###
-      lbls.append([])
-      lbls[-1].append( createToolTipObject('The name of the wallet'))
-      lbls[-1].append( QRichLabel('<b>Wallet Label:</b>'))
-      if wlt==None: lbls[-1].append( QRichLabel(''))
-      else:         lbls[-1].append( QRichLabel(wlt.labelName))
+      if wltID==None: self.infoLbls[1][2].setText('')
+      else:           self.infoLbls[1][2].setText(self.wlt.labelName)
       
       ###
-      lbls.append([])
-      lbls[-1].append( createToolTipObject('Net effect on this wallet\'s balance'))
-      lbls[-1].append( QRichLabel('<b>Transaction Amount:</b>'))
-      if leValue==None: lbls[-1].append( QRichLabel(''))
-      else:             lbls[-1].append( QMoneyLabel(leValue) )
+      if txdp==None: self.infoLbls[2][2].setText('')
+      else:          self.infoLbls[2][2].setText(txdp.uniqueB58)
 
-      if not fee==None:
-         lbls.append([])
-         lbls[-1].append( createToolTipObject('The transaction fee paid on this transaction'))
-         lbls[-1].append( QRichLabel('<b>Transaction Fee:</b>'))
-         lbls[-1].append( QMoneyLabel(fee) )
+      ###
+      if leValue==None: self.infoLbls[3][2].setText('')
+      else:             self.infoLbls[3][2].setText(coin2str(leValue, maxZeros=0).strip() )
 
-      lbls.append([])
+
+      ###
+      #if ==None: self.infoLbls[4][2].setText('') 
+      #else:         self.infoLbls[4][2].setText('<Click "More Info" to find out!>')
+
+
+      if txdp==None:  
+         self.infoLbls[5][0].setVisible(False)
+         self.infoLbls[5][1].setVisible(False)
+         self.infoLbls[5][2].setVisible(False)
+      else:
+         self.infoLbls[5][0].setVisible(True)
+         self.infoLbls[5][1].setVisible(True)
+         self.infoLbls[5][2].setVisible(True)
+
       
+      #if txdp:
+         #if len(recipValPairs)==0:
+            #if len(txdp.pytxObj.outputs)==0:
+               #QMessageBox(self, 'No recipients...?', \
+                  #'This transaction does not have any recipients at all, which means '
+                  #'it\'s not even a valid transaction.  There is nothing you can do '
+                  #'with this transaction.', QMessageBox.Ok)
+               #return
+            #if not self.sentToSelfWarn:
+               #QMessageBox(self, 'No recipients...?', \
+                  #'This transaction does not have any recipients other than yourself.  '
+                  #'If this transaction was not intended to be a sent-to-self transaction '
+                  #'then something went terribly wrong on the way here...', QMessageBox.Ok)
+               #self.sentToSelfWarn = True
+            #lbls.append([])
+            #lbls[-1].append( createToolTipObject( \
+                  #'Addresses on the receiving end of this transaction'))
+            #lbls[-1].append( QRichLabel('<b>Recipients:</b>'))
+            #lbls[-1].append( QRichLabel('<i><font color="red">Self</font></i>'))
+         #else:
+            #for row,rv in enumerate(recipValPairs):
+               #lbls.append([])
+               #if row==0:
+                  #lbls[-1].append( createToolTipObject( \
+                        #'Addresses on the receiving end of this transaction'))
+                  #lbls[-1].append( QRichLabel('<b>Recipients:</b>'))
+               #else:
+                  #lbls[-1].append( QLabel('') )
+                  #lbls[-1].append( QLabel('') )
+               #recipStr = hash160_to_addrStr(rv[0])
+               #amtStr   = coin2str(rv[1], maxZeros=2).strip()
+               #lbls[-1].append( QRichLabel(recipStr[:10]) )
+               #lbls[-1][-1].setToolTip(recipStr)
+               #lbls[-1].append( QRichLabel(amtStr) )
+   
+
+
+
+
+
+   def execMoreTxInfo(self):
       
+      #class DlgDispTxInfo(QDialog):
+      #def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None):
+      if not self.txdpObj:
+         self.processTxDP()
+
+      if not self.txdpObj:
+         QMessageBox(self, 'No Transaction Info', \
+            'There is no transaction information to display!', QMessageBox.Ok)
+         return
+
+      dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent, self.main)
+      dlgTxInfo.exec_()
 
 
-      frmInfoLayout = QGridLayout()
 
-      self.frmInfo.setLayout(frmInfoLayout)
+   def signTx(self):
+      if self.txdpObj==None:
+         QMessageBox(self, 'Not Signable', \
+               'This is not a valid transaction, and thus it cannot '
+               'be signed. ', QMessageBox.Ok)
+         return
+      elif self.txdpObj.enoughSigs:
+         QMessageBox(self, 'Already Signed', \
+               'This transaction has already been signed!', QMessageBox.Ok)
+         return
+
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         dlg = DlgUnlockWallet(wlt, parent, main)
+         if not dlg.exec_():
+            QMessageBox(self, 'Wallet is Locked', \
+               'Cannot sign transaction while your wallet is locked!', \
+               QMessageBox.Ok)
+            return
+
+      newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
+      self.txtTxDP.setText(newTxDp.serializeAscii())
+      self.txdpObj = newTxdp
+      self.processTxDP()
+
+
+   def broadTx(self):
+      try:
+         finalTx = self.txdpObj.prepareFinalTx()
+      except:
+         QMessageBox(self, 'Error', \
+            'There was an error processing this transaction, for reasons '
+            'that are probably not your fault...', QMessageBox.Ok)
+         return
+
+      reply = QMessageBox(self, 'Confirmation', \
+            'Are you sure that you want to broadcast this transaction?', \
+            QMessageBox.Yes | QMessageBox.No)
+
+      if reply==QMessageBox.Yes:
+         self.main.broadcastTransaction(finalTx)
+         QMessageBox(self, 'Done!', 'The transaction has been broadcast!', QMessageBox.Ok)
+
+
+   def saveTx(self):
+      defaultFilename = ''
+      if not self.txdpObj==None:
+         if self.enoughSigs:
+            defaultFilename = 'armory_%s_.signed.tx' % self.txdpObj.uniqueB58
+         else:
+            defaultFilename = 'armory_%s_.unsigned.tx' % self.txdpObj.uniqueB58
+      filename = self.main.getFileSave('Save Transaction', \
+                             ['Transactions (*.signed.tx *.unsigned.tx)'], \
+                             defaultFilename)
+
+      if len(str(filename))>0:
+         f = open(filename, 'w')
+         f.write(str(self.txtTxDP.text()))
+         f.close()
+
+
+   def loadTx(self):
+      filename = self.main.getFileLoad('Load Transaction', \
+                             ['Transactions (*.signed.tx *.unsigned.tx)'])
+      if len(str(filename))>0:
+         f = open(filename, 'r')
+         self.txtTxDP.setText(f.read())
+         f.close()
+         self.processTxDP()
+
+
+   def copyTx(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(self.txtTxDP.toPlainText()))
+      self.lblCopied.setText('<i>Copied!</i>')
 
 
 ################################################################################
@@ -4475,18 +4776,17 @@ class DlgShowKeyList(QDialog):
          
 
       self.strDescrReg = ( \
-         'Use the checkboxes on the left to control the amount of '
+         'Use the checkboxes on the right to control the amount of '
          'information displayed below.  The resulting data can be '
-         'saved to file, or copied directly into a text file or '
-         'spreadsheet.'
+         'saved to file, or copied into another document.'
          '<br><br>'
          'The information here is for <i>all</i> keys in this wallet, '
          'including imported keys.  However, since permanent keys are '
          'generated as they are requested (via "Receive Bitcoins" button), '
-         'only permanent keys that you have used before, will be protected '
-         'by backing up the list below.  If you want a permanent backup of '
-         'your base wallet (excluding imported keys), then please print '
-         'a regular paper backup.'
+         'only permanent keys that you have used before now, will be '
+         'protected by backing up the list below.  If you want a permanent '
+         'backup of your base wallet (excluding imported keys), then please '
+         'print a regular paper backup.'
          '<br><br>')
       self.strDescrWarn = ( \
          '<font color="red">Warning:</font> The text box below contains '
@@ -4761,7 +5061,7 @@ def extractTxInfo(pytx, zcTimeList=None):
       sumTxOut += txout.value
   
 
-   haveAllInput=True
+   txref = None
    if TheBDM.isInitialized(): 
       txref = TheBDM.getTxByHash(txHash)
       if txref:
@@ -4775,9 +5075,10 @@ def extractTxInfo(pytx, zcTimeList=None):
             txBlk  = 2**32-1
    
    txinFromList = []
-   if TheBDM.isInitialized():
+   if TheBDM.isInitialized() and not txref==None:
       # Use BDM to get all the info about the TxOut being spent
       # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
+      haveAllInput=True
       for i in range(txref.getNumTxIn()):
          txinFromList.append([])
          cppTxin = txref.getTxInRef(i)
@@ -4798,7 +5099,9 @@ def extractTxInfo(pytx, zcTimeList=None):
             txinFromList[-1].append('')
 
    elif not pytxdp==None:
+      haveAllInput=True
       for i,txin in enumerate(pytxdp.pytxObj.inputs):
+         txinFromList.append([])
          # TxDPs contains the prevOut scripts in the currIn script fields
          txinFromList[-1].append(TxOutScriptExtractAddr160(txin.binScript))
          txinFromList[-1].append(pytxdp.inputValues[i])
@@ -4806,8 +5109,9 @@ def extractTxInfo(pytx, zcTimeList=None):
          txinFromList[-1].append('')
          txinFromList[-1].append('')
    else:  # BDM is not initialized
+      haveAllInput=False
       for i,txin in enumerate(pytx.inputs):
-         haveAllInput=False
+         txinFromList.append([])
          txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
          txinFromList[-1].append('')
          txinFromList[-1].append('')
@@ -4844,13 +5148,23 @@ class DlgDispTxInfo(QDialog):
       self.parent = parent
       self.main   = main  
       self.mode   = mode
-      self.pytx   = pytx.copy()
+
+
+      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
+      data = extractTxInfo(pytx)
+         
+      # If this is actually a TxDP in here...
+      pytxdp = None
+      if isinstance(pytx, PyTxDistProposal):
+         pytxdp = pytx
+         pytx = pytxdp.pytxObj.copy()
+
+
+      self.pytx = pytx.copy()
 
       if self.mode==None:
          self.mode = self.main.usermode
 
-      FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(pytx, self.main.NetworkingFactory.zeroConfTxTime)
       txHash = data[FIELDS.Hash]
 
       haveWallet = (wlt!=None)
@@ -4897,7 +5211,7 @@ class DlgDispTxInfo(QDialog):
                if le.isSentToSelf():
                   txdir = 'Sent-to-Self'
                   rvPairDisp = []
-                  if len(pytx.outputs):
+                  if len(self.pytx.outputs):
                      txAmt = fee
                      triplet = data[FIELDS.OutList][0]
                      rvPairDisp.append([triplet[2], triplet[1]])
@@ -4969,18 +5283,18 @@ class DlgDispTxInfo(QDialog):
          lbls.append([])
          lbls[-1].append(createToolTipObject('Bitcoin Protocol Version Number'))
          lbls[-1].append(QLabel('Tx Version:'))
-         lbls[-1].append(QLabel( str(pytx.version)))
+         lbls[-1].append(QLabel( str(self.pytx.version)))
 
          lbls.append([])
          lbls[-1].append(createToolTipObject(
             'The time at which this transaction becomes valid.'))
          lbls[-1].append(QLabel('Lock-Time:'))
-         if pytx.lockTime==0: 
+         if self.pytx.lockTime==0: 
             lbls[-1].append(QLabel('Immediate (0)'))
-         elif pytx.lockTime<500000000:
-            lbls[-1].append(QLabel('Block %d' % pytx.lockTime))
+         elif self.pytx.lockTime<500000000:
+            lbls[-1].append(QLabel('Block %d' % self.pytx.lockTime))
          else:
-            lbls[-1].append(QLabel(unixTimeToFormatStr(pytx.lockTime)))
+            lbls[-1].append(QLabel(unixTimeToFormatStr(self.pytx.lockTime)))
 
 
       
@@ -5147,7 +5461,7 @@ class DlgDispTxInfo(QDialog):
       wWlt = relaxedSizeStr(FontVar, 'A'*10)[0]
       wAddr = relaxedSizeStr(FontVar, 'A'*31)[0]
       wAmt = relaxedSizeStr(FontFix, 'A'*20)[0]
-      self.txInModel = TxInDispModel(pytx, data[FIELDS.InList], self.main)
+      self.txInModel = TxInDispModel(self.pytx, data[FIELDS.InList], self.main)
       self.txInView = QTableView()
       self.txInView.setModel(self.txInModel)
       self.txInView.setSelectionBehavior(QTableView.SelectRows)
@@ -5163,13 +5477,13 @@ class DlgDispTxInfo(QDialog):
       self.txInView.hideColumn(TXINCOLS.Script) 
       if haveBDM:
          if self.mode==USERMODE.Standard:
-            initialColResize(self.txInView, [wWlt, wAddr*1.5, wAmt, 0, 0, 0, 0, 0, 0])
+            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.ScrType) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
             self.txInView.setSelectionMode(QTableView.NoSelection)
          elif self.mode==USERMODE.Advanced:
-            initialColResize(self.txInView, [0.8*wWlt, 0.8*wAddr, 0.6*wAmt, 0, 0, 0, 0.2, 0, 0])
+            initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
             self.txInView.setSelectionMode(QTableView.NoSelection)
@@ -5178,7 +5492,7 @@ class DlgDispTxInfo(QDialog):
             
 
       # List of TxOuts/Recipients
-      self.txOutModel = TxOutDispModel(pytx,  self.main, idxGray=indicesMakeGray)
+      self.txOutModel = TxOutDispModel(self.pytx,  self.main, idxGray=indicesMakeGray)
       self.txOutView  = QTableView()
       self.txOutView.setModel(self.txOutModel)
       self.txOutView.setSelectionBehavior(QTableView.SelectRows)
@@ -5187,7 +5501,7 @@ class DlgDispTxInfo(QDialog):
       self.txOutView.verticalHeader().hide()
       self.txOutView.setMinimumHeight(2*(1.3*h))
       self.txOutView.setMaximumHeight(5*(1.3*h))
-      initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
+      initialColResize(self.txOutView, [wWlt, 0.8*wAddr, wAmt, 0.25, 0])
       self.txOutView.hideColumn(TXOUTCOLS.Script) 
       if self.mode==USERMODE.Standard:
          self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
@@ -5195,7 +5509,7 @@ class DlgDispTxInfo(QDialog):
          self.txOutView.horizontalHeader().setStretchLastSection(True)
          self.txOutView.setSelectionMode(QTableView.NoSelection)
       elif self.mode==USERMODE.Advanced:
-         initialColResize(self.txOutView, [0.8*wWlt, 0.8*wAddr, 0.6*wAmt, 0.25, 0])
+         initialColResize(self.txOutView, [0.8*wWlt, 0.6*wAddr, wAmt, 0.25, 0])
          self.txOutView.setSelectionMode(QTableView.NoSelection)
       elif self.mode==USERMODE.Developer:
          initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
@@ -5264,7 +5578,11 @@ class DlgDispTxInfo(QDialog):
       self.connect(self.btnIOList, SIGNAL('clicked()'), self.extraInfoClicked)
       self.connect(self.btnOk,     SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCopy,   SIGNAL('clicked()'), self.copyRawTx)
-      btnStrip = makeLayoutFrame('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
+
+      if self.mode==USERMODE.Developer:
+         btnStrip = makeLayoutFrame('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
+      else:
+         btnStrip = makeLayoutFrame('Horiz', [self.btnIOList, 'Stretch', self.btnOk])
 
       if self.mode==USERMODE.Standard:
          self.btnIOList.setChecked(False)
@@ -5349,10 +5667,6 @@ class DlgDispTxInfo(QDialog):
       
 
       
-class DlgTxInfoAdv(QDialog):
-   def __init__(self, pytx, wlt, parent=None, main=None):
-      super(DlgTxInfoAdv, self).__init__(parent)
-         
 
 class DlgPaperBackup(QDialog):
    """

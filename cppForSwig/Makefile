@@ -9,9 +9,8 @@ OBJS = UniversalTimer.o BinaryData.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUt
 # I used to link to the cryptopp directory included with the repo,
 # but ever since adding AES, I've found that I need to link to the
 # installed libraries...
-#INCLUDE_OPTS += -I/usr/include/crypto++ -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-INCLUDE_OPTS += -I/usr/include/crypto++ -fPIC -DTEST_NETWORK -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lcrypto++ -lpthread
+INCLUDE_OPTS += -I/usr/include/cryptopp -Icryptopp -fPIC -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
+LIBRARY_OPTS += -lcryptopp -lpthread
 SWIG_INC += -I/usr/include/python2.7
 
 SWIG_OPTS    += -c++ -python -classic

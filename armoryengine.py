@@ -7031,6 +7031,7 @@ class PyBtcWallet(object):
       self.cppWallet.addAddress_5_(newAddr160, \
                                    firstTime, firstBlk, lastTime, lastBlk)
 
+
       return newAddr160
 
 
