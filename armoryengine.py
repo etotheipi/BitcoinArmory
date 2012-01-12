@@ -4940,9 +4940,12 @@ class PyTxDistProposal(object):
       the complete set of valid signatures needed to be accepted by the 
       network.
       """
+      if not self.checkTxHasEnoughSignatures():
+         return None
+
       # We must make/modify a copy of the TxDP, because serialization relies
       # on having the original TxDP intact.
-      finalTx = PyTx().unserialize(self.pytxObj.serialize())
+      finalTx = self.pytxObj.copy()
 
       # Put the txIn scripts together (non-trivial for multi-sig cases)
       # then run them through the script evaluator to make sure they
@@ -5164,7 +5167,7 @@ class PyBtcWallet(object):
 
    ***NOTE:  I have ONLY implemented deterministic wallets, using ECDSA
              Diffie-Hellman shared-secret crypto operations.  This allows
-             on to actually determine the next PUBLIC KEY in the address
+             one to actually determine the next PUBLIC KEY in the address
              chain without actually having access to the private keys.
              This makes it possible to synchronize online-offline computers
              once and never again.
@@ -5205,11 +5208,11 @@ class PyBtcWallet(object):
    version     -- (4)   getVersionInt(PYBTCWALLET_VERSION)
    magic bytes -- (4)   defines the blockchain for this wallet (BTC, NMC)
    wlt flags   -- (8)   64 bits/flags representing info about wallet
-   binUniqueID -- (4)   first 4 bytes of first address in wallet
-                        (rootAddr25Bytes[:4][::-1]
+   binUniqueID -- (6)   first 5 bytes of first address in wallet
+                        (rootAddr25Bytes[:5][::-1]), reversed
                         This is not intended to look like the root addr str
-                        and is reversed to avoid leading '1' which makes
-                        different IDs look too similar
+                        and is reversed to avoid having all wallet IDs start 
+                        with the same characters (since the network byte is front)
    create date -- (8)   unix timestamp of when this wallet was created
                         (actually, the earliest creation date of any addr
                         in this wallet -- in the case of importing addr
@@ -5251,14 +5254,14 @@ class PyBtcWallet(object):
    operations before even telling the user that new data has been added.
    We do this by copying the wallet file, and creating a walletUpdateFailed
    file.  We then modify the original, verify its integrity, and then delete
-   the walletUpdateFailed file.  THEN we let the user know that their data
-   has been successfully written (or that there's a new address for them to
-   use, if that's what they were requesting).
+   the walletUpdateFailed file.  Then we create a backupUpdateFailed flag,
+   do the identical update on the backup file, and delete the failed flag. 
+   This guaranatees that no matter which nanosecond the power goes out,
+   there will be an uncorrupted wallet and we know which one it is.
 
-   If there is a power failure during file modification, the update_unsuccess
-   file will be present and detected, and PyBtcWallet will know to use the
-   original copy.  It is critical is to guarantee that atomic operations
-   completes before telling the user they can use this data.
+   We never let the user see any data until the atomic write-to-file operation
+   has completed
+
 
    Additionally, we implement key locking and unlocking, with timeout.  These
    key locking features are only DEFINED here, not actually enforced (because
@@ -6364,7 +6367,7 @@ class PyBtcWallet(object):
       self.offsetWltFlags = binPacker.getSize() - startByte
       self.packWalletFlags(binPacker)
 
-      # Binary Unique ID (firstAddr25bytes[:6][::-1])
+      # Binary Unique ID (firstAddr25bytes[:5][::-1])
       binPacker.put(BINARY_CHUNK, self.uniqueIDBin, width=6)
 
       # Unix time of wallet creations

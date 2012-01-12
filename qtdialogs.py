@@ -4243,8 +4243,8 @@ class DlgOfflineSelect(QDialog):
          'alone (and the unsigned transaction can be transmitted via email).')
 
       btnCreate = QPushButton('Create New Offline Transaction')
-      btnReview = QPushButton('Review and Sign an Offline Transaction')
-      btnBroadc = QPushButton('Broadcast a Signed Transaction')
+      btnReview = QPushButton('Sign and/or Broadcast Transaction')
+      #btnBroadc = QPushButton('Broadcast a Signed Transaction')
       btnCancel = QPushButton('<<< Go Back')
 
       def create():
@@ -4256,7 +4256,7 @@ class DlgOfflineSelect(QDialog):
 
       self.connect(btnCreate, SIGNAL('clicked()'), create)
       self.connect(btnReview, SIGNAL('clicked()'), review)
-      self.connect(btnBroadc, SIGNAL('clicked()'), broadc)
+      #self.connect(btnBroadc, SIGNAL('clicked()'), broadc)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
       lblCreate = QRichLabel( \
@@ -4279,10 +4279,10 @@ class DlgOfflineSelect(QDialog):
       frmOptionsLayout.addWidget(btnCreate,  0,0)
       frmOptionsLayout.addWidget(lblCreate,  0,2)
       frmOptionsLayout.addWidget(HLINE(),  1,0, 1,3)
-      frmOptionsLayout.addWidget(btnReview,  2,0)
+      frmOptionsLayout.addWidget(btnReview,  2,0, 3,1)
       frmOptionsLayout.addWidget(lblReview,  2,2)
-      frmOptionsLayout.addWidget(HLINE(),  3,0, 1,3)
-      frmOptionsLayout.addWidget(btnBroadc,  4,0)
+      frmOptionsLayout.addWidget(HLINE(),  3,2, 1,1)
+      #frmOptionsLayout.addWidget(btnBroadc,  4,0)
       frmOptionsLayout.addWidget(lblBroadc,  4,2)
 
 
@@ -4482,6 +4482,7 @@ class DlgReviewOfflineTx(QDialog):
       self.idxSelf = []
       self.idxOther = []
       self.lblStatus.setText('')
+      self.lblCopied.setText('')
       self.enoughSigs = False
       self.sigsValid  = False
       self.txdpReadable  = False
@@ -4627,7 +4628,7 @@ class DlgReviewOfflineTx(QDialog):
 
          ##### 3
          if self.leValue:
-            self.infoLbls[3][2].setText(coin2str(self.leValue, maxZeros=0).strip() )
+            self.infoLbls[3][2].setText(coin2str(self.leValue, maxZeros=0).strip() + '  BTC')
          else:
             self.infoLbls[3][2].setText('')
 
@@ -4662,7 +4663,7 @@ class DlgReviewOfflineTx(QDialog):
          return
 
       dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent, self.main, \
-                                                   precomputeIdxGray=self.idxSelf)
+                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue)
       dlgTxInfo.exec_()
 
 
@@ -5146,7 +5147,7 @@ def extractTxInfo(pytx, zcTimeList=None):
       
 class DlgDispTxInfo(QDialog):
    def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
-                                                      precomputeIdxGray=None):
+                                        precomputeIdxGray=None, precomputeAmt=None):
       """
       This got freakin' complicated, because I'm trying to handle
       wallet/nowallet, BDM/noBDM and Std/Adv/Dev modes all at once. 
@@ -5244,6 +5245,14 @@ class DlgDispTxInfo(QDialog):
                break
 
 
+      # If this is a TxDP, the above calculation probably didn't do its job
+      # It is possible, but it's also possible that this Tx has nothing to
+      # do with our wallet, which is not the focus of the above loop/conditions
+      # So we choose to pass in the amount we already computed based on extra
+      # information available in the TxDP structure
+      if precomputeAmt:
+         txAmt = precomputeAmt
+
       if IsNonStandard:
          # TODO:  Need to do something with this non-std tx!
          print '***Non-std transaction!'
@@ -5282,11 +5291,31 @@ class DlgDispTxInfo(QDialog):
       lbls.append([])
       lbls[-1].append(createToolTipObject('Unique identifier for this transaction'))
       lbls[-1].append(QLabel('Transaction ID' + estr + ':'))
-      if endianness==BIGENDIAN:
-         lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash], endOut=BIGENDIAN) ))
-      if endianness==BIGENDIAN:
-         lbls[-1].append(QLabel( binary_to_hex(data[FIELDS.Hash], endOut=LITTLEENDIAN) ))
+      
 
+      # Want to display the hash of the Tx if we have a valid one:
+      # A TxDP does not have a valid hash until it's completely signed, though
+      longTxt = '[[ Transaction ID cannot be determined without all signatures ]]' 
+      w,h = relaxedSizeStr(QRichLabel(''), longTxt)
+
+      tempPyTx = self.pytx.copy()
+      if pytxdp:
+         finalTx = pytxdp.getBroadcastTxIfReady()
+         if finalTx:
+            tempPyTx = finalTx.copy()
+         else:
+            tempPyTx = None
+            lbls[-1].append(QRichLabel( '<font color="gray">' 
+               '[[ Transaction ID cannot be determined without all signatures ]]' 
+               '</font>'))
+
+      if tempPyTx:
+         if endianness==BIGENDIAN:
+            lbls[-1].append(QLabel( binary_to_hex(tempPyTx.getHash(), endOut=BIGENDIAN) ))
+         else:
+            lbls[-1].append(QLabel( binary_to_hex(tempPyTx.getHash(), endOut=LITTLEENDIAN) ))
+
+      lbls[-1][-1].setMinimumWidth(w)
 
       if self.mode in (USERMODE.Developer,):
          # Add protocol version and locktime to the display
@@ -5363,7 +5392,7 @@ class DlgDispTxInfo(QDialog):
 
 
 
-      if rvPairDisp==None:
+      if rvPairDisp==None and precomputeAmt==None:
          # Couldn't determine recip/change outputs
          lbls.append([])
          lbls[-1].append(createToolTipObject(
@@ -5570,7 +5599,8 @@ class DlgDispTxInfo(QDialog):
       lblOutputs = QLabel('Transaction Outputs (Receiving addresses):')
       ttipOutputs = createToolTipObject(
                   'Shows <b>all</b> outputs, including other recipients '
-                  'of the same transaction, and change-back-to-sender outputs.')
+                  'of the same transaction, and change-back-to-sender outputs '
+                  '(change outputs are displayed in light gray).')
          
 
 
