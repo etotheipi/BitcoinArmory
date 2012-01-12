@@ -8549,8 +8549,6 @@ class SettingsFile(object):
       print 'Using settings file:', self.settingsPath
       if os.path.exists(self.settingsPath):
          self.loadSettingsFile(path)
-      else:
-         self.restoreDefaults()
 
 
 

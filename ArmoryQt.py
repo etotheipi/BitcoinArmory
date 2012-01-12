@@ -253,7 +253,8 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      self.loadBlockchain()
+      if self.haveBlkFile:
+         self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView.setModel(self.ledgerModel)
