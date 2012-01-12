@@ -7,7 +7,7 @@
 //#include <openssl/obj_mac.h>
 
 
-#define CRYPTO_DEBUG true
+#define CRYPTO_DEBUG false
 
 
 

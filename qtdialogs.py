@@ -4365,17 +4365,6 @@ class DlgReviewOfflineTx(QDialog):
       wStat, hStat = relaxedSizeStr(self.lblStatus, 'Signature is Invalid!')
       self.lblStatus.setMinimumWidth( int(wStat*1.2) )
       self.lblStatus.setMinimumHeight( int(hStat*1.2) )
-      frmBtn = makeLayoutFrame('Vert', [ self.btnSign, \
-                                         self.btnBroadcast, \
-                                         self.btnSave, \
-                                         self.btnLoad, \
-                                         self.btnCopy, \
-                                         self.lblCopied, \
-                                         'Stretch', \
-                                         HLINE(), \
-                                         self.lblStatus, \
-                                         HLINE()])
-
 
       btnGoBack = QPushButton('<<< Go Back')
       self.connect(btnGoBack,   SIGNAL('clicked()'), self.accept)
@@ -4439,6 +4428,19 @@ class DlgReviewOfflineTx(QDialog):
       self.connect(self.moreInfo, SIGNAL('clicked()'), self.execMoreTxInfo)
       frmMoreInfo = makeLayoutFrame('Horiz', [self.moreInfo], STYLE_SUNKEN)
 
+      frmBtn = makeLayoutFrame('Vert', [ self.btnSign, \
+                                         self.btnBroadcast, \
+                                         self.btnSave, \
+                                         self.btnLoad, \
+                                         self.btnCopy, \
+                                         self.lblCopied, \
+                                         HLINE(), \
+                                         self.lblStatus, \
+                                         HLINE(), \
+                                         'Stretch', \
+                                         frmMoreInfo])
+
+
       frmInfoLayout = QGridLayout()
       for r in range(len(self.infoLbls)):
          for c in range(len(self.infoLbls[r])):
@@ -4452,9 +4454,9 @@ class DlgReviewOfflineTx(QDialog):
       frmBottom.setFrameStyle(STYLE_SUNKEN)
       frmBottomLayout = QGridLayout()
       frmBottomLayout.addWidget(self.txtTxDP,  0,0,  1,1)
-      frmBottomLayout.addWidget(frmBtn,        0,1,  1,1)
+      frmBottomLayout.addWidget(frmBtn,        0,1,  2,1)
       frmBottomLayout.addWidget(frmInfo,       1,0,  1,1)
-      frmBottomLayout.addWidget(frmMoreInfo,   1,1,  1,1)
+      #frmBottomLayout.addWidget(frmMoreInfo,   1,1,  1,1)
       frmBottom.setLayout(frmBottomLayout)
 
       dlgLayout = QVBoxLayout()
