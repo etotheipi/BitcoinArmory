@@ -4000,9 +4000,8 @@ class DlgOfflineTxCreated(QDialog):
             'you can close this window, and your wallet will remain untouched.  '
             'If you plan to broadcast later, please use the "Offline Transactions" '
             'button on the main window.')
+         bottomStrip = makeLayoutFrame('Horiz', [btnLater, ttipLater, 'Stretch'])
 
-         # For regular offline dialot
-         bottomStrip = QLabel('')
       else:
          # We can actually sign this transaction if we wanted to.  So no point
          # in cluttering the space with options for separate-computer operations.
@@ -4056,8 +4055,8 @@ class DlgOfflineTxCreated(QDialog):
          frmLowerLayout.addWidget(self.btnReady, 5,1,  1,1)
          frmLowerLayout.addWidget(ttipReady,     5,2,  1,1)
          frmLowerLayout.addWidget(self.lblRight, 6,1,  1,2)
-         frmLowerLayout.addWidget(btnLater,      7,1,  1,1)
-         frmLowerLayout.addWidget(ttipLater,     7,2,  1,1)
+         #frmLowerLayout.addWidget(btnLater,      7,1,  1,1)
+         #frmLowerLayout.addWidget(ttipLater,     7,2,  1,1)
          self.connect(self.txtSigned, SIGNAL('cursorPositionChanged()'), self.txtSignedFirstClick)
          self.btnReady.setEnabled(False)
       else:
@@ -4072,6 +4071,8 @@ class DlgOfflineTxCreated(QDialog):
          self.btnCopyS.setEnabled(False)
          self.txtSigned.setReadOnly(True)
          self.txtSigned.setText('')
+
+      
 
 
       #frmCancel = makeLayoutFrame('Horiz', ['Stretch', ttipLater, btnLater])
@@ -4427,6 +4428,7 @@ class DlgReviewOfflineTx(QDialog):
       self.moreInfo = QLabelButton('Click here for more<br> information about <br>this transaction')
       self.connect(self.moreInfo, SIGNAL('clicked()'), self.execMoreTxInfo)
       frmMoreInfo = makeLayoutFrame('Horiz', [self.moreInfo], STYLE_SUNKEN)
+      frmMoreInfo.setMinimumHeight( tightSizeStr(self.moreInfo, 'Any String')[1]*5)
 
       frmBtn = makeLayoutFrame('Vert', [ self.btnSign, \
                                          self.btnBroadcast, \
@@ -4617,12 +4619,13 @@ class DlgReviewOfflineTx(QDialog):
          self.moreInfo.setVisible(False)
       else:          
          ##### 0
-         self.infoLbls[0][2].setText(self.wlt.uniqueIDB58)
 
          ##### 1
          if self.wlt: 
+            self.infoLbls[0][2].setText(self.wlt.uniqueIDB58)
             self.infoLbls[1][2].setText(self.wlt.labelName)
          else:        
+            self.infoLbls[0][2].setText('[[ Unrelated ]]')
             self.infoLbls[1][2].setText('')
 
          ##### 2
@@ -4692,7 +4695,7 @@ class DlgReviewOfflineTx(QDialog):
 
 
       if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(wlt, parent, main)
+         dlg = DlgUnlockWallet(self.wlt, self.parent, self.main)
          if not dlg.exec_():
             QMessageBox.warning(self, 'Wallet is Locked', \
                'Cannot sign transaction while your wallet is locked!', \
@@ -4702,7 +4705,6 @@ class DlgReviewOfflineTx(QDialog):
       newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
       self.txtTxDP.setText(newTxdp.serializeAscii())
       self.txdpObj = newTxdp
-      self.processTxDP()
 
 
    def broadTx(self):
@@ -4748,7 +4750,6 @@ class DlgReviewOfflineTx(QDialog):
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
          f.close()
-         self.processTxDP()
 
 
    def copyTx(self):
