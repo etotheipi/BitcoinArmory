@@ -2281,11 +2281,11 @@ class DlgIntroMessage(QDialog):
 #############################################################################
 class DlgImportPaperWallet(QDialog):
 
-   wltDataLines = [[]]*4
-   prevChars    = ['']*4
-
    def __init__(self, parent=None, main=None):
       super(DlgImportPaperWallet, self).__init__(parent)
+
+      self.wltDataLines = [[]]*4
+      self.prevChars    = ['']*4
 
       self.parent = parent
       self.main   = main
