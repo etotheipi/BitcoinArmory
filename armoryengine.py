@@ -63,7 +63,7 @@ BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
-ARMORY_DONATION_ADDR = '1QBDLYTDFHHZAABYSKGKPWKLSXZWCCJQBX'
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -4708,28 +4708,32 @@ class PyTxDistProposal(object):
    def createFromPreparedPyTx(self, pytx):
       sz = len(pytx.inputs)
       self.pytxObj = pytx
-      self.signatures     = [[]]*sz
-      self.scriptTypes    = [None]*sz
-      self.inAddr20Lists  = [[]]*sz
-      self.inPubKeyLists  = [[]]*sz
+      self.signatures     = []
+      self.scriptTypes    = []
+      self.txOutScripts   = []
+      self.inAddr20Lists  = []
+      self.inPubKeyLists  = []
       self.inputValues    = [-1]*sz
-      self.numSigsNeeded  = [0]*sz
+      self.numSigsNeeded  = []
       for i in range(sz):
          script = str(pytx.inputs[i].binScript)
          self.txOutScripts.append(str(script)) # copy it
-         scrType = getTxOutScriptType(pytx.inputs[i].binScript)
-         self.scriptTypes[i] = scrType
+         scrType = getTxOutScriptType(script)
+         self.scriptTypes.append(scrType)
+         self.inAddr20Lists.append([])
+         self.inPubKeyLists.append([])
+         self.signatures.append([])
          if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            self.inAddr20Lists[i].append(TxOutScriptExtractAddr160(script))
-            self.inPubKeyLists[i].append('')
-            self.signatures[i]    = ['']
-            self.numSigsNeeded[i] = 1
+            self.inAddr20Lists[-1].append(TxOutScriptExtractAddr160(script))
+            self.inPubKeyLists[-1].append('')
+            self.signatures[-1].append('')
+            self.numSigsNeeded.append(1)
          elif scrType==TXOUT_SCRIPT_MULTISIG:
             mstype, addrs, pubs = getTxOutMultiSigInfo(script)
-            self.inAddr20Lists[i] = addrs
-            self.inPubKeyLists[i] = pubs
-            self.signatures[i]    = ['']*len(addrs)
-            self.numSigsNeeded[i] = mstype[0]  # mstype for M-of-N tx is (M,N)
+            self.inAddr20Lists[-1] = addrs
+            self.inPubKeyLists[-1] = pubs
+            self.signatures[-1]    = ['']*len(addrs)
+            self.numSigsNeeded[-1] = mstype[0]  # mstype for M-of-N tx is (M,N)
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
             pass
 
@@ -4914,6 +4918,20 @@ class PyTxDistProposal(object):
       # Let all other exceptions go on up the chain
    
 
+   
+   #############################################################################
+   def isSigValidForInput(self, i):
+      """
+      For now we assume that each input only requires one signature, and thus 
+      we have it or we don't.  In the future, this will be expanded for the 
+      multi-sig case, and return a list signatures needed and which ones are 
+      signed/valid
+      """
+      psp = PyScriptProcessor()
+      # STUB -- will get to this when I need it
+
+
+
    #############################################################################
    def prepareFinalTx(self):
       """
@@ -5040,7 +5058,7 @@ class PyTxDistProposal(object):
       while not 'END-TRANSACTION' in line: 
          [iin, val] = line.split('_')[2:]
          iin = int(iin)
-         self.inputValues[iin] = float(val)*ONE_BTC
+         self.inputValues[iin] = long(float(val)*ONE_BTC)
          
          line = nextLine(L)
          while '_SIG_' in line:
@@ -5057,9 +5075,9 @@ class PyTxDistProposal(object):
             binSig = hex_to_binary(hexSig)
             idx, sigOrder, addr160 = self.processSignature(binSig, iin)
             if idx == -1:
-               raise SignatureError, 'Invalid sig: Input %d, addr=%s' % \
-                                                             (iin, addrB58)
-            if not hash160_to_addrStr(addr160)== addrB58:
+               #raise SignatureError, 'Invalid sig: Input %d, addr=%s' % (iin, addrB58)
+               print  'Invalid sig: Input %d, addr=%s' % (iin, addrB58)
+            elif not hash160_to_addrStr(addr160)== addrB58:
                raise BadAddressError, 'Listed addr does not match computed addr'
             # If we got here, the signature is valid!
             self.signatures[iin][sigOrder] = binSig
@@ -7030,6 +7048,7 @@ class PyBtcWallet(object):
 
       self.cppWallet.addAddress_5_(newAddr160, \
                                    firstTime, firstBlk, lastTime, lastBlk)
+
 
       return newAddr160
 

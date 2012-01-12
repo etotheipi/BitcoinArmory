@@ -177,7 +177,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
                tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
-               tooltipStr += ( '\n\nFor small transactions, 3 or 4\n'
+               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
                                'confirmations is usually acceptable.\n'
                                'For larger transactions, you should\n'
                                'wait for 6 confirmations before\n'
@@ -379,10 +379,20 @@ class WalletAddrDispModel(QAbstractTableModel):
 class TxInDispModel(QAbstractTableModel):
    def __init__(self,  pytx, txinListFromBDM=None, main=None):
       super(TxInDispModel, self).__init__()
-      self.tx = pytx.copy()
       self.main = main
       self.txInList = []
       self.dispTable = []
+
+
+      # If this is actually a TxDP in here, then let's use that
+      # We do this to make sure we have somewhere to put txdp-specific
+      # code, but we don't really need it yet, except to identify
+      # signed/unsigned in the table
+      pytxdp = None
+      if isinstance(pytx, PyTxDistProposal):
+         pytxdp = pytx
+         pytx = pytxdp.pytxObj.copy()
+      self.tx = pytx.copy()
       
       for i,txin in enumerate(self.tx.inputs):
          self.dispTable.append([])
@@ -399,7 +409,13 @@ class TxInDispModel(QAbstractTableModel):
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
-            self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+            if pytxdp==None:
+               self.dispTable[-1].append(TXIN_TYPE_NAMES[scrType])
+            else:
+               # TODO:  Assume NO multi-sig... will be updated in future to use 
+               #        PyTxDP::isSigValidForInput which will handle all cases
+               self.dispTable[-1].append('Signed' if pytxdp.signatures[i][0] else 'Unsigned')
+               
             self.dispTable[-1].append(int_to_hex(txin.intSeq, widthBytes=4))
             self.dispTable[-1].append(binary_to_hex(txin.binScript))
          else:

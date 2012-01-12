@@ -47,6 +47,7 @@ Colors = enum(LightBlue=   QColor(215,215,255), \
               Black=       QColor(  0,  0,  0)  \
                                                  )
 
+#######
 def tightSizeNChar(obj, nChar):
    """ 
    Approximates the size of a row text of mixed characters
@@ -63,6 +64,7 @@ def tightSizeNChar(obj, nChar):
    szWidth = int(szWidth * nChar/10.0 + 0.5)
    return szWidth, szHeight
 
+#######
 def tightSizeStr(obj, theStr):
    """ Measure a specific string """
    try:
@@ -72,6 +74,7 @@ def tightSizeStr(obj, theStr):
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
    return szWidth, szHeight
    
+#######
 def relaxedSizeStr(obj, theStr):
    """
    Approximates the size of a row text, nchars long, adds some margin
@@ -81,8 +84,9 @@ def relaxedSizeStr(obj, theStr):
    except AttributeError:
       fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect(theStr).width(), fm.height()
-   return 1.3*szWidth, 1.3*szHeight
+   return (10 + szWidth*1.05), 1.5*szHeight
 
+#######
 def relaxedSizeNChar(obj, nChar):
    """
    Approximates the size of a row text, nchars long, adds some margin
@@ -93,7 +97,7 @@ def relaxedSizeNChar(obj, nChar):
       fm = QFontMetricsF(QFont(obj))
    szWidth,szHeight = fm.boundingRect('abcfg ijklm').width(), fm.height()
    szWidth = int(szWidth * nChar/10.0 + 0.5)
-   return 1.3*szWidth, 1.5*szHeight
+   return (10 + szWidth*1.05), 1.5*szHeight
 
 #############################################################################
 def determineWalletType(wlt, wndw):
@@ -172,6 +176,10 @@ class QMoneyLabel(QLabel):
       else:
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+   #def setText(val, *args):
+      #self.__init__(val, *args)
+
 
 class QLabelButton(QLabel):
 
