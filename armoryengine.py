@@ -5409,7 +5409,10 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getBalance(self):
-      return sumTxOutList(self.getUnspentTxOutList())
+      if not TheBDM.isInitialized():
+         return -1
+      else:
+         return sumTxOutList(self.getUnspentTxOutList())
 
    #############################################################################
    def getTxLedger(self, addr160=None):

@@ -70,7 +70,7 @@ class AllWalletsDispModel(QAbstractTableModel):
             return QVariant( Colors.LightBlue )
       elif role==Qt.FontRole:
          if col==COL.Bal:
-            return QFont("DejaVu Sans Mono", 10)
+            return GETFONT('Fixed')
       return QVariant()
 
 
@@ -168,7 +168,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
          if col==COL.Amount:
-            f = QFont("DejaVu Sans Mono", 10)
+            f = GETFONT('Fixed')
             f.setWeight(QFont.Bold)
             return f
       elif role==Qt.ToolTipRole:
@@ -343,7 +343,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
          if col==COL.Balance:
-            return QFont("DejaVu Sans Mono", 10)
+            return GETFONT('Fixed')
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getBalance()
@@ -468,7 +468,7 @@ class TxInDispModel(QAbstractTableModel):
                return QVariant( Colors.LightBlue )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
-            return QFont("DejaVu Sans Mono", 10)
+            return GETFONT('Fixed')
 
       return QVariant()
 
@@ -568,7 +568,7 @@ class TxOutDispModel(QAbstractTableModel):
                return QVariant( Colors.LightBlue )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
-            return QFont("DejaVu Sans Mono", 10)
+            return GETFONT('Fixed')
 
       return QVariant()
 

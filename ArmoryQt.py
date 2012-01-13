@@ -235,7 +235,7 @@ class ArmoryMainWindow(QMainWindow):
       
       lblInfo = QLabel('Armory Version %s (alpha) / %s User Mode' % \
                (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
-      lblInfo.setFont(QFont('Times', 10))
+      lblInfo.setFont(GETFONT('var',10))
       lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       layout.addWidget(lblInfo)
                
@@ -750,7 +750,9 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerSize = len(self.combinedLedger)
          print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
-         self.lblArmoryStatus.setText(\
+
+         if self.isOnline:
+            self.lblArmoryStatus.setText(\
                '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
          self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
       else:
@@ -1506,8 +1508,10 @@ class ArmoryMainWindow(QMainWindow):
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
             self.settings.set('LastBlkRecvTime', self.blkReceived)
-            self.lblArmoryStatus.setText(\
-               '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+      
+            if self.isOnline:
+               self.lblArmoryStatus.setText(\
+                  '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
 
          nowtime = RightNow()
          blkRecvAgo  = nowtime - self.blkReceived
@@ -1515,15 +1519,10 @@ class ArmoryMainWindow(QMainWindow):
          #if self.usermode==USERMODE.Standard:
             #self.lblArmoryStatus.setToolTip( 'Last block was received %s ago' % \
                                                          #secondsToHumanTime(blkRecvAgo))
-         #else:
-            ##self.lblArmoryStatus.setToolTip( \
-                  #'Last block was received %s ago \n(block timestamp is %s ago)' % \
-                  #(secondsToHumanTime(blkRecvAgo), secondsToHumanTime(blkStampAgo)))
          self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
                                                    secondsToHumanTime(blkStampAgo))
       
 
-      #for wltID, wlt in self.walletMap.iteritems():
       for idx,wltID in enumerate(self.walletIDList):
          # Update wallet balances
          self.walletBalances[idx] = self.walletMap[wltID].getBalance()

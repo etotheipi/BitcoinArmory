@@ -26,6 +26,29 @@ def VLINE(style=QFrame.Plain):
 
 
 
+# Setup fixed-width and var-width fonts
+def GETFONT(ftype, sz=10):
+   if ftype.lower().startswith('fix'):
+      if OS_WINDOWS:
+         return QFont("Courier", sz)
+      else: 
+         return QFont("DejaVu Sans Mono", sz)
+   elif ftype.lower().startswith('var'):
+      if OS_WINDOWS:
+         return QFont("Tahoma", sz)
+      else: 
+         return QFont("Sans", sz)
+   elif ftype.lower().startswith('money'):
+      if OS_WINDOWS:
+         return QFont("Courier", sz)
+      else: 
+         return QFont("DejaVu Sans Mono", sz)
+   else:
+      return QFont(ftype, sz)
+      
+
+
+
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
       return 'Standard'

@@ -2135,11 +2135,9 @@ class DlgShowKeys(QDialog):
 
 
       # Now set the label properties and jam them into an information frame
-      FontVar = QFont('Times',   10)
-      FontFix = QFont('Courier', 10)
       for row,lbl3 in enumerate(lbls):
-         lbl3[1].setFont(FontVar)
-         lbl3[2].setFont(FontFix)
+         lbl3[1].setFont(GETFONT('Var'))
+         lbl3[2].setFont(GETFONT('Fixed'))
          lbl3[2].setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                          Qt.TextSelectableByKeyboard)
          lbl3[2].setWordWrap(False)
@@ -2181,7 +2179,7 @@ class DlgIntroMessage(QDialog):
 
       lblWelcome = QRichLabel('<b>Welcome to Armory!</b>')
       lblWelcome.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lblWelcome.setFont(QFont('Times', 14))
+      lblWelcome.setFont(GETFONT('Var', 14))
       lblSlogan  = QRichLabel('<i>The most advanced Bitcoin Client on Earth!</i>')
       lblSlogan.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -2533,7 +2531,7 @@ class GfxItemText(QGraphicsTextItem):
    hacked it to be usable for this specific situation, but it's not very
    reusable...
    """
-   def __init__(self, text, position, scene, font=QFont('Courier', 8), lineWidth=None):
+   def __init__(self, text, position, scene, font=GETFONT('Courier',8), lineWidth=None):
       super(GfxItemText, self).__init__(text)
       self.setFont(font)
       self.setPos(position)
@@ -3208,8 +3206,6 @@ def getWalletInfoFrame(wlt):
 
 
 class DlgConfirmSend(QDialog):
-   FontVar = QFont('Times',   10)
-   FontFix = QFont('Courier', 10)
 
    def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False):
       super(DlgConfirmSend, self).__init__(parent)
@@ -3234,7 +3230,7 @@ class DlgConfirmSend(QDialog):
 
 
       recipLbls = []
-      ffixBold = self.FontFix
+      ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for rv in recipValPairs:
          recipLbls.append(QLabel( hash160_to_addrStr(rv[0]) + ' : '  +
@@ -3246,14 +3242,14 @@ class DlgConfirmSend(QDialog):
          recipLbls.append(QSpacerItem(10,10))
          recipLbls.append(QLabel( 'Transaction Fee : '.ljust(37)  +
                            coin2str(fee, rJust=True, maxZeros=4)))
-         recipLbls[-1].setFont(self.FontFix)
+         recipLbls[-1].setFont(GETFONT('Fixed'))
 
       hline = QFrame()
       hline.setFrameStyle(QFrame.HLine | QFrame.Sunken)
       recipLbls.append(hline)
       recipLbls.append(QLabel( 'Total Bitcoins : '.ljust(37)  +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
-      recipLbls[-1].setFont(self.FontFix)
+      recipLbls[-1].setFont(GETFONT('Fixed'))
 
       lblLastConfirm = QLabel('Are you sure you want to execute this transaction?')
 
@@ -3291,12 +3287,9 @@ class DlgConfirmSend(QDialog):
 
 class DlgSendBitcoins(QDialog):
    COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
-   FontVar = QFont('Times',   10)
-   FontFix = QFont('Courier', 10)
-
    def __init__(self, wlt, parent=None, main=None, donateIsDefault=False):
       super(DlgSendBitcoins, self).__init__(parent)
-      self.maxHeight = tightSizeNChar(self.FontVar, 1)[1]+8
+      self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
 
       self.parent = parent
       self.main   = main  
@@ -3328,7 +3321,7 @@ class DlgSendBitcoins(QDialog):
             'recommended than specified here.')
 
       self.edtFeeAmt = QLineEdit()
-      self.edtFeeAmt.setFont(self.FontFix)
+      self.edtFeeAmt.setFont(GETFONT('Fixed'))
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       self.edtFeeAmt.setMaximumHeight(self.maxHeight)
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
@@ -3785,22 +3778,22 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(self.FontVar, 45)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 45)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setFont(self.FontVar)
+         self.widgetTable[-1][-1].setFont(GETFONT('var'))
 
          self.widgetTable[-1].append( QLabel('BTC:') )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(self.FontFix)
-         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(self.FontFix, 16)[0])
+         self.widgetTable[-1][-1].setFont(GETFONT('Fixed'))
+         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
          self.widgetTable[-1].append( QLabel('Comment:') )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(self.FontVar)
+         self.widgetTable[-1][-1].setFont(GETFONT('var'))
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
 
          if i<nRecip and i<prevNRecip:
@@ -3947,13 +3940,12 @@ class DlgOfflineTxCreated(QDialog):
 
       lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
       lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
-      FontFixed = QFont('DejaVu Sans Mono', 8) 
-      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*8.2)
+      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*85)[0], int(12*8.2)
 
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
       self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont( FontFixed )
+      self.txtTxDP.setFont( GETFONT('Fixed',8) )
       self.txtTxDP.setMinimumWidth(w)
       self.txtTxDP.setMinimumHeight(h)
       self.txtTxDP.setMaximumWidth(w)
@@ -3963,7 +3955,7 @@ class DlgOfflineTxCreated(QDialog):
       self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
       self.txtSigned = QTextEdit()
-      self.txtSigned.setFont( FontFixed )
+      self.txtSigned.setFont( GETFONT('Fixed',8) )
       self.txtSigned.setMinimumWidth(w)
       self.txtSigned.setMinimumHeight(h)
       self.txtSigned.setMaximumWidth(w)
@@ -4334,10 +4326,9 @@ class DlgReviewOfflineTx(QDialog):
 
 
 
-      FontFixed = QFont('DejaVu Sans Mono', 8) 
-      w,h = tightSizeStr(FontFixed,'0'*85)[0], int(12*8.2)
+      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*85)[0], int(12*8.2)
       self.txtTxDP = QTextEdit()
-      self.txtTxDP.setFont( FontFixed )
+      self.txtTxDP.setFont( GETFONT('Fixed',8) )
       self.txtTxDP.sizeHint = lambda: QSize(w,h)
       self.txtTxDP.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
@@ -4674,6 +4665,12 @@ class DlgReviewOfflineTx(QDialog):
 
 
    def signTx(self):
+      if not self.txdpObj:
+         QMessageBox.critical(self, 'Cannot Sign', \
+               'This transaction is not relevant to any of your wallets.' 
+               'Did you load the correct transaction?', QMessageBox.Ok)
+         return
+
       if self.txdpObj==None:
          QMessageBox.warning(self, 'Not Signable', \
                'This is not a valid transaction, and thus it cannot '
@@ -4821,7 +4818,7 @@ class DlgShowKeyList(QDialog):
       self.lblDescr.setAlignment(Qt.AlignLeft |Qt.AlignTop)
 
 
-      txtFont = QFont('DejaVu Sans Mono', 8)
+      txtFont = GETFONT('Fixed', 8)
       self.txtBox = QTextEdit()
       self.txtBox.setReadOnly(True)
       self.txtBox.setFont(txtFont)
@@ -5482,7 +5479,7 @@ class DlgDispTxInfo(QDialog):
                rlbls[-1].append(QLabel(coin2str(rv[1], maxZeros=1) + '  BTC'))
             else:
                rlbls[-1].append(QLabel(''))
-            ffixBold = QFont("DejaVu Sans Mono", 10)
+            ffixBold = GETFONT('Fixed', 10)
             ffixBold.setWeight(QFont.Bold)
             rlbls[-1][-1].setFont(ffixBold)
                
@@ -5507,11 +5504,9 @@ class DlgDispTxInfo(QDialog):
 
 
       # TxIns/Senders
-      FontVar = QFont('Times',  10)
-      FontFix = QFont('DejaVu Sans Mono', 10)
-      wWlt = relaxedSizeStr(FontVar, 'A'*10)[0]
-      wAddr = relaxedSizeStr(FontVar, 'A'*31)[0]
-      wAmt = relaxedSizeStr(FontFix, 'A'*20)[0]
+      wWlt = relaxedSizeStr(GETFONT('Var'), 'A'*10)[0]
+      wAddr = relaxedSizeStr(GETFONT('Var'), 'A'*31)[0]
+      wAmt = relaxedSizeStr(GETFONT('Fixed'), 'A'*20)[0]
       if pytxdp:
          self.txInModel = TxInDispModel(pytxdp, data[FIELDS.InList], self.main)
       else:
@@ -5742,6 +5737,8 @@ class DlgPaperBackup(QDialog):
       super(DlgPaperBackup, self).__init__(parent)
 
 
+      FontFix = GETFONT('Courier',9)
+      FontVar = GETFONT('Times',10)
       
 
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
@@ -5769,8 +5766,6 @@ class DlgPaperBackup(QDialog):
       leftEdge = 0.5*INCH
       topEdge  = 0.5*INCH
 
-      self.FontVar = QFont('Times',   10)
-      self.FontFix = QFont('Courier', 9)
 
       GlobalPos = QPointF(leftEdge, topEdge)
       # I guess I still don't understand the copy/ref stuff... this didn't work
@@ -5796,17 +5791,17 @@ class DlgPaperBackup(QDialog):
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+int(logoRect.height()*1.3 + 0.5))
 
       def addInfoLine(field, val, pos):
-         txt = GfxItemText(field, pos, self.scene, self.FontVar)
+         txt = GfxItemText(field, pos, self.scene, FontVar)
          self.scene.addItem( txt )
-         pos = QPointF(pos.x()+relaxedSizeStr(self.FontFix, 'W'*15)[0], pos.y())
+         pos = QPointF(pos.x()+relaxedSizeStr(FontFix, 'W'*15)[0], pos.y())
    
-         txt = GfxItemText(val, pos, self.scene, self.FontVar)
+         txt = GfxItemText(val, pos, self.scene, FontVar)
          self.scene.addItem( txt )
          pos = QPointF(leftEdge, pos.y() + 20)
          return pos
          
       
-      txt = GfxItemText('Paper Backup for Armory Wallet', GlobalPos, self.scene, QFont('Times', 14))
+      txt = GfxItemText('Paper Backup for Armory Wallet', GlobalPos, self.scene, GETFONT('Times', 14))
       self.scene.addItem( txt )
       #moveNewLine(GlobalPos, 30)
       GlobalPos = QPointF(leftEdge, GlobalPos.y() + 1.3*txt.boundingRect().height())
@@ -5823,7 +5818,7 @@ class DlgPaperBackup(QDialog):
                  'this page in a safe place where only trusted persons can access it.')
 
       wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
-      txt = GfxItemText(warnMsg, GlobalPos, self.scene, self.FontVar, lineWidth=wrapWidth)
+      txt = GfxItemText(warnMsg, GlobalPos, self.scene, FontVar, lineWidth=wrapWidth)
       self.scene.addItem(txt)
 
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+75)
@@ -5857,12 +5852,12 @@ class DlgPaperBackup(QDialog):
          rawTxt[-1].append( chk16 )
       
       
-
-      quadWidth,quadHeight = relaxedSizeStr(self.FontFix, 'abcd ')
+      # We use specific fonts here, for consistency of printing
+      quadWidth,quadHeight = relaxedSizeStr(FontFix, 'abcd ')
       quadWidth+=8  # for some reason, even the relaxed size is too small...
 
-      rootPrefix  = GfxItemText('Root Key:',   GlobalPos, self.scene, QFont('Times', 12))
-      chainPrefix = GfxItemText('Chain Code:', GlobalPos, self.scene, QFont('Times', 12))
+      rootPrefix  = GfxItemText('Root Key:',   GlobalPos, self.scene, GETFONT('Times', 12))
+      chainPrefix = GfxItemText('Chain Code:', GlobalPos, self.scene, GETFONT('Times', 12))
       rowPrefixSz = max( rootPrefix.boundingRect().width(), \
                          chainPrefix.boundingRect().width()) + 0.2*INCH
       
@@ -5882,7 +5877,7 @@ class DlgPaperBackup(QDialog):
          #movePosRight(GlobalPos, rowPrefixSz)
          GlobalPos = QPointF(GlobalPos.x()+rowPrefixSz, GlobalPos.y())
          for c,strQuad in enumerate(row):
-            obj = GfxItemText(strQuad, GlobalPos, self.scene, self.FontFix)
+            obj = GfxItemText(strQuad, GlobalPos, self.scene, FontFix)
             self.scene.addItem(obj)
             #movePosRight(GlobalPos, quadWidth)
             GlobalPos = QPointF(GlobalPos.x()+quadWidth, GlobalPos.y())
