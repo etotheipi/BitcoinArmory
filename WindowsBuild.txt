@@ -1,0 +1,52 @@
+
+Make sure you have MSVS 2005 or 2008.  [b]And if you are on a 64-bit system, make sure you select to install the x64 compilers under C++ options
+
+(The MSVS 2010 project is desperately out of date.  Don't even bother trying it unless you're ready for a battle!  However, I will be updating at some point in the future, I just want to make available the 2005 project first.
+
+
+Install Git and TortoiseGit
+   http://code.google.com/p/msysgit/downloads/detail?name=Git-1.7.8-preview20111206.exe
+   http://code.google.com/p/tortoisegit/downloads/list
+
+
+Clone the repo:
+   Right click on the directory where you want the code to go: select "Git clone..."
+   URL: git://github.com/etotheipi/BitcoinArmory.git
+   Click OK
+
+
+While that's going, start downloading python-related stuff (there's a lot!)
+
+-- Download and install Python 2.6 or 2.7: 
+         http://www.python.org/ftp/python/2.7.2/
+-- Download and install Python-Twisted:
+         http://twistedmatrix.com/trac/wiki/Downloads
+-- Download and install zope.interface (for python-twisted):
+         http://pypi.python.org/pypi/zope.interface/3.8.0#downloads
+   Unless you know what to with an .egg file, you're going to have 
+   to download the tar.gz, unpack it, and then execute setup.py via:
+         python setup.py install
+   
+-- Download and UNPACK SWIG.  
+         http://www.swig.org/download.html
+
+   Move the inner-most swig-2.0.4 directory to BtcoinArmory/cppForSwig 
+   (you should now see 3 subdirectories in cppForSwig dir:  
+    cryptopp, reorgTest and swig-2.0.4):
+
+-- Download and full-install PyQt4:
+   http://www.riverbankcomputing.co.uk/software/pyqt/download
+
+-- (OPTIONAL) py2exe AND pywin32 AND MSVCP90.dll
+         http://sourceforge.net/projects/py2exe/files/py2exe/0.6.9/
+         http://sourceforge.net/projects/pywin32/files/pywin32/Build216/
+
+   MSVS is setup to create a standalone .exe of Armory if it finds
+   py2exe (otherwise it bails at the last build-step, but you can 
+   still manually run ArmoryQt.py as long as the SWIG dir is in the 
+   right place, and all packages are installed).  pywin32 is needed
+   to
+
+
+
+During the last compilation step, you might observe an error about not finding 'python'.  For whatever reason, python doesn't add itself to your PATH environment variable.  You'll have to add ";C:\Python27\" or ";C:\Python26" to your path depending on which version you're using.  Do this through control panel, search for "environment" and then edit the path and append the appropriate string.  Reboot

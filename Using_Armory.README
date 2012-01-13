@@ -54,6 +54,8 @@ that all features with an X in either column are accessible in SWIG.
             All OS:   https://launchpad.net/qt4reactor
             Windows Only:  qt4reactor relies on pywin32 (for win32event module)
                         http://sourceforge.net/projects/pywin32/files/pywin32/Build216/
+
+   - pywin32
    - py2exe
             (OPTIONAL - if you want to make a standalone executable in Windows)
             Windows: http://www.py2exe.org/

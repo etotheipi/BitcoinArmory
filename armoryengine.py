@@ -612,6 +612,29 @@ def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
    dtstr = dtobj.strftime(formatStr)
    return dtstr[:-2] + dtstr[-2:].lower()
 
+def secondsToHumanTime(nSec):
+   strPieces = []
+   floatSec = float(nSec)
+   if floatSec < 0.9*MINUTE:
+      strPieces = [floatSec, 'second']
+   elif floatSec < 0.9*HOUR:
+      strPieces = [floatSec/MINUTE, 'minute']
+   elif floatSec < 0.9*DAY:
+      strPieces = [floatSec/HOUR, 'hour']
+   elif floatSec < 0.9*WEEK:
+      strPieces = [floatSec/DAY, 'day']
+   elif floatSec < 0.9*MONTH:
+      strPieces = [floatSec/WEEK, 'week']
+   else:
+      strPieces = [floatSec/MONTH, 'month']
+
+   if strPieces[0]<1.25:
+      return '1 '+strPieces[1]
+   elif strPieces[0]<=1.75:
+      return '1.5 '+strPieces[1]+'s'
+   else:
+      return '%d %ss' % (int(strPieces[0]+0.5), strPieces[1])
+      
 
 ##### HEXSTR/VARINT #####
 def packVarInt(n):

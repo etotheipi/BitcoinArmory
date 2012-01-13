@@ -4708,6 +4708,15 @@ class DlgReviewOfflineTx(QDialog):
 
 
    def broadTx(self):
+      if not self.main.internetAvail:
+         QMessageBox.warning(self, 'No Internet!', \
+            'You do not currently have a connection to the Bitcoin network. '
+            'If this does not seem correct, verify your internet connection '
+            'and restart Armory!', QMessageBox.Ok)
+         return
+
+
+
       try:
          finalTx = self.txdpObj.prepareFinalTx()
       except:

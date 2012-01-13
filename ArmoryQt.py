@@ -65,6 +65,10 @@ class ArmoryMainWindow(QMainWindow):
 
       self.extraHeartbeatFunctions = []
 
+      self.lblArmoryStatus = QRichLabel('<font color=#550000><i>Offline</i></font>', \
+                                                                          doWrap=False)
+      self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
+
       # Keep a persistent printer object for paper backups
       self.printer = QPrinter(QPrinter.HighResolution)
       self.printer.setPageSize(QPrinter.Letter)
@@ -746,8 +750,12 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerSize = len(self.combinedLedger)
          print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+         self.lblArmoryStatus.setText(\
+               '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+         self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
+
 
       # This will force the table to refresh with new data
       self.walletModel.reset()
@@ -1479,6 +1487,7 @@ class ArmoryMainWindow(QMainWindow):
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()
+         self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
          if newBlks>0:
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
@@ -1495,6 +1504,23 @@ class ArmoryMainWindow(QMainWindow):
                self.walletListChanged()
             self.NetworkingFactory.purgeMemoryPool()
             self.createCombinedLedger()
+            self.blkReceived  = RightNow()
+            self.settings.set('LastBlkRecvTime', self.blkReceived)
+            self.lblArmoryStatus.setText(\
+               '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+
+         nowtime = RightNow()
+         blkRecvAgo  = nowtime - self.blkReceived
+         blkStampAgo = nowtime - self.topTimestamp
+         #if self.usermode==USERMODE.Standard:
+            #self.lblArmoryStatus.setToolTip( 'Last block was received %s ago' % \
+                                                         #secondsToHumanTime(blkRecvAgo))
+         #else:
+            ##self.lblArmoryStatus.setToolTip( \
+                  #'Last block was received %s ago \n(block timestamp is %s ago)' % \
+                  #(secondsToHumanTime(blkRecvAgo), secondsToHumanTime(blkStampAgo)))
+         self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
+                                                   secondsToHumanTime(blkStampAgo))
       
 
       #for wltID, wlt in self.walletMap.iteritems():
@@ -1502,6 +1528,7 @@ class ArmoryMainWindow(QMainWindow):
          # Update wallet balances
          self.walletBalances[idx] = self.walletMap[wltID].getBalance()
          self.walletMap[wltID].checkWalletLockTimeout()
+
 
       for func in self.extraHeartbeatFunctions:
          func()
