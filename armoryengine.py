@@ -55,7 +55,6 @@ from sys import argv
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = not ('--mainnet' in argv)
-USE_TESTNET = False
    
 
 

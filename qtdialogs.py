@@ -3185,7 +3185,7 @@ def getWalletInfoFrame(wlt):
    dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
    dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
    dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   dispDescr.setMinimumWidth( tightSizeNChar(dispDescr, 40)[0])
+   dispDescr.setMinimumWidth( tightSizeNChar(dispDescr, 30)[0])
    frmLayout.addWidget(dispID,    0, 2, 1, 1)
    frmLayout.addWidget(dispName,  1, 2, 1, 1)
    frmLayout.addWidget(dispDescr, 2, 2, 1, 1)
@@ -3654,7 +3654,7 @@ class DlgSendBitcoins(QDialog):
       #        change does not actually induce another, higher fee (which 
       #        is extraordinarily unlikely... I even set up the SelectCoins 
       #        algorithm to try to leave some room in the tx so that the fee
-      #        will not change the I/Os).   Despite thie, I will concede 
+      #        will not change the I/Os).   Despite this, I will concede 
       #        the extremely rare situation where this would happen, I think 
       #        it will be okay to send a slightly sub-optimal fee.  I'll add 
       #        this to my TODO list.
