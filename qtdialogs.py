@@ -11,7 +11,7 @@ MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
 ################################################################################
 class DlgUnlockWallet(QDialog):
-   def __init__(self, wlt, parent=None, main=None):
+   def __init__(self, wlt, parent=None, main=None, unlockMsg='Unlock Wallet'):
       super(DlgUnlockWallet, self).__init__(parent)
 
       self.wlt = wlt
@@ -41,7 +41,7 @@ class DlgUnlockWallet(QDialog):
       layout.addWidget(buttonBox,      3, 1, 1, 2)
 
       self.setLayout(layout)
-      self.setWindowTitle('Unlock Wallet - ' + wlt.uniqueIDB58)
+      self.setWindowTitle(unlockMsg + ' - ' + wlt.uniqueIDB58)
 
    def acceptPassphrase(self):
       securePwd = SecureBinaryData(str(self.edtPasswd.text()))
@@ -55,9 +55,6 @@ class DlgUnlockWallet(QDialog):
          return
 
       
-      #btngrp = self.QButtonGroup()
-      #self.QRadioButton()
-      #lbl
    
 
 ################################################################################
@@ -736,7 +733,7 @@ class DlgWalletDetails(QDialog):
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
-         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Create Paper Backup')
          if not unlockdlg.exec_():
             return
 
@@ -1601,7 +1598,7 @@ class DlgImportAddress(QDialog):
             
       elif self.radioImport.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self.main)
+            dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'New private key data cannot be imported unless the wallet is '
@@ -1975,7 +1972,7 @@ class DlgAddressInfo(QDialog):
 
    def viewKeys(self):
       if self.wlt.useEncryption and self.wlt.isLocked:
-         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'View Private Keys')
          if not unlockdlg.exec_():
             QMessageBox.critical(self, 'Wallet is Locked', \
                'Key information will not include the private key data.', \
@@ -1987,14 +1984,6 @@ class DlgAddressInfo(QDialog):
    
 
    def sweepAddr(self):
-      if self.wlt.useEncryption and self.wlt.isLocked:
-         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
-         if not unlockdlg.exec_():
-            QMessageBox.critical(self, 'Wallet is Locked', \
-               'Cannot sweep an address while its keys are locked.', \
-               QMessageBox.Ok)
-            return
-
       
       addrToSweep = self.addr.copy()
       targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
@@ -2026,6 +2015,14 @@ class DlgAddressInfo(QDialog):
       dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
+         if self.wlt.useEncryption and self.wlt.isLocked:
+            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
+            if not unlockdlg.exec_():
+               QMessageBox.critical(self, 'Wallet is Locked', \
+                  'Cannot sweep an address while its keys are locked.', \
+                  QMessageBox.Ok)
+               return
+
          self.main.broadcastTransaction(finishedTx, dryRun=False)
 
    def deleteAddr(self):
@@ -3510,7 +3507,7 @@ class DlgSendBitcoins(QDialog):
       if dlg.exec_():
          try:
             if self.wlt.isLocked:
-               unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
+               unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Send Transaction')
                if not unlockdlg.exec_():
                   QMessageBox.critical(self, 'Wallet is Locked', \
                      'Cannot sign transaction while your wallet is locked. ', \
@@ -3533,7 +3530,6 @@ class DlgSendBitcoins(QDialog):
 
             txdp = self.wlt.signTxDistProposal(txdp)
             finalTx = txdp.prepareFinalTx()
-            finalTx.pprint()
             if len(commentStr)>0:
                self.wlt.setComment(finalTx.getHash(), commentStr)
             print self.wlt.commentsMap
@@ -3655,9 +3651,11 @@ class DlgSendBitcoins(QDialog):
 
 
       # TODO:  I should use a while loop/iteration to make sure that the fee
-      #        change does (extremely unlikely) induce another, higher fee
-      #        that should have been the actual fee to be used.  However,
-      #        the extremely rare situations where this would happen, I think 
+      #        change does not actually induce another, higher fee (which 
+      #        is extraordinarily unlikely... I even set up the SelectCoins 
+      #        algorithm to try to leave some room in the tx so that the fee
+      #        will not change the I/Os).   Despite thie, I will concede 
+      #        the extremely rare situation where this would happen, I think 
       #        it will be okay to send a slightly sub-optimal fee.  I'll add 
       #        this to my TODO list.
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
@@ -3725,7 +3723,8 @@ class DlgSendBitcoins(QDialog):
       totalChange = totalTxSelect - (totalSend + fee)
 
       self.origRVPairs = list(recipValuePairs)
-      recipValuePairs.append( [self.wlt.getNextUnusedAddress().getAddr160(), totalChange])
+      if totalChange>0:
+         recipValuePairs.append( [self.wlt.getNextUnusedAddress().getAddr160(), totalChange])
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
@@ -3778,7 +3777,7 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 45)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 33)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setFont(GETFONT('var'))
 
@@ -3786,7 +3785,7 @@ class DlgSendBitcoins(QDialog):
 
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(GETFONT('Fixed'))
-         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(GETFONT('Fixed'), 16)[0])
+         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(GETFONT('Fixed'), 10)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
@@ -4197,7 +4196,7 @@ class DlgOfflineTxCreated(QDialog):
          raise
 
       if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(self.wlt, self.parent, self.main)
+         dlg = DlgUnlockWallet(self.wlt, self.parent, self.main, 'Sign Transaction')
          if not dlg.exec_():
             QMessageBox.warning(self, 'Unlock Error', \
                'Cannot sign this transaction while your wallet is locked.  '
@@ -4692,7 +4691,7 @@ class DlgReviewOfflineTx(QDialog):
 
 
       if self.wlt.useEncryption and self.wlt.isLocked:
-         dlg = DlgUnlockWallet(self.wlt, self.parent, self.main)
+         dlg = DlgUnlockWallet(self.wlt, self.parent, self.main, 'Sign Transaction')
          if not dlg.exec_():
             QMessageBox.warning(self, 'Wallet is Locked', \
                'Cannot sign transaction while your wallet is locked!', \
@@ -4778,7 +4777,7 @@ class DlgShowKeyList(QDialog):
       self.havePriv = True
       if self.wlt.useEncryption and self.wlt.isLocked:
          self.havePriv = False
-         dlg = DlgUnlockWallet(wlt, parent, main)
+         dlg = DlgUnlockWallet(wlt, parent, main, 'Unlock Private Keys')
          if dlg.exec_():
             self.havePriv = True
 
@@ -5744,7 +5743,7 @@ class DlgPaperBackup(QDialog):
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
       if wlt.useEncryption and wlt.isLocked:
-         dlg = DlgUnlockWallet(wlt, parent, main)
+         dlg = DlgUnlockWallet(wlt, parent, main, 'Create Paper Backup')
          if dlg.exec_():
             self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
          else:

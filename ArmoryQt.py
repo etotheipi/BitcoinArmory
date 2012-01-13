@@ -353,7 +353,7 @@ class ArmoryMainWindow(QMainWindow):
             for wltID in self.walletIDList:
                if self.walletMap[wltID].watchingOnly:
                   selectWlt.append(wltID)
-            dlg = DlgWalletSelect(self, self, 'Wallet for Offline Transaction...', \
+            dlg = DlgWalletSelect(self, self, 'Wallet for Offline Transaction (watching-only list)', \
                                                       wltIDList=selectWlt)
             if not dlg.exec_():
                return
@@ -1322,7 +1322,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
-      pytx.pprint()
+      print 'Pretty tx: ', pytx.pprint()
+      print 'Raw serialize tx: ', binary_to_hex(pytx.serialize())
       if dryRun:
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
@@ -1348,6 +1349,16 @@ class ArmoryMainWindow(QMainWindow):
          for wltID,wlt in self.walletMap.iteritems():
             wlt.lockTxOutsOnNewTx(pytx.copy())
          self.NetworkingFactory.saveMemoryPool()
+
+         QMessageBox.information(self, 'Broadcast Complete!', \
+            'The transaction has been broadcast to the Bitcoin network.  However '
+            'there is no way to know for sure whether it was accepted until you '
+            'see it in the blockchain with 1+ confirmations.  If your transaction '
+            'does not show up on the Armory display within the next hour, please '
+            'try sending it again.  Also note: that other transactions you send '
+            'from this wallet may not succeed until that first confirmation is '
+            'received.  This is a problem with Armory that will be fixed with the '
+            'next release.', QMessageBox.Ok)
 
    
    #############################################################################

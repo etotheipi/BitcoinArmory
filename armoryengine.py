@@ -55,6 +55,7 @@ from sys import argv
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = not ('--mainnet' in argv)
+USE_TESTNET = False
    
 
 
@@ -2861,9 +2862,7 @@ class PyTx(object):
       return PyTx().unserialize(self.serialize())
 
    def getHash(self):
-      if self.thisHash == UNINITIALIZED:
-         self.thisHash = hash256(self.serialize())
-      return self.thisHash
+      return hash256(self.serialize())
 
    def getHashHex(self, endianness=LITTLEENDIAN):
       return binary_to_hex(self.getHash(), endOut=endianness)
