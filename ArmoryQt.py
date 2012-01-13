@@ -91,8 +91,11 @@ class ArmoryMainWindow(QMainWindow):
       self.walletModel = AllWalletsDispModel(self)
       self.walletsView  = QTableView()
 
-      # We should really start using font-metrics more, for sizing
-      w,h = tightSizeNChar(self.walletsView, 70)
+      # For some reason, I can't get an acceptable value that works for both
+      if OS_WINDOWS:
+         w,h = tightSizeNChar(self.walletsView, 100)
+      else:
+         w,h = tightSizeNChar(self.walletsView, 70)
       viewWidth  = 1.2*w
       sectionSz  = 1.5*h
       viewHeight = 4.4*sectionSz
@@ -170,12 +173,12 @@ class ArmoryMainWindow(QMainWindow):
       frmAddImport.setFrameShape(QFrame.NoFrame)
 
       # Put the Wallet info into it's own little box
+      lblAvail = QLabel("<b>Available Wallets:</b>")
+      viewHeader = makeLayoutFrame('Horiz', [lblAvail, 'Stretch', btnAddWallet, btnImportWlt])
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       wltLayout = QGridLayout()
-      wltLayout.addWidget(QLabel("<b>Available Wallets:</b>"), 0,0)
-      wltLayout.addWidget(btnAddWallet, 0,1)
-      wltLayout.addWidget(btnImportWlt, 0,2)
+      wltLayout.addWidget(viewHeader, 0,0, 1,3)
       wltLayout.addWidget(self.walletsView, 1,0, 1,3)
       wltFrame.setLayout(wltLayout)
 
