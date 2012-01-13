@@ -45,7 +45,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="cryptopp;C:\Python26\include"
+				AdditionalIncludeDirectories="cryptopp;C:\Python26\include;C:\Python27\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -124,7 +124,7 @@
 			<Tool
 				Name="VCCLCompilerTool"
 				Optimization="0"
-				AdditionalIncludeDirectories="cryptopp;C:\Python26\include"
+				AdditionalIncludeDirectories="cryptopp;C:\Python26\include;C:\Python27\include"
 				PreprocessorDefinitions="WIN32;_DEBUG;_CONSOLE"
 				MinimalRebuild="true"
 				BasicRuntimeChecks="3"
@@ -147,7 +147,7 @@
 				Name="VCLinkerTool"
 				OutputFile="cryptlib.lib"
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="cryptopp\Win32\output\debug"
+				AdditionalLibraryDirectories="cryptopp\x64\output\debug"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -186,7 +186,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="swigwin\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
+				CommandLine="swigwin-2.0.4\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -202,7 +202,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="cryptopp;C:\Python26\include"
+				AdditionalIncludeDirectories="cryptopp;C:\Python26\include;C:\Python27\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
@@ -221,9 +221,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="cryptlib.lib;python26.lib"
+				AdditionalDependencies="cryptlib.lib"
+				OutputFile="cryptlib.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="cryptopp\Win32\output\release;C:\Python26\libs"
+				AdditionalLibraryDirectories="cryptopp\Win32\output\release;C:\Python26\libs;;C:\Python27\libs"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
@@ -266,7 +267,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="swigwin\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
+				CommandLine="swigwin-2.0.4\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -283,7 +284,7 @@
 			/>
 			<Tool
 				Name="VCCLCompilerTool"
-				AdditionalIncludeDirectories="cryptopp;C:\Python26\include"
+				AdditionalIncludeDirectories="cryptopp;C:\Python26\include;C:\Python27\include"
 				PreprocessorDefinitions="WIN32;NDEBUG;_CONSOLE"
 				RuntimeLibrary="0"
 				UsePrecompiledHeader="0"
@@ -302,9 +303,9 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				AdditionalDependencies="cryptlib.lib python26.lib"
+				AdditionalDependencies="cryptlib.lib"
 				LinkIncremental="1"
-				AdditionalLibraryDirectories="cryptopp\x64\output\release;C:\Python26\libs"
+				AdditionalLibraryDirectories="cryptopp\x64\output\release;C:\Python26\libs;C:\Python27\libs"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				OptimizeReferences="2"
