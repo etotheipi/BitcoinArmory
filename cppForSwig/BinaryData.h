@@ -888,7 +888,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
-   uint8_t const * getCurrPtr(void)        { return bdStr_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)       { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
@@ -1018,7 +1018,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
-   uint8_t const * getCurrPtr(void)        { return bdRef_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
 
 private:
    BinaryDataRef bdRef_;

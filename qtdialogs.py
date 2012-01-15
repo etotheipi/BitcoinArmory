@@ -1572,7 +1572,7 @@ class DlgImportAddress(QDialog):
    
          if not TheBDM.isInitialized():
             reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
-            'You need access to the internet and the blockchain in order '
+            'You need access to the Bitcoin network and the blockchain in order '
             'to find the balance of this address and sweep its funds. ', \
             QMessageBox.Ok)
             return
@@ -3796,9 +3796,9 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 33)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 40)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setFont(GETFONT('var'))
+         self.widgetTable[-1][-1].setFont(GETFONT('var',9))
 
          self.widgetTable[-1].append( QLabel('BTC:') )
 
@@ -3809,9 +3809,8 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
          self.widgetTable[-1].append( QLabel('Comment:') )
-
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('var'))
+         self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
 
          if i<nRecip and i<prevNRecip:
@@ -5393,7 +5392,7 @@ class DlgDispTxInfo(QDialog):
       lbls[-1].append(createToolTipObject('Comment stored for this transaction in this wallet'))
       lbls[-1].append(QLabel('User Comment:'))
       if wlt.getComment(txHash):
-         lbls[-1].append(QLabel(wlt.getComment(txHash)))
+         lbls[-1].append(QRichLabel(wlt.getComment(txHash)))
       else:
          lbls[-1].append(QRichLabel('<font color="gray">[None]</font>'))
       

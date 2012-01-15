@@ -7,6 +7,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #include <algorithm>
+#include <time.h>
 #include "BlockUtils.h"
 
 
@@ -823,6 +824,12 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
    blockchainData_NEW_.clear();
    headerHashMap_.clear();
    txHashMap_.clear();
+
+   zeroConfTxList_.clear();
+   zeroConfMap_.clear();
+   zcEnabled_ = false;
+   zcFilename_ = string("");
+
    headersByHeight_.clear();
    txFileRefs_.clear();
    headerFileRefs_.clear();
@@ -850,6 +857,7 @@ void BlockDataManager_FullRAM::SetBtcNetworkParams(
    GenesisTxHash_.copyFrom(GenTxHash);
    MagicBytes_.copyFrom(MagicBytes);
 }
+
 
 
 void BlockDataManager_FullRAM::SelectNetwork(string netName)
@@ -2098,5 +2106,139 @@ BlockDataManager_FullRAM::getNonStdUnspentTxOutsForWallet( BtcWallet & wlt)
    cout << "Not implemented yet to retrieve non-std TxOuts..."<< endl;
    return vector<UnspentTxOut>(0);
 }
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Methods for handling zero-confirmation transactions
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::enableZeroConf(string zcFilename)
+{
+   zcEnabled_  = true; 
+   zcFilename_ = zcFilename;
+
+   readZeroConfFile(zcFilename_); // does nothing if DNE
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
+{
+   ifstream zcFile(zcFilename_,  ios::in | ios::binary);
+   if(zcFile)
+   {
+      zcFile.seekg(0, ios::end);
+      uint64_t filesize = (size_t)zcFile.tellg();
+      zcFile.seekg(0, ios::beg);
+      BinaryData zcData(filesize);
+      zcFile.read((char*)zcData.getPtr(), filesize);
+
+      // We succeeded opening the file...
+      BinaryRefReader brr(zcData);
+      while(brr.getSizeRemaining() > 8)
+      {
+         uint64_t txTime = brr.get_uint64_t();
+         uint32_t txLen = BtcUtils::TxCalcLength(brr.getCurrPtr());
+         BinaryData rawtx(txLen);
+         brr.get_BinaryData(rawtx.getPtr(), txLen);
+      }
+      zcFile.close();
+   }
+   //brr.isEndOfStream() || 
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::disableZeroConf(string zcFilename)
+{
+   zcEnabled_  = false; 
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx, 
+                                                uint64_t txtime,
+                                                bool writeToFile)
+{
+
+   if(txtime==0)
+      txtime = time(NULL);
+
+   BinaryData txHash = BtcUtils::getHash256(rawTx)
+   if(zeroConfMap_.find(txHash) != zeroConfMap_.end())
+      return;
+   
+   
+   zeroConfMap_[txHash] = ZeroConfData();
+   ZeroConfData & zc = zeroConfMap_[txHash];
+   zc.iter_ = zeroConfTxList_.insert(rawTx);
+   zc.txref_.unserialize(*newTxData);
+   zc.txtime_ = txtime;
+
+
+   // Record time.  Write to file
+   if(writeToFile)
+   {
+      ofstream zcFile(zcFilename_, ios::app | ios::binary);
+      zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
+      zcFile.write( (char*)(&zc.txref_.getPtr()),  zc.txref_.getSize())
+      zcFile.close();
+   }
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::purgeZeroConfPool(void)
+{
+   list< map<HashString, ZeroConfData>::iterator > mapRmList;
+
+   map<HashString, ZeroConfData>::iterator iter;
+   for(iter  = zeroConfMap_.begin();
+       iter != zeroConfMap_.end();
+       iter++)
+   {
+      TxRef* txInBlockchain = getTxByHash(iter->first);
+      if(txInBlockchain != NULL)
+         mapRmList.push_back(ter);
+   }
+
+
+   list< map<HashString, ZeroConfData>::iterator >::iterator iter;
+   for(iter  = mapRmList.begin();
+       iter != mapRmList.end();
+       iter++)
+   {
+      zeroConfTxList_.erase( (*iter)->second.iter_ );
+      zeroConfMap_.erase( *iter )
+   }
+}
+
+void BlockDataManager_FullRAM::updateWalletWithZeroConf(BtcWallet & wlt)
+{
+   
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 

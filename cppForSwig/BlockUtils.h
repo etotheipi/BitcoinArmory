@@ -396,6 +396,14 @@ private:
 
 
 
+class ZeroConfData
+{
+public:
+   TxRef         txref_;   
+   uint64_t      txtime_;
+   list<BinaryData>::iterator iter_;
+};
+
 
 // Some might argue that inheritance would be useful here.  I'm not a software
 // guy, and I have to write all the methods for each class anyway.  So I'm 
@@ -494,9 +502,7 @@ private:
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
    list<BinaryData>                   zeroConfTxList_;
-   map<HashString, TxRef>             zeroConfTxRefMap_;
-   map<HashString, 
-         list<BinaryData>::iterator>  zeroConfIterMap_;
+   map<HashString, ZeroConfData>      zeroConfMap_;
    bool                               zcEnabled_;
    string                             zcFilename_;
 
