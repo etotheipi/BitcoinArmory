@@ -1362,7 +1362,7 @@ class ArmoryMainWindow(QMainWindow):
             'The transaction has been broadcast to the Bitcoin network.  However '
             'there is no way to know for sure whether it was accepted until you '
             'see it in the blockchain with 1+ confirmations.  Please search '
-            'www.bitcoin.info for the for recipient\'s address, to '
+            'www.blockchain.info for the for recipient\'s address, to '
             'verify whether it was accepted or not.  '
             '\n\nAlso note: other transactions you send '
             'from this wallet may not succeed until that first confirmation is '
