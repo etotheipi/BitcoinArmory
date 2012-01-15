@@ -417,7 +417,7 @@ class ArmoryMainWindow(QMainWindow):
    def openToolsDlg(self):
       QMessageBox.information(self, 'No Tools Yet!', \
          'The developer tools are not available yet, but will be added '
-         'soon.  Regardless, developer-mode still offers you lots of '
+         'soon.  Regardless, developer-mode still offers lots of '
          'extra information and functionality that is not available in '
          'Standard or Advanced mode.', QMessageBox.Ok)
 
@@ -1361,12 +1361,13 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.information(self, 'Broadcast Complete!', \
             'The transaction has been broadcast to the Bitcoin network.  However '
             'there is no way to know for sure whether it was accepted until you '
-            'see it in the blockchain with 1+ confirmations.  If your transaction '
-            'does not show up on the Armory display within the next hour, please '
-            'try sending it again.  Also note: that other transactions you send '
+            'see it in the blockchain with 1+ confirmations.  Please search '
+            'www.bitcoin.info for the for recipient\'s address, to '
+            'verify whether it was accepted or not.  '
+            '\n\nAlso note: other transactions you send '
             'from this wallet may not succeed until that first confirmation is '
-            'received.  This is a problem with Armory that will be fixed with the '
-            'next release.', QMessageBox.Ok)
+            'received.  Both issues are a problem with Armory that will be fixed '
+            'with the next release.', QMessageBox.Ok)
 
    
    #############################################################################
