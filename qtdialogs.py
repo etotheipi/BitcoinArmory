@@ -63,6 +63,9 @@ class DlgNewWallet(QDialog):
    def __init__(self, parent=None, main=None, initLabel=''):
       super(DlgNewWallet, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
+
       self.selectedImport = False
 
       # Options for creating a new wallet
@@ -416,6 +419,10 @@ class DlgChangePassphrase(QDialog):
 class DlgPasswd3(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgPasswd3, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
       lblWarnImg = QLabel()
       lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -463,6 +470,9 @@ class DlgPasswd3(QDialog):
 class DlgChangeLabels(QDialog):
    def __init__(self, currName='', currDescr='', parent=None, main=None):
       super(DlgChangeLabels, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
 
       self.edtName = QLineEdit()
       self.edtName.setMaxLength(32)
@@ -1076,6 +1086,9 @@ class DlgWalletDetails(QDialog):
       def __init__(self, wltID, parent=None, main=None):
          super(parent.dlgChangeOwner, self).__init__(parent)
 
+         self.parent = parent
+         self.main   = main
+
          layout = QGridLayout()
          self.chkIsMine = QCheckBox('This wallet is mine')
          self.edtOwnerString = QLineEdit() 
@@ -1331,7 +1344,8 @@ class DlgNewAddressDisp(QDialog):
 class DlgImportWarning(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgImportWarning, self).__init__(parent)
-      self.main=parent
+      self.main   = main 
+      self.parent = parent
       lblWarn = QLabel( 'Armory supports importing of external '
             'addresses into your wallet, including encryption, '
             'but imported addresses <b>cannot</b> be protected/saved '
@@ -1633,6 +1647,9 @@ class DlgImportAddress(QDialog):
 class DlgVerifySweep(QDialog):
    def __init__(self, inputStr, outputStr, outVal, fee, parent=None, main=None):
       super(DlgVerifySweep, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main  
 
       lblQuestion = QRichLabel( \
             'You are about to <i>sweep</i> all funds from the specified address '
@@ -2459,6 +2476,9 @@ class DlgSetComment(QDialog):
    def __init__(self, currcomment='', ctype='', parent=None, main=None):
       super(DlgSetComment, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main  
+
       self.setWindowTitle('Add or Change Comment')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
@@ -2866,6 +2886,7 @@ class DlgRemoveWallet(QDialog):
 class DlgRemoveAddress(QDialog):
    def __init__(self, wlt, addr160, parent=None, main=None):
       super(DlgRemoveAddress, self).__init__(parent)
+
       
       if not wlt.hasAddr(addr160):
          raise WalletAddressError, 'Address does not exist in wallet!'
@@ -2877,9 +2898,9 @@ class DlgRemoveAddress(QDialog):
 
       self.parent = parent
       self.main   = main
-      self.wlt  = wlt
-      self.addr = wlt.addrMap[addr160]
-      self.comm = wlt.getCommentForAddress(addr160)
+      self.wlt    = wlt
+      self.addr   = wlt.addrMap[addr160]
+      self.comm   = wlt.getCommentForAddress(addr160)
 
       lblWarning = QLabel( '<b>!!! WARNING !!!</b>\n\n')
       lblWarning.setTextFormat(Qt.RichText)
@@ -5042,6 +5063,8 @@ class DlgTxFeeOptions(QDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgTxFeeOptions, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
       lblDescr = QLabel( \
          'Transaction fees go to people who contribute processing power to '
          'the Bitcoin network to process transactions and keep it secure.') 
@@ -5056,6 +5079,8 @@ class DlgTxFeeOptions(QDialog):
 class DlgAddressProperties(QDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgAddressProperties, self).__init__(parent)
+      self.parent = parent
+      self.main   = main
 
    
 
@@ -5754,6 +5779,8 @@ class DlgPaperBackup(QDialog):
    def __init__(self, wlt, parent=None, main=None):
       super(DlgPaperBackup, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
 
       FontFix = GETFONT('Courier',9)
       FontVar = GETFONT('Times',10)
