@@ -226,7 +226,7 @@ class DlgNewWallet(QDialog):
                    self.cryptoFrame,  SLOT("setEnabled(bool)"))
 
       self.setWindowTitle('Create/Import Armory wallet')
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
 
 
@@ -360,7 +360,7 @@ class DlgChangePassphrase(QDialog):
       else:
          self.setWindowTitle("Change Encryption Passphrase")
 
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
       self.setLayout(layout)
 
@@ -1763,6 +1763,7 @@ class DlgAddressInfo(QDialog):
       self.wlt    = wlt
       self.addr   = self.wlt.getAddrByHash160(addr160)
 
+
       self.addrLedger = wlt.getTxLedger(addr160)
       self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
@@ -2253,7 +2254,7 @@ class DlgIntroMessage(QDialog):
       
       self.setLayout(dlgLayout)
       self.setWindowTitle('Greetings!')
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
       self.setMinimumWidth(750)
    
 
@@ -2459,7 +2460,7 @@ class DlgSetComment(QDialog):
       super(DlgSetComment, self).__init__(parent)
 
       self.setWindowTitle('Add or Change Comment')
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
@@ -2587,8 +2588,6 @@ class GfxItemQRCode(QGraphicsItem):
       totalSize = self.modCt*self.modSz
       self.Rect = QRectF(0,0, totalSize, totalSize)
          
-      print 'QR-generated?', success, ' : Size of QRcode is', sz, \
-                           ' : boxCount =', self.qr.getModuleCount()
 
 
    def boundingRect(self):
@@ -2598,7 +2597,6 @@ class GfxItemQRCode(QGraphicsItem):
       painter.setPen(Qt.NoPen)
       painter.setBrush(QBrush(QColor(Colors.Black)))
 
-      print self.Rect.height(), self.modCt, self.modSz
       for r in range(self.modCt):
          for c in range(self.modCt):
             if (self.qr.isDark(c, r) ):
@@ -4080,7 +4078,7 @@ class DlgOfflineTxCreated(QDialog):
 
       self.setLayout(dlgLayout)
       self.setWindowTitle("Offline Transaction")
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
    def copyAsciiTxDP(self):
       clipb = QApplication.clipboard()
@@ -4120,10 +4118,6 @@ class DlgOfflineTxCreated(QDialog):
       except IOError:
          pass
 
-   def execBroadcastDlg(self):
-      dlg = DlgReviewTXDP(self, self.main)
-      dlg.exec_()
-      
    def txtSignedFirstClick(self):
       if not self.txtSignedCleared:
          self.txtSignedCleared = True
@@ -4218,6 +4212,9 @@ class DlgOfflineSelect(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgOfflineSelect, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
+
       self.do_review = False
       self.do_create = False
       self.do_broadc = False
@@ -4227,16 +4224,17 @@ class DlgOfflineSelect(QDialog):
          '\t(1) <u>On</u>line:  Create the unsigned transaction<br>'
          '\t(2) <u>Off</u>line: Get the transaction signed<br>'
          '\t(3) <u>On</u>line:  Broadcast the signed transaction<br><br>'
-         'The following three buttons correspond to the three steps above.  '
-         'Steps 1 and 3 do <u>not</u> have to be performed on the same system.  '
-         'For instance, '
-         'if the "offline" computer is actually just a different internet-connected '
-         'computer, then both Step 2 and Step 3 can be performed by that computer '
-         'alone (and the unsigned transaction can be transmitted via email).')
+         'Transactions can only be created by online computers, but watching-only '
+         'wallets cannot sign them.  The easiest way to execute all three steps '
+         'is to use a USB key to move the data between computers.<br><br>'
+         'All the data produced during all three steps are completely '
+         'safe and do not reveal any private information that would benefit an '
+         'attacker.  It is acceptable to send transaction data over email or '
+         'copy it to a borrowed USB key.  Also, steps 1 and 3 do <u>not</u> '
+         'have to be performed on the same computer.')
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
-      #btnBroadc = QPushButton('Broadcast a Signed Transaction')
       btnCancel = QPushButton('<<< Go Back')
 
       def create():
@@ -4248,16 +4246,15 @@ class DlgOfflineSelect(QDialog):
 
       self.connect(btnCreate, SIGNAL('clicked()'), create)
       self.connect(btnReview, SIGNAL('clicked()'), review)
-      #self.connect(btnBroadc, SIGNAL('clicked()'), broadc)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
       lblCreate = QRichLabel( \
-         'Create a transaction from an Offline/Watching-Only wallet, '
-         'to be signed on another computer.')
+         'Create a transaction from an Offline/Watching-Only wallet '
+         'to be signed by the computer with the full wallet')
 
       lblReview = QRichLabel( \
-         'Review an unsigned transaction, and sign it if you have '
-         'the private keys needed for it.' )
+         'Review an unsigned transaction and sign it if you have '
+         'the private keys needed for it' )
          
       lblBroadc = QRichLabel( \
          'Send a pre-signed transaction to the Bitcoin network to finalize it')
@@ -4274,7 +4271,6 @@ class DlgOfflineSelect(QDialog):
       frmOptionsLayout.addWidget(btnReview,  2,0, 3,1)
       frmOptionsLayout.addWidget(lblReview,  2,2)
       frmOptionsLayout.addWidget(HLINE(),  3,2, 1,1)
-      #frmOptionsLayout.addWidget(btnBroadc,  4,0)
       frmOptionsLayout.addWidget(lblBroadc,  4,2)
 
 
@@ -4295,6 +4291,7 @@ class DlgOfflineSelect(QDialog):
 
       self.setLayout(dlgLayout)
       self.setWindowTitle('Select Offline Action')
+      self.setWindowIcon(QIcon(self.main.iconfile))
    
       
 
@@ -4314,6 +4311,7 @@ class DlgReviewOfflineTx(QDialog):
       self.main   = main
       self.wlt    = None
       self.sentToSelfWarn = False
+      self.fileLoaded = None
 
 
       lblDescr = QRichLabel( \
@@ -4460,7 +4458,7 @@ class DlgReviewOfflineTx(QDialog):
       self.processTxDP()
       
       self.setWindowTitle('Review Offline Transaction')
-      self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
       
 
@@ -4731,10 +4729,30 @@ class DlgReviewOfflineTx(QDialog):
          self.accept()
 
 
+
    def saveTx(self):
+      if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
+         reply = QMessageBox.question(self,'Overwrite?', \
+         'The signed transaction you are saving was originally loaded '
+         'from:\n\n%s\n\nWould you like to overwrite write it with this '
+         'signed transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
+         if reply==QMessageBox.Yes:
+            newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
+            f = open(newSaveFile, 'w')
+            f.write(str(self.txtTxDP.toPlainText()))
+            f.close()
+            if not newSaveFile==self.fileLoaded:
+               os.remove(self.fileLoaded)
+            QMessageBox.information(self, 'Transaction Saved!',\
+               'Your transaction has been saved to the following location:'
+               '\n\n%s\n\nIt can now be broadcast from any computer with '
+               'a connection to the Bitcoin network.' % newSaveFile, QMessageBox.Ok)
+            return
+               
+
       defaultFilename = ''
       if not self.txdpObj==None:
-         if self.enoughSigs:
+         if self.enoughSigs and self.sigsValid:
             defaultFilename = 'armory_%s_.signed.tx' % self.txdpObj.uniqueB58
          else:
             defaultFilename = 'armory_%s_.unsigned.tx' % self.txdpObj.uniqueB58
@@ -4755,6 +4773,7 @@ class DlgReviewOfflineTx(QDialog):
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
          f.close()
+         self.fileLoaded = filename
 
 
    def copyTx(self):

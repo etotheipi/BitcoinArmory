@@ -486,11 +486,21 @@ private:
    // else is just references and pointers to this data
    string                             blkfilePath_;
    BinaryData                         blockchainData_ALL_;
-   list<BinaryData>                   blockchainData_NEW_; // to be added
+   list<BinaryData>                   blockchainData_NEW_; 
    map<HashString, BlockHeaderRef>    headerHashMap_;
-   map<HashString, TxRef >            txHashMap_;
+   map<HashString, TxRef>             txHashMap_;
 
-   // This may have to be updated later if the blkfile exceeds 4GB
+   // Need a separate memory pool just for zero-confirmation transactions
+   // We need the second map to make sure we can find the data to remove
+   // it, when necessary
+   list<BinaryData>                   zeroConfTxList_;
+   map<HashString, TxRef>             zeroConfTxRefMap_;
+   map<HashString, 
+         list<BinaryData>::iterator>  zeroConfIterMap_;
+   bool                               zcEnabled_;
+   string                             zcFilename_;
+
+   // This is for detecting external changes made to the blk0001.dat file
    uint64_t                           lastEOFByteLoc_;
    uint64_t                           totalBlockchainBytes_;
 

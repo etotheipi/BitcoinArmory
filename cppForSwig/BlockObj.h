@@ -270,8 +270,8 @@ public:
    uint32_t          getNumBytes(void)  { return nBytes_;  }
 
    // We expect one of these two to be set so that we can get header info
-   BlockHeader*      getHeaderPtr(void) { return headerPtr_;  }
-   BlockHeaderRef*   getHeaderRefPtr(void) { return headerRefPtr_;  }
+   BlockHeader*      getHeaderPtr(void)    { return headerPtr_;    }
+   BlockHeaderRef*   getHeaderRefPtr(void) { return headerRefPtr_; }
    
 
      

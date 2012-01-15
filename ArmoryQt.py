@@ -78,12 +78,13 @@ class ArmoryMainWindow(QMainWindow):
 
       if USE_TESTNET:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
-         self.setWindowIcon(QIcon('img/armory_icon_green_32x32.png'))
+         self.iconfile = 'img/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_green_h72.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
-         self.setWindowIcon(QIcon('img/armory_icon_32x32.png'))
+         self.iconfile = 'img/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
+      self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       #self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
 
@@ -414,7 +415,11 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def openToolsDlg(self):
-      pass
+      QMessageBox.information(self, 'No Tools Yet!', \
+         'The developer tools are not available yet, but will be added '
+         'soon.  Regardless, developer-mode still offers you lots of '
+         'extra information and functionality that is not available in '
+         'Standard or Advanced mode.', QMessageBox.Ok)
 
 
 

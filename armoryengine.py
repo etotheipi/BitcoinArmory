@@ -1101,10 +1101,9 @@ class PyBtcAddress(object):
       self.chainIndex            = 0
 
       # Information to be used by C++ to know where to search for transactions
-      # in the blockchain
-      #               [unixTime, blkNum]
-      self.timeRange = [0,0]
-      self.blkRange  = [0,0]
+      # in the blockchain (disabled in favor of a better search method)
+      self.timeRange = [2**32-1, 0]
+      self.blkRange  = [2**32-1, 0]
 
       # This feels like a hack, but it's the only way I can think to handle
       # the case of generating new, chained addresses, even without the
@@ -1158,17 +1157,28 @@ class PyBtcAddress(object):
       If we include only a block number, we will fill in the timestamp with
       the unix-time for that block (if the BlockDataManager is availabled)
       """
-      if not blkNum==None:
-         self.blkRange[0]  = min(self.blkRange[0], blkNum)
-         self.blkRange[1]  = max(self.blkRange[1], blkNum)
+      if self.blkRange[0]==0:
+         self.blkRange[0]=2**32-1
+      if self.timeRange[0]==0:
+         self.timeRange[0]=2**32-1
+
+      if blkNum==None:
+         if TheBDM.isInitialized():
+            topBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+            self.blkRange[0] = long(min(self.blkRange[0], topBlk))
+            self.blkRange[1] = long(max(self.blkRange[1], topBlk))
+      else:
+         self.blkRange[0]  = long(min(self.blkRange[0], blkNum))
+         self.blkRange[1]  = long(max(self.blkRange[1], blkNum))
+
          if unixTime==None and TheBDM.isInitialized():
             unixTime = TheBDM.getHeaderByHeight(blkNum).getTimestamp()
 
       if unixTime==None:
          unixTime = RightNow()
 
-      self.timeRange[0] = min(self.timeRange[0], unixTime)
-      self.timeRange[1] = max(self.timeRange[1], unixTime)
+      self.timeRange[0] = long(min(self.timeRange[0], unixTime))
+      self.timeRange[1] = long(max(self.timeRange[1], unixTime))
 
 
 
@@ -1189,10 +1199,6 @@ class PyBtcAddress(object):
       return newAddr
 
 
-   #############################################################################
-   def isAddressUsed(self):
-      isUntouch = self.timeRange[0]==UINT32_MAX and self.blkRange[0]==UINT32_MAX
-      return not isUntouch
 
    #############################################################################
    def getTimeRange(self):
@@ -2140,6 +2146,10 @@ class PyBtcAddress(object):
       print indent + 'Chained Address  :', self.chainIndex >= -1
       print indent + 'Have (priv,pub)  : (%s,%s)' % \
                      (str(self.hasPrivKey()), str(self.hasPubKey()))
+      print indent + 'First/Last Time  : (%s,%s)' % \
+                     (str(self.timeRange[0]), str(self.timeRange[1]))
+      print indent + 'First/Last Block : (%s,%s)' % \
+                     (str(self.blkRange[0]), str(self.blkRange[1]))
       if self.hasPubKey():
          print indent + 'PubKeyX(BE)      :', \
                         binary_to_hex(self.binPublicKey65.toBinStr()[1:33 ])
@@ -5333,6 +5343,7 @@ class PyBtcWallet(object):
       self.defaultKeyLifetime = 10    # seconds after unlock, that key is discarded
       self.lockWalletAtTime   = 0    # seconds after unlock, that key is discarded
       self.isLocked       = False
+      self.testedComputeTime=None
 
       # Deterministic wallet, need a root key.  Though we can still import keys.
       # The unique ID contains the network byte (id[-1]) but is not intended to
@@ -5660,6 +5671,10 @@ class PyBtcWallet(object):
 
       self.advanceHighestIndex(1)
       new160 = self.getAddress160ByChainIndex(self.highestUsedChainIndex)
+      self.addrMap[new160].touch()
+      self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, \
+                                  self.addrMap[new160].walletByteLoc, \
+                                  self.addrMap[new160].serialize()]]  )
       return self.addrMap[new160]
 
       """
@@ -5918,10 +5933,12 @@ class PyBtcWallet(object):
       useful for when you transfer a wallet to a new computer that has
       different speed/memory characteristic.
       """
-      testPassphrase = SecureBinaryData('This is a simple passphrase')
-      start = RightNow()
-      self.kdf.DeriveKey(testPassphrase)
-      return (RightNow()-start)
+      if self.testedComputeTime==None:
+         testPassphrase = SecureBinaryData('This is a simple passphrase')
+         start = RightNow()
+         self.kdf.DeriveKey(testPassphrase)
+         self.testedComputeTime = (RightNow()-start)
+      return self.testedComputeTime
 
    #############################################################################
    def serializeKdfParams(self, kdfObj=None, binWidth=256):
@@ -6406,9 +6423,8 @@ class PyBtcWallet(object):
       binPacker.put(BINARY_CHUNK, self.labelDescr,  width=256)
 
       # Highest used address: 
-      if getVersionInt(self.version) >= getVersionInt((1, 10, 0, 0)):
-         self.offsetTopUsed = binPacker.getSize() - startByte
-         binPacker.put(INT64, self.highestUsedChainIndex)
+      self.offsetTopUsed = binPacker.getSize() - startByte
+      binPacker.put(INT64, self.highestUsedChainIndex)
 
       # Key-derivation function parameters
       self.offsetKdfParams = binPacker.getSize() - startByte
@@ -6473,10 +6489,8 @@ class PyBtcWallet(object):
       self.labelDescr  = binUnpacker.get(BINARY_CHUNK, 256).strip('\x00')
 
 
-      # Highest used address: 
-      if getVersionInt(self.version) >= getVersionInt((1, 10, 0, 0)):
-         self.offsetTopUsed = binUnpacker.getPosition()
-         self.highestUsedChainIndex = binUnpacker.get(INT64)
+      self.offsetTopUsed = binUnpacker.getPosition()
+      self.highestUsedChainIndex = binUnpacker.get(INT64)
 
 
       # Read the key-derivation function parameters
