@@ -534,6 +534,9 @@ uint32_t TxRef::getBlockHeight(void)
 // header and try to match up
 uint32_t TxRef::getBlockTxIndex(void)
 {
+   if(headerPtr_ == NULL)
+      return UINT32_MAX;
+
    vector<TxRef*> txlist = headerPtr_->getTxRefPtrList();
    for(uint32_t i=0; i<txlist.size(); i++)
       if( txlist[i] == this )
@@ -573,6 +576,7 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 void TxRef::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
+   if(not headerPtr_==NULL)
    {
       cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
       cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;

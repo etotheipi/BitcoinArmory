@@ -77,40 +77,56 @@ public:
    TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txPtrOfOutput_ != NULL); }
-   bool      hasTxIn(void)        { return (txPtrOfInput_  != NULL); }
+   bool      hasTxOut(void)       { return (txPtrOfOutput_   != NULL); }
+   bool      hasTxIn(void)        { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOutZC(void)     { return (txPtrOfOutputZC_ != NULL); }
+   bool      hasTxInZC(void)      { return (txPtrOfInputZC_  != NULL); }
    bool      hasValue(void)       { return (amount_!=0); }
    uint64_t  getValue(void)       { return amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef  getTxOutRef(void) const {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
-   TxInRef   getTxInRef(void) const  {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxOutRef  getTxOutRef(void) const   {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
+   TxInRef   getTxInRef(void) const    {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxOutRef  getTxOutRefZC(void) const {return txPtrOfOutputZC_->getTxOutRef(indexOfOutputZC_);}
+   TxInRef   getTxInRefZC(void) const  {return txPtrOfInputZC_->getTxInRef(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
    TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
+   bool isSentToSelf(void)  { return isSentToSelf_; }
+   bool setSentToSelf(bool isTrue=true) { isSentToSelf_ = isTrue; }
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
-   void setTxInRef (TxRef* txref, uint32_t index);
-   void setTxOutRef(TxRef* txref, uint32_t index);
+   void setTxInRef   (TxRef* txref, uint32_t index, bool isZeroConf=false);
+   void setTxOutRef  (TxRef* txref, uint32_t index, bool isZeroConf=false);
 
    //////////////////////////////////////////////////////////////////////////////
-   bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
    bool isSpent(void)         { return (  hasTxOut() &&  hasTxIn() ); }
+   bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
    bool isStandardTxOutScript(void);
+
+   bool isSpentZC(void)         { return (  hasTxOut() &&  hasTxIn() ); }
+   bool isUnspentZC(void)       { return (  hasTxOut() && !hasTxIn() ); }
+   bool isSpendable(void);      
 
 private:
    uint64_t  amount_;
    TxRef*    txPtrOfOutput_;
-   uint32_t  indexOfOutput_;;
+   uint32_t  indexOfOutput_;
    TxRef*    txPtrOfInput_;
-   uint32_t  indexOfInput_;;
+   uint32_t  indexOfInput_;
 
+   TxRef*    txPtrOfOutputZC_;
+   uint32_t  indexOfOutputZC_;
+   TxRef*    txPtrOfInputZC_;
+   uint32_t  indexOfInputZC_;
+
+   bool      isSentToSelf_;
 };
 
 
@@ -261,7 +277,7 @@ public:
 
    void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
    void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
-   void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
+   void addLedgerEntry(LedgerEntry const & le, bool isZeroConf); 
 
 
 private:
@@ -274,6 +290,7 @@ private:
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
    vector<LedgerEntry>   ledger_;
+   vector<LedgerEntry>   ledgerZC_;
 };
 
 
@@ -286,6 +303,8 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
+
+
 public:
    BtcWallet(void) {}
 
@@ -362,9 +381,9 @@ public:
    // If we have spent TxOuts but the tx haven't made it into the blockchain
    // we need to lock them to make sure we have a record of which ones are 
    // available to sign more Txs
-   void   lockTxOut(OutPoint const & op);
-   void unlockTxOut(OutPoint const & op);
-   void clearLocked(void)        {lockedTxOuts_.clear();   }
+   bool   lockTxOut(OutPoint const & op);
+   bool unlockTxOut(OutPoint const & op);
+   void clearZeroConfPool(void); {lockedTxOuts_.clear();   }
 
    void   lockTxOutSwig(BinaryData const & hash, uint32_t idx);
    void unlockTxOutSwig(BinaryData const & hash, uint32_t idx);
@@ -374,15 +393,21 @@ public:
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
-   // This really shouldn't ever be used except for the zero-conf ops  
-   void makeTempCopyForZcScan(BtcWallet & tempWlt);
+
+   map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
+   set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
+   map<OutPoint, TxOutRef>      myZeroConfTxOuts_;
+   set<OutPoint>                myZeroConfOutPointsToSelf_;
+
+
    vector<LedgerEntry>          ledgerAllAddr_;  
+   vector<LedgerEntry>          ledgerAllAddrZC_;  
 
    set<OutPoint>                unspentOutPoints_;
    set<OutPoint>                lockedTxOuts_;
@@ -395,14 +420,19 @@ private:
 };
 
 
-
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 class ZeroConfData
 {
 public:
    TxRef         txref_;   
    uint64_t      txtime_;
    list<BinaryData>::iterator iter_;
+
 };
+
+
+
 
 
 // Some might argue that inheritance would be useful here.  I'm not a software
