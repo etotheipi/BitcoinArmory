@@ -57,6 +57,7 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
+      self.abortLoad = False
 
       
       self.settingsPath = settingsPath

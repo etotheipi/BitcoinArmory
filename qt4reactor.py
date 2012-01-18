@@ -266,6 +266,8 @@ class QtReactor(posixbase.PosixReactorBase):
         self._blockApp.exec_()
 
 
+
+
 class QtEventReactor(QtReactor):
     def __init__(self, *args, **kwargs):
         self._events = {}
@@ -348,8 +350,8 @@ def win32install():
 
 
 if runtime.platform.getType() == 'win32':
-    #from win32event import CreateEvent, MsgWaitForMultipleObjects
-    #from win32event import WAIT_OBJECT_0, WAIT_TIMEOUT, QS_ALLINPUT, QS_ALLEVENTS
+    from win32event import CreateEvent, MsgWaitForMultipleObjects
+    from win32event import WAIT_OBJECT_0, WAIT_TIMEOUT, QS_ALLINPUT, QS_ALLEVENTS
     install = win32install
 else:
     install = posixinstall
