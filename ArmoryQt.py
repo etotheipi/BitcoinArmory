@@ -63,6 +63,9 @@ class ArmoryMainWindow(QMainWindow):
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
+      if self.abortLoad:
+         return
+
       self.extraHeartbeatFunctions = []
 
       self.lblArmoryStatus = QRichLabel('<font color=#550000><i>Offline</i></font>', \
@@ -516,7 +519,7 @@ class ArmoryMainWindow(QMainWindow):
       self.isOnline = (self.internetAvail and self.satoshiAvail)
 
       if not self.isOnline:
-         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self)
+         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
          dlg.exec_()
          self.NetworkingFactory = FakeClientFactory()
          return
@@ -1564,12 +1567,9 @@ class ArmoryMainWindow(QMainWindow):
       #self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
-      try:
-         reactor.stop()
-      except: 
-         pass
-      sys.exit()
-      event.accept()
+      reactor.stop()
+      if event:
+         event.accept()
       
       
 
@@ -1618,7 +1618,15 @@ if 1:  #__name__ == '__main__':
    from twisted.internet import reactor
    def endProgram():
       app.quit()
-      sys.exit()
+      try:
+         sys.exit()
+      except:
+         pass
+      
+
+   if form.abortLoad:
+      endProgram()
+
    app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)
