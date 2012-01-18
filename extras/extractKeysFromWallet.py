@@ -15,7 +15,7 @@
 from sys import argv, path
 path.append('..')
 path.append('.')
-from pybtcengine import *
+from armoryengine import *
 
 
 pubfile  = 'keylistpub.txt'

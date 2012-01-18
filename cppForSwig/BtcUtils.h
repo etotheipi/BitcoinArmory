@@ -24,6 +24,7 @@
 #include <string>
 #include <sstream>
 #include <assert.h>
+#include <cmath>
 
 #include "BinaryData.h"
 #include "cryptlib.h"
@@ -880,6 +881,40 @@ public:
       for(uint32_t i=0; i<oplist.size(); i++)
          cout << "   " << oplist[i] << endl;
    }
+
+
+   static bool verifyProofOfWork(BinaryDataRef bh80)
+   {
+      BinaryData theHash = getHash256(bh80);
+      return verifyProofOfWork(bh80, theHash.getRef());
+   }
+
+   static bool verifyProofOfWork(BinaryData bh80,
+                                 BinaryData const & theHash)
+   {
+      return verifyProofOfWork(bh80.getRef(), theHash.getRef());
+   }
+
+
+   static bool verifyProofOfWork(BinaryDataRef bh80, BinaryDataRef bhrHash)
+   {
+      // This is only approximate.  I can put in an exact verifier once 
+      // I figure out big integers better in C++, or another way to do
+      // the calculation.  I just want to make sure this isn't a completely
+      // bogus proof of work.
+      double diff = convertDiffBitsToDouble( BinaryDataRef(bh80.getPtr()+72, 4) );
+      double diffFactor = diff * (double)UINT32_MAX;
+      double nZeroBits  = int( log(diffFactor) / log(2.0));
+      int    nZeroBytes = int( log(diffFactor) / log(2.0) / 8.0);
+
+      // TODO: check that I'm comparing the correct end of the hash
+      for(uint32_t i=0; i<nZeroBytes; i++)
+         if(bhrHash[31-i]!=0)
+            return false;
+
+      return true;
+   }
+
 };
    
    

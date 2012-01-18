@@ -140,25 +140,26 @@ void TestScanForWalletTx(string blkfile)
    BinaryData myAddress;
    BtcWallet wlt;
    
-#ifndef TEST_NETWORK
    // Main-network addresses
    myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
    myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
    myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
    myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
-#else
    // Test-network addresses
-   myAddress.createFromHex("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("61d62799e52bc8ee514976a19d67478f25df2bb1"); wlt.addAddress(myAddress);
-#endif
+   //myAddress.createFromHex("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("61d62799e52bc8ee514976a19d67478f25df2bb1"); wlt.addAddress(myAddress);
 
+   // More testnet addresses, with only a few transactions
+   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt.addAddress(myAddress);
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
 
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
@@ -169,8 +170,8 @@ void TestScanForWalletTx(string blkfile)
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getBalance() << ","
-                         << wlt.getAddrByHash160(addr20).getBalance() << endl;
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getUltimateBalance() << ","
+                         << wlt.getAddrByHash160(addr20).getUltimateBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
@@ -222,7 +223,8 @@ void TestScanForWalletTx(string blkfile)
    cout << "Rescanning the blockchain for new addresses." << endl;
    bdm.scanBlockchainForTx(myWallet);
 
-   vector<UnspentTxOut> sortedUTOs = bdm.getUnspentTxOutsForWallet(myWallet, 1);
+   //vector<UnspentTxOut> sortedUTOs = bdm.getUnspentTxOutsForWallet(myWallet, 1);
+   vector<UnspentTxOut> sortedUTOs = myWallet.getSpendableTxOutList();
 
    int i=1;
    cout << "   Sorting Method: " << i << endl;
@@ -257,16 +259,16 @@ void TestScanForWalletTx(string blkfile)
    bdm.scanBlockchainForTx(zcWlt);
 
    // Test the zero-conf ledger-entry detection
-   BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
+   //BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
 
-   LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
-   le.pprint();
+   //LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
+   //le.pprint();
 
-   vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
-   for(int i=0; i<levect.size(); i++)
-   {
-      levect[i].pprint();
-   }
+   //vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
+   //for(int i=0; i<levect.size(); i++)
+   //{
+      //levect[i].pprint();
+   //}
    
 
 }
@@ -340,12 +342,12 @@ void TestReorgBlockchain(string blkfile)
       cout << endl;
    }
    cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
-   cout << "                          Balance: " << wlt2.getBalance()/1e8 << endl;
+   cout << "                          Balance: " << wlt2.getUltimateBalance()/1e8 << endl;
    for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getBalance() << endl;
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getUltimateBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getUltimateBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
@@ -386,7 +388,7 @@ void TestReorgBlockchain(string blkfile)
       bdm.updateWalletAfterReorg(wlt2);
    }
 
-   cout << "Checking balance of entire wallet: " << wlt2.getBalance()/1e8 << endl;
+   cout << "Checking balance of entire wallet: " << wlt2.getUltimateBalance()/1e8 << endl;
    vector<LedgerEntry> const & ledgerAll3 = wlt2.getTxLedger();
    for(uint32_t j=0; j<ledgerAll3.size(); j++)
    {  
@@ -404,8 +406,8 @@ void TestReorgBlockchain(string blkfile)
    for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getBalance()/1e8 << endl;
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getUltimateBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getUltimateBalance()/1e8 << endl;
       vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  

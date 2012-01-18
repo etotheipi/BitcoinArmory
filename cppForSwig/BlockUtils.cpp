@@ -63,7 +63,7 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
                    uint32_t  txoutIndex,
                    TxRef*    txPtrI, 
                    uint32_t  txinIndex) :
-   amount_(0)
+   amount_(0),
    txPtrOfOutputZC_(NULL),
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
@@ -95,11 +95,10 @@ BinaryData TxIOPair::getTxHashOfInput(void)
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
 { 
-   bool success=true;
    if(isZeroConf)
    {
       if(hasTxIn() || hasTxInZC())
-         success=false;
+         return false;
       else
       {
          txPtrOfInputZC_  = txref;
@@ -112,17 +111,16 @@ bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
       indexOfInput_  = index;
    }
 
-   return success;
+   return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
+bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
 {
-   bool success=true;
    if(isZeroConf)
    {
       if(hasTxOut() || hasTxOutZC())
-         success=false;
+         return false;
       else
       {
          txPtrOfOutputZC_ = txref; 
@@ -138,7 +136,7 @@ void TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
       if(hasTxOut())
          amount_ = getTxOutRef().getValue();
    }
-   return success;
+   return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -149,12 +147,68 @@ bool TxIOPair::isStandardTxOutScript(void)
    return false;
 }
 
+//////////////////////////////////////////////////////////////////////////////
 pair<bool,bool> TxIOPair::reassessValidity(void)
 {
    pair<bool,bool> result;
    result.first  = (hasTxOut() && txPtrOfOutput_->isMainBranch());
    result.second = (hasTxIn()  && txPtrOfInput_->isMainBranch());
    return result;
+}
+
+
+bool TxIOPair::isSpent(void)
+{ 
+   // Not sure whether we should verify hasTxOut.  It wouldn't make much 
+   // sense to have TxIn but not TxOut, but there might be a preferred 
+   // behavior in such awkward circumstances
+   return (hasTxIn() || hasTxInZC());
+}
+
+
+bool TxIOPair::isUnspent(void)
+{ 
+   return ( (hasTxOut() || hasTxOutZC()) && !isSpent());
+
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isSpendable(void) 
+{ 
+   // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
+   // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
+   if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
+      return false;
+   
+   if( hasTxOut() && txPtrOfOutput_->isMainBranch())
+      return true;
+
+   if( hasTxOutZC() && isSentToSelf() )
+      return true;
+
+   return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
+{
+   // Only zero-conf Tx can be unconfirmed
+   if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
+      return false;
+
+   if( hasTxOut() && txPtrOfOutput_->isMainBranch() )
+   {
+      uint32_t nConf = currBlk - txPtrOfOutput_->getBlockHeight() + 1;
+      if(nConf<minConf)
+         return true;
+   }
+   else if( hasTxOutZC() and !isSentToSelf() )
+   {
+      return true;
+   }
+
+
+   return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -219,23 +273,58 @@ BtcAddress::BtcAddress(BinaryData    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcAddress::getBalance(set<OutPoint> const * lockedOPs)
+uint64_t BtcAddress::getSpendableBalance(void)
+{
+   uint64_t balance = 0;
+   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   {
+      if(relevantTxIOPtrs_[i]->isSpendable())
+         balance += relevantTxIOPtrs_[i]->getValue();
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcAddress::getUnconfirmedBalance(uint32_t currBlk)
+{
+   uint64_t balance = 0;
+   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   {
+      if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk))
+         balance += relevantTxIOPtrs_[i]->getValue();
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcAddress::getUltimateBalance(void)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-
-      // If this TxOut is locked, skip it
-      if(lockedOPs != NULL && 
-         lockedOPs->find(txio.getOutPoint()) != lockedOPs->end())
-            continue;
-
-      if(txio.isUnspent() && txio.getTxRefOfOutput().isMainBranch())
+      if(txio.isUnspent())
          balance += txio.getValue();
    }
    return balance;
 }
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
+{
+   vector<UnspentTxOut> utxoList(0);
+   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   {
+      TxIOPair & txio = *relevantTxIOPtrs_[i];
+      if(txio.isSpendable())
+      {
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+      }
+   }
+   return utxoList;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BtcAddress::removeInvalidEntries(void)   
@@ -263,9 +352,9 @@ void BtcAddress::sortLedger(void)
 void BtcAddress::addLedgerEntry(LedgerEntry const & le, bool isZeroConf)
 { 
    if(isZeroConf)
-      ledger_.push_back(le);
-   else
       ledgerZC_.push_back(le);
+   else
+      ledger_.push_back(le);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -451,7 +540,7 @@ void BtcWallet::scanTx(TxRef & tx,
                anyTxInIsOurs = true;
                thisTxInIsOurs[iin] = true;
 
-               //unspentOutPoints_.erase(outpt);
+               unspentOutPoints_.erase(outpt);
                // The legit var only identifies whether this set-call succeeded
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
@@ -517,7 +606,7 @@ void BtcWallet::scanTx(TxRef & tx,
             TxIOPair & thisTxio = insResult.first->second;
             if(insResult.second == true)
             {
-               //unspentOutPoints_.insert(outpt);
+               unspentOutPoints_.insert(outpt);
                anyTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 
@@ -583,9 +672,9 @@ void BtcWallet::scanTx(TxRef & tx,
                          isChangeBack);
 
          if(isZeroConf)
-            ledgerAllAddrZC_.push_back(le)
+            ledgerAllAddrZC_.push_back(le);
          else
-            ledgerAllAddr_.push_back(le)
+            ledgerAllAddr_.push_back(le);
       }
 
    }
@@ -630,6 +719,7 @@ vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
 // addresses with pointers to the new TxIO objects, not the old ones.  This 
 // allows us to scan new transactions in a temporary wallet, without affecting
 // the original wallet
+/*
 void BtcWallet::makeTempCopyForZcScan(BtcWallet & tempWlt)
 {
 
@@ -708,6 +798,7 @@ vector<LedgerEntry> BtcWallet::getAddrLedgerEntriesForTx(BinaryData const & zcBi
 
    return leVect;
 }
+*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // Make a separate method here so we can get creative with how to handle these
@@ -763,41 +854,89 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getBalance(bool blockchainOnly)
+//uint64_t BtcWallet::getBalance(bool blockchainOnly)
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getSpendableBalance(void)
 {
-   /*
    uint64_t balance = 0;
-   set<OutPoint>::iterator unspentIter;
-   for( unspentIter  = unspentOutPoints_.begin(); 
-        unspentIter != unspentOutPoints_.end(); 
-        unspentIter++)
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
    {
-      TxIOPair & txio = txioMap_[*unspentIter];
-      if(txio.getTxRefOfOutput().isMainBranch() && 
-         (!isTxOutLocked(*unspentIter) || blockchainOnly))
+      if(iter->second.isSpendable())
+         balance += iter->second.getValue();      
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
+{
+   uint64_t balance = 0;
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      if(iter->second.isMineButUnconfirmed(currBlk))
+         balance += iter->second.getValue();      
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint64_t BtcWallet::getUltimateBalance(void)
+{
+   uint64_t balance = 0;
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      if(iter->second.isUnspent())
+         balance += iter->second.getValue();      
+   }
+   return balance;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
+{
+   vector<UnspentTxOut> utxoList(0);
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      TxIOPair & txio = iter->second;
+      if(txio.isSpendable())
       {
-         balance += txioMap_[*unspentIter].getValue();
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back(UnspentTxOut(txoutref, blkNum) );
       }
    }
-
-   
-   return balance;
-   */
+   return utxoList;
 }
+
+
+
+
 
    
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getBalance(uint32_t i)
-{
-   return addrPtrVect_[i]->getBalance(&lockedTxOuts_);
-}
+//uint64_t BtcWallet::getBalance(uint32_t i)
+//{
+   //return addrPtrVect_[i]->getBalance();
+//}
 
-////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getBalance(BinaryData const & addr20)
-{
-   assert(hasAddr(addr20)); 
-   return addrMap_[addr20].getBalance(&lockedTxOuts_);
-}
+//////////////////////////////////////////////////////////////////////////////////
+//uint64_t BtcWallet::getBalance(BinaryData const & addr20)
+//{
+   //assert(hasAddr(addr20)); 
+   //return addrMap_[addr20].getBalance();
+//}
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BtcWallet::removeInvalidEntries(void)   
@@ -823,65 +962,7 @@ void BtcWallet::sortLedger(void)
    sort(ledgerAllAddr_.begin(), ledgerAllAddr_.end());
 }
 
-////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::lockTxOut(OutPoint const & op) 
-{
-   bool newLocked = false;
-   set<OutPoint> & unspentOps = getUnspentOutPoints();
-   if(unspentOps.find(op)!=unspentOps.end())
-   {
-      lockedTxOuts_.insert(op);  
-      newLocked = true;
-   }
-   return newLocked;
-}
 
-////////////////////////////////////////////////////////////////////////////////
-bool BtcWallet::unlockTxOut(OutPoint const & op) 
-{
-   bool newUnlocked = false;
-   set<OutPoint> & unspentOps = getUnspentOutPoints();
-   if(unspentOps.find(op)!=unspentOps.end())
-   {
-      if(lockedTxOuts_.find(op)!=lockedTxOuts_.end())
-      {
-         lockedTxOuts_.erase(op);  
-         newUnlocked = true;
-      }
-   }
-   return newUnlocked;
-}
-
-
-void BtcWallet::lockTxOutSwig(BinaryData const & hash, uint32_t idx)
-{
-   OutPoint op(hash, idx);
-   lockTxOut(op);
-}
-void BtcWallet::unlockTxOutSwig(BinaryData const & hash, uint32_t idx)
-{
-   OutPoint op(hash, idx);
-   unlockTxOut(op);
-}
-
-bool BtcWallet::isTxOutLocked(OutPoint const & op) 
-{
-   return (lockedTxOuts_.find(op)!=lockedTxOuts_.end());
-}
-
-
-vector<OutPoint> BtcWallet::getLockedTxOutList(void)
-{
-   vector<OutPoint> out(0);
-   set<OutPoint>::iterator unspentIter;
-   for( unspentIter  = lockedTxOuts_.begin(); 
-        unspentIter != lockedTxOuts_.end(); 
-        unspentIter++)
-   {
-      out.push_back(*unspentIter);
-   }
-   return out;
-}
 
 bool BtcWallet::isOutPointMine(BinaryData const & hsh, uint32_t idx)
 {
@@ -1186,6 +1267,21 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
          myWallet.scanTx(tx, itx, bhr.getTimestamp(), bhr.getBlockHeight());
       }
    }
+
+   
+   if(zcEnabled_)
+   {
+      myWallet.clearZeroConfPool();
+      map<HashString, ZeroConfData>::iterator iter;
+      for(iter  = zeroConfMap_.begin();
+          iter != zeroConfMap_.end();
+          iter++)
+      {
+         myWallet.scanTx(iter->second.txref_, 0, UINT32_MAX, UINT32_MAX);
+      }
+   }
+   
+
    myWallet.sortLedger(); // removes invalid tx and sorts
    PDEBUG("Done scanning blockchain for tx");
 }
@@ -1574,6 +1670,12 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
    }
 
 
+   // UPDATE JAN 2012:  I don't think this part is necessary anymore.
+   //                   The decision was made not to bother with maintaining
+   //                   an unspent list anymore, since it can be done on the 
+   //                   fly from the txioMap.  And unspent doesn't imply whether 
+   //                   it's actually spendable or "confirmed."
+   /*
    // Need to fix the TxIO pairs, and recompute unspentTxOuts
    // All addresses point to the wallet's TxIOPairs, so we only need 
    // to do this check on the wallet -- no need on the individual addrs
@@ -1601,6 +1703,7 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
             wlt.getUnspentOutPoints().erase(txioIter->first);
       }
    }
+   */
 
    // Now fix the individual address ledgers
    for(uint32_t a=0; a<wlt.getNumAddr(); a++)
@@ -2161,6 +2264,7 @@ int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
 
 
 ////////////////////////////////////////////////////////////////////////////////
+/*
 vector<UnspentTxOut> 
 BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, 
                                                      int sortType,
@@ -2219,6 +2323,7 @@ BlockDataManager_FullRAM::getNonStdUnspentTxOutsForWallet( BtcWallet & wlt)
    cout << "Not implemented yet to retrieve non-std TxOuts..."<< endl;
    return vector<UnspentTxOut>(0);
 }
+*/
 
 
 
@@ -2236,7 +2341,7 @@ void BlockDataManager_FullRAM::enableZeroConf(string zcFilename)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
 {
-   ifstream zcFile(zcFilename_,  ios::in | ios::binary);
+   ifstream zcFile(zcFilename_.c_str(),  ios::in | ios::binary);
    if(zcFile)
    {
       zcFile.seekg(0, ios::end);
@@ -2275,24 +2380,24 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    if(txtime==0)
       txtime = time(NULL);
 
-   BinaryData txHash = BtcUtils::getHash256(rawTx)
+   BinaryData txHash = BtcUtils::getHash256(rawTx);
    if(zeroConfMap_.find(txHash) != zeroConfMap_.end())
       return;
    
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
-   zc.iter_ = zeroConfTxList_.insert(rawTx);
-   zc.txref_.unserialize(*newTxData);
+   zc.iter_ = zeroConfTxList_.insert(zeroConfTxList_.end(), rawTx);
+   zc.txref_.unserialize(rawTx);
    zc.txtime_ = txtime;
 
 
    // Record time.  Write to file
    if(writeToFile)
    {
-      ofstream zcFile(zcFilename_, ios::app | ios::binary);
+      ofstream zcFile(zcFilename_.c_str(), ios::app | ios::binary);
       zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)(&zc.txref_.getPtr()),  zc.txref_.getSize())
+      zcFile.write( (char*)zc.txref_.getPtr(),  zc.txref_.getSize());
       zcFile.close();
    }
 }
@@ -2318,20 +2423,13 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
    // We've made a list of the zc tx to remove, now let's remove them
    // I decided this was safer than erasing the data as we were iterating
    // over it in the previous loop
-   list< map<HashString, ZeroConfData>::iterator >::iterator iter;
-   for(iter  = mapRmList.begin();
-       iter != mapRmList.end();
-       iter++)
+   list< map<HashString, ZeroConfData>::iterator >::iterator rmIter;
+   for(rmIter  = mapRmList.begin();
+       rmIter != mapRmList.end();
+       rmIter++)
    {
-      // Remove from the zero-conf txOuts map
-      for(uint32_t iin=0; iin<txref.getNumTxIn(); iin++)
-      {
-         OutPoint op = txref.getTxInRef(iin).getOutPoint()
-         anyInputsMine = anyInputsMine || wlt.lockTxOut(op)
-      }
-
-      zeroConfTxList_.erase( (*iter)->second.iter_ );
-      zeroConfMap_.erase( *iter )
+      zeroConfTxList_.erase( (*rmIter)->second.iter_ );
+      zeroConfMap_.erase( *rmIter );
    }
 
    // Rewrite the zero-conf pool file
@@ -2342,15 +2440,16 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 {
-   ofstream zcFile(zcFilename_, ios::out | ios::binary);
+   ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
    map<HashString, ZeroConfData>::iterator iter;
    for(iter  = zeroConfMap_.begin();
        iter != zeroConfMap_.end();
        iter++)
    {
+      ZeroConfData & zc = iter->second;
       zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)(&zc.txref_.getPtr()),  zc.txref_.getSize())
+      zcFile.write( (char*)(zc.txref_.getPtr()),  zc.txref_.getSize());
    }
 
    zcFile.close();
@@ -2358,7 +2457,7 @@ void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::updateWalletWithZeroConf(BtcWallet & wlt)
+void BlockDataManager_FullRAM::rebuildZeroConfLedgers(BtcWallet & wlt)
 {
    // Clear the whole list, rebuild
    // Inefficient but also irrelevant unless we have millions of
@@ -2370,66 +2469,49 @@ void BlockDataManager_FullRAM::updateWalletWithZeroConf(BtcWallet & wlt)
        iter != zeroConfMap_.end();
        iter++)
    {
-      TxRef & txref = iter->second.txref_;
-
-      // (Re-)lock any TxOuts spent
-      bool anyInputsMine = false;
-      for(uint32_t iin=0; iin<txref.getNumTxIn(); iin++)
-      {
-         OutPoint op = txref.getTxInRef(iin).getOutPoint()
-         bool wasAffected = wlt.lockTxOut(op)
-         anyInputsMine = anyInputsMine || wasAffected;
-      }
-
-      // Add new TxOuts to a temporary pool
-      for(uint32_t iout=0; iout<txref.getNumTxOut(); iout++)
-      {
-         OutPoint op(txref.getThisHash(), iout);
-         TxOutRef txoutref = txref.getTxOutRef(iout);
-         
-         BinaryData addr160 = BtcUtils::getTxOutRecipientAddr(txoutref.getScriptRef());
-         if( !(addr160==BtcUtils::BadAddress_) && wlt.hasAddr(addr160) )
-         {
-            // If this zero-conf-tx output is ours, let's note it in the wallet
-            wlt.myZeroConfTxOuts_[op] = txoutref;
-            if(anyInputsMine)
-            {
-               // We should separately track zero-conf txouts that came from 
-               // our own wallet:  we should be allowed to spend those immediately
-               // (I believe this is what the Satoshi client does)
-               wlt.myZeroConfOutPointsToSelf_.insert(op);
-            }
-         }
-      }
-
-      // Anything else to do with the BDM zero-conf map?
-      // ...
+      wlt.scanTx(iter->second.txref_, 0, UINT32_MAX, UINT32_MAX);
    }
-
-   bdmAccumTxOutList_ = getUnspentTxOutsForWallet(wlt);
 }
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::clearZeroConfPool(void)
+{
+   ledgerZC_.clear();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> BtcAddress::getZeroConfLedger(void)
+{
+   return ledgerZC_;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::clearZeroConfPool(void)
 {
-   lockedTxOuts_.clear();
-   myZeroConfTxOuts_.clear();
-   myZeroConfOutPointsToSelf_.clear();
+   ledgerAllAddrZC_.clear();
+   for(uint32_t i=0; i<addrMap_.size(); i++)
+      addrPtrVect_[i]->clearZeroConfPool();
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> BtcWallet::getZeroConfLedger(void)
+vector<LedgerEntry> BtcWallet::getZeroConfLedger(BinaryData const * addr160)
 {
-   
+   // Make sure to rebuild the ZC ledgers before calling this method
+   if(addr160==NULL)
+      return ledgerAllAddrZC_;
+   else
+   {
+      if(addrMap_.find(*addr160) == addrMap_.end())
+         return vector<LedgerEntry>(0);
+      else
+         return addrMap_[*addr160].getZeroConfLedger();
+   }
 }
 
 
-vector<LedgerEntry> BtcWallet::getZeroConfLedgerForAddr(BinaryData const & addr160)
-{
-   
-}
+
 
 
 

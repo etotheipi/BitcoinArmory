@@ -1665,7 +1665,7 @@ class DlgVerifySweep(QDialog):
       #frmLayout.addWidget(QRichLabel('Funds will be <i>swept</i>...'), 0,0, 1,2)
       frmLayout.addWidget(QRichLabel('      From ' + inputStr, doWrap=False), 1,0, 1,2)
       frmLayout.addWidget(QRichLabel('      To ' + outputStr, doWrap=False),  2,0, 1,2)
-      frmLayout.addWidget(QRichLabel('      Total %s BTC %s'%(outStr,feeStr), doWrap=False),  3,0, 1,2)
+      frmLayout.addWidget(QRichLabel('      Total <b>%s</b> BTC %s'%(outStr,feeStr), doWrap=False),  3,0, 1,2)
       frm.setLayout(frmLayout)
 
       lblFinalConfirm = QLabel('Are you sure you want to execute this transaction?')
@@ -4754,7 +4754,7 @@ class DlgReviewOfflineTx(QDialog):
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
          reply = QMessageBox.question(self,'Overwrite?', \
          'The signed transaction you are saving was originally loaded '
-         'from:\n\n%s\n\nWould you like to overwrite write it with this '
+         'from:\n\n%s\n\nWould you like to overwrite it with this '
          'signed transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
@@ -5561,8 +5561,8 @@ class DlgDispTxInfo(QDialog):
       self.txInView.verticalHeader().setDefaultSectionSize(20)
       self.txInView.verticalHeader().hide()
       w,h = tightSizeNChar(self.txInView, 1)
-      self.txInView.setMinimumHeight(2*(1.3*h))
-      self.txInView.setMaximumHeight(5*(1.3*h))
+      self.txInView.setMinimumHeight(2*(1.4*h))
+      self.txInView.setMaximumHeight(5*(1.4*h))
       self.txInView.hideColumn(TXINCOLS.OutPt) 
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 
