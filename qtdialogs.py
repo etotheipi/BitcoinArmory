@@ -985,7 +985,7 @@ class DlgWalletDetails(QDialog):
             lbl.setTextFormat(Qt.RichText)
             lbl.setText( '<b>' + lbl.text() + '</b>')
             lbl.setContentsMargins(0, 0, 0, 0)
-            w,h = tightSizeStr(lbl, '9'*14)
+            w,h = tightSizeStr(lbl, '9'*16)
             lbl.setMaximumSize(w,h)
          except AttributeError:
             pass

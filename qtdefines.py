@@ -355,6 +355,7 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
       else:
          frmLayout.addWidget(w)
 
+   frmLayout.setContentsMargins(5,5,5,5)
    frm.setLayout(frmLayout)
    return frm
    
