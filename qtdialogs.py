@@ -1956,8 +1956,8 @@ class DlgAddressInfo(QDialog):
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
       if not watch:      optLayout.addWidget(lbtnSweepA)
-      if adv:            optLayout.addWidget(lbtnDelete)
-      if adv:            optLayout.addWidget(lbtnUnspent)
+      #if adv:            optLayout.addWidget(lbtnDelete)
+      #if adv:            optLayout.addWidget(lbtnUnspent)
 
       if False:          optLayout.addWidget(lbtnMkPaper)  
       if True:           optLayout.addStretch()

@@ -132,8 +132,12 @@ class ArmoryMainWindow(QMainWindow):
 
       w,h = tightSizeNChar(self.ledgerView, 110)
       viewWidth = 1.2*w
-      sectionSz = 1.3*h
-      viewHeight = 6.4*sectionSz
+      if OS_WINDOWS:
+         sectionSz = 1.55*h
+         viewHeight = 6.0*sectionSz
+      else:
+         sectionSz = 1.3*h
+         viewHeight = 6.4*sectionSz
 
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
@@ -234,8 +238,8 @@ class ArmoryMainWindow(QMainWindow):
       
       if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
          layout.addWidget(btnOfflineTx)
-      if self.usermode==USERMODE.Developer:
-         layout.addWidget(btnDevTools)
+      #if self.usermode==USERMODE.Developer:
+         #layout.addWidget(btnDevTools)
       layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
@@ -274,14 +278,15 @@ class ArmoryMainWindow(QMainWindow):
 
       ##########################################################################
       # Set up menu and actions
-      MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
+      #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
+      MENUS = enum('File', 'User')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
-      self.menusList.append( self.menu.addMenu('&Wallet') )
+      #self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
-      self.menusList.append( self.menu.addMenu('&Tools') )
-      self.menusList.append( self.menu.addMenu('&Network') )
+      #self.menusList.append( self.menu.addMenu('&Tools') )
+      #self.menusList.append( self.menu.addMenu('&Network') )
 
 
       actCloseApp = self.createAction('&Quit Armory', self.closeEvent)
@@ -310,37 +315,37 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Network stuff (for now, temporary 
-      def memClear(): self.memoryPoolAction('clear')
-      def memPurge(): self.memoryPoolAction('purge')
-      def memPrint(): self.memoryPoolAction('print')
-      actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
-      actClearMemPool = self.createAction('&Clear',  memClear)
-      actPrintMemPool = self.createAction('&Print',  memPrint)
-      actPurgeMemPool = self.createAction('&Purge',  memPurge)
+      #def memClear(): self.memoryPoolAction('clear')
+      #def memPurge(): self.memoryPoolAction('purge')
+      #def memPrint(): self.memoryPoolAction('print')
+      #actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
+      #actClearMemPool = self.createAction('&Clear',  memClear)
+      #actPrintMemPool = self.createAction('&Print',  memPrint)
+      #actPurgeMemPool = self.createAction('&Purge',  memPurge)
 
-      if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
-         actEnableMemPool.setChecked(True)
+      #if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
+         #actEnableMemPool.setChecked(True)
          
 
-      self.menusList[MENUS.Network].addAction(actEnableMemPool)
-      self.menusList[MENUS.Network].addAction(actClearMemPool)
-      self.menusList[MENUS.Network].addAction(actPrintMemPool)
-      self.menusList[MENUS.Network].addAction(actPurgeMemPool)
+      #self.menusList[MENUS.Network].addAction(actEnableMemPool)
+      #self.menusList[MENUS.Network].addAction(actClearMemPool)
+      #self.menusList[MENUS.Network].addAction(actPrintMemPool)
+      #self.menusList[MENUS.Network].addAction(actPurgeMemPool)
 
       self.NetworkingFactory.purgeMemoryPool()
 
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
-      if not currmode: 
-         # On first run, set to standard mode
+      self.firstModeSwitch=True
+      if currmode=='Standard':
+         self.usermode = USERMODE.Standard               
          actSetModeStd.setChecked(True)
-      else:
-         if currmode==USERMODE.Standard:   
-            actSetModeStd.setChecked(True)
-         if currmode==USERMODE.Advanced:   
-            actSetModeAdv.setChecked(True)
-         if currmode==USERMODE.Developer:  
-            actSetModeDev.setChecked(True)
+      elif currmode=='Advanced':
+         self.usermode = USERMODE.Standard               
+         actSetModeAdv.setChecked(True)
+      elif currmode=='Developer':
+         self.usermode = USERMODE.Standard               
+         actSetModeDev.setChecked(True)
 
       
 
@@ -478,9 +483,13 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('User_Mode', 'Advanced')
       if mode==USERMODE.Developer:
          self.settings.set('User_Mode', 'Developer')
-      QMessageBox.information(self,'Restart Required', \
+
+      if not self.firstModeSwitch:
+         QMessageBox.information(self,'Restart Required', \
          'You must restart Armory in order for the user-mode switching '
          'to take effect.', QMessageBox.Ok)
+
+      self.firstModeSwitch = False
       
 
 
