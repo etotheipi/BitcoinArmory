@@ -82,7 +82,7 @@ public:
    bool      hasTxOutZC(void)     { return (txPtrOfOutputZC_ != NULL); }
    bool      hasTxInZC(void)      { return (txPtrOfInputZC_  != NULL); }
    bool      hasValue(void)       { return (amount_!=0); }
-   uint64_t  getValue(void)       { return amount_;}
+   uint64_t  getValue(void)       { return  amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
    TxOutRef  getTxOutRef(void) const   {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
@@ -95,7 +95,7 @@ public:
 
    pair<bool,bool> reassessValidity(void);
    bool isSentToSelf(void)  { return isSentToSelf_; }
-   bool setSentToSelf(bool isTrue=true) { isSentToSelf_ = isTrue; }
+   void setSentToSelf(bool isTrue=true) { isSentToSelf_ = isTrue; }
 
 
    //////////////////////////////////////////////////////////////////////////////
@@ -113,6 +113,7 @@ public:
    bool isUnspent(void);
    bool isSpendable(void);      
    bool isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf=6);
+   void clearZCFields(void);
 
 private:
    uint64_t  amount_;

@@ -47,17 +47,17 @@ int main(void)
    
 
    //string blkfile("/home/alan/.bitcoin/blk0001.dat");
-   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
+   //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
-   printTestHeader("Read-and-Organize-Blockchain");
-   TestReadAndOrganizeChain(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain");
+   //TestReadAndOrganizeChain(blkfile);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   printTestHeader("Wallet-Relevant-Tx-Scan");
-   TestScanForWalletTx(blkfile);
+   //printTestHeader("Wallet-Relevant-Tx-Scan");
+   //TestScanForWalletTx(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -433,7 +433,7 @@ void TestZeroConf(void)
 
    bdm.enableZeroConf("zctest/mempool_new.bin");
 
-   ifstream zcIn("zctest/mempool.bin", ios::in);
+   ifstream zcIn("zctest/mempool.bin", ios::in | ios::binary);
    zcIn.seekg(0, ios::end);
    uint64_t filesize = (size_t)zcIn.tellg();
    zcIn.seekg(0, ios::beg);
@@ -442,6 +442,8 @@ void TestZeroConf(void)
    zcIn.read((char*)memPool.getPtr(), filesize);
 
    BinaryRefReader brr(memPool);
+   cout << "Starting Wallet:" << endl;
+   wlt.pprintLedger();
    while(brr.getSizeRemaining() > 0)
    {
       cout << endl << endl;

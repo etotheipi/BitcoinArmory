@@ -203,7 +203,7 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
       if(nConf<minConf)
          return true;
    }
-   else if( hasTxOutZC() and !isSentToSelf() )
+   else if( hasTxOutZC() && !isSentToSelf() )
    {
       return true;
    }
@@ -211,6 +211,16 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
 
    return false;
 }
+
+void TxIOPair::clearZCFields(void)
+{
+   txPtrOfOutputZC_ = NULL;
+   txPtrOfInputZC_  = NULL;
+   indexOfOutputZC_ = 0;
+   indexOfInputZC_  = 0;
+   isSentToSelf_    = false;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -460,7 +470,7 @@ void BtcWallet::scanTx(TxRef & tx,
    int64_t totalLedgerAmt = 0;
    bool anyTxInIsOurs   = false;
    bool anyTxOutIsOurs  = false;
-   bool isZeroConf      = (blktime==UINT32_MAX && blknum==UINT32_MAX);
+   bool isZeroConf      = blknum==UINT32_MAX;
 
    vector<bool> thisTxInIsOurs (tx.getNumTxIn(),  false);
    vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
@@ -533,6 +543,8 @@ void BtcWallet::scanTx(TxRef & tx,
 
    // Remaining processing can be inefficient and it will
    // be virtually irrelevant (but it's not *THAT* bad).
+   anyTxInIsOurs   = false;
+   anyTxOutIsOurs  = false;
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -619,12 +631,10 @@ void BtcWallet::scanTx(TxRef & tx,
             OutPoint outpt(tx.getThisHash(), iout);      
             pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
             TxIOPair newTxio;
-            bool legit = newTxio.setTxOutRef(&tx, iout, isZeroConf);
-            if(!legit)
-               continue;
-
+            newTxio.setTxOutRef(&tx, iout, isZeroConf);
             if(anyTxInIsOurs)
                newTxio.setSentToSelf();
+
             pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
             insResult = txioMap_.insert(toBeInserted);
 
@@ -686,8 +696,8 @@ void BtcWallet::scanTx(TxRef & tx,
    {
       // Without this conditional, we get multiple entries if we ever
       // scan the same tx multiple times
-      if(txrefSet_.count(&tx) == 0)
-      {
+      //if(txrefSet_.count(&tx) == 0)
+      //{
          txrefSet_.insert(&tx);
          LedgerEntry le( BinaryData(0),
                          totalLedgerAmt, 
@@ -702,7 +712,7 @@ void BtcWallet::scanTx(TxRef & tx,
             ledgerAllAddrZC_.push_back(le);
          else
             ledgerAllAddr_.push_back(le);
-      }
+      //}
 
    }
 }
@@ -723,19 +733,19 @@ void BtcWallet::scanTx(TxRef & tx,
 // (4)  Return the combined ledger for the zero-conf addresses
 // (5)  Maintain this ledger separately in the calling calling code
 // (6)  Throw away this ledger whenever a new block is received, rescan
-vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
-                                              vector<TxRef*> zcList)
-{
-   // Prepare fresh, temporary wallet with same addresses
-   BtcWallet tempWlt;
-   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-      tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
-
-   for(uint32_t i=0; i<zcList.size(); i++)
-      tempWlt.scanTx(*zcList[i], 0, UINT32_MAX, UINT32_MAX);
-
-   return tempWlt.ledgerAllAddr_;
-}
+//vector<LedgerEntry> BtcWallet::getLedgerEntriesForZeroConfTxList(
+                                              //vector<TxRef*> zcList)
+//{
+   //// Prepare fresh, temporary wallet with same addresses
+   //BtcWallet tempWlt;
+   //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+      //tempWlt.addAddress( addrPtrVect_[i]->getAddrStr20() );
+//
+   //for(uint32_t i=0; i<zcList.size(); i++)
+      //tempWlt.scanTx(*zcList[i], 0, UINT32_MAX, UINT32_MAX);
+//
+   //return tempWlt.ledgerAllAddr_;
+//}
 
 
 
@@ -1303,20 +1313,6 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
          myWallet.scanTx(tx, itx, bhr.getTimestamp(), bhr.getBlockHeight());
       }
    }
-
-   
-   if(zcEnabled_)
-   {
-      myWallet.clearZeroConfPool();
-      map<HashString, ZeroConfData>::iterator iter;
-      for(iter  = zeroConfMap_.begin();
-          iter != zeroConfMap_.end();
-          iter++)
-      {
-         myWallet.scanTx(iter->second.txref_, 0, UINT32_MAX, UINT32_MAX);
-      }
-   }
-   
 
    myWallet.sortLedger(); // removes invalid tx and sorts
    PDEBUG("Done scanning blockchain for tx");
@@ -2424,7 +2420,7 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
    zc.iter_ = zeroConfTxList_.insert(zeroConfTxList_.end(), rawTx);
-   zc.txref_.unserialize(rawTx);
+   zc.txref_.unserialize(*(zc.iter_));
    zc.txtime_ = txtime;
 
 
@@ -2505,7 +2501,7 @@ void BlockDataManager_FullRAM::rebuildZeroConfLedgers(BtcWallet & wlt)
        iter != zeroConfMap_.end();
        iter++)
    {
-      wlt.scanTx(iter->second.txref_, 0, UINT32_MAX, UINT32_MAX);
+      wlt.scanTx(iter->second.txref_, 0, iter->second.txtime_, UINT32_MAX);
    }
 }
 
@@ -2529,6 +2525,33 @@ void BtcWallet::clearZeroConfPool(void)
    ledgerAllAddrZC_.clear();
    for(uint32_t i=0; i<addrMap_.size(); i++)
       addrPtrVect_[i]->clearZeroConfPool();
+
+
+   // Need to "unlock" the TxIOPairs that were locked with zero-conf txs
+   list< map<OutPoint, TxIOPair>::iterator > rmList;
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      iter->second.clearZCFields();
+      if(!iter->second.hasTxOut())
+      {
+         rmList.push_back(iter);
+      }
+   }
+
+   // If a TxIOPair exists only because of the TxOutZC, then we should 
+   // remove to ensure that it won't conflict with any logic that only 
+   // checks for the *existence* of a TxIOPair, whereas the TxIOPair might 
+   // actually be "empty" but would throw off some other logic.
+   list< map<OutPoint, TxIOPair>::iterator >::iterator rmIter;
+   for(rmIter  = rmList.begin();
+       rmIter != rmList.end();
+       rmIter++)
+   {
+      txioMap_.erase(*rmIter);
+   }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

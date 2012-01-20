@@ -441,6 +441,7 @@ void TxRef::unserialize(uint8_t const * ptr)
    nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
    BtcUtils::getHash256(ptr, nBytes_, thisHash_);
    self_.setRef(ptr, nBytes_);
+   headerPtr_ = NULL;
    isInitialized_ = true;
    isMainBranch_ = false;  // only BDM::organizeChain() can set this
 }
@@ -576,7 +577,7 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 void TxRef::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
-   if(not headerPtr_==NULL)
+   if(headerPtr_!=NULL)
    {
       cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
       cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;
