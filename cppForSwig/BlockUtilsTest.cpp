@@ -27,6 +27,7 @@ void TestReadAndOrganizeChain(string blkfile);
 void TestFindNonStdTx(string blkfile);
 void TestScanForWalletTx(string blkfile);
 void TestReorgBlockchain(string blkfile);
+void TestZeroConf(void);
 void TestCrypto(void);
 void TestECDSA(void);
 ////////////////////////////////////////////////////////////////////////////////
@@ -61,11 +62,14 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
 
-   printTestHeader("Crypto-KDF-and-AES-methods");
-   TestCrypto();
+   printTestHeader("Testing Zero-conf handling");
+   TestZeroConf();
 
-   printTestHeader("Crypto-ECDSA-sign-verify");
-   TestECDSA();
+   //printTestHeader("Crypto-KDF-and-AES-methods");
+   //TestCrypto();
+
+   //printTestHeader("Crypto-ECDSA-sign-verify");
+   //TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -135,7 +139,7 @@ void TestFindNonStdTx(string blkfile)
 void TestScanForWalletTx(string blkfile)
 {
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
-   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
+   bdm.readBlkFile_FromScratch(blkfile);
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
    BtcWallet wlt;
@@ -240,31 +244,10 @@ void TestScanForWalletTx(string blkfile)
    cout << endl;
 
 
-   cout << "Testing scanning of zero-conf tx" << endl;
-   cout << "(This test only works on the testnet, using the snapshot of the blockchain in testnet_zctest)" << endl;
-   BtcWallet zcWlt;
-   //myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); zcWlt.addAddress(myAddress);
-   //myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); zcWlt.addAddress(myAddress);
-   //myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); zcWlt.addAddress(myAddress);
-   //myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); zcWlt.addAddress(myAddress);
-   //myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); zcWlt.addAddress(myAddress);
-   
-   myAddress.createFromHex("dbc51f25da9eaeaf201a2170e708276e70607352"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("ba329bec1e6f2fccf5e337ce93773ec89cf6f9a0"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("62a30712644ae99a8e6d8a5ffa5a0911112b4480"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("374d0c87437216ddf6a5576b6af7073f4853df4f"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("f2e6ca0bceef41b6a7f10b995de36fc8e2770865"); zcWlt.addAddress(myAddress);
-   myAddress.createFromHex("7166ed42fec99ae755524f0397c89b4ec934fd78"); zcWlt.addAddress(myAddress);
-
-   bdm.scanBlockchainForTx(zcWlt);
-
    // Test the zero-conf ledger-entry detection
-   //BinaryData txSelf = BinaryData::CreateFromHex("010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000");
-
-   //LedgerEntry le = zcWlt.getWalletLedgerEntryForTx(txSelf);
    //le.pprint();
 
-   //vector<LedgerEntry> levect = zcWlt.getAddrLedgerEntriesForTx(txSelf);
+   //vector<LedgerEntry> levect = wlt.getAddrLedgerEntriesForTx(txSelf);
    //for(int i=0; i<levect.size(); i++)
    //{
       //levect[i].pprint();
@@ -431,6 +414,46 @@ void TestReorgBlockchain(string blkfile)
 
 }
 
+
+void TestZeroConf(void)
+{
+
+   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   bdm.Reset();
+   bdm.readBlkFile_FromScratch("zctest/blk0001.dat");
+
+   // More testnet addresses, with only a few transactions
+   BinaryData myAddress;
+   BtcWallet wlt;
+   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
+   bdm.scanBlockchainForTx(wlt);
+
+   bdm.enableZeroConf("zctest/mempool_new.bin");
+
+   ifstream zcIn("zctest/mempool.bin", ios::in);
+   zcIn.seekg(0, ios::end);
+   uint64_t filesize = (size_t)zcIn.tellg();
+   zcIn.seekg(0, ios::beg);
+
+   BinaryData memPool(filesize);
+   zcIn.read((char*)memPool.getPtr(), filesize);
+
+   BinaryRefReader brr(memPool);
+   while(brr.getSizeRemaining() > 0)
+   {
+      cout << endl << endl;
+      cout << "Inserting another 0-conf tx..." << endl;
+      uint64_t txtime = brr.get_uint64_t();
+      TxRef zcTx(brr);
+      bdm.addNewZeroConfTx(zcTx.serialize(), txtime);
+      bdm.rebuildZeroConfLedgers(wlt);
+      wlt.pprintLedger();
+   }
+
+}
 
 
 void TestCrypto(void)

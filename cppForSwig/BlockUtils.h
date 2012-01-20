@@ -172,6 +172,7 @@ public:
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
+      txTime_(0),
       isValid_(false),
       isSentToSelf_(false),
       isChangeBack_(false) {}
@@ -181,6 +182,7 @@ public:
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx,
+               uint64_t txtime=0,
                bool isToSelf=false,
                bool isChange=false) :
       addr20_(addr20),
@@ -188,6 +190,7 @@ public:
       blockNum_(blkNum),
       txHash_(txhash),
       index_(idx),
+      txTime_(txtime),
       isValid_(true),
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
@@ -197,6 +200,7 @@ public:
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
    uint32_t            getIndex(void) const     { return index_;         }
+   uint32_t            getTxTime(void) const    { return txTime_;        }
    bool                isValid(void) const      { return isValid_;       }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
@@ -209,6 +213,7 @@ public:
    bool operator==(LedgerEntry const & le2) const;
 
    void pprint(void);
+   void pprintOneLine(void);
 
 private:
    
@@ -218,6 +223,7 @@ private:
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
+   uint64_t         txTime_;
    bool             isValid_;
    bool             isSentToSelf_;
    bool             isChangeBack_;;
@@ -278,7 +284,7 @@ public:
    uint64_t getUltimateBalance(void);
    uint64_t getSpendableBalance(void);
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
-   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
    void clearZeroConfPool(void);
    vector<LedgerEntry> getZeroConfLedger(void);
 
@@ -290,6 +296,7 @@ public:
    void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
    void addLedgerEntry(LedgerEntry const & le, bool isZeroConf); 
 
+   void pprintLedger(void);
 
 private:
    BinaryData address20_;
@@ -392,6 +399,7 @@ public:
 
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
+   void pprintLedger(void);
 
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}

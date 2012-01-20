@@ -2361,6 +2361,9 @@ class DlgImportPaperWallet(QDialog):
       self.setLayout(layout)
       
 
+      self.setWindowTitle('Recover Wallet from Paper Backup')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
 
    def autoSpacerFunction(self, i):
       currStr = str(self.lineEdits[i].text())

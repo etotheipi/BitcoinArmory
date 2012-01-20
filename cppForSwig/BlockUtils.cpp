@@ -8,6 +8,7 @@
 
 #include <algorithm>
 #include <time.h>
+#include <stdio.h>
 #include "BlockUtils.h"
 
 
@@ -249,6 +250,16 @@ void LedgerEntry::pprint(void)
    cout << endl;
 }
 
+void LedgerEntry::pprintOneLine(void)
+{
+   printf("   Addr:%s Tx:%s:%02d   BTC:%0.3f   Blk:%06d\n", 
+                           "   ",
+                           getTxHash().getSliceCopy(0,8).toHexStr().c_str(),
+                           getIndex(),
+                           getValue()/1e8,
+                           getBlockNum());
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -349,6 +360,7 @@ void BtcAddress::sortLedger(void)
    sort(ledger_.begin(), ledger_.end());
 }
 
+////////////////////////////////////////////////////////////////////////////////
 void BtcAddress::addLedgerEntry(LedgerEntry const & le, bool isZeroConf)
 { 
    if(isZeroConf)
@@ -356,6 +368,18 @@ void BtcAddress::addLedgerEntry(LedgerEntry const & le, bool isZeroConf)
    else
       ledger_.push_back(le);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::pprintLedger(void)
+{ 
+   cout << "Address Ledger: " << getAddrStr20().toHexStr() << endl;
+   for(uint32_t i=0; i<ledger_.size(); i++)
+      ledger_[i].pprintOneLine();
+   for(uint32_t i=0; i<ledgerZC_.size(); i++)
+      ledgerZC_[i].pprintOneLine();
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -554,6 +578,7 @@ void BtcWallet::scanTx(TxRef & tx,
                                     blknum, 
                                     tx.getThisHash(), 
                                     iin,
+                                    blktime,
                                     false,  // actually we don't know yet if sent to self
                                     false); // "isChangeBack" is meaningless for TxIn
                thisAddr.addLedgerEntry(newEntry, isZeroConf);
@@ -618,6 +643,7 @@ void BtcWallet::scanTx(TxRef & tx,
                                      blknum, 
                                      tx.getThisHash(), 
                                      iout,
+                                     blktime,
                                      anyTxInIsOurs,
                                      false);  // we don't actually know
                thisAddr.addLedgerEntry(newLedger, isZeroConf);
@@ -668,6 +694,7 @@ void BtcWallet::scanTx(TxRef & tx,
                          blknum, 
                          tx.getThisHash(), 
                          txIndex,
+                         blktime,
                          isSentToSelf,
                          isChangeBack);
 
@@ -970,6 +997,15 @@ bool BtcWallet::isOutPointMine(BinaryData const & hsh, uint32_t idx)
    return (txioMap_.find(op)!=txioMap_.end());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::pprintLedger(void)
+{ 
+   cout << "Wallet Ledger:" << endl;
+   for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
+      ledgerAllAddr_[i].pprintOneLine();
+   for(uint32_t i=0; i<ledgerAllAddrZC_.size(); i++)
+      ledgerAllAddrZC_[i].pprintOneLine();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
