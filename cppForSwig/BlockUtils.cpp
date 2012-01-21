@@ -352,7 +352,7 @@ uint64_t BtcAddress::getUnconfirmedBalance(uint32_t currBlk)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcAddress::getUltimateBalance(void)
+uint64_t BtcAddress::getFullBalance(void)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
@@ -395,6 +395,30 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
    return utxoList;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcAddress::getFullTxOutList(uint32_t blkNum)
+{
+   vector<UnspentTxOut> utxoList(0);
+   for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
+   {
+      TxIOPair & txio = *relevantTxIOPtrs_[i];
+      if(txio.isUnspent())
+      {
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+      }
+   }
+   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
+   {
+      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
+      if(txio.isUnspent())
+      {
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+      }
+   }
+   return utxoList;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BtcAddress::removeInvalidEntries(void)   
@@ -531,7 +555,7 @@ bool BtcWallet::hasAddr(BinaryData const & addr20)
 // but I still need the time/num 
 void BtcWallet::scanTx(TxRef & tx, 
                        uint32_t txIndex,
-                       uint32_t blktime,
+                       uint32_t txtime,
                        uint32_t blknum)
 {
    int64_t totalLedgerAmt = 0;
@@ -657,14 +681,14 @@ void BtcWallet::scanTx(TxRef & tx,
                                     blknum, 
                                     tx.getThisHash(), 
                                     iin,
-                                    blktime,
+                                    txtime,
                                     false,  // actually we don't know yet if sent to self
                                     false); // "isChangeBack" is meaningless for TxIn
                thisAddr.addLedgerEntry(newEntry, isZeroConf);
                totalLedgerAmt -= thisVal;
 
                // Update last seen on the network
-               thisAddr.setLastTimestamp(blktime);
+               thisAddr.setLastTimestamp(txtime);
                thisAddr.setLastBlockNum(blknum);
             }
          }
@@ -720,7 +744,7 @@ void BtcWallet::scanTx(TxRef & tx,
                                      blknum, 
                                      tx.getThisHash(), 
                                      iout,
-                                     blktime,
+                                     txtime,
                                      anyTxInIsOurs,
                                      false);  // we don't actually know
                thisAddr.addLedgerEntry(newLedger, isZeroConf);
@@ -729,10 +753,10 @@ void BtcWallet::scanTx(TxRef & tx,
                if(thisAddr.getFirstTimestamp() == 0)
                {
                   thisAddr.setFirstBlockNum( blknum );
-                  thisAddr.setFirstTimestamp( blktime );
+                  thisAddr.setFirstTimestamp( txtime );
                }
                // Update last seen on the network
-               thisAddr.setLastTimestamp(blktime);
+               thisAddr.setLastTimestamp(txtime);
                thisAddr.setLastBlockNum(blknum);
             }
             else
@@ -767,7 +791,7 @@ void BtcWallet::scanTx(TxRef & tx,
                       blknum, 
                       tx.getThisHash(), 
                       txIndex,
-                      blktime,
+                      txtime,
                       isSentToSelf,
                       isChangeBack);
 
@@ -986,7 +1010,7 @@ uint64_t BtcWallet::getUnconfirmedBalance(uint32_t currBlk)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getUltimateBalance(void)
+uint64_t BtcWallet::getFullBalance(void)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1020,6 +1044,24 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
+{
+   vector<UnspentTxOut> utxoList(0);
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      TxIOPair & txio = iter->second;
+      if(txio.isUnspent())
+      {
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back(UnspentTxOut(txoutref, blkNum) );
+      }
+   }
+   return utxoList;
+}
 
 
 
@@ -2574,7 +2616,7 @@ void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::rebuildZeroConfLedgers(BtcWallet & wlt)
+void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 {
    // Clear the whole list, rebuild
    // Inefficient but also irrelevant unless we have millions of

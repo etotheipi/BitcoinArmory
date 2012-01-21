@@ -199,11 +199,11 @@ class ArmoryMainWindow(QMainWindow):
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
       self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
-      self.lblTotalFunds  = QRichLabel()
-      self.lblSpendFunds  = QRichLabel()
-      self.lblUnconfFunds = QRichLabel()
+      self.lblTotalFunds  = QRichLabel('')
+      self.lblSpendFunds  = QRichLabel('')
+      self.lblUnconfFunds = QRichLabel('')
 
-      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblSpendFunds, self.lblUnconfirmed])
+      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblSpendFunds, self.lblUnconfFunds])
       frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
                                            self.comboWalletSelect, \
                                            'Stretch', \
@@ -316,25 +316,6 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.User].addAction(actSetModeDev)
 
 
-      # Network stuff (for now, temporary 
-      #def memClear(): self.memoryPoolAction('clear')
-      #def memPurge(): self.memoryPoolAction('purge')
-      #def memPrint(): self.memoryPoolAction('print')
-      #actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
-      #actClearMemPool = self.createAction('&Clear',  memClear)
-      #actPrintMemPool = self.createAction('&Print',  memPrint)
-      #actPurgeMemPool = self.createAction('&Purge',  memPurge)
-
-      #if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
-         #actEnableMemPool.setChecked(True)
-         
-
-      #self.menusList[MENUS.Network].addAction(actEnableMemPool)
-      #self.menusList[MENUS.Network].addAction(actClearMemPool)
-      #self.menusList[MENUS.Network].addAction(actPrintMemPool)
-      #self.menusList[MENUS.Network].addAction(actPurgeMemPool)
-
-      self.NetworkingFactory.purgeMemoryPool()
 
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
@@ -387,38 +368,6 @@ class ArmoryMainWindow(QMainWindow):
             dlg = DlgReviewOfflineTx(self,self)
             dlg.exec_()
 
-
-   #############################################################################
-   def memoryPoolAction(self, opString):
-      if opString.lower()=='clear':
-         self.NetworkingFactory.zeroConfTx.clear()
-         self.NetworkingFactory.zeroConfTxTime.clear()
-         self.NetworkingFactory.saveMemoryPool()
-      elif opString.lower()=='print':
-         for k,v in self.NetworkingFactory.zeroConfTx.iteritems():
-            print binary_to_hex(k), 
-            print ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
-      elif opString.lower()=='purge':
-         print 'Before purging:'
-         self.memoryPoolAction('Print')
-         self.NetworkingFactory.purgeMemoryPool()
-         print 'After purging:'
-         self.memoryPoolAction('Print')
-
-   def enableMemoryPool(self, doEnable):
-      if doEnable: 
-         QMessageBox.information(self,'Zero-Confirmation Transactions', \
-         'Zero-confirmation transactions in Armory are not handled well.  A short-'
-         'term solution has been implemented, but it usually results in extra, '
-         'ghost transactions appearing in the wallet ledger.  Please do not consider '
-         'any such transactions to be truth, until you see them with 1 or more '
-         'confirmations. \n\n'
-         'You can use the "Network" menu to clear or purge the memory pool if '
-         'too many transactions appear. \n\n'
-         'This feature will be fixed in the following release.', QMessageBox.Ok)
-         self.settings.set('ZeroConfEnable', True)
-      else:
-         self.settings.set('ZeroConfEnable', False)
 
    #############################################################################
    def sizeHint(self):
@@ -546,15 +495,14 @@ class ArmoryMainWindow(QMainWindow):
          print '! Trying to restart connection !'
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
-      def lockTxOutsAsNecessary(pytxObj):
+      def newTxFunc(pytxObj):
+         TheBDM.addNewZeroConfTx(pytxObj.serialize())
          for wlt in self.walletMap.itervalues():
-            wlt.lockTxOutsOnNewTx(pytxObj)
+            TheBDM.rescanWalletZeroConf(wlt)
 
       self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=restartConnection, \
-                                       func_newTx=lockTxOutsAsNecessary)
-      self.NetworkingFactory.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
-      self.NetworkingFactory.loadMemoryPool()
+                                       func_newTx=newTxFunc)
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
 
@@ -569,7 +517,6 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.getSettingOrSetDefault('User_Mode',          'Advanced')
       self.settings.getSettingOrSetDefault('UnlockTimeout',      10)
       self.settings.getSettingOrSetDefault('DNAA_UnlockTimeout', False)
-      self.settings.getSettingOrSetDefault('ZeroConfEnable',     False)
 
 
       # Determine if we need to do new-user operations, increment load-count
@@ -607,8 +554,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.latestBlockNum = 0
 
-      self.zeroConfWltLEs = {}
-      self.zeroConfAddrLEs = {}
 
 
       print 'Loading wallets...'
@@ -754,7 +699,7 @@ class ArmoryMainWindow(QMainWindow):
             print 'Syncing', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
-            TheBDM.rebuildZeroConfLedgers(self.walletMap[wltID]
+            TheBDM.rebuildZeroConfLedgers(self.walletMap[wltID])
 
             # We need to mirror all blockchain & wallet data in linear lists
             wltIndex = self.walletIndices[wltID]
@@ -819,17 +764,25 @@ class ArmoryMainWindow(QMainWindow):
                #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
                
 
-      self.combinedLedger = []
       if wltIDList==None:
          return
 
+      self.combinedLedger = []
+      totalFunds  = 0
+      spendFunds  = 0
+      unconfFunds = 0
+      currBlk = 0xffffffff
+      if TheBDM.isInitialized():
+         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
-         index = self.walletIndices[wltID]
-
-         # Add the LedgerEntries from the blockchain
          for ledgList in [wlt.getTxLedger(), wlt.getZeroConfLedger()]:
+            id_le_pairs = [[wltID, le] for le in ledgList]
             self.combinedLedger.extend(id_le_pairs)
+            totalFunds += wlt.getBalance('Total')
+            spendFunds += wlt.getBalance('Spendable')
+            unconfFunds += wlt.getBalance('Unconfirmed', currBlk)
 
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
@@ -838,12 +791,13 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-               
          uncolor = 'red' if unconfFund>0 else 'black'
-         self.lblUnconfirmed.setText( \
-            '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
          self.lblTotalFunds.setText( \
-            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
+            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totalFunds))
+         self.lblSpendFunds.setText( \
+            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(spendFunds))
+         self.lblUnconfFunds.setText( \
+            '<b>Unconfirmed: <font color="green">%s</font> BTC</b>' % coin2str(unconfFunds))
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
@@ -862,7 +816,6 @@ class ArmoryMainWindow(QMainWindow):
          if not txref:
             print 'Why no txref? ', binary_to_hex(txHash)
             return 0
-
          valIn, valOut = 0,0
          for i in range(txref.getNumTxIn()):
             valIn += TheBDM.getSentValue(txref.getTxInRef(i))
@@ -937,15 +890,9 @@ class ArmoryMainWindow(QMainWindow):
          row.append(nConf)
 
          # Date
-         if nConf>0: 
-            txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
-         else:       
-            pass
-            txtime = 0
-            #txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
-         row.append(unixTimeToFormatStr(txtime))
+         row.append(unixTimeToFormatStr(le.getTxTime()))
 
-         # TxDir (actually just the amt... use the sign of the amt for what you want)
+         # TxDir (actually just the amt... use the sign of the amt to determine dir)
          row.append(coin2str(le.getValue(), maxZeros=2))
 
          # Wlt Name
@@ -1161,11 +1108,8 @@ class ArmoryMainWindow(QMainWindow):
       addr160List = [a.getAddr160() for a in addrToSweepList]
       getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
 
-      utxoList = getUnspentTxOutsForAddrList(addr160List)
+      utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep')
       outValue = sumTxOutList(utxoList)
-
-      #pprintUnspentTxOutList(utxoList)
-      #print 'OutValue:', outValue
       
 
       inputSide = []
@@ -1187,7 +1131,6 @@ class ArmoryMainWindow(QMainWindow):
       outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
-      #pytx.pprint()
       return (pytx, outValue, minFee)
 
 
@@ -1217,10 +1160,7 @@ class ArmoryMainWindow(QMainWindow):
          # TODO:  MAKE SURE THE TX WAS ACCEPTED?
          # But I'm not ready to implement this, so far now I'll just assume 
          # it worked... will be fixed in the next release
-         self.NetworkingFactory.addTxToMemoryPool(pytx)
-         for wltID,wlt in self.walletMap.iteritems():
-            wlt.lockTxOutsOnNewTx(pytx.copy())
-         self.NetworkingFactory.saveMemoryPool()
+         
 
          QMessageBox.information(self, 'Broadcast Complete!', \
             'The transaction has been broadcast to the Bitcoin network.  However '
@@ -1316,8 +1256,6 @@ class ArmoryMainWindow(QMainWindow):
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
-         if self.NetworkingFactory.zeroConfTx.has_key(txHashBin):
-            pytx = self.NetworkingFactory.zeroConfTx[txHashBin]
          if TheBDM.isInitialized():
             cppTx = TheBDM.getTxByHash(txHashBin)
             if cppTx:
@@ -1375,12 +1313,14 @@ class ArmoryMainWindow(QMainWindow):
          newBlks = TheBDM.readBlkFileUpdate()
          self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
          if newBlks>0:
+            TheBDM.purgeMemoryPool()
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
             didAffectUs = False
             for wltID in self.walletMap.keys():
                prevLedgerSize = len(self.walletMap[wltID].getTxLedger())
                self.walletMap[wltID].syncWithBlockchain()
+               TheBDM.rescanWalletZeroConf(self.walletMap[wltID])
                newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                didAffectUs = (prevLedgerSize != newLedgerSize)
          
@@ -1388,7 +1328,6 @@ class ArmoryMainWindow(QMainWindow):
             if didAffectUs:
                print 'New Block contained a transaction relevant to us!'
                self.walletListChanged()
-            self.NetworkingFactory.purgeMemoryPool()
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
             self.settings.set('LastBlkRecvTime', self.blkReceived)
@@ -1423,7 +1362,6 @@ class ArmoryMainWindow(QMainWindow):
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
-      #self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
       reactor.stop()

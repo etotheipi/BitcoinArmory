@@ -174,8 +174,8 @@ void TestScanForWalletTx(string blkfile)
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt.getAddrByIndex(i).getUltimateBalance() << ","
-                         << wlt.getAddrByHash160(addr20).getUltimateBalance() << endl;
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getFullBalance() << ","
+                         << wlt.getAddrByHash160(addr20).getFullBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
@@ -325,12 +325,12 @@ void TestReorgBlockchain(string blkfile)
       cout << endl;
    }
    cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
-   cout << "                          Balance: " << wlt2.getUltimateBalance()/1e8 << endl;
+   cout << "                          Balance: " << wlt2.getFullBalance()/1e8 << endl;
    for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getUltimateBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getUltimateBalance() << endl;
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getFullBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getFullBalance() << endl;
       vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
@@ -371,7 +371,7 @@ void TestReorgBlockchain(string blkfile)
       bdm.updateWalletAfterReorg(wlt2);
    }
 
-   cout << "Checking balance of entire wallet: " << wlt2.getUltimateBalance()/1e8 << endl;
+   cout << "Checking balance of entire wallet: " << wlt2.getFullBalance()/1e8 << endl;
    vector<LedgerEntry> const & ledgerAll3 = wlt2.getTxLedger();
    for(uint32_t j=0; j<ledgerAll3.size(); j++)
    {  
@@ -389,8 +389,8 @@ void TestReorgBlockchain(string blkfile)
    for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
    {
       BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getUltimateBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getUltimateBalance()/1e8 << endl;
+      cout << "  Addr: " << wlt2.getAddrByIndex(i).getFullBalance()/1e8 << ","
+                         << wlt2.getAddrByHash160(addr20).getFullBalance()/1e8 << endl;
       vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
@@ -452,9 +452,9 @@ void TestZeroConf(void)
       uint64_t txtime = brr.get_uint64_t();
       TxRef zcTx(brr);
       bdm.addNewZeroConfTx(zcTx.serialize(), txtime);
-      bdm.rebuildZeroConfLedgers(wlt);
+      bdm.rescanWalletZeroConf(wlt);
 
-      cout << "UltBal: " << wlt.getUltimateBalance() << endl;
+      cout << "UltBal: " << wlt.getFullBalance() << endl;
       cout << "SpdBal: " << wlt.getSpendableBalance() << endl;
       cout << "UncBal: " << wlt.getUnconfirmedBalance(currBlk) << endl;
       wlt.pprintLedger();

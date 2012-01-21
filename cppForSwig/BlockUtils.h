@@ -282,9 +282,10 @@ public:
    // only a convenience, if you want to be able to calculate numConf from
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
-   uint64_t getUltimateBalance(void);
+   uint64_t getFullBalance(void);
    uint64_t getSpendableBalance(void);
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
    void clearZeroConfPool(void);
 
@@ -377,9 +378,10 @@ public:
    // only a convenience, if you want to be able to calculate numConf from
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
-   uint64_t getUltimateBalance(void);
+   uint64_t getFullBalance(void);
    uint64_t getSpendableBalance(void);
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
    void clearZeroConfPool(void);
 
@@ -660,7 +662,7 @@ public:
    void addNewZeroConfTx(BinaryData const & rawTx, uint64_t txtime, bool writeToFile=true);
    void purgeZeroConfPool(void);
    void rewriteZeroConfFile(void);
-   void rebuildZeroConfLedgers(BtcWallet & wlt);
+   void rescanWalletZeroConf(BtcWallet & wlt);
 
 
    // After reading in all headers, find the longest chain and set nextHash vals

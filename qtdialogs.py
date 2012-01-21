@@ -1225,7 +1225,7 @@ class DlgNewAddressDisp(QDialog):
 
       if not notMyWallet:
          palette = QPalette()
-         palette.setColor( QPalette.Base, Colors.LightBlue )
+         palette.setColor( QPalette.Base, Colors.WltMine )
          boldFont = self.edtNewAddr.font()
          boldFont.setWeight(QFont.Bold)
          self.edtNewAddr.setFont(boldFont)
@@ -1781,8 +1781,8 @@ class DlgAddressInfo(QDialog):
       self.addr   = self.wlt.getAddrByHash160(addr160)
 
 
-      self.addrLedger = wlt.getTxLedger(addr160)
-      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
+      self.addrLedger = wlt.getAddrTxLedger(addr160)
+      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
 
 
@@ -1853,8 +1853,8 @@ class DlgAddressInfo(QDialog):
             'The current balance based on transactions already in the blockchain.  '
             'This only includes transactions with 1 or more confirmations.'))
       lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
-      balStr = coin2str(cppAddr.getBalance(), maxZeros=1)
-      if cppAddr.getBalance()>0:
+      balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
+      if cppAddr.getSpendableBalance()>0:
          lbls[-1].append( QRichLabel( '<font color="green">' + balStr.strip() + '</font> BTC' ))
       else:   
          lbls[-1].append( QRichLabel( balStr.strip() + ' BTC'))
@@ -2661,9 +2661,9 @@ class DlgRemoveWallet(QDialog):
       wltEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.getBalance()
+         bal = wlt.getFullBalance()
          lbls.append([])
-         lbls[3].append(QLabel('Current Balance:'))
+         lbls[3].append(QLabel('Current Balance (w/ unconfirmed):'))
          if bal>0:
             lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1).strip()+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
@@ -2930,9 +2930,9 @@ class DlgRemoveAddress(QDialog):
       addrEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.cppWallet.getAddrByHash160(addr160).getBalance()
+         bal = wlt.cppWallet.getAddrByHash160(addr160).getFullBalance()
          lbls.append([])
-         lbls[-1].append(QLabel('Address Balance:'))
+         lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))
          if bal>0:
             lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1)+' BTC</b></font>'))
             lbls[-1][-1].setTextFormat(Qt.RichText)
@@ -3148,11 +3148,11 @@ class DlgWalletSelect(QDialog):
       self.dispName.setText(wlt.labelName)
       self.dispDescr.setText(wlt.labelDescr)
       
-      bal = wlt.getBalance()
+      bal = wlt.getSpendableBalance()
       if bal==0:
          self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getSpendableBalance(), maxZeros=1)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
@@ -3188,10 +3188,10 @@ def getWalletInfoFrame(wlt):
    dispBal = QLabel()
 
    # Format balance if necessary
-   bal = wlt.getBalance()
+   bal = wlt.getSpendableBalance()
    dispBal.setTextFormat(Qt.RichText) 
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(wlt.getSpendableBalance(), maxZeros=1)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -3457,10 +3457,10 @@ class DlgSendBitcoins(QDialog):
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
          not loadCount==lastPestering and not dnaaDonate and \
-         wlt.getBalance() > 5*ONE_BTC and not USE_TESTNET:
+         wlt.getSpendableBalance() > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
-            'and many months of anti-social behavior.  Yet, this software has been '
+            'and dozens of late nights.  Yet, this software has been '
             'given to you for free, to benefit the greater Bitcoin community! '
             '<br><br>However, continued development may not be possible without '
             'donations.  If you are satisfied with this software, please consider '
@@ -3656,10 +3656,10 @@ class DlgSendBitcoins(QDialog):
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
          
-      bal = self.wlt.getBalance()
+      bal = self.wlt.getSpendableBalance()
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
-            '%s BTC (including tx fee), but you only have %s BTC in this wallet!' % \
+            '%s BTC (including tx fee), but you only have %s BTC (spendable) in this wallet!' % \
                (coin2str(totalSend+fee, maxZeros=2).strip(), \
                 coin2str(bal, maxZeros=2).strip()), \
             QMessageBox.Ok)
@@ -5088,7 +5088,7 @@ class DlgAddressProperties(QDialog):
 
 
 ################################################################################
-def extractTxInfo(pytx, zcTimeList=None):
+def extractTxInfo(pytx):
 
    
    pytxdp = None
@@ -5133,10 +5133,6 @@ def extractTxInfo(pytx, zcTimeList=None):
          txTime  = headref.getTimestamp()
          txBlk   = headref.getBlockHeight()
          txIdx   = txref.getBlockTxIndex()
-      else:
-         if zcTimeList and zcTimeList.has_key(txHash):
-            txTime = zcTimeList[txHash]
-            txBlk  = 2**32-1
    
    txinFromList = []
    if TheBDM.isInitialized() and not txref==None:
