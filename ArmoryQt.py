@@ -57,11 +57,15 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
+      self.abortLoad = False
 
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
+
+      if self.abortLoad:
+         return
 
       self.extraHeartbeatFunctions = []
 
@@ -128,8 +132,12 @@ class ArmoryMainWindow(QMainWindow):
 
       w,h = tightSizeNChar(self.ledgerView, 110)
       viewWidth = 1.2*w
-      sectionSz = 1.3*h
-      viewHeight = 6.4*sectionSz
+      if OS_WINDOWS:
+         sectionSz = 1.55*h
+         viewHeight = 6.0*sectionSz
+      else:
+         sectionSz = 1.3*h
+         viewHeight = 6.4*sectionSz
 
       self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
@@ -200,15 +208,19 @@ class ArmoryMainWindow(QMainWindow):
       self.lblUnconfirmed = QLabel()
       self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
+      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblUnconfirmed])
+      frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
+                                           self.comboWalletSelect, \
+                                           'Stretch', \
+                                           frmTotals])
+
       # Now add the ledger to the bottom of the window
       ledgFrame = QFrame()
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
-      ledgLayout.addWidget(self.comboWalletSelect,    4,0, 2,1)
       ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
-      ledgLayout.addWidget(self.lblTotalFunds,        4,2, 1,2)
-      ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
+      ledgLayout.addWidget(frmLower,                  4,0, 1,4)
       ledgFrame.setLayout(ledgLayout)
 
 
@@ -233,8 +245,8 @@ class ArmoryMainWindow(QMainWindow):
       
       if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
          layout.addWidget(btnOfflineTx)
-      if self.usermode==USERMODE.Developer:
-         layout.addWidget(btnDevTools)
+      #if self.usermode==USERMODE.Developer:
+         #layout.addWidget(btnDevTools)
       layout.addStretch()
       btnFrame = QFrame()
       btnFrame.setLayout(layout)
@@ -273,14 +285,15 @@ class ArmoryMainWindow(QMainWindow):
 
       ##########################################################################
       # Set up menu and actions
-      MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
+      #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
+      MENUS = enum('File', 'User')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
-      self.menusList.append( self.menu.addMenu('&Wallet') )
+      #self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
-      self.menusList.append( self.menu.addMenu('&Tools') )
-      self.menusList.append( self.menu.addMenu('&Network') )
+      #self.menusList.append( self.menu.addMenu('&Tools') )
+      #self.menusList.append( self.menu.addMenu('&Network') )
 
 
       actCloseApp = self.createAction('&Quit Armory', self.closeEvent)
@@ -309,37 +322,37 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Network stuff (for now, temporary 
-      def memClear(): self.memoryPoolAction('clear')
-      def memPurge(): self.memoryPoolAction('purge')
-      def memPrint(): self.memoryPoolAction('print')
-      actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
-      actClearMemPool = self.createAction('&Clear',  memClear)
-      actPrintMemPool = self.createAction('&Print',  memPrint)
-      actPurgeMemPool = self.createAction('&Purge',  memPurge)
+      #def memClear(): self.memoryPoolAction('clear')
+      #def memPurge(): self.memoryPoolAction('purge')
+      #def memPrint(): self.memoryPoolAction('print')
+      #actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
+      #actClearMemPool = self.createAction('&Clear',  memClear)
+      #actPrintMemPool = self.createAction('&Print',  memPrint)
+      #actPurgeMemPool = self.createAction('&Purge',  memPurge)
 
-      if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
-         actEnableMemPool.setChecked(True)
+      #if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
+         #actEnableMemPool.setChecked(True)
          
 
-      self.menusList[MENUS.Network].addAction(actEnableMemPool)
-      self.menusList[MENUS.Network].addAction(actClearMemPool)
-      self.menusList[MENUS.Network].addAction(actPrintMemPool)
-      self.menusList[MENUS.Network].addAction(actPurgeMemPool)
+      #self.menusList[MENUS.Network].addAction(actEnableMemPool)
+      #self.menusList[MENUS.Network].addAction(actClearMemPool)
+      #self.menusList[MENUS.Network].addAction(actPrintMemPool)
+      #self.menusList[MENUS.Network].addAction(actPurgeMemPool)
 
       self.NetworkingFactory.purgeMemoryPool()
 
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
-      if not currmode: 
-         # On first run, set to standard mode
+      self.firstModeSwitch=True
+      if currmode=='Standard':
+         self.usermode = USERMODE.Standard               
          actSetModeStd.setChecked(True)
-      else:
-         if currmode==USERMODE.Standard:   
-            actSetModeStd.setChecked(True)
-         if currmode==USERMODE.Advanced:   
-            actSetModeAdv.setChecked(True)
-         if currmode==USERMODE.Developer:  
-            actSetModeDev.setChecked(True)
+      elif currmode=='Advanced':
+         self.usermode = USERMODE.Standard               
+         actSetModeAdv.setChecked(True)
+      elif currmode=='Developer':
+         self.usermode = USERMODE.Standard               
+         actSetModeDev.setChecked(True)
 
       
 
@@ -477,9 +490,13 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('User_Mode', 'Advanced')
       if mode==USERMODE.Developer:
          self.settings.set('User_Mode', 'Developer')
-      QMessageBox.information(self,'Restart Required', \
+
+      if not self.firstModeSwitch:
+         QMessageBox.information(self,'Restart Required', \
          'You must restart Armory in order for the user-mode switching '
          'to take effect.', QMessageBox.Ok)
+
+      self.firstModeSwitch = False
       
 
 
@@ -519,7 +536,7 @@ class ArmoryMainWindow(QMainWindow):
       self.isOnline = (self.internetAvail and self.satoshiAvail)
 
       if not self.isOnline:
-         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self)
+         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
          dlg.exec_()
          self.NetworkingFactory = FakeClientFactory()
          return
@@ -1456,12 +1473,9 @@ class ArmoryMainWindow(QMainWindow):
       #self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
-      try:
-         reactor.stop()
-      except: 
-         pass
-      sys.exit()
-      event.accept()
+      reactor.stop()
+      if event:
+         event.accept()
       
       
 
@@ -1510,7 +1524,15 @@ if 1:  #__name__ == '__main__':
    from twisted.internet import reactor
    def endProgram():
       app.quit()
-      sys.exit()
+      try:
+         sys.exit()
+      except:
+         pass
+      
+
+   if form.abortLoad:
+      endProgram()
+
    app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)

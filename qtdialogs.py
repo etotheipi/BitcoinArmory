@@ -985,7 +985,7 @@ class DlgWalletDetails(QDialog):
             lbl.setTextFormat(Qt.RichText)
             lbl.setText( '<b>' + lbl.text() + '</b>')
             lbl.setContentsMargins(0, 0, 0, 0)
-            w,h = tightSizeStr(lbl, '9'*14)
+            w,h = tightSizeStr(lbl, '9'*16)
             lbl.setMaximumSize(w,h)
          except AttributeError:
             pass
@@ -1956,8 +1956,8 @@ class DlgAddressInfo(QDialog):
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
       if not watch:      optLayout.addWidget(lbtnSweepA)
-      if adv:            optLayout.addWidget(lbtnDelete)
-      if adv:            optLayout.addWidget(lbtnUnspent)
+      #if adv:            optLayout.addWidget(lbtnDelete)
+      #if adv:            optLayout.addWidget(lbtnUnspent)
 
       if False:          optLayout.addWidget(lbtnMkPaper)  
       if True:           optLayout.addStretch()
@@ -5973,8 +5973,11 @@ class DlgPaperBackup(QDialog):
 
 
 class DlgBadConnection(QDialog):
-   def __init__(self, haveInternet, haveSatoshi, parent=None):
+   def __init__(self, haveInternet, haveSatoshi, parent=None, main=None):
       super(DlgBadConnection, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
 
       layout = QGridLayout()
       lblWarnImg = QLabel()
@@ -6008,12 +6011,16 @@ class DlgBadConnection(QDialog):
          return
          
       
+      self.main.abortLoad = False
+      def abortLoad():
+         self.main.abortLoad = True
+         self.reject()
          
       lblDescr.setMinimumWidth(500)
       self.btnAccept = QPushButton("Continue in Offline Mode")
       self.btnCancel = QPushButton("Close Armory")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
-      self.connect(self.btnCancel, SIGNAL('clicked()'), parent.closeEvent)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), abortLoad)
       buttonBox = QDialogButtonBox()
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
