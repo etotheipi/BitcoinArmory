@@ -32,7 +32,8 @@ TxIOPair::TxIOPair(void) :
    txPtrOfOutputZC_(NULL),
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
-   indexOfInputZC_(0) {}
+   indexOfInputZC_(0),
+   isSentToSelf_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(uint64_t  amount) :
@@ -44,7 +45,8 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    txPtrOfOutputZC_(NULL),
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
-   indexOfInputZC_(0) {}
+   indexOfInputZC_(0) ,
+   isSentToSelf_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
@@ -54,7 +56,8 @@ TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    txPtrOfOutputZC_(NULL),
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
-   indexOfInputZC_(0)
+   indexOfInputZC_(0),
+   isSentToSelf_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
 }
@@ -68,7 +71,8 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
    txPtrOfOutputZC_(NULL),
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
-   indexOfInputZC_(0)
+   indexOfInputZC_(0),
+   isSentToSelf_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
    setTxInRef (txPtrI, txinIndex );
