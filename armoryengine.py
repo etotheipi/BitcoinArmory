@@ -5843,7 +5843,7 @@ class PyBtcWallet(object):
       highestIndex = 0
       for addr in self.getLinearAddrList(withAddrPool=True):
          a160 = addr.getAddr160()
-         if len(self.getTxLedger(a160)) > 0:
+         if len(self.getAddrTxLedger(a160)) > 0:
             highestIndex = max(highestIndex, addr.chainIndex)
 
       if writeResultToWallet:

@@ -199,16 +199,11 @@ class ArmoryMainWindow(QMainWindow):
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
       self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
-      self.lblTotalFunds  = QLabel()
-      self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblTotalFunds  = QRichLabel()
+      self.lblSpendFunds  = QRichLabel()
+      self.lblUnconfFunds = QRichLabel()
 
-      self.lblSpendFunds  = QLabel()
-      self.lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-      self.lblUnconfirmed = QLabel()
-      self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblUnconfirmed])
+      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblSpendFunds, self.lblUnconfirmed])
       frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
                                            self.comboWalletSelect, \
                                            'Stretch', \
@@ -606,9 +601,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # I need some linear lists for accessing by index
       self.walletIDList = []   
-      self.walletBalances = []  
-      self.walletSubLedgers = []  
-      self.walletLedgers = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
@@ -651,7 +643,6 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
-               self.walletBalances.append(-1)
          except:
             print '***WARNING: Wallet could not be loaded:', fpath
             print '            skipping... '
@@ -768,14 +759,10 @@ class ArmoryMainWindow(QMainWindow):
             # We need to mirror all blockchain & wallet data in linear lists
             wltIndex = self.walletIndices[wltID]
 
-            self.walletBalances[wltIndex] = wlt.getBalance()
-            self.walletSubLedgers.append([])
             for addrIndex,addr in enumerate(wlt.getAddrList()):
                addr20 = addr.getAddr160()
                ledger = wlt.getTxLedger(addr20)
-               self.walletSubLedgers[-1].append(ledger)
 
-            self.walletLedgers.append(wlt.getTxLedger())
             
          self.createCombinedLedger(self.walletIDList)
          self.ledgerSize = len(self.combinedLedger)
@@ -839,11 +826,9 @@ class ArmoryMainWindow(QMainWindow):
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
-         self.walletLedgers[index] = []
 
          # Add the LedgerEntries from the blockchain
          for ledgList in [wlt.getTxLedger(), wlt.getZeroConfLedger()]:
-            self.walletLedgers[index].extend([[wltID, le] for le in ledgList])
             self.combinedLedger.extend(id_le_pairs)
 
 
@@ -853,13 +838,6 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-
-         totFund, unconfFund = 0,0
-         for wlt,le in self.combinedLedger:
-            if (self.latestBlockNum-le.getBlockNum()+1) < 6:
-               unconfFund += le.getValue()
-            else:
-               totFund += le.getValue()
                
          uncolor = 'red' if unconfFund>0 else 'black'
          self.lblUnconfirmed.setText( \
@@ -1088,17 +1066,8 @@ class ArmoryMainWindow(QMainWindow):
          wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          wlt.syncWithBlockchain()
 
-         self.walletSubLedgers.append([])
          for addr in wlt.getLinearAddrList():
-            ledger = wlt.getTxLedger(addr.getAddr160())
-            self.walletSubLedgers[-1].append(ledger)
-         self.walletLedgers.append(wlt.getTxLedger())
-         self.walletBalances.append(wlt.getBalance())
-      else:
-         self.walletBalances.append(0)
-         self.walletLedgers.append([])
-         self.walletSubLedgers.append([])
-         self.walletSubLedgers[-1].append([])
+            ledger = wlt.getAddrTxLedger(addr.getAddr160())
 
 
       self.walletListChanged()
@@ -1118,9 +1087,6 @@ class ArmoryMainWindow(QMainWindow):
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
-      del self.walletLedgers[idx]
-      del self.walletSubLedgers[idx]
-      del self.walletBalances[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
@@ -1169,17 +1135,6 @@ class ArmoryMainWindow(QMainWindow):
                                            shortLabel=name, \
                                            longLabel=descr)
 
-      # Update the maps/dictionaries
-      #newWltID = newWallet.uniqueIDB58
-      #self.walletMap[newWltID] = newWallet
-      #self.walletIndices[newWltID] = len(self.walletMap)-1
-
-      # Maintain some linear lists of wallet info
-      #self.walletIDSet.add(newWltID)
-      #self.walletIDList.append(newWltID)
-      #self.walletBalances.append(0)
-      #self.walletLedgers.append([])
-      #self.walletListChanged()
 
       self.addWalletToApplication(newWallet)
 
@@ -1453,8 +1408,6 @@ class ArmoryMainWindow(QMainWindow):
       
 
       for idx,wltID in enumerate(self.walletIDList):
-         # Update wallet balances
-         self.walletBalances[idx] = self.walletMap[wltID].getBalance()
          self.walletMap[wltID].checkWalletLockTimeout()
 
 
