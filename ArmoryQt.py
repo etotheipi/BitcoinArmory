@@ -194,6 +194,9 @@ class ArmoryMainWindow(QMainWindow):
       self.lblTotalFunds  = QLabel()
       self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
+      self.lblSpendFunds  = QLabel()
+      self.lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
       self.lblUnconfirmed = QLabel()
       self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
@@ -735,12 +738,15 @@ class ArmoryMainWindow(QMainWindow):
 
       # Now that theb blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
+         TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+
          self.statusBar().showMessage('Syncing wallets with blockchain...')
          print 'Syncing wallets with blockchain...'
          for wltID, wlt in self.walletMap.iteritems():
             print 'Syncing', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
+            TheBDM.rebuildZeroConfLedgers(self.walletMap[wltID]
 
             # We need to mirror all blockchain & wallet data in linear lists
             wltIndex = self.walletIndices[wltID]
@@ -816,17 +822,13 @@ class ArmoryMainWindow(QMainWindow):
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
          index = self.walletIndices[wltID]
+         self.walletLedgers[index] = []
 
          # Add the LedgerEntries from the blockchain
-         self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
-         id_le_pairs = [ [wltID, le] for le in self.walletLedgers[index] ]
-         self.combinedLedger.extend(id_le_pairs)
+         for ledgList in [wlt.getTxLedger(), wlt.getZeroConfLedger()]:
+            self.walletLedgers[index].extend([[wltID, le] for le in ledgList])
+            self.combinedLedger.extend(id_le_pairs)
 
-         # Calculate and add the LedgerEntries from zero-conf tx
-         self.updateZeroConfLedger(wlt)
-         for hsh,le in self.zeroConfWltLEs[wltID].iteritems():
-            if self.settings.get('ZeroConfEnable'):
-               self.combinedLedger.append([wltID, le])
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
       self.ledgerSize = len(self.combinedLedger)

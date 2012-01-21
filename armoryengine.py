@@ -5494,9 +5494,21 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getSpendableTxOutList(self, currBlk=UINT32_MAX):
+      """ Returns UnspentTxOut/C++ objects """
       if TheBDM.isInitialized() and not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          self.syncWithBlockchain()
          return self.cppWallet.getSpendableTxOutList(currBlk);
+      else:
+         print '***Blockchain is not available for accessing wallet-tx data'
+         return []
+
+   #############################################################################
+   def getAddrSpendableTxOutList(self, addr160, currBlk=UINT32_MAX):
+      """ Returns UnspentTxOut/C++ objects """
+      if TheBDM.isInitialized() and self.hasAddr(addr160) and \
+                        not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         self.syncWithBlockchain()
+         return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
       else:
          print '***Blockchain is not available for accessing wallet-tx data'
          return []
