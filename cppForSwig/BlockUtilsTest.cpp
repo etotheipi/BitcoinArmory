@@ -432,6 +432,7 @@ void TestZeroConf(void)
    bdm.scanBlockchainForTx(wlt);
 
    bdm.enableZeroConf("zctest/mempool_new.bin");
+   uint32_t currBlk = bdm.getTopBlockHeader().getBlockHeight();
 
    ifstream zcIn("zctest/mempool.bin", ios::in | ios::binary);
    zcIn.seekg(0, ios::end);
@@ -452,6 +453,10 @@ void TestZeroConf(void)
       TxRef zcTx(brr);
       bdm.addNewZeroConfTx(zcTx.serialize(), txtime);
       bdm.rebuildZeroConfLedgers(wlt);
+
+      cout << "UltBal: " << wlt.getUltimateBalance() << endl;
+      cout << "SpdBal: " << wlt.getSpendableBalance() << endl;
+      cout << "UncBal: " << wlt.getUnconfirmedBalance(currBlk) << endl;
       wlt.pprintLedger();
    }
 

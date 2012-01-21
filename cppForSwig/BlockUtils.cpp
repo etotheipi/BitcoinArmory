@@ -289,6 +289,7 @@ BtcAddress::BtcAddress(BinaryData    addr,
       lastTimestamp_(lastTimestamp)
 { 
    relevantTxIOPtrs_.clear();
+   relevantTxIOPtrsZC_.clear();
 } 
 
 
@@ -302,6 +303,11 @@ uint64_t BtcAddress::getSpendableBalance(void)
       if(relevantTxIOPtrs_[i]->isSpendable())
          balance += relevantTxIOPtrs_[i]->getValue();
    }
+   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
+   {
+      if(relevantTxIOPtrsZC_[i]->isSpendable())
+         balance += relevantTxIOPtrsZC_[i]->getValue();
+   }
    return balance;
 }
 
@@ -313,6 +319,11 @@ uint64_t BtcAddress::getUnconfirmedBalance(uint32_t currBlk)
    {
       if(relevantTxIOPtrs_[i]->isMineButUnconfirmed(currBlk))
          balance += relevantTxIOPtrs_[i]->getValue();
+   }
+   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
+   {
+      if(relevantTxIOPtrsZC_[i]->isMineButUnconfirmed(currBlk))
+         balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
 }
@@ -327,6 +338,12 @@ uint64_t BtcAddress::getUltimateBalance(void)
       if(txio.isUnspent())
          balance += txio.getValue();
    }
+   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
+   {
+      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
+      if(txio.isUnspent())
+         balance += txio.getValue();
+   }
    return balance;
 }
 
@@ -337,6 +354,15 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
+      if(txio.isSpendable())
+      {
+         TxOutRef txoutref = txio.getTxOutRef();
+         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+      }
+   }
+   for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
+   {
+      TxIOPair & txio = *relevantTxIOPtrsZC_[i];
       if(txio.isSpendable())
       {
          TxOutRef txoutref = txio.getTxOutRef();
@@ -377,6 +403,24 @@ void BtcAddress::addLedgerEntry(LedgerEntry const & le, bool isZeroConf)
       ledgerZC_.push_back(le);
    else
       ledger_.push_back(le);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::addTxIO(TxIOPair * txio, bool isZeroConf)
+{ 
+   if(isZeroConf)
+      relevantTxIOPtrsZC_.push_back(txio);
+   else
+      relevantTxIOPtrs_.push_back(txio);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::addTxIO(TxIOPair & txio, bool isZeroConf)
+{ 
+   if(isZeroConf)
+      relevantTxIOPtrsZC_.push_back(&txio);
+   else
+      relevantTxIOPtrs_.push_back(&txio);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -472,7 +516,6 @@ void BtcWallet::scanTx(TxRef & tx,
    bool anyTxOutIsOurs  = false;
    bool isZeroConf      = blknum==UINT32_MAX;
 
-   vector<bool> thisTxInIsOurs (tx.getNumTxIn(),  false);
    vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
 
    uint8_t const * txStartPtr = tx.getPtr();
@@ -541,10 +584,12 @@ void BtcWallet::scanTx(TxRef & tx,
    // END BULK FILTER
    ////////////////////////////////////////////////////////////////////////////
 
-   // Remaining processing can be inefficient and it will
-   // be virtually irrelevant (but it's not *THAT* bad).
-   anyTxInIsOurs   = false;
-   anyTxOutIsOurs  = false;
+   // We distinguish "any" from "anyNew" because we want to avoid re-adding
+   // transactions/TxIOPairs that are already part of the our tx list/ledger
+   // but we do need to determine if this was sent-to-self, regardless of 
+   // whether it was new.
+   bool anyNewTxInIsOurs   = false;
+   bool anyNewTxOutIsOurs  = false;
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -571,15 +616,14 @@ void BtcWallet::scanTx(TxRef & tx,
             TxOutRef const  & txout = txio.getTxOutRef();
             //if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
             if(txout.getRecipientAddr()==thisAddr.getAddrStr20()  && 
-               (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
+              (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
             {
-               anyTxInIsOurs = true;
-               thisTxInIsOurs[iin] = true;
-
+               anyNewTxInIsOurs = true;
                unspentOutPoints_.erase(outpt);
                // The legit var only identifies whether this set-call succeeded
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
+               // (i.e. we have a ref to the prev output, but it's been spent!)
                bool legit = txio.setTxInRef(&tx, iin, isZeroConf);
                if(!legit)
                   continue;
@@ -642,10 +686,10 @@ void BtcWallet::scanTx(TxRef & tx,
             if(insResult.second == true)
             {
                unspentOutPoints_.insert(outpt);
-               anyTxOutIsOurs = true;
+               anyNewTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 
-               thisAddr.addTxIO( thisTxio );
+               thisAddr.addTxIO( thisTxio, isZeroConf);
 
                int64_t thisVal = (int64_t)(txout.getValue());
                LedgerEntry newLedger(addr20, 
@@ -692,27 +736,22 @@ void BtcWallet::scanTx(TxRef & tx,
    bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
    bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
 
-   if(anyTxInIsOurs || anyTxOutIsOurs)
+   if(anyNewTxInIsOurs || anyNewTxOutIsOurs)
    {
-      // Without this conditional, we get multiple entries if we ever
-      // scan the same tx multiple times
-      //if(txrefSet_.count(&tx) == 0)
-      //{
-         txrefSet_.insert(&tx);
-         LedgerEntry le( BinaryData(0),
-                         totalLedgerAmt, 
-                         blknum, 
-                         tx.getThisHash(), 
-                         txIndex,
-                         blktime,
-                         isSentToSelf,
-                         isChangeBack);
+      txrefSet_.insert(&tx);
+      LedgerEntry le( BinaryData(0),
+                      totalLedgerAmt, 
+                      blknum, 
+                      tx.getThisHash(), 
+                      txIndex,
+                      blktime,
+                      isSentToSelf,
+                      isChangeBack);
 
-         if(isZeroConf)
-            ledgerAllAddrZC_.push_back(le);
-         else
-            ledgerAllAddr_.push_back(le);
-      //}
+      if(isZeroConf)
+         ledgerAllAddrZC_.push_back(le);
+      else
+         ledgerAllAddr_.push_back(le);
 
    }
 }
@@ -1224,20 +1263,37 @@ BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHash(BinaryData const & bl
 
 /////////////////////////////////////////////////////////////////////////////
 // Get a blockheader based on its height on the main chain
-TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash)
+TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash,
+                                             bool includeZeroConf)
 {
-   map<BinaryData, TxRef>::iterator it = txHashMap_.find(txhash);
+   map<HashString, TxRef>::iterator it = txHashMap_.find(txhash);
    if(it==txHashMap_.end())
-      return NULL;
+   {
+      // It's not in the blockchain, but maybe in the zero-conf tx list
+      map<HashString, ZeroConfData>::iterator iter = zeroConfMap_.find(txhash);
+      if(iter==zeroConfMap_.end() || !includeZeroConf)
+         return NULL;
+      else
+         return &(iter->second.txref_);
+   }
    else
       return &(it->second);
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FullRAM::hasTxWithHash(BinaryData const & txhash) const
+bool BlockDataManager_FullRAM::hasTxWithHash(BinaryData const & txhash,
+                                             bool includeZeroConf) const
 {
-   return (txHashMap_.find(txhash) != txHashMap_.end());
+   if(txHashMap_.find(txhash) == txHashMap_.end())
+   {
+      if(zeroConfMap_.find(txhash)==zeroConfMap_.end() || !includeZeroConf)
+         return false;
+      else
+         return true;
+   }
+   else
+      return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2408,6 +2464,10 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
                                                 uint64_t txtime,
                                                 bool writeToFile)
 {
+   // TODO:  We should do some kind of verification check on this tx
+   //        to make sure it's potentially valid.  Right now, it doesn't 
+   //        matter, because the Satoshi client is sitting between
+   //        us and the network and doing the checking for us.
 
    if(txtime==0)
       txtime = time(NULL);
@@ -2511,13 +2571,9 @@ void BlockDataManager_FullRAM::rebuildZeroConfLedgers(BtcWallet & wlt)
 void BtcAddress::clearZeroConfPool(void)
 {
    ledgerZC_.clear();
+   relevantTxIOPtrsZC_.clear();
 }
 
-////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> BtcAddress::getZeroConfLedger(void)
-{
-   return ledgerZC_;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::clearZeroConfPool(void)
@@ -2536,9 +2592,7 @@ void BtcWallet::clearZeroConfPool(void)
    {
       iter->second.clearZCFields();
       if(!iter->second.hasTxOut())
-      {
          rmList.push_back(iter);
-      }
    }
 
    // If a TxIOPair exists only because of the TxOutZC, then we should 
@@ -2554,6 +2608,20 @@ void BtcWallet::clearZeroConfPool(void)
    }
 }
 
+////////////////////////////////////////////////////////////////////////////////
+vector<LedgerEntry> BtcWallet::getTxLedger(BinaryData const * addr160)
+{
+   // Make sure to rebuild the ZC ledgers before calling this method
+   if(addr160==NULL)
+      return ledgerAllAddr_;
+   else
+   {
+      if(addrMap_.find(*addr160) == addrMap_.end())
+         return vector<LedgerEntry>(0);
+      else
+         return addrMap_[*addr160].getTxLedger();
+   }
+}
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> BtcWallet::getZeroConfLedger(BinaryData const * addr160)
 {

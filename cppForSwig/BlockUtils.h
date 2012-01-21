@@ -287,15 +287,16 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
    void clearZeroConfPool(void);
-   vector<LedgerEntry> getZeroConfLedger(void);
 
 
-   vector<LedgerEntry> & getTxLedger(void) { return ledger_;           }
+   vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
+   vector<LedgerEntry> & getTxLedger(void)       { return ledger_;   }
+
    vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
 
-   void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
-   void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
-   void addLedgerEntry(LedgerEntry const & le, bool isZeroConf); 
+   void addTxIO(TxIOPair * txio, bool isZeroConf=false);
+   void addTxIO(TxIOPair & txio, bool isZeroConf=false);
+   void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
 
    void pprintLedger(void);
 
@@ -308,6 +309,7 @@ private:
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
+   vector<TxIOPair*>     relevantTxIOPtrsZC_;
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
 };
@@ -363,10 +365,6 @@ public:
                      uint32_t blktime = UINT32_MAX,
                      uint32_t blknum = UINT32_MAX);
 
-   vector<LedgerEntry>  getLedgerEntriesForZeroConfTxList( vector<TxRef*> zcList);
-   LedgerEntry          getWalletLedgerEntryForTx(BinaryData const & zcBin);
-   vector<LedgerEntry>  getAddrLedgerEntriesForTx(BinaryData const & zcBin);
-
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 
                            TxRef&   txref,
@@ -384,7 +382,6 @@ public:
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
    void clearZeroConfPool(void);
-   vector<LedgerEntry> getZeroConfLedger(BinaryData const * addr160=NULL);
 
    
    uint32_t     getNumAddr(void) {return addrMap_.size();}
@@ -394,7 +391,8 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &     getTxLedger(void)   {return ledgerAllAddr_; }
+   vector<LedgerEntry>       getZeroConfLedger(BinaryData const * addr160=NULL);
+   vector<LedgerEntry>       getTxLedger(BinaryData const * addr160=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -604,7 +602,8 @@ public:
    BlockHeaderRef & getGenesisBlock(void) ;
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
-   TxRef *          getTxByHash(BinaryData const & txHash);
+   TxRef *          getTxByHash(BinaryData const & txHash, 
+                                bool includeZeroConf=true);
    string           getBlockfilePath(void) {return blkfilePath_;}
 
 
@@ -624,7 +623,8 @@ public:
                                        BlockHeaderRef* newTopPtr,
                                        BlockHeaderRef* branchPtr );
 
-   bool             hasTxWithHash(BinaryData const & txhash) const;
+   bool             hasTxWithHash(BinaryData const & txhash,
+                                  bool includeZeroConf=true) const;
    bool             hasHeaderWithHash(BinaryData const & txhash) const;
    uint32_t         getNumBlocks(void) const { return headerHashMap_.size(); }
    uint32_t         getNumTx(void) const { return txHashMap_.size(); }
