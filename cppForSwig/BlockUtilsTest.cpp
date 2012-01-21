@@ -458,6 +458,16 @@ void TestZeroConf(void)
       cout << "SpdBal: " << wlt.getSpendableBalance() << endl;
       cout << "UncBal: " << wlt.getUnconfirmedBalance(currBlk) << endl;
       wlt.pprintLedger();
+
+      cout << "Unspent TxOuts:" << endl;
+      vector<UnspentTxOut> utxoList = wlt.getSpendableTxOutList(currBlk);
+      uint64_t bal = 0;
+      for(uint32_t i=0; i<utxoList.size(); i++)
+      {
+         bal += utxoList[i].getValue();
+         utxoList[i].pprintOneLine(currBlk);
+      }
+      cout << "Sum of TxOuts: " << bal/1e8 << endl;
    }
 
 }

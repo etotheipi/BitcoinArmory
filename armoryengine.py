@@ -5417,31 +5417,86 @@ class PyBtcWallet(object):
          print '            is set to BLOCKCHAIN_DONOTUSE'
 
    #############################################################################
-   def getBalance(self):
+   def getBalance(self, balType="Spendable", currBlk=UINT32_MAX):
       if not TheBDM.isInitialized():
          return -1
       else:
-         return sumTxOutList(self.getUnspentTxOutList())
-
-   #############################################################################
-   def getTxLedger(self, addr160=None):
-      """ 
-      Gets the complete ledger for a specific address, or the wallet as a whole.
-      """
-      if addr160==None:
-         return self.cppWallet.getTxLedger()
-      else:
-         if not self.hasAddr(addr160):
-            return []
+         if balType.lower()=='spendable':
+            return self.cppWallet.getSpendableBalance()
+         elif balType.lower()=='unconfirmed':
+            return self.cppWallet.getUnconfirmedBalance(currBlk)
+         elif balType.lower() in ('ultimate','unspent'):
+            return self.cppWallet.getUltimateBalance()
          else:
-            return self.cppWallet.getAddrByHash160(addr160).getTxLedger()
+            raise TypeError, 'Unknown balance type!'
+
 
    #############################################################################
-   def getUnspentTxOutList(self):
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(TheBDM.isInitialized())
+   def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
+      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+         return -1
+      else:
+         addr = self.cppWallet.getAddrByHash160(addr160)
+         if balType.lower()=='spendable':
+            return addr.getSpendableBalance()
+         elif balType.lower()=='unconfirmed':
+            return addr.getUnconfirmedBalance(currBlk)
+         elif balType.lower() in ('ultimate','unspent'):
+            return addr.getUltimateBalance()
+         else:
+            raise TypeError, 'Unknown balance type!'
+
+   #############################################################################
+   def getTxLedger(self, ledgType='Full'):
+      """ 
+      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
+      """
+      if not TheBDM.isInitialized():
+         return []
+      else:
+         ledgBlkChain = self.cppWallet.getTxLedger()
+         ledgZeroConf = self.cppWallet.getZeroConfLedger()
+         if ledgType.lower()=='full':
+            ledg = []
+            ledg.extend(ledgBlkChain)
+            ledg.extend(ledgZeroConf)
+            return ledg
+         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+            return ledgBlkChain
+         elif ledgType.lower() in ('zeroconf', 'zero'):
+            return ledgZeroConf
+         else:
+            raise TypeError, 'Unknown balance type!'
+
+
+   #############################################################################
+   def getAddrTxLedger(self, addr160, ledgType='Full'):
+      """ 
+      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
+      """
+      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+         return []
+      else:
+         ledgBlkChain = self.cppWallet.getAddrByHash160(addr160).getTxLedger()
+         ledgZeroConf = self.cppWallet.getAddrByHash160(addr160).getZeroConfLedger()
+         if ledgType.lower()=='full':
+            ledg = []
+            ledg.extend(ledgBlkChain)
+            ledg.extend(ledgZeroConf)
+            return ledg
+         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+            return ledgBlkChain
+         elif ledgType.lower() in ('zeroconf', 'zero'):
+            return ledgZeroConf
+         else:
+            raise TypeError, 'Unknown balance type!'
+
+
+   #############################################################################
+   def getSpendableTxOutList(self, currBlk=UINT32_MAX):
+      if TheBDM.isInitialized() and not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          self.syncWithBlockchain()
-         return TheBDM.getUnspentTxOutsForWallet(self.cppWallet)
+         return self.cppWallet.getSpendableTxOutList(currBlk);
       else:
          print '***Blockchain is not available for accessing wallet-tx data'
          return []

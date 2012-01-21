@@ -97,6 +97,25 @@ BinaryData TxIOPair::getTxHashOfInput(void)
       return txPtrOfInput_->getThisHash();
 }
 
+TxOutRef TxIOPair::getTxOutRef(void) const
+{
+   // I actually want this to segfault when there is no TxOutRef... 
+   // we should't ever be trying to access it without checking it 
+   // first in the calling code
+   if(hasTxOut())
+      return txPtrOfOutput_->getTxOutRef(indexOfOutput_);
+   else
+      return getTxOutRefZC();
+}
+
+TxInRef TxIOPair::getTxInRef(void) const
+{
+   if(hasTxIn())
+      return txPtrOfInput_->getTxInRef(indexOfInput_);
+   else
+      return getTxInRefZC();
+}
+
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
 { 
@@ -1765,8 +1784,10 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
    // UPDATE JAN 2012:  I don't think this part is necessary anymore.
    //                   The decision was made not to bother with maintaining
    //                   an unspent list anymore, since it can be done on the 
-   //                   fly from the txioMap.  And unspent doesn't imply whether 
-   //                   it's actually spendable or "confirmed."
+   //                   fly from the txioMap.  Mainly because it's extra work
+   //                   to maintain the synchronous list, it's easy to generate
+   //                   on the fly, and it doesn't actually help us distinguish
+   //                   "spendable" or "unconfirmed."
    /*
    // Need to fix the TxIO pairs, and recompute unspentTxOuts
    // All addresses point to the wallet's TxIOPairs, so we only need 

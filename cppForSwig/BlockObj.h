@@ -343,6 +343,8 @@ public:
 
    static void sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType=1);
 
+   void pprintOneLine(uint32_t currBlk=UINT32_MAX);
+
 public:
    BinaryData txHash_;
    uint32_t   txOutIndex_;

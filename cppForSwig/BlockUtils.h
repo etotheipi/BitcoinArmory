@@ -77,16 +77,16 @@ public:
    TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txPtrOfOutput_   != NULL); }
-   bool      hasTxIn(void)        { return (txPtrOfInput_    != NULL); }
-   bool      hasTxOutZC(void)     { return (txPtrOfOutputZC_ != NULL); }
-   bool      hasTxInZC(void)      { return (txPtrOfInputZC_  != NULL); }
-   bool      hasValue(void)       { return (amount_!=0); }
-   uint64_t  getValue(void)       { return  amount_;}
+   bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
+   bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOutZC(void) const { return (txPtrOfOutputZC_ != NULL); }
+   bool      hasTxInZC(void) const  { return (txPtrOfInputZC_  != NULL); }
+   bool      hasValue(void) const   { return (amount_!=0); }
+   uint64_t  getValue(void) const   { return  amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef  getTxOutRef(void) const   {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
-   TxInRef   getTxInRef(void) const    {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxOutRef  getTxOutRef(void) const;   
+   TxInRef   getTxInRef(void) const;   
    TxOutRef  getTxOutRefZC(void) const {return txPtrOfOutputZC_->getTxOutRef(indexOfOutputZC_);}
    TxInRef   getTxInRefZC(void) const  {return txPtrOfInputZC_->getTxInRef(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
@@ -289,8 +289,8 @@ public:
    void clearZeroConfPool(void);
 
 
-   vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
    vector<LedgerEntry> & getTxLedger(void)       { return ledger_;   }
+   vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
 
    vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
 
