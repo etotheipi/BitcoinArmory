@@ -59,7 +59,7 @@ def UserModeStr(mode):
 
 Colors = enum( \
               LabelBtn=    QColor(225,225,255), \
-              LightBlue=   QColor(225,225,255), \
+              WltMine=     QColor(225,225,255), \
               WltOffline=  QColor(205,215,255), \
               LightGreen=  QColor(225,255,225), \
               WltOther=    QColor(235,235,235), \

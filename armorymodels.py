@@ -50,7 +50,7 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          if col==COL.Bal: 
-            bal = self.main.walletBalances[row]
+            bal = wlt.getBalance('Total')
             if bal==-1:
                return QVariant('(...)') 
             else:
@@ -330,7 +330,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant()
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( coin2str(cppAddr.getBalance(), maxZeros=2) )
+            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -341,7 +341,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            val = cppAddr.getBalance()
+            val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.Green)
             else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
@@ -349,7 +349,7 @@ class WalletAddrDispModel(QAbstractTableModel):
             return GETFONT('Fixed')
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-         val = cppAddr.getBalance()
+         val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.LightGreen )
          else:

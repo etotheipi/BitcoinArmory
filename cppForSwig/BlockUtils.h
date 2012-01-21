@@ -604,8 +604,7 @@ public:
    BlockHeaderRef & getGenesisBlock(void) ;
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
-   TxRef *          getTxByHash(BinaryData const & txHash, 
-                                bool includeZeroConf=true);
+   TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkfilePath_;}
 
 

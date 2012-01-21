@@ -5428,18 +5428,19 @@ class PyBtcWallet(object):
          print '            is set to BLOCKCHAIN_DONOTUSE'
 
    #############################################################################
-   def getBalance(self, balType="Spendable", currBlk=UINT32_MAX):
+   def getBalance(self, balType="Spendable"):
       if not TheBDM.isInitialized():
          return -1
       else:
          if balType.lower() in ('spendable','spend'):
             return self.cppWallet.getSpendableBalance()
          elif balType.lower() in ('unconfirmed','unconf'):
+            currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
             return self.cppWallet.getUnconfirmedBalance(currBlk)
-         elif balType.lower() in ('total','ultimate','unspent'):
+         elif balType.lower() in ('total','ultimate','unspent','full'):
             return self.cppWallet.getFullBalance()
          else:
-            raise TypeError, 'Unknown balance type!'
+            raise TypeError, 'Unknown balance type! "' + balType + '"'
 
 
    #############################################################################
@@ -5477,7 +5478,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError, 'Unknown balance type!'
+            raise TypeError, 'Unknown ledger type! "' + ledgType + '"'
 
 
    #############################################################################
@@ -5500,7 +5501,7 @@ class PyBtcWallet(object):
          elif ledgType.lower() in ('zeroconf', 'zero'):
             return ledgZeroConf
          else:
-            raise TypeError, 'Unknown balance type! ' + ledgType
+            raise TypeError, 'Unknown balance type! "' + ledgType + '"'
 
 
    #############################################################################

@@ -1328,15 +1328,14 @@ BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHash(BinaryData const & bl
 
 /////////////////////////////////////////////////////////////////////////////
 // Get a blockheader based on its height on the main chain
-TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash,
-                                             bool includeZeroConf)
+TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash)
 {
    map<HashString, TxRef>::iterator it = txHashMap_.find(txhash);
    if(it==txHashMap_.end())
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
       map<HashString, ZeroConfData>::iterator iter = zeroConfMap_.find(txhash);
-      if(iter==zeroConfMap_.end() || !includeZeroConf)
+      if(iter==zeroConfMap_.end())
          return NULL;
       else
          return &(iter->second.txref_);

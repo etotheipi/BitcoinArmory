@@ -2661,7 +2661,7 @@ class DlgRemoveWallet(QDialog):
       wltEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.getFullBalance()
+         bal = wlt.getBalance('Full')
          lbls.append([])
          lbls[3].append(QLabel('Current Balance (w/ unconfirmed):'))
          if bal>0:
@@ -2930,7 +2930,7 @@ class DlgRemoveAddress(QDialog):
       addrEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.cppWallet.getAddrByHash160(addr160).getFullBalance()
+         bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))
          if bal>0:
@@ -3185,13 +3185,12 @@ def getWalletInfoFrame(wlt):
    dispID = QLabel(wltID)
    dispName = QLabel(wlt.labelName)
    dispDescr = QLabel(wlt.labelDescr)
-   dispBal = QLabel()
+   dispBal = QRichLabel()
 
    # Format balance if necessary
-   bal = wlt.getSpendableBalance()
-   dispBal.setTextFormat(Qt.RichText) 
+   bal = wlt.getBalance('Spendable')
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getSpendableBalance(), maxZeros=1)+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(bal, maxZeros=1)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)

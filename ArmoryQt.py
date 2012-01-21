@@ -699,17 +699,10 @@ class ArmoryMainWindow(QMainWindow):
             print 'Syncing', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
-            TheBDM.rebuildZeroConfLedgers(self.walletMap[wltID])
-
-            # We need to mirror all blockchain & wallet data in linear lists
-            wltIndex = self.walletIndices[wltID]
-
-            for addrIndex,addr in enumerate(wlt.getAddrList()):
-               addr20 = addr.getAddr160()
-               ledger = wlt.getTxLedger(addr20)
+            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
 
             
-         self.createCombinedLedger(self.walletIDList)
+         self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
          print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
@@ -777,12 +770,11 @@ class ArmoryMainWindow(QMainWindow):
 
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
-         for ledgList in [wlt.getTxLedger(), wlt.getZeroConfLedger()]:
-            id_le_pairs = [[wltID, le] for le in ledgList]
-            self.combinedLedger.extend(id_le_pairs)
-            totalFunds += wlt.getBalance('Total')
-            spendFunds += wlt.getBalance('Spendable')
-            unconfFunds += wlt.getBalance('Unconfirmed', currBlk)
+         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
+         self.combinedLedger.extend(id_le_pairs)
+         totalFunds += wlt.getBalance('Total')
+         spendFunds += wlt.getBalance('Spendable')
+         unconfFunds += wlt.getBalance('Unconfirmed')
 
 
       self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
@@ -791,13 +783,17 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-         uncolor = 'red' if unconfFund>0 else 'black'
+         uncolor = 'red' if unconfFunds>0 else 'black'
          self.lblTotalFunds.setText( \
-            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totalFunds))
+            '<b>Total Funds: <font color=#888888>%s</font> BTC</b>' % coin2str(totalFunds))
          self.lblSpendFunds.setText( \
-            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(spendFunds))
+            '<b>Spendable Funds: <font color="green">%s</font> BTC</b>' % coin2str(spendFunds))
          self.lblUnconfFunds.setText( \
-            '<b>Unconfirmed: <font color="green">%s</font> BTC</b>' % coin2str(unconfFunds))
+            '<b>Unconfirmed: <font color="%s">%s</font> BTC</b>' % (uncolor, coin2str(unconfFunds)))
+         
+         self.lblUnconfFunds.setWordWrap(False)
+         self.lblSpendFunds.setWordWrap(False)
+         self.lblTotalFunds.setWordWrap(False)
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
