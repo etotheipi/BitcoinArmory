@@ -3188,11 +3188,11 @@ class DlgWalletSelect(QDialog):
       self.dispName.setText(wlt.labelName)
       self.dispDescr.setText(wlt.labelDescr)
       
-      bal = wlt.getSpendableBalance()
+      bal = wlt.getBalance('Spendable')
       if bal==0:
          self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getSpendableBalance(), maxZeros=1)+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance('Spendable'), maxZeros=1)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
@@ -3225,7 +3225,7 @@ def getWalletInfoFrame(wlt):
    dispID = QLabel(wltID)
    dispName = QLabel(wlt.labelName)
    dispDescr = QLabel(wlt.labelDescr)
-   dispBal = QRichLabel()
+   dispBal = QRichLabel('')
 
    # Format balance if necessary
    bal = wlt.getBalance('Spendable')
@@ -3496,7 +3496,7 @@ class DlgSendBitcoins(QDialog):
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
          not loadCount==lastPestering and not dnaaDonate and \
-         wlt.getSpendableBalance() > 5*ONE_BTC and not USE_TESTNET:
+         wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
             'and dozens of late nights.  Yet, this software has been '
@@ -3695,7 +3695,7 @@ class DlgSendBitcoins(QDialog):
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
          
-      bal = self.wlt.getSpendableBalance()
+      bal = self.wlt.getBalance('Spendable')
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
             '%s BTC (including tx fee), but you only have %s BTC (spendable) in this wallet!' % \
@@ -3706,7 +3706,7 @@ class DlgSendBitcoins(QDialog):
       
 
       # Get unspent outs for this wallet:
-      utxoList = self.wlt.getUnspentTxOutList()
+      utxoList = self.wlt.getTxOutList('Spendable')
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
 
@@ -4593,7 +4593,7 @@ class DlgReviewOfflineTx(QDialog):
       #        multi-sig code, I will have to either make a different dialog,
       #        or add some logic to this one
       FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(self.txdpObj)
+      data = extractTxInfo(self.txdpObj, -1)
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
@@ -4707,8 +4707,6 @@ class DlgReviewOfflineTx(QDialog):
 
    def execMoreTxInfo(self):
       
-      #class DlgDispTxInfo(QDialog):
-      #def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None):
       if not self.txdpObj:
          self.processTxDP()
 
@@ -4718,7 +4716,7 @@ class DlgReviewOfflineTx(QDialog):
          return
 
       dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent, self.main, \
-                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue)
+                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
       dlgTxInfo.exec_()
 
 
@@ -5127,7 +5125,7 @@ class DlgAddressProperties(QDialog):
 
 
 ################################################################################
-def extractTxInfo(pytx):
+def extractTxInfo(pytx, rcvTime=None):
 
    
    pytxdp = None
@@ -5169,9 +5167,21 @@ def extractTxInfo(pytx):
       txref = TheBDM.getTxByHash(txHash)
       if txref:
          headref = txref.getHeaderPtr()
-         txTime  = headref.getTimestamp()
-         txBlk   = headref.getBlockHeight()
-         txIdx   = txref.getBlockTxIndex()
+         if headref:
+            txTime  = unixTimeToFormatStr(headref.getTimestamp())
+            txBlk   = headref.getBlockHeight()
+            txIdx   = txref.getBlockTxIndex()
+         else:
+            if rcvTime==None:
+               txTime  = 'Unknown'
+            elif rcvTime==-1:
+               txTime  = '[[Not broadcast yet]]'
+            elif isinstance(rcvTime, str):
+               txTime  = rcvTime
+            else:
+               txTime  = unixTimeToFormatStr(rcvTime)
+            txBlk   = UINT32_MAX
+            txIdx   = -1
    
    txinFromList = []
    if TheBDM.isInitialized() and not txref==None:
@@ -5236,10 +5246,10 @@ def extractTxInfo(pytx):
       
 class DlgDispTxInfo(QDialog):
    def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
-                                        precomputeIdxGray=None, precomputeAmt=None):
+                             precomputeIdxGray=None, precomputeAmt=None, txtime=None):
       """
       This got freakin' complicated, because I'm trying to handle
-      wallet/nowallet, BDM/noBDM and Std/Adv/Dev modes all at once. 
+      wallet/nowallet, BDM/noBDM and Std/Adv/Dev all at once. 
 
       We can override the user mode as an input argument, in case a std
       user decides they want to see the tx in adv/dev mode
@@ -5251,7 +5261,7 @@ class DlgDispTxInfo(QDialog):
 
 
       FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(pytx)
+      data = extractTxInfo(pytx, txtime)
          
       # If this is actually a TxDP in here...
       pytxdp = None
@@ -5445,7 +5455,7 @@ class DlgDispTxInfo(QDialog):
                   'All transactions are eventually included in a "block."  The '
                   'time shown here is the time that the block entered the "blockchain."'))
          lbls[-1].append(QLabel('Transaction Time:'))
-         lbls[-1].append(QLabel( unixTimeToFormatStr(data[FIELDS.Time]) ))
+         lbls[-1].append(QLabel(data[FIELDS.Time]))
 
       if not data[FIELDS.Blk]==None:
          nConf = 0

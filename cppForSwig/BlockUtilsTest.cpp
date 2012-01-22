@@ -451,7 +451,7 @@ void TestZeroConf(void)
       cout << "Inserting another 0-conf tx..." << endl;
       uint64_t txtime = brr.get_uint64_t();
       TxRef zcTx(brr);
-      bdm.addNewZeroConfTx(zcTx.serialize(), txtime);
+      bdm.addNewZeroConfTx(zcTx.serialize(), txtime, true);
       bdm.rescanWalletZeroConf(wlt);
 
       cout << "UltBal: " << wlt.getFullBalance() << endl;

@@ -1705,6 +1705,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
 
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
+   purgeZeroConfPool();
    return nBlkRead;
 }
 
@@ -2045,6 +2046,8 @@ vector<bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
       fileAppend.write((char const *)(rawBlock.getPtr()), rawBlock.getSize());
       fileAppend.close();
    }
+
+   purgeZeroConfPool();
 
    vb[ADD_BLOCK_SUCCEEDED]     =  addDataSucceeded;
    vb[ADD_BLOCK_NEW_TOP_BLOCK] =  newBlockIsNewTop;
@@ -2417,68 +2420,6 @@ int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
 }
 
 
-////////////////////////////////////////////////////////////////////////////////
-/*
-vector<UnspentTxOut> 
-BlockDataManager_FullRAM::getUnspentTxOutsForWallet( BtcWallet & wlt, 
-                                                     int sortType,
-                                                     bool blockchainOnly)
-{
-   vector<UnspentTxOut> result(0);
-
-   // Iterate over all unspent TxOuts in blockchain, maybe ignore zeroconf spent
-   set<OutPoint> & unspentOps = wlt.getUnspentOutPoints();
-   set<OutPoint>::iterator opIter;
-   for(opIter  = unspentOps.begin();
-       opIter != unspentOps.end();
-       opIter++)
-   {
-      if( !wlt.isTxOutLocked(*opIter) or blockchainOnly)
-      { 
-         TxRef & tx = *(getTxByHash(opIter->getTxHash()));
-         uint32_t currBlk = getTopBlockHeader().getBlockHeight();
-         TxOutRef txout = tx.getTxOutRef(opIter->getTxOutIndex());
-         UnspentTxOut uto(txout, currBlk);
-         result.push_back(uto);
-
-      }
-   }
-
-   // If we're considering zero-conf tx, include the ones to self
-   if( !blockchainOnly )
-   {
-      set<OutPoint> & myZcToSelf = wlt.getMyZeroConfOutPointsToSelf();
-      set<OutPoint>::iterator iter;
-      for(iter  = myZcToSelf.begin();
-          iter != myZcToSelf.end();
-          iter++)
-      {
-         OutPoint & op = *iter;
-         TxRef & tx = zeroConfMap_[op].txref_;
-
-         TxOutRef txout = tx.getTxOutRef(op.getTxOutIndex());
-         UnspentTxOut uto(txout, 0);
-         result.push_back(uto);
-      }
-   }
-
-   if(sortType != -1)
-   {
-      UnspentTxOut::sortTxOutVect(result, sortType);
-      reverse(result.begin(), result.end());
-   }
-   return result;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-vector<UnspentTxOut> 
-BlockDataManager_FullRAM::getNonStdUnspentTxOutsForWallet( BtcWallet & wlt)
-{
-   cout << "Not implemented yet to retrieve non-std TxOuts..."<< endl;
-   return vector<UnspentTxOut>(0);
-}
-*/
-
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2512,10 +2453,11 @@ void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
          uint32_t txLen = BtcUtils::TxCalcLength(brr.getCurrPtr());
          BinaryData rawtx(txLen);
          brr.get_BinaryData(rawtx.getPtr(), txLen);
+         addNewZeroConfTx(rawtx, txTime, false);
       }
       zcFile.close();
    }
-   //brr.isEndOfStream() || 
+   purgeZeroConfPool();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -2539,7 +2481,8 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
       txtime = time(NULL);
 
    BinaryData txHash = BtcUtils::getHash256(rawTx);
-   if(zeroConfMap_.find(txHash) != zeroConfMap_.end())
+   if(zeroConfMap_.find(txHash) != zeroConfMap_.end() ||
+      txHashMap_.find(txHash)   != txHashMap_.end())
       return;
    
    
@@ -2573,8 +2516,8 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
        iter != zeroConfMap_.end();
        iter++)
    {
-      TxRef* txInBlockchain = getTxByHash(iter->first);
-      if(txInBlockchain != NULL)
+      // txHashMap_ holds only blocks in the blockchain
+      if(txHashMap_.find(iter->first) != txHashMap_.end())
          mapRmList.push_back(iter);
    }
 

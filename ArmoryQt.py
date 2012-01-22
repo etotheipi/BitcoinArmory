@@ -1194,28 +1194,55 @@ class ArmoryMainWindow(QMainWindow):
          #time.sleep(1)
          #self.checkForTxInNetwork(pytx.getHash())
       
-         # TODO:  MAKE SURE THE TX WAS ACCEPTED?
-         # But I'm not ready to implement this, so far now I'll just assume 
-         # it worked... will be fixed in the next release
    
-         #PyMessage('getdata')
-         #PayloadGetData(MSG_INV_TX,
+         def sendGetDataMsg():
+            msg = PyMessage('getdata')
+            msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
+            self.NetworkingFactory.sendMessage(msg)
 
-         QMessageBox.information(self, 'Broadcast Complete!', \
-            'The transaction has been broadcast to the Bitcoin network.  However '
-            'there is no way to know for sure whether it was accepted until you '
-            'see it in the blockchain with 1+ confirmations.  Please search '
-            'www.blockchain.info for the for recipient\'s address, to '
-            'verify whether it was accepted or not.  '
-            '\n\nAlso note: other transactions you send '
-            'from this wallet may not succeed until that first confirmation is '
-            'received.  Both issues are a problem with Armory that will be fixed '
-            'with the next release.', QMessageBox.Ok)
+         def checkForTxInBDM():
+            # The sleep/delay makes sure we have time to receive a response
+            # but it also gives the user a chance to SEE the change to their
+            # balance occur.  In some cases, that may be more satisfying than
+            # just seeing the updated balance when they get back to the main
+            # screen
+            if not TheBDM.getTxByHash(newTxHash):
+               failedFN = os.path.join(ARMORY_HOME_DIR, 'failedtx.bin')
+               f = open(failedFN, 'ab')
+               bp = BinaryPacker()
+               bp.put(UINT64, long(RightNow()))
+               f.write(bp.getBinaryString())
+               f.write(pytx.serialize())
+               f.close()
+               QMessageBox.warning(self, 'Invalid Transaction', \
+               'The transaction that you just executed, does not '
+               'appear to have been accepted by the Bitcoin network. '
+               'This sometimes happens with legitimate transactions '
+               'when a fee is not included but was required.  Or it can '
+               'be due to a bug in the Armory software.  <br><br>The '
+               'exact binary transaction data '
+               'has been saved to ' + failedFN + '.  This file never '
+               'contains any sensitive data, so it is safe to send to '
+               'the Armory developers for help diagnosing the issue, and '
+               'fixing any potential bugs.  If you are unsure why this '
+               'transaction failed, please email the above file to '
+               'alan.reiner@gmail.com for help.', QMessageBox.Ok)
+                  
+         reactor.callLater(1, sendGetDataMsg)
+         reactor.callLater(3, checkForTxInBDM)
+
+         #QMessageBox.information(self, 'Broadcast Complete!', \
+            #'The transaction has been broadcast to the Bitcoin network.  However '
+            #'there is no way to know for sure whether it was accepted until you '
+            #'see it in the blockchain with 1+ confirmations.  Please search '
+            #'www.blockchain.info for the for recipient\'s address, to '
+            #'verify whether it was accepted or not.  '
+            #'\n\nAlso note: other transactions you send '
+            #'from this wallet may not succeed until that first confirmation is '
+            #'received.  Both issues are a problem with Armory that will be fixed '
+            #'with the next release.', QMessageBox.Ok)
 
    
-   #############################################################################
-   #def checkForTxInNetwork(self, txHash):
-      #self.NetworkingFactory.sendMessage
       
             
             
@@ -1292,6 +1319,7 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.Date).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
@@ -1306,7 +1334,7 @@ class ArmoryMainWindow(QMainWindow):
             'the blockchain or the zero-conf tx list...?', QMessageBox.Ok)
             return
 
-         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self).exec_()
+         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self, txtime=txtime).exec_()
 
 
    #############################################################################
@@ -1352,7 +1380,6 @@ class ArmoryMainWindow(QMainWindow):
          newBlks = TheBDM.readBlkFileUpdate()
          self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
          if newBlks>0:
-            TheBDM.purgeZeroConfPool()
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
             didAffectUs = False

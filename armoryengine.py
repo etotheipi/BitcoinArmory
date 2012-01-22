@@ -8535,11 +8535,11 @@ class ArmoryClientFactory(ClientFactory):
       #d.errback(reason)
 
    #############################################################################
-   def checkForTx(self, txHash):
-      if self.proto:
-         self.proto.sendTx(pytxObj)
-      else:
-         raise ConnectionError, 'Connection to localhost DNE.'
+   #def checkForTx(self, txHash):
+      #if self.proto:
+         #self.proto.sendTx(pytxObj)
+      #else:
+         #raise ConnectionError, 'Connection to localhost DNE.'
       
       
 
@@ -8547,6 +8547,14 @@ class ArmoryClientFactory(ClientFactory):
    def sendTx(self, pytxObj):
       if self.proto:
          self.proto.sendTx(pytxObj)
+      else:
+         raise ConnectionError, 'Connection to localhost DNE.'
+
+
+   #############################################################################
+   def sendMessage(self, msgObj):
+      if self.proto:
+         self.proto.sendMessage(msgObj)
       else:
          raise ConnectionError, 'Connection to localhost DNE.'
 
