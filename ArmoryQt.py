@@ -1130,6 +1130,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+   #############################################################################
    def createSweepAddrTx(self, addrToSweepList, sweepTo160, forceZeroFee=False):
       """
       This method takes a list of addresses (likely just created from private

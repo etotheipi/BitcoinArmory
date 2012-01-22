@@ -8282,9 +8282,9 @@ class ArmoryClient(Protocol):
       """
 
       
-      pprintHex(binary_to_hex(data))
-
       #print '\n\nData Received:',
+      #pprintHex(binary_to_hex(data))
+
       # Put the current buffer into an unpacker, process until empty
       self.recvData += data
       buf = BinaryUnpacker(self.recvData)

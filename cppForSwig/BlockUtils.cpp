@@ -2451,7 +2451,6 @@ void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
       {
          uint64_t txTime = brr.get_uint64_t();
          uint32_t txLen = BtcUtils::TxCalcLength(brr.getCurrPtr());
-         cout << txTime << ":" << txLen << endl;
          BinaryData rawtx(txLen);
          brr.get_BinaryData(rawtx.getPtr(), txLen);
          addNewZeroConfTx(rawtx, txTime, false);

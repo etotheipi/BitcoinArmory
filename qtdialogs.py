@@ -1838,6 +1838,7 @@ class DlgAddressInfo(QDialog):
       self.addrLedger = wlt.getAddrTxLedger(addr160)
       self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.NumConf])
 
 
       self.mode = mode
