@@ -425,10 +425,11 @@ void TestZeroConf(void)
    // More testnet addresses, with only a few transactions
    BinaryData myAddress;
    BtcWallet wlt;
-   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt.addAddress(myAddress);
-   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("08ccdf1ef9269b95f6ce93899ece9f68cd5afb22"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("edf6bbd7ba7aad222c2b28e6d8d5001178e3680c"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("18d9cae7ee0be5c6d58f02a992442d2cdb9914fa"); wlt.addAddress(myAddress);
+
    bdm.scanBlockchainForTx(wlt);
 
    bdm.enableZeroConf("zctest/mempool_new.bin");

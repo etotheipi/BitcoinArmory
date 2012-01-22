@@ -2451,6 +2451,7 @@ void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
       {
          uint64_t txTime = brr.get_uint64_t();
          uint32_t txLen = BtcUtils::TxCalcLength(brr.getCurrPtr());
+         cout << txTime << ":" << txLen << endl;
          BinaryData rawtx(txLen);
          brr.get_BinaryData(rawtx.getPtr(), txLen);
          addNewZeroConfTx(rawtx, txTime, false);
@@ -2492,6 +2493,8 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    zc.txref_.unserialize(*(zc.iter_));
    zc.txtime_ = txtime;
 
+   cout << "Adding zc tx" << endl;
+   zc.txref_.pprint();
 
    // Record time.  Write to file
    if(writeToFile)

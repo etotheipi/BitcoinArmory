@@ -3621,6 +3621,7 @@ class DlgSendBitcoins(QDialog):
             print txdp.serializeAscii()
             self.main.broadcastTransaction(finalTx)
             self.accept()
+            self.parent.accept()
          except:
             print 'Issue sending!'
             # TODO: not sure what errors to catch here, yet...
