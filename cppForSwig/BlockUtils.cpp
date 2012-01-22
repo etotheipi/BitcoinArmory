@@ -2469,7 +2469,7 @@ void BlockDataManager_FullRAM::disableZeroConf(string zcFilename)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx, 
+bool BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx, 
                                                 uint64_t txtime,
                                                 bool writeToFile)
 {
@@ -2484,7 +2484,7 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    BinaryData txHash = BtcUtils::getHash256(rawTx);
    if(zeroConfMap_.find(txHash) != zeroConfMap_.end() ||
       txHashMap_.find(txHash)   != txHashMap_.end())
-      return;
+      return false;
    
    
    zeroConfMap_[txHash] = ZeroConfData();
@@ -2492,9 +2492,6 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    zc.iter_ = zeroConfTxList_.insert(zeroConfTxList_.end(), rawTx);
    zc.txref_.unserialize(*(zc.iter_));
    zc.txtime_ = txtime;
-
-   cout << "Adding zc tx" << endl;
-   zc.txref_.pprint();
 
    // Record time.  Write to file
    if(writeToFile)
@@ -2504,6 +2501,7 @@ void BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
       zcFile.write( (char*)zc.txref_.getPtr(),  zc.txref_.getSize());
       zcFile.close();
    }
+   return true;
 }
 
 
@@ -2537,7 +2535,8 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
    }
 
    // Rewrite the zero-conf pool file
-   rewriteZeroConfFile();
+   if(mapRmList.size() > 0)
+      rewriteZeroConfFile();
 }
 
 

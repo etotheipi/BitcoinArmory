@@ -452,7 +452,7 @@ public:
    // UNSAFE -- you don't know if outData holds enough space for this
    void copyTo(uint8_t* outData) const { memcpy( outData, ptr_, (size_t)nBytes_); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
-   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
+   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_+offset, (size_t)sz); }
    void copyTo(BinaryData & bd) const 
    {
       bd.resize(nBytes_);

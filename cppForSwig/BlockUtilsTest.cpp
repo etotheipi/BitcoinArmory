@@ -445,15 +445,18 @@ void TestZeroConf(void)
 
    BinaryRefReader brr(memPool);
    cout << "Starting Wallet:" << endl;
+   bdm.rescanWalletZeroConf(wlt);
    wlt.pprintLedger();
-   while(brr.getSizeRemaining() > 0)
+   while(brr.getSizeRemaining() > 8)
    {
       cout << endl << endl;
       cout << "Inserting another 0-conf tx..." << endl;
       uint64_t txtime = brr.get_uint64_t();
       TxRef zcTx(brr);
-      bdm.addNewZeroConfTx(zcTx.serialize(), txtime, true);
-      bdm.rescanWalletZeroConf(wlt);
+      bool wasAdded = bdm.addNewZeroConfTx(zcTx.serialize(), txtime, true);
+
+      if(wasAdded)
+         bdm.rescanWalletZeroConf(wlt);
 
       cout << "UltBal: " << wlt.getFullBalance() << endl;
       cout << "SpdBal: " << wlt.getSpendableBalance() << endl;

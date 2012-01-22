@@ -560,7 +560,7 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 
    os << indent << "   TxSize:      " << getSize() << " bytes" << endl;
    os << indent << "   NumInputs:   " << getNumTxIn() << endl;
-   os << indent << "   NumOutputs:  " << getNumTxIn() << endl;
+   os << indent << "   NumOutputs:  " << getNumTxOut() << endl;
    os << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
       getTxInRef(i).pprint(os, nIndent+1, pBigendian);
