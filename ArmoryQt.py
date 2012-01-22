@@ -199,11 +199,51 @@ class ArmoryMainWindow(QMainWindow):
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
       self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
-      self.lblTotalFunds  = QRichLabel('')
-      self.lblSpendFunds  = QRichLabel('')
-      self.lblUnconfFunds = QRichLabel('')
+      self.lblTot  = QRichLabel('<b>Total Funds:</b>', doWrap=False); 
+      self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
+      self.lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblSpendFunds, self.lblUnconfFunds])
+      self.lblTotalFunds  = QRichLabel('', doWrap=False)
+      self.lblSpendFunds  = QRichLabel('', doWrap=False)
+      self.lblUnconfFunds = QRichLabel('', doWrap=False)
+      self.lblTotalFunds.setAlignment(Qt.AlignRight)
+      self.lblSpendFunds.setAlignment(Qt.AlignRight)
+      self.lblUnconfFunds.setAlignment(Qt.AlignRight)
+
+      self.lblTot.setAlignment(Qt.AlignRight)
+      self.lblSpd.setAlignment(Qt.AlignRight)
+      self.lblUcn.setAlignment(Qt.AlignRight)
+
+      self.lblBTC1 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.ttipTot = createToolTipObject( \
+            'Total funds if all current transactions are confirmed.  '
+            'Value appears gray when it is the same as your spendable funds.')
+      self.ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
+      self.ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+
+      frmTotals = QFrame()
+      frmTotals.setFrameStyle(STYLE_NONE)
+      frmTotalsLayout = QGridLayout()
+      frmTotalsLayout.addWidget(self.lblTot, 0,0)
+      frmTotalsLayout.addWidget(self.lblSpd, 1,0)
+      frmTotalsLayout.addWidget(self.lblUcn, 2,0)
+
+      frmTotalsLayout.addWidget(self.lblTotalFunds,  0,1)
+      frmTotalsLayout.addWidget(self.lblSpendFunds,  1,1)
+      frmTotalsLayout.addWidget(self.lblUnconfFunds, 2,1)
+
+      frmTotalsLayout.addWidget(self.lblBTC1, 0,2)
+      frmTotalsLayout.addWidget(self.lblBTC2, 1,2)
+      frmTotalsLayout.addWidget(self.lblBTC3, 2,2)
+
+      frmTotalsLayout.addWidget(self.ttipTot, 0,3)
+      frmTotalsLayout.addWidget(self.ttipSpd, 1,3)
+      frmTotalsLayout.addWidget(self.ttipUcn, 2,3)
+
+
+      frmTotals.setLayout(frmTotalsLayout)
       frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
                                            self.comboWalletSelect, \
                                            'Stretch', \
@@ -496,9 +536,11 @@ class ArmoryMainWindow(QMainWindow):
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
       def newTxFunc(pytxObj):
-         TheBDM.addNewZeroConfTx(pytxObj.serialize())
-         for wlt in self.walletMap.itervalues():
-            TheBDM.rescanWalletZeroConf(wlt)
+         TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
+         for wltID,wlt in self.walletMap.iteritems():
+            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+         self.walletListChanged()
+         self.ledgerModel.reset()
 
       self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=restartConnection, \
@@ -784,16 +826,14 @@ class ArmoryMainWindow(QMainWindow):
       # let's try to update them and fail silently if they don't exist
       try:
          uncolor = 'red' if unconfFunds>0 else 'black'
-         self.lblTotalFunds.setText( \
-            '<b>Total Funds: <font color=#888888>%s</font> BTC</b>' % coin2str(totalFunds))
-         self.lblSpendFunds.setText( \
-            '<b>Spendable Funds: <font color="green">%s</font> BTC</b>' % coin2str(spendFunds))
-         self.lblUnconfFunds.setText( \
-            '<b>Unconfirmed: <font color="%s">%s</font> BTC</b>' % (uncolor, coin2str(unconfFunds)))
-         
-         self.lblUnconfFunds.setWordWrap(False)
-         self.lblSpendFunds.setWordWrap(False)
-         self.lblTotalFunds.setWordWrap(False)
+         btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
+         lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+         self.lblTotalFunds.setText( '<b><font color="%s">%s</font></b>' % (btccolor,coin2str(totalFunds)))
+         self.lblTot.setText('<b><font color="%s">Total Funds:</font></b>' % lblcolor)
+         self.lblBTC1.setText('<b><font color="%s">BTC</font></b>' % lblcolor)
+         self.lblSpendFunds.setText( '<b><font color="green">%s</font></b>' % coin2str(spendFunds))
+         self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
+                                             (uncolor, coin2str(unconfFunds)))
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
@@ -1139,7 +1179,8 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         print 'Sending Tx,', binary_to_hex(pytx.getHash())
+         newTxHash = pytx.getHash()
+         print 'Sending Tx,', binary_to_hex(newTxHash)
          self.NetworkingFactory.sendTx(pytx)
          print 'Done!'
 
@@ -1156,7 +1197,9 @@ class ArmoryMainWindow(QMainWindow):
          # TODO:  MAKE SURE THE TX WAS ACCEPTED?
          # But I'm not ready to implement this, so far now I'll just assume 
          # it worked... will be fixed in the next release
-         
+   
+         #PyMessage('getdata')
+         #PayloadGetData(MSG_INV_TX,
 
          QMessageBox.information(self, 'Broadcast Complete!', \
             'The transaction has been broadcast to the Bitcoin network.  However '
@@ -1309,14 +1352,14 @@ class ArmoryMainWindow(QMainWindow):
          newBlks = TheBDM.readBlkFileUpdate()
          self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
          if newBlks>0:
-            TheBDM.purgeMemoryPool()
+            TheBDM.purgeZeroConfPool()
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
             didAffectUs = False
             for wltID in self.walletMap.keys():
                prevLedgerSize = len(self.walletMap[wltID].getTxLedger())
                self.walletMap[wltID].syncWithBlockchain()
-               TheBDM.rescanWalletZeroConf(self.walletMap[wltID])
+               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
                newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                didAffectUs = (prevLedgerSize != newLedgerSize)
          

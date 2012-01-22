@@ -8281,6 +8281,9 @@ class ArmoryClient(Protocol):
       This method will do nothing if we don't receive a full message.
       """
 
+      
+      pprintHex(binary_to_hex(data))
+
       #print '\n\nData Received:',
       # Put the current buffer into an unpacker, process until empty
       self.recvData += data
@@ -8353,7 +8356,6 @@ class ArmoryClient(Protocol):
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
                from twisted.internet import reactor
-               reactor.callLater(2, self.factory.purgeMemoryPool)
             if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
                #print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)

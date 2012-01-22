@@ -633,26 +633,66 @@ class DlgWalletDetails(QDialog):
       self.frm = QFrame()
       self.setWltDetailsFrame()
 
-      lblTotal  = QLabel(); lblTotal.setAlignment( Qt.AlignRight | Qt.AlignVCenter)
-      lblUnconf = QLabel(); lblUnconf.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      totFund, unconfFund = 0,0
-      for le in self.wlt.getTxLedger():
-         if (self.main.latestBlockNum-le.getBlockNum()+1) < 6:
-            unconfFund += le.getValue()
-         else:
-            totFund += le.getValue()
-      uncolor = 'red' if unconfFund>0 else 'black'
-      lblTotal.setText( \
-         '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
-      lblUnconf.setText( \
-         '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
+      totalFunds = self.wlt.getBalance('Total')
+      spendFunds = self.wlt.getBalance('Spendable')
+      unconfFunds= self.wlt.getBalance('Unconfirmed')
+      uncolor = 'red' if unconfFunds>0 else 'black'
+      btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
+      lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+
+      lblTot  = QRichLabel('<b><font color="%s">Total Funds:</font></b>'%lblcolor, doWrap=False); 
+      lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
+      lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
+
+      totStr = '<b><font color="%s">%s</font></b>' % (btccolor, coin2str(totalFunds))
+      spdStr = '<b><font color="green">%s</font></b>' % (coin2str(spendFunds))
+      ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,coin2str(unconfFunds))
+      lblTotalFunds  = QRichLabel(totStr, doWrap=False)
+      lblSpendFunds  = QRichLabel(spdStr, doWrap=False)
+      lblUnconfFunds = QRichLabel(ucnStr, doWrap=False)
+      lblTotalFunds.setAlignment(Qt.AlignRight)
+      lblSpendFunds.setAlignment(Qt.AlignRight)
+      lblUnconfFunds.setAlignment(Qt.AlignRight)
+
+      lblTot.setAlignment(Qt.AlignRight)
+      lblSpd.setAlignment(Qt.AlignRight)
+      lblUcn.setAlignment(Qt.AlignRight)
+
+      lblBTC1 = QRichLabel('<b><font color="%s">BTC</font></b>'%lblcolor, doWrap=False)
+      lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
+      lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
+      ttipTot = createToolTipObject( \
+            'Total funds if all current transactions are confirmed.  '
+            'Value appears gray when it is the same as your spendable funds.')
+      ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
+      ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+
+      frmTotals = QFrame()
+      frmTotals.setFrameStyle(STYLE_NONE)
+      frmTotalsLayout = QGridLayout()
+      frmTotalsLayout.addWidget(lblTot, 0,0)
+      frmTotalsLayout.addWidget(lblSpd, 1,0)
+      frmTotalsLayout.addWidget(lblUcn, 2,0)
+
+      frmTotalsLayout.addWidget(lblTotalFunds,  0,1)
+      frmTotalsLayout.addWidget(lblSpendFunds,  1,1)
+      frmTotalsLayout.addWidget(lblUnconfFunds, 2,1)
+
+      frmTotalsLayout.addWidget(lblBTC1, 0,2)
+      frmTotalsLayout.addWidget(lblBTC2, 1,2)
+      frmTotalsLayout.addWidget(lblBTC3, 2,2)
+
+      frmTotalsLayout.addWidget(ttipTot, 0,3)
+      frmTotalsLayout.addWidget(ttipSpd, 1,3)
+      frmTotalsLayout.addWidget(ttipUcn, 2,3)
+
+      frmTotals.setLayout(frmTotalsLayout)
 
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0, 3, 4)
       layout.addWidget(self.wltAddrView,      4, 0, 2, 4)
       layout.addWidget(btnGoBack,             6, 0, 2, 1)
-      layout.addWidget(lblTotal,              6, 3, 1, 1)
-      layout.addWidget(lblUnconf,             7, 3, 1, 1)
+      layout.addWidget(frmTotals,             6, 3, 2, 1)
 
       layout.addWidget(QLabel("Available Actions:"), \
                                               0, 4)
