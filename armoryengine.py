@@ -5453,7 +5453,7 @@ class PyBtcWallet(object):
             return addr.getSpendableBalance()
          elif balType.lower() in ('unconfirmed','unconf'):
             return addr.getUnconfirmedBalance(currBlk)
-         elif balType.lower() in ('ultimate','unspent'):
+         elif balType.lower() in ('ultimate','unspent','full'):
             return addr.getFullBalance()
          else:
             raise TypeError, 'Unknown balance type!'

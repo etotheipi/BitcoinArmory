@@ -135,8 +135,12 @@ class LedgerDispModelSimple(QAbstractTableModel):
       COL = LEDGERCOLS
       row,col = index.row(), index.column()
       rowData = self.ledger[row]
-      nConf = rowData[0]
+      nConf = rowData[LEDGERCOLS.NumConf]
+      wltID = rowData[LEDGERCOLS.WltID]
+      wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
+#LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', \
+                   #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -149,10 +153,12 @@ class LedgerDispModelSimple(QAbstractTableModel):
       elif role==Qt.DecorationRole:
          pass
       elif role==Qt.BackgroundColorRole:
-         if not rowData[COL.isOther]:
-            return QVariant( Colors.WltMine )
-         else:
+         if wtype==WLTTYPES.WatchOnly:
             return QVariant( Colors.WltOther )
+         elif wtype==WLTTYPES.Offline:
+            return QVariant( Colors.WltOffline )
+         else:
+            return QVariant( Colors.WltMine )
       elif role==Qt.ForegroundRole:
          if self.index(index.row(),COL.DoubleSpend).data().toBool():
             return QVariant(Colors.Red)

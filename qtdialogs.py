@@ -1430,11 +1430,6 @@ class DlgImportAddress(QDialog):
                    'is in a format supported by Armory, it will be '
                    'detected and imported appropriately.  ')
 
-      #if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
-         #descrText += ('Supported formats are any hexadecimal or Base58 '
-                       #'representation of a 32-byte private key (with or '
-                       #'without checksums), and mini-private-key format '
-                       #'used on Casascius physical bitcoins.')
       privTooltip = createToolTipObject( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
@@ -1508,7 +1503,7 @@ class DlgImportAddress(QDialog):
 
 
    def processUserString(self):
-      theStr = str(self.edtPrivData.text()).strip()
+      theStr = str(self.edtPrivData.text()).strip().replace(' ','')
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
@@ -1597,6 +1592,7 @@ class DlgImportAddress(QDialog):
                QMessageBox.Ok)
          return
 
+
       # Finally, let's add the address to the wallet, or sweep the funds
       if self.radioSweep.isChecked():
          if self.wlt.hasAddr(addr160):
@@ -1651,6 +1647,29 @@ class DlgImportAddress(QDialog):
             self.main.broadcastTransaction(finishedTx, dryRun=False)
             
       elif self.radioImport.isChecked():
+         if self.wlt.hasAddr(addr160):
+            QMessageBox.critical(self, 'Duplicate Address', \
+            'The address you are trying to import is already part of your '
+            'wallet.  Address cannot be imported', QMessageBox.Ok)
+            return
+
+         wltID = self.main.getWalletForAddr160(addr160)
+         if not wltID=='':
+            reply = QMessageBox.critical(self, 'Duplicate Addresses', \
+            'The key you entered is already part of another wallet '
+            'another wallet you own:\n\n'
+            'Address: ' + addrStr + '\n'
+            'Wallet ID: ' + wltID + '\n'
+            'Wallet Name: ' + self.main.walletMap[wltID].labelName + '\n\n'
+            'If you continue, any funds in this '
+            'address will be double-counted, causing your total balance '
+            'to appear artificially high, and any transactions involving '
+            'this address will confusingly appear in multiple wallets.'
+            '\n\nWould you like to import this address anyway?', \
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+            if not reply==QMessageBox.Yes:
+               return
+   
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
             if not dlg.exec_():
@@ -1660,11 +1679,6 @@ class DlgImportAddress(QDialog):
                   QMessageBox.Ok)
                return
 
-         if self.wlt.hasAddr(addr160):
-            QMessageBox.critical(self, 'Duplicate Address', \
-            'The address you are trying to import is already part of your '
-            'wallet.  Address cannot be imported', QMessageBox.Ok)
-            return
 
          self.wlt.importExternalAddressData( privKey=SecureBinaryData(binKeyData))
          self.main.statusBar().showMessage( 'Successful import of address ' \
@@ -2043,6 +2057,14 @@ class DlgAddressInfo(QDialog):
 
    def sweepAddr(self):
       
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'Wallet is Locked', \
+               'Cannot sweep an address while its keys are locked.', \
+               QMessageBox.Ok)
+            return
+
       addrToSweep = self.addr.copy()
       targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
       finishedTx, outVal, fee = self.main.createSweepAddrTx(addrToSweep, targAddr160)
@@ -5196,7 +5218,7 @@ def extractTxInfo(pytx, rcvTime=None):
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
             txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getHeaderPtr().getBlockHeight())
+            txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
             txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
             txinFromList[-1].append(prevTxOut.getIndex())
          else:
