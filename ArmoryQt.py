@@ -205,15 +205,19 @@ class ArmoryMainWindow(QMainWindow):
       self.lblUnconfirmed = QLabel()
       self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
+      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblUnconfirmed])
+      frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
+                                           self.comboWalletSelect, \
+                                           'Stretch', \
+                                           frmTotals])
+
       # Now add the ledger to the bottom of the window
       ledgFrame = QFrame()
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
-      ledgLayout.addWidget(self.comboWalletSelect,    4,0, 2,1)
       ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
-      ledgLayout.addWidget(self.lblTotalFunds,        4,2, 1,2)
-      ledgLayout.addWidget(self.lblUnconfirmed,       5,2, 1,2)
+      ledgLayout.addWidget(frmLower,                  4,0, 1,4)
       ledgFrame.setLayout(ledgLayout)
 
 
