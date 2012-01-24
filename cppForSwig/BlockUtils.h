@@ -414,7 +414,6 @@ private:
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
 
-   set<OutPoint>                unspentOutPoints_;
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    set<TxRef*>                  txrefSet_;      // aggregation of all relevant Tx
@@ -648,7 +647,7 @@ public:
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, bool doOrganize=true);
-   uint32_t       readBlkFileUpdate(void);
+   uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
    vector<TxRef*> findAllNonStdTx(void);
