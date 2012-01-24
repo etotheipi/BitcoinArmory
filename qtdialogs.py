@@ -633,26 +633,66 @@ class DlgWalletDetails(QDialog):
       self.frm = QFrame()
       self.setWltDetailsFrame()
 
-      lblTotal  = QLabel(); lblTotal.setAlignment( Qt.AlignRight | Qt.AlignVCenter)
-      lblUnconf = QLabel(); lblUnconf.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      totFund, unconfFund = 0,0
-      for le in self.wlt.getTxLedger():
-         if (self.main.latestBlockNum-le.getBlockNum()+1) < 6:
-            unconfFund += le.getValue()
-         else:
-            totFund += le.getValue()
-      uncolor = 'red' if unconfFund>0 else 'black'
-      lblTotal.setText( \
-         '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
-      lblUnconf.setText( \
-         '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
+      totalFunds = self.wlt.getBalance('Total')
+      spendFunds = self.wlt.getBalance('Spendable')
+      unconfFunds= self.wlt.getBalance('Unconfirmed')
+      uncolor = 'red' if unconfFunds>0 else 'black'
+      btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
+      lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+
+      lblTot  = QRichLabel('<b><font color="%s">Total Funds:</font></b>'%lblcolor, doWrap=False); 
+      lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
+      lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
+
+      totStr = '<b><font color="%s">%s</font></b>' % (btccolor, coin2str(totalFunds))
+      spdStr = '<b><font color="green">%s</font></b>' % (coin2str(spendFunds))
+      ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,coin2str(unconfFunds))
+      lblTotalFunds  = QRichLabel(totStr, doWrap=False)
+      lblSpendFunds  = QRichLabel(spdStr, doWrap=False)
+      lblUnconfFunds = QRichLabel(ucnStr, doWrap=False)
+      lblTotalFunds.setAlignment(Qt.AlignRight)
+      lblSpendFunds.setAlignment(Qt.AlignRight)
+      lblUnconfFunds.setAlignment(Qt.AlignRight)
+
+      lblTot.setAlignment(Qt.AlignRight)
+      lblSpd.setAlignment(Qt.AlignRight)
+      lblUcn.setAlignment(Qt.AlignRight)
+
+      lblBTC1 = QRichLabel('<b><font color="%s">BTC</font></b>'%lblcolor, doWrap=False)
+      lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
+      lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
+      ttipTot = createToolTipObject( \
+            'Total funds if all current transactions are confirmed.  '
+            'Value appears gray when it is the same as your spendable funds.')
+      ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
+      ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+
+      frmTotals = QFrame()
+      frmTotals.setFrameStyle(STYLE_NONE)
+      frmTotalsLayout = QGridLayout()
+      frmTotalsLayout.addWidget(lblTot, 0,0)
+      frmTotalsLayout.addWidget(lblSpd, 1,0)
+      frmTotalsLayout.addWidget(lblUcn, 2,0)
+
+      frmTotalsLayout.addWidget(lblTotalFunds,  0,1)
+      frmTotalsLayout.addWidget(lblSpendFunds,  1,1)
+      frmTotalsLayout.addWidget(lblUnconfFunds, 2,1)
+
+      frmTotalsLayout.addWidget(lblBTC1, 0,2)
+      frmTotalsLayout.addWidget(lblBTC2, 1,2)
+      frmTotalsLayout.addWidget(lblBTC3, 2,2)
+
+      frmTotalsLayout.addWidget(ttipTot, 0,3)
+      frmTotalsLayout.addWidget(ttipSpd, 1,3)
+      frmTotalsLayout.addWidget(ttipUcn, 2,3)
+
+      frmTotals.setLayout(frmTotalsLayout)
 
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0, 3, 4)
       layout.addWidget(self.wltAddrView,      4, 0, 2, 4)
       layout.addWidget(btnGoBack,             6, 0, 2, 1)
-      layout.addWidget(lblTotal,              6, 3, 1, 1)
-      layout.addWidget(lblUnconf,             7, 3, 1, 1)
+      layout.addWidget(frmTotals,             6, 3, 2, 1)
 
       layout.addWidget(QLabel("Available Actions:"), \
                                               0, 4)
@@ -1225,7 +1265,7 @@ class DlgNewAddressDisp(QDialog):
 
       if not notMyWallet:
          palette = QPalette()
-         palette.setColor( QPalette.Base, Colors.LightBlue )
+         palette.setColor( QPalette.Base, Colors.WltMine )
          boldFont = self.edtNewAddr.font()
          boldFont.setWeight(QFont.Bold)
          self.edtNewAddr.setFont(boldFont)
@@ -1390,11 +1430,6 @@ class DlgImportAddress(QDialog):
                    'is in a format supported by Armory, it will be '
                    'detected and imported appropriately.  ')
 
-      #if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
-         #descrText += ('Supported formats are any hexadecimal or Base58 '
-                       #'representation of a 32-byte private key (with or '
-                       #'without checksums), and mini-private-key format '
-                       #'used on Casascius physical bitcoins.')
       privTooltip = createToolTipObject( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
@@ -1468,7 +1503,7 @@ class DlgImportAddress(QDialog):
 
 
    def processUserString(self):
-      theStr = str(self.edtPrivData.text()).strip()
+      theStr = str(self.edtPrivData.text()).strip().replace(' ','')
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
@@ -1557,6 +1592,7 @@ class DlgImportAddress(QDialog):
                QMessageBox.Ok)
          return
 
+
       # Finally, let's add the address to the wallet, or sweep the funds
       if self.radioSweep.isChecked():
          if self.wlt.hasAddr(addr160):
@@ -1572,7 +1608,7 @@ class DlgImportAddress(QDialog):
    
          if not TheBDM.isInitialized():
             reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
-            'You need access to the internet and the blockchain in order '
+            'You need access to the Bitcoin network and the blockchain in order '
             'to find the balance of this address and sweep its funds. ', \
             QMessageBox.Ok)
             return
@@ -1611,6 +1647,29 @@ class DlgImportAddress(QDialog):
             self.main.broadcastTransaction(finishedTx, dryRun=False)
             
       elif self.radioImport.isChecked():
+         if self.wlt.hasAddr(addr160):
+            QMessageBox.critical(self, 'Duplicate Address', \
+            'The address you are trying to import is already part of your '
+            'wallet.  Address cannot be imported', QMessageBox.Ok)
+            return
+
+         wltID = self.main.getWalletForAddr160(addr160)
+         if not wltID=='':
+            reply = QMessageBox.critical(self, 'Duplicate Addresses', \
+            'The key you entered is already part of another wallet '
+            'another wallet you own:\n\n'
+            'Address: ' + addrStr + '\n'
+            'Wallet ID: ' + wltID + '\n'
+            'Wallet Name: ' + self.main.walletMap[wltID].labelName + '\n\n'
+            'If you continue, any funds in this '
+            'address will be double-counted, causing your total balance '
+            'to appear artificially high, and any transactions involving '
+            'this address will confusingly appear in multiple wallets.'
+            '\n\nWould you like to import this address anyway?', \
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+            if not reply==QMessageBox.Yes:
+               return
+   
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
             if not dlg.exec_():
@@ -1620,11 +1679,6 @@ class DlgImportAddress(QDialog):
                   QMessageBox.Ok)
                return
 
-         if self.wlt.hasAddr(addr160):
-            QMessageBox.critical(self, 'Duplicate Address', \
-            'The address you are trying to import is already part of your '
-            'wallet.  Address cannot be imported', QMessageBox.Ok)
-            return
 
          self.wlt.importExternalAddressData( privKey=SecureBinaryData(binKeyData))
          self.main.statusBar().showMessage( 'Successful import of address ' \
@@ -1665,7 +1719,7 @@ class DlgVerifySweep(QDialog):
       #frmLayout.addWidget(QRichLabel('Funds will be <i>swept</i>...'), 0,0, 1,2)
       frmLayout.addWidget(QRichLabel('      From ' + inputStr, doWrap=False), 1,0, 1,2)
       frmLayout.addWidget(QRichLabel('      To ' + outputStr, doWrap=False),  2,0, 1,2)
-      frmLayout.addWidget(QRichLabel('      Total %s BTC %s'%(outStr,feeStr), doWrap=False),  3,0, 1,2)
+      frmLayout.addWidget(QRichLabel('      Total <b>%s</b> BTC %s'%(outStr,feeStr), doWrap=False),  3,0, 1,2)
       frm.setLayout(frmLayout)
 
       lblFinalConfirm = QLabel('Are you sure you want to execute this transaction?')
@@ -1781,9 +1835,10 @@ class DlgAddressInfo(QDialog):
       self.addr   = self.wlt.getAddrByHash160(addr160)
 
 
-      self.addrLedger = wlt.getTxLedger(addr160)
-      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in wlt.getTxLedger(addr160)] 
+      self.addrLedger = wlt.getAddrTxLedger(addr160)
+      self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
+      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
 
 
       self.mode = mode
@@ -1853,8 +1908,8 @@ class DlgAddressInfo(QDialog):
             'The current balance based on transactions already in the blockchain.  '
             'This only includes transactions with 1 or more confirmations.'))
       lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
-      balStr = coin2str(cppAddr.getBalance(), maxZeros=1)
-      if cppAddr.getBalance()>0:
+      balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
+      if cppAddr.getSpendableBalance()>0:
          lbls[-1].append( QRichLabel( '<font color="green">' + balStr.strip() + '</font> BTC' ))
       else:   
          lbls[-1].append( QRichLabel( balStr.strip() + ' BTC'))
@@ -1893,6 +1948,7 @@ class DlgAddressInfo(QDialog):
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
 
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.WltName)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
@@ -1906,7 +1962,7 @@ class DlgAddressInfo(QDialog):
       self.ledgerView.verticalHeader().hide()
       self.ledgerView.setMinimumWidth(650)
       dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
-      initialColResize(self.ledgerView, [20, dateWidth, 72, 0, 0.45, 0.3])
+      initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0, 0.45, 0.3])
 
       ttipLedger = createToolTipObject( \
             'Unlike the wallet-level ledger, this table shows every '
@@ -2003,6 +2059,14 @@ class DlgAddressInfo(QDialog):
 
    def sweepAddr(self):
       
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'Wallet is Locked', \
+               'Cannot sweep an address while its keys are locked.', \
+               QMessageBox.Ok)
+            return
+
       addrToSweep = self.addr.copy()
       targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
       finishedTx, outVal, fee = self.main.createSweepAddrTx(addrToSweep, targAddr160)
@@ -2361,6 +2425,9 @@ class DlgImportPaperWallet(QDialog):
       self.setLayout(layout)
       
 
+      self.setWindowTitle('Recover Wallet from Paper Backup')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
 
    def autoSpacerFunction(self, i):
       currStr = str(self.lineEdits[i].text())
@@ -2658,9 +2725,9 @@ class DlgRemoveWallet(QDialog):
       wltEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.getBalance()
+         bal = wlt.getBalance('Full')
          lbls.append([])
-         lbls[3].append(QLabel('Current Balance:'))
+         lbls[3].append(QLabel('Current Balance (w/ unconfirmed):'))
          if bal>0:
             lbls[3].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1).strip()+' BTC</b></font>'))
             lbls[3][-1].setTextFormat(Qt.RichText)
@@ -2927,9 +2994,9 @@ class DlgRemoveAddress(QDialog):
       addrEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
-         bal = wlt.cppWallet.getAddrByHash160(addr160).getBalance()
+         bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
-         lbls[-1].append(QLabel('Address Balance:'))
+         lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))
          if bal>0:
             lbls[-1].append(QLabel('<font color="red"><b>'+coin2str(bal, maxZeros=1)+' BTC</b></font>'))
             lbls[-1][-1].setTextFormat(Qt.RichText)
@@ -3145,11 +3212,11 @@ class DlgWalletSelect(QDialog):
       self.dispName.setText(wlt.labelName)
       self.dispDescr.setText(wlt.labelDescr)
       
-      bal = wlt.getBalance()
+      bal = wlt.getBalance('Spendable')
       if bal==0:
          self.dispBal.setText('<font color="red"><b>0.0</b></font>')
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
+         self.dispBal.setText('<b>'+coin2str(wlt.getBalance('Spendable'), maxZeros=1)+'</b>')
       self.dispBal.setTextFormat(Qt.RichText) 
       self.selectedID=wltID
 
@@ -3182,13 +3249,12 @@ def getWalletInfoFrame(wlt):
    dispID = QLabel(wltID)
    dispName = QLabel(wlt.labelName)
    dispDescr = QLabel(wlt.labelDescr)
-   dispBal = QLabel()
+   dispBal = QRichLabel('')
 
    # Format balance if necessary
-   bal = wlt.getBalance()
-   dispBal.setTextFormat(Qt.RichText) 
+   bal = wlt.getBalance('Spendable')
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(wlt.getBalance(), maxZeros=1)+'</b>')
+   else:      dispBal.setText('<b>'+coin2str(bal, maxZeros=1)+'</b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -3454,10 +3520,10 @@ class DlgSendBitcoins(QDialog):
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
       if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
          not loadCount==lastPestering and not dnaaDonate and \
-         wlt.getBalance() > 5*ONE_BTC and not USE_TESTNET:
+         wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
-            'and many months of anti-social behavior.  Yet, this software has been '
+            'and dozens of late nights.  Yet, this software has been '
             'given to you for free, to benefit the greater Bitcoin community! '
             '<br><br>However, continued development may not be possible without '
             'donations.  If you are satisfied with this software, please consider '
@@ -3557,6 +3623,10 @@ class DlgSendBitcoins(QDialog):
             print txdp.serializeAscii()
             self.main.broadcastTransaction(finalTx)
             self.accept()
+            try:
+               self.parent.accept()
+            except:
+               pass
          except:
             print 'Issue sending!'
             # TODO: not sure what errors to catch here, yet...
@@ -3653,10 +3723,10 @@ class DlgSendBitcoins(QDialog):
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
          
-      bal = self.wlt.getBalance()
+      bal = self.wlt.getBalance('Spendable')
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
-            '%s BTC (including tx fee), but you only have %s BTC in this wallet!' % \
+            '%s BTC (including tx fee), but you only have %s BTC (spendable) in this wallet!' % \
                (coin2str(totalSend+fee, maxZeros=2).strip(), \
                 coin2str(bal, maxZeros=2).strip()), \
             QMessageBox.Ok)
@@ -3664,7 +3734,7 @@ class DlgSendBitcoins(QDialog):
       
 
       # Get unspent outs for this wallet:
-      utxoList = self.wlt.getUnspentTxOutList()
+      utxoList = self.wlt.getTxOutList('Spendable')
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
 
@@ -3763,7 +3833,7 @@ class DlgSendBitcoins(QDialog):
          if len(str(self.widgetTable[-1][col].text()))>0:
             lastIsEmpty = False
          
-      if not lastIsEmpty or len(self.widgetTable)==1:
+      if not lastIsEmpty:
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)
@@ -3796,9 +3866,9 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 33)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 40)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setFont(GETFONT('var'))
+         self.widgetTable[-1][-1].setFont(GETFONT('var',9))
 
          self.widgetTable[-1].append( QLabel('BTC:') )
 
@@ -3809,9 +3879,8 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
       
          self.widgetTable[-1].append( QLabel('Comment:') )
-
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('var'))
+         self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
 
          if i<nRecip and i<prevNRecip:
@@ -4552,7 +4621,7 @@ class DlgReviewOfflineTx(QDialog):
       #        multi-sig code, I will have to either make a different dialog,
       #        or add some logic to this one
       FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(self.txdpObj)
+      data = extractTxInfo(self.txdpObj, -1)
 
       # Collect the input wallets (hopefully just one of them)
       fromWlts = set()
@@ -4666,8 +4735,6 @@ class DlgReviewOfflineTx(QDialog):
 
    def execMoreTxInfo(self):
       
-      #class DlgDispTxInfo(QDialog):
-      #def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None):
       if not self.txdpObj:
          self.processTxDP()
 
@@ -4677,7 +4744,7 @@ class DlgReviewOfflineTx(QDialog):
          return
 
       dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent, self.main, \
-                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue)
+                          precomputeIdxGray=self.idxSelf, precomputeAmt=-self.leValue, txtime=-1)
       dlgTxInfo.exec_()
 
 
@@ -4755,7 +4822,7 @@ class DlgReviewOfflineTx(QDialog):
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
          reply = QMessageBox.question(self,'Overwrite?', \
          'The signed transaction you are saving was originally loaded '
-         'from:\n\n%s\n\nWould you like to overwrite write it with this '
+         'from:\n\n%s\n\nWould you like to overwrite it with this '
          'signed transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
@@ -5086,7 +5153,7 @@ class DlgAddressProperties(QDialog):
 
 
 ################################################################################
-def extractTxInfo(pytx, zcTimeList=None):
+def extractTxInfo(pytx, rcvTime=None):
 
    
    pytxdp = None
@@ -5128,13 +5195,21 @@ def extractTxInfo(pytx, zcTimeList=None):
       txref = TheBDM.getTxByHash(txHash)
       if txref:
          headref = txref.getHeaderPtr()
-         txTime  = headref.getTimestamp()
-         txBlk   = headref.getBlockHeight()
-         txIdx   = txref.getBlockTxIndex()
-      else:
-         if zcTimeList and zcTimeList.has_key(txHash):
-            txTime = zcTimeList[txHash]
-            txBlk  = 2**32-1
+         if headref:
+            txTime  = unixTimeToFormatStr(headref.getTimestamp())
+            txBlk   = headref.getBlockHeight()
+            txIdx   = txref.getBlockTxIndex()
+         else:
+            if rcvTime==None:
+               txTime  = 'Unknown'
+            elif rcvTime==-1:
+               txTime  = '[[Not broadcast yet]]'
+            elif isinstance(rcvTime, str):
+               txTime  = rcvTime
+            else:
+               txTime  = unixTimeToFormatStr(rcvTime)
+            txBlk   = UINT32_MAX
+            txIdx   = -1
    
    txinFromList = []
    if TheBDM.isInitialized() and not txref==None:
@@ -5149,11 +5224,12 @@ def extractTxInfo(pytx, zcTimeList=None):
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
             txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getHeaderPtr().getBlockHeight())
+            txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
             txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
             txinFromList[-1].append(prevTxOut.getIndex())
          else:
             haveAllInput=False
+            txin = PyTxIn().unserialize(cppTxin.serialize())
             txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
             txinFromList[-1].append('')
             txinFromList[-1].append('')
@@ -5199,10 +5275,10 @@ def extractTxInfo(pytx, zcTimeList=None):
       
 class DlgDispTxInfo(QDialog):
    def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
-                                        precomputeIdxGray=None, precomputeAmt=None):
+                             precomputeIdxGray=None, precomputeAmt=None, txtime=None):
       """
       This got freakin' complicated, because I'm trying to handle
-      wallet/nowallet, BDM/noBDM and Std/Adv/Dev modes all at once. 
+      wallet/nowallet, BDM/noBDM and Std/Adv/Dev all at once. 
 
       We can override the user mode as an input argument, in case a std
       user decides they want to see the tx in adv/dev mode
@@ -5214,7 +5290,7 @@ class DlgDispTxInfo(QDialog):
 
 
       FIELDS = enum('Hash','OutList','SumOut','InList','SumIn', 'Time', 'Blk', 'Idx')
-      data = extractTxInfo(pytx)
+      data = extractTxInfo(pytx, txtime)
          
       # If this is actually a TxDP in here...
       pytxdp = None
@@ -5261,7 +5337,7 @@ class DlgDispTxInfo(QDialog):
       txdir = None 
       changeIndex = None
       rvPairDisp = None
-      if haveBDM and haveWallet:
+      if haveBDM and haveWallet and data[FIELDS.SumOut] and data[FIELDS.SumIn]:
          fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
          ldgr = wlt.getTxLedger()
          for le in ldgr:
@@ -5393,7 +5469,7 @@ class DlgDispTxInfo(QDialog):
       lbls[-1].append(createToolTipObject('Comment stored for this transaction in this wallet'))
       lbls[-1].append(QLabel('User Comment:'))
       if wlt.getComment(txHash):
-         lbls[-1].append(QLabel(wlt.getComment(txHash)))
+         lbls[-1].append(QRichLabel(wlt.getComment(txHash)))
       else:
          lbls[-1].append(QRichLabel('<font color="gray">[None]</font>'))
       
@@ -5408,7 +5484,7 @@ class DlgDispTxInfo(QDialog):
                   'All transactions are eventually included in a "block."  The '
                   'time shown here is the time that the block entered the "blockchain."'))
          lbls[-1].append(QLabel('Transaction Time:'))
-         lbls[-1].append(QLabel( unixTimeToFormatStr(data[FIELDS.Time]) ))
+         lbls[-1].append(QLabel(data[FIELDS.Time]))
 
       if not data[FIELDS.Blk]==None:
          nConf = 0
@@ -5562,8 +5638,8 @@ class DlgDispTxInfo(QDialog):
       self.txInView.verticalHeader().setDefaultSectionSize(20)
       self.txInView.verticalHeader().hide()
       w,h = tightSizeNChar(self.txInView, 1)
-      self.txInView.setMinimumHeight(2*(1.3*h))
-      self.txInView.setMaximumHeight(5*(1.3*h))
+      self.txInView.setMinimumHeight(2*(1.4*h))
+      self.txInView.setMaximumHeight(5*(1.4*h))
       self.txInView.hideColumn(TXINCOLS.OutPt) 
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 

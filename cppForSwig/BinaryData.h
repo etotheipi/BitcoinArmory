@@ -452,7 +452,7 @@ public:
    // UNSAFE -- you don't know if outData holds enough space for this
    void copyTo(uint8_t* outData) const { memcpy( outData, ptr_, (size_t)nBytes_); }
    void copyTo(uint8_t* outData, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
-   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_, (size_t)sz); }
+   void copyTo(uint8_t* outData, size_t offset, size_t sz) const { memcpy( outData, ptr_+offset, (size_t)sz); }
    void copyTo(BinaryData & bd) const 
    {
       bd.resize(nBytes_);
@@ -888,7 +888,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
-   uint8_t const * getCurrPtr(void)        { return bdStr_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)       { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
@@ -1018,7 +1018,7 @@ public:
    uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
    bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
    uint8_t const * exposeDataPtr(void)    { return bdRef_.getPtr(); }
-   uint8_t const * getCurrPtr(void)        { return bdRef_.getPtr() + pos_; }
+   uint8_t const * getCurrPtr(void)       { return bdRef_.getPtr() + pos_; }
 
 private:
    BinaryDataRef bdRef_;

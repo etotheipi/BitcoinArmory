@@ -3817,32 +3817,42 @@ class PyScriptProcessor(object):
 
 
 ################################################################################
-def getUnspentTxOutsForAddrList(addr160List):
+def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep'):
    """
    You have a list of addresses (or just one) and you want to get all the 
    unspent TxOuts for it.  This can either be for computing its balance, or
    for sweeping the address(es).
 
    This will return a list of pairs of [addr160, utxoObj]
-
    This isn't the most efficient method for producing the pairs
-
 
    NOTE:  At the moment, this only gets STANDARD TxOuts... non-std uses 
           a different BDM call
    """
-   if not isinstance(addr160List, (list,tuple)):
-      addr160List = [addr160List]
+   if not TheBDM.isInitialized():
+      return []
+   else:
+      if not isinstance(addr160List, (list,tuple)):
+         addr160List = [addr160List]
+   
+      cppWlt = Cpp.BtcWallet()
+      for addr in addr160List:
+         if isinstance(addr, PyBtcAddress):
+            cppWlt.addAddress_1_(addr.getAddr160())
+         else:
+            cppWlt.addAddress_1_(addr)
+   
+      
+      currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+      TheBDM.scanBlockchainForTx(cppWlt, currBlk)
 
-   cppWlt = Cpp.BtcWallet()
-   for addr in addr160List:
-      if isinstance(addr, PyBtcAddress):
-         cppWlt.addAddress_1_(addr.getAddr160())
+      if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
+         return cppWlt.getFullTxOutList(currBlk)
+      elif utxoType.lower() in ('spend','spendable','confirmed'):
+         return cppWlt.getSpendableTxOutList(currBlk)
       else:
-         cppWlt.addAddress_1_(addr)
+         raise TypeError, 'Unknown utxoType!'
 
-   TheBDM.scanBlockchainForTx(cppWlt)
-   return TheBDM.getUnspentTxOutsForWallet(cppWlt)
 
 
 ################################################################################
@@ -5417,31 +5427,111 @@ class PyBtcWallet(object):
          print '            is set to BLOCKCHAIN_DONOTUSE'
 
    #############################################################################
-   def getBalance(self):
+   def getBalance(self, balType="Spendable"):
       if not TheBDM.isInitialized():
          return -1
       else:
-         return sumTxOutList(self.getUnspentTxOutList())
-
-   #############################################################################
-   def getTxLedger(self, addr160=None):
-      """ 
-      Gets the complete ledger for a specific address, or the wallet as a whole.
-      """
-      if addr160==None:
-         return self.cppWallet.getTxLedger()
-      else:
-         if not self.hasAddr(addr160):
-            return []
+         if balType.lower() in ('spendable','spend'):
+            return self.cppWallet.getSpendableBalance()
+         elif balType.lower() in ('unconfirmed','unconf'):
+            currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+            return self.cppWallet.getUnconfirmedBalance(currBlk)
+         elif balType.lower() in ('total','ultimate','unspent','full'):
+            return self.cppWallet.getFullBalance()
          else:
-            return self.cppWallet.getAddrByHash160(addr160).getTxLedger()
+            raise TypeError, 'Unknown balance type! "' + balType + '"'
+
 
    #############################################################################
-   def getUnspentTxOutList(self):
-      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(TheBDM.isInitialized())
+   def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
+      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+         return -1
+      else:
+         addr = self.cppWallet.getAddrByHash160(addr160)
+         if balType.lower() in ('spendable','spend'):
+            return addr.getSpendableBalance()
+         elif balType.lower() in ('unconfirmed','unconf'):
+            return addr.getUnconfirmedBalance(currBlk)
+         elif balType.lower() in ('ultimate','unspent','full'):
+            return addr.getFullBalance()
+         else:
+            raise TypeError, 'Unknown balance type!'
+
+   #############################################################################
+   def getTxLedger(self, ledgType='Full'):
+      """ 
+      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
+      """
+      if not TheBDM.isInitialized():
+         return []
+      else:
+         ledgBlkChain = self.cppWallet.getTxLedger()
+         ledgZeroConf = self.cppWallet.getZeroConfLedger()
+         if ledgType.lower() in ('full','all','ultimate'):
+            ledg = []
+            ledg.extend(ledgBlkChain)
+            ledg.extend(ledgZeroConf)
+            return ledg
+         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+            return ledgBlkChain
+         elif ledgType.lower() in ('zeroconf', 'zero'):
+            return ledgZeroConf
+         else:
+            raise TypeError, 'Unknown ledger type! "' + ledgType + '"'
+
+
+   #############################################################################
+   def getAddrTxLedger(self, addr160, ledgType='Full'):
+      """ 
+      Gets the ledger entries for the entire wallet, from C++/SWIG data structs
+      """
+      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+         return []
+      else:
+         ledgBlkChain = self.cppWallet.getAddrByHash160(addr160).getTxLedger()
+         ledgZeroConf = self.cppWallet.getAddrByHash160(addr160).getZeroConfLedger()
+         if ledgType.lower() in ('full','all','ultimate'):
+            ledg = []
+            ledg.extend(ledgBlkChain)
+            ledg.extend(ledgZeroConf)
+            return ledg
+         elif ledgType.lower() in ('blk', 'blkchain', 'blockchain'):
+            return ledgBlkChain
+         elif ledgType.lower() in ('zeroconf', 'zero'):
+            return ledgZeroConf
+         else:
+            raise TypeError, 'Unknown balance type! "' + ledgType + '"'
+
+
+   #############################################################################
+   def getTxOutList(self, txType='Spendable'):
+      """ Returns UnspentTxOut/C++ objects """
+      if TheBDM.isInitialized() and not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
          self.syncWithBlockchain()
-         return TheBDM.getUnspentTxOutsForWallet(self.cppWallet)
+         if txType.lower() in ('spend', 'spendable'):
+            return self.cppWallet.getSpendableTxOutList(currBlk);
+         elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
+            return self.cppWallet.getFullTxOutList(currBlk);
+         else:
+            raise TypeError, 'Unknown balance type! ' + txType
+      else:
+         print '***Blockchain is not available for accessing wallet-tx data'
+         return []
+
+   #############################################################################
+   def getAddrTxOutList(self, addr160, txType='Spendable'):
+      """ Returns UnspentTxOut/C++ objects """
+      if TheBDM.isInitialized() and self.hasAddr(addr160) and \
+                        not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+         self.syncWithBlockchain()
+         if txType.lower() in ('spend', 'spendable'):
+            return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
+         elif txType.lower() in ('full', 'all', 'unspent', 'ultimate'):
+            return self.cppWallet.getAddrByHash160(addr160).getFullTxOutList(currBlk);
+         else:
+            raise TypeError, 'Unknown TxOutList type! ' + txType
       else:
          print '***Blockchain is not available for accessing wallet-tx data'
          return []
@@ -5776,7 +5866,7 @@ class PyBtcWallet(object):
       highestIndex = 0
       for addr in self.getLinearAddrList(withAddrPool=True):
          a160 = addr.getAddr160()
-         if len(self.getTxLedger(a160)) > 0:
+         if len(self.getAddrTxLedger(a160)) > 0:
             highestIndex = max(highestIndex, addr.chainIndex)
 
       if writeResultToWallet:
@@ -8190,7 +8280,10 @@ class ArmoryClient(Protocol):
       This method will do nothing if we don't receive a full message.
       """
 
+      
       #print '\n\nData Received:',
+      #pprintHex(binary_to_hex(data))
+
       # Put the current buffer into an unpacker, process until empty
       self.recvData += data
       buf = BinaryUnpacker(self.recvData)
@@ -8262,7 +8355,6 @@ class ArmoryClient(Protocol):
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
                from twisted.internet import reactor
-               reactor.callLater(2, self.factory.purgeMemoryPool)
             if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
                #print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)
@@ -8270,23 +8362,20 @@ class ArmoryClient(Protocol):
       if msg.cmd=='tx':
          #print 'Received tx message'
          pytx = msg.payload.tx
-         newAlert = self.factory.checkForDoubleBroadcast(pytx)
-         if newAlert:
-            print '***!!!*** DOUBLE-BROADCAST DETECTED!'
-            print '***!!!*** The person who just send you money may be'
-            print '***!!!*** Attempting to defraud you.  It is especially'
-            print '***!!!*** important that you wait for 6+ confirmations'
-            print '***!!!*** before considering this transaction valid!'
-         else:
-            self.factory.addTxToMemoryPool(pytx)
-            self.factory.saveMemoryPool()
-            self.factory.func_newTx(pytx)
+         #newAlert = self.factory.checkForDoubleBroadcast(pytx)
+         #if newAlert:
+            #print '***!!!*** DOUBLE-BROADCAST DETECTED!'
+            #print '***!!!*** The person who just send you money may be'
+            #print '***!!!*** Attempting to defraud you.  It is especially'
+            #print '***!!!*** important that you wait for 6+ confirmations'
+            #print '***!!!*** before considering this transaction valid!'
+         #else:
+         self.factory.func_newTx(pytx)
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
          #print 'Received block message (ignoring)'
-         from twisted.internet import reactor
-         reactor.callLater(2, self.factory.purgeMemoryPool)
+         pass
                   
 
    ############################################################
@@ -8345,9 +8434,6 @@ class ArmoryClientFactory(ClientFactory):
    recipients but the same inputs.  
    """
    protocol = ArmoryClient
-   zeroConfTx = {}
-   zeroConfTxTime = {}
-   zeroConfTxOutMap = {}       #   map[OutPoint] = txHash
    doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
    lastAlert = 0
 
@@ -8362,8 +8448,6 @@ class ArmoryClientFactory(ClientFactory):
       finishes:  there should be only one handshake, and thus one firing 
       of the handshake-finished callback
       """
-      self.zeroConfTx = {}
-      self.zeroConfTxOutMap = {}
       self.doubleBroadcastAlerts = {}
       self.lastAlert = 0
       self.deferred_handshake   = forceDeferred(def_handshake)
@@ -8382,46 +8466,12 @@ class ArmoryClientFactory(ClientFactory):
       self.proto = None
 
    
-   #############################################################################
-   def saveMemoryPool(self, fname=None):
-      if fname==None:
-         fname = self.fileMemPool
-      outfile = open(fname,'wb')
-      for hsh,tx in self.zeroConfTx.iteritems():
-         outfile.write(int_to_binary(int(self.zeroConfTxTime[hsh]), widthBytes=8))
-         outfile.write(tx.serialize())
-      outfile.close()
-   
-
-
-   #############################################################################
-   def loadMemoryPool(self, fname=None):
-      if fname==None:
-         fname = self.fileMemPool
-      if not os.path.exists(fname):
-         print '***WARNING: No memory pool file... assuming empty' 
-         return
-
-      outfile = open(fname,'rb')
-      binunpack = BinaryUnpacker(outfile.read())
-      outfile.close()
-      
-      try:
-         while binunpack.getRemainingSize() > 0:
-            txtime = binunpack.get(UINT64)
-            tx = PyTx().unserialize(binunpack)
-            self.zeroConfTxTime[tx.getHash()] = txtime
-            self.zeroConfTx[tx.getHash()] = tx 
-      except:
-         print '***WARNING: error reading memory pool... remaining will be skipped'
-         pass
-      
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      txHash = pytx.getHash()
-      self.zeroConfTx[txHash] = pytx.copy()
-      self.zeroConfTxTime[txHash] = RightNow()
+      if TheBDM.isInitialized():
+         txHash = pytx.getHash()
+         TheBDM.addNewZeroConfTx(pytx.serialize(), RightNow(), True)    
       
 
 
@@ -8434,66 +8484,34 @@ class ArmoryClientFactory(ClientFactory):
          d.callback(protoObj)
 
 
-   #############################################################################
-   def purgeMemoryPool(self):
-      #print 'Purging the memory pool'
-      if not TheBDM.isInitialized():
-         return
-
-      #print 'Memory pool to be cleaned  :', len(self.zeroConfTx), 'tx left:'
-      # Check for tx that used to be zero-conf, but are now in blockchain
-      txHashToRm = []
-      txHashToRmDBD = []
-      for hsh,tx in self.zeroConfTx.iteritems():
-         if TheBDM.getTxByHash(hsh):
-            txHashToRm.append(hsh)
-            # We also need to clean up the double-broadcast detector
-            for key,val in self.zeroConfTxOutMap.iteritems():
-               if hsh==val:
-                  txHashToRmDBD.append(key)
-
-      for hsh in txHashToRm:
-         del self.zeroConfTx[hsh]
-         del self.zeroConfTxTime[hsh]
-
-      for key in txHashToRmDBD:
-         del self.zeroConfTxOutMap[key]
-
-      if RightNow() > self.lastAlert + 2*HOUR:
-         # Clear out alerts after 2 hours
-         self.doubleBroadcastAlerts = {} 
-      
-      #print 'Memory pool should be clean:', len(self.zeroConfTx), 'tx left:'
-      #for hsh,tx in self.zeroConfTx.iteritems():
-         #print '   Tx:', tx.getHashHex()
-
-      self.saveMemoryPool()
 
 
    #############################################################################
-   def checkForDoubleBroadcast(self, pytxObj):
-      newAlerts = False
-      for txin in pytxObj.inputs:
-         op = (txin.outpoint.txHash, txin.outpoint.txOutIndex)
-         if self.zeroConfTxOutMap.has_key(op):
-            # !!! Someone tried to spend the same inputs twice !!!
-            newAlerts = True
-            self.lastAlert = RightNow()
-            prevHash = self.zeroConfTxOutMap[op]
-            prevTx = zeroConfTx[prevHash]
-            for tx in (pytxObj, prevTx):
-               # Add all recipients from both transactions
-               for txout in tx.outputs:
-                  # Search all the TxOuts for recipients
-                  addr = TxOutScriptExtractAddr160(txout.binScript)
-                  if isinstance(addrs, list):
-                     for addr in addrs:
-                        self.doubleBroadcastAlerts[addr] = tx.getHash()
-                  else:
-                     self.doubleBroadcastAlerts[addrs] = tx.getHash()
+   # CHANGED ALL THE ZERO-CONF CODE, so this is now broken.  Will re-implement
+   # later.
+   #def checkForDoubleBroadcast(self, pytxObj):
+      #newAlerts = False
+      #for txin in pytxObj.inputs:
+         #op = (txin.outpoint.txHash, txin.outpoint.txOutIndex)
+         #if self.zeroConfTxOutMap.has_key(op):
+            ## !!! Someone tried to spend the same inputs twice !!!
+            #newAlerts = True
+            #self.lastAlert = RightNow()
+            #prevHash = self.zeroConfTxOutMap[op]
+            #prevTx = zeroConfTx[prevHash]
+            #for tx in (pytxObj, prevTx):
+               ## Add all recipients from both transactions
+               #for txout in tx.outputs:
+                  ## Search all the TxOuts for recipients
+                  #addr = TxOutScriptExtractAddr160(txout.binScript)
+                  #if isinstance(addrs, list):
+                     #for addr in addrs:
+                        #self.doubleBroadcastAlerts[addr] = tx.getHash()
+                  #else:
+                     #self.doubleBroadcastAlerts[addrs] = tx.getHash()
 
-      if self.func_doubleSpendAlert:
-         self.func_doubleSpendAlert()
+      #if self.func_doubleSpendAlert:
+         #self.func_doubleSpendAlert()
 
 
    #############################################################################
@@ -8515,11 +8533,11 @@ class ArmoryClientFactory(ClientFactory):
       #d.errback(reason)
 
    #############################################################################
-   def checkForTx(self, txHash):
-      if self.proto:
-         self.proto.sendTx(pytxObj)
-      else:
-         raise ConnectionError, 'Connection to localhost DNE.'
+   #def checkForTx(self, txHash):
+      #if self.proto:
+         #self.proto.sendTx(pytxObj)
+      #else:
+         #raise ConnectionError, 'Connection to localhost DNE.'
       
       
 
@@ -8531,6 +8549,14 @@ class ArmoryClientFactory(ClientFactory):
          raise ConnectionError, 'Connection to localhost DNE.'
 
 
+   #############################################################################
+   def sendMessage(self, msgObj):
+      if self.proto:
+         self.proto.sendMessage(msgObj)
+      else:
+         raise ConnectionError, 'Connection to localhost DNE.'
+
+
 class FakeClientFactory(ClientFactory):
    """
    A fake class that has the same methods as an ArmoryClientFactory,
@@ -8538,20 +8564,14 @@ class FakeClientFactory(ClientFactory):
    to be able to use the same calls
    """
    #############################################################################
-   zeroConfTx = {}
-   zeroConfTxTime = {}
-   zeroConfTxOutMap = {}       #   map[OutPoint] = txHash
    doubleBroadcastAlerts = {}  #   map[Addr160]  = txHash
    def __init__(self, \
                 def_handshake=None, \
                 func_loseConnect=None, \
                 func_newTx=None, \
                 func_doubleSpendAlert=None): pass
-   def saveMemoryPool(self, fname=None): pass
-   def loadMemoryPool(self, fname=None): pass
    def addTxToMemoryPool(self, pytx): pass
    def handshakeFinished(self, protoObj): pass
-   def purgeMemoryPool(self): pass
    def checkForDoubleBroadcast(self, pytxObj): pass
    def clientConnectionLost(self, connector, reason): pass
    def connectionFailed(self, protoObj, reason): pass

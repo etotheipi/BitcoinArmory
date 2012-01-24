@@ -441,6 +441,7 @@ void TxRef::unserialize(uint8_t const * ptr)
    nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
    BtcUtils::getHash256(ptr, nBytes_, thisHash_);
    self_.setRef(ptr, nBytes_);
+   headerPtr_ = NULL;
    isInitialized_ = true;
    isMainBranch_ = false;  // only BDM::organizeChain() can set this
 }
@@ -534,6 +535,9 @@ uint32_t TxRef::getBlockHeight(void)
 // header and try to match up
 uint32_t TxRef::getBlockTxIndex(void)
 {
+   if(headerPtr_ == NULL)
+      return UINT32_MAX;
+
    vector<TxRef*> txlist = headerPtr_->getTxRefPtrList();
    for(uint32_t i=0; i<txlist.size(); i++)
       if( txlist[i] == this )
@@ -556,7 +560,7 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 
    os << indent << "   TxSize:      " << getSize() << " bytes" << endl;
    os << indent << "   NumInputs:   " << getNumTxIn() << endl;
-   os << indent << "   NumOutputs:  " << getNumTxIn() << endl;
+   os << indent << "   NumOutputs:  " << getNumTxOut() << endl;
    os << endl;
    for(uint32_t i=0; i<getNumTxIn(); i++)
       getTxInRef(i).pprint(os, nIndent+1, pBigendian);
@@ -573,6 +577,7 @@ void TxRef::pprint(ostream & os, int nIndent, bool pBigendian)
 void TxRef::pprintAlot(ostream & os)
 {
    cout << "Tx hash:   " << thisHash_.toHexStr(true) << endl;
+   if(headerPtr_!=NULL)
    {
       cout << "HeaderNum: " << headerPtr_->getBlockHeight() << endl;
       cout << "HeadHash:  " << headerPtr_->getThisHash().toHexStr(true) << endl;

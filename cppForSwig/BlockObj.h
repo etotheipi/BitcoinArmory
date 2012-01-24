@@ -304,6 +304,8 @@ private:
 };
 
 
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 // This class is mainly for sorting by priority
@@ -340,6 +342,8 @@ public:
    static bool CompareTech3(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
 
    static void sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType=1);
+
+   void pprintOneLine(uint32_t currBlk=UINT32_MAX);
 
 public:
    BinaryData txHash_;

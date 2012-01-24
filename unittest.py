@@ -15,8 +15,9 @@ Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
+Test_ZeroConf         = True
 Test_SelectCoins      = False
-Test_CryptoTiming     = True
+Test_CryptoTiming     = False
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -1586,6 +1587,15 @@ if Test_TxDistProposals:
    pprintHex(binary_to_hex(txToBroadcast.serialize()))
 
    # TODO: test a multisig TxDP
+
+
+if Test_ZeroConf:
+   print ''
+   print '*********************************************************************'
+   print 'Testing Zero-conf transactions'
+   print '*********************************************************************'
+   print ''
+
 
 
 

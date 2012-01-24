@@ -640,6 +640,16 @@ void UnspentTxOut::sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void UnspentTxOut::pprintOneLine(uint32_t currBlk)
+{
+   updateNumConfirm(currBlk);
+   printf(" Tx:%s:%02d   BTC:%0.3f   nConf:%04d\n",
+                      txHash_.getSliceCopy(0,8).toHexStr().c_str(),
+                      txOutIndex_,
+                      value_/1e8,
+                      numConfirm_);
+}
 
 
 

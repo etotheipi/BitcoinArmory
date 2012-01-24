@@ -13,7 +13,7 @@ from qtdefines import *
 
 
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
-LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', \
+LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
@@ -50,7 +50,7 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          if col==COL.Bal: 
-            bal = self.main.walletBalances[row]
+            bal = wlt.getBalance('Total')
             if bal==-1:
                return QVariant('(...)') 
             else:
@@ -64,10 +64,13 @@ class AllWalletsDispModel(QAbstractTableModel):
          elif col in (COL.Bal,):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
-         if determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly:
-            return QVariant( Colors.LightGray )
+         t = determineWalletType(wlt, self.main)[0]
+         if t==WLTTYPES.WatchOnly:
+            return QVariant( Colors.WltOther )
+         elif t==WLTTYPES.Offline:
+            return QVariant( Colors.WltOffline )
          else:
-            return QVariant( Colors.LightBlue )
+            return QVariant( Colors.WltMine )
       elif role==Qt.FontRole:
          if col==COL.Bal:
             return GETFONT('Fixed')
@@ -126,30 +129,36 @@ class LedgerDispModelSimple(QAbstractTableModel):
       return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
-      return 11
+      return 12
 
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
       row,col = index.row(), index.column()
       rowData = self.ledger[row]
-      nConf = rowData[0]
+      nConf = rowData[LEDGERCOLS.NumConf]
+      wltID = rowData[LEDGERCOLS.WltID]
+      wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
+#LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
+                   #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
          if col in (COL.NumConf,  COL.TxDir):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (COL.Comment, COL.Date):
+         elif col in (COL.Comment, COL.DateStr):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          elif col in (COL.Amount,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.DecorationRole:
          pass
       elif role==Qt.BackgroundColorRole:
-         if not rowData[COL.isOther]:
-            return QVariant( Colors.LightBlue )
+         if wtype==WLTTYPES.WatchOnly:
+            return QVariant( Colors.WltOther )
+         elif wtype==WLTTYPES.Offline:
+            return QVariant( Colors.WltOffline )
          else:
-            return QVariant( Colors.LightGray )
+            return QVariant( Colors.WltMine )
       elif role==Qt.ForegroundRole:
          if self.index(index.row(),COL.DoubleSpend).data().toBool():
             return QVariant(Colors.Red)
@@ -172,7 +181,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             f.setWeight(QFont.Bold)
             return f
       elif role==Qt.ToolTipRole:
-         if col in (COL.NumConf, COL.Date):
+         if col in (COL.NumConf, COL.DateStr):
             if rowData[COL.NumConf]>5:
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
@@ -214,7 +223,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
-            if section==COL.Date:    return QVariant('Date')
+            if section==COL.DateStr: return QVariant('Date')
             if section==COL.WltName: return QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
             if section==COL.TxDir:   return QVariant()
@@ -327,7 +336,7 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant()
          if col==COL.Balance: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( coin2str(cppAddr.getBalance(), maxZeros=2) )
+            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
          if col in (COL.Address, COL.Comment):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
@@ -338,7 +347,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            val = cppAddr.getBalance()
+            val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.Green)
             else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
@@ -346,11 +355,11 @@ class WalletAddrDispModel(QAbstractTableModel):
             return GETFONT('Fixed')
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-         val = cppAddr.getBalance()
+         val = cppAddr.getFullBalance()
          if val>0:
             return QVariant( Colors.LightGreen )
          else:
-            return QVariant( Colors.LightGray )
+            return QVariant( Colors.WltOther )
 
       return QVariant()
 
@@ -463,9 +472,11 @@ class TxInDispModel(QAbstractTableModel):
          if self.dispTable[row][COLS.WltID]:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
-               return QVariant( Colors.LightGray )
+               return QVariant( Colors.WltOther )
+            elif wtype==WLTTYPES.Offline:
+               return QVariant( Colors.WltOffline )
             else:
-               return QVariant( Colors.LightBlue )
+               return QVariant( Colors.WltMine )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
             return GETFONT('Fixed')
@@ -563,9 +574,11 @@ class TxOutDispModel(QAbstractTableModel):
          if wltID:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
-               return QVariant( Colors.LightGray )
+               return QVariant( Colors.WltOther )
+            if wtype==WLTTYPES.Offline:
+               return QVariant( Colors.WltOffline )
             else:
-               return QVariant( Colors.LightBlue )
+               return QVariant( Colors.WltMine )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
             return GETFONT('Fixed')

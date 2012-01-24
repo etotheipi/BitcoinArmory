@@ -77,40 +77,57 @@ public:
    TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
 
    // Lots of accessors
-   bool      hasTxOut(void)       { return (txPtrOfOutput_ != NULL); }
-   bool      hasTxIn(void)        { return (txPtrOfInput_  != NULL); }
-   bool      hasValue(void)       { return (amount_!=0); }
-   uint64_t  getValue(void)       { return amount_;}
+   bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
+   bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOutZC(void) const { return (txPtrOfOutputZC_ != NULL); }
+   bool      hasTxInZC(void) const  { return (txPtrOfInputZC_  != NULL); }
+   bool      hasValue(void) const   { return (amount_!=0); }
+   uint64_t  getValue(void) const   { return  amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef  getTxOutRef(void) const {return txPtrOfOutput_->getTxOutRef(indexOfOutput_);}
-   TxInRef   getTxInRef(void) const  {return txPtrOfInput_->getTxInRef(indexOfInput_);}
+   TxOutRef  getTxOutRef(void) const;   
+   TxInRef   getTxInRef(void) const;   
+   TxOutRef  getTxOutRefZC(void) const {return txPtrOfOutputZC_->getTxOutRef(indexOfOutputZC_);}
+   TxInRef   getTxInRefZC(void) const  {return txPtrOfInputZC_->getTxInRef(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
    TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
+   bool isSentToSelf(void)  { return isSentToSelf_; }
+   void setSentToSelf(bool isTrue=true) { isSentToSelf_ = isTrue; }
+
 
    //////////////////////////////////////////////////////////////////////////////
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
-   void setTxInRef (TxRef* txref, uint32_t index);
-   void setTxOutRef(TxRef* txref, uint32_t index);
+   bool setTxInRef (TxRef* txref, uint32_t index, bool isZeroConf=false);
+   bool setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf=false);
 
    //////////////////////////////////////////////////////////////////////////////
-   bool isUnspent(void)       { return (  hasTxOut() && !hasTxIn() ); }
-   bool isSpent(void)         { return (  hasTxOut() &&  hasTxIn() ); }
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
    bool isStandardTxOutScript(void);
+
+   bool isSpent(void);
+   bool isUnspent(void);
+   bool isSpendable(void);      
+   bool isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf=6);
+   void clearZCFields(void);
 
 private:
    uint64_t  amount_;
    TxRef*    txPtrOfOutput_;
-   uint32_t  indexOfOutput_;;
+   uint32_t  indexOfOutput_;
    TxRef*    txPtrOfInput_;
-   uint32_t  indexOfInput_;;
+   uint32_t  indexOfInput_;
 
+   TxRef*    txPtrOfOutputZC_;
+   uint32_t  indexOfOutputZC_;
+   TxRef*    txPtrOfInputZC_;
+   uint32_t  indexOfInputZC_;
+
+   bool      isSentToSelf_;
 };
 
 
@@ -156,6 +173,7 @@ public:
       blockNum_(UINT32_MAX),
       txHash_(BtcUtils::EmptyHash_),
       index_(UINT32_MAX),
+      txTime_(0),
       isValid_(false),
       isSentToSelf_(false),
       isChangeBack_(false) {}
@@ -165,6 +183,7 @@ public:
                uint32_t blkNum, 
                BinaryData const & txhash, 
                uint32_t idx,
+               uint64_t txtime=0,
                bool isToSelf=false,
                bool isChange=false) :
       addr20_(addr20),
@@ -172,6 +191,7 @@ public:
       blockNum_(blkNum),
       txHash_(txhash),
       index_(idx),
+      txTime_(txtime),
       isValid_(true),
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
@@ -181,6 +201,7 @@ public:
    uint32_t            getBlockNum(void) const  { return blockNum_;      }
    BinaryData const &  getTxHash(void) const    { return txHash_;        }
    uint32_t            getIndex(void) const     { return index_;         }
+   uint32_t            getTxTime(void) const    { return txTime_;        }
    bool                isValid(void) const      { return isValid_;       }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
@@ -193,6 +214,7 @@ public:
    bool operator==(LedgerEntry const & le2) const;
 
    void pprint(void);
+   void pprintOneLine(void);
 
 private:
    
@@ -202,6 +224,7 @@ private:
    uint32_t         blockNum_;
    BinaryData       txHash_;
    uint32_t         index_;  // either a tx index, txout index or txin index
+   uint64_t         txTime_;
    bool             isValid_;
    bool             isSentToSelf_;
    bool             isChangeBack_;;
@@ -254,15 +277,29 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   uint64_t getBalance(set<OutPoint> const * lockedList=NULL);
+   // BlkNum is necessary for "unconfirmed" list, since it is dependent
+   // on number of confirmations.  But for "spendable" TxOut list, it is
+   // only a convenience, if you want to be able to calculate numConf from
+   // the Utxos in the list.  If you don't care (i.e. you only want to 
+   // know what TxOuts are available to spend, you can pass in 0 for currBlk
+   uint64_t getFullBalance(void);
+   uint64_t getSpendableBalance(void);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   void clearZeroConfPool(void);
 
-   vector<LedgerEntry> & getTxLedger(void) { return ledger_;           }
+
+   vector<LedgerEntry> & getTxLedger(void)       { return ledger_;   }
+   vector<LedgerEntry> & getZeroConfLedger(void) { return ledgerZC_; }
+
    vector<TxIOPair*> &   getTxIOList(void) { return relevantTxIOPtrs_; }
 
-   void addTxIO(TxIOPair * txio) { relevantTxIOPtrs_.push_back(txio);}
-   void addTxIO(TxIOPair & txio) { relevantTxIOPtrs_.push_back(&txio);}
-   void addLedgerEntry(LedgerEntry const & le) { ledger_.push_back(le);}
+   void addTxIO(TxIOPair * txio, bool isZeroConf=false);
+   void addTxIO(TxIOPair & txio, bool isZeroConf=false);
+   void addLedgerEntry(LedgerEntry const & le, bool isZeroConf=false); 
 
+   void pprintLedger(void);
 
 private:
    BinaryData address20_;
@@ -273,7 +310,9 @@ private:
 
    // Each address will store a list of pointers to its transactions
    vector<TxIOPair*>     relevantTxIOPtrs_;
+   vector<TxIOPair*>     relevantTxIOPtrsZC_;
    vector<LedgerEntry>   ledger_;
+   vector<LedgerEntry>   ledgerZC_;
 };
 
 
@@ -286,6 +325,8 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
+
+
 public:
    BtcWallet(void) {}
 
@@ -325,20 +366,24 @@ public:
                      uint32_t blktime = UINT32_MAX,
                      uint32_t blknum = UINT32_MAX);
 
-   vector<LedgerEntry>  getLedgerEntriesForZeroConfTxList( vector<TxRef*> zcList);
-   LedgerEntry          getWalletLedgerEntryForTx(BinaryData const & zcBin);
-   vector<LedgerEntry>  getAddrLedgerEntriesForTx(BinaryData const & zcBin);
-
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 
                            TxRef&   txref,
                            uint32_t txoutidx,
                            BtcAddress& addr);
 
-   uint64_t   getBalance(void);
-   uint64_t   getBalance(uint32_t i);
-   uint64_t   getBalance(BinaryData const & addr20);
 
+   // BlkNum is necessary for "unconfirmed" list, since it is dependent
+   // on number of confirmations.  But for "spendable" TxOut list, it is
+   // only a convenience, if you want to be able to calculate numConf from
+   // the Utxos in the list.  If you don't care (i.e. you only want to 
+   // know what TxOuts are available to spend, you can pass in 0 for currBlk
+   uint64_t getFullBalance(void);
+   uint64_t getSpendableBalance(void);
+   uint64_t getUnconfirmedBalance(uint32_t currBlk);
+   vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
+   vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
+   void clearZeroConfPool(void);
 
    
    uint32_t     getNumAddr(void) {return addrMap_.size();}
@@ -348,43 +393,27 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry> &     getTxLedger(void)   {return ledgerAllAddr_; }
+   vector<LedgerEntry>       getZeroConfLedger(BinaryData const * addr160=NULL);
+   vector<LedgerEntry>       getTxLedger(BinaryData const * addr160=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
-   // NOTE: These methods return raw OutPoint objects, which have to be
-   //       queried through txHashMap_ to get info about the TxOuts
-   //       Use this only if you have some reason to get the minimal
-   //       set of information representing all TxOuts
-   set<OutPoint> & getUnspentOutPoints(void)      {return unspentOutPoints_;}
-   set<OutPoint> & getNonStdUnspentOutPoints(void){return nonStdUnspentOutPoints_;}
-
-   // If we have spent TxOuts but the tx haven't made it into the blockchain
-   // we need to lock them to make sure we have a record of which ones are 
-   // available to sign more Txs
-   void   lockTxOut(OutPoint const & op);
-   void unlockTxOut(OutPoint const & op);
-   void clearLocked(void)        {lockedTxOuts_.clear();   }
-
-   void   lockTxOutSwig(BinaryData const & hash, uint32_t idx);
-   void unlockTxOutSwig(BinaryData const & hash, uint32_t idx);
-
-   bool isTxOutLocked(OutPoint const & op);
-   vector<OutPoint> getLockedTxOutList(void);
-
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
-   // This really shouldn't ever be used except for the zero-conf ops  
-   void makeTempCopyForZcScan(BtcWallet & tempWlt);
+   void pprintLedger(void);
+
+   //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
+   //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<BinaryData, BtcAddress>  addrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
-   vector<LedgerEntry>          ledgerAllAddr_;  
 
-   set<OutPoint>                unspentOutPoints_;
+   vector<LedgerEntry>          ledgerAllAddr_;  
+   vector<LedgerEntry>          ledgerAllAddrZC_;  
+
    set<OutPoint>                lockedTxOuts_;
    set<OutPoint>                orphanTxIns_;
    set<TxRef*>                  txrefSet_;      // aggregation of all relevant Tx
@@ -393,6 +422,19 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 };
+
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+class ZeroConfData
+{
+public:
+   TxRef         txref_;   
+   uint64_t      txtime_;
+   list<BinaryData>::iterator iter_;
+
+};
+
 
 
 
@@ -494,9 +536,7 @@ private:
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
    list<BinaryData>                   zeroConfTxList_;
-   map<HashString, TxRef>             zeroConfTxRefMap_;
-   map<HashString, 
-         list<BinaryData>::iterator>  zeroConfIterMap_;
+   map<HashString, ZeroConfData>      zeroConfMap_;
    bool                               zcEnabled_;
    string                             zcFilename_;
 
@@ -583,7 +623,8 @@ public:
                                        BlockHeaderRef* newTopPtr,
                                        BlockHeaderRef* branchPtr );
 
-   bool             hasTxWithHash(BinaryData const & txhash) const;
+   bool             hasTxWithHash(BinaryData const & txhash,
+                                  bool includeZeroConf=true) const;
    bool             hasHeaderWithHash(BinaryData const & txhash) const;
    uint32_t         getNumBlocks(void) const { return headerHashMap_.size(); }
    uint32_t         getNumTx(void) const { return txHashMap_.size(); }
@@ -606,11 +647,22 @@ public:
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, bool doOrganize=true);
-   uint32_t       readBlkFileUpdate(void);
+   uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
    vector<TxRef*> findAllNonStdTx(void);
    
+
+   // For zero-confirmation tx-handling
+   void enableZeroConf(string);
+   void disableZeroConf(string);
+   void readZeroConfFile(string);
+   bool addNewZeroConfTx(BinaryData const & rawTx, uint64_t txtime, bool writeToFile);
+   void purgeZeroConfPool(void);
+   void pprintZeroConfPool(void);
+   void rewriteZeroConfFile(void);
+   void rescanWalletZeroConf(BtcWallet & wlt);
+
 
    // After reading in all headers, find the longest chain and set nextHash vals
    // TODO:  Figure out if there is an elegant way to deal with a forked 
@@ -625,8 +677,8 @@ public:
    void             updateWalletsAfterReorg(vector<BtcWallet*> wlt);
 
    // Use these two methods to get ALL information about your unused TxOuts
-   vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);
-   vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
+   //vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);
+   //vector<UnspentTxOut> getNonStdUnspentTxOutsForWallet(BtcWallet & wlt);
 
    ////////////////////////////////////////////////////////////////////////////////
    // We're going to need the BDM's help to get the sender for a TxIn since it

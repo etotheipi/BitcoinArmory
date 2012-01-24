@@ -12,6 +12,7 @@ MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.StyledPanel | QFrame.Sunken
 STYLE_RAISED = QFrame.StyledPanel | QFrame.Raised
+STYLE_NONE   = QFrame.NoFrame
  
 
 def HLINE(style=QFrame.Plain):
@@ -57,9 +58,12 @@ def UserModeStr(mode):
    elif mode==USERMODE.Developer:
       return 'Developer'
 
-Colors = enum(LightBlue=   QColor(215,215,255), \
+Colors = enum( \
+              LabelBtn=    QColor(225,225,255), \
+              WltMine=     QColor(225,225,255), \
+              WltOffline=  QColor(205,215,255), \
               LightGreen=  QColor(225,255,225), \
-              LightGray=   QColor(235,235,235), \
+              WltOther=    QColor(235,235,235), \
               MidGray=     QColor(170,170,170), \
               Gray=        QColor(128,128,128), \
               DarkGray=    QColor( 64, 64, 64), \
@@ -206,7 +210,7 @@ class QMoneyLabel(QLabel):
 
 class QLabelButton(QLabel):
 
-   def __init__(self, txt, colorOn=Colors.LightBlue):  
+   def __init__(self, txt, colorOn=Colors.LabelBtn):  
       QLabel.__init__(self, '<font color=#00009f><u>'+txt+'</u></font>')  
       self.plainText = txt
       self.bgColorOffStr = color_to_style_str(QApplication.palette().window().color())

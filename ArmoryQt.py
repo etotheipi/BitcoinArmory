@@ -113,10 +113,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.4, 0.2, 0.2])
+         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.35, 0.18, 0.18])
+         initialColResize(self.walletsView, [0.15, 0.30, 0.15, 0.20])
 
    
 
@@ -148,6 +148,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setMinimumSize(viewWidth, viewHeight)
       #self.walletsView.setStretchFactor(4)
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
@@ -156,7 +157,7 @@ class ArmoryMainWindow(QMainWindow):
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
       #if self.usermode==USERMODE.Standard:
-      initialColResize(self.ledgerView, [20, dateWidth, 72, 0.35, 0.45, 0.3])
+      initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0.35, 0.45, 0.3])
       #elif self.usermode in (USERMODE.Advanced, USERMODE.Developer):
          #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
          #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
@@ -199,13 +200,51 @@ class ArmoryMainWindow(QMainWindow):
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
       self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
-      self.lblTotalFunds  = QLabel()
-      self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblTot  = QRichLabel('<b>Total Funds:</b>', doWrap=False); 
+      self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
+      self.lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      self.lblUnconfirmed = QLabel()
-      self.lblUnconfirmed.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblTotalFunds  = QRichLabel('', doWrap=False)
+      self.lblSpendFunds  = QRichLabel('', doWrap=False)
+      self.lblUnconfFunds = QRichLabel('', doWrap=False)
+      self.lblTotalFunds.setAlignment(Qt.AlignRight)
+      self.lblSpendFunds.setAlignment(Qt.AlignRight)
+      self.lblUnconfFunds.setAlignment(Qt.AlignRight)
 
-      frmTotals = makeLayoutFrame('Vert', [self.lblTotalFunds, self.lblUnconfirmed])
+      self.lblTot.setAlignment(Qt.AlignRight)
+      self.lblSpd.setAlignment(Qt.AlignRight)
+      self.lblUcn.setAlignment(Qt.AlignRight)
+
+      self.lblBTC1 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.ttipTot = createToolTipObject( \
+            'Total funds if all current transactions are confirmed.  '
+            'Value appears gray when it is the same as your spendable funds.')
+      self.ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
+      self.ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+
+      frmTotals = QFrame()
+      frmTotals.setFrameStyle(STYLE_NONE)
+      frmTotalsLayout = QGridLayout()
+      frmTotalsLayout.addWidget(self.lblTot, 0,0)
+      frmTotalsLayout.addWidget(self.lblSpd, 1,0)
+      frmTotalsLayout.addWidget(self.lblUcn, 2,0)
+
+      frmTotalsLayout.addWidget(self.lblTotalFunds,  0,1)
+      frmTotalsLayout.addWidget(self.lblSpendFunds,  1,1)
+      frmTotalsLayout.addWidget(self.lblUnconfFunds, 2,1)
+
+      frmTotalsLayout.addWidget(self.lblBTC1, 0,2)
+      frmTotalsLayout.addWidget(self.lblBTC2, 1,2)
+      frmTotalsLayout.addWidget(self.lblBTC3, 2,2)
+
+      frmTotalsLayout.addWidget(self.ttipTot, 0,3)
+      frmTotalsLayout.addWidget(self.ttipSpd, 1,3)
+      frmTotalsLayout.addWidget(self.ttipUcn, 2,3)
+
+
+      frmTotals.setLayout(frmTotalsLayout)
       frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
                                            self.comboWalletSelect, \
                                            'Stretch', \
@@ -318,25 +357,6 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.User].addAction(actSetModeDev)
 
 
-      # Network stuff (for now, temporary 
-      #def memClear(): self.memoryPoolAction('clear')
-      #def memPurge(): self.memoryPoolAction('purge')
-      #def memPrint(): self.memoryPoolAction('print')
-      #actEnableMemPool = self.createAction('&Enable Zero-Conf', self.enableMemoryPool, True)
-      #actClearMemPool = self.createAction('&Clear',  memClear)
-      #actPrintMemPool = self.createAction('&Print',  memPrint)
-      #actPurgeMemPool = self.createAction('&Purge',  memPurge)
-
-      #if self.settings.getSettingOrSetDefault('ZeroConfEnable', False):
-         #actEnableMemPool.setChecked(True)
-         
-
-      #self.menusList[MENUS.Network].addAction(actEnableMemPool)
-      #self.menusList[MENUS.Network].addAction(actClearMemPool)
-      #self.menusList[MENUS.Network].addAction(actPrintMemPool)
-      #self.menusList[MENUS.Network].addAction(actPurgeMemPool)
-
-      self.NetworkingFactory.purgeMemoryPool()
 
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
       print currmode
@@ -389,38 +409,6 @@ class ArmoryMainWindow(QMainWindow):
             dlg = DlgReviewOfflineTx(self,self)
             dlg.exec_()
 
-
-   #############################################################################
-   def memoryPoolAction(self, opString):
-      if opString.lower()=='clear':
-         self.NetworkingFactory.zeroConfTx.clear()
-         self.NetworkingFactory.zeroConfTxTime.clear()
-         self.NetworkingFactory.saveMemoryPool()
-      elif opString.lower()=='print':
-         for k,v in self.NetworkingFactory.zeroConfTx.iteritems():
-            print binary_to_hex(k), 
-            print ' '.join([ coin2str(txout.getValue()) for txout in v.outputs])
-      elif opString.lower()=='purge':
-         print 'Before purging:'
-         self.memoryPoolAction('Print')
-         self.NetworkingFactory.purgeMemoryPool()
-         print 'After purging:'
-         self.memoryPoolAction('Print')
-
-   def enableMemoryPool(self, doEnable):
-      if doEnable: 
-         QMessageBox.information(self,'Zero-Confirmation Transactions', \
-         'Zero-confirmation transactions in Armory are not handled well.  A short-'
-         'term solution has been implemented, but it usually results in extra, '
-         'ghost transactions appearing in the wallet ledger.  Please do not consider '
-         'any such transactions to be truth, until you see them with 1 or more '
-         'confirmations. \n\n'
-         'You can use the "Network" menu to clear or purge the memory pool if '
-         'too many transactions appear. \n\n'
-         'This feature will be fixed in the following release.', QMessageBox.Ok)
-         self.settings.set('ZeroConfEnable', True)
-      else:
-         self.settings.set('ZeroConfEnable', False)
 
    #############################################################################
    def sizeHint(self):
@@ -548,15 +536,16 @@ class ArmoryMainWindow(QMainWindow):
          print '! Trying to restart connection !'
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
-      def lockTxOutsAsNecessary(pytxObj):
-         for wlt in self.walletMap.itervalues():
-            wlt.lockTxOutsOnNewTx(pytxObj)
+      def newTxFunc(pytxObj):
+         TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
+         for wltID,wlt in self.walletMap.iteritems():
+            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+         self.walletListChanged()
+         self.ledgerModel.reset()
 
       self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=restartConnection, \
-                                       func_newTx=lockTxOutsAsNecessary)
-      self.NetworkingFactory.fileMemPool = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
-      self.NetworkingFactory.loadMemoryPool()
+                                       func_newTx=newTxFunc)
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
 
@@ -571,7 +560,6 @@ class ArmoryMainWindow(QMainWindow):
       self.settings.getSettingOrSetDefault('User_Mode',          'Advanced')
       self.settings.getSettingOrSetDefault('UnlockTimeout',      10)
       self.settings.getSettingOrSetDefault('DNAA_UnlockTimeout', False)
-      self.settings.getSettingOrSetDefault('ZeroConfEnable',     False)
 
 
       # Determine if we need to do new-user operations, increment load-count
@@ -603,17 +591,12 @@ class ArmoryMainWindow(QMainWindow):
 
       # I need some linear lists for accessing by index
       self.walletIDList = []   
-      self.walletBalances = []  
-      self.walletSubLedgers = []  
-      self.walletLedgers = []
       self.combinedLedger = []
       self.ledgerSize = 0
       self.ledgerTable = []
 
       self.latestBlockNum = 0
 
-      self.zeroConfWltLEs = {}
-      self.zeroConfAddrLEs = {}
 
 
       print 'Loading wallets...'
@@ -648,7 +631,6 @@ class ArmoryMainWindow(QMainWindow):
                # Maintain some linear lists of wallet info
                self.walletIDSet.add(wltID)
                self.walletIDList.append(wltID)
-               self.walletBalances.append(-1)
          except:
             print '***WARNING: Wallet could not be loaded:', fpath
             print '            skipping... '
@@ -752,26 +734,18 @@ class ArmoryMainWindow(QMainWindow):
 
       # Now that theb blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
+         TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+
          self.statusBar().showMessage('Syncing wallets with blockchain...')
          print 'Syncing wallets with blockchain...'
          for wltID, wlt in self.walletMap.iteritems():
             print 'Syncing', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
+            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
 
-            # We need to mirror all blockchain & wallet data in linear lists
-            wltIndex = self.walletIndices[wltID]
-
-            self.walletBalances[wltIndex] = wlt.getBalance()
-            self.walletSubLedgers.append([])
-            for addrIndex,addr in enumerate(wlt.getAddrList()):
-               addr20 = addr.getAddr160()
-               ledger = wlt.getTxLedger(addr20)
-               self.walletSubLedgers[-1].append(ledger)
-
-            self.walletLedgers.append(wlt.getTxLedger())
             
-         self.createCombinedLedger(self.walletIDList)
+         self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
          print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
@@ -788,116 +762,6 @@ class ArmoryMainWindow(QMainWindow):
       self.walletModel.reset()
          
 
-   #############################################################################
-   def updateZeroConfLedger(self, wlt):
-      """
-      This is kind of hacky, but I don't want to disrupt the C++ code
-      too much to implement a *proper* solution... which is that I need
-      to find a way to process zero-confirmation transactions and produce
-      ledger entries for them, the same as all the other [past] txs.
-      
-      So, I added TxRef::getLedgerEntriesForZeroConfTxList to the C++ code
-      (name was created to be annoying so maybe I remove/replace later).
-      Then we carefully create TxRef objects to pass into it and copy out
-      the resulting list.  But since these are TxREF objects, they need
-      to point to persistent memory, which is why the following loops are
-      weird:  they are guaranteed to create data once, and not move it 
-      around in memory, so that my TxRef objects don't get mangled.  We
-      only need them long enough to get the vector<LedgerEntry> result.
-
-      (to be more specific, I'm pretty sure this should work no matter
-       how wacky python's memory mgmt is, unless it moves list data around
-       in memory between calls)
-      print '***Creating zero-conf ledger',
-      # We are starting with a map of PyTx objects
-
-      """
-      """
-      zcMap   = self.NetworkingFactory.zeroConfTx
-      timeMap = self.NetworkingFactory.zeroConfTxTime
-      #print 'ZeroConfListSize:', len(zcMap)
-      zcTxBinList = []
-      zcTxRefList = []
-      zcTxRefPtrList = vector_TxRefPtr(0)
-      zcTxTimeList = []
-      # Create persistent list of serialized Tx objects (language-agnostic)
-      for zchash in zcMap.keys():
-         zcTxBinList.append( zcMap[zchash].serialize() )
-         zcTxTimeList.append(timeMap[zchash])
-      # Create list of TxRef objects
-      for zc in zcTxBinList:
-         zcTxRefList.append( TxRef().createFromStr(zc) )
-      # Python will cast to pointers when we try to add to a vector<TxRef*>
-      for zc in zcTxRefList:
-         zcTxRefPtrList.push_back(zc)
-   
-      # At this point, we will get a vector<LedgerEntry> list and TxRefs
-      # can safely go out of scope
-      return wlt.cppWallet.getLedgerEntriesForZeroConfTxList(zcTxRefPtrList)
-      """
-      """
-      Need to convert the zeroConfTxList maintained by NetworkingFactory into
-      LedgerEntry objects that can be inclued in the ledger views.  We use
-      a special C++ method specifically for scanning zero-conf tx without 
-      affecting the underlying wallets.
-
-      zeroConfWltLEs [wltID][txHash]          =   LedgerEntry()
-      zeroConfAddrLEs[wltID][txHash][addr160] = [ LedgerEntry(), LedgerEntry(), ... ]
-
-      """
-      wltID = wlt.uniqueIDB58
-      if not self.zeroConfWltLEs.has_key(wltID):  self.zeroConfWltLEs[wltID] = {}
-      if not self.zeroConfAddrLEs.has_key(wltID): self.zeroConfAddrLEs[wltID] = {}
-   
-      for txHash,pytx in self.NetworkingFactory.zeroConfTx.iteritems():
-         # Delete entries that made it into the blockchain
-         if TheBDM.isInitialized() and TheBDM.getTxByHash(txHash):
-            if self.zeroConfWltLEs[wltID].has_key(txHash):
-               del self.zeroConfWltLEs[wltID][txHash]
-               try: 
-                  del self.zeroConfAddrLEs[wltID][txHash]
-               except KeyError:
-                  print "No zero conf addr:"
-                  for hsh,le in self.zeroConfAddrLEs[wltID].iteritems():
-                     print binary_to_hex(hsh),
-                     le.pprint()
-                  pass
-
-
-         # Add wallet-level ledger entries for zero-conf list
-         le = wlt.cppWallet.getWalletLedgerEntryForTx(pytx.serialize())
-         if le.getIndex()<2**32-1:
-            if not self.zeroConfWltLEs[wltID].has_key(txHash):
-               #le.pprint()
-               self.zeroConfWltLEs[wltID][txHash] = le
-
-
-            # Add address-level ledger entries for zero-conf list
-            leVect = wlt.cppWallet.getAddrLedgerEntriesForTx(pytx.serialize())
-            for lev in leVect:
-               # Make sure we have an entry for this tx
-               if not self.zeroConfAddrLEs[wltID].has_key(txHash):
-                  self.zeroConfAddrLEs[wltID][txHash] = {}
-   
-               # Make sure we have an sub-entry for this address
-               addr20 = le.getAddrStr20()
-               if not self.zeroConfAddrLEs[wltID][txHash].has_key(addr20):
-                  self.zeroConfAddrLEs[wltID][txHash][addr20] = []
-   
-               # Now actually add this ledger entry to the addr le list
-               alreadyInList = False
-               for existingLE in self.zeroConfAddrLEs[wltID][txHash][addr20]:
-                  if lev.getIndex() == existingLE.getIndex():
-                     alreadyInList = True
-   
-               if not alreadyInList:
-                  self.zeroConfAddrLEs[wltID][txHash][addr20].append(lev)
-                  #lev.pprint()
-
-         
-      
-       
-      
    
 
    #############################################################################
@@ -936,44 +800,41 @@ class ArmoryMainWindow(QMainWindow):
                #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
                
 
-      self.combinedLedger = []
       if wltIDList==None:
          return
 
+      self.combinedLedger = []
+      totalFunds  = 0
+      spendFunds  = 0
+      unconfFunds = 0
+      currBlk = 0xffffffff
+      if TheBDM.isInitialized():
+         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+
       for wltID in wltIDList:
          wlt = self.walletMap[wltID]
-         index = self.walletIndices[wltID]
-
-         # Add the LedgerEntries from the blockchain
-         self.walletLedgers[index] = self.walletMap[wltID].getTxLedger()
-         id_le_pairs = [ [wltID, le] for le in self.walletLedgers[index] ]
+         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
          self.combinedLedger.extend(id_le_pairs)
+         totalFunds += wlt.getBalance('Total')
+         spendFunds += wlt.getBalance('Spendable')
+         unconfFunds += wlt.getBalance('Unconfirmed')
 
-         # Calculate and add the LedgerEntries from zero-conf tx
-         self.updateZeroConfLedger(wlt)
-         for hsh,le in self.zeroConfWltLEs[wltID].iteritems():
-            if self.settings.get('ZeroConfEnable'):
-               self.combinedLedger.append([wltID, le])
 
-      self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
+      self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
 
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-
-         totFund, unconfFund = 0,0
-         for wlt,le in self.combinedLedger:
-            if (self.latestBlockNum-le.getBlockNum()+1) < 6:
-               unconfFund += le.getValue()
-            else:
-               totFund += le.getValue()
-               
-         uncolor = 'red' if unconfFund>0 else 'black'
-         self.lblUnconfirmed.setText( \
-            '<b>Unconfirmed: <font color="%s"   >%s</font> BTC</b>' % (uncolor,coin2str(unconfFund)))
-         self.lblTotalFunds.setText( \
-            '<b>Total Funds: <font color="green">%s</font> BTC</b>' % coin2str(totFund))
+         uncolor = 'red' if unconfFunds>0 else 'black'
+         btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
+         lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+         self.lblTotalFunds.setText( '<b><font color="%s">%s</font></b>' % (btccolor,coin2str(totalFunds)))
+         self.lblTot.setText('<b><font color="%s">Total Funds:</font></b>' % lblcolor)
+         self.lblBTC1.setText('<b><font color="%s">BTC</font></b>' % lblcolor)
+         self.lblSpendFunds.setText( '<b><font color="green">%s</font></b>' % coin2str(spendFunds))
+         self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
+                                             (uncolor, coin2str(unconfFunds)))
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
@@ -992,7 +853,6 @@ class ArmoryMainWindow(QMainWindow):
          if not txref:
             print 'Why no txref? ', binary_to_hex(txHash)
             return 0
-
          valIn, valOut = 0,0
          for i in range(txref.getNumTxIn()):
             valIn += TheBDM.getSentValue(txref.getTxInRef(i))
@@ -1066,16 +926,13 @@ class ArmoryMainWindow(QMainWindow):
          # NumConf
          row.append(nConf)
 
-         # Date
-         if nConf>0: 
-            txtime = TheBDM.getHeaderByHeight(le.getBlockNum()).getTimestamp()
-         else:       
-            pass
-            txtime = 0
-            #txtime = self.NetworkingFactory.zeroConfTxTime[le.getTxHash()]
-         row.append(unixTimeToFormatStr(txtime))
+         # UnixTime (needed for sorting)
+         row.append(le.getTxTime())
 
-         # TxDir (actually just the amt... use the sign of the amt for what you want)
+         # Date
+         row.append(unixTimeToFormatStr(le.getTxTime()))
+
+         # TxDir (actually just the amt... use the sign of the amt to determine dir)
          row.append(coin2str(le.getValue(), maxZeros=2))
 
          # Wlt Name
@@ -1196,17 +1053,8 @@ class ArmoryMainWindow(QMainWindow):
          wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          wlt.syncWithBlockchain()
 
-         self.walletSubLedgers.append([])
          for addr in wlt.getLinearAddrList():
-            ledger = wlt.getTxLedger(addr.getAddr160())
-            self.walletSubLedgers[-1].append(ledger)
-         self.walletLedgers.append(wlt.getTxLedger())
-         self.walletBalances.append(wlt.getBalance())
-      else:
-         self.walletBalances.append(0)
-         self.walletLedgers.append([])
-         self.walletSubLedgers.append([])
-         self.walletSubLedgers[-1].append([])
+            ledger = wlt.getAddrTxLedger(addr.getAddr160())
 
 
       self.walletListChanged()
@@ -1226,9 +1074,6 @@ class ArmoryMainWindow(QMainWindow):
       del self.walletIndices[wltID]
       self.walletIDSet.remove(wltID)
       del self.walletIDList[idx]
-      del self.walletLedgers[idx]
-      del self.walletSubLedgers[idx]
-      del self.walletBalances[idx]
 
       # Reconstruct walletIndices
       for i,wltID in enumerate(self.walletIDList):
@@ -1277,17 +1122,6 @@ class ArmoryMainWindow(QMainWindow):
                                            shortLabel=name, \
                                            longLabel=descr)
 
-      # Update the maps/dictionaries
-      #newWltID = newWallet.uniqueIDB58
-      #self.walletMap[newWltID] = newWallet
-      #self.walletIndices[newWltID] = len(self.walletMap)-1
-
-      # Maintain some linear lists of wallet info
-      #self.walletIDSet.add(newWltID)
-      #self.walletIDList.append(newWltID)
-      #self.walletBalances.append(0)
-      #self.walletLedgers.append([])
-      #self.walletListChanged()
 
       self.addWalletToApplication(newWallet)
 
@@ -1300,6 +1134,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+   #############################################################################
    def createSweepAddrTx(self, addrToSweepList, sweepTo160, forceZeroFee=False):
       """
       This method takes a list of addresses (likely just created from private
@@ -1314,11 +1149,8 @@ class ArmoryMainWindow(QMainWindow):
       addr160List = [a.getAddr160() for a in addrToSweepList]
       getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
 
-      utxoList = getUnspentTxOutsForAddrList(addr160List)
+      utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep')
       outValue = sumTxOutList(utxoList)
-
-      #pprintUnspentTxOutList(utxoList)
-      #print 'OutValue:', outValue
       
 
       inputSide = []
@@ -1340,7 +1172,6 @@ class ArmoryMainWindow(QMainWindow):
       outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
 
       pytx = PyCreateAndSignTx(inputSide, outputSide)
-      #pytx.pprint()
       return (pytx, outValue, minFee)
 
 
@@ -1353,7 +1184,8 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         print 'Sending Tx,', binary_to_hex(pytx.getHash())
+         newTxHash = pytx.getHash()
+         print 'Sending Tx,', binary_to_hex(newTxHash)
          self.NetworkingFactory.sendTx(pytx)
          print 'Done!'
 
@@ -1367,29 +1199,55 @@ class ArmoryMainWindow(QMainWindow):
          #time.sleep(1)
          #self.checkForTxInNetwork(pytx.getHash())
       
-         # TODO:  MAKE SURE THE TX WAS ACCEPTED?
-         # But I'm not ready to implement this, so far now I'll just assume 
-         # it worked... will be fixed in the next release
-         self.NetworkingFactory.addTxToMemoryPool(pytx)
-         for wltID,wlt in self.walletMap.iteritems():
-            wlt.lockTxOutsOnNewTx(pytx.copy())
-         self.NetworkingFactory.saveMemoryPool()
+   
+         def sendGetDataMsg():
+            msg = PyMessage('getdata')
+            msg.payload.invList.append( [MSG_INV_TX, newTxHash] )
+            self.NetworkingFactory.sendMessage(msg)
 
-         QMessageBox.information(self, 'Broadcast Complete!', \
-            'The transaction has been broadcast to the Bitcoin network.  However '
-            'there is no way to know for sure whether it was accepted until you '
-            'see it in the blockchain with 1+ confirmations.  Please search '
-            'www.blockchain.info for the for recipient\'s address, to '
-            'verify whether it was accepted or not.  '
-            '\n\nAlso note: other transactions you send '
-            'from this wallet may not succeed until that first confirmation is '
-            'received.  Both issues are a problem with Armory that will be fixed '
-            'with the next release.', QMessageBox.Ok)
+         def checkForTxInBDM():
+            # The sleep/delay makes sure we have time to receive a response
+            # but it also gives the user a chance to SEE the change to their
+            # balance occur.  In some cases, that may be more satisfying than
+            # just seeing the updated balance when they get back to the main
+            # screen
+            if not TheBDM.getTxByHash(newTxHash):
+               failedFN = os.path.join(ARMORY_HOME_DIR, 'failedtx.bin')
+               f = open(failedFN, 'ab')
+               bp = BinaryPacker()
+               bp.put(UINT64, long(RightNow()))
+               f.write(bp.getBinaryString())
+               f.write(pytx.serialize())
+               f.close()
+               QMessageBox.warning(self, 'Invalid Transaction', \
+               'The transaction that you just executed, does not '
+               'appear to have been accepted by the Bitcoin network. '
+               'This sometimes happens with legitimate transactions '
+               'when a fee is not included but was required.  Or it can '
+               'be due to a bug in the Armory software.  <br><br>The '
+               'exact binary transaction data '
+               'has been saved to ' + failedFN + '.  This file never '
+               'contains any sensitive data, so it is safe to send to '
+               'the Armory developers for help diagnosing the issue, and '
+               'fixing any potential bugs.  If you are unsure why this '
+               'transaction failed, please email the above file to '
+               'alan.reiner@gmail.com for help.', QMessageBox.Ok)
+                  
+         reactor.callLater(1, sendGetDataMsg)
+         reactor.callLater(3, checkForTxInBDM)
+
+         #QMessageBox.information(self, 'Broadcast Complete!', \
+            #'The transaction has been broadcast to the Bitcoin network.  However '
+            #'there is no way to know for sure whether it was accepted until you '
+            #'see it in the blockchain with 1+ confirmations.  Please search '
+            #'www.blockchain.info for the for recipient\'s address, to '
+            #'verify whether it was accepted or not.  '
+            #'\n\nAlso note: other transactions you send '
+            #'from this wallet may not succeed until that first confirmation is '
+            #'received.  Both issues are a problem with Armory that will be fixed '
+            #'with the next release.', QMessageBox.Ok)
 
    
-   #############################################################################
-   #def checkForTxInNetwork(self, txHash):
-      #self.NetworkingFactory.sendMessage
       
             
             
@@ -1466,11 +1324,10 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
-         if self.NetworkingFactory.zeroConfTx.has_key(txHashBin):
-            pytx = self.NetworkingFactory.zeroConfTx[txHashBin]
          if TheBDM.isInitialized():
             cppTx = TheBDM.getTxByHash(txHashBin)
             if cppTx:
@@ -1482,7 +1339,7 @@ class ArmoryMainWindow(QMainWindow):
             'the blockchain or the zero-conf tx list...?', QMessageBox.Ok)
             return
 
-         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self).exec_()
+         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self, txtime=txtime).exec_()
 
 
    #############################################################################
@@ -1534,6 +1391,7 @@ class ArmoryMainWindow(QMainWindow):
             for wltID in self.walletMap.keys():
                prevLedgerSize = len(self.walletMap[wltID].getTxLedger())
                self.walletMap[wltID].syncWithBlockchain()
+               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
                newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                didAffectUs = (prevLedgerSize != newLedgerSize)
          
@@ -1541,7 +1399,6 @@ class ArmoryMainWindow(QMainWindow):
             if didAffectUs:
                print 'New Block contained a transaction relevant to us!'
                self.walletListChanged()
-            self.NetworkingFactory.purgeMemoryPool()
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
             self.settings.set('LastBlkRecvTime', self.blkReceived)
@@ -1561,8 +1418,6 @@ class ArmoryMainWindow(QMainWindow):
       
 
       for idx,wltID in enumerate(self.walletIDList):
-         # Update wallet balances
-         self.walletBalances[idx] = self.walletMap[wltID].getBalance()
          self.walletMap[wltID].checkWalletLockTimeout()
 
 
@@ -1578,7 +1433,6 @@ class ArmoryMainWindow(QMainWindow):
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
-      #self.NetworkingFactory.saveMemoryPool()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
       reactor.stop()
