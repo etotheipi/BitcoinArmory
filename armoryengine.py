@@ -295,24 +295,6 @@ YEAR     = 365*DAY
 
 
 
-# Define all the hashing functions we're going to need.  We don't actually
-# use any of the first three directly (sha1, sha256, ripemd160), we only
-# use hash256 and hash160 which use the first three to create the ONLY hash
-# operations we ever do in the bitcoin network
-# UPDATE:  mini-private-key format requires vanilla sha256... 
-def sha1(bits):
-   return hashlib.new('sha1', bits).digest()
-def sha256(bits):
-   return hashlib.new('sha256', bits).digest()
-def ripemd160(bits):
-   return hashlib.new('ripemd160', bits).digest()
-def hash256(s):
-   """ Double-SHA256 """
-   return sha256(sha256(s))
-def hash160(s):
-   """ RIPEMD160( SHA256( binaryStr ) ) """
-   return ripemd160(sha256(s))
-
 
 ################################################################################
 # Load the C++ utilites here
@@ -344,6 +326,24 @@ except:
 TheBDM = Cpp.BlockDataManager().getBDM()
 
 
+
+# Define all the hashing functions we're going to need.  We don't actually
+# use any of the first three directly (sha1, sha256, ripemd160), we only
+# use hash256 and hash160 which use the first three to create the ONLY hash
+# operations we ever do in the bitcoin network
+# UPDATE:  mini-private-key format requires vanilla sha256... 
+def sha1(bits):
+   return hashlib.new('sha1', bits).digest()
+def sha256(bits):
+   return hashlib.new('sha256', bits).digest()
+def ripemd160(bits):
+   return hashlib.new('ripemd160', bits).digest()
+def hash256(s):
+   """ Double-SHA256 """
+   return sha256(sha256(s))
+def hash160(s):
+   """ RIPEMD160( SHA256( binaryStr ) ) """
+   return Cpp.BtcUtils().getHash160_SWIG(s)
 
 
 

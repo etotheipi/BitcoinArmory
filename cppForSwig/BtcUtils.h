@@ -426,6 +426,15 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   //  I need a non-static, non-overloaded method to be able to use this in SWIG
+   BinaryData getHash160_SWIG(BinaryData const & strToHash)
+   {
+      return getHash160(strToHash);
+   }
+
+
+
+   /////////////////////////////////////////////////////////////////////////////
    static BinaryData calculateMerkleRoot(vector<BinaryData> const & txhashlist)
    {
       vector<BinaryData> mtree = calculateMerkleTree(txhashlist);
