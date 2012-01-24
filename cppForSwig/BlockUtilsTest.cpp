@@ -419,12 +419,13 @@ void TestZeroConf(void)
 {
 
    BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BinaryData myAddress;
+   BtcWallet wlt;
+   /*
    bdm.Reset();
    bdm.readBlkFile_FromScratch("zctest/blk0001.dat");
 
    // More testnet addresses, with only a few transactions
-   BinaryData myAddress;
-   BtcWallet wlt;
    myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
    myAddress.createFromHex("08ccdf1ef9269b95f6ce93899ece9f68cd5afb22"); wlt.addAddress(myAddress);
    myAddress.createFromHex("edf6bbd7ba7aad222c2b28e6d8d5001178e3680c"); wlt.addAddress(myAddress);
@@ -473,6 +474,31 @@ void TestZeroConf(void)
       }
       cout << "Sum of TxOuts: " << bal/1e8 << endl;
    }
+   */
+
+
+   ////////////////////////////////////////////////////////////////////////////
+   ////////////////////////////////////////////////////////////////////////////
+   // Start testing balance/wlt update after a new block comes in
+
+   bdm.Reset();
+   bdm.readBlkFile_FromScratch("zctest/blk0001.dat");
+   // More testnet addresses, with only a few transactions
+   wlt = BtcWallet();
+   myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("08ccdf1ef9269b95f6ce93899ece9f68cd5afb22"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("edf6bbd7ba7aad222c2b28e6d8d5001178e3680c"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("18d9cae7ee0be5c6d58f02a992442d2cdb9914fa"); wlt.addAddress(myAddress);
+   uint32_t topBlk = bdm.getTopBlockHeader().getBlockHeight();
+   bdm.enableZeroConf("zctest/mempool.bin");
+   bdm.scanBlockchainForTx(wlt);
+
+   wlt.pprintLedger();
+
+   // The new blkfile has about 10 new blocks, one of which has these tx
+   bdm.readBlkFileUpdate("zctest/blk0001_updated.dat");
+   bdm.scanBlockchainForTx(wlt, topBlk);
+   wlt.pprintLedger();
 
 }
 

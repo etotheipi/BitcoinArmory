@@ -667,7 +667,6 @@ void BtcWallet::scanTx(TxRef & tx,
               (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
             {
                anyNewTxInIsOurs = true;
-               unspentOutPoints_.erase(outpt);
                // The legit var only identifies whether this set-call succeeded
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
@@ -729,11 +728,14 @@ void BtcWallet::scanTx(TxRef & tx,
 
             pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
             insResult = txioMap_.insert(toBeInserted);
-
             TxIOPair & thisTxio = insResult.first->second;
-            if(insResult.second == true)
+
+            // Maybe insert failed because a zero-conf is already there
+            bool insertSucceeded = insResult.second;
+            bool prevZC =  insResult.first->second.hasTxOutZC() && 
+                          !insResult.first->second.hasTxOut();
+            if(insertSucceeded || prevZC) 
             {
-               unspentOutPoints_.insert(outpt);
                anyNewTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 
@@ -1261,6 +1263,11 @@ void BlockDataManager_FullRAM::Reset(void)
    totalBlockchainBytes_ = 0;
 
    isInitialized_ = false;
+
+   zcEnabled_ = false;
+   zcFilename_ = "";
+   zeroConfMap_.clear();
+   zeroConfTxList_.clear();
 }
 
 
@@ -1436,6 +1443,13 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
    }
 
    myWallet.sortLedger(); // removes invalid tx and sorts
+
+   // We should clean up any dangling TxIOs in the wallet then rescan
+   if(zcEnabled_)
+   {
+      myWallet.clearZeroConfPool();
+      rescanWalletZeroConf(myWallet);
+   }
    PDEBUG("Done scanning blockchain for tx");
 }
 
@@ -1719,17 +1733,23 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
 // NOTE:  You might want to check lastBlockWasReorg_ variable to know whether 
 //        to expect some previously valid headers/txs to still be valid
 //
-uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(void)
+uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(string filename)
 {
-   PDEBUG2("Update blkfile from ", blkfilePath_);
    TIMER_START("getBlockfileUpdates");
 
+   // The only real use for this arg is for unit-testing, I have two
+   // copies of the blockchain one with an extra block or two in it.
+   if(filename.size() == 0)
+      filename = blkfilePath_;
+
+   PDEBUG2("Update blkfile from ", filename);
+
    // Try opening the blkfile for reading
-   ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
+   ifstream is(filename.c_str(), ios::in | ios::binary);
    if( !is.is_open() )
    {
-      cout << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
-      cerr << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
+      cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
+      cerr << "***ERROR:  Cannot open " << filename.c_str() << endl;
       return 0;
    }
 
@@ -2442,6 +2462,11 @@ void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
    {
       zcFile.seekg(0, ios::end);
       uint64_t filesize = (size_t)zcFile.tellg();
+      if(filesize < 8)
+      {
+         zcFile.close();
+         return;
+      }
       zcFile.seekg(0, ios::beg);
       BinaryData zcData(filesize);
       zcFile.read((char*)zcData.getPtr(), filesize);
