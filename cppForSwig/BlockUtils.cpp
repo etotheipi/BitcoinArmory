@@ -657,7 +657,8 @@ void BtcWallet::scanTx(TxRef & tx,
          {
             TxIOPair & txio  = txioIter->second;
             // If we scan multiple times, need to avoid multiple entries
-            if(txio.hasTxIn())
+            //if(txio.hasTxIn())
+            if(txio.hasTxIn() || (isZeroConf && txio.hasTxInZC()))
                continue;
 
             TxOutRef const  & txout = txio.getTxOutRef();

@@ -3622,7 +3622,10 @@ class DlgSendBitcoins(QDialog):
             print txdp.serializeAscii()
             self.main.broadcastTransaction(finalTx)
             self.accept()
-            self.parent.accept()
+            try:
+               self.parent.accept()
+            except:
+               pass
          except:
             print 'Issue sending!'
             # TODO: not sure what errors to catch here, yet...
@@ -5225,6 +5228,7 @@ def extractTxInfo(pytx, rcvTime=None):
             txinFromList[-1].append(prevTxOut.getIndex())
          else:
             haveAllInput=False
+            txin = PyTxIn().unserialize(cppTxin.serialize())
             txinFromList[-1].append(TxInScriptExtractAddr160IfAvail(txin))
             txinFromList[-1].append('')
             txinFromList[-1].append('')
@@ -5332,7 +5336,7 @@ class DlgDispTxInfo(QDialog):
       txdir = None 
       changeIndex = None
       rvPairDisp = None
-      if haveBDM and haveWallet:
+      if haveBDM and haveWallet and data[FIELDS.SumOut] and data[FIELDS.SumIn]:
          fee = data[FIELDS.SumOut] - data[FIELDS.SumIn]
          ldgr = wlt.getTxLedger()
          for le in ldgr:
