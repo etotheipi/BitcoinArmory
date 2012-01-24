@@ -659,6 +659,7 @@ public:
    void readZeroConfFile(string);
    bool addNewZeroConfTx(BinaryData const & rawTx, uint64_t txtime, bool writeToFile);
    void purgeZeroConfPool(void);
+   void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
    void rescanWalletZeroConf(BtcWallet & wlt);
 

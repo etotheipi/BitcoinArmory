@@ -2602,6 +2602,22 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FullRAM::pprintZeroConfPool(void)
+{
+   map<HashString, ZeroConfData>::iterator iter;
+   for(iter  = zeroConfMap_.begin();
+       iter != zeroConfMap_.end();
+       iter++)
+   {
+      TxRef & txref = iter->second.txref_;
+      cout << txref.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
+      for(uint32_t i=0; i<txref.getNumTxOut(); i++)
+         cout << txref.getTxOutRef(i).getValue() << " ";
+      cout << endl;
+   }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 void BtcAddress::clearZeroConfPool(void)
