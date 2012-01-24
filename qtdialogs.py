@@ -1838,7 +1838,7 @@ class DlgAddressInfo(QDialog):
       self.addrLedger = wlt.getAddrTxLedger(addr160)
       self.addrLedger2 = [[wlt.uniqueIDB58, le] for le in self.addrLedger]
       self.ledgerTable = self.main.convertLedgerToTable(self.addrLedger2)
-      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.NumConf])
+      self.ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
 
 
       self.mode = mode
@@ -1948,6 +1948,7 @@ class DlgAddressInfo(QDialog):
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
 
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.WltName)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
@@ -1961,7 +1962,7 @@ class DlgAddressInfo(QDialog):
       self.ledgerView.verticalHeader().hide()
       self.ledgerView.setMinimumWidth(650)
       dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
-      initialColResize(self.ledgerView, [20, dateWidth, 72, 0, 0.45, 0.3])
+      initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0, 0.45, 0.3])
 
       ttipLedger = createToolTipObject( \
             'Unlike the wallet-level ledger, this table shows every '
@@ -3832,7 +3833,7 @@ class DlgSendBitcoins(QDialog):
          if len(str(self.widgetTable[-1][col].text()))>0:
             lastIsEmpty = False
          
-      if not lastIsEmpty or len(self.widgetTable)==1:
+      if not lastIsEmpty:
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(ARMORY_DONATION_ADDR)

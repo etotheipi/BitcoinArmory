@@ -3843,9 +3843,8 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep'):
             cppWlt.addAddress_1_(addr)
    
       
-      TheBDM.scanBlockchainForTx(cppWlt)
-      TheBDM.rescanWalletZeroConf(cppWlt)
       currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+      TheBDM.scanBlockchainForTx(cppWlt, currBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)
@@ -8376,8 +8375,7 @@ class ArmoryClient(Protocol):
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
          #print 'Received block message (ignoring)'
-         from twisted.internet import reactor
-         reactor.callLater(2, self.factory.purgeMemoryPool)
+         pass
                   
 
    ############################################################

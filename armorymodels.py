@@ -13,7 +13,7 @@ from qtdefines import *
 
 
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
-LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', \
+LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 
@@ -129,7 +129,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
-      return 11
+      return 12
 
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
@@ -139,14 +139,14 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wltID = rowData[LEDGERCOLS.WltID]
       wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
-#LEDGERCOLS  = enum('NumConf', 'Date', 'TxDir', 'WltName', 'Comment', \
+#LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
                    #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
          if col in (COL.NumConf,  COL.TxDir):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (COL.Comment, COL.Date):
+         elif col in (COL.Comment, COL.DateStr):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
          elif col in (COL.Amount,):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
@@ -181,7 +181,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
             f.setWeight(QFont.Bold)
             return f
       elif role==Qt.ToolTipRole:
-         if col in (COL.NumConf, COL.Date):
+         if col in (COL.NumConf, COL.DateStr):
             if rowData[COL.NumConf]>5:
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
@@ -223,7 +223,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
             if section==COL.NumConf: return QVariant()
-            if section==COL.Date:    return QVariant('Date')
+            if section==COL.DateStr: return QVariant('Date')
             if section==COL.WltName: return QVariant('Wallet')
             if section==COL.Comment: return QVariant('Comments')
             if section==COL.TxDir:   return QVariant()

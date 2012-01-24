@@ -113,10 +113,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
       if self.usermode == USERMODE.Standard:
-         initialColResize(self.walletsView, [0, 0.4, 0.2, 0.2])
+         initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.35, 0.18, 0.18])
+         initialColResize(self.walletsView, [0.15, 0.30, 0.15, 0.20])
 
    
 
@@ -148,6 +148,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setMinimumSize(viewWidth, viewHeight)
       #self.walletsView.setStretchFactor(4)
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+      self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
@@ -156,7 +157,7 @@ class ArmoryMainWindow(QMainWindow):
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
       #if self.usermode==USERMODE.Standard:
-      initialColResize(self.ledgerView, [20, dateWidth, 72, 0.35, 0.45, 0.3])
+      initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0.35, 0.45, 0.3])
       #elif self.usermode in (USERMODE.Advanced, USERMODE.Developer):
          #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
          #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
@@ -819,7 +820,7 @@ class ArmoryMainWindow(QMainWindow):
          unconfFunds += wlt.getBalance('Unconfirmed')
 
 
-      self.combinedLedger.sort(key=lambda x:x[1], reverse=True)
+      self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
       self.ledgerSize = len(self.combinedLedger)
 
       # Many MainWindow objects haven't been created yet... 
@@ -924,6 +925,9 @@ class ArmoryMainWindow(QMainWindow):
          if le.getBlockNum() >= 0xffffffff: nConf = 0
          # NumConf
          row.append(nConf)
+
+         # UnixTime (needed for sorting)
+         row.append(le.getTxTime())
 
          # Date
          row.append(unixTimeToFormatStr(le.getTxTime()))
@@ -1320,7 +1324,7 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.Date).data().toString())
+         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
