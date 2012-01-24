@@ -337,15 +337,15 @@ def sha1(bits):
 def sha256(bits):
    return hashlib.new('sha256', bits).digest()
 def ripemd160(bits):
-   return hashlib.new('ripemd160', bits).digest()
+   # It turns out that not all python has ripemd160...?
+   #return hashlib.new('ripemd160', bits).digest()
+   return Cpp.BtcUtils().ripemd160_SWIG(bits)
 def hash256(s):
    """ Double-SHA256 """
    return sha256(sha256(s))
 def hash160(s):
    """ RIPEMD160( SHA256( binaryStr ) ) """
    return Cpp.BtcUtils().getHash160_SWIG(s)
-
-
 
 
 

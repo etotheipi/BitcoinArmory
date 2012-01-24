@@ -432,6 +432,16 @@ public:
       return getHash160(strToHash);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   //  I need a non-static, non-overloaded method to be able to use this in SWIG
+   BinaryData ripemd160_SWIG(BinaryData const & strToHash)
+   {
+      static CryptoPP::RIPEMD160 ripemd160_;
+      static BinaryData bd20(20);
+
+      ripemd160_.CalculateDigest(bd20.getPtr(), strToHash.getPtr(), strToHash.getSize());
+      return bd20;
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////
