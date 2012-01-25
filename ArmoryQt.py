@@ -1056,7 +1056,7 @@ class ArmoryMainWindow(QMainWindow):
 
       ledger = []
       wlt = self.walletMap[newWltID]
-      if not walletIsNew:
+      if not walletIsNew and TheBDM.isInitialized():
          # We may need to search the blockchain for existing tx
          wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
          wlt.syncWithBlockchain()
