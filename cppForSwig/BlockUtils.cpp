@@ -732,14 +732,19 @@ void BtcWallet::scanTx(TxRef & tx,
 
             // Maybe insert failed because a zero-conf is already there
             bool insertSucceeded = insResult.second;
-            bool prevZC =  insResult.first->second.hasTxOutZC() && 
-                          !insResult.first->second.hasTxOut();
+            bool prevZC =  thisTxio.hasTxOutZC() && 
+                          !thisTxio.hasTxOut();
             if(insertSucceeded || prevZC) 
             {
+               // If insert failed, there's already a TxIO needing update
+               if(prevZC)
+                  thisTxio.setTxOutRef(&tx, iout, isZeroConf);
+               else
+                  thisAddr.addTxIO( thisTxio, isZeroConf);
+
                anyNewTxOutIsOurs = true;
                thisTxOutIsOurs[iout] = true;
 
-               thisAddr.addTxIO( thisTxio, isZeroConf);
 
                int64_t thisVal = (int64_t)(txout.getValue());
                LedgerEntry newLedger(addr20, 
@@ -1417,6 +1422,35 @@ vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData cons
    return vector<BinaryData>(0);
 }
 
+void BtcWallet::pprintAlot(void)
+{
+   uint32_t numLedg = ledgerAllAddr_.size();
+   uint32_t numLedgZC = ledgerAllAddrZC_.size();
+   uint32_t numTxIO = txioMap_.size();
+
+   cout << "Ledger: " << endl;
+   for(uint32_t i=0; i<numLedg; i++)
+      ledgerAllAddr_[i].pprintOneLine();
+
+   cout << "LedgerZC: " << endl;
+   for(uint32_t i=0; i<numLedgZC; i++)
+      ledgerAllAddrZC_[i].pprintOneLine();
+
+   cout << "TxioMap:" << endl;
+   map<OutPoint, TxIOPair>::iterator iter;
+   for(iter  = txioMap_.begin();
+       iter != txioMap_.end();
+       iter++)
+   {
+      printf("   Val:(%0.3f)  STS:%d O:%d I:%d  OZ:%d IZ:%d\n", 
+              (double)iter->second.getValue()/1e8,
+              (iter->second.isSentToSelf() ? 1 : 0),
+              (iter->second.hasTxOut() ? 1 : 0),
+              (iter->second.hasTxIn() ? 1 : 0),
+              (iter->second.hasTxOutZC() ? 1 : 0),
+              (iter->second.hasTxInZC() ? 1 : 0));
+   }
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // This is an intense search, using every tool we've created so far!
@@ -1425,6 +1459,14 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
                                                    uint32_t endBlknum)
 {
    PDEBUG("Scanning blockchain for tx");
+
+   ////////////////////////////////////////////////////////////////////////////
+   // DEBUGGING CODE:
+   //cout << "Scanning blockchain for tx: " << startBlknum << " to " << endBlknum << endl;
+   //cout << "Before Scan Blkchain:" << endl;
+   //myWallet.pprintAlot();
+   // END DEBUGGING CODE
+   ////////////////////////////////////////////////////////////////////////////
 
    uint32_t nHeaders = headersByHeight_.size();
    endBlknum = (endBlknum > nHeaders ? nHeaders : endBlknum);
@@ -1444,6 +1486,12 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
 
    myWallet.sortLedger(); // removes invalid tx and sorts
 
+   ////////////////////////////////////////////////////////////////////////////
+   // DEBUGGING CODE:
+   //cout << "BEFORE CLEAN Scan Blkchain:" << endl;
+   //myWallet.pprintAlot();
+   ////////////////////////////////////////////////////////////////////////////
+   
    // We should clean up any dangling TxIOs in the wallet then rescan
    if(zcEnabled_)
    {
@@ -1451,6 +1499,14 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
       rescanWalletZeroConf(myWallet);
    }
    PDEBUG("Done scanning blockchain for tx");
+
+   ////////////////////////////////////////////////////////////////////////////
+   // DEBUGGING CODE:
+   //cout << "Scanning blockchain for tx: " << startBlknum << " to " << endBlknum << endl;
+   //cout << "AFTER Scan Blkchain:" << endl;
+   //myWallet.pprintAlot();
+   // END DEBUGGING CODE
+   ////////////////////////////////////////////////////////////////////////////
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2590,6 +2646,8 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
    // Clear the whole list, rebuild
    // Inefficient but also irrelevant unless we have millions of
    // zero-conf transactions per second... I'll take the risk...
+   //cout << "Pre rescan:" << endl;
+   //wlt.pprintAlot();
 
    wlt.clearZeroConfPool();
    map<HashString, ZeroConfData>::iterator iter;
@@ -2599,6 +2657,9 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
    {
       wlt.scanTx(iter->second.txref_, 0, iter->second.txtime_, UINT32_MAX);
    }
+
+   //cout << "After rescan:" << endl;
+   //wlt.pprintAlot();
 }
 
 
