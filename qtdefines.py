@@ -10,8 +10,8 @@ WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')
 MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
 
-STYLE_SUNKEN = QFrame.StyledPanel | QFrame.Sunken
-STYLE_RAISED = QFrame.StyledPanel | QFrame.Raised
+STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
+STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
  
 

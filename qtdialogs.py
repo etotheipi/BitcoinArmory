@@ -593,7 +593,7 @@ class DlgWalletDetails(QDialog):
       self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
 
       optFrame = QFrame()
-      optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      optFrame.setFrameStyle(STYLE_SUNKEN)
       optLayout = QVBoxLayout()
 
       hasPriv = not self.wlt.watchingOnly
@@ -640,7 +640,7 @@ class DlgWalletDetails(QDialog):
       btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
       lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
 
-      lblTot  = QRichLabel('<b><font color="%s">Total Funds:</font></b>'%lblcolor, doWrap=False); 
+      lblTot  = QRichLabel('<b><font color="%s">Maximum Funds:</font></b>'%lblcolor, doWrap=False); 
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
@@ -650,13 +650,14 @@ class DlgWalletDetails(QDialog):
       lblTotalFunds  = QRichLabel(totStr, doWrap=False)
       lblSpendFunds  = QRichLabel(spdStr, doWrap=False)
       lblUnconfFunds = QRichLabel(ucnStr, doWrap=False)
-      lblTotalFunds.setAlignment(Qt.AlignRight)
-      lblSpendFunds.setAlignment(Qt.AlignRight)
-      lblUnconfFunds.setAlignment(Qt.AlignRight)
+      lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      lblUnconfFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-      lblTot.setAlignment(Qt.AlignRight)
-      lblSpd.setAlignment(Qt.AlignRight)
-      lblUcn.setAlignment(Qt.AlignRight)
+      lblTot.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      lblSpd.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      lblUcn.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
 
       lblBTC1 = QRichLabel('<b><font color="%s">BTC</font></b>'%lblcolor, doWrap=False)
       lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
@@ -666,6 +667,7 @@ class DlgWalletDetails(QDialog):
             'Value appears gray when it is the same as your spendable funds.')
       ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
       ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+
 
       frmTotals = QFrame()
       frmTotals.setFrameStyle(STYLE_NONE)
@@ -685,6 +687,12 @@ class DlgWalletDetails(QDialog):
       frmTotalsLayout.addWidget(ttipTot, 0,3)
       frmTotalsLayout.addWidget(ttipSpd, 1,3)
       frmTotalsLayout.addWidget(ttipUcn, 2,3)
+
+      # Temp disable unconf display until calc is fixed
+      lblUcn.setVisible(False)
+      lblUnconfFunds.setVisible(False)
+      lblBTC3.setVisible(False)
+      ttipUcn.setVisible(False)
 
       frmTotals.setLayout(frmTotalsLayout)
 
@@ -855,7 +863,12 @@ class DlgWalletDetails(QDialog):
       
       
    def forkOnlineWallet(self):
-      saveLoc = self.main.getFileSave('Save Watching-Only Copy')
+      currPath = self.wlt.walletPath
+      pieces = os.path.splitext(currPath)
+      currPath = pieces[0] + '.watchonly' + pieces[1]
+      
+      saveLoc = self.main.getFileSave('Save Watching-Only Copy',\
+                                      defaultFilename=currPath)
       if not saveLoc.endswith('.wallet'):
          saveLoc += '.wallet'
       self.wlt.forkOnlineWallet(saveLoc, self.wlt.labelName, \
@@ -1093,7 +1106,7 @@ class DlgWalletDetails(QDialog):
          
    
       self.frm = QFrame()
-      self.frm.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      self.frm.setFrameStyle(STYLE_SUNKEN)
       self.frm.setLayout(layout)
       
       
@@ -1993,7 +2006,7 @@ class DlgAddressInfo(QDialog):
       self.connect(lbtnUnspent,  SIGNAL('clicked()'), self.viewUnspent)
 
       optFrame = QFrame()
-      optFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
+      optFrame.setFrameStyle(STYLE_SUNKEN)
       optLayout = QVBoxLayout()
 
       hasPriv = self.addr.hasPrivKey()
@@ -3326,9 +3339,7 @@ class DlgConfirmSend(QDialog):
                            coin2str(fee, rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
-      hline = QFrame()
-      hline.setFrameStyle(QFrame.HLine | QFrame.Sunken)
-      recipLbls.append(hline)
+      recipLbls.append(HLINE(QFrame.Sunken))
       recipLbls.append(QLabel( 'Total Bitcoins : '.ljust(37)  +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
@@ -4270,6 +4281,11 @@ class DlgOfflineTxCreated(QDialog):
          
 
       self.main.broadcastTransaction(finalTx)
+      self.accept()
+      try:
+         self.parent.accept()
+      except:
+         pass
 
 
    def signTxdp(self):

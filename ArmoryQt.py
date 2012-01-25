@@ -116,7 +116,7 @@ class ArmoryMainWindow(QMainWindow):
          initialColResize(self.walletsView, [0, 0.35, 0.2, 0.2])
          self.walletsView.hideColumn(0)
       else:
-         initialColResize(self.walletsView, [0.15, 0.30, 0.15, 0.20])
+         initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
 
    
 
@@ -200,29 +200,32 @@ class ArmoryMainWindow(QMainWindow):
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
       self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
 
-      self.lblTot  = QRichLabel('<b>Total Funds:</b>', doWrap=False); 
+      self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       self.lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
       self.lblTotalFunds  = QRichLabel('', doWrap=False)
       self.lblSpendFunds  = QRichLabel('', doWrap=False)
       self.lblUnconfFunds = QRichLabel('', doWrap=False)
-      self.lblTotalFunds.setAlignment(Qt.AlignRight)
-      self.lblSpendFunds.setAlignment(Qt.AlignRight)
-      self.lblUnconfFunds.setAlignment(Qt.AlignRight)
+      self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblUnconfFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-      self.lblTot.setAlignment(Qt.AlignRight)
-      self.lblSpd.setAlignment(Qt.AlignRight)
-      self.lblUcn.setAlignment(Qt.AlignRight)
+      self.lblTot.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblSpd.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblUcn.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
       self.lblBTC1 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.ttipTot = createToolTipObject( \
-            'Total funds if all current transactions are confirmed.  '
+            'Funds if all current transactions are confirmed.  '
             'Value appears gray when it is the same as your spendable funds.')
       self.ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
-      self.ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+      self.ttipUcn = createToolTipObject( \
+            'Funds that have less than 6 confirmations\n'
+            'This value is frequently incorrect.  This will be fixed in a '
+            'future release of Armory')
 
       frmTotals = QFrame()
       frmTotals.setFrameStyle(STYLE_NONE)
@@ -259,6 +262,11 @@ class ArmoryMainWindow(QMainWindow):
       ledgLayout.addWidget(frmLower,                  4,0, 1,4)
       ledgFrame.setLayout(ledgLayout)
 
+
+      self.lblUcn.setVisible(False)
+      self.lblBTC3.setVisible(False)
+      self.lblUnconfFunds.setVisible(False)
+      self.ttipUcn.setVisible(False)
 
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
@@ -1233,8 +1241,8 @@ class ArmoryMainWindow(QMainWindow):
                'transaction failed, please email the above file to '
                'alan.reiner@gmail.com for help.', QMessageBox.Ok)
                   
-         reactor.callLater(1, sendGetDataMsg)
-         reactor.callLater(3, checkForTxInBDM)
+         reactor.callLater(2, sendGetDataMsg)
+         reactor.callLater(4, checkForTxInBDM)
 
          #QMessageBox.information(self, 'Broadcast Complete!', \
             #'The transaction has been broadcast to the Bitcoin network.  However '
@@ -1472,6 +1480,8 @@ if 1:  #__name__ == '__main__':
 
       
    pixLogo = QPixmap('img/splashlogo.png')
+   if options.testnet:
+      pixLogo = QPixmap('img/splashlogo_testnet.png')
    SPLASH = QSplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()

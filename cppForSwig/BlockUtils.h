@@ -401,6 +401,7 @@ public:
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
+   void pprintAlot(void);
 
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
