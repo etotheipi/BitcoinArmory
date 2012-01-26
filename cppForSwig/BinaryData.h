@@ -9,7 +9,7 @@
 #define _BINARYDATA_H_
 
 #include <stdio.h>
-#ifdef _MSC_VER
+#if defined(_MSC_VER) || defined(__MINGW32__)
    //#include <cstdint>
    typedef          __int8  int8_t;
    typedef          __int16 int16_t;

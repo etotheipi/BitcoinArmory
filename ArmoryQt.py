@@ -835,10 +835,10 @@ class ArmoryMainWindow(QMainWindow):
       # let's try to update them and fail silently if they don't exist
       try:
          uncolor = 'red' if unconfFunds>0 else 'black'
-         btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
-         lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+         btccolor = '#999999' if spendFunds==totalFunds else 'green'
+         lblcolor = '#999999' if spendFunds==totalFunds else 'black'
          self.lblTotalFunds.setText( '<b><font color="%s">%s</font></b>' % (btccolor,coin2str(totalFunds)))
-         self.lblTot.setText('<b><font color="%s">Total Funds:</font></b>' % lblcolor)
+         self.lblTot.setText('<b><font color="%s">Maximum Funds:</font></b>' % lblcolor)
          self.lblBTC1.setText('<b><font color="%s">BTC</font></b>' % lblcolor)
          self.lblSpendFunds.setText( '<b><font color="green">%s</font></b>' % coin2str(spendFunds))
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
@@ -1456,14 +1456,12 @@ if 1:  #__name__ == '__main__':
  
    import optparse
    parser = optparse.OptionParser(usage="%prog [options]\n")
-   parser.add_option("--host", dest="host", default="127.0.0.1",
-                     help="IP/hostname to connect to (default: %default)")
-   parser.add_option("--port", dest="port", default="8333", type="int",
-                     help="port to connect to (default: %default)")
+   #parser.add_option("--host", dest="host", default="127.0.0.1",
+                     #help="IP/hostname to connect to (default: %default)")
+   #parser.add_option("--port", dest="port", default="8333", type="int",
+                     #help="port to connect to (default: %default)")
    parser.add_option("--settings", dest="settingsPath", default=SETTINGS_PATH, type="str",
                      help="load Armory with a specific settings file")
-   parser.add_option("--verbose", dest="verbose", action="store_true", default=False,
-                     help="Print all messages sent/received")
    parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                      help="Use the testnet protocol")
    parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,

@@ -53,10 +53,11 @@ from datetime import datetime
 from sys import argv
 
 
-# Use CLI args to determine testnet or not
-USE_TESTNET = ('--testnet' in argv)
-   
 
+# Use CLI args to determine testnet or not
+USE_TESTNET = not ('--mainnet' in argv)
+USE_TESTNET =     ('--testnet' in argv)
+   
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
@@ -7087,6 +7088,7 @@ class PyBtcWallet(object):
          print '           own.  You cannot import addresses without the'
          print '           the associated private key.  Instead, use a'
          print '           watching-only wallet to import this address.'
+         print '           (actually, this is currently, completely disabled)'
          raise WalletAddressError, 'Cannot import non-private-key addresses'
 
 
@@ -7185,7 +7187,8 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def importAddressesFromFile(self, filename, sepList=":;'[]()=-_*&^%$#@!,./?"):
+   def importAddressesFromFile(self, filename, privKeyEndian=BIGENDIAN, \
+                     sepList=":;'[]()=-_*&^%$#@!,./?"):
       """
       Attempts to import plaintext key data stored in a file.  This method
       expects all data to be in hex or Base58:
@@ -7211,9 +7214,7 @@ class PyBtcWallet(object):
 
       TODO: will finish this later
       """
-      """
       self.__init__()
-      self.watchingOnly = True
 
       newfile = open(filename,'rb')
       newdata = newfile.read()
@@ -7223,6 +7224,41 @@ class PyBtcWallet(object):
       for ch in sepList:
          newdata.replace(ch, ' ')
 
+      newdata = newdata.split('\n')
+      hexChars = '01234567890abcdef'
+      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+      DATATYPES = enum( 'Addr_Hex_20', \
+                        'Addr_B58_25', \
+                        'PubX_Hex_32', \
+                        'PubY_Hex_32', \
+                        'PubK_Hex_65', \
+                        'Priv_Hex_32', \
+                        'Priv_Hex_36', \
+                        'Priv_Hex_37', \
+                        'Priv_B58_32', \
+                        'Priv_B58_37', \
+                        'Priv_MiniPriv')
+      
+
+      lastAddr = None
+      lastPubK = None
+      lastPriv = None
+      nextIsProbPub = None
+      nextIsProbPriv = None
+      for theStr in newdata:
+         hexCount = sum([1 if c in hexChars else 0 for c in theStr])
+         b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
+         canBeHex = hexCount==len(theStr)
+         canBeB58 = b58Count==len(theStr)
+         isHex = canBeHex and len(theStr)>=20
+         isB58 = canBeB58 and not canBeHex
+         isStr = not isHex and not isB58
+         
+
+         
+
+
+
       allPieces = newdata.split()
       for piece in allPieces:
          if len(piece)==64:
@@ -7230,7 +7266,6 @@ class PyBtcWallet(object):
             isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
 
       return self
-      """
 
 
 

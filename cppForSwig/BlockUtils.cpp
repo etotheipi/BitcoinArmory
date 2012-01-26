@@ -642,6 +642,12 @@ void BtcWallet::scanTx(TxRef & tx,
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
       BinaryData const & addr20 = thisAddr.getAddrStr20();
 
+      // We need to not only know if this entire transaction 
+      // belongs to the same wallet, but perhaps the same 
+      // ADDRESS.  The previous flags, only tracked anyTxInIsOurs
+      // at the wallet level, but not the address level
+      bool anyTxInIsOurs_Addr = false;
+
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
@@ -667,6 +673,7 @@ void BtcWallet::scanTx(TxRef & tx,
               (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
             {
                anyNewTxInIsOurs = true;
+               anyTxInIsOurs_Addr = true;
                // The legit var only identifies whether this set-call succeeded
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
@@ -723,7 +730,7 @@ void BtcWallet::scanTx(TxRef & tx,
             pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
             TxIOPair newTxio;
             newTxio.setTxOutRef(&tx, iout, isZeroConf);
-            if(anyTxInIsOurs)
+            if(anyTxInIsOurs_Addr)
                newTxio.setSentToSelf();
 
             pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);

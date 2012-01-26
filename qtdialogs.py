@@ -637,8 +637,8 @@ class DlgWalletDetails(QDialog):
       spendFunds = self.wlt.getBalance('Spendable')
       unconfFunds= self.wlt.getBalance('Unconfirmed')
       uncolor = 'red' if unconfFunds>0 else 'black'
-      btccolor = '#cccccc' if spendFunds==totalFunds else 'green'
-      lblcolor = '#cccccc' if spendFunds==totalFunds else 'black'
+      btccolor = '#999999' if spendFunds==totalFunds else 'green'
+      lblcolor = '#999999' if spendFunds==totalFunds else 'black'
 
       lblTot  = QRichLabel('<b><font color="%s">Maximum Funds:</font></b>'%lblcolor, doWrap=False); 
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -2031,6 +2031,14 @@ class DlgAddressInfo(QDialog):
       if False:          optLayout.addWidget(lbtnMkPaper)  
       if True:           optLayout.addStretch()
       if True:           optLayout.addWidget(self.lblCopied)
+
+      self.lblLedgerWarning = QRichLabel( \
+         'NOTE:  Due to a bug in Armory, the individual address ledgers '
+         '(seen via double-clicking an address) may be incorrect for '
+         'transactions processed in the last six blocks.  After six '
+         'confirmations, Armory will display the correct values after '
+         'being restarted.  This issue will be fixed in the next release.')
+      optLayout.addWidget(self.lblLedgerWarning)
 
       optLayout.addStretch()
       optFrame.setLayout(optLayout)
