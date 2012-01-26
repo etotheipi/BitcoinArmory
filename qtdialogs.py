@@ -2034,10 +2034,9 @@ class DlgAddressInfo(QDialog):
 
       self.lblLedgerWarning = QRichLabel( \
          'NOTE:  Due to a bug in Armory, the individual address ledgers '
-         '(seen via double-clicking an address) may be incorrect for '
-         'transactions processed in the last six blocks.  After six '
-         'confirmations, Armory will display the correct values after '
-         'being restarted.  This issue will be fixed in the next release.')
+         'on the left may be incorrect.  Some inconsistencies are resolved '
+         'by restarting Armory.  Other issues will be resolved in '
+         'the next release of Armory software')
       optLayout.addWidget(self.lblLedgerWarning)
 
       optLayout.addStretch()
