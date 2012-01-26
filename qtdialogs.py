@@ -570,7 +570,7 @@ class DlgWalletDetails(QDialog):
       if self.wlt.watchingOnly:
          lbtnSendBtc = QLabelButton('Prepare Offline Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
-      lbtnImportA = QLabelButton('Import External Address')
+      lbtnImportA = QLabelButton('Import Private Key')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       #lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
 

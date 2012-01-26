@@ -3818,7 +3818,7 @@ class PyScriptProcessor(object):
 
 
 ################################################################################
-def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep'):
+def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1):
    """
    You have a list of addresses (or just one) and you want to get all the 
    unspent TxOuts for it.  This can either be for computing its balance, or
@@ -3845,7 +3845,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep'):
    
       
       currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
-      TheBDM.scanBlockchainForTx(cppWlt, currBlk)
+      TheBDM.scanBlockchainForTx(cppWlt, currBlk if startBlk==-1 else startBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)

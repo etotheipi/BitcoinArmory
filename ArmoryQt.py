@@ -1157,7 +1157,7 @@ class ArmoryMainWindow(QMainWindow):
       addr160List = [a.getAddr160() for a in addrToSweepList]
       getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
 
-      utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep')
+      utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep', 0)
       outValue = sumTxOutList(utxoList)
       
 
