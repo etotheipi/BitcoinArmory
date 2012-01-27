@@ -33,7 +33,7 @@ TxIOPair::TxIOPair(void) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isSentToSelf_(false) {}
+   isTxOutFromSelf_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(uint64_t  amount) :
@@ -46,7 +46,7 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0) ,
-   isSentToSelf_(false) {}
+   isTxOutFromSelf_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
@@ -57,7 +57,7 @@ TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isSentToSelf_(false)
+   isTxOutFromSelf_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
 }
@@ -72,7 +72,7 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isSentToSelf_(false)
+   isTxOutFromSelf_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
    setTxInRef (txPtrI, txinIndex );
@@ -121,10 +121,12 @@ bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
 { 
    if(isZeroConf)
    {
-      if(hasTxIn() || hasTxInZC())
+      if(hasTxInInMain() || hasTxInZC())
          return false;
       else
       {
+         txPtrOfInput_    = NULL;
+         indexOfInput_    = 0;
          txPtrOfInputZC_  = txref;
          indexOfInputZC_  = index;
       }
@@ -133,6 +135,8 @@ bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
    {
       txPtrOfInput_  = txref;
       indexOfInput_  = index;
+      txPtrOfInputZC_  = NULL;
+      indexOfInputZC_  = 0;
    }
 
    return true;
@@ -143,10 +147,12 @@ bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
 {
    if(isZeroConf)
    {
-      if(hasTxOut() || hasTxOutZC())
+      if(hasTxOutInMain() || hasTxOutZC())
          return false;
       else
       {
+         txPtrOfOutput_   = NULL;
+         indexOfOutput_   = 0;
          txPtrOfOutputZC_ = txref; 
          indexOfOutputZC_ = index;
          if(hasTxOutZC())
@@ -157,6 +163,8 @@ bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
    {
       txPtrOfOutput_ = txref; 
       indexOfOutput_ = index;
+      txPtrOfOutputZC_ = NULL;
+      indexOfOutputZC_ = 0;
       if(hasTxOut())
          amount_ = getTxOutRef().getValue();
    }
@@ -175,21 +183,23 @@ bool TxIOPair::isStandardTxOutScript(void)
 pair<bool,bool> TxIOPair::reassessValidity(void)
 {
    pair<bool,bool> result;
-   result.first  = (hasTxOut() && txPtrOfOutput_->isMainBranch());
-   result.second = (hasTxIn()  && txPtrOfInput_->isMainBranch());
+   result.first  = hasTxOutInMain();
+   result.second = hasTxInInMain();
    return result;
 }
 
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isSpent(void)
 { 
    // Not sure whether we should verify hasTxOut.  It wouldn't make much 
    // sense to have TxIn but not TxOut, but there might be a preferred 
    // behavior in such awkward circumstances
-   return (hasTxIn() || hasTxInZC());
+   return (hasTxInInMain() || hasTxInZC());
 }
 
 
+//////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isUnspent(void)
 { 
    return ( (hasTxOut() || hasTxOutZC()) && !isSpent());
@@ -201,13 +211,13 @@ bool TxIOPair::isSpendable(void)
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
-   if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
+   if( hasTxInInMain() || hasTxInZC() )
       return false;
    
-   if( hasTxOut() && txPtrOfOutput_->isMainBranch())
+   if( hasTxOutInMain() )
       return true;
 
-   if( hasTxOutZC() && isSentToSelf() )
+   if( hasTxOutZC() && isTxOutFromSelf() )
       return true;
 
    return false;
@@ -226,7 +236,7 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
       if(nConf<minConf)
          return true;
    }
-   else if( hasTxOutZC() && !isSentToSelf() )
+   else if( hasTxOutZC() && !isTxOutFromSelf() )
    {
       return true;
    }
@@ -235,13 +245,23 @@ bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
    return false;
 }
 
+bool TxIOPair::hasTxOutInMain(void) const
+{
+   return (hasTxOut() && txPtrOfOutput_->isMainBranch());
+}
+
+bool TxIOPair::hasTxInInMain(void) const
+{
+   return (hasTxIn() && txPtrOfInput_->isMainBranch());
+}
+
 void TxIOPair::clearZCFields(void)
 {
    txPtrOfOutputZC_ = NULL;
    txPtrOfInputZC_  = NULL;
    indexOfOutputZC_ = 0;
    indexOfInputZC_  = 0;
-   isSentToSelf_    = false;
+   isTxOutFromSelf_ = false;
 }
 
 
@@ -550,39 +570,24 @@ bool BtcWallet::hasAddr(BinaryData const & addr20)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// Pass this wallet a TxRef and current time/blknumber.  I used to just pass
-// in the BlockHeaderRef with it, but this may be a Tx not in a block yet, 
-// but I still need the time/num 
-void BtcWallet::scanTx(TxRef & tx, 
-                       uint32_t txIndex,
-                       uint32_t txtime,
-                       uint32_t blknum)
+// Determine, as fast as possible, whether this tx is relevant to us
+// Return  <IsOurs, InputIsOurs>
+pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
 {
-   int64_t totalLedgerAmt = 0;
-   bool anyTxInIsOurs   = false;
-   bool anyTxOutIsOurs  = false;
-   bool isZeroConf      = blknum==UINT32_MAX;
-
-   vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
-
-   uint8_t const * txStartPtr = tx.getPtr();
-
-
-   ////////////////////////////////////////////////////////////////////////////
-   // START TX BULK FILTER
-   ////////////////////////////////////////////////////////////////////////////
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
    // we will skip the TxInRef/TxOutRef convenience methods and follow the
    // pointers directly the data we want
+
+   uint8_t const * txStartPtr = tx.getPtr();
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin));
       if(txioMap_.find(op) != txioMap_.end())
-         anyTxInIsOurs = true;
+         return pair<bool,bool>(true,true);
    }
 
    // TxOuts are a little more complicated, because we have to process each
@@ -600,7 +605,7 @@ void BtcWallet::scanTx(TxRef & tx,
          // Std TxOut with 25-byte script
          addr20.copyFrom(ptr+4, 20);
          if( hasAddr(addr20) )
-            anyTxOutIsOurs = true;
+            return pair<bool,bool>(true,false);
       }
       else if(scriptLenFirstByte==67)
       {
@@ -608,7 +613,7 @@ void BtcWallet::scanTx(TxRef & tx,
          static BinaryData addr20(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
          if( hasAddr(addr20) )
-            anyTxOutIsOurs = true;
+            return pair<bool,bool>(true,false);
       }
       else
       {
@@ -618,18 +623,49 @@ void BtcWallet::scanTx(TxRef & tx,
             BtcAddress & thisAddr = *(addrPtrVect_[i]);
             BinaryData const & addr20 = thisAddr.getAddrStr20();
             if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
-               scanNonStdTx(blknum, txIndex, tx, iout, thisAddr);
+               scanNonStdTx(0, 0, tx, iout, thisAddr);
             continue;
          }
          break;
       }
    }
 
-   if( !anyTxOutIsOurs && !anyTxInIsOurs)
+   // If we got here, it's either non std or not ours
+   return pair<bool,bool>(false,false);
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Pass this wallet a TxRef and current time/blknumber.  I used to just pass
+// in the BlockHeaderRef with it, but this may be a Tx not in a block yet, 
+// but I still need the time/num 
+//
+// You must clear the zero-conf pool for this address, before you do a 
+// rescan of the wallet (it's done in rescanWalletZeroConf)
+void BtcWallet::scanTx(TxRef & tx, 
+                       uint32_t txIndex,
+                       uint32_t txtime,
+                       uint32_t blknum)
+{
+   
+   int64_t totalLedgerAmt = 0;
+   bool isZeroConf      = blknum==UINT32_MAX;
+
+   vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
+
+
+   pair<bool,bool> boolPair = isMineBulkFilter(tx);
+   bool txIsRelevant  = boolPair.first;
+   bool anyTxInIsOurs = boolPair.second;
+
+   if( !txIsRelevant )
       return;
-   ////////////////////////////////////////////////////////////////////////////
-   // END BULK FILTER
-   ////////////////////////////////////////////////////////////////////////////
+
+   // TODO: If this tx is relevant but one of the TxIns or TxOuts is not 
+   //       valid, we need to avoid modifying the wallet AT ALL and return
+   //       to the calling function.  Unfortunately, this is complicated
+   //       because the function was originally written under the assumption
+   //       that it is valid...
 
    // We distinguish "any" from "anyNew" because we want to avoid re-adding
    // transactions/TxIOPairs that are already part of the our tx list/ledger
@@ -653,39 +689,49 @@ void BtcWallet::scanTx(TxRef & tx,
 
          // We have the txin, now check if it contains one of our TxOuts
          map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
-         if(txioIter != txioMap_.end())
+         bool txioWasInMapAlready = (txioIter != txioMap_.end());
+         if(txioWasInMapAlready)
          {
+            // If we are here, we know that this input is spending an 
+            // output owned by this wallet (though this address may not
+            // be the one affected)
+            // We need to make sure the ledger entry makes sense, and make
+            // sure we update TxIO objects appropriately
             TxIOPair & txio  = txioIter->second;
-            // If we scan multiple times, need to avoid multiple entries
-            //if(txio.hasTxIn())
-            if(txio.hasTxIn() || (isZeroConf && txio.hasTxInZC()))
+            TxOutRef const & txout = txio.getTxOutRef();
+
+            int64_t thisVal = (int64_t)txout.getValue();
+            totalLedgerAmt -= thisVal;
+
+            // Skip if this TxIO is not for this address
+            if(!(txout.getRecipientAddr()==thisAddr.getAddrStr20()))
                continue;
 
-            TxOutRef const  & txout = txio.getTxOutRef();
-            //if(!txio.hasTxIn() && txout.getRecipientAddr()==thisAddr.getAddrStr20())
-            if(txout.getRecipientAddr()==thisAddr.getAddrStr20()  && 
-              (!txio.hasTxIn() || !txio.getTxRefOfInput().isMainBranch()) )
+            // Skip, if this is a zero-conf-spend, but it's already got a zero-conf
+            if( isZeroConf && txio.hasTxInZC() )
+               continue;
+
+            if( !txio.hasTxInInMain() && !(isZeroConf && txio.hasTxInZC())  )
             {
-               anyNewTxInIsOurs = true;
                // The legit var only identifies whether this set-call succeeded
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
                // (i.e. we have a ref to the prev output, but it's been spent!)
-               bool legit = txio.setTxInRef(&tx, iin, isZeroConf);
-               if(!legit)
+               bool isValidNew = txio.setTxInRef(&tx, iin, isZeroConf);
+               if(!isValidNew)
                   continue;
 
-               int64_t thisVal = (int64_t)txout.getValue();
+               anyNewTxInIsOurs = true;
+
                LedgerEntry newEntry(addr20, 
                                    -(int64_t)thisVal,
                                     blknum, 
                                     tx.getThisHash(), 
                                     iin,
                                     txtime,
-                                    false,  // actually we don't know yet if sent to self
+                                    false,  // SentToSelf is meaningless for addr ledger
                                     false); // "isChangeBack" is meaningless for TxIn
                thisAddr.addLedgerEntry(newEntry, isZeroConf);
-               totalLedgerAmt -= thisVal;
 
                // Update last seen on the network
                thisAddr.setLastTimestamp(txtime);
@@ -719,75 +765,104 @@ void BtcWallet::scanTx(TxRef & tx,
 
          if( txout.getRecipientAddr() == thisAddr.getAddrStr20() )
          {
+            // If we got here, at least this TxOut is for this address.
+            // But we still need to find out if it's new and update
+            // ledgers/TXIOs appropriately
+            
+            // TODO:  Verify this logic is correct:  totalLedgerAmt will
+            //        be used in the wallet-level ledgerEntry.  There are 
+            //        a variety of conditions under which we skip processing
+            //        the addr-level LE, but we probably still need to keep
+            //        an accurate totalLedgerAmt for this tx as a whole
+            int64_t thisVal = (int64_t)(txout.getValue());
+            totalLedgerAmt += thisVal;
+
             OutPoint outpt(tx.getThisHash(), iout);      
-            pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
-            TxIOPair newTxio;
-            newTxio.setTxOutRef(&tx, iout, isZeroConf);
-            if(anyTxInIsOurs)
-               newTxio.setSentToSelf();
-
-            pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
-            insResult = txioMap_.insert(toBeInserted);
-            TxIOPair & thisTxio = insResult.first->second;
-
-            // Maybe insert failed because a zero-conf is already there
-            bool insertSucceeded = insResult.second;
-            bool prevZC =  thisTxio.hasTxOutZC() && 
-                          !thisTxio.hasTxOut();
-            if(insertSucceeded || prevZC) 
+            map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
+            bool txioWasInMapAlready = (txioIter != txioMap_.end());
+            bool doAddLedgerEntry = false;
+            if(txioWasInMapAlready)
             {
-               // If insert failed, there's already a TxIO needing update
-               if(prevZC)
-                  thisTxio.setTxOutRef(&tx, iout, isZeroConf);
+               if(isZeroConf) 
+               {
+                  // This is a real txOut, in the blockchain
+                  if(txioIter->second.hasTxOutInMain()) // ...but we already have one
+                     continue; 
+
+                  // If we got here, there is a zero-conf TxOut, but needs to
+                  // be replaced/updated with this in-the-blockchain TxOut
+                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  doAddLedgerEntry = true;
+               }
                else
-                  thisAddr.addTxIO( thisTxio, isZeroConf);
+               {
+                  if(txioIter->second.hasTxOutZC() || txioIter->second.hasTxOutInMain())
+                     continue;
 
-               anyNewTxOutIsOurs = true;
-               thisTxOutIsOurs[iout] = true;
+                  // If we got here, somehow the Txio existed already, but 
+                  // there was no existing TxOut referenced by it.  Probably,
+                  // there was, but that TxOut was invalidated due to reorg
+                  // and now being re-added
 
+                  // Reset the txio to have only this ZC, blank invalid TxOut
+                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  doAddLedgerEntry = true;
+               }
+            }
+            else
+            {
+               // TxIO is not in the map yet -- create and add it
+               TxIOPair newTxio;
+               newTxio.setTxOutRef(&tx, iout, isZeroConf);
+   
+               pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
+               txioIter = txioMap_.insert(toBeInserted).first;
+               thisAddr.addTxIO( txioIter->second, isZeroConf);
+               doAddLedgerEntry = true;
+            }
 
-               int64_t thisVal = (int64_t)(txout.getValue());
+            if(anyTxInIsOurs)
+               txioIter->second.setTxOutFromSelf();
+           
+            anyNewTxOutIsOurs = true;
+            thisTxOutIsOurs[iout] = true;
+
+            if(doAddLedgerEntry)
+            {
                LedgerEntry newLedger(addr20, 
                                      thisVal, 
                                      blknum, 
                                      tx.getThisHash(), 
                                      iout,
                                      txtime,
-                                     anyTxInIsOurs,
+                                     false,   // sentToSelf meaningless for addr ledger
                                      false);  // we don't actually know
                thisAddr.addLedgerEntry(newLedger, isZeroConf);
-               totalLedgerAmt += thisVal;
-               // Check if this is the first time we've seen this
-               if(thisAddr.getFirstTimestamp() == 0)
-               {
-                  thisAddr.setFirstBlockNum( blknum );
-                  thisAddr.setFirstTimestamp( txtime );
-               }
-               // Update last seen on the network
-               thisAddr.setLastTimestamp(txtime);
-               thisAddr.setLastBlockNum(blknum);
             }
-            else
+            // Check if this is the first time we've seen this
+            if(thisAddr.getFirstTimestamp() == 0)
             {
-               //cout << "***WARNING: searchTx: new TxOut already exists!" << endl;
-               //cerr << "***WARNING: searchTx: new TxOut already exists!" << endl;
+               thisAddr.setFirstBlockNum( blknum );
+               thisAddr.setFirstTimestamp( txtime );
             }
+            // Update last seen on the network
+            thisAddr.setLastTimestamp(txtime);
+            thisAddr.setLastBlockNum(blknum);
          }
       } // loop over TxOuts
-
-
 
    } // loop over all wallet addresses
 
    bool allTxOutIsOurs = true;
+   bool anyTxOutIsOurs = false;
    for(int i=0; i<tx.getNumTxOut(); i++)
-      allTxOutIsOurs = allTxOutIsOurs && thisTxOutIsOurs[i];
+   {
+      if( thisTxOutIsOurs[i] )
+         anyTxOutIsOurs = true;
+      else
+         allTxOutIsOurs = false;
+   }
 
-   // TODO:  Unfortunately, "isChangeBack" is only meaningful in the 
-   //        txOut ledger entry, but we don't know until we have scanned
-   //        all the txOuts, whether it's sentToSelf, or only change
-   //        returned.  At some point, I put in the effort to be more
-   //        rigorous with these
    bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
    bool isChangeBack = (anyTxInIsOurs && anyTxOutIsOurs && !isSentToSelf);
 
@@ -979,7 +1054,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
       pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx,txoutidx));
       insResult = nonStdTxioMap_.insert(toBeInserted);
-      insResult = txioMap_.insert(toBeInserted);
+      //insResult = txioMap_.insert(toBeInserted);
    }
 
 }
@@ -1210,7 +1285,6 @@ void BlockDataManager_FullRAM::SelectNetwork(string netName)
       cout << "ERROR: Unrecognized network name" << endl;
       cerr << "ERROR: Unrecognized network name" << endl;
    }
-      
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -1442,11 +1516,13 @@ void BtcWallet::pprintAlot(void)
        iter != txioMap_.end();
        iter++)
    {
-      printf("   Val:(%0.3f)  STS:%d O:%d I:%d  OZ:%d IZ:%d\n", 
+      printf("   Val:(%0.3f)  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
               (double)iter->second.getValue()/1e8,
-              (iter->second.isSentToSelf() ? 1 : 0),
+              (iter->second.isTxOutFromSelf() ? 1 : 0),
               (iter->second.hasTxOut() ? 1 : 0),
               (iter->second.hasTxIn() ? 1 : 0),
+              (iter->second.hasTxOutInMain() ? 1 : 0),
+              (iter->second.hasTxInInMain() ? 1 : 0),
               (iter->second.hasTxOutZC() ? 1 : 0),
               (iter->second.hasTxInZC() ? 1 : 0));
    }
@@ -1494,10 +1570,8 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
    
    // We should clean up any dangling TxIOs in the wallet then rescan
    if(zcEnabled_)
-   {
-      myWallet.clearZeroConfPool();
       rescanWalletZeroConf(myWallet);
-   }
+
    PDEBUG("Done scanning blockchain for tx");
 
    ////////////////////////////////////////////////////////////////////////////
@@ -2645,7 +2719,7 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 {
    // Clear the whole list, rebuild
    // Inefficient but also irrelevant unless we have millions of
-   // zero-conf transactions per second... I'll take the risk...
+   // zero-conf transactions per second. I'll take the risk...
    //cout << "Pre rescan:" << endl;
    //wlt.pprintAlot();
 

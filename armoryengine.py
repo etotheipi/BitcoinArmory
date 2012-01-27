@@ -5748,6 +5748,7 @@ class PyBtcWallet(object):
       self.highestUsedChainIndex = topIndex
       self.walletFileSafeUpdate( [[WLT_UPDATE_MODIFY, self.offsetTopUsed, \
                     int_to_binary(self.highestUsedChainIndex, widthBytes=8)]])
+      self.fillAddressPool()
       
    #############################################################################
    def rewindHighestIndex(self, ct=1):

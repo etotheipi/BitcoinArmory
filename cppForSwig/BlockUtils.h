@@ -79,6 +79,8 @@ public:
    // Lots of accessors
    bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
    bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOutInMain(void) const;
+   bool      hasTxInInMain(void) const;
    bool      hasTxOutZC(void) const { return (txPtrOfOutputZC_ != NULL); }
    bool      hasTxInZC(void) const  { return (txPtrOfInputZC_  != NULL); }
    bool      hasValue(void) const   { return (amount_!=0); }
@@ -94,8 +96,8 @@ public:
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
-   bool isSentToSelf(void)  { return isSentToSelf_; }
-   void setSentToSelf(bool isTrue=true) { isSentToSelf_ = isTrue; }
+   bool isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
+   void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
 
 
    //////////////////////////////////////////////////////////////////////////////
@@ -127,7 +129,7 @@ private:
    TxRef*    txPtrOfInputZC_;
    uint32_t  indexOfInputZC_;
 
-   bool      isSentToSelf_;
+   bool      isTxOutFromSelf_;
 };
 
 
@@ -361,6 +363,7 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newr than
    // the block
+   pair<bool,bool> isMineBulkFilter( TxRef & tx );
    void       scanTx(TxRef & tx, 
                      uint32_t txIndex = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX,

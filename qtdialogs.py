@@ -4808,6 +4808,7 @@ class DlgReviewOfflineTx(QDialog):
             return
 
       newTxdp = self.wlt.signTxDistProposal(self.txdpObj)
+      self.wlt.advanceHighestIndex()
       self.txtTxDP.setText(newTxdp.serializeAscii())
       self.txdpObj = newTxdp
 
