@@ -490,7 +490,11 @@ void TestZeroConf(void)
    myAddress.createFromHex("edf6bbd7ba7aad222c2b28e6d8d5001178e3680c"); wlt.addAddress(myAddress);
    myAddress.createFromHex("18d9cae7ee0be5c6d58f02a992442d2cdb9914fa"); wlt.addAddress(myAddress);
    uint32_t topBlk = bdm.getTopBlockHeader().getBlockHeight();
+
+   // This will load the memory pool into the zeroConfPool_ in BDM
    bdm.enableZeroConf("zctest/mempool.bin");
+
+   // Now scan all transactions, which ends with scanning zero-conf
    bdm.scanBlockchainForTx(wlt);
 
    wlt.pprintLedger();
