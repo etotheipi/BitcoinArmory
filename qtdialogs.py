@@ -1918,8 +1918,8 @@ class DlgAddressInfo(QDialog):
       # Current Balance of address
       lbls.append([])
       lbls[-1].append( createToolTipObject( 
-            'The current balance based on transactions already in the blockchain.  '
-            'This only includes transactions with 1 or more confirmations.'))
+            'This is the maximum balance of the address, including all '
+            'unconfirmed/zero-confirmation transactions.'))
       lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
       balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
       if cppAddr.getSpendableBalance()>0:
@@ -2040,7 +2040,7 @@ class DlgAddressInfo(QDialog):
          'add up to the transaction value you would recognize.  '
          'If there is a negative entry for one address that looks too large for '
          'the transaction you were expecting, there will be a <i>different</i> '
-         'address that has a positive entry equal to the change-back-to-self" '
+         'address that has a positive entry equal to the change-back-to-self '
          '(much like buying a candy bar with a $20 bill and receiving '
          'change back).')
       optLayout.addWidget(self.lblLedgerWarning)

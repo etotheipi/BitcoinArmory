@@ -328,7 +328,8 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant('')
          if col==COL.NumTx: 
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( len(cppAddr.getTxLedger()) )
+            return QVariant( len(cppAddr.getTxLedger()) + \
+                             len(cppAddr.getZeroConfLedger()))
          if col==COL.Imported:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')
