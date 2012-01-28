@@ -117,6 +117,8 @@ public:
    bool isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf=6);
    void clearZCFields(void);
 
+   void pprintOneLine(void);
+
 private:
    uint64_t  amount_;
    TxRef*    txPtrOfOutput_;
@@ -236,6 +238,8 @@ private:
 }; 
 
 
+class BtcWallet;
+
 ////////////////////////////////////////////////////////////////////////////////
 //
 // BtcAddress  
@@ -246,6 +250,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcAddress
 {
+   friend class BtcWallet;
 public:
 
    BtcAddress(void) : 
@@ -404,7 +409,7 @@ public:
    bool isOutPointMine(BinaryData const & hsh, uint32_t idx);
 
    void pprintLedger(void);
-   void pprintAlot(void);
+   void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}

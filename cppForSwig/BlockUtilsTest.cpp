@@ -476,6 +476,16 @@ void TestZeroConf(void)
    }
    */
 
+   ifstream is("zctest/mempool_new.bin", ios::in  | ios::binary);
+   ofstream os("zctest/mempool.bin",     ios::out | ios::binary);
+   is.seekg(0, ios::end);
+   uint64_t filesize = (size_t)is.tellg();
+   is.seekg(0, ios::beg);
+   BinaryData mempool(filesize);
+   is.read ((char*)mempool.getPtr(), filesize);
+   os.write((char*)mempool.getPtr(), filesize);
+   is.close();
+   os.close();
 
    ////////////////////////////////////////////////////////////////////////////
    ////////////////////////////////////////////////////////////////////////////
@@ -497,12 +507,13 @@ void TestZeroConf(void)
    // Now scan all transactions, which ends with scanning zero-conf
    bdm.scanBlockchainForTx(wlt);
 
-   wlt.pprintLedger();
+   wlt.pprintAlot(topBlk, true);
 
    // The new blkfile has about 10 new blocks, one of which has these tx
    bdm.readBlkFileUpdate("zctest/blk0001_updated.dat");
    bdm.scanBlockchainForTx(wlt, topBlk);
-   wlt.pprintLedger();
+   topBlk = bdm.getTopBlockHeader().getBlockHeight();
+   wlt.pprintAlot(topBlk, true);
 
 }
 

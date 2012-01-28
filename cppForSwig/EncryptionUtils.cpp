@@ -236,7 +236,12 @@ SecureBinaryData KdfRomix::DeriveKey_OneIter(SecureBinaryData const & password)
    uint32_t newIndex;
    uint32_t const nXorOps = HSZ/sizeof(uint64_t);
 
-   // We divide by 2 to reduce computation time -- k
+   // Pure ROMix would use sequenceCount_ for the number of lookups.
+   // We divide by 2 to reduce computation time RELATIVE to the memory usage
+   // This still provides suffient LUT operations, but allows us to use more
+   // memory in the same amount of time (and this is the justification for
+   // the scrypt algorithm -- it is basically ROMix, modified for more 
+   // flexibility in controlling compute-time vs memory-usage).
    uint32_t const nLookups = sequenceCount_ / 2;
    for(uint32_t nSeq=0; nSeq<nLookups; nSeq++)
    {

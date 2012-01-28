@@ -265,6 +265,20 @@ void TxIOPair::clearZCFields(void)
 }
 
 
+void TxIOPair::pprintOneLine(void)
+{
+   printf("   Val:(%0.3f)\t  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
+           (double)getValue()/1e8,
+           (isTxOutFromSelf() ? 1 : 0),
+           (hasTxOut() ? 1 : 0),
+           (hasTxIn() ? 1 : 0),
+           (hasTxOutInMain() ? 1 : 0),
+           (hasTxInInMain() ? 1 : 0),
+           (hasTxOutZC() ? 1 : 0),
+           (hasTxInZC() ? 1 : 0));
+
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -661,6 +675,7 @@ void BtcWallet::scanTx(TxRef & tx,
    if( !txIsRelevant )
       return;
 
+   tx.pprint();
    // TODO: If this tx is relevant but one of the TxIns or TxOuts is not 
    //       valid, we need to avoid modifying the wallet AT ALL and return
    //       to the calling function.  Unfortunately, this is complicated
@@ -700,16 +715,16 @@ void BtcWallet::scanTx(TxRef & tx,
             TxIOPair & txio  = txioIter->second;
             TxOutRef const & txout = txio.getTxOutRef();
 
-            int64_t thisVal = (int64_t)txout.getValue();
-            totalLedgerAmt -= thisVal;
-
             // Skip if this TxIO is not for this address
             if(!(txout.getRecipientAddr()==thisAddr.getAddrStr20()))
                continue;
 
+            int64_t thisVal = (int64_t)txout.getValue();
+            totalLedgerAmt -= thisVal;
+
             // Skip, if this is a zero-conf-spend, but it's already got a zero-conf
             if( isZeroConf && txio.hasTxInZC() )
-               continue;
+               return; // this tx can't be valid, might as well bail now
 
             if( !txio.hasTxInInMain() && !(isZeroConf && txio.hasTxInZC())  )
             {
@@ -786,26 +801,30 @@ void BtcWallet::scanTx(TxRef & tx,
                if(isZeroConf) 
                {
                   // This is a real txOut, in the blockchain
-                  if(txioIter->second.hasTxOutInMain()) // ...but we already have one
-                     continue; 
-
-                  // If we got here, there is a zero-conf TxOut, but needs to
-                  // be replaced/updated with this in-the-blockchain TxOut
-                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
-                  doAddLedgerEntry = true;
-               }
-               else
-               {
                   if(txioIter->second.hasTxOutZC() || txioIter->second.hasTxOutInMain())
-                     continue;
+                     continue; 
 
                   // If we got here, somehow the Txio existed already, but 
                   // there was no existing TxOut referenced by it.  Probably,
                   // there was, but that TxOut was invalidated due to reorg
                   // and now being re-added
-
-                  // Reset the txio to have only this ZC, blank invalid TxOut
                   txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  thisAddr.addTxIO( txioIter->second, isZeroConf);
+                  doAddLedgerEntry = true;
+               }
+               else
+               {
+                  if(txioIter->second.hasTxOutInMain()) // ...but we already have one
+                     continue;
+
+                  // If we got here, we have a in-blockchain TxOut that is 
+                  // replacing a zero-conf txOut.  Reset the txio to have 
+                  // only this real TxOut, blank ZC TxOut.  And the addr 
+                  // relevantTxIOPtrs_ does not have this yet so it needs 
+                  // to be added (it's already part of the relevantTxIOPtrsZC_
+                  // but that will be removed)
+                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  thisAddr.addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
             }
@@ -1496,11 +1515,19 @@ vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData cons
    return vector<BinaryData>(0);
 }
 
-void BtcWallet::pprintAlot(void)
+
+
+/////////////////////////////////////////////////////////////////////////////
+void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 {
    uint32_t numLedg = ledgerAllAddr_.size();
    uint32_t numLedgZC = ledgerAllAddrZC_.size();
    uint32_t numTxIO = txioMap_.size();
+
+   cout << "Wallet PPRINT:" << endl;
+   cout << "Tot: " << getFullBalance() << endl;
+   cout << "Spd: " << getSpendableBalance() << endl;
+   cout << "Ucn: " << getUnconfirmedBalance(topBlk) << endl;
 
    cout << "Ledger: " << endl;
    for(uint32_t i=0; i<numLedg; i++)
@@ -1516,15 +1543,41 @@ void BtcWallet::pprintAlot(void)
        iter != txioMap_.end();
        iter++)
    {
-      printf("   Val:(%0.3f)  (STS, O,I, Omb,Imb, Oz,Iz)  %d  %d%d %d%d %d%d\n", 
-              (double)iter->second.getValue()/1e8,
-              (iter->second.isTxOutFromSelf() ? 1 : 0),
-              (iter->second.hasTxOut() ? 1 : 0),
-              (iter->second.hasTxIn() ? 1 : 0),
-              (iter->second.hasTxOutInMain() ? 1 : 0),
-              (iter->second.hasTxInInMain() ? 1 : 0),
-              (iter->second.hasTxOutZC() ? 1 : 0),
-              (iter->second.hasTxInZC() ? 1 : 0));
+      iter->second.pprintOneLine();
+   }
+
+   if(withAddr)
+   {
+      for(uint32_t i=0; i<getNumAddr(); i++)
+      {
+         BtcAddress & addr = getAddrByIndex(i);
+         BinaryData addr160 = addr.getAddrStr20();
+         cout << "\nAddress: " << addr160.toHexStr().c_str() << endl;
+         cout << "   Tot: " << addr.getFullBalance() << endl;
+         cout << "   Spd: " << addr.getSpendableBalance() << endl;
+         cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
+                  
+         cout << "   Ledger: " << endl;
+         for(uint32_t i=0; i<addr.ledger_.size(); i++)
+            addr.ledger_[i].pprintOneLine();
+      
+         cout << "   LedgerZC: " << endl;
+         for(uint32_t i=0; i<addr.ledgerZC_.size(); i++)
+            addr.ledgerZC_[i].pprintOneLine();
+      
+         cout << "   TxioPtrs (Blockchain):" << endl;
+         map<OutPoint, TxIOPair>::iterator iter;
+         for(uint32_t t=0; t<addr.relevantTxIOPtrs_.size(); t++)
+         {
+            addr.relevantTxIOPtrs_[t]->pprintOneLine();
+         }
+
+         cout << "   TxioPtrs (Zero-conf):" << endl;
+         for(uint32_t t=0; t<addr.relevantTxIOPtrsZC_.size(); t++)
+         {
+            addr.relevantTxIOPtrsZC_[t]->pprintOneLine();
+         }
+      }
    }
 }
 
