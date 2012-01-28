@@ -1247,7 +1247,7 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
    headerHashMap_.clear();
    txHashMap_.clear();
 
-   zeroConfTxList_.clear();
+   zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
    zcEnabled_ = false;
    zcFilename_ = string("");
@@ -1364,7 +1364,7 @@ void BlockDataManager_FullRAM::Reset(void)
    zcEnabled_ = false;
    zcFilename_ = "";
    zeroConfMap_.clear();
-   zeroConfTxList_.clear();
+   zeroConfRawTxList_.clear();
 }
 
 
@@ -2696,7 +2696,7 @@ bool BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
-   zc.iter_ = zeroConfTxList_.insert(zeroConfTxList_.end(), rawTx);
+   zc.iter_ = zeroConfRawTxList_.insert(zeroConfRawTxList_.end(), rawTx);
    zc.txref_.unserialize(*(zc.iter_));
    zc.txtime_ = txtime;
 
@@ -2737,7 +2737,7 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
        rmIter != mapRmList.end();
        rmIter++)
    {
-      zeroConfTxList_.erase( (*rmIter)->second.iter_ );
+      zeroConfRawTxList_.erase( (*rmIter)->second.iter_ );
       zeroConfMap_.erase( *rmIter );
    }
 
@@ -2770,18 +2770,32 @@ void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 {
    // Clear the whole list, rebuild
-   // Inefficient but also irrelevant unless we have millions of
-   // zero-conf transactions per second. I'll take the risk...
+   wlt.clearZeroConfPool();
+
    //cout << "Pre rescan:" << endl;
    //wlt.pprintAlot();
 
-   wlt.clearZeroConfPool();
-   map<HashString, ZeroConfData>::iterator iter;
-   for(iter  = zeroConfMap_.begin();
-       iter != zeroConfMap_.end();
+   // We used to iterate over the zeroConfMap_ to do the scan, but if there 
+   // are ZC tx that spend other ZC tx, then iterating over the map might lead
+   // to processing them out of order -- we really need to process them in the
+   // order they were received.  (otherwise, we don't recognize the second tx 
+   // as our own, and the first one (processed second) doesn't get updated by
+   // appropriately).  However, to avoid complicating the two structs
+   // zeroConfMap_ and zeroConfRawTxList_, we simply iterate over the list, 
+   // recompute the hash, and find the ZC in the map.  
+   //
+   // This is kind of inefficient, but really only matters if we have
+   // millions of tx-per sec coming in over the network... I'll take the
+   // risk :)
+   static BinaryData txHash(32);
+   list<BinaryData>::iterator iter;
+   for(iter  = zeroConfRawTxList_.begin();
+       iter != zeroConfRawTxList_.end();
        iter++)
    {
-      wlt.scanTx(iter->second.txref_, 0, iter->second.txtime_, UINT32_MAX);
+      BtcUtils::getHash256(*iter, txHash);
+      ZeroConfData & zcd = zeroConfMap_[txHash];
+      wlt.scanTx(zcd.txref_, 0, zcd.txtime_, UINT32_MAX);
    }
 
    //cout << "After rescan:" << endl;

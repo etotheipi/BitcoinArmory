@@ -544,7 +544,7 @@ private:
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
-   list<BinaryData>                   zeroConfTxList_;
+   list<BinaryData>                   zeroConfRawTxList_;
    map<HashString, ZeroConfData>      zeroConfMap_;
    bool                               zcEnabled_;
    string                             zcFilename_;
