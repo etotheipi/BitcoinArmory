@@ -675,7 +675,6 @@ void BtcWallet::scanTx(TxRef & tx,
    if( !txIsRelevant )
       return;
 
-   tx.pprint();
    // TODO: If this tx is relevant but one of the TxIns or TxOuts is not 
    //       valid, we need to avoid modifying the wallet AT ALL and return
    //       to the calling function.  Unfortunately, this is complicated
