@@ -5067,7 +5067,7 @@ class PyTxDistProposal(object):
       # I know there's a bettery [python-]way to do this...
       L = [0]
       def nextLine(i):
-         s = txdpTxt[i[0]]
+         s = txdpTxt[i[0]].strip()
          i[0] += 1
          return s
 

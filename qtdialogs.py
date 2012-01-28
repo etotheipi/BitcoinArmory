@@ -3672,7 +3672,7 @@ class DlgSendBitcoins(QDialog):
             addrBytes.append(checkAddrType(base58_to_binary(addrStr)))
             addrIsValid = (addrBytes[i]==ADDRBYTE)
          except ValueError:
-            addrType.append(-1)
+            addrBytes.append(-1)
 
  
          if not addrIsValid:
