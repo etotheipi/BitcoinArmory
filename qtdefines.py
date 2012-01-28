@@ -238,7 +238,7 @@ class QLabelButton(QLabel):
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
-   lbl = QLabel('<font size=%d color="blue"><u>(?)</u></font>' % iconSz)
+   lbl = QLabel('<font size=%d color="blue">(?)</font>' % iconSz)
    lbl.setToolTip('<u></u>' + tiptext)
    lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
    return lbl

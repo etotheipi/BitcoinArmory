@@ -2033,10 +2033,16 @@ class DlgAddressInfo(QDialog):
       if True:           optLayout.addWidget(self.lblCopied)
 
       self.lblLedgerWarning = QRichLabel( \
-         'NOTE:  Due to a bug in Armory, the individual address ledgers '
-         'on the left may be incorrect.  Some inconsistencies are resolved '
-         'by restarting Armory.  Other issues will be resolved in '
-         'the next release of Armory software')
+         'NOTE:  The ledger here is for a single address, and contains a '
+         'separate entry for each transaction <i>input</i> and <i>output</i>. '
+         'These inputs and outputs are usually '
+         'spread across many addresses, which <i>together</i> '
+         'add up to the transaction value you would recognize.  '
+         'If there is a negative entry for one address that looks too large for '
+         'the transaction you were expecting, there will be a <i>different</i> '
+         'address that has a positive entry equal to the change-back-to-self" '
+         '(much like buying a candy bar with a $20 bill and receiving '
+         'change back).')
       optLayout.addWidget(self.lblLedgerWarning)
 
       optLayout.addStretch()
