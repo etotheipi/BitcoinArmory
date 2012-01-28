@@ -2752,14 +2752,16 @@ void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 {
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
-   map<HashString, ZeroConfData>::iterator iter;
-   for(iter  = zeroConfMap_.begin();
-       iter != zeroConfMap_.end();
+   static BinaryData txHash(32);
+   list<BinaryData>::iterator iter;
+   for(iter  = zeroConfRawTxList_.begin();
+       iter != zeroConfRawTxList_.end();
        iter++)
    {
-      ZeroConfData & zc = iter->second;
-      zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)(zc.txref_.getPtr()),  zc.txref_.getSize());
+      BtcUtils::getHash256(*iter, txHash);
+      ZeroConfData & zcd = zeroConfMap_[txHash];
+      zcFile.write( (char*)(&zcd.txtime_), sizeof(uint64_t) );
+      zcFile.write( (char*)(zcd.txref_.getPtr()),  zcd.txref_.getSize());
    }
 
    zcFile.close();
@@ -2806,12 +2808,15 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FullRAM::pprintZeroConfPool(void)
 {
-   map<HashString, ZeroConfData>::iterator iter;
-   for(iter  = zeroConfMap_.begin();
-       iter != zeroConfMap_.end();
+   static BinaryData txHash(32);
+   list<BinaryData>::iterator iter;
+   for(iter  = zeroConfRawTxList_.begin();
+       iter != zeroConfRawTxList_.end();
        iter++)
    {
-      TxRef & txref = iter->second.txref_;
+      BtcUtils::getHash256(*iter, txHash);
+      ZeroConfData & zcd = zeroConfMap_[txHash];
+      TxRef & txref = zcd.txref_;
       cout << txref.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
       for(uint32_t i=0; i<txref.getNumTxOut(); i++)
          cout << txref.getTxOutRef(i).getValue() << " ";
