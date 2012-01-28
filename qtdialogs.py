@@ -4010,7 +4010,7 @@ class DlgOfflineTxCreated(QDialog):
          canSign = True
          lblDescr.setText(
             'You have chosen to create the previous transaction but not sign '
-            'it or broadcast it, yet.  Below, you can copy the unsigned '
+            'it or broadcast it, yet.  Below, you can save the unsigned '
             'transaction to file, or copy&paste from the text box.<br><br>  '
             'In some cases, you may actually want the transaction signed '
             'but not broadcast yet.  In this case, you can use the "Sign" '
