@@ -750,7 +750,7 @@ class ArmoryMainWindow(QMainWindow):
          self.statusBar().showMessage('Syncing wallets with blockchain...')
          print 'Syncing wallets with blockchain...'
          for wltID, wlt in self.walletMap.iteritems():
-            print 'Syncing', wltID
+            print 'Syncing wallet: ', wltID
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].syncWithBlockchain()
             TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
