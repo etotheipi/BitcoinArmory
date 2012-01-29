@@ -263,10 +263,10 @@ class ArmoryMainWindow(QMainWindow):
       ledgFrame.setLayout(ledgLayout)
 
 
-      self.lblUcn.setVisible(False)
-      self.lblBTC3.setVisible(False)
-      self.lblUnconfFunds.setVisible(False)
-      self.ttipUcn.setVisible(False)
+      #self.lblUcn.setVisible(False)
+      #self.lblBTC3.setVisible(False)
+      #self.lblUnconfFunds.setVisible(False)
+      #self.ttipUcn.setVisible(False)
 
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
@@ -525,6 +525,9 @@ class ArmoryMainWindow(QMainWindow):
             response=urllib2.urlopen('http://microsoft.com', timeout=1)
          except urllib2.URLError:
             self.internetAvail = False
+
+      print 'Internet connection is Available: ', self.internetAvail
+      print 'Satoshi Client is Available:      ', self.satoshiAvail
          
       self.isOnline = (self.internetAvail and self.satoshiAvail)
 
@@ -999,9 +1002,19 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execDlgWalletDetails(self, index=None):
+      if len(self.walletMap)==0:
+         reply = QMessageBox.information(self, 'No Wallets!', \
+            'You currently do not have any wallets.  Would you like to '
+            'create one, now?', QMessageBox.Yes | QMessageBox.No)
+         if reply==QMessageBox.Yes:
+            self.createNewWallet(initLabel='Primary Wallet')
+         return
+
       if index==None:
          index = self.walletsView.selectedIndexes()
-         if len(index)==0:
+         if len(self.walletMap)==1:
+            index = 0
+         elif len(index)==0:
             QMessageBox.warning(self, 'Select a Wallet', \
                'Please select a wallet on the right, to see its properties.', \
                QMessageBox.Ok)
@@ -1352,6 +1365,15 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
+      if len(self.walletMap)==0:
+         reply = QMessageBox.information(self, 'No Wallets!', \
+            'You cannot send any Bitcoins until you create a wallet and '
+            'receive some coins.  Would you like to create a wallet?', \
+            QMessageBox.Yes | QMessageBox.No)
+         if reply==QMessageBox.Yes:
+            self.createNewWallet(initLabel='Primary Wallet')
+         return
+
       wltSelect = self.walletsView.selectedIndexes()
       wltID = None
       if len(wltSelect)>0:
@@ -1368,6 +1390,16 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickReceiveCoins(self):
+
+      if len(self.walletMap)==0:
+         reply = QMessageBox.information(self, 'No Wallets!', \
+            'You have not created any wallets which means there is nowhere to '
+            'store you Bitcoins!  Would you like to create a wallet now?', \
+            QMessageBox.Yes | QMessageBox.No)
+         if reply==QMessageBox.Yes:
+            self.createNewWallet(initLabel='Primary Wallet')
+         return
+
       wltSelect = self.walletsView.selectedIndexes()
       wltID = None
       if len(wltSelect)>0:
