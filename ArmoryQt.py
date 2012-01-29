@@ -223,9 +223,8 @@ class ArmoryMainWindow(QMainWindow):
             'Value appears gray when it is the same as your spendable funds.')
       self.ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
       self.ttipUcn = createToolTipObject( \
-            'Funds that have less than 6 confirmations\n'
-            'This value is frequently incorrect.  This will be fixed in a '
-            'future release of Armory')
+            'Funds that have less than 6 confirmations, and thus should not '
+            'be considered <i>yours</i>, yet.')
 
       frmTotals = QFrame()
       frmTotals.setFrameStyle(STYLE_NONE)

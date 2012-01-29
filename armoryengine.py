@@ -169,6 +169,8 @@ class InterruptTestError(Exception): pass
 class NetworkIDError(Exception): pass
 class WalletExistsError(Exception): pass
 class ConnectionError(Exception): pass
+class BlockchainUnavailableError(Exception): pass
+class InvalidHashError(Exception): pass
 
 
 
@@ -4690,17 +4692,11 @@ class PyTxDistProposal(object):
    an unsigned transaction, that may require the signatures of
    multiple parties before being accepted by the network.
 
-   We assume that the PyTx object has been prepared already by
-   replacing all the TxIn scripts with the scripts of the TxOuts
-   they are spending.
-
-   In other words, in order to prepare a PyTxDistProposal, you
-   will need access to the blockchain to find the txouts you are
-   spending (and thus they have to be acquired with external
-   code, such as my CppBlockUtils SWIG module).  But once the
-   TxDP is created, the system signing it only needs the ECDSA
-   private keys and nothing else.   This enables the device
-   providing the signatures to be extremely lightweight.
+   This technique (https://en.bitcoin.it/wiki/BIP_0010) is that 
+   once TxDP is created, the system signing it only needs the 
+   ECDSA private keys and nothing else.   This enables the device
+   providing the signatures to be extremely lightweight, since it
+   doesn't have to store the blockchain.
 
    For a given TxDP, we will be storing the following structure
    in memory.  Use a 3-input tx as an example, with the first 
@@ -4730,10 +4726,34 @@ class PyTxDistProposal(object):
       self.numSigsNeeded  = [ 2
                               1
                               1 ]
+
+      self.relevantTxMap  = [ prevTx0Hash: prevTx0.serialize(),
+                              prevTx1Hash: prevTx1.serialize(),
+                              prevTx2Hash: prevTx2.serialize() ]
       
+   UPDATE Feb 2012:  Before Jan 29, 2012, BIP 0010 used a different technique
+                     for communicating blockchain information to the offline
+                     device.  This is no longer the case
+                     
+                     Gregory Maxwell identified a reasonable-enough security
+                     risk with the fact that previous BIP 0010 cannot guarantee 
+                     validity of stated input values in a TxDP.  This is solved
+                     by adding the supporting transactions to the TxDP, so that 
+                     the signing device can get the input values from those 
+                     tx and verify the hash matches the OutPoint on the tx 
+                     being signed (which *is* part of what's being signed).  
+                     The concern was that someone could manipulate your online
+                     computer to misrepresent the inputs, and cause you to 
+                     send you entire wallet to tx-fees.  Not the most useful
+                     attack (for someone trying to steal your coins), but it is
+                     still a risk that can be avoided by adding some "bloat" to
+                     the TxDP
+
+                     
+   
    """
    #############################################################################
-   def __init__(self, pytx=None):
+   def __init__(self, pytx=None, txMap={}):
       self.pytxObj       = UNINITIALIZED
       self.uniqueB58     = ''
       self.scriptTypes   = []
@@ -4743,24 +4763,58 @@ class PyTxDistProposal(object):
       self.inPubKeyLists = []
       self.inputValues   = []
       self.numSigsNeeded = []
+      self.relevantTxMap = {}  # needed to support input values of each TxIn
       if pytx:
-         self.createFromPreparedPyTx(pytx)
+         self.createFromPyTx(pytx, txMap)
 
    #############################################################################
-   def createFromPreparedPyTx(self, pytx):
+   def createFromPyTx(self, pytx, txMap={}):
       sz = len(pytx.inputs)
-      self.pytxObj = pytx
-      self.signatures     = []
+      self.pytxObj        = pytx.copy()
+      self.uniqueB58 = binary_to_base58(hash256(pytx.serialize()))[:8]
       self.scriptTypes    = []
+      self.signatures     = []
       self.txOutScripts   = []
       self.inAddr20Lists  = []
       self.inPubKeyLists  = []
       self.inputValues    = [-1]*sz
       self.numSigsNeeded  = []
+      self.relevantTxMap  = {}  # needed to support input values of each TxIn
+
+      if len(txMap)==0 and TheBDM.isInitialized():
+         raise BlockchainUnavailableError, ('Must input supporting transactions '
+                                            'or access to the blockchain, to '
+                                            'create the TxDP')
       for i in range(sz):
-         script = str(pytx.inputs[i].binScript)
-         self.txOutScripts.append(str(script)) # copy it
+         # First, make sure that we have the previous Tx data available
+         # We can't continue without it, since BIP 0010 will now require
+         # the full tx of outputs being spent
+         outpt = self.pytxObj.inputs[i].outpoint
+         txhash = outpt.txHash
+         txidx  = outpt.txOutIndex
+         pyPrevTx = None
+         if TheBDM.isInitialized():
+            cppPrevTx = TheBDM.getTxByHash(txhash)
+            if not cppPrevTx:
+               raise InvalidHashError, 'Could not find the referenced tx'
+            pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
+         else:
+            if not txMap.has_key(txhash):
+               raise InvalidHashError, ('Could not find the referenced tx '
+                                        'in supplied txMap')
+            pyPrevTx = txMap[txhash].copy()
+         self.relevantTxMap[txhash] = pyPrevTx.copy()
+               
+           
+         # Now we have the previous transaction.  We need to pull the 
+         # script out of the specific TxOut so we know how it can be
+         # spent.
+         script =  pyPrevTx.outputs[txidx].binScript
+         value  =  pyPrevTx.outputs[txidx].value
          scrType = getTxOutScriptType(script)
+
+         self.inputValues.append(value)
+         self.txOutScripts.append(str(script)) # copy it
          self.scriptTypes.append(scrType)
          self.inAddr20Lists.append([])
          self.inPubKeyLists.append([])
@@ -4779,12 +4833,11 @@ class PyTxDistProposal(object):
          elif scrType in (TXOUT_SCRIPT_OP_EVAL, TXOUT_SCRIPT_UNKNOWN):
             pass
 
-      txser = self.pytxObj.serialize()
-      self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
       return self
 
+
    #############################################################################
-   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs):
+   def createFromTxOutSelection(self, utxoSelection, recip160ValPairs, txMap={}):
       """
       This creates a TxDP for a standard transaction from a list of inputs and 
       a list of recipient-value-pairs.  
@@ -4793,44 +4846,18 @@ class PyTxDistProposal(object):
              string, it is instead interpretted as a SCRIPT -- which could be
              anything, including a multi-signature transaction
       """
+
       pprintUnspentTxOutList(utxoSelection)
       print sumTxOutList(utxoSelection)
       print sum([a[1] for a in recip160ValPairs])
       assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
-      self.pytxObj = PyTx()
-      self.pytxObj.version = 1
-      self.pytxObj.lockTime = 0
-      self.pytxObj.inputs = []
-      self.pytxObj.outputs = []
+      thePyTx = PyTx()
+      thePyTx.version = 1
+      thePyTx.lockTime = 0
+      thePyTx.inputs = []
+      thePyTx.outputs = []
 
-      for iin,utxo in enumerate(utxoSelection):
-         txin = PyTxIn()
-         txin.outpoint = PyOutPoint()
-         txin.outpoint.txHash = utxo.getTxHash()
-         txin.outpoint.txOutIndex = utxo.getTxOutIndex()
-         txin.binScript = utxo.getScript() # this is the TxOut script
-         self.txOutScripts.append(str(txin.binScript)) # copy it
-         txin.intSeq = 2**32-1
-         self.pytxObj.inputs.append(txin)
-         self.inputValues.append(utxo.getValue())
-
-         stype = getTxOutScriptType(utxo.getScript())
-         self.scriptTypes.append(stype)
-         if stype in (TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_STANDARD):
-            # Only one addr/str per input
-            self.inAddr20Lists.append( [utxo.getRecipientAddr()] )
-            self.inPubKeyLists.append( [''] )
-            self.signatures.append( [''] )
-            self.numSigsNeeded.append(1)
-         elif stype in (TXOUT_SCRIPT_MULTISIG,):
-            # May be multiple addr/str per input
-            msType, addrlist, publist = getTxOutMultiSigInfo(utxo.getScript())
-            self.inAddr20Lists.append(addrlist)
-            self.inPubKeyLists.append(publist)
-            self.numSigsNeeded[i] = msType[0]  # mstype for M-of-N tx is (M,N)
-            self.signatures.append( ['']*msType[1])
-            
-
+      # We can prepare the outputs, first
       for recipObj,value in recip160ValPairs:
          txout = PyTxOut()
          txout.value = long(value)
@@ -4851,14 +4878,26 @@ class PyTxDistProposal(object):
                                          recipObj,
                                          getOpCode('OP_EQUALVERIFY'), \
                                          getOpCode('OP_CHECKSIG'   )])
+         thePyTx.outputs.append(txout)
 
-         self.pytxObj.outputs.append(txout)
+      # Prepare the inputs based on the utxo objects
+      for iin,utxo in enumerate(utxoSelection):
+         # First, make sure that we have the previous Tx data available
+         # We can't continue without it, since BIP 0010 will now require
+         # the full tx of outputs being spent
+         txin = PyTxIn()
+         txin.outpoint = PyOutPoint()
+         txin.binScript = ''
+         txin.intSeq = 2**32-1
 
-      # Finally, we have the fully-constructed PyTx object with txin scripts
-      # replaced by the TxOut scripts they are spending
-      txser = self.pytxObj.serialize()
-      self.uniqueB58 = binary_to_base58(hash256(txser))[:8]
-      return self
+         txhash = utxo.getTxHash()
+         txidx  = utxo.getTxOutIndex()
+         txin.outpoint.txHash = str(txhash)
+         txin.outpoint.txOutIndex = txidx
+         thePyTx.inputs.append(txin)
+
+      return self.createFromPyTx(thePyTx, txMap)
+
 
 
    #############################################################################
@@ -4879,7 +4918,7 @@ class PyTxDistProposal(object):
       """
       For standard transaction types, the signature field is actually the raw
       script to be plugged into the final transaction that allows it to eval
-      to true -- except for multi-sig transactions.  We have to mangle the 
+      to true -- except for multi-sig transactions.  We have to mess with the 
       data a little bit if we want to use the script-processor to verify the
       signature.  Instead, we will use the crypto ops directly.
 
@@ -4893,19 +4932,23 @@ class PyTxDistProposal(object):
          pass
       else:
          scriptType = self.scriptTypes[txinIdx]
-         txCopy = PyTx().unserialize(self.pytxObj.serialize())
+         txCopy = self.pytxObj.copy()
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            # For standard Tx types, sig is the script itself (copy it)
-            prevOutScript = str(txCopy.inputs[txinIdx].binScript)
+            # For standard Tx types, sigStr is the full script itself (copy it)
             txCopy.inputs[txinIdx].binScript = str(sigStr)
+            prevOutScript = str(self.txOutScripts[txinIdx])
             psp = PyScriptProcessor(prevOutScript, txCopy, txinIdx)
             if psp.verifyTransactionValid():
                return txinIdx, 0, TxOutScriptExtractAddr160(prevOutScript)
          elif scriptType == TXOUT_SCRIPT_MULTISIG:
-            # We have to verify the signature manually...
+            # For multi-sig, sigStr is the raw ECDSA sig ... we will have to
+            # manually construct a tx that the script processor can check,
+            # without the other signatures
             for i in range(len(txCopy.inputs)):
                if not i==idx:
                   txCopy.inputs[i].binScript = ''
+               else:
+                  txCopy.inputs[i].binScript = self.txOutScripts[i]
    
             hashCode   = binary_to_int(sigStr[-1])
             hashCode4  = int_to_binary(hashcode, widthBytes=4)
@@ -5030,13 +5073,20 @@ class PyTxDistProposal(object):
                       int_to_hex(dpsz, widthBytes=2, endOut=BIGENDIAN)]
       txdpLines.append('_'.join(pieces))
       
-      txHex = binary_to_hex(self.pytxObj.serialize())
+      # First tx is always the tx being created/signed, others are supporting tx
+      try:
+         txList = [self.pytxObj.serialize()]
+         txList.extend([self.relevantTxMap[txin.outpoint.txHash].serialize() \
+                                                for txin in self.pytxObj.inputs])
+      except KeyError:
+         raise InvalidHashError, ('One or more OutPoints could not be found -- '
+                                  'the TxDP could not be serialized')
+
+      txHex = ''.join([binary_to_hex(tx.serialize()) for tx in txList])
       for byte in range(0,len(txHex),80):
          txdpLines.append( txHex[byte:byte+80] )
 
-
       for iin,txin in enumerate(self.pytxObj.inputs):
-         # TODO: come up with a better way than "0" to specify no-value-avail
          if self.inputValues[iin]:
             formattedVal = coin2str(self.inputValues[iin], ndec=8)
          else:
@@ -5062,7 +5112,6 @@ class PyTxDistProposal(object):
    def unserializeAscii(self, asciiStr):
       txdpTxt = [line.strip() for line in asciiStr.split('\n')]
 
-
       # Why can't I figure out the best way to do this with generators?
       # I know there's a bettery [python-]way to do this...
       L = [0]
@@ -5075,21 +5124,31 @@ class PyTxDistProposal(object):
       while not ('BEGIN-TRANSACTION' in line):
          line = nextLine(L)
 
-      #try:
       # Get the network, dp ID and number of bytes
       line = nextLine(L)
       magicBytesHex, dpIdB58, dpsz = line.split('_')[2:]
       magic = hex_to_binary(magicBytesHex)
 
+      # Read in the full, hex, tx list: first one is to be signed, remaining
+      # are there to support verification of input values
       dpser = ''
       line = nextLine(L)
       while not 'TXINPUT' in line:
          dpser += line
          line = nextLine(L)
 
-      dpserBin = hex_to_binary(dpser) 
-      newTx = PyTx().unserialize(dpserBin)
-      self.createFromPreparedPyTx( newTx )
+      txListBin = hex_to_binary(dpser) 
+      BinaryUnpacker binUnpacker(txListBin)
+      txList = []
+      targetTx = PyTx().unserialize(txListBin)
+      while binUnpacker.getRemainingSize() > 0:
+         self.relevantTxMap[hash256(txList[-1].serialize()] = txList[-1]
+
+      for txin in targetTx.inputs:
+         if not self.relevantTxMap.has_key(txin.outpoint.txHash):
+            raise TxdpError, 'Not all inputs can be verified for TxDP.  Aborting!'
+
+      self.createFromPyTx( targetTx, self.relevantTxMap )
       numIn = len(self.pytxObj.inputs)
 
       # Do some sanity checks
@@ -5099,7 +5158,9 @@ class PyTxDistProposal(object):
          raise NetworkIDError, 'TxDP is for diff blockchain! (%s)' % \
                                                          BLOCKCHAINS[magic]
 
-      # We stopped before when we had the first TXINPUT line
+      # At this point, we should have a TxDP constructed, now we need to 
+      # simply scan the rest of the serialized structure looking for any
+      # signatures that may be included
       while not 'END-TRANSACTION' in line: 
          [iin, val] = line.split('_')[2:]
          iin = int(iin)
@@ -5127,20 +5188,8 @@ class PyTxDistProposal(object):
             # If we got here, the signature is valid!
             self.signatures[iin][sigOrder] = binSig
 
-      #except:
-         #raise UnserializeError, 'Could not read TxDP!'
-
       return self
       
-
-   def serializeBinary(self):
-      pass
-
-   def serializeHex(self):
-      return binary_to_hex(self.serializeBinary())
-
-   #def serializeBase58(self):
-      #return binary_to_hex(self.serializeBinary())
 
 
    #############################################################################

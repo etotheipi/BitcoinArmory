@@ -2496,10 +2496,17 @@ class DlgImportPaperWallet(QDialog):
    def verifyUserInput(self):
       nError = 0
       for i in range(4):
-         rawStr = easyType16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
-         data, chk = rawStr[:16], rawStr[16:]
-         fixedData = verifyChecksum(data, chk)
-         if len(fixedData)==0:
+         hasError=False
+         try:
+            rawBin = easyType16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
+            data, chk = rawBin[:16], rawBin[16:]
+            fixedData = verifyChecksum(data, chk)
+            if len(fixedData)==0:
+               hasError=True
+         except KeyError:
+            hasError=True
+            
+         if hasError:
             reply = QMessageBox.critical(self, 'Verify Wallet ID', \
                'There is an error in the data you entered that could not be '
                'fixed automatically.  Please double-check that you entered the '
