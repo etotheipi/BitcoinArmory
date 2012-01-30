@@ -14,8 +14,7 @@ Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
-Test_TxDistProposals  = False
-Test_ZeroConf         = True
+Test_TxDistProposals  = True
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
@@ -1533,6 +1532,7 @@ if Test_TxDistProposals:
    addr20  = pubKey.getHash160()
    wlt = PyBtcWallet().createNewWallet(withEncrypt=False)
 
+
    binPrivKey = hex_to_binary('a47a7e263f9ec17d7fbb4a649541001e8bb1266917aa77f5773810d7d81f00a5')
    myOwnAddr160 = wlt.importExternalAddressData( privKey=binPrivKey )
    wlt.pprint(indent=' '*5, allAddrInfo=False)
@@ -1542,10 +1542,10 @@ if Test_TxDistProposals:
 
    # Get all the unspent TxOuts for this addr
    wlt.syncWithBlockchain()
-   utxoList = wlt.getUnspentTxOutList()
+   utxoList = wlt.getTxOutList('Spendable')
    pprintUnspentTxOutList(utxoList, 'Unspent TxOuts for your wallet: ')
 
-   nBTC = 3.19*ONE_BTC
+   nBTC = 0.05*ONE_BTC
    print '\n(1) Select inputs for a', coin2str(nBTC), 'BTC tx to myself'
    prelimSelection = PySelectCoins(utxoList, nBTC, minFee=0)
    pprintUnspentTxOutList(prelimSelection, 'Selected TxOuts for (tgt,fee)=(%s,%s)' % \
@@ -1568,6 +1568,7 @@ if Test_TxDistProposals:
    txdp2 = PyTxDistProposal().unserializeAscii(asciiBlock)
    print '\n(1) TxDP has enough signatures?', txdp.checkTxHasEnoughSignatures()
       
+   txdp2.pprint()
    print '\n(1)Sign it, now'
    txdpSigned = wlt.signTxDistProposal(txdp2)
    print '\n(1) Signed enough inputs?', txdpSigned.checkTxHasEnoughSignatures()
@@ -1589,12 +1590,6 @@ if Test_TxDistProposals:
    # TODO: test a multisig TxDP
 
 
-if Test_ZeroConf:
-   print ''
-   print '*********************************************************************'
-   print 'Testing Zero-conf transactions'
-   print '*********************************************************************'
-   print ''
 
 
 

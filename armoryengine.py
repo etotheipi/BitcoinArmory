@@ -4777,11 +4777,11 @@ class PyTxDistProposal(object):
       self.txOutScripts   = []
       self.inAddr20Lists  = []
       self.inPubKeyLists  = []
-      self.inputValues    = [-1]*sz
+      self.inputValues    = []
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
 
-      if len(txMap)==0 and TheBDM.isInitialized():
+      if len(txMap)==0 and not TheBDM.isInitialized():
          raise BlockchainUnavailableError, ('Must input supporting transactions '
                                             'or access to the blockchain, to '
                                             'create the TxDP')
@@ -5082,7 +5082,7 @@ class PyTxDistProposal(object):
          raise InvalidHashError, ('One or more OutPoints could not be found -- '
                                   'the TxDP could not be serialized')
 
-      txHex = ''.join([binary_to_hex(tx.serialize()) for tx in txList])
+      txHex = binary_to_hex(''.join(txList))
       for byte in range(0,len(txHex),80):
          txdpLines.append( txHex[byte:byte+80] )
 
@@ -5105,6 +5105,7 @@ class PyTxDistProposal(object):
 
       endline = ('-------END-TRANSACTION-' + self.uniqueB58 + '-----').ljust(80,'-')
       txdpLines.append( endline )
+      self.pprint()
       return '\n'.join(txdpLines)
       
 
@@ -5138,11 +5139,12 @@ class PyTxDistProposal(object):
          line = nextLine(L)
 
       txListBin = hex_to_binary(dpser) 
-      BinaryUnpacker binUnpacker(txListBin)
+      binUnpacker = BinaryUnpacker(txListBin)
       txList = []
-      targetTx = PyTx().unserialize(txListBin)
+      targetTx = PyTx().unserialize(binUnpacker)
       while binUnpacker.getRemainingSize() > 0:
-         self.relevantTxMap[hash256(txList[-1].serialize()] = txList[-1]
+         nextTx = PyTx().unserialize(binUnpacker)
+         self.relevantTxMap[nextTx.getHash()] = nextTx
 
       for txin in targetTx.inputs:
          if not self.relevantTxMap.has_key(txin.outpoint.txHash):
@@ -5193,7 +5195,7 @@ class PyTxDistProposal(object):
 
 
    #############################################################################
-   def pprint(self, indent=''):
+   def pprint(self, indent='   '):
       tx = self.pytxObj
       propID = hash256(tx.serialize())
       print indent+'Distribution Proposal : ', binary_to_base58(propID)[:8]
@@ -7336,15 +7338,15 @@ class PyBtcWallet(object):
       wltAddr = []
       #amtToSign = 0  # I can't get this without asking blockchain for txout vals
       for index,txin in enumerate(txdp.pytxObj.inputs):
-         scriptType = getTxOutScriptType(txin.binScript)
+         scriptType = getTxOutScriptType(txdp.txOutScripts[index])
          
          if scriptType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-            addr160 = TxOutScriptExtractAddr160(txin.getScript())
+            addr160 = TxOutScriptExtractAddr160(txdp.txOutScripts[index])
             if self.hasAddr(addr160) and self.addrMap[addr160].hasPrivKey():
                wltAddr.append( (self.addrMap[addr160], index, 0))
          elif scriptType==TXOUT_SCRIPT_MULTISIG:
             # Basically the same check but multiple addresses to consider
-            addrList = getTxOutMultiSigInfo(txin.getScript())[1]
+            addrList = getTxOutMultiSigInfo(txdp.txOutScripts[index])[1]
             for addrIdx, addr in enumerate(addrList):
                if self.hasAddr(addr) and self.addrMap[addr].hasPrivKey():
                   wltAddr.append( (self.addrMap[addr], index, addrIdx) )
@@ -7376,6 +7378,8 @@ class PyBtcWallet(object):
          for i in range(len(txCopy.inputs)):
             if not i==idx:
                txCopy.inputs[i].binScript = ''
+            else:
+               txCopy.inputs[i].binScript = txdp.txOutScripts[i]
 
          hashCode1  = int_to_binary(hashcode, widthBytes=1)
          hashCode4  = int_to_binary(hashcode, widthBytes=4)
