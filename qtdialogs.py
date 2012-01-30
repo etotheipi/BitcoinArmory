@@ -2033,16 +2033,12 @@ class DlgAddressInfo(QDialog):
       if True:           optLayout.addWidget(self.lblCopied)
 
       self.lblLedgerWarning = QRichLabel( \
-         'NOTE:  The ledger here is for a single address, and contains a '
-         'separate entry for each transaction <i>input</i> and <i>output</i>. '
-         'These inputs and outputs are usually '
-         'spread across many addresses, which <i>together</i> '
-         'add up to the transaction value you would recognize.  '
-         'If there is a negative entry for one address that looks too large for '
-         'the transaction you were expecting, there will be a <i>different</i> '
-         'address that has a positive entry equal to the change-back-to-self '
-         '(much like buying a candy bar with a $20 bill and receiving '
-         'change back).')
+         'NOTE:  The ledger on the left is for a <i>single address</i>, '
+         'which shows each transaction <i><b>input</b></i> and '
+         '<i><b>output</b></i> separately. A single transaction usually '
+         'consists of many inputs and outputs '
+         'spread across multiple addresses, which <i>together</i> '
+         'add up to the transaction value you would recognize.  ')
       optLayout.addWidget(self.lblLedgerWarning)
 
       optLayout.addStretch()
@@ -4779,7 +4775,7 @@ class DlgReviewOfflineTx(QDialog):
          #self.infoLbls[5][0].setVisible(False)
          #self.infoLbls[5][1].setVisible(False)
          #self.infoLbls[5][2].setVisible(False)
-         self.moreInfo.setVisible(False)
+         #self.moreInfo.setVisible(False)
       else:          
          ##### 0
 
