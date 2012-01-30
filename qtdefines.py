@@ -63,6 +63,7 @@ Colors = enum( \
               WltMine=     QColor(225,225,255), \
               WltOffline=  QColor(205,215,255), \
               LightGreen=  QColor(225,255,225), \
+              DarkGreen=   QColor(  0,100,  0), \
               WltOther=    QColor(235,235,235), \
               MidGray=     QColor(170,170,170), \
               Gray=        QColor(128,128,128), \

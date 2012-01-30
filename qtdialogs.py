@@ -3598,7 +3598,7 @@ class DlgSendBitcoins(QDialog):
 
          dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
          dlg.exec_()
-      self.accept()
+         self.accept()
 
 
 
@@ -3986,25 +3986,18 @@ class DlgOfflineTxCreated(QDialog):
          'wallet to get the necessary signatures, then bring back the completed '
          'transaction to be broadcast to the Bitcoin network.'
          '<br><br>'
-         'If the other computer is offline, press the "Save as file..." button '
-         'to copy the *.unsigned.tx file to a USB key or other removable media.  '
+         'Use the "Save as file..." button '
+         'to copy the <i>*.unsigned.tx</i> file to a USB key or other removable media.  '
          'Take the file to the offline computer, and use the '
          '"Offline Transactions" dialog to load the transaction data and sign it '
          '(the filename suffix will be changed to *.signed.tx).'
          '<br><br>'
-         'If the computer with the private keys is internet-connected, you can copy '
-         'the text directly into an email, and then sign and broadcast using Armory '
-         'on that other computer.'
-         '<br><br>'
-         '<font color=#550000>'
-         'If you\'d like, you can close '
-         'this window and finalize the transaction later by using the '
-         '"Offline Transactions" button on the main window.  In fact, the '
-         'transaction can be finalized from <i>any</i> computer that is '
-         'running Armory and connected to the Bitcoin network.'
-         '</font>')
+         'On the next screen, you will be able to load the signed transaction, '
+         'and then broadcast it if all signatures are valid.   In fact, the final, '
+         'signed transaction can be finalized from <i>any</i> '
+         'computer that is running Armory and connected to the Bitcoin network.')
       elif determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly: 
-         lblDescr.setText(
+         lblDescr.setText( \
          'The chunk of data shown below is the complete transaction you just '
          'requested, but <b>without</b> the signatures needed to be valid.  '
          '<br><br>'
@@ -4017,11 +4010,10 @@ class DlgOfflineTxCreated(QDialog):
          lblDescr.setText(
             'You have chosen to create the previous transaction but not sign '
             'it or broadcast it, yet.  Below, you can save the unsigned '
-            'transaction to file, or copy&paste from the text box.<br><br>  '
+            'transaction to file, or copy&paste from the text box.  '
             'In some cases, you may actually want the transaction signed '
-            'but not broadcast yet.  In this case, you can use the "Sign" '
-            'button next to the bottom text box, to create the signed version '
-            'of the top text box.  Then it can be saved or copied the same way.')
+            'but not broadcast yet.  On the "Next Step" you can choose to sign '
+            'the transaction without broadcasting it.')
 
 
       ttipBip0010 = createToolTipObject( \
@@ -4059,6 +4051,9 @@ class DlgOfflineTxCreated(QDialog):
       lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
       w,h = tightSizeStr(GETFONT('Fixed',8),'0'*85)[0], int(12*8.2)
 
+      frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
+      frmUpper = makeLayoutFrame('Horiz', [lblDescr], STYLE_SUNKEN)
+
       # Wow, I just cannot get the txtEdits to be the right size without
       # forcing them very explicitly
       self.txtTxDP = QTextEdit()
@@ -4072,14 +4067,11 @@ class DlgOfflineTxCreated(QDialog):
       self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
 
-
       lblNextStep = QRichLabel( \
-         'Once you have a signed transaction, you can broadcast it by '
-         'clicking the button on the right.  If you\'d like, you can close '
-         'this window and finalize the transaction later by using the '
-         '"Offline Transactions" button on the main window.  In fact, the '
-         'transaction can be finalized from <i>any</i> computer that is '
-         'running Armory and connected to the Bitcoin network.')
+         'Once you have signed the transaction, you can go onto the next '
+         'step.  Alternatively, you can close this window, and complete the '
+         'last step at a later time, using the "Offline Transactions" button '
+         'on the main window')
       btnNextStep = QPushButton('Next Step >>>')
       maxBtnWidth = 1.5*relaxedSizeStr(btnNextStep, 'Next Step >>>')[0]
       btnNextStep.setMaximumWidth(maxBtnWidth)
@@ -4090,140 +4082,31 @@ class DlgOfflineTxCreated(QDialog):
 
       btnLater = QPushButton("Close Window")
       self.connect(btnLater, SIGNAL('clicked()'), self.reject)
-      ttipLater = createToolTipObject( \
-         'If you do not want to broadcast this transaction, or will do so later '
-         'you can close this window, and your wallet will remain untouched.  '
-         'If you plan to broadcast later, please use the "Offline Transactions" '
-         'button on the main window.')
-      bottomStrip = makeLayoutFrame('Horiz', [btnLater, ttipLater, 'Stretch'])
+      bottomStrip = makeLayoutFrame('Horiz', [btnLater, 'Stretch'])
 
-      """
-      self.txtSigned = QTextEdit()
-      self.txtSigned.setFont( GETFONT('Fixed',8) )
-      self.txtSigned.setMinimumWidth(w)
-      self.txtSigned.setMinimumHeight(h)
-      self.txtSigned.setMaximumWidth(w)
-      self.txtSigned.setMaximumHeight(h)
-      self.txtSigned.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Preferred)
-      self.txtSigned.setText('<font color="gray">When you are ready, load the signed transaction from ' 
-                             'file or copy&paste the text into this box.</font>')
-      self.txtSignedCleared = False
-      
-      if wlt.watchingOnly:
-         self.txtSigned.setTextColor(Colors.MidGray)
-         # The user doesn't have the private keys.  So we give them options 
-         # for getting the tx to the offline system, and bringing it back 
-         # to broadcast
-         self.lblRight = QRichLabel('')
-         self.lblRight.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-
-         btnLoad = QPushButton("Load from file...")
-         self.connect(btnLoad, SIGNAL('clicked()'), self.execLoadSig)
-         ttipLoad = createToolTipObject( \
-            'If you have the signed transaction in a file (such as USB you just '
-            'inserted), use this button to load the *.signed.tx file')
-   
-         self.btnReady = QPushButton("Ready to Broadcast!")
-         self.connect(self.btnReady, SIGNAL('clicked()'), self.execBroadcast)
-         ttipReady = createToolTipObject( \
-            'If you have already gotten the necessary signatures from the offline '
-            'computer, click this button.')
-
-         btnLater = QPushButton("Close Window")
-         self.connect(btnLater, SIGNAL('clicked()'), self.reject)
-         ttipLater = createToolTipObject( \
-            'If you do not want to broadcast this transaction, or will do so later '
-            'you can close this window, and your wallet will remain untouched.  '
-            'If you plan to broadcast later, please use the "Offline Transactions" '
-            'button on the main window.')
-         bottomStrip = makeLayoutFrame('Horiz', [btnLater, ttipLater, 'Stretch'])
-
-      else:
-         # We can actually sign this transaction if we wanted to.  So no point
-         # in cluttering the space with options for separate-computer operations.
-         # Allow the user to sign and copy the output from here.
-         self.lblCopiedS = QRichLabel('')
-         self.lblCopiedS.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-
-         btnSign = QPushButton('Sign')
-         ttipSign = createToolTipObject( \
-            'Sign the unsigned transaction shown above.  The result will be '
-            'put into the box to the left')
-         self.connect(btnSign, SIGNAL('clicked()'), self.signTxdp)
-
-         self.btnSaveS = QPushButton('Save as file...')
-         self.connect(self.btnSaveS, SIGNAL('clicked()'), self.doSaveFileS)
-         ttipSaveS = createToolTipObject( \
-            'Save this data to a USB key or other device, to be transferred to '
-            'a computer that contains the private keys for this wallet.')
-
-         self.btnCopyS = QPushButton('Copy to clipboard')
-         self.connect(self.btnCopyS, SIGNAL('clicked()'), self.copyAsciiTxDPS)
-         ttipCopyS = createToolTipObject( \
-            'Copy the transaction data to the clipboard, so that it can be '
-            'pasted into an email or a text document.')
-
-         btnClose = QPushButton('Cancel')
-         self.connect(btnClose, SIGNAL('clicked()'), self.reject)
-         bottomStrip = makeLayoutFrame('Horiz', [btnClose, 'Stretch'])
-         #bottomStrip = QDialogButtonBox()
-         #bottomStrip.addButton(btnClose, QDialogButtonBox.RejectRole)
-      """
-                              
-         
 
       frmLower = QFrame()
       frmLower.setFrameStyle(STYLE_RAISED)
       frmLowerLayout = QGridLayout()
       
-      frmLowerLayout.addWidget(self.txtTxDP,  0,0,  3,1)
-      frmLowerLayout.addWidget(btnSave,       0,1,  1,1)
-      frmLowerLayout.addWidget(ttipSave,      0,2,  1,1)
-      frmLowerLayout.addWidget(btnCopy,       1,1,  1,1)
-      frmLowerLayout.addWidget(ttipCopy,      1,2,  1,1)
-      frmLowerLayout.addWidget(self.lblCopied,2,1,  1,2)
+      frmLowerLayout.addWidget(frmUTX,        0,0,  1,3)
+      frmLowerLayout.addWidget(self.txtTxDP,  1,0,  3,1)
+      frmLowerLayout.addWidget(btnSave,       1,1,  1,1)
+      frmLowerLayout.addWidget(ttipSave,      1,2,  1,1)
+      frmLowerLayout.addWidget(btnCopy,       2,1,  1,1)
+      frmLowerLayout.addWidget(ttipCopy,      2,2,  1,1)
+      frmLowerLayout.addWidget(self.lblCopied,3,1,  1,2)
 
-      frmLowerLayout.addWidget(HLINE(),       3,0,  1,3)
       frmLowerLayout.addWidget(nextStepStrip, 4,0,  1,3)
-      frmLowerLayout.addWidget(HLINE(),       5,0,  1,3)
-      #frmLowerLayout.addWidget(self.txtSigned,4,0,  4,1)
-
-      """
-      if wlt.watchingOnly:
-         frmLowerLayout.addWidget(btnLoad,       4,1,  1,1)
-         frmLowerLayout.addWidget(ttipLoad,      4,2,  1,1)
-         frmLowerLayout.addWidget(self.btnReady, 5,1,  1,1)
-         frmLowerLayout.addWidget(ttipReady,     5,2,  1,1)
-         frmLowerLayout.addWidget(self.lblRight, 6,1,  1,2)
-         #frmLowerLayout.addWidget(btnLater,      7,1,  1,1)
-         #frmLowerLayout.addWidget(ttipLater,     7,2,  1,1)
-         self.connect(self.txtSigned, SIGNAL('cursorPositionChanged()'), self.txtSignedFirstClick)
-         self.btnReady.setEnabled(False)
-      else:
-         frmLowerLayout.addWidget(btnSign,        4,1,  1,1)
-         frmLowerLayout.addWidget(ttipSign,       4,2,  1,1)
-         frmLowerLayout.addWidget(self.btnSaveS,  5,1,  1,1)
-         frmLowerLayout.addWidget(ttipSaveS,      5,2,  1,1)
-         frmLowerLayout.addWidget(self.btnCopyS,  6,1,  1,1)
-         frmLowerLayout.addWidget(ttipCopyS,      6,2,  1,1)
-         frmLowerLayout.addWidget(self.lblCopiedS,7,1,  1,1)
-         self.btnSaveS.setEnabled(False)
-         self.btnCopyS.setEnabled(False)
-         self.txtSigned.setReadOnly(True)
-         self.txtSigned.setText('')
-      """
-
-      
-
-
-      #frmCancel = makeLayoutFrame('Horiz', ['Stretch', ttipLater, btnLater])
-
       frmLower.setLayout(frmLowerLayout)
 
-      frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
-      frmUpper = makeLayoutFrame('Horiz', [lblDescr], STYLE_SUNKEN)
 
-      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(5)', frmUTX, frmLower, nextStepStrip,bottomStrip])
+      frmAll = makeLayoutFrame('Vert', [lblInstruct, \
+                                        frmUpper, \
+                                        'Space(5)', \
+                                        frmLower, \
+                                        nextStepStrip,\
+                                        bottomStrip])
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmAll)
@@ -4397,9 +4280,9 @@ class DlgOfflineSelect(QDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
-      if not self.main.internetAvail:
+      if not self.main.internetAvail or not self.main.satoshiAvail:
          if len(self.main.walletMap)==0:
-            btnReview = QPushButton('No Internet Connection or Wallets')
+            btnReview = QPushButton('No wallets, no network connection')
             btnReview.setEnabled(False)
          else:
             btnReview = QPushButton('Sign Offline Transaction')
@@ -4601,6 +4484,7 @@ class DlgReviewOfflineTx(QDialog):
                                          'Stretch', \
                                          frmMoreInfo])
 
+      frmBtn.setMaximumWidth(tightSizeNChar(QPushButton(''), 30)[0])
 
       frmInfoLayout = QGridLayout()
       for r in range(len(self.infoLbls)):
@@ -4675,7 +4559,11 @@ class DlgReviewOfflineTx(QDialog):
       if not self.enoughSigs or not self.sigsValid or not self.txdpReadable:
          self.btnBroadcast.setEnabled(False)
       else:
-         self.btnBroadcast.setEnabled(True)
+         if self.main.internetAvail and self.main.satoshiAvail:
+            self.btnBroadcast.setEnabled(True)
+         else:
+            self.btnBroadcast.setEnabled(False)
+            self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
 
       if not self.txdpReadable:
          if len(txdpStr)>0:
@@ -4696,6 +4584,7 @@ class DlgReviewOfflineTx(QDialog):
          self.btnBroadcast.setEnabled(False)
       else:
          self.lblStatus.setText('<b><font color="green">All Signatures Valid!</font></b>')
+         self.btnSign.setEnabled(False)
       
 
       # NOTE:  We assume this is an OUTGOING transaction.  When I pull in the
@@ -5322,8 +5211,7 @@ def extractTxInfo(pytx, rcvTime=None):
       haveAllInput=True
       for i,txin in enumerate(pytxdp.pytxObj.inputs):
          txinFromList.append([])
-         # TxDPs contains the prevOut scripts in the currIn script fields
-         txinFromList[-1].append(TxOutScriptExtractAddr160(txin.binScript))
+         txinFromList[-1].append(TxOutScriptExtractAddr160(pytxdp.txOutScripts[i]))
          txinFromList[-1].append(pytxdp.inputValues[i])
          txinFromList[-1].append('')
          txinFromList[-1].append('')

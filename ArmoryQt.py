@@ -1077,7 +1077,6 @@ class ArmoryMainWindow(QMainWindow):
          for addr in wlt.getLinearAddrList():
             ledger = wlt.getAddrTxLedger(addr.getAddr160())
 
-
       self.walletListChanged()
 
       
