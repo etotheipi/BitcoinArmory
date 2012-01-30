@@ -4771,7 +4771,7 @@ class DlgReviewOfflineTx(QDialog):
          self.infoLbls[1][2].setText('')
          self.infoLbls[2][2].setText('')
          self.infoLbls[3][2].setText('')
-         self.infoLbls[4][2].setText('')
+         #self.infoLbls[4][2].setText('')
          #self.infoLbls[5][0].setVisible(False)
          #self.infoLbls[5][1].setVisible(False)
          #self.infoLbls[5][2].setVisible(False)
@@ -4797,10 +4797,10 @@ class DlgReviewOfflineTx(QDialog):
             self.infoLbls[3][2].setText('')
 
          ##### 4
-         if self.idxOther:
-            self.infoLbls[4][2].setText(str(len(self.idxOther)))
-         else:
-            self.infoLbls[4][2].setText('')
+         #if self.idxOther:
+            #self.infoLbls[4][2].setText(str(len(self.idxOther)))
+         #else:
+            #self.infoLbls[4][2].setText('')
 
          ##### 5
          #self.infoLbls[5][0].setVisible(True)
