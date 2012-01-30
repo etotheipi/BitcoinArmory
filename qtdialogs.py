@@ -3552,13 +3552,14 @@ class DlgSendBitcoins(QDialog):
          wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
             '<i>Armory</i> is the result of over 1,000 hours of development '
-            'and dozens of late nights.  Yet, this software has been '
-            'given to you for free, to benefit the greater Bitcoin community! '
+            'and dozens of late nights bug-hunting and testing.  Yet, this software '
+            'has been given to you for free to benefit the greater Bitcoin '
+            'community! '
             '<br><br>However, continued development may not be possible without '
             'donations.  If you are satisfied with this software, please consider '
             'donating what you think this software would be worth as a commercial '
             'application.'
-            '<br><br>Are you willing to donate to the Armory developers? If you '
+            '<br><br><b>Are you willing to donate to the Armory developers?</b> If you '
             'select "Yes," a donation field will be added to your '
             'next transaction.  You will have the opportunity to remove or change '
             'the amount before sending the transaction.', None)
@@ -3566,7 +3567,8 @@ class DlgSendBitcoins(QDialog):
          self.main.settings.set('DonateLastPester', loadCount)
 
          if result[0]==True:
-            self.addDonation(long(0.99 * ONE_BTC))
+            self.addDonation(ONE_BTC)
+            self.makeRecipFrame(2)
 
          if result[1]==True:
             self.main.settings.set('DonateDNAA', True)
