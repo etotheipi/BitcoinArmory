@@ -689,10 +689,10 @@ class DlgWalletDetails(QDialog):
       frmTotalsLayout.addWidget(ttipUcn, 2,3)
 
       # Temp disable unconf display until calc is fixed
-      lblUcn.setVisible(False)
-      lblUnconfFunds.setVisible(False)
-      lblBTC3.setVisible(False)
-      ttipUcn.setVisible(False)
+      #lblUcn.setVisible(False)
+      #lblUnconfFunds.setVisible(False)
+      #lblBTC3.setVisible(False)
+      #ttipUcn.setVisible(False)
 
       frmTotals.setLayout(frmTotalsLayout)
 
@@ -3491,7 +3491,7 @@ class DlgSendBitcoins(QDialog):
             'you can click this button to save it to a file.')
       else:
          ttipUnsigned = createToolTipObject( \
-            'After clicking this button, you will be given options for '
+            'After clicking this button, you will be given directions for '
             'completing this transaction.')
          btnSend.setToolTip('You cannot send any Bitcoins from this wallet, from this computer')
          btnSend.setEnabled(False)
@@ -3602,6 +3602,7 @@ class DlgSendBitcoins(QDialog):
 
          dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
          dlg.exec_()
+      self.accept()
 
 
 
@@ -4009,7 +4010,7 @@ class DlgOfflineTxCreated(QDialog):
       elif determineWalletType(wlt, self.main)[0]==WLTTYPES.WatchOnly: 
          lblDescr.setText(
          'The chunk of data shown below is the complete transaction you just '
-         'requested, but without the signatures needed to be valid.  '
+         'requested, but <b>without</b> the signatures needed to be valid.  '
          '<br><br>'
          'In order to complete this transaction, you need to send this '
          'chunk of data (the proposed transaction) to the party who holds the '
@@ -4074,6 +4075,33 @@ class DlgOfflineTxCreated(QDialog):
       self.txtTxDP.setReadOnly(True)
       self.txtTxDP.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
+
+
+      lblNextStep = QRichLabel( \
+         'Once you have a signed transaction, you can broadcast it by '
+         'clicking the button on the right.  If you\'d like, you can close '
+         'this window and finalize the transaction later by using the '
+         '"Offline Transactions" button on the main window.  In fact, the '
+         'transaction can be finalized from <i>any</i> computer that is '
+         'running Armory and connected to the Bitcoin network.')
+      btnNextStep = QPushButton('Next Step >>>')
+      maxBtnWidth = 1.5*relaxedSizeStr(btnNextStep, 'Next Step >>>')[0]
+      btnNextStep.setMaximumWidth(maxBtnWidth)
+      self.connect(btnNextStep, SIGNAL('clicked()'), self.doNextStep)
+
+      nextStepStrip = makeLayoutFrame('Horiz', [lblNextStep, btnNextStep], \
+                                                                     STYLE_SUNKEN)
+
+      btnLater = QPushButton("Close Window")
+      self.connect(btnLater, SIGNAL('clicked()'), self.reject)
+      ttipLater = createToolTipObject( \
+         'If you do not want to broadcast this transaction, or will do so later '
+         'you can close this window, and your wallet will remain untouched.  '
+         'If you plan to broadcast later, please use the "Offline Transactions" '
+         'button on the main window.')
+      bottomStrip = makeLayoutFrame('Horiz', [btnLater, ttipLater, 'Stretch'])
+
+      """
       self.txtSigned = QTextEdit()
       self.txtSigned.setFont( GETFONT('Fixed',8) )
       self.txtSigned.setMinimumWidth(w)
@@ -4144,6 +4172,7 @@ class DlgOfflineTxCreated(QDialog):
          bottomStrip = makeLayoutFrame('Horiz', [btnClose, 'Stretch'])
          #bottomStrip = QDialogButtonBox()
          #bottomStrip.addButton(btnClose, QDialogButtonBox.RejectRole)
+      """
                               
          
 
@@ -4159,8 +4188,11 @@ class DlgOfflineTxCreated(QDialog):
       frmLowerLayout.addWidget(self.lblCopied,2,1,  1,2)
 
       frmLowerLayout.addWidget(HLINE(),       3,0,  1,3)
-      frmLowerLayout.addWidget(self.txtSigned,4,0,  4,1)
+      frmLowerLayout.addWidget(nextStepStrip, 4,0,  1,3)
+      frmLowerLayout.addWidget(HLINE(),       5,0,  1,3)
+      #frmLowerLayout.addWidget(self.txtSigned,4,0,  4,1)
 
+      """
       if wlt.watchingOnly:
          frmLowerLayout.addWidget(btnLoad,       4,1,  1,1)
          frmLowerLayout.addWidget(ttipLoad,      4,2,  1,1)
@@ -4183,6 +4215,7 @@ class DlgOfflineTxCreated(QDialog):
          self.btnCopyS.setEnabled(False)
          self.txtSigned.setReadOnly(True)
          self.txtSigned.setText('')
+      """
 
       
 
@@ -4194,7 +4227,7 @@ class DlgOfflineTxCreated(QDialog):
       frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
       frmUpper = makeLayoutFrame('Horiz', [lblDescr], STYLE_SUNKEN)
 
-      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(5)', frmUTX, frmLower, bottomStrip])
+      frmAll = makeLayoutFrame('Vert', [lblInstruct, frmUpper, 'Space(5)', frmUTX, frmLower, nextStepStrip,bottomStrip])
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmAll)
@@ -4277,6 +4310,7 @@ class DlgOfflineTxCreated(QDialog):
       self.btnReady.setEnabled(True)
       
    def execLoadSig(self):
+      self.txtSignedFirstClick()
       fn = self.main.getFileLoad( title = 'Load Signed Transaction', \
                                   ffilter=['Signed Transactions (*.signed.tx)'])
       fileobj = open(fn, 'r')
@@ -4332,6 +4366,10 @@ class DlgOfflineTxCreated(QDialog):
       self.btnSaveS.setEnabled(True)
       self.btnCopyS.setEnabled(True)
             
+   
+   def doNextStep(self):
+      DlgReviewOfflineTx(self, self.main).exec_()
+      self.accept()
             
 
 
@@ -4363,6 +4401,15 @@ class DlgOfflineSelect(QDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
+      if not self.main.internetAvail:
+         if len(self.main.walletMap)==0:
+            btnReview = QPushButton('No Internet Connection or Wallets')
+            btnReview.setEnabled(False)
+         else:
+            btnReview = QPushButton('Sign Offline Transaction')
+      elif len(self.main.walletMap)==0:
+         btnReview = QPushButton('Broadcast Signed Transaction')
+
       btnCancel = QPushButton('<<< Go Back')
 
       def create():
@@ -4527,11 +4574,11 @@ class DlgReviewOfflineTx(QDialog):
 
 
       ###
-      self.infoLbls.append([])
-      self.infoLbls[-1].append( createToolTipObject( \
-            'Total number of transaction recipients, excluding change transactions.'))
-      self.infoLbls[-1].append( QRichLabel('<b># Recipients:</b>'))
-      self.infoLbls[-1].append( QRichLabel(''))
+      #self.infoLbls.append([])
+      #self.infoLbls[-1].append( createToolTipObject( \
+            #'Total number of transaction recipients, excluding change transactions.'))
+      #self.infoLbls[-1].append( QRichLabel('<b># Recipients:</b>'))
+      #self.infoLbls[-1].append( QRichLabel(''))
 
       ###
       #self.infoLbls.append([])
