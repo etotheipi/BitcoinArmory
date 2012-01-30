@@ -2296,6 +2296,7 @@ class DlgIntroMessage(QDialog):
          'Armory developers will not be held '
          'responsible for loss of funds due to software defects!'  )
 
+      
       lblShouldKnow = QRichLabel( \
          '<b>While this software is in <i>alpha</i></b>, it requires your system '
          'to hold the entire blockchain in RAM.  This will have serious '
@@ -2304,7 +2305,8 @@ class DlgIntroMessage(QDialog):
          'wait for the <i>beta</i> release, which will have a file-based blockchain '
          'option and will be network-independent of the Satoshi client.')
 
-      lblMustDo = QRichLabel('<b>In order to use this software:</b>')
+      lblMustDo = QRichLabel('<b>In order to use this software '
+                             '(unless you are in offline mode):</b>')
       strReqts = []
       strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
                       'the same network (Main-net or Testnet)')
