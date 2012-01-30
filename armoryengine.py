@@ -5388,7 +5388,7 @@ class PyBtcWallet(object):
       self.linearAddr160List = []
       self.chainIndexMap = {}
       if USE_TESTNET:
-         self.addrPoolSize = 5  # this makes debugging so much easier!
+         self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
          self.addrPoolSize = 100
 
@@ -5469,10 +5469,12 @@ class PyBtcWallet(object):
       self.doBlockchainSync = syncYes
 
    #############################################################################
-   def syncWithBlockchain(self):
+   def syncWithBlockchain(self, startBlk=None):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          assert(TheBDM.isInitialized())
-         TheBDM.scanBlockchainForTx(self.cppWallet, self.lastSyncBlockNum)
+         if startBlk==None:
+            startBlk = self.lastSyncBlockNum
+         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
          self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:
          print '***WARNING: Blockchain-sync requested, but current wallet'
@@ -5913,7 +5915,7 @@ class PyBtcWallet(object):
 
       oldSync = self.doBlockchainSync
       self.doBlockchainSync = BLOCKCHAIN_READONLY
-      self.syncWithBlockchain()
+      self.syncWithBlockchain(0)  # make sure we're always starting from blk 0
       self.doBlockchainSync = oldSync
 
       highestIndex = 0
@@ -7308,6 +7310,7 @@ class PyBtcWallet(object):
          
 
          
+      #### STUB:  Haven't finished this one, yet
 
 
 
@@ -7336,7 +7339,6 @@ class PyBtcWallet(object):
 
       numInputs = len(txdp.pytxObj.inputs)
       wltAddr = []
-      #amtToSign = 0  # I can't get this without asking blockchain for txout vals
       for index,txin in enumerate(txdp.pytxObj.inputs):
          scriptType = getTxOutScriptType(txdp.txOutScripts[index])
          
@@ -7362,7 +7364,9 @@ class PyBtcWallet(object):
 
       # The TxOut script is already in the TxIn script location, correctly
       # But we still need to blank out all other scripts when signing
+      maxChainIndex = -1
       for addrObj,idx, sigIdx in wltAddr:
+         maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
          if addrObj.isLocked:
             if self.kdfKey:
                addrObj.unlock(self.kdfKey)
@@ -7405,6 +7409,12 @@ class PyBtcWallet(object):
          else:
             print '***WARNING: unknown txOut script type'
 
+      
+      prevHighestIndex = self.highestUsedChainIndex  
+      if prevHighestIndex<maxChainIndex:
+         self.advanceHighestIndex(maxChainIndex-prevHighestIndex)
+         self.fillAddressPool()
+      
       return txdp
 
 
