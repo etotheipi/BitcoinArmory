@@ -2,9 +2,9 @@
 <VisualStudioProject
 	ProjectType="Visual C++"
 	Version="9.00"
-	Name="BitcoinArmoryEngine_MSVS2005"
+	Name="ArmoryEngine_MSVS2005"
 	ProjectGUID="{9B73A6D3-E0A1-469F-B473-420029B3F380}"
-	RootNamespace="BitcoinArmoryEngine_MSVS2005"
+	RootNamespace="ArmoryEngine_MSVS2005"
 	Keyword="Win32Proj"
 	TargetFrameworkVersion="131072"
 	>
