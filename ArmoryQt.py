@@ -1534,10 +1534,9 @@ if 1:  #__name__ == '__main__':
    if form.abortLoad:
       endProgram()
 
-   app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
-   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)
-   reactor.run()
+   reactor.runReturn()
+   sys.exit(app.exec_())
 
 
 
