@@ -1524,6 +1524,8 @@ if 1:  #__name__ == '__main__':
 
    from twisted.internet import reactor
    def endProgram():
+      if reactor.threadpool is not None:
+         reactor.threadpool.stop()
       app.quit()
       try:
          sys.exit()
@@ -1534,6 +1536,8 @@ if 1:  #__name__ == '__main__':
    if form.abortLoad:
       endProgram()
 
+   app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
+   reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
    sys.exit(app.exec_())
