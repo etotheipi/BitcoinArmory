@@ -442,6 +442,9 @@ class ArmoryMainWindow(QMainWindow):
 
          if dlg.requestCreate:
             self.createNewWallet(initLabel='Primary Wallet')
+
+         if dlg.requestImport:
+            self.execImportWallet()
             
       
    

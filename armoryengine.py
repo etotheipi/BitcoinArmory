@@ -171,6 +171,7 @@ class WalletExistsError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
+class BadInputError(Exception): pass
 
 
 
@@ -5786,8 +5787,6 @@ class PyBtcWallet(object):
       self.fillAddressPool(self.addrPoolSize)
 
       if self.useEncryption:
-         print 'Unlock-Lock seq just to make encr key data is available to lock '
-         print 'without the encryption key'
          self.unlock(secureKdfOutput=self.kdfKey)
          self.lock()
       return self

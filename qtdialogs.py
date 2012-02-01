@@ -206,7 +206,7 @@ class DlgNewWallet(QDialog):
       
       masterLayout = QGridLayout()
       masterLayout.addWidget(lblDlgDescr,        1, 0, 1, 2)
-      masterLayout.addWidget(self.btnImportWlt,  1, 2, 1, 1)
+      #masterLayout.addWidget(self.btnImportWlt,  1, 2, 1, 1)
       masterLayout.addWidget(lblName,            2, 0, 1, 1)
       masterLayout.addWidget(self.edtName,       2, 1, 1, 2)
       masterLayout.addWidget(lblDescr,           3, 0, 1, 2)
@@ -260,7 +260,7 @@ class DlgNewWallet(QDialog):
 
       ### Check that the KDF inputs are well-formed ####################
       try:
-         kdfT, kdfUnit = str(self.edtComputeTime.text()).split(' ') 
+         kdfT, kdfUnit = str(self.edtComputeTime.text()).strip().split(' ') 
          if kdfUnit.lower()=='ms':
             self.kdfSec = float(kdfT)/1000.
          elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
@@ -274,11 +274,9 @@ class DlgNewWallet(QDialog):
 
          print 'KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes'
       except:
-         raise
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
-            'The KDF parameters that you entered are not valid.  Please '
-            'specify KDF time in seconds or milliseconds, such as '
-            '"250 ms" or "2.1 s".  And specify memory as kB or MB, such as '
+            'Please specify time with units, such as '
+            '"250 ms" or "2.1 s".  Specify memory as kB or MB, such as '
             '"32 MB" or "256 kB". ', QMessageBox.Ok)
          return False
          
@@ -2331,8 +2329,8 @@ class DlgIntroMessage(QDialog):
          'to hold the entire blockchain in RAM.  This will have serious '
          'impacts on your system\'s performance if you are on the main Bitcoin '
          'network, unless you have 4GB or RAM or more.  If this is a problem, please '
-         'wait for the <i>beta</i> release, which will have a file-based blockchain '
-         'option and will be network-independent of the Satoshi client.')
+         'wait for the <i>beta</i> release, which will have dramatically-reduced '
+         'memory requirements.')
 
       lblMustDo = QRichLabel('<b>In order to use this software '
                              '(unless you are in offline mode):</b>')
@@ -2366,24 +2364,35 @@ class DlgIntroMessage(QDialog):
       self.chkDnaaIntroDlg = QCheckBox('Do not show this window again')
 
       self.requestCreate = False
+      self.requestImport = False
       buttonBox = QDialogButtonBox()
+      frmIcon = makeLayoutFrame('Vert', [lblInfoImg, 'Stretch'])
+      frmIcon.setMaximumWidth(60)
       if len(self.main.walletMap)==0:
          self.btnCreate = QPushButton("Create Your First Wallet!")
+         self.btnImport = QPushButton("Import Existing Wallet")
          self.btnCancel = QPushButton("Skip")
          self.connect(self.btnCreate, SIGNAL('clicked()'), self.createClicked)
+         self.connect(self.btnImport, SIGNAL('clicked()'), self.importClicked)
          self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
          buttonBox.addButton(self.btnCreate, QDialogButtonBox.AcceptRole)
+         buttonBox.addButton(self.btnImport, QDialogButtonBox.AcceptRole)
          buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
          self.chkDnaaIntroDlg.setVisible(False)
+         frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, \
+                                            self.btnCancel, \
+                                            'Stretch', \
+                                            self.btnImport, \
+                                            self.btnCreate])
       else:
          self.btnOkay = QPushButton("Okay!")
          self.connect(self.btnOkay, SIGNAL('clicked()'), self.accept)
          buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
+         frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, \
+                                            'Stretch', \
+                                            self.btnOkay])
 
       
-      frmIcon = makeLayoutFrame('Vert', [lblInfoImg, 'Stretch'])
-      frmIcon.setMaximumWidth(60)
-      frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, 'Stretch', buttonBox])
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmIcon,    0, 0,   1, 1)
@@ -2400,6 +2409,9 @@ class DlgIntroMessage(QDialog):
       self.requestCreate = True
       self.accept()
 
+   def importClicked(self):
+      self.requestImport = True
+      self.accept()
 
    def sizeHint(self):
       return QSize(750, 500)
@@ -2838,6 +2850,7 @@ class DlgRemoveWallet(QDialog):
          layout.addWidget(lbl, 4, 0, 1, 3)
 
       self.radioExclude = QRadioButton('Add this wallet to the "ignore list"')
+      self.radioExclude.setEnabled(False)
       self.radioDelete  = QRadioButton('Permanently delete this wallet')
       self.radioWatch   = QRadioButton('Delete private keys only, make watching-only')
 
@@ -2849,7 +2862,7 @@ class DlgRemoveWallet(QDialog):
       btngrp.setExclusive(True)
 
       ttipExclude = createToolTipObject( \
-                              'This will not delete any files, but will add this '
+                              '[DISABLED] This will not delete any files, but will add this '
                               'wallet to the "ignore list."  This means that Armory '
                               'will no longer show this wallet in the main screen '
                               'and none of its funds will be added to your balance.  '
@@ -2905,7 +2918,7 @@ class DlgRemoveWallet(QDialog):
          startRow +=1 
 
 
-      self.radioExclude.setChecked(True)
+      self.radioDelete.setChecked(True)
       rdoFrm.setLayout(rdoLayout)
 
       startRow = 6 if wltEmpty else 5
