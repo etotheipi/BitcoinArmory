@@ -553,7 +553,7 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
          for wltID,wlt in self.walletMap.iteritems():
             TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-         self.walletListChanged()
+         #self.walletListChanged()
          self.ledgerModel.reset()
 
       self.NetworkingFactory = ArmoryClientFactory( \

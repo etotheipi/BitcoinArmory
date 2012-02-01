@@ -728,7 +728,8 @@ class DlgWalletDetails(QDialog):
       if action==actionCopyAddr:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
       elif dev and action==actionCopyHash160:
-         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+         s = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
+         s = binary_to_hex(addrStr_to_hash160(s))
       elif action==actionCopyComment:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
       elif action==actionCopyBalance:
@@ -2150,14 +2151,13 @@ class DlgAddressInfo(QDialog):
       dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-         if self.wlt.useEncryption and self.wlt.isLocked:
-            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
-            if not unlockdlg.exec_():
-               QMessageBox.critical(self, 'Wallet is Locked', \
-                  'Cannot sweep an address while its keys are locked.', \
-                  QMessageBox.Ok)
-               return
-
+         #if self.wlt.useEncryption and self.wlt.isLocked:
+            #unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
+            #if not unlockdlg.exec_():
+               #QMessageBox.critical(self, 'Wallet is Locked', \
+                  #'Cannot sweep an address while its keys are locked.', \
+                  #QMessageBox.Ok)
+               #return
          self.main.broadcastTransaction(finishedTx, dryRun=False)
 
    def deleteAddr(self):
