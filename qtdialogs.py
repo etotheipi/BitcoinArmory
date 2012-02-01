@@ -541,6 +541,9 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
       self.wltAddrView.setMinimumWidth(800)
       initialColResize(self.wltAddrView, [0.2, 0.4, 64, 80, 0.3])
+
+      self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
    
       # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
@@ -710,6 +713,34 @@ class DlgWalletDetails(QDialog):
       self.setWindowTitle('Wallet Details')
 
       
+   #############################################################################
+   def showContextMenu(self, pos):
+      menu = QMenu(self.wltAddrView)
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
+      
+      if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160")
+      if True:  actionCopyComment = menu.addAction("Copy Comment")
+      if True:  actionCopyBalance = menu.addAction("Copy Balance")
+      idx = self.wltAddrView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+         
+      if action==actionCopyAddr:
+         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif dev and action==actionCopyHash160:
+         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif action==actionCopyComment:
+         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
+      elif action==actionCopyBalance:
+         s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Balance).data().toString()
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(s).strip())
 
    #############################################################################
    def dblClickAddressView(self, index):
@@ -854,6 +885,8 @@ class DlgWalletDetails(QDialog):
 
    def saveWalletCopy(self):
       fn = 'armory_%s_.wallet' % self.wlt.uniqueIDB58
+      if self.wlt.watchingOnly:
+         fn = 'armory_%s.watchonly.wallet' % self.wlt.uniqueIDB58
       savePath = self.main.getFileSave(defaultFilename=fn)
       if len(savePath)>0:
          self.wlt.writeFreshWalletFile(savePath)
@@ -4921,13 +4954,14 @@ class DlgShowKeyList(QDialog):
       self.chkList['InitVect']  = QCheckBox('Initialization Vect (if encrypted)')
       self.chkList['ChainIndex']= QCheckBox('Chain Index')
 
+      watchOnly = self.wlt.watchingOnly
       self.chkList['AddrStr'   ].setChecked(True )
       self.chkList['PubKeyHash'].setChecked(False)
-      self.chkList['PrivB58'   ].setChecked(True )
+      self.chkList['PrivB58'   ].setChecked(not watchOnly)
       self.chkList['PrivCrypt' ].setChecked(False)
-      self.chkList['PrivHexBE' ].setChecked(True )
+      self.chkList['PrivHexBE' ].setChecked(not watchOnly)
       self.chkList['PrivHexLE' ].setChecked(False)
-      self.chkList['PubKey'    ].setChecked(False)
+      self.chkList['PubKey'    ].setChecked(watchOnly)
       self.chkList['InitVect'  ].setChecked(False)
       self.chkList['ChainIndex'].setChecked(False)
 
@@ -5621,15 +5655,17 @@ class DlgDispTxInfo(QDialog):
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.ScrType) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
-            self.txInView.setSelectionMode(QTableView.NoSelection)
+            #self.txInView.setSelectionMode(QTableView.NoSelection)
          elif self.mode==USERMODE.Advanced:
             initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
             self.txInView.hideColumn(TXINCOLS.FromBlk) 
             self.txInView.hideColumn(TXINCOLS.Sequence) 
-            self.txInView.setSelectionMode(QTableView.NoSelection)
+            #self.txInView.setSelectionMode(QTableView.NoSelection)
          elif self.mode==USERMODE.Developer:
             self.txInView.resizeColumnsToContents()
             
+      self.txInView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.txInView.customContextMenuRequested.connect(self.showContextMenuTxIn)
 
       # List of TxOuts/Recipients
       if not precomputeIdxGray==None:
@@ -5649,14 +5685,16 @@ class DlgDispTxInfo(QDialog):
          self.txOutView.hideColumn(TXOUTCOLS.ScrType) 
          initialColResize(self.txOutView, [wWlt, wAddr, 0.25, 0, 0])
          self.txOutView.horizontalHeader().setStretchLastSection(True)
-         self.txOutView.setSelectionMode(QTableView.NoSelection)
+         #self.txOutView.setSelectionMode(QTableView.NoSelection)
       elif self.mode==USERMODE.Advanced:
          initialColResize(self.txOutView, [0.8*wWlt, 0.6*wAddr, wAmt, 0.25, 0])
-         self.txOutView.setSelectionMode(QTableView.NoSelection)
+         #self.txOutView.setSelectionMode(QTableView.NoSelection)
       elif self.mode==USERMODE.Developer:
          initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
       #self.txOutView.resizeColumnsToContents()
 
+      self.txOutView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.txOutView.customContextMenuRequested.connect(self.showContextMenuTxOut)
 
       self.lblTxioInfo = QRichLabel('')
       self.lblTxioInfo.setMinimumWidth( tightSizeNChar(self.lblTxioInfo, 30)[0])
@@ -5808,8 +5846,69 @@ class DlgDispTxInfo(QDialog):
       clipb.setText(binary_to_hex(self.pytx.serialize()))
       self.lblCopied.setText('<i>Copied to Clipboard!</i>')
       
-
+   #############################################################################
+   def showContextMenuTxIn(self, pos):
+      menu = QMenu(self.txInView)
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
       
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
+      if True:   actCopySender = menu.addAction("Copy Sender Address")
+      if True:   actCopyAmount = menu.addAction("Copy Amount")
+      if dev:    actCopyOutPt  = menu.addAction("Copy Outpoint")
+      if dev:    actCopyScript = menu.addAction("Copy Raw Script")
+      idx = self.txInView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+
+      if action==actCopyWltID:
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.WltID).data().toString())
+      elif action==actCopySender:
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Sender).data().toString())
+      elif action==actCopyAmount:
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Btc).data().toString())
+      elif dev and action==actCopyOutPt:
+         s1 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutPt).data().toString())
+         s2 = str(self.txInView.model().index(idx.row(), TXINCOLS.OutIdx).data().toString())
+         s = s1 + ':' + s2
+      elif dev and action==actCopyScript:
+         s = str(self.txInView.model().index(idx.row(), TXINCOLS.Script).data().toString())
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(s.strip())
+      
+   #############################################################################
+   def showContextMenuTxOut(self, pos):
+      menu = QMenu(self.txOutView)
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
+      
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
+      if True:   actCopySender = menu.addAction("Copy Recipient Address")
+      if True:   actCopyAmount = menu.addAction("Copy Amount")
+      if dev:    actCopyScript = menu.addAction("Copy Raw Script")
+      idx = self.txOutView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+         
+      if action==actCopyWltID:
+         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.WltID).data().toString()
+      elif action==actCopySender:
+         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Recip).data().toString()
+      elif action==actCopyAmount:
+         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Btc).data().toString()
+      elif dev and action==actCopyAmount:
+         s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Script).data().toString()
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(s).strip())
+
 
 class DlgPaperBackup(QDialog):
    """
