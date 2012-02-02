@@ -554,6 +554,7 @@ class ArmoryMainWindow(QMainWindow):
          for wltID,wlt in self.walletMap.iteritems():
             TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
          #self.walletListChanged()
+         self.createCombinedLedger()
          self.ledgerModel.reset()
 
       self.NetworkingFactory = ArmoryClientFactory( \
@@ -760,7 +761,6 @@ class ArmoryMainWindow(QMainWindow):
             
          self.createCombinedLedger()
          self.ledgerSize = len(self.combinedLedger)
-         print 'Ledger entries:', len(self.combinedLedger), 'Max Block:', self.latestBlockNum
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
 
          if self.isOnline:
@@ -1276,7 +1276,6 @@ class ArmoryMainWindow(QMainWindow):
             
    #############################################################################
    def execImportWallet(self):
-      print 'Executing!'
       dlg = DlgImportWallet(self, self)
       if dlg.exec_():
 
@@ -1367,6 +1366,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
+      wltID = None
+      selectionMade = True
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You cannot send any Bitcoins until you create a wallet and '
@@ -1375,15 +1376,20 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.createNewWallet(initLabel='Primary Wallet')
          return
+      elif len(self.walletMap)==1:
+         wltID = self.walletMap.keys()[0]
+      else:
+         wltSelect = self.walletsView.selectedIndexes()
+         if len(wltSelect)>0:
+            row = wltSelect[0].row()
+            wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
+         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=False)
+         if dlg.exec_():
+            wltID = dlg.selectedID 
+         else:
+            selectionMade = False
 
-      wltSelect = self.walletsView.selectedIndexes()
-      wltID = None
-      if len(wltSelect)>0:
-         row = wltSelect[0].row()
-         wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=True)
-      if dlg.exec_():
-         wltID = dlg.selectedID 
+      if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
          dlgSend = DlgSendBitcoins(wlt, self, self)
@@ -1393,6 +1399,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def clickReceiveCoins(self):
 
+      wltID = None
+      selectionMade = True
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You have not created any wallets which means there is nowhere to '
@@ -1401,16 +1409,22 @@ class ArmoryMainWindow(QMainWindow):
          if reply==QMessageBox.Yes:
             self.createNewWallet(initLabel='Primary Wallet')
          return
+      elif len(self.walletMap)==1:
+         wltID = self.walletMap.keys()[0]
+      else:
+         wltSelect = self.walletsView.selectedIndexes()
+         if len(wltSelect)>0:
+            row = wltSelect[0].row()
+            wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
+         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=False)
+         if dlg.exec_():
+            wltID = dlg.selectedID 
+         else:
+            selectionMade = False
 
-      wltSelect = self.walletsView.selectedIndexes()
-      wltID = None
-      if len(wltSelect)>0:
-         row = wltSelect[0].row()
-         wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-      dlg = DlgWalletSelect(self, self, wltID, onlyMyWallets=True)
-      if dlg.exec_():
-         wltID = dlg.selectedID 
+      if selectionMade:
          wlt = self.walletMap[wltID]
+         wlttype = determineWalletType(wlt, self)[0]
          dlgaddr = DlgNewAddressDisp(wlt, self, self)
          dlgaddr.exec_()
 
@@ -1421,7 +1435,6 @@ class ArmoryMainWindow(QMainWindow):
       run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
-      #print '.',
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()

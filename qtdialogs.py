@@ -3222,7 +3222,7 @@ class DlgWalletSelect(QDialog):
       lbls.append( QLabel("Wallet ID:") )
       lbls.append( QLabel("Name:"))
       lbls.append( QLabel("Description:"))
-      lbls.append( QLabel("Current Balance:"))
+      lbls.append( QLabel("Spendable Balance:"))
 
       for i in range(len(lbls)):
          lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -3315,7 +3315,7 @@ def getWalletInfoFrame(wlt):
    lbls.append( QLabel("Wallet ID:") )
    lbls.append( QLabel("Name:"))
    lbls.append( QLabel("Description:"))
-   lbls.append( QLabel("Current Balance:"))
+   lbls.append( QLabel("Spendable Balance:"))
 
    for i in range(len(lbls)):
       lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -3331,7 +3331,7 @@ def getWalletInfoFrame(wlt):
    # Format balance if necessary
    bal = wlt.getBalance('Spendable')
    if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<b>'+coin2str(bal, maxZeros=1)+'</b>')
+   else:      dispBal.setText('<font color="green"><b>'+coin2str(bal, maxZeros=1)+'</font></b>')
 
    dispBal.setTextFormat(Qt.RichText)
    dispDescr.setWordWrap(True)
@@ -3678,8 +3678,6 @@ class DlgSendBitcoins(QDialog):
                   return
               
             
-            print self.origRVPairs
-            print self.comments
             commentStr = ''
             if len(self.comments)==1:
                commentStr = self.comments[0]
@@ -3689,14 +3687,11 @@ class DlgSendBitcoins(QDialog):
                   if len(self.comments[i].strip())>0:
                      commentStr += '%s (%s);  ' % (self.comments[i], coin2str_approx(amt).strip())
             
-            print commentStr
 
             txdp = self.wlt.signTxDistProposal(txdp)
             finalTx = txdp.prepareFinalTx()
             if len(commentStr)>0:
                self.wlt.setComment(finalTx.getHash(), commentStr)
-            print self.wlt.commentsMap
-            print '\n\n'
             print binary_to_hex(finalTx.serialize())
             print txdp.serializeAscii()
             self.main.broadcastTransaction(finalTx)
@@ -5913,7 +5908,7 @@ class DlgDispTxInfo(QDialog):
          s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Recip).data().toString()
       elif action==actCopyAmount:
          s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Btc).data().toString()
-      elif dev and action==actCopyAmount:
+      elif dev and action==actCopyScript:
          s = self.txOutView.model().index(idx.row(), TXOUTCOLS.Script).data().toString()
       else:
          return

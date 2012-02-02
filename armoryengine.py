@@ -107,9 +107,9 @@ print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
 # Get the host operating system
 import platform
 opsys = platform.system()
-OS_WINDOWS = 'win' in opsys.lower()
-OS_LINUX   = 'nix' in opsys.lower() or 'nux' in opsys.lower()
-OS_MACOSX  = 'mac' in opsys.lower() or 'osx' in opsys.lower()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
+OS_LINUX   = 'nix'    in opsys.lower() or 'nux'     in opsys.lower()
+OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
@@ -766,20 +766,7 @@ def BDM_LoadBlockchainFile(blkfile=None):
    the bdm object.
    """
    if blkfile==None:
-      if not USE_TESTNET:
-         if 'win' in opsys.lower():
-            blkfile = os.path.join(os.getenv('APPDATA'), 'Bitcoin', 'blk0001.dat')
-         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = os.path.join(os.getenv('HOME'), '.bitcoin', 'blk0001.dat')
-         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/blk0001.dat')
-      else:
-         if 'win' in opsys.lower():
-            blkfile = os.path.join(os.getenv('APPDATA'), 'Bitcoin/testnet', 'blk0001.dat')
-         if 'nix' in opsys.lower() or 'nux' in opsys.lower():
-            blkfile = os.path.join(os.getenv('HOME'), '.bitcoin/testnet', 'blk0001.dat')
-         if 'mac' in opsys.lower() or 'osx' in opsys.lower():
-            blkfile = os.path.expanduser('~/Library/Application Support/Bitcoin/testnet/blk0001.dat')
+      blkfile = BLK0001_PATH
 
    if not os.path.exists(blkfile):
       raise FileExistsError, ('File does not exist: %s' % blkfile)
