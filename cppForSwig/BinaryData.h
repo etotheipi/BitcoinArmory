@@ -31,12 +31,28 @@
    #define UINT16_MAX   _UI16_MAX
    #define UINT32_MAX   _UI32_MAX
    #define UINT64_MAX   _UI64_MAX
+
 #else
    #include <stdlib.h>
    #include <inttypes.h>   
    #include <cstring>
    #include <stdint.h>
+
+   #ifndef PAGESIZE
+      #include <unistd.h>
+      #define PAGESIZE sysconf(_SC_PAGESIZE)
+   #endif
+
+   #ifndef PAGEFLOOR
+      // "Round" a ptr down to the beginning of the memory page containing it
+      // PAGERANGE gives us a size to lock/map as a multiple of the PAGESIZE
+      #define PAGEFLOOR(ptr,sz) ((void*)(((size_t)(ptr)) & (~(PAGESIZE-1))  ))
+      #define PAGERANGE(ptr,sz) (  (((size_t)(ptr)+(sz)-1) | (PAGESIZE-1)) + 1 - PAGEFLOOR(ptr,sz)  )
+   #endif
+   
+
 #endif
+
 #include <iostream>
 #include <vector>
 #include <string>
