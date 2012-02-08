@@ -320,7 +320,9 @@ class ArmoryMainWindow(QMainWindow):
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
       if self.haveBlkFile:
+         tstart = RightNow()
          self.loadBlockchain()
+         print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
       self.ledgerView.setModel(self.ledgerModel)

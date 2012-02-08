@@ -5219,7 +5219,7 @@ def touchFile(fname):
    except:
       f = open(fname, 'a')
       f.flush()
-      f.fsync(f.fileno())
+      os.fsync(f.fileno())
       f.close()
 
 BLOCKCHAIN_READONLY   = 0
@@ -8291,7 +8291,7 @@ PayloadMap = {
 
 
 try:
-   from twisted.internet.protocol import Protocol, ClientFactory
+   from twisted.internet.protocol import Protocol, ClientFactory, ReconnectingClientFactory
    from twisted.internet.defer import Deferred
 except ImportError:
    print '***Python-Twisted is not installed -- cannot enable'
@@ -8508,7 +8508,7 @@ class ArmoryClient(Protocol):
 
 ################################################################################
 ################################################################################
-class ArmoryClientFactory(ClientFactory):
+class ArmoryClientFactory(ReconnectingClientFactory):
    """
    Spawns Protocol objects used for communicating over the socket.  All such
    objects (ArmoryClients) can share information through this factory.
@@ -8603,7 +8603,8 @@ class ArmoryClientFactory(ClientFactory):
 
    #############################################################################
    def clientConnectionLost(self, connector, reason):
-      connector.connect()
+      print '***Connection to Satoshi client LOST!  Attempting to reconnect...'
+      ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
 
    #############################################################################
    def connectionFailed(self, protoObj, reason):
@@ -8612,10 +8613,11 @@ class ArmoryClientFactory(ClientFactory):
       to reopen the connection... and I'll need to copy the Deferred so
       that it is ready for the next connection failure
       """
-      print 'Connection failed!'
-      time.sleep(5)
-      if self.func_loseConnect:
-         self.func_loseConnect(protoObj, reason)
+      print '***Initial connection to Satoshi client failed!  Retrying...'
+      ReconnectingClientFactory.connectionFailed(self, protoObj, reason)
+      #time.sleep(5)
+      #if self.func_loseConnect:
+         #self.func_loseConnect(protoObj, reason)
       #d, self.deferred_loseConnect = self.deferred_loseConnect, None
       #d.errback(reason)
 
