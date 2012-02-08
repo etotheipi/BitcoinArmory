@@ -8,19 +8,13 @@
 #ifndef _BINARYDATAMMAP_H_
 #define _BINARYDATAMMAP_H_
 
-#include <stdio.h>
 #include "BinaryData.h"
 
 
-// This is used to attempt to keep keying material out of swap
-// I am stealing this from bitcoin 0.4.0 src, serialize.h
+// Memory-Mapped Files.  Unfortunately, completely different between Win & Linux
 #if defined(_MSC_VER) || defined(__MINGW32__)
-   // Note that VirtualLock does not provide this as a guarantee on Windows,
-   // but, in practice, memory that has been VirtualLock'd almost never gets written to
-   // the pagefile except in rare circumstances where memory is extremely low.
+   // TODO: Add the windows versions of these function calls
    #include <windows.h>
-   #define mlock(p, n) VirtualLock((p), (n));
-   #define munlock(p, n) VirtualUnlock((p), (n));
 #else
    #include <sys/mman.h>
    #include <limits.h>
@@ -30,28 +24,44 @@
       #define PAGESIZE sysconf(_SC_PAGESIZE)
    #endif
 
-   #define    mmap(ptr,sz)     (   mmap(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz)))
-   #define  munmap(ptr,sz)     ( munmap(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz)))
-   #define  mremap(ptr,sz)     ( mremap(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz)))
-   #define madvise(ptr,sz,adv) (madvise(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz), adv))
+   // I don't believe any of the below defines are necessary, because we will 
+   // always use the ptr = mmap(NULL, ...) version which ALWAYS returns a ptr to the 
+   // start of a memory page.
+   //#define  munmap(ptr,sz)     ( munmap(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz)))
+   //#define  mremap(ptr,sz)     ( mremap(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz)))
+   //#define madvise(ptr,sz,adv) (madvise(PAGEFLOOR(ptr,sz), PAGERANGE(ptr,sz), adv))
+   
+
+   #ifdef POSIX
+      #define POSIX_MADV_SEQUENTIAL MADV_SEQUENTIAL
+      #define POSIX_MADV_RANDOM     MADV_RANDOM
+   #endif
 #endif
 
+
+#define FILE_DOES_NOT_EXIST UINT64_MAX
 
 
 class BinaryDataMMAP 
 {
 public:
-   BinaryDataMMAP(void) {}
+   BinaryDataMMAP(void)     { init(); }
+   BinaryDataMMAP(uint64_t) { init(); } 
    BinaryDataMMAP(string filename);
+
+   void init(void);
 
    static uint64_t getFilesize(string filename);
 
    void clear(void) {}
-   void getPtr(void)  {return ptr_;}
-   void getSize(void) {return size_;}
+   uint8_t* getPtr(void)  {return ptr_;}
+   uint64_t getSize(void) {return size_;}
 
-   void createMMAP(string filename);
-   void resizeMMAP(string filename);
+   bool createMMAP(string filename);
+   //bool  remapMMAP(string filename);
+   void deleteMMAP(void);
+
+   void setAdvice(int advice);
 
 
 private:
@@ -59,7 +69,9 @@ private:
    uint64_t size_;   
 
    string filename_;
+   int32_t fileDescriptor_;
 };
 
 
 
+#endif

@@ -2623,7 +2623,7 @@ def getTxInScriptType(txinObj):
    binScript = txinObj.binScript
    if len(binScript)==0:
       return TXIN_SCRIPT_UNSIGNED
-   if txinObj.outpoint.txHash == EmptyHash or len(binScript) < 1:
+   if txinObj.outpoint.txHash == EmptyHash:
       return TXIN_SCRIPT_COINBASE
 
    b0,b1,b2,b3,b4 = binScript[:5]
@@ -5217,7 +5217,10 @@ def touchFile(fname):
    try:
       os.utime(fname, None)
    except:
-      open(fname, 'a').close()
+      f = open(fname, 'a')
+      f.flush()
+      f.fsync(f.fileno())
+      f.close()
 
 BLOCKCHAIN_READONLY   = 0
 BLOCKCHAIN_READWRITE  = 1
@@ -5473,10 +5476,10 @@ class PyBtcWallet(object):
       if not TheBDM.isInitialized():
          return -1
       else:
+         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
          if balType.lower() in ('spendable','spend'):
-            return self.cppWallet.getSpendableBalance()
+            return self.cppWallet.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
-            currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
             return self.cppWallet.getUnconfirmedBalance(currBlk)
          elif balType.lower() in ('total','ultimate','unspent','full'):
             return self.cppWallet.getFullBalance()
@@ -5491,7 +5494,7 @@ class PyBtcWallet(object):
       else:
          addr = self.cppWallet.getAddrByHash160(addr160)
          if balType.lower() in ('spendable','spend'):
-            return addr.getSpendableBalance()
+            return addr.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
             return addr.getUnconfirmedBalance(currBlk)
          elif balType.lower() in ('ultimate','unspent','full'):
@@ -6880,7 +6883,6 @@ class PyBtcWallet(object):
          return []
 
       binaryToAppend = toAppend.getBinaryString()
-
 
       # We need to safely modify both the main wallet file and backup
       # Start with main wallet

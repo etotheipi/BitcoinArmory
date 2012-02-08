@@ -29,6 +29,7 @@
 #include <limits>
 
 #include "BinaryData.h"
+#include "BinaryDataMMAP.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
 #include "BlockObjRef.h"
@@ -43,6 +44,8 @@
 #define TX_NOT_EXIST       -1
 #define TX_OFF_MAIN_BRANCH -2
 
+#define MIN_CONFIRMATIONS   6
+#define COINBASE_MATURITY 120
 
 using namespace std;
 
@@ -96,8 +99,10 @@ public:
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
 
    pair<bool,bool> reassessValidity(void);
-   bool isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
+   bool  isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
    void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
+   bool  isFromCoinbase(void) { return isFromCoinbase_; }
+   void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
 
 
    //////////////////////////////////////////////////////////////////////////////
@@ -113,8 +118,8 @@ public:
 
    bool isSpent(void);
    bool isUnspent(void);
-   bool isSpendable(void);      
-   bool isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf=6);
+   bool isSpendable(uint32_t currBlk=0);
+   bool isMineButUnconfirmed(uint32_t currBlk);
    void clearZCFields(void);
 
    void pprintOneLine(void);
@@ -132,6 +137,7 @@ private:
    uint32_t  indexOfInputZC_;
 
    bool      isTxOutFromSelf_;
+   bool      isFromCoinbase_;
 };
 
 
@@ -290,7 +296,7 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(void);
+   uint64_t getSpendableBalance(uint32_t currBlk=0);
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
@@ -387,7 +393,7 @@ public:
    // the Utxos in the list.  If you don't care (i.e. you only want to 
    // know what TxOuts are available to spend, you can pass in 0 for currBlk
    uint64_t getFullBalance(void);
-   uint64_t getSpendableBalance(void);
+   uint64_t getSpendableBalance(uint32_t currBlk=0);
    uint64_t getUnconfirmedBalance(uint32_t currBlk);
    vector<UnspentTxOut> getFullTxOutList(uint32_t currBlk=0);
    vector<UnspentTxOut> getSpendableTxOutList(uint32_t currBlk=0);
@@ -536,7 +542,7 @@ private:
    // These four data structures contain all the *real* data.  Everything 
    // else is just references and pointers to this data
    string                             blkfilePath_;
-   BinaryData                         blockchainData_ALL_;
+   BinaryDataMMAP                     blockchainData_ALL_;
    list<BinaryData>                   blockchainData_NEW_; 
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef>             txHashMap_;

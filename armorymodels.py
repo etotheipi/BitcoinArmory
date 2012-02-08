@@ -266,7 +266,12 @@ class LedgerDispDelegate(QStyledItemDelegate):
          # So I have to pass the amt as string, then convert here to long
          toSelf = index.model().index(index.row(), self.COL.toSelf).data().toBool()
          image = QImage()
-         if toSelf:
+
+         # isCoinbase still needs to be flagged in the C++ utils
+         isCoinbase = False
+         if isCoinbase:
+            image = QImage('img/moneyCoinbase.png')
+         elif toSelf:
             image = QImage('img/moneySelf.png')
          else:
             txdir = str(index.model().data(index).toString()).strip()
@@ -274,6 +279,7 @@ class LedgerDispDelegate(QStyledItemDelegate):
                image = QImage('img/moneyOut.png')
             else:
                image = QImage('img/moneyIn.png')
+
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)

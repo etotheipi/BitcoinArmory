@@ -33,7 +33,8 @@ TxIOPair::TxIOPair(void) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isTxOutFromSelf_(false) {}
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(uint64_t  amount) :
@@ -46,7 +47,8 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0) ,
-   isTxOutFromSelf_(false) {}
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false) {}
 
 //////////////////////////////////////////////////////////////////////////////
 TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
@@ -57,7 +59,8 @@ TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isTxOutFromSelf_(false)
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
 }
@@ -72,7 +75,8 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
    indexOfOutputZC_(0),
    txPtrOfInputZC_(NULL),
    indexOfInputZC_(0),
-   isTxOutFromSelf_(false)
+   isTxOutFromSelf_(false),
+   isFromCoinbase_(false)
 { 
    setTxOutRef(txPtrO, txoutIndex);
    setTxInRef (txPtrI, txinIndex );
@@ -207,7 +211,7 @@ bool TxIOPair::isUnspent(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isSpendable(void) 
+bool TxIOPair::isSpendable(uint32_t currBlk)
 { 
    // Spendable TxOuts are ones with at least 1 confirmation, or zero-conf
    // TxOuts that were sent-to-self.  Obviously, they should be unspent, too
@@ -215,7 +219,13 @@ bool TxIOPair::isSpendable(void)
       return false;
    
    if( hasTxOutInMain() )
-      return true;
+   {
+      uint32_t nConf = currBlk - txPtrOfOutput_->getBlockHeight() + 1;
+      if(isFromCoinbase_ && nConf<=COINBASE_MATURITY)
+         return false;
+      else
+         return true;
+   }
 
    if( hasTxOutZC() && isTxOutFromSelf() )
       return true;
@@ -224,22 +234,25 @@ bool TxIOPair::isSpendable(void)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
+bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
 {
-   // Only zero-conf Tx can be unconfirmed
+   if( isTxOutFromSelf() )
+      return false;  // all money from self is always confirmed
+
    if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
       return false;
 
-   if( hasTxOut() && txPtrOfOutput_->isMainBranch() )
+   if(hasTxOutInMain())
    {
       uint32_t nConf = currBlk - txPtrOfOutput_->getBlockHeight() + 1;
-      if(nConf<minConf)
-         return true;
+      if(isFromCoinbase_)
+         return (nConf<COINBASE_MATURITY);
+      else 
+         return (nConf<MIN_CONFIRMATIONS);
    }
+
    else if( hasTxOutZC() && !isTxOutFromSelf() )
-   {
       return true;
-   }
 
 
    return false;
@@ -352,7 +365,7 @@ BtcAddress::BtcAddress(BinaryData    addr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcAddress::getSpendableBalance(void)
+uint64_t BtcAddress::getSpendableBalance(uint32_t currBlk)
 {
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
@@ -411,7 +424,7 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrs_[i];
-      if(txio.isSpendable())
+      if(txio.isSpendable(blkNum))
       {
          TxOutRef txoutref = txio.getTxOutRef();
          utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
@@ -420,7 +433,7 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
-      if(txio.isSpendable())
+      if(txio.isSpendable(blkNum))
       {
          TxOutRef txoutref = txio.getTxOutRef();
          utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
@@ -687,6 +700,7 @@ void BtcWallet::scanTx(TxRef & tx,
    // whether it was new.
    bool anyNewTxInIsOurs   = false;
    bool anyNewTxOutIsOurs  = false;
+   bool isCoinbaseTx       = false;
    for(uint32_t i=0; i<addrPtrVect_.size(); i++)
    {
       BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -699,7 +713,10 @@ void BtcWallet::scanTx(TxRef & tx,
          OutPoint outpt = txin.getOutPoint();
          // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
          if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
+         {
+            isCoinbaseTx = true;
             continue;
+         }
 
          // We have the txin, now check if it contains one of our TxOuts
          map<OutPoint, TxIOPair>::iterator txioIter = txioMap_.find(outpt);
@@ -842,6 +859,9 @@ void BtcWallet::scanTx(TxRef & tx,
             if(anyTxInIsOurs)
                txioIter->second.setTxOutFromSelf();
            
+            if(isCoinbaseTx)
+               txioIter->second.setFromCoinbase();
+
             anyNewTxOutIsOurs = true;
             thisTxOutIsOurs[iout] = true;
 
@@ -1081,7 +1101,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
 //uint64_t BtcWallet::getBalance(bool blockchainOnly)
 
 ////////////////////////////////////////////////////////////////////////////////
-uint64_t BtcWallet::getSpendableBalance(void)
+uint64_t BtcWallet::getSpendableBalance(uint32_t currBlk)
 {
    uint64_t balance = 0;
    map<OutPoint, TxIOPair>::iterator iter;
@@ -1089,7 +1109,7 @@ uint64_t BtcWallet::getSpendableBalance(void)
        iter != txioMap_.end();
        iter++)
    {
-      if(iter->second.isSpendable())
+      if(iter->second.isSpendable(currBlk))
          balance += iter->second.getValue();      
    }
    return balance;
@@ -1135,7 +1155,7 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
        iter++)
    {
       TxIOPair & txio = iter->second;
-      if(txio.isSpendable())
+      if(txio.isSpendable(blkNum))
       {
          TxOutRef txoutref = txio.getTxOutRef();
          utxoList.push_back(UnspentTxOut(txoutref, blkNum) );
@@ -1289,14 +1309,14 @@ void BlockDataManager_FullRAM::SelectNetwork(string netName)
       SetBtcNetworkParams( 
          BinaryData::CreateFromHex(MAINNET_GENESIS_HASH_HEX),
          BinaryData::CreateFromHex(MAINNET_GENESIS_TX_HASH_HEX),
-         BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES));
+         BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES)         );
    }
    else if(netName.compare("Test") == 0)
    {
       SetBtcNetworkParams( 
          BinaryData::CreateFromHex(TESTNET_GENESIS_HASH_HEX),
          BinaryData::CreateFromHex(TESTNET_GENESIS_TX_HASH_HEX),
-         BinaryData::CreateFromHex(TESTNET_MAGIC_BYTES));
+         BinaryData::CreateFromHex(TESTNET_MAGIC_BYTES)         );
    }
    else
    {
@@ -1525,7 +1545,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 
    cout << "Wallet PPRINT:" << endl;
    cout << "Tot: " << getFullBalance() << endl;
-   cout << "Spd: " << getSpendableBalance() << endl;
+   cout << "Spd: " << getSpendableBalance(topBlk) << endl;
    cout << "Ucn: " << getUnconfirmedBalance(topBlk) << endl;
 
    cout << "Ledger: " << endl;
@@ -1553,7 +1573,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
          BinaryData addr160 = addr.getAddrStr20();
          cout << "\nAddress: " << addr160.toHexStr().c_str() << endl;
          cout << "   Tot: " << addr.getFullBalance() << endl;
-         cout << "   Spd: " << addr.getSpendableBalance() << endl;
+         cout << "   Spd: " << addr.getSpendableBalance(topBlk) << endl;
          cout << "   Ucn: " << addr.getUnconfirmedBalance(topBlk) << endl;
                   
          cout << "   Ledger: " << endl;
@@ -1864,35 +1884,46 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
    cout << blkfilePath_.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
 
    //////////////////////////////////////////////////////////////////////////
-   TIMER_START("ReadBlockchainIntoRAM");
-   blockchainData_ALL_.resize(filesize);
-   is.read((char*)blockchainData_ALL_.getPtr(), filesize);
-   is.close();
-   TIMER_STOP("ReadBlockchainIntoRAM");
+   // This code is irrelevant with MMAP'd file, now
+   //
+   //TIMER_START("ReadBlockchainIntoRAM");
+   //blockchainData_ALL_.resize(filesize);
+   //is.read((char*)blockchainData_ALL_.getPtr(), filesize);
+   //is.close();
+   //TIMER_STOP("ReadBlockchainIntoRAM");
    //////////////////////////////////////////////////////////////////////////
 
-
-
-   PDEBUG("Scanning all block data currently in RAM");
+   // Use MMAP'd data, now
+   blockchainData_ALL_.createMMAP(blkfilePath_);
 
    // Blockchain data is now in its permanent location in memory
-   BinaryRefReader brr(blockchainData_ALL_);
+   BinaryRefReader brr(blockchainData_ALL_.getPtr(), filesize);
+
    uint32_t nBlkRead = 0;
    bool keepGoing = true;
 
-   TIMER_START("ScanBlockchainInRAM");
+   // NEW for MMAP'd data: add "advice" for optimal HDD caching
+   // Initial blockchain scan will be scanned completely sequentially
+   // Following, most accesses will be semi-randomly distributed, most
+   // of them in the most recent blocks.  TODO:  Maybe I should set 
+   // advice, DONTNEED for the first 90% of the blockchain:
+   PDEBUG("Scanning all block data currently in MMAP");
+   TIMER_START("ScanBlockchainInMMAP");
+   blockchainData_ALL_.setAdvice(MADV_SEQUENTIAL);
    while(keepGoing)
    {
       keepGoing = parseNewBlockData(brr, totalBlockchainBytes_);
       nBlkRead++;
    }
-   TIMER_STOP("ScanBlockchainInRAM");
+   blockchainData_ALL_.setAdvice(MADV_RANDOM);
+   TIMER_STOP("ScanBlockchainInMMAP");
+
 
    // We need to maintain the physical size of blk0001.dat (lastEOFByteLoc_)
    // separately from the total size of the blockchain, which may include
    // new bytes not in the blk0001.dat yet
    totalBlockchainBytes_ = blockchainData_ALL_.getSize();
-   lastEOFByteLoc_       = blockchainData_ALL_.getSize();;
+   lastEOFByteLoc_       = blockchainData_ALL_.getSize();
 
    // Organize the chain by default--it takes less than 1s.  I can't really
    // think of a use case where you would want only an unorganized blockchain
