@@ -12,7 +12,7 @@
 #include "BlockUtils.h"
 
 
-BlockDataManager_FullRAM* BlockDataManager_FullRAM::theOnlyBDM_ = NULL;
+BlockDataManager_MMAP* BlockDataManager_MMAP::theOnlyBDM_ = NULL;
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -659,8 +659,92 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
 
    // If we got here, it's either non std or not ours
    return pair<bool,bool>(false,false);
-
 }
+
+/////////////////////////////////////////////////////////////////////////////
+//  The bulk filter simply identifies if a tx is relevant to us, but doesn't
+//  give us enough information to fully aggregate the list of relevant tx
+//  (we need to maintain a list of of OutPoints that are ours, since we can't
+//  always determine if a TxIn is ours, without it)
+void BtcWallet::initialScanWalletFilter( TxRef & tx,
+                                         list<HashString> & allRelevantTx,
+                                         set<OutPoint>    & ourOutPoints)
+{
+   bool thisTxAlreadyAddedToList = false;
+
+   uint8_t const * txStartPtr = tx.getPtr();
+   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   {
+      // We have the txin, now check if it contains one of our TxOuts
+      static OutPoint op;
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      if(ourOutPoints.count(op) > 0)
+      {
+         allRelevantTx.push_back(tx.getThisHash());
+         thisTxAlreadyAddedToList = true;
+         break; // we only care if ANY txIns are ours, not which ones
+      }
+   }
+
+   // We have to scan all TxOuts regardless, to make sure our list of 
+   // ourOutPoints is up-to-date so that we can identify TxIns that are
+   // ours on future to-be-scanned transactions
+   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   {
+      static uint8_t scriptLenFirstByte;
+      static BinaryData addr20(20);
+
+      uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
+      scriptLenFirstByte = *(uint8_t*)ptr;
+      if(scriptLenFirstByte == 25)
+      {
+         // Std TxOut with 25-byte script
+         addr20.copyFrom(ptr+4, 20);
+         if( hasAddr(addr20) )
+         {
+            if(!thisTxAlreadyAddedToList)
+            {
+               allRelevantTx.push_back(tx.getThisHash());
+               thisTxAlreadyAddedToList = true;
+            }
+            ourOutPoints.insert(OutPoint(tx.getThisHash, iout));
+         }
+      }
+      else if(scriptLenFirstByte==67)
+      {
+         // Std spend-coinbase TxOut script
+         static BinaryData addr20(20);
+         BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
+         if( hasAddr(addr20) )
+         {
+            if(!thisTxAlreadyAddedToList)
+            {
+               allRelevantTx.push_back(tx.getThisHash());
+               thisTxAlreadyAddedToList = true;
+            }
+            ourOutPoints.insert(OutPoint(tx.getThisHash, iout));
+         }
+      }
+      else
+      {
+         /* TODO:  Right now we will just ignoring non-std tx
+                   I don't do anything with them right now, anyway
+         TxOutRef txout = tx.getTxOutRef(iout);
+         for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+         {
+            BtcAddress & thisAddr = *(addrPtrVect_[i]);
+            BinaryData const & addr20 = thisAddr.getAddrStr20();
+            if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
+               scanNonStdTx(0, 0, tx, iout, thisAddr);
+            continue;
+         }
+         break;
+         */
+      }
+   }
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 // Pass this wallet a TxRef and current time/blknumber.  I used to just pass
@@ -1246,11 +1330,11 @@ void BtcWallet::pprintLedger(void)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //
-// Start BlockDataManager_FullRAM methods
+// Start BlockDataManager_MMAP methods
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) : 
+BlockDataManager_MMAP::BlockDataManager_MMAP(void) : 
       blockchainData_ALL_(0),
       lastEOFByteLoc_(0),
       totalBlockchainBytes_(0),
@@ -1290,7 +1374,7 @@ BlockDataManager_FullRAM::BlockDataManager_FullRAM(void) :
 //       BinaryData::CreateFromHex(MAINNET_MAGIC_BYTES));
 //
 // The above call will work 
-void BlockDataManager_FullRAM::SetBtcNetworkParams(
+void BlockDataManager_MMAP::SetBtcNetworkParams(
                                     BinaryData const & GenHash,
                                     BinaryData const & GenTxHash,
                                     BinaryData const & MagicBytes)
@@ -1302,7 +1386,7 @@ void BlockDataManager_FullRAM::SetBtcNetworkParams(
 
 
 
-void BlockDataManager_FullRAM::SelectNetwork(string netName)
+void BlockDataManager_MMAP::SelectNetwork(string netName)
 {
    if(netName.compare("Main") == 0)
    {
@@ -1329,12 +1413,12 @@ void BlockDataManager_FullRAM::SelectNetwork(string netName)
 // The only way to "create" a BDM is with this method, which creates it
 // if one doesn't exist yet, or returns a reference to the only one
 // that will ever exist
-BlockDataManager_FullRAM & BlockDataManager_FullRAM::GetInstance(void) 
+BlockDataManager_MMAP & BlockDataManager_MMAP::GetInstance(void) 
 {
    static bool bdmCreatedYet_ = false;
    if( !bdmCreatedYet_ )
    {
-      theOnlyBDM_ = new BlockDataManager_FullRAM;
+      theOnlyBDM_ = new BlockDataManager_MMAP;
       bdmCreatedYet_ = true;
    }
    return (*theOnlyBDM_);
@@ -1342,7 +1426,7 @@ BlockDataManager_FullRAM & BlockDataManager_FullRAM::GetInstance(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::Reset(void)
+void BlockDataManager_MMAP::Reset(void)
 {
    // Clear out all the "real" data in the blkfile
    blkfilePath_ = "";
@@ -1390,7 +1474,7 @@ void BlockDataManager_FullRAM::Reset(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-int32_t BlockDataManager_FullRAM::getNumConfirmations(BinaryData txHash)
+int32_t BlockDataManager_MMAP::getNumConfirmations(BinaryData txHash)
 {
    map<HashString, TxRef>::iterator findResult = txHashMap_.find(txHash); 
    if(findResult == txHashMap_.end())
@@ -1414,7 +1498,7 @@ int32_t BlockDataManager_FullRAM::getNumConfirmations(BinaryData txHash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeaderRef & BlockDataManager_FullRAM::getTopBlockHeader(void) 
+BlockHeaderRef & BlockDataManager_MMAP::getTopBlockHeader(void) 
 {
    if(topBlockPtr_ == NULL)
       topBlockPtr_ = &(getGenesisBlock());
@@ -1422,7 +1506,7 @@ BlockHeaderRef & BlockDataManager_FullRAM::getTopBlockHeader(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeaderRef & BlockDataManager_FullRAM::getGenesisBlock(void) 
+BlockHeaderRef & BlockDataManager_MMAP::getGenesisBlock(void) 
 {
    if(genBlockPtr_ == NULL)
       genBlockPtr_ = &(headerHashMap_[GenesisHash_]);
@@ -1431,7 +1515,7 @@ BlockHeaderRef & BlockDataManager_FullRAM::getGenesisBlock(void)
 
 /////////////////////////////////////////////////////////////////////////////
 // Get a blockheader based on its height on the main chain
-BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHeight(int index)
+BlockHeaderRef * BlockDataManager_MMAP::getHeaderByHeight(int index)
 {
    if( index<0 || index>=(int)headersByHeight_.size())
       return NULL;
@@ -1442,7 +1526,7 @@ BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHeight(int index)
 
 /////////////////////////////////////////////////////////////////////////////
 // The most common access method is to get a block by its hash
-BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHash(BinaryData const & blkHash)
+BlockHeaderRef * BlockDataManager_MMAP::getHeaderByHash(BinaryData const & blkHash)
 {
    map<BinaryData, BlockHeaderRef>::iterator it = headerHashMap_.find(blkHash);
    if(it==headerHashMap_.end())
@@ -1453,7 +1537,7 @@ BlockHeaderRef * BlockDataManager_FullRAM::getHeaderByHash(BinaryData const & bl
 
 /////////////////////////////////////////////////////////////////////////////
 // Get a blockheader based on its height on the main chain
-TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash)
+TxRef* BlockDataManager_MMAP::getTxByHash(BinaryData const & txhash)
 {
    map<HashString, TxRef>::iterator it = txHashMap_.find(txhash);
    if(it==txHashMap_.end())
@@ -1471,7 +1555,7 @@ TxRef* BlockDataManager_FullRAM::getTxByHash(BinaryData const & txhash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FullRAM::hasTxWithHash(BinaryData const & txhash,
+bool BlockDataManager_MMAP::hasTxWithHash(BinaryData const & txhash,
                                              bool includeZeroConf) const
 {
    if(txHashMap_.find(txhash) == txHashMap_.end())
@@ -1486,13 +1570,13 @@ bool BlockDataManager_FullRAM::hasTxWithHash(BinaryData const & txhash,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FullRAM::hasHeaderWithHash(BinaryData const & txhash) const
+bool BlockDataManager_MMAP::hasHeaderWithHash(BinaryData const & txhash) const
 {
    return (headerHashMap_.find(txhash) != headerHashMap_.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<BlockHeaderRef*> BlockDataManager_FullRAM::prefixSearchHeaders(BinaryData const & searchStr)
+vector<BlockHeaderRef*> BlockDataManager_MMAP::prefixSearchHeaders(BinaryData const & searchStr)
 {
    vector<BlockHeaderRef*> outList(0);
    map<HashString, BlockHeaderRef>::iterator iter;
@@ -1507,7 +1591,7 @@ vector<BlockHeaderRef*> BlockDataManager_FullRAM::prefixSearchHeaders(BinaryData
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<TxRef*> BlockDataManager_FullRAM::prefixSearchTx(BinaryData const & searchStr)
+vector<TxRef*> BlockDataManager_MMAP::prefixSearchTx(BinaryData const & searchStr)
 {
    vector<TxRef*> outList(0);
    map<HashString, TxRef>::iterator iter;
@@ -1524,7 +1608,7 @@ vector<TxRef*> BlockDataManager_FullRAM::prefixSearchTx(BinaryData const & searc
 /////////////////////////////////////////////////////////////////////////////
 // Since the cpp code doesn't have full addresses (only 20-byte hashes),
 // that's all we can search for.  
-vector<BinaryData> BlockDataManager_FullRAM::prefixSearchAddress(BinaryData const & searchStr)
+vector<BinaryData> BlockDataManager_MMAP::prefixSearchAddress(BinaryData const & searchStr)
 {
    // Actually, we can't even search for this, because we don't have a list
    // of addresses in the blockchain.  We could construct one, but it would
@@ -1602,19 +1686,11 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 
 /////////////////////////////////////////////////////////////////////////////
 // This is an intense search, using every tool we've created so far!
-void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
+void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
                                                    uint32_t startBlknum,
                                                    uint32_t endBlknum)
 {
    PDEBUG("Scanning blockchain for tx");
-
-   ////////////////////////////////////////////////////////////////////////////
-   // DEBUGGING CODE:
-   //cout << "Scanning blockchain for tx: " << startBlknum << " to " << endBlknum << endl;
-   //cout << "Before Scan Blkchain:" << endl;
-   //myWallet.pprintAlot();
-   // END DEBUGGING CODE
-   ////////////////////////////////////////////////////////////////////////////
 
    uint32_t nHeaders = headersByHeight_.size();
    endBlknum = (endBlknum > nHeaders ? nHeaders : endBlknum);
@@ -1634,29 +1710,16 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(BtcWallet & myWallet,
 
    myWallet.sortLedger(); // removes invalid tx and sorts
 
-   ////////////////////////////////////////////////////////////////////////////
-   // DEBUGGING CODE:
-   //cout << "BEFORE CLEAN Scan Blkchain:" << endl;
-   //myWallet.pprintAlot();
-   ////////////////////////////////////////////////////////////////////////////
-   
    // We should clean up any dangling TxIOs in the wallet then rescan
    if(zcEnabled_)
       rescanWalletZeroConf(myWallet);
 
    PDEBUG("Done scanning blockchain for tx");
 
-   ////////////////////////////////////////////////////////////////////////////
-   // DEBUGGING CODE:
-   //cout << "Scanning blockchain for tx: " << startBlknum << " to " << endBlknum << endl;
-   //cout << "AFTER Scan Blkchain:" << endl;
-   //myWallet.pprintAlot();
-   // END DEBUGGING CODE
-   ////////////////////////////////////////////////////////////////////////////
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::scanBlockchainForTx(vector<BtcWallet*> walletVect,
+void BlockDataManager_MMAP::scanBlockchainForTx(vector<BtcWallet*> walletVect,
                                                    uint32_t startBlknum,
                                                    uint32_t endBlknum)
 {
@@ -1688,12 +1751,48 @@ void BlockDataManager_FullRAM::scanBlockchainForTx(vector<BtcWallet*> walletVect
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+// This assumes that initialScanTxHashes_ has already been populated from 
+// the initial blockchain scan.  The blockchain contains millions of tx,
+// but this list will at least 3 orders of magnitude smaller
+void BlockDataManager_MMAP::scanRelevantTxForWallet( BtcWallet & wlt )
+{
+   PDEBUG("Scanning relevant tx list for wallet");
+
+   ///// LOOP OVER ALL RELEVANT TX ////
+   list<HashString>::iterator txIter;
+   for(txIter  = initialScanTxHashes_.begin();
+       txIter != initialScanTxHashes_.end();
+       txIter++)
+   {
+      // Skip transactions if they exist only on an invalid block
+      BlockHeaderRef* bhr = txIter->getHeaderPtr();
+      if( bhr==NULL )
+      {
+         cout << "***WARNING: How did we get a tx without a header?" << endl;
+         continue;
+      }
+
+      if( !bhr->isMainBranch() )
+         continue;
+
+      wlt.scanTx(tx, itx, bhr->getTimestamp(), bhr->getBlockHeight());
+   }
+ 
+   // Removes any invalid tx and sorts
+   for(uint32_t w=0; w<walletVect.size(); w++)
+      walletVect[w]->sortLedger();
+
+   PDEBUG("Done scanning blockchain for tx");
+}
+
+
 // **** THIS METHOD IS NOT MAINTAINED ANYMORE **** //
 /////////////////////////////////////////////////////////////////////////////
 // This is an intense search, using every tool we've created so far!
 // This also should only be used in special circumstances because it's 
 // extremely slow and can use 2-3 GB of RAM to hold all the data
-void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
+void BlockDataManager_MMAP::scanBlockchainForTx_FromScratch_AllAddr(void)
 {
    uint32_t nHeaders = headersByHeight_.size();
 
@@ -1783,7 +1882,7 @@ void BlockDataManager_FullRAM::scanBlockchainForTx_FromScratch_AllAddr(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
+vector<TxRef*> BlockDataManager_MMAP::findAllNonStdTx(void)
 {
    PDEBUG("Finding all non-std tx");
    vector<TxRef*> txVectOut(0);
@@ -1848,8 +1947,10 @@ vector<TxRef*> BlockDataManager_FullRAM::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
-                                                           bool doOrganize)
+uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(
+                                                string filename,
+                                                BtcWallet * relevantWalletPtr,
+                                                bool doOrganize)
 {
    if(filename.compare(blkfilePath_) == 0)
    {
@@ -1912,7 +2013,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
    blockchainData_ALL_.setAdvice(MADV_SEQUENTIAL);
    while(keepGoing)
    {
-      keepGoing = parseNewBlockData(brr, totalBlockchainBytes_);
+      keepGoing = parseNewBlockData(brr, totalBlockchainBytes_, relevantWalletPtr);
       nBlkRead++;
    }
    blockchainData_ALL_.setAdvice(MADV_RANDOM);
@@ -1946,7 +2047,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFile_FromScratch(string filename,
 // NOTE:  You might want to check lastBlockWasReorg_ variable to know whether 
 //        to expect some previously valid headers/txs to still be valid
 //
-uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(string filename)
+uint32_t BlockDataManager_MMAP::readBlkFileUpdate(string filename)
 {
    TIMER_START("getBlockfileUpdates");
 
@@ -2043,7 +2144,7 @@ uint32_t BlockDataManager_FullRAM::readBlkFileUpdate(string filename)
 // BDM detects the reorg, but is wallet-agnostic so it can't update any wallets
 // You have to call this yourself after you check whether the last organizeChain
 // call indicated that a reorg happened
-void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
+void BlockDataManager_MMAP::updateWalletAfterReorg(BtcWallet & wlt)
 {
    // Fix the wallet's ledger
    for(uint32_t i=0; i<wlt.getTxLedger().size(); i++)
@@ -2111,14 +2212,14 @@ void BlockDataManager_FullRAM::updateWalletAfterReorg(BtcWallet & wlt)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::updateWalletsAfterReorg(vector<BtcWallet*> wltvect)
+void BlockDataManager_MMAP::updateWalletsAfterReorg(vector<BtcWallet*> wltvect)
 {
    for(uint32_t i=0; i<wltvect.size(); i++)
       updateWalletAfterReorg(*wltvect[i]);
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
+bool BlockDataManager_MMAP::verifyBlkFileIntegrity(void)
 {
    PDEBUG("Verifying blk0001.dat integrity");
    bool isGood = true;
@@ -2151,8 +2252,9 @@ bool BlockDataManager_FullRAM::verifyBlkFileIntegrity(void)
 /////////////////////////////////////////////////////////////////////////////
 // Pass in a BRR that starts at the beginning of the blockdata THAT IS 
 // ALREADY AT IT'S PERMANENT LOCATION IN MEMORY (before magic bytes)
-bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
-                                                 uint64_t & currBlockchainSize)
+bool BlockDataManager_MMAP::parseNewBlockData(BinaryRefReader & brr,
+                                              uint64_t & currBlockchainSize,
+                                              BtcWallet * relevantWalletPtr);
 {
    if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
       return false;
@@ -2203,6 +2305,19 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
       // headers that reference this tx... we will wait until the chain
       // is organized and make sure this tx points to the header that 
       // is on the main chain.
+
+
+      // UPDATED FOR MMAP BLOCKCHAIN:  take a wallet full of addresses 
+      // that belong to us, and while doing the initial blockchain scan,
+      // look out for tx that are relevant.  We don't do full processing
+      // of the transactions for the same reason as above:  we don't know 
+      // if they are on the main chain yet, but we don't mind collecting
+      // a few too many, as they will be processed after the initial scan
+      // and non-main-chain will be ignored.  Must use method:
+      // scanRelevantTxForWallet, to make use of the data produced here.
+      relevantWalletPtr->initialScanWalletFilter( *txptr,
+                                                  initialScanTxHashes_,
+                                                  initialScanOutPoints_);
    }
    currBlockchainSize += nBytes+8;
    return true;
@@ -2220,7 +2335,7 @@ bool BlockDataManager_FullRAM::parseNewBlockData(BinaryRefReader & brr,
 // we will need to copy it to its permanent memory location before parsing it.
 // Btw, yes I know I could've used a bitset here, but I was too lazy to add
 // the #include and look up the members for using it...
-vector<bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
+vector<bool> BlockDataManager_MMAP::addNewBlockData(BinaryData rawBlock,
                                                        bool writeToBlk0001)
 {
    // TODO:  maybe we should check whether we already have this block...?
@@ -2293,7 +2408,7 @@ vector<bool> BlockDataManager_FullRAM::addNewBlockData(BinaryData rawBlock,
 // This method returns two booleans:
 //    (1)  Block data was added to memory pool successfully
 //    (2)  Adding block data caused blockchain reorganization
-vector<bool> BlockDataManager_FullRAM::addNewBlockDataRef(BinaryDataRef bdr,
+vector<bool> BlockDataManager_MMAP::addNewBlockDataRef(BinaryDataRef bdr,
                                                           bool writeToBlk0001)
 {
    return addNewBlockData(bdr.copy());
@@ -2329,7 +2444,7 @@ vector<bool> BlockDataManager_FullRAM::addNewBlockDataRef(BinaryDataRef bdr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
+void BlockDataManager_MMAP::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
                                                    BlockHeaderRef* newTopPtr,
                                                    BlockHeaderRef* branchPtr)
 {
@@ -2378,7 +2493,7 @@ void BlockDataManager_FullRAM::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
+vector<BlockHeaderRef*> BlockDataManager_MMAP::getHeadersNotOnMainChain(void)
 {
    PDEBUG("Getting headers not on main chain");
    vector<BlockHeaderRef*> out(0);
@@ -2401,7 +2516,7 @@ vector<BlockHeaderRef*> BlockDataManager_FullRAM::getHeadersNotOnMainChain(void)
 //
 // TODO:  Figure out if there is an elegant way to deal with a forked 
 //        blockchain containing two equal-length chains
-bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
+bool BlockDataManager_MMAP::organizeChain(bool forceRebuild)
 {
    PDEBUG2("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
    // If rebuild, we zero out any original organization data and do a 
@@ -2531,7 +2646,7 @@ bool BlockDataManager_FullRAM::organizeChain(bool forceRebuild)
 // Start from a node, trace down to the highest solved block, accumulate
 // difficulties and difficultySum values.  Return the difficultySum of 
 // this block.
-double BlockDataManager_FullRAM::traceChainDown(BlockHeaderRef & bhpStart)
+double BlockDataManager_MMAP::traceChainDown(BlockHeaderRef & bhpStart)
 {
    if(bhpStart.difficultySum_ > 0)
       return bhpStart.difficultySum_;
@@ -2588,7 +2703,7 @@ double BlockDataManager_FullRAM::traceChainDown(BlockHeaderRef & bhpStart)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
+void BlockDataManager_MMAP::markOrphanChain(BlockHeaderRef & bhpStart)
 {
    PDEBUG("Marking orphan chain");
    bhpStart.isMainBranch_ = true;
@@ -2622,7 +2737,7 @@ void BlockDataManager_FullRAM::markOrphanChain(BlockHeaderRef & bhpStart)
 // We're going to need the BDM's help to get the sender for a TxIn since it
 // sometimes requires going and finding the TxOut from the distant past
 ////////////////////////////////////////////////////////////////////////////////
-TxOutRef BlockDataManager_FullRAM::getPrevTxOut(TxInRef & txin)
+TxOutRef BlockDataManager_MMAP::getPrevTxOut(TxInRef & txin)
 {
    if(txin.isCoinbase())
       return TxOutRef();
@@ -2634,7 +2749,7 @@ TxOutRef BlockDataManager_FullRAM::getPrevTxOut(TxInRef & txin)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockDataManager_FullRAM::getSenderAddr20(TxInRef & txin)
+BinaryData BlockDataManager_MMAP::getSenderAddr20(TxInRef & txin)
 {
    if(txin.isCoinbase())
       return BinaryData(0);
@@ -2644,7 +2759,7 @@ BinaryData BlockDataManager_FullRAM::getSenderAddr20(TxInRef & txin)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
+int64_t BlockDataManager_MMAP::getSentValue(TxInRef & txin)
 {
    if(txin.isCoinbase())
       return -1;
@@ -2659,7 +2774,7 @@ int64_t BlockDataManager_FullRAM::getSentValue(TxInRef & txin)
 ////////////////////////////////////////////////////////////////////////////////
 // Methods for handling zero-confirmation transactions
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::enableZeroConf(string zcFilename)
+void BlockDataManager_MMAP::enableZeroConf(string zcFilename)
 {
    zcEnabled_  = true; 
    zcFilename_ = zcFilename;
@@ -2668,7 +2783,7 @@ void BlockDataManager_FullRAM::enableZeroConf(string zcFilename)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
+void BlockDataManager_MMAP::readZeroConfFile(string zcFilename)
 {
    ifstream zcFile(zcFilename_.c_str(),  ios::in | ios::binary);
    if(zcFile)
@@ -2700,14 +2815,14 @@ void BlockDataManager_FullRAM::readZeroConfFile(string zcFilename)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::disableZeroConf(string zcFilename)
+void BlockDataManager_MMAP::disableZeroConf(string zcFilename)
 {
    zcEnabled_  = false; 
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx, 
+bool BlockDataManager_MMAP::addNewZeroConfTx(BinaryData const & rawTx, 
                                                 uint64_t txtime,
                                                 bool writeToFile)
 {
@@ -2745,7 +2860,7 @@ bool BlockDataManager_FullRAM::addNewZeroConfTx(BinaryData const & rawTx,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::purgeZeroConfPool(void)
+void BlockDataManager_MMAP::purgeZeroConfPool(void)
 {
    list< map<HashString, ZeroConfData>::iterator > mapRmList;
 
@@ -2779,7 +2894,7 @@ void BlockDataManager_FullRAM::purgeZeroConfPool(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
+void BlockDataManager_MMAP::rewriteZeroConfFile(void)
 {
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
@@ -2800,7 +2915,7 @@ void BlockDataManager_FullRAM::rewriteZeroConfFile(void)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
+void BlockDataManager_MMAP::rescanWalletZeroConf(BtcWallet & wlt)
 {
    // Clear the whole list, rebuild
    wlt.clearZeroConfPool();
@@ -2837,7 +2952,7 @@ void BlockDataManager_FullRAM::rescanWalletZeroConf(BtcWallet & wlt)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FullRAM::pprintZeroConfPool(void)
+void BlockDataManager_MMAP::pprintZeroConfPool(void)
 {
    static BinaryData txHash(32);
    list<BinaryData>::iterator iter;

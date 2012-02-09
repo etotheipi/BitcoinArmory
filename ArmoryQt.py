@@ -157,7 +157,9 @@ class ArmoryMainWindow(QMainWindow):
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
       #if self.usermode==USERMODE.Standard:
-      initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0.35, 0.45, 0.3])
+      cWidth = 20 # num-confirm icon width
+      tWidth = 72 # date icon width
+      initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, 0.30, 0.40, 0.3])
       #elif self.usermode in (USERMODE.Advanced, USERMODE.Developer):
          #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
          #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)

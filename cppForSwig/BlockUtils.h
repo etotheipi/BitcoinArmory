@@ -49,7 +49,7 @@
 
 using namespace std;
 
-class BlockDataManager_FullRAM;
+class BlockDataManager_MMAP;
 
 
 
@@ -386,6 +386,9 @@ public:
                            uint32_t txoutidx,
                            BtcAddress& addr);
 
+   void initialScanWalletFilter( TxRef & tx,
+                                 list<HashString> & allRelevantTx,
+                                 set<OutPoint>    & ourOutPoints);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
@@ -463,7 +466,7 @@ public:
 //    picks up at all.  However, if you need to do TONS of computation on the
 //    blockchain very quickly, and you have the RAM, this may be useful for you
 //    Headers and BlockData/Tx stored in the same structure
-//class BlockDataManager_FullRAM;
+//class BlockDataManager_MMAP;
 
 // FullHDD BDM:
 //    This is the standard full-blockchain node.  It pulls all the blockdata
@@ -522,7 +525,7 @@ typedef enum
 
 
 
-class BlockDataManager_FullRAM;
+class BlockDataManager_MMAP;
 
 
 
@@ -532,10 +535,10 @@ class BlockDataManager_FullRAM;
 //
 // BlockDataManager is a SINGLETON:  only one is ever created.  
 //
-// Access it via BlockDataManager_FullRAM::GetInstance();
+// Access it via BlockDataManager_MMAP::GetInstance();
 //
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_FullRAM
+class BlockDataManager_MMAP
 {
 private:
 
@@ -546,6 +549,19 @@ private:
    list<BinaryData>                   blockchainData_NEW_; 
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef>             txHashMap_;
+
+   // Since switching from RAM to mmap ops, we needed to combine the original
+   // blockchain scan with the wallet bulk-filter, i.e. combine
+   // readBlkFile_FromScratch   and   scanBlockchainForTx into one search.
+   // This list will hold the hashes of every Tx related to any wallet 
+   // supplied during the initial scan (which may be a single fake wallet 
+   // containing every key of all the wallets we care about:  we don't need
+   // to populate the wallet ledgers/balances/etc in this scan, only reduce
+   // the tx-scan space to our tx, instead of the whole blockchain.
+   // (the two ops should be separated, because we can't really do the full
+   // wallet scan until we know which tx are on the main chain)
+   list<HashString>                   initialScanTxHashes_;
+   set<OutPoint>                      initialScanOutPoints_;
 
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
@@ -587,7 +603,7 @@ private:
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderPtrs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
-   static BlockDataManager_FullRAM* theOnlyBDM_;
+   static BlockDataManager_MMAP* theOnlyBDM_;
    static bool bdmCreatedYet_;
    bool isInitialized_;
 
@@ -600,11 +616,11 @@ private:
 
 private:
    // Set the constructor to private so that only one can ever be created
-   BlockDataManager_FullRAM(void);
+   BlockDataManager_MMAP(void);
 
 public:
 
-   static BlockDataManager_FullRAM & GetInstance(void);
+   static BlockDataManager_MMAP & GetInstance(void);
    bool isInitialized(void) { return isInitialized_;}
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
@@ -623,8 +639,10 @@ public:
 
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
+   // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
    bool             parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                                      uint64_t & currBlockchainSize);
+                                      uint64_t & currBlockchainSize,
+                                      BtcWallet * relevantWalletPtr=NULL);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -659,9 +677,12 @@ public:
    void scanBlockchainForTx(vector<BtcWallet*> walletVect,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=0xffffffff);
+
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
-   uint32_t       readBlkFile_FromScratch(string filename, bool doOrganize=true);
+   uint32_t       readBlkFile_FromScratch(string filename, 
+                                          BtcWallet* wltToCache=NULL, 
+                                          bool doOrganize=true,
    uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
@@ -727,12 +748,12 @@ private:
 class BlockDataManager
 {
 public:
-   BlockDataManager(void) { bdm_ = &(BlockDataManager_FullRAM::GetInstance());}
+   BlockDataManager(void) { bdm_ = &(BlockDataManager_MMAP::GetInstance());}
    
-   BlockDataManager_FullRAM & getBDM(void) { return *bdm_; }
+   BlockDataManager_MMAP & getBDM(void) { return *bdm_; }
 
 private:
-   BlockDataManager_FullRAM* bdm_;
+   BlockDataManager_MMAP* bdm_;
 };
 
 

@@ -537,8 +537,14 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
-      self.wltAddrView.setMinimumWidth(800)
-      initialColResize(self.wltAddrView, [0.2, 0.4, 64, 80, 0.3])
+      self.wltAddrView.setMinimumWidth(600)
+      self.wltAddrView.setMinimumHeight(150)
+      iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
+      initialColResize(self.wltAddrView, [0.25, 0.3, 64, iWidth*1.1, 0.3])
+
+      self.wltAddrView.sizeHint = lambda: QSize(700, 250)
+      self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+         
 
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
@@ -697,15 +703,17 @@ class DlgWalletDetails(QDialog):
 
       frmTotals.setLayout(frmTotalsLayout)
 
+      lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>')
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0, 3, 4)
-      layout.addWidget(self.wltAddrView,      4, 0, 2, 4)
-      layout.addWidget(btnGoBack,             6, 0, 2, 1)
-      layout.addWidget(frmTotals,             6, 3, 2, 1)
+      layout.addWidget(lblWltAddr,            4, 0, 1, 4)
+      layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
+      layout.addWidget(btnGoBack,             7, 0, 2, 1)
+      layout.addWidget(frmTotals,             7, 3, 2, 1)
 
       layout.addWidget(QLabel("Available Actions:"), \
                                               0, 4)
-      layout.addWidget(optFrame,              1, 4, 8, 2)
+      layout.addWidget(optFrame,              1, 4, 9, 2)
       self.setLayout(layout)
 
       self.setWindowTitle('Wallet Details')
@@ -5861,8 +5869,8 @@ class DlgDispTxInfo(QDialog):
       adv = (self.main.usermode==USERMODE.Advanced)
       dev = (self.main.usermode==USERMODE.Developer)
       
-      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopySender = menu.addAction("Copy Sender Address")
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopyAmount = menu.addAction("Copy Amount")
       if dev:    actCopyOutPt  = menu.addAction("Copy Outpoint")
       if dev:    actCopyScript = menu.addAction("Copy Raw Script")
@@ -5895,8 +5903,8 @@ class DlgDispTxInfo(QDialog):
       adv = (self.main.usermode==USERMODE.Advanced)
       dev = (self.main.usermode==USERMODE.Developer)
       
-      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopySender = menu.addAction("Copy Recipient Address")
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopyAmount = menu.addAction("Copy Amount")
       if dev:    actCopyScript = menu.addAction("Copy Raw Script")
       idx = self.txOutView.selectedIndexes()[0]
