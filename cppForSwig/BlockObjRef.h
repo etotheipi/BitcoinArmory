@@ -42,7 +42,7 @@ class TxRef;
 // is the one we want.
 class BlockHeaderRef
 {
-   friend class BlockDataManager_FullRAM;
+   friend class BlockDataManager_MMAP;
 
 public:
 
@@ -137,7 +137,7 @@ private:
 // OutPoint is just a reference to a TxOut
 class OutPointRef
 {
-   friend class BlockDataManager_FullRAM;
+   friend class BlockDataManager_MMAP;
 
 public:
    OutPointRef(uint8_t const * ptr) { unserialize(ptr); }
@@ -171,7 +171,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxInRef
 {
-   friend class BlockDataManager_FullRAM;
+   friend class BlockDataManager_MMAP;
 
 public:
    TxInRef(void) : self_(0),  nBytes_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
@@ -254,7 +254,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxOutRef
 {
-   friend class BlockDataManager_FullRAM;
+   friend class BlockDataManager_MMAP;
 
 public:
 
@@ -328,7 +328,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxRef
 {
-   friend class BlockDataManager_FullRAM;
+   friend class BlockDataManager_MMAP;
 
 public:
    TxRef(void) : isInitialized_(false), isMainBranch_(false) {}

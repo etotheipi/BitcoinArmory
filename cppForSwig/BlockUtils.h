@@ -677,12 +677,16 @@ public:
    void scanBlockchainForTx(vector<BtcWallet*> walletVect,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=0xffffffff);
+   void scanRelevantTxForWallet( BtcWallet & wlt );
 
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, 
                                           BtcWallet* wltToCache=NULL, 
-                                          bool doOrganize=true,
+                                          bool doOrganize=true);
+   uint32_t       readBlkFile_FromScratch(string filename,
+                                          vector<BtcWallet*> wltList,
+                                          bool doOrganize=true);
    uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);

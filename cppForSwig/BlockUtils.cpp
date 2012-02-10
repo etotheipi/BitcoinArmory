@@ -644,16 +644,16 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
       }
       else
       {
-         TxOutRef txout = tx.getTxOutRef(iout);
-         for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-         {
-            BtcAddress & thisAddr = *(addrPtrVect_[i]);
-            BinaryData const & addr20 = thisAddr.getAddrStr20();
-            if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
-               scanNonStdTx(0, 0, tx, iout, thisAddr);
-            continue;
-         }
-         break;
+         //TxOutRef txout = tx.getTxOutRef(iout);
+         //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+         //{
+            //BtcAddress & thisAddr = *(addrPtrVect_[i]);
+            //BinaryData const & addr20 = thisAddr.getAddrStr20();
+            //if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
+               //scanNonStdTx(0, 0, tx, iout, thisAddr);
+            //continue;
+         //}
+         //break;
       }
    }
 
@@ -707,7 +707,7 @@ void BtcWallet::initialScanWalletFilter( TxRef & tx,
                allRelevantTx.push_back(tx.getThisHash());
                thisTxAlreadyAddedToList = true;
             }
-            ourOutPoints.insert(OutPoint(tx.getThisHash, iout));
+            ourOutPoints.insert(OutPoint(tx.getThisHash(), iout));
          }
       }
       else if(scriptLenFirstByte==67)
@@ -722,7 +722,7 @@ void BtcWallet::initialScanWalletFilter( TxRef & tx,
                allRelevantTx.push_back(tx.getThisHash());
                thisTxAlreadyAddedToList = true;
             }
-            ourOutPoints.insert(OutPoint(tx.getThisHash, iout));
+            ourOutPoints.insert(OutPoint(tx.getThisHash(), iout));
          }
       }
       else
@@ -1319,7 +1319,7 @@ bool BtcWallet::isOutPointMine(BinaryData const & hsh, uint32_t idx)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::pprintLedger(void)
 { 
-   cout << "Wallet Ledger:" << endl;
+   cout << "Wallet Ledger:  " << getFullBalance()/1e8 << endl;
    for(uint32_t i=0; i<ledgerAllAddr_.size(); i++)
       ledgerAllAddr_[i].pprintOneLine();
    for(uint32_t i=0; i<ledgerAllAddrZC_.size(); i++)
@@ -1481,16 +1481,16 @@ int32_t BlockDataManager_MMAP::getNumConfirmations(BinaryData txHash)
       return TX_NOT_EXIST;
    else
    {
-      if(findResult->second.headerPtr_ == NULL)
+      if(findResult->second.getHeaderPtr() == NULL)
          return TX_0_UNCONFIRMED; 
       else
       { 
-         BlockHeaderRef & txbh = *(findResult->second.headerPtr_);
-         if(!txbh.isMainBranch_)
+         BlockHeaderRef & txbh = *(findResult->second.getHeaderPtr());
+         if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
          int32_t txBlockHeight  = txbh.getBlockHeight();
-         int32_t topBlockHeight = getTopBlockHeader().blockHeight_;
+         int32_t topBlockHeight = getTopBlockHeader().getBlockHeight();
          return  topBlockHeight - txBlockHeight + 1;
       }
    }
@@ -1685,7 +1685,20 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-// This is an intense search, using every tool we've created so far!
+// This makes sense if the blockchain is completely in RAM, or if new addr
+// are added after the initial blockchain scan.  But since we switched to
+// using mmap() for the blockchain, we don't want to have to rescan 
+// everything from disk for every wallet.  
+//
+// Instead, we will do the initial blockchain scan with a pointer to 
+// this wallet (readBlkFile_FromScratch has been updated to allow a 
+// wallet pointer arg), and then use scanRelevantTxForWallet to scan
+// only the collected list of transactions, instead of the whole blockchain.
+// 
+// However, even with mmap() blockchain, we're still going to have to do 
+// use this method to scan for addresses to be imported/swept, since they
+// were not scanned on the initialization run.
+// 
 void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
                                                    uint32_t startBlknum,
                                                    uint32_t endBlknum)
@@ -1718,10 +1731,9 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
 
 }
 
-/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_MMAP::scanBlockchainForTx(vector<BtcWallet*> walletVect,
-                                                   uint32_t startBlknum,
-                                                   uint32_t endBlknum)
+                                                uint32_t startBlknum,
+                                                uint32_t endBlknum)
 {
    PDEBUG("Scanning blockchain for tx, from scratch");
 
@@ -1766,7 +1778,14 @@ void BlockDataManager_MMAP::scanRelevantTxForWallet( BtcWallet & wlt )
        txIter++)
    {
       // Skip transactions if they exist only on an invalid block
-      BlockHeaderRef* bhr = txIter->getHeaderPtr();
+      TxRef* txptr = getTxByHash(*txIter);
+      if( txptr==NULL )
+      {
+         cout << "***WARNING: How did we get a NULL tx?" << endl;
+         continue;
+      }
+
+      BlockHeaderRef* bhr = txptr->getHeaderPtr();
       if( bhr==NULL )
       {
          cout << "***WARNING: How did we get a tx without a header?" << endl;
@@ -1776,12 +1795,15 @@ void BlockDataManager_MMAP::scanRelevantTxForWallet( BtcWallet & wlt )
       if( !bhr->isMainBranch() )
          continue;
 
-      wlt.scanTx(tx, itx, bhr->getTimestamp(), bhr->getBlockHeight());
+      wlt.scanTx(*txptr, txptr->getBlockTxIndex(), 
+                            bhr->getTimestamp(), bhr->getBlockHeight());
    }
  
-   // Removes any invalid tx and sorts
-   for(uint32_t w=0; w<walletVect.size(); w++)
-      walletVect[w]->sortLedger();
+   wlt.sortLedger();
+
+   // We should clean up any dangling TxIOs in the wallet then rescan
+   if(zcEnabled_)
+      rescanWalletZeroConf(wlt);
 
    PDEBUG("Done scanning blockchain for tx");
 }
@@ -1945,6 +1967,25 @@ vector<TxRef*> BlockDataManager_MMAP::findAllNonStdTx(void)
    return txVectOut;
 }
 
+/////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(
+                                                string filename,
+                                                vector<BtcWallet*> wltList,
+                                                bool doOrganize)
+{
+   BtcWallet combinedTempWallet;
+   for(uint32_t w=0; w<wltList.size(); w++)
+   {
+      uint32_t numAddr = wltList[w]->getNumAddr(); 
+      for(uint32_t a=0; a<numAddr; a++)
+      {
+         combinedTempWallet.addAddress( 
+                     wltList[w]->getAddrByIndex(a).getAddrStr20());
+      }
+   }
+   
+   return readBlkFile_FromScratch(filename, &combinedTempWallet, doOrganize);
+}
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(
@@ -2254,7 +2295,7 @@ bool BlockDataManager_MMAP::verifyBlkFileIntegrity(void)
 // ALREADY AT IT'S PERMANENT LOCATION IN MEMORY (before magic bytes)
 bool BlockDataManager_MMAP::parseNewBlockData(BinaryRefReader & brr,
                                               uint64_t & currBlockchainSize,
-                                              BtcWallet * relevantWalletPtr);
+                                              BtcWallet * relevantWalletPtr)
 {
    if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
       return false;
@@ -2315,9 +2356,11 @@ bool BlockDataManager_MMAP::parseNewBlockData(BinaryRefReader & brr,
       // a few too many, as they will be processed after the initial scan
       // and non-main-chain will be ignored.  Must use method:
       // scanRelevantTxForWallet, to make use of the data produced here.
-      relevantWalletPtr->initialScanWalletFilter( *txptr,
-                                                  initialScanTxHashes_,
-                                                  initialScanOutPoints_);
+      if(relevantWalletPtr!=NULL)
+         relevantWalletPtr->initialScanWalletFilter( 
+                                                *txptr,
+                                                initialScanTxHashes_,
+                                                initialScanOutPoints_);
    }
    currBlockchainSize += nBytes+8;
    return true;

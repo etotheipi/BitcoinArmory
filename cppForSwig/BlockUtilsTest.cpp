@@ -25,6 +25,7 @@ void copyFile(string src, string dst)
 ////////////////////////////////////////////////////////////////////////////////
 void TestReadAndOrganizeChain(string blkfile);
 void TestFindNonStdTx(string blkfile);
+void TestReadAndOrganizeChainWithWallet(string blkfile);
 void TestScanForWalletTx(string blkfile);
 void TestReorgBlockchain(string blkfile);
 void TestZeroConf(void);
@@ -43,7 +44,7 @@ void printTestHeader(string TestName)
 
 int main(void)
 {
-   BlockDataManager_FullRAM::GetInstance().SelectNetwork("Main");
+   BlockDataManager_MMAP::GetInstance().SelectNetwork("Main");
    
 
    string blkfile("/home/alan/.bitcoin/blk0001.dat");
@@ -53,11 +54,15 @@ int main(void)
    printTestHeader("Read-and-Organize-Blockchain");
    TestReadAndOrganizeChain(blkfile);
 
+   printTestHeader("Wallet-Relevant-Tx-Scan");
+   TestScanForWalletTx(blkfile);
+
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   printTestHeader("Wallet-Relevant-Tx-Scan");
-   TestScanForWalletTx(blkfile);
+
+   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   //TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -93,7 +98,7 @@ int main(void)
 
 void TestReadAndOrganizeChain(string blkfile)
 {
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
@@ -126,7 +131,7 @@ void TestReadAndOrganizeChain(string blkfile)
 
 void TestFindNonStdTx(string blkfile)
 {
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
    bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
    // This is mostly just for debugging...
    bdm.findAllNonStdTx();
@@ -138,7 +143,7 @@ void TestFindNonStdTx(string blkfile)
 
 void TestScanForWalletTx(string blkfile)
 {
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
    bdm.readBlkFile_FromScratch(blkfile);
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
@@ -150,15 +155,9 @@ void TestScanForWalletTx(string blkfile)
    myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
    myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
-   // Test-network addresses
-   //myAddress.createFromHex("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("720fbde315f371f62c158b7353b3629e7fb071a8"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("0cc51a562976a075b984c7215968d41af43be98f"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("b11bdcd6371e5b567b439cd95d928e869d1f546a"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("2bb0974f6d43e3baa03d82610aac2b6ed017967d"); wlt.addAddress(myAddress);
-   //myAddress.createFromHex("61d62799e52bc8ee514976a19d67478f25df2bb1"); wlt.addAddress(myAddress);
+
+   // This address contains a tx with a non-std TxOut, but the other TxOuts are valid
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt.addAddress(myAddress);
 
    // More testnet addresses, with only a few transactions
    myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
@@ -257,10 +256,76 @@ void TestScanForWalletTx(string blkfile)
 }
 
 
+void TestReadAndOrganizeChainWithWallet(string blkfile)
+{
+   cout << endl << "Starting blockchain loading with wallets..." << endl;
+   /////////////////////////////////////////////////////////////////////////////
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
+   BinaryData myAddress;
+   BtcWallet wlt1;
+   BtcWallet wlt2;
+   
+   // Main-network addresses
+   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
+
+   // This address contains a tx with a non-std TxOut, but the other TxOuts are valid
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt1.addAddress(myAddress);
+   
+   // Add some relevant testnet addresses
+   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
+
+   vector<BtcWallet*> wltList;
+   wltList.push_back(&wlt1);
+   wltList.push_back(&wlt2);
+
+   
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Reading data from blockchain... (with wallet scan)" << endl;
+   TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
+   bdm.readBlkFile_FromScratch(blkfile, wltList, false);  // don't organize, just index
+   TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
+   cout << endl << endl;
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << endl << "Organizing blockchain: " ;
+   TIMER_START("BDM_Organize_Chain");
+   bool isGenOnMainChain = bdm.organizeChain();
+   TIMER_STOP("BDM_Organize_Chain");
+   cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
+   cout << endl << endl;
+
+   cout << endl << "Updating wallet (1) based on initial MMAP blockchain scan" << endl;
+   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt1));
+   cout << "Printing Wallet(1) Ledger" << endl;
+   wlt1.pprintLedger();
+
+   cout << endl << "Updating wallet (2) based on initial MMAP blockchain scan" << endl;
+   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
+   cout << "Printing Wallet(2) Ledger" << endl;
+   wlt2.pprintLedger();
+
+
+   cout << endl << "Rescanning wlt2 multiple times" << endl;
+   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
+   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
+   cout << "Printing Wallet(2) Ledger AGAIN" << endl;
+   wlt2.pprintLedger();
+
+
+}
+
 
 void TestReorgBlockchain(string blkfile)
 {
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -418,7 +483,7 @@ void TestReorgBlockchain(string blkfile)
 void TestZeroConf(void)
 {
 
-   BlockDataManager_FullRAM & bdm = BlockDataManager_FullRAM::GetInstance(); 
+   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt;
    /*
