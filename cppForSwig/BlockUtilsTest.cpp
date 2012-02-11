@@ -51,18 +51,18 @@ int main(void)
    //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
-   printTestHeader("Read-and-Organize-Blockchain");
-   TestReadAndOrganizeChain(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain");
+   //TestReadAndOrganizeChain(blkfile);
 
-   printTestHeader("Wallet-Relevant-Tx-Scan");
-   TestScanForWalletTx(blkfile);
+   //printTestHeader("Wallet-Relevant-Tx-Scan");
+   //TestScanForWalletTx(blkfile);
 
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
 
-   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   //TestReadAndOrganizeChainWithWallet(blkfile);
+   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -102,17 +102,20 @@ void TestReadAndOrganizeChain(string blkfile)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
+   bdm.readBlkFile_FromScratch(blkfile);  
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
-   cout << endl << "Organizing blockchain: " ;
-   TIMER_START("BDM_Organize_Chain");
-   bool isGenOnMainChain = bdm.organizeChain();
-   TIMER_STOP("BDM_Organize_Chain");
-   cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
-   cout << endl << endl;
+   // Organizing the chain is always really fast (sub-second), and has now been
+   // removed as an OPTION to the "readBlkFile" methods.  It will be done 
+   // automatically
+   //cout << endl << "Organizing blockchain: " ;
+   //TIMER_START("BDM_Organize_Chain");
+   //bool isGenOnMainChain = bdm.organizeChain();
+   //TIMER_STOP("BDM_Organize_Chain");
+   //cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
+   //cout << endl << endl;
 
    /////////////////////////////////////////////////////////////////////////////
    // TESTNET has some 0.125-difficulty blocks which violates the assumption
@@ -132,7 +135,7 @@ void TestReadAndOrganizeChain(string blkfile)
 void TestFindNonStdTx(string blkfile)
 {
    BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
-   bdm.readBlkFile_FromScratch(blkfile, false);  // don't organize, just index
+   bdm.readBlkFile_FromScratch(blkfile); 
    // This is mostly just for debugging...
    bdm.findAllNonStdTx();
    // At one point I had code to print out nonstd txinfo... not sure
@@ -272,9 +275,6 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
 
-   // This address contains a tx with a non-std TxOut, but the other TxOuts are valid
-   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt1.addAddress(myAddress);
-   
    // Add some relevant testnet addresses
    myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
    myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
@@ -285,12 +285,10 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    wltList.push_back(&wlt1);
    wltList.push_back(&wlt2);
 
-   
-
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.readBlkFile_FromScratch(blkfile, wltList, false);  // don't organize, just index
+   bdm.readBlkFile_FromScratch(blkfile, wltList);  // don't organize, just index
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -303,23 +301,39 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    cout << endl << endl;
 
    cout << endl << "Updating wallet (1) based on initial MMAP blockchain scan" << endl;
-   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt1));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt1));
    cout << "Printing Wallet(1) Ledger" << endl;
    wlt1.pprintLedger();
 
    cout << endl << "Updating wallet (2) based on initial MMAP blockchain scan" << endl;
-   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
    cout << "Printing Wallet(2) Ledger" << endl;
    wlt2.pprintLedger();
 
 
    cout << endl << "Rescanning wlt2 multiple times" << endl;
-   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
-   TIMER_WRAP(bdm.scanRelevantTxForWallet(wlt2));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
    cout << "Printing Wallet(2) Ledger AGAIN" << endl;
    wlt2.pprintLedger();
 
 
+   cout << endl << "ADD a new address to Wlt(1) requiring a blockchain rescan..." << endl;
+   // This address contains a tx with a non-std TxOut, but the other TxOuts are valid
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt1.addAddress(myAddress);
+   bdm.scanBlockchainForTx(wlt1);
+   wlt1.pprintLedger();
+   
+   cout << endl << "ADD new address to wlt(2) but mark as already filtered" << endl;
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt2.addAddress(myAddress);
+   bdm.markAddrAsFiltered(myAddress);
+   bdm.scanBlockchainForTx(wlt2);
+   wlt2.pprintLedger();
+
+   cout << endl << "Now mark that address to correctly rescan full blockchain" << endl;
+   bdm.markAddrAsFiltered(myAddress, 0);
+   bdm.scanBlockchainForTx(wlt2);
+   wlt2.pprintLedger();
 }
 
 

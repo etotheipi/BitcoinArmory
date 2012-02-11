@@ -2694,7 +2694,7 @@ SWIG_Python_MustGetPtr(PyObject *obj, swig_type_info *ty, int argnum, int flags)
 #define SWIGTYPE_p_BinaryRefReader swig_types[5]
 #define SWIGTYPE_p_BinaryWriter swig_types[6]
 #define SWIGTYPE_p_BlockDataManager swig_types[7]
-#define SWIGTYPE_p_BlockDataManager_FullRAM swig_types[8]
+#define SWIGTYPE_p_BlockDataManager_MMAP swig_types[8]
 #define SWIGTYPE_p_BlockHeader swig_types[9]
 #define SWIGTYPE_p_BlockHeaderRef swig_types[10]
 #define SWIGTYPE_p_BtcAddress swig_types[11]
@@ -2724,51 +2724,53 @@ SWIG_Python_MustGetPtr(PyObject *obj, swig_type_info *ty, int argnum, int flags)
 #define SWIGTYPE_p_difference_type swig_types[35]
 #define SWIGTYPE_p_int swig_types[36]
 #define SWIGTYPE_p_listT_BinaryData_t__iterator swig_types[37]
-#define SWIGTYPE_p_long_long swig_types[38]
-#define SWIGTYPE_p_mapT_OutPoint_TxIOPair_t swig_types[39]
-#define SWIGTYPE_p_ostream swig_types[40]
-#define SWIGTYPE_p_p_PyObject swig_types[41]
-#define SWIGTYPE_p_pairT_bool_bool_t swig_types[42]
-#define SWIGTYPE_p_reference swig_types[43]
-#define SWIGTYPE_p_setT_HashString_t swig_types[44]
-#define SWIGTYPE_p_short swig_types[45]
-#define SWIGTYPE_p_size_type swig_types[46]
-#define SWIGTYPE_p_std__invalid_argument swig_types[47]
-#define SWIGTYPE_p_std__string swig_types[48]
-#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t swig_types[49]
-#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t__allocator_type swig_types[50]
-#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t__value_type swig_types[51]
-#define SWIGTYPE_p_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t swig_types[52]
-#define SWIGTYPE_p_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t__allocator_type swig_types[53]
-#define SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t swig_types[54]
-#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t swig_types[55]
-#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t__allocator_type swig_types[56]
-#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t__value_type swig_types[57]
-#define SWIGTYPE_p_std__vectorT_TxIOPair_p_std__allocatorT_TxIOPair_p_t_t swig_types[58]
-#define SWIGTYPE_p_std__vectorT_TxIn_std__allocatorT_TxIn_t_t swig_types[59]
-#define SWIGTYPE_p_std__vectorT_TxOut_std__allocatorT_TxOut_t_t swig_types[60]
-#define SWIGTYPE_p_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t swig_types[61]
-#define SWIGTYPE_p_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t__allocator_type swig_types[62]
-#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t swig_types[63]
-#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t__allocator_type swig_types[64]
-#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t__value_type swig_types[65]
-#define SWIGTYPE_p_std__vectorT_bool_std__allocatorT_bool_t_t swig_types[66]
-#define SWIGTYPE_p_std__vectorT_float_std__allocatorT_float_t_t swig_types[67]
-#define SWIGTYPE_p_std__vectorT_float_std__allocatorT_float_t_t__allocator_type swig_types[68]
-#define SWIGTYPE_p_std__vectorT_int_std__allocatorT_int_t_t swig_types[69]
-#define SWIGTYPE_p_std__vectorT_int_std__allocatorT_int_t_t__allocator_type swig_types[70]
-#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[71]
-#define SWIGTYPE_p_std__vectorT_unsigned_int_std__allocatorT_unsigned_int_t_t swig_types[72]
-#define SWIGTYPE_p_swig__SwigPyIterator swig_types[73]
-#define SWIGTYPE_p_unsigned_char swig_types[74]
-#define SWIGTYPE_p_unsigned_int swig_types[75]
-#define SWIGTYPE_p_unsigned_long_long swig_types[76]
-#define SWIGTYPE_p_unsigned_short swig_types[77]
-#define SWIGTYPE_p_value_type swig_types[78]
-#define SWIGTYPE_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t__value_type swig_types[79]
-#define SWIGTYPE_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t__value_type swig_types[80]
-static swig_type_info *swig_types[82];
-static swig_module_info swig_module = {swig_types, 81, 0, 0, 0, 0};
+#define SWIGTYPE_p_listT_HashString_t swig_types[38]
+#define SWIGTYPE_p_long_long swig_types[39]
+#define SWIGTYPE_p_mapT_OutPoint_TxIOPair_t swig_types[40]
+#define SWIGTYPE_p_ostream swig_types[41]
+#define SWIGTYPE_p_p_PyObject swig_types[42]
+#define SWIGTYPE_p_pairT_bool_bool_t swig_types[43]
+#define SWIGTYPE_p_reference swig_types[44]
+#define SWIGTYPE_p_setT_HashString_t swig_types[45]
+#define SWIGTYPE_p_setT_OutPoint_t swig_types[46]
+#define SWIGTYPE_p_short swig_types[47]
+#define SWIGTYPE_p_size_type swig_types[48]
+#define SWIGTYPE_p_std__invalid_argument swig_types[49]
+#define SWIGTYPE_p_std__string swig_types[50]
+#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t swig_types[51]
+#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t__allocator_type swig_types[52]
+#define SWIGTYPE_p_std__vectorT_BinaryData_std__allocatorT_BinaryData_t_t__value_type swig_types[53]
+#define SWIGTYPE_p_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t swig_types[54]
+#define SWIGTYPE_p_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t__allocator_type swig_types[55]
+#define SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t swig_types[56]
+#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t swig_types[57]
+#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t__allocator_type swig_types[58]
+#define SWIGTYPE_p_std__vectorT_LedgerEntry_std__allocatorT_LedgerEntry_t_t__value_type swig_types[59]
+#define SWIGTYPE_p_std__vectorT_TxIOPair_p_std__allocatorT_TxIOPair_p_t_t swig_types[60]
+#define SWIGTYPE_p_std__vectorT_TxIn_std__allocatorT_TxIn_t_t swig_types[61]
+#define SWIGTYPE_p_std__vectorT_TxOut_std__allocatorT_TxOut_t_t swig_types[62]
+#define SWIGTYPE_p_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t swig_types[63]
+#define SWIGTYPE_p_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t__allocator_type swig_types[64]
+#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t swig_types[65]
+#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t__allocator_type swig_types[66]
+#define SWIGTYPE_p_std__vectorT_UnspentTxOut_std__allocatorT_UnspentTxOut_t_t__value_type swig_types[67]
+#define SWIGTYPE_p_std__vectorT_bool_std__allocatorT_bool_t_t swig_types[68]
+#define SWIGTYPE_p_std__vectorT_float_std__allocatorT_float_t_t swig_types[69]
+#define SWIGTYPE_p_std__vectorT_float_std__allocatorT_float_t_t__allocator_type swig_types[70]
+#define SWIGTYPE_p_std__vectorT_int_std__allocatorT_int_t_t swig_types[71]
+#define SWIGTYPE_p_std__vectorT_int_std__allocatorT_int_t_t__allocator_type swig_types[72]
+#define SWIGTYPE_p_std__vectorT_std__string_std__allocatorT_std__string_t_t swig_types[73]
+#define SWIGTYPE_p_std__vectorT_unsigned_int_std__allocatorT_unsigned_int_t_t swig_types[74]
+#define SWIGTYPE_p_swig__SwigPyIterator swig_types[75]
+#define SWIGTYPE_p_unsigned_char swig_types[76]
+#define SWIGTYPE_p_unsigned_int swig_types[77]
+#define SWIGTYPE_p_unsigned_long_long swig_types[78]
+#define SWIGTYPE_p_unsigned_short swig_types[79]
+#define SWIGTYPE_p_value_type swig_types[80]
+#define SWIGTYPE_std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t__value_type swig_types[81]
+#define SWIGTYPE_std__vectorT_TxRef_p_std__allocatorT_TxRef_p_t_t__value_type swig_types[82]
+static swig_type_info *swig_types[84];
+static swig_module_info swig_module = {swig_types, 83, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -36447,6 +36449,63 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_BtcWallet_initialScanWalletFilter(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BtcWallet *arg1 = (BtcWallet *) 0 ;
+  TxRef *arg2 = 0 ;
+  list< HashString > *arg3 = 0 ;
+  set< OutPoint > *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  void *argp4 = 0 ;
+  int res4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BtcWallet_initialScanWalletFilter",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BtcWallet, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "1"" of type '" "BtcWallet *""'"); 
+  }
+  arg1 = reinterpret_cast< BtcWallet * >(argp1);
+  res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_TxRef,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "2"" of type '" "TxRef &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "2"" of type '" "TxRef &""'"); 
+  }
+  arg2 = reinterpret_cast< TxRef * >(argp2);
+  res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_listT_HashString_t,  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "3"" of type '" "list< HashString > &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "3"" of type '" "list< HashString > &""'"); 
+  }
+  arg3 = reinterpret_cast< list< HashString > * >(argp3);
+  res4 = SWIG_ConvertPtr(obj3, &argp4, SWIGTYPE_p_setT_OutPoint_t,  0 );
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "4"" of type '" "set< OutPoint > &""'"); 
+  }
+  if (!argp4) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BtcWallet_initialScanWalletFilter" "', argument " "4"" of type '" "set< OutPoint > &""'"); 
+  }
+  arg4 = reinterpret_cast< set< OutPoint > * >(argp4);
+  (arg1)->initialScanWalletFilter(*arg2,*arg3,*arg4);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_BtcWallet_getFullBalance(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   BtcWallet *arg1 = (BtcWallet *) 0 ;
@@ -37631,33 +37690,33 @@ SWIGINTERN PyObject *ZeroConfData_swigregister(PyObject *SWIGUNUSEDPARM(self), P
   return SWIG_Py_Void();
 }
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_GetInstance(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_GetInstance(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *result = 0 ;
+  BlockDataManager_MMAP *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)":BlockDataManager_FullRAM_GetInstance")) SWIG_fail;
-  result = (BlockDataManager_FullRAM *) &BlockDataManager_FullRAM::GetInstance();
-  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)":BlockDataManager_MMAP_GetInstance")) SWIG_fail;
+  result = (BlockDataManager_MMAP *) &BlockDataManager_MMAP::GetInstance();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   return resultobj;
 fail:
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_isInitialized(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_isInitialized(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_isInitialized",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_isInitialized",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_isInitialized" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_isInitialized" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (bool)(arg1)->isInitialized();
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
@@ -37666,9 +37725,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_SetBtcNetworkParams(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_SetBtcNetworkParams(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   BinaryData *arg3 = 0 ;
   BinaryData *arg4 = 0 ;
@@ -37682,12 +37741,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_SetBtcNetworkParams(PyObject
   PyObject * obj2 = 0 ;
   PyObject * obj3 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_FullRAM_SetBtcNetworkParams",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_SetBtcNetworkParams",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_SetBtcNetworkParams" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_SetBtcNetworkParams" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -37723,26 +37782,26 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_SelectNetwork(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_SelectNetwork(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_SelectNetwork",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_SelectNetwork",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_SelectNetwork" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_SelectNetwork" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_SelectNetwork" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_SelectNetwork" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -37755,19 +37814,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_Reset(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_Reset(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_Reset",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_Reset",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_Reset" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_Reset" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   (arg1)->Reset();
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -37776,9 +37835,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getNumConfirmations(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getNumConfirmations(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -37786,12 +37845,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getNumConfirmations(PyObject
   PyObject * obj1 = 0 ;
   int32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getNumConfirmations",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getNumConfirmations",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getNumConfirmations" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getNumConfirmations" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -37809,20 +37868,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getTopBlockHeader(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getTopBlockHeader(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   BlockHeaderRef *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getTopBlockHeader",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getTopBlockHeader",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getTopBlockHeader" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getTopBlockHeader" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (BlockHeaderRef *) &(arg1)->getTopBlockHeader();
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockHeaderRef, 0 |  0 );
   return resultobj;
@@ -37831,20 +37890,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getGenesisBlock(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getGenesisBlock(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   BlockHeaderRef *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getGenesisBlock",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getGenesisBlock",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getGenesisBlock" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getGenesisBlock" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (BlockHeaderRef *) &(arg1)->getGenesisBlock();
   resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockHeaderRef, 0 |  0 );
   return resultobj;
@@ -37853,9 +37912,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getHeaderByHeight(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getHeaderByHeight(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   int arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -37865,15 +37924,15 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getHeaderByHeight(PyObject *
   PyObject * obj1 = 0 ;
   BlockHeaderRef *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getHeaderByHeight",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getHeaderByHeight",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getHeaderByHeight" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getHeaderByHeight" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   ecode2 = SWIG_AsVal_int(obj1, &val2);
   if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "BlockDataManager_FullRAM_getHeaderByHeight" "', argument " "2"" of type '" "int""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "BlockDataManager_MMAP_getHeaderByHeight" "', argument " "2"" of type '" "int""'");
   } 
   arg2 = static_cast< int >(val2);
   result = (BlockHeaderRef *)(arg1)->getHeaderByHeight(arg2);
@@ -37884,9 +37943,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getHeaderByHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getHeaderByHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -37895,12 +37954,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getHeaderByHash(PyObject *SW
   PyObject * obj1 = 0 ;
   BlockHeaderRef *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getHeaderByHash",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getHeaderByHash",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getHeaderByHash" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getHeaderByHash" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -37918,9 +37977,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getTxByHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getTxByHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -37929,12 +37988,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getTxByHash(PyObject *SWIGUN
   PyObject * obj1 = 0 ;
   TxRef *result = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getTxByHash",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getTxByHash",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getTxByHash" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getTxByHash" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -37952,20 +38011,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getBlockfilePath(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getBlockfilePath(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   string result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getBlockfilePath",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getBlockfilePath",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getBlockfilePath" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getBlockfilePath" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (arg1)->getBlockfilePath();
   resultobj = SWIG_From_std_string(static_cast< std::string >(result));
   return resultobj;
@@ -37974,9 +38033,64 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_parseNewBlockData(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_parseNewBlockData__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  BinaryRefReader *arg2 = 0 ;
+  uint64_t *arg3 = 0 ;
+  BtcWallet *arg4 = (BtcWallet *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  void *argp4 = 0 ;
+  int res4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  bool result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_parseNewBlockData",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
+  }
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BinaryRefReader,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
+  }
+  arg2 = reinterpret_cast< BinaryRefReader * >(argp2);
+  res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_unsigned_long_long,  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
+  }
+  arg3 = reinterpret_cast< uint64_t * >(argp3);
+  res4 = SWIG_ConvertPtr(obj3, &argp4,SWIGTYPE_p_BtcWallet, 0 |  0 );
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "4"" of type '" "BtcWallet *""'"); 
+  }
+  arg4 = reinterpret_cast< BtcWallet * >(argp4);
+  result = (bool)(arg1)->parseNewBlockData(*arg2,*arg3,arg4);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_parseNewBlockData__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryRefReader *arg2 = 0 ;
   uint64_t *arg3 = 0 ;
   void *argp1 = 0 ;
@@ -37990,26 +38104,26 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_parseNewBlockData(PyObject *
   PyObject * obj2 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_parseNewBlockData",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_parseNewBlockData",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_parseNewBlockData" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BinaryRefReader,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "2"" of type '" "BinaryRefReader &""'"); 
   }
   arg2 = reinterpret_cast< BinaryRefReader * >(argp2);
   res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_unsigned_long_long,  0 );
   if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_FullRAM_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
   }
   if (!argp3) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_parseNewBlockData" "', argument " "3"" of type '" "uint64_t &""'"); 
   }
   arg3 = reinterpret_cast< uint64_t * >(argp3);
   result = (bool)(arg1)->parseNewBlockData(*arg2,*arg3);
@@ -38020,9 +38134,72 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_parseNewBlockData(PyObject *self, PyObject *args) {
+  int argc;
+  PyObject *argv[5];
+  int ii;
+  
+  if (!PyTuple_Check(args)) SWIG_fail;
+  argc = (int)PyObject_Length(args);
+  for (ii = 0; (ii < argc) && (ii < 4); ii++) {
+    argv[ii] = PyTuple_GET_ITEM(args,ii);
+  }
+  if (argc == 3) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      void *vptr = 0;
+      int res = SWIG_ConvertPtr(argv[1], &vptr, SWIGTYPE_p_BinaryRefReader, 0);
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        void *vptr = 0;
+        int res = SWIG_ConvertPtr(argv[2], &vptr, SWIGTYPE_p_unsigned_long_long, 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_BlockDataManager_MMAP_parseNewBlockData__SWIG_1(self, args);
+        }
+      }
+    }
+  }
+  if (argc == 4) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      void *vptr = 0;
+      int res = SWIG_ConvertPtr(argv[1], &vptr, SWIGTYPE_p_BinaryRefReader, 0);
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        void *vptr = 0;
+        int res = SWIG_ConvertPtr(argv[2], &vptr, SWIGTYPE_p_unsigned_long_long, 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          void *vptr = 0;
+          int res = SWIG_ConvertPtr(argv[3], &vptr, SWIGTYPE_p_BtcWallet, 0);
+          _v = SWIG_CheckState(res);
+          if (_v) {
+            return _wrap_BlockDataManager_MMAP_parseNewBlockData__SWIG_0(self, args);
+          }
+        }
+      }
+    }
+  }
+  
+fail:
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_parseNewBlockData'.\n"
+    "  Possible C/C++ prototypes are:\n"
+    "    parseNewBlockData(BlockDataManager_MMAP *,BinaryRefReader &,uint64_t &,BtcWallet *)\n"
+    "    parseNewBlockData(BlockDataManager_MMAP *,BinaryRefReader &,uint64_t &)\n");
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockData__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData arg2 ;
   bool arg3 ;
   void *argp1 = 0 ;
@@ -38034,12 +38211,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_0(PyOb
   PyObject * obj2 = 0 ;
   SwigValueWrapper< std::vector< bool > > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_addNewBlockData",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_addNewBlockData",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_addNewBlockData" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_addNewBlockData" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38051,7 +38228,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_0(PyOb
   }
   ecode3 = SWIG_AsVal_bool(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_addNewBlockData" "', argument " "3"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_addNewBlockData" "', argument " "3"" of type '" "bool""'");
   } 
   arg3 = static_cast< bool >(val3);
   result = (arg1)->addNewBlockData(arg2,arg3);
@@ -38062,9 +38239,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockData__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38072,12 +38249,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_1(PyOb
   PyObject * obj1 = 0 ;
   SwigValueWrapper< std::vector< bool > > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_addNewBlockData",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_addNewBlockData",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_addNewBlockData" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_addNewBlockData" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38095,7 +38272,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockData(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[4];
   int ii;
@@ -38108,20 +38285,20 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData(PyObject *se
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryData, 0);
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_1(self, args);
+        return _wrap_BlockDataManager_MMAP_addNewBlockData__SWIG_1(self, args);
       }
     }
   }
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryData, 0);
@@ -38132,24 +38309,24 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockData(PyObject *se
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_addNewBlockData__SWIG_0(self, args);
+          return _wrap_BlockDataManager_MMAP_addNewBlockData__SWIG_0(self, args);
         }
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_addNewBlockData'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_addNewBlockData'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    addNewBlockData(BlockDataManager_FullRAM *,BinaryData,bool)\n"
-    "    addNewBlockData(BlockDataManager_FullRAM *,BinaryData)\n");
+    "    addNewBlockData(BlockDataManager_MMAP *,BinaryData,bool)\n"
+    "    addNewBlockData(BlockDataManager_MMAP *,BinaryData)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockDataRef__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryDataRef arg2 ;
   bool arg3 ;
   void *argp1 = 0 ;
@@ -38163,19 +38340,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_0(P
   PyObject * obj2 = 0 ;
   SwigValueWrapper< std::vector< bool > > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_addNewBlockDataRef",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_addNewBlockDataRef",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BinaryDataRef,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'");
     } else {
       BinaryDataRef * temp = reinterpret_cast< BinaryDataRef * >(argp2);
       arg2 = *temp;
@@ -38184,7 +38361,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_0(P
   }
   ecode3 = SWIG_AsVal_bool(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "3"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "3"" of type '" "bool""'");
   } 
   arg3 = static_cast< bool >(val3);
   result = (arg1)->addNewBlockDataRef(arg2,arg3);
@@ -38195,9 +38372,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockDataRef__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryDataRef arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38207,19 +38384,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_1(P
   PyObject * obj1 = 0 ;
   SwigValueWrapper< std::vector< bool > > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_addNewBlockDataRef",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_addNewBlockDataRef",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BinaryDataRef,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_addNewBlockDataRef" "', argument " "2"" of type '" "BinaryDataRef""'");
     } else {
       BinaryDataRef * temp = reinterpret_cast< BinaryDataRef * >(argp2);
       arg2 = *temp;
@@ -38234,7 +38411,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewBlockDataRef(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[4];
   int ii;
@@ -38247,20 +38424,20 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef(PyObject 
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryDataRef, 0);
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_1(self, args);
+        return _wrap_BlockDataManager_MMAP_addNewBlockDataRef__SWIG_1(self, args);
       }
     }
   }
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryDataRef, 0);
@@ -38271,24 +38448,24 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewBlockDataRef(PyObject 
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_addNewBlockDataRef__SWIG_0(self, args);
+          return _wrap_BlockDataManager_MMAP_addNewBlockDataRef__SWIG_0(self, args);
         }
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_addNewBlockDataRef'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_addNewBlockDataRef'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    addNewBlockDataRef(BlockDataManager_FullRAM *,BinaryDataRef,bool)\n"
-    "    addNewBlockDataRef(BlockDataManager_FullRAM *,BinaryDataRef)\n");
+    "    addNewBlockDataRef(BlockDataManager_MMAP *,BinaryDataRef,bool)\n"
+    "    addNewBlockDataRef(BlockDataManager_MMAP *,BinaryDataRef)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_reassessAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_reassessAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BlockHeaderRef *arg2 = (BlockHeaderRef *) 0 ;
   BlockHeaderRef *arg3 = (BlockHeaderRef *) 0 ;
   BlockHeaderRef *arg4 = (BlockHeaderRef *) 0 ;
@@ -38305,25 +38482,25 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_reassessAfterReorg(PyObject 
   PyObject * obj2 = 0 ;
   PyObject * obj3 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_FullRAM_reassessAfterReorg",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_reassessAfterReorg",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_reassessAfterReorg" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_reassessAfterReorg" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2,SWIGTYPE_p_BlockHeaderRef, 0 |  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_reassessAfterReorg" "', argument " "2"" of type '" "BlockHeaderRef *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_reassessAfterReorg" "', argument " "2"" of type '" "BlockHeaderRef *""'"); 
   }
   arg2 = reinterpret_cast< BlockHeaderRef * >(argp2);
   res3 = SWIG_ConvertPtr(obj2, &argp3,SWIGTYPE_p_BlockHeaderRef, 0 |  0 );
   if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_FullRAM_reassessAfterReorg" "', argument " "3"" of type '" "BlockHeaderRef *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_reassessAfterReorg" "', argument " "3"" of type '" "BlockHeaderRef *""'"); 
   }
   arg3 = reinterpret_cast< BlockHeaderRef * >(argp3);
   res4 = SWIG_ConvertPtr(obj3, &argp4,SWIGTYPE_p_BlockHeaderRef, 0 |  0 );
   if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "BlockDataManager_FullRAM_reassessAfterReorg" "', argument " "4"" of type '" "BlockHeaderRef *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "BlockDataManager_MMAP_reassessAfterReorg" "', argument " "4"" of type '" "BlockHeaderRef *""'"); 
   }
   arg4 = reinterpret_cast< BlockHeaderRef * >(argp4);
   (arg1)->reassessAfterReorg(arg2,arg3,arg4);
@@ -38334,9 +38511,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_hasTxWithHash__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   bool arg3 ;
   void *argp1 = 0 ;
@@ -38349,12 +38526,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_0(PyObje
   PyObject * obj2 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_hasTxWithHash",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_hasTxWithHash",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_hasTxWithHash" "', argument " "1"" of type '" "BlockDataManager_FullRAM const *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_hasTxWithHash" "', argument " "1"" of type '" "BlockDataManager_MMAP const *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38366,10 +38543,10 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_0(PyObje
   }
   ecode3 = SWIG_AsVal_bool(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_hasTxWithHash" "', argument " "3"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_hasTxWithHash" "', argument " "3"" of type '" "bool""'");
   } 
   arg3 = static_cast< bool >(val3);
-  result = (bool)((BlockDataManager_FullRAM const *)arg1)->hasTxWithHash((BinaryData const &)*arg2,arg3);
+  result = (bool)((BlockDataManager_MMAP const *)arg1)->hasTxWithHash((BinaryData const &)*arg2,arg3);
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
 fail:
@@ -38377,9 +38554,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_hasTxWithHash__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38388,12 +38565,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_1(PyObje
   PyObject * obj1 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_hasTxWithHash",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_hasTxWithHash",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_hasTxWithHash" "', argument " "1"" of type '" "BlockDataManager_FullRAM const *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_hasTxWithHash" "', argument " "1"" of type '" "BlockDataManager_MMAP const *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38403,7 +38580,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_1(PyObje
     bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
     arg2 = &bdObj2;
   }
-  result = (bool)((BlockDataManager_FullRAM const *)arg1)->hasTxWithHash((BinaryData const &)*arg2);
+  result = (bool)((BlockDataManager_MMAP const *)arg1)->hasTxWithHash((BinaryData const &)*arg2);
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
 fail:
@@ -38411,7 +38588,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_hasTxWithHash(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[4];
   int ii;
@@ -38424,20 +38601,20 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash(PyObject *self
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryData, 0);
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_1(self, args);
+        return _wrap_BlockDataManager_MMAP_hasTxWithHash__SWIG_1(self, args);
       }
     }
   }
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_BinaryData, 0);
@@ -38448,24 +38625,24 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasTxWithHash(PyObject *self
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_hasTxWithHash__SWIG_0(self, args);
+          return _wrap_BlockDataManager_MMAP_hasTxWithHash__SWIG_0(self, args);
         }
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_hasTxWithHash'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_hasTxWithHash'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    hasTxWithHash(BlockDataManager_FullRAM const *,BinaryData const &,bool)\n"
-    "    hasTxWithHash(BlockDataManager_FullRAM const *,BinaryData const &)\n");
+    "    hasTxWithHash(BlockDataManager_MMAP const *,BinaryData const &,bool)\n"
+    "    hasTxWithHash(BlockDataManager_MMAP const *,BinaryData const &)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasHeaderWithHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_hasHeaderWithHash(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38474,12 +38651,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasHeaderWithHash(PyObject *
   PyObject * obj1 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_hasHeaderWithHash",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_hasHeaderWithHash",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_hasHeaderWithHash" "', argument " "1"" of type '" "BlockDataManager_FullRAM const *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_hasHeaderWithHash" "', argument " "1"" of type '" "BlockDataManager_MMAP const *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38489,7 +38666,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_hasHeaderWithHash(PyObject *
     bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
     arg2 = &bdObj2;
   }
-  result = (bool)((BlockDataManager_FullRAM const *)arg1)->hasHeaderWithHash((BinaryData const &)*arg2);
+  result = (bool)((BlockDataManager_MMAP const *)arg1)->hasHeaderWithHash((BinaryData const &)*arg2);
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
 fail:
@@ -38497,21 +38674,21 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getNumBlocks(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getNumBlocks(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getNumBlocks",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getNumBlocks",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getNumBlocks" "', argument " "1"" of type '" "BlockDataManager_FullRAM const *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getNumBlocks" "', argument " "1"" of type '" "BlockDataManager_MMAP const *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
-  result = (uint32_t)((BlockDataManager_FullRAM const *)arg1)->getNumBlocks();
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  result = (uint32_t)((BlockDataManager_MMAP const *)arg1)->getNumBlocks();
   resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
   return resultobj;
 fail:
@@ -38519,21 +38696,21 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getNumTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getNumTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getNumTx",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getNumTx",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getNumTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM const *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getNumTx" "', argument " "1"" of type '" "BlockDataManager_MMAP const *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
-  result = (uint32_t)((BlockDataManager_FullRAM const *)arg1)->getNumTx();
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  result = (uint32_t)((BlockDataManager_MMAP const *)arg1)->getNumTx();
   resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
   return resultobj;
 fail:
@@ -38541,20 +38718,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getHeadersNotOnMainChain(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getHeadersNotOnMainChain(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   std::vector< BlockHeaderRef * > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getHeadersNotOnMainChain",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getHeadersNotOnMainChain",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getHeadersNotOnMainChain" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getHeadersNotOnMainChain" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (arg1)->getHeadersNotOnMainChain();
   resultobj = swig::from(static_cast< std::vector<BlockHeaderRef*,std::allocator< BlockHeaderRef * > > >(result));
   return resultobj;
@@ -38563,9 +38740,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchHeaders(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_prefixSearchHeaders(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38574,12 +38751,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchHeaders(PyObject
   PyObject * obj1 = 0 ;
   std::vector< BlockHeaderRef * > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_prefixSearchHeaders",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_prefixSearchHeaders",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_prefixSearchHeaders" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_prefixSearchHeaders" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38597,9 +38774,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_prefixSearchTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38608,12 +38785,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchTx(PyObject *SWI
   PyObject * obj1 = 0 ;
   std::vector< TxRef * > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_prefixSearchTx",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_prefixSearchTx",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_prefixSearchTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_prefixSearchTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38631,9 +38808,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchAddress(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_prefixSearchAddress(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38642,12 +38819,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_prefixSearchAddress(PyObject
   PyObject * obj1 = 0 ;
   std::vector< BinaryData > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_prefixSearchAddress",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_prefixSearchAddress",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_prefixSearchAddress" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_prefixSearchAddress" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -38665,9 +38842,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BtcWallet *arg2 = 0 ;
   uint32_t arg3 ;
   uint32_t arg4 ;
@@ -38684,28 +38861,28 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_0(
   PyObject * obj2 = 0 ;
   PyObject * obj3 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   arg2 = reinterpret_cast< BtcWallet * >(argp2);
   ecode3 = SWIG_AsVal_unsigned_SS_int(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
   } 
   arg3 = static_cast< uint32_t >(val3);
   ecode4 = SWIG_AsVal_unsigned_SS_int(obj3, &val4);
   if (!SWIG_IsOK(ecode4)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "4"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "4"" of type '" "uint32_t""'");
   } 
   arg4 = static_cast< uint32_t >(val4);
   (arg1)->scanBlockchainForTx(*arg2,arg3,arg4);
@@ -38716,9 +38893,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BtcWallet *arg2 = 0 ;
   uint32_t arg3 ;
   void *argp1 = 0 ;
@@ -38731,23 +38908,23 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_1(
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   arg2 = reinterpret_cast< BtcWallet * >(argp2);
   ecode3 = SWIG_AsVal_unsigned_SS_int(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
   } 
   arg3 = static_cast< uint32_t >(val3);
   (arg1)->scanBlockchainForTx(*arg2,arg3);
@@ -38758,9 +38935,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_2(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_2(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BtcWallet *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38769,18 +38946,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_2(
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   arg2 = reinterpret_cast< BtcWallet * >(argp2);
   (arg1)->scanBlockchainForTx(*arg2);
@@ -38791,9 +38968,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_3(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_3(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   SwigValueWrapper< std::vector< BtcWallet * > > arg2 ;
   uint32_t arg3 ;
   uint32_t arg4 ;
@@ -38810,19 +38987,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_3(
   PyObject * obj2 = 0 ;
   PyObject * obj3 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
     } else {
       std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp2);
       arg2 = *temp;
@@ -38831,12 +39008,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_3(
   }
   ecode3 = SWIG_AsVal_unsigned_SS_int(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
   } 
   arg3 = static_cast< uint32_t >(val3);
   ecode4 = SWIG_AsVal_unsigned_SS_int(obj3, &val4);
   if (!SWIG_IsOK(ecode4)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "4"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "4"" of type '" "uint32_t""'");
   } 
   arg4 = static_cast< uint32_t >(val4);
   (arg1)->scanBlockchainForTx(arg2,arg3,arg4);
@@ -38847,9 +39024,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_4(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_4(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   SwigValueWrapper< std::vector< BtcWallet * > > arg2 ;
   uint32_t arg3 ;
   void *argp1 = 0 ;
@@ -38862,19 +39039,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_4(
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
     } else {
       std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp2);
       arg2 = *temp;
@@ -38883,7 +39060,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_4(
   }
   ecode3 = SWIG_AsVal_unsigned_SS_int(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "3"" of type '" "uint32_t""'");
   } 
   arg3 = static_cast< uint32_t >(val3);
   (arg1)->scanBlockchainForTx(arg2,arg3);
@@ -38894,9 +39071,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_5(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_5(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   SwigValueWrapper< std::vector< BtcWallet * > > arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -38905,19 +39082,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_5(
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_scanBlockchainForTx",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_scanBlockchainForTx",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanBlockchainForTx" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
     } else {
       std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp2);
       arg2 = *temp;
@@ -38932,7 +39109,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[5];
   int ii;
@@ -38945,34 +39122,34 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       void *vptr = 0;
       int res = SWIG_ConvertPtr(argv[1], &vptr, SWIGTYPE_p_BtcWallet, 0);
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_2(self, args);
+        return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_2(self, args);
       }
     }
   }
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t, 0);
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_5(self, args);
+        return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_5(self, args);
       }
     }
   }
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t, 0);
@@ -38983,7 +39160,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_4(self, args);
+          return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_4(self, args);
         }
       }
     }
@@ -38991,7 +39168,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       void *vptr = 0;
@@ -39003,7 +39180,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
           _v = SWIG_CheckState(res);
         }
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_1(self, args);
+          return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_1(self, args);
         }
       }
     }
@@ -39011,7 +39188,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
   if (argc == 4) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       void *vptr = 0;
@@ -39028,7 +39205,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
             _v = SWIG_CheckState(res);
           }
           if (_v) {
-            return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_0(self, args);
+            return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_0(self, args);
           }
         }
       }
@@ -39037,7 +39214,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
   if (argc == 4) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_ConvertPtr(argv[1], 0, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t, 0);
@@ -39053,7 +39230,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
             _v = SWIG_CheckState(res);
           }
           if (_v) {
-            return _wrap_BlockDataManager_FullRAM_scanBlockchainForTx__SWIG_3(self, args);
+            return _wrap_BlockDataManager_MMAP_scanBlockchainForTx__SWIG_3(self, args);
           }
         }
       }
@@ -39061,52 +39238,136 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx(PyObject
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_scanBlockchainForTx'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_scanBlockchainForTx'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,BtcWallet &,uint32_t,uint32_t)\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,BtcWallet &,uint32_t)\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,BtcWallet &)\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,std::vector< BtcWallet * >,uint32_t,uint32_t)\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,std::vector< BtcWallet * >,uint32_t)\n"
-    "    scanBlockchainForTx(BlockDataManager_FullRAM *,std::vector< BtcWallet * >)\n");
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,BtcWallet &,uint32_t,uint32_t)\n"
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,BtcWallet &,uint32_t)\n"
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,BtcWallet &)\n"
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,std::vector< BtcWallet * >,uint32_t,uint32_t)\n"
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,std::vector< BtcWallet * >,uint32_t)\n"
+    "    scanBlockchainForTx(BlockDataManager_MMAP *,std::vector< BtcWallet * >)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanRelevantTxForWallet(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
-  string arg2 ;
-  bool arg3 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  BtcWallet *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
-  bool val3 ;
-  int ecode3 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_scanRelevantTxForWallet",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanRelevantTxForWallet" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
+  }
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_scanRelevantTxForWallet" "', argument " "2"" of type '" "BtcWallet &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_scanRelevantTxForWallet" "', argument " "2"" of type '" "BtcWallet &""'"); 
+  }
+  arg2 = reinterpret_cast< BtcWallet * >(argp2);
+  (arg1)->scanRelevantTxForWallet(*arg2);
+  resultobj = SWIG_Py_Void();
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  string arg2 ;
+  BtcWallet *arg3 = (BtcWallet *) 0 ;
+  bool arg4 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  bool val4 ;
+  int ecode4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  uint32_t result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_readBlkFile_FromScratch",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
+  }
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  {
+    std::string *ptr = (std::string *)0;
+    int res = SWIG_AsPtr_std_string(obj1, &ptr);
+    if (!SWIG_IsOK(res) || !ptr) {
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
+    }
+    arg2 = *ptr;
+    if (SWIG_IsNewObj(res)) delete ptr;
+  }
+  res3 = SWIG_ConvertPtr(obj2, &argp3,SWIGTYPE_p_BtcWallet, 0 |  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "BtcWallet *""'"); 
+  }
+  arg3 = reinterpret_cast< BtcWallet * >(argp3);
+  ecode4 = SWIG_AsVal_bool(obj3, &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "4"" of type '" "bool""'");
+  } 
+  arg4 = static_cast< bool >(val4);
+  result = (uint32_t)(arg1)->readBlkFile_FromScratch(arg2,arg3,arg4);
+  resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  string arg2 ;
+  BtcWallet *arg3 = (BtcWallet *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   PyObject * obj2 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_FullRAM_readBlkFile_FromScratch",&obj0,&obj1,&obj2)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_readBlkFile_FromScratch",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
   }
-  ecode3 = SWIG_AsVal_bool(obj2, &val3);
-  if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_readBlkFile_FromScratch" "', argument " "3"" of type '" "bool""'");
-  } 
-  arg3 = static_cast< bool >(val3);
+  res3 = SWIG_ConvertPtr(obj2, &argp3,SWIGTYPE_p_BtcWallet, 0 |  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "BtcWallet *""'"); 
+  }
+  arg3 = reinterpret_cast< BtcWallet * >(argp3);
   result = (uint32_t)(arg1)->readBlkFile_FromScratch(arg2,arg3);
   resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
   return resultobj;
@@ -39115,9 +39376,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_2(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39125,17 +39386,17 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch__SWI
   PyObject * obj1 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_readBlkFile_FromScratch",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_readBlkFile_FromScratch",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -39148,61 +39409,236 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_3(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  string arg2 ;
+  SwigValueWrapper< std::vector< BtcWallet * > > arg3 ;
+  bool arg4 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp3 ;
+  int res3 = 0 ;
+  bool val4 ;
+  int ecode4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  uint32_t result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_readBlkFile_FromScratch",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
+  }
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  {
+    std::string *ptr = (std::string *)0;
+    int res = SWIG_AsPtr_std_string(obj1, &ptr);
+    if (!SWIG_IsOK(res) || !ptr) {
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
+    }
+    arg2 = *ptr;
+    if (SWIG_IsNewObj(res)) delete ptr;
+  }
+  {
+    res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
+    if (!SWIG_IsOK(res3)) {
+      SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "std::vector< BtcWallet * >""'"); 
+    }  
+    if (!argp3) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "std::vector< BtcWallet * >""'");
+    } else {
+      std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp3);
+      arg3 = *temp;
+      if (SWIG_IsNewObj(res3)) delete temp;
+    }
+  }
+  ecode4 = SWIG_AsVal_bool(obj3, &val4);
+  if (!SWIG_IsOK(ecode4)) {
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "4"" of type '" "bool""'");
+  } 
+  arg4 = static_cast< bool >(val4);
+  result = (uint32_t)(arg1)->readBlkFile_FromScratch(arg2,arg3,arg4);
+  resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_4(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
+  string arg2 ;
+  SwigValueWrapper< std::vector< BtcWallet * > > arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp3 ;
+  int res3 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  uint32_t result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOO:BlockDataManager_MMAP_readBlkFile_FromScratch",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
+  }
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
+  {
+    std::string *ptr = (std::string *)0;
+    int res = SWIG_AsPtr_std_string(obj1, &ptr);
+    if (!SWIG_IsOK(res) || !ptr) {
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "2"" of type '" "string""'"); 
+    }
+    arg2 = *ptr;
+    if (SWIG_IsNewObj(res)) delete ptr;
+  }
+  {
+    res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
+    if (!SWIG_IsOK(res3)) {
+      SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "std::vector< BtcWallet * >""'"); 
+    }  
+    if (!argp3) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_readBlkFile_FromScratch" "', argument " "3"" of type '" "std::vector< BtcWallet * >""'");
+    } else {
+      std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp3);
+      arg3 = *temp;
+      if (SWIG_IsNewObj(res3)) delete temp;
+    }
+  }
+  result = (uint32_t)(arg1)->readBlkFile_FromScratch(arg2,arg3);
+  resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFile_FromScratch(PyObject *self, PyObject *args) {
   int argc;
-  PyObject *argv[4];
+  PyObject *argv[5];
   int ii;
   
   if (!PyTuple_Check(args)) SWIG_fail;
   argc = (int)PyObject_Length(args);
-  for (ii = 0; (ii < argc) && (ii < 3); ii++) {
+  for (ii = 0; (ii < argc) && (ii < 4); ii++) {
     argv[ii] = PyTuple_GET_ITEM(args,ii);
   }
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch__SWIG_1(self, args);
+        return _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_2(self, args);
       }
     }
   }
   if (argc == 3) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
       _v = SWIG_CheckState(res);
       if (_v) {
-        {
-          int res = SWIG_AsVal_bool(argv[2], NULL);
-          _v = SWIG_CheckState(res);
-        }
+        void *vptr = 0;
+        int res = SWIG_ConvertPtr(argv[2], &vptr, SWIGTYPE_p_BtcWallet, 0);
+        _v = SWIG_CheckState(res);
         if (_v) {
-          return _wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch__SWIG_0(self, args);
+          return _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_1(self, args);
+        }
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        int res = SWIG_ConvertPtr(argv[2], 0, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t, 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          return _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_4(self, args);
+        }
+      }
+    }
+  }
+  if (argc == 4) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        int res = SWIG_ConvertPtr(argv[2], 0, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t, 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          {
+            int res = SWIG_AsVal_bool(argv[3], NULL);
+            _v = SWIG_CheckState(res);
+          }
+          if (_v) {
+            return _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_3(self, args);
+          }
+        }
+      }
+    }
+  }
+  if (argc == 4) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
+      _v = SWIG_CheckState(res);
+      if (_v) {
+        void *vptr = 0;
+        int res = SWIG_ConvertPtr(argv[2], &vptr, SWIGTYPE_p_BtcWallet, 0);
+        _v = SWIG_CheckState(res);
+        if (_v) {
+          {
+            int res = SWIG_AsVal_bool(argv[3], NULL);
+            _v = SWIG_CheckState(res);
+          }
+          if (_v) {
+            return _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch__SWIG_0(self, args);
+          }
         }
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_readBlkFile_FromScratch'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_readBlkFile_FromScratch'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    readBlkFile_FromScratch(BlockDataManager_FullRAM *,string,bool)\n"
-    "    readBlkFile_FromScratch(BlockDataManager_FullRAM *,string)\n");
+    "    readBlkFile_FromScratch(BlockDataManager_MMAP *,string,BtcWallet *,bool)\n"
+    "    readBlkFile_FromScratch(BlockDataManager_MMAP *,string,BtcWallet *)\n"
+    "    readBlkFile_FromScratch(BlockDataManager_MMAP *,string)\n"
+    "    readBlkFile_FromScratch(BlockDataManager_MMAP *,string,std::vector< BtcWallet * >,bool)\n"
+    "    readBlkFile_FromScratch(BlockDataManager_MMAP *,string,std::vector< BtcWallet * >)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFileUpdate__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFileUpdate__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39210,17 +39646,17 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFileUpdate__SWIG_0(Py
   PyObject * obj1 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_readBlkFileUpdate",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_readBlkFileUpdate",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_readBlkFileUpdate" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFileUpdate" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_readBlkFileUpdate" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readBlkFileUpdate" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -39233,20 +39669,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFileUpdate__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFileUpdate__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   uint32_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_readBlkFileUpdate",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_readBlkFileUpdate",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_readBlkFileUpdate" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readBlkFileUpdate" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (uint32_t)(arg1)->readBlkFileUpdate();
   resultobj = SWIG_From_unsigned_SS_int(static_cast< unsigned int >(result));
   return resultobj;
@@ -39255,7 +39691,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFileUpdate(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readBlkFileUpdate(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[3];
   int ii;
@@ -39268,49 +39704,49 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readBlkFileUpdate(PyObject *
   if (argc == 1) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
-      return _wrap_BlockDataManager_FullRAM_readBlkFileUpdate__SWIG_1(self, args);
+      return _wrap_BlockDataManager_MMAP_readBlkFileUpdate__SWIG_1(self, args);
     }
   }
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       int res = SWIG_AsPtr_std_string(argv[1], (std::string**)(0));
       _v = SWIG_CheckState(res);
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_readBlkFileUpdate__SWIG_0(self, args);
+        return _wrap_BlockDataManager_MMAP_readBlkFileUpdate__SWIG_0(self, args);
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_readBlkFileUpdate'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_readBlkFileUpdate'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    readBlkFileUpdate(BlockDataManager_FullRAM *,string)\n"
-    "    readBlkFileUpdate(BlockDataManager_FullRAM *)\n");
+    "    readBlkFileUpdate(BlockDataManager_MMAP *,string)\n"
+    "    readBlkFileUpdate(BlockDataManager_MMAP *)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_verifyBlkFileIntegrity(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_verifyBlkFileIntegrity(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_verifyBlkFileIntegrity",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_verifyBlkFileIntegrity",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_verifyBlkFileIntegrity" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_verifyBlkFileIntegrity" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (bool)(arg1)->verifyBlkFileIntegrity();
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
@@ -39319,19 +39755,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_scanBlockchainForTx_FromScratch_AllAddr(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_scanBlockchainForTx_FromScratch_AllAddr(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_scanBlockchainForTx_FromScratch_AllAddr",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_scanBlockchainForTx_FromScratch_AllAddr",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_scanBlockchainForTx_FromScratch_AllAddr" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_scanBlockchainForTx_FromScratch_AllAddr" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   (arg1)->scanBlockchainForTx_FromScratch_AllAddr();
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -39340,20 +39776,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_findAllNonStdTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_findAllNonStdTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   std::vector< TxRef * > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_findAllNonStdTx",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_findAllNonStdTx",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_findAllNonStdTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_findAllNonStdTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (arg1)->findAllNonStdTx();
   resultobj = swig::from(static_cast< std::vector<TxRef*,std::allocator< TxRef * > > >(result));
   return resultobj;
@@ -39362,26 +39798,26 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_enableZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_enableZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_enableZeroConf",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_enableZeroConf",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_enableZeroConf" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_enableZeroConf" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_enableZeroConf" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_enableZeroConf" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -39394,26 +39830,26 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_disableZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_disableZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_disableZeroConf",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_disableZeroConf",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_disableZeroConf" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_disableZeroConf" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_disableZeroConf" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_disableZeroConf" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -39426,26 +39862,26 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_readZeroConfFile(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_readZeroConfFile(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   string arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_readZeroConfFile",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_readZeroConfFile",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_readZeroConfFile" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_readZeroConfFile" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     std::string *ptr = (std::string *)0;
     int res = SWIG_AsPtr_std_string(obj1, &ptr);
     if (!SWIG_IsOK(res) || !ptr) {
-      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_FullRAM_readZeroConfFile" "', argument " "2"" of type '" "string""'"); 
+      SWIG_exception_fail(SWIG_ArgError((ptr ? res : SWIG_TypeError)), "in method '" "BlockDataManager_MMAP_readZeroConfFile" "', argument " "2"" of type '" "string""'"); 
     }
     arg2 = *ptr;
     if (SWIG_IsNewObj(res)) delete ptr;
@@ -39458,9 +39894,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewZeroConfTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_addNewZeroConfTx(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BinaryData *arg2 = 0 ;
   uint64_t arg3 ;
   bool arg4 ;
@@ -39477,12 +39913,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewZeroConfTx(PyObject *S
   PyObject * obj3 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_FullRAM_addNewZeroConfTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:BlockDataManager_MMAP_addNewZeroConfTx",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_addNewZeroConfTx" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_addNewZeroConfTx" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     if(!PyString_Check(obj1))
     {
@@ -39494,12 +39930,12 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_addNewZeroConfTx(PyObject *S
   }
   ecode3 = SWIG_AsVal_unsigned_SS_long_SS_long(obj2, &val3);
   if (!SWIG_IsOK(ecode3)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_FullRAM_addNewZeroConfTx" "', argument " "3"" of type '" "uint64_t""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode3), "in method '" "BlockDataManager_MMAP_addNewZeroConfTx" "', argument " "3"" of type '" "uint64_t""'");
   } 
   arg3 = static_cast< uint64_t >(val3);
   ecode4 = SWIG_AsVal_bool(obj3, &val4);
   if (!SWIG_IsOK(ecode4)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_FullRAM_addNewZeroConfTx" "', argument " "4"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode4), "in method '" "BlockDataManager_MMAP_addNewZeroConfTx" "', argument " "4"" of type '" "bool""'");
   } 
   arg4 = static_cast< bool >(val4);
   result = (bool)(arg1)->addNewZeroConfTx((BinaryData const &)*arg2,arg3,arg4);
@@ -39510,19 +39946,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_purgeZeroConfPool(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_purgeZeroConfPool(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_purgeZeroConfPool",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_purgeZeroConfPool",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_purgeZeroConfPool" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_purgeZeroConfPool" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   (arg1)->purgeZeroConfPool();
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -39531,19 +39967,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_pprintZeroConfPool(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_pprintZeroConfPool(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_pprintZeroConfPool",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_pprintZeroConfPool",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_pprintZeroConfPool" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_pprintZeroConfPool" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   (arg1)->pprintZeroConfPool();
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -39552,19 +39988,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_rewriteZeroConfFile(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_rewriteZeroConfFile(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_rewriteZeroConfFile",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_rewriteZeroConfFile",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_rewriteZeroConfFile" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_rewriteZeroConfFile" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   (arg1)->rewriteZeroConfFile();
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -39573,9 +40009,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_rescanWalletZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_rescanWalletZeroConf(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BtcWallet *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39584,18 +40020,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_rescanWalletZeroConf(PyObjec
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_rescanWalletZeroConf",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_rescanWalletZeroConf",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_rescanWalletZeroConf" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_rescanWalletZeroConf" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_rescanWalletZeroConf" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_rescanWalletZeroConf" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_rescanWalletZeroConf" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_rescanWalletZeroConf" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   arg2 = reinterpret_cast< BtcWallet * >(argp2);
   (arg1)->rescanWalletZeroConf(*arg2);
@@ -39606,9 +40042,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_organizeChain__SWIG_0(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   bool arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39618,15 +40054,15 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain__SWIG_0(PyObje
   PyObject * obj1 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_organizeChain",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_organizeChain",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_organizeChain" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_organizeChain" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   ecode2 = SWIG_AsVal_bool(obj1, &val2);
   if (!SWIG_IsOK(ecode2)) {
-    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "BlockDataManager_FullRAM_organizeChain" "', argument " "2"" of type '" "bool""'");
+    SWIG_exception_fail(SWIG_ArgError(ecode2), "in method '" "BlockDataManager_MMAP_organizeChain" "', argument " "2"" of type '" "bool""'");
   } 
   arg2 = static_cast< bool >(val2);
   result = (bool)(arg1)->organizeChain(arg2);
@@ -39637,20 +40073,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_organizeChain__SWIG_1(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_organizeChain",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_organizeChain",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_organizeChain" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_organizeChain" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (bool)(arg1)->organizeChain();
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
@@ -39659,7 +40095,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain(PyObject *self, PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_organizeChain(PyObject *self, PyObject *args) {
   int argc;
   PyObject *argv[3];
   int ii;
@@ -39672,16 +40108,16 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain(PyObject *self
   if (argc == 1) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
-      return _wrap_BlockDataManager_FullRAM_organizeChain__SWIG_1(self, args);
+      return _wrap_BlockDataManager_MMAP_organizeChain__SWIG_1(self, args);
     }
   }
   if (argc == 2) {
     int _v;
     void *vptr = 0;
-    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_FullRAM, 0);
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_BlockDataManager_MMAP, 0);
     _v = SWIG_CheckState(res);
     if (_v) {
       {
@@ -39689,34 +40125,34 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_organizeChain(PyObject *self
         _v = SWIG_CheckState(res);
       }
       if (_v) {
-        return _wrap_BlockDataManager_FullRAM_organizeChain__SWIG_0(self, args);
+        return _wrap_BlockDataManager_MMAP_organizeChain__SWIG_0(self, args);
       }
     }
   }
   
 fail:
-  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_FullRAM_organizeChain'.\n"
+  SWIG_SetErrorMsg(PyExc_NotImplementedError,"Wrong number of arguments for overloaded function 'BlockDataManager_MMAP_organizeChain'.\n"
     "  Possible C/C++ prototypes are:\n"
-    "    organizeChain(BlockDataManager_FullRAM *,bool)\n"
-    "    organizeChain(BlockDataManager_FullRAM *)\n");
+    "    organizeChain(BlockDataManager_MMAP *,bool)\n"
+    "    organizeChain(BlockDataManager_MMAP *)\n");
   return NULL;
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_isLastBlockReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_isLastBlockReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   bool result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_isLastBlockReorg",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_isLastBlockReorg",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_isLastBlockReorg" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_isLastBlockReorg" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (bool)(arg1)->isLastBlockReorg();
   resultobj = SWIG_From_bool(static_cast< bool >(result));
   return resultobj;
@@ -39725,20 +40161,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getTxJustInvalidated(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getTxJustInvalidated(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   set< HashString > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getTxJustInvalidated",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getTxJustInvalidated",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getTxJustInvalidated" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getTxJustInvalidated" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (arg1)->getTxJustInvalidated();
   resultobj = SWIG_NewPointerObj((new set< HashString >(static_cast< const set< HashString >& >(result))), SWIGTYPE_p_setT_HashString_t, SWIG_POINTER_OWN |  0 );
   return resultobj;
@@ -39747,20 +40183,20 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getTxJustAffected(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getTxJustAffected(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   set< HashString > result;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_FullRAM_getTxJustAffected",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_MMAP_getTxJustAffected",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getTxJustAffected" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getTxJustAffected" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   result = (arg1)->getTxJustAffected();
   resultobj = SWIG_NewPointerObj((new set< HashString >(static_cast< const set< HashString >& >(result))), SWIGTYPE_p_setT_HashString_t, SWIG_POINTER_OWN |  0 );
   return resultobj;
@@ -39769,9 +40205,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_updateWalletAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_updateWalletAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   BtcWallet *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39780,18 +40216,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_updateWalletAfterReorg(PyObj
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_updateWalletAfterReorg",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_updateWalletAfterReorg",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_updateWalletAfterReorg" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_updateWalletAfterReorg" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_BtcWallet,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_updateWalletAfterReorg" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_updateWalletAfterReorg" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_updateWalletAfterReorg" "', argument " "2"" of type '" "BtcWallet &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_updateWalletAfterReorg" "', argument " "2"" of type '" "BtcWallet &""'"); 
   }
   arg2 = reinterpret_cast< BtcWallet * >(argp2);
   (arg1)->updateWalletAfterReorg(*arg2);
@@ -39802,9 +40238,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_updateWalletsAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_updateWalletsAfterReorg(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   SwigValueWrapper< std::vector< BtcWallet * > > arg2 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39813,19 +40249,19 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_updateWalletsAfterReorg(PyOb
   PyObject * obj0 = 0 ;
   PyObject * obj1 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_updateWalletsAfterReorg",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_updateWalletsAfterReorg",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_updateWalletsAfterReorg" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_updateWalletsAfterReorg" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   {
     res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_std__vectorT_BtcWallet_p_std__allocatorT_BtcWallet_p_t_t,  0  | 0);
     if (!SWIG_IsOK(res2)) {
-      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_updateWalletsAfterReorg" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_updateWalletsAfterReorg" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'"); 
     }  
     if (!argp2) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_updateWalletsAfterReorg" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_updateWalletsAfterReorg" "', argument " "2"" of type '" "std::vector< BtcWallet * >""'");
     } else {
       std::vector< BtcWallet * > * temp = reinterpret_cast< std::vector< BtcWallet * > * >(argp2);
       arg2 = *temp;
@@ -39840,9 +40276,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getPrevTxOut(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getPrevTxOut(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   TxInRef *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39852,18 +40288,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getPrevTxOut(PyObject *SWIGU
   PyObject * obj1 = 0 ;
   TxOutRef result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getPrevTxOut",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getPrevTxOut",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getPrevTxOut" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getPrevTxOut" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_TxInRef,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_getPrevTxOut" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_getPrevTxOut" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_getPrevTxOut" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_getPrevTxOut" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   arg2 = reinterpret_cast< TxInRef * >(argp2);
   result = (arg1)->getPrevTxOut(*arg2);
@@ -39874,9 +40310,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getSenderAddr20(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getSenderAddr20(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   TxInRef *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39886,18 +40322,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getSenderAddr20(PyObject *SW
   PyObject * obj1 = 0 ;
   BinaryData result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getSenderAddr20",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getSenderAddr20",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getSenderAddr20" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getSenderAddr20" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_TxInRef,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_getSenderAddr20" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_getSenderAddr20" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_getSenderAddr20" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_getSenderAddr20" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   arg2 = reinterpret_cast< TxInRef * >(argp2);
   result = (arg1)->getSenderAddr20(*arg2);
@@ -39910,9 +40346,9 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getSentValue(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_BlockDataManager_MMAP_getSentValue(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   TxInRef *arg2 = 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
@@ -39922,18 +40358,18 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_FullRAM_getSentValue(PyObject *SWIGU
   PyObject * obj1 = 0 ;
   int64_t result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_FullRAM_getSentValue",&obj0,&obj1)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"OO:BlockDataManager_MMAP_getSentValue",&obj0,&obj1)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_FullRAM_getSentValue" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_MMAP_getSentValue" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_TxInRef,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_FullRAM_getSentValue" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "BlockDataManager_MMAP_getSentValue" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_FullRAM_getSentValue" "', argument " "2"" of type '" "TxInRef &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "BlockDataManager_MMAP_getSentValue" "', argument " "2"" of type '" "TxInRef &""'"); 
   }
   arg2 = reinterpret_cast< TxInRef * >(argp2);
   result = (int64_t)(arg1)->getSentValue(*arg2);
@@ -39944,19 +40380,19 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_delete_BlockDataManager_FullRAM(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_delete_BlockDataManager_MMAP(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
-  BlockDataManager_FullRAM *arg1 = (BlockDataManager_FullRAM *) 0 ;
+  BlockDataManager_MMAP *arg1 = (BlockDataManager_MMAP *) 0 ;
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
   
-  if (!PyArg_ParseTuple(args,(char *)"O:delete_BlockDataManager_FullRAM",&obj0)) SWIG_fail;
-  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_FullRAM, SWIG_POINTER_DISOWN |  0 );
+  if (!PyArg_ParseTuple(args,(char *)"O:delete_BlockDataManager_MMAP",&obj0)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager_MMAP, SWIG_POINTER_DISOWN |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_BlockDataManager_FullRAM" "', argument " "1"" of type '" "BlockDataManager_FullRAM *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_BlockDataManager_MMAP" "', argument " "1"" of type '" "BlockDataManager_MMAP *""'"); 
   }
-  arg1 = reinterpret_cast< BlockDataManager_FullRAM * >(argp1);
+  arg1 = reinterpret_cast< BlockDataManager_MMAP * >(argp1);
   delete arg1;
   resultobj = SWIG_Py_Void();
   return resultobj;
@@ -39965,10 +40401,10 @@ fail:
 }
 
 
-SWIGINTERN PyObject *BlockDataManager_FullRAM_swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *BlockDataManager_MMAP_swigregister(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *obj;
   if (!PyArg_ParseTuple(args,(char*)"O:swigregister", &obj)) return NULL;
-  SWIG_TypeNewClientData(SWIGTYPE_p_BlockDataManager_FullRAM, SWIG_NewClientData(obj));
+  SWIG_TypeNewClientData(SWIGTYPE_p_BlockDataManager_MMAP, SWIG_NewClientData(obj));
   return SWIG_Py_Void();
 }
 
@@ -39991,7 +40427,7 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_getBDM(PyObject *SWIGUNUSEDPARM(self
   void *argp1 = 0 ;
   int res1 = 0 ;
   PyObject * obj0 = 0 ;
-  BlockDataManager_FullRAM *result = 0 ;
+  BlockDataManager_MMAP *result = 0 ;
   
   if (!PyArg_ParseTuple(args,(char *)"O:BlockDataManager_getBDM",&obj0)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_BlockDataManager, 0 |  0 );
@@ -39999,8 +40435,8 @@ SWIGINTERN PyObject *_wrap_BlockDataManager_getBDM(PyObject *SWIGUNUSEDPARM(self
     SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "BlockDataManager_getBDM" "', argument " "1"" of type '" "BlockDataManager *""'"); 
   }
   arg1 = reinterpret_cast< BlockDataManager * >(argp1);
-  result = (BlockDataManager_FullRAM *) &(arg1)->getBDM();
-  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockDataManager_FullRAM, 0 |  0 );
+  result = (BlockDataManager_MMAP *) &(arg1)->getBDM();
+  resultobj = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_BlockDataManager_MMAP, 0 |  0 );
   return resultobj;
 fail:
   return NULL;
@@ -45312,6 +45748,7 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"BtcWallet_isMineBulkFilter", _wrap_BtcWallet_isMineBulkFilter, METH_VARARGS, NULL},
 	 { (char *)"BtcWallet_scanTx", _wrap_BtcWallet_scanTx, METH_VARARGS, NULL},
 	 { (char *)"BtcWallet_scanNonStdTx", _wrap_BtcWallet_scanNonStdTx, METH_VARARGS, NULL},
+	 { (char *)"BtcWallet_initialScanWalletFilter", _wrap_BtcWallet_initialScanWalletFilter, METH_VARARGS, NULL},
 	 { (char *)"BtcWallet_getFullBalance", _wrap_BtcWallet_getFullBalance, METH_VARARGS, NULL},
 	 { (char *)"BtcWallet_getSpendableBalance", _wrap_BtcWallet_getSpendableBalance, METH_VARARGS, NULL},
 	 { (char *)"BtcWallet_getUnconfirmedBalance", _wrap_BtcWallet_getUnconfirmedBalance, METH_VARARGS, NULL},
@@ -45341,55 +45778,56 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"new_ZeroConfData", _wrap_new_ZeroConfData, METH_VARARGS, NULL},
 	 { (char *)"delete_ZeroConfData", _wrap_delete_ZeroConfData, METH_VARARGS, NULL},
 	 { (char *)"ZeroConfData_swigregister", ZeroConfData_swigregister, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_GetInstance", _wrap_BlockDataManager_FullRAM_GetInstance, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_isInitialized", _wrap_BlockDataManager_FullRAM_isInitialized, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_SetBtcNetworkParams", _wrap_BlockDataManager_FullRAM_SetBtcNetworkParams, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_SelectNetwork", _wrap_BlockDataManager_FullRAM_SelectNetwork, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_Reset", _wrap_BlockDataManager_FullRAM_Reset, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getNumConfirmations", _wrap_BlockDataManager_FullRAM_getNumConfirmations, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getTopBlockHeader", _wrap_BlockDataManager_FullRAM_getTopBlockHeader, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getGenesisBlock", _wrap_BlockDataManager_FullRAM_getGenesisBlock, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getHeaderByHeight", _wrap_BlockDataManager_FullRAM_getHeaderByHeight, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getHeaderByHash", _wrap_BlockDataManager_FullRAM_getHeaderByHash, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getTxByHash", _wrap_BlockDataManager_FullRAM_getTxByHash, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getBlockfilePath", _wrap_BlockDataManager_FullRAM_getBlockfilePath, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_parseNewBlockData", _wrap_BlockDataManager_FullRAM_parseNewBlockData, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_addNewBlockData", _wrap_BlockDataManager_FullRAM_addNewBlockData, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_addNewBlockDataRef", _wrap_BlockDataManager_FullRAM_addNewBlockDataRef, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_reassessAfterReorg", _wrap_BlockDataManager_FullRAM_reassessAfterReorg, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_hasTxWithHash", _wrap_BlockDataManager_FullRAM_hasTxWithHash, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_hasHeaderWithHash", _wrap_BlockDataManager_FullRAM_hasHeaderWithHash, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getNumBlocks", _wrap_BlockDataManager_FullRAM_getNumBlocks, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getNumTx", _wrap_BlockDataManager_FullRAM_getNumTx, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getHeadersNotOnMainChain", _wrap_BlockDataManager_FullRAM_getHeadersNotOnMainChain, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_prefixSearchHeaders", _wrap_BlockDataManager_FullRAM_prefixSearchHeaders, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_prefixSearchTx", _wrap_BlockDataManager_FullRAM_prefixSearchTx, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_prefixSearchAddress", _wrap_BlockDataManager_FullRAM_prefixSearchAddress, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_scanBlockchainForTx", _wrap_BlockDataManager_FullRAM_scanBlockchainForTx, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_readBlkFile_FromScratch", _wrap_BlockDataManager_FullRAM_readBlkFile_FromScratch, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_readBlkFileUpdate", _wrap_BlockDataManager_FullRAM_readBlkFileUpdate, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_verifyBlkFileIntegrity", _wrap_BlockDataManager_FullRAM_verifyBlkFileIntegrity, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_scanBlockchainForTx_FromScratch_AllAddr", _wrap_BlockDataManager_FullRAM_scanBlockchainForTx_FromScratch_AllAddr, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_findAllNonStdTx", _wrap_BlockDataManager_FullRAM_findAllNonStdTx, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_enableZeroConf", _wrap_BlockDataManager_FullRAM_enableZeroConf, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_disableZeroConf", _wrap_BlockDataManager_FullRAM_disableZeroConf, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_readZeroConfFile", _wrap_BlockDataManager_FullRAM_readZeroConfFile, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_addNewZeroConfTx", _wrap_BlockDataManager_FullRAM_addNewZeroConfTx, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_purgeZeroConfPool", _wrap_BlockDataManager_FullRAM_purgeZeroConfPool, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_pprintZeroConfPool", _wrap_BlockDataManager_FullRAM_pprintZeroConfPool, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_rewriteZeroConfFile", _wrap_BlockDataManager_FullRAM_rewriteZeroConfFile, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_rescanWalletZeroConf", _wrap_BlockDataManager_FullRAM_rescanWalletZeroConf, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_organizeChain", _wrap_BlockDataManager_FullRAM_organizeChain, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_isLastBlockReorg", _wrap_BlockDataManager_FullRAM_isLastBlockReorg, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getTxJustInvalidated", _wrap_BlockDataManager_FullRAM_getTxJustInvalidated, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getTxJustAffected", _wrap_BlockDataManager_FullRAM_getTxJustAffected, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_updateWalletAfterReorg", _wrap_BlockDataManager_FullRAM_updateWalletAfterReorg, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_updateWalletsAfterReorg", _wrap_BlockDataManager_FullRAM_updateWalletsAfterReorg, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getPrevTxOut", _wrap_BlockDataManager_FullRAM_getPrevTxOut, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getSenderAddr20", _wrap_BlockDataManager_FullRAM_getSenderAddr20, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_getSentValue", _wrap_BlockDataManager_FullRAM_getSentValue, METH_VARARGS, NULL},
-	 { (char *)"delete_BlockDataManager_FullRAM", _wrap_delete_BlockDataManager_FullRAM, METH_VARARGS, NULL},
-	 { (char *)"BlockDataManager_FullRAM_swigregister", BlockDataManager_FullRAM_swigregister, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_GetInstance", _wrap_BlockDataManager_MMAP_GetInstance, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_isInitialized", _wrap_BlockDataManager_MMAP_isInitialized, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_SetBtcNetworkParams", _wrap_BlockDataManager_MMAP_SetBtcNetworkParams, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_SelectNetwork", _wrap_BlockDataManager_MMAP_SelectNetwork, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_Reset", _wrap_BlockDataManager_MMAP_Reset, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getNumConfirmations", _wrap_BlockDataManager_MMAP_getNumConfirmations, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getTopBlockHeader", _wrap_BlockDataManager_MMAP_getTopBlockHeader, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getGenesisBlock", _wrap_BlockDataManager_MMAP_getGenesisBlock, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getHeaderByHeight", _wrap_BlockDataManager_MMAP_getHeaderByHeight, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getHeaderByHash", _wrap_BlockDataManager_MMAP_getHeaderByHash, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getTxByHash", _wrap_BlockDataManager_MMAP_getTxByHash, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getBlockfilePath", _wrap_BlockDataManager_MMAP_getBlockfilePath, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_parseNewBlockData", _wrap_BlockDataManager_MMAP_parseNewBlockData, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_addNewBlockData", _wrap_BlockDataManager_MMAP_addNewBlockData, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_addNewBlockDataRef", _wrap_BlockDataManager_MMAP_addNewBlockDataRef, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_reassessAfterReorg", _wrap_BlockDataManager_MMAP_reassessAfterReorg, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_hasTxWithHash", _wrap_BlockDataManager_MMAP_hasTxWithHash, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_hasHeaderWithHash", _wrap_BlockDataManager_MMAP_hasHeaderWithHash, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getNumBlocks", _wrap_BlockDataManager_MMAP_getNumBlocks, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getNumTx", _wrap_BlockDataManager_MMAP_getNumTx, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getHeadersNotOnMainChain", _wrap_BlockDataManager_MMAP_getHeadersNotOnMainChain, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_prefixSearchHeaders", _wrap_BlockDataManager_MMAP_prefixSearchHeaders, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_prefixSearchTx", _wrap_BlockDataManager_MMAP_prefixSearchTx, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_prefixSearchAddress", _wrap_BlockDataManager_MMAP_prefixSearchAddress, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_scanBlockchainForTx", _wrap_BlockDataManager_MMAP_scanBlockchainForTx, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_scanRelevantTxForWallet", _wrap_BlockDataManager_MMAP_scanRelevantTxForWallet, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_readBlkFile_FromScratch", _wrap_BlockDataManager_MMAP_readBlkFile_FromScratch, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_readBlkFileUpdate", _wrap_BlockDataManager_MMAP_readBlkFileUpdate, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_verifyBlkFileIntegrity", _wrap_BlockDataManager_MMAP_verifyBlkFileIntegrity, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_scanBlockchainForTx_FromScratch_AllAddr", _wrap_BlockDataManager_MMAP_scanBlockchainForTx_FromScratch_AllAddr, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_findAllNonStdTx", _wrap_BlockDataManager_MMAP_findAllNonStdTx, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_enableZeroConf", _wrap_BlockDataManager_MMAP_enableZeroConf, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_disableZeroConf", _wrap_BlockDataManager_MMAP_disableZeroConf, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_readZeroConfFile", _wrap_BlockDataManager_MMAP_readZeroConfFile, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_addNewZeroConfTx", _wrap_BlockDataManager_MMAP_addNewZeroConfTx, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_purgeZeroConfPool", _wrap_BlockDataManager_MMAP_purgeZeroConfPool, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_pprintZeroConfPool", _wrap_BlockDataManager_MMAP_pprintZeroConfPool, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_rewriteZeroConfFile", _wrap_BlockDataManager_MMAP_rewriteZeroConfFile, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_rescanWalletZeroConf", _wrap_BlockDataManager_MMAP_rescanWalletZeroConf, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_organizeChain", _wrap_BlockDataManager_MMAP_organizeChain, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_isLastBlockReorg", _wrap_BlockDataManager_MMAP_isLastBlockReorg, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getTxJustInvalidated", _wrap_BlockDataManager_MMAP_getTxJustInvalidated, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getTxJustAffected", _wrap_BlockDataManager_MMAP_getTxJustAffected, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_updateWalletAfterReorg", _wrap_BlockDataManager_MMAP_updateWalletAfterReorg, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_updateWalletsAfterReorg", _wrap_BlockDataManager_MMAP_updateWalletsAfterReorg, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getPrevTxOut", _wrap_BlockDataManager_MMAP_getPrevTxOut, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getSenderAddr20", _wrap_BlockDataManager_MMAP_getSenderAddr20, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_getSentValue", _wrap_BlockDataManager_MMAP_getSentValue, METH_VARARGS, NULL},
+	 { (char *)"delete_BlockDataManager_MMAP", _wrap_delete_BlockDataManager_MMAP, METH_VARARGS, NULL},
+	 { (char *)"BlockDataManager_MMAP_swigregister", BlockDataManager_MMAP_swigregister, METH_VARARGS, NULL},
 	 { (char *)"new_BlockDataManager", _wrap_new_BlockDataManager, METH_VARARGS, NULL},
 	 { (char *)"BlockDataManager_getBDM", _wrap_BlockDataManager_getBDM, METH_VARARGS, NULL},
 	 { (char *)"delete_BlockDataManager", _wrap_delete_BlockDataManager, METH_VARARGS, NULL},
@@ -45498,7 +45936,7 @@ static swig_type_info _swigt__p_BinaryReader = {"_p_BinaryReader", "BinaryReader
 static swig_type_info _swigt__p_BinaryRefReader = {"_p_BinaryRefReader", "BinaryRefReader *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_BinaryWriter = {"_p_BinaryWriter", "BinaryWriter *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_BlockDataManager = {"_p_BlockDataManager", "BlockDataManager *", 0, 0, (void*)0, 0};
-static swig_type_info _swigt__p_BlockDataManager_FullRAM = {"_p_BlockDataManager_FullRAM", "BlockDataManager_FullRAM *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_BlockDataManager_MMAP = {"_p_BlockDataManager_MMAP", "BlockDataManager_MMAP *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_BlockHeader = {"_p_BlockHeader", "BlockHeader *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_BlockHeaderRef = {"_p_BlockHeaderRef", "BlockHeaderRef *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_BtcAddress = {"_p_BtcAddress", "BtcAddress *", 0, 0, (void*)0, 0};
@@ -45528,6 +45966,7 @@ static swig_type_info _swigt__p_const_reference = {"_p_const_reference", "const_
 static swig_type_info _swigt__p_difference_type = {"_p_difference_type", "difference_type *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_int = {"_p_int", "int *|int32_t *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_listT_BinaryData_t__iterator = {"_p_listT_BinaryData_t__iterator", "list< BinaryData >::iterator *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_listT_HashString_t = {"_p_listT_HashString_t", "list< HashString > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_long_long = {"_p_long_long", "int64_t *|long long *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_mapT_OutPoint_TxIOPair_t = {"_p_mapT_OutPoint_TxIOPair_t", "map< OutPoint,TxIOPair > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_ostream = {"_p_ostream", "ostream *", 0, 0, (void*)0, 0};
@@ -45535,6 +45974,7 @@ static swig_type_info _swigt__p_p_PyObject = {"_p_p_PyObject", "PyObject **", 0,
 static swig_type_info _swigt__p_pairT_bool_bool_t = {"_p_pairT_bool_bool_t", "pair< bool,bool > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_reference = {"_p_reference", "reference *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_setT_HashString_t = {"_p_setT_HashString_t", "set< HashString > *", 0, 0, (void*)0, 0};
+static swig_type_info _swigt__p_setT_OutPoint_t = {"_p_setT_OutPoint_t", "set< OutPoint > *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_short = {"_p_short", "short *|int16_t *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_size_type = {"_p_size_type", "size_type *", 0, 0, (void*)0, 0};
 static swig_type_info _swigt__p_std__invalid_argument = {"_p_std__invalid_argument", "std::invalid_argument *", 0, 0, (void*)0, 0};
@@ -45581,7 +46021,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_BinaryRefReader,
   &_swigt__p_BinaryWriter,
   &_swigt__p_BlockDataManager,
-  &_swigt__p_BlockDataManager_FullRAM,
+  &_swigt__p_BlockDataManager_MMAP,
   &_swigt__p_BlockHeader,
   &_swigt__p_BlockHeaderRef,
   &_swigt__p_BtcAddress,
@@ -45611,6 +46051,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_difference_type,
   &_swigt__p_int,
   &_swigt__p_listT_BinaryData_t__iterator,
+  &_swigt__p_listT_HashString_t,
   &_swigt__p_long_long,
   &_swigt__p_mapT_OutPoint_TxIOPair_t,
   &_swigt__p_ostream,
@@ -45618,6 +46059,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_pairT_bool_bool_t,
   &_swigt__p_reference,
   &_swigt__p_setT_HashString_t,
+  &_swigt__p_setT_OutPoint_t,
   &_swigt__p_short,
   &_swigt__p_size_type,
   &_swigt__p_std__invalid_argument,
@@ -45664,7 +46106,7 @@ static swig_cast_info _swigc__p_BinaryReader[] = {  {&_swigt__p_BinaryReader, 0,
 static swig_cast_info _swigc__p_BinaryRefReader[] = {  {&_swigt__p_BinaryRefReader, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_BinaryWriter[] = {  {&_swigt__p_BinaryWriter, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_BlockDataManager[] = {  {&_swigt__p_BlockDataManager, 0, 0, 0},{0, 0, 0, 0}};
-static swig_cast_info _swigc__p_BlockDataManager_FullRAM[] = {  {&_swigt__p_BlockDataManager_FullRAM, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_BlockDataManager_MMAP[] = {  {&_swigt__p_BlockDataManager_MMAP, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_BlockHeader[] = {  {&_swigt__p_BlockHeader, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_BlockHeaderRef[] = {  {&_swigt__std__vectorT_BlockHeaderRef_p_std__allocatorT_BlockHeaderRef_p_t_t__value_type, 0, 0, 0},  {&_swigt__p_BlockHeaderRef, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_BtcAddress[] = {  {&_swigt__p_BtcAddress, 0, 0, 0},{0, 0, 0, 0}};
@@ -45694,6 +46136,7 @@ static swig_cast_info _swigc__p_const_reference[] = {  {&_swigt__p_const_referen
 static swig_cast_info _swigc__p_difference_type[] = {  {&_swigt__p_difference_type, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_int[] = {  {&_swigt__p_int, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_listT_BinaryData_t__iterator[] = {  {&_swigt__p_listT_BinaryData_t__iterator, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_listT_HashString_t[] = {  {&_swigt__p_listT_HashString_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_long_long[] = {  {&_swigt__p_long_long, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_mapT_OutPoint_TxIOPair_t[] = {  {&_swigt__p_mapT_OutPoint_TxIOPair_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_ostream[] = {  {&_swigt__p_ostream, 0, 0, 0},{0, 0, 0, 0}};
@@ -45701,6 +46144,7 @@ static swig_cast_info _swigc__p_p_PyObject[] = {  {&_swigt__p_p_PyObject, 0, 0, 
 static swig_cast_info _swigc__p_pairT_bool_bool_t[] = {  {&_swigt__p_pairT_bool_bool_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_reference[] = {  {&_swigt__p_reference, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_setT_HashString_t[] = {  {&_swigt__p_setT_HashString_t, 0, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_setT_OutPoint_t[] = {  {&_swigt__p_setT_OutPoint_t, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_short[] = {  {&_swigt__p_short, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_size_type[] = {  {&_swigt__p_size_type, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_std__invalid_argument[] = {  {&_swigt__p_std__invalid_argument, 0, 0, 0},{0, 0, 0, 0}};
@@ -45747,7 +46191,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_BinaryRefReader,
   _swigc__p_BinaryWriter,
   _swigc__p_BlockDataManager,
-  _swigc__p_BlockDataManager_FullRAM,
+  _swigc__p_BlockDataManager_MMAP,
   _swigc__p_BlockHeader,
   _swigc__p_BlockHeaderRef,
   _swigc__p_BtcAddress,
@@ -45777,6 +46221,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_difference_type,
   _swigc__p_int,
   _swigc__p_listT_BinaryData_t__iterator,
+  _swigc__p_listT_HashString_t,
   _swigc__p_long_long,
   _swigc__p_mapT_OutPoint_TxIOPair_t,
   _swigc__p_ostream,
@@ -45784,6 +46229,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_pairT_bool_bool_t,
   _swigc__p_reference,
   _swigc__p_setT_HashString_t,
+  _swigc__p_setT_OutPoint_t,
   _swigc__p_short,
   _swigc__p_size_type,
   _swigc__p_std__invalid_argument,

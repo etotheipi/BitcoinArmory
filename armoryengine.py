@@ -321,8 +321,7 @@ except:
       print '                  _CppBlockUtils.pyd'
    else:
       print '\n\n... UNKNOWN operating system'
-      exit(0)
-
+   raise
 
 
 ################################################################################
@@ -758,7 +757,7 @@ def difficulty_to_binaryBits(i):
 
 
 ################################################################################
-def BDM_LoadBlockchainFile(blkfile=None):
+def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
    """
    Looks for the blk0001.dat file in the default location for your operating
    system.  If it is found, it is loaded into RAM and the longest chain is
@@ -772,7 +771,16 @@ def BDM_LoadBlockchainFile(blkfile=None):
       raise FileExistsError, ('File does not exist: %s' % blkfile)
 
    TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
-   return TheBDM.readBlkFile_FromScratch(blkfile)
+
+   if wltList:
+      combinedTempWallet = Cpp.BtcWallet();
+      for wlt in wltList:
+         for hash160,addr in wlt.addrMap.iteritems():
+            combinedTempWallet.addAddress_1_(hash160)
+
+      return TheBDM.readBlkFile_FromScratch(blkfile, combinedTempWallet)
+   else:
+      return TheBDM.readBlkFile_FromScratch(blkfile)
 
 
 ################################################################################
@@ -5387,6 +5395,7 @@ class PyBtcWallet(object):
       self.walletPath = ''
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       self.lastSyncBlockNum = 0
+      self.wasPrescanned = False
 
       # Private key encryption details
       self.useEncryption  = False
@@ -5465,7 +5474,13 @@ class PyBtcWallet(object):
          assert(TheBDM.isInitialized())
          if startBlk==None:
             startBlk = self.lastSyncBlockNum
-         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
+
+         if not self.wasPrescanned or not self.lastSyncBlockNum==0:
+            print '***Doing full blockchain scan'
+            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
+         else:
+            print '***Doing SHORTCUT tx scan'
+            TheBDM.scanRelevantTxForWallet(self.cppWallet)
          self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:
          print '***WARNING: Blockchain-sync requested, but current wallet'

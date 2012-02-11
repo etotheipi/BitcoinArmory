@@ -386,9 +386,9 @@ public:
                            uint32_t txoutidx,
                            BtcAddress& addr);
 
-   void initialScanWalletFilter( TxRef & tx,
-                                 list<HashString> & allRelevantTx,
-                                 set<OutPoint>    & ourOutPoints);
+   void prefilterTx( TxRef & tx,
+                       list<HashString> & allRelevantTx,
+                       set<OutPoint>    & ourOutPoints);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
@@ -550,19 +550,7 @@ private:
    map<HashString, BlockHeaderRef>    headerHashMap_;
    map<HashString, TxRef>             txHashMap_;
 
-   // Since switching from RAM to mmap ops, we needed to combine the original
-   // blockchain scan with the wallet bulk-filter, i.e. combine
-   // readBlkFile_FromScratch   and   scanBlockchainForTx into one search.
-   // This list will hold the hashes of every Tx related to any wallet 
-   // supplied during the initial scan (which may be a single fake wallet 
-   // containing every key of all the wallets we care about:  we don't need
-   // to populate the wallet ledgers/balances/etc in this scan, only reduce
-   // the tx-scan space to our tx, instead of the whole blockchain.
-   // (the two ops should be separated, because we can't really do the full
-   // wallet scan until we know which tx are on the main chain)
-   list<HashString>                   initialScanTxHashes_;
-   set<OutPoint>                      initialScanOutPoints_;
-
+   
    // Need a separate memory pool just for zero-confirmation transactions
    // We need the second map to make sure we can find the data to remove
    // it, when necessary
@@ -613,6 +601,28 @@ private:
    BinaryData GenesisTxHash_;
    BinaryData MagicBytes_;
 
+
+   // Since switching from RAM to mmap ops, we needed to combine the original
+   // blockchain scan with the wallet bulk-filter, i.e. combine
+   // readBlkFile_FromScratch   and   scanBlockchainForTx into one search.
+   // This list will hold the hashes of every Tx related to any wallet 
+   // supplied during the initial scan (which may be a single fake wallet 
+   // containing every key of all the wallets we care about:  we don't need
+   // to populate the wallet ledgers/balances/etc in this scan, only reduce
+   // the tx-scan space to our tx, instead of the whole blockchain.
+   // (the two ops should be separated, because we can't really do the full
+   // wallet scan until we know which tx are on the main chain)
+
+   // filteredAddresses_ contains a mapping of address160 strings, to 
+   // start and stop blocks:  
+   //       map<addr160, lastBlock>
+   // This means that filteredTxHashes_ contains every transaction relevant
+   // to addr160 in the range of blocks, [0, lastBlock)
+   // If a blockchain scan is requested within this range, we can skip the 
+   // full scan and just scan the transactions referenced by filteredTxHashes_
+   map<HashString, uint32_t>          filteredAddresses_;  
+   set<OutPoint>                      filteredOutPoints_;
+   list<HashString>                   filteredTxHashes_;
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -673,20 +683,21 @@ public:
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
-                            uint32_t endBlknum=0xffffffff);
-   void scanBlockchainForTx(vector<BtcWallet*> walletVect,
-                            uint32_t startBlknum=0,
-                            uint32_t endBlknum=0xffffffff);
-   void scanRelevantTxForWallet( BtcWallet & wlt );
+                            uint32_t endBlknum=UINT32_MAX);
+   void scanFilteredTxForWallet( BtcWallet & wlt,
+                                 uint32_t blkStart=0,
+                                 uint32_t blkEnd=UINT32_MAX);
 
+
+   uint32_t getMinimumFilteredBlock(BtcWallet & wlt);
+   uint32_t addrLastFilteredBlock(HashString & addr160);
+   void     markAddrAsFiltered(HashString addr160, uint32_t topblk=UINT32_MAX);
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, 
-                                          BtcWallet* wltToCache=NULL, 
-                                          bool doOrganize=true);
+                                          BtcWallet* wltToCache=NULL);
    uint32_t       readBlkFile_FromScratch(string filename,
-                                          vector<BtcWallet*> wltList,
-                                          bool doOrganize=true);
+                                          vector<BtcWallet*> wltList);
    uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);
