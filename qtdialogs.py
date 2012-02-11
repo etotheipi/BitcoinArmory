@@ -542,7 +542,7 @@ class DlgWalletDetails(QDialog):
       iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
       initialColResize(self.wltAddrView, [0.25, 0.3, 64, iWidth*1.1, 0.3])
 
-      self.wltAddrView.sizeHint = lambda: QSize(700, 250)
+      self.wltAddrView.sizeHint = lambda: QSize(700, 225)
       self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
          
 

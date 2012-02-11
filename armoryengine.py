@@ -777,7 +777,6 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
       for wlt in wltList:
          for hash160,addr in wlt.addrMap.iteritems():
             combinedTempWallet.addAddress_1_(hash160)
-
       return TheBDM.readBlkFile_FromScratch(blkfile, combinedTempWallet)
    else:
       return TheBDM.readBlkFile_FromScratch(blkfile)
@@ -5395,7 +5394,6 @@ class PyBtcWallet(object):
       self.walletPath = ''
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       self.lastSyncBlockNum = 0
-      self.wasPrescanned = False
 
       # Private key encryption details
       self.useEncryption  = False
@@ -5474,13 +5472,7 @@ class PyBtcWallet(object):
          assert(TheBDM.isInitialized())
          if startBlk==None:
             startBlk = self.lastSyncBlockNum
-
-         if not self.wasPrescanned or not self.lastSyncBlockNum==0:
-            print '***Doing full blockchain scan'
-            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
-         else:
-            print '***Doing SHORTCUT tx scan'
-            TheBDM.scanRelevantTxForWallet(self.cppWallet)
+         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
          self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:
          print '***WARNING: Blockchain-sync requested, but current wallet'
