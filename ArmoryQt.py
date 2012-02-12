@@ -748,9 +748,6 @@ class ArmoryMainWindow(QMainWindow):
       print 'Loading blockchain'
 
       BDM_LoadBlockchainFile(wltList=self.walletMap.values())
-      for wltID in self.walletMap.keys():
-         self.walletMap[wltID].wasPrescanned = True
-
       self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
 
       # Now that theb blockchain is loaded, let's populate the wallet info

@@ -45,6 +45,7 @@ namespace std
    %template(vector_TxRefPtr) std::vector<TxRef*>;
    %template(vector_HeaderRefPtr) std::vector<BlockHeaderRef*>;
    %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
+   %template(vector_BtcWallet) std::vector<BtcWallet*>;
 }
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */

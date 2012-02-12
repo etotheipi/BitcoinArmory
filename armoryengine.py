@@ -48,6 +48,7 @@ import shutil
 import math
 from struct import pack, unpack
 from datetime import datetime
+from dateutil import parser
 
 
 from sys import argv
@@ -605,6 +606,7 @@ def float_to_btc (f):
    return long (round(f * ONE_BTC))
 
 
+
 ##### And a few useful utilities #####
 def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
    """
@@ -772,12 +774,13 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
 
    TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
 
+   
    if wltList:
-      combinedTempWallet = Cpp.BtcWallet();
-      for wlt in wltList:
-         for hash160,addr in wlt.addrMap.iteritems():
-            combinedTempWallet.addAddress_1_(hash160)
-      return TheBDM.readBlkFile_FromScratch(blkfile, combinedTempWallet)
+      #combinedTempWallet = Cpp.BtcWallet();
+      #for wlt in wltList:
+         #for hash160,addr in wlt.addrMap.iteritems():
+            #combinedTempWallet.addAddress_1_(hash160)
+      return TheBDM.readBlkFile_FromScratch(blkfile, [w.cppWallet for w in wltList])
    else:
       return TheBDM.readBlkFile_FromScratch(blkfile)
 
@@ -7763,8 +7766,9 @@ class PyMessage(object):
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
       payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
-      if not self.cmd=='version' and not self.cmd=='verack':
-         bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
+      t = time.mktime(time.strptime('20 Feb, 2012; 00:01', '%d %b, %Y; %H:%M'))
+      if (not self.cmd=='version' and not self.cmd=='verack') or RightNow() > t:
+         bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],    width= 4)
       bp.put(BINARY_CHUNK, payloadBin)
       return bp.getBinaryString()
     

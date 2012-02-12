@@ -1735,19 +1735,24 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
 
    uint32_t lastFilteredBlk = getMinimumFilteredBlock(myWallet);
 
+   cout << "startBlkNum    : " << startBlknum << endl;
+   cout << "endBlkNum      : " << endBlknum << endl;
+   cout << "lastFilteredBlk: " << lastFilteredBlk << endl;
    // Scan the filtered list, if necessary
    if(startBlknum < lastFilteredBlk)
    {
       uint32_t topEnd = min(lastFilteredBlk, endBlknum);
+      cout << "Search filt list (start,top) : " << startBlknum << "," << topEnd << endl;
       scanFilteredTxForWallet(myWallet, startBlknum, topEnd);
    }
 
    // Scan any raw blockchain blocks
-   if(endBlknum > lastFilteredBlk)
+   // Now we can scan any remaining blocks, if necessary
+   uint32_t startBlk = max(startBlknum, lastFilteredBlk);
+   uint32_t endBlk   = min(endBlknum, (uint32_t)headersByHeight_.size());
+   if(endBlk >= lastFilteredBlk+1)
    {
-      // Now we can scan any remaining blocks, if necessary
-      uint32_t startBlk = max(startBlknum, lastFilteredBlk);
-      uint32_t endBlk   = min(endBlknum, (uint32_t)headersByHeight_.size());
+      cout << "Search blkchn (start,end) : " << startBlk << "," << endBlk << endl;
       ///// LOOP OVER ALL HEADERS ////
       for(uint32_t h=startBlk; h<endBlk; h++)
       {
@@ -1994,16 +1999,21 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(
    for(uint32_t w=0; w<wltList.size(); w++)
    {
       if(wltList[w] == NULL)
+      {
+         cout << "***NULL Wallet made it into the prefilter list" << endl;
          continue;
+      }
 
       uint32_t numAddr = wltList[w]->getNumAddr(); 
+      cout << "Wallet: " << w << " with " << numAddr << " addresses" << endl;
       for(uint32_t a=0; a<numAddr; a++)
       {
-         combinedTempWallet.addAddress( 
-                     wltList[w]->getAddrByIndex(a).getAddrStr20());
+         HashString a160 = wltList[w]->getAddrByIndex(a).getAddrStr20();
+         combinedTempWallet.addAddress(a160);
       }
    }
    
+   cout << "Combined wallet has: " << combinedTempWallet.getNumAddr() << " addr" << endl;
    return readBlkFile_FromScratch(filename, &combinedTempWallet);
 }
 
