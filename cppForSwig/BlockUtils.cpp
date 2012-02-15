@@ -640,7 +640,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
                scanNonStdTx(0, 0, tx, iout, thisAddr);
             continue;
          }
-         break;
+         //break;
       }
    }
 
