@@ -288,7 +288,6 @@ UINT16_MAX = 2**16-1
 UINT32_MAX = 2**32-1
 UINT64_MAX = 2**64-1
 
-RightNow = time.time
 SECOND   = 1
 MINUTE   = 60
 HOUR     = 3600
@@ -297,6 +296,10 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+# Some time methods (RightNow() return local unix timestamp)
+RightNow = time.time
+def RightNowUTC():
+   return time.mktime(time.gmtime(RightNow()))
 
 
 
@@ -7754,7 +7757,7 @@ class PyMessage(object):
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
       payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
-      if not self.cmd=='version' and not self.cmd=='verack':
+      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
          bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
       bp.put(BINARY_CHUNK, payloadBin)
       return bp.getBinaryString()
@@ -7769,10 +7772,10 @@ class PyMessage(object):
       self.magic = msgData.get(BINARY_CHUNK, 4)
       self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
       length     = msgData.get(UINT32)
-      if not self.cmd=='version' and not self.cmd=='verack':
+      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
          chksum  = msgData.get(BINARY_CHUNK, 4)
       payload    = msgData.get(BINARY_CHUNK, length)
-      if not self.cmd=='version' and not self.cmd=='verack':
+      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
          payload    = verifyChecksum(payload, chksum)
 
       self.payload = PayloadMap[self.cmd]().unserialize(payload)
@@ -8289,7 +8292,7 @@ PayloadMap = {
 
 
 try:
-   from twisted.internet.protocol import Protocol, ClientFactory
+   from twisted.internet.protocol import Protocol, ReconnectingClientFactory
    from twisted.internet.defer import Deferred
 except ImportError:
    print '***Python-Twisted is not installed -- cannot enable'
@@ -8506,7 +8509,7 @@ class ArmoryClient(Protocol):
 
 ################################################################################
 ################################################################################
-class ArmoryClientFactory(ClientFactory):
+class ArmoryClientFactory(ReconnectingClientFactory):
    """
    Spawns Protocol objects used for communicating over the socket.  All such
    objects (ArmoryClients) can share information through this factory.
@@ -8529,7 +8532,7 @@ class ArmoryClientFactory(ClientFactory):
                 func_newTx=None, \
                 func_doubleSpendAlert=None):
       """
-      Initialize the ClientFactory with a deferred for when the handshake 
+      Initialize the ReconnectingClientFactory with a deferred for when the handshake 
       finishes:  there should be only one handshake, and thus one firing 
       of the handshake-finished callback
       """
@@ -8601,7 +8604,10 @@ class ArmoryClientFactory(ClientFactory):
 
    #############################################################################
    def clientConnectionLost(self, connector, reason):
-      connector.connect()
+      print '***Connection to Satoshi client LOST!  Attempting to reconnect...'
+      ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
+
+      
 
    #############################################################################
    def connectionFailed(self, protoObj, reason):
@@ -8610,12 +8616,9 @@ class ArmoryClientFactory(ClientFactory):
       to reopen the connection... and I'll need to copy the Deferred so
       that it is ready for the next connection failure
       """
-      print 'Connection failed!'
-      time.sleep(5)
-      if self.func_loseConnect:
-         self.func_loseConnect(protoObj, reason)
-      #d, self.deferred_loseConnect = self.deferred_loseConnect, None
-      #d.errback(reason)
+      print '***Initial connection to Satoshi client failed!  Retrying...'
+      ReconnectingClientFactory.connectionFailed(self, protoObj, reason)
+
 
    #############################################################################
    #def checkForTx(self, txHash):
@@ -8642,7 +8645,7 @@ class ArmoryClientFactory(ClientFactory):
          raise ConnectionError, 'Connection to localhost DNE.'
 
 
-class FakeClientFactory(ClientFactory):
+class FakeClientFactory(ReconnectingClientFactory):
    """
    A fake class that has the same methods as an ArmoryClientFactory,
    but doesn't do anything.  If there is no internet, then we want 
