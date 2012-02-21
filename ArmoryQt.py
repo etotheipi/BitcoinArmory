@@ -1513,6 +1513,8 @@ if 1:  #__name__ == '__main__':
                      help="Use the testnet protocol")
    parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
                      help="Use the testnet protocol")
+   parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
+                     help="Use the testnet protocol")
 
    (options, args) = parser.parse_args()
 
@@ -1522,6 +1524,8 @@ if 1:  #__name__ == '__main__':
    import qt4reactor
    qt4reactor.install()
 
+
+   print 'Blockchain var: ', options.ignoreblk
 
       
    pixLogo = QPixmap('img/splashlogo.png')

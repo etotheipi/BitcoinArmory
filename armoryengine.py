@@ -60,7 +60,7 @@ USE_TESTNET =     ('--testnet' in argv)
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 55, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -1024,6 +1024,58 @@ def decodeMiniPrivateKey(keyStr):
       raise KeyDataError, 'Invalid mini private key... double check the entry'
    
    return sha256(keyStr)
+   
+
+def parsePrivateKeyData(theStr):
+      hexChars = '01234567890abcdef'
+      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
+      b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
+      canBeHex = hexCount==len(theStr)
+      canBeB58 = b58Count==len(theStr)
+
+      binEntry = ''
+      keyType = ''
+      isMini = False
+      if canBeB58 and not canBeHex:
+         if len(theStr)==22 or len(theStr)==30:
+            # Mini-private key format!
+            try:
+               binEntry = decodeMiniPrivateKey(theStr)
+            except KeyDataError:
+               raise BadInputError, 'Invalid mini-private key string'
+            keyType = 'Mini Private Key'
+            isMini = True
+         else:
+            binEntry = base58_to_binary(theStr)
+            keyType = 'Base58'
+      elif canBeHex:  
+         binEntry = hex_to_binary(theStr)
+         keyType = 'Hex'
+      else:
+         raise BadInputError, 'Unrecognized key data'
+
+
+      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
+         if len(theStr)==36:
+            keydata = binEntry[:32 ]
+            chk     = binEntry[ 32:]
+            binEntry = verifyChecksum(keydata, chk)
+            if not isMini: 
+               keyType = 'Raw %s with checksum' % keyType
+         else:
+            # Assume leading 0x80 byte, and 4 byte checksum
+            keydata = binEntry[ :1+32 ]
+            chk     = binEntry[  1+32:]
+            binEntry = verifyChecksum(keydata, chk)
+            binEntry = binEntry[1:]
+            if not isMini: 
+               keyType = 'Standard %s key with checksum' % keyType
+
+         if binEntry=='':
+            raise InvalidHashError, 'Private Key checksum failed!'
+      return binEntry, keyType
    
 
 
@@ -7757,8 +7809,7 @@ class PyMessage(object):
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
       payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
-      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
-         bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
+      bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
       bp.put(BINARY_CHUNK, payloadBin)
       return bp.getBinaryString()
     
@@ -7772,11 +7823,9 @@ class PyMessage(object):
       self.magic = msgData.get(BINARY_CHUNK, 4)
       self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
       length     = msgData.get(UINT32)
-      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
-         chksum  = msgData.get(BINARY_CHUNK, 4)
+      chksum     = msgData.get(BINARY_CHUNK, 4)
       payload    = msgData.get(BINARY_CHUNK, length)
-      if (not self.cmd=='version' and not self.cmd=='verack') or RightNowUTC() > 1329696000:
-         payload    = verifyChecksum(payload, chksum)
+      payload    = verifyChecksum(payload, chksum)
 
       self.payload = PayloadMap[self.cmd]().unserialize(payload)
 
@@ -8408,8 +8457,7 @@ class ArmoryClient(Protocol):
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
-            if msg.payload.version >= 209:
-               self.sendMessage( PayloadVerack() )
+            self.sendMessage( PayloadVerack() )
          elif cmd=='verack':
             self.handshakeFinished = True
             self.factory.handshakeFinished(self)

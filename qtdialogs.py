@@ -1549,93 +1549,52 @@ class DlgImportAddress(QDialog):
 
    def processUserString(self):
       theStr = str(self.edtPrivData.text()).strip().replace(' ','')
-      hexChars = '01234567890abcdef'
-      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-
-      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
-      b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
-      canBeHex = hexCount==len(theStr)
-      canBeB58 = b58Count==len(theStr)
-
-      binEntry = ''
-      miniKey = False
-      if canBeB58 and not canBeHex:
-         if len(theStr)==22 or len(theStr)==30:
-            # Mini-private key format!
-            try:
-               binEntry = decodeMiniPrivateKey(theStr)
-            except KeyDataError:
-               reply = QMessageBox.critical(self, 'Invalid Key', \
-                  'It appears that you tried to enter a mini-private-key,' 
-                  'but it is not a valid key.  Please check the entry '
-                  'for errors.', \
-                  QMessageBox.Ok)
-               return
-            miniKey = True
-         else:
-            binEntry = base58_to_binary(theStr)
-
-      if canBeHex:  
-         binEntry = hex_to_binary(theStr)
-
-      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
-         if len(theStr)==36:
-            keydata = binEntry[:32 ]
-            chk     = binEntry[ 32:]
-            binEntry = verifyChecksum(keydata, chk)
-         else:
-            # Assume leading 0x80 byte, and 4 byte checksum
-            keydata = binEntry[ :1+32 ]
-            chk     = binEntry[  1+32:]
-            binEntry = verifyChecksum(keydata, chk)
-            binEntry = binEntry[1:]
-
-         if binEntry=='':
-            QMessageBox.warning(self, 'Entry Error',
-               'The private key data you supplied appears to '
-               'contain a consistency check.  This consistency '
-               'check failed.  Please verify you entered the '
-               'key data correctly.', QMessageBox.Ok)
-            return
-
       binKeyData, addr160, addrStr = '','',''
-      # Regardless of format, if this is a valid key, it should be 32 bytes
-      if len(binEntry)==32:
-         # Support raw private keys
-         binKeyData = binEntry
+
+      try:
+         binKeyData, keyType = parsePrivateKeyData(theStr):
          addr160 = convertKeyDataToAddress(privKey=binKeyData)
          addrStr = hash160_to_addrStr(addr160)
-
-         if not miniKey:
-            reply = QMessageBox.question(self, 'Verify Address', \
-                  'The key data you entered appears to correspond to '
-                  'the following Bitcoin address:\n\n\t' + addrStr +
-                  '\n\nIs this the correct address?',
-                  QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-            if reply==QMessageBox.Cancel:
-               return 
-            else:
-               if reply==QMessageBox.No:
-                  binKeyData = binary_switchEndian(binEntry)
-                  addr160 = convertKeyDataToAddress(privKey=binKeyData)
-                  addrStr = hash160_to_addrStr(addr160)
-                  reply = QMessageBox.question(self, 'Try Again', \
-                        'It is possible that the key was supplied in a '
-                        '"reversed" form.  When the data you provide is '
-                        'reversed, the following address is obtained:\n\n\t '
-                        + addrStr + '\n\nIs this the correct address?', \
-                        QMessageBox.Yes | QMessageBox.No)
-                  if reply==QMessageBox.No:
-                     binKeyData='' 
-
-      
-
-      if binKeyData=='':
-         reply = QMessageBox.critical(self, 'Invalid Key Format', \
-               'The data you supplied is not a recognized format '
-               'for private key data.', \
-               QMessageBox.Ok)
+      except InvalidHashError, e:
+         QMessageBox.warning(self, 'Entry Error',
+            'The private key data you supplied appears to '
+            'contain a consistency check.  This consistency '
+            'check failed.  Please verify you entered the '
+            'key data correctly.', QMessageBox.Ok)
          return
+      except BadInputError, e:
+         QMessageBox.critical(self, 'Invalid Data', e, QMessageBox.Ok)
+         return
+      except:
+         QMessageBox.critical(self, 'Error Processing Key', \
+            'There was an error processing the private key data. '
+            'Please check that you entered it correctly', QMessageBox.Ok)
+         return
+         
+
+
+      if not 'mini' in keyType.lower():
+         reply = QMessageBox.question(self, 'Verify Address', \
+               'The key data you entered appears to correspond to '
+               'the following Bitcoin address:\n\n\t' + addrStr +
+               '\n\nIs this the correct address?',
+               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+         if reply==QMessageBox.Cancel:
+            return 
+         else:
+            if reply==QMessageBox.No:
+               binKeyData = binary_switchEndian(binEntry)
+               addr160 = convertKeyDataToAddress(privKey=binKeyData)
+               addrStr = hash160_to_addrStr(addr160)
+               reply = QMessageBox.question(self, 'Try Again', \
+                     'It is possible that the key was supplied in a '
+                     '"reversed" form.  When the data you provide is '
+                     'reversed, the following address is obtained:\n\n\t '
+                     + addrStr + '\n\nIs this the correct address?', \
+                     QMessageBox.Yes | QMessageBox.No)
+               if reply==QMessageBox.No:
+                  binKeyData='' 
+
 
 
       # Finally, let's add the address to the wallet, or sweep the funds
@@ -6186,7 +6145,35 @@ class DlgBadConnection(QDialog):
       self.setWindowTitle('Network not available')
 
 
+################################################################################
+class DlgECDSACalc(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgECDSACalc, self).__init__(parent)
+      self.parent = parent
+      self.main   = main
+
+      
+      tabWidget = QTabWidget()
+
+      tabKeys = QWidget()
+      tabKeysLayout = QGridLayout()
    
+      lblPriv = QRichLabel('Private Key:')
+      txtPriv = QLineEdit()
+      txtPubX = QLineEdit()
+      txtPubY = QLineEdit()
+      txtHash = QLineEdit()
+      txtAddr = QLineEdit()
+      
+
+      
+      tabWidget.addTab(tabKeys, 'Keys')
+      tabWidget.addTab(tabPure, 'Pure')
+      
+
+   
+      self.setWindowTitle('Elliptic Curve Calculator')
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
 
 ################################################################################
