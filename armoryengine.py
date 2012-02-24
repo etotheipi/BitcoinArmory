@@ -5880,6 +5880,35 @@ class PyBtcWallet(object):
       for i in range(numToCreate):
          self.computeNextAddress()
       return self.lastComputedChainIndex
+
+   #############################################################################
+   def setAddrPoolSize(self, newSize):
+      if newSize<5:
+         print 'Will not allow address pool sizes smaller than 5...'
+         return
+
+      self.addrPoolSize = newSize
+      self.fillAddressPool(newSize)
+
+
+   #############################################################################
+   def getHighestUsedIndex(self):
+      """ 
+      This only retrieves the stored value, but it may not be correct if,
+      for instance, the wallet was just imported but has been used before.
+      """
+      return self.highestUsedChainIndex
+
+          
+   #############################################################################
+   def getHighestComputedIndex(self):
+      """ 
+      This only retrieves the stored value, but it may not be correct if,
+      for instance, the wallet was just imported but has been used before.
+      """
+      return self.lastComputedChainIndex
+      
+
          
    #############################################################################
    def detectHighestUsedIndex(self, writeResultToWallet=False):
@@ -5889,7 +5918,7 @@ class PyBtcWallet(object):
       in this search, because it is assumed that the wallet couldn't have
       used any addresses it had not calculated yet.
 
-      If you have a wallet IMPORT, though, of a wallet that has been used
+      If you have a wallet IMPORT, though, or a wallet that has been used
       before but does not have this information stored with it, then you
       should be using the next method:
 
