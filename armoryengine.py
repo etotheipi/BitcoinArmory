@@ -324,7 +324,7 @@ except:
       print '                  _CppBlockUtils.pyd'
    else:
       print '\n\n... UNKNOWN operating system'
-      exit(0)
+   raise
 
 
 

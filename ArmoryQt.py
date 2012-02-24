@@ -53,12 +53,12 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None):
+   def __init__(self, parent=None, settingsPath=None, ignoreblk=False):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
       self.abortLoad = False
-
+      self.ignoreblk = ignoreblk
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
@@ -319,7 +319,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile:
+      if self.haveBlkFile and not self.ignoreblk:
          self.loadBlockchain()
       self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
@@ -329,13 +329,13 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User')
+      MENUS = enum('File', 'User', 'Tools')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       #self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
-      #self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Tools') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
@@ -378,10 +378,11 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Standard               
          actSetModeDev.setChecked(True)
 
-      
+      actOpenTools = self.createAction('&Calculator', lambda: DlgECDSACalc(self,self).exec_())
+      self.menusList[MENUS.Tools].addAction(actOpenTools)
+
 
       reactor.callLater(0.1,  self.execIntroDialog)
-
       reactor.callLater(5, self.Heartbeat)
 
 
@@ -1207,7 +1208,7 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         newTxHash = pytx.getHash()
+         newTxHash = binary_switchEndian(pytx.getHash())
          print 'Sending Tx,', binary_to_hex(newTxHash)
          self.NetworkingFactory.sendTx(pytx)
          print 'Done!'
@@ -1536,7 +1537,8 @@ if 1:  #__name__ == '__main__':
    SPLASH.show()
    app.processEvents()
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath)
+   form = ArmoryMainWindow(settingsPath=options.settingsPath, \
+                           ignoreblk=options.ignoreblk)
    form.show()
 
 

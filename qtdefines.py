@@ -181,10 +181,11 @@ def color_to_style_str(c):
 
 
 class QRichLabel(QLabel):
-   def __init__(self, txt, doWrap=True):
+   def __init__(self, txt, doWrap=True, hAlign=Qt.AlignLeft, vAlign=Qt.AlignVCenter):
       QLabel.__init__(self, txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
+      self.setAlignment(hAlign | vAlign)
 
 class QMoneyLabel(QLabel):
    def __init__(self, nBtc, ndec=8, maxZeros=2, wColor=True, wBold=False):
@@ -365,6 +366,29 @@ def makeLayoutFrame(dirStr, widgetList, style=QFrame.NoFrame):
    return frm
    
 
+def addFrame(widget, style=STYLE_SUNKEN):
+   return makeLayoutFrame('Horiz', [widget], style)
+   
+def makeVertFrame(widgetList, style=QFrame.NoFrame):
+   return makeLayoutFrame('Vert', widgetList, style)
+
+def makeHorizFrame(widgetList, style=QFrame.NoFrame):
+   return makeLayoutFrame('Horiz', widgetList, style)
+
+
+def QImageLabel(imgfn, stretch='NoStretch'):
+   if not os.path.exists(imgfn):
+      raise FileExistsError, 'Image for QImageLabel does not exist!'
+
+   lbl = QLabel()
+   lbl.setPixmap(QPixmap(imgfn))
+   
+   if 'no' in behavior.lower():
+      horizMiddle = makeHorizFrame( ['Stretch', lbl, 'Stretch'] )
+      frm = makeVertFrame( ['Stretch', horizMiddle, 'Stretch'] )
+      return frm
+   else:
+      return lbl
    
 
 

@@ -226,7 +226,10 @@ bool TxIOPair::isSpendable(void)
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk, uint32_t minConf)
 {
-   // Only zero-conf Tx can be unconfirmed
+   // All TxOuts that were from our own transactions are always confirmed
+   if(isTxOutFromSelf())
+      return false;   
+
    if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
       return false;
 
