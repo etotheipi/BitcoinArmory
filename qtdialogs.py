@@ -6218,6 +6218,9 @@ class DlgECDSACalc(QDialog):
          txt.setMinimumHeight(2.2*h)
          txt.sizeHint = lambda: QSize(400, 2.2*h)
 
+      self.connect(self.txtMsg, SIGNAL('textChanged()'), self.msgTextChanged)
+      self.connect(self.txtSig, SIGNAL('textChanged()'), self.msgTextChanged)
+                       
 
       btnSwitchEnd = QPushButton('Switch Endian')
       self.connect(btnSwitchEnd, SIGNAL('clicked()'), self.privSwitch)
@@ -6295,6 +6298,8 @@ class DlgECDSACalc(QDialog):
       self.btnWltData  = QPushButton('Get Keys From Wallet')
       self.btnClearFrm = QPushButton('Clear')
       self.btnCalcKeys = QPushButton('Calculate')
+      self.btnClearFrm.setEnabled(False)
+      self.btnCalcKeys.setEnabled(False)
       self.btnWltData.setEnabled(False)
       self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
       self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
@@ -6310,24 +6315,29 @@ class DlgECDSACalc(QDialog):
       tabKeysTopFrm = makeVertFrame( [topHeaderRow, keyDataFrame])
             
 
-      self.btnSignMsg  = QPushButton('Sign Message')
-      self.btnVerify   = QPushButton('Verify Signature')
+      self.btnSignMsg   = QPushButton('Sign Message')
+      self.btnChallenge = QPushButton('Make Challenge')
+      self.btnVerify    = QPushButton('Verify Signature')
       self.btnSignMsg.setEnabled(False)
       self.btnVerify.setEnabled(False)
+      self.lblSigResult = QRichLabel('')
 
-      self.connect(self.btnSignMsg, SIGNAL('clicked()'), self.signMsg)
-      self.connect(self.btnVerify,  SIGNAL('clicked()'), self.verifyMsg)
+      self.connect(self.btnSignMsg,    SIGNAL('clicked()'), self.signMsg)
+      self.connect(self.btnVerify,     SIGNAL('clicked()'), self.verifyMsg)
+      self.connect(self.btnChallenge,  SIGNAL('clicked()'), self.makeChallenge)
 
       ttipMsg = createToolTipObject( \
-         'Copy a message to be signed or verified by the key data above. '
+         'A message to be signed or verified by the key data above. '
          'Or create a random "nonce" to give to someone to sign.')
       ttipSig = createToolTipObject( \
          'The output of signing the message above will be put here, or you '
          'can copy in a signature of the above message, and check that it '
          'is valid against the public key on the left (if present).')
 
-      msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', self.btnSignMsg])
-      sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', self.btnVerify])
+      msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', \
+                                                      self.btnChallenge, self.btnSignMsg])
+      sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', \
+                                                      self.lblSigResult, self.btnVerify])
       tabKeysBtmFrmLayout = QGridLayout()
       tabKeysBtmFrmLayout.addWidget( msgBoxHead,   0,0)
       tabKeysBtmFrmLayout.addWidget( sigBoxHead,   0,1)
@@ -6440,7 +6450,14 @@ class DlgECDSACalc(QDialog):
 
 
 
+   #############################################################################
    def keyTextEdited(self, txtIndex):
+      notEmpty = not self.formIsEmpty()
+      self.btnClearFrm.setEnabled(notEmpty)
+      self.btnCalcKeys.setEnabled(notEmpty)
+      self.btnSignMsg.setEnabled(notEmpty)
+      self.btnVerify.setEnabled(notEmpty)
+
       if not isinstance(txtIndex, (list,tuple)):
          txtIndex = [txtIndex]
 
@@ -6448,7 +6465,24 @@ class DlgECDSACalc(QDialog):
          if not i in txtIndex:
             txt.setText('') 
 
+   #############################################################################
+   def msgTextChanged(self):
+      """ 
+      Yes, I intended to use text 'changed', instead of 'edited' here.
+      Because I don't care how the text was modified, it's going to break
+      the signature.
+      """
+      self.lblSigResult.setText('')
 
+
+   #############################################################################
+   def formIsEmpty(self):
+      totalEmpty = [0 if len(str(a.text()))>0 else 1 for a in self.keyTxtList]
+      allEmpty = not sum(totalEmpty)!=0 
+      self.btnSignMsg.setEnabled(not allEmpty)
+      return allEmpty
+
+   #############################################################################
    def keyWaterfall(self):
       self.returnPressedFirst = True
       try:
@@ -6576,7 +6610,7 @@ class DlgECDSACalc(QDialog):
          # This address is ours, get the priv key and fill in everything else
          wlt = self.main.walletMap[wltID]
          if wlt.useEncryption and wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(wlt, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'Could not unlock wallet, so private key data could not '
@@ -6595,9 +6629,6 @@ class DlgECDSACalc(QDialog):
             self.txtPubF.setText(hexPub)
             self.keyWaterfall()
 
-            
-            
-
 
    #############################################################################
    def clearFormData(self):
@@ -6606,6 +6637,8 @@ class DlgECDSACalc(QDialog):
       self.lblPrivType.setText('')
       self.lblTopMid.setText('')
       self.btnWltData.setEnabled(False)
+      self.btnSignMsg.setEnabled(False)
+      self.btnVerify.setEnabled(False)
 
    #############################################################################
    def privSwitch(self):
@@ -6613,6 +6646,13 @@ class DlgECDSACalc(QDialog):
       if len(privHex)>0:
          self.txtPriv.setText(hex_switchEndian(privHex))
       
+   #############################################################################
+   def makeChallenge(self):
+      rnd = SecureBinaryData().GenerateRandom(16)
+      msgToBeSigned = 'SignThisMessage_%s' % rnd.toHexStr()
+      self.txtMsg.setText(msgToBeSigned)
+      
+
    #############################################################################
    def signMsg(self):
       self.keyWaterfall()
@@ -6650,18 +6690,22 @@ class DlgECDSACalc(QDialog):
          return
 
       try:
-         binSig = hex_to_binary(str(self.txtSig.toPlainText().strip()).replace(' ',''))
+         binSig = hex_to_binary(str(self.txtSig.toPlainText()).strip().replace(' ',''))
       except:
          QMessageBox.critical(self, 'Input Error', \
            'The signature data is not recognized.', QMessageBox.Ok)
          return
 
-      strMsg  = str(self.txtMsg.toPlainText().strip())
+      strMsg  = str(self.txtMsg.toPlainText()).strip()
          
          
       if len(binPub)!=65:
          QMessageBox.critical(self, 'Invalid Public Key!', \
            'Cannot verify a message without a valid public key.', QMessageBox.Ok)
+         return
+      if len(binSig)==0:
+         QMessageBox.critical(self, 'No Signature!', \
+           'There is no signature to verify', QMessageBox.Ok)
          return
       if len(strMsg)==0:
          QMessageBox.critical(self, 'Nothing to Verify!', \
@@ -6673,13 +6717,12 @@ class DlgECDSACalc(QDialog):
                                          SecureBinaryData(binPub))
 
       if isValid:
-         QMessageBox.information(self, 'Valid!', \
-            'The supplied signature is valid for this message and public key!', \
-            QMessageBox.Ok)
+         MsgBoxCustom(MSGBOX.Good, 'Verified!', 'The supplied signature <b>is valid</b>!')
+         self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
       else:
-         QMessageBox.critical(self, 'Invalid!', \
-            'The supplied signature is <b>not</b> valid for this message and public key!', \
-            QMessageBox.Ok)
+         MsgBoxCustom(MSGBOX.Critical, 'Invalid Signature!', \
+                                            'The supplied signature <b>is not valid</b>!')
+         self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
 
 
 

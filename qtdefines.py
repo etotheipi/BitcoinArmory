@@ -8,7 +8,7 @@ ARMORYMODE = enum('WITH_BLOCKCHAIN', 'WALLET_ONLY')
 WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                     'BelongsTo', 'Crypto', 'Time', 'Mem')
-MSGBOX = enum('Info', 'Question', 'Warning', 'Critical', 'Error')
+MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
@@ -246,6 +246,79 @@ def createToolTipObject(tiptext, iconSz=2):
    return lbl
 
    
+################################################################################
+def MsgBoxCustom(wtype, title, msg, wCancel=False): 
+   """
+   Creates a warning/question/critical dialog, but with a "Do not ask again"
+   checkbox.  Will return a pair  (response, DNAA-is-checked)
+   """
+
+   class dlgWarn(QDialog):
+      def __init__(self, dtype, dtitle, wmsg, withCancel=False): 
+         super(dlgWarn, self).__init__(None)
+         
+         msgIcon = QLabel()
+         fpix = ''
+         if dtype==MSGBOX.Good:
+            fpix = 'img/MsgBox_good48.png'
+         if dtype==MSGBOX.Info:
+            fpix = 'img/MsgBox_info48.png'
+         if dtype==MSGBOX.Question:
+            fpix = 'img/MsgBox_question64.png'
+         if dtype==MSGBOX.Warning:
+            fpix = 'img/MsgBox_warning48.png'
+         if dtype==MSGBOX.Critical:
+            fpix = 'img/MsgBox_critical64.png'
+         if dtype==MSGBOX.Error:
+            fpix = 'img/MsgBox_error64.png'
+   
+   
+         if len(fpix)>0:
+            msgIcon.setPixmap(QPixmap(fpix))
+            msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+   
+         lblMsg = QLabel(msg)
+         lblMsg.setTextFormat(Qt.RichText)
+         lblMsg.setWordWrap(True)
+         lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         w,h = tightSizeNChar(lblMsg, 50)
+         lblMsg.setMinimumSize( w, 3.2*h )
+
+         buttonbox = QDialogButtonBox()
+
+         if dtype==MSGBOX.Question:
+            btnYes = QPushButton('Yes')
+            btnNo  = QPushButton('No')
+            self.connect(btnYes, SIGNAL('clicked()'), self.accept)
+            self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
+            buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
+            buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
+         else:
+            btnOk = QPushButton('Ok')
+            self.connect(btnOk, SIGNAL('clicked()'), self.accept)
+            buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
+            if withCancel:
+               btnOk = QPushButton('Cancel')
+               self.connect(btnOk, SIGNAL('clicked()'), self.reject)
+               buttonbox.addButton(btnOk, QDialogButtonBox.RejectRole)
+            
+
+         spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+
+         layout = QGridLayout()
+         layout.addItem(  spacer,         0,0, 1,2)
+         layout.addWidget(msgIcon,        1,0, 1,1)
+         layout.addWidget(lblMsg,         1,1, 1,1)
+         layout.addWidget(buttonbox,      3,0, 1,2)
+         layout.setSpacing(20)
+         self.setLayout(layout)
+         self.setWindowTitle(dtitle)
+
+   dlg = dlgWarn(wtype, title, msg, wCancel) 
+   result = dlg.exec_()
+   
+   return result
 
 ################################################################################
 def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False): 
@@ -253,7 +326,6 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
    """
-   
 
    class dlgWarn(QDialog):
       def __init__(self, dtype, dtitle, wmsg, dmsg=None, withCancel=False): 
