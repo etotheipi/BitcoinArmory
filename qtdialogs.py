@@ -6615,15 +6615,15 @@ class DlgECDSACalc(QDialog):
       
    #############################################################################
    def signMsg(self):
+      self.keyWaterfall()
       try:
-         binPriv = hex_to_binary(str(self.txtPrvR.text()).replace(' ',''))
+         binPriv = hex_to_binary(str(self.txtPriv.text()).strip().replace(' ',''))
       except:
          QMessageBox.critical(self, 'Input Error', \
            'There was an error parsing the private key.', QMessageBox.Ok)
          return
 
-      strMsg  = str(self.txtMsg.toPlainText()).replace(' ','')
-         
+      strMsg  = str(self.txtMsg.toPlainText()).strip()
          
       if len(binPriv)!=32:
          QMessageBox.critical(self, 'Invalid Private Key', \
@@ -6641,21 +6641,22 @@ class DlgECDSACalc(QDialog):
 
    #############################################################################
    def verifyMsg(self):
+      self.keyWaterfall()
       try:
-         binPub = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
+         binPub = hex_to_binary(str(self.txtPubF.text()).strip().replace(' ',''))
       except:
          QMessageBox.critical(self, 'Input Error', \
            'There was an error parsing the public key.', QMessageBox.Ok)
          return
 
       try:
-         binSig = hex_to_binary(str(self.txtMsg.toPlainText()).replace(' ',''))
+         binSig = hex_to_binary(str(self.txtSig.toPlainText().strip()).replace(' ',''))
       except:
          QMessageBox.critical(self, 'Input Error', \
            'The signature data is not recognized.', QMessageBox.Ok)
          return
 
-      strMsg  = str(self.txtMsg.toPlainText()).replace(' ','')
+      strMsg  = str(self.txtMsg.toPlainText().strip())
          
          
       if len(binPub)!=65:
