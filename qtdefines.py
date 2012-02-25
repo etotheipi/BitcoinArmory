@@ -383,7 +383,7 @@ def QImageLabel(imgfn, stretch='NoStretch'):
    lbl = QLabel()
    lbl.setPixmap(QPixmap(imgfn))
    
-   if 'no' in behavior.lower():
+   if 'no' in stretch.lower():
       horizMiddle = makeHorizFrame( ['Stretch', lbl, 'Stretch'] )
       frm = makeVertFrame( ['Stretch', horizMiddle, 'Stretch'] )
       return frm

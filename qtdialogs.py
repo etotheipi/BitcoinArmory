@@ -6168,7 +6168,7 @@ class DlgECDSACalc(QDialog):
       ##########################################################################
       ##########################################################################
       tabKeys   = QWidget()
-      self.lblPrivType = QRichLabel('')
+      self.lblPrivType = QRichLabel('', vAlign=Qt.AlignTop)
       self.txtPriv = QLineEdit()
       self.txtPrvR = QLineEdit()
       self.txtPubF = QLineEdit()
@@ -6178,23 +6178,43 @@ class DlgECDSACalc(QDialog):
       self.txtAddr = QLineEdit()
       
       self.keyTxtIndex = enum('PRIV','PRVR',"PUBF","PUBX","PUBY","HASH","ADDR")
-      self.keyTxtList = [self.txtPriv, self.txtPrvR, self.PubF, self.txtPubX, \
+      self.keyTxtList = [self.txtPriv, self.txtPrvR, self.txtPubF, self.txtPubX, \
                          self.txtPubY, self.txtHash, self.txtAddr]
       
 
       for i,txt in enumerate(self.keyTxtList):
+         w,h = tightSizeNChar(dispFont, 70)
          txt.setMinimumWidth(w)
+         txt.setMinimumHeight(1.2*h)
+         txt.sizeHint = lambda: QSize(400, 1.2*h)
          txt.setFont(dispFont)
          self.connect(txt, SIGNAL('returnPressed()'), self.keyWaterfall)
-         self.connect(txt, SIGNAL('textEdited(QString)'), \
-                      lambda: self.keyTextEdited(i))
+
+
+      self.connect(self.txtPriv, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PRIV))
+      self.connect(self.txtPrvR, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PRVR))
+      self.connect(self.txtPubF, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PUBF))
+      self.connect(self.txtPubX, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
+                                                          self.keyTxtIndex.PUBY]))
+      self.connect(self.txtPubY, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
+                                                          self.keyTxtIndex.PUBY]))
+      self.connect(self.txtHash, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.HASH))
+      self.connect(self.txtAddr, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.ADDR))
 
       
       self.txtMsg = QTextEdit()
       self.txtSig = QTextEdit()
       for txt in (self.txtMsg, self.txtSig):
          txt.setMinimumWidth(int(2*w/3))
-         txt.setMinimumHeight(4.2*h)
+         txt.setMinimumHeight(2.2*h)
+         txt.sizeHint = lambda: QSize(400, 2.2*h)
 
 
       btnSwitchEnd = QPushButton('SwitchEndian')
@@ -6202,13 +6222,13 @@ class DlgECDSACalc(QDialog):
       
       keyDataLayout = QGridLayout()
       keyDataLayout.addWidget(QLabel('Encoded Private Key'), 0,0,  1,1)
-      keyDataLayout.addWidget(self.txtPriv,                  1,0,  1,1)
+      keyDataLayout.addWidget(self.txtPrvR,                  1,0,  1,1)
       keyDataLayout.addWidget(self.lblPrivType,              2,0,  1,1)
 
       keyDataLayout.addWidget(QLabel('or'),                  1,1,  1,1)
 
       keyDataLayout.addWidget(QLabel('Raw Private Key'),     0,2,  1,1)
-      keyDataLayout.addWidget(self.txtPrv,                   1,2,  1,1)
+      keyDataLayout.addWidget(self.txtPriv,                  1,2,  1,1)
       keyDataLayout.addWidget(makeHorizFrame(['Stretch', btnSwitchEnd]), \
                                                              2,2,  1,1)
 
@@ -6218,39 +6238,37 @@ class DlgECDSACalc(QDialog):
                                                              4,0,  1,1)
       keyDataLayout.addWidget(self.txtPubF,                  5,0,  1,1)
 
-      keyDataLayout.addWidget(QLabel('or'),                  4,1,  1,1)
+      keyDataLayout.addWidget(QLabel('or'),                  5,1,  1,1)
 
       keyDataLayout.addWidget(QLabel('Raw Public Key (x,y)'),4,2,  1,1)
       keyDataLayout.addWidget(self.txtPubX,                  5,2,  1,1)
       keyDataLayout.addWidget(self.txtPubY,                  6,2,  1,1)
 
-      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          6,0,  1,3)
+      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          7,0,  1,3)
 
-      keyDataLayout.addWidget(QLabel('Address String'),      7,0,  1,1)
-      keyDataLayout.addWidget(self.txtAddr,                  8,0,  1,1)
+      keyDataLayout.addWidget(QLabel('Address String'),      8,0,  1,1)
+      keyDataLayout.addWidget(self.txtAddr,                  9,0,  1,1)
 
-      keyDataLayout.addWidget(QLabel('or'),                  7,1,  1,1)
+      keyDataLayout.addWidget(QLabel('or'),                  9,1,  1,1)
 
-      keyDataLayout.addWidget(QLabel('Public Key Hash160'),  7,2,  1,1)
-      keyDataLayout.addWidget(self.txtHash,                  8,2,  1,1)
+      keyDataLayout.addWidget(QLabel('Public Key Hash160'),  8,2,  1,1)
+      keyDataLayout.addWidget(self.txtHash,                  9,2,  1,1)
 
       keyDataFrame = QFrame()
-      keyDataFrame.setFrameStyle(STYLE_SUNKEN)
+      keyDataFrame.setFrameStyle(QFrame.Box)
       keyDataFrame.setLayout(keyDataLayout)
 
 
 
-      self.lblLeftHeader      = QRichLabel('Key Data (all values in Big-Endian)')
-      self.lblLeftBottomMsg   = QRichLabel('')
-      self.btnLeftBottomChk   = QPushButton('Get Wallet Data')
-      self.btnLeftBottomChk.setEnabled(False)
-      self.connect(self.btnLeftBottomChk, SIGNAL('clicked()'), self.getOtherData)
+      self.lblTopLeft   = QRichLabel('Key Data (all values in Big-Endian)', doWrap=False)
+      self.lblTopMid    = QRichLabel('', doWrap=False)
+      self.btnWltData  = QPushButton('Get Keys From Wallet')
+      self.btnWltData.setEnabled(False)
+      self.connect(self.btnWltData, SIGNAL('clicked()'), self.getOtherData)
 
-      tabKeysLeftFrm = makeVertFrame( [ \
-            self.lblLeftHeader, \
-            keyDataFrame, \
-            makeHorizFrame([self.lblLeftBottomMsg, 'Stretch', self.btnLeftBottomChk]) \
-             ])
+      tabKeysTopFrm = makeVertFrame( [ \
+            makeHorizFrame([self.lblTopLeft, 'Stretch', self.lblTopMid, self.btnWltData]), \
+            keyDataFrame, ])
             
 
       self.btnSignMsg  = QPushButton('Sign Message')
@@ -6266,19 +6284,26 @@ class DlgECDSACalc(QDialog):
          'The output of signing the message above will be put here, or you '
          'can copy in a signature of the above message, and check that it '
          'is valid against the public key on the left (if present).')
-      tabKeysRightFrm = makeVertFrame( [ \
-                 makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch']), \
-                 self.txtMsg, \
-                 makeHorizFrame(['Stretch', self.btnSignMsg]), \
-                 HLINE(), \
-                 makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch']), \
-                 self.txtSig, \
-                 makeHorizFrame(['Stretch', self.btnVerify]) \
-                  ])
+
+      msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', self.btnSignMsg])
+      sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', self.btnVerify])
+      tabKeysBtmFrmLayout = QGridLayout()
+      tabKeysBtmFrmLayout.addWidget( msgBoxHead,   0,0)
+      tabKeysBtmFrmLayout.addWidget( sigBoxHead,   0,1)
+      tabKeysBtmFrmLayout.addWidget( self.txtMsg,  1,0)
+      tabKeysBtmFrmLayout.addWidget( self.txtSig,  1,1)
+      tabKeysBtmFrm = QFrame()
+      tabKeysBtmFrm.setFrameStyle(QFrame.Box)
+      tabKeysBtmFrm.setLayout(tabKeysBtmFrmLayout)
                            
+
+      btnBack = QPushButton('<<< Go Back')
+      self.connect(btnBack, SIGNAL('clicked()'), self.accept)
+      frmBack = makeHorizFrame([btnBack, 'Stretch'])
+
       dlgLayout = QHBoxLayout()
-      dlgLayout.addWidget( makeHorizFrame( [tabKeysLeftFrm, tabKeysRightFrm] ) )
-      dlgLayout.addWidget( HLINE() )
+      dlgLayout.addWidget( makeVertFrame( [tabKeysTopFrm, tabKeysBtmFrm, frmBack] ) )
+      #dlgLayout.addWidget( HLINE() )
       tabKeys.setLayout(dlgLayout)
       tabWidget.addTab(tabKeys, 'Keys')
 
@@ -6363,6 +6388,10 @@ class DlgECDSACalc(QDialog):
       tabEcc.setLayout(ssLayout)
       tabWidget.addTab(tabEcc, 'Elliptic Curve')
 
+
+      calcLayout = QHBoxLayout() 
+      calcLayout.addWidget(tabWidget)
+      self.setLayout(calcLayout)
    
       self.setWindowTitle('Bitcoin Math Calculator')
       self.setWindowIcon(QIcon( self.main.iconfile))
@@ -6370,12 +6399,16 @@ class DlgECDSACalc(QDialog):
 
 
    def keyTextEdited(self, txtIndex):
+      if not isinstance(txtIndex, (list,tuple)):
+         txtIndex = [txtIndex]
+
       for i,txt in enumerate(self.keyTxtList):
-         if i!=txtIndex:
+         if not i in txtIndex:
             txt.setText('') 
 
 
    def keyWaterfall(self):
+      print 'key waterfall!'
       try:
          prvrStr =               str(self.txtPrvR.text()).replace(' ','')
          privBin = hex_to_binary(str(self.txtPriv.text()).replace(' ',''))
@@ -6384,30 +6417,35 @@ class DlgECDSACalc(QDialog):
          pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
          addrB58 =               str(self.txtAddr.text()).replace(' ','')
          a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
+
+         print [len(a) for a in [prvrStr, privBin, pubxBin, pubyBin, pubfBin, addrB58, a160Bin]]
       except:
          QMessageBox.critical(self, 'Invalid Entry', \
             'You entered invalid data!', QMessageBox.Ok)
          return
 
+      self.lblPrivType.setText('')
       if len(prvrStr)>0:
          try:
             privBin, keytype = parsePrivateKeyData(prvrStr)
             self.txtPriv.setText( binary_to_hex(privBin))
-            self.lblPrivType.setText(keytype)
+            self.lblPrivType.setText('<font color="green">' + keytype + '</font>')
          except:
             QMessageBox.critical(self, 'Invalid Private Key Data', \
                'Private Key data is not recognized!', QMessageBox.Ok)
+            raise
             return
       elif len(privBin)>0:
          try:
-            priv37  = '\x80' + privBin + computeChecksum(privBin)
+            priv37  = '\x80' + privBin + computeChecksum('\x80' + privBin)
             privB58 = binary_to_base58(priv37)
             typestr = parsePrivateKeyData(privB58)[1]
             self.txtPrvR.setText(privB58)
-            self.lblPrivType.setText(typestr)
+            self.lblPrivType.setText('<font color="green">' + typestr + '</font>')
          except:
             QMessageBox.critical(self, 'Invalid Private Key Data', \
                'Private Key data is not recognized!', QMessageBox.Ok)
+            raise
             return
      
       if len(privBin)>0:
@@ -6427,6 +6465,7 @@ class DlgECDSACalc(QDialog):
          except:
             QMessageBox.critical(self, 'Invalid Public Key Data', \
                'Public Key data is not recognized!', QMessageBox.Ok)
+            raise
             return
       elif len(pubxBin)>0 and len(pubyBin)>0:
          try:
@@ -6437,6 +6476,7 @@ class DlgECDSACalc(QDialog):
          except:
             QMessageBox.critical(self, 'Invalid Public Key Data', \
                'Public Key data is not recognized!', QMessageBox.Ok)
+            raise
             return
 
       if len(a160Bin)>0:
@@ -6458,23 +6498,30 @@ class DlgECDSACalc(QDialog):
 
       self.btnSignMsg.setEnabled( len(privBin)>0 )
       self.btnVerify.setEnabled( len(pubfBin)>0 )
+
+      for txt in self.keyTxtList:
+         txt.setCursorPosition(0)
+
+      self.checkIfAddrIsOurs(a160Bin)
          
             
 
    def checkIfAddrIsOurs(self, addr160):
+      print 'check if addr ours!'
       wltID = self.main.getWalletForAddr160(addr160)
       if wltID=='':
-         self.lblLeftBottomMsg.setText('')
-         self.btnLeftBottomChk.setEnabled(False)
+         self.lblTopMid.setText('')
+         self.btnWltData.setEnabled(False)
       else:
-         self.lblLeftBottomMsg.setText('<font color="green">This key in one of your wallets</font>')
-         self.btnLeftBottomChk.setEnabled(True)
+         self.lblTopMid.setText('<font color="green">This key in one of your wallets</font>')
+         self.btnWltData.setEnabled(True)
       return wltID
       
 
-   def getOtherData(self, addr160):
+   def getOtherData(self):
       ''' Look in your wallets for the address, fill in pub/priv keys '''
-      wltID = self.checkIfAddrIsOurs(addr160)
+      a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
+      wltID = self.checkIfAddrIsOurs(a160Bin)
       if wltID!='':
          havePriv = True
          # This address is ours, get the priv key and fill in everything else
@@ -6487,7 +6534,7 @@ class DlgECDSACalc(QDialog):
                   'be acquired.', QMessageBox.Ok)
                havePriv = False
          
-         addr = self.main.walletMap[wltID].getAddrByHash160(addr160)
+         addr = self.main.walletMap[wltID].getAddrByHash160(a160Bin)
          if havePriv:
             hexPriv = addr.binPrivKey32_Plain.toHexStr()
             self.clearFormData()
@@ -6504,16 +6551,17 @@ class DlgECDSACalc(QDialog):
 
 
    def clearFormData(self):
+      print 'clearing!'
       for wdgt in self.keyTxtList:
          wdgt.setText('')
-
-   def checkPrivKeyFormat(self):
-      privHex = str(self.txtPriv.text()).strip().split(' ')
-      privBin = hex_to_binary(privRaw)
+      self.lblPrivType.setText('')
+      self.lblTopMid.setText('')
 
    def privSwitch(self):
-      privHex = str(self.txtPriv.text()).strip().split(' ')
-      self.txtPriv.setText(hex_switchEndian(privHex))
+      privHex = str(self.txtPriv.text()).strip().replace(' ','')
+      print privHex, len(privHex)
+      if len(privHex)>0:
+         self.txtPriv.setText(hex_switchEndian(privHex))
       
 
 
