@@ -6181,6 +6181,8 @@ class DlgECDSACalc(QDialog):
       self.keyTxtList = [self.txtPriv, self.txtPrvR, self.txtPubF, self.txtPubX, \
                          self.txtPubY, self.txtHash, self.txtAddr]
       
+   
+      self.returnPressedFirst = False
 
       for i,txt in enumerate(self.keyTxtList):
          w,h = tightSizeNChar(dispFont, 70)
@@ -6217,41 +6219,69 @@ class DlgECDSACalc(QDialog):
          txt.sizeHint = lambda: QSize(400, 2.2*h)
 
 
-      btnSwitchEnd = QPushButton('SwitchEndian')
+      btnSwitchEnd = QPushButton('Switch Endian')
       self.connect(btnSwitchEnd, SIGNAL('clicked()'), self.privSwitch)
+
+
+      ttipPrvR = createToolTipObject( \
+         'Any standard encoding of a private key:  raw hex, base58, with or '
+         'without checksums, and mini-private-key format. '
+         'This includes VanityGen addresses and Casascius physical Bitcoin '
+         'private keys.')
+      ttipPriv = createToolTipObject( \
+         'The raw hexadecimal private key.  This is exactly 32 bytes, which '
+         'is 64 hex characters.  Any other forms of private key should be '
+         'entered in the "Encoded Private Key" box.')
+      ttipPubF = createToolTipObject( \
+         'The full 65-byte public key in hexadecimal.  It consists '
+         'of a "04" byte, followed by the 32-byte X-value, then the 32-byte '
+         'Y-value.')
+      ttipPubXY = createToolTipObject( \
+         'X- and Y-coordinates of the public key.  Each value is 32 bytes (64 hex chars).')
+      ttipHash = createToolTipObject( \
+         'Raw hash160 of the [65-byte] public key.  It is 20 bytes (40 hex chars).')
+      ttipAddr = createToolTipObject( \
+         'Standard Bitcoin address expressed in Base58')
+
+
+      headPrvR  = makeHorizFrame([QLabel('Encoded Private Key'), ttipPrvR, 'Stretch'])
+      headPriv  = makeHorizFrame([QLabel('Raw Private Key'), ttipPriv, 'Stretch'])
+      headPubF  = makeHorizFrame([QLabel('Full Public Key'), ttipPubF, 'Stretch'])
+      headPubXY = makeHorizFrame([QLabel('Raw Public Key (x,y)'), ttipPubXY, 'Stretch'])
+      headHash  = makeHorizFrame([QLabel('Public Key Hash160'), ttipHash, 'Stretch'])
+      headAddr  = makeHorizFrame([QLabel('Bitcoin Address'), ttipAddr, 'Stretch'])
       
       keyDataLayout = QGridLayout()
-      keyDataLayout.addWidget(QLabel('Encoded Private Key'), 0,0,  1,1)
+      keyDataLayout.addWidget(headPrvR,                      0,0,  1,1)
       keyDataLayout.addWidget(self.txtPrvR,                  1,0,  1,1)
       keyDataLayout.addWidget(self.lblPrivType,              2,0,  1,1)
 
       keyDataLayout.addWidget(QLabel('or'),                  1,1,  1,1)
 
-      keyDataLayout.addWidget(QLabel('Raw Private Key'),     0,2,  1,1)
+      keyDataLayout.addWidget(headPriv,                      0,2,  1,1)
       keyDataLayout.addWidget(self.txtPriv,                  1,2,  1,1)
       keyDataLayout.addWidget(makeHorizFrame(['Stretch', btnSwitchEnd]), \
                                                              2,2,  1,1)
 
       keyDataLayout.addWidget(HLINE(QFrame.Sunken),          3,0,  1,3)
 
-      keyDataLayout.addWidget(QLabel('Encoded Public Key (65 bytes):'), \
-                                                             4,0,  1,1)
+      keyDataLayout.addWidget(headPubF,                      4,0,  1,1)
       keyDataLayout.addWidget(self.txtPubF,                  5,0,  1,1)
 
       keyDataLayout.addWidget(QLabel('or'),                  5,1,  1,1)
 
-      keyDataLayout.addWidget(QLabel('Raw Public Key (x,y)'),4,2,  1,1)
+      keyDataLayout.addWidget(headPubXY,                     4,2,  1,1)
       keyDataLayout.addWidget(self.txtPubX,                  5,2,  1,1)
       keyDataLayout.addWidget(self.txtPubY,                  6,2,  1,1)
 
       keyDataLayout.addWidget(HLINE(QFrame.Sunken),          7,0,  1,3)
 
-      keyDataLayout.addWidget(QLabel('Address String'),      8,0,  1,1)
+      keyDataLayout.addWidget(headAddr,                      8,0,  1,1)
       keyDataLayout.addWidget(self.txtAddr,                  9,0,  1,1)
 
       keyDataLayout.addWidget(QLabel('or'),                  9,1,  1,1)
 
-      keyDataLayout.addWidget(QLabel('Public Key Hash160'),  8,2,  1,1)
+      keyDataLayout.addWidget(headHash,                      8,2,  1,1)
       keyDataLayout.addWidget(self.txtHash,                  9,2,  1,1)
 
       keyDataFrame = QFrame()
@@ -6260,15 +6290,24 @@ class DlgECDSACalc(QDialog):
 
 
 
-      self.lblTopLeft   = QRichLabel('Key Data (all values in Big-Endian)', doWrap=False)
-      self.lblTopMid    = QRichLabel('', doWrap=False)
+      self.lblTopLeft  = QRichLabel('Key Data Calculator', doWrap=False)
+      self.lblTopMid   = QRichLabel('', doWrap=False)
       self.btnWltData  = QPushButton('Get Keys From Wallet')
+      self.btnClearFrm = QPushButton('Clear')
+      self.btnCalcKeys = QPushButton('Calculate')
       self.btnWltData.setEnabled(False)
-      self.connect(self.btnWltData, SIGNAL('clicked()'), self.getOtherData)
+      self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
+      self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
+      self.connect(self.btnCalcKeys, SIGNAL('clicked()'), self.keyWaterfall)
 
-      tabKeysTopFrm = makeVertFrame( [ \
-            makeHorizFrame([self.lblTopLeft, 'Stretch', self.lblTopMid, self.btnWltData]), \
-            keyDataFrame, ])
+
+      topHeaderRow = makeHorizFrame([self.lblTopLeft, \
+                                     'Stretch', \
+                                     self.lblTopMid, \
+                                     self.btnWltData, \
+                                     self.btnClearFrm, \
+                                     self.btnCalcKeys])
+      tabKeysTopFrm = makeVertFrame( [topHeaderRow, keyDataFrame])
             
 
       self.btnSignMsg  = QPushButton('Sign Message')
@@ -6276,10 +6315,12 @@ class DlgECDSACalc(QDialog):
       self.btnSignMsg.setEnabled(False)
       self.btnVerify.setEnabled(False)
 
+      self.connect(self.btnSignMsg, SIGNAL('clicked()'), self.signMsg)
+      self.connect(self.btnVerify,  SIGNAL('clicked()'), self.verifyMsg)
+
       ttipMsg = createToolTipObject( \
-         'Copy a message to be signed by the private key on the left '
-         '(if present), or to be used to verify a signature using the '
-         'public key on the left (if present).')
+         'Copy a message to be signed or verified by the key data above. '
+         'Or create a random "nonce" to give to someone to sign.')
       ttipSig = createToolTipObject( \
          'The output of signing the message above will be put here, or you '
          'can copy in a signature of the above message, and check that it '
@@ -6365,6 +6406,7 @@ class DlgECDSACalc(QDialog):
       imgPlus  = QImageLabel('img/plus_orange.png')
       imgTimes = QImageLabel('img/asterisk_orange.png')
       imgDown  = QImageLabel('img/arrow_down.png')
+      #imgDown.setMaximumSize(32,32)
       
       ssLayout = QGridLayout()
       ssLayout.addWidget(lblA,                    0,0,   1,1)
@@ -6408,7 +6450,7 @@ class DlgECDSACalc(QDialog):
 
 
    def keyWaterfall(self):
-      print 'key waterfall!'
+      self.returnPressedFirst = True
       try:
          prvrStr =               str(self.txtPrvR.text()).replace(' ','')
          privBin = hex_to_binary(str(self.txtPriv.text()).replace(' ',''))
@@ -6418,7 +6460,6 @@ class DlgECDSACalc(QDialog):
          addrB58 =               str(self.txtAddr.text()).replace(' ','')
          a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
 
-         print [len(a) for a in [prvrStr, privBin, pubxBin, pubyBin, pubfBin, addrB58, a160Bin]]
       except:
          QMessageBox.critical(self, 'Invalid Entry', \
             'You entered invalid data!', QMessageBox.Ok)
@@ -6507,19 +6548,27 @@ class DlgECDSACalc(QDialog):
             
 
    def checkIfAddrIsOurs(self, addr160):
-      print 'check if addr ours!'
       wltID = self.main.getWalletForAddr160(addr160)
       if wltID=='':
          self.lblTopMid.setText('')
          self.btnWltData.setEnabled(False)
       else:
-         self.lblTopMid.setText('<font color="green">This key in one of your wallets</font>')
+         self.lblTopMid.setText('<font color="green">This key is in one of your wallets</font>')
          self.btnWltData.setEnabled(True)
       return wltID
       
 
    def getOtherData(self):
       ''' Look in your wallets for the address, fill in pub/priv keys '''
+
+      # It seems that somehow the "Get Keys" button is automatically linked to
+      # the form's returnPressed signal.  I have tried to disable this, but I
+      # can't figure out how!  So instead, I have to put in this stupid hack
+      # to prevent this action from being triggered prematurely
+      if self.returnPressedFirst:
+         self.returnPressedFirst=False
+         return
+
       a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
       wltID = self.checkIfAddrIsOurs(a160Bin)
       if wltID!='':
@@ -6550,19 +6599,86 @@ class DlgECDSACalc(QDialog):
             
 
 
+   #############################################################################
    def clearFormData(self):
-      print 'clearing!'
       for wdgt in self.keyTxtList:
          wdgt.setText('')
       self.lblPrivType.setText('')
       self.lblTopMid.setText('')
+      self.btnWltData.setEnabled(False)
 
+   #############################################################################
    def privSwitch(self):
       privHex = str(self.txtPriv.text()).strip().replace(' ','')
-      print privHex, len(privHex)
       if len(privHex)>0:
          self.txtPriv.setText(hex_switchEndian(privHex))
       
+   #############################################################################
+   def signMsg(self):
+      try:
+         binPriv = hex_to_binary(str(self.txtPrvR.text()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'There was an error parsing the private key.', QMessageBox.Ok)
+         return
+
+      strMsg  = str(self.txtMsg.toPlainText()).replace(' ','')
+         
+         
+      if len(binPriv)!=32:
+         QMessageBox.critical(self, 'Invalid Private Key', \
+           'Cannot sign a message without a valid private key.', QMessageBox.Ok)
+         return
+      if len(strMsg)==0:
+         QMessageBox.critical(self, 'Nothing to Sign!', \
+           'There is no message to sign!', QMessageBox.Ok)
+         return
+
+      sig = CryptoECDSA().SignData(SecureBinaryData(strMsg), \
+                                   SecureBinaryData(binPriv))
+      self.txtSig.setText(sig.toHexStr())
+
+
+   #############################################################################
+   def verifyMsg(self):
+      try:
+         binPub = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'There was an error parsing the public key.', QMessageBox.Ok)
+         return
+
+      try:
+         binSig = hex_to_binary(str(self.txtMsg.toPlainText()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'The signature data is not recognized.', QMessageBox.Ok)
+         return
+
+      strMsg  = str(self.txtMsg.toPlainText()).replace(' ','')
+         
+         
+      if len(binPub)!=65:
+         QMessageBox.critical(self, 'Invalid Public Key!', \
+           'Cannot verify a message without a valid public key.', QMessageBox.Ok)
+         return
+      if len(strMsg)==0:
+         QMessageBox.critical(self, 'Nothing to Verify!', \
+           'Need the original message in order to verify the signature.', QMessageBox.Ok)
+         return
+
+      isValid = CryptoECDSA().VerifyData(SecureBinaryData(strMsg), \
+                                         SecureBinaryData(binSig), \
+                                         SecureBinaryData(binPub))
+
+      if isValid:
+         QMessageBox.information(self, 'Valid!', \
+            'The supplied signature is valid for this message and public key!', \
+            QMessageBox.Ok)
+      else:
+         QMessageBox.critical(self, 'Invalid!', \
+            'The supplied signature is <b>not</b> valid for this message and public key!', \
+            QMessageBox.Ok)
 
 
 

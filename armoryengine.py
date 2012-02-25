@@ -1045,14 +1045,14 @@ def parsePrivateKeyData(theStr):
                binEntry = decodeMiniPrivateKey(theStr)
             except KeyDataError:
                raise BadInputError, 'Invalid mini-private key string'
-            keyType = 'Mini Private Key'
+            keyType = 'Mini Private Key Format'
             isMini = True
          else:
             binEntry = base58_to_binary(theStr)
-            keyType = 'Base58'
+            keyType = 'Plain Base58'
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
-         keyType = 'Hex'
+         keyType = 'Plain Hex'
       else:
          raise BadInputError, 'Unrecognized key data'
 
@@ -1063,7 +1063,7 @@ def parsePrivateKeyData(theStr):
             chk     = binEntry[ 32:]
             binEntry = verifyChecksum(keydata, chk)
             if not isMini: 
-               keyType = 'Raw %s with checksum' % keyType
+               keyType = 'Raw %s with checksum' % keyType.split(' ')[1]
          else:
             # Assume leading 0x80 byte, and 4 byte checksum
             keydata = binEntry[ :1+32 ]
@@ -1071,7 +1071,7 @@ def parsePrivateKeyData(theStr):
             binEntry = verifyChecksum(keydata, chk)
             binEntry = binEntry[1:]
             if not isMini: 
-               keyType = 'Standard %s key with checksum' % keyType
+               keyType = 'Standard %s key with checksum' % keyType.split(' ')[1]
 
          if binEntry=='':
             raise InvalidHashError, 'Private Key checksum failed!'
