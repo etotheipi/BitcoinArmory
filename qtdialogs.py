@@ -6807,8 +6807,8 @@ class DlgOwnership(QDialog):
 
       c1 = self.makeChallenge('1'+'abc'*11, \
                               'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12, \
-                              '\xab\xcd\x12\x34'*8,
-                              '\xab\xcd\x12\x34'*8)
+                              '\x04' + '\xab\xcd\x12\x34'*16,
+                              '\x04' + '\xab\xcd\x12\x34'*16)
       c2 = self.makeChallenge('1'+'abc'*11, \
                               'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12)
        
@@ -6874,10 +6874,9 @@ class DlgOwnership(QDialog):
             else:
                sig += s.split(':')[-1].strip().replace(' ','')
          
-      
+       
       if len(pubkey)>0:
          try:
-            print pubkey, len(pubkey)
             pubkey = hex_to_binary(pubkey)
             if len(pubkey) not in (32, 33, 64, 65):  raise
          except:
@@ -6897,45 +6896,49 @@ class DlgOwnership(QDialog):
 
 
    def makeChallenge(self, addrB58, challengeStr, binPubkey='', binSig=''):
+      lineWid = 32
       s =  '-----BEGIN-CHALLENGE--------------------------------\n'
 
       ### Address ###
       s += 'Address:    %s\n' % addrB58
 
-      lineWid = 32
       ### Challenge ###
       nChallengeLines = (len(challengeStr)-1)/lineWid + 1
       for i in range(nChallengeLines):
          cLine = 'Challenge: "%s"\n' if i==0 else '           "%s"\n'
          s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
 
+      ### Public Key ###
       if len(binPubkey)>0:
          hexPub = binary_to_hex(binPubkey)
-         prefix = '  '
+         pubLines = []
          if len(binPubkey)%32==1:
             prefix,hexPub = hexPub[:2], hexPub[2:]
-   
+            pubLines.append(prefix)
+
          nPubLines = (len(hexPub)-1)/lineWid + 1
          for i in range(nPubLines):
-            idx0, idx1 = i*lineWid, (i+1)*lineWid
-            if i==0:
-               s += 'PublicKey: %s %s\n' % (prefix, hexPub[idx0:idx1])
-            else:
-               s += '              %s\n' % (        hexPub[idx0:idx1])
+            pubLines.append( hexPub[i*lineWid:(i+1)*lineWid] )
+
+         for i,line in enumerate(pubLines):
+            pLine = 'PublicKey:  %s\n' if i==0 else '            %s\n'
+            s += pLine % line
             
+      ### Signature ###
       if len(binSig)>0:
          hexSig = binary_to_hex(binSig)
-         prefix = '  '
+         sigLines = []
          if len(binSig)%32==1:
             prefix,hexSig = hexSig[:2], hexSig[2:]
-   
+            sigLines.append(prefix)
+
          nSigLines = (len(hexSig)-1)/lineWid + 1
          for i in range(nSigLines):
-            idx0, idx1 = i*lineWid, (i+1)*lineWid
-            if i==0:
-               s += 'Signature: %s %s\n' % (prefix, hexSig[idx0:idx1])
-            else:
-               s += '              %s\n' % (        hexSig[idx0:idx1])
+            sigLines.append( hexSig[i*lineWid:(i+1)*lineWid] )
+
+         for i,line in enumerate(sigLines):
+            sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
+            s += sLine % line
             
       s += '-----END-CHALLENGE----------------------------------'
       return s
