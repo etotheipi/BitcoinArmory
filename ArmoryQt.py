@@ -379,7 +379,9 @@ class ArmoryMainWindow(QMainWindow):
          actSetModeDev.setChecked(True)
 
       actOpenTools = self.createAction('&Calculator', lambda: DlgECDSACalc(self,self).exec_())
+      actOwnership = self.createAction('&Prove Ownership', lambda: DlgOwnership(self,self).exec_())
       self.menusList[MENUS.Tools].addAction(actOpenTools)
+      self.menusList[MENUS.Tools].addAction(actOwnership)
 
 
       reactor.callLater(0.1,  self.execIntroDialog)

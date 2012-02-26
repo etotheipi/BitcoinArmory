@@ -537,8 +537,13 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
-      self.wltAddrView.setMinimumWidth(800)
-      initialColResize(self.wltAddrView, [0.2, 0.4, 64, 80, 0.3])
+      self.wltAddrView.setMinimumWidth(550)
+      self.wltAddrView.setMinimumHeight(150)
+      iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
+      initialColResize(self.wltAddrView, [0.25, 0.3, 64, iWidth*1.1, 0.3])
+
+      self.wltAddrView.sizeHint = lambda: QSize(700, 225)
+      self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
@@ -708,7 +713,7 @@ class DlgWalletDetails(QDialog):
       layout.addWidget(optFrame,              1, 4, 8, 2)
       self.setLayout(layout)
 
-      self.setWindowTitle('Wallet Details')
+      self.setWindowTitle('Wallet Properties')
 
       
    #############################################################################
@@ -6298,9 +6303,9 @@ class DlgECDSACalc(QDialog):
       self.btnWltData  = QPushButton('Get Keys From Wallet')
       self.btnClearFrm = QPushButton('Clear')
       self.btnCalcKeys = QPushButton('Calculate')
-      self.btnClearFrm.setEnabled(False)
-      self.btnCalcKeys.setEnabled(False)
-      self.btnWltData.setEnabled(False)
+      #self.btnClearFrm.setEnabled(False)
+      #self.btnCalcKeys.setEnabled(False)
+      #self.btnWltData.setEnabled(False)
       self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
       self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
       self.connect(self.btnCalcKeys, SIGNAL('clicked()'), self.keyWaterfall)
@@ -6318,8 +6323,8 @@ class DlgECDSACalc(QDialog):
       self.btnSignMsg   = QPushButton('Sign Message')
       self.btnChallenge = QPushButton('Make Challenge')
       self.btnVerify    = QPushButton('Verify Signature')
-      self.btnSignMsg.setEnabled(False)
-      self.btnVerify.setEnabled(False)
+      #self.btnSignMsg.setEnabled(False)
+      #self.btnVerify.setEnabled(False)
       self.lblSigResult = QRichLabel('')
 
       self.connect(self.btnSignMsg,    SIGNAL('clicked()'), self.signMsg)
@@ -6415,7 +6420,7 @@ class DlgECDSACalc(QDialog):
 
       imgPlus  = QImageLabel('img/plus_orange.png')
       imgTimes = QImageLabel('img/asterisk_orange.png')
-      imgDown  = QImageLabel('img/arrow_down.png')
+      imgDown  = QImageLabel('img/arrow_down32.png')
       #imgDown.setMaximumSize(32,32)
       
       ssLayout = QGridLayout()
@@ -6438,7 +6443,7 @@ class DlgECDSACalc(QDialog):
       #frmSS.setFrameStyle(STYLE_SUNKEN)
       #frmSS.setLayout(ssLayout)
       tabEcc.setLayout(ssLayout)
-      tabWidget.addTab(tabEcc, 'Elliptic Curve')
+      #tabWidget.addTab(tabEcc, 'Elliptic Curve')
 
 
       calcLayout = QHBoxLayout() 
@@ -6453,10 +6458,10 @@ class DlgECDSACalc(QDialog):
    #############################################################################
    def keyTextEdited(self, txtIndex):
       notEmpty = not self.formIsEmpty()
-      self.btnClearFrm.setEnabled(notEmpty)
-      self.btnCalcKeys.setEnabled(notEmpty)
-      self.btnSignMsg.setEnabled(notEmpty)
-      self.btnVerify.setEnabled(notEmpty)
+      #self.btnClearFrm.setEnabled(notEmpty)
+      #self.btnCalcKeys.setEnabled(notEmpty)
+      #self.btnSignMsg.setEnabled(notEmpty)
+      #self.btnVerify.setEnabled(notEmpty)
 
       if not isinstance(txtIndex, (list,tuple)):
          txtIndex = [txtIndex]
@@ -6479,7 +6484,7 @@ class DlgECDSACalc(QDialog):
    def formIsEmpty(self):
       totalEmpty = [0 if len(str(a.text()))>0 else 1 for a in self.keyTxtList]
       allEmpty = not sum(totalEmpty)!=0 
-      self.btnSignMsg.setEnabled(not allEmpty)
+      #self.btnSignMsg.setEnabled(not allEmpty)
       return allEmpty
 
    #############################################################################
@@ -6564,6 +6569,21 @@ class DlgECDSACalc(QDialog):
             return
       elif len(addrB58)>0:
          try:
+            raw25byte = base58_to_binary(addrB58)
+            if len(raw25byte)!=25:
+               QMessageBox.critical(self, 'Invalid Address', \
+               'The Bitcoin address supplied is invalid.', QMessageBox.Ok)
+               return
+            data,chk = raw25byte[:21], raw25byte[21:]
+            fixedData = verifyChecksum(data,chk)
+            if fixedData!=data:
+               if len(fixedData)==0:
+                  QMessageBox.critical(self, 'Invalid Address', \
+                  'The Bitcoin address has an error in it.  Please double-check '
+                  'that it was entered properly.', QMessageBox.Ok)
+                  return
+            self.txtAddr.setText(hash160_to_addrStr(fixedData[1:]))
+               
             a160Bin = addrStr_to_hash160(addrB58)
             self.txtHash.setText(binary_to_hex(a160Bin))
          except:
@@ -6571,8 +6591,8 @@ class DlgECDSACalc(QDialog):
                'Address data is not recognized!', QMessageBox.Ok)
             return
 
-      self.btnSignMsg.setEnabled( len(privBin)>0 )
-      self.btnVerify.setEnabled( len(pubfBin)>0 )
+      #self.btnSignMsg.setEnabled( len(privBin)>0 )
+      #self.btnVerify.setEnabled( len(pubfBin)>0 )
 
       for txt in self.keyTxtList:
          txt.setCursorPosition(0)
@@ -6581,6 +6601,7 @@ class DlgECDSACalc(QDialog):
          
             
 
+   #############################################################################
    def checkIfAddrIsOurs(self, addr160):
       wltID = self.main.getWalletForAddr160(addr160)
       if wltID=='':
@@ -6592,6 +6613,7 @@ class DlgECDSACalc(QDialog):
       return wltID
       
 
+   #############################################################################
    def getOtherData(self):
       ''' Look in your wallets for the address, fill in pub/priv keys '''
 
@@ -6636,9 +6658,6 @@ class DlgECDSACalc(QDialog):
          wdgt.setText('')
       self.lblPrivType.setText('')
       self.lblTopMid.setText('')
-      self.btnWltData.setEnabled(False)
-      self.btnSignMsg.setEnabled(False)
-      self.btnVerify.setEnabled(False)
 
    #############################################################################
    def privSwitch(self):
@@ -6649,7 +6668,7 @@ class DlgECDSACalc(QDialog):
    #############################################################################
    def makeChallenge(self):
       rnd = SecureBinaryData().GenerateRandom(16)
-      msgToBeSigned = 'SignThisMessage_%s' % rnd.toHexStr()
+      msgToBeSigned = 'SignThisMessage%s' % rnd.toHexStr()
       self.txtMsg.setText(msgToBeSigned)
       
 
@@ -6725,6 +6744,201 @@ class DlgECDSACalc(QDialog):
          self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
 
 
+
+################################################################################
+class DlgOwnership(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgOwnership, self).__init__(parent)
+
+
+      self.radioCreateChallenge = QRadioButton('I want someone to prove they own an address')
+      self.radioCreateResponse  = QRadioButton('I need to prove that I own an address')
+      self.radioVerifyResponse  = QRadioButton('Some gave me a proof-of-ownership I need to verify')
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.radioCreateChallenge)
+      btngrp.addButton(self.radioCreateResponse)
+      btngrp.addButton(self.radioVerifyResponse)
+      btngrp.setExclusive(True)
+      self.radioCreateChallenge.setChecked(True)
+
+      self.connect(self.radioCreateChallenge, SIGNAL('clicked(bool)'), self.changeStack)
+      self.connect(self.radioCreateResponse,  SIGNAL('clicked(bool)'), self.changeStack)
+      self.connect(self.radioVerifyResponse,  SIGNAL('clicked(bool)'), self.changeStack)
+
+
+      ## Create the stacked widget
+      self.challengeStack = QStackedWidget()
+      dispFont = GETFONT('Var', 8)
+      w,h = relaxedSizeNChar(dispFont, 40)
+      wmin = 250
+   
+      ## Create-Challenge options
+      ccWidget = QWidget()
+      ccLayout = QGridLayout()
+
+      self.txtCCDescr = QRichLabel( \
+         'Since all transactions are public but identities are not tied to '
+         'the addresses, you may need to "challenge" someone to prove that '
+         'they own a particular Bitcoin address (perhaps you received money '
+         'from that address, and the other person claims it was them who '
+         'sent it to you).  Enter the address to be verified, and then click '
+         'the button to create a "challenge."  The challenge can be emailed '
+         'to the other party')
+      self.txtCCAddress = QLineEdit()
+      self.txtCCAddress.setMinimumWidth(wmin)
+      self.txtCCAddress.sizeHint = lambda: QSize(w,h)
+      self.txtCCAddress.setFont(dispFont)
+      
+      # Only advanced users should be able to specify a custom string
+      self.txtCCCustomStr = QLineEdit()
+      self.txtCCCustomStr.setMinimumWidth(wmin)
+      self.txtCCCustomStr.sizeHint = lambda: QSize(w,h)
+      self.txtCCCustomStr.setFont(dispFont)
+      self.txtCCCustomStr.setEnabled(False)
+
+      self.txtCCChallenge = QTextEdit()
+      self.txtCCChallenge.setMinimumWidth(wmin)
+      self.txtCCChallenge.sizeHint = lambda: QSize(w,int(3.1*h))
+      self.txtCCChallenge.setFont(dispFont)
+
+      self.lblCCcopied = QRichLabel('')
+      self.btnCCCreate = QPushButton('Create Challenge')
+
+
+      c1 = self.makeChallenge('1'+'abc'*11, \
+                              'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12, \
+                              '\xab\xcd\x12\x34'*8,
+                              '\xab\xcd\x12\x34'*8)
+      c2 = self.makeChallenge('1'+'abc'*11, \
+                              'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12)
+       
+      print c1, '\n\n', c2, '\n\n'
+
+      print self.readChallenge(c1), '\n\n'
+      print self.readChallenge(c2), '\n\n'
+      
+
+      
+
+
+   def changeStack(self, dummy):
+      """ 
+      Dummy argument is only to take the bool from 'clicked(bool)', but we
+      don't actually use it
+      """ 
+      if self.radioCreateResponse.isChecked():
+         self.challengeStack.setCurrentIndex(1)
+      elif self.radioVerifyResponse.isChecked():
+         self.challengeStack.setCurrentIndex(2)
+      else:
+         # We put this last to be default in case somehow nothing is checked
+         self.challengeStack.setCurrentIndex(0)
+
+
+   def readChallenge(self, fullPacket):
+      addrB58, challengeStr, pubkey, sig = '','','',''
+      lines = fullPacket.split('\n')
+      readingChallenge, readingPub, readingSig = False, False, False
+      for i in range(len(lines)):
+         s = lines[i].strip()
+
+         # ADDRESS
+         if s.startswith('Addr'):
+            addrB58 = s.split(':')[-1].strip()
+
+         # CHALLENGE STRING
+         if s.startswith('Chal') or readingChallenge:
+            readingChallenge = True
+            if s.startswith('Pub') or s.startswith('Sig') or ('END-CHAL' in s):
+               readingChallenge = False
+            else:
+               # Challenge string needs to be exact, grab what's between the 
+               # double quotes, no newlines
+               iq1 = s.index('"') + 1
+               iq2 = s.index('"', iq1)
+               challengeStr += s[iq1:iq2]
+
+         # PUBLIC KEY
+         if s.startswith('Pub') or readingPub: 
+            readingPub = True
+            if s.startswith('Sig') or ('END-CHAL' in s):
+               readingPub = False
+            else:
+               pubkey += s.split(':')[-1].strip().replace(' ','')
+
+         # SIGNATURE
+         if s.startswith('Sig') or readingSig: 
+            readingSig = True
+            if 'END-CHAL' in s:
+               readingSig = False
+            else:
+               sig += s.split(':')[-1].strip().replace(' ','')
+         
+      
+      if len(pubkey)>0:
+         try:
+            print pubkey, len(pubkey)
+            pubkey = hex_to_binary(pubkey)
+            if len(pubkey) not in (32, 33, 64, 65):  raise
+         except:
+            QMessageBox.critical(self, 'Bad Public Key', \
+               'Public key data was not recognized', QMessageBox.Ok)
+            pubkey = '' 
+
+      if len(sig)>0:
+         try:
+            sig = hex_to_binary(sig)
+         except:
+            QMessageBox.critical(self, 'Bad Signature', \
+               'Signature data is malformed!', QMessageBox.Ok)
+            sig = ''
+
+      return addrB58, challengeStr, pubkey, sig
+
+
+   def makeChallenge(self, addrB58, challengeStr, binPubkey='', binSig=''):
+      s =  '-----BEGIN-CHALLENGE--------------------------------\n'
+
+      ### Address ###
+      s += 'Address:    %s\n' % addrB58
+
+      lineWid = 32
+      ### Challenge ###
+      nChallengeLines = (len(challengeStr)-1)/lineWid + 1
+      for i in range(nChallengeLines):
+         cLine = 'Challenge: "%s"\n' if i==0 else '           "%s"\n'
+         s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
+
+      if len(binPubkey)>0:
+         hexPub = binary_to_hex(binPubkey)
+         prefix = '  '
+         if len(binPubkey)%32==1:
+            prefix,hexPub = hexPub[:2], hexPub[2:]
+   
+         nPubLines = (len(hexPub)-1)/lineWid + 1
+         for i in range(nPubLines):
+            idx0, idx1 = i*lineWid, (i+1)*lineWid
+            if i==0:
+               s += 'PublicKey: %s %s\n' % (prefix, hexPub[idx0:idx1])
+            else:
+               s += '              %s\n' % (        hexPub[idx0:idx1])
+            
+      if len(binSig)>0:
+         hexSig = binary_to_hex(binSig)
+         prefix = '  '
+         if len(binSig)%32==1:
+            prefix,hexSig = hexSig[:2], hexSig[2:]
+   
+         nSigLines = (len(hexSig)-1)/lineWid + 1
+         for i in range(nSigLines):
+            idx0, idx1 = i*lineWid, (i+1)*lineWid
+            if i==0:
+               s += 'Signature: %s %s\n' % (prefix, hexSig[idx0:idx1])
+            else:
+               s += '              %s\n' % (        hexSig[idx0:idx1])
+            
+      s += '-----END-CHALLENGE----------------------------------'
+      return s
 
 
 ################################################################################
