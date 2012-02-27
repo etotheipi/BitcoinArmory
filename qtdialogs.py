@@ -1355,8 +1355,9 @@ class DlgNewAddressDisp(QDialog):
       frmComment.setLayout(frmCommentLayout)
 
       
-      lblRecvWlt = QLabel( \
-            'Money sent to this address will appear in the following wallet:')
+      lblRecvWlt = QRichLabel( \
+            'Money sent to this address will appear in the following wallet:', \
+            doWrap=False)
       
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -6156,6 +6157,118 @@ class DlgBadConnection(QDialog):
 
 
 ################################################################################
+def readSigBlock(parent, fullPacket):
+   addrB58, challengeStr, pubkey, sig = '','','',''
+   lines = fullPacket.split('\n')
+   readingChallenge, readingPub, readingSig = False, False, False
+   for i in range(len(lines)):
+      s = lines[i].strip()
+
+      # ADDRESS
+      if s.startswith('Addr'):
+         addrB58 = s.split(':')[-1].strip()
+
+      # CHALLENGE STRING
+      if s.startswith('Chal') or readingChallenge:
+         readingChallenge = True
+         if s.startswith('Pub') or s.startswith('Sig') or ('END-CHAL' in s):
+            readingChallenge = False
+         else:
+            # Challenge string needs to be exact, grab what's between the 
+            # double quotes, no newlines
+            iq1 = s.index('"') + 1
+            iq2 = s.index('"', iq1)
+            challengeStr += s[iq1:iq2]
+
+      # PUBLIC KEY
+      if s.startswith('Pub') or readingPub: 
+         readingPub = True
+         if s.startswith('Sig') or ('END-CHAL' in s):
+            readingPub = False
+         else:
+            pubkey += s.split(':')[-1].strip().replace(' ','')
+
+      # SIGNATURE
+      if s.startswith('Sig') or readingSig: 
+         readingSig = True
+         if 'END-CHAL' in s:
+            readingSig = False
+         else:
+            sig += s.split(':')[-1].strip().replace(' ','')
+      
+    
+   if len(pubkey)>0:
+      try:
+         pubkey = hex_to_binary(pubkey)
+         if len(pubkey) not in (32, 33, 64, 65):  raise
+      except:
+         QMessageBox.critical(parent, 'Bad Public Key', \
+            'Public key data was not recognized', QMessageBox.Ok)
+         pubkey = '' 
+
+   if len(sig)>0:
+      try:
+         sig = hex_to_binary(sig)
+      except:
+         QMessageBox.critical(parent, 'Bad Signature', \
+            'Signature data is malformed!', QMessageBox.Ok)
+         sig = ''
+
+   return addrB58, challengeStr, pubkey, sig
+
+
+################################################################################
+def makeSigBlock(addrB58, challengeStr, binPubkey='', binSig=''):
+   lineWid = 32
+   s =  '-----BEGIN-CHALLENGE--------------------------------\n'
+
+   ### Address ###
+   s += 'Address:    %s\n' % addrB58
+
+   ### Challenge ###
+   nChallengeLines = (len(challengeStr)-1)/lineWid + 1
+   for i in range(nChallengeLines):
+      cLine = 'Challenge: "%s"\n' if i==0 else '           "%s"\n'
+      s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
+
+   ### Public Key ###
+   if len(binPubkey)>0:
+      hexPub = binary_to_hex(binPubkey)
+      pubLines = []
+      if len(binPubkey)%32==1:
+         prefix,hexPub = hexPub[:2], hexPub[2:]
+         pubLines.append(prefix)
+
+      nPubLines = (len(hexPub)-1)/lineWid + 1
+      for i in range(nPubLines):
+         pubLines.append( hexPub[i*lineWid:(i+1)*lineWid] )
+
+      for i,line in enumerate(pubLines):
+         pLine = 'PublicKey:  %s\n' if i==0 else '            %s\n'
+         s += pLine % line
+         
+   ### Signature ###
+   if len(binSig)>0:
+      hexSig = binary_to_hex(binSig)
+      sigLines = []
+      if len(binSig)%32==1:
+         prefix,hexSig = hexSig[:2], hexSig[2:]
+         sigLines.append(prefix)
+
+      nSigLines = (len(hexSig)-1)/lineWid + 1
+      for i in range(nSigLines):
+         sigLines.append( hexSig[i*lineWid:(i+1)*lineWid] )
+
+      for i,line in enumerate(sigLines):
+         sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
+         s += sLine % line
+         
+   s += '-----END-CHALLENGE----------------------------------'
+   return s
+
+
+
+################################################################################
 class DlgECDSACalc(QDialog):
    def __init__(self, parent=None, main=None):
       super(DlgECDSACalc, self).__init__(parent)
@@ -6320,16 +6433,23 @@ class DlgECDSACalc(QDialog):
       tabKeysTopFrm = makeVertFrame( [topHeaderRow, keyDataFrame])
             
 
-      self.btnSignMsg   = QPushButton('Sign Message')
-      self.btnChallenge = QPushButton('Make Challenge')
-      self.btnVerify    = QPushButton('Verify Signature')
+      self.btnSignMsg = QPushButton('Sign Message')
+      self.btnInsDate = QPushButton('Insert Date')
+      self.btnInsRnd  = QPushButton('Insert Random')
+      self.btnVerify  = QPushButton('Verify Signature')
+      self.btnMakeBlk = QPushButton('Create Signature Block')
+      self.btnReadBlk = QPushButton('Import Signature Block')
       #self.btnSignMsg.setEnabled(False)
       #self.btnVerify.setEnabled(False)
       self.lblSigResult = QRichLabel('')
 
-      self.connect(self.btnSignMsg,    SIGNAL('clicked()'), self.signMsg)
-      self.connect(self.btnVerify,     SIGNAL('clicked()'), self.verifyMsg)
-      self.connect(self.btnChallenge,  SIGNAL('clicked()'), self.makeChallenge)
+      self.connect(self.btnSignMsg,  SIGNAL('clicked()'), self.signMsg)
+      self.connect(self.btnVerify,   SIGNAL('clicked()'), self.verifyMsg)
+      self.connect(self.btnInsDate,  SIGNAL('clicked()'), self.insDate)
+      self.connect(self.btnInsRnd,   SIGNAL('clicked()'), self.insRnd)
+
+      self.connect(self.btnMakeBlk,   SIGNAL('clicked()'), self.makeBlk)
+      self.connect(self.btnReadBlk,   SIGNAL('clicked()'), self.readBlk)
 
       ttipMsg = createToolTipObject( \
          'A message to be signed or verified by the key data above. '
@@ -6340,14 +6460,17 @@ class DlgECDSACalc(QDialog):
          'is valid against the public key on the left (if present).')
 
       msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', \
-                                                      self.btnChallenge, self.btnSignMsg])
+                                     self.btnInsRnd, self.btnInsDate, self.btnSignMsg])
       sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', \
                                                       self.lblSigResult, self.btnVerify])
+      self.lblCopied = QRichLabel('')
+      btmFrm = makeHorizFrame(['Stretch', self.lblCopied, self.btnMakeBlk, self.btnReadBlk])
       tabKeysBtmFrmLayout = QGridLayout()
       tabKeysBtmFrmLayout.addWidget( msgBoxHead,   0,0)
       tabKeysBtmFrmLayout.addWidget( sigBoxHead,   0,1)
       tabKeysBtmFrmLayout.addWidget( self.txtMsg,  1,0)
       tabKeysBtmFrmLayout.addWidget( self.txtSig,  1,1)
+      tabKeysBtmFrmLayout.addWidget( btmFrm,       2,0, 1,2)
       tabKeysBtmFrm = QFrame()
       tabKeysBtmFrm.setFrameStyle(QFrame.Box)
       tabKeysBtmFrm.setLayout(tabKeysBtmFrmLayout)
@@ -6368,6 +6491,7 @@ class DlgECDSACalc(QDialog):
       # TAB:  secp256k1
       ##########################################################################
       ##########################################################################
+      # STUB: I'll probably finish implementing this eventually....
       tabEcc = QWidget()
 
       tabEccLayout = QGridLayout()
@@ -6450,7 +6574,7 @@ class DlgECDSACalc(QDialog):
       calcLayout.addWidget(tabWidget)
       self.setLayout(calcLayout)
    
-      self.setWindowTitle('Bitcoin Math Calculator')
+      self.setWindowTitle('ECDSA Calculator')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
 
@@ -6666,11 +6790,19 @@ class DlgECDSACalc(QDialog):
          self.txtPriv.setText(hex_switchEndian(privHex))
       
    #############################################################################
-   def makeChallenge(self):
-      rnd = SecureBinaryData().GenerateRandom(16)
-      msgToBeSigned = 'SignThisMessage%s' % rnd.toHexStr()
-      self.txtMsg.setText(msgToBeSigned)
+   def insRnd(self):
+      rnd = SecureBinaryData().GenerateRandom(8)
+      currtxt = str(self.txtMsg.toPlainText())
+      if not currtxt.endswith(' ') and not len(currtxt)==0:
+         currtxt += ' '
+      self.txtMsg.setText(currtxt + rnd.toHexStr())
       
+   #############################################################################
+   def insDate(self):
+      currtxt = str(self.txtMsg.toPlainText())
+      if not currtxt.endswith(' ') and not len(currtxt)==0:
+         currtxt += ' '
+      self.txtMsg.setText(currtxt + unixTimeToFormatStr(RightNow()))
 
    #############################################################################
    def signMsg(self):
@@ -6744,12 +6876,98 @@ class DlgECDSACalc(QDialog):
          self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
 
 
+   ############################################################################
+   def makeBlk(self):
+      try:
+         pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Public Key Error!', \
+           'The public key is invalid.', QMessageBox.Ok)
+         
+      try:
+         sigBin  = hex_to_binary(str(self.txtSig.toPlainText()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Signature Error', \
+           'The signature is in an unrecognized format', QMessageBox.Ok)
+
+      addrB58 =               str(self.txtAddr.text()).replace(' ','')
+      rawMsg  =               str(self.txtMsg.toPlainText())
+
+      txt = makeSigBlock(addrB58, rawMsg, pubfBin, sigBin)
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(txt)
+      self.lblCopied.setText('Copied to clipboard!')
+
+   ############################################################################
+   def readBlk(self):
+      """ Create a very simple dialog for entering a signature block """
+      class DlgEnterSigBlock(QDialog):
+         def __init__(self, parent, main):
+            super(DlgEnterSigBlock, self).__init__(parent)
+
+            self.txt = ''
+            lbl = QRichLabel('Copy a signature block into the text box below')
+            self.txtbox = QTextEdit()
+            fnt = GETFONT('Fixed', 8)
+            self.txtbox.setFont(fnt)
+            w,h = tightSizeNChar(fnt, 70)
+            self.txtbox.setMinimumWidth(w)
+            self.txtbox.setMinimumHeight(6.2*h)
+            btnOkay   = QPushButton('Okay')
+            btnCancel = QPushButton('Cancel')
+            self.connect(btnOkay,   SIGNAL('clicked()'), self.pressOkay)
+            self.connect(btnCancel, SIGNAL('clicked()'), self.pressCancel)
+            bbox = QDialogButtonBox()
+            bbox.addButton(btnOkay,   QDialogButtonBox.AcceptRole)
+            bbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
+
+            layout = QVBoxLayout()
+            layout.addWidget(lbl)
+            layout.addWidget(self.txtbox)
+            layout.addWidget(bbox)
+            self.setLayout(layout)
+            self.setWindowTitle('Import Signature Block')
+            self.setWindowIcon(QIcon(main.iconfile))
+
+         def pressOkay(self):
+            self.txt = str(self.txtbox.toPlainText())
+            self.accept()
+         
+         def pressCancel(self):
+            self.reject()
+
+      dlg = DlgEnterSigBlock(self,self.main)
+      if dlg.exec_():
+         addr,s,pub,sig = readSigBlock(self, dlg.txt)
+         self.txtPubF.setText(binary_to_hex(pub))
+         self.txtSig.setText(binary_to_hex(sig))
+         self.txtAddr.setText(addr)
+         self.txtMsg.setText(s)
+         self.keyWaterfall()
+         self.verifyMsg()
+         
+
+
 
 ################################################################################
 class DlgOwnership(QDialog):
+   """
+   STUB:  maybe I'll pick this up again, later
+
+   We may wish to demonstrate, or make someone else demonstrate, that they own
+   a particular address.  We create a "challenge" string and ask the person to
+   sign the string with the private key of the specified address.  
+
+   We want the challenge string to be "fresh" and unique.  Just in case the 
+   attacker doesn't have the address, but already has a signed message from
+   that address from a different occasion.  
+   """
    def __init__(self, parent=None, main=None):
       super(DlgOwnership, self).__init__(parent)
 
+      self.parent = parent
+      self.main   = main
 
       self.radioCreateChallenge = QRadioButton('I want someone to prove they own an address')
       self.radioCreateResponse  = QRadioButton('I need to prove that I own an address')
@@ -6800,23 +7018,46 @@ class DlgOwnership(QDialog):
       self.txtCCChallenge.setMinimumWidth(wmin)
       self.txtCCChallenge.sizeHint = lambda: QSize(w,int(3.1*h))
       self.txtCCChallenge.setFont(dispFont)
+      self.txtCCChallenge.setReadOnly(True)
 
       self.lblCCcopied = QRichLabel('')
       self.btnCCCreate = QPushButton('Create Challenge')
 
 
-      c1 = self.makeChallenge('1'+'abc'*11, \
-                              'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12, \
-                              '\x04' + '\xab\xcd\x12\x34'*16,
-                              '\x04' + '\xab\xcd\x12\x34'*16)
-      c2 = self.makeChallenge('1'+'abc'*11, \
-                              'Feb 28, 12:38.1839083290 UTC ' + 'BitcoinXYZ'*12)
-       
-      print c1, '\n\n', c2, '\n\n'
-
-      print self.readChallenge(c1), '\n\n'
-      print self.readChallenge(c2), '\n\n'
       
+   def defaultChallengeStr(self):
+      # Grab the root hash160 of the first wallet that we own.
+      uniqueStr = ''
+      for wid,wlt in self.main.walletMap.iteritems():
+         if not wlt.watchOnly:
+            uniqueStr = binary_to_hex(wlt.addrMap['ROOT'].getAddr160())
+            break
+      return ('%s %s' % (unixTimeToFormatStr(RightNow()), uniqueStr)).strip()
+      
+      
+   def btnPressMake(self):
+      addrB58 = str(self.txtCCAddress.text())
+      netbyte = checkAddrType(addrB58)
+      if netbyte == -1:
+         QMessageBox.critical(self, 'Bad Address', \
+            'The address you entered is invalid!  Please check '
+            'that it was entered correctly.', QMessageBox.Ok)
+         return
+      elif netbyte != ADDRBYTE:
+         QMessageBox.critical(self, 'Wrong Network!', \
+            'The address you entered is for the wrong network! '
+            'The address is for the <b>%s</b> but you are running '
+            'Armory on the <b>%s</b>!' % (NETWORKS[netbyte], NETWORKS[ADDRBYTE]), \
+            QMessageBox.Ok)
+         return
+
+
+      strChallenge = str(self.txtCCCustomStr.text()).strip()
+      if len(strChallenge)==0:
+         strChallenge = self.defaultChallengeStr()
+         
+      self.txtCCChallenge.setText( self.makeSigBlock(addrB58, strChallenge))
+
 
       
 
@@ -6835,113 +7076,6 @@ class DlgOwnership(QDialog):
          self.challengeStack.setCurrentIndex(0)
 
 
-   def readChallenge(self, fullPacket):
-      addrB58, challengeStr, pubkey, sig = '','','',''
-      lines = fullPacket.split('\n')
-      readingChallenge, readingPub, readingSig = False, False, False
-      for i in range(len(lines)):
-         s = lines[i].strip()
-
-         # ADDRESS
-         if s.startswith('Addr'):
-            addrB58 = s.split(':')[-1].strip()
-
-         # CHALLENGE STRING
-         if s.startswith('Chal') or readingChallenge:
-            readingChallenge = True
-            if s.startswith('Pub') or s.startswith('Sig') or ('END-CHAL' in s):
-               readingChallenge = False
-            else:
-               # Challenge string needs to be exact, grab what's between the 
-               # double quotes, no newlines
-               iq1 = s.index('"') + 1
-               iq2 = s.index('"', iq1)
-               challengeStr += s[iq1:iq2]
-
-         # PUBLIC KEY
-         if s.startswith('Pub') or readingPub: 
-            readingPub = True
-            if s.startswith('Sig') or ('END-CHAL' in s):
-               readingPub = False
-            else:
-               pubkey += s.split(':')[-1].strip().replace(' ','')
-
-         # SIGNATURE
-         if s.startswith('Sig') or readingSig: 
-            readingSig = True
-            if 'END-CHAL' in s:
-               readingSig = False
-            else:
-               sig += s.split(':')[-1].strip().replace(' ','')
-         
-       
-      if len(pubkey)>0:
-         try:
-            pubkey = hex_to_binary(pubkey)
-            if len(pubkey) not in (32, 33, 64, 65):  raise
-         except:
-            QMessageBox.critical(self, 'Bad Public Key', \
-               'Public key data was not recognized', QMessageBox.Ok)
-            pubkey = '' 
-
-      if len(sig)>0:
-         try:
-            sig = hex_to_binary(sig)
-         except:
-            QMessageBox.critical(self, 'Bad Signature', \
-               'Signature data is malformed!', QMessageBox.Ok)
-            sig = ''
-
-      return addrB58, challengeStr, pubkey, sig
-
-
-   def makeChallenge(self, addrB58, challengeStr, binPubkey='', binSig=''):
-      lineWid = 32
-      s =  '-----BEGIN-CHALLENGE--------------------------------\n'
-
-      ### Address ###
-      s += 'Address:    %s\n' % addrB58
-
-      ### Challenge ###
-      nChallengeLines = (len(challengeStr)-1)/lineWid + 1
-      for i in range(nChallengeLines):
-         cLine = 'Challenge: "%s"\n' if i==0 else '           "%s"\n'
-         s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
-
-      ### Public Key ###
-      if len(binPubkey)>0:
-         hexPub = binary_to_hex(binPubkey)
-         pubLines = []
-         if len(binPubkey)%32==1:
-            prefix,hexPub = hexPub[:2], hexPub[2:]
-            pubLines.append(prefix)
-
-         nPubLines = (len(hexPub)-1)/lineWid + 1
-         for i in range(nPubLines):
-            pubLines.append( hexPub[i*lineWid:(i+1)*lineWid] )
-
-         for i,line in enumerate(pubLines):
-            pLine = 'PublicKey:  %s\n' if i==0 else '            %s\n'
-            s += pLine % line
-            
-      ### Signature ###
-      if len(binSig)>0:
-         hexSig = binary_to_hex(binSig)
-         sigLines = []
-         if len(binSig)%32==1:
-            prefix,hexSig = hexSig[:2], hexSig[2:]
-            sigLines.append(prefix)
-
-         nSigLines = (len(hexSig)-1)/lineWid + 1
-         for i in range(nSigLines):
-            sigLines.append( hexSig[i*lineWid:(i+1)*lineWid] )
-
-         for i,line in enumerate(sigLines):
-            sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
-            s += sLine % line
-            
-      s += '-----END-CHALLENGE----------------------------------'
-      return s
 
 
 ################################################################################

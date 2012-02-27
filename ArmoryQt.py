@@ -65,7 +65,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupNetworking()
 
       if self.abortLoad:
-         return
+         os._exit(0)
 
       self.extraHeartbeatFunctions = []
 
@@ -379,9 +379,9 @@ class ArmoryMainWindow(QMainWindow):
          actSetModeDev.setChecked(True)
 
       actOpenTools = self.createAction('&Calculator', lambda: DlgECDSACalc(self,self).exec_())
-      actOwnership = self.createAction('&Prove Ownership', lambda: DlgOwnership(self,self).exec_())
+      #actOwnership = self.createAction('&Prove Ownership', lambda: DlgOwnership(self,self).exec_())
       self.menusList[MENUS.Tools].addAction(actOpenTools)
-      self.menusList[MENUS.Tools].addAction(actOwnership)
+      #self.menusList[MENUS.Tools].addAction(actOwnership)
 
 
       reactor.callLater(0.1,  self.execIntroDialog)
@@ -1551,15 +1551,8 @@ if 1:  #__name__ == '__main__':
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       app.quit()
-      try:
-         sys.exit()
-      except:
-         pass
+      os._exit(0)
       
-
-   if form.abortLoad:
-      endProgram()
-
    app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)
