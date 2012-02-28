@@ -388,6 +388,21 @@ public:
    // Deterministically generate new private key using a chaincode
    SecureBinaryData ComputeChainedPublicKey(SecureBinaryData const & binPubKey,
                                             SecureBinaryData const & chainCode);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Some standard ECC operations
+   BinaryData ECMultiplyScalars(BinaryData const & A, 
+                                BinaryData const & B);
+
+   BinaryData ECMultiplyPoint(BinaryData const & A, 
+                              BinaryData const & Bx,
+                              BinaryData const & By);
+
+   BinaryData ECAddPoints(BinaryData const & Ax, 
+                          BinaryData const & Ay,
+                          BinaryData const & Bx,
+                          BinaryData const & By);
 };
 
 

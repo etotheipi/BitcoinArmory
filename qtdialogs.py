@@ -6168,22 +6168,22 @@ def readSigBlock(parent, fullPacket):
       if s.startswith('Addr'):
          addrB58 = s.split(':')[-1].strip()
 
-      # CHALLENGE STRING
-      if s.startswith('Chal') or readingChallenge:
-         readingChallenge = True
+      # MESSAGE STRING
+      if s.startswith('Message') or readingMessage:
+         readingMessage = True
          if s.startswith('Pub') or s.startswith('Sig') or ('END-CHAL' in s):
-            readingChallenge = False
+            readingMessage = False
          else:
-            # Challenge string needs to be exact, grab what's between the 
+            # Message string needs to be exact, grab what's between the 
             # double quotes, no newlines
             iq1 = s.index('"') + 1
             iq2 = s.index('"', iq1)
-            challengeStr += s[iq1:iq2]
+            messageStr += s[iq1:iq2]
 
       # PUBLIC KEY
       if s.startswith('Pub') or readingPub: 
          readingPub = True
-         if s.startswith('Sig') or ('END-CHAL' in s):
+         if s.startswith('Sig') or ('END-SIGNATURE-BLOCK' in s):
             readingPub = False
          else:
             pubkey += s.split(':')[-1].strip().replace(' ','')
@@ -6191,7 +6191,7 @@ def readSigBlock(parent, fullPacket):
       # SIGNATURE
       if s.startswith('Sig') or readingSig: 
          readingSig = True
-         if 'END-CHAL' in s:
+         if 'END-SIGNATURE-BLOCK' in s:
             readingSig = False
          else:
             sig += s.split(':')[-1].strip().replace(' ','')
@@ -6214,13 +6214,13 @@ def readSigBlock(parent, fullPacket):
             'Signature data is malformed!', QMessageBox.Ok)
          sig = ''
 
-   return addrB58, challengeStr, pubkey, sig
+   return addrB58, messageStr, pubkey, sig
 
 
 ################################################################################
 def makeSigBlock(addrB58, challengeStr, binPubkey='', binSig=''):
    lineWid = 32
-   s =  '-----BEGIN-CHALLENGE--------------------------------\n'
+   s =  '-----BEGIN-SIGNATURE-BLOCK--------------------------\n'
 
    ### Address ###
    s += 'Address:    %s\n' % addrB58
@@ -6228,7 +6228,7 @@ def makeSigBlock(addrB58, challengeStr, binPubkey='', binSig=''):
    ### Challenge ###
    nChallengeLines = (len(challengeStr)-1)/lineWid + 1
    for i in range(nChallengeLines):
-      cLine = 'Challenge: "%s"\n' if i==0 else '           "%s"\n'
+      cLine = 'Message:   "%s"\n' if i==0 else '           "%s"\n'
       s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
 
    ### Public Key ###
@@ -6263,7 +6263,7 @@ def makeSigBlock(addrB58, challengeStr, binPubkey='', binSig=''):
          sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
          s += sLine % line
          
-   s += '-----END-CHALLENGE----------------------------------'
+   s += '-----END-SIGNATURE-BLOCK----------------------------'
    return s
 
 
@@ -6532,42 +6532,125 @@ class DlgECDSACalc(QDialog):
 
       
       self.btnCalcSS = QPushButton('Multiply Scalars (mod N)')
-      self.btnCalcSP = QPushButton('EC Multiply')
-      self.btnCalcPP = QPushButton('EC Point Add')
+      self.btnCalcSP = QPushButton('Scalar Multiply EC Point')
+      self.btnCalcPP = QPushButton('Add EC Points')
       self.btnClearSS = QPushButton('Clear')
       self.btnClearSP = QPushButton('Clear')
       self.btnClearPP = QPushButton('Clear')
-
-      lblA = QRichLabel('a', hAlign=Qt.AlignHCenter)
-      lblB = QRichLabel('b', hAlign=Qt.AlignHCenter)
-      lblC = QRichLabel('c = a*b mod n', hAlign=Qt.AlignHCenter)
-
       imgPlus  = QImageLabel('img/plus_orange.png')
-      imgTimes = QImageLabel('img/asterisk_orange.png')
+      imgTimes1= QImageLabel('img/asterisk_orange.png')
+      imgTimes2= QImageLabel('img/asterisk_orange.png')
       imgDown  = QImageLabel('img/arrow_down32.png')
-      #imgDown.setMaximumSize(32,32)
+
+
+      ##########################################################################
+      # Scalar-Scalar Multiply
+      sslblA = QRichLabel('a', hAlign=Qt.AlignHCenter)
+      sslblB = QRichLabel('b', hAlign=Qt.AlignHCenter)
+      sslblC = QRichLabel('c = a*b mod n', hAlign=Qt.AlignHCenter)
+
       
       ssLayout = QGridLayout()
-      ssLayout.addWidget(lblA,                    0,0,   1,1)
+      ssLayout.addWidget(sslblA,                  0,0,   1,1)
+      ssLayout.addWidget(sslblB,                  0,2,   1,1)
+
       ssLayout.addWidget(self.txtScalarScalarA,   1,0,   1,1)
-
-      ssLayout.addWidget(imgTimes,                1,1,   1,1)
-
+      ssLayout.addWidget(imgTimes1,               1,1,   1,1)
       ssLayout.addWidget(self.txtScalarScalarB,   1,2,   1,1)
-      ssLayout.addWidget(lblB,                    0,2,   1,1)
 
       ssLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSS, 'Stretch']), \
                                                   2,0,   1,3)
-      ssLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+      #ssLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #3,0,   1,3)
+      ssLayout.addWidget(makeHorizFrame(['Stretch', sslblC, self.txtScalarScalarC, 'Stretch']), \
                                                   3,0,   1,3)
-      ssLayout.addWidget(makeHorizFrame(['Stretch', lblC, self.txtScalarScalarC, 'Stretch']), \
-                                                  4,0,   1,3)
+      ssLayout.setVerticalSpacing(1)
+      frmSS = QFrame()
+      frmSS.setFrameStyle(STYLE_SUNKEN)
+      frmSS.setLayout(ssLayout)
 
-      #frmSS = QFrame()
-      #frmSS.setFrameStyle(STYLE_SUNKEN)
-      #frmSS.setLayout(ssLayout)
-      tabEcc.setLayout(ssLayout)
-      #tabWidget.addTab(tabEcc, 'Elliptic Curve')
+      ##########################################################################
+      # Scalar-ECPoint Multiply
+      splblA = QRichLabel('a',                             hAlign=Qt.AlignHCenter)
+      splblB = QRichLabel('<b>B</b>',                      hAlign=Qt.AlignHCenter)
+      splblBx= QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignRight)
+      splblBy= QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      splblC = QRichLabel('<b>C</b> = a*<b>B</b>',         hAlign=Qt.AlignHCenter)
+      splblCx= QRichLabel('<b>C</b><font size=2>x</font>', hAlign=Qt.AlignRight)
+      splblCy= QRichLabel('<b>C</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      spLayout = QGridLayout()
+      spLayout.addWidget(splblA,                  0,0,    1,1)
+      spLayout.addWidget(splblB,                  0,2,    1,1)
+
+      spLayout.addWidget(self.txtScalarPtA,       1,0,    1,1)
+      spLayout.addWidget(imgTimes2,               1,1,    1,1)
+      spLayout.addWidget(self.txtScalarPtB_x,     1,2,    1,1)
+      spLayout.addWidget(self.txtScalarPtB_y,     2,2,    1,1)
+
+      spLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSP, 'Stretch']), \
+                                                  3,0,   1,3)
+      #spLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #4,0,   1,3)
+      #spLayout.addWidget(makeHorizFrame(['Stretch', splblC, 'Stretch']), \
+                                                  #5,0,   1,3)
+      spLayout.addWidget(makeHorizFrame(['Stretch', splblCx, self.txtScalarPtC_x, 'Stretch']), \
+                                                  4,0,   1,3)
+      spLayout.addWidget(makeHorizFrame(['Stretch', splblCy, self.txtScalarPtC_y, 'Stretch']), \
+                                                  5,0,   1,3)
+      spLayout.setVerticalSpacing(1)
+      frmSP = QFrame()
+      frmSP.setFrameStyle(STYLE_SUNKEN)
+      frmSP.setLayout(spLayout)
+      
+      ##########################################################################
+      # ECPoint Addition
+      pplblA  = QRichLabel('<b>A</b>',                       hAlign=Qt.AlignHCenter)
+      pplblB  = QRichLabel('<b>B</b>',                       hAlign=Qt.AlignHCenter)
+      pplblAx = QRichLabel('<b>A</b><font size=2>x</font>', hAlign=Qt.AlignHCenter)
+      pplblAy = QRichLabel('<b>A</b><font size=2>y</font>', hAlign=Qt.AlignHCenter)
+      pplblBx = QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignHCenter)
+      pplblBy = QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignHCenter)
+      pplblC  = QRichLabel('<b>C</b> = <b>A</b>+<b>B</b>',  hAlign=Qt.AlignHCenter)
+      pplblCx = QRichLabel('<b>C</b><font size=2>x</font>', hAlign=Qt.AlignRight)
+      pplblCy = QRichLabel('<b>C</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      ppLayout = QGridLayout()
+      ppLayout.addWidget(pplblA,                  0,0,    1,1)
+      ppLayout.addWidget(pplblB,                  0,2,    1,1)
+      ppLayout.addWidget(self.txtPtPtA_x,         1,0,    1,1)
+      ppLayout.addWidget(self.txtPtPtA_y,         2,0,    1,1)
+      ppLayout.addWidget(imgPlus,                 1,1,    1,1)
+      ppLayout.addWidget(self.txtPtPtB_x,         1,2,    1,1)
+      ppLayout.addWidget(self.txtPtPtB_y,         2,2,    1,1)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcPP, 'Stretch']), \
+                                                  3,0,   1,3)
+      #ppLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #4,0,   1,3)
+      #ppLayout.addWidget(makeHorizFrame(['Stretch', pplblC, 'Stretch']), \
+                                                  #5,0,   1,3)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCx, self.txtPtPtC_x, 'Stretch']), \
+                                                  4,0,   1,3)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCy, self.txtPtPtC_y, 'Stretch']), \
+                                                  5,0,   1,3)
+      ppLayout.setVerticalSpacing(1)
+      frmPP = QFrame()
+      frmPP.setFrameStyle(STYLE_SUNKEN)
+      frmPP.setLayout(ppLayout)
+
+      
+      lblDescr = QRichLabel( \
+         'Use this form to perform Bitcoin elliptic curve calculations.  All '
+         'operations are performed on the secp256k1 elliptic curve, which is '
+         'the one used for Bitcoin. '
+         'Supply all values as 32-byte, big-endian, hex-encoded integers.')
+
+
+      eccLayout = QVBoxLayout()
+      eccLayout.addWidget(lblDescr)
+      eccLayout.addWidget(frmSS)
+      eccLayout.addWidget(frmSP)
+      eccLayout.addWidget(frmPP)
+      tabEcc.setLayout(eccLayout)
+      tabWidget.addTab(tabEcc, 'Elliptic Curve')
 
 
       calcLayout = QHBoxLayout() 

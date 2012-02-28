@@ -409,7 +409,7 @@ SecureBinaryData CryptoECDSA::SerializePrivateKey(BTC_PRIVKEY const & privKey)
 {
    CryptoPP::Integer privateExp = privKey.GetPrivateExponent();
    SecureBinaryData privKeyData(32);
-   privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize());
+   privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize(), UNSIGNED);
    return privKeyData;
 }
    
@@ -422,8 +422,8 @@ SecureBinaryData CryptoECDSA::SerializePublicKey(BTC_PUBKEY const & pubKey)
    SecureBinaryData pubData(65);
    pubData.fill(0x04);  // we fill just to set the first byte...
 
-   pubX.Encode(pubData.getPtr()+1,  32);
-   pubY.Encode(pubData.getPtr()+33, 32);
+   pubX.Encode(pubData.getPtr()+1,  32, UNSIGNED);
+   pubY.Encode(pubData.getPtr()+33, 32, UNSIGNED);
    return pubData;
 }
 
@@ -661,7 +661,7 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
 
    // Convert new private exponent to big-endian binary string 
    SecureBinaryData newPrivData(32);
-   newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize());
+   newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
    return newPrivData;
 }
                             
@@ -707,8 +707,127 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A, 
+                                          BinaryData const & B)
+{
+   // Hardcode the order of the secp256k1 EC group
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+
+   CryptoPP::Integer intA, intB, intC, intN;
+   intA.Decode(A.getPtr(), A.getSize(), UNSIGNED);
+   intB.Decode(B.getPtr(), B.getSize(), UNSIGNED);
+   intC = a_times_b_mod_c(intA, intB, intN);
+
+   BinaryData C(32);
+   intC.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
+   return C;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A, 
+                                        BinaryData const & Bx,
+                                        BinaryData const & By)
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+
+   CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intA.Decode( A.getPtr(),  A.getSize(),  UNSIGNED);
+   intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
+   intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
+
+   BTC_ECPOINT B(intBx, intBy);
+   BTC_ECPOINT C = ecp.ScalarMultiply(B, intA);
+
+   BinaryData C(64);
+   C.x.Encode(C.getPtr(),    32, UNSIGNED);
+   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+
+   return C;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax, 
+                                    BinaryData const & Ay,
+                                    BinaryData const & Bx,
+                                    BinaryData const & By)
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+
+   CryptoPP::Integer intAx, intAy, intBx, intBy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
+   intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
+   intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
+   intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
 
 
+   BTC_ECPOINT A(intAx, intAy);
+   BTC_ECPOINT B(intBx, intBy);
+
+   BTC_ECPOINT C = ecp.Add(A,B);
+
+   BinaryData C(64);
+   C.x.Encode(C.getPtr(),    32, UNSIGNED);
+   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+
+   return C;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax, 
+                                  BinaryData const & Ay)
+                                  
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+
+   CryptoPP::Integer intAx, intAy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
+   intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
+
+   BTC_ECPOINT A(intAx, intAy);
+   BTC_ECPOINT C = ecp.Inverse(A);
+
+   BinaryData C(64);
+   C.x.Encode(C.getPtr(),    32, UNSIGNED);
+   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+
+   return C;
+}
 
 
 
