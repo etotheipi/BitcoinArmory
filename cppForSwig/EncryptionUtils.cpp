@@ -708,6 +708,26 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 
 
 ////////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
+                                BinaryData const & y)
+{
+   BTC_PUBKEY cppPubKey;
+
+   CryptoPP::Integer pubX;
+   CryptoPP::Integer pubY;
+   pubX.Decode(x.getPtr(), x.getSize(), UNSIGNED);
+   pubY.Decode(y.getPtr(), y.getSize(), UNSIGNED);
+   BTC_ECPOINT publicPoint(pubX, pubY);
+
+   // Initialize the public key with the ECP point just created
+   cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
+
+   // Validate the public key -- not sure why this needs a PRNG
+   static BTC_PRNG prng;
+   return cppPubKey.Validate(prng, 3);
+}
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A, 
                                           BinaryData const & B)
 {
@@ -733,10 +753,10 @@ BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
 {
    static BinaryData N = BinaryData::CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
    static BinaryData a = BinaryData::CreateFromHex(
            "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
 
    CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intN, inta, intb;
 
@@ -767,10 +787,10 @@ BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax,
 {
    static BinaryData N = BinaryData::CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
    static BinaryData a = BinaryData::CreateFromHex(
            "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
 
    CryptoPP::Integer intAx, intAy, intBx, intBy, intCx, intCy, intN, inta, intb;
 
@@ -805,10 +825,10 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
 {
    static BinaryData N = BinaryData::CreateFromHex(
            "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
    static BinaryData a = BinaryData::CreateFromHex(
            "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
 
    CryptoPP::Integer intAx, intAy, intCx, intCy, intN, inta, intb;
 

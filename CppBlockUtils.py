@@ -1448,6 +1448,7 @@ class CryptoECDSA:
     def VerifyData(self, *args): return _CppBlockUtils.CryptoECDSA_VerifyData(self, *args)
     def ComputeChainedPrivateKey(self, *args): return _CppBlockUtils.CryptoECDSA_ComputeChainedPrivateKey(self, *args)
     def ComputeChainedPublicKey(self, *args): return _CppBlockUtils.CryptoECDSA_ComputeChainedPublicKey(self, *args)
+    def ECVerifyPoint(self, *args): return _CppBlockUtils.CryptoECDSA_ECVerifyPoint(self, *args)
     def ECMultiplyScalars(self, *args): return _CppBlockUtils.CryptoECDSA_ECMultiplyScalars(self, *args)
     def ECMultiplyPoint(self, *args): return _CppBlockUtils.CryptoECDSA_ECMultiplyPoint(self, *args)
     def ECAddPoints(self, *args): return _CppBlockUtils.CryptoECDSA_ECAddPoints(self, *args)

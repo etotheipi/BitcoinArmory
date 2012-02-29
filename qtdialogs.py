@@ -6158,9 +6158,9 @@ class DlgBadConnection(QDialog):
 
 ################################################################################
 def readSigBlock(parent, fullPacket):
-   addrB58, challengeStr, pubkey, sig = '','','',''
+   addrB58, messageStr, pubkey, sig = '','','',''
    lines = fullPacket.split('\n')
-   readingChallenge, readingPub, readingSig = False, False, False
+   readingMessage, readingPub, readingSig = False, False, False
    for i in range(len(lines)):
       s = lines[i].strip()
 
@@ -6647,9 +6647,13 @@ class DlgECDSACalc(QDialog):
          'the one used for Bitcoin. '
          'Supply all values as 32-byte, big-endian, hex-encoded integers.')
 
+      btnClear = QPushButton('Clear')
+      btnClear.setMaximumWidth(2*relaxedSizeStr(btnClear, 'Clear')[0])
+      self.connect(btnClear, SIGNAL('clicked()'), self.eccClear)
+
 
       eccLayout = QVBoxLayout()
-      eccLayout.addWidget(lblDescr)
+      eccLayout.addWidget(makeHorizFrame([lblDescr, btnClear]))
       eccLayout.addWidget(frmSS)
       eccLayout.addWidget(frmSP)
       eccLayout.addWidget(frmPP)
@@ -7035,6 +7039,7 @@ class DlgECDSACalc(QDialog):
          self.verifyMsg()
          
 
+   #############################################################################
    def getBinary(self, widget, name):
       try:
          hexVal = str(widget.text())
@@ -7047,32 +7052,88 @@ class DlgECDSACalc(QDialog):
       return binVal
 
 
+   #############################################################################
    def multss(self):
       binA = self.getBinary(self.txtScalarScalarA, 'a')
       binB = self.getBinary(self.txtScalarScalarB, 'b')
       C = CryptoECDSA().ECMultiplyScalars(binA, binB)
       self.txtScalarScalarC.setText( binary_to_hex(C))
 
+      for txt in [self.txtScalarScalarA, \
+                  self.txtScalarScalarB, \
+                  self.txtScalarScalarC]:
+         txt.setCursorPosition(0)
             
+   #############################################################################
    def multsp(self):
       binA  = self.getBinary(self.txtScalarPtA, 'a')
       binBx = self.getBinary(self.txtScalarPtB_x, '<b>B</b><font size=2>x</font>')
       binBy = self.getBinary(self.txtScalarPtB_y, '<b>B</b><font size=2>y</font>')
 
+      if not CryptoECDSA().ECVerifyPoint(binBx, binBy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>B</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
       C = CryptoECDSA().ECMultiplyPoint(binA, binBx, binBy)
       self.txtScalarPtC_x.setText(binary_to_hex(C[:32]))
-      self.txtScalarPtC_x.setText(binary_to_hex(C[32:]))
+      self.txtScalarPtC_y.setText(binary_to_hex(C[32:]))
       
+      for txt in [self.txtScalarPtA, \
+                  self.txtScalarPtB_x, self.txtScalarPtB_y, \
+                  self.txtScalarPtC_x, self.txtScalarPtC_y]:
+         txt.setCursorPosition(0)
 
+   #############################################################################
    def addpp(self):
       binAx = self.getBinary(self.txtPtPtA_x, '<b>A</b><font size=2>x</font>')
       binAy = self.getBinary(self.txtPtPtA_y, '<b>A</b><font size=2>y</font>')
       binBx = self.getBinary(self.txtPtPtB_x, '<b>B</b><font size=2>x</font>')
       binBy = self.getBinary(self.txtPtPtB_y, '<b>B</b><font size=2>y</font>')
 
+      if not CryptoECDSA().ECVerifyPoint(binAx, binAy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>A</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
+      if not CryptoECDSA().ECVerifyPoint(binBx, binBy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>B</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
       C = CryptoECDSA().ECAddPoints(binAx, binAy, binBx, binBy)
       self.txtPtPtC_x.setText(binary_to_hex(C[:32]))
       self.txtPtPtC_y.setText(binary_to_hex(C[32:]))
+
+      for txt in [self.txtPtPtA_x, self.txtPtPtA_y, \
+                  self.txtPtPtB_x, self.txtPtPtB_y, \
+                  self.txtPtPtC_x, self.txtPtPtC_y]:
+         txt.setCursorPosition(0)
+
+
+   #############################################################################
+   def eccClear(self):
+      self.txtScalarScalarA.setText('')
+      self.txtScalarScalarB.setText('')
+      self.txtScalarScalarC.setText('')
+
+      self.txtScalarPtA.setText('')
+      self.txtScalarPtB_x.setText('')
+      self.txtScalarPtB_y.setText('')
+      self.txtScalarPtC_x.setText('')
+      self.txtScalarPtC_y.setText('')
+
+      self.txtPtPtA_x.setText('')
+      self.txtPtPtA_y.setText('')
+      self.txtPtPtB_x.setText('')
+      self.txtPtPtB_y.setText('')
+      self.txtPtPtC_x.setText('')
+      self.txtPtPtC_y.setText('')
+
+
 
 
 

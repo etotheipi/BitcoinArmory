@@ -44435,6 +44435,52 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_CryptoECDSA_ECVerifyPoint(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
+  BinaryData *arg2 = 0 ;
+  BinaryData *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  BinaryData bdObj2 ;
+  BinaryData bdObj3 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  bool result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOO:CryptoECDSA_ECVerifyPoint",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoECDSA, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoECDSA_ECVerifyPoint" "', argument " "1"" of type '" "CryptoECDSA *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoECDSA * >(argp1);
+  {
+    if(!PyString_Check(obj1))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
+    arg2 = &bdObj2;
+  }
+  {
+    if(!PyString_Check(obj2))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj3.copyFrom((uint8_t*)PyString_AsString(obj2), PyString_Size(obj2));
+    arg3 = &bdObj3;
+  }
+  result = (bool)(arg1)->ECVerifyPoint((BinaryData const &)*arg2,(BinaryData const &)*arg3);
+  resultobj = SWIG_From_bool(static_cast< bool >(result));
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_CryptoECDSA_ECMultiplyScalars(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
@@ -45459,6 +45505,7 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"CryptoECDSA_VerifyData", _wrap_CryptoECDSA_VerifyData, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ComputeChainedPrivateKey", _wrap_CryptoECDSA_ComputeChainedPrivateKey, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ComputeChainedPublicKey", _wrap_CryptoECDSA_ComputeChainedPublicKey, METH_VARARGS, NULL},
+	 { (char *)"CryptoECDSA_ECVerifyPoint", _wrap_CryptoECDSA_ECVerifyPoint, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ECMultiplyScalars", _wrap_CryptoECDSA_ECMultiplyScalars, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ECMultiplyPoint", _wrap_CryptoECDSA_ECMultiplyPoint, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ECAddPoints", _wrap_CryptoECDSA_ECAddPoints, METH_VARARGS, NULL},

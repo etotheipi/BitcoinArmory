@@ -392,6 +392,10 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // Some standard ECC operations
+   ////////////////////////////////////////////////////////////////////////////////
+   bool ECVerifyPoint(BinaryData const & x,
+                      BinaryData const & y);
+
    BinaryData ECMultiplyScalars(BinaryData const & A, 
                                 BinaryData const & B);
 

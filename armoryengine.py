@@ -592,6 +592,7 @@ def hash160_to_addrStr(binStr):
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
+################################################################################
 def addrStr_to_hash160(binStr):
    return base58_to_binary(binStr)[1:-4]
 
