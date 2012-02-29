@@ -6266,7 +6266,7 @@ def makeSigBlock(addrB58, MessageStr, binPubkey='', binSig=''):
 
 ################################################################################
 class DlgECDSACalc(QDialog):
-   def __init__(self, parent=None, main=None):
+   def __init__(self, parent=None, main=None, tabStart=0):
       super(DlgECDSACalc, self).__init__(parent)
       self.parent = parent
       self.main   = main
@@ -6274,7 +6274,7 @@ class DlgECDSACalc(QDialog):
       dispFont = GETFONT('Var', 8) 
       w,h = tightSizeNChar(dispFont, 40)
       
-      tabWidget = QTabWidget()
+      self.tabWidget = QTabWidget()
    
       ##########################################################################
       ##########################################################################
@@ -6414,7 +6414,7 @@ class DlgECDSACalc(QDialog):
       self.btnCalcKeys = QPushButton('Calculate')
       #self.btnClearFrm.setEnabled(False)
       #self.btnCalcKeys.setEnabled(False)
-      #self.btnWltData.setEnabled(False)
+      self.btnWltData.setEnabled(False)
       self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
       self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
       self.connect(self.btnCalcKeys, SIGNAL('clicked()'), self.keyWaterfall)
@@ -6480,7 +6480,7 @@ class DlgECDSACalc(QDialog):
       dlgLayout.addWidget( makeVertFrame( [tabKeysTopFrm, tabKeysBtmFrm, frmBack] ) )
       #dlgLayout.addWidget( HLINE() )
       tabKeys.setLayout(dlgLayout)
-      tabWidget.addTab(tabKeys, 'Keys')
+      self.tabWidget.addTab(tabKeys, 'Keys')
 
       ##########################################################################
       ##########################################################################
@@ -6654,12 +6654,14 @@ class DlgECDSACalc(QDialog):
       eccLayout.addWidget(frmSP)
       eccLayout.addWidget(frmPP)
       tabEcc.setLayout(eccLayout)
-      tabWidget.addTab(tabEcc, 'Elliptic Curve')
+      self.tabWidget.addTab(tabEcc, 'Elliptic Curve')
 
 
       calcLayout = QHBoxLayout() 
-      calcLayout.addWidget(tabWidget)
+      calcLayout.addWidget(self.tabWidget)
       self.setLayout(calcLayout)
+
+      self.tabWidget.setCurrentIndex(tabStart)
    
       self.setWindowTitle('ECDSA Calculator')
       self.setWindowIcon(QIcon( self.main.iconfile))
@@ -6869,24 +6871,26 @@ class DlgECDSACalc(QDialog):
          wdgt.setText('')
       self.lblPrivType.setText('')
       self.lblTopMid.setText('')
+      self.btnWltData.setEnabled(False)
 
    #############################################################################
    def privSwitch(self):
       privHex = str(self.txtPriv.text()).strip().replace(' ','')
       if len(privHex)>0:
          self.txtPriv.setText(hex_switchEndian(privHex))
+      self.keyTextEdited(0)
       
    #############################################################################
    def insRnd(self):
       rnd = SecureBinaryData().GenerateRandom(8)
-      currtxt = str(self.txtMsg.toPlainText())
+      currtxt = self.readMsg()
       if not currtxt.endswith(' ') and not len(currtxt)==0:
          currtxt += ' '
       self.txtMsg.setText(currtxt + rnd.toHexStr())
       
    #############################################################################
    def insDate(self):
-      currtxt = str(self.txtMsg.toPlainText())
+      currtxt = self.readMsg()
       if not currtxt.endswith(' ') and not len(currtxt)==0:
          currtxt += ' '
       self.txtMsg.setText(currtxt + unixTimeToFormatStr(RightNow()))
@@ -6901,7 +6905,7 @@ class DlgECDSACalc(QDialog):
            'There was an error parsing the private key.', QMessageBox.Ok)
          return
 
-      strMsg  = str(self.txtMsg.toPlainText()).strip()
+      strMsg  = self.readMsg()
          
       if len(binPriv)!=32:
          QMessageBox.critical(self, 'Invalid Private Key', \
@@ -6922,6 +6926,7 @@ class DlgECDSACalc(QDialog):
       self.keyWaterfall()
       try:
          binPub = hex_to_binary(str(self.txtPubF.text()).strip().replace(' ',''))
+         addrB58 = hash160_to_addrStr(hash160(binPub))
       except:
          QMessageBox.critical(self, 'Input Error', \
            'There was an error parsing the public key.', QMessageBox.Ok)
@@ -6934,7 +6939,7 @@ class DlgECDSACalc(QDialog):
            'The signature data is not recognized.', QMessageBox.Ok)
          return
 
-      strMsg  = str(self.txtMsg.toPlainText()).strip()
+      strMsg = self.readMsg()
          
          
       if len(binPub)!=65:
@@ -6955,13 +6960,20 @@ class DlgECDSACalc(QDialog):
                                          SecureBinaryData(binPub))
 
       if isValid:
-         MsgBoxCustom(MSGBOX.Good, 'Verified!', 'The supplied signature <b>is valid</b>!')
+         MsgBoxCustom(MSGBOX.Good, 
+            'Verified!', 'The supplied signature <b>is valid</b>!'
+            '<br><br>The following message:<br><br>'
+            '<i>"%s"</i><br><br> has a valid signature from the owner '
+            'of the address:<br><br><i>%s</i>' % (strMsg,addrB58)  )
          self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
       else:
-         MsgBoxCustom(MSGBOX.Critical, 'Invalid Signature!', \
-                                            'The supplied signature <b>is not valid</b>!')
+         MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
+                                  'The supplied signature <b>is not valid</b>!')
          self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
 
+   ############################################################################
+   def readMsg(self):
+      return str(self.txtMsg.toPlainText()).replace('\n',' ').strip()
 
    ############################################################################
    def makeBlk(self):
@@ -6977,8 +6989,8 @@ class DlgECDSACalc(QDialog):
          QMessageBox.critical(self, 'Signature Error', \
            'The signature is in an unrecognized format', QMessageBox.Ok)
 
-      addrB58 =               str(self.txtAddr.text()).replace(' ','')
-      rawMsg  =               str(self.txtMsg.toPlainText())
+      addrB58 = str(self.txtAddr.text()).replace(' ','')
+      rawMsg  = self.readMsg()
 
       txt = makeSigBlock(addrB58, rawMsg, pubfBin, sigBin)
       clipb = QApplication.clipboard()
