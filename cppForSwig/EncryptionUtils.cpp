@@ -752,7 +752,7 @@ BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
                                         BinaryData const & By)
 {
    static BinaryData N = BinaryData::CreateFromHex(
-           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
    static BinaryData a = BinaryData::CreateFromHex(
            "0000000000000000000000000000000000000000000000000000000000000000");
    static BinaryData b = BinaryData::CreateFromHex(
@@ -786,7 +786,7 @@ BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax,
                                     BinaryData const & By)
 {
    static BinaryData N = BinaryData::CreateFromHex(
-           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
    static BinaryData a = BinaryData::CreateFromHex(
            "0000000000000000000000000000000000000000000000000000000000000000");
    static BinaryData b = BinaryData::CreateFromHex(

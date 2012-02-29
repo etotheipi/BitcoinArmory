@@ -6229,52 +6229,37 @@ def readSigBlock(parent, fullPacket):
 
 
 ################################################################################
-def makeSigBlock(addrB58, challengeStr, binPubkey='', binSig=''):
-   lineWid = 32
-   s =  '-----BEGIN-SIGNATURE-BLOCK--------------------------\n'
+def makeSigBlock(addrB58, MessageStr, binPubkey='', binSig=''):
+   lineWid = 50
+   s =  '-----BEGIN-SIGNATURE-BLOCK'.ljust(lineWid+12,'-') + '\n'
 
    ### Address ###
    s += 'Address:    %s\n' % addrB58
 
-   ### Challenge ###
-   nChallengeLines = (len(challengeStr)-1)/lineWid + 1
-   for i in range(nChallengeLines):
-      cLine = 'Message:   "%s"\n' if i==0 else '           "%s"\n'
-      s += cLine % challengeStr[i*lineWid:(i+1)*lineWid]
+   ### Message ###
+   nMessageLines = (len(MessageStr)-1)/lineWid + 1
+   chPerLine = lineWid-2
+   for i in range(nMessageLines):
+      cLine = 'Message:    "%s"\n' if i==0 else '            "%s"\n'
+      s += cLine % MessageStr[i*chPerLine:(i+1)*chPerLine]
 
    ### Public Key ###
    if len(binPubkey)>0:
       hexPub = binary_to_hex(binPubkey)
-      pubLines = []
-      if len(binPubkey)%32==1:
-         prefix,hexPub = hexPub[:2], hexPub[2:]
-         pubLines.append(prefix)
-
       nPubLines = (len(hexPub)-1)/lineWid + 1
       for i in range(nPubLines):
-         pubLines.append( hexPub[i*lineWid:(i+1)*lineWid] )
-
-      for i,line in enumerate(pubLines):
          pLine = 'PublicKey:  %s\n' if i==0 else '            %s\n'
-         s += pLine % line
+         s += pLine % hexPub[i*lineWid:(i+1)*lineWid]
          
    ### Signature ###
    if len(binSig)>0:
       hexSig = binary_to_hex(binSig)
-      sigLines = []
-      if len(binSig)%32==1:
-         prefix,hexSig = hexSig[:2], hexSig[2:]
-         sigLines.append(prefix)
-
       nSigLines = (len(hexSig)-1)/lineWid + 1
       for i in range(nSigLines):
-         sigLines.append( hexSig[i*lineWid:(i+1)*lineWid] )
-
-      for i,line in enumerate(sigLines):
          sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
-         s += sLine % line
+         s += sLine % hexSig[i*lineWid:(i+1)*lineWid]
          
-   s += '-----END-SIGNATURE-BLOCK----------------------------'
+   s += '-----END-SIGNATURE-BLOCK'.ljust(lineWid+12,'-') + '\n'
    return s
 
 
