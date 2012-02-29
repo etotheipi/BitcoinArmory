@@ -721,7 +721,7 @@ BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A,
    intC = a_times_b_mod_c(intA, intB, intN);
 
    BinaryData C(32);
-   intC.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
+   intC.Encode(C.getPtr(), 32, UNSIGNED);
    return C;
 }
 
@@ -751,11 +751,11 @@ BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
    BTC_ECPOINT B(intBx, intBy);
    BTC_ECPOINT C = ecp.ScalarMultiply(B, intA);
 
-   BinaryData C(64);
-   C.x.Encode(C.getPtr(),    32, UNSIGNED);
-   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
 
-   return C;
+   return Cbd;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -789,11 +789,11 @@ BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax,
 
    BTC_ECPOINT C = ecp.Add(A,B);
 
-   BinaryData C(64);
-   C.x.Encode(C.getPtr(),    32, UNSIGNED);
-   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
 
-   return C;
+   return Cbd;
 }
 
 
@@ -822,11 +822,11 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
    BTC_ECPOINT A(intAx, intAy);
    BTC_ECPOINT C = ecp.Inverse(A);
 
-   BinaryData C(64);
-   C.x.Encode(C.getPtr(),    32, UNSIGNED);
-   C.y.Encode(C.getPtr()+32, 32, UNSIGNED);
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
 
-   return C;
+   return Cbd;
 }
 
 

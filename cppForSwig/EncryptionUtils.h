@@ -403,6 +403,9 @@ public:
                           BinaryData const & Ay,
                           BinaryData const & Bx,
                           BinaryData const & By);
+
+   BinaryData ECInverse(BinaryData const & Ax, 
+                        BinaryData const & Ay);
 };
 
 

@@ -44435,6 +44435,234 @@ fail:
 }
 
 
+SWIGINTERN PyObject *_wrap_CryptoECDSA_ECMultiplyScalars(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
+  BinaryData *arg2 = 0 ;
+  BinaryData *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  BinaryData bdObj2 ;
+  BinaryData bdObj3 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  BinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOO:CryptoECDSA_ECMultiplyScalars",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoECDSA, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoECDSA_ECMultiplyScalars" "', argument " "1"" of type '" "CryptoECDSA *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoECDSA * >(argp1);
+  {
+    if(!PyString_Check(obj1))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
+    arg2 = &bdObj2;
+  }
+  {
+    if(!PyString_Check(obj2))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj3.copyFrom((uint8_t*)PyString_AsString(obj2), PyString_Size(obj2));
+    arg3 = &bdObj3;
+  }
+  result = (arg1)->ECMultiplyScalars((BinaryData const &)*arg2,(BinaryData const &)*arg3);
+  {
+    resultobj = PyString_FromStringAndSize((char*)((&result)->getPtr()), (&result)->getSize());
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CryptoECDSA_ECMultiplyPoint(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
+  BinaryData *arg2 = 0 ;
+  BinaryData *arg3 = 0 ;
+  BinaryData *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  BinaryData bdObj2 ;
+  BinaryData bdObj3 ;
+  BinaryData bdObj4 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  BinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoECDSA_ECMultiplyPoint",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoECDSA, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoECDSA_ECMultiplyPoint" "', argument " "1"" of type '" "CryptoECDSA *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoECDSA * >(argp1);
+  {
+    if(!PyString_Check(obj1))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
+    arg2 = &bdObj2;
+  }
+  {
+    if(!PyString_Check(obj2))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj3.copyFrom((uint8_t*)PyString_AsString(obj2), PyString_Size(obj2));
+    arg3 = &bdObj3;
+  }
+  {
+    if(!PyString_Check(obj3))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj4.copyFrom((uint8_t*)PyString_AsString(obj3), PyString_Size(obj3));
+    arg4 = &bdObj4;
+  }
+  result = (arg1)->ECMultiplyPoint((BinaryData const &)*arg2,(BinaryData const &)*arg3,(BinaryData const &)*arg4);
+  {
+    resultobj = PyString_FromStringAndSize((char*)((&result)->getPtr()), (&result)->getSize());
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CryptoECDSA_ECAddPoints(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
+  BinaryData *arg2 = 0 ;
+  BinaryData *arg3 = 0 ;
+  BinaryData *arg4 = 0 ;
+  BinaryData *arg5 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  BinaryData bdObj2 ;
+  BinaryData bdObj3 ;
+  BinaryData bdObj4 ;
+  BinaryData bdObj5 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  PyObject * obj4 = 0 ;
+  BinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOOO:CryptoECDSA_ECAddPoints",&obj0,&obj1,&obj2,&obj3,&obj4)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoECDSA, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoECDSA_ECAddPoints" "', argument " "1"" of type '" "CryptoECDSA *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoECDSA * >(argp1);
+  {
+    if(!PyString_Check(obj1))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
+    arg2 = &bdObj2;
+  }
+  {
+    if(!PyString_Check(obj2))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj3.copyFrom((uint8_t*)PyString_AsString(obj2), PyString_Size(obj2));
+    arg3 = &bdObj3;
+  }
+  {
+    if(!PyString_Check(obj3))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj4.copyFrom((uint8_t*)PyString_AsString(obj3), PyString_Size(obj3));
+    arg4 = &bdObj4;
+  }
+  {
+    if(!PyString_Check(obj4))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj5.copyFrom((uint8_t*)PyString_AsString(obj4), PyString_Size(obj4));
+    arg5 = &bdObj5;
+  }
+  result = (arg1)->ECAddPoints((BinaryData const &)*arg2,(BinaryData const &)*arg3,(BinaryData const &)*arg4,(BinaryData const &)*arg5);
+  {
+    resultobj = PyString_FromStringAndSize((char*)((&result)->getPtr()), (&result)->getSize());
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CryptoECDSA_ECInverse(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
+  BinaryData *arg2 = 0 ;
+  BinaryData *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  BinaryData bdObj2 ;
+  BinaryData bdObj3 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  BinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOO:CryptoECDSA_ECInverse",&obj0,&obj1,&obj2)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoECDSA, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoECDSA_ECInverse" "', argument " "1"" of type '" "CryptoECDSA *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoECDSA * >(argp1);
+  {
+    if(!PyString_Check(obj1))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj2.copyFrom((uint8_t*)PyString_AsString(obj1), PyString_Size(obj1));
+    arg2 = &bdObj2;
+  }
+  {
+    if(!PyString_Check(obj2))
+    {
+      PyErr_SetString(PyExc_ValueError, "Expected string argument!");
+      return NULL;
+    }
+    bdObj3.copyFrom((uint8_t*)PyString_AsString(obj2), PyString_Size(obj2));
+    arg3 = &bdObj3;
+  }
+  result = (arg1)->ECInverse((BinaryData const &)*arg2,(BinaryData const &)*arg3);
+  {
+    resultobj = PyString_FromStringAndSize((char*)((&result)->getPtr()), (&result)->getSize());
+  }
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
 SWIGINTERN PyObject *_wrap_delete_CryptoECDSA(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   CryptoECDSA *arg1 = (CryptoECDSA *) 0 ;
@@ -45231,6 +45459,10 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"CryptoECDSA_VerifyData", _wrap_CryptoECDSA_VerifyData, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ComputeChainedPrivateKey", _wrap_CryptoECDSA_ComputeChainedPrivateKey, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_ComputeChainedPublicKey", _wrap_CryptoECDSA_ComputeChainedPublicKey, METH_VARARGS, NULL},
+	 { (char *)"CryptoECDSA_ECMultiplyScalars", _wrap_CryptoECDSA_ECMultiplyScalars, METH_VARARGS, NULL},
+	 { (char *)"CryptoECDSA_ECMultiplyPoint", _wrap_CryptoECDSA_ECMultiplyPoint, METH_VARARGS, NULL},
+	 { (char *)"CryptoECDSA_ECAddPoints", _wrap_CryptoECDSA_ECAddPoints, METH_VARARGS, NULL},
+	 { (char *)"CryptoECDSA_ECInverse", _wrap_CryptoECDSA_ECInverse, METH_VARARGS, NULL},
 	 { (char *)"delete_CryptoECDSA", _wrap_delete_CryptoECDSA, METH_VARARGS, NULL},
 	 { (char *)"CryptoECDSA_swigregister", CryptoECDSA_swigregister, METH_VARARGS, NULL},
 	 { NULL, NULL, 0, NULL }

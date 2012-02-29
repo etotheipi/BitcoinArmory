@@ -62,14 +62,14 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
 
-   printTestHeader("Testing Zero-conf handling");
-   TestZeroConf();
+   //printTestHeader("Testing Zero-conf handling");
+   //TestZeroConf();
 
    //printTestHeader("Crypto-KDF-and-AES-methods");
    //TestCrypto();
 
-   //printTestHeader("Crypto-ECDSA-sign-verify");
-   //TestECDSA();
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -862,6 +862,11 @@ void TestECDSA(void)
    cout << "   New pubKeyB:" << newBinPubB.getSliceCopy(0,30).toHexStr() << "..." << endl;
    cout << endl;
 
+
+   // Test arbitrary scalar/point operations
+   BinaryData a  = BinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   BinaryData b  = BinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData c = CryptoECDSA().ECMultiplyScalars(a,b);
 }
 
 

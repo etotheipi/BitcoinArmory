@@ -6525,13 +6525,13 @@ class DlgECDSACalc(QDialog):
           self.txtPtPtB_y, self.txtPtPtC_x, self.txtPtPtC_y]
       
       dispFont = GETFONT('Var', 8) 
-      w,h = tightSizeNChar(dispFont, 40)
+      w,h = tightSizeNChar(dispFont, 60)
       for txt in eccTxtList:
          txt.setMinimumWidth(w)
          txt.setFont(dispFont)
 
       
-      self.btnCalcSS = QPushButton('Multiply Scalars (mod N)')
+      self.btnCalcSS = QPushButton('Multiply Scalars (mod n)')
       self.btnCalcSP = QPushButton('Scalar Multiply EC Point')
       self.btnCalcPP = QPushButton('Add EC Points')
       self.btnClearSS = QPushButton('Clear')
@@ -6542,12 +6542,16 @@ class DlgECDSACalc(QDialog):
       imgTimes2= QImageLabel('img/asterisk_orange.png')
       imgDown  = QImageLabel('img/arrow_down32.png')
 
+      self.connect(self.btnCalcSS, SIGNAL('clicked()'),  self.multss)
+      self.connect(self.btnCalcSP, SIGNAL('clicked()'),  self.multsp)
+      self.connect(self.btnCalcPP, SIGNAL('clicked()'),  self.addpp)
+
 
       ##########################################################################
       # Scalar-Scalar Multiply
       sslblA = QRichLabel('a', hAlign=Qt.AlignHCenter)
       sslblB = QRichLabel('b', hAlign=Qt.AlignHCenter)
-      sslblC = QRichLabel('c = a*b mod n', hAlign=Qt.AlignHCenter)
+      sslblC = QRichLabel('a*b mod n', hAlign=Qt.AlignHCenter)
 
       
       ssLayout = QGridLayout()
@@ -6576,8 +6580,8 @@ class DlgECDSACalc(QDialog):
       splblBx= QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignRight)
       splblBy= QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignRight)
       splblC = QRichLabel('<b>C</b> = a*<b>B</b>',         hAlign=Qt.AlignHCenter)
-      splblCx= QRichLabel('<b>C</b><font size=2>x</font>', hAlign=Qt.AlignRight)
-      splblCy= QRichLabel('<b>C</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      splblCx= QRichLabel('(a*<b>B</b>)<font size=2>x</font>', hAlign=Qt.AlignRight)
+      splblCy= QRichLabel('(a*<b>B</b>)<font size=2>y</font>', hAlign=Qt.AlignRight)
       spLayout = QGridLayout()
       spLayout.addWidget(splblA,                  0,0,    1,1)
       spLayout.addWidget(splblB,                  0,2,    1,1)
@@ -6611,14 +6615,14 @@ class DlgECDSACalc(QDialog):
       pplblBx = QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignHCenter)
       pplblBy = QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignHCenter)
       pplblC  = QRichLabel('<b>C</b> = <b>A</b>+<b>B</b>',  hAlign=Qt.AlignHCenter)
-      pplblCx = QRichLabel('<b>C</b><font size=2>x</font>', hAlign=Qt.AlignRight)
-      pplblCy = QRichLabel('<b>C</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      pplblCx= QRichLabel('(<b>A</b>+<b>B</b>)<font size=2>x</font>', hAlign=Qt.AlignRight)
+      pplblCy= QRichLabel('(<b>A</b>+<b>B</b>)<font size=2>y</font>', hAlign=Qt.AlignRight)
       ppLayout = QGridLayout()
       ppLayout.addWidget(pplblA,                  0,0,    1,1)
       ppLayout.addWidget(pplblB,                  0,2,    1,1)
       ppLayout.addWidget(self.txtPtPtA_x,         1,0,    1,1)
       ppLayout.addWidget(self.txtPtPtA_y,         2,0,    1,1)
-      ppLayout.addWidget(imgPlus,                 1,1,    1,1)
+      ppLayout.addWidget(imgPlus,                 1,1,    2,1)
       ppLayout.addWidget(self.txtPtPtB_x,         1,2,    1,1)
       ppLayout.addWidget(self.txtPtPtB_y,         2,2,    1,1)
       ppLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcPP, 'Stretch']), \
@@ -7030,6 +7034,45 @@ class DlgECDSACalc(QDialog):
          self.keyWaterfall()
          self.verifyMsg()
          
+
+   def getBinary(self, widget, name):
+      try:
+         hexVal = str(widget.text())
+         binVal = hex_to_binary(hexVal)
+      except:
+         QMessageBox.critical(self, 'Bad Input', \
+            'Value "%s" is invalid.  Make sure the value is specified in '
+            'hex, big-endian' % name , QMessageBox.Ok)
+         return ''
+      return binVal
+
+
+   def multss(self):
+      binA = self.getBinary(self.txtScalarScalarA, 'a')
+      binB = self.getBinary(self.txtScalarScalarB, 'b')
+      C = CryptoECDSA().ECMultiplyScalars(binA, binB)
+      self.txtScalarScalarC.setText( binary_to_hex(C))
+
+            
+   def multsp(self):
+      binA  = self.getBinary(self.txtScalarPtA, 'a')
+      binBx = self.getBinary(self.txtScalarPtB_x, '<b>B</b><font size=2>x</font>')
+      binBy = self.getBinary(self.txtScalarPtB_y, '<b>B</b><font size=2>y</font>')
+
+      C = CryptoECDSA().ECMultiplyPoint(binA, binBx, binBy)
+      self.txtScalarPtC_x.setText(binary_to_hex(C[:32]))
+      self.txtScalarPtC_x.setText(binary_to_hex(C[32:]))
+      
+
+   def addpp(self):
+      binAx = self.getBinary(self.txtPtPtA_x, '<b>A</b><font size=2>x</font>')
+      binAy = self.getBinary(self.txtPtPtA_y, '<b>A</b><font size=2>y</font>')
+      binBx = self.getBinary(self.txtPtPtB_x, '<b>B</b><font size=2>x</font>')
+      binBy = self.getBinary(self.txtPtPtB_y, '<b>B</b><font size=2>y</font>')
+
+      C = CryptoECDSA().ECAddPoints(binAx, binAy, binBx, binBy)
+      self.txtPtPtC_x.setText(binary_to_hex(C[:32]))
+      self.txtPtPtC_y.setText(binary_to_hex(C[32:]))
 
 
 
