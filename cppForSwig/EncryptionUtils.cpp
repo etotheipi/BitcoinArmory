@@ -718,6 +718,7 @@ BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A,
    CryptoPP::Integer intA, intB, intC, intN;
    intA.Decode(A.getPtr(), A.getSize(), UNSIGNED);
    intB.Decode(B.getPtr(), B.getSize(), UNSIGNED);
+   intN.Decode(N.getPtr(), N.getSize(), UNSIGNED);
    intC = a_times_b_mod_c(intA, intB, intN);
 
    BinaryData C(32);

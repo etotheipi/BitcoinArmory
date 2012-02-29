@@ -864,9 +864,13 @@ void TestECDSA(void)
 
 
    // Test arbitrary scalar/point operations
-   BinaryData a  = BinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
-   BinaryData b  = BinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
-   BinaryData c = CryptoECDSA().ECMultiplyScalars(a,b);
+   BinaryData a = BinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   BinaryData b = BinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData c = BinaryData::CreateFromHex("f700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData d = BinaryData::CreateFromHex("8130904787384d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData e = CryptoECDSA().ECMultiplyScalars(a,b);
+   BinaryData f = CryptoECDSA().ECMultiplyPoint(a, b, c);
+   BinaryData g = CryptoECDSA().ECAddPoints(a, b, c, d);
 }
 
 
