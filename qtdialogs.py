@@ -6214,6 +6214,17 @@ def readSigBlock(parent, fullPacket):
             'Signature data is malformed!', QMessageBox.Ok)
          sig = ''
 
+   
+   pubkeyhash = hash160(pubkey)
+   if not pubkeyhash==addrStr_to_hash160(addrB58):
+      QMessageBox.critical(parent, 'Address Mismatch', \
+         '!!! The address included in the signature block does not '
+         'match the supplied public key!  This should never happen, '
+         'and may in fact be an attempt to mislead you !!!', QMessageBox.Ok)
+      sig = ''
+      
+      
+
    return addrB58, messageStr, pubkey, sig
 
 
