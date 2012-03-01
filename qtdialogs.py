@@ -6231,14 +6231,14 @@ def readSigBlock(parent, fullPacket):
 ################################################################################
 def makeSigBlock(addrB58, MessageStr, binPubkey='', binSig=''):
    lineWid = 50
-   s =  '-----BEGIN-SIGNATURE-BLOCK'.ljust(lineWid+12,'-') + '\n'
+   s =  '-----BEGIN-SIGNATURE-BLOCK'.ljust(lineWid+13,'-') + '\n'
 
    ### Address ###
    s += 'Address:    %s\n' % addrB58
 
    ### Message ###
-   nMessageLines = (len(MessageStr)-1)/lineWid + 1
    chPerLine = lineWid-2
+   nMessageLines = (len(MessageStr)-1)/chPerLine + 1
    for i in range(nMessageLines):
       cLine = 'Message:    "%s"\n' if i==0 else '            "%s"\n'
       s += cLine % MessageStr[i*chPerLine:(i+1)*chPerLine]
@@ -6259,7 +6259,7 @@ def makeSigBlock(addrB58, MessageStr, binPubkey='', binSig=''):
          sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
          s += sLine % hexSig[i*lineWid:(i+1)*lineWid]
          
-   s += '-----END-SIGNATURE-BLOCK'.ljust(lineWid+12,'-') + '\n'
+   s += '-----END-SIGNATURE-BLOCK'.ljust(lineWid+13,'-') + '\n'
    return s
 
 
@@ -6960,11 +6960,17 @@ class DlgECDSACalc(QDialog):
                                          SecureBinaryData(binPub))
 
       if isValid:
-         MsgBoxCustom(MSGBOX.Good, 
-            'Verified!', 'The supplied signature <b>is valid</b>!'
-            '<br><br>The following message:<br><br>'
-            '<i>"%s"</i><br><br> has a valid signature from the owner '
-            'of the address:<br><br><i>%s</i>' % (strMsg,addrB58)  )
+         MsgBoxCustom(MSGBOX.Good, 'Verified!', \
+            'The owner of the following Bitcoin address:'
+            '<br><br>'
+            '<b>%s</b>'
+            '<br><br>'
+            '...has signed the following message with the private key of '
+            'the above address:'
+            '<br><br>'
+            '<i>"%s"</i>'
+            '<br><br>'
+            'The supplied signature <b>is valid</b>!' % (addrB58,strMsg))
          self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
       else:
          MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
@@ -6973,7 +6979,11 @@ class DlgECDSACalc(QDialog):
 
    ############################################################################
    def readMsg(self):
-      return str(self.txtMsg.toPlainText()).replace('\n',' ').strip()
+      msg = str(self.txtMsg.toPlainText())
+      msg = msg.replace('\n',' ')
+      msg = msg.replace('"','\'')
+      msg = msg.strip()
+      return msg
 
    ############################################################################
    def makeBlk(self):

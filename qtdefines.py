@@ -281,7 +281,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False):
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-         w,h = tightSizeNChar(lblMsg, 50)
+         w,h = tightSizeNChar(lblMsg, 70)
          lblMsg.setMinimumSize( w, 3.2*h )
 
          buttonbox = QDialogButtonBox()
