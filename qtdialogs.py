@@ -6916,7 +6916,8 @@ class DlgECDSACalc(QDialog):
            'There is no message to sign!', QMessageBox.Ok)
          return
 
-      sig = CryptoECDSA().SignData(SecureBinaryData(strMsg), \
+      modMsg = 'Bitcoin Signed Message:\n' + strMsg
+      sig = CryptoECDSA().SignData(SecureBinaryData(modMsg), \
                                    SecureBinaryData(binPriv))
       self.txtSig.setText(sig.toHexStr())
 
@@ -6955,22 +6956,22 @@ class DlgECDSACalc(QDialog):
            'Need the original message in order to verify the signature.', QMessageBox.Ok)
          return
 
-      isValid = CryptoECDSA().VerifyData(SecureBinaryData(strMsg), \
+      modMsg = 'Bitcoin Signed Message:\n' + strMsg
+      isValid = CryptoECDSA().VerifyData(SecureBinaryData(modMsg), \
                                          SecureBinaryData(binSig), \
                                          SecureBinaryData(binPub))
 
       if isValid:
          MsgBoxCustom(MSGBOX.Good, 'Verified!', \
-            'The owner of the following Bitcoin address:'
+            'The owner of the following Bitcoin address...'
             '<br><br>'
             '<b>%s</b>'
             '<br><br>'
-            '...has signed the following message with the private key of '
-            'the above address:'
+            '...has digitally signed the following message:'
             '<br><br>'
-            '<i>"%s"</i>'
+            '<i><b>"%s"</b></i>'
             '<br><br>'
-            'The supplied signature <b>is valid</b>!' % (addrB58,strMsg))
+            'The supplied signature <b>is valid</b>!' % (addrB58, strMsg))
          self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
       else:
          MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
