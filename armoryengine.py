@@ -4837,16 +4837,19 @@ class PyTxDistProposal(object):
          txhash = outpt.txHash
          txidx  = outpt.txOutIndex
          pyPrevTx = None
-         if TheBDM.isInitialized():
+         if len(txMap)>0:
+            # If supplied a txMap, we expect it to have everything we need
+            if not txMap.has_key(txhash):
+               raise InvalidHashError, ('Could not find the referenced tx '
+                                        'in supplied txMap')
+            pyPrevTx = txMap[txhash].copy()
+         elif TheBDM.isInitialized():
             cppPrevTx = TheBDM.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
          else:
-            if not txMap.has_key(txhash):
-               raise InvalidHashError, ('Could not find the referenced tx '
-                                        'in supplied txMap')
-            pyPrevTx = txMap[txhash].copy()
+            raise InvalidHashError, ('No previous-tx data available for TxDP')
          self.relevantTxMap[txhash] = pyPrevTx.copy()
                
            

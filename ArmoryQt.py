@@ -1212,7 +1212,7 @@ class ArmoryMainWindow(QMainWindow):
          #DlgDispTxInfo(pytx, None, self, self).exec_()
          return
       else:
-         newTxHash = binary_switchEndian(pytx.getHash())
+         newTxHash = pytx.getHash()
          print 'Sending Tx,', binary_to_hex(newTxHash)
          self.NetworkingFactory.sendTx(pytx)
          print 'Done!'
