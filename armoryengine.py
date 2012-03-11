@@ -60,7 +60,7 @@ USE_TESTNET =     ('--testnet' in argv)
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 55, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 56, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -4849,7 +4849,7 @@ class PyTxDistProposal(object):
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
          else:
-            raise InvalidHashError, ('No previous-tx data available for TxDP')
+            raise InvalidHashError, 'No previous-tx data available for TxDP'
          self.relevantTxMap[txhash] = pyPrevTx.copy()
                
            
