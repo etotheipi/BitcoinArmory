@@ -9110,6 +9110,7 @@ def read_wallet(json_db, db_env, wltFile):
 
    plainPrivList = []
    cryptPrivList = []
+   masterEncrKey = {}
    poolKeysList  = []
 
    for (key, value) in db.items():
@@ -9130,119 +9131,31 @@ def read_wallet(json_db, db_env, wltFile):
       try:
          # This is a weird merge of two if-then-else blocks...
          # It didn't seem to be necessary to keep them separate
-         if dType == "tx":
-            d["tx_id"] = kds.read_bytes(32)
-
-         elif dType == "name":
-            d['hash'] = kds.read_string()
-            d['name'] = vds.read_string()
-            json_db['names'][d['hash']] = d['name']
-
-         elif dType == "version":
-            d['version'] = vds.read_uint32()
-            json_db['version'] = d['version']
-
-         elif dType == "setting":
-            d['setting'] = kds.read_string()
-            #d['value'] = parse_setting(d['setting'], vds)
-            d['value'] = None
-            if not json_db.has_key('settings'): 
-               json_db['settings'] = {}
-            json_db["settings"][d['setting']] = d['value']
-
-         elif dType == "key":
-            d['public_key'] = kds.read_bytes(kds.read_compact_size())
-            d['private_key'] = \
-               SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
-            addr = pubkey_to_addrStr(d['public_key'])
-            json_db['keys'].append({'addr' : addr, 'sec' : d['private_key']})
-
-            plainPrivList.append(d['private_key'])
-
-         elif dType == "wkey":
-            d['public_key'] = kds.read_bytes(kds.read_compact_size())
-            d['private_key'] = vds.read_bytes(vds.read_compact_size())
-            d['created'] = vds.read_int64()
-            d['expires'] = vds.read_int64()
-            d['comment'] = vds.read_string()
-            if not json_db.has_key('wkey'): 
-               json_db['wkey'] = []
-            json_db['wkey']['created'] = d['created']
-
+         if dType == "key":
+            priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
+            plainPrivList.append(priv)
          elif dType == "ckey":
-            d['public_key'] = kds.read_bytes(kds.read_compact_size())
-            d['crypted_key'] = vds.read_bytes(vds.read_compact_size())
-            json_db['keys'].append(  \
-                        {'addr':  pubkey_to_addrStr(d['public_key']), \
-                         'ckey':   d['crypted_key'], \
-                         'pubkey': d['public_key'] })
-
-            cryptPrivList.append( [d['crypted_key'], d['public_key']] )
+            pub = kds.read_bytes(kds.read_compact_size())
+            ckey = vds.read_bytes(vds.read_compact_size())
+            cryptPrivList.append( [pub, ckey] )
 
          elif dType == "mkey":
-            d['nID'] = kds.read_int32()
-            d['crypted_key'] = vds.read_bytes(vds.read_compact_size())
-            d['salt'] = vds.read_bytes(vds.read_compact_size())
-            d['nDerivationMethod'] = vds.read_int32()
-            d['nDeriveIterations'] = vds.read_int32()
-            d['vchOtherDerivationParameters'] = vds.read_bytes(vds.read_compact_size())
-            mkey = {}
-            mkey['nID'] = d['nID']
-            mkey['crypted_key'] = d['crypted_key']
-            mkey['salt'] = d['salt']
-            mkey['nDeriveIterations'] = d['nDeriveIterations']
-            mkey['nDerivationMethod'] = d['nDerivationMethod']
-            mkey['vchOtherDerivationParameters'] = d['vchOtherDerivationParameters']
-            json_db['mkey'] = mkey
+            masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
+            masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
+            masterEncrKey['mthd'] = vds.read_int32()
+            masterEncrKey['iter'] = vds.read_int32()
+            masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
 
-         elif dType == "defaultkey":
-            d['key'] = vds.read_bytes(vds.read_compact_size())
-            json_db['defaultkey'] = pubkey_to_addrStr(d['key'])
+            print len(masterEncrKey['mkey'])
+            print len(masterEncrKey['salt'])
+            print len(masterEncrKey['othr'])
 
          elif dType == "pool":
             d['n'] = kds.read_int64()
-            d['nVersion'] = vds.read_int32()
-            d['nTime'] = vds.read_int64()
-            d['public_key'] = vds.read_bytes(vds.read_compact_size())
-            json_db['pool'].append( \
-                              {'n'     : d['n'], \
-                              'addr'  : pubkey_to_addrStr(d['public_key']), \
-                              'nTime' : d['nTime'] } )
-
-            poolKeysList.append(pubkey_to_addrStr(d['public_key']))
-
-            
-
-         elif dType == "acc":
-            d['account'] = kds.read_string()
-            d['nVersion'] = vds.read_int32()
-            d['public_key'] = vds.read_bytes(vds.read_compact_size())
-            json_db['acc'] = d['account']
-
-         elif dType == "acentry":
-            d['account'] = kds.read_string()
-            d['n'] = kds.read_uint64()
-            d['nVersion'] = vds.read_int32()
-            d['nCreditDebit'] = vds.read_int64()
-            d['nTime'] = vds.read_int64()
-            d['otherAccount'] = vds.read_string()
-            d['comment'] = vds.read_string()
-            json_db['acentry'] = (d['account'], \
-                                  d['nCreditDebit'], \
-                                  d['otherAccount'], \
-                                  unixTimeToFormatStr(d['nTime']), \
-                                  d['n'], \
-                                  d['comment'])
-
-         elif dType == "bestblock":
-            pass
-            #d['nVersion'] = vds.read_int32()
-            #d.update(parse_BlockLocator(vds))
-            #json_db['bestblock'] = d['hashes'][0][::-1].encode('hex_codec')
-      
-         else:
-            json_db[dType] = 'unsupported'
-         
+            ver = vds.read_int32()
+            ntime = vds.read_int64()
+            pubkey = vds.read_bytes(vds.read_compact_size())
+            poolKeysList.append(pubkey_to_addrStr(pubkey))
    
       except Exception, e:
          #traceback.print_exc()
@@ -9253,47 +9166,7 @@ def read_wallet(json_db, db_env, wltFile):
 
    db.close()
 
-   for k in json_db['keys']:
-      addr = k['addr']
-      if addr in json_db['names'].keys():
-         k["label"] = json_db['names'][addr]
-      else:
-         k["reserve"] = 1
-
-
-   return (plainPrivList, cryptPrivList, poolKeysList)
-   """
-   crypted = 'mkey' in json_db.keys()
-
-   if crypted and not password:
-      logging.warning("encrypted wallet, specify password to decrypt")
-
-   if crypted and password:
-      check = True
-      for k in json_db['keys']:
-         ckey = k['ckey'].decode('hex')
-         public_key = k['pubkey'].decode('hex')
-         crypter.SetIV(Hash(public_key))
-         secret = crypter.Decrypt(ckey)
-         sec = SecretToASecret(secret)
-
-         if check:
-            check = False
-            pkey = regenerate_key(sec)
-            if public_key != GetPubKey(pkey):
-               logging.error("wrong password")
-               sys.exit(1)
-
-         k['sec'] = sec
-         k['secret'] = secret.encode('hex')
-         del(k['ckey'])
-         del(k['secret'])
-         del(k['pubkey'])
-         private_keys.append(sec)
-   """
-
-   #del(json_db['pool'])
-   #del(json_db['names'])
+   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList)
 
 
 
@@ -9306,7 +9179,7 @@ def checkSatoshiEncrypted(wltPath):
    db_env = create_env(wltDir) 
    json_db = {}
 
-   plain,crypt,pool = read_wallet(json_db, db_env, wltFile)
+   plain,mkey,crypt,pool = read_wallet(json_db, db_env, wltFile)
    return len(crypt)>0
 
 
@@ -9320,41 +9193,37 @@ def extractSatoshiKeys(wltPath, passphrase=None):
    db_env = create_env(wltDir) 
    json_db = {}
 
-   plain,crypt,pool = read_wallet(json_db, db_env, wltFile)
-   print pool
+   plainkeys,mkey,crypt,pool = read_wallet(json_db, db_env, wltFile)
    
    if len(crypt)>0:
       # Satoshi Wallet is encrypted!
-      plain = []
+      plainkeys = []
       if passphrase==None: 
          raise EncryptionError, 'Satoshi wallet is encrypted but no passphrase supplied'
       
-      masterKey  = json_db['mkey']['crypted_key'] 
-      masterSalt = json_db['mkey']['salt'] 
-      masterIter = json_db['mkey']['nDeriveIterations'] 
-      masterMthd = json_db['mkey']['nDerivationMethod'] 
       pKey,IV = GetKeyFromPassphraseSatoshi( passphrase, \
-                                             masterSalt, \
-                                             masterIter, \
-                                             masterMthd)
+                                             mkey['salt'], \
+                                             mkey['iter'], \
+                                             mkey['mthd'])
 
-      masterKey = CryptoAES().DecryptCBC( SecureBinaryData(masterKey), \
+      masterKey = CryptoAES().DecryptCBC( SecureBinaryData(mkey['mkey']), \
                                           SecureBinaryData(pKey), \
                                           SecureBinaryData(IV) )
 
-      for keyDict in json_db['keys']: 
-         cryptPriv = keyDict['ckey']
-         iv = hash256(keyDict['pubkey'])[:16]
-         privKey = CryptoAES().DecryptCBC( SecureBinaryData(cryptPriv), \
+      print masterKey.toHexStr()
+      masterKey.resize(32)
+
+      for pub,ckey in crypt:
+         iv = hash256(pub)[:16]
+         privKey = CryptoAES().DecryptCBC( SecureBinaryData(ckey), \
                                            SecureBinaryData(masterKey), \
                                            SecureBinaryData(iv))
-         plain.append(privKey.toHexStr())
+         privKey.resize(32)
+         plainkeys.append(privKey)
+
+   return plainkeys
          
 
-   plain.sort()
-   for k in plain:
-      addrB58 = hash160_to_addrStr(convertKeyDataToAddress(k.toBinStr()))
-      print 'Addr:', addrB58, 'Priv:', k.toHexStr(), ('*' if addrB58 in pool else '')
 
       
    
