@@ -656,10 +656,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
@@ -671,10 +671,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
    /// *** Test 3 *** ///
@@ -685,10 +685,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
@@ -703,15 +703,15 @@ void TestCrypto(void)
    SecureBinaryData randIV(0);  // tell the crypto to generate a random IV for me.
 
    cout << "Encrypting:" << endl;
-   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+   cipher = CryptoAES().EncryptCFB(secret, testKey, randIV);
    cout << endl << endl;
    cout << "Decrypting:" << endl;
-   secret = CryptoAES().Decrypt(cipher, testKey, randIV);
+   secret = CryptoAES().DecryptCFB(cipher, testKey, randIV);
    cout << endl << endl;
 
    // Now encrypting so I can store the encrypted data in file
    cout << "Encrypting again:" << endl;
-   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+   cipher = CryptoAES().EncryptCFB(secret, testKey, randIV);
 
    ofstream testfile("safefile.txt", ios::out);
    testfile << "KdfParams " << endl;
@@ -754,14 +754,14 @@ void TestCrypto(void)
    cout << "Attempting to decrypt with wrong passphrase" << endl;
    SecureBinaryData passphrase = SecureBinaryData("This is the wrong passphrase");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().Decrypt(cipherTry1, newKey, iv);
+   CryptoAES().DecryptCFB(cipherTry1, newKey, iv);
 
 
    // Now try correct passphrase
    cout << "Attempting to decrypt with CORRECT passphrase" << endl;
    passphrase = SecureBinaryData("This passphrase is tough to guess");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().Decrypt(cipherTry2, newKey, iv);
+   CryptoAES().DecryptCFB(cipherTry2, newKey, iv);
 }
 
 

@@ -1418,8 +1418,10 @@ class CryptoAES:
         this = _CppBlockUtils.new_CryptoAES()
         try: self.this.append(this)
         except: self.this = this
-    def Encrypt(self, *args): return _CppBlockUtils.CryptoAES_Encrypt(self, *args)
-    def Decrypt(self, *args): return _CppBlockUtils.CryptoAES_Decrypt(self, *args)
+    def EncryptCFB(self, *args): return _CppBlockUtils.CryptoAES_EncryptCFB(self, *args)
+    def DecryptCFB(self, *args): return _CppBlockUtils.CryptoAES_DecryptCFB(self, *args)
+    def EncryptCBC(self, *args): return _CppBlockUtils.CryptoAES_EncryptCBC(self, *args)
+    def DecryptCBC(self, *args): return _CppBlockUtils.CryptoAES_DecryptCBC(self, *args)
     __swig_destroy__ = _CppBlockUtils.delete_CryptoAES
     __del__ = lambda self : None;
 CryptoAES_swigregister = _CppBlockUtils.CryptoAES_swigregister

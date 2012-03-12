@@ -111,7 +111,8 @@ using namespace std;
 // and also so it's easy to switch the AES MODE or PRNG, in one place
 #define UNSIGNED     ((CryptoPP::Integer::Signedness)(0))
 #define BTC_AES      CryptoPP::AES
-#define BTC_AES_MODE CryptoPP::CFB_Mode
+#define BTC_CFB_MODE CryptoPP::CFB_Mode
+#define BTC_CBC_MODE CryptoPP::CBC_Mode
 #define BTC_PRNG     CryptoPP::AutoSeededRandomPool
 
 #define BTC_ECPOINT  CryptoPP::ECP::Point
@@ -277,14 +278,24 @@ public:
    CryptoAES(void) {}
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData Encrypt(SecureBinaryData & data, 
-                            SecureBinaryData & key,
-                            SecureBinaryData & iv);
+   SecureBinaryData EncryptCFB(SecureBinaryData & data, 
+                               SecureBinaryData & key,
+                               SecureBinaryData & iv);
 
    /////////////////////////////////////////////////////////////////////////////
-   SecureBinaryData Decrypt(SecureBinaryData & data, 
-                            SecureBinaryData & key,
-                            SecureBinaryData   iv);
+   SecureBinaryData DecryptCFB(SecureBinaryData & data, 
+                               SecureBinaryData & key,
+                               SecureBinaryData   iv);
+
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData EncryptCBC(SecureBinaryData & data, 
+                               SecureBinaryData & key,
+                               SecureBinaryData & iv);
+
+   /////////////////////////////////////////////////////////////////////////////
+   SecureBinaryData DecryptCBC(SecureBinaryData & data, 
+                               SecureBinaryData & key,
+                               SecureBinaryData   iv);
 };
 
 

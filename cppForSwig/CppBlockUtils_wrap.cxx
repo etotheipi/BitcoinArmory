@@ -43286,7 +43286,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_CryptoAES_Encrypt(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_CryptoAES_EncryptCFB(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   CryptoAES *arg1 = (CryptoAES *) 0 ;
   SecureBinaryData *arg2 = 0 ;
@@ -43306,37 +43306,37 @@ SWIGINTERN PyObject *_wrap_CryptoAES_Encrypt(PyObject *SWIGUNUSEDPARM(self), PyO
   PyObject * obj3 = 0 ;
   SecureBinaryData result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_Encrypt",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_EncryptCFB",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoAES, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_Encrypt" "', argument " "1"" of type '" "CryptoAES *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_EncryptCFB" "', argument " "1"" of type '" "CryptoAES *""'"); 
   }
   arg1 = reinterpret_cast< CryptoAES * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_SecureBinaryData,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_Encrypt" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_EncryptCFB" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Encrypt" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCFB" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
   }
   arg2 = reinterpret_cast< SecureBinaryData * >(argp2);
   res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_SecureBinaryData,  0 );
   if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_Encrypt" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_EncryptCFB" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
   }
   if (!argp3) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Encrypt" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCFB" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
   }
   arg3 = reinterpret_cast< SecureBinaryData * >(argp3);
   res4 = SWIG_ConvertPtr(obj3, &argp4, SWIGTYPE_p_SecureBinaryData,  0 );
   if (!SWIG_IsOK(res4)) {
-    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_Encrypt" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_EncryptCFB" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
   }
   if (!argp4) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Encrypt" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCFB" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
   }
   arg4 = reinterpret_cast< SecureBinaryData * >(argp4);
-  result = (arg1)->Encrypt(*arg2,*arg3,*arg4);
+  result = (arg1)->EncryptCFB(*arg2,*arg3,*arg4);
   resultobj = SWIG_NewPointerObj((new SecureBinaryData(static_cast< const SecureBinaryData& >(result))), SWIGTYPE_p_SecureBinaryData, SWIG_POINTER_OWN |  0 );
   return resultobj;
 fail:
@@ -43344,7 +43344,7 @@ fail:
 }
 
 
-SWIGINTERN PyObject *_wrap_CryptoAES_Decrypt(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+SWIGINTERN PyObject *_wrap_CryptoAES_DecryptCFB(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
   PyObject *resultobj = 0;
   CryptoAES *arg1 = (CryptoAES *) 0 ;
   SecureBinaryData *arg2 = 0 ;
@@ -43364,42 +43364,163 @@ SWIGINTERN PyObject *_wrap_CryptoAES_Decrypt(PyObject *SWIGUNUSEDPARM(self), PyO
   PyObject * obj3 = 0 ;
   SecureBinaryData result;
   
-  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_Decrypt",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_DecryptCFB",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
   res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoAES, 0 |  0 );
   if (!SWIG_IsOK(res1)) {
-    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_Decrypt" "', argument " "1"" of type '" "CryptoAES *""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_DecryptCFB" "', argument " "1"" of type '" "CryptoAES *""'"); 
   }
   arg1 = reinterpret_cast< CryptoAES * >(argp1);
   res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_SecureBinaryData,  0 );
   if (!SWIG_IsOK(res2)) {
-    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_Decrypt" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_DecryptCFB" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
   }
   if (!argp2) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Decrypt" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCFB" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
   }
   arg2 = reinterpret_cast< SecureBinaryData * >(argp2);
   res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_SecureBinaryData,  0 );
   if (!SWIG_IsOK(res3)) {
-    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_Decrypt" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_DecryptCFB" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
   }
   if (!argp3) {
-    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Decrypt" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCFB" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
   }
   arg3 = reinterpret_cast< SecureBinaryData * >(argp3);
   {
     res4 = SWIG_ConvertPtr(obj3, &argp4, SWIGTYPE_p_SecureBinaryData,  0  | 0);
     if (!SWIG_IsOK(res4)) {
-      SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_Decrypt" "', argument " "4"" of type '" "SecureBinaryData""'"); 
+      SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_DecryptCFB" "', argument " "4"" of type '" "SecureBinaryData""'"); 
     }  
     if (!argp4) {
-      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_Decrypt" "', argument " "4"" of type '" "SecureBinaryData""'");
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCFB" "', argument " "4"" of type '" "SecureBinaryData""'");
     } else {
       SecureBinaryData * temp = reinterpret_cast< SecureBinaryData * >(argp4);
       arg4 = *temp;
       if (SWIG_IsNewObj(res4)) delete temp;
     }
   }
-  result = (arg1)->Decrypt(*arg2,*arg3,arg4);
+  result = (arg1)->DecryptCFB(*arg2,*arg3,arg4);
+  resultobj = SWIG_NewPointerObj((new SecureBinaryData(static_cast< const SecureBinaryData& >(result))), SWIGTYPE_p_SecureBinaryData, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CryptoAES_EncryptCBC(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoAES *arg1 = (CryptoAES *) 0 ;
+  SecureBinaryData *arg2 = 0 ;
+  SecureBinaryData *arg3 = 0 ;
+  SecureBinaryData *arg4 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  void *argp4 = 0 ;
+  int res4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  SecureBinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_EncryptCBC",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoAES, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_EncryptCBC" "', argument " "1"" of type '" "CryptoAES *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoAES * >(argp1);
+  res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_SecureBinaryData,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_EncryptCBC" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCBC" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+  }
+  arg2 = reinterpret_cast< SecureBinaryData * >(argp2);
+  res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_SecureBinaryData,  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_EncryptCBC" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCBC" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+  }
+  arg3 = reinterpret_cast< SecureBinaryData * >(argp3);
+  res4 = SWIG_ConvertPtr(obj3, &argp4, SWIGTYPE_p_SecureBinaryData,  0 );
+  if (!SWIG_IsOK(res4)) {
+    SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_EncryptCBC" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
+  }
+  if (!argp4) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_EncryptCBC" "', argument " "4"" of type '" "SecureBinaryData &""'"); 
+  }
+  arg4 = reinterpret_cast< SecureBinaryData * >(argp4);
+  result = (arg1)->EncryptCBC(*arg2,*arg3,*arg4);
+  resultobj = SWIG_NewPointerObj((new SecureBinaryData(static_cast< const SecureBinaryData& >(result))), SWIGTYPE_p_SecureBinaryData, SWIG_POINTER_OWN |  0 );
+  return resultobj;
+fail:
+  return NULL;
+}
+
+
+SWIGINTERN PyObject *_wrap_CryptoAES_DecryptCBC(PyObject *SWIGUNUSEDPARM(self), PyObject *args) {
+  PyObject *resultobj = 0;
+  CryptoAES *arg1 = (CryptoAES *) 0 ;
+  SecureBinaryData *arg2 = 0 ;
+  SecureBinaryData *arg3 = 0 ;
+  SecureBinaryData arg4 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  void *argp2 = 0 ;
+  int res2 = 0 ;
+  void *argp3 = 0 ;
+  int res3 = 0 ;
+  void *argp4 ;
+  int res4 = 0 ;
+  PyObject * obj0 = 0 ;
+  PyObject * obj1 = 0 ;
+  PyObject * obj2 = 0 ;
+  PyObject * obj3 = 0 ;
+  SecureBinaryData result;
+  
+  if (!PyArg_ParseTuple(args,(char *)"OOOO:CryptoAES_DecryptCBC",&obj0,&obj1,&obj2,&obj3)) SWIG_fail;
+  res1 = SWIG_ConvertPtr(obj0, &argp1,SWIGTYPE_p_CryptoAES, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "CryptoAES_DecryptCBC" "', argument " "1"" of type '" "CryptoAES *""'"); 
+  }
+  arg1 = reinterpret_cast< CryptoAES * >(argp1);
+  res2 = SWIG_ConvertPtr(obj1, &argp2, SWIGTYPE_p_SecureBinaryData,  0 );
+  if (!SWIG_IsOK(res2)) {
+    SWIG_exception_fail(SWIG_ArgError(res2), "in method '" "CryptoAES_DecryptCBC" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+  }
+  if (!argp2) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCBC" "', argument " "2"" of type '" "SecureBinaryData &""'"); 
+  }
+  arg2 = reinterpret_cast< SecureBinaryData * >(argp2);
+  res3 = SWIG_ConvertPtr(obj2, &argp3, SWIGTYPE_p_SecureBinaryData,  0 );
+  if (!SWIG_IsOK(res3)) {
+    SWIG_exception_fail(SWIG_ArgError(res3), "in method '" "CryptoAES_DecryptCBC" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+  }
+  if (!argp3) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCBC" "', argument " "3"" of type '" "SecureBinaryData &""'"); 
+  }
+  arg3 = reinterpret_cast< SecureBinaryData * >(argp3);
+  {
+    res4 = SWIG_ConvertPtr(obj3, &argp4, SWIGTYPE_p_SecureBinaryData,  0  | 0);
+    if (!SWIG_IsOK(res4)) {
+      SWIG_exception_fail(SWIG_ArgError(res4), "in method '" "CryptoAES_DecryptCBC" "', argument " "4"" of type '" "SecureBinaryData""'"); 
+    }  
+    if (!argp4) {
+      SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "CryptoAES_DecryptCBC" "', argument " "4"" of type '" "SecureBinaryData""'");
+    } else {
+      SecureBinaryData * temp = reinterpret_cast< SecureBinaryData * >(argp4);
+      arg4 = *temp;
+      if (SWIG_IsNewObj(res4)) delete temp;
+    }
+  }
+  result = (arg1)->DecryptCBC(*arg2,*arg3,arg4);
   resultobj = SWIG_NewPointerObj((new SecureBinaryData(static_cast< const SecureBinaryData& >(result))), SWIGTYPE_p_SecureBinaryData, SWIG_POINTER_OWN |  0 );
   return resultobj;
 fail:
@@ -45487,8 +45608,10 @@ static PyMethodDef SwigMethods[] = {
 	 { (char *)"delete_KdfRomix", _wrap_delete_KdfRomix, METH_VARARGS, NULL},
 	 { (char *)"KdfRomix_swigregister", KdfRomix_swigregister, METH_VARARGS, NULL},
 	 { (char *)"new_CryptoAES", _wrap_new_CryptoAES, METH_VARARGS, NULL},
-	 { (char *)"CryptoAES_Encrypt", _wrap_CryptoAES_Encrypt, METH_VARARGS, NULL},
-	 { (char *)"CryptoAES_Decrypt", _wrap_CryptoAES_Decrypt, METH_VARARGS, NULL},
+	 { (char *)"CryptoAES_EncryptCFB", _wrap_CryptoAES_EncryptCFB, METH_VARARGS, NULL},
+	 { (char *)"CryptoAES_DecryptCFB", _wrap_CryptoAES_DecryptCFB, METH_VARARGS, NULL},
+	 { (char *)"CryptoAES_EncryptCBC", _wrap_CryptoAES_EncryptCBC, METH_VARARGS, NULL},
+	 { (char *)"CryptoAES_DecryptCBC", _wrap_CryptoAES_DecryptCBC, METH_VARARGS, NULL},
 	 { (char *)"delete_CryptoAES", _wrap_delete_CryptoAES, METH_VARARGS, NULL},
 	 { (char *)"CryptoAES_swigregister", CryptoAES_swigregister, METH_VARARGS, NULL},
 	 { (char *)"new_CryptoECDSA", _wrap_new_CryptoECDSA, METH_VARARGS, NULL},

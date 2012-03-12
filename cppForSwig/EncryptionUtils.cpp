@@ -278,9 +278,10 @@ SecureBinaryData KdfRomix::DeriveKey(SecureBinaryData const & password)
 
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data, 
-                                    SecureBinaryData & key,
-                                    SecureBinaryData & iv)
+// Implement AES encryption using AES mode, CFB
+SecureBinaryData CryptoAES::EncryptCFB(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData & iv)
 {
    if(CRYPTO_DEBUG)
    {
@@ -295,15 +296,14 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
       return SecureBinaryData(0);
 
    SecureBinaryData encrData(data.getSize());
-   //cout << "   StartPlain: " << data.toHexStr() << endl;
-   //cout << "   Key Data  : " << key.toHexStr() << endl;
 
    // Caller can supply their own IV/entropy, or let it be generated here
+   // (variable "iv" is a reference, so check it on the way out)
    if(iv.getSize() == 0)
       iv = SecureBinaryData().GenerateRandom(BTC_AES::BLOCKSIZE);
 
 
-   BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
+   BTC_CFB_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
                                               (byte*)iv.getPtr());
 
@@ -311,15 +311,14 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   //cout << "   IV Data   : " << iv.toHexStr() << endl;
-   //cout << "   Ciphertext: " << encrData.toHexStr() << endl;
    return encrData;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data, 
-                                    SecureBinaryData & key,
-                                    SecureBinaryData   iv  )
+// Implement AES decryption using AES mode, CFB
+SecureBinaryData CryptoAES::DecryptCFB(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData   iv  )
 {
    if(CRYPTO_DEBUG)
    {
@@ -335,11 +334,7 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
 
    SecureBinaryData unencrData(data.getSize());
 
-   //cout << "   StrtCipher: " << data.toHexStr() << endl;
-   //cout << "   Key Data  : " << key.toHexStr() << endl;
-   //cout << "   IV Data   : " << iv.toHexStr() << endl;
-
-   BTC_AES_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
+   BTC_CFB_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
                                               (byte*)iv.getPtr());
 
@@ -347,11 +342,75 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   //cout << "   Plaintext : " << unencrData.toHexStr() << endl;
    return unencrData;
 }
 
 
+
+/////////////////////////////////////////////////////////////////////////////
+// Same as above, but only changing the AES mode of operation (CBC, not CFB)
+SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData & iv)
+{
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+   if(data.getSize() == 0)
+      return SecureBinaryData(0);
+
+   SecureBinaryData encrData(data.getSize());
+
+   // Caller can supply their own IV/entropy, or let it be generated here
+   // (variable "iv" is a reference, so check it on the way out)
+   if(iv.getSize() == 0)
+      iv = SecureBinaryData().GenerateRandom(BTC_AES::BLOCKSIZE);
+
+
+   BTC_CBC_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
+                                                     key.getSize(), 
+                                              (byte*)iv.getPtr());
+
+   aes_enc.ProcessData( (byte*)encrData.getPtr(), 
+                        (byte*)data.getPtr(), 
+                               data.getSize());
+
+   return encrData;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Same as above, but only changing the AES mode of operation (CBC, not CFB)
+SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData   iv  )
+{
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+   if(data.getSize() == 0)
+      return SecureBinaryData(0);
+
+   SecureBinaryData unencrData(data.getSize());
+
+   BTC_CBC_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
+                                                     key.getSize(), 
+                                              (byte*)iv.getPtr());
+
+   aes_enc.ProcessData( (byte*)unencrData.getPtr(), 
+                        (byte*)data.getPtr(), 
+                               data.getSize());
+   return unencrData;
+}
 
 
 
@@ -849,7 +908,6 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
 
    return Cbd;
 }
-
 
 
 

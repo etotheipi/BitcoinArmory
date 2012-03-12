@@ -1660,7 +1660,7 @@ if Test_CryptoTiming:
    # Test with no initialization vector
    start = time.time()
    for i in range(nTest):
-      cipher = CryptoAES().Encrypt(secret, keyAES, noIV)
+      cipher = CryptoAES().EncryptCFB(secret, keyAES, noIV)
    end = time.time()
    print '    AES Encryption with IV generation: %0.1f/sec' % (nTest/(end-start))
    """
@@ -1668,7 +1668,7 @@ if Test_CryptoTiming:
    # Now using an IV
    start = time.time()
    for i in range(nTest):
-      cipher = CryptoAES().Encrypt(secret, keyAES, withIV)
+      cipher = CryptoAES().EncryptCFB(secret, keyAES, withIV)
    end = time.time()
    print '    AES Encryption with supplied IV  : %0.1f/sec' % (nTest/(end-start))
       
@@ -1676,7 +1676,7 @@ if Test_CryptoTiming:
    # Test decryption speed
    start = time.time()
    for i in range(nTest):
-      plain = CryptoAES().Decrypt(cipher, keyAES, withIV)
+      plain = CryptoAES().DecryptCFB(cipher, keyAES, withIV)
    end = time.time()
    print '    AES Decryption with supplied IV  : %0.1f/sec' % (nTest/(end-start))
 
