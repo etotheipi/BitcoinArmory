@@ -1315,6 +1315,8 @@ class ArmoryMainWindow(QMainWindow):
                print 'The highest index used was:', highestIdx
                self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
                print 'Import Complete!'
+         elif dlg.importType_migrate:
+            DlgMigrateSatoshiWallet(self, self).exec_()
          else:
             return
 

@@ -14,13 +14,14 @@ Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
-Test_TxDistProposals  = True
+Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
 Test_SettingsFile     = False
+Test_WalletMigrate    = True
 
 '''
 import optparse
@@ -1802,5 +1803,25 @@ if Test_SettingsFile:
    os.remove(testFile2)
 
 
+if Test_WalletMigrate:
+
+   import getpass
+   p = '/home/alan/winlinshare/wallet_plain.dat'
+   print 'Encrypted? ', checkSatoshiEncrypted(p)
+   plain = extractSatoshiKeys(p)
+
+   print len(plain)
+   print sum([1 if p[2] else 0 for p in plain])
+   print sum([0 if p[2] else 1 for p in plain])
+
+   p = '/home/alan/.bitcoin/wallet.dat'
+   print 'Encrypted? ', checkSatoshiEncrypted(p)
+   k = getpass.getpass('decrypt passphrase:')
+   crypt = extractSatoshiKeys(p, k)
+
+
+   print len(crypt)
+   print sum([1 if p[2] else 0 for p in crypt])
+   print sum([0 if p[2] else 1 for p in crypt])
 
 

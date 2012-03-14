@@ -7195,7 +7195,7 @@ class PyBtcWallet(object):
    def importExternalAddressData(self, privKey=None, privChk=None, \
                                        pubKey=None,  pubChk=None, \
                                        addr20=None,  addrChk=None, \
-                                       firstTime=0,  firstBlk=0, \
+                                       firstTime=UINT32_MAX,  firstBlk=UINT32_MAX, \
                                        lastTime=0,   lastBlk=0):
       """
       This wallet fully supports importing external keys, even though it is
@@ -8939,7 +8939,6 @@ from bsddb.db import *
 import json
 import struct
 
-
 class BCDataStream(object):
    def __init__(self):
       self.input = None
@@ -9096,13 +9095,8 @@ def GetKeyFromPassphraseSatoshi(vKeyData, vSalt, nIter, deriveMethod):
 
 
 ################################################################################
-def read_wallet(json_db, db_env, wltFile):
+def read_wallet(db_env, wltFile):
    db = open_wallet(db_env, wltFile)
-
-   json_db['keys'] = []
-   json_db['pool'] = []
-   json_db['names'] = {}
-
 
    # Moved parse_wallet code inline here
    kds = BCDataStream()
@@ -9112,6 +9106,7 @@ def read_wallet(json_db, db_env, wltFile):
    cryptPrivList = []
    masterEncrKey = {}
    poolKeysList  = []
+   addrNames     = {}
 
    for (key, value) in db.items():
       d = { }
@@ -9129,8 +9124,6 @@ def read_wallet(json_db, db_env, wltFile):
 
 
       try:
-         # This is a weird merge of two if-then-else blocks...
-         # It didn't seem to be necessary to keep them separate
          if dType == "key":
             priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
             plainPrivList.append(priv)
@@ -9138,27 +9131,23 @@ def read_wallet(json_db, db_env, wltFile):
             pub = kds.read_bytes(kds.read_compact_size())
             ckey = vds.read_bytes(vds.read_compact_size())
             cryptPrivList.append( [pub, ckey] )
-
          elif dType == "mkey":
             masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
             masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
             masterEncrKey['mthd'] = vds.read_int32()
             masterEncrKey['iter'] = vds.read_int32()
             masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
-
-            print len(masterEncrKey['mkey'])
-            print len(masterEncrKey['salt'])
-            print len(masterEncrKey['othr'])
-
          elif dType == "pool":
             d['n'] = kds.read_int64()
             ver = vds.read_int32()
             ntime = vds.read_int64()
             pubkey = vds.read_bytes(vds.read_compact_size())
             poolKeysList.append(pubkey_to_addrStr(pubkey))
-   
+         elif dType == "name":
+            addrB58 = kds.read_string()
+            name    = vds.read_string()
+            addrNames[addrB58] = name
       except Exception, e:
-         #traceback.print_exc()
          print("ERROR parsing wallet.dat, type %s" % dType)
          print("key data in hex: %s"%key.encode('hex_codec'))
          print("value data in hex: %s"%value.encode('hex_codec'))
@@ -9166,34 +9155,23 @@ def read_wallet(json_db, db_env, wltFile):
 
    db.close()
 
-   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList)
+   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList, addrNames)
 
 
 
-def checkSatoshiEncrypted(wltPath):
-   if not os.path.exists(wltPath):
-      raise FileExistsError, 'Specified Satoshi wallet does not exist!'
-
-   wltDir,wltFile = os.path.split(wltPath)
-
-   db_env = create_env(wltDir) 
-   json_db = {}
-
-   plain,mkey,crypt,pool = read_wallet(json_db, db_env, wltFile)
-   return len(crypt)>0
 
 
 
 def extractSatoshiKeys(wltPath, passphrase=None):
+   # Returns a list of [privKey, usedYet] pairs
    if not os.path.exists(wltPath):
       raise FileExistsError, 'Specified Satoshi wallet does not exist!'
 
    wltDir,wltFile = os.path.split(wltPath)
 
    db_env = create_env(wltDir) 
-   json_db = {}
 
-   plainkeys,mkey,crypt,pool = read_wallet(json_db, db_env, wltFile)
+   plainkeys,mkey,crypt,pool,names = read_wallet(db_env, wltFile)
    
    if len(crypt)>0:
       # Satoshi Wallet is encrypted!
@@ -9209,22 +9187,38 @@ def extractSatoshiKeys(wltPath, passphrase=None):
       masterKey = CryptoAES().DecryptCBC( SecureBinaryData(mkey['mkey']), \
                                           SecureBinaryData(pKey), \
                                           SecureBinaryData(IV) )
-
-      print masterKey.toHexStr()
       masterKey.resize(32)
 
+      checkedCorrectPassphrase = False
       for pub,ckey in crypt:
          iv = hash256(pub)[:16]
          privKey = CryptoAES().DecryptCBC( SecureBinaryData(ckey), \
                                            SecureBinaryData(masterKey), \
                                            SecureBinaryData(iv))
          privKey.resize(32)
+         if not checkedCorrectPassphrase:
+            checkedCorrectPassphrase = True
+            if not CryptoECDSA().CheckPubPrivKeyMatch(privKey, SecureBinaryData(pub)):
+               raise EncryptionError, 'Incorrect Passphrase!'
          plainkeys.append(privKey)
 
-   return plainkeys
+   outputList = []
+   for key in plainkeys:
+      addr = hash160_to_addrStr(convertKeyDataToAddress(key.toBinStr()))
+      strName = ''
+      if names.has_key(addr):
+         strName = names[addr] 
+      outputList.append( [addr, key, (not addr in pool), strName] )
+   return outputList
          
 
 
+def checkSatoshiEncrypted(wltPath):
+   try:
+      extractSatoshiKeys(wltPath, '')
+      return False
+   except EncryptionError:
+      return True
       
    
 

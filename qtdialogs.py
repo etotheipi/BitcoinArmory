@@ -23,7 +23,6 @@ class DlgUnlockWallet(QDialog):
       self.edtPasswd = QLineEdit()
       self.edtPasswd.setEchoMode(QLineEdit.Password)
       self.edtPasswd.setMinimumWidth(MIN_PASSWD_WIDTH(self))
-      fm = QFontMetricsF(QFont(self.font()))
       self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
       self.btnAccept = QPushButton("Unlock")
@@ -55,6 +54,38 @@ class DlgUnlockWallet(QDialog):
          return
 
       
+################################################################################
+class DlgGenericGetPassword(QDialog):
+   def __init__(self, wlt, descriptionStr, parent=None, main=None):
+      super(DlgUnlockWallet, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      lblDescr  = QRichLabel(descriptionStr)
+      lblPasswd = QRichLabel("Password:")
+      self.edtPasswd = QLineEdit()
+      self.edtPasswd.setEchoMode(QLineEdit.Password)
+      self.edtPasswd.setMinimumWidth(MIN_PASSWD_WIDTH(self))
+      self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+      self.btnAccept = QPushButton("OK")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,       1, 0, 1, 2)
+      layout.addWidget(lblPasswd,      2, 0, 1, 1)
+      layout.addWidget(self.edtPasswd, 2, 1, 1, 1)
+      layout.addWidget(buttonBox,      3, 1, 1, 2)
+
+      self.setLayout(layout)
+      self.setWindowTitle('Enter Password')
+      self.setWindowIcon(QIcon(self.main.iconfile))
    
 
 ################################################################################
@@ -479,7 +510,6 @@ class DlgChangeLabels(QDialog):
 
       self.edtDescr = QTextEdit()
       tightHeight = tightSizeNChar(self.edtDescr, 1)[1]
-      #fm = QFontMetricsF(QFont(self.edtDescr.font()))
       self.edtDescr.setMaximumHeight(tightHeight*4.2)
       lblDescr = QLabel("Wallet &description:")
       lblDescr.setAlignment(Qt.AlignVCenter)
@@ -1493,12 +1523,23 @@ class DlgImportAddress(QDialog):
 
 
       ## Import option
-      self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
-                                      'into your wallet\n'
-                                      'Select this option if someone else gave you this key')
       self.radioImport = QRadioButton('Import this address to your wallet\n'
                                       'Only select this option if you are positive '
                                       'that no one else has access to this key')
+
+      ## Sweep option (only available when online)
+      if self.main.isOnline:
+         self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                         'into your wallet\n'
+                                         'Select this option if someone else gave you this key')
+         self.radioSweep.setChecked(True)
+      else:
+         self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                         'into your wallet\n'
+                                         '(Not available in offline mode)')
+         self.radioImport.setChecked(True)
+         self.radioSweep.setEnabled(False)
+
 
       sweepTooltip = createToolTipObject( \
          'You should never add an untrusted key to your wallet.  By choosing this '
@@ -1516,7 +1557,7 @@ class DlgImportAddress(QDialog):
       btngrp.addButton(self.radioSweep)
       btngrp.addButton(self.radioImport)
       btngrp.setExclusive(True)
-      self.radioSweep.setChecked(True)
+
 
 
       frmWarn = QFrame()
@@ -1708,6 +1749,7 @@ class DlgImportAddress(QDialog):
 
 
 
+#############################################################################
 class DlgVerifySweep(QDialog):
    def __init__(self, inputStr, outputStr, outVal, fee, parent=None, main=None):
       super(DlgVerifySweep, self).__init__(parent)
@@ -1763,6 +1805,7 @@ class DlgImportWallet(QDialog):
       lblImportDescr = QLabel('Chose the wallet import source:')
       self.btnImportFile  = QPushButton("Import from &file")
       self.btnImportPaper = QPushButton("Import from &paper backup")
+      self.btnMigrate     = QPushButton("Import wallet.dat from main Bitcoin client")
 
       self.btnImportFile.setMinimumWidth(300)
 
@@ -1771,6 +1814,9 @@ class DlgImportWallet(QDialog):
 
       self.connect( self.btnImportPaper, SIGNAL('clicked()'), \
                     self.acceptPaper)
+
+      self.connect( self.btnMigrate, SIGNAL('clicked()'), \
+                    self.acceptMigrate)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
                                   '*.wallet extension.  Any wallet that you import will ' 
@@ -1781,6 +1827,9 @@ class DlgImportWallet(QDialog):
                                   'a wallet, you can manually enter the wallet '
                                   'data into Armory to recover the wallet.')
 
+      ttip3 = createToolTipObject('Migrate all your wallet.dat addresses '
+                                  'from the regular Bitcoin client to an Armory '
+                                  'wallet.')
 
       w,h = relaxedSizeStr(ttip1, '(?)') 
       for ttip in (ttip1, ttip2):
@@ -1792,6 +1841,7 @@ class DlgImportWallet(QDialog):
       layout.addWidget(lblImportDescr,      0,0, 1, 2)
       layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
       layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
+      layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
       if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
          lbl = QLabel('You can manually add wallets to armory by copying them '
@@ -1829,10 +1879,295 @@ class DlgImportWallet(QDialog):
       We will accept this dialog but signal to the caller that paper-import
       was selected so that it can open the dialog for itself
       """
-      self.importType_file = False
-      self.importType_paper = True
+      self.importType_file    = False
+      self.importType_paper   = True
+      self.importType_migrate = False
       self.accept()
       
+   def acceptMigrate(self):
+      self.importType_file    = False
+      self.importType_paper   = False
+      self.importType_migrate = True
+      self.accept()
+
+#############################################################################
+class DlgMigrateSatoshiWallet(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgMigrateSatoshiWallet, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      lblDescr = QRichLabel( \
+         'Specify the location of your regular Bitcoin wallet (wallet.dat) '
+         'to be imported into Armory.  All private '
+         'keys will be migrated from the wallet.dat allowing you to use the '
+         'same addresses in Armory as you use with the regular '
+         'Bitcoin client.\n\n<b>NOTE:</b> It is strongly recommended that all '
+         'Bitcoin addresses be used in only one program at a time.  If you '
+         'import your entire wallet.dat, it is recommended to stop using the '
+         'regular Bitcoin client, and only use Armory to send transactions.  '
+         'Armory developers will not be responsible for coins getting "locked" '
+         'or "stuck" due to multiple applications attempting to spend coins '
+         'from the same addresses.')
+
+      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (usually "wallet.dat")')
+      self.txtWalletPath = QLineEdit()
+      self.chkAllKeys = QCheckBox('Include Address Pool (unused keys)')
+
+      btnGetFilename = QPushButton('Find...')
+      self.connect(btnGetFilename, SIGNAL('clicked()'), self.getSatoshiFilename)
+
+      defaultWalletPath = os.path.join(BTC_HOME_DIR,'wallet.dat')
+      if os.path.exists(defaultWalletPath):
+         self.txtWalletPath.setText(defaultWalletPath)
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Import")
+      self.btnReject = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.execMigrate)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+
+      # Select the wallet into which you want to import
+      self.wltidlist = [''] 
+      self.lstWallets = QListWidget()
+      self.lstWallets.addItem(QListWidgetItem('New Wallet...'))
+      for wltID in self.main.walletIDList:
+         wlt = self.main.walletMap[wltID]
+         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
+            continue
+         self.lstWallets.addItem( \
+                QListWidgetItem('%s (%s)' % (wlt.labelName, wlt.uniqueIDB58) ))
+         self.wltidlist.append(wlt.uniqueIDB58)
+      self.lstWallets.setCurrentRow(0)
+
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(lblSatoshiWlt)
+      dlgLayout.addWidget(makeHorizFrame([self.txtWalletPath, btnGetFilename]))
+      dlgLayout.addWidget(makeHorizFrame([self.chkAllKeys, 'Stretch']))
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(buttonBox)
+
+      self.setLayout(dlgLayout)
+
+      self.setWindowTitle('Migrate Satoshi Wallet')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
+
+   def getSatoshiFilename(self):
+      # Temporarily reset the "LastDir" to where the default wallet.dat is
+      prevLastDir = self.settings.get('LastDirectory')
+      self.settings.set('LastDirectory', BTC_HOME_DIR)
+      satoshiWltFile = getFileLoad('Load Bitcoin Wallet File', ['Bitcoin Wallets (*.dat)'])
+      self.settings.set('LastDirectory', prevLastDir)
+      if len(str(satoshiWltFile))>0:
+         self.txtWalletPath.setText(satoshiWltFile)
+      
+
+
+   def execMigrate(self):
+      satoshiWltFile = str(self.txtWalletPath.text())
+      if not os.path.exists(satoshiWltFile):
+         QMessageBox.critical(self, 'File does not exist!', \
+            'The specified file does not exist:\n\n' + satoshiWltFile,
+            QMessageBox.Ok)
+         return
+
+      selectedRow = self.lstWallets.currentRow()
+      toWalletID = None
+      if selectedRow>0:
+         toWalletID = self.wltidlist[selectedRow-1]
+         
+      # KeyList is [addrB58, privKey, usedYet, acctName]
+      keyList = []
+      if not checkSatoshiEncrypted(satoshiWltFile):
+         keyList = extractSatoshiKeys(satoshiWltFile, str(dlg.edtPasswd.text()))
+      else:
+         correctPassphrase = False
+         firstAsk = True
+         while not correctPassphrase:
+            redText = ''
+            if not firstAsk:
+               redText = '<font color="red">Incorrect passphrase.</font>\n\n' 
+            firstAsk = False
+
+            dlg = DlgGenericGetPassword( \
+                redText + 'The wallet.dat file you specified is encrypted.  '
+                'Please provide the passphrase to decrypt it.')
+
+            if not dlg.exec_():
+               return
+            else:
+               try:
+                  keyList = extractSatoshiKeys(satoshiWltFile, str(dlg.edtPasswd.text()))
+                  correctPassphrase = True
+               except EncryptionError:
+                  pass
+
+      
+      if not self.chkAllKeys.isChecked():
+         keyList = filter(lambda x: x[2], keyList)
+
+
+      # Warn about addresses that would be duplicates.
+      # This filters the list down to addresses already in a wallet that isn't selected
+      # Addresses already in the selected wallet will simply be skipped, no need to 
+      # do anything about that
+      addr_to_wltID = lambda a: self.main.getWalletForAddr160(addrStr_to_hash160(a))
+      allWltList = [[addr_to_wltID(k[0]), k[0]] for k in keyList]
+
+      dupeWltList = filter(lambda a: (len(a[0])>0 and a[0]!=toWalletID), allWltList)
+      dispStrList = [d[0].ljust(40) + d[0] for d in dupeWltList]
+
+      if len(dispStrList)>0:
+         dlg = DlgDuplicateAddr(dispStrList, self, self.main)
+         if dlg.exec_():
+            dupeAddrList = [a[1] for a in dupeWltList]
+            keyList = filter(lambda x: (x[0] not in dupeAddrList), keyList)
+      
+
+      # Confirm import
+      addrList = [k[0].ljust(40)+k[3] for k in keyList]
+      dlg = DlgConfirmBulkImport(addrList, toWallet, self, self.main)
+      if not dlg.exec_():
+         return
+         
+      # Okay, let's do it!
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         # Target wallet is encrypted...
+         unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Wallet to Import')
+         if not unlockdlg.exec_():
+            QMessageBox.critical(self, 'Wallet is Locked', \
+               'Cannot import private keys without unlocking wallet!', \
+               QMessageBox.Ok)
+            return
+
+      
+      nImport = 0
+      for i,key4 in enumerate(keyList):
+         addrB58, sbdKey, isUsed, addrName = key4[:]
+         try:
+            a160 = addrStr_to_hash160(addrB58)
+            self.wlt.importExternalAddressData(privKey=sbdKey)
+            cmt = 'Imported #%03d'%i
+            if len(addrName)>0:
+               cmt += ': %s' % addrName
+            self.wlt.setComment(a160, cmt)
+            nImport += 1
+         except Exception,msg:
+            print '***ERROR importing:', addrB58
+            print '         Error Msg:', msg
+
+      MsgBoxCustom(MSGBOX.Good, 'Success!', \
+         'Success: %d private keys were imported into your wallet.  '
+         'Please restart Armory to guarantee that balances are computed '
+         'correctly')
+      self.accept()
+      
+         
+         
+
+         
+            
+         
+
+
+#############################################################################
+class DlgConfirmBulkImport(QDialog):
+   def __init__(self, addrList, wlt, parent=None, main=None):
+      super(DlgConfirmBulkImport, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt 
+
+      if len(addrList)==0:
+         QMessageBox.warning(self, 'No Addresses to Import', \
+           'There are no addresses to import!', QMessageBox.Ok)
+         self.reject()
+
+      lblDescr = QRichLabel( \
+         'You are about to import %d private keys into wallet, %s (%s). '
+         'The following is a list of addresses corresponding to the keys to '
+         'be imported:' % (len(addrList), wlt.uniqueIDB58, wlt.labelName))
+
+      fnt = GETFONT('Fixed',8)
+      w,h = tightSizeNChar(fnt, 50)
+      txtDispAddr = QTextEdit()
+      txtDispAddr.setFont(fnt)
+      txtDispAddr.setReadOnly(True)
+      txtDispAddr.setMinimumWidth(w)
+      txtDispAddr.setMinimumHeight(16.2*h)
+      txtDispAddr.setText( '\n'.join(addrList) )
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Import")
+      self.btnReject = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(txtDispAddr)
+      dlgLayout.addWidget(buttonBox)
+      self.setLayout(dlgLayout)
+
+      self.setWindowTitle('Greetings!')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
+
+#############################################################################
+class DlgDuplicateAddr(QDialog):
+   def __init__(self, addrList, wlt, parent=None, main=None):
+      super(DlgDuplicateAddr, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt 
+
+      if len(addrList)==0:
+         QMessageBox.warning(self, 'No Addresses to Import', \
+           'There are no addresses to import!', QMessageBox.Ok)
+         self.reject()
+
+      lblDescr = QRichLabel( \
+         '<font color="red">Duplicate addresses detected!</font> '
+         'The following addresses already exist in other Armory wallets:')
+
+      fnt = GETFONT('Fixed',8)
+      w,h = tightSizeNChar(fnt, 50)
+      txtDispAddr = QTextEdit()
+      txtDispAddr.setFont(fnt)
+      txtDispAddr.setReadOnly(True)
+      txtDispAddr.setMinimumWidth(w)
+      txtDispAddr.setMinimumHeight(8.2*h)
+      txtDispAddr.setText( '\n'.join(addrList) )
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Import")
+      self.btnReject = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(txtDispAddr)
+      dlgLayout.addWidget(buttonBox)
+      self.setLayout(dlgLayout)
+
+      self.setWindowTitle('Greetings!')
+      self.setWindowIcon(QIcon( self.main.iconfile))
 
 #############################################################################
 class DlgAddressInfo(QDialog):
@@ -3144,11 +3479,8 @@ class DlgWalletSelect(QDialog):
          self.accept()
          return
       
-         
-
       if wltIDList==None:
          wltIDList = list(self.main.walletIDList)
-      
 
       self.rowList = []
       
