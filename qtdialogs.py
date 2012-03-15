@@ -56,8 +56,8 @@ class DlgUnlockWallet(QDialog):
       
 ################################################################################
 class DlgGenericGetPassword(QDialog):
-   def __init__(self, wlt, descriptionStr, parent=None, main=None):
-      super(DlgUnlockWallet, self).__init__(parent)
+   def __init__(self, descriptionStr, parent=None, main=None):
+      super(DlgGenericGetPassword, self).__init__(parent)
 
       self.parent = parent
       self.main   = main
@@ -2029,24 +2029,24 @@ class DlgMigrateSatoshiWallet(QDialog):
          toWalletID = self.wltidlist[selectedRow]
       print toWalletID
          
+
+
+      # Critical to avoid wallet corruption!!
+      base,fn = os.path.split(satoshiWltFile)
+      nm,ext = os.path.splitext(fn)
+      satoshiWltFileCopy = os.path.join(ARMORY_HOME_DIR, nm+'_temp_copy'+ext)
+      shutil.copy(satoshiWltFile, satoshiWltFileCopy)
+      if not os.path.exists(satoshiWltFileCopy):
+         raise FileExistsError, 'There was an error creating a copy of wallet.dat'
+
       # KeyList is [addrB58, privKey, usedYet, acctName]
       # This block will not only decrypt the Satoshi wallet, but also catch
       # if the user specified a wallet.dat for a different network!
       keyList = []
       satoshiPassphrase = None
-      satoshiWltCrypt  = checkSatoshiEncrypted(satoshiWltFile)
+      satoshiWltIsEncrypted  = checkSatoshiEncrypted(satoshiWltFileCopy)
 
-
-      # Critical to avoid wallet corruption!!
-      base,ext = os.path.splitext(satoshiWltFile)
-      satoshiWltFileCopy = ''.join([base, '_copy', ext])
-      print 'Accessing: ', satoshiWltFileCopy
-      shutil.copy(satoshiWltFile, satoshiWltFileCopy)
-
-      if not os.path.exists(satoshiWltFileCopy):
-         raise FileExistsError, 'There was an error creating a copy of wallet.dat'
-
-      if not satoshiWltCrypt:
+      if not satoshiWltIsEncrypted:
          try:
             keyList = extractSatoshiKeys(satoshiWltFileCopy)
          except NetworkIDError:
@@ -2062,12 +2062,12 @@ class DlgMigrateSatoshiWallet(QDialog):
             # Loop until we get a valid passphrase
             redText = ''
             if not firstAsk:
-               redText = '<font color="red">Incorrect passphrase.</font>\n\n' 
+               redText = '<font color="red">Incorrect passphrase.</font><br><br>' 
             firstAsk = False
 
             dlg = DlgGenericGetPassword( \
                 redText + 'The wallet.dat file you specified is encrypted.  '
-                'Please provide the passphrase to decrypt it.')
+                'Please provide the passphrase to decrypt it.', self, self.main)
 
             if not dlg.exec_():
                return
@@ -2086,7 +2086,6 @@ class DlgMigrateSatoshiWallet(QDialog):
                   return
 
       # We're done accessing the file, delete the
-      print 'Removing: ', satoshiWltFileCopy
       os.remove(satoshiWltFileCopy)
       
       if not self.chkAllKeys.isChecked():
@@ -2128,7 +2127,7 @@ class DlgMigrateSatoshiWallet(QDialog):
          lblLong  = ('Wallet created to hold all addresses imported from the '
                      'main Bitcoin program.  ' + lblPool)
 
-         if satoshiPassphrase==None:
+         if not satoshiPassphrase:
             wlt = PyBtcWallet().createNewWallet(    \
                                withEncrypt=False,   \
                                shortLabel=lblShort, \
@@ -2140,6 +2139,7 @@ class DlgMigrateSatoshiWallet(QDialog):
                                securePassphrase=satoshiPassphrase, \
                                shortLabel=lblShort, \
                                longLabel=lblLong)
+            wlt.unlock(securePassphrase=satoshiPassphrase)
 
 
       else:
@@ -2172,9 +2172,9 @@ class DlgMigrateSatoshiWallet(QDialog):
             nError += 1
 
 
-      restartMsg = ''
-      if self.main.isOnline:
-         restartMsg = '<br><br>Restart Armory to guarantee that balances are computed correctly.'
+      restartMsg = '<br><br>Restart Armory to guarantee that balances are computed correctly.'
+      #restartMsg = ''
+      #if self.main.isOnline:
          
       if nImport==0:
          MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
@@ -3466,7 +3466,7 @@ class DlgRemoveWallet(QDialog):
                os.remove(thepathBackup)
                self.main.walletMap[wltID] = newWlt
                self.main.statusBar().showMessage( \
-                     'Wallet '+wltID+' was replaced with a watching-only wallet.', 10000)
+                     'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
             elif self.radioDelete.isChecked():
                print '***Completely deleting wallet'
                os.remove(thepath)

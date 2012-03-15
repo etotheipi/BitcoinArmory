@@ -9183,7 +9183,7 @@ def extractSatoshiKeys(wltPath, passphrase=None):
    if len(crypt)>0:
       # Satoshi Wallet is encrypted!
       plainkeys = []
-      if passphrase==None: 
+      if not passphrase:
          raise EncryptionError, 'Satoshi wallet is encrypted but no passphrase supplied'
       
       pKey,IV = GetKeyFromPassphraseSatoshi( passphrase, \
