@@ -329,13 +329,13 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User', 'Tools')
+      MENUS = enum('File', 'User', 'Tools', 'Wallets')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
-      #self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
       self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Wallets') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
@@ -384,6 +384,19 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       self.menusList[MENUS.Tools].addAction(actOpenTools)
       #self.menusList[MENUS.Tools].addAction(actOwnership)
+
+
+      actCreateNew      = self.createAction('Create &New Wallet',        self.createNewWallet)
+      actImportWlt      = self.createAction('Import Armory Wallet',      self.execGetImportWltName)
+      actRestorePaper   = self.createAction('Restore from Paper Backup', self.execRestorePaperBackup)
+      actMigrateSatoshi = self.createAction('Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
+
+
+      self.menusList[MENUS.Wallets].addAction(actCreateNew)
+      self.menusList[MENUS.Wallets].addAction(actImportWlt)
+      self.menusList[MENUS.Wallets].addAction(actRestorePaper)
+      self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
+
 
 
       reactor.callLater(0.1,  self.execIntroDialog)
@@ -963,7 +976,8 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.commentsMap.has_key(le.getTxHash()):
             row.append(wlt.commentsMap[le.getTxHash()])
          else:
-            row.append('')
+            comment = self.getAddrCommentIfAvail(le.getTxHash())
+            row.append(comment)
 
          # Amount
          row.append(coin2str(amt, maxZeros=2))
@@ -1065,6 +1079,33 @@ class ArmoryMainWindow(QMainWindow):
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(addrStr)
          wlt.setComment(addr160, newComment)
+
+
+   #############################################################################
+   def getAddrCommentIfAvail(self, txHash):
+      if not TheBDM.isInitialized():
+         return ''
+      else:
+         tx = TheBDM.getTxByHash(txHash)
+         if not tx:
+            return ''
+         else:
+            addrComments = []
+            pytx = PyTx().unserialize(tx.serialize())
+            for txout in pytx.outputs: 
+               scrType = getTxOutScriptType(txout.binScript)
+               if not scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+                  continue
+               a160 = TxOutScriptExtractAddr160(txout.binScript) 
+               wltID = self.getWalletForAddr160(a160)
+               if len(wltID)==0:
+                  continue
+               wlt = self.walletMap[wltID]
+               if wlt.commentsMap.has_key(a160):
+                  addrComments.append(wlt.commentsMap[a160])
+            return '; '.join(addrComments)
+      return ''
+                  
 
 
    #############################################################################
@@ -1286,44 +1327,54 @@ class ArmoryMainWindow(QMainWindow):
    def execImportWallet(self):
       dlg = DlgImportWallet(self, self)
       if dlg.exec_():
-
          if dlg.importType_file:
-            if not os.path.exists(dlg.importFile):
-               raise FileExistsError, 'How did the dlg pick a wallet file that DNE?'
-
-            wlt = PyBtcWallet().readWalletFile(dlg.importFile, verifyIntegrity=False, \
-                                                               skipBlockChainScan=True)
-            wltID = wlt.uniqueIDB58
-
-            if self.walletMap.has_key(wltID):
-               QMessageBox.warning(self, 'Duplicate Wallet!', \
-                  'You selected a wallet that has the same ID as one already '
-                  'in your wallet (%s)!  If you would like to import it anyway, '
-                  'please delete the duplicate wallet in Armory, first.'%wltID, \
-                  QMessageBox.Ok)
-               return
-
-            fname = self.getUniqueWalletFilename(dlg.importFile)
-            newpath = os.path.join(ARMORY_HOME_DIR, fname)
-
-            print 'Copying imported wallet to:', newpath
-            shutil.copy(dlg.importFile, newpath)
-            self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
-                                                               walletIsNew=False)
+            self.execGetImportWltName()
          elif dlg.importType_paper:
-            dlgPaper = DlgImportPaperWallet(self, self)
-            if dlgPaper.exec_():
-               print 'Raw import successful.  Searching blockchain for tx data...'
-               highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
-               print 'The highest index used was:', highestIdx
-               self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-               print 'Import Complete!'
+            self.execRestorePaperBackup()
          elif dlg.importType_migrate:
-            DlgMigrateSatoshiWallet(self, self).exec_()
-         else:
-            return
+            self.execMigrateSatoshi()
 
+
+   #############################################################################
+   def execGetImportWltName(self):
+      fn = self.getFileLoad('Import Wallet File')
+      if not os.path.exists(fn):
+         return
+
+      wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False, \
+                                             skipBlockChainScan=True)
+      wltID = wlt.uniqueIDB58
+
+      if self.walletMap.has_key(wltID):
+         QMessageBox.warning(self, 'Duplicate Wallet!', \
+            'You selected a wallet that has the same ID as one already '
+            'in your wallet (%s)!  If you would like to import it anyway, '
+            'please delete the duplicate wallet in Armory, first.'%wltID, \
+            QMessageBox.Ok)
+         return
+
+      fname = self.getUniqueWalletFilename(dlg.importFile)
+      newpath = os.path.join(ARMORY_HOME_DIR, fname)
+
+      print 'Copying imported wallet to:', newpath
+      shutil.copy(dlg.importFile, newpath)
+      self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
+                                                         walletIsNew=False)
+
+   #############################################################################
+   def execRestorePaperBackup(self):
+      dlgPaper = DlgImportPaperWallet(self, self)
+      if dlgPaper.exec_():
+         print 'Raw import successful.  Searching blockchain for tx data...'
+         highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         print 'Import Complete!'
    
+   #############################################################################
+   def execMigrateSatoshi(self):
+      DlgMigrateSatoshiWallet(self, self).exec_()
+
+
    #############################################################################
    def getUniqueWalletFilename(self, wltPath):
       root,fname = os.path.split(wltPath)

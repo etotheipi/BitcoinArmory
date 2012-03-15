@@ -570,7 +570,7 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setMinimumWidth(550)
       self.wltAddrView.setMinimumHeight(150)
       iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
-      initialColResize(self.wltAddrView, [0.25, 0.3, 64, iWidth*1.1, 0.3])
+      initialColResize(self.wltAddrView, [0.4, 0.45, 64, iWidth*1.3, 0.2])
 
       self.wltAddrView.sizeHint = lambda: QSize(700, 225)
       self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
@@ -578,14 +578,10 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
    
-      # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
-      #self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
                    
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
-      #clip = QApplication.clipboard()
-      #def copyAddrToClipboard()
 
 
       # Now add all the options buttons, dependent on the type of wallet.
@@ -1803,20 +1799,15 @@ class DlgImportWallet(QDialog):
       self.main   = main
 
       lblImportDescr = QLabel('Chose the wallet import source:')
-      self.btnImportFile  = QPushButton("Import from &file")
-      self.btnImportPaper = QPushButton("Import from &paper backup")
+      self.btnImportFile  = QPushButton("Import Armory wallet from &file")
+      self.btnImportPaper = QPushButton("Restore from &paper backup")
       self.btnMigrate     = QPushButton("Migrate wallet.dat (main Bitcoin App)")
 
       self.btnImportFile.setMinimumWidth(300)
 
-      self.connect( self.btnImportFile, SIGNAL("clicked()"), \
-                    self.getImportWltPath)
-
-      self.connect( self.btnImportPaper, SIGNAL('clicked()'), \
-                    self.acceptPaper)
-
-      self.connect( self.btnMigrate, SIGNAL('clicked()'), \
-                    self.acceptMigrate)
+      self.connect( self.btnImportFile,  SIGNAL("clicked()"), self.acceptImport)
+      self.connect( self.btnImportPaper, SIGNAL('clicked()'), self.acceptPaper)
+      self.connect( self.btnMigrate,     SIGNAL('clicked()'), self.acceptMigrate)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
                                   '*.wallet extension.  Any wallet that you import will ' 
@@ -1860,25 +1851,21 @@ class DlgImportWallet(QDialog):
       btnCancel = QPushButton('Cancel')
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       layout.addWidget(btnCancel, 6,0, 1,1);
+      
+      self.setMinimumWidth(400)
 
       self.setLayout(layout)
       self.setWindowTitle('Import Wallet')
       
 
-   def getImportWltPath(self):
-      self.importFile = self.main.getFileLoad('Import Wallet File')
-      if self.importFile:
-         print 'Importing:', self.importFile
-         self.importType_file = True
-         self.importType_paper = False
-         self.accept()
+   def acceptImport(self):
+      self.importType_file    = True
+      self.importType_paper   = False
+      self.importType_migrate = False
+      self.accept()
 
       
    def acceptPaper(self):
-      """
-      We will accept this dialog but signal to the caller that paper-import
-      was selected so that it can open the dialog for itself
-      """
       self.importType_file    = False
       self.importType_paper   = True
       self.importType_migrate = False
@@ -1902,7 +1889,7 @@ class DlgMigrateSatoshiWallet(QDialog):
          'Specify the location of your regular Bitcoin wallet (wallet.dat) '
          'to be migrated into an Armory wallet.  All private '
          'keys will be imported, giving you full access to those addresses, as '
-         'if Armory had generated them itself.'
+         'if Armory had generated them natively.'
          '<br><br>'
          '<b>NOTE:</b> It is strongly recommended that all '
          'Bitcoin addresses be used in only one program at a time.  If you '
@@ -1912,7 +1899,8 @@ class DlgMigrateSatoshiWallet(QDialog):
          'or "stuck" due to multiple applications attempting to spend coins '
          'from the same addresses.')
 
-      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (wallet.dat)', doWrap=False)
+      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (typically ' +
+                                 os.path.join(BTC_HOME_DIR, 'wallet.dat') + ')', doWrap=False)
       ttipWlt = createToolTipObject(\
          'This is the wallet file used by the standard Bitcoin client from '
          'bitcoin.org.  It contains all the information needed for Armory to '
@@ -1987,7 +1975,7 @@ class DlgMigrateSatoshiWallet(QDialog):
 
       self.setLayout(dlgLayout)
 
-      self.setMinimumWidth(800)
+      self.setMinimumWidth(500)
       self.setWindowTitle('Migrate Satoshi Wallet')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
@@ -2022,12 +2010,9 @@ class DlgMigrateSatoshiWallet(QDialog):
          return
 
       selectedRow = self.lstWallets.currentRow()
-      print selectedRow
-      print self.wltidlist
       toWalletID = None
       if selectedRow>0:
          toWalletID = self.wltidlist[selectedRow]
-      print toWalletID
          
 
 
@@ -2123,9 +2108,7 @@ class DlgMigrateSatoshiWallet(QDialog):
       wlt = None
       if toWalletID==None:
          lblShort = 'Migrated wallet.dat'
-         lblPool = '' if not self.chkAllKeys.isChecked() else '(includes unused address pool keys)'
-         lblLong  = ('Wallet created to hold all addresses imported from the '
-                     'main Bitcoin program.  ' + lblPool)
+         lblLong  = 'Wallet created to hold addresses from the regular Bitcoin wallet.dat.'
 
          if not satoshiPassphrase:
             wlt = PyBtcWallet().createNewWallet(    \
@@ -2134,6 +2117,7 @@ class DlgMigrateSatoshiWallet(QDialog):
                                longLabel=lblLong)
                                                      
          else:
+            lblLong += ' (encrypted using same passphrase as the original wallet)'
             wlt = PyBtcWallet().createNewWallet( \
                                withEncrypt=True, \
                                securePassphrase=satoshiPassphrase, \
@@ -2295,11 +2279,12 @@ class DlgDuplicateAddr(QDialog):
       self.btnTakeAll = QPushButton("Import With Duplicates")
       self.btnNewOnly = QPushButton("Import New Addresses Only")
       self.btnCancel  = QPushButton("Cancel")
-      self.connect(self.btnTakeAll, SIGNAL('clicked()'), self.takeAll)
-      self.connect(self.btnNewOnly, SIGNAL('clicked()'), self.newOnly)
+      self.connect(self.btnTakeAll, SIGNAL('clicked()'), self.doTakeAll)
+      self.connect(self.btnNewOnly, SIGNAL('clicked()'), self.doNewOnly)
       self.connect(self.btnCancel,  SIGNAL('clicked()'), self.reject)
-      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
-      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      buttonBox.addButton(self.btnTakeAll, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnNewOnly, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel,  QDialogButtonBox.RejectRole)
 
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(lblDescr)
@@ -2307,16 +2292,15 @@ class DlgDuplicateAddr(QDialog):
       dlgLayout.addWidget(buttonBox)
       self.setLayout(dlgLayout)
 
-      self.setWindowTitle('Greetings!')
-      self.setWindowIcon(QIcon( self.main.iconfile))
+      self.setWindowTitle('Duplicate Addresses')
 
-   def takeAll(self):
+   def doTakeAll(self):
       self.doCancel = False
       self.takeAll  = True
       self.newOnly  = False
       self.accept()
 
-   def newOnly(self):
+   def doNewOnly(self):
       self.doCancel = False
       self.takeAll  = False
       self.newOnly  = True
@@ -3295,11 +3279,12 @@ class DlgRemoveWallet(QDialog):
       layout.addWidget(frmInfo, 2, 0, 2, 3)
 
       if not wltEmpty:
-         lbl = QLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
-                      'have a backup on paper or saved to a another location '
-                      'outside your settings directory.</b>')
-         lbl.setTextFormat(Qt.RichText)
-         lbl.setWordWrap(True)
+         if wlt.watchingOnly:
+            lbl = QRichLabel('')
+         else:
+            lbl = QRichLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
+                          'have a backup on paper or saved to a another location '
+                          'outside your settings directory.</b>')
          lbls.append(lbl)
          layout.addWidget(lbl, 4, 0, 1, 3)
 
@@ -3338,16 +3323,18 @@ class DlgRemoveWallet(QDialog):
                               'it to a different computer or device and want to '
                               'remove the private data from this system for security.</i>')
 
+
+      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
+
       if wlt.watchingOnly:
          ttipDelete = createToolTipObject('This will delete the wallet file from your system.  '
                                  'Since this is a watching-only wallet, no private keys '
                                  'will be deleted.')
+         ttipWatch = createToolTipObject('This wallet is already a watching-only wallet '
+                                 'so this option is pointless')
+         self.radioWatch.setEnabled(False)
+         self.chkPrintBackup.setEnabled(False)
          
-      #for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
-         #lbl.setWordWrap(True)
-         #lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
-
-      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
 
       self.frm = []
 
@@ -3444,11 +3431,18 @@ class DlgRemoveWallet(QDialog):
          else:
             self.reject()
       else:
-         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-           'Are you absolutely sure you want to permanently delete '
-           'this wallet?  Unless this wallet is saved on another device '
-           'you will permanently lose access to all the addresses in this '
-           'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+
+         if wlt.watchingOnly:
+            reply = QMessageBox.warning(self, 'Confirm Delete', \
+            'You are about to delete a watching-only wallet.  Are you sure '
+            'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+         else:
+            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+            'Are you absolutely sure you want to permanently delete '
+            'this wallet?  Unless this wallet is saved on another device '
+            'you will permanently lose access to all the addresses in this '
+            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+
          if reply==QMessageBox.Yes:
 
             thepath       = wlt.getWalletPath()

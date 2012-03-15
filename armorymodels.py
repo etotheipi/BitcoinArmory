@@ -413,9 +413,10 @@ class TxInDispModel(QAbstractTableModel):
             recip160,val,blk,hsh,idx = txinListFromBDM[i]
             if main:
                wltID = self.main.getWalletForAddr160(recip160)
+            dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(hash160_to_addrStr(recip160))
-            self.dispTable[-1].append(coin2str(val, maxZeros=1))
+            self.dispTable[-1].append(dispcoin)
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)
