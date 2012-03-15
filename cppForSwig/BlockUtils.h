@@ -620,6 +620,7 @@ private:
    // to addr160 in the range of blocks, [0, lastBlock)
    // If a blockchain scan is requested within this range, we can skip the 
    // full scan and just scan the transactions referenced by filteredTxHashes_
+   set<BtcWallet*>                    registeredWallets_;
    map<HashString, uint32_t>          filteredAddresses_;  
    set<OutPoint>                      filteredOutPoints_;
    list<HashString>                   filteredTxHashes_;
@@ -647,6 +648,20 @@ public:
    TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkfilePath_;}
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   // If you register you wallet with the BDM, it will automatically maintain
+   // tx lists relevant to that wallet.  You can get away without registering
+   // your wallet objects (using scanBlockchainForTx), but without the full 
+   // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
+   // sure that the intial blockchain scan picks up wallet-relevant stuff as 
+   // it goes, and does a full [re-]scan of the blockchain only if necessary.
+   void     registerWallet(BtcWallet* wallet);
+   bool     walletRequiresRescan(BtcWallet* wallet);
+
+   uint32_t getMinimumFilteredBlock(BtcWallet & wlt);
+   uint32_t addrLastFilteredBlock(HashString & addr160);
+   void     markAddrAsFiltered(HashString addr160, uint32_t topblk=UINT32_MAX);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
@@ -689,9 +704,6 @@ public:
                                  uint32_t blkEnd=UINT32_MAX);
 
 
-   uint32_t getMinimumFilteredBlock(BtcWallet & wlt);
-   uint32_t addrLastFilteredBlock(HashString & addr160);
-   void     markAddrAsFiltered(HashString addr160, uint32_t topblk=UINT32_MAX);
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFile_FromScratch(string filename, 

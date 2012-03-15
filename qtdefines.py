@@ -72,7 +72,8 @@ Colors = enum( \
               DarkRed=     QColor( 75,  0,  0), \
               Red=         QColor(200, 50, 50), \
               LightRed=    QColor(255,100,100), \
-              Black=       QColor(  0,  0,  0)  \
+              Black=       QColor(  0,  0,  0), \
+              White=       QColor(255,255,255)  \
                                                  )
 
 #######

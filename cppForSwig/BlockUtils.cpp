@@ -2005,7 +2005,7 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(
       }
 
       uint32_t numAddr = wltList[w]->getNumAddr(); 
-      cout << "Wallet: " << w << " with " << numAddr << " addresses" << endl;
+      cout << "Wallet: " << w << " with " << numAddr << " addresses (w/ keypool)" << endl;
       for(uint32_t a=0; a<numAddr; a++)
       {
          HashString a160 = wltList[w]->getAddrByIndex(a).getAddrStr20();

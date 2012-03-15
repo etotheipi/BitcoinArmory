@@ -1250,15 +1250,23 @@ class ArmoryMainWindow(QMainWindow):
                'The transaction that you just executed, does not '
                'appear to have been accepted by the Bitcoin network. '
                'This sometimes happens with legitimate transactions '
-               'when a fee is not included but was required.  Or it can '
-               'be due to a bug in the Armory software.  <br><br>The '
-               'exact binary transaction data '
+               'when a fee is not included but was required.  Sometimes '
+               'it will happen when you have zero-confirmation transactions '
+               'waiting to get into the blockchain.  Or it can be due to a '
+               'bug in the Armory software.  '
+               '<br><br>If you have any zero-confirmation transactions in '
+               'your ledger, please wait until they receive at least one '
+               'confirmation then try your transaction again.  Otherwise, '
+               'follow the directions below to report this as a potential '
+               'bug in the software. '
+               '<br><br>The exact binary transaction data '
                'has been saved to ' + failedFN + '.  This file never '
                'contains any sensitive data, so it is safe to send to '
                'the Armory developers for help diagnosing the issue, and '
                'fixing any potential bugs.  If you are unsure why this '
                'transaction failed, please email the above file to '
-               'alan.reiner@gmail.com for help.', QMessageBox.Ok)
+               'alan.reiner@gmail.com along with any information you can '
+               'provide about the context of this failed transaction.', QMessageBox.Ok)
                   
          reactor.callLater(2, sendGetDataMsg)
          reactor.callLater(4, checkForTxInBDM)
@@ -1370,6 +1378,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
+
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -1560,7 +1569,7 @@ if 1:  #__name__ == '__main__':
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
-   sys.exit(app.exec_())
+   os._exit(app.exec_())
 
 
 

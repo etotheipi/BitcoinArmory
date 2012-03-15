@@ -48,7 +48,6 @@ import shutil
 import math
 from struct import pack, unpack
 from datetime import datetime
-from dateutil import parser
 
 
 from sys import argv
@@ -61,7 +60,7 @@ USE_TESTNET =     ('--testnet' in argv)
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 50, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 51, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -8857,6 +8856,28 @@ class SettingsFile(object):
 
 
 
+
+################################################################################
+import threading
+class SpawnThread(threading.Thread):
+   """ 
+   The simplest way to kick off some I/O-bound processing, and return
+   control to the user while it is running in the background, AS LONG AS
+   you are not doing any conflicting processing.  No concern for locks,
+   semaphores, deadlocks, whatever.  Perhaps you just need to read some
+   data from file, and you won't access that data until it's done (which
+   will trigger the doneFunc().
+   """
+   def __init__(self, execWhat, whenDone=None):
+      super(SpawnThread, self).__init__()
+      self.execFunc = execWhat
+      self.doneFunc = whenDone
+      self.start()
+
+   def run(self):
+      self.execFunc()
+      if self.doneFunc:
+         self.doneFunc()
 
 
 

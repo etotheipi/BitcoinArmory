@@ -1478,16 +1478,23 @@ class DlgImportAddress(QDialog):
       self.wlt = wlt
       self.parent = parent
       self.main   = main
-      descrText = ('If you have a private key that you would like to '
-                   'add to this wallet, please enter it below.  If it '
-                   'is in a format supported by Armory, it will be '
-                   'detected and imported appropriately.  ')
+      descrText = ('Enter a list of private keys (one per line).'
+                   'The keys can either be imported into your wallet, '
+                   'or have their available balance "swept" to another address '
+                   'already in your wallet.  Only import private '
+                   'key data if you are absolutely sure that no one else '
+                   'has access to it.  Otherwise, sweep it to get '
+                   'the funds out of it.\n\nAll standard private-key formats '
+                   'are supported.')
+                  
 
       privTooltip = createToolTipObject( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
                        'without checksums), and mini-private-key format '
-                       'used on Casascius physical bitcoins.')
+                       'used on Casascius physical bitcoins.  Private keys '
+                       'that use "compressed public keys" are not yet '
+                       'supported by Armory.')
          
       lblDescr = QLabel(descrText)
       lblDescr.setWordWrap(True)
@@ -1495,10 +1502,10 @@ class DlgImportAddress(QDialog):
 
 
       ## Import option
-      self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+      self.radioSweep  = QRadioButton('Sweep any funds owned by these addresses '
                                       'into your wallet\n'
                                       'Select this option if someone else gave you this key')
-      self.radioImport = QRadioButton('Import this address to your wallet\n'
+      self.radioImport = QRadioButton('Import these addresses to your wallet\n'
                                       'Only select this option if you are positive '
                                       'that no one else has access to this key')
 
@@ -1509,7 +1516,7 @@ class DlgImportAddress(QDialog):
 
       importTooltip = createToolTipObject( \
          'This option will make the key part of your wallet, meaning that it '
-         'can be used to securely receive future payments.  Never select this '
+         'can be used to securely receive future payments.  <b>Never</b> select this '
          'option for private keys that other people may have access to.')
 
 
@@ -1526,14 +1533,19 @@ class DlgImportAddress(QDialog):
       frmWarnLayout = QGridLayout()
       frmWarnLayout.addWidget(self.radioSweep,    0,0, 1,1)
       frmWarnLayout.addWidget(self.radioImport,   1,0, 1,1)
-      frmWarnLayout.addWidget(sweepTooltip,  0,1, 1,1)
-      frmWarnLayout.addWidget(importTooltip, 1,1, 1,1)
+      frmWarnLayout.addWidget(sweepTooltip,       0,1, 1,1)
+      frmWarnLayout.addWidget(importTooltip,      1,1, 1,1)
       frmWarn.setLayout(frmWarnLayout)
 
 
-      lblPrivData = QLabel('Private Key Data:')
-      self.edtPrivData = QLineEdit()
-      self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*60)[0])
+      lblPrivData = QLabel('Private Keys:')
+      self.txtPrivData = QTextEdit()
+      
+      Fixed8 = GETFONT('Fixed', 8)
+      self.txtPrivData.setFont( Fixed8 )
+      w,h = tightSizeNChar(Fixe8, 80)
+      self.txtPrivData.sizeHint = lambda: QSize(w, h*4.2)
+      self.txtPrivData.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
@@ -1545,7 +1557,7 @@ class DlgImportAddress(QDialog):
       layout = QGridLayout()
       layout.addWidget(lblDescr,          0, 0, 1, 3)
       layout.addWidget(lblPrivData,       1, 0, 1, 1)
-      layout.addWidget(self.edtPrivData,  1, 1, 1, 1)
+      layout.addWidget(self.txtPrivData,  1, 1, 1, 1)
       layout.addWidget(privTooltip,       1, 2, 1, 1)
       layout.addWidget(frmWarn,           2, 0, 1, 3)
       layout.addWidget(buttonbox,         4, 0, 1, 3)
@@ -1556,94 +1568,102 @@ class DlgImportAddress(QDialog):
 
 
    def processUserString(self):
-      theStr = str(self.edtPrivData.text()).strip().replace(' ','')
+      inputLines = [s.strip().replace(' ','') for s in str(self.txtPrivData.text()).split('\n')]
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
-      b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
-      canBeHex = hexCount==len(theStr)
-      canBeB58 = b58Count==len(theStr)
-
-      binEntry = ''
-      miniKey = False
-      if canBeB58 and not canBeHex:
-         if len(theStr)==22 or len(theStr)==30:
-            # Mini-private key format!
-            try:
-               binEntry = decodeMiniPrivateKey(theStr)
-            except KeyDataError:
-               reply = QMessageBox.critical(self, 'Invalid Key', \
-                  'It appears that you tried to enter a mini-private-key,' 
-                  'but it is not a valid key.  Please check the entry '
-                  'for errors.', \
-                  QMessageBox.Ok)
-               return
-            miniKey = True
-         else:
-            binEntry = base58_to_binary(theStr)
-
-      if canBeHex:  
-         binEntry = hex_to_binary(theStr)
-
-      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
-         if len(theStr)==36:
-            keydata = binEntry[:32 ]
-            chk     = binEntry[ 32:]
-            binEntry = verifyChecksum(keydata, chk)
-         else:
-            # Assume leading 0x80 byte, and 4 byte checksum
-            keydata = binEntry[ :1+32 ]
-            chk     = binEntry[  1+32:]
-            binEntry = verifyChecksum(keydata, chk)
-            binEntry = binEntry[1:]
-
-         if binEntry=='':
-            QMessageBox.warning(self, 'Entry Error',
-               'The private key data you supplied appears to '
-               'contain a consistency check.  This consistency '
-               'check failed.  Please verify you entered the '
-               'key data correctly.', QMessageBox.Ok)
-            return
-
-      binKeyData, addr160, addrStr = '','',''
-      # Regardless of format, if this is a valid key, it should be 32 bytes
-      if len(binEntry)==32:
-         # Support raw private keys
-         binKeyData = binEntry
-         addr160 = convertKeyDataToAddress(privKey=binKeyData)
-         addrStr = hash160_to_addrStr(addr160)
-
-         if not miniKey:
-            reply = QMessageBox.question(self, 'Verify Address', \
-                  'The key data you entered appears to correspond to '
-                  'the following Bitcoin address:\n\n\t' + addrStr +
-                  '\n\nIs this the correct address?',
-                  QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-            if reply==QMessageBox.Cancel:
-               return 
+      privKeyList = []
+      for line in inputLines:
+         hexCount = sum([1 if c in hexChars else 0 for c in inputLines])
+         b58Count = sum([1 if c in b58Chars else 0 for c in inputLines])
+         canBeHex = hexCount==len(inputLines)
+         canBeB58 = b58Count==len(inputLines)
+   
+         binEntry = ''
+         miniKey = False
+         if canBeB58 and not canBeHex:
+            if len(inputLines)==22 or len(inputLines)==30:
+               # Mini-private key format!
+               try:
+                  binEntry = decodeMiniPrivateKey(inputLines)
+               except KeyDataError:
+                  reply = QMessageBox.critical(self, 'Invalid Key', \
+                     'It appears that you tried to enter a mini-private-key,' 
+                     'but it is not a valid key.  Please check the entry '
+                     'for errors.', \
+                     QMessageBox.Ok)
+                  return
+               miniKey = True
             else:
-               if reply==QMessageBox.No:
-                  binKeyData = binary_switchEndian(binEntry)
-                  addr160 = convertKeyDataToAddress(privKey=binKeyData)
-                  addrStr = hash160_to_addrStr(addr160)
-                  reply = QMessageBox.question(self, 'Try Again', \
-                        'It is possible that the key was supplied in a '
-                        '"reversed" form.  When the data you provide is '
-                        'reversed, the following address is obtained:\n\n\t '
-                        + addrStr + '\n\nIs this the correct address?', \
-                        QMessageBox.Yes | QMessageBox.No)
+               binEntry = base58_to_binary(inputLines)
+   
+         if canBeHex:  
+            binEntry = hex_to_binary(inputLines)
+   
+         if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
+            if len(inputLines)==36:
+               keydata = binEntry[:32 ]
+               chk     = binEntry[ 32:]
+               binEntry = verifyChecksum(keydata, chk)
+            else:
+               # Assume leading 0x80 byte, and 4 byte checksum
+               keydata = binEntry[ :1+32 ]
+               chk     = binEntry[  1+32:]
+               binEntry = verifyChecksum(keydata, chk)
+               binEntry = binEntry[1:]
+   
+            if binEntry=='':
+               QMessageBox.warning(self, 'Entry Error',
+                  'The private key data you supplied appears to '
+                  'contain a consistency check.  This consistency '
+                  'check failed.  Please verify you entered the '
+                  'key data correctly.', QMessageBox.Ok)
+               return
+   
+         binKeyData, addr160, addrStr = '','',''
+         # Regardless of format, if this is a valid key, it should be 32 bytes
+         if len(binEntry)==32:
+            # Support raw private keys
+            binKeyData = binEntry
+            addr160 = convertKeyDataToAddress(privKey=binKeyData)
+            addrStr = hash160_to_addrStr(addr160)
+   
+            if not miniKey:
+               reply = QMessageBox.question(self, 'Verify Address', \
+                     'The key data you entered appears to correspond to '
+                     'the following Bitcoin address:\n\n\t' + addrStr +
+                     '\n\nIs this the correct address?',
+                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+               if reply==QMessageBox.Cancel:
+                  return 
+               else:
                   if reply==QMessageBox.No:
-                     binKeyData='' 
+                     binKeyData = binary_switchEndian(binEntry)
+                     addr160 = convertKeyDataToAddress(privKey=binKeyData)
+                     addrStr = hash160_to_addrStr(addr160)
+                     reply = QMessageBox.question(self, 'Try Again', \
+                           'It is possible that the key was supplied in a '
+                           '"reversed" form.  When the data you provide is '
+                           'reversed, the following address is obtained:\n\n\t '
+                           + addrStr + '\n\nIs this the correct address?', \
+                           QMessageBox.Yes | QMessageBox.No)
+                     if reply==QMessageBox.No:
+                        binKeyData='' 
+   
+         
+   
+         if binKeyData=='':
+            reply = QMessageBox.critical(self, 'Invalid Key Format', \
+                  'The data you supplied is not a recognized format '
+                  'for private key data.', \
+                  QMessageBox.Ok)
+            return
+         else:
+            privKeyList.append(binKeyData)
+
+   
 
       
-
-      if binKeyData=='':
-         reply = QMessageBox.critical(self, 'Invalid Key Format', \
-               'The data you supplied is not a recognized format '
-               'for private key data.', \
-               QMessageBox.Ok)
-         return
 
 
       # Finally, let's add the address to the wallet, or sweep the funds
@@ -1743,7 +1763,7 @@ class DlgImportAddress(QDialog):
          pass
 
       if TheBDM.isInitialized():
-         self.wlt.syncWithBlockchain()
+         self.wlt.syncWithBlockchain(0)
 
       self.main.walletListChanged()
       self.accept()
@@ -6194,20 +6214,81 @@ class DlgBadConnection(QDialog):
       self.setWindowTitle('Network not available')
 
 
-   
+
+
+################################################################################
+class DlgExecLongProcess(QDialog):
+   """
+   Execute a processing that may require having the user to wait a while.
+   Should appear like a splash screen, and will automatically close when
+   the processing is done.  As such, you should have very little text, just 
+   in case it finishes immediately, the user won't have time to read it.
+
+   DlgExecLongProcess(execFunc, 'Short Description', self, self.main).exec_()
+   """
+   def __init__(self, funcExec, msg='Please Wait...', parent=None, main=None):
+      super(DlgExecLongProcess, self).__init__(parent)
+      
+      self.parent = parent
+      self.main   = main
+      self.func   = funcExec
+
+      waitFont = GETFONT('Var', 14)
+      descrFont = GETFONT('Var', 12)
+      palette = QPalette()
+      palette.setColor( QPalette.Window, QColor(235,235,255))
+      self.setPalette( palette );
+      self.setAutoFillBackground(True)
+
+      if parent:
+         qr = parent.geometry()
+         x,y,w,h = qr.left(),qr.top(),qr.width(),qr.height()
+         dlgW = relaxedSizeStr(waitFont, msg)[0]
+         dlgW = min(dlgW, 400)
+         dlgH = 100
+         self.setGeometry(int(x+w/2-dlgW/2),int(y+h/2-dlgH/2), dlgW, dlgH)
+
+      lblWaitMsg = QRichLabel('Please Wait...')
+      lblWaitMsg.setFont(waitFont)
+      lblWaitMsg.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+
+      lblDescrMsg = QRichLabel(msg)
+      lblDescrMsg.setFont(descrFont)
+      lblDescrMsg.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+
+      self.setWindowFlags(Qt.SplashScreen)
+      
+      layout = QVBoxLayout()
+      layout.addWidget(lblWaitMsg)
+      layout.addWidget(lblDescrMsg)
+      self.setLayout( layout )
+
+
+   def exec_(self):
+      def execAndClose():
+         self.func()
+         self.accept()
+
+      from twisted.internet import reactor
+      reactor.callLater(0.1, execAndClose)
+      QDialog.exec_(self)
+
+
+       
+         
 
 
 ################################################################################
 ################################################################################
 if __name__=='__main__':
    app = QApplication(sys.argv)
-   app.setApplicationName("dumbdialogs")
 
-   form = dlgNewWallet()
    #form = dlgchangepassphrase(noprevencrypt=true)
 
    form.show()
    app.exec_()
+
+
 
 
 
