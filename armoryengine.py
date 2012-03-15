@@ -9081,13 +9081,17 @@ def open_wallet(db_env, wltFile):
 
 
 ################################################################################
-def GetKeyFromPassphraseSatoshi(vKeyData, vSalt, nIter, deriveMethod):
+def GetKeyFromPassphraseSatoshi(passwd, vSalt, nIter, deriveMethod):
    """
    Returns the encryption (key, IV) to be used to decrypt the master key
    """
    if deriveMethod != 0:
       return 0
-   data = vKeyData + vSalt
+
+   if not isinstance(passwd, str):
+      passwd = passwd.toBinStr()
+
+   data = passwd + vSalt
    for i in xrange(nIter):
       data = sha512(data)
    return data[0:32], data[32:32+16]
@@ -9108,6 +9112,7 @@ def read_wallet(db_env, wltFile):
    poolKeysList  = []
    addrNames     = {}
 
+   wltNetByte = None
    for (key, value) in db.items():
       d = { }
 
@@ -9123,35 +9128,37 @@ def read_wallet(db_env, wltFile):
       d["__type__"] = dType
 
 
-      try:
-         if dType == "key":
-            priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
-            plainPrivList.append(priv)
-         elif dType == "ckey":
-            pub = kds.read_bytes(kds.read_compact_size())
-            ckey = vds.read_bytes(vds.read_compact_size())
-            cryptPrivList.append( [pub, ckey] )
-         elif dType == "mkey":
-            masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
-            masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
-            masterEncrKey['mthd'] = vds.read_int32()
-            masterEncrKey['iter'] = vds.read_int32()
-            masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
-         elif dType == "pool":
-            d['n'] = kds.read_int64()
-            ver = vds.read_int32()
-            ntime = vds.read_int64()
-            pubkey = vds.read_bytes(vds.read_compact_size())
-            poolKeysList.append(pubkey_to_addrStr(pubkey))
-         elif dType == "name":
-            addrB58 = kds.read_string()
-            name    = vds.read_string()
-            addrNames[addrB58] = name
-      except Exception, e:
-         print("ERROR parsing wallet.dat, type %s" % dType)
-         print("key data in hex: %s"%key.encode('hex_codec'))
-         print("value data in hex: %s"%value.encode('hex_codec'))
-         raise
+      if dType == "key":
+         priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
+         plainPrivList.append(priv)
+      elif dType == "ckey":
+         pub = kds.read_bytes(kds.read_compact_size())
+         ckey = vds.read_bytes(vds.read_compact_size())
+         cryptPrivList.append( [pub, ckey] )
+      elif dType == "mkey":
+         masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
+         masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
+         masterEncrKey['mthd'] = vds.read_int32()
+         masterEncrKey['iter'] = vds.read_int32()
+         masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
+      elif dType == "pool":
+         d['n'] = kds.read_int64()
+         ver = vds.read_int32()
+         ntime = vds.read_int64()
+         pubkey = vds.read_bytes(vds.read_compact_size())
+         poolKeysList.append(pubkey_to_addrStr(pubkey))
+      elif dType == "name":
+         addrB58 = kds.read_string()
+         name    = vds.read_string()
+         addrNames[addrB58] = name
+         wltNetByte = base58_to_binary(addrB58)[0]
+         if not wltNetByte==ADDRBYTE:
+            s = 'Wallet is for a different network!  ' 
+            if NETWORKS.has_key(wltNetByte):
+               s += '(for network: %s)' %  NETWORKS[wltNetByte]
+            raise NetworkIDError, s
+      else:
+         pass
 
    db.close()
 

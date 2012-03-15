@@ -746,38 +746,41 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def loadBlockchain(self):
-      print 'Loading blockchain'
 
-      BDM_LoadBlockchainFile()
-      self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
-
-      # Now that theb blockchain is loaded, let's populate the wallet info
-      if TheBDM.isInitialized():
-         TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
-
-         self.statusBar().showMessage('Syncing wallets with blockchain...')
-         print 'Syncing wallets with blockchain...'
-         for wltID, wlt in self.walletMap.iteritems():
-            print 'Syncing wallet: ', wltID
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain()
-            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-
-            
-         self.createCombinedLedger()
-         self.ledgerSize = len(self.combinedLedger)
-         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
-
-         if self.isOnline:
-            self.lblArmoryStatus.setText(\
-               '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
-         self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+      if not self.isOnline:
+         print 'Skip blockchain loading in offline mode'
       else:
-         self.statusBar().showMessage('! Blockchain loading failed !', 10000)
-
-
-      # This will force the table to refresh with new data
-      self.walletModel.reset()
+         print 'Loading blockchain'
+         BDM_LoadBlockchainFile()
+         self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+   
+         # Now that theb blockchain is loaded, let's populate the wallet info
+         if TheBDM.isInitialized():
+            TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+   
+            self.statusBar().showMessage('Syncing wallets with blockchain...')
+            print 'Syncing wallets with blockchain...'
+            for wltID, wlt in self.walletMap.iteritems():
+               print 'Syncing wallet: ', wltID
+               self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+               self.walletMap[wltID].syncWithBlockchain()
+               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+   
+               
+            self.createCombinedLedger()
+            self.ledgerSize = len(self.combinedLedger)
+            self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+   
+            if self.isOnline:
+               self.lblArmoryStatus.setText(\
+                  '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+            self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+         else:
+            self.statusBar().showMessage('! Blockchain loading failed !', 10000)
+   
+   
+         # This will force the table to refresh with new data
+         self.walletModel.reset()
          
 
    
