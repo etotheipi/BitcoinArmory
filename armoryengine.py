@@ -276,8 +276,8 @@ BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
 LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
-ONE_BTC       = long(1e8)
-CENT          = long(1e8/100.)
+ONE_BTC       = long(100000000)
+CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
 MIN_TX_FEE    = 50000
@@ -4547,6 +4547,7 @@ WEIGHTS[IDX_NUMADDR]    =  100000
 WEIGHTS[IDX_TXSIZE]     =     100
 WEIGHTS[IDX_OUTANONYM]  =      30
 
+
 ################################################################################
 def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    """
@@ -5868,31 +5869,6 @@ class PyBtcWallet(object):
                                   self.addrMap[new160].walletByteLoc, \
                                   self.addrMap[new160].serialize()]]  )
       return self.addrMap[new160]
-
-      """
-      if len(self.lastComputedChainAddr160) == 20:
-         mostRecentAddr = self.addrMap[self.lastComputedChainAddr160]
-         newAddr = mostRecentAddr.extendAddressChain(self.kdfKey)
-         new160 = newAddr.getAddr160()
-         self.linearAddr160List.append(new160)
-
-         newDataLoc = self.walletFileSafeUpdate( \
-            [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, new160, newAddr]])
-         self.addrMap[new160] = newAddr
-         self.addrMap[new160].walletByteLoc = newDataLoc[0] + 21
-
-         self.lastComputedChainAddr160 = new160
-         self.lastComputedChainIndex = newAddr.chainIndex
-         # In the future we will enable first/last seen, but not yet
-         self.cppWallet.addAddress_5_(new160, 0, 0, 0, 0)
-         return self.addrMap[new160]
-      else:
-         raise WalletAddressError, 'Deterministic wallet not initialized yet'
-      """
-
-   #############################################################################
-   #def getNewUnusedAddress(self):
-      
 
 
    #############################################################################
@@ -7438,8 +7414,7 @@ class PyBtcWallet(object):
       print 'Number of inputs that you can sign for: ', numMyAddr
 
 
-      # The TxOut script is already in the TxIn script location, correctly
-      # But we still need to blank out all other scripts when signing
+      # Unlock the wallet if necessary, sign inputs 
       maxChainIndex = -1
       for addrObj,idx, sigIdx in wltAddr:
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)

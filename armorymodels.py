@@ -139,8 +139,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wltID = rowData[LEDGERCOLS.WltID]
       wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
-#LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                   #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
+      #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
+                         #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:

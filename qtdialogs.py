@@ -6350,8 +6350,8 @@ class DlgDispTxInfo(QDialog):
       adv = (self.main.usermode==USERMODE.Advanced)
       dev = (self.main.usermode==USERMODE.Developer)
       
-      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopySender = menu.addAction("Copy Recipient Address")
+      if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
       if True:   actCopyAmount = menu.addAction("Copy Amount")
       if dev:    actCopyScript = menu.addAction("Copy Raw Script")
       idx = self.txOutView.selectedIndexes()[0]
