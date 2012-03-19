@@ -3837,8 +3837,8 @@ class DlgConfirmSend(QDialog):
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for rv in recipValPairs:
-         recipLbls.append(QLabel( hash160_to_addrStr(rv[0]) + ' : '  +
-                                  coin2str(rv[1], rJust=True, maxZeros=4)))
+         addrPrint = (hash160_to_addrStr(rv[0]) + ' : ').ljust(37)
+         recipLbls.append(QLabel( addrPrint + coin2str(rv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
 

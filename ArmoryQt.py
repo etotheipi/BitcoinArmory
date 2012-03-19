@@ -1372,6 +1372,25 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def execMigrateSatoshi(self):
+      reply = MsgBoxCustom(MSGBOX.Question, 'Wallet Version Warning', \
+           'This wallet migration tool only works with regular Bitcoin wallets '
+           'produced using version 0.5.X and earlier.  '
+           'You can determine the version by '
+           'opening the regular Bitcoin client, then choosing "Help"'
+           '-->"About Bitcoin-Qt" from the main menu.  '
+           '<br><br>'
+           '<b>If you have used your wallet with any version of the regular '
+           'Bitcoin client 0.6.0 or higher, this tool <u>will fail</u></b>.  '
+           'In fact, it is highly recommended that you do not even attempt '
+           'to use the tool on such wallets until it is officially supported '
+           'by Armory.'
+           '<br><br>'
+           'Has your wallet ever been opened in the 0.6.0+ Satoshi client?', \
+           yesStr='Yes, Abort!', noStr='No, Carry On!')
+            
+      if reply:
+         return
+
       DlgMigrateSatoshiWallet(self, self).exec_()
 
 

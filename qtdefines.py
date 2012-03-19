@@ -247,7 +247,7 @@ def createToolTipObject(tiptext, iconSz=2):
 
    
 ################################################################################
-def MsgBoxCustom(wtype, title, msg, wCancel=False): 
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'): 
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
@@ -287,8 +287,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False):
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            btnYes = QPushButton('Yes')
-            btnNo  = QPushButton('No')
+            btnYes = QPushButton(yesStr)
+            btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
             self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
@@ -321,7 +321,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False):
    return result
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False): 
+def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noStr='No'):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
@@ -365,8 +365,8 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False):
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
-            btnYes = QPushButton('Yes')
-            btnNo  = QPushButton('No')
+            btnYes = QPushButton(yesStr)
+            btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
             self.connect(btnNo,  SIGNAL('clicked()'), self.reject)
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)

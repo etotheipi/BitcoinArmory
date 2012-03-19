@@ -118,7 +118,7 @@ if __name__ == '__main__':
       raise FileExistsError, 'Wallet file does not exist! [%s]' % walletFile
    wlt = PyBtcWallet().readWalletFile(walletFile)
 
-
+   # Only use these addresses for this tx
    addrList = ['1dyRSCSJdRiPgGYNTSE31Lodvs3Peiiqx', \
                '131t9NSPV3U1DdyQsEEcEzyyYsWrAcm1ZX']
    
