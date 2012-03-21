@@ -8910,7 +8910,10 @@ class SettingsFile(object):
 # public domain. 
 #
 
-from bsddb.db import *
+try:
+    from bsddb import db                  # try bsddb
+except ImportError:
+    from bsddb3 import db                 # not found, try release 3 instead
 import json
 import struct
 
