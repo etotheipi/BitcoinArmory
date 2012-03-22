@@ -8910,7 +8910,12 @@ class SettingsFile(object):
 # public domain. 
 #
 
-from bsddb.db import *
+# Apparently bsddb3 is more appropriate for OSX
+try:
+   from bsddb.db import *
+except ImportError:
+   from bsddb3.db import *
+
 import json
 import struct
 
