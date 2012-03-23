@@ -8908,12 +8908,10 @@ class SettingsFile(object):
 # Read Satoshi Wallets (wallet.dat) to import into Armory wallet
 # BSDDB wallet-reading code taken from Joric's pywallet:  he declared it 
 # public domain. 
-#
-
-# Apparently bsddb3 is more appropriate for OSX
 try:
    from bsddb.db import *
 except ImportError:
+   # Apparently bsddb3 is needed on OSX 
    from bsddb3.db import *
 
 import json
