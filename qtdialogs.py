@@ -125,9 +125,8 @@ class DlgNewWallet(QDialog):
       # Advanced Encryption Options
       lblComputeDescr = QLabel('Armory will test your system\'s speed to determine the most '
                                'challenging encryption settings that can be performed '
-                               'in a given amount of time.  High settings make it reduce the speed'
-                               'at which someone can check guesses of your passphrase. This is '
-                               'used for all '
+                               'in a given amount of time.  High settings make it much harder '
+                               'for someone to guess your passphrase.  This is used for all '
                                'encrypted wallets, but the default parameters can be changed below.\n')
       lblComputeDescr.setWordWrap(True)
       timeDescrTip = createToolTipObject(
