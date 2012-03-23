@@ -323,10 +323,14 @@ public:
    uint64_t     getTxHeight(void)  const   { return txHeight_;   }
    uint32_t     getNumConfirm(void) const  { return numConfirm_; }
 
+   OutPoint getOutPoint(void) const { return OutPoint(txHash_, txOutIndex_); }
+
    BinaryData const & getScript(void) const      { return script_;     }
    BinaryData   getRecipientAddr(void) const;
 
    uint32_t   updateNumConfirm(uint32_t currBlknum);
+   void pprintOneLine(uint32_t currBlk=UINT32_MAX);
+
 
    //float getPriority(void);  
    //bool operator<(UnspentTxOut const & t2)
@@ -336,14 +340,16 @@ public:
 
    // These four methods are listed from steepest-to-shallowest in terms of 
    // how much they favor large inputs over small inputs.  
+   // NOTE:  This isn't useful at all anymore:  it was hardly useful even before
+   //        I had UTXO sorting in python.  This was really more experimental 
+   //        than anything, so I wouldn't bother doing anything with it unless
+   //        you want to use it as a template for custom sorting in C++
    static bool CompareNaive(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
    static bool CompareTech1(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
    static bool CompareTech2(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
    static bool CompareTech3(UnspentTxOut const & uto1, UnspentTxOut const & uto2);
-
    static void sortTxOutVect(vector<UnspentTxOut> & utovect, int sortType=1);
 
-   void pprintOneLine(uint32_t currBlk=UINT32_MAX);
 
 public:
    BinaryData txHash_;

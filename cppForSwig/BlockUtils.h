@@ -265,10 +265,10 @@ public:
       relevantTxIOPtrs_(0), ledger_(0) {}
 
    BtcAddress(BinaryData    addr, 
-              uint32_t      firstBlockNum = 0,
-              uint32_t      firstTimestamp = 0,
-              uint32_t      lastBlockNum = 0,
-              uint32_t      lastTimestamp = 0);
+              uint32_t      firstBlockNum  = UINT32_MAX,
+              uint32_t      firstTimestamp = UINT32_MAX,
+              uint32_t      lastBlockNum   = 0,
+              uint32_t      lastTimestamp  = 0);
    
    BinaryData const &  getAddrStr20(void) const  {return address20_;      }
    uint32_t       getFirstBlockNum(void) const   {return firstBlockNum_;  }
@@ -279,11 +279,6 @@ public:
    void           setFirstTimestamp(uint32_t t)  { firstTimestamp_ = t; }
    void           setLastBlockNum(uint32_t b)    { lastBlockNum_   = b; }
    void           setLastTimestamp(uint32_t t)   { lastTimestamp_  = t; }
-
-   bool           isUnused(void) { return (firstBlockNum_==UINT32_MAX &&
-                                           firstTimestamp_==UINT32_MAX); }
-   void           setUnused(void) {firstBlockNum_=UINT32_MAX; 
-                                   firstTimestamp_=UINT32_MAX;}
 
    void           setAddrStr20(BinaryData bd)    { address20_.copyFrom(bd);}
 
@@ -338,18 +333,16 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class BtcWallet
 {
-
-
 public:
-   BtcWallet(void) {}
+   BtcWallet(void) : bdmPtr_(NULL) {}
 
    /////////////////////////////////////////////////////////////////////////////
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,
                    uint32_t      firstBlockNum  = 0,
-                   uint32_t      lastTimestamp = 0,
-                   uint32_t      lastBlockNum  = 0);
+                   uint32_t      lastTimestamp  = 0,
+                   uint32_t      lastBlockNum   = 0);
 
    // SWIG has some serious problems with typemaps and variable arg lists
    // Here I just create some extra functions that sidestep all the problems
@@ -378,7 +371,7 @@ public:
    void       scanTx(TxRef & tx, 
                      uint32_t txIndex = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX,
-                     uint32_t blknum = UINT32_MAX);
+                     uint32_t blknum  = UINT32_MAX);
 
    void       scanNonStdTx(uint32_t blknum, 
                            uint32_t txidx, 
@@ -425,20 +418,21 @@ public:
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
-   map<BinaryData, BtcAddress>  addrMap_;
+   map<HashString, BtcAddress>  addrMap_;
    map<OutPoint, TxIOPair>      txioMap_;
 
 
    vector<LedgerEntry>          ledgerAllAddr_;  
    vector<LedgerEntry>          ledgerAllAddrZC_;  
 
-   set<OutPoint>                lockedTxOuts_;
-   set<OutPoint>                orphanTxIns_;
-   set<TxRef*>                  txrefSet_;      // aggregation of all relevant Tx
-
    // For non-std transactions
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
+
+   // With MMAP'd blockchain, any wallets that are registered should be 
+   // aware that they are registered, and make sure the BDM is aware of 
+   // when addresses get added or deleted.
+   BlockDataManager_MMAP*       bdmPtr_;
 };
 
 
@@ -452,6 +446,43 @@ public:
    list<BinaryData>::iterator iter_;
 
 };
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// BDM is now tracking "registered" addresses and wallets during each of its
+// normal scanning operations.  
+class RegisteredAddress
+{
+public:
+   RegisteredAddress(HashString  a160=HashString(0),
+                     uint32_t    blkCreated=0) :
+         addr160_(a160),
+         blkCreated_(blkCreated),
+         alreadyScannedUpToBlk_(blkCreated) { }
+
+
+   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1) :
+   {
+      addr160_ = addrObj.getAddrStr20();
+
+      if(blkCreated<0)
+         blkCreated = addrObj.getFirstBlockNum();
+
+      blkCreated_            = blkCreated;
+      alreadyScannedUpToBlk_ = blkCreated;
+   }
+
+
+   HashString    addr160_;
+   uint32_t      blkCreated_;
+   uint32_t      alreadyScannedUpToBlk_;
+
+   bool operator==(RegisteredAddress const & ra2) const { return addr160_ == ra2.addr160_;}
+   bool operator< (RegisteredAddress const & ra2) const { return addr160_ <  ra2.addr160_;}
+   bool operator> (RegisteredAddress const & ra2) const { return addr160_ >  ra2.addr160_;}
+};
+
 
 
 
@@ -605,25 +636,16 @@ private:
    // Since switching from RAM to mmap ops, we needed to combine the original
    // blockchain scan with the wallet bulk-filter, i.e. combine
    // readBlkFile_FromScratch   and   scanBlockchainForTx into one search.
-   // This list will hold the hashes of every Tx related to any wallet 
-   // supplied during the initial scan (which may be a single fake wallet 
-   // containing every key of all the wallets we care about:  we don't need
-   // to populate the wallet ledgers/balances/etc in this scan, only reduce
-   // the tx-scan space to our tx, instead of the whole blockchain.
-   // (the two ops should be separated, because we can't really do the full
-   // wallet scan until we know which tx are on the main chain)
-
-   // filteredAddresses_ contains a mapping of address160 strings, to 
-   // start and stop blocks:  
-   //       map<addr160, lastBlock>
-   // This means that filteredTxHashes_ contains every transaction relevant
-   // to addr160 in the range of blocks, [0, lastBlock)
-   // If a blockchain scan is requested within this range, we can skip the 
-   // full scan and just scan the transactions referenced by filteredTxHashes_
+   // Additionally, make sure that each blockchain scan operation is checking
+   // for information related to these addresses.
+   //
+   // We will now "register" all wallets and addresses, so that the BDM knows
+   // what addresses to look for 
    set<BtcWallet*>                    registeredWallets_;
-   map<HashString, uint32_t>          filteredAddresses_;  
-   set<OutPoint>                      filteredOutPoints_;
-   list<HashString>                   filteredTxHashes_;
+   map<HashString, RegisteredAddress> registeredAddrMap_;
+   map<OutPoint, TxIOPair>            registeredTxios_;
+   list<HashString>                   registeredTxHashes_;
+   uint32_t                           firstBlkNextScan_;
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -656,8 +678,8 @@ public:
    // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
-   void     registerWallet(BtcWallet* wallet);
-   bool     walletRequiresRescan(BtcWallet* wallet);
+   uint32_t registerWallet(BtcWallet* wallet, bool wltIsNew=false);
+   bool     walletRequiresRescan(void);
 
    uint32_t getMinimumFilteredBlock(BtcWallet & wlt);
    uint32_t addrLastFilteredBlock(HashString & addr160);
@@ -666,8 +688,7 @@ public:
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
    bool             parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                                      uint64_t & currBlockchainSize,
-                                      BtcWallet * relevantWalletPtr=NULL);
+                                      uint64_t & currBlockchainSize)
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -681,11 +702,12 @@ public:
                                        BlockHeaderRef* newTopPtr,
                                        BlockHeaderRef* branchPtr );
 
-   bool             hasTxWithHash(BinaryData const & txhash,
-                                  bool includeZeroConf=true) const;
-   bool             hasHeaderWithHash(BinaryData const & txhash) const;
-   uint32_t         getNumBlocks(void) const { return headerHashMap_.size(); }
-   uint32_t         getNumTx(void) const { return txHashMap_.size(); }
+   bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true) const;
+   bool hasHeaderWithHash(BinaryData const & txhash) const;
+
+   uint32_t getNumBlocks(void) const { return headerHashMap_.size(); }
+   uint32_t getNumTx(void) const { return txHashMap_.size(); }
+
    vector<BlockHeaderRef*> getHeadersNotOnMainChain(void);
 
    // Prefix searches would be much better if we had an some kind of underlying
@@ -706,10 +728,6 @@ public:
 
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
-   uint32_t       readBlkFile_FromScratch(string filename, 
-                                          BtcWallet* wltToCache=NULL);
-   uint32_t       readBlkFile_FromScratch(string filename,
-                                          vector<BtcWallet*> wltList);
    uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
    void           scanBlockchainForTx_FromScratch_AllAddr(void);

@@ -1553,6 +1553,8 @@ if 1:  #__name__ == '__main__':
 
    from twisted.internet import reactor
    def endProgram():
+      print 'Resetting BlockDataMgr, freeing memory'
+      TheBDM.Reset()
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       app.quit()

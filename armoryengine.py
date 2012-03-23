@@ -60,7 +60,7 @@ USE_TESTNET =     ('--testnet' in argv)
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 51, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 70, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -328,6 +328,14 @@ except:
 # Might as well create the BDM right here -- there will only ever be one, anyway
 TheBDM = Cpp.BlockDataManager().getBDM()
 
+
+def getCurrTimeAndBlock():
+   time0 = long(RightNowUTC())
+   if TheBDM.isInitialized():
+      return (time0, TheBDM.getTopBlockHeader().getBlockHeight())
+   else:
+      return (time0, UINT32_MAX)
+   
 
 
 # Define all the hashing functions we're going to need.  We don't actually
@@ -773,15 +781,11 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
 
    TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
 
-   
-   if wltList:
-      #combinedTempWallet = Cpp.BtcWallet();
-      #for wlt in wltList:
-         #for hash160,addr in wlt.addrMap.iteritems():
-            #combinedTempWallet.addAddress_1_(hash160)
-      return TheBDM.readBlkFile_FromScratch(blkfile, [w.cppWallet for w in wltList])
-   else:
-      return TheBDM.readBlkFile_FromScratch(blkfile)
+   # Register wallets so that they can be included in the initial scan
+   for wlt in wltList:
+      TheBDM.registerWallet(wlt.cppWallet)
+
+   return TheBDM.readBlkFile_FromScratch(blkfile)
 
 
 ################################################################################
@@ -5650,7 +5654,7 @@ class PyBtcWallet(object):
                              withEncrypt=True, IV=None, securePassphrase=None, \
                              kdfTargSec=DEFAULT_COMPUTE_TIME_TARGET, \
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
-                             shortLabel='', longLabel=''):
+                             shortLabel='', longLabel='', isActuallyNew=True):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -5763,16 +5767,16 @@ class PyBtcWallet(object):
 
       fileData.put(BINARY_CHUNK, '\x00' + first160 + firstAddr.serialize())
 
-      firstBlk = 0
-      if TheBDM.isInitialized():
-         firstBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+
+      # Store the current localtime and blocknumber.  Block number is always 
+      # accurate if available, but time may not be exactly right.  Whenever 
+      # basing anything on time, please assume that it is up to one day off!
+      time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
 
       # Don't forget to sync the C++ wallet object
       self.cppWallet = Cpp.BtcWallet()
-
-      # Temporarily disabling first/last-seen times
-      self.cppWallet.addAddress_5_(rootAddr.getAddr160(), 0,0,0,0)
-      self.cppWallet.addAddress_5_(first160, 0,0,0,0)
+      self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
+      self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
 
 
       newfile.write(fileData.getBinaryString())
@@ -5847,13 +5851,14 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def computeNextAddress(self, addr160=None):
+   def computeNextAddress(self, addr160=None, isActuallyNew=True):
       """
       Use this to extend the chain beyond the last-computed address.
 
       We will usually be computing the next address from the tip of the 
       chain, but I suppose someone messing with the file format may
       leave gaps in the chain requiring some to be generated in the middle
+      (then we can use the addr160 arg to specify which address to extend)
       """
       if not addr160:
          addr160 = self.lastComputedChainAddr160
@@ -5873,7 +5878,8 @@ class PyBtcWallet(object):
       self.chainIndexMap[newAddr.chainIndex] = new160
 
       # In the future we will enable first/last seen, but not yet
-      self.cppWallet.addAddress_5_(new160, 0, 0, 0, 0)
+      time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
+      self.cppWallet.addAddress_5_(new160, time0,blk0,time0,blk0)
       return new160
       
 
