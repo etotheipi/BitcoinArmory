@@ -1353,11 +1353,11 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
 
-      fname = self.getUniqueWalletFilename(dlg.importFile)
+      fname = self.getUniqueWalletFilename(fn)
       newpath = os.path.join(ARMORY_HOME_DIR, fname)
 
       print 'Copying imported wallet to:', newpath
-      shutil.copy(dlg.importFile, newpath)
+      shutil.copy(fn, newpath)
       self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
                                                          walletIsNew=False)
 
