@@ -5,6 +5,7 @@ from qtdefines import *
 
 from armoryengine import *
 from armorymodels import *
+import qrc_img_resources
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
@@ -452,7 +453,7 @@ class DlgPasswd3(QDialog):
       self.main   = main
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -832,8 +833,8 @@ class DlgWalletDetails(QDialog):
       
 
    def getNewAddress(self):
-      dlg = DlgNewAddressDisp(self.wlt, self, self.main)
-      dlg.exec_()
+      if showWatchOnlyRecvWarningIfNecessary(self.wlt, self.main):
+         DlgNewAddressDisp(self.wlt, self, self.main).exec_()
        
 
    def execSendBtc(self):
@@ -1259,6 +1260,42 @@ class DlgWalletDetails(QDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
+def showWatchOnlyRecvWarningIfNecessary(wlt, main):
+
+   wlttype = determineWalletType(wlt, main)[0]
+   notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
+   offlineWallet = (wlttype==WLTTYPES.Offline)
+   dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
+   dnaaThisWallet = main.settings.getSettingOrSetDefault(dnaaPropName, False)
+   if notMyWallet and not dnaaThisWallet:
+      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+            'You are getting an address for a wallet that '
+            'does not appear to belong to you.  Any money sent to this '
+            'address will not appear in your total balance, and cannot '
+            'be spent from this computer.<br><br>'
+            'If this is actually your wallet (perhaps you maintain the full '
+            'wallet on a separate computer), then please change the '
+            '"Belongs To" field in the wallet-properties for this wallet.', \
+            'Do not show this warning again', wCancel=True)
+      main.settings.set(dnaaPropName, result[1])
+      return result[0]
+
+   if offlineWallet and not dnaaThisWallet:
+      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+            'You are getting an address for a wallet that '
+            'you have specified belongs to you, but you cannot actually '
+            'spend the funds from this computer.  This is usually the case when '
+            'you keep the full wallet on a separate computer for security '
+            'purposes.<br><br>'
+            'If this does not sound right, then please do not use the following '
+            'address.  Instead, change the wallet properties "Belongs To" field '
+            'to specify that this wallet is not actually yours.', \
+            'Do not show this warning again', wCancel=True)
+      main.settings.set(dnaaPropName, result[1])
+      return result[0]
+   return True
+
+
 class DlgNewAddressDisp(QDialog):
    """
    We just generated a new address, let's show it to the user and let them
@@ -1273,43 +1310,8 @@ class DlgNewAddressDisp(QDialog):
       self.main   = main
 
       wlttype = determineWalletType( self.wlt, self.main)[0]
-
       notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
       offlineWallet = (wlttype==WLTTYPES.Offline)
-      dnaaPropName = 'Wallet_%s_%s' % (self.wlt.uniqueIDB58, 'DNAA_RecvOther')
-      dnaaThisWallet = self.main.settings.getSettingOrSetDefault(dnaaPropName, False)
-      if notMyWallet and not dnaaThisWallet:
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-               'You are getting an address for a wallet that '
-               'does not appear to belong to you.  Any money sent to this '
-               'address will not appear in your total balance, and cannot '
-               'be spent from this computer.<br><br>'
-               'If this is actually your wallet (perhaps you maintain the full '
-               'wallet on a separate computer), then please change the '
-               '"Belongs To" field in the wallet-properties for this wallet.', \
-               'Do not show this warning again', wCancel=True)
-         self.main.settings.set(dnaaPropName, result[1])
-         if result[0]==False:
-            self.reject()
-            return
-
-      if offlineWallet and not dnaaThisWallet:
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-               'You are getting an address for a wallet that '
-               'you have specified belongs to you, but you cannot actually '
-               'spend the funds from this computer.  This is usually the case when '
-               'you keep the full wallet on a separate computer for security '
-               'purposes.<br><br>'
-               'If this does not sound right, then please do not use the following '
-               'address.  Instead, change the wallet properties "Belongs To" field '
-               'to specify that this wallet is not actually yours.', \
-               'Do not show this warning again', wCancel=True)
-         self.main.settings.set(dnaaPropName, result[1])
-         if result[0]==False:
-            self.reject()
-            return
-
-         
 
       lblDescr = QLabel( \
             'The following address can be used to to receive Bitcoins:')
@@ -1472,7 +1474,7 @@ class DlgImportWarning(QDialog):
       lblWarn.setWordWrap(True)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.chkDNAA = QCheckBox('Do not show this message again')
@@ -1777,7 +1779,7 @@ class DlgVerifySweep(QDialog):
       self.connect(bbox, SIGNAL('rejected()'), self.reject)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       layout = QHBoxLayout()
@@ -2741,7 +2743,7 @@ class DlgIntroMessage(QDialog):
       self.main   = main  
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
+      lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       lblInfoImg.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
       lblInfoImg.setMaximumWidth(50)
@@ -3251,10 +3253,10 @@ class DlgRemoveWallet(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg2.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -3531,10 +3533,10 @@ class DlgRemoveAddress(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg2.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -3821,7 +3823,7 @@ class DlgConfirmSend(QDialog):
 
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
+      lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       totalSend = sum([rv[1] for rv in recipValPairs]) + fee
@@ -6435,7 +6437,7 @@ class DlgPaperBackup(QDialog):
          #g = QPointF(leftEdge, g.y()+pixelsDown)
 
       # Draw the logo in the top-left
-      logoPixmap = QPixmap('img/armory_logo_h36.png') 
+      logoPixmap = QPixmap(':/armory_logo_h36.png') 
       logo = QGraphicsPixmapItem( logoPixmap )
       logo.setPos( GlobalPos )
       logo.setMatrix( QMatrix() )
@@ -6564,7 +6566,7 @@ class DlgPaperBackup(QDialog):
 
       self.setLayout(layout)
 
-      self.setWindowIcon(QIcon('img/printer_icon.png'))
+      self.setWindowIcon(QIcon(':/printer_icon.png'))
       self.setWindowTitle('Print Wallet Backup')
       
        
@@ -6588,7 +6590,7 @@ class DlgBadConnection(QDialog):
 
       layout = QGridLayout()
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       lblDescr = QLabel()
@@ -7017,10 +7019,10 @@ class DlgECDSACalc(QDialog):
       self.btnClearSS = QPushButton('Clear')
       self.btnClearSP = QPushButton('Clear')
       self.btnClearPP = QPushButton('Clear')
-      imgPlus  = QImageLabel('img/plus_orange.png')
-      imgTimes1= QImageLabel('img/asterisk_orange.png')
-      imgTimes2= QImageLabel('img/asterisk_orange.png')
-      imgDown  = QImageLabel('img/arrow_down32.png')
+      imgPlus  = QImageLabel(':/plus_orange.png')
+      imgTimes1= QImageLabel(':/asterisk_orange.png')
+      imgTimes2= QImageLabel(':/asterisk_orange.png')
+      imgDown  = QImageLabel(':/arrow_down32.png')
 
       self.connect(self.btnCalcSS, SIGNAL('clicked()'),  self.multss)
       self.connect(self.btnCalcSP, SIGNAL('clicked()'),  self.multsp)

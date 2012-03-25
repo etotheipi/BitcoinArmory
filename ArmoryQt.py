@@ -41,6 +41,8 @@ from armorymodels import *
 from qtdialogs    import *
 from qtdefines    import *
 
+import qrc_img_resources
+
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
@@ -78,19 +80,19 @@ class ArmoryMainWindow(QMainWindow):
       self.printer.setPageSize(QPrinter.Letter)
 
       self.lblLogoIcon = QLabel()
-      #self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_64x64.png'))
+      #self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_64x64.png'))
 
       if USE_TESTNET:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
-         self.iconfile = 'img/armory_icon_green_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_green_h72.png'))
+         self.iconfile = ':/armory_icon_green_32x32.png'
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h72.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
-         self.iconfile = 'img/armory_icon_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
+         self.iconfile = ':/armory_icon_32x32.png'
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h72.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      #self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      #self.setWindowIcon(QIcon(':/armory_logo_32x32.png'))
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
@@ -516,8 +518,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setupNetworking(self):
 
-      internetAvail = False
-      satoshiAvail  = False
+      self.internetAvail = False
+      self.satoshiAvail  = False
 
 
       # Check for Satoshi-client connection
@@ -1478,7 +1480,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickReceiveCoins(self):
-
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -1505,8 +1506,9 @@ class ArmoryMainWindow(QMainWindow):
       if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
-         dlgaddr = DlgNewAddressDisp(wlt, self, self)
-         dlgaddr.exec_()
+         if showWatchOnlyRecvWarningIfNecessary(wlt, self):
+            DlgNewAddressDisp(wlt, self, self).exec_()
+
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=2):
@@ -1608,9 +1610,9 @@ if 1:  #__name__ == '__main__':
    print 'Blockchain var: ', options.ignoreblk
 
       
-   pixLogo = QPixmap('img/splashlogo.png')
+   pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
-      pixLogo = QPixmap('img/splashlogo_testnet.png')
+      pixLogo = QPixmap(':/splashlogo_testnet.png')
    SPLASH = QSplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()
