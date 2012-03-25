@@ -68,7 +68,6 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       self.extraHeartbeatFunctions = []
-
       self.lblArmoryStatus = QRichLabel('<font color=#550000><i>Offline</i></font>', \
                                                                           doWrap=False)
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
@@ -661,6 +660,8 @@ class ArmoryMainWindow(QMainWindow):
          print '   Wallet (%s):'.ljust(20) % wlt.uniqueIDB58,
          print '"'+wlt.labelName+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
+         # Register all wallets with TheBDM
+         TheBDM.registerWallet( wlt.cppWallet )
 
 
       # Get the last directory

@@ -551,7 +551,7 @@ void BtcWallet::addAddress(BinaryData    addr,
    addrPtrVect_.push_back(addrPtr);
 
    if(bdmPtr_!=NULL)
-      bdmPtr_->registerAddress(addr, firstBlockNum);
+      bdmPtr_->registerAddress(addr, false, firstBlockNum);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -563,6 +563,10 @@ void BtcWallet::addAddress(BtcAddress const & newAddr)
       *addrPtr = newAddr;
       addrPtrVect_.push_back(addrPtr);
    }
+
+   if(bdmPtr_!=NULL)
+      bdmPtr_->registerImportedAddress(newAddr.getAddrStr20(), 
+                                       newAddr.getFirstBlockNum());
 }
 
 
@@ -667,32 +671,41 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
 }
 
 /////////////////////////////////////////////////////////////////////////////
-//  The bulk filter simply identifies if a tx is relevant to us, but doesn't
-//  give us enough information to fully aggregate the list of relevant tx
-//  (we need to maintain a list of of OutPoints that are ours, since we can't
-//  always determine if a TxIn is ours, without it)
-void BtcWallet::prefilterTx( TxRef & tx,
-                             list<HashString> & relevantTxHashList,
-                             set<OutPoint>    & ourOutPoints)
+//  This basically does the same thing as the bulk filter, but it's for the
+//  BDM to collect data on registered wallets/addresses during the initial
+//  blockchain scan.  It needs to track relevant OutPoints and produce a 
+//  list of transactions that are relevant to the registered wallets.
+void BlockDataManager_MMAP::registeredAddrScan( TxRef & tx )
 {
-   bool thisTxAlreadyAddedToList = false;
+   if(registeredAddrMap_.size() == 0)
+      return;
 
+   static BinaryData txHash = tx.getThisHash();
+
+   // Ignore this tx if we've already processed it
+   if(registeredTxHashes_.find(txHash) != registeredTxHashes_.end())
+   {
+      cout << "WARNING: regAddrScan: tx observed multiple times..." << endl;
+      return
+   }
+
+   bool thisTxAlreadyAddedToList = false;
    uint8_t const * txStartPtr = tx.getPtr();
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin));
-      if(ourOutPoints.count(op) > 0)
+      if(registeredOutPoints_.count(op) > 0)
       {
-         relevantTxHashList.push_back(tx.getThisHash());
+         registeredTxHashes_.push_back(txHash);
          thisTxAlreadyAddedToList = true;
          break; // we only care if ANY txIns are ours, not which ones
       }
    }
 
    // We have to scan all TxOuts regardless, to make sure our list of 
-   // ourOutPoints is up-to-date so that we can identify TxIns that are
+   // registeredOutPoints_ is up-to-date so that we can identify TxIns that are
    // ours on future to-be-scanned transactions
    for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
    {
@@ -705,14 +718,14 @@ void BtcWallet::prefilterTx( TxRef & tx,
       {
          // Std TxOut with 25-byte script
          addr20.copyFrom(ptr+4, 20);
-         if( hasAddr(addr20) )
+         if( addressIsRegistered(addr20) )
          {
             if(!thisTxAlreadyAddedToList)
             {
-               relevantTxHashList.push_back(tx.getThisHash());
+               registeredTxHashes_.push_back(txHash);
                thisTxAlreadyAddedToList = true;
             }
-            ourOutPoints.insert(OutPoint(tx.getThisHash(), iout));
+            registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
       }
       else if(scriptLenFirstByte==67)
@@ -720,14 +733,14 @@ void BtcWallet::prefilterTx( TxRef & tx,
          // Std spend-coinbase TxOut script
          static BinaryData addr20(20);
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
-         if( hasAddr(addr20) )
+         if( addressIsRegistered(addr20) )
          {
             if(!thisTxAlreadyAddedToList)
             {
-               relevantTxHashList.push_back(tx.getThisHash());
+               registeredTxHashes_.push_back(txHash);
                thisTxAlreadyAddedToList = true;
             }
-            ourOutPoints.insert(OutPoint(tx.getThisHash(), iout));
+            registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
       }
       else
@@ -769,19 +782,12 @@ void BtcWallet::scanTx(TxRef & tx,
 
    vector<bool> thisTxOutIsOurs(tx.getNumTxOut(), false);
 
-
    pair<bool,bool> boolPair = isMineBulkFilter(tx);
    bool txIsRelevant  = boolPair.first;
    bool anyTxInIsOurs = boolPair.second;
 
    if( !txIsRelevant )
       return;
-
-   // TODO: If this tx is relevant but one of the TxIns or TxOuts is not 
-   //       valid, we need to avoid modifying the wallet AT ALL and return
-   //       to the calling function.  Unfortunately, this is complicated
-   //       because the function was originally written under the assumption
-   //       that it is valid...
 
    // We distinguish "any" from "anyNew" because we want to avoid re-adding
    // transactions/TxIOPairs that are already part of the our tx list/ledger
@@ -1015,54 +1021,6 @@ void BtcWallet::scanTx(TxRef & tx,
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-// The above method didn't work... python memory management is weirder than 
-// I thought.  However, I know I can pass BinaryData in, and so I will just 
-// copy it locally and then I don't have to worry about memory mgmt.
-LedgerEntry BtcWallet::getWalletLedgerEntryForTx(BinaryData const & zcBin)
-{
-   // Prepare fresh, temporary wallet with same addresses
-   BtcWallet tempWlt;
-   makeTempCopyForZcScan(tempWlt);
-
-   BinaryData txBin(zcBin);
-   TxRef txref(txBin);
-   tempWlt.scanTx(txref, 0, UINT32_MAX, UINT32_MAX);
-
-   if(tempWlt.ledgerAllAddr_.size() > 0)
-      return tempWlt.ledgerAllAddr_[0];
-   else
-      return LedgerEntry();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// The above method didn't work... python memory management is weirder than 
-// I thought.  However, I know I can pass BinaryData in, and so I will just 
-// copy it locally and then I don't have to worry about memory mgmt.
-vector<LedgerEntry> BtcWallet::getAddrLedgerEntriesForTx(BinaryData const & zcBin)
-{
-   // Prepare fresh, temporary wallet with same addresses
-   BtcWallet tempWlt;
-   makeTempCopyForZcScan(tempWlt);
-
-   BinaryData txBin(zcBin);
-   TxRef txref(txBin);
-   tempWlt.scanTx(txref, 0, UINT32_MAX, UINT32_MAX);
-
-   vector<LedgerEntry> leVect(0);
-   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
-   {
-      vector<LedgerEntry> & les = addrPtrVect_[i]->getTxLedger();
-      for(uint32_t j=0; j<les.size(); j++)
-      {
-         les[j].setAddr20(addrPtrVect_[i]->getAddrStr20());
-         leVect.push_back(les[j]);
-      }
-   }
-
-   return leVect;
-}
-*/
 
 ////////////////////////////////////////////////////////////////////////////////
 // Make a separate method here so we can get creative with how to handle these
@@ -1282,7 +1240,7 @@ BlockDataManager_MMAP::BlockDataManager_MMAP(void) :
       GenesisHash_(0),
       GenesisTxHash_(0),
       MagicBytes_(0),
-      lowestRescanBlk_(0)
+      nextScanFirstBlk_(0)
 {
    blockchainData_NEW_.clear();
    headerHashMap_.clear();
@@ -1406,6 +1364,11 @@ void BlockDataManager_MMAP::Reset(void)
    zcFilename_ = "";
    zeroConfMap_.clear();
    zeroConfRawTxList_.clear();
+
+   // Clear out any of the registered tx data we have collected so far.
+   // Doesn't take any time to recollect if it we have to rescan, anyway.
+   registeredTxHashes_.clear(); 
+   registeredOutPoints_.clear(); 
 }
 
 
@@ -1626,7 +1589,7 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 bool BlockDataManager_MMAP::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
    // Check if the wallet is already registered
-   if(registeredAddrMap_.find(wltPtr) != registeredAddrMap_.end())
+   if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
       return false;
 
    // Add it to the list of wallets to watch
@@ -1637,8 +1600,15 @@ bool BlockDataManager_MMAP::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
    {
       // If this is a new wallet, the value of getFirstBlockNum is irrelevant
       BtcAddress & addr = wltPtr->getAddrByIndex(i);
-      registerAddress(addr.getAddrStr20(), wltIsNew, addr.getFirstBlockNum());
+
+      if(wltIsNew)
+         registerNewAddress(addr.getAddrStr20())
+      else
+         registerImportedAddress(addr.getAddrStr20(), addr.getFirstBlockNum());
    }
+
+   // We need to make sure the wallet can tell the BDM when an address is added
+   wltPtr->setBdmPtr(this);
    return true;
 }
 
@@ -1658,7 +1628,7 @@ bool BlockDataManager_MMAP::registerAddress(HashString addr160,
       firstBlk = getTopBlockHeader()->getBlockHeight();
 
    registeredAddrMap_[addr160] = RegisteredAddress(addr160, firstBlk);
-   alreadyScannedUpToBlk_  = min(firstBlk, alreadyScannedUpToBlk_);
+   nextScanFirstBlk_  = min(firstBlk, nextScanFirstBlk_);
    return true;
 }
 
@@ -1671,18 +1641,23 @@ bool BlockDataManager_MMAP::registerNewAddress(HashString addr160)
 
    firstBlk = getTopBlockHeader()->getBlockHeight();
    registeredAddrMap_[addr160] = RegisteredAddress(addr160, firstBlk);
-   lowestRescanBlk_  = min(firstBlk, lowestRescanBlk_);
+   nextScanFirstBlk_  = min(firstBlk, nextScanFirstBlk_);
    return true;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_MMAP::registerImportedAddress(HashString addr160)
+bool BlockDataManager_MMAP::registerImportedAddress(HashString addr160,
+                                                    uint32_t createBlk)
 {
    if(registeredAddrMap_.find(addr160) != registeredAddrMap_.end())
       return false;
 
-   registeredAddrMap_[addr160] = RegisteredAddress(addr160, 0);
-   lowestRescanBlk_  = 0;
+   // In some cases we may have used UINT32_MAX to specify "don't know"
+   if(createBlk==UINT32_MAX)
+      createBlk = 0;
+
+   registeredAddrMap_[addr160] = RegisteredAddress(addr160, createBlk);
+   nextScanFirstBlk_ = createBlk;
    return true;
 }
 
@@ -1694,14 +1669,14 @@ bool BlockDataManager_MMAP::unregisterAddress(HashString addr160)
       return false;
    
    registeredAddrMap_.erase(addr160);
-   firstBlkNextScan_ = evalLowestBlockToRescan();
+   nextScanFirstBlk_ = evalLowestBlockNextScan();
    return true;
 }
 
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_MMAP::evalLowestBlockToRescan()
+uint32_t BlockDataManager_MMAP::evalLowestBlockNextScan(void)
 {
    uint32_t lowestBlk = UINT32_MAX;
    map<HashString, RegisteredAddress>::iterator raIter;
@@ -1717,7 +1692,8 @@ uint32_t BlockDataManager_MMAP::evalLowestBlockToRescan()
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_MMAP::evalLowestAddressCreationBlock()
+// This method isn't really used yet...
+uint32_t BlockDataManager_MMAP::evalLowestAddressCreationBlock(void)
 {
    uint32_t lowestBlk = UINT32_MAX;
    map<HashString, RegisteredAddress>::iterator raIter;
@@ -1739,12 +1715,13 @@ bool BlockDataManager_MMAP::evalRescanIsRequired(void)
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
    // just use the registeredTxHashes_ object to get our information.
-   firstBlkNextScan_ = evalLowestBlockToRescan();
-   return (firstBlkNextScan_ <= self.getTopBlockHeader()->getBlockHeight());
+   nextScanFirstBlk_ = evalLowestBlockNextScan();
+   return (nextScanFirstBlk_ <= self.getTopBlockHeader()->getBlockHeight());
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_MMAP::evalWalletRequiresFullScan(BtcWallet const & wlt)
+bool BlockDataManager_MMAP::evalWalletRequiresBlockchainScan(BtcWallet const & wlt,
+                                                       uint32_t endBlk)
 {
    // This method tells us whether we have to scan ANY blocks from disk
    // in order to produce accurate balances and TxOut lists.  If this
@@ -1752,6 +1729,8 @@ bool BlockDataManager_MMAP::evalWalletRequiresFullScan(BtcWallet const & wlt)
    // just use the registeredTxHashes_ object to get our information.
    uint32_t lowestBlk = UINT32_MAX;
    uint32_t currTopBlk = self.getTopBlockHeader()->getBlockHeight();
+   if(endBlk>currTopBlk)
+      endBlk = currTopBlk + 1;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BtcAddress & addr = wlt.getAddrByIndex(i);
@@ -1761,13 +1740,41 @@ bool BlockDataManager_MMAP::evalWalletRequiresFullScan(BtcWallet const & wlt)
          return true;
 
       RegisteredAddress & ra = registeredAddrMap_[addr.getAddrStr20()];
-      if(ra.alreadyScannedUpToBlk_ <= currTopBlk)
+      if(ra.alreadyScannedUpToBlk_ < endBlk)
          return true;
    }
 
    // If we got here, then all addr are already registered and current
    return false;
 }
+
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_MMAP::updateRegisteredAddresses(uint32_t newTopBlk)
+{
+   map<HashString, RegisteredAddress>::iterator raIter;
+   for(raIter  = registeredAddrMap_.begin();
+       raIter != registeredAddrMap_.end();
+       raIter++)
+   {
+      raIter->alreadyScannedUpToBlk_ = newTopBlk;
+   }
+   
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_MMAP::walletIsRegistered(BtcWallet & wlt)
+{
+   bool notInSet = (registeredWallets_.find(&wlt)==registeredWallets_.end());
+   return !notInSet;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_MMAP::addressIsRegistered(HashString addr160)
+{
+   return !(registeredAddrMap_.find(addr160)==registeredAddrMap_.end());
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 // This method is now a hybrid of the original, Blockchain-in-RAM code,
@@ -1790,24 +1797,36 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
 {
    PDEBUG("Scanning blockchain for tx");
 
-   uint32_t lastFilteredBlk = getMinimumFilteredBlock(myWallet);
+   bool allTxForWalletInRegisteredList = false;
+   if(walletIsRegistered(myWallet))
+   {
+      // BDM's "allRegAddrScannedUpToBlk_" is valid for this wallet
+      if(endBlknum <= allRegAddrScannedUpToBlk_)
+         allTxForWalletInRegisteredList = true;
+   }
+   else
+   {
+      // Wallet is not registered, but maybe all of its addresses are
+      bool needFullScan = evalWalletRequiresBlockchainScan(myWallet, endBlknum);
+      allTxForWalletInRegisteredList = !needFullScan;
+   }
 
    cout << "startBlkNum    : " << startBlknum << endl;
    cout << "endBlkNum      : " << endBlknum << endl;
-   cout << "lastFilteredBlk: " << lastFilteredBlk << endl;
+   cout << "lowestBlkToScan: " << lowestBlkToScan << endl;
    // Scan the filtered list, if necessary
-   if(startBlknum < lastFilteredBlk)
+   if(startBlknum < lowestBlkToScan)
    {
-      uint32_t topEnd = min(lastFilteredBlk, endBlknum);
+      uint32_t topEnd = min(lowestBlkToScan, endBlknum);
       cout << "Search filt list (start,top) : " << startBlknum << "," << topEnd << endl;
-      scanFilteredTxForWallet(myWallet, startBlknum, topEnd);
+      scanRegisteredTxForWallet(myWallet, startBlknum, topEnd);
    }
 
    // Scan any raw blockchain blocks
    // Now we can scan any remaining blocks, if necessary
-   uint32_t startBlk = max(startBlknum, lastFilteredBlk);
+   uint32_t startBlk = max(startBlknum, lowestBlkToScan);
    uint32_t endBlk   = min(endBlknum, (uint32_t)headersByHeight_.size());
-   if(endBlk >= lastFilteredBlk+1)
+   if(endBlk >= lowestBlkToScan+1)
    {
       cout << "Search blkchn (start,end) : " << startBlk << "," << endBlk << endl;
       ///// LOOP OVER ALL HEADERS ////
@@ -1815,7 +1834,7 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
       {
          BlockHeaderRef & bhr = *(headersByHeight_[h]);
          vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
-   
+
          ///// LOOP OVER ALL TX FOR THIS HEADER/////
          for(uint32_t itx=0; itx<txlist.size(); itx++)
          {
@@ -2049,20 +2068,26 @@ vector<TxRef*> BlockDataManager_MMAP::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
+uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename,
+                                                        bool forceRescan)
 {
-   if(filename.compare(blkfilePath_) == 0)
+   if(filename.compare(blkfilePath_)==0 && !forceRescan)
    {
-      cout << "Call to load a blockchain file that is already loaded!" << endl;
+      cout << "Call to load a blockchain that is already loaded!  Skipping..." << endl;
       return 0;
+   }
+   else
+   {
+      // If we're going to rescan, we might as well clear everything out.
+      // Recollecting registered tx info takes no extra time if we are doing
+      // a full rescan, anyway
+      Reset();
    }
 
    if(GenesisHash_.getSize() == 0)
    {
-      cout << "***ERROR:  Must set network params before loading blockchain!"
-           << endl;
-      cerr << "***ERROR:  Must set network params before loading blockchain!"
-           << endl;
+      cout << "***ERROR:  Must set network params before loading blockchain!" << endl;
+      cerr << "***ERROR:  Must set network params before loading blockchain!" << endl;
       return 0;
    }
 
@@ -2084,7 +2109,7 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
    cout << blkfilePath_.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
 
 
-   // Use MMAP'd data, now
+   // No more full-RAM: use mmap()
    blockchainData_ALL_.createMMAP(blkfilePath_);
 
    // Blockchain data is now in its permanent location in memory
@@ -2103,7 +2128,7 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
    blockchainData_ALL_.setAdvice(MADV_SEQUENTIAL);
    while(keepGoing)
    {
-      keepGoing = parseNewBlockData(brr, totalBlockchainBytes_, relevantWalletPtr);
+      keepGoing = parseNewBlockData(brr, totalBlockchainBytes_);
       nBlkRead++;
    }
    blockchainData_ALL_.setAdvice(MADV_RANDOM);
@@ -2120,17 +2145,8 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
    // We now have a map of all blocks, let's organize them into a chain.
    organizeChain();
 
-   // If a wallet was passed in, record all the addresses as having been 
-   // prescanned (we may want to know what addresses
-   uint32_t topBlk = getTopBlockHeader().getBlockHeight();
-   if(relevantWalletPtr != NULL)
-   {
-      for(uint32_t a=0; a<relevantWalletPtr->getNumAddr(); a++)
-      {
-         HashString a160 = relevantWalletPtr->getAddrByIndex(a).getAddrStr20();
-         filteredAddresses_[a160] = topBlk;
-      }
-   }
+   // Update registered address list so we know what's already been scanned
+   updateRegisteredAddresses(getTopBlockHeader().getBlockHeight());
    
    
    // Return the number of blocks read from blkfile (this includes invalids)
@@ -2223,7 +2239,7 @@ uint32_t BlockDataManager_MMAP::readBlkFileUpdate(string filename)
          {
             // Update all the registered wallets...
             cout << "This block forced a reorg!" << endl;
-            updateWalletsAfterReorg(*wltvect[i]);
+            updateWalletsAfterReorg(registeredWallets_);
          }
       }
       
@@ -2379,32 +2395,19 @@ bool BlockDataManager_MMAP::parseNewBlockData(BinaryRefReader & brr,
       // is on the main chain.
 
 
-      // UPDATED FOR MMAP BLOCKCHAIN:  take a wallet full of addresses 
-      // that belong to us, and while doing the initial blockchain scan,
-      // look out for tx that are relevant.  We don't do full processing
-      // of the transactions for the same reason as above:  we don't know 
-      // if they are on the main chain yet, but we don't mind collecting
-      // a few too many, as they will be processed after the initial scan
-      // and non-main-chain will be ignored.  Must use method:
-      // scanFilteredTxForWallet, to make use of the data produced here.
-      if(relevantWalletPtr!=NULL)
-         relevantWalletPtr->prefilterTx( *txptr,
-                                         filteredTxHashes_,
-                                         filteredOutPoints_ );
+      // UPDATED FOR MMAP BLOCKCHAIN:  
+      // We will have wallets registered so the BDM can be "on the look
+      // out" for wallet-relevant transactions during its initial scan.
+      // It won't process any tx, because we don't know if they are on
+      // the main chain or not, but they will be collected and then 
+      // processed later when we know more.
+      registeredAddrScan(*txptr)
    }
    currBlockchainSize += nBytes+8;
    return true;
 }
    
 
-////////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_MMAP::addrLastFilteredBlock(HashString & addr160)
-{
-   if(filteredAddresses_.count(addr160) > 0)
-      return filteredAddresses_[addr160];
-   else
-      return 0;
-}
 
 ////////////////////////////////////////////////////////////////////////////////
 // This method returns three booleans:
@@ -2417,7 +2420,7 @@ uint32_t BlockDataManager_MMAP::addrLastFilteredBlock(HashString & addr160)
 // Btw, yes I know I could've used a bitset here, but I was too lazy to add
 // the #include and look up the members for using it...
 vector<bool> BlockDataManager_MMAP::addNewBlockData(BinaryData rawBlock,
-                                                       bool writeToBlk0001)
+                                                    bool writeToBlk0001)
 {
    // TODO:  maybe we should check whether we already have this block...?
    vector<bool> vb(3);
@@ -2427,7 +2430,7 @@ vector<bool> BlockDataManager_MMAP::addNewBlockData(BinaryData rawBlock,
    BinaryRefReader newBRR( listEnd->getPtr(), rawBlock.getSize() );
    bool addDataSucceeded = parseNewBlockData(newBRR, totalBlockchainBytes_);
 
-   if( ! addDataSucceeded ) 
+   if( !addDataSucceeded ) 
    {
       cout << "Adding new block data to memory pool failed!";
       vb[ADD_BLOCK_SUCCEEDED]     = false;  // Added to memory pool
@@ -2455,6 +2458,11 @@ vector<bool> BlockDataManager_MMAP::addNewBlockData(BinaryData rawBlock,
       //     need to update transactions that may have been affected
       //     (do that next), and YOU need to run a post-reorg check
       //     on your wallet (hopefully implemented soon).
+      // Mar 2012 TODO:  
+      //     With the MMAP update, we now have registered wallets tracked
+      //     by BDM, which means that the BDM could actually set the
+      //     wallet straight... I just haven't figured out exactly what 
+      //     I need to do
       reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
       // TODO:  It might also be necessary to look at the specific
       //        block headers that were invalidated, to make sure 
@@ -2470,6 +2478,7 @@ vector<bool> BlockDataManager_MMAP::addNewBlockData(BinaryData rawBlock,
    // Write this block to file if is on the main chain and we requested it
    // TODO: this isn't right, because this logic won't write any blocks that
    //       that might eventually be in the main chain but aren't currently.
+   //       Luckily this is never used, because we never writeToBlk0001
    if(newBlockIsNewTop && writeToBlk0001)
    {
       ofstream fileAppend(blkfilePath_.c_str(), ios::app | ios::binary);

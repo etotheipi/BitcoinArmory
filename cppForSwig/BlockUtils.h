@@ -379,9 +379,6 @@ public:
                            uint32_t txoutidx,
                            BtcAddress& addr);
 
-   void prefilterTx( TxRef & tx,
-                       list<HashString> & allRelevantTx,
-                       set<OutPoint>    & ourOutPoints);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is
@@ -413,6 +410,7 @@ public:
    void pprintLedger(void);
    void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
+   void setBdmPtr(BlockDataManager_MMAP * bdmptr) {bdmPtr_=bdmptr;}
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
 
@@ -643,9 +641,9 @@ private:
    // what addresses to look for 
    set<BtcWallet*>                    registeredWallets_;
    map<HashString, RegisteredAddress> registeredAddrMap_;
-   map<OutPoint, TxIOPair>            registeredTxios_;
    list<HashString>                   registeredTxHashes_;
-   uint32_t                           firstBlkNextScan_;
+   set<OutPoint>                      registeredOutPoints_;
+   uint32_t                           allRegAddrScannedUpToBlk_;
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -672,23 +670,35 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   // If you register you wallet with the BDM, it will automatically maintain
-   // tx lists relevant to that wallet.  You can get away without registering
+   // If you register you wallet with the BDM, it will automatically maintain // tx lists relevant to that wallet.  You can get away without registering
    // your wallet objects (using scanBlockchainForTx), but without the full 
    // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    uint32_t registerWallet(BtcWallet* wallet, bool wltIsNew=false);
-   bool     walletRequiresRescan(void);
+   bool     registerAddress(HashString addr160, bool isNew, uint32_t blk0);
+   bool     registerNewAddress(HashString addr160);
+   bool     registerImportedAddress(HashString addr160, uint32_t createBlk=0);
+   bool     unregisterAddress(HashString addr160);
+   uint32_t evalLowestBlockNextScan(void);
+   uint32_t evalLowestAddressCreationBlock(void);
+   bool     evalRescanIsRequired(void);
+   bool     evalWalletRequiresBlockchainScan(BtcWallet const & wlt,
+                                       uint32_t topBlk=UINT32_MAX);
+   bool     updateRegisteredAddresses(uint32_t newTopBlk);
 
-   uint32_t getMinimumFilteredBlock(BtcWallet & wlt);
-   uint32_t addrLastFilteredBlock(HashString & addr160);
-   void     markAddrAsFiltered(HashString addr160, uint32_t topblk=UINT32_MAX);
+   bool     walletIsRegistered(BtcWallet & wlt);
+   bool     addressIsRegistered(HashString addr160);
+   void     registeredAddrScan( TxRef & tx );
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
    bool             parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                                      uint64_t & currBlockchainSize)
+                                      uint64_t & currBlockchainSize);
+
+
+   // Does a full scan!
+   uint32_t readBlkFile_FromScratch(string filename, bool rescan=false);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -721,7 +731,7 @@ public:
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX);
-   void scanFilteredTxForWallet( BtcWallet & wlt,
+   void scanRegisteredTxForWallet( BtcWallet & wlt,
                                  uint32_t blkStart=0,
                                  uint32_t blkEnd=UINT32_MAX);
 

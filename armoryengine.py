@@ -783,7 +783,7 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
 
    # Register wallets so that they can be included in the initial scan
    for wlt in wltList:
-      TheBDM.registerWallet(wlt.cppWallet)
+      TheBDM.registerWallet(wlt.cppWallet, False)  # isWltNew=False
 
    return TheBDM.readBlkFile_FromScratch(blkfile)
 
@@ -5777,6 +5777,7 @@ class PyBtcWallet(object):
       self.cppWallet = Cpp.BtcWallet()
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
       self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
+      TheBDM.registerWallet(self.cppWallet, True) # new wallet
 
 
       newfile.write(fileData.getBinaryString())
@@ -6717,15 +6718,12 @@ class PyBtcWallet(object):
             print '***ERROR:', errmsg
             raise KeyDataError, errmsg
 
-      print 'Reading wallet file:', self.walletPath
 
       wltfile = open(wltpath, 'rb')
       wltdata = BinaryUnpacker(wltfile.read())
       wltfile.close()
 
       self.cppWallet = Cpp.BtcWallet()
-
-      print self.walletPath
       self.unpackHeader(wltdata)
 
       self.lastComputedChainIndex = -UINT32_MAX
@@ -7245,7 +7243,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def importAddressesFromFile(self, filename, privKeyEndian=BIGENDIAN, \
-                     sepList=":;'[]()=-_*&^%$#@!,./?"):
+                     sepList=":;'[]()=-_*&^%$#@!,./?\n"):
       """
       Attempts to import plaintext key data stored in a file.  This method
       expects all data to be in hex or Base58:
@@ -7281,7 +7279,7 @@ class PyBtcWallet(object):
       for ch in sepList:
          newdata.replace(ch, ' ')
 
-      newdata = newdata.split('\n')
+      newdata = newdata.split()
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
       DATATYPES = enum( 'Addr_Hex_20', \
