@@ -3848,7 +3848,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1):
    
       
       currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
-      TheBDM.scanBlockchainForTx(cppWlt, currBlk if startBlk==-1 else startBlk)
+      TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
          return cppWlt.getFullTxOutList(currBlk)
@@ -5477,7 +5477,7 @@ class PyBtcWallet(object):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          assert(TheBDM.isInitialized())
          if startBlk==None:
-            startBlk = self.lastSyncBlockNum
+            startBlk = self.lastSyncBlockNum + 1
          TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
          self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:

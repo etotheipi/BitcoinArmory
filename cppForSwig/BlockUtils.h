@@ -337,6 +337,8 @@ public:
    BtcWallet(void) : bdmPtr_(NULL) {}
 
    /////////////////////////////////////////////////////////////////////////////
+   // addAddress when blockchain rescan req'd, addNewAddress for just-created
+   void addNewAddress(HashString addr);
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,
@@ -349,12 +351,20 @@ public:
    // but it would be nice to figure out "typemap typecheck" in SWIG...
    void addAddress_BtcAddress_(BtcAddress const & newAddr);
 
+   // Adds a new address that is assumed to be imported, and thus will
+   // require a blockchain scan
    void addAddress_1_(BinaryData    addr);
 
+   // Adds a new address that we claim has never been seen until thos moment,
+   // and thus there's no point in doing a blockchain rescan.
+   void addNewAddress_1_(BinaryData    addr) {addNewAddress(addr);}
+
+   // Blockchain rescan will depend on the firstBlockNum input
    void addAddress_3_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum);
 
+   // Blockchain rescan will depend on the firstBlockNum input
    void addAddress_5_(BinaryData    addr, 
                       uint32_t      firstTimestamp,
                       uint32_t      firstBlockNum,
@@ -393,7 +403,7 @@ public:
    void clearZeroConfPool(void);
 
    
-   uint32_t     getNumAddr(void) {return addrMap_.size();}
+   uint32_t     getNumAddr(void) const {return addrMap_.size();}
    BtcAddress & getAddrByIndex(uint32_t i) { return *(addrPtrVect_[i]); }
    BtcAddress & getAddrByHash160(BinaryData const & a) { return addrMap_[a];}
 
@@ -460,7 +470,7 @@ public:
          alreadyScannedUpToBlk_(blkCreated) { }
 
 
-   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1) :
+   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1)
    {
       addr160_ = addrObj.getAddrStr20();
 
@@ -643,7 +653,7 @@ private:
    map<HashString, RegisteredAddress> registeredAddrMap_;
    list<HashString>                   registeredTxHashes_;
    set<OutPoint>                      registeredOutPoints_;
-   uint32_t                           allRegAddrScannedUpToBlk_;
+   uint32_t                           allRegAddrScannedUpToBlk_; // one past top
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -675,7 +685,7 @@ public:
    // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
-   uint32_t registerWallet(BtcWallet* wallet, bool wltIsNew=false);
+   bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
    bool     registerAddress(HashString addr160, bool isNew, uint32_t blk0);
    bool     registerNewAddress(HashString addr160);
    bool     registerImportedAddress(HashString addr160, uint32_t createBlk=0);
@@ -683,9 +693,9 @@ public:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestAddressCreationBlock(void);
    bool     evalRescanIsRequired(void);
-   bool     evalWalletRequiresBlockchainScan(BtcWallet const & wlt,
+   bool     evalWalletRequiresBlockchainScan(BtcWallet & wlt,
                                        uint32_t topBlk=UINT32_MAX);
-   bool     updateRegisteredAddresses(uint32_t newTopBlk);
+   void     updateRegisteredAddresses(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
@@ -698,7 +708,7 @@ public:
 
 
    // Does a full scan!
-   uint32_t readBlkFile_FromScratch(string filename, bool rescan=false);
+   uint32_t readBlkFile_FromScratch(string filename, bool forceRescan=false);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
@@ -728,9 +738,14 @@ public:
    vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
    // Traverse the blockchain and update the wallet[s] with the relevant Tx data
+   // See comments above the scanBlockchainForTx in the .cpp, for more info
    void scanBlockchainForTx(BtcWallet & myWallet,
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX);
+
+
+   // This will only be used by the above method, probably wouldn't be called
+   // directly from any other code
    void scanRegisteredTxForWallet( BtcWallet & wlt,
                                  uint32_t blkStart=0,
                                  uint32_t blkEnd=UINT32_MAX);
@@ -765,7 +780,8 @@ public:
    set<HashString>  getTxJustInvalidated(void) {return txJustInvalidated_;}
    set<HashString>  getTxJustAffected(void)    {return txJustAffected_;}
    void             updateWalletAfterReorg(BtcWallet & wlt);
-   void             updateWalletsAfterReorg(vector<BtcWallet*> wlt);
+   void             updateWalletsAfterReorg(vector<BtcWallet*> wltvect);
+   void             updateWalletsAfterReorg(set<BtcWallet*> wltset);
 
    // Use these two methods to get ALL information about your unused TxOuts
    //vector<UnspentTxOut> getUnspentTxOutsForWallet(BtcWallet & wlt, int sortType=-1);

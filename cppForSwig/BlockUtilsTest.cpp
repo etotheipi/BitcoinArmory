@@ -44,10 +44,10 @@ void printTestHeader(string TestName)
 
 int main(void)
 {
-   BlockDataManager_MMAP::GetInstance().SelectNetwork("Main");
+   BlockDataManager_MMAP::GetInstance().SelectNetwork("Test");
    
 
-   string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
@@ -285,10 +285,13 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    wltList.push_back(&wlt1);
    wltList.push_back(&wlt2);
 
+   bdm.registerWallet(&wlt1);
+   bdm.registerWallet(&wlt2);
+
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.readBlkFile_FromScratch(blkfile, wltList);  // don't organize, just index
+   bdm.readBlkFile_FromScratch(blkfile);  
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -320,20 +323,17 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
 
    cout << endl << "ADD a new address to Wlt(1) requiring a blockchain rescan..." << endl;
    // This address contains a tx with a non-std TxOut, but the other TxOuts are valid
-   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); 
+   wlt1.addAddress(myAddress);
    bdm.scanBlockchainForTx(wlt1);
    wlt1.pprintLedger();
    
-   cout << endl << "ADD new address to wlt(2) but mark as already filtered" << endl;
-   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); wlt2.addAddress(myAddress);
-   bdm.markAddrAsFiltered(myAddress);
+   cout << endl << "ADD new address to wlt(2) but as a just-created addr not requiring rescan" << endl;
+   myAddress.createFromHex("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"); 
+   wlt2.addNewAddress(myAddress);
    bdm.scanBlockchainForTx(wlt2);
    wlt2.pprintLedger();
 
-   cout << endl << "Now mark that address to correctly rescan full blockchain" << endl;
-   bdm.markAddrAsFiltered(myAddress, 0);
-   bdm.scanBlockchainForTx(wlt2);
-   wlt2.pprintLedger();
 }
 
 
