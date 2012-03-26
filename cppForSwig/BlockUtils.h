@@ -309,6 +309,8 @@ public:
 
    void pprintLedger(void);
 
+   void clearBlkData(void);
+
 private:
    BinaryData address20_;
    uint32_t   firstBlockNum_;
@@ -421,6 +423,7 @@ public:
    void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
    void setBdmPtr(BlockDataManager_MMAP * bdmptr) {bdmPtr_=bdmptr;}
+   void clearBlkData(void);
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
 
@@ -700,6 +703,7 @@ public:
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     registeredAddrScan( TxRef & tx );
+   void     resetRegisteredWallets(void);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_

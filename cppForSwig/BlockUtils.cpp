@@ -1038,6 +1038,27 @@ void BtcWallet::scanTx(TxRef & tx,
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+void BtcAddress::clearBlkData(void)
+{
+   relevantTxIOPtrs_.clear();
+   relevantTxIOPtrsZC_.clear();
+   ledger_.clear();
+   ledgerZC_.clear();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BtcWallet::clearBlkData(void)
+{
+   txioMap_.clear();
+   ledgerAllAddr_.clear();
+   ledgerAllAddrZC_.clear();
+   nonStdTxioMap_.clear();
+   nonStdUnspentOutPoints_.clear();
+
+   for(uint32_t a=0; a<addrPtrVect_.size(); a++)
+      addrPtrVect_[a]->clearBlkData();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1543,7 +1564,6 @@ void BtcWallet::pprintAlot(uint32_t topBlk, bool withAddr)
 {
    uint32_t numLedg = ledgerAllAddr_.size();
    uint32_t numLedgZC = ledgerAllAddrZC_.size();
-   uint32_t numTxIO = txioMap_.size();
 
    cout << "Wallet PPRINT:" << endl;
    cout << "Tot: " << getFullBalance() << endl;
@@ -1749,7 +1769,6 @@ bool BlockDataManager_MMAP::evalWalletRequiresBlockchainScan(
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
    // just use the registeredTxHashes_ object to get our information.
-   uint32_t lowestBlk = UINT32_MAX;
    uint32_t currNextBlk = getTopBlockHeader().getBlockHeight() + 1;
    endBlk = min(endBlk, currNextBlk);
 
@@ -1791,6 +1810,23 @@ void BlockDataManager_MMAP::updateRegisteredAddresses(uint32_t newTopBlk)
       raIter->second.alreadyScannedUpToBlk_ = newTopBlk;
    }
    
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_MMAP::resetRegisteredWallets(void)
+{
+   set<BtcWallet*>::iterator wltPtrIter;
+   for(wltPtrIter  = registeredWallets_.begin();
+       wltPtrIter != registeredWallets_.end();
+       wltPtrIter++)
+   {
+      // I'm not sure if there's anything else to do
+      // I think it's all encapsulated in this call!
+      (*wltPtrIter)->clearBlkData();
+   }
+
+   // Reset all addresses to "new"
+   updateRegisteredAddresses(0);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2145,6 +2181,7 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename,
       // Recollecting registered tx info takes no extra time if we are doing
       // a full rescan, anyway
       Reset();
+      resetRegisteredWallets();
    }
 
    if(GenesisHash_.getSize() == 0)
