@@ -1714,6 +1714,13 @@ bool BlockDataManager_MMAP::unregisterAddress(HashString addr160)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+BtcWallet::~BtcWallet(void)
+{
+   if(bdmPtr_!=NULL)
+      bdmPtr_->unregisterWallet(this);
+}
+
 
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_MMAP::evalLowestBlockNextScan(void)
@@ -1774,10 +1781,7 @@ bool BlockDataManager_MMAP::evalWalletRequiresBlockchainScan(
 
    // If wallet is registered and current, no rescan necessary
    if(walletIsRegistered(wlt))
-   {
-      if(endBlk <= allRegAddrScannedUpToBlk_)
-         return false;
-   }
+      return endBlk > allRegAddrScannedUpToBlk_;
 
    // The wallet isn't registered with the BDM, but there's a chance that 
    // each of its addresses are -- if any one is not, do rescan

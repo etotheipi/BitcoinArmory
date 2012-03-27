@@ -7327,6 +7327,14 @@ class PyBtcWallet(object):
 
 
 
+   #############################################################################
+   def checkIfRescanRequired(self):
+      if TheBDM.isInitialized():
+         return TheBDM.evalWalletRequiresBlockchainScan(self.cppWallet)
+      else:
+         return False
+
+
 
    #############################################################################
    def signTxDistProposal(self, txdp, hashcode=1):

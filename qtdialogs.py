@@ -1689,7 +1689,12 @@ class DlgImportAddress(QDialog):
          # Create the address object for the addr to be swept
          oldAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+
+         #######################################################################
+         #  Th
          finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
+         #######################################################################
+
          if outVal<=fee:
             QMessageBox.critical(self, 'Cannot sweep',\
             'You cannot sweep the funds from this address, because the '
@@ -6226,7 +6231,7 @@ class DlgExecLongProcess(QDialog):
 
    DlgExecLongProcess(execFunc, 'Short Description', self, self.main).exec_()
    """
-   def __init__(self, funcExec, msg='Please Wait...', parent=None, main=None):
+   def __init__(self, funcExec, msg='', parent=None, main=None):
       super(DlgExecLongProcess, self).__init__(parent)
       
       self.parent = parent

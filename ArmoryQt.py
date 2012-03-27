@@ -1205,6 +1205,86 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def BDM_SyncArmoryWallet(self, wltID, startBlock=None, warnMsg=None, waitMsg=None):
+      """
+      There may end up being lots of different ways to import addresses,
+      and it will require detecting if a blockchain scan is required before
+      actually executing it, so it can pop up the "Please Wait..." window
+      """
+
+      def updateBalance():
+         self.walletMap[wltID].syncWithBlockchain(startBlock)
+
+
+      if not self.walletMap[wltID].checkIfRescanRequired():
+         updateBalance()
+      else:
+         if msg==None:
+            msg = ('In order to determine the new wallet balance, the entire, '
+                   '<i>global</i> transaction history must be scanned. '
+                   'This can take anywhere from 10 seconds to 2 minutes, '
+                   'depending on your system.  During this time you will '
+                   'not be able to use any other Armory features.'
+                   '<br><br>'
+                   'Do you wish to continue with this scan? '
+                   'If you click "Cancel", your wallet balances may '
+                   'appear incorrect until the next time Armory is '
+                   'restarted.')
+
+         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', msg, \
+                QMessageBox.Ok | QMessageBox.Cancel);
+      
+         if doIt!=QMessageBox.Ok:
+            return False
+
+         if waitMsg==None:
+            waitMsg = 'Collecting balance of new addresses'
+         DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
+
+      return True
+         
+      
+   #############################################################################
+   def BDM_SyncCppWallet(self, cppWlt, warnMsg=None, waitMsg=None):
+      """
+      Very similar to above except that you are trying to collect blockchain 
+      information on a wallet that is not a persistent part of Armory -- for
+      instance, you only need to collect information on one address, so you 
+      create a temporary wallet just to scan it and then throw it away (since
+      BDM only operates on wallets, not addresses)
+      """
+
+      def scanBlockchain():
+         TheBDM.scanBlockchainForTx(cppWlt, 0)
+
+      if not TheBDM.evalWalletRequiresBlockchainScan(cppWlt)
+         updateBalance()
+      else:
+         if warnMsg==None:
+            warnMsg = ('In order to determine the balance of new addresses, '
+                       'the entire <i>global transaction history</i> must be '
+                       'scanned.  This can take anywhere from 10 seconds to 3 '
+                       'minutes, depending on your system.  During this time '
+                       'you will not be able to use any other Armory features.'
+                       '<br><br>'
+                       'Do you wish to continue with this scan? '
+                       'If you click "Cancel", the scan will not be performed '
+                       'and the original operation will not continue. ')
+
+         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', warnMsg, \
+                QMessageBox.Ok | QMessageBox.Cancel);
+      
+         if doIt!=QMessageBox.Ok:
+            return False
+
+         if waitMsg==None:
+            waitMsg = 'Collecting balance of new addresses'
+         DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
+
+      return True
+
+
+   #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
       print 'Pretty tx: ', pytx.pprint()
       print 'Raw serialize tx: ', binary_to_hex(pytx.serialize())
