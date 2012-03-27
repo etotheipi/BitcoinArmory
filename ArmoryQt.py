@@ -1203,26 +1203,38 @@ class ArmoryMainWindow(QMainWindow):
       return (pytx, outValue, minFee)
 
 
+      
 
    #############################################################################
-   def BDM_SyncArmoryWallet(self, wltID, startBlock=None, warnMsg=None, waitMsg=None):
+   def BDM_SyncArmoryWallet_Confirm(self, pyWlt, startBlock=None, \
+                                                   warnMsg=None, waitMsg=None):
       """
-      There may end up being lots of different ways to import addresses,
-      and it will require detecting if a blockchain scan is required before
-      actually executing it, so it can pop up the "Please Wait..." window
+      We may want to retreive the the balance/UTXO list for a wallet, but doing
+      so might require doing a full blockchain scan -- which can take a long
+      time.  So we just do it if it's quick, or ask the user for confirmation
+      and return false if they cancel.
+     
+      NOTE: This method does not return the Balance/UTXO list, but it
+            guarantees that a call to retreive the Balance/UTXOs will
+            be nearly instantaneous after this method returns a TRUE.
+            The only way this doesn't work is if you import an address
+            between the time you call this method, and the next time
+            attempt to sync with the blockchain
       """
 
+      # Method to execute while the "Please Wait..." message is displayed
       def updateBalance():
-         self.walletMap[wltID].syncWithBlockchain(startBlock)
+         pyWlt.syncWithBlockchain(startBlock)
 
 
-      if not self.walletMap[wltID].checkIfRescanRequired():
+      if not pyWlt.checkIfRescanRequired():
          updateBalance()
+         return True
       else:
          if msg==None:
             msg = ('In order to determine the new wallet balance, the entire, '
                    '<i>global</i> transaction history must be scanned. '
-                   'This can take anywhere from 10 seconds to 2 minutes, '
+                   'This can take anywhere from 10 seconds to 3 minutes, '
                    'depending on your system.  During this time you will '
                    'not be able to use any other Armory features.'
                    '<br><br>'
@@ -1240,25 +1252,30 @@ class ArmoryMainWindow(QMainWindow):
          if waitMsg==None:
             waitMsg = 'Collecting balance of new addresses'
          DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
-
-      return True
+         return True
          
       
    #############################################################################
-   def BDM_SyncCppWallet(self, cppWlt, warnMsg=None, waitMsg=None):
+   def BDM_SyncCppWallet_Confirm(self, cppWlt, warnMsg=None, waitMsg=None):
       """
       Very similar to above except that you are trying to collect blockchain 
       information on a wallet that is not a persistent part of Armory -- for
       instance, you only need to collect information on one address, so you 
       create a temporary wallet just to scan it and then throw it away (since
       BDM only operates on wallets, not addresses)
+
+      Same NOTE applies as the previous method:  discarding the wallet will
+      not "un-sync" the BDM -- the BDM has already added the wallet addresses
+      to it's registered list and will continue maintaining them even if there
+      are no active wallets containin them.
       """
 
       def scanBlockchain():
          TheBDM.scanBlockchainForTx(cppWlt, 0)
 
-      if not TheBDM.evalWalletRequiresBlockchainScan(cppWlt)
+      if not TheBDM.evalWalletRequiresBlockchainScan(cppWlt):
          updateBalance()
+         return True
       else:
          if warnMsg==None:
             warnMsg = ('In order to determine the balance of new addresses, '
@@ -1280,8 +1297,27 @@ class ArmoryMainWindow(QMainWindow):
          if waitMsg==None:
             waitMsg = 'Collecting balance of new addresses'
          DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
+         return True
 
-      return True
+
+   #############################################################################
+   def BDM_SyncAddressList_Confirm(self, addrList, warnMsg=None, waitMsg=None):
+      """
+      This method shortcuts the work needed to use the above method,
+      BDM_SyncCppWallet_Confirm, on an arbitrary list of addresses.
+      Because the BDM only operates on CppWallets, not individual addrs
+      """
+      if not isinstance(addrList, (list, tuple)):
+         addrList = [addrList]
+
+      cppWlt = Cpp.BtcWallet()
+      for addr in addrList:
+         if isinstance(addr, PyBtcAddress):
+            cppWlt.addAddress_1_(addr.getAddr160())
+         else:
+            cppWlt.addAddress_1_(addr)
+
+      return self.BDM_SyncCppWallet_Confirm(cppWlt, warnMsg, waitMsg)
 
 
    #############################################################################

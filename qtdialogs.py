@@ -1691,9 +1691,15 @@ class DlgImportAddress(QDialog):
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
 
          #######################################################################
-         #  Th
-         finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
+         #  This is the part that may take a while.  Verify user will wait!
+         #  The sync/confirm call guarantees that the next sync call will 
+         #  return instantaneously with the correct answer.  This only stops
+         #  being true when more addresses or wallets are imported.
+         if not self.main.BDM_SyncAddressList_Confirm(oldAddr):
+            return
          #######################################################################
+         
+         finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
 
          if outVal<=fee:
             QMessageBox.critical(self, 'Cannot sweep',\
@@ -2156,6 +2162,15 @@ class DlgAddressInfo(QDialog):
 
       addrToSweep = self.addr.copy()
       targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+
+      #######################################################################
+      #  This is the part that may take a while.  Verify user will wait!
+      #  The sync/confirm call guarantees that the next sync call will 
+      #  return instantaneously with the correct answer.  This only stops
+      #  being true when more addresses or wallets are imported.
+      if not self.main.BDM_SyncAddressList_Confirm(addrToSweep):
+         return
+      #######################################################################
       finishedTx, outVal, fee = self.main.createSweepAddrTx(addrToSweep, targAddr160)
 
       if outVal<=fee:

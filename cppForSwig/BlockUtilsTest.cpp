@@ -334,6 +334,18 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    bdm.scanBlockchainForTx(wlt2);
    wlt2.pprintLedger();
 
+
+   cout << endl << "Create new, unregistered wallet, scan it once (should rescan)..." << endl;
+   BtcWallet wlt3;
+   myAddress.createFromHex("72e20a94d6b2ed34a3b4d3757c1fed5152071993"); wlt3.addAddress(myAddress);
+   wlt3.addAddress(myAddress);
+   bdm.scanBlockchainForTx(wlt3);
+   wlt3.pprintLedger();
+
+   
+   cout << endl << "Rescan unregistered wallet: addr should be registered, so no rescan..." << endl;
+   bdm.scanBlockchainForTx(wlt3);
+   wlt3.pprintLedger();
 }
 
 

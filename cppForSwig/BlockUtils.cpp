@@ -1885,10 +1885,6 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
    uint32_t nextBlk = getTopBlockHeader().getBlockHeight() + 1;
 
    PDEBUG("Scanning blockchain for tx");
-   cout << "startBlkNum    : " << startBlknum << endl;
-   cout << "endBlkNum      : " << endBlknum << endl;
-   cout << "topBlk+1       : " << nextBlk << endl;
-   cout << "allRegAddrScan : " << allRegAddrScannedUpToBlk_ << endl;
    endBlknum = min(endBlknum, nextBlk);
 
    // Check whether we can get everything we need from the registered tx list
@@ -1906,7 +1902,7 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
       if(!walletIsRegistered(myWallet))
          registerWallet( &myWallet );
 
-      readBlkFile_FromScratch("", true); // force rescan of whole blockchain
+      readBlkFile_FromScratch("", true); // same blk0001.dat, but force rescan
       scanRegisteredTxForWallet(myWallet, 0, endBlknum);
    }
 
@@ -2195,7 +2191,6 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename,
       return 0;
    }
 
-   PDEBUG("Read blkfile from scratch");
    blkfilePath_ = filename;
    cout << "Attempting to read blockchain from file: " << blkfilePath_.c_str() << endl;
    ifstream is(blkfilePath_.c_str(), ios::in | ios::binary);
@@ -2279,8 +2274,6 @@ uint32_t BlockDataManager_MMAP::readBlkFileUpdate(string filename)
    if(filename.size() == 0)
       filename = blkfilePath_;
 
-   PDEBUG2("Update blkfile from ", filename);
-
    // Try opening the blkfile for reading
    ifstream is(filename.c_str(), ios::in | ios::binary);
    if( !is.is_open() )
@@ -2309,8 +2302,6 @@ uint32_t BlockDataManager_MMAP::readBlkFileUpdate(string filename)
    is.read((char*)newBlockDataRaw.getPtr(), nBytesToRead);
    is.close();
 
-   cout << newBlockDataRaw.getSliceCopy(0,4).toHexStr() << endl;
-    
    // Use the specialized "addNewBlockData()" methods to add the data
    // to the permanent memory pool and parse it into our header/tx maps
    BinaryRefReader brr(newBlockDataRaw);

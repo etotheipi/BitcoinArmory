@@ -289,6 +289,7 @@ UINT32_MAX = 2**32-1
 UINT64_MAX = 2**64-1
 
 RightNow = time.time
+RightNowUTC = time.time  # will be fixed when merged with master
 SECOND   = 1
 MINUTE   = 60
 HOUR     = 3600
