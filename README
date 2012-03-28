@@ -1,6 +1,6 @@
 ################################################################################
 #                                                                              #
-#  Copyright (C) 2011, Alan C. Reiner    <alan.reiner@gmail.com>               #
+#  Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>          #
 #  Distributed under the GNU Affero General Public License (AGPL v3)           #
 #  See LICENSE or http://www.gnu.org/licenses/agpl.html                        #
 #                                                                              #
@@ -19,35 +19,24 @@
 *             the internet, while still being able to manage incoming payments, 
 *             and create outgoing payments with the help of a USB key.
 * 
-*             Multi-signature transactions are also implemented but not tested
-*             (especailly because the network does not support such transaction
-*             types yet).  However, once multi-signature transactions become
-*             a standard type in the Bitcoin network, Armory will have only a 
-*             short path to adopting it, and producing an intuitive interface
-*             For using them.
-*             
+*             Multi-signature transactions are accommodated under-the-hood 
+*             about 80%, and will be completed and integrated into the UI soon.
 *
-*             ***As of version 0.5-alpha, Armory requires holding the entire 
-*             blockchain in RAM, which will have serious performance impacts
-*             on any computer with less than 4 GB of RAM.  The first upgrade 
-*             on the path to a beta release, will be to use a file-based 
-*             blockchain which will only require HDD space, not RAM.  
-*
-*             On the other hand, having the entire blockchain in RAM, along
-*             with the ultra-optimized C++ engine for blockchain scanning, 
-*             one could create a very powerful server implementation which 
-*             can compute complete balances/unspent-output-list in a fraction
-*             of a second.  Please contact me if you are interested in using
-*             Armory for this purpose.
+*             ***As of version 0.7-alpha, Armory NO LONGER requires holding the
+*             blockchain in RAM, and systems with even 1GB of RAM should be able
+*             to use Armory.  The drawback is that full rescans will take approx
+*             30-120 seconds depending on the system, and currently one is done
+*             on every load.
 *             
-*             ***Additionally, Armory has no independent networking components,
-*             instead relying on on the Satoshi client to securely connect 
+*             ***Armory has no independent networking components built in.
+*             Instead, it relies on on the Satoshi client to securely connect 
 *             to peers, validate blockchain data, and broadcast transactions
 *             for us.  Although it was initially planned to cut the umbilical
 *             cord to the Satoshi client and implement independent networking,
 *             that could be a multi-month task, and instead I may resort to 
-*             cannabilizing the Satoshi code to integrate existing, secure 
-*             networking protocols already available.
+*             cannabilizing the Satoshi code, or a related project, to integrate 
+*             and existing, secure, robust, networking system into Armory with
+*             out risks of major bugs and blockchain forks.
 *           
 *
 ********************************************************************************
@@ -57,7 +46,7 @@
 ********************************************************************************
 
 ********************************************************************************
-*  STATUS:   Last Updated - 02 Feb, 2011
+*  STATUS:   Last Updated - 28 Mar, 2012
 *            Legend:   
 *                      _    not implemented
 *                      .    implemented but not tested
@@ -130,14 +119,14 @@
 *      (11)  Spend change outputs immediately     X
 *      (12)  User modes (Std/Adv/Dev)             X
 *      (13)  SelectCoins customization            X  (impl but no GUI options, yet)
-*      (14)  Guaranateed Tx Fee calculation       X  (force zero fee possible)
+*      (14)  Guaranateed Tx Fee calculation       X  (impl but tx will not be accepted)
 *      (15)  Full Wallet encryption with KDF      X
 *     ---------------------------------------------------------------
 *      (16)  Change encryption passphrase         X
 *      (17)  Change key-derivation time/mem 
 *      (18)  COMPLETE OFFLINE WALLET MANAGEMENT   X
 *      (19)  Individual Key/Address backup        X
-*      (20)  Convert Satoshi wallets to Armory    
+*      (20)  Convert Satoshi wallets to Armory    X
 *     ---------------------------------------------------------------
 *      (21)  Address books                         
 *      (22)  System-tray notifications           
@@ -145,18 +134,6 @@
 *
 *
 *
-* More Notes:
-*      FullRAM implementation only in C++ code.  However,
-*      modern computers can handle the full blockchain in RAM right now, and 
-*      probably for the next year, so there's no hurry to restructure the code
-*      to index the blockchain into memory and scan it in batches
-*
-*      To be clear:  I WILL DO THIS, just not yet -- one of my first priorities
-*                    after an initial client release
-*
-*      Short/Medium-term future:
-*            Convert wallet files to/from official BTC wallets (pywallet)
-*  
 ********************************************************************************
 
 

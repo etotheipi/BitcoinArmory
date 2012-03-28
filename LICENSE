@@ -3,7 +3,7 @@
 
     Armory -- Bitcoin Client Software
 
-    Copyright (C) 2011, Alan C. Reiner  <alan.reiner@gmail.com>
+    Copyright (C) 2011-2012, Alan C. Reiner  <alan.reiner@gmail.com>
 
     This program is free software: you can redistribute it and/or modify
     it under the terms of the GNU Affero General Public License as
@@ -18,19 +18,21 @@
 
 ********************************************************************************
 
-    This license applies to all works under this directory EXCEPT for:
+    This license applies to all works under this directory tree EXCEPT for:
     
-          cppForSwig/cryptopp
+          cppForSwig/cryptopp/*
+          qtreactor4.py
+          qrcodenative.py
     
-    Everything in that directory is considered public domain according to
-    http://www.cryptopp.com/ and included here only for convenience.  Please
+    Everything in the cryptopp directory is considered public domain according 
+    to http://www.cryptopp.com/ and included here only for convenience.  Please
     contact me at alan.reiner@gmail.com if you believe that I am not in
     compliance with the crypto++ licence.
 
 ********************************************************************************
    
     ***  If you wish to use this work in a way not compliant with the 
-         AGPL license, please contact me to work out an agreement for
+         AGPLv3 license, please contact me to work out an agreement for
          dual-licensing.   alan.reiner@gmail.com
 
 ********************************************************************************
