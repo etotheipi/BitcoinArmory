@@ -1,7 +1,13 @@
 *.swp
 *.pyc
 *.*~
+*.o
 
+CppBlockUtils.py
+_CppBlockUtils.so
+/cppForSwig/CppBlockUtils_wrap.cxx
+/cppForSwig/cryptopp/a.out
+/cppForSwig/libcryptopp.a
 /cppForSwig/cryptopp/Template
 /cppForSwig/cryptopp/TestData
 /cppForSwig/cryptopp/TestVectors
