@@ -5,6 +5,7 @@ from qtdefines import *
 
 from armoryengine import *
 from armorymodels import *
+import qrc_img_resources
 
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
@@ -23,7 +24,6 @@ class DlgUnlockWallet(QDialog):
       self.edtPasswd = QLineEdit()
       self.edtPasswd.setEchoMode(QLineEdit.Password)
       self.edtPasswd.setMinimumWidth(MIN_PASSWD_WIDTH(self))
-      fm = QFontMetricsF(QFont(self.font()))
       self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
 
       self.btnAccept = QPushButton("Unlock")
@@ -55,6 +55,38 @@ class DlgUnlockWallet(QDialog):
          return
 
       
+################################################################################
+class DlgGenericGetPassword(QDialog):
+   def __init__(self, descriptionStr, parent=None, main=None):
+      super(DlgGenericGetPassword, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      lblDescr  = QRichLabel(descriptionStr)
+      lblPasswd = QRichLabel("Password:")
+      self.edtPasswd = QLineEdit()
+      self.edtPasswd.setEchoMode(QLineEdit.Password)
+      self.edtPasswd.setMinimumWidth(MIN_PASSWD_WIDTH(self))
+      self.edtPasswd.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+      self.btnAccept = QPushButton("OK")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,       1, 0, 1, 2)
+      layout.addWidget(lblPasswd,      2, 0, 1, 1)
+      layout.addWidget(self.edtPasswd, 2, 1, 1, 1)
+      layout.addWidget(buttonBox,      3, 1, 1, 2)
+
+      self.setLayout(layout)
+      self.setWindowTitle('Enter Password')
+      self.setWindowIcon(QIcon(self.main.iconfile))
    
 
 ################################################################################
@@ -94,9 +126,8 @@ class DlgNewWallet(QDialog):
       # Advanced Encryption Options
       lblComputeDescr = QLabel('Armory will test your system\'s speed to determine the most '
                                'challenging encryption settings that can be performed '
-                               'in a given amount of time.  High settings make it reduce the speed'
-                               'at which someone can check guesses of your passphrase. This is '
-                               'used for all '
+                               'in a given amount of time.  High settings make it much harder '
+                               'for someone to guess your passphrase.  This is used for all '
                                'encrypted wallets, but the default parameters can be changed below.\n')
       lblComputeDescr.setWordWrap(True)
       timeDescrTip = createToolTipObject(
@@ -422,7 +453,7 @@ class DlgPasswd3(QDialog):
       self.main   = main
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -479,7 +510,6 @@ class DlgChangeLabels(QDialog):
 
       self.edtDescr = QTextEdit()
       tightHeight = tightSizeNChar(self.edtDescr, 1)[1]
-      #fm = QFontMetricsF(QFont(self.edtDescr.font()))
       self.edtDescr.setMaximumHeight(tightHeight*4.2)
       lblDescr = QLabel("Wallet &description:")
       lblDescr.setAlignment(Qt.AlignVCenter)
@@ -537,26 +567,21 @@ class DlgWalletDetails(QDialog):
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
-      self.wltAddrView.setMinimumWidth(600)
+      self.wltAddrView.setMinimumWidth(550)
       self.wltAddrView.setMinimumHeight(150)
       iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
-      initialColResize(self.wltAddrView, [0.25, 0.3, 64, iWidth*1.1, 0.3])
+      initialColResize(self.wltAddrView, [0.4, 0.45, 64, iWidth*1.3, 0.2])
 
       self.wltAddrView.sizeHint = lambda: QSize(700, 225)
       self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-         
 
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
    
-      # TODO:  Need to do different things depending on which col was clicked
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
-      #self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), uacfv)
                    
       self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
-      #clip = QApplication.clipboard()
-      #def copyAddrToClipboard()
 
 
       # Now add all the options buttons, dependent on the type of wallet.
@@ -716,7 +741,7 @@ class DlgWalletDetails(QDialog):
       layout.addWidget(optFrame,              1, 4, 9, 2)
       self.setLayout(layout)
 
-      self.setWindowTitle('Wallet Details')
+      self.setWindowTitle('Wallet Properties')
 
       
    #############################################################################
@@ -810,8 +835,8 @@ class DlgWalletDetails(QDialog):
       
 
    def getNewAddress(self):
-      dlg = DlgNewAddressDisp(self.wlt, self, self.main)
-      dlg.exec_()
+      if showWatchOnlyRecvWarningIfNecessary(self.wlt, self.main):
+         DlgNewAddressDisp(self.wlt, self, self.main).exec_()
        
 
    def execSendBtc(self):
@@ -1237,6 +1262,42 @@ class DlgWalletDetails(QDialog):
          self.setWindowTitle('Set Wallet Owner')
 
 
+def showWatchOnlyRecvWarningIfNecessary(wlt, main):
+
+   wlttype = determineWalletType(wlt, main)[0]
+   notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
+   offlineWallet = (wlttype==WLTTYPES.Offline)
+   dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
+   dnaaThisWallet = main.settings.getSettingOrSetDefault(dnaaPropName, False)
+   if notMyWallet and not dnaaThisWallet:
+      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+            'You are getting an address for a wallet that '
+            'does not appear to belong to you.  Any money sent to this '
+            'address will not appear in your total balance, and cannot '
+            'be spent from this computer.<br><br>'
+            'If this is actually your wallet (perhaps you maintain the full '
+            'wallet on a separate computer), then please change the '
+            '"Belongs To" field in the wallet-properties for this wallet.', \
+            'Do not show this warning again', wCancel=True)
+      main.settings.set(dnaaPropName, result[1])
+      return result[0]
+
+   if offlineWallet and not dnaaThisWallet:
+      result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
+            'You are getting an address for a wallet that '
+            'you have specified belongs to you, but you cannot actually '
+            'spend the funds from this computer.  This is usually the case when '
+            'you keep the full wallet on a separate computer for security '
+            'purposes.<br><br>'
+            'If this does not sound right, then please do not use the following '
+            'address.  Instead, change the wallet properties "Belongs To" field '
+            'to specify that this wallet is not actually yours.', \
+            'Do not show this warning again', wCancel=True)
+      main.settings.set(dnaaPropName, result[1])
+      return result[0]
+   return True
+
+
 class DlgNewAddressDisp(QDialog):
    """
    We just generated a new address, let's show it to the user and let them
@@ -1251,43 +1312,8 @@ class DlgNewAddressDisp(QDialog):
       self.main   = main
 
       wlttype = determineWalletType( self.wlt, self.main)[0]
-
       notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
       offlineWallet = (wlttype==WLTTYPES.Offline)
-      dnaaPropName = 'Wallet_%s_%s' % (self.wlt.uniqueIDB58, 'DNAA_RecvOther')
-      dnaaThisWallet = self.main.settings.getSettingOrSetDefault(dnaaPropName, False)
-      if notMyWallet and not dnaaThisWallet:
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-               'You are getting an address for a wallet that '
-               'does not appear to belong to you.  Any money sent to this '
-               'address will not appear in your total balance, and cannot '
-               'be spent from this computer.<br><br>'
-               'If this is actually your wallet (perhaps you maintain the full '
-               'wallet on a separate computer), then please change the '
-               '"Belongs To" field in the wallet-properties for this wallet.', \
-               'Do not show this warning again', wCancel=True)
-         self.main.settings.set(dnaaPropName, result[1])
-         if result[0]==False:
-            self.reject()
-            return
-
-      if offlineWallet and not dnaaThisWallet:
-         result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
-               'You are getting an address for a wallet that '
-               'you have specified belongs to you, but you cannot actually '
-               'spend the funds from this computer.  This is usually the case when '
-               'you keep the full wallet on a separate computer for security '
-               'purposes.<br><br>'
-               'If this does not sound right, then please do not use the following '
-               'address.  Instead, change the wallet properties "Belongs To" field '
-               'to specify that this wallet is not actually yours.', \
-               'Do not show this warning again', wCancel=True)
-         self.main.settings.set(dnaaPropName, result[1])
-         if result[0]==False:
-            self.reject()
-            return
-
-         
 
       lblDescr = QLabel( \
             'The following address can be used to to receive Bitcoins:')
@@ -1358,8 +1384,9 @@ class DlgNewAddressDisp(QDialog):
       frmComment.setLayout(frmCommentLayout)
 
       
-      lblRecvWlt = QLabel( \
-            'Money sent to this address will appear in the following wallet:')
+      lblRecvWlt = QRichLabel( \
+            'Money sent to this address will appear in the following wallet:', \
+            doWrap=False)
       
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -1449,7 +1476,7 @@ class DlgImportWarning(QDialog):
       lblWarn.setWordWrap(True)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.chkDNAA = QCheckBox('Do not show this message again')
@@ -1509,6 +1536,20 @@ class DlgImportAddress(QDialog):
                                       'Only select this option if you are positive '
                                       'that no one else has access to this key')
 
+      ## Sweep option (only available when online)
+      if self.main.isOnline:
+         self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                         'into your wallet\n'
+                                         'Select this option if someone else gave you this key')
+         self.radioSweep.setChecked(True)
+      else:
+         self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                         'into your wallet\n'
+                                         '(Not available in offline mode)')
+         self.radioImport.setChecked(True)
+         self.radioSweep.setEnabled(False)
+
+
       sweepTooltip = createToolTipObject( \
          'You should never add an untrusted key to your wallet.  By choosing this '
          'option, you are only moving the funds into your wallet, but not the key '
@@ -1525,7 +1566,7 @@ class DlgImportAddress(QDialog):
       btngrp.addButton(self.radioSweep)
       btngrp.addButton(self.radioImport)
       btngrp.setExclusive(True)
-      self.radioSweep.setChecked(True)
+
 
 
       frmWarn = QFrame()
@@ -1569,101 +1610,54 @@ class DlgImportAddress(QDialog):
 
    def processUserString(self):
       inputLines = [s.strip().replace(' ','') for s in str(self.txtPrivData.text()).split('\n')]
-      hexChars = '01234567890abcdef'
-      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+      binKeyData, addr160, addrStr = '','',''
 
       privKeyList = []
       for line in inputLines:
-         hexCount = sum([1 if c in hexChars else 0 for c in inputLines])
-         b58Count = sum([1 if c in b58Chars else 0 for c in inputLines])
-         canBeHex = hexCount==len(inputLines)
-         canBeB58 = b58Count==len(inputLines)
-   
-         binEntry = ''
-         miniKey = False
-         if canBeB58 and not canBeHex:
-            if len(inputLines)==22 or len(inputLines)==30:
-               # Mini-private key format!
-               try:
-                  binEntry = decodeMiniPrivateKey(inputLines)
-               except KeyDataError:
-                  reply = QMessageBox.critical(self, 'Invalid Key', \
-                     'It appears that you tried to enter a mini-private-key,' 
-                     'but it is not a valid key.  Please check the entry '
-                     'for errors.', \
-                     QMessageBox.Ok)
-                  return
-               miniKey = True
-            else:
-               binEntry = base58_to_binary(inputLines)
-   
-         if canBeHex:  
-            binEntry = hex_to_binary(inputLines)
-   
-         if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
-            if len(inputLines)==36:
-               keydata = binEntry[:32 ]
-               chk     = binEntry[ 32:]
-               binEntry = verifyChecksum(keydata, chk)
-            else:
-               # Assume leading 0x80 byte, and 4 byte checksum
-               keydata = binEntry[ :1+32 ]
-               chk     = binEntry[  1+32:]
-               binEntry = verifyChecksum(keydata, chk)
-               binEntry = binEntry[1:]
-   
-            if binEntry=='':
-               QMessageBox.warning(self, 'Entry Error',
-                  'The private key data you supplied appears to '
-                  'contain a consistency check.  This consistency '
-                  'check failed.  Please verify you entered the '
-                  'key data correctly.', QMessageBox.Ok)
-               return
-   
-         binKeyData, addr160, addrStr = '','',''
-         # Regardless of format, if this is a valid key, it should be 32 bytes
-         if len(binEntry)==32:
-            # Support raw private keys
-            binKeyData = binEntry
-            addr160 = convertKeyDataToAddress(privKey=binKeyData)
-            addrStr = hash160_to_addrStr(addr160)
-   
-            if not miniKey:
-               reply = QMessageBox.question(self, 'Verify Address', \
-                     'The key data you entered appears to correspond to '
-                     'the following Bitcoin address:\n\n\t' + addrStr +
-                     '\n\nIs this the correct address?',
-                     QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-               if reply==QMessageBox.Cancel:
-                  return 
-               else:
-                  if reply==QMessageBox.No:
-                     binKeyData = binary_switchEndian(binEntry)
-                     addr160 = convertKeyDataToAddress(privKey=binKeyData)
-                     addrStr = hash160_to_addrStr(addr160)
-                     reply = QMessageBox.question(self, 'Try Again', \
-                           'It is possible that the key was supplied in a '
-                           '"reversed" form.  When the data you provide is '
-                           'reversed, the following address is obtained:\n\n\t '
-                           + addrStr + '\n\nIs this the correct address?', \
-                           QMessageBox.Yes | QMessageBox.No)
-                     if reply==QMessageBox.No:
-                        binKeyData='' 
-   
+      try:
+         binKeyData, keyType = parsePrivateKeyData(theStr)
+         addr160 = convertKeyDataToAddress(privKey=binKeyData)
+         addrStr = hash160_to_addrStr(addr160)
+      except InvalidHashError, e:
+         QMessageBox.warning(self, 'Entry Error',
+            'The private key data you supplied appears to '
+            'contain a consistency check.  This consistency '
+            'check failed.  Please verify you entered the '
+            'key data correctly.', QMessageBox.Ok)
+         return
+      except BadInputError, e:
+         QMessageBox.critical(self, 'Invalid Data', e, QMessageBox.Ok)
+         return
+      except:
+         QMessageBox.critical(self, 'Error Processing Key', \
+            'There was an error processing the private key data. '
+            'Please check that you entered it correctly', QMessageBox.Ok)
+         return
          
-   
-         if binKeyData=='':
-            reply = QMessageBox.critical(self, 'Invalid Key Format', \
-                  'The data you supplied is not a recognized format '
-                  'for private key data.', \
-                  QMessageBox.Ok)
-            return
+
+
+      if not 'mini' in keyType.lower():
+         reply = QMessageBox.question(self, 'Verify Address', \
+               'The key data you entered appears to correspond to '
+               'the following Bitcoin address:\n\n\t' + addrStr +
+               '\n\nIs this the correct address?',
+               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+         if reply==QMessageBox.Cancel:
+            return 
          else:
-            privKeyList.append(binKeyData)
+            if reply==QMessageBox.No:
+               binKeyData = binary_switchEndian(binEntry)
+               addr160 = convertKeyDataToAddress(privKey=binKeyData)
+               addrStr = hash160_to_addrStr(addr160)
+               reply = QMessageBox.question(self, 'Try Again', \
+                     'It is possible that the key was supplied in a '
+                     '"reversed" form.  When the data you provide is '
+                     'reversed, the following address is obtained:\n\n\t '
+                     + addrStr + '\n\nIs this the correct address?', \
+                     QMessageBox.Yes | QMessageBox.No)
+               if reply==QMessageBox.No:
+                  binKeyData='' 
 
-   
-
-      
 
 
       # Finally, let's add the address to the wallet, or sweep the funds
@@ -1740,17 +1734,17 @@ class DlgImportAddress(QDialog):
          wltID = self.main.getWalletForAddr160(addr160)
          if not wltID=='':
             reply = QMessageBox.critical(self, 'Duplicate Addresses', \
-            'The key you entered is already part of another wallet '
-            'another wallet you own:\n\n'
-            'Address: ' + addrStr + '\n'
-            'Wallet ID: ' + wltID + '\n'
-            'Wallet Name: ' + self.main.walletMap[wltID].labelName + '\n\n'
-            'If you continue, any funds in this '
-            'address will be double-counted, causing your total balance '
-            'to appear artificially high, and any transactions involving '
-            'this address will confusingly appear in multiple wallets.'
-            '\n\nWould you like to import this address anyway?', \
-            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+               'The key you entered is already part of another wallet '
+               'another wallet you own:\n\n'
+               'Address: ' + addrStr + '\n'
+               'Wallet ID: ' + wltID + '\n'
+               'Wallet Name: ' + self.main.walletMap[wltID].labelName + '\n\n'
+               'If you continue, any funds in this '
+               'address will be double-counted, causing your total balance '
+               'to appear artificially high, and any transactions involving '
+               'this address will confusingly appear in multiple wallets.'
+               '\n\nWould you like to import this address anyway?', \
+               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
             if not reply==QMessageBox.Yes:
                return
    
@@ -1782,6 +1776,7 @@ class DlgImportAddress(QDialog):
 
 
 
+#############################################################################
 class DlgVerifySweep(QDialog):
    def __init__(self, inputStr, outputStr, outVal, fee, parent=None, main=None):
       super(DlgVerifySweep, self).__init__(parent)
@@ -1814,7 +1809,7 @@ class DlgVerifySweep(QDialog):
       self.connect(bbox, SIGNAL('rejected()'), self.reject)
 
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       layout = QHBoxLayout()
@@ -1835,16 +1830,15 @@ class DlgImportWallet(QDialog):
       self.main   = main
 
       lblImportDescr = QLabel('Chose the wallet import source:')
-      self.btnImportFile  = QPushButton("Import from &file")
-      self.btnImportPaper = QPushButton("Import from &paper backup")
+      self.btnImportFile  = QPushButton("Import Armory wallet from &file")
+      self.btnImportPaper = QPushButton("Restore from &paper backup")
+      self.btnMigrate     = QPushButton("Migrate wallet.dat (main Bitcoin App)")
 
       self.btnImportFile.setMinimumWidth(300)
 
-      self.connect( self.btnImportFile, SIGNAL("clicked()"), \
-                    self.getImportWltPath)
-
-      self.connect( self.btnImportPaper, SIGNAL('clicked()'), \
-                    self.acceptPaper)
+      self.connect( self.btnImportFile,  SIGNAL("clicked()"), self.acceptImport)
+      self.connect( self.btnImportPaper, SIGNAL('clicked()'), self.acceptPaper)
+      self.connect( self.btnMigrate,     SIGNAL('clicked()'), self.acceptMigrate)
 
       ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
                                   '*.wallet extension.  Any wallet that you import will ' 
@@ -1855,6 +1849,9 @@ class DlgImportWallet(QDialog):
                                   'a wallet, you can manually enter the wallet '
                                   'data into Armory to recover the wallet.')
 
+      ttip3 = createToolTipObject('Migrate all your wallet.dat addresses '
+                                  'from the regular Bitcoin client to an Armory '
+                                  'wallet.')
 
       w,h = relaxedSizeStr(ttip1, '(?)') 
       for ttip in (ttip1, ttip2):
@@ -1866,12 +1863,13 @@ class DlgImportWallet(QDialog):
       layout.addWidget(lblImportDescr,      0,0, 1, 2)
       layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
       layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
+      layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
       if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
          lbl = QLabel('You can manually add wallets to armory by copying them '
                       'into your application directory:  ' + ARMORY_HOME_DIR)
          lbl.setWordWrap(True)
-         layout.addWidget(lbl, 3,0, 1, 2); 
+         layout.addWidget(lbl, 4,0, 1, 2); 
          if self.main.usermode==USERMODE.Developer:
             lbl = QLabel('Any files in the application data directory above are '
                          'used in the application if the first 8 bytes of the file '
@@ -1879,34 +1877,466 @@ class DlgImportWallet(QDialog):
                          'ignored by adding an <i>Excluded_Wallets</i> option to the '
                          'ArmorySettings.txt file.  Reference by full path or wallet ID.')
             lbl.setWordWrap(True)
-            layout.addWidget(lbl, 4,0, 1, 2); 
+            layout.addWidget(lbl, 5,0, 1, 2); 
 
       btnCancel = QPushButton('Cancel')
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
-      layout.addWidget(btnCancel, 5,0, 1,1);
+      layout.addWidget(btnCancel, 6,0, 1,1);
+      
+      self.setMinimumWidth(400)
 
       self.setLayout(layout)
       self.setWindowTitle('Import Wallet')
       
 
-   def getImportWltPath(self):
-      self.importFile = self.main.getFileLoad('Import Wallet File')
-      if self.importFile:
-         print 'Importing:', self.importFile
-         self.importType_file = True
-         self.importType_paper = False
-         self.accept()
+   def acceptImport(self):
+      self.importType_file    = True
+      self.importType_paper   = False
+      self.importType_migrate = False
+      self.accept()
 
       
    def acceptPaper(self):
-      """
-      We will accept this dialog but signal to the caller that paper-import
-      was selected so that it can open the dialog for itself
-      """
-      self.importType_file = False
-      self.importType_paper = True
+      self.importType_file    = False
+      self.importType_paper   = True
+      self.importType_migrate = False
       self.accept()
       
+   def acceptMigrate(self):
+      self.importType_file    = False
+      self.importType_paper   = False
+      self.importType_migrate = True
+      self.accept()
+
+#############################################################################
+class DlgMigrateSatoshiWallet(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgMigrateSatoshiWallet, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      lblDescr = QRichLabel( \
+         'Specify the location of your regular Bitcoin wallet (wallet.dat) '
+         'to be migrated into an Armory wallet.  All private '
+         'keys will be imported, giving you full access to those addresses, as '
+         'if Armory had generated them natively.'
+         '<br><br>'
+         '<b>NOTE:</b> It is strongly recommended that all '
+         'Bitcoin addresses be used in only one program at a time.  If you '
+         'import your entire wallet.dat, it is recommended to stop using the '
+         'regular Bitcoin client, and only use Armory to send transactions.  '
+         'Armory developers will not be responsible for coins getting "locked" '
+         'or "stuck" due to multiple applications attempting to spend coins '
+         'from the same addresses.')
+
+      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (typically ' +
+                                 os.path.join(BTC_HOME_DIR, 'wallet.dat') + ')', doWrap=False)
+      ttipWlt = createToolTipObject(\
+         'This is the wallet file used by the standard Bitcoin client from '
+         'bitcoin.org.  It contains all the information needed for Armory to '
+         'know how to access the Bitcoins maintained by that program')
+      self.txtWalletPath = QLineEdit()
+
+
+
+      self.chkAllKeys = QCheckBox('Include Address Pool (unused keys)')
+      ttipAllKeys = createToolTipObject( \
+         'The wallet.dat file typically '
+         'holds a pool of 100 addresses beyond the ones you ever used. '
+         'These are the next 100 addresses to be used by the main Bitcoin '
+         'client for the next 100 transactions.  '
+         'If you are planning to switch to Armory exclusively, you will not '
+         'need these addresses')
+
+      self.chkAllKeys.setChecked(True)
+      if self.main.usermode in (USERMODE.Standard,):
+         self.chkAllKeys.setVisible(False)
+         self.ttipAllKeys.setVisible(False)
+
+      btnGetFilename = QPushButton('Find...')
+      self.connect(btnGetFilename, SIGNAL('clicked()'), self.getSatoshiFilename)
+
+      defaultWalletPath = os.path.join(BTC_HOME_DIR,'wallet.dat')
+      if os.path.exists(defaultWalletPath):
+         self.txtWalletPath.setText(defaultWalletPath)
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Import")
+      self.btnReject = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.execMigrate)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+
+      # Select the wallet into which you want to import
+      lblWltDest = QRichLabel('Migrate Addresses to which Wallet?', doWrap=False)
+      self.wltidlist = [''] 
+      self.lstWallets = QListWidget()
+      self.lstWallets.addItem(QListWidgetItem('New Wallet...'))
+      for wltID in self.main.walletIDList:
+         wlt = self.main.walletMap[wltID]
+         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
+            continue
+         self.lstWallets.addItem( \
+                QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
+         self.wltidlist.append(wltID)
+      self.lstWallets.setCurrentRow(0)
+      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.wltChange)
+
+
+      self.lblDescrNew = QRichLabel( '' )
+      self.lblDescrNew.setAlignment(Qt.AlignTop)
+      self.wltChange(0)
+      
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(makeHorizFrame([lblSatoshiWlt, ttipWlt, 'Stretch']))
+      dlgLayout.addWidget(makeHorizFrame([self.txtWalletPath, btnGetFilename]))
+      dlgLayout.addWidget(makeHorizFrame([self.chkAllKeys, ttipAllKeys, 'Stretch']))
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(makeHorizFrame([lblWltDest, 'Stretch']))
+      dlgLayout.addWidget(makeHorizFrame([self.lstWallets, self.lblDescrNew,'Stretch']))
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(buttonBox)
+
+      self.setLayout(dlgLayout)
+
+      self.setMinimumWidth(500)
+      self.setWindowTitle('Migrate Satoshi Wallet')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
+
+   def getSatoshiFilename(self):
+      # Temporarily reset the "LastDir" to where the default wallet.dat is
+      prevLastDir = self.main.settings.get('LastDirectory')
+      self.main.settings.set('LastDirectory', BTC_HOME_DIR)
+      satoshiWltFile = self.main.getFileLoad('Load Bitcoin Wallet File', \
+                                             ['Bitcoin Wallets (*.dat)'])
+      self.main.settings.set('LastDirectory', prevLastDir)
+      if len(str(satoshiWltFile))>0:
+         self.txtWalletPath.setText(satoshiWltFile)
+      
+
+   def wltChange(self, row):
+      if row==0:
+         self.lblDescrNew.setText( \
+           'If your wallet.dat is encrypted, the new Armory wallet will also '
+           'be encrypted, and with the same passphrase.  If your wallet.dat '
+           'is not encrypted, neither will the new Armory wallet.  Encryption '
+           'can always be added, changed or removed on any wallet.')
+      else:
+         self.lblDescrNew.setText( '' )
+
+   def execMigrate(self):
+      satoshiWltFile = str(self.txtWalletPath.text())
+      if not os.path.exists(satoshiWltFile):
+         QMessageBox.critical(self, 'File does not exist!', \
+            'The specified file does not exist:\n\n' + satoshiWltFile,
+            QMessageBox.Ok)
+         return
+
+      selectedRow = self.lstWallets.currentRow()
+      toWalletID = None
+      if selectedRow>0:
+         toWalletID = self.wltidlist[selectedRow]
+         
+
+
+      # Critical to avoid wallet corruption!!
+      base,fn = os.path.split(satoshiWltFile)
+      nm,ext = os.path.splitext(fn)
+      satoshiWltFileCopy = os.path.join(ARMORY_HOME_DIR, nm+'_temp_copy'+ext)
+      shutil.copy(satoshiWltFile, satoshiWltFileCopy)
+      if not os.path.exists(satoshiWltFileCopy):
+         raise FileExistsError, 'There was an error creating a copy of wallet.dat'
+
+      # KeyList is [addrB58, privKey, usedYet, acctName]
+      # This block will not only decrypt the Satoshi wallet, but also catch
+      # if the user specified a wallet.dat for a different network!
+      keyList = []
+      satoshiPassphrase = None
+      satoshiWltIsEncrypted  = checkSatoshiEncrypted(satoshiWltFileCopy)
+
+      if not satoshiWltIsEncrypted:
+         try:
+            keyList = extractSatoshiKeys(satoshiWltFileCopy)
+         except NetworkIDError:
+            QMessageBox.critical(self, 'Wrong Network!', \
+               'The specified wallet.dat file is for a different network! '
+               '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
+               QMessageBox.Ok)
+            return
+      else:
+         correctPassphrase = False
+         firstAsk = True
+         while not correctPassphrase:
+            # Loop until we get a valid passphrase
+            redText = ''
+            if not firstAsk:
+               redText = '<font color="red">Incorrect passphrase.</font><br><br>' 
+            firstAsk = False
+
+            dlg = DlgGenericGetPassword( \
+                redText + 'The wallet.dat file you specified is encrypted.  '
+                'Please provide the passphrase to decrypt it.', self, self.main)
+
+            if not dlg.exec_():
+               return
+            else:
+               satoshiPassphrase = SecureBinaryData(str(dlg.edtPasswd.text()))
+               try:
+                  keyList = extractSatoshiKeys(satoshiWltFileCopy, satoshiPassphrase)
+                  correctPassphrase = True
+               except EncryptionError:
+                  pass
+               except NetworkIDError:
+                  QMessageBox.critical(self, 'Wrong Network!', \
+                     'The specified wallet.dat file is for a different network! '
+                     '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
+                     QMessageBox.Ok)
+                  return
+
+      # We're done accessing the file, delete the
+      os.remove(satoshiWltFileCopy)
+      
+      if not self.chkAllKeys.isChecked():
+         keyList = filter(lambda x: x[2], keyList)
+
+
+      # Warn about addresses that would be duplicates.
+      # This filters the list down to addresses already in a wallet that isn't selected
+      # Addresses already in the selected wallet will simply be skipped, no need to 
+      # do anything about that
+      addr_to_wltID = lambda a: self.main.getWalletForAddr160(addrStr_to_hash160(a))
+      allWltList = [[addr_to_wltID(k[0]), k[0]] for k in keyList]
+      dupeWltList = filter(lambda a: (len(a[0])>0 and a[0]!=toWalletID), allWltList)
+
+      if len(dupeWltList)>0:
+         dlg = DlgDuplicateAddr([d[1].ljust(40)+d[0] for d in dupeWltList], self, self.main)
+         didAccept = dlg.exec_()
+         if not didAccept or dlg.doCancel:
+            return
+   
+         if dlg.newOnly:
+            dupeAddrList = [a[1] for a in dupeWltList]
+            keyList = filter(lambda x: (x[0] not in dupeAddrList), keyList)
+         elif dlg.takeAll:
+            pass # we already have duplicates in the list, leave them
+      
+
+      # Confirm import
+      addrList = [k[0].ljust(40)+k[3] for k in keyList]
+      dlg = DlgConfirmBulkImport(addrList, toWalletID, self, self.main)
+      if not dlg.exec_():
+         return
+         
+      # Okay, let's do it!  Get a wallet, unlock it if necessary, create if desired
+      wlt = None
+      if toWalletID==None:
+         lblShort = 'Migrated wallet.dat'
+         lblLong  = 'Wallet created to hold addresses from the regular Bitcoin wallet.dat.'
+
+         if not satoshiPassphrase:
+            wlt = PyBtcWallet().createNewWallet(    \
+                               withEncrypt=False,   \
+                               shortLabel=lblShort, \
+                               longLabel=lblLong)
+                                                     
+         else:
+            lblLong += ' (encrypted using same passphrase as the original wallet)'
+            wlt = PyBtcWallet().createNewWallet( \
+                               withEncrypt=True, \
+                               securePassphrase=satoshiPassphrase, \
+                               shortLabel=lblShort, \
+                               longLabel=lblLong)
+            wlt.unlock(securePassphrase=satoshiPassphrase)
+
+
+      else:
+         wlt = self.main.walletMap[toWalletID]
+         if wlt.useEncryption and wlt.isLocked:
+            # Target wallet is encrypted...
+            unlockdlg = DlgUnlockWallet(wlt, self, self.main, 'Unlock Wallet to Import')
+            if not unlockdlg.exec_():
+               QMessageBox.critical(self, 'Wallet is Locked', \
+                  'Cannot import private keys without unlocking wallet!', \
+                  QMessageBox.Ok)
+               return
+
+      
+      nImport = 0
+      nError  = 0
+      for i,key4 in enumerate(keyList):
+         addrB58, sbdKey, isUsed, addrName = key4[:]
+         try:
+            a160 = addrStr_to_hash160(addrB58)
+            wlt.importExternalAddressData(privKey=sbdKey)
+            cmt = 'Imported #%03d'%i
+            if len(addrName)>0:
+               cmt += ': %s' % addrName
+            wlt.setComment(a160, cmt)
+            nImport += 1
+         except Exception,msg:
+            print '***ERROR importing:', addrB58
+            print '         Error Msg:', msg
+            nError += 1
+
+
+      restartMsg = '<br><br>Restart Armory to guarantee that balances are computed correctly.'
+      #restartMsg = ''
+      #if self.main.isOnline:
+         
+      if nImport==0:
+         MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
+            'Please check the logfile (ArmoryQt.exe.log) or the console output '
+            'for information about why it failed (and email alan.reiner@gmail.com '
+            'for help fixing the problem).')
+      else:
+         if nError == 0:
+            MsgBoxCustom(MSGBOX.Good, 'Success!', \
+               'Success: %d private keys were imported into your wallet.  %s' % \
+                                                            (nImport, restartMsg))
+         else:
+            MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
+               '%d private keys were imported into your wallet, but there was '
+               'also %d addresses that could not be imported (see console '
+               'or log file for more information).  It is safe to try this '
+               'operation again: all addresses previously imported will be '
+               'skipped. %s' % (nImport, nError, restartMsg))
+      self.accept()
+      
+         
+         
+
+         
+            
+         
+
+
+#############################################################################
+class DlgConfirmBulkImport(QDialog):
+   def __init__(self, addrList, wltID, parent=None, main=None):
+      super(DlgConfirmBulkImport, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.wltID  = wltID
+
+      if len(addrList)==0:
+         QMessageBox.warning(self, 'No Addresses to Import', \
+           'There are no addresses to import!', QMessageBox.Ok)
+         self.reject()
+
+   
+      walletDescr = 'a new wallet'
+      if not wltID==None:
+         wlt = self.main.walletMap[wltID]
+         walletDescr = 'wallet, <b>%s</b> (%s)' % (wltID, wlt.labelName)
+      lblDescr = QRichLabel( \
+         'You are about to import <b>%d</b> addresses into %s.<br><br> '
+         'The following is a list of addresses to be imported:' % \
+                                              (len(addrList), walletDescr))
+
+      fnt = GETFONT('Fixed',10)
+      w,h = tightSizeNChar(fnt, 100)
+      txtDispAddr = QTextEdit()
+      txtDispAddr.setFont(fnt)
+      txtDispAddr.setReadOnly(True)
+      txtDispAddr.setMinimumWidth( min(w, 700))
+      txtDispAddr.setMinimumHeight(16.2*h)
+      txtDispAddr.setText( '\n'.join(addrList) )
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Import")
+      self.btnReject = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(txtDispAddr)
+      dlgLayout.addWidget(buttonBox)
+      self.setLayout(dlgLayout)
+
+      self.setWindowTitle('Confirm Import')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
+
+#############################################################################
+class DlgDuplicateAddr(QDialog):
+   def __init__(self, addrList, wlt, parent=None, main=None):
+      super(DlgDuplicateAddr, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+      self.wlt    = wlt 
+      self.doCancel = True
+      self.takeAll  = False
+      self.newOnly  = False
+
+      if len(addrList)==0:
+         QMessageBox.warning(self, 'No Addresses to Import', \
+           'There are no addresses to import!', QMessageBox.Ok)
+         self.reject()
+
+      lblDescr = QRichLabel( \
+         '<font color="red">Duplicate addresses detected!</font> '
+         'The following addresses already exist in other Armory wallets:')
+
+      fnt = GETFONT('Fixed',8)
+      w,h = tightSizeNChar(fnt, 50)
+      txtDispAddr = QTextEdit()
+      txtDispAddr.setFont(fnt)
+      txtDispAddr.setReadOnly(True)
+      txtDispAddr.setMinimumWidth(w)
+      txtDispAddr.setMinimumHeight(8.2*h)
+      txtDispAddr.setText( '\n'.join(addrList) )
+
+      lblWarn = QRichLabel( \
+         'If you continue, any funds in this '
+         'address will be double-counted, causing your total balance '
+         'to appear artificially high, and any transactions involving '
+         'this address will confusingly appear in multiple wallets.'
+         '\n\nWould you like to import these addresses anyway?')
+
+      buttonBox = QDialogButtonBox()
+      self.btnTakeAll = QPushButton("Import With Duplicates")
+      self.btnNewOnly = QPushButton("Import New Addresses Only")
+      self.btnCancel  = QPushButton("Cancel")
+      self.connect(self.btnTakeAll, SIGNAL('clicked()'), self.doTakeAll)
+      self.connect(self.btnNewOnly, SIGNAL('clicked()'), self.doNewOnly)
+      self.connect(self.btnCancel,  SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnTakeAll, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnNewOnly, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel,  QDialogButtonBox.RejectRole)
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(txtDispAddr)
+      dlgLayout.addWidget(buttonBox)
+      self.setLayout(dlgLayout)
+
+      self.setWindowTitle('Duplicate Addresses')
+
+   def doTakeAll(self):
+      self.doCancel = False
+      self.takeAll  = True
+      self.newOnly  = False
+      self.accept()
+
+   def doNewOnly(self):
+      self.doCancel = False
+      self.takeAll  = False
+      self.newOnly  = True
+      self.accept()
+
 
 #############################################################################
 class DlgAddressInfo(QDialog):
@@ -2352,7 +2782,7 @@ class DlgIntroMessage(QDialog):
       self.main   = main  
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
+      lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       lblInfoImg.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
       lblInfoImg.setMaximumWidth(50)
@@ -2862,10 +3292,10 @@ class DlgRemoveWallet(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg2.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -2889,11 +3319,12 @@ class DlgRemoveWallet(QDialog):
       layout.addWidget(frmInfo, 2, 0, 2, 3)
 
       if not wltEmpty:
-         lbl = QLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
-                      'have a backup on paper or saved to a another location '
-                      'outside your settings directory.</b>')
-         lbl.setTextFormat(Qt.RichText)
-         lbl.setWordWrap(True)
+         if wlt.watchingOnly:
+            lbl = QRichLabel('')
+         else:
+            lbl = QRichLabel('<b>WALLET IS NOT EMPTY.  Only delete this wallet if you '
+                          'have a backup on paper or saved to a another location '
+                          'outside your settings directory.</b>')
          lbls.append(lbl)
          layout.addWidget(lbl, 4, 0, 1, 3)
 
@@ -2932,16 +3363,18 @@ class DlgRemoveWallet(QDialog):
                               'it to a different computer or device and want to '
                               'remove the private data from this system for security.</i>')
 
+
+      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
+
       if wlt.watchingOnly:
          ttipDelete = createToolTipObject('This will delete the wallet file from your system.  '
                                  'Since this is a watching-only wallet, no private keys '
                                  'will be deleted.')
+         ttipWatch = createToolTipObject('This wallet is already a watching-only wallet '
+                                 'so this option is pointless')
+         self.radioWatch.setEnabled(False)
+         self.chkPrintBackup.setEnabled(False)
          
-      #for lbl in (lblDeleteDescr, lblExcludeDescr, lblWatchDescr):
-         #lbl.setWordWrap(True)
-         #lbl.setMaximumWidth( tightSizeNChar(self, 50)[0] )
-
-      self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
 
       self.frm = []
 
@@ -3038,11 +3471,18 @@ class DlgRemoveWallet(QDialog):
          else:
             self.reject()
       else:
-         reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
-           'Are you absolutely sure you want to permanently delete '
-           'this wallet?  Unless this wallet is saved on another device '
-           'you will permanently lose access to all the addresses in this '
-           'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+
+         if wlt.watchingOnly:
+            reply = QMessageBox.warning(self, 'Confirm Delete', \
+            'You are about to delete a watching-only wallet.  Are you sure '
+            'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
+         else:
+            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+            'Are you absolutely sure you want to permanently delete '
+            'this wallet?  Unless this wallet is saved on another device '
+            'you will permanently lose access to all the addresses in this '
+            'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+
          if reply==QMessageBox.Yes:
 
             thepath       = wlt.getWalletPath()
@@ -3060,7 +3500,7 @@ class DlgRemoveWallet(QDialog):
                os.remove(thepathBackup)
                self.main.walletMap[wltID] = newWlt
                self.main.statusBar().showMessage( \
-                     'Wallet '+wltID+' was replaced with a watching-only wallet.', 10000)
+                     'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
             elif self.radioDelete.isChecked():
                print '***Completely deleting wallet'
                os.remove(thepath)
@@ -3132,10 +3572,10 @@ class DlgRemoveAddress(QDialog):
 
       # Add two WARNING images on either side of dialog
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnImg2 = QLabel()
-      lblWarnImg2.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg2.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg2.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       # Add the warning text and images to the top of the dialog
@@ -3200,7 +3640,7 @@ class DlgRemoveAddress(QDialog):
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
          try:
-            self.parent.accept()
+            #self.parent.accept()
             self.main.wltAddrModel.reset()
          except AttributeError:
             pass
@@ -3227,11 +3667,8 @@ class DlgWalletSelect(QDialog):
          self.accept()
          return
       
-         
-
       if wltIDList==None:
          wltIDList = list(self.main.walletIDList)
-      
 
       self.rowList = []
       
@@ -3425,7 +3862,7 @@ class DlgConfirmSend(QDialog):
 
 
       lblInfoImg = QLabel()
-      lblInfoImg.setPixmap(QPixmap('img/MsgBox_info48.png'))
+      lblInfoImg.setPixmap(QPixmap(':/MsgBox_info48.png'))
       lblInfoImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       totalSend = sum([rv[1] for rv in recipValPairs]) + fee
@@ -3440,8 +3877,8 @@ class DlgConfirmSend(QDialog):
       ffixBold = GETFONT('Fixed')
       ffixBold.setWeight(QFont.Bold)
       for rv in recipValPairs:
-         recipLbls.append(QLabel( hash160_to_addrStr(rv[0]) + ' : '  +
-                                  coin2str(rv[1], rJust=True, maxZeros=4)))
+         addrPrint = (hash160_to_addrStr(rv[0]) + ' : ').ljust(37)
+         recipLbls.append(QLabel( addrPrint + coin2str(rv[1], rJust=True, maxZeros=4)))
          recipLbls[-1].setFont(ffixBold)
 
 
@@ -3584,6 +4021,11 @@ class DlgSendBitcoins(QDialog):
             'After clicking this button, you will be given directions for '
             'completing this transaction.')
          btnSend.setToolTip('You cannot send any Bitcoins from this wallet, from this computer')
+         btnSend.setEnabled(False)
+
+      if not self.main.isOnline:
+         btnSend.setToolTip('You are currently not connected to the Bitcoin network, '
+                            'so you cannot initiate any transactions.')
          btnSend.setEnabled(False)
             
       btnUnsigned = QPushButton('Create Unsigned Transaction')
@@ -5049,6 +5491,11 @@ class DlgShowKeyList(QDialog):
          self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
 
+      # We actually just want to remove these entirely
+      # (either we need to display all data needed for decryption,
+      # besides passphrase,  or we shouldn't show any of it)
+      self.chkList['PrivCrypt' ].setVisible(False)
+      self.chkList['InitVect'  ].setVisible(False)
 
       chkBoxList = [self.chkList[n] for n in namelist] 
       chkBoxList.append('Line')
@@ -6029,7 +6476,7 @@ class DlgPaperBackup(QDialog):
          #g = QPointF(leftEdge, g.y()+pixelsDown)
 
       # Draw the logo in the top-left
-      logoPixmap = QPixmap('img/armory_logo_h36.png') 
+      logoPixmap = QPixmap(':/armory_logo_h36.png') 
       logo = QGraphicsPixmapItem( logoPixmap )
       logo.setPos( GlobalPos )
       logo.setMatrix( QMatrix() )
@@ -6158,7 +6605,7 @@ class DlgPaperBackup(QDialog):
 
       self.setLayout(layout)
 
-      self.setWindowIcon(QIcon('img/printer_icon.png'))
+      self.setWindowIcon(QIcon(':/printer_icon.png'))
       self.setWindowTitle('Print Wallet Backup')
       
        
@@ -6182,7 +6629,7 @@ class DlgBadConnection(QDialog):
 
       layout = QGridLayout()
       lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap('img/MsgBox_warning48.png'))
+      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       lblDescr = QLabel()
@@ -6234,9 +6681,114 @@ class DlgBadConnection(QDialog):
       self.setWindowTitle('Network not available')
 
 
+################################################################################
+def readSigBlock(parent, fullPacket):
+   addrB58, messageStr, pubkey, sig = '','','',''
+   lines = fullPacket.split('\n')
+   readingMessage, readingPub, readingSig = False, False, False
+   for i in range(len(lines)):
+      s = lines[i].strip()
+
+      # ADDRESS
+      if s.startswith('Addr'):
+         addrB58 = s.split(':')[-1].strip()
+
+      # MESSAGE STRING
+      if s.startswith('Message') or readingMessage:
+         readingMessage = True
+         if s.startswith('Pub') or s.startswith('Sig') or ('END-CHAL' in s):
+            readingMessage = False
+         else:
+            # Message string needs to be exact, grab what's between the 
+            # double quotes, no newlines
+            iq1 = s.index('"') + 1
+            iq2 = s.index('"', iq1)
+            messageStr += s[iq1:iq2]
+
+      # PUBLIC KEY
+      if s.startswith('Pub') or readingPub: 
+         readingPub = True
+         if s.startswith('Sig') or ('END-SIGNATURE-BLOCK' in s):
+            readingPub = False
+         else:
+            pubkey += s.split(':')[-1].strip().replace(' ','')
+
+      # SIGNATURE
+      if s.startswith('Sig') or readingSig: 
+         readingSig = True
+         if 'END-SIGNATURE-BLOCK' in s:
+            readingSig = False
+         else:
+            sig += s.split(':')[-1].strip().replace(' ','')
+      
+    
+   if len(pubkey)>0:
+      try:
+         pubkey = hex_to_binary(pubkey)
+         if len(pubkey) not in (32, 33, 64, 65):  raise
+      except:
+         QMessageBox.critical(parent, 'Bad Public Key', \
+            'Public key data was not recognized', QMessageBox.Ok)
+         pubkey = '' 
+
+   if len(sig)>0:
+      try:
+         sig = hex_to_binary(sig)
+      except:
+         QMessageBox.critical(parent, 'Bad Signature', \
+            'Signature data is malformed!', QMessageBox.Ok)
+         sig = ''
+
+   
+   pubkeyhash = hash160(pubkey)
+   if not pubkeyhash==addrStr_to_hash160(addrB58):
+      QMessageBox.critical(parent, 'Address Mismatch', \
+         '!!! The address included in the signature block does not '
+         'match the supplied public key!  This should never happen, '
+         'and may in fact be an attempt to mislead you !!!', QMessageBox.Ok)
+      sig = ''
+      
+      
+
+   return addrB58, messageStr, pubkey, sig
 
 
 ################################################################################
+def makeSigBlock(addrB58, MessageStr, binPubkey='', binSig=''):
+   lineWid = 50
+   s =  '-----BEGIN-SIGNATURE-BLOCK'.ljust(lineWid+13,'-') + '\n'
+
+   ### Address ###
+   s += 'Address:    %s\n' % addrB58
+
+   ### Message ###
+   chPerLine = lineWid-2
+   nMessageLines = (len(MessageStr)-1)/chPerLine + 1
+   for i in range(nMessageLines):
+      cLine = 'Message:    "%s"\n' if i==0 else '            "%s"\n'
+      s += cLine % MessageStr[i*chPerLine:(i+1)*chPerLine]
+
+   ### Public Key ###
+   if len(binPubkey)>0:
+      hexPub = binary_to_hex(binPubkey)
+      nPubLines = (len(hexPub)-1)/lineWid + 1
+      for i in range(nPubLines):
+         pLine = 'PublicKey:  %s\n' if i==0 else '            %s\n'
+         s += pLine % hexPub[i*lineWid:(i+1)*lineWid]
+         
+   ### Signature ###
+   if len(binSig)>0:
+      hexSig = binary_to_hex(binSig)
+      nSigLines = (len(hexSig)-1)/lineWid + 1
+      for i in range(nSigLines):
+         sLine = 'Signature:  %s\n' if i==0 else '            %s\n'
+         s += sLine % hexSig[i*lineWid:(i+1)*lineWid]
+         
+   s += '-----END-SIGNATURE-BLOCK'.ljust(lineWid+13,'-') + '\n'
+   return s
+
+
+
 class DlgExecLongProcess(QDialog):
    """
    Execute a processing that may require having the user to wait a while.
@@ -6296,6 +6848,1026 @@ class DlgExecLongProcess(QDialog):
 
        
          
+
+
+################################################################################
+class DlgECDSACalc(QDialog):
+   def __init__(self, parent=None, main=None, tabStart=0):
+      super(DlgECDSACalc, self).__init__(parent)
+      self.parent = parent
+      self.main   = main
+
+      dispFont = GETFONT('Var', 8) 
+      w,h = tightSizeNChar(dispFont, 40)
+      
+      self.tabWidget = QTabWidget()
+   
+      ##########################################################################
+      ##########################################################################
+      # TAB:  Key/ECDSA Calcs
+      ##########################################################################
+      ##########################################################################
+      tabKeys   = QWidget()
+      self.lblPrivType = QRichLabel('', vAlign=Qt.AlignTop)
+      self.txtPriv = QLineEdit()
+      self.txtPrvR = QLineEdit()
+      self.txtPubF = QLineEdit()
+      self.txtPubX = QLineEdit()
+      self.txtPubY = QLineEdit()
+      self.txtHash = QLineEdit()
+      self.txtAddr = QLineEdit()
+      
+      self.keyTxtIndex = enum('PRIV','PRVR',"PUBF","PUBX","PUBY","HASH","ADDR")
+      self.keyTxtList = [self.txtPriv, self.txtPrvR, self.txtPubF, self.txtPubX, \
+                         self.txtPubY, self.txtHash, self.txtAddr]
+      
+   
+      self.returnPressedFirst = False
+
+      for i,txt in enumerate(self.keyTxtList):
+         w,h = tightSizeNChar(dispFont, 70)
+         txt.setMinimumWidth(w)
+         txt.setMinimumHeight(1.2*h)
+         txt.sizeHint = lambda: QSize(400, 1.2*h)
+         txt.setFont(dispFont)
+         self.connect(txt, SIGNAL('returnPressed()'), self.keyWaterfall)
+
+
+      self.connect(self.txtPriv, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PRIV))
+      self.connect(self.txtPrvR, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PRVR))
+      self.connect(self.txtPubF, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.PUBF))
+      self.connect(self.txtPubX, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
+                                                          self.keyTxtIndex.PUBY]))
+      self.connect(self.txtPubY, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited([self.keyTxtIndex.PUBX, \
+                                                          self.keyTxtIndex.PUBY]))
+      self.connect(self.txtHash, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.HASH))
+      self.connect(self.txtAddr, SIGNAL('textEdited(QString)'), \
+                              lambda: self.keyTextEdited(self.keyTxtIndex.ADDR))
+
+      
+      self.txtMsg = QTextEdit()
+      self.txtSig = QTextEdit()
+      for txt in (self.txtMsg, self.txtSig):
+         txt.setMinimumWidth(int(2*w/3))
+         txt.setMinimumHeight(2.2*h)
+         txt.sizeHint = lambda: QSize(400, 2.2*h)
+
+      self.connect(self.txtMsg, SIGNAL('textChanged()'), self.msgTextChanged)
+      self.connect(self.txtSig, SIGNAL('textChanged()'), self.msgTextChanged)
+                       
+
+      btnSwitchEnd = QPushButton('Switch Endian')
+      self.connect(btnSwitchEnd, SIGNAL('clicked()'), self.privSwitch)
+
+
+      ttipPrvR = createToolTipObject( \
+         'Any standard encoding of a private key:  raw hex, base58, with or '
+         'without checksums, and mini-private-key format. '
+         'This includes VanityGen addresses and Casascius physical Bitcoin '
+         'private keys.')
+      ttipPriv = createToolTipObject( \
+         'The raw hexadecimal private key.  This is exactly 32 bytes, which '
+         'is 64 hex characters.  Any other forms of private key should be '
+         'entered in the "Encoded Private Key" box.')
+      ttipPubF = createToolTipObject( \
+         'The full 65-byte public key in hexadecimal.  It consists '
+         'of a "04" byte, followed by the 32-byte X-value, then the 32-byte '
+         'Y-value.')
+      ttipPubXY = createToolTipObject( \
+         'X- and Y-coordinates of the public key.  Each value is 32 bytes (64 hex chars).')
+      ttipHash = createToolTipObject( \
+         'Raw hash160 of the [65-byte] public key.  It is 20 bytes (40 hex chars).')
+      ttipAddr = createToolTipObject( \
+         'Standard Bitcoin address expressed in Base58')
+
+
+      headPrvR  = makeHorizFrame([QLabel('Encoded Private Key'), ttipPrvR, 'Stretch'])
+      headPriv  = makeHorizFrame([QLabel('Raw Private Key'), ttipPriv, 'Stretch'])
+      headPubF  = makeHorizFrame([QLabel('Full Public Key'), ttipPubF, 'Stretch'])
+      headPubXY = makeHorizFrame([QLabel('Raw Public Key (x,y)'), ttipPubXY, 'Stretch'])
+      headHash  = makeHorizFrame([QLabel('Public Key Hash160'), ttipHash, 'Stretch'])
+      headAddr  = makeHorizFrame([QLabel('Bitcoin Address'), ttipAddr, 'Stretch'])
+      
+      keyDataLayout = QGridLayout()
+      keyDataLayout.addWidget(headPrvR,                      0,0,  1,1)
+      keyDataLayout.addWidget(self.txtPrvR,                  1,0,  1,1)
+      keyDataLayout.addWidget(self.lblPrivType,              2,0,  1,1)
+
+      keyDataLayout.addWidget(QLabel('or'),                  1,1,  1,1)
+
+      keyDataLayout.addWidget(headPriv,                      0,2,  1,1)
+      keyDataLayout.addWidget(self.txtPriv,                  1,2,  1,1)
+      keyDataLayout.addWidget(makeHorizFrame(['Stretch', btnSwitchEnd]), \
+                                                             2,2,  1,1)
+
+      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          3,0,  1,3)
+
+      keyDataLayout.addWidget(headPubF,                      4,0,  1,1)
+      keyDataLayout.addWidget(self.txtPubF,                  5,0,  1,1)
+
+      keyDataLayout.addWidget(QLabel('or'),                  5,1,  1,1)
+
+      keyDataLayout.addWidget(headPubXY,                     4,2,  1,1)
+      keyDataLayout.addWidget(self.txtPubX,                  5,2,  1,1)
+      keyDataLayout.addWidget(self.txtPubY,                  6,2,  1,1)
+
+      keyDataLayout.addWidget(HLINE(QFrame.Sunken),          7,0,  1,3)
+
+      keyDataLayout.addWidget(headAddr,                      8,0,  1,1)
+      keyDataLayout.addWidget(self.txtAddr,                  9,0,  1,1)
+
+      keyDataLayout.addWidget(QLabel('or'),                  9,1,  1,1)
+
+      keyDataLayout.addWidget(headHash,                      8,2,  1,1)
+      keyDataLayout.addWidget(self.txtHash,                  9,2,  1,1)
+
+      keyDataFrame = QFrame()
+      keyDataFrame.setFrameStyle(QFrame.Box)
+      keyDataFrame.setLayout(keyDataLayout)
+
+
+
+      self.lblTopLeft  = QRichLabel('Key Data Calculator', doWrap=False)
+      self.lblTopMid   = QRichLabel('', doWrap=False)
+      self.btnWltData  = QPushButton('Get Keys From Wallet')
+      self.btnClearFrm = QPushButton('Clear')
+      self.btnCalcKeys = QPushButton('Calculate')
+      #self.btnClearFrm.setEnabled(False)
+      #self.btnCalcKeys.setEnabled(False)
+      self.btnWltData.setEnabled(False)
+      self.connect(self.btnWltData,  SIGNAL('clicked()'), self.getOtherData)
+      self.connect(self.btnClearFrm, SIGNAL('clicked()'), self.clearFormData)
+      self.connect(self.btnCalcKeys, SIGNAL('clicked()'), self.keyWaterfall)
+
+
+      topHeaderRow = makeHorizFrame([self.lblTopLeft, \
+                                     'Stretch', \
+                                     self.lblTopMid, \
+                                     self.btnWltData, \
+                                     self.btnClearFrm, \
+                                     self.btnCalcKeys])
+      tabKeysTopFrm = makeVertFrame( [topHeaderRow, keyDataFrame])
+            
+
+      self.btnSignMsg = QPushButton('Sign Message')
+      self.btnInsDate = QPushButton('Insert Date')
+      self.btnInsRnd  = QPushButton('Insert Random')
+      self.btnVerify  = QPushButton('Verify Signature')
+      self.btnMakeBlk = QPushButton('Create Signature Block')
+      self.btnReadBlk = QPushButton('Import Signature Block')
+      #self.btnSignMsg.setEnabled(False)
+      #self.btnVerify.setEnabled(False)
+      self.lblSigResult = QRichLabel('')
+
+      self.connect(self.btnSignMsg,  SIGNAL('clicked()'), self.signMsg)
+      self.connect(self.btnVerify,   SIGNAL('clicked()'), self.verifyMsg)
+      self.connect(self.btnInsDate,  SIGNAL('clicked()'), self.insDate)
+      self.connect(self.btnInsRnd,   SIGNAL('clicked()'), self.insRnd)
+
+      self.connect(self.btnMakeBlk,   SIGNAL('clicked()'), self.makeBlk)
+      self.connect(self.btnReadBlk,   SIGNAL('clicked()'), self.readBlk)
+
+      ttipMsg = createToolTipObject( \
+         'A message to be signed or verified by the key data above. '
+         'Or create a random "nonce" to give to someone to sign.')
+      ttipSig = createToolTipObject( \
+         'The output of signing the message above will be put here, or you '
+         'can copy in a signature of the above message, and check that it '
+         'is valid against the public key on the left (if present).')
+
+      msgBoxHead = makeHorizFrame([QRichLabel('Message'), ttipMsg, 'Stretch', \
+                                     self.btnInsRnd, self.btnInsDate, self.btnSignMsg])
+      sigBoxHead = makeHorizFrame([QRichLabel('Signature'), ttipSig, 'Stretch', \
+                                                      self.lblSigResult, self.btnVerify])
+      self.lblCopied = QRichLabel('')
+      btmFrm = makeHorizFrame(['Stretch', self.lblCopied, self.btnMakeBlk, self.btnReadBlk])
+      tabKeysBtmFrmLayout = QGridLayout()
+      tabKeysBtmFrmLayout.addWidget( msgBoxHead,   0,0)
+      tabKeysBtmFrmLayout.addWidget( sigBoxHead,   0,1)
+      tabKeysBtmFrmLayout.addWidget( self.txtMsg,  1,0)
+      tabKeysBtmFrmLayout.addWidget( self.txtSig,  1,1)
+      tabKeysBtmFrmLayout.addWidget( btmFrm,       2,0, 1,2)
+      tabKeysBtmFrm = QFrame()
+      tabKeysBtmFrm.setFrameStyle(QFrame.Box)
+      tabKeysBtmFrm.setLayout(tabKeysBtmFrmLayout)
+                           
+
+      btnBack = QPushButton('<<< Go Back')
+      self.connect(btnBack, SIGNAL('clicked()'), self.accept)
+      frmBack = makeHorizFrame([btnBack, 'Stretch'])
+
+      dlgLayout = QHBoxLayout()
+      dlgLayout.addWidget( makeVertFrame( [tabKeysTopFrm, tabKeysBtmFrm, frmBack] ) )
+      #dlgLayout.addWidget( HLINE() )
+      tabKeys.setLayout(dlgLayout)
+      self.tabWidget.addTab(tabKeys, 'Keys')
+
+      ##########################################################################
+      ##########################################################################
+      # TAB:  secp256k1
+      ##########################################################################
+      ##########################################################################
+      # STUB: I'll probably finish implementing this eventually....
+      tabEcc = QWidget()
+
+      tabEccLayout = QGridLayout()
+      self.txtScalarScalarA = QLineEdit()
+      self.txtScalarScalarB = QLineEdit()
+      self.txtScalarScalarC = QLineEdit()
+      self.txtScalarScalarC.setReadOnly(True)
+
+      self.txtScalarPtA     = QLineEdit()
+      self.txtScalarPtB_x   = QLineEdit()
+      self.txtScalarPtB_y   = QLineEdit()
+      self.txtScalarPtC_x   = QLineEdit()
+      self.txtScalarPtC_y   = QLineEdit()
+      self.txtScalarPtC_x.setReadOnly(True)
+      self.txtScalarPtC_y.setReadOnly(True)
+
+      self.txtPtPtA_x = QLineEdit()
+      self.txtPtPtA_y = QLineEdit()
+      self.txtPtPtB_x = QLineEdit()
+      self.txtPtPtB_y = QLineEdit()
+      self.txtPtPtC_x = QLineEdit()
+      self.txtPtPtC_y = QLineEdit()
+      self.txtPtPtC_x.setReadOnly(True)
+      self.txtPtPtC_y.setReadOnly(True)
+
+      eccTxtList = [ \
+          self.txtScalarScalarA, self.txtScalarScalarB, \
+          self.txtScalarScalarC, self.txtScalarPtA, self.txtScalarPtB_x, \
+          self.txtScalarPtB_y, self.txtScalarPtC_x, self.txtScalarPtC_y, \
+          self.txtPtPtA_x, self.txtPtPtA_y, self.txtPtPtB_x, \
+          self.txtPtPtB_y, self.txtPtPtC_x, self.txtPtPtC_y]
+      
+      dispFont = GETFONT('Var', 8) 
+      w,h = tightSizeNChar(dispFont, 60)
+      for txt in eccTxtList:
+         txt.setMinimumWidth(w)
+         txt.setFont(dispFont)
+
+      
+      self.btnCalcSS = QPushButton('Multiply Scalars (mod n)')
+      self.btnCalcSP = QPushButton('Scalar Multiply EC Point')
+      self.btnCalcPP = QPushButton('Add EC Points')
+      self.btnClearSS = QPushButton('Clear')
+      self.btnClearSP = QPushButton('Clear')
+      self.btnClearPP = QPushButton('Clear')
+      imgPlus  = QImageLabel(':/plus_orange.png')
+      imgTimes1= QImageLabel(':/asterisk_orange.png')
+      imgTimes2= QImageLabel(':/asterisk_orange.png')
+      imgDown  = QImageLabel(':/arrow_down32.png')
+
+      self.connect(self.btnCalcSS, SIGNAL('clicked()'),  self.multss)
+      self.connect(self.btnCalcSP, SIGNAL('clicked()'),  self.multsp)
+      self.connect(self.btnCalcPP, SIGNAL('clicked()'),  self.addpp)
+
+
+      ##########################################################################
+      # Scalar-Scalar Multiply
+      sslblA = QRichLabel('a', hAlign=Qt.AlignHCenter)
+      sslblB = QRichLabel('b', hAlign=Qt.AlignHCenter)
+      sslblC = QRichLabel('a*b mod n', hAlign=Qt.AlignHCenter)
+
+      
+      ssLayout = QGridLayout()
+      ssLayout.addWidget(sslblA,                  0,0,   1,1)
+      ssLayout.addWidget(sslblB,                  0,2,   1,1)
+
+      ssLayout.addWidget(self.txtScalarScalarA,   1,0,   1,1)
+      ssLayout.addWidget(imgTimes1,               1,1,   1,1)
+      ssLayout.addWidget(self.txtScalarScalarB,   1,2,   1,1)
+
+      ssLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSS, 'Stretch']), \
+                                                  2,0,   1,3)
+      #ssLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #3,0,   1,3)
+      ssLayout.addWidget(makeHorizFrame(['Stretch', sslblC, self.txtScalarScalarC, 'Stretch']), \
+                                                  3,0,   1,3)
+      ssLayout.setVerticalSpacing(1)
+      frmSS = QFrame()
+      frmSS.setFrameStyle(STYLE_SUNKEN)
+      frmSS.setLayout(ssLayout)
+
+      ##########################################################################
+      # Scalar-ECPoint Multiply
+      splblA = QRichLabel('a',                             hAlign=Qt.AlignHCenter)
+      splblB = QRichLabel('<b>B</b>',                      hAlign=Qt.AlignHCenter)
+      splblBx= QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignRight)
+      splblBy= QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignRight)
+      splblC = QRichLabel('<b>C</b> = a*<b>B</b>',         hAlign=Qt.AlignHCenter)
+      splblCx= QRichLabel('(a*<b>B</b>)<font size=2>x</font>', hAlign=Qt.AlignRight)
+      splblCy= QRichLabel('(a*<b>B</b>)<font size=2>y</font>', hAlign=Qt.AlignRight)
+      spLayout = QGridLayout()
+      spLayout.addWidget(splblA,                  0,0,    1,1)
+      spLayout.addWidget(splblB,                  0,2,    1,1)
+
+      spLayout.addWidget(self.txtScalarPtA,       1,0,    1,1)
+      spLayout.addWidget(imgTimes2,               1,1,    1,1)
+      spLayout.addWidget(self.txtScalarPtB_x,     1,2,    1,1)
+      spLayout.addWidget(self.txtScalarPtB_y,     2,2,    1,1)
+
+      spLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcSP, 'Stretch']), \
+                                                  3,0,   1,3)
+      #spLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #4,0,   1,3)
+      #spLayout.addWidget(makeHorizFrame(['Stretch', splblC, 'Stretch']), \
+                                                  #5,0,   1,3)
+      spLayout.addWidget(makeHorizFrame(['Stretch', splblCx, self.txtScalarPtC_x, 'Stretch']), \
+                                                  4,0,   1,3)
+      spLayout.addWidget(makeHorizFrame(['Stretch', splblCy, self.txtScalarPtC_y, 'Stretch']), \
+                                                  5,0,   1,3)
+      spLayout.setVerticalSpacing(1)
+      frmSP = QFrame()
+      frmSP.setFrameStyle(STYLE_SUNKEN)
+      frmSP.setLayout(spLayout)
+      
+      ##########################################################################
+      # ECPoint Addition
+      pplblA  = QRichLabel('<b>A</b>',                       hAlign=Qt.AlignHCenter)
+      pplblB  = QRichLabel('<b>B</b>',                       hAlign=Qt.AlignHCenter)
+      pplblAx = QRichLabel('<b>A</b><font size=2>x</font>', hAlign=Qt.AlignHCenter)
+      pplblAy = QRichLabel('<b>A</b><font size=2>y</font>', hAlign=Qt.AlignHCenter)
+      pplblBx = QRichLabel('<b>B</b><font size=2>x</font>', hAlign=Qt.AlignHCenter)
+      pplblBy = QRichLabel('<b>B</b><font size=2>y</font>', hAlign=Qt.AlignHCenter)
+      pplblC  = QRichLabel('<b>C</b> = <b>A</b>+<b>B</b>',  hAlign=Qt.AlignHCenter)
+      pplblCx= QRichLabel('(<b>A</b>+<b>B</b>)<font size=2>x</font>', hAlign=Qt.AlignRight)
+      pplblCy= QRichLabel('(<b>A</b>+<b>B</b>)<font size=2>y</font>', hAlign=Qt.AlignRight)
+      ppLayout = QGridLayout()
+      ppLayout.addWidget(pplblA,                  0,0,    1,1)
+      ppLayout.addWidget(pplblB,                  0,2,    1,1)
+      ppLayout.addWidget(self.txtPtPtA_x,         1,0,    1,1)
+      ppLayout.addWidget(self.txtPtPtA_y,         2,0,    1,1)
+      ppLayout.addWidget(imgPlus,                 1,1,    2,1)
+      ppLayout.addWidget(self.txtPtPtB_x,         1,2,    1,1)
+      ppLayout.addWidget(self.txtPtPtB_y,         2,2,    1,1)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', self.btnCalcPP, 'Stretch']), \
+                                                  3,0,   1,3)
+      #ppLayout.addWidget(makeHorizFrame(['Stretch', imgDown, 'Stretch']), \
+                                                  #4,0,   1,3)
+      #ppLayout.addWidget(makeHorizFrame(['Stretch', pplblC, 'Stretch']), \
+                                                  #5,0,   1,3)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCx, self.txtPtPtC_x, 'Stretch']), \
+                                                  4,0,   1,3)
+      ppLayout.addWidget(makeHorizFrame(['Stretch', pplblCy, self.txtPtPtC_y, 'Stretch']), \
+                                                  5,0,   1,3)
+      ppLayout.setVerticalSpacing(1)
+      frmPP = QFrame()
+      frmPP.setFrameStyle(STYLE_SUNKEN)
+      frmPP.setLayout(ppLayout)
+
+      
+      lblDescr = QRichLabel( \
+         'Use this form to perform Bitcoin elliptic curve calculations.  All '
+         'operations are performed on the secp256k1 elliptic curve, which is '
+         'the one used for Bitcoin. '
+         'Supply all values as 32-byte, big-endian, hex-encoded integers.')
+
+      btnClear = QPushButton('Clear')
+      btnClear.setMaximumWidth(2*relaxedSizeStr(btnClear, 'Clear')[0])
+      self.connect(btnClear, SIGNAL('clicked()'), self.eccClear)
+
+
+      eccLayout = QVBoxLayout()
+      eccLayout.addWidget(makeHorizFrame([lblDescr, btnClear]))
+      eccLayout.addWidget(frmSS)
+      eccLayout.addWidget(frmSP)
+      eccLayout.addWidget(frmPP)
+      tabEcc.setLayout(eccLayout)
+      self.tabWidget.addTab(tabEcc, 'Elliptic Curve')
+
+
+      calcLayout = QHBoxLayout() 
+      calcLayout.addWidget(self.tabWidget)
+      self.setLayout(calcLayout)
+
+      self.tabWidget.setCurrentIndex(tabStart)
+   
+      self.setWindowTitle('ECDSA Calculator')
+      self.setWindowIcon(QIcon( self.main.iconfile))
+
+
+
+   #############################################################################
+   def keyTextEdited(self, txtIndex):
+      notEmpty = not self.formIsEmpty()
+      #self.btnClearFrm.setEnabled(notEmpty)
+      #self.btnCalcKeys.setEnabled(notEmpty)
+      #self.btnSignMsg.setEnabled(notEmpty)
+      #self.btnVerify.setEnabled(notEmpty)
+
+      if not isinstance(txtIndex, (list,tuple)):
+         txtIndex = [txtIndex]
+
+      for i,txt in enumerate(self.keyTxtList):
+         if not i in txtIndex:
+            txt.setText('') 
+
+   #############################################################################
+   def msgTextChanged(self):
+      """ 
+      Yes, I intended to use text 'changed', instead of 'edited' here.
+      Because I don't care how the text was modified, it's going to break
+      the signature.
+      """
+      self.lblSigResult.setText('')
+
+
+   #############################################################################
+   def formIsEmpty(self):
+      totalEmpty = [0 if len(str(a.text()))>0 else 1 for a in self.keyTxtList]
+      allEmpty = not sum(totalEmpty)!=0 
+      #self.btnSignMsg.setEnabled(not allEmpty)
+      return allEmpty
+
+   #############################################################################
+   def keyWaterfall(self):
+      self.returnPressedFirst = True
+      try:
+         prvrStr =               str(self.txtPrvR.text()).replace(' ','')
+         privBin = hex_to_binary(str(self.txtPriv.text()).replace(' ',''))
+         pubxBin = hex_to_binary(str(self.txtPubX.text()).replace(' ',''))
+         pubyBin = hex_to_binary(str(self.txtPubY.text()).replace(' ',''))
+         pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
+         addrB58 =               str(self.txtAddr.text()).replace(' ','')
+         a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
+
+      except:
+         QMessageBox.critical(self, 'Invalid Entry', \
+            'You entered invalid data!', QMessageBox.Ok)
+         return
+
+      self.lblPrivType.setText('')
+      if len(prvrStr)>0:
+         try:
+            privBin, keytype = parsePrivateKeyData(prvrStr)
+            self.txtPriv.setText( binary_to_hex(privBin))
+            self.lblPrivType.setText('<font color="green">' + keytype + '</font>')
+         except:
+            QMessageBox.critical(self, 'Invalid Private Key Data', \
+               'Private Key data is not recognized!', QMessageBox.Ok)
+            raise
+            return
+      elif len(privBin)>0:
+         try:
+            priv37  = '\x80' + privBin + computeChecksum('\x80' + privBin)
+            privB58 = binary_to_base58(priv37)
+            typestr = parsePrivateKeyData(privB58)[1]
+            self.txtPrvR.setText(privB58)
+            self.lblPrivType.setText('<font color="green">' + typestr + '</font>')
+         except:
+            QMessageBox.critical(self, 'Invalid Private Key Data', \
+               'Private Key data is not recognized!', QMessageBox.Ok)
+            raise
+            return
+     
+      if len(privBin)>0:
+         pub = CryptoECDSA().ComputePublicKey(SecureBinaryData(privBin))
+         pubfBin = pub.toBinStr()
+         self.txtPubF.setText(binary_to_hex(pubfBin))
+
+     
+      if len(pubfBin)>0:
+         try:
+            pubxBin = pubfBin[1:1+32]
+            pubyBin = pubfBin[  1+32:1+32+32]
+            self.txtPubX.setText(binary_to_hex(pubxBin))
+            self.txtPubY.setText(binary_to_hex(pubyBin))
+            a160Bin = hash160(pubfBin)
+            self.txtHash.setText(binary_to_hex(a160Bin))
+         except:
+            QMessageBox.critical(self, 'Invalid Public Key Data', \
+               'Public Key data is not recognized!', QMessageBox.Ok)
+            raise
+            return
+      elif len(pubxBin)>0 and len(pubyBin)>0:
+         try:
+            pubfBin = '\x04' + pubxBin + pubyBin
+            self.txtPubF.setText(binary_to_hex(pubfBin))
+            a160Bin = hash160(pubfBin)
+            self.txtHash.setText(binary_to_hex(a160Bin))
+         except:
+            QMessageBox.critical(self, 'Invalid Public Key Data', \
+               'Public Key data is not recognized!', QMessageBox.Ok)
+            raise
+            return
+
+      if len(a160Bin)>0:
+         try:
+            addrB58 = hash160_to_addrStr(a160Bin)
+            self.txtAddr.setText(addrB58)
+         except:
+            QMessageBox.critical(self, 'Invalid Address Data', \
+               'Address data is not recognized!', QMessageBox.Ok)
+            return
+      elif len(addrB58)>0:
+         try:
+            raw25byte = base58_to_binary(addrB58)
+            if len(raw25byte)!=25:
+               QMessageBox.critical(self, 'Invalid Address', \
+               'The Bitcoin address supplied is invalid.', QMessageBox.Ok)
+               return
+            data,chk = raw25byte[:21], raw25byte[21:]
+            fixedData = verifyChecksum(data,chk)
+            if fixedData!=data:
+               if len(fixedData)==0:
+                  QMessageBox.critical(self, 'Invalid Address', \
+                  'The Bitcoin address has an error in it.  Please double-check '
+                  'that it was entered properly.', QMessageBox.Ok)
+                  return
+            self.txtAddr.setText(hash160_to_addrStr(fixedData[1:]))
+               
+            a160Bin = addrStr_to_hash160(addrB58)
+            self.txtHash.setText(binary_to_hex(a160Bin))
+         except:
+            QMessageBox.critical(self, 'Invalid Address Data', \
+               'Address data is not recognized!', QMessageBox.Ok)
+            return
+
+      #self.btnSignMsg.setEnabled( len(privBin)>0 )
+      #self.btnVerify.setEnabled( len(pubfBin)>0 )
+
+      for txt in self.keyTxtList:
+         txt.setCursorPosition(0)
+
+      self.checkIfAddrIsOurs(a160Bin)
+         
+            
+
+   #############################################################################
+   def checkIfAddrIsOurs(self, addr160):
+      wltID = self.main.getWalletForAddr160(addr160)
+      if wltID=='':
+         self.lblTopMid.setText('')
+         self.btnWltData.setEnabled(False)
+      else:
+         self.lblTopMid.setText('<font color="green">This key is in one of your wallets</font>')
+         self.btnWltData.setEnabled(True)
+      return wltID
+      
+
+   #############################################################################
+   def getOtherData(self):
+      ''' Look in your wallets for the address, fill in pub/priv keys '''
+
+      # It seems that somehow the "Get Keys" button is automatically linked to
+      # the form's returnPressed signal.  I have tried to disable this, but I
+      # can't figure out how!  So instead, I have to put in this stupid hack
+      # to prevent this action from being triggered prematurely
+      if self.returnPressedFirst:
+         self.returnPressedFirst=False
+         return
+
+      a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
+      wltID = self.checkIfAddrIsOurs(a160Bin)
+      if wltID!='':
+         havePriv = True
+         # This address is ours, get the priv key and fill in everything else
+         wlt = self.main.walletMap[wltID]
+         if wlt.useEncryption and wlt.isLocked:
+            dlg = DlgUnlockWallet(wlt, self.main, 'Encrypt New Address')
+            if not dlg.exec_():
+               reply = QMessageBox.critical(self, 'Wallet is locked',
+                  'Could not unlock wallet, so private key data could not '
+                  'be acquired.', QMessageBox.Ok)
+               havePriv = False
+         
+         addr = self.main.walletMap[wltID].getAddrByHash160(a160Bin)
+         if havePriv:
+            hexPriv = addr.binPrivKey32_Plain.toHexStr()
+            self.clearFormData()
+            self.txtPriv.setText(hexPriv)
+            self.keyWaterfall()
+         else:
+            hexPub = addr.binPublicKey65.toHexStr()
+            self.clearFormData()
+            self.txtPubF.setText(hexPub)
+            self.keyWaterfall()
+
+
+   #############################################################################
+   def clearFormData(self):
+      for wdgt in self.keyTxtList:
+         wdgt.setText('')
+      self.lblPrivType.setText('')
+      self.lblTopMid.setText('')
+      self.btnWltData.setEnabled(False)
+
+   #############################################################################
+   def privSwitch(self):
+      privHex = str(self.txtPriv.text()).strip().replace(' ','')
+      if len(privHex)>0:
+         self.txtPriv.setText(hex_switchEndian(privHex))
+      self.keyTextEdited(0)
+      
+   #############################################################################
+   def insRnd(self):
+      rnd = SecureBinaryData().GenerateRandom(8)
+      currtxt = self.readMsg()
+      if not currtxt.endswith(' ') and not len(currtxt)==0:
+         currtxt += ' '
+      self.txtMsg.setText(currtxt + rnd.toHexStr())
+      
+   #############################################################################
+   def insDate(self):
+      currtxt = self.readMsg()
+      if not currtxt.endswith(' ') and not len(currtxt)==0:
+         currtxt += ' '
+      self.txtMsg.setText(currtxt + unixTimeToFormatStr(RightNow()))
+
+   #############################################################################
+   def signMsg(self):
+      self.keyWaterfall()
+      try:
+         binPriv = hex_to_binary(str(self.txtPriv.text()).strip().replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'There was an error parsing the private key.', QMessageBox.Ok)
+         return
+
+      strMsg  = self.readMsg()
+         
+      if len(binPriv)!=32:
+         QMessageBox.critical(self, 'Invalid Private Key', \
+           'Cannot sign a message without a valid private key.', QMessageBox.Ok)
+         return
+      if len(strMsg)==0:
+         QMessageBox.critical(self, 'Nothing to Sign!', \
+           'There is no message to sign!', QMessageBox.Ok)
+         return
+
+      modMsg = 'Bitcoin Signed Message:\n' + strMsg
+      sig = CryptoECDSA().SignData(SecureBinaryData(modMsg), \
+                                   SecureBinaryData(binPriv))
+      self.txtSig.setText(sig.toHexStr())
+
+
+   #############################################################################
+   def verifyMsg(self):
+      self.keyWaterfall()
+      try:
+         binPub = hex_to_binary(str(self.txtPubF.text()).strip().replace(' ',''))
+         addrB58 = hash160_to_addrStr(hash160(binPub))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'There was an error parsing the public key.', QMessageBox.Ok)
+         return
+
+      try:
+         binSig = hex_to_binary(str(self.txtSig.toPlainText()).strip().replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Input Error', \
+           'The signature data is not recognized.', QMessageBox.Ok)
+         return
+
+      strMsg = self.readMsg()
+         
+         
+      if len(binPub)!=65:
+         QMessageBox.critical(self, 'Invalid Public Key!', \
+           'Cannot verify a message without a valid public key.', QMessageBox.Ok)
+         return
+      if len(binSig)==0:
+         QMessageBox.critical(self, 'No Signature!', \
+           'There is no signature to verify', QMessageBox.Ok)
+         return
+      if len(strMsg)==0:
+         QMessageBox.critical(self, 'Nothing to Verify!', \
+           'Need the original message in order to verify the signature.', QMessageBox.Ok)
+         return
+
+      modMsg = 'Bitcoin Signed Message:\n' + strMsg
+      isValid = CryptoECDSA().VerifyData(SecureBinaryData(modMsg), \
+                                         SecureBinaryData(binSig), \
+                                         SecureBinaryData(binPub))
+
+      if isValid:
+         MsgBoxCustom(MSGBOX.Good, 'Verified!', \
+            'The owner of the following Bitcoin address...'
+            '<br><br>'
+            '<b>%s</b>'
+            '<br><br>'
+            '...has digitally signed the following message:'
+            '<br><br>'
+            '<i><b>"%s"</b></i>'
+            '<br><br>'
+            'The supplied signature <b>is valid</b>!' % (addrB58, strMsg))
+         self.lblSigResult.setText('<font color="green">Valid Signature!</font>')
+      else:
+         MsgBoxCustom(MSGBOX.Error, 'Invalid Signature!', \
+                                    'The supplied signature <b>is not valid</b>!')
+         self.lblSigResult.setText('<font color="red">Invalid Signature!</font>')
+
+   ############################################################################
+   def readMsg(self):
+      msg = str(self.txtMsg.toPlainText())
+      msg = msg.replace('\n',' ')
+      msg = msg.replace('"','\'')
+      msg = msg.strip()
+      return msg
+
+   ############################################################################
+   def makeBlk(self):
+      try:
+         pubfBin = hex_to_binary(str(self.txtPubF.text()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Public Key Error!', \
+           'The public key is invalid.', QMessageBox.Ok)
+         
+      try:
+         sigBin  = hex_to_binary(str(self.txtSig.toPlainText()).replace(' ',''))
+      except:
+         QMessageBox.critical(self, 'Signature Error', \
+           'The signature is in an unrecognized format', QMessageBox.Ok)
+
+      addrB58 = str(self.txtAddr.text()).replace(' ','')
+      rawMsg  = self.readMsg()
+
+      txt = makeSigBlock(addrB58, rawMsg, pubfBin, sigBin)
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(txt)
+      self.lblCopied.setText('Copied to clipboard!')
+
+   ############################################################################
+   def readBlk(self):
+      """ Create a very simple dialog for entering a signature block """
+      class DlgEnterSigBlock(QDialog):
+         def __init__(self, parent, main):
+            super(DlgEnterSigBlock, self).__init__(parent)
+
+            self.txt = ''
+            lbl = QRichLabel('Copy a signature block into the text box below')
+            self.txtbox = QTextEdit()
+            fnt = GETFONT('Fixed', 8)
+            self.txtbox.setFont(fnt)
+            w,h = tightSizeNChar(fnt, 70)
+            self.txtbox.setMinimumWidth(w)
+            self.txtbox.setMinimumHeight(6.2*h)
+            btnOkay   = QPushButton('Okay')
+            btnCancel = QPushButton('Cancel')
+            self.connect(btnOkay,   SIGNAL('clicked()'), self.pressOkay)
+            self.connect(btnCancel, SIGNAL('clicked()'), self.pressCancel)
+            bbox = QDialogButtonBox()
+            bbox.addButton(btnOkay,   QDialogButtonBox.AcceptRole)
+            bbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
+
+            layout = QVBoxLayout()
+            layout.addWidget(lbl)
+            layout.addWidget(self.txtbox)
+            layout.addWidget(bbox)
+            self.setLayout(layout)
+            self.setWindowTitle('Import Signature Block')
+            self.setWindowIcon(QIcon(main.iconfile))
+
+         def pressOkay(self):
+            self.txt = str(self.txtbox.toPlainText())
+            self.accept()
+         
+         def pressCancel(self):
+            self.reject()
+
+      dlg = DlgEnterSigBlock(self,self.main)
+      if dlg.exec_():
+         addr,s,pub,sig = readSigBlock(self, dlg.txt)
+         self.txtPubF.setText(binary_to_hex(pub))
+         self.txtSig.setText(binary_to_hex(sig))
+         self.txtAddr.setText(addr)
+         self.txtMsg.setText(s)
+         self.keyWaterfall()
+         self.verifyMsg()
+         
+
+   #############################################################################
+   def getBinary(self, widget, name):
+      try:
+         hexVal = str(widget.text())
+         binVal = hex_to_binary(hexVal)
+      except:
+         QMessageBox.critical(self, 'Bad Input', \
+            'Value "%s" is invalid.  Make sure the value is specified in '
+            'hex, big-endian' % name , QMessageBox.Ok)
+         return ''
+      return binVal
+
+
+   #############################################################################
+   def multss(self):
+      binA = self.getBinary(self.txtScalarScalarA, 'a')
+      binB = self.getBinary(self.txtScalarScalarB, 'b')
+      C = CryptoECDSA().ECMultiplyScalars(binA, binB)
+      self.txtScalarScalarC.setText( binary_to_hex(C))
+
+      for txt in [self.txtScalarScalarA, \
+                  self.txtScalarScalarB, \
+                  self.txtScalarScalarC]:
+         txt.setCursorPosition(0)
+            
+   #############################################################################
+   def multsp(self):
+      binA  = self.getBinary(self.txtScalarPtA, 'a')
+      binBx = self.getBinary(self.txtScalarPtB_x, '<b>B</b><font size=2>x</font>')
+      binBy = self.getBinary(self.txtScalarPtB_y, '<b>B</b><font size=2>y</font>')
+
+      if not CryptoECDSA().ECVerifyPoint(binBx, binBy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>B</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
+      C = CryptoECDSA().ECMultiplyPoint(binA, binBx, binBy)
+      self.txtScalarPtC_x.setText(binary_to_hex(C[:32]))
+      self.txtScalarPtC_y.setText(binary_to_hex(C[32:]))
+      
+      for txt in [self.txtScalarPtA, \
+                  self.txtScalarPtB_x, self.txtScalarPtB_y, \
+                  self.txtScalarPtC_x, self.txtScalarPtC_y]:
+         txt.setCursorPosition(0)
+
+   #############################################################################
+   def addpp(self):
+      binAx = self.getBinary(self.txtPtPtA_x, '<b>A</b><font size=2>x</font>')
+      binAy = self.getBinary(self.txtPtPtA_y, '<b>A</b><font size=2>y</font>')
+      binBx = self.getBinary(self.txtPtPtB_x, '<b>B</b><font size=2>x</font>')
+      binBy = self.getBinary(self.txtPtPtB_y, '<b>B</b><font size=2>y</font>')
+
+      if not CryptoECDSA().ECVerifyPoint(binAx, binAy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>A</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
+      if not CryptoECDSA().ECVerifyPoint(binBx, binBy):
+         QMessageBox.critical(self, 'Invalid EC Point', \
+            'The point you specified (<b>B</b>) is not on the '
+            'elliptic curved used in Bitcoin (secp256k1).', QMessageBox.Ok)
+         return
+
+      C = CryptoECDSA().ECAddPoints(binAx, binAy, binBx, binBy)
+      self.txtPtPtC_x.setText(binary_to_hex(C[:32]))
+      self.txtPtPtC_y.setText(binary_to_hex(C[32:]))
+
+      for txt in [self.txtPtPtA_x, self.txtPtPtA_y, \
+                  self.txtPtPtB_x, self.txtPtPtB_y, \
+                  self.txtPtPtC_x, self.txtPtPtC_y]:
+         txt.setCursorPosition(0)
+
+
+   #############################################################################
+   def eccClear(self):
+      self.txtScalarScalarA.setText('')
+      self.txtScalarScalarB.setText('')
+      self.txtScalarScalarC.setText('')
+
+      self.txtScalarPtA.setText('')
+      self.txtScalarPtB_x.setText('')
+      self.txtScalarPtB_y.setText('')
+      self.txtScalarPtC_x.setText('')
+      self.txtScalarPtC_y.setText('')
+
+      self.txtPtPtA_x.setText('')
+      self.txtPtPtA_y.setText('')
+      self.txtPtPtB_x.setText('')
+      self.txtPtPtB_y.setText('')
+      self.txtPtPtC_x.setText('')
+      self.txtPtPtC_y.setText('')
+
+
+
+
+
+################################################################################
+class DlgOwnership(QDialog):
+   """
+   STUB:  maybe I'll pick this up again, later
+
+   We may wish to demonstrate, or make someone else demonstrate, that they own
+   a particular address.  We create a "challenge" string and ask the person to
+   sign the string with the private key of the specified address.  
+
+   We want the challenge string to be "fresh" and unique.  Just in case the 
+   attacker doesn't have the address, but already has a signed message from
+   that address from a different occasion.  
+   """
+   def __init__(self, parent=None, main=None):
+      super(DlgOwnership, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      self.radioCreateChallenge = QRadioButton('I want someone to prove they own an address')
+      self.radioCreateResponse  = QRadioButton('I need to prove that I own an address')
+      self.radioVerifyResponse  = QRadioButton('Some gave me a proof-of-ownership I need to verify')
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.radioCreateChallenge)
+      btngrp.addButton(self.radioCreateResponse)
+      btngrp.addButton(self.radioVerifyResponse)
+      btngrp.setExclusive(True)
+      self.radioCreateChallenge.setChecked(True)
+
+      self.connect(self.radioCreateChallenge, SIGNAL('clicked(bool)'), self.changeStack)
+      self.connect(self.radioCreateResponse,  SIGNAL('clicked(bool)'), self.changeStack)
+      self.connect(self.radioVerifyResponse,  SIGNAL('clicked(bool)'), self.changeStack)
+
+
+      ## Create the stacked widget
+      self.challengeStack = QStackedWidget()
+      dispFont = GETFONT('Var', 8)
+      w,h = relaxedSizeNChar(dispFont, 40)
+      wmin = 250
+   
+      ## Create-Challenge options
+      ccWidget = QWidget()
+      ccLayout = QGridLayout()
+
+      self.txtCCDescr = QRichLabel( \
+         'Since all transactions are public but identities are not tied to '
+         'the addresses, you may need to "challenge" someone to prove that '
+         'they own a particular Bitcoin address (perhaps you received money '
+         'from that address, and the other person claims it was them who '
+         'sent it to you).  Enter the address to be verified, and then click '
+         'the button to create a "challenge."  The challenge can be emailed '
+         'to the other party')
+      self.txtCCAddress = QLineEdit()
+      self.txtCCAddress.setMinimumWidth(wmin)
+      self.txtCCAddress.sizeHint = lambda: QSize(w,h)
+      self.txtCCAddress.setFont(dispFont)
+      
+      # Only advanced users should be able to specify a custom string
+      self.txtCCCustomStr = QLineEdit()
+      self.txtCCCustomStr.setMinimumWidth(wmin)
+      self.txtCCCustomStr.sizeHint = lambda: QSize(w,h)
+      self.txtCCCustomStr.setFont(dispFont)
+      self.txtCCCustomStr.setEnabled(False)
+
+      self.txtCCChallenge = QTextEdit()
+      self.txtCCChallenge.setMinimumWidth(wmin)
+      self.txtCCChallenge.sizeHint = lambda: QSize(w,int(3.1*h))
+      self.txtCCChallenge.setFont(dispFont)
+      self.txtCCChallenge.setReadOnly(True)
+
+      self.lblCCcopied = QRichLabel('')
+      self.btnCCCreate = QPushButton('Create Challenge')
+
+
+      
+   def defaultChallengeStr(self):
+      # Grab the root hash160 of the first wallet that we own.
+      uniqueStr = ''
+      for wid,wlt in self.main.walletMap.iteritems():
+         if not wlt.watchOnly:
+            uniqueStr = binary_to_hex(wlt.addrMap['ROOT'].getAddr160())
+            break
+      return ('%s %s' % (unixTimeToFormatStr(RightNow()), uniqueStr)).strip()
+      
+      
+   def btnPressMake(self):
+      addrB58 = str(self.txtCCAddress.text())
+      netbyte = checkAddrType(addrB58)
+      if netbyte == -1:
+         QMessageBox.critical(self, 'Bad Address', \
+            'The address you entered is invalid!  Please check '
+            'that it was entered correctly.', QMessageBox.Ok)
+         return
+      elif netbyte != ADDRBYTE:
+         QMessageBox.critical(self, 'Wrong Network!', \
+            'The address you entered is for the wrong network! '
+            'The address is for the <b>%s</b> but you are running '
+            'Armory on the <b>%s</b>!' % (NETWORKS[netbyte], NETWORKS[ADDRBYTE]), \
+            QMessageBox.Ok)
+         return
+
+
+      strChallenge = str(self.txtCCCustomStr.text()).strip()
+      if len(strChallenge)==0:
+         strChallenge = self.defaultChallengeStr()
+         
+      self.txtCCChallenge.setText( self.makeSigBlock(addrB58, strChallenge))
+
+
+      
+
+
+   def changeStack(self, dummy):
+      """ 
+      Dummy argument is only to take the bool from 'clicked(bool)', but we
+      don't actually use it
+      """ 
+      if self.radioCreateResponse.isChecked():
+         self.challengeStack.setCurrentIndex(1)
+      elif self.radioVerifyResponse.isChecked():
+         self.challengeStack.setCurrentIndex(2)
+      else:
+         # We put this last to be default in case somehow nothing is checked
+         self.challengeStack.setCurrentIndex(0)
+
+
 
 
 ################################################################################

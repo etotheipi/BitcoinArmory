@@ -41,6 +41,8 @@ from armorymodels import *
 from qtdialogs    import *
 from qtdefines    import *
 
+import qrc_img_resources
+
 # All the twisted/networking functionality
 from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
@@ -53,19 +55,19 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None):
+   def __init__(self, parent=None, settingsPath=None, ignoreblk=False):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
       self.abortLoad = False
-
+      self.ignoreblk = ignoreblk
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
       if self.abortLoad:
-         return
+         os._exit(0)
 
       self.extraHeartbeatFunctions = []
       self.lblArmoryStatus = QRichLabel('<font color=#550000><i>Offline</i></font>', \
@@ -77,19 +79,19 @@ class ArmoryMainWindow(QMainWindow):
       self.printer.setPageSize(QPrinter.Letter)
 
       self.lblLogoIcon = QLabel()
-      #self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_64x64.png'))
+      #self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_64x64.png'))
 
       if USE_TESTNET:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
-         self.iconfile = 'img/armory_icon_green_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_green_h72.png'))
+         self.iconfile = ':/armory_icon_green_32x32.png'
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h72.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
-         self.iconfile = 'img/armory_icon_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap('img/armory_logo_h72.png'))
+         self.iconfile = ':/armory_icon_32x32.png'
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h72.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      #self.setWindowIcon(QIcon('img/armory_logo_32x32.png'))
+      #self.setWindowIcon(QIcon(':/armory_logo_32x32.png'))
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
@@ -320,7 +322,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile:
+      if self.haveBlkFile and not self.ignoreblk:
          tstart = RightNow()
          self.loadBlockchain()
          print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
@@ -332,13 +334,13 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User')
+      MENUS = enum('File', 'User', 'Tools', 'Wallets')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
-      #self.menusList.append( self.menu.addMenu('&Wallet') )
       self.menusList.append( self.menu.addMenu('&User') )
-      #self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Wallets') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
@@ -381,10 +383,28 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Standard               
          actSetModeDev.setChecked(True)
 
-      
+      actOpenSigner = self.createAction('&Message Signing', lambda: DlgECDSACalc(self,self, 0).exec_())
+      actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
+      #actOwnership = self.createAction('&Prove Ownership', lambda: DlgOwnership(self,self).exec_())
+      self.menusList[MENUS.Tools].addAction(actOpenSigner)
+      self.menusList[MENUS.Tools].addAction(actOpenTools)
+      #self.menusList[MENUS.Tools].addAction(actOwnership)
+
+
+      actCreateNew      = self.createAction('Create &New Wallet',        self.createNewWallet)
+      actImportWlt      = self.createAction('Import Armory Wallet',      self.execGetImportWltName)
+      actRestorePaper   = self.createAction('Restore from Paper Backup', self.execRestorePaperBackup)
+      actMigrateSatoshi = self.createAction('Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
+
+
+      self.menusList[MENUS.Wallets].addAction(actCreateNew)
+      self.menusList[MENUS.Wallets].addAction(actImportWlt)
+      self.menusList[MENUS.Wallets].addAction(actRestorePaper)
+      self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
+
+
 
       reactor.callLater(0.1,  self.execIntroDialog)
-
       reactor.callLater(5, self.Heartbeat)
 
 
@@ -501,8 +521,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setupNetworking(self):
 
-      internetAvail = False
-      satoshiAvail  = False
+      self.internetAvail = False
+      self.satoshiAvail  = False
 
 
       # Check for Satoshi-client connection
@@ -746,38 +766,41 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def loadBlockchain(self):
-      print 'Loading blockchain'
 
-      BDM_LoadBlockchainFile(wltList=self.walletMap.values())
-      self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
-
-      # Now that theb blockchain is loaded, let's populate the wallet info
-      if TheBDM.isInitialized():
-         TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
-
-         self.statusBar().showMessage('Syncing wallets with blockchain...')
-         print 'Syncing wallets with blockchain...'
-         for wltID, wlt in self.walletMap.iteritems():
-            print 'Syncing wallet: ', wltID
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain()
-            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-
-            
-         self.createCombinedLedger()
-         self.ledgerSize = len(self.combinedLedger)
-         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
-
-         if self.isOnline:
-            self.lblArmoryStatus.setText(\
-               '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
-         self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+      if not self.isOnline:
+         print 'Skip blockchain loading in offline mode'
       else:
-         self.statusBar().showMessage('! Blockchain loading failed !', 10000)
-
-
-      # This will force the table to refresh with new data
-      self.walletModel.reset()
+         print 'Loading blockchain'
+         BDM_LoadBlockchainFile()
+         self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+   
+         # Now that theb blockchain is loaded, let's populate the wallet info
+         if TheBDM.isInitialized():
+            TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+   
+            self.statusBar().showMessage('Syncing wallets with blockchain...')
+            print 'Syncing wallets with blockchain...'
+            for wltID, wlt in self.walletMap.iteritems():
+               print 'Syncing wallet: ', wltID
+               self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+               self.walletMap[wltID].syncWithBlockchain()
+               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+   
+               
+            self.createCombinedLedger()
+            self.ledgerSize = len(self.combinedLedger)
+            self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
+   
+            if self.isOnline:
+               self.lblArmoryStatus.setText(\
+                  '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+            self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+         else:
+            self.statusBar().showMessage('! Blockchain loading failed !', 10000)
+   
+   
+         # This will force the table to refresh with new data
+         self.walletModel.reset()
          
 
    
@@ -960,7 +983,8 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.commentsMap.has_key(le.getTxHash()):
             row.append(wlt.commentsMap[le.getTxHash()])
          else:
-            row.append('')
+            comment = self.getAddrCommentIfAvail(le.getTxHash())
+            row.append(comment)
 
          # Amount
          row.append(coin2str(amt, maxZeros=2))
@@ -1062,6 +1086,33 @@ class ArmoryMainWindow(QMainWindow):
          newComment = str(dialog.edtComment.text())
          addr160 = addrStr_to_hash160(addrStr)
          wlt.setComment(addr160, newComment)
+
+
+   #############################################################################
+   def getAddrCommentIfAvail(self, txHash):
+      if not TheBDM.isInitialized():
+         return ''
+      else:
+         tx = TheBDM.getTxByHash(txHash)
+         if not tx:
+            return ''
+         else:
+            addrComments = []
+            pytx = PyTx().unserialize(tx.serialize())
+            for txout in pytx.outputs: 
+               scrType = getTxOutScriptType(txout.binScript)
+               if not scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+                  continue
+               a160 = TxOutScriptExtractAddr160(txout.binScript) 
+               wltID = self.getWalletForAddr160(a160)
+               if len(wltID)==0:
+                  continue
+               wlt = self.walletMap[wltID]
+               if wlt.commentsMap.has_key(a160):
+                  addrComments.append(wlt.commentsMap[a160])
+            return '; '.join(addrComments)
+      return ''
+                  
 
 
    #############################################################################
@@ -1407,42 +1458,73 @@ class ArmoryMainWindow(QMainWindow):
    def execImportWallet(self):
       dlg = DlgImportWallet(self, self)
       if dlg.exec_():
-
          if dlg.importType_file:
-            if not os.path.exists(dlg.importFile):
-               raise FileExistsError, 'How did the dlg pick a wallet file that DNE?'
-
-            wlt = PyBtcWallet().readWalletFile(dlg.importFile, verifyIntegrity=False, \
-                                                               skipBlockChainScan=True)
-            wltID = wlt.uniqueIDB58
-
-            if self.walletMap.has_key(wltID):
-               QMessageBox.warning(self, 'Duplicate Wallet!', \
-                  'You selected a wallet that has the same ID as one already '
-                  'in your wallet (%s)!  If you would like to import it anyway, '
-                  'please delete the duplicate wallet in Armory, first.'%wltID, \
-                  QMessageBox.Ok)
-               return
-
-            fname = self.getUniqueWalletFilename(dlg.importFile)
-            newpath = os.path.join(ARMORY_HOME_DIR, fname)
-
-            print 'Copying imported wallet to:', newpath
-            shutil.copy(dlg.importFile, newpath)
-            self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
-                                                               walletIsNew=False)
+            self.execGetImportWltName()
          elif dlg.importType_paper:
-            dlgPaper = DlgImportPaperWallet(self, self)
-            if dlgPaper.exec_():
-               print 'Raw import successful.  Searching blockchain for tx data...'
-               highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
-               print 'The highest index used was:', highestIdx
-               self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-               print 'Import Complete!'
-         else:
-            return
+            self.execRestorePaperBackup()
+         elif dlg.importType_migrate:
+            self.execMigrateSatoshi()
 
+
+   #############################################################################
+   def execGetImportWltName(self):
+      fn = self.getFileLoad('Import Wallet File')
+      if not os.path.exists(fn):
+         return
+
+      wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False, \
+                                             skipBlockChainScan=True)
+      wltID = wlt.uniqueIDB58
+
+      if self.walletMap.has_key(wltID):
+         QMessageBox.warning(self, 'Duplicate Wallet!', \
+            'You selected a wallet that has the same ID as one already '
+            'in your wallet (%s)!  If you would like to import it anyway, '
+            'please delete the duplicate wallet in Armory, first.'%wltID, \
+            QMessageBox.Ok)
+         return
+
+      fname = self.getUniqueWalletFilename(fn)
+      newpath = os.path.join(ARMORY_HOME_DIR, fname)
+
+      print 'Copying imported wallet to:', newpath
+      shutil.copy(fn, newpath)
+      self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
+                                                         walletIsNew=False)
+
+   #############################################################################
+   def execRestorePaperBackup(self):
+      dlgPaper = DlgImportPaperWallet(self, self)
+      if dlgPaper.exec_():
+         print 'Raw import successful.  Searching blockchain for tx data...'
+         highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         print 'Import Complete!'
    
+   #############################################################################
+   def execMigrateSatoshi(self):
+      reply = MsgBoxCustom(MSGBOX.Question, 'Wallet Version Warning', \
+           'This wallet migration tool only works with regular Bitcoin wallets '
+           'produced using version 0.5.X and earlier.  '
+           'You can determine the version by '
+           'opening the regular Bitcoin client, then choosing "Help"'
+           '-->"About Bitcoin-Qt" from the main menu.  '
+           '<br><br>'
+           '<b>If you have used your wallet with any version of the regular '
+           'Bitcoin client 0.6.0 or higher, this tool <u>will fail</u></b>.  '
+           'In fact, it is highly recommended that you do not even attempt '
+           'to use the tool on such wallets until it is officially supported '
+           'by Armory.'
+           '<br><br>'
+           'Has your wallet ever been opened in the 0.6.0+ Satoshi client?', \
+           yesStr='Yes, Abort!', noStr='No, Carry On!')
+            
+      if reply:
+         return
+
+      DlgMigrateSatoshiWallet(self, self).exec_()
+
+
    #############################################################################
    def getUniqueWalletFilename(self, wltPath):
       root,fname = os.path.split(wltPath)
@@ -1528,7 +1610,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickReceiveCoins(self):
-
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -1555,8 +1636,9 @@ class ArmoryMainWindow(QMainWindow):
       if selectionMade:
          wlt = self.walletMap[wltID]
          wlttype = determineWalletType(wlt, self)[0]
-         dlgaddr = DlgNewAddressDisp(wlt, self, self)
-         dlgaddr.exec_()
+         if showWatchOnlyRecvWarningIfNecessary(wlt, self):
+            DlgNewAddressDisp(wlt, self, self).exec_()
+
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=2):
@@ -1643,6 +1725,8 @@ if 1:  #__name__ == '__main__':
                      help="Use the testnet protocol")
    parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
                      help="Use the testnet protocol")
+   parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
+                     help="Use the testnet protocol")
 
    (options, args) = parser.parse_args()
 
@@ -1653,16 +1737,19 @@ if 1:  #__name__ == '__main__':
    qt4reactor.install()
 
 
+   print 'Blockchain var: ', options.ignoreblk
+
       
-   pixLogo = QPixmap('img/splashlogo.png')
+   pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
-      pixLogo = QPixmap('img/splashlogo_testnet.png')
+      pixLogo = QPixmap(':/splashlogo_testnet.png')
    SPLASH = QSplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()
    app.processEvents()
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath)
+   form = ArmoryMainWindow(settingsPath=options.settingsPath, \
+                           ignoreblk=options.ignoreblk)
    form.show()
 
 
@@ -1675,15 +1762,8 @@ if 1:  #__name__ == '__main__':
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       app.quit()
-      try:
-         sys.exit()
-      except:
-         pass
+      os._exit(0)
       
-
-   if form.abortLoad:
-      endProgram()
-
    app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
    app.setQuitOnLastWindowClosed(True)

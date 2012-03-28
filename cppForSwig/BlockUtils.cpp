@@ -238,8 +238,9 @@ bool TxIOPair::isSpendable(uint32_t currBlk)
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isMineButUnconfirmed(uint32_t currBlk)
 {
-   if( isTxOutFromSelf() )
-      return false;  // all money from self is always confirmed
+   // All TxOuts that were from our own transactions are always confirmed
+   if(isTxOutFromSelf())
+      return false;   
 
    if( (hasTxIn() && txPtrOfInput_->isMainBranch()) || hasTxInZC() )
       return false;
@@ -774,7 +775,7 @@ void BlockDataManager_MMAP::registeredAddrScan( TxRef & tx )
                scanNonStdTx(0, 0, tx, iout, thisAddr);
             continue;
          }
-         break;
+         //break;
          */
       }
    }

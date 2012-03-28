@@ -139,8 +139,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wltID = rowData[LEDGERCOLS.WltID]
       wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
-#LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                   #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
+      #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
+                         #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -419,9 +419,10 @@ class TxInDispModel(QAbstractTableModel):
             recip160,val,blk,hsh,idx = txinListFromBDM[i]
             if main:
                wltID = self.main.getWalletForAddr160(recip160)
+            dispcoin  = '' if not val else coin2str(val,maxZeros=1)
             self.dispTable[-1].append(wltID)
             self.dispTable[-1].append(hash160_to_addrStr(recip160))
-            self.dispTable[-1].append(coin2str(val, maxZeros=1))
+            self.dispTable[-1].append(dispcoin)
             self.dispTable[-1].append(binary_to_hex(hsh))
             self.dispTable[-1].append(idx)
             self.dispTable[-1].append(blk)

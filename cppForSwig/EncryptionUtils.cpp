@@ -278,9 +278,10 @@ SecureBinaryData KdfRomix::DeriveKey(SecureBinaryData const & password)
 
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data, 
-                                    SecureBinaryData & key,
-                                    SecureBinaryData & iv)
+// Implement AES encryption using AES mode, CFB
+SecureBinaryData CryptoAES::EncryptCFB(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData & iv)
 {
    if(CRYPTO_DEBUG)
    {
@@ -295,15 +296,14 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
       return SecureBinaryData(0);
 
    SecureBinaryData encrData(data.getSize());
-   //cout << "   StartPlain: " << data.toHexStr() << endl;
-   //cout << "   Key Data  : " << key.toHexStr() << endl;
 
    // Caller can supply their own IV/entropy, or let it be generated here
+   // (variable "iv" is a reference, so check it on the way out)
    if(iv.getSize() == 0)
       iv = SecureBinaryData().GenerateRandom(BTC_AES::BLOCKSIZE);
 
 
-   BTC_AES_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
+   BTC_CFB_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
                                               (byte*)iv.getPtr());
 
@@ -311,15 +311,14 @@ SecureBinaryData CryptoAES::Encrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   //cout << "   IV Data   : " << iv.toHexStr() << endl;
-   //cout << "   Ciphertext: " << encrData.toHexStr() << endl;
    return encrData;
 }
 
 /////////////////////////////////////////////////////////////////////////////
-SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data, 
-                                    SecureBinaryData & key,
-                                    SecureBinaryData   iv  )
+// Implement AES decryption using AES mode, CFB
+SecureBinaryData CryptoAES::DecryptCFB(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData   iv  )
 {
    if(CRYPTO_DEBUG)
    {
@@ -335,11 +334,7 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
 
    SecureBinaryData unencrData(data.getSize());
 
-   //cout << "   StrtCipher: " << data.toHexStr() << endl;
-   //cout << "   Key Data  : " << key.toHexStr() << endl;
-   //cout << "   IV Data   : " << iv.toHexStr() << endl;
-
-   BTC_AES_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
+   BTC_CFB_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
                                                      key.getSize(), 
                                               (byte*)iv.getPtr());
 
@@ -347,11 +342,75 @@ SecureBinaryData CryptoAES::Decrypt(SecureBinaryData & data,
                         (byte*)data.getPtr(), 
                                data.getSize());
 
-   //cout << "   Plaintext : " << unencrData.toHexStr() << endl;
    return unencrData;
 }
 
 
+
+/////////////////////////////////////////////////////////////////////////////
+// Same as above, but only changing the AES mode of operation (CBC, not CFB)
+SecureBinaryData CryptoAES::EncryptCBC(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData & iv)
+{
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+   if(data.getSize() == 0)
+      return SecureBinaryData(0);
+
+   SecureBinaryData encrData(data.getSize());
+
+   // Caller can supply their own IV/entropy, or let it be generated here
+   // (variable "iv" is a reference, so check it on the way out)
+   if(iv.getSize() == 0)
+      iv = SecureBinaryData().GenerateRandom(BTC_AES::BLOCKSIZE);
+
+
+   BTC_CBC_MODE<BTC_AES>::Encryption aes_enc( (byte*)key.getPtr(), 
+                                                     key.getSize(), 
+                                              (byte*)iv.getPtr());
+
+   aes_enc.ProcessData( (byte*)encrData.getPtr(), 
+                        (byte*)data.getPtr(), 
+                               data.getSize());
+
+   return encrData;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Same as above, but only changing the AES mode of operation (CBC, not CFB)
+SecureBinaryData CryptoAES::DecryptCBC(SecureBinaryData & data, 
+                                       SecureBinaryData & key,
+                                       SecureBinaryData   iv  )
+{
+   if(CRYPTO_DEBUG)
+   {
+      cout << "AES Decrypt" << endl;
+      cout << "   BinData: " << data.toHexStr() << endl;
+      cout << "   BinKey : " << key.toHexStr() << endl;
+      cout << "   BinIV  : " << iv.toHexStr() << endl;
+   }
+
+   if(data.getSize() == 0)
+      return SecureBinaryData(0);
+
+   SecureBinaryData unencrData(data.getSize());
+
+   BTC_CBC_MODE<BTC_AES>::Decryption aes_enc( (byte*)key.getPtr(), 
+                                                     key.getSize(), 
+                                              (byte*)iv.getPtr());
+
+   aes_enc.ProcessData( (byte*)unencrData.getPtr(), 
+                        (byte*)data.getPtr(), 
+                               data.getSize());
+   return unencrData;
+}
 
 
 
@@ -409,7 +468,7 @@ SecureBinaryData CryptoECDSA::SerializePrivateKey(BTC_PRIVKEY const & privKey)
 {
    CryptoPP::Integer privateExp = privKey.GetPrivateExponent();
    SecureBinaryData privKeyData(32);
-   privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize());
+   privateExp.Encode(privKeyData.getPtr(), privKeyData.getSize(), UNSIGNED);
    return privKeyData;
 }
    
@@ -422,8 +481,8 @@ SecureBinaryData CryptoECDSA::SerializePublicKey(BTC_PUBKEY const & pubKey)
    SecureBinaryData pubData(65);
    pubData.fill(0x04);  // we fill just to set the first byte...
 
-   pubX.Encode(pubData.getPtr()+1,  32);
-   pubY.Encode(pubData.getPtr()+33, 32);
+   pubX.Encode(pubData.getPtr()+1,  32, UNSIGNED);
+   pubY.Encode(pubData.getPtr()+33, 32, UNSIGNED);
    return pubData;
 }
 
@@ -661,7 +720,7 @@ SecureBinaryData CryptoECDSA::ComputeChainedPrivateKey(
 
    // Convert new private exponent to big-endian binary string 
    SecureBinaryData newPrivData(32);
-   newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize());
+   newPrivExponent.Encode(newPrivData.getPtr(), newPrivData.getSize(), UNSIGNED);
    return newPrivData;
 }
                             
@@ -707,9 +766,148 @@ SecureBinaryData CryptoECDSA::ComputeChainedPublicKey(
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+bool CryptoECDSA::ECVerifyPoint(BinaryData const & x,
+                                BinaryData const & y)
+{
+   BTC_PUBKEY cppPubKey;
+
+   CryptoPP::Integer pubX;
+   CryptoPP::Integer pubY;
+   pubX.Decode(x.getPtr(), x.getSize(), UNSIGNED);
+   pubY.Decode(y.getPtr(), y.getSize(), UNSIGNED);
+   BTC_ECPOINT publicPoint(pubX, pubY);
+
+   // Initialize the public key with the ECP point just created
+   cppPubKey.Initialize(CryptoPP::ASN1::secp256k1(), publicPoint);
+
+   // Validate the public key -- not sure why this needs a PRNG
+   static BTC_PRNG prng;
+   return cppPubKey.Validate(prng, 3);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECMultiplyScalars(BinaryData const & A, 
+                                          BinaryData const & B)
+{
+   // Hardcode the order of the secp256k1 EC group
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+
+   CryptoPP::Integer intA, intB, intC, intN;
+   intA.Decode(A.getPtr(), A.getSize(), UNSIGNED);
+   intB.Decode(B.getPtr(), B.getSize(), UNSIGNED);
+   intN.Decode(N.getPtr(), N.getSize(), UNSIGNED);
+   intC = a_times_b_mod_c(intA, intB, intN);
+
+   BinaryData C(32);
+   intC.Encode(C.getPtr(), 32, UNSIGNED);
+   return C;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A, 
+                                        BinaryData const & Bx,
+                                        BinaryData const & By)
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+
+   CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intA.Decode( A.getPtr(),  A.getSize(),  UNSIGNED);
+   intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
+   intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
+
+   BTC_ECPOINT B(intBx, intBy);
+   BTC_ECPOINT C = ecp.ScalarMultiply(B, intA);
+
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
+
+   return Cbd;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax, 
+                                    BinaryData const & Ay,
+                                    BinaryData const & Bx,
+                                    BinaryData const & By)
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+
+   CryptoPP::Integer intAx, intAy, intBx, intBy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
+   intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
+   intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
+   intBy.Decode(By.getPtr(), By.getSize(), UNSIGNED);
 
 
+   BTC_ECPOINT A(intAx, intAy);
+   BTC_ECPOINT B(intBx, intBy);
 
+   BTC_ECPOINT C = ecp.Add(A,B);
+
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
+
+   return Cbd;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax, 
+                                  BinaryData const & Ay)
+                                  
+{
+   static BinaryData N = BinaryData::CreateFromHex(
+           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
+   static BinaryData a = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000000");
+   static BinaryData b = BinaryData::CreateFromHex(
+           "0000000000000000000000000000000000000000000000000000000000000007");
+
+   CryptoPP::Integer intAx, intAy, intCx, intCy, intN, inta, intb;
+
+   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
+   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
+   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
+   CryptoPP::ECP ecp(intN, inta, intb);
+
+   intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
+   intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
+
+   BTC_ECPOINT A(intAx, intAy);
+   BTC_ECPOINT C = ecp.Inverse(A);
+
+   BinaryData Cbd(64);
+   C.x.Encode(Cbd.getPtr(),    32, UNSIGNED);
+   C.y.Encode(Cbd.getPtr()+32, 32, UNSIGNED);
+
+   return Cbd;
+}
 
 
 

@@ -276,8 +276,8 @@ BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
 LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
-ONE_BTC       = long(1e8)
-CENT          = long(1e8/100.)
+ONE_BTC       = long(100000000)
+CENT          = long(1000000)
 UNINITIALIZED = None
 UNKNOWN       = -2
 MIN_TX_FEE    = 50000
@@ -289,7 +289,6 @@ UINT32_MAX = 2**32-1
 UINT64_MAX = 2**64-1
 
 RightNow = time.time
-RightNowUTC = time.time  # will be fixed when merged with master
 SECOND   = 1
 MINUTE   = 60
 HOUR     = 3600
@@ -298,6 +297,10 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+# Some time methods (RightNow() return local unix timestamp)
+RightNow = time.time
+def RightNowUTC():
+   return time.mktime(time.gmtime(RightNow()))
 
 
 
@@ -348,6 +351,8 @@ def sha1(bits):
    return hashlib.new('sha1', bits).digest()
 def sha256(bits):
    return hashlib.new('sha256', bits).digest()
+def sha512(bits):
+   return hashlib.new('sha512', bits).digest()
 def ripemd160(bits):
    # It turns out that not all python has ripemd160...?
    #return hashlib.new('ripemd160', bits).digest()
@@ -597,6 +602,7 @@ def hash160_to_addrStr(binStr):
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
+################################################################################
 def addrStr_to_hash160(binStr):
    return base58_to_binary(binStr)[1:-4]
 
@@ -1037,6 +1043,58 @@ def decodeMiniPrivateKey(keyStr):
    return sha256(keyStr)
    
 
+def parsePrivateKeyData(theStr):
+      hexChars = '01234567890abcdef'
+      b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+
+      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
+      b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
+      canBeHex = hexCount==len(theStr)
+      canBeB58 = b58Count==len(theStr)
+
+      binEntry = ''
+      keyType = ''
+      isMini = False
+      if canBeB58 and not canBeHex:
+         if len(theStr)==22 or len(theStr)==30:
+            # Mini-private key format!
+            try:
+               binEntry = decodeMiniPrivateKey(theStr)
+            except KeyDataError:
+               raise BadInputError, 'Invalid mini-private key string'
+            keyType = 'Mini Private Key Format'
+            isMini = True
+         else:
+            binEntry = base58_to_binary(theStr)
+            keyType = 'Plain Base58'
+      elif canBeHex:  
+         binEntry = hex_to_binary(theStr)
+         keyType = 'Plain Hex'
+      else:
+         raise BadInputError, 'Unrecognized key data'
+
+
+      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
+         if len(theStr)==36:
+            keydata = binEntry[:32 ]
+            chk     = binEntry[ 32:]
+            binEntry = verifyChecksum(keydata, chk)
+            if not isMini: 
+               keyType = 'Raw %s with checksum' % keyType.split(' ')[1]
+         else:
+            # Assume leading 0x80 byte, and 4 byte checksum
+            keydata = binEntry[ :1+32 ]
+            chk     = binEntry[  1+32:]
+            binEntry = verifyChecksum(keydata, chk)
+            binEntry = binEntry[1:]
+            if not isMini: 
+               keyType = 'Standard %s key with checksum' % keyType.split(' ')[1]
+
+         if binEntry=='':
+            raise InvalidHashError, 'Private Key checksum failed!'
+      return binEntry, keyType
+   
+
 
 class PyBtcAddress(object):
    """
@@ -1246,9 +1304,9 @@ class PyBtcAddress(object):
          return False
 
 
-      decryptedKey = CryptoAES().Decrypt( self.binPrivKey32_Encr, \
-                                          SecureBinaryData(secureKdfOutput), \
-                                          self.binInitVect16)
+      decryptedKey = CryptoAES().DecryptCFB( self.binPrivKey32_Encr, \
+                                             SecureBinaryData(secureKdfOutput), \
+                                             self.binInitVect16)
       verified = False
 
       if not self.isLocked:
@@ -1425,7 +1483,7 @@ class PyBtcAddress(object):
                      newIV = True
 
                # Finally execute the encryption
-               self.binPrivKey32_Encr = CryptoAES().Encrypt( \
+               self.binPrivKey32_Encr = CryptoAES().EncryptCFB( \
                                                 self.binPrivKey32_Plain, \
                                                 SecureBinaryData(secureKdfOutput), \
                                                 self.binInitVect16)
@@ -1462,7 +1520,7 @@ class PyBtcAddress(object):
          # This is SPECIFICALLY for the case that we didn't have the encr key
          # available when we tried to extend our deterministic wallet, and
          # generated a new address anyway
-         self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+         self.binPrivKey32_Plain = CryptoAES().DecryptCFB( \
                                      self.createPrivKeyNextUnlock_IVandKey[1], \
                                      SecureBinaryData(secureKdfOutput), \
                                      self.createPrivKeyNextUnlock_IVandKey[0])
@@ -1491,7 +1549,7 @@ class PyBtcAddress(object):
          if not self.binInitVect16.getSize()==16:
             raise WalletLockError, 'Initialization Vect (IV) is missing!'
 
-         self.binPrivKey32_Plain = CryptoAES().Decrypt( \
+         self.binPrivKey32_Plain = CryptoAES().DecryptCFB( \
                                         self.binPrivKey32_Encr, \
                                         secureKdfOutput, \
                                         self.binInitVect16)
@@ -4503,6 +4561,7 @@ WEIGHTS[IDX_NUMADDR]    =  100000
 WEIGHTS[IDX_TXSIZE]     =     100
 WEIGHTS[IDX_OUTANONYM]  =      30
 
+
 ################################################################################
 def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    """
@@ -4795,16 +4854,19 @@ class PyTxDistProposal(object):
          txhash = outpt.txHash
          txidx  = outpt.txOutIndex
          pyPrevTx = None
-         if TheBDM.isInitialized():
+         if len(txMap)>0:
+            # If supplied a txMap, we expect it to have everything we need
+            if not txMap.has_key(txhash):
+               raise InvalidHashError, ('Could not find the referenced tx '
+                                        'in supplied txMap')
+            pyPrevTx = txMap[txhash].copy()
+         elif TheBDM.isInitialized():
             cppPrevTx = TheBDM.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
             pyPrevTx = PyTx().unserialize(cppPrevTx.serialize())
          else:
-            if not txMap.has_key(txhash):
-               raise InvalidHashError, ('Could not find the referenced tx '
-                                        'in supplied txMap')
-            pyPrevTx = txMap[txhash].copy()
+            raise InvalidHashError, 'No previous-tx data available for TxDP'
          self.relevantTxMap[txhash] = pyPrevTx.copy()
                
            
@@ -5826,31 +5888,6 @@ class PyBtcWallet(object):
                                   self.addrMap[new160].serialize()]]  )
       return self.addrMap[new160]
 
-      """
-      if len(self.lastComputedChainAddr160) == 20:
-         mostRecentAddr = self.addrMap[self.lastComputedChainAddr160]
-         newAddr = mostRecentAddr.extendAddressChain(self.kdfKey)
-         new160 = newAddr.getAddr160()
-         self.linearAddr160List.append(new160)
-
-         newDataLoc = self.walletFileSafeUpdate( \
-            [[WLT_UPDATE_ADD, WLT_DATATYPE_KEYDATA, new160, newAddr]])
-         self.addrMap[new160] = newAddr
-         self.addrMap[new160].walletByteLoc = newDataLoc[0] + 21
-
-         self.lastComputedChainAddr160 = new160
-         self.lastComputedChainIndex = newAddr.chainIndex
-         # In the future we will enable first/last seen, but not yet
-         self.cppWallet.addAddress_5_(new160, 0, 0, 0, 0)
-         return self.addrMap[new160]
-      else:
-         raise WalletAddressError, 'Deterministic wallet not initialized yet'
-      """
-
-   #############################################################################
-   #def getNewUnusedAddress(self):
-      
-
 
    #############################################################################
    def computeNextAddress(self, addr160=None, isActuallyNew=True):
@@ -5897,6 +5934,35 @@ class PyBtcWallet(object):
       for i in range(numToCreate):
          self.computeNextAddress()
       return self.lastComputedChainIndex
+
+   #############################################################################
+   def setAddrPoolSize(self, newSize):
+      if newSize<5:
+         print 'Will not allow address pool sizes smaller than 5...'
+         return
+
+      self.addrPoolSize = newSize
+      self.fillAddressPool(newSize)
+
+
+   #############################################################################
+   def getHighestUsedIndex(self):
+      """ 
+      This only retrieves the stored value, but it may not be correct if,
+      for instance, the wallet was just imported but has been used before.
+      """
+      return self.highestUsedChainIndex
+
+          
+   #############################################################################
+   def getHighestComputedIndex(self):
+      """ 
+      This only retrieves the stored value, but it may not be correct if,
+      for instance, the wallet was just imported but has been used before.
+      """
+      return self.lastComputedChainIndex
+      
+
          
    #############################################################################
    def detectHighestUsedIndex(self, writeResultToWallet=False):
@@ -5906,7 +5972,7 @@ class PyBtcWallet(object):
       in this search, because it is assumed that the wallet couldn't have
       used any addresses it had not calculated yet.
 
-      If you have a wallet IMPORT, though, of a wallet that has been used
+      If you have a wallet IMPORT, though, or a wallet that has been used
       before but does not have this information stored with it, then you
       should be using the next method:
 
@@ -7121,7 +7187,7 @@ class PyBtcWallet(object):
    def importExternalAddressData(self, privKey=None, privChk=None, \
                                        pubKey=None,  pubChk=None, \
                                        addr20=None,  addrChk=None, \
-                                       firstTime=0,  firstBlk=0, \
+                                       firstTime=UINT32_MAX,  firstBlk=UINT32_MAX, \
                                        lastTime=0,   lastBlk=0):
       """
       This wallet fully supports importing external keys, even though it is
@@ -7372,8 +7438,7 @@ class PyBtcWallet(object):
       print 'Number of inputs that you can sign for: ', numMyAddr
 
 
-      # The TxOut script is already in the TxIn script location, correctly
-      # But we still need to blank out all other scripts when signing
+      # Unlock the wallet if necessary, sign inputs 
       maxChainIndex = -1
       for addrObj,idx, sigIdx in wltAddr:
          maxChainIndex = max(maxChainIndex, addrObj.chainIndex)
@@ -7778,9 +7843,7 @@ class PyMessage(object):
       bp.put(BINARY_CHUNK, self.cmd.ljust(12, '\x00'),    width=12)
       payloadBin = self.payload.serialize()
       bp.put(UINT32, len(payloadBin))
-      t = time.mktime(time.strptime('20 Feb, 2012; 00:01', '%d %b, %Y; %H:%M'))
-      if (not self.cmd=='version' and not self.cmd=='verack') or RightNow() > t:
-         bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],    width= 4)
+      bp.put(BINARY_CHUNK, hash256(payloadBin)[:4],     width= 4)
       bp.put(BINARY_CHUNK, payloadBin)
       return bp.getBinaryString()
     
@@ -7794,11 +7857,9 @@ class PyMessage(object):
       self.magic = msgData.get(BINARY_CHUNK, 4)
       self.cmd   = msgData.get(BINARY_CHUNK, 12).strip('\x00')
       length     = msgData.get(UINT32)
-      if not self.cmd=='version' and not self.cmd=='verack':
-         chksum  = msgData.get(BINARY_CHUNK, 4)
+      chksum     = msgData.get(BINARY_CHUNK, 4)
       payload    = msgData.get(BINARY_CHUNK, length)
-      if not self.cmd=='version' and not self.cmd=='verack':
-         payload    = verifyChecksum(payload, chksum)
+      payload    = verifyChecksum(payload, chksum)
 
       self.payload = PayloadMap[self.cmd]().unserialize(payload)
 
@@ -8314,7 +8375,7 @@ PayloadMap = {
 
 
 try:
-   from twisted.internet.protocol import Protocol, ClientFactory, ReconnectingClientFactory
+   from twisted.internet.protocol import Protocol, ReconnectingClientFactory
    from twisted.internet.defer import Deferred
 except ImportError:
    print '***Python-Twisted is not installed -- cannot enable'
@@ -8430,8 +8491,7 @@ class ArmoryClient(Protocol):
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
-            if msg.payload.version >= 209:
-               self.sendMessage( PayloadVerack() )
+            self.sendMessage( PayloadVerack() )
          elif cmd=='verack':
             self.handshakeFinished = True
             self.factory.handshakeFinished(self)
@@ -8554,7 +8614,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
                 func_newTx=None, \
                 func_doubleSpendAlert=None):
       """
-      Initialize the ClientFactory with a deferred for when the handshake 
+      Initialize the ReconnectingClientFactory with a deferred for when the handshake 
       finishes:  there should be only one handshake, and thus one firing 
       of the handshake-finished callback
       """
@@ -8629,6 +8689,8 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       print '***Connection to Satoshi client LOST!  Attempting to reconnect...'
       ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
 
+      
+
    #############################################################################
    def connectionFailed(self, protoObj, reason):
       """
@@ -8638,11 +8700,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       """
       print '***Initial connection to Satoshi client failed!  Retrying...'
       ReconnectingClientFactory.connectionFailed(self, protoObj, reason)
-      #time.sleep(5)
-      #if self.func_loseConnect:
-         #self.func_loseConnect(protoObj, reason)
-      #d, self.deferred_loseConnect = self.deferred_loseConnect, None
-      #d.errback(reason)
+
 
    #############################################################################
    #def checkForTx(self, txHash):
@@ -8669,7 +8727,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
          raise ConnectionError, 'Connection to localhost DNE.'
 
 
-class FakeClientFactory(ClientFactory):
+class FakeClientFactory(ReconnectingClientFactory):
    """
    A fake class that has the same methods as an ArmoryClientFactory,
    but doesn't do anything.  If there is no internet, then we want 
@@ -8869,29 +8927,309 @@ class SettingsFile(object):
 
 
 
+################################################################################
+################################################################################
+# Read Satoshi Wallets (wallet.dat) to import into Armory wallet
+# BSDDB wallet-reading code taken from Joric's pywallet:  he declared it 
+# public domain. 
+try:
+   from bsddb.db import *
+except ImportError:
+   # Apparently bsddb3 is needed on OSX 
+   from bsddb3.db import *
+
+import json
+import struct
+
+class BCDataStream(object):
+   def __init__(self):
+      self.input = None
+      self.read_cursor = 0
+
+   def clear(self):
+      self.input = None
+      self.read_cursor = 0
+
+   def write(self, bytes):   # Initialize with string of bytes
+      if self.input is None:
+         self.input = bytes
+      else:
+         self.input += bytes
+
+   def map_file(self, file, start):   # Initialize with bytes from file
+      self.input = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ)
+      self.read_cursor = start
+   def seek_file(self, position):
+      self.read_cursor = position
+   def close_file(self):
+      self.input.close()
+
+   def read_string(self):
+      # Strings are encoded depending on length:
+      # 0 to 252 :   1-byte-length followed by bytes (if any)
+      # 253 to 65,535 : byte'253' 2-byte-length followed by bytes
+      # 65,536 to 4,294,967,295 : byte '254' 4-byte-length followed by bytes
+      # ... and the Bitcoin client is coded to understand:
+      # greater than 4,294,967,295 : byte '255' 8-byte-length followed by bytes of string
+      # ... but I don't think it actually handles any strings that big.
+      if self.input is None:
+         raise SerializationError("call write(bytes) before trying to deserialize")
+
+      try:
+         length = self.read_compact_size()
+      except IndexError:
+         raise SerializationError("attempt to read past end of buffer")
+
+      return self.read_bytes(length)
+
+   def write_string(self, string):
+      # Length-encoded as with read-string
+      self.write_compact_size(len(string))
+      self.write(string)
+
+   def read_bytes(self, length):
+      try:
+         result = self.input[self.read_cursor:self.read_cursor+length]
+         self.read_cursor += length
+         return result
+      except IndexError:
+         raise SerializationError("attempt to read past end of buffer")
+
+      return ''
+
+   def read_boolean(self): return self.read_bytes(1)[0] != chr(0)
+   def read_int16(self): return self._read_num('<h')
+   def read_uint16(self): return self._read_num('<H')
+   def read_int32(self): return self._read_num('<i')
+   def read_uint32(self): return self._read_num('<I')
+   def read_int64(self): return self._read_num('<q')
+   def read_uint64(self): return self._read_num('<Q')
+
+   def write_boolean(self, val): return self.write(chr(1) if val else chr(0))
+   def write_int16(self, val): return self._write_num('<h', val)
+   def write_uint16(self, val): return self._write_num('<H', val)
+   def write_int32(self, val): return self._write_num('<i', val)
+   def write_uint32(self, val): return self._write_num('<I', val)
+   def write_int64(self, val): return self._write_num('<q', val)
+   def write_uint64(self, val): return self._write_num('<Q', val)
+
+   def read_compact_size(self):
+      size = ord(self.input[self.read_cursor])
+      self.read_cursor += 1
+      if size == 253:
+         size = self._read_num('<H')
+      elif size == 254:
+         size = self._read_num('<I')
+      elif size == 255:
+         size = self._read_num('<Q')
+      return size
+
+   def write_compact_size(self, size):
+      if size < 0:
+         raise SerializationError("attempt to write size < 0")
+      elif size < 253:
+          self.write(chr(size))
+      elif size < 2**16:
+         self.write('\xfd')
+         self._write_num('<H', size)
+      elif size < 2**32:
+         self.write('\xfe')
+         self._write_num('<I', size)
+      elif size < 2**64:
+         self.write('\xff')
+         self._write_num('<Q', size)
+
+   def _read_num(self, format):
+      (i,) = struct.unpack_from(format, self.input, self.read_cursor)
+      self.read_cursor += struct.calcsize(format)
+      return i
+
+   def _write_num(self, format, num):
+      s = struct.pack(format, num)
+      self.write(s)
+
 
 ################################################################################
-import threading
-class SpawnThread(threading.Thread):
+def create_env(wltDir):
    """ 
-   The simplest way to kick off some I/O-bound processing, and return
-   control to the user while it is running in the background, AS LONG AS
-   you are not doing any conflicting processing.  No concern for locks,
-   semaphores, deadlocks, whatever.  Perhaps you just need to read some
-   data from file, and you won't access that data until it's done (which
-   will trigger the doneFunc().
+   This appears to set the "environment" for BSDDB:  the directory containing
+   all the DB we plan to open: which in this case is just one:  wallet.dat
    """
-   def __init__(self, execWhat, whenDone=None):
-      super(SpawnThread, self).__init__()
-      self.execFunc = execWhat
-      self.doneFunc = whenDone
-      self.start()
+   db_env = DBEnv(0)
+   r = db_env.open(wltDir, \
+     (DB_CREATE|DB_INIT_LOCK|DB_INIT_LOG|DB_INIT_MPOOL|DB_INIT_TXN|DB_THREAD|DB_RECOVER))
+   return db_env
 
-   def run(self):
-      self.execFunc()
-      if self.doneFunc:
-         self.doneFunc()
+################################################################################
+def pubkey_to_addrStr(pubKey):
+   a160 = hash160(pubKey)
+   return hash160_to_addrStr(a160)
 
+################################################################################
+def open_wallet(db_env, wltFile):
+   db = DB(db_env)
+   flags = DB_THREAD | DB_RDONLY
+   try:
+      r = db.open(wltFile, "main", DB_BTREE, flags)
+   except DBError:
+      r = True
+
+   if r is not None:
+      logging.error("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
+      sys.exit(1)
+   
+   return db
+
+
+
+################################################################################
+def GetKeyFromPassphraseSatoshi(passwd, vSalt, nIter, deriveMethod):
+   """
+   Returns the encryption (key, IV) to be used to decrypt the master key
+   """
+   if deriveMethod != 0:
+      return 0
+
+   if not isinstance(passwd, str):
+      passwd = passwd.toBinStr()
+
+   data = passwd + vSalt
+   for i in xrange(nIter):
+      data = sha512(data)
+   return data[0:32], data[32:32+16]
+
+
+
+################################################################################
+def read_wallet(db_env, wltFile):
+   db = open_wallet(db_env, wltFile)
+
+   # Moved parse_wallet code inline here
+   kds = BCDataStream()
+   vds = BCDataStream()
+
+   plainPrivList = []
+   cryptPrivList = []
+   masterEncrKey = {}
+   poolKeysList  = []
+   addrNames     = {}
+
+   wltNetByte = None
+   for (key, value) in db.items():
+      d = { }
+
+      kds.clear()
+      vds.clear()
+      kds.write(key)
+      vds.write(value)
+
+      dType = kds.read_string()
+
+      d["__key__"] = key
+      d["__value__"] = value
+      d["__type__"] = dType
+
+
+      if dType == "key":
+         priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
+         plainPrivList.append(priv)
+      elif dType == "ckey":
+         pub = kds.read_bytes(kds.read_compact_size())
+         ckey = vds.read_bytes(vds.read_compact_size())
+         cryptPrivList.append( [pub, ckey] )
+      elif dType == "mkey":
+         masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
+         masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
+         masterEncrKey['mthd'] = vds.read_int32()
+         masterEncrKey['iter'] = vds.read_int32()
+         masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
+      elif dType == "pool":
+         d['n'] = kds.read_int64()
+         ver = vds.read_int32()
+         ntime = vds.read_int64()
+         pubkey = vds.read_bytes(vds.read_compact_size())
+         poolKeysList.append(pubkey_to_addrStr(pubkey))
+      elif dType == "name":
+         addrB58 = kds.read_string()
+         name    = vds.read_string()
+         addrNames[addrB58] = name
+         wltNetByte = base58_to_binary(addrB58)[0]
+         if not wltNetByte==ADDRBYTE:
+            s = 'Wallet is for a different network!  ' 
+            if NETWORKS.has_key(wltNetByte):
+               s += '(for network: %s)' %  NETWORKS[wltNetByte]
+            raise NetworkIDError, s
+      else:
+         pass
+
+   db.close()
+
+   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList, addrNames)
+
+
+
+
+
+
+def extractSatoshiKeys(wltPath, passphrase=None):
+   # Returns a list of [privKey, usedYet] pairs
+   if not os.path.exists(wltPath):
+      raise FileExistsError, 'Specified Satoshi wallet does not exist!'
+
+   wltDir,wltFile = os.path.split(wltPath)
+
+   db_env = create_env(wltDir) 
+
+   plainkeys,mkey,crypt,pool,names = read_wallet(db_env, wltFile)
+   
+   if len(crypt)>0:
+      # Satoshi Wallet is encrypted!
+      plainkeys = []
+      if not passphrase:
+         raise EncryptionError, 'Satoshi wallet is encrypted but no passphrase supplied'
+      
+      pKey,IV = GetKeyFromPassphraseSatoshi( passphrase, \
+                                             mkey['salt'], \
+                                             mkey['iter'], \
+                                             mkey['mthd'])
+
+      masterKey = CryptoAES().DecryptCBC( SecureBinaryData(mkey['mkey']), \
+                                          SecureBinaryData(pKey), \
+                                          SecureBinaryData(IV) )
+      masterKey.resize(32)
+
+      checkedCorrectPassphrase = False
+      for pub,ckey in crypt:
+         iv = hash256(pub)[:16]
+         privKey = CryptoAES().DecryptCBC( SecureBinaryData(ckey), \
+                                           SecureBinaryData(masterKey), \
+                                           SecureBinaryData(iv))
+         privKey.resize(32)
+         if not checkedCorrectPassphrase:
+            checkedCorrectPassphrase = True
+            if not CryptoECDSA().CheckPubPrivKeyMatch(privKey, SecureBinaryData(pub)):
+               raise EncryptionError, 'Incorrect Passphrase!'
+         plainkeys.append(privKey)
+
+   outputList = []
+   for key in plainkeys:
+      addr = hash160_to_addrStr(convertKeyDataToAddress(key.toBinStr()))
+      strName = ''
+      if names.has_key(addr):
+         strName = names[addr] 
+      outputList.append( [addr, key, (not addr in pool), strName] )
+   return outputList
+         
+
+
+def checkSatoshiEncrypted(wltPath):
+   try:
+      extractSatoshiKeys(wltPath, '')
+      return False
+   except EncryptionError:
+      return True
+      
+   
 
 
 

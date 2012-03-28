@@ -73,8 +73,8 @@ int main(void)
    //printTestHeader("Crypto-KDF-and-AES-methods");
    //TestCrypto();
 
-   //printTestHeader("Crypto-ECDSA-sign-verify");
-   //TestECDSA();
+   printTestHeader("Crypto-ECDSA-sign-verify");
+   TestECDSA();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -747,10 +747,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("ddc6bf790c15760d8d9aeb6f9a75fd4e");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
@@ -762,10 +762,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("5c9d844ed46f9885085e5d6a4f94c7d7");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
    /// *** Test 3 *** ///
@@ -776,10 +776,10 @@ void TestCrypto(void)
    cipherTarg.createFromHex("225f068c28476605735ad671bb8f39f3");
 
    cout << "   Plain        : " << plaintext.toHexStr() << endl;
-   cipherComp = CryptoAES().Encrypt(plaintext, testKey, testIV);
+   cipherComp = CryptoAES().EncryptCFB(plaintext, testKey, testIV);
    cout << "   CipherTarget : " << cipherComp.toHexStr() << endl;
    cout << "   CipherCompute: " << cipherComp.toHexStr() << endl;
-   rtPlain = CryptoAES().Decrypt(cipherComp, testKey, testIV);
+   rtPlain = CryptoAES().DecryptCFB(cipherComp, testKey, testIV);
    cout << "   Plain        : " << rtPlain.toHexStr() << endl;
 
 
@@ -794,15 +794,15 @@ void TestCrypto(void)
    SecureBinaryData randIV(0);  // tell the crypto to generate a random IV for me.
 
    cout << "Encrypting:" << endl;
-   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+   cipher = CryptoAES().EncryptCFB(secret, testKey, randIV);
    cout << endl << endl;
    cout << "Decrypting:" << endl;
-   secret = CryptoAES().Decrypt(cipher, testKey, randIV);
+   secret = CryptoAES().DecryptCFB(cipher, testKey, randIV);
    cout << endl << endl;
 
    // Now encrypting so I can store the encrypted data in file
    cout << "Encrypting again:" << endl;
-   cipher = CryptoAES().Encrypt(secret, testKey, randIV);
+   cipher = CryptoAES().EncryptCFB(secret, testKey, randIV);
 
    ofstream testfile("safefile.txt", ios::out);
    testfile << "KdfParams " << endl;
@@ -845,14 +845,14 @@ void TestCrypto(void)
    cout << "Attempting to decrypt with wrong passphrase" << endl;
    SecureBinaryData passphrase = SecureBinaryData("This is the wrong passphrase");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().Decrypt(cipherTry1, newKey, iv);
+   CryptoAES().DecryptCFB(cipherTry1, newKey, iv);
 
 
    // Now try correct passphrase
    cout << "Attempting to decrypt with CORRECT passphrase" << endl;
    passphrase = SecureBinaryData("This passphrase is tough to guess");
    newKey = newKdf.DeriveKey( passphrase );
-   CryptoAES().Decrypt(cipherTry2, newKey, iv);
+   CryptoAES().DecryptCFB(cipherTry2, newKey, iv);
 }
 
 
@@ -953,6 +953,15 @@ void TestECDSA(void)
    cout << "   New pubKeyB:" << newBinPubB.getSliceCopy(0,30).toHexStr() << "..." << endl;
    cout << endl;
 
+
+   // Test arbitrary scalar/point operations
+   BinaryData a = BinaryData::CreateFromHex("8c006ff0d2cfde86455086af5a25b88c2b81858aab67f6a3132c885a2cb9ec38");
+   BinaryData b = BinaryData::CreateFromHex("e700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData c = BinaryData::CreateFromHex("f700576fd46c7d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData d = BinaryData::CreateFromHex("8130904787384d72d7d22555eee3a14e2876c643cd70b1b0a77fbf46e62331ac");
+   BinaryData e = CryptoECDSA().ECMultiplyScalars(a,b);
+   BinaryData f = CryptoECDSA().ECMultiplyPoint(a, b, c);
+   BinaryData g = CryptoECDSA().ECAddPoints(a, b, c, d);
 }
 
 
