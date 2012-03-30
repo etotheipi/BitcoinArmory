@@ -301,7 +301,7 @@ class ArmoryMainWindow(QMainWindow):
       btnFrame.setLayout(layout)
 
       
-      lblInfo = QLabel('Armory Version %s (alpha) / %s User Mode' % \
+      lblInfo = QLabel('Armory Version %s (beta) / %s User Mode' % \
                (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
       lblInfo.setFont(GETFONT('var',10))
       lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -1325,7 +1325,9 @@ class ArmoryMainWindow(QMainWindow):
       are no active wallets containin them.
       """
 
-      if not self.haveBlkFile
+      # TODO:  not sure how to handle the offline case
+      if not self.haveBlkFile:
+         return False
 
       def scanBlockchain():
          TheBDM.scanBlockchainForTx(cppWlt, 0)
@@ -1353,7 +1355,7 @@ class ArmoryMainWindow(QMainWindow):
 
          if waitMsg==None:
             waitMsg = 'Collecting balance of new addresses'
-         DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
+         DlgExecLongProcess(scanBlockchain, waitMsg, self, self).exec_()
          return True
 
 

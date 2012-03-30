@@ -1587,13 +1587,15 @@ class DlgImportAddress(QDialog):
 
 
       lblPrivData = QLabel('Private Keys:')
-      self.txtPrivData = QTextEdit()
+      self.edtPrivData = QLineEdit()
+      #self.txtPrivDataMulti = QTextEdit()
       
       Fixed8 = GETFONT('Fixed', 8)
-      self.txtPrivData.setFont( Fixed8 )
-      w,h = tightSizeNChar(Fixe8, 80)
-      self.txtPrivData.sizeHint = lambda: QSize(w, h*4.2)
-      self.txtPrivData.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+      self.edtPrivData.setFont( Fixed8 )
+      #self.txtPrivData.setFont( Fixed8 )
+      #w,h = tightSizeNChar(Fixed8, 80)
+      #self.txtPrivData.sizeHint = lambda: QSize(w, h*4.2)
+      #self.txtPrivData.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
@@ -1605,7 +1607,7 @@ class DlgImportAddress(QDialog):
       layout = QGridLayout()
       layout.addWidget(lblDescr,          0, 0, 1, 3)
       layout.addWidget(lblPrivData,       1, 0, 1, 1)
-      layout.addWidget(self.txtPrivData,  1, 1, 1, 1)
+      layout.addWidget(self.edtPrivData,  1, 1, 1, 1)
       layout.addWidget(privTooltip,       1, 2, 1, 1)
       layout.addWidget(frmWarn,           2, 0, 1, 3)
       layout.addWidget(buttonbox,         4, 0, 1, 3)
@@ -1651,7 +1653,7 @@ class DlgImportAddress(QDialog):
             return 
          else:
             if reply==QMessageBox.No:
-               binKeyData = binary_switchEndian(binEntry)
+               binKeyData = binary_switchEndian(binKeyData)
                addr160 = convertKeyDataToAddress(privKey=binKeyData)
                addrStr = hash160_to_addrStr(addr160)
                reply = QMessageBox.question(self, 'Try Again', \
@@ -1662,6 +1664,7 @@ class DlgImportAddress(QDialog):
                      QMessageBox.Yes | QMessageBox.No)
                if reply==QMessageBox.No:
                   binKeyData='' 
+                  return
 
 
 
@@ -1770,7 +1773,16 @@ class DlgImportAddress(QDialog):
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
          #######################################################################
-         if not self.main.BDM_SyncAddressList_Confirm(oldAddr):
+         warnMsg = ( \
+            'The address was imported successfully, but its balance will be '
+            'incorrect until the global transaction history is searched for '
+            'previous transactions.  Depending on your system, this operation '
+            'can take anywhere from 10 seconds to 3 minutes.  '
+            '<br><br>'
+            'If you click "Cancel", the address will still appear in your '
+            'wallet but its balanace will be incorrect until the Armory '
+            'is restarted.')
+         if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
             return
          #######################################################################
          if TheBDM.isInitialized():
@@ -2220,8 +2232,7 @@ class DlgMigrateSatoshiWallet(QDialog):
       else:
          if nError == 0:
             MsgBoxCustom(MSGBOX.Good, 'Success!', \
-               'Success: %d private keys were imported into your wallet.  %s' % \
-                                                            (nImport, restartMsg))
+               'Success: %d private keys were imported into your wallet.' % nImport)
          else:
             MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
                '%d private keys were imported into your wallet, but there was '
@@ -2239,14 +2250,16 @@ class DlgMigrateSatoshiWallet(QDialog):
          'be incorrect until then.')
       waitMsg = 'Searching the global transaction history'
          
-      if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, 0, warnMsg, waitMsg):
+      if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
          TheBDM.registerWallet(wlt.cppWallet)
          wlt.syncWithBlockchain(0)
-         self.main.walletListChanged()
       else:
          self.main.isDirty = True
       ##########################################################################
 
+      self.main.addWalletToApplication(wlt, walletIsNew=False)
+
+      self.main.walletListChanged()
       self.accept()
       
          
@@ -2839,7 +2852,7 @@ class DlgIntroMessage(QDialog):
          'for loss of Bitcoins due to software defects.  By using Armory, you are '
          'agreeing to the terms set forth in the LICENSE file included with this '
          'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
-         'http://bitcoinarmory.com/index.php/software-licence</a>.').
+         'http://bitcoinarmory.com/index.php/software-licence</a>.')
       
       lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
       strReqts = []
@@ -3304,6 +3317,10 @@ class DlgRemoveWallet(QDialog):
       lbls[2].append(QLabel(wlt.labelDescr))
       lbls[2][-1].setWordWrap(True)
 
+
+      # TODO:  This should not *ever* require a blockchain scan, because all
+      #        current wallets should already be registered and up-to-date.  
+      #        But I should verify that this is actually the case.
       wltEmpty = True
       if TheBDM.isInitialized():
          wlt.syncWithBlockchain()
@@ -4048,7 +4065,8 @@ class DlgSendBitcoins(QDialog):
          ttipUnsigned = createToolTipObject( \
             'After clicking this button, you will be given directions for '
             'completing this transaction.')
-         btnSend.setToolTip('You cannot send any Bitcoins from this wallet, from this computer')
+         btnSend.setToolTip('This is a watching-only wallet! '
+                            'You cannot use it to send Bitcoins!')
          btnSend.setEnabled(False)
 
       if not self.main.isOnline:
@@ -7147,10 +7165,18 @@ class DlgECDSACalc(QDialog):
       self.btnClearSS = QPushButton('Clear')
       self.btnClearSP = QPushButton('Clear')
       self.btnClearPP = QPushButton('Clear')
-      imgPlus  = QImageLabel(':/plus_orange.png')
-      imgTimes1= QImageLabel(':/asterisk_orange.png')
-      imgTimes2= QImageLabel(':/asterisk_orange.png')
-      imgDown  = QImageLabel(':/arrow_down32.png')
+
+      # Looks like these images didn't make it into the resource file.
+      # TODO:  Figure this out later...
+      #imgPlus  = QImageLabel(':/plus_orange.png')
+      #imgTimes1= QImageLabel(':/asterisk_orange.png')
+      #imgTimes2= QImageLabel(':/asterisk_orange.png')
+      #imgDown  = QImageLabel(':/arrow_down32.png')
+
+      imgPlus  = QRichLabel('<b>+</b>')
+      imgTimes1= QRichLabel('<b>*</b>')
+      imgTimes2= QRichLabel('<b>*</b>')
+      imgDown  = QRichLabel('')
 
       self.connect(self.btnCalcSS, SIGNAL('clicked()'),  self.multss)
       self.connect(self.btnCalcSP, SIGNAL('clicked()'),  self.multsp)
@@ -7512,19 +7538,40 @@ class DlgECDSACalc(QDialog):
    #############################################################################
    def signMsg(self):
       self.keyWaterfall()
-      try:
-         binPriv = hex_to_binary(str(self.txtPriv.text()).strip().replace(' ',''))
-      except:
-         QMessageBox.critical(self, 'Input Error', \
-           'There was an error parsing the private key.', QMessageBox.Ok)
+
+      a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
+      if len(a160Bin)<20:
+         QMessageBox.critical(self, 'Input Error', 'You did not specify an '
+            'address or private key to be used for signing', QMessageBox.Ok)
          return
+         
+      wltID = self.checkIfAddrIsOurs(a160Bin)
+      haveWltPriv = (wltID!='')
+
+      try:
+         binPriv = SecureBinaryData(hex_to_binary(str(self.txtPriv.text()).strip().replace(' ','')))
+         haveRawPriv = (binPriv.getSize()==32)
+      except:
+         haveRawPriv = False
+         if not haveWltPriv:
+            QMessageBox.critical(self, 'Input Error', \
+               'There was an error parsing the private key.', QMessageBox.Ok)
+            return
+
+
+      if not haveRawPriv:
+         wlt = self.main.walletMap[wltID]
+         if wlt.useEncryption and wlt.isLocked:
+            dlg = DlgUnlockWallet(wlt, self.main, 'Encrypt New Address')
+            if not dlg.exec_():
+               reply = QMessageBox.critical(self, 'Wallet is locked',
+                  'Could not unlock wallet, so private key data could not '
+                  'be acquired.', QMessageBox.Ok)
+               return
+         binPriv = wlt.addrMap[a160Bin].binPrivKey32_Plain;
+            
 
       strMsg  = self.readMsg()
-         
-      if len(binPriv)!=32:
-         QMessageBox.critical(self, 'Invalid Private Key', \
-           'Cannot sign a message without a valid private key.', QMessageBox.Ok)
-         return
       if len(strMsg)==0:
          QMessageBox.critical(self, 'Nothing to Sign!', \
            'There is no message to sign!', QMessageBox.Ok)

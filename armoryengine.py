@@ -789,8 +789,9 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
    TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
 
    # Register wallets so that they can be included in the initial scan
-   for wlt in wltList:
-      TheBDM.registerWallet(wlt.cppWallet, False)  # isWltNew=False
+   if wltList:
+      for wlt in wltList:
+         TheBDM.registerWallet(wlt.cppWallet, False)  # isWltNew=False
 
    return TheBDM.readBlkFile_FromScratch(blkfile)
 

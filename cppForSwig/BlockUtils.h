@@ -706,6 +706,7 @@ public:
    bool     addressIsRegistered(HashString addr160);
    void     registeredAddrScan( TxRef & tx );
    void     resetRegisteredWallets(void);
+   void     pprintRegisteredWallets(void);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_

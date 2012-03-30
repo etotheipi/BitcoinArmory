@@ -1892,19 +1892,27 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
    bool doFullRescan = evalWalletRequiresBlockchainScan(myWallet, endBlknum);
 
    // If we rescan, we will update the registered tx list
-   if( !doFullRescan )
+   if( doFullRescan )
    {
-      cout << "No need to rescan, using registered tx list..." << endl;
-      scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
-   }
-   else
-   {
-      cout << "Need to register wallet and rescan..." << endl;
+      cout << "Need to ";
       if(!walletIsRegistered(myWallet))
+      {
+         cout << "register wallet and ";
          registerWallet( &myWallet );
+      }
+      cout << "rescan blockchain..." << endl;
 
       readBlkFile_FromScratch("", true); // same blk0001.dat, but force rescan
-      scanRegisteredTxForWallet(myWallet, 0, endBlknum);
+   }
+   else
+      cout << "All necessary tx data already in registered tx list..." << endl;
+
+   set<BtcWallet*>::iterator iter;
+   for(iter  = registeredWallets_.begin(); 
+       iter != registeredWallets_.end(); 
+       iter++)
+   {
+      scanRegisteredTxForWallet(**iter, startBlknum, endBlknum);
    }
 
    myWallet.sortLedger(); // removes invalid tx and sorts
@@ -1914,8 +1922,25 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
       rescanWalletZeroConf(myWallet);
 
    PDEBUG("Done scanning blockchain for tx");
-
 }
+
+
+void BlockDataManager_MMAP::pprintRegisteredWallets(void)
+{
+   set<BtcWallet*>::iterator iter;
+   for(iter  = registeredWallets_.begin(); 
+       iter != registeredWallets_.end(); 
+       iter++)
+   {
+      cout << "Wallet:";
+      cout << "\tBalance: " << (*iter)->getFullBalance();
+      cout << "\tNAddr:   " << (*iter)->getNumAddr();
+      cout << "\tNTxio:   " << (*iter)->getTxIOMap().size();
+      cout << "\tNLedg:   " << (*iter)->getTxLedger().size();
+      cout << "\tNZC:     " << (*iter)->getZeroConfLedger().size() << endl;      
+   }
+}
+
 
 
 /*
