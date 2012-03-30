@@ -61,6 +61,9 @@ class ArmoryMainWindow(QMainWindow):
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
       self.abortLoad = False
       self.ignoreblk = ignoreblk
+
+      # Not used just yet...
+      self.isDirty   = True
       
       self.settingsPath = settingsPath
       self.loadWalletsAndSettings()
@@ -795,6 +798,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblArmoryStatus.setText(\
                   '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
             self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+            self.isDirty = False
          else:
             self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -1321,11 +1325,13 @@ class ArmoryMainWindow(QMainWindow):
       are no active wallets containin them.
       """
 
+      if not self.haveBlkFile
+
       def scanBlockchain():
          TheBDM.scanBlockchainForTx(cppWlt, 0)
 
       if not TheBDM.evalWalletRequiresBlockchainScan(cppWlt):
-         updateBalance()
+         scanBlockchain()
          return True
       else:
          if warnMsg==None:
@@ -1736,8 +1742,6 @@ if 1:  #__name__ == '__main__':
    import qt4reactor
    qt4reactor.install()
 
-
-   print 'Blockchain var: ', options.ignoreblk
 
       
    pixLogo = QPixmap(':/splashlogo.png')

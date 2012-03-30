@@ -77,8 +77,8 @@ int main(void)
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
 
-   //printTestHeader("Crypto-KDF-and-AES-methods");
-   //TestCrypto();
+   printTestHeader("Crypto-KDF-and-AES-methods");
+   TestCrypto();
 
    printTestHeader("Crypto-ECDSA-sign-verify");
    TestECDSA();

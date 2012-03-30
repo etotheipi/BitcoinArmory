@@ -1616,11 +1616,9 @@ class DlgImportAddress(QDialog):
 
 
    def processUserString(self):
-      inputLines = [s.strip().replace(' ','') for s in str(self.txtPrivData.text()).split('\n')]
+      theStr = str(self.edtPrivData.text()).strip().replace(' ','')
       binKeyData, addr160, addrStr = '','',''
 
-      privKeyList = []
-      for line in inputLines:
       try:
          binKeyData, keyType = parsePrivateKeyData(theStr)
          addr160 = convertKeyDataToAddress(privKey=binKeyData)
@@ -1693,13 +1691,16 @@ class DlgImportAddress(QDialog):
 
          #######################################################################
          #  This is the part that may take a while.  Verify user will wait!
+         #  If they approve, do the blockchain rescan with a "Pls Wait" window.
          #  The sync/confirm call guarantees that the next sync call will 
          #  return instantaneously with the correct answer.  This only stops
          #  being true when more addresses or wallets are imported.
          if not self.main.BDM_SyncAddressList_Confirm(oldAddr):
             return
-         #######################################################################
          
+         #######################################################################
+         # The createSweepTx method will return instantly because the blockchain
+         # has already been rescanned, as described above
          finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
 
          if outVal<=fee:
@@ -1717,19 +1718,18 @@ class DlgImportAddress(QDialog):
             return
 
 
-         #reply = QMessageBox.warning(self, 'Verify Sweep', \
-           #'You are about to sweep all funds from address \n\n%s\n\n to your '
-           #'current wallet \n\n"%s" [%s]\n\n  The total amount to be '
-           #'transferred is \n\n%s %s\n\nDo you want to continue?' % \
-               #(oldAddr.getAddrStr(), self.wlt.labelName, self.wlt.uniqueIDB58, outStr, feeStr), \
-           #QMessageBox.Yes | QMessageBox.Cancel)
-         #if reply==QMessageBox.Yes:
       
          # Finally, if we got here, we're ready to broadcast!
          dispIn  = 'address <b>%s</b>' % oldAddr.getAddrStr()
          dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
          if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
             self.main.broadcastTransaction(finishedTx, dryRun=False)
+
+         if TheBDM.isInitialized():
+            self.wlt.syncWithBlockchain(0)
+
+         self.main.walletListChanged()
+         self.accept()
             
       elif self.radioImport.isChecked():
          if self.wlt.hasAddr(addr160):
@@ -1768,19 +1768,37 @@ class DlgImportAddress(QDialog):
          self.wlt.importExternalAddressData( privKey=SecureBinaryData(binKeyData))
          self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
+
+         #######################################################################
+         if not self.main.BDM_SyncAddressList_Confirm(oldAddr):
+            return
+         #######################################################################
+         if TheBDM.isInitialized():
+            self.wlt.syncWithBlockchain(0)
+
+         self.main.walletListChanged()
+         self.accept()
       
       try:
          self.parent.wltAddrModel.reset()
       except:
          pass
 
-      if TheBDM.isInitialized():
-         self.wlt.syncWithBlockchain(0)
-
-      self.main.walletListChanged()
-      self.accept()
 
 
+   def processMultiKey(self):
+      inputLines = [s.strip().replace(' ','') for s in str(self.txtPrivData.text()).split('\n')]
+      binKeyData, addr160, addrStr = '','',''
+
+      privKeyList = []
+      for line in inputLines:
+         try:
+            binKeyData, keyType = parsePrivateKeyData(theStr)
+            addr160 = convertKeyDataToAddress(privKey=binKeyData)
+            addrStr = hash160_to_addrStr(addr160)
+            privKeyList.append([addr160, binKeyData])
+         except:
+            continue
 
 
 #############################################################################
@@ -2194,10 +2212,6 @@ class DlgMigrateSatoshiWallet(QDialog):
             nError += 1
 
 
-      restartMsg = '<br><br>Restart Armory to guarantee that balances are computed correctly.'
-      #restartMsg = ''
-      #if self.main.isOnline:
-         
       if nImport==0:
          MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
             'Please check the logfile (ArmoryQt.exe.log) or the console output '
@@ -2215,6 +2229,24 @@ class DlgMigrateSatoshiWallet(QDialog):
                'or log file for more information).  It is safe to try this '
                'operation again: all addresses previously imported will be '
                'skipped. %s' % (nImport, nError, restartMsg))
+      
+      ##########################################################################
+      warnMsg = ( \
+         'Would you like to rescan the blockchain for all the addresses you '
+         'just migrated?  This operation typically takes 10 seconds to 3 minutes '
+         'depending on your system.  If you skip this operation, it will be '
+         'performed the next time you restart Armory. Wallet balances may '
+         'be incorrect until then.')
+      waitMsg = 'Searching the global transaction history'
+         
+      if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, 0, warnMsg, waitMsg):
+         TheBDM.registerWallet(wlt.cppWallet)
+         wlt.syncWithBlockchain(0)
+         self.main.walletListChanged()
+      else:
+         self.main.isDirty = True
+      ##########################################################################
+
       self.accept()
       
          
@@ -2803,35 +2835,24 @@ class DlgIntroMessage(QDialog):
       lblDescr = QRichLabel( \
          '<b>You are about to use the most feature-packed, easiest-to-use '
          'Bitcoin client in existence</b>.  But please remember, this software '
-         'is still <i>alpha</i>, which means that it should not be '
-         'trusted to handle any serious amounts of money.  '
-         'Armory developers will not be held '
-         'responsible for loss of funds due to software defects!'  )
-
+         'is still <i>Beta</i> and Armory developers will not be held responsible '
+         'for loss of Bitcoins due to software defects.  By using Armory, you are '
+         'agreeing to the terms set forth in the LICENSE file included with this '
+         'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
+         'http://bitcoinarmory.com/index.php/software-licence</a>.').
       
-      lblShouldKnow = QRichLabel( \
-         '<b>While this software is in <i>alpha</i></b>, it requires your system '
-         'to hold the entire blockchain in RAM.  This will have serious '
-         'impacts on your system\'s performance if you are on the main Bitcoin '
-         'network, unless you have 4GB or RAM or more.  If this is a problem, please '
-         'wait for the <i>beta</i> release, which will have dramatically-reduced '
-         'memory requirements.')
-
-      lblMustDo = QRichLabel('<b>In order to use this software '
-                             '(unless you are in offline mode):</b>')
+      lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
       strReqts = []
       strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
                       'the same network (Main-net or Testnet)')
       strReqts.append('<b>Please</b> make sure the Satoshi client is sync\'d '
                       'with the blockchain before loading Armory.')
-      strReqts.append('Blockchain held in memory:  requires about 1.5 '
-                      'GB of RAM (plus Satoshi client RAM)')
       strReqts.append('Uses the blockchain file maintained by Satoshi '
                       'client (blk0001.dat)')
       lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
 
       lblContact = QRichLabel( \
-         '<b>If you are impressed with this software, please consider pressing '
+         '<b>If you find this software useful, please consider pressing '
          'the "Donate" button on your next transaction!</b>')
 
       spacer = lambda: QSpacerItem(20,20, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -6640,7 +6661,7 @@ class DlgBadConnection(QDialog):
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       lblDescr = QLabel()
-      if not haveInternet:
+      if not haveInternet and not self.main.ignoreblk:
          lblDescr = QRichLabel( \
             'Armory was not able to detect an internet connection, so Armory '
             'will operate in "Offline" mode.  In this mode, only wallet'
