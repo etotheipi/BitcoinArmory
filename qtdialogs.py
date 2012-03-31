@@ -2873,7 +2873,6 @@ class DlgIntroMessage(QDialog):
 
       frmText = makeLayoutFrame('Vert', [lblWelcome,    spacer(), \
                                          lblDescr,      spacer(), \
-                                         lblShouldKnow, spacer(), \
                                          lblMustDo,               \
                                          lblReqts,      spacer(), \
                                          lblContact     ])

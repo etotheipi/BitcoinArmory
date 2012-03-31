@@ -301,7 +301,7 @@ class ArmoryMainWindow(QMainWindow):
       btnFrame.setLayout(layout)
 
       
-      lblInfo = QLabel('Armory Version %s (beta) / %s User Mode' % \
+      lblInfo = QLabel('Armory (%s-beta)-alpha / %s User Mode' % \
                (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
       lblInfo.setFont(GETFONT('var',10))
       lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)

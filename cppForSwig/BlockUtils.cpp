@@ -1886,6 +1886,9 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
    uint32_t nextBlk = getTopBlockHeader().getBlockHeight() + 1;
 
    PDEBUG("Scanning blockchain for tx");
+   cout << "All reg:    " << allRegAddrScannedUpToBlk_ << endl;
+   cout << "Startblk:   " << startBlknum << endl;
+   cout << "EndBlk:     " << endBlknum << endl;
    endBlknum = min(endBlknum, nextBlk);
 
    // Check whether we can get everything we need from the registered tx list
@@ -1912,7 +1915,10 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
        iter != registeredWallets_.end(); 
        iter++)
    {
-      scanRegisteredTxForWallet(**iter, startBlknum, endBlknum);
+      if(doFullRescan)
+         scanRegisteredTxForWallet(**iter, 0, endBlknum);
+      else
+         scanRegisteredTxForWallet(**iter, startBlknum, endBlknum);
    }
 
    myWallet.sortLedger(); // removes invalid tx and sorts
