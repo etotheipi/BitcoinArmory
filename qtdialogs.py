@@ -3684,6 +3684,8 @@ class DlgRemoveAddress(QDialog):
 
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
+         TheBDM.registerWallet( self.wlt.cppWallet )
+         self.wlt.syncWithBlockchain(0)
          try:
             #self.parent.accept()
             self.main.wltAddrModel.reset()

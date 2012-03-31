@@ -1206,6 +1206,7 @@ class ArmoryMainWindow(QMainWindow):
                                            longLabel=descr)
 
 
+      TheBDM.registerWallet(newWallet.cppWallet, True) # is new, no blk rescan
       self.addWalletToApplication(newWallet)
 
       if dlg.chkPrintPaper.isChecked():
