@@ -5852,7 +5852,7 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we have the KDF key in memory.
       # It will get a lot more expensive if we do it on the next unlock
-      self.fillAddressPool(self.addrPoolSize)
+      self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
 
       if self.useEncryption:
          self.unlock(secureKdfOutput=self.kdfKey)
@@ -5926,14 +5926,14 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def fillAddressPool(self, numPool=None):
+   def fillAddressPool(self, numPool=None, isActuallyNew=True):
       if not numPool:
          numPool = self.addrPoolSize
 
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       for i in range(numToCreate):
-         self.computeNextAddress()
+         self.computeNextAddress(isActuallyNew=isActuallyNew)
       return self.lastComputedChainIndex
 
    #############################################################################
@@ -6033,7 +6033,7 @@ class PyBtcWallet(object):
       # change, thus escaping the while loop
       nWhile = 0
       while topCompute - topUsed < 0.9*stepSize:
-         topCompute = self.fillAddressPool(stepSize)
+         topCompute = self.fillAddressPool(stepSize, isActuallyNew=False)
          topUsed = self.detectHighestUsedIndex(True)
          nWhile += 1
          if nWhile>10000:

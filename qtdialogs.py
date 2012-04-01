@@ -3030,32 +3030,6 @@ class DlgImportPaperWallet(QDialog):
          quads = [rawStr[j:j+4] for j in range(0,36, 4)]
          self.lineEdits[i].setText(' '.join(quads))
          
-      """
-      currStr = str(self.lineEdits[i].text())
-      currLen = len(currStr)
-
-      rawStr  = currStr.replace(' ','')
-      rawLen  = len(rawStr)
-
-      if rawLen > 36:
-         rawStr = rawStr[:36]
-
-      modAtEnd = ((currStr[:-1] == self.prevChars[i]     ) or \
-                  (currStr      == self.prevChars[i][:-1])     )
-      edt = self.lineEdits[i]
-      if currLen>len(self.prevChars[i]) and modAtEnd and currLen%5==4:
-         self.lineEdits[i].setText(currStr+' ')
-         self.lineEdits[i].cursorForward(False, 1)
-      elif currLen<len(self.prevChars[i]) and modAtEnd and currLen%5==0 and currLen!=0:
-         self.lineEdits[i].setText(currStr[:-1])
-
-      if not modAtEnd:
-         rawStr = str(self.lineEdits[i].text()).replace(' ','')
-         quads = [rawStr[j:j+4] for j in range(0,currLen, 4)]
-         self.lineEdits[i].setText(' '.join(quads))
-      
-      self.prevChars[i] = str(self.lineEdits[i].text())
-      """
    
 
    def verifyUserInput(self):
@@ -3126,7 +3100,7 @@ class DlgImportPaperWallet(QDialog):
          self.newWallet = PyBtcWallet().createNewWallet(  \
                                  plainRootKey=SecureBinaryData(privKey), \
                                  chaincode=SecureBinaryData(chain), \
-                                 withEncrypt=False)
+                                 withEncrypt=False, isActuallyNew=False)
          self.newWallet.setWalletLabels('PaperBackup - '+newWltID)
          self.accept()
       
@@ -6868,7 +6842,7 @@ class DlgExecLongProcess(QDialog):
          x,y,w,h = qr.left(),qr.top(),qr.width(),qr.height()
          dlgW = relaxedSizeStr(waitFont, msg)[0]
          dlgW = min(dlgW, 400)
-         dlgH = 100
+         dlgH = 150
          self.setGeometry(int(x+w/2-dlgW/2),int(y+h/2-dlgH/2), dlgW, dlgH)
 
       lblWaitMsg = QRichLabel('Please Wait...')

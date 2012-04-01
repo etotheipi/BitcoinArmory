@@ -1506,8 +1506,16 @@ class ArmoryMainWindow(QMainWindow):
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
          print 'Raw import successful.  Searching blockchain for tx data...'
-         highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
-         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         
+         wlt = dlgPaper.newWallet
+         TheBDM.registerWallet(wlt.cppWallet)
+   
+         DlgExecLongProcess(dlgPaper.newWallet.freshImportFindHighestIndex, \
+               'Restoring wallet.  This may take many minutes. Delete and '
+               're-import if this operation is interrupted.', \
+               self, self).exec_()
+         #highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+         self.addWalletToApplication(wlt, walletIsNew=False)
          print 'Import Complete!'
    
    #############################################################################
