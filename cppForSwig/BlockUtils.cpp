@@ -700,13 +700,13 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
 /////////////////////////////////////////////////////////////////////////////
 // This method is used in the registeredAddrScan to conditionally create and
 // insert a transaction into the registered list 
-void BlockDataManager_MMAP::insertRegisteredTxIfNew(HashString & txHash)
+void BlockDataManager_MMAP::insertRegisteredTxIfNew(HashString txHash)
 {
    // .insert() function returns pair<iter,bool> with bool true if inserted
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      TxRef* tx_ptr = getTxByHash(txHash)
-      uint32_t tx_blknum = tx_ptr->getBlockNum();
+      TxRef* tx_ptr = getTxByHash(txHash);
+      uint32_t tx_blknum = tx_ptr->getBlockHeight();
       uint32_t tx_blkidx = tx_ptr->getBlockTxIndex();
       RegisteredTx regTx(txHash, tx_blknum, tx_blkidx);
       registeredTxList_.push_back(regTx);
@@ -754,9 +754,9 @@ void BlockDataManager_MMAP::registeredAddrScan( TxRef & tx )
          addr20.copyFrom(ptr+4, 20);
          if( addressIsRegistered(addr20) )
          {
-            HashString txhash = tx.getThisHash();
+            HashString txHash = tx.getThisHash();
             insertRegisteredTxIfNew(txHash);
-            registeredOutPoints_.insert(OutPoint(txhash, iout));
+            registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
       }
       else if(scriptLenFirstByte==67)
@@ -766,9 +766,9 @@ void BlockDataManager_MMAP::registeredAddrScan( TxRef & tx )
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
          if( addressIsRegistered(addr20) )
          {
-            HashString txhash = tx.getThisHash();
+            HashString txHash = tx.getThisHash();
             insertRegisteredTxIfNew(txHash);
-            registeredOutPoints_.insert(OutPoint(txhash, iout));
+            registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
       }
       else
@@ -1777,7 +1777,7 @@ bool BlockDataManager_MMAP::evalRescanIsRequired(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_MMAP::numBlocksToRescan( BtcWallet & wlt,
+uint32_t BlockDataManager_MMAP::numBlocksToRescan( BtcWallet & wlt,
                                                uint32_t endBlk)
 {
 
@@ -1790,11 +1790,11 @@ bool BlockDataManager_MMAP::numBlocksToRescan( BtcWallet & wlt,
 
    // If wallet is registered and current, no rescan necessary
    if(walletIsRegistered(wlt))
-      return endBlk - allRegAddrScannedUpToBlk_;
+      return (endBlk - allRegAddrScannedUpToBlk_);
 
    // The wallet isn't registered with the BDM, but there's a chance that 
    // each of its addresses are -- if any one is not, do rescan
-   uint32_t maxAddrBlks = 0;
+   uint32_t maxAddrBehind = 0;
    for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
       BtcAddress & addr = wlt.getAddrByIndex(i);
@@ -1804,11 +1804,13 @@ bool BlockDataManager_MMAP::numBlocksToRescan( BtcWallet & wlt,
          return endBlk;  // Gotta do a full rescan!
 
       RegisteredAddress & ra = registeredAddrMap_[addr.getAddrStr20()];
-      maxAddrBlks = max(maxAddrBlks, endBlk - ra.alreadyScannedUpToBlk_)
+      maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
+      cout << maxAddrBehind << " ";
    }
 
    // If we got here, then all addr are already registered and current
-   return maxAddrBlks;
+   
+   return maxAddrBehind;
 }
 
 
@@ -1845,38 +1847,16 @@ void BlockDataManager_MMAP::resetRegisteredWallets(void)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_MMAP::walletIsRegistered(BtcWallet & wlt)
 {
-   bool notInSet = (registeredWallets_.find(&wlt)==registeredWallets_.end());
-   return !notInSet;
+   return (registeredWallets_.find(&wlt)!=registeredWallets_.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_MMAP::addressIsRegistered(HashString addr160)
 {
-   return !(registeredAddrMap_.find(addr160)==registeredAddrMap_.end());
+   return (registeredAddrMap_.find(addr160)!=registeredAddrMap_.end());
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-// We occasionally need to sort a list of transactions, chronologically
-// We need a function to be used as a less-than operator for two hashes
-bool BlockDataManager_MMAP::cmpTxList( HashString a, HashString b )
-{
-   TxRef * TxPtrA = getTxByHash(a);
-   TxRef * TxPtrB = getTxByHash(b);
-
-   uint32_t heightA = TxPtrA->getBlockHeight();
-   uint32_t heightB = TxPtrB->getBlockHeight();
-
-   uint32_t txIndexA = TxPtrA->getBlockTxIndex();
-   uint32_t txIndexB = TxPtrB->getBlockTxIndex();
-
-   if( heightA < heightB )
-      return true;
-   else if( heightB < heightA )
-      return false;
-   else
-      return (txIndexA<txIndexB);
-}
 
 /////////////////////////////////////////////////////////////////////////////
 // This method is now a hybrid of the original, Blockchain-in-RAM code,
@@ -1940,7 +1920,7 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
 
    
    // Check whether we can get everything we need from the registered tx list
-   endBlknum = min(endBlknum, getTopBlockHeight()+1)
+   endBlknum = min(endBlknum, getTopBlockHeight()+1);
    uint32_t numRescan = numBlocksToRescan(myWallet, endBlknum);
    if(numRescan > NBLOCKS_REGARDED_AS_RESCAN)
       cout << "Must rescan " << numRescan << " blocks***" << endl;
@@ -1965,6 +1945,8 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
          registeredAddrScan(tx);
       }
    }
+   allRegAddrScannedUpToBlk_ = endBlknum;
+   updateRegisteredAddresses(endBlknum);
    // *********************************************************************** //
 
 
@@ -1979,27 +1961,6 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
    // Finally, walk through all the registered
    scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
    // *********************************************************************** //
-
-   uint32_t nextBlk = getTopBlockHeight() + 1;
-
-   PDEBUG("Scanning blockchain for tx");
-   endBlknum = min(endBlknum, nextBlk);
-
-   // If we rescan, we will update the registered tx list
-   if( doFullRescan )
-   {
-      cout << "Need to ";
-      if(!walletIsRegistered(myWallet))
-      {
-         cout << "register wallet and ";
-         registerWallet( &myWallet );
-      }
-      cout << "rescan blockchain..." << endl;
-
-      scanBlockchainForTx
-   }
-   else
-      cout << "All necessary tx data already in registered tx list..." << endl;
 
 
    myWallet.sortLedger(); // removes invalid tx and sorts
@@ -2075,7 +2036,7 @@ void BlockDataManager_MMAP::scanRegisteredTxForWallet( BtcWallet & wlt,
    PDEBUG("Scanning relevant tx list for wallet");
 
    ///// LOOP OVER ALL RELEVANT TX ////
-   list<HashString>::iterator txIter;
+   list<RegisteredTx>::iterator txIter;
    for(txIter  = registeredTxList_.begin();
        txIter != registeredTxList_.end();
        txIter++)
@@ -2283,7 +2244,7 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
    if(filename.size()==0)
       filename = blkfilePath_;
 
-   if(filename.compare(blkfilePath_)==0 && !forceRescan)
+   if(filename.compare(blkfilePath_)==0)
    {
       cout << "Call to load a blockchain that is already loaded!  Skipping..." << endl;
       return 0;
@@ -2352,7 +2313,6 @@ uint32_t BlockDataManager_MMAP::readBlkFile_FromScratch(string filename)
    // Update registered address list so we know what's already been scanned
    uint32_t topBlk = getTopBlockHeight() + 1;
    allRegAddrScannedUpToBlk_ = topBlk;
-   mmapTopBlock_ = topBlk;
    updateRegisteredAddresses(topBlk);
    
    
@@ -2459,7 +2419,7 @@ uint32_t BlockDataManager_MMAP::readBlkFileUpdate(string filename)
    TIMER_STOP("getBlockfileUpdates");
 
    if(prevRegisteredUpToDate)
-      updateRegisteredAddresses(getTopBlockHeight()+1)
+      updateRegisteredAddresses(getTopBlockHeight()+1);
 
    // Finally, update the last known blkfile size and return nBlks added
    //PDEBUG2("Added new blocks to memory pool: ", nBlkRead);

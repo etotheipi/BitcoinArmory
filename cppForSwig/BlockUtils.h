@@ -714,14 +714,14 @@ public:
    TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkfilePath_;}
 
-   uint32_t getTopBlockHeight(void) {return getTopBlockHeader()->getBlockHeight();}
+   uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
 
    /////////////////////////////////////////////////////////////////////////////
    // If you register you wallet with the BDM, it will automatically maintain 
    // tx lists relevant to that wallet.  You can get away without registering
    // your wallet objects (using scanBlockchainForTx), but without the full 
-   // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
+   // blockchain in RAM, each scan will take 30-120 seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
@@ -733,11 +733,12 @@ public:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestAddressCreationBlock(void);
    bool     evalRescanIsRequired(void);
-   bool     numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
+   uint32_t numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
    void     updateRegisteredAddresses(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
+   void     insertRegisteredTxIfNew(HashString txHash);
    void     registeredAddrScan( TxRef & tx );
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
@@ -749,7 +750,7 @@ public:
 
 
    // Does a full scan!
-   uint32_t readBlkFile_FromScratch(string filename, bool forceRescan=false);
+   uint32_t readBlkFile_FromScratch(string filename);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
