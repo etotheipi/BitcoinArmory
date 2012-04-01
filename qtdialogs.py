@@ -1777,7 +1777,7 @@ class DlgImportAddress(QDialog):
             'The address was imported successfully, but its balance will be '
             'incorrect until the global transaction history is searched for '
             'previous transactions.  Depending on your system, this operation '
-            'can take anywhere from 10 seconds to 3 minutes.  '
+            'can take anywhere from 5 seconds to 3 minutes.  '
             '<br><br>'
             'If you click "Cancel", the address will still appear in your '
             'wallet but its balanace will be incorrect until the Armory '
@@ -2206,45 +2206,49 @@ class DlgMigrateSatoshiWallet(QDialog):
                return
 
       
-      nImport = 0
-      nError  = 0
-      for i,key4 in enumerate(keyList):
-         addrB58, sbdKey, isUsed, addrName = key4[:]
-         try:
-            a160 = addrStr_to_hash160(addrB58)
-            wlt.importExternalAddressData(privKey=sbdKey)
-            cmt = 'Imported #%03d'%i
-            if len(addrName)>0:
-               cmt += ': %s' % addrName
-            wlt.setComment(a160, cmt)
-            nImport += 1
-         except Exception,msg:
-            print '***ERROR importing:', addrB58
-            print '         Error Msg:', msg
-            nError += 1
+      self.nImport = 0
+      self.nError  = 0
+      def finallyDoMigrate():
+         for i,key4 in enumerate(keyList):
+            addrB58, sbdKey, isUsed, addrName = key4[:]
+            try:
+               a160 = addrStr_to_hash160(addrB58)
+               wlt.importExternalAddressData(privKey=sbdKey)
+               cmt = 'Imported #%03d'%i
+               if len(addrName)>0:
+                  cmt += ': %s' % addrName
+               wlt.setComment(a160, cmt)
+               self.nImport += 1
+            except Exception,msg:
+               print '***ERROR importing:', addrB58
+               print '         Error Msg:', msg
+               self.nError += 1
 
 
-      if nImport==0:
+      DlgExecLongProcess(finallyDoMigrate, "Migrating Satoshi Wallet", self, self.main).exec_()
+
+
+      if self.nImport==0:
          MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
             'Please check the logfile (ArmoryQt.exe.log) or the console output '
             'for information about why it failed (and email alan.reiner@gmail.com '
             'for help fixing the problem).')
       else:
-         if nError == 0:
+         if self.nError == 0:
             MsgBoxCustom(MSGBOX.Good, 'Success!', \
-               'Success: %d private keys were imported into your wallet.' % nImport)
+               'Success: %d private keys were imported into your wallet.' % self.nImport)
          else:
             MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
                '%d private keys were imported into your wallet, but there was '
                'also %d addresses that could not be imported (see console '
                'or log file for more information).  It is safe to try this '
                'operation again: all addresses previously imported will be '
-               'skipped. %s' % (nImport, nError, restartMsg))
+               'skipped. %s' % (self.nImport, self.nError, restartMsg))
       
       ##########################################################################
       warnMsg = ( \
          'Would you like to rescan the blockchain for all the addresses you '
-         'just migrated?  This operation typically takes 10 seconds to 3 minutes '
+         'just migrated?  This operation can take between 5 seconds to 3 minutes '
          'depending on your system.  If you skip this operation, it will be '
          'performed the next time you restart Armory. Wallet balances may '
          'be incorrect until then.')

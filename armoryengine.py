@@ -7397,8 +7397,12 @@ class PyBtcWallet(object):
 
    #############################################################################
    def checkIfRescanRequired(self):
+      """ 
+      Returns true is we have to go back to disk/mmap and rescan more than two
+      weeks worth of blocks
+      """
       if TheBDM.isInitialized():
-         return TheBDM.evalWalletRequiresBlockchainScan(self.cppWallet)
+         return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
       else:
          return False
 

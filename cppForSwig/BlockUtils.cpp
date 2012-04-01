@@ -1933,6 +1933,7 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
    // *********************************************************************** //
    // First make sure that the registered txList is up to date
    // startBlknum might have to be set to 0 if any addr need full rescan
+   blockchainData_ALL_.setAdvice(MADV_SEQUENTIAL);
    for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
    {
       BlockHeaderRef & bhr = *(headersByHeight_[h]);
@@ -1945,6 +1946,8 @@ void BlockDataManager_MMAP::scanBlockchainForTx(BtcWallet & myWallet,
          registeredAddrScan(tx);
       }
    }
+   blockchainData_ALL_.setAdvice(MADV_RANDOM);
+
    allRegAddrScannedUpToBlk_ = endBlknum;
    updateRegisteredAddresses(endBlknum);
    // *********************************************************************** //

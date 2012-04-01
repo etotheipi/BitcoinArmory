@@ -1290,7 +1290,7 @@ class ArmoryMainWindow(QMainWindow):
          if msg==None:
             msg = ('In order to determine the new wallet balance, the entire, '
                    '<i>global</i> transaction history must be scanned. '
-                   'This can take anywhere from 10 seconds to 3 minutes, '
+                   'This can take anywhere from 5 seconds to 3 minutes, '
                    'depending on your system.  During this time you will '
                    'not be able to use any other Armory features.'
                    '<br><br>'
@@ -1333,14 +1333,14 @@ class ArmoryMainWindow(QMainWindow):
       def scanBlockchain():
          TheBDM.scanBlockchainForTx(cppWlt, 0)
 
-      if not TheBDM.evalWalletRequiresBlockchainScan(cppWlt):
+      if TheBDM.numBlocksToRescan(cppWlt)<2016:
          scanBlockchain()
          return True
       else:
          if warnMsg==None:
             warnMsg = ('In order to determine the balance of new addresses, '
                        'the entire <i>global transaction history</i> must be '
-                       'scanned.  This can take anywhere from 10 seconds to 3 '
+                       'scanned.  This can take anywhere from 5 seconds to 3 '
                        'minutes, depending on your system.  During this time '
                        'you will not be able to use any other Armory features.'
                        '<br><br>'
