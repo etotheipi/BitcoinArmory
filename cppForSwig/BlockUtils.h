@@ -44,6 +44,8 @@
 #define TX_NOT_EXIST       -1
 #define TX_OFF_MAIN_BRANCH -2
 
+#define NBLOCKS_REGARDED_AS_RESCAN 144
+
 #define MIN_CONFIRMATIONS   6
 #define COINBASE_MATURITY 120
 
@@ -497,6 +499,34 @@ public:
 
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We're going to need to be able to sort our list of registered transactions,
+// so I decided to make a new class to support it, with a native operator<().
+class RegisteredTx
+{
+public:
+   HashString    txHash_;
+   uint32_t      blkNum_;
+   uint32_t      txIndex_;
+
+
+   RegisteredTx(HashString txHash, uint32_t blkNum, uint32_t txIndex) :
+         txHash_(txHash),
+         blkNum_(blkNum),
+         txIndex_(txIndex) { }
+
+
+
+   bool operator<(RegisteredTx const & rt2) const 
+   {
+      if( blkNum_ < rt2.blkNum_ )
+         return true;
+      else if( rt2.blkNum_ < blkNum_ )
+         return false;
+      else
+         return (txIndex_<rt2.txIndex_);
+   }
+};
 
 
 
@@ -655,9 +685,11 @@ private:
    // what addresses to look for 
    set<BtcWallet*>                    registeredWallets_;
    map<HashString, RegisteredAddress> registeredAddrMap_;
-   list<HashString>                   registeredTxHashes_;
+   list<RegisteredTx>                 registeredTxList_;
+   set<HashString>                    registeredTxSet_;
    set<OutPoint>                      registeredOutPoints_;
    uint32_t                           allRegAddrScannedUpToBlk_; // one past top
+
 
 private:
    // Set the constructor to private so that only one can ever be created
@@ -682,9 +714,12 @@ public:
    TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkfilePath_;}
 
+   uint32_t getTopBlockHeight(void) {return getTopBlockHeader()->getBlockHeight();}
+
 
    /////////////////////////////////////////////////////////////////////////////
-   // If you register you wallet with the BDM, it will automatically maintain // tx lists relevant to that wallet.  You can get away without registering
+   // If you register you wallet with the BDM, it will automatically maintain 
+   // tx lists relevant to that wallet.  You can get away without registering
    // your wallet objects (using scanBlockchainForTx), but without the full 
    // blockchain in RAM, each scan will take 30+ seconds.  Registering makes 
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
@@ -698,8 +733,7 @@ public:
    uint32_t evalLowestBlockNextScan(void);
    uint32_t evalLowestAddressCreationBlock(void);
    bool     evalRescanIsRequired(void);
-   bool     evalWalletRequiresBlockchainScan(BtcWallet & wlt,
-                                       uint32_t topBlk=UINT32_MAX);
+   bool     numBlocksToRescan(BtcWallet & wlt, uint32_t topBlk=UINT32_MAX);
    void     updateRegisteredAddresses(uint32_t newTopBlk);
 
    bool     walletIsRegistered(BtcWallet & wlt);
