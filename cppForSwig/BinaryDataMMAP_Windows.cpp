@@ -101,18 +101,15 @@ bool BinaryDataMMAP::createMMAP(string filename)
    if( size_==FILE_DOES_NOT_EXIST )
       return false;
 
-   std::wstring fn = WindowsfyFilename(filename);
-   cout << "Filename: " << fn.c_str() << endl;
-
    // *********************************************************************** //
    // Open the file to be mapped
    hFile_ =  CreateFile(
-                     fn.c_str(),
+                     WindowsfyFilename(filename).c_str(),
                      GENERIC_READ,
                      FILE_SHARE_READ,
                      NULL,
                      OPEN_EXISTING,
-                     FILE_ATTRIBUTE_NORMAL,
+                     FILE_FLAG_SEQUENTIAL_SCAN,
                      NULL);
 
    if(hFile_ == INVALID_HANDLE_VALUE)
