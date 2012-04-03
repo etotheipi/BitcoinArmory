@@ -51,12 +51,13 @@ void printTestHeader(string TestName)
 
 int main(void)
 {
-   BlockDataManager_MMAP::GetInstance().SelectNetwork("Main");
+   BlockDataManager_MMAP::GetInstance().SelectNetwork("Test");
    
 
-   string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   //string blkfile("/home/alan/.bitcoin/blk0001.dat");
    //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
+   string blkfile("C:/Users/vbox/AppData/Roaming/Bitcoin/testnet/blk0001.dat");
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkfile);

@@ -345,6 +345,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\BinaryDataMMAP_Windows.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\BlockObj.cpp"
 				>
 			</File>
@@ -380,6 +384,14 @@
 			>
 			<File
 				RelativePath=".\BinaryData.h"
+				>
+			</File>
+			<File
+				RelativePath=".\BinaryDataMMAP.h"
+				>
+			</File>
+			<File
+				RelativePath=".\BinaryDataMMAP_Windows.h"
 				>
 			</File>
 			<File

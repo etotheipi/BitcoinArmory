@@ -5,8 +5,8 @@
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef _BINARYDATAMMAP_H_
-#define _BINARYDATAMMAP_H_
+#ifndef _BINARYDATAMMAP_WINDOWS_H_
+#define _BINARYDATAMMAP_WINDOWS_H_
 
 #include <windows.h>
 #include <memory.h>
@@ -46,7 +46,7 @@ private:
    uint64_t size_;   
 
    string filename_;
-   HFILE  hFile_;
+   HANDLE hFile_;
    HANDLE hFileMapping_;
 };
 

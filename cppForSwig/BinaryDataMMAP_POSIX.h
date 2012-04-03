@@ -5,8 +5,8 @@
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
-#ifndef _BINARYDATAMMAP_H_
-#define _BINARYDATAMMAP_H_
+#ifndef _BINARYDATAMMAP_POSIX_H_
+#define _BINARYDATAMMAP_POSIX_H_
 
 #include "BinaryData.h"
 

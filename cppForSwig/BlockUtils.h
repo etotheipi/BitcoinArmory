@@ -725,7 +725,7 @@ public:
    // sure that the intial blockchain scan picks up wallet-relevant stuff as 
    // it goes, and does a full [re-]scan of the blockchain only if necessary.
    bool     registerWallet(BtcWallet* wallet, bool wltIsNew=false);
-   bool     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
+   void     unregisterWallet(BtcWallet* wlt) {registeredWallets_.erase(wlt);}
    bool     registerAddress(HashString addr160, bool isNew, uint32_t blk0);
    bool     registerNewAddress(HashString addr160);
    bool     registerImportedAddress(HashString addr160, uint32_t createBlk=0);
