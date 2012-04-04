@@ -1512,7 +1512,7 @@ class ArmoryMainWindow(QMainWindow):
    
          DlgExecLongProcess(dlgPaper.newWallet.freshImportFindHighestIndex, \
                'Restoring wallet.  This may take many minutes. Delete and '
-               're-import if this operation is interrupted.', \
+               're-import wallet if this operation is interrupted.', \
                self, self).exec_()
          #highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
          self.addWalletToApplication(wlt, walletIsNew=False)

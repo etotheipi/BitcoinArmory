@@ -4,7 +4,7 @@ COMPILER_OPTS = -c -O2 -pipe -fPIC
 
 #**************************************************************************
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o BinaryDataMMAP.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o EncryptionUtils.o libcryptopp.a
+OBJS = UniversalTimer.o BinaryData.o BinaryDataMMAP_POSIX.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o EncryptionUtils.o libcryptopp.a
 
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread -lpython2.7
@@ -45,8 +45,8 @@ UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
 BinaryData.o: BinaryData.h BinaryData.cpp BtcUtils.h 
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryData.cpp
 
-BinaryDataMMAP.o: BinaryDataMMAP.h BinaryDataMMAP.cpp BtcUtils.h 
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryDataMMAP.cpp
+BinaryDataMMAP_POSIX.o: BinaryDataMMAP_POSIX.h BinaryDataMMAP_POSIX.cpp BtcUtils.h 
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryDataMMAP_POSIX.cpp
 
 BtcUtils.o: BtcUtils.h BtcUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BtcUtils.cpp

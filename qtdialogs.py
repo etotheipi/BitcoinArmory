@@ -7518,6 +7518,12 @@ class DlgECDSACalc(QDialog):
    def signMsg(self):
       self.keyWaterfall()
 
+      strMsg  = self.readMsg()
+      if len(strMsg)==0:
+         QMessageBox.critical(self, 'Nothing to Sign!', \
+           'There is no message to sign!', QMessageBox.Ok)
+         return
+
       a160Bin = hex_to_binary(str(self.txtHash.text()).replace(' ',''))
       if len(a160Bin)<20:
          QMessageBox.critical(self, 'Input Error', 'You did not specify an '
@@ -7537,6 +7543,9 @@ class DlgECDSACalc(QDialog):
                'There was an error parsing the private key.', QMessageBox.Ok)
             return
 
+      
+      
+
 
       if not haveRawPriv:
          wlt = self.main.walletMap[wltID]
@@ -7547,18 +7556,19 @@ class DlgECDSACalc(QDialog):
                   'Could not unlock wallet, so private key data could not '
                   'be acquired.', QMessageBox.Ok)
                return
-         binPriv = wlt.addrMap[a160Bin].binPrivKey32_Plain;
+         binPriv = SecureBinaryData(wlt.addrMap[a160Bin].binPrivKey32_Plain)
             
 
-      strMsg  = self.readMsg()
-      if len(strMsg)==0:
-         QMessageBox.critical(self, 'Nothing to Sign!', \
-           'There is no message to sign!', QMessageBox.Ok)
-         return
+      # TODO:  Fill in public key
+      pubKey = CryptoECDSA().ComputePublicKey(binPriv)
+      pubKeyHex = pubKey.toHexStr()
+      self.txtPubF.setText(pubKeyHex);
+      self.txtPubX.setText(pubKeyHex[2:2+64        ]);
+      self.txtPubY.setText(pubKeyHex[  2+64:2+64+64]);
 
       modMsg = 'Bitcoin Signed Message:\n' + strMsg
       sig = CryptoECDSA().SignData(SecureBinaryData(modMsg), \
-                                   SecureBinaryData(binPriv))
+                                   binPriv)
       self.txtSig.setText(sig.toHexStr())
 
 
