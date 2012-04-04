@@ -38,6 +38,7 @@ void TestReorgBlockchain(string blkfile);
 void TestZeroConf(void);
 void TestCrypto(void);
 void TestECDSA(void);
+void TestPointCompression(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
@@ -54,10 +55,9 @@ int main(void)
    BlockDataManager_MMAP::GetInstance().SelectNetwork("Main");
    
 
-   //string blkfile("/home/alan/.bitcoin/blk0001.dat");
+   string blkfile("/home/alan/.bitcoin/blk0001.dat");
    //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
-   string blkfile("C:/Users/vbox/AppData/Roaming/Bitcoin/blk0001.dat");
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkfile);
@@ -68,9 +68,8 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-
-   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   TestReadAndOrganizeChainWithWallet(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   //TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -83,6 +82,9 @@ int main(void)
 
    //printTestHeader("Crypto-ECDSA-sign-verify");
    //TestECDSA();
+
+   printTestHeader("ECDSA Point Compression");
+   TestPointCompression();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -870,6 +872,7 @@ void TestCrypto(void)
 
 void TestECDSA(void)
 {
+
    SecureBinaryData msgToSign("This message came from me!");
    SecureBinaryData privData = SecureBinaryData().GenerateRandom(32);
    BTC_PRIVKEY privKey = CryptoECDSA().ParsePrivateKey(privData);
@@ -975,5 +978,33 @@ void TestECDSA(void)
 
 
 
+void TestPointCompression(void)
+{
+   vector<BinaryData> testPubKey(3);
+   testPubKey[0].createFromHex("044f355bdcb7cc0af728ef3cceb9615d90684bb5b2ca5f859ab0f0b704075871aa385b6b1b8ead809ca67454d9683fcf2ba03456d6fe2c4abe2b07f0fbdbb2f1c1");
+   testPubKey[1].createFromHex("04ed83704c95d829046f1ac27806211132102c34e9ac7ffa1b71110658e5b9d1bdedc416f5cefc1db0625cd0c75de8192d2b592d7e3b00bcfb4a0e860d880fd1fc");
+   testPubKey[2].createFromHex("042596957532fc37e40486b910802ff45eeaa924548c0e1c080ef804e523ec3ed3ed0a9004acf927666eee18b7f5e8ad72ff100a3bb710a577256fd7ec81eb1cb3");
+
+   CryptoPP::ECP & ecp = CryptoECDSA::Get_secp256k1_ECP();
+   for(uint32_t i=0; i<3; i++)
+   {
+      CryptoPP::Integer pubX, pubY;
+      pubX.Decode(testPubKey[i].getPtr()+1,  32, UNSIGNED);
+      pubY.Decode(testPubKey[i].getPtr()+33, 32, UNSIGNED);
+      BTC_ECPOINT ptPub(pubX, pubY);
+
+      BinaryData ptFlat(65);
+      BinaryData ptComp(33);
+
+      ecp.EncodePoint((byte*)ptFlat.getPtr(), ptPub, false);
+      ecp.EncodePoint((byte*)ptComp.getPtr(), ptPub, true);
+
+      cout << "Point (" << i << "): " << ptFlat.toHexStr() << endl;
+      cout << "Point (" << i << "): " << ptComp.toHexStr() << endl;
+      cout << "Point (" << i << "): " << CryptoECDSA().UncompressPoint(SecureBinaryData(ptComp)).toHexStr() << endl;
+      cout << "Point (" << i << "): " << CryptoECDSA().CompressPoint(SecureBinaryData(testPubKey[i])).toHexStr() << endl;
+   }
 
 
+
+}

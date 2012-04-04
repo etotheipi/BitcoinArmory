@@ -353,6 +353,10 @@ public:
                           SecureBinaryData const & binSignature,
                           BTC_PUBKEY const & cppPubKey);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // For doing direct raw ECPoint operations... need the ECP object
+   static CryptoPP::ECP & Get_secp256k1_ECP(void);
+
 
    /////////////////////////////////////////////////////////////////////////////
    // We need to make sure that we have methods that take only secure strings
@@ -421,6 +425,11 @@ public:
 
    BinaryData ECInverse(BinaryData const & Ax, 
                         BinaryData const & Ay);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // For Point-compression
+   SecureBinaryData CompressPoint(SecureBinaryData const & pubKey65);
+   SecureBinaryData UncompressPoint(SecureBinaryData const & pubKey33);
 };
 
 
