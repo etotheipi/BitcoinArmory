@@ -846,19 +846,8 @@ BinaryData CryptoECDSA::ECMultiplyPoint(BinaryData const & A,
                                         BinaryData const & Bx,
                                         BinaryData const & By)
 {
-   static BinaryData N = BinaryData::CreateFromHex(
-           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
-   static BinaryData a = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000000");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
-
-   CryptoPP::Integer intA, intBx, intBy, intCx, intCy, intN, inta, intb;
-
-   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
-   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
-   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
-   CryptoPP::ECP ecp(intN, inta, intb);
+   CryptoPP::ECP ecp = Get_secp256k1_ECP();
+   CryptoPP::Integer intA, intBx, intBy, intCx, intCy;
 
    intA.Decode( A.getPtr(),  A.getSize(),  UNSIGNED);
    intBx.Decode(Bx.getPtr(), Bx.getSize(), UNSIGNED);
@@ -880,19 +869,8 @@ BinaryData CryptoECDSA::ECAddPoints(BinaryData const & Ax,
                                     BinaryData const & Bx,
                                     BinaryData const & By)
 {
-   static BinaryData N = BinaryData::CreateFromHex(
-           "fffffffffffffffffffffffffffffffffffffffffffffffffffffffefffffc2f");
-   static BinaryData a = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000000");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
-
-   CryptoPP::Integer intAx, intAy, intBx, intBy, intCx, intCy, intN, inta, intb;
-
-   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
-   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
-   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
-   CryptoPP::ECP ecp(intN, inta, intb);
+   CryptoPP::ECP ecp = Get_secp256k1_ECP();
+   CryptoPP::Integer intAx, intAy, intBx, intBy, intCx, intCy;
 
    intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
    intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
@@ -918,19 +896,8 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
                                   BinaryData const & Ay)
                                   
 {
-   static BinaryData N = BinaryData::CreateFromHex(
-           "fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141");
-   static BinaryData a = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000000");
-   static BinaryData b = BinaryData::CreateFromHex(
-           "0000000000000000000000000000000000000000000000000000000000000007");
-
-   CryptoPP::Integer intAx, intAy, intCx, intCy, intN, inta, intb;
-
-   intN.Decode( N.getPtr(),  N.getSize(),  UNSIGNED);
-   inta.Decode( a.getPtr(),  a.getSize(),  UNSIGNED);
-   intb.Decode( b.getPtr(),  b.getSize(),  UNSIGNED);
-   CryptoPP::ECP ecp(intN, inta, intb);
+   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
+   CryptoPP::Integer intAx, intAy, intCx, intCy;
 
    intAx.Decode(Ax.getPtr(), Ax.getSize(), UNSIGNED);
    intAy.Decode(Ay.getPtr(), Ay.getSize(), UNSIGNED);
@@ -949,11 +916,7 @@ BinaryData CryptoECDSA::ECInverse(BinaryData const & Ax,
 ////////////////////////////////////////////////////////////////////////////////
 SecureBinaryData CryptoECDSA::CompressPoint(SecureBinaryData const & pubKey65)
 {
-   //CryptoPP::Integer pubX, pubY;
-   //pubX.Decode(pubKey65.getPtr()+1,  32, UNSIGNED);
-   //pubY.Decode(pubKey65.getPtr()+33, 32, UNSIGNED);
-   //BTC_ECPOINT ptPub(pubX, pubY);
-   CryptoPP::ECP & ecp = CryptoECDSA::Get_secp256k1_ECP();
+   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
    BTC_ECPOINT ptPub;
    ecp.DecodePoint(ptPub, (byte*)pubKey65.getPtr(), 65);
    SecureBinaryData ptCompressed(33);
@@ -964,7 +927,7 @@ SecureBinaryData CryptoECDSA::CompressPoint(SecureBinaryData const & pubKey65)
 ////////////////////////////////////////////////////////////////////////////////
 SecureBinaryData CryptoECDSA::UncompressPoint(SecureBinaryData const & pubKey33)
 {
-   CryptoPP::ECP & ecp = CryptoECDSA::Get_secp256k1_ECP();
+   CryptoPP::ECP & ecp = Get_secp256k1_ECP();
    BTC_ECPOINT ptPub;
    ecp.DecodePoint(ptPub, (byte*)pubKey33.getPtr(), 33);
    SecureBinaryData ptUncompressed(65);
