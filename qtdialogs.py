@@ -1633,7 +1633,8 @@ class DlgImportAddress(QDialog):
             'key data correctly.', QMessageBox.Ok)
          return
       except BadInputError, e:
-         QMessageBox.critical(self, 'Invalid Data', e, QMessageBox.Ok)
+         QMessageBox.critical(self, 'Invalid Data', 'Something went terribly '
+            'wrong!  (key data unrecognized)', QMessageBox.Ok)
          return
       except:
          QMessageBox.critical(self, 'Error Processing Key', \
@@ -7806,130 +7807,8 @@ class DlgECDSACalc(QDialog):
 
 
 
-################################################################################
-class DlgOwnership(QDialog):
-   """
-   STUB:  maybe I'll pick this up again, later
-
-   We may wish to demonstrate, or make someone else demonstrate, that they own
-   a particular address.  We create a "challenge" string and ask the person to
-   sign the string with the private key of the specified address.  
-
-   We want the challenge string to be "fresh" and unique.  Just in case the 
-   attacker doesn't have the address, but already has a signed message from
-   that address from a different occasion.  
-   """
-   def __init__(self, parent=None, main=None):
-      super(DlgOwnership, self).__init__(parent)
-
-      self.parent = parent
-      self.main   = main
-
-      self.radioCreateChallenge = QRadioButton('I want someone to prove they own an address')
-      self.radioCreateResponse  = QRadioButton('I need to prove that I own an address')
-      self.radioVerifyResponse  = QRadioButton('Some gave me a proof-of-ownership I need to verify')
-      btngrp = QButtonGroup(self)
-      btngrp.addButton(self.radioCreateChallenge)
-      btngrp.addButton(self.radioCreateResponse)
-      btngrp.addButton(self.radioVerifyResponse)
-      btngrp.setExclusive(True)
-      self.radioCreateChallenge.setChecked(True)
-
-      self.connect(self.radioCreateChallenge, SIGNAL('clicked(bool)'), self.changeStack)
-      self.connect(self.radioCreateResponse,  SIGNAL('clicked(bool)'), self.changeStack)
-      self.connect(self.radioVerifyResponse,  SIGNAL('clicked(bool)'), self.changeStack)
 
 
-      ## Create the stacked widget
-      self.challengeStack = QStackedWidget()
-      dispFont = GETFONT('Var', 8)
-      w,h = relaxedSizeNChar(dispFont, 40)
-      wmin = 250
-   
-      ## Create-Challenge options
-      ccWidget = QWidget()
-      ccLayout = QGridLayout()
-
-      self.txtCCDescr = QRichLabel( \
-         'Since all transactions are public but identities are not tied to '
-         'the addresses, you may need to "challenge" someone to prove that '
-         'they own a particular Bitcoin address (perhaps you received money '
-         'from that address, and the other person claims it was them who '
-         'sent it to you).  Enter the address to be verified, and then click '
-         'the button to create a "challenge."  The challenge can be emailed '
-         'to the other party')
-      self.txtCCAddress = QLineEdit()
-      self.txtCCAddress.setMinimumWidth(wmin)
-      self.txtCCAddress.sizeHint = lambda: QSize(w,h)
-      self.txtCCAddress.setFont(dispFont)
-      
-      # Only advanced users should be able to specify a custom string
-      self.txtCCCustomStr = QLineEdit()
-      self.txtCCCustomStr.setMinimumWidth(wmin)
-      self.txtCCCustomStr.sizeHint = lambda: QSize(w,h)
-      self.txtCCCustomStr.setFont(dispFont)
-      self.txtCCCustomStr.setEnabled(False)
-
-      self.txtCCChallenge = QTextEdit()
-      self.txtCCChallenge.setMinimumWidth(wmin)
-      self.txtCCChallenge.sizeHint = lambda: QSize(w,int(3.1*h))
-      self.txtCCChallenge.setFont(dispFont)
-      self.txtCCChallenge.setReadOnly(True)
-
-      self.lblCCcopied = QRichLabel('')
-      self.btnCCCreate = QPushButton('Create Challenge')
-
-
-      
-   def defaultChallengeStr(self):
-      # Grab the root hash160 of the first wallet that we own.
-      uniqueStr = ''
-      for wid,wlt in self.main.walletMap.iteritems():
-         if not wlt.watchOnly:
-            uniqueStr = binary_to_hex(wlt.addrMap['ROOT'].getAddr160())
-            break
-      return ('%s %s' % (unixTimeToFormatStr(RightNow()), uniqueStr)).strip()
-      
-      
-   def btnPressMake(self):
-      addrB58 = str(self.txtCCAddress.text())
-      netbyte = checkAddrType(addrB58)
-      if netbyte == -1:
-         QMessageBox.critical(self, 'Bad Address', \
-            'The address you entered is invalid!  Please check '
-            'that it was entered correctly.', QMessageBox.Ok)
-         return
-      elif netbyte != ADDRBYTE:
-         QMessageBox.critical(self, 'Wrong Network!', \
-            'The address you entered is for the wrong network! '
-            'The address is for the <b>%s</b> but you are running '
-            'Armory on the <b>%s</b>!' % (NETWORKS[netbyte], NETWORKS[ADDRBYTE]), \
-            QMessageBox.Ok)
-         return
-
-
-      strChallenge = str(self.txtCCCustomStr.text()).strip()
-      if len(strChallenge)==0:
-         strChallenge = self.defaultChallengeStr()
-         
-      self.txtCCChallenge.setText( self.makeSigBlock(addrB58, strChallenge))
-
-
-      
-
-
-   def changeStack(self, dummy):
-      """ 
-      Dummy argument is only to take the bool from 'clicked(bool)', but we
-      don't actually use it
-      """ 
-      if self.radioCreateResponse.isChecked():
-         self.challengeStack.setCurrentIndex(1)
-      elif self.radioVerifyResponse.isChecked():
-         self.challengeStack.setCurrentIndex(2)
-      else:
-         # We put this last to be default in case somehow nothing is checked
-         self.challengeStack.setCurrentIndex(0)
 
 
 
