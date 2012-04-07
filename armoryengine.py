@@ -52,11 +52,28 @@ from datetime import datetime
 
 from sys import argv
 
+import optparse
+parser = optparse.OptionParser(usage="%prog [options]\n")
+#parser.add_option("--host", dest="host", default="127.0.0.1",
+                  #help="IP/hostname to connect to (default: %default)")
+#parser.add_option("--port", dest="port", default="8333", type="int",
+                  #help="port to connect to (default: %default)")
+parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="str",
+                  help="load Armory with a specific settings file")
+parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
+                  help="Use the testnet protocol")
+parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
+                  help="Use the testnet protocol")
+parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
+                  help="Use the testnet protocol")
+parser.add_option("--offline", dest="offline", action="store_true", default=False,
+                  help="Use the testnet protocol")
+
+(CLI_OPTIONS, args) = parser.parse_args()
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = not ('--mainnet' in argv)
-USE_TESTNET =     ('--testnet' in argv)
+USE_TESTNET = CLI_OPTIONS.testnet
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
@@ -137,7 +154,12 @@ else:
    print '***Cannot determine default directory locations'
 
 BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
-SETTINGS_PATH   = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
+
+if CLI_OPTIONS.settingsPath=='DEFAULT':
+   SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+else:
+   SETTINGS_PATH   = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
+
 
 print 'Detected Operating system:', OS_NAME
 print '   User home-directory   :', USER_HOME_DIR
@@ -1057,7 +1079,7 @@ def parsePrivateKeyData(theStr):
       keyType = ''
       isMini = False
       if canBeB58 and not canBeHex:
-         if len(theStr)==22 or len(theStr)==30:
+         if len(theStr) in (22, 30):
             # Mini-private key format!
             try:
                binEntry = decodeMiniPrivateKey(theStr)
@@ -1065,9 +1087,11 @@ def parsePrivateKeyData(theStr):
                raise BadInputError, 'Invalid mini-private key string'
             keyType = 'Mini Private Key Format'
             isMini = True
-         else:
+         elif len(theStr) in (50,51,52,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
+         else:
+            raise BadInputError, 'Unrecognized key data'
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
          keyType = 'Plain Hex'

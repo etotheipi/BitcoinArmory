@@ -55,7 +55,7 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None, opts=None):
+   def __init__(self, parent=None, opts=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
@@ -65,7 +65,7 @@ class ArmoryMainWindow(QMainWindow):
       # Not used just yet...
       self.isDirty   = True
       
-      self.settingsPath = settingsPath
+      self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
@@ -374,7 +374,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
       currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
-      print currmode
+      print 'Usermode:', currmode
       self.firstModeSwitch=True
       if currmode=='Standard':
          self.usermode = USERMODE.Standard               
@@ -556,9 +556,9 @@ class ArmoryMainWindow(QMainWindow):
       print 'Internet connection is Available: ', self.internetAvail
       print 'Satoshi Client is Available:      ', self.satoshiAvail
          
-      self.isOnline = (self.internetAvail and self.satoshiAvail and not self.options.offline)
+      self.isOnline = (self.internetAvail and self.satoshiAvail and not CLI_OPTIONS.offline)
 
-      if not self.isOnline:
+      if not self.isOnline and not CLI_OPTIONS.offline:
          dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
          dlg.exec_()
          self.NetworkingFactory = FakeClientFactory()
@@ -680,7 +680,7 @@ class ArmoryMainWindow(QMainWindow):
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
          print '   Wallet (%s):'.ljust(20) % wlt.uniqueIDB58,
-         print '"'+wlt.labelName+'"   ',
+         print '"'+wlt.labelName.ljust(34)+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          # Register all wallets with TheBDM
          TheBDM.registerWallet( wlt.cppWallet )
@@ -1221,8 +1221,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-
-
    #############################################################################
    def createSweepAddrTx(self, addrToSweepList, sweepTo160, forceZeroFee=False):
       """
@@ -1579,7 +1577,7 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
@@ -1735,25 +1733,6 @@ class ArmoryMainWindow(QMainWindow):
 
 if 1:  #__name__ == '__main__':
  
-   import optparse
-   parser = optparse.OptionParser(usage="%prog [options]\n")
-   #parser.add_option("--host", dest="host", default="127.0.0.1",
-                     #help="IP/hostname to connect to (default: %default)")
-   #parser.add_option("--port", dest="port", default="8333", type="int",
-                     #help="port to connect to (default: %default)")
-   parser.add_option("--settings", dest="settingsPath", default=SETTINGS_PATH, type="str",
-                     help="load Armory with a specific settings file")
-   parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
-                     help="Use the testnet protocol")
-   parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
-                     help="Use the testnet protocol")
-   parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
-                     help="Use the testnet protocol")
-   parser.add_option("--offline", dest="offline", action="store_true", default=False,
-                     help="Use the testnet protocol")
-
-   (options, args) = parser.parse_args()
-
 
 
    app = QApplication(sys.argv)
@@ -1761,8 +1740,8 @@ if 1:  #__name__ == '__main__':
    qt4reactor.install()
 
 
-   if options.offline:
-      options.ignoreblk = True
+   if CLI_OPTIONS.offline:
+      CLI_OPTIONS.ignoreblk = True
       
    pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
@@ -1773,7 +1752,7 @@ if 1:  #__name__ == '__main__':
    app.processEvents()
 
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath, opts=options)
+   form = ArmoryMainWindow(opts=CLI_OPTIONS)
    form.show()
 
 
@@ -1795,32 +1774,3 @@ if 1:  #__name__ == '__main__':
    os._exit(app.exec_())
 
 
-
-"""
-We'll mess with threading, later
-class BlockchainLoader(threading.Thread):
-   def __init__(self, finishedCallback):
-      self.finishedCallback = finishedCallback
-
-   def run(self):
-      BDM_LoadBlockchainFile()
-      self.finishedCallback()
-"""
-
-
-"""
-      self.txNotInBlkchainYet = []
-      if TheBDM.isInitialized():
-         for hsh,tx in self.NetworkingFactory.zeroConfTx.iteritems():
-            for txout in tx.outputs:
-               addr = TxOutScriptExtractAddr160(txout.binScript)
-               if isinstance(addr, list): 
-                  continue # ignore multisig
-                  
-               for wltID, wlt in self.walletMap.iteritems():
-                  if wlt.hasAddr(addr):
-                     self.txNotInBlkchainYet.append(hsh)
-
-      for tx in self.txNotInBlkchainYet:
-         print '   ',binary_to_hex(tx)
-"""

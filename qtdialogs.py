@@ -326,7 +326,6 @@ class DlgNewWallet(QDialog):
       self.importFile = QFileDialog.getOpenFileName(self, 'Import Wallet File', \
           ARMORY_HOME_DIR, 'Wallet files (*.wallet);; All files (*)') 
       if self.importFile:
-         print self.importFile
          self.accept()
       
 
@@ -683,7 +682,6 @@ class DlgWalletDetails(QDialog):
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      print self.main.isOnline
       if not self.main.isOnline:
          totStr = '-'*12
          spdStr = '-'*12
@@ -1552,7 +1550,7 @@ class DlgImportAddress(QDialog):
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
-      self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*70)[0])
+      self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*80)[0])
       privTooltip = createToolTipObject( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
@@ -1878,13 +1876,18 @@ class DlgImportAddress(QDialog):
       binKeyData, addr160, addrStr = '','',''
 
       privKeyList = []
+      addrSet = set()
       for line in inputLines:
-         line = line.split(':')[-1]
+         if 'PublicX' in line or 'PublicY' in line:
+            continue
+         lineend = line.split(':')[-1]
          try:
-            binKeyData = SecureBinaryData(parsePrivateKeyData(line)[0])
+            binKeyData = SecureBinaryData(parsePrivateKeyData(lineend)[0])
             addr160 = convertKeyDataToAddress(privKey=binKeyData.toBinStr())
-            addrStr = hash160_to_addrStr(addr160)
-            privKeyList.append([addr160, addrStr, binKeyData])
+            if not addr160 in addrSet:
+               addrSet.add(addr160)
+               addrStr = hash160_to_addrStr(addr160)
+               privKeyList.append([addr160, addrStr, binKeyData])
          except:
             continue
 
@@ -1895,9 +1898,7 @@ class DlgImportAddress(QDialog):
       # Determine if any addresses are already part of some wallets  
       addr_to_wltID = lambda a: self.main.getWalletForAddr160(a)
       allWltList = [ [addr_to_wltID(k[0]), k[1]] for k in privKeyList]
-      # allWltList   [ [WltID, AddrStr], [WltID, AddrStr], ... ]
-   
-
+      # allWltList is now [ [WltID, AddrStr], [WltID, AddrStr], ... ]
 
       
       if self.radioSweep.isChecked():
@@ -2047,12 +2048,17 @@ class DlgImportAddress(QDialog):
             'be incorrect until then.')
          waitMsg = 'Searching the global transaction history'
             
-         if self.main.BDM_SyncArmoryWallet_Confirm(self.wlt, 0, warnMsg):
-            self.wlt.syncWithBlockchain(0)
-         else:
-            self.main.isDirty = True
+         if self.main.isOnline:
+            if self.main.BDM_SyncArmoryWallet_Confirm(self.wlt, 0, warnMsg):
+               self.wlt.syncWithBlockchain(0)
+            else:
+               self.main.isDirty = True
          ##########################################################################
    
+         try:
+            self.main.wltAddrModel.reset()
+         except AttributeError:
+            pass
 
       self.main.walletListChanged()
       self.accept()
@@ -3108,9 +3114,7 @@ class DlgIntroMessage(QDialog):
       strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
                       'the same network (Main-net or Testnet)')
       strReqts.append('<b>Please</b> make sure the Satoshi client is sync\'d '
-                      'with the blockchain before loading Armory.')
-      strReqts.append('Uses the blockchain file maintained by Satoshi '
-                      'client (blk0001.dat)')
+                      'with the network before loading Armory.')
       lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
 
       lblContact = QRichLabel( \
@@ -3906,8 +3910,11 @@ class DlgRemoveAddress(QDialog):
 
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
-         TheBDM.registerWallet( self.wlt.cppWallet )
-         self.wlt.syncWithBlockchain(0)
+      
+         if self.main.isOnline:
+            TheBDM.registerWallet( self.wlt.cppWallet )
+            self.wlt.syncWithBlockchain(0)
+
          try:
             #self.parent.accept()
             self.main.wltAddrModel.reset()
@@ -4453,7 +4460,6 @@ class DlgSendBitcoins(QDialog):
             if len(commentStr)>0:
                self.wlt.setComment(finalTx.getHash(), commentStr)
             print binary_to_hex(finalTx.serialize())
-            print txdp.serializeAscii()
             self.main.broadcastTransaction(finalTx)
             self.accept()
             try:
@@ -5758,6 +5764,7 @@ class DlgShowKeyList(QDialog):
          self.chkList['ChainIndex'].setVisible(False)
       elif adv:
          self.chkList['PubKeyHash'].setVisible(False)
+         self.chkList['PrivHexLE' ].setVisible(False)
          self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
 
@@ -5851,10 +5858,10 @@ class DlgShowKeyList(QDialog):
          if self.chkList['PrivCrypt' ].isChecked():  
             L.append(                  '   PrivCrypt : ' + fmtBin(addr.binPrivKey32_Encr.toBinStr()))
          if self.chkList['PrivHexBE' ].isChecked():  
-            L.append(                  '   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr(), sw=True))
+            L.append(                  '   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
             self.havePriv = True
          if self.chkList['PrivHexLE' ].isChecked(): 
-            L.append(                  '   PrivHexLE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
+            L.append(                  '   PrivHexLE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr(), sw=True))
             self.havePriv = True
          if self.chkList['PubKey'    ].isChecked():  
             L.append(                  '   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
