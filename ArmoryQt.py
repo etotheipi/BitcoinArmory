@@ -55,12 +55,12 @@ class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, settingsPath=None, ignoreblk=False):
+   def __init__(self, parent=None, settingsPath=None, opts=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
       self.abortLoad = False
-      self.ignoreblk = ignoreblk
+      self.options = opts
 
       # Not used just yet...
       self.isDirty   = True
@@ -325,7 +325,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile and not self.ignoreblk:
+      if self.haveBlkFile and not self.options.ignoreblk:
          tstart = RightNow()
          self.loadBlockchain()
          print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
@@ -388,7 +388,6 @@ class ArmoryMainWindow(QMainWindow):
 
       actOpenSigner = self.createAction('&Message Signing', lambda: DlgECDSACalc(self,self, 0).exec_())
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
-      #actOwnership = self.createAction('&Prove Ownership', lambda: DlgOwnership(self,self).exec_())
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       self.menusList[MENUS.Tools].addAction(actOpenTools)
       #self.menusList[MENUS.Tools].addAction(actOwnership)
@@ -557,7 +556,7 @@ class ArmoryMainWindow(QMainWindow):
       print 'Internet connection is Available: ', self.internetAvail
       print 'Satoshi Client is Available:      ', self.satoshiAvail
          
-      self.isOnline = (self.internetAvail and self.satoshiAvail)
+      self.isOnline = (self.internetAvail and self.satoshiAvail and not self.options.offline)
 
       if not self.isOnline:
          dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
@@ -871,6 +870,12 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
+         if not self.isOnline:
+            self.lblTotalFunds.setText( '-'*12 )
+            self.lblSpendFunds.setText( '-'*12 )
+            self.lblUnconfFunds.setText('-'*12 )
+            return
+            
          uncolor = 'red' if unconfFunds>0 else 'black'
          btccolor = '#999999' if spendFunds==totalFunds else 'green'
          lblcolor = '#999999' if spendFunds==totalFunds else 'black'
@@ -1287,8 +1292,8 @@ class ArmoryMainWindow(QMainWindow):
          updateBalance()
          return True
       else:
-         if msg==None:
-            msg = ('In order to determine the new wallet balance, the entire, '
+         if warnMsg==None:
+            warnMsg = ('In order to determine the new wallet balance, the entire, '
                    '<i>global</i> transaction history must be scanned. '
                    'This can take anywhere from 5 seconds to 3 minutes, '
                    'depending on your system.  During this time you will '
@@ -1299,7 +1304,7 @@ class ArmoryMainWindow(QMainWindow):
                    'appear incorrect until the next time Armory is '
                    'restarted.')
 
-         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', msg, \
+         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', warnMsg, \
                 QMessageBox.Ok | QMessageBox.Cancel);
       
          if doIt!=QMessageBox.Ok:
@@ -1574,7 +1579,7 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+         txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
@@ -1644,7 +1649,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:
@@ -1744,6 +1749,8 @@ if 1:  #__name__ == '__main__':
                      help="Use the testnet protocol")
    parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
                      help="Use the testnet protocol")
+   parser.add_option("--offline", dest="offline", action="store_true", default=False,
+                     help="Use the testnet protocol")
 
    (options, args) = parser.parse_args()
 
@@ -1754,6 +1761,8 @@ if 1:  #__name__ == '__main__':
    qt4reactor.install()
 
 
+   if options.offline:
+      options.ignoreblk = True
       
    pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
@@ -1763,8 +1772,8 @@ if 1:  #__name__ == '__main__':
    SPLASH.show()
    app.processEvents()
 
-   form = ArmoryMainWindow(settingsPath=options.settingsPath, \
-                           ignoreblk=options.ignoreblk)
+
+   form = ArmoryMainWindow(settingsPath=options.settingsPath, opts=options)
    form.show()
 
 

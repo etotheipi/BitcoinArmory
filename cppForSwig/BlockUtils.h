@@ -797,7 +797,6 @@ public:
    // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFileUpdate(string filename="");
    bool           verifyBlkFileIntegrity(void);
-   void           scanBlockchainForTx_FromScratch_AllAddr(void);
    vector<TxRef*> findAllNonStdTx(void);
    
 

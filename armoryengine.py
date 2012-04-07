@@ -628,7 +628,7 @@ def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
    pleasant, human-readable format
    """
    dtobj = datetime.fromtimestamp(unixTime)
-   dtstr = dtobj.strftime(formatStr)
+   dtstr = u'' + dtobj.strftime(formatStr).decode('utf-8')
    return dtstr[:-2] + dtstr[-2:].lower()
 
 def secondsToHumanTime(nSec):
@@ -7088,60 +7088,6 @@ class PyBtcWallet(object):
 
 
 
-      """ I have absolutely no idea if any of this works, but I do think
-          it is unecessary, as I'm already handling header byte-fixes,
-          in-place when reading the header.  Just need to update all the
-          other addresses to self correct, too.
-      # If we got here, we want to do a thorough check for byte-errors
-      errorsFound = 0
-      updateList = []
-
-      wltfile = open(self.walletPath, 'rb')
-      wltdata = wltfile.read()
-      wltfile.close()
-
-      buRaw = BinaryUnpacker(wltdata)
-      buUnpack = BinaryUnpacker(wltdata)
-
-      # The following line sets all the offsets for us to pull original
-      # data from buOrig.  Then we can compare that data to the what was
-      # unserialized -- and corrected -- to check whether there was byte
-      # errors (the unserializing automatically corrects byte errors,
-      # but only in memory).
-      self.unpackHeader(buUnpack)
-      buRaw.advance(self.offsetKdfParams)
-      kdfRaw = buRaw.get(BINARY_CHUNK, 256)
-      kdfFixed = self.serializeKdfParams()
-   
-
-      # Check the header data for consistency of private-key-generator
-      offset = self.offsetRootAddr
-      self.unpackHeader(wltdata)
-      binChainRoot = self.addrMap['ROOT'].serialize()
-      binChainRootFixed = PyBtcAddress().unserialize(binChainRoot).serialize()
-
-      if len(binChainRootFixed)==0:
-         raise KeyDataError, 'Deterministic key generator has unfixable error!'
-      elif not binChainRoot==binChainRootFixed:
-         errorsFound += 1
-         updateList.append([WLT_UPDATE_MODIFY, offset, binChainRootFixed])
-
-      while wltdata.getRemainingSize() > 0:
-         dtype, addr, fileAddr = self.unpackNextEntry(wltdata)
-         if dtype==WLT_DATATYPE_KEYDATA:
-            fixedAddr = PyBtcAddress().unserialize(fileAddr).serialize()
-            if len(fixedAddr)==0:
-               raise KeyDataError, 'Unfixable error in wallet for addr:' \
-                                                + hash160_to_addrStr(addr)
-            elif not fixedAddr==fileAddr:
-               errorsFound += 1
-               updateList.append( \
-                     [WLT_UPDATE_MODIFY, wltdata.getPosition(), fixedAddr])
-
-      self.walletFileSafeUpdate(updateList)
-      return errorsFound
-      """
-
 
 
 
@@ -7310,7 +7256,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def importAddressesFromFile(self, filename, privKeyEndian=BIGENDIAN, \
+   def bulkImportAddresses(self, textBlock, privKeyEndian=BIGENDIAN, \
                      sepList=":;'[]()=-_*&^%$#@!,./?\n"):
       """
       Attempts to import plaintext key data stored in a file.  This method
@@ -7337,6 +7283,10 @@ class PyBtcWallet(object):
 
       TODO: will finish this later
       """
+
+      """
+      STUB: (AGAIN) I just can't make this work out to be as stupid-proof 
+            as I originally planned.  I'll have to put it on hold.
       self.__init__()
 
       newfile = open(filename,'rb')
@@ -7350,7 +7300,8 @@ class PyBtcWallet(object):
       newdata = newdata.split()
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-      DATATYPES = enum( 'Addr_Hex_20', \
+      DATATYPES = enum( 'UNKNOWN', \
+                        'Addr_Hex_20', \
                         'Addr_B58_25', \
                         'PubX_Hex_32', \
                         'PubY_Hex_32', \
@@ -7360,36 +7311,61 @@ class PyBtcWallet(object):
                         'Priv_Hex_37', \
                         'Priv_B58_32', \
                         'Priv_B58_37', \
-                        'Priv_MiniPriv')
+                        'Priv_MiniPriv', \
+                        'PubK_Hex_33_Compressed', \
+                        'Priv_Hex_33_Compressed')
+
+      DTYPES = enum('Unknown', 'Hash160', 'PubKey', 'PrivKey', 'Byte32', 'Byte33')
       
 
       lastAddr = None
       lastPubK = None
       lastPriv = None
-      nextIsProbPub = None
-      nextIsProbPriv = None
       for theStr in newdata:
+         if len(theStr)<20:
+            continue
+
          hexCount = sum([1 if c in hexChars else 0 for c in theStr])
          b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
          canBeHex = hexCount==len(theStr)
          canBeB58 = b58Count==len(theStr)
-         isHex = canBeHex and len(theStr)>=20
+         isHex = canBeHex
          isB58 = canBeB58 and not canBeHex
          isStr = not isHex and not isB58
-         
 
-         
-      #### STUB:  Haven't finished this one, yet
+         dataAndType = [DTYPES.Unknown, '']
+         if isHex:
+            binData = hex_to_binary(theStr)
+            sz = len(binData)
 
+            if sz==20:
+               dataAndType = [DTYPES.Hash160, binData]
+            elif sz==25:
+               dataAndType = [DTYPES.Hash160, binData[1:21]]
+            elif sz==32:
+               dataAndType = [DTYPES., binData[1:21]]
+         elif isB58:
+            binData = base58_to_binary(theStr)
+            sz = len(binData)
 
+            
+         if isHex and sz==40:
+         elif isHex and sz==50:
+            dataAndType = [DTYPES.Hash160, hex_to_binary(theStr)[1:21]]
+         elif isB58 and sz>=31 and sz<=35:
+            dataAndType = [DTYPES.Hash160, addrStr_to_hash160(theStr)]
+         elif isHex is sz==130:
+            dataAndType = [DTYPES.PubKey, hex_to_binary(theStr)]
+         elif isHex is sz==128:
+            dataAndType = [DTYPES.PubKey, '\x04'+hex_to_binary(theStr)]
+         elif isHex is sz==128:
+            
+             
 
-      allPieces = newdata.split()
-      for piece in allPieces:
-         if len(piece)==64:
-            potentialKey = SecureBinaryData('\x04' + piece)
-            isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
-
-      return self
+         potentialKey = SecureBinaryData('\x04' + piece)
+         isValid = CryptoECDSA().VerifyPublicKeyValid(potentialKey)
+      """
+      pass
 
 
 

@@ -16,7 +16,7 @@ BE = BIGENDIAN
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
-Test_SimpleAddress    = False
+Test_SimpleAddress    = True
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
@@ -28,7 +28,7 @@ Test_CryptoTiming     = False
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
 Test_SettingsFile     = False
-Test_WalletMigrate    = True
+Test_WalletMigrate    = False
 
 '''
 import optparse
@@ -70,34 +70,6 @@ def printpassorfail(abool):
       print '\n' + ' '*w + '___ FAILED ___',
 
 
-#binTx = hex_to_binary('010000000158e7e1c2414ac51b3a6fd24bd5df2ccebf09db5fa5803f124ae8e65c05b50fb2010000008c4930460221001332f6fecbd40e0ac6ca570468863b1ce7b8061e82fab8d6eaa3810b75a4588c022100102ded6875cb317464f8d6af40337a0932cbb350aec5f3290d02209d1a46324c0141047737e67302d8a47e496bd5030b14964c9330e3be73f9fd90edc405064149c17eaffaaa71488853e60365487fc7bf281635bda43d7763764ecce91edcf2ca02aeffffffff048058840c000000001976a91457ac7bfb77b1f678043ac6ea0fa67b4686c271e588ac80969800000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac80778e06000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac70032d00000000001976a914b11bdcd6371e5b567b439cd95d928e869d1f546a88ac00000000')
-
-#tx = PyTx().unserialize(binTx)
-#tx.pprint()
-
-
-#print 'Wallet Info'
-#wlt = PyBtcWallet().readWalletFile('/home/alan/.armory/testnet/armory_2zftxAA7Q_.wallet')
-#wlt.pprint('    ')
-
-#le = wlt.cppWallet.getWalletLedgerEntryForTx(binTx)
-#le.pprint()
-
-#les = wlt.cppWallet.getAddrLedgerEntriesForTx(binTx)
-#for le in les:
-   #le.pprint()
-
-#print 'Inputs:'
-#for i in tx.inputs:
-   #a,b = TxInScriptExtractKeyAddr(i)
-   #print '   ',a, binary_to_hex(addrStr_to_hash160(a))
-
-#print 'Outputs:'
-#for o in tx.outputs:
-   #astr = TxOutScriptExtractAddrStr(o.binScript)
-   #print '   ',astr, binary_to_hex(addrStr_to_hash160(astr))
-
-#exit(0)
 
 
 
@@ -230,8 +202,24 @@ if Test_BasicUtils:
 
 
 # Unserialize an reserialize
-tx1raw = hex_to_binary('01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44dd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a40689d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a000000001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
-tx2raw = hex_to_binary('0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f505000000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+tx1raw = hex_to_binary( \
+   '01000000016290dce984203b6a5032e543e9e272d8bce934c7de4d15fa0fe44d'
+   'd49ae4ece9010000008b48304502204f2fa458d439f957308bca264689aa175e'
+   '3b7c5f78a901cb450ebd20936b2c500221008ea3883a5b80128e55c9c6070aa6'
+   '264e1e0ce3d18b7cd7e85108ce3d18b7419a0141044202550a5a6d3bb81549c4'
+   'a7803b1ad59cdbba4770439a4923624a8acfc7d34900beb54a24188f7f0a4068'
+   '9d905d4847cc7d6c8d808a457d833c2d44ef83f76bffffffff0242582c0a0000'
+   '00001976a914c1b4695d53b6ee57a28647ce63e45665df6762c288ac80d1f008'
+   '000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
+tx2raw = hex_to_binary( \
+   '0100000001f658dbc28e703d86ee17c9a2d3b167a8508b082fa0745f55be5144'
+   'a4369873aa010000008c49304602210041e1186ca9a41fdfe1569d5d807ca7ff'
+   '6c5ffd19d2ad1be42f7f2a20cdc8f1cc0221003366b5d64fe81e53910e156914'
+   '091d12646bc0d1d662b7a65ead3ebe4ab8f6c40141048d103d81ac9691cf13f3'
+   'fc94e44968ef67b27f58b27372c13108552d24a6ee04785838f34624b294afee'
+   '83749b64478bb8480c20b242c376e77eea2b3dc48b4bffffffff0200e1f50500'
+   '0000001976a9141b00a2f6899335366f04b277e19d777559c35bc888ac40aeeb'
+   '02000000001976a9140e0aec36fe2545fb31a41164fb6954adcd96b34288ac00000000')
 
 tx1 = PyTx().unserialize(tx1raw)
 tx2 = PyTx().unserialize(tx2raw)

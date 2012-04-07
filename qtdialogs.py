@@ -609,7 +609,7 @@ class DlgWalletDetails(QDialog):
       if self.wlt.watchingOnly:
          lbtnSendBtc = QLabelButton('Prepare Offline Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
-      lbtnImportA = QLabelButton('Import Private Key')
+      lbtnImportA = QLabelButton('Import Private Keys')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       #lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
 
@@ -683,9 +683,16 @@ class DlgWalletDetails(QDialog):
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      totStr = '<b><font color="%s">%s</font></b>' % (btccolor, coin2str(totalFunds))
-      spdStr = '<b><font color="green">%s</font></b>' % (coin2str(spendFunds))
-      ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,coin2str(unconfFunds))
+      print self.main.isOnline
+      if not self.main.isOnline:
+         totStr = '-'*12
+         spdStr = '-'*12
+         ucnStr = '-'*12
+      else:
+         totStr = '<b><font color="%s">%s</font></b>' % (btccolor, coin2str(totalFunds))
+         spdStr = '<b><font color="green">%s</font></b>' % (coin2str(spendFunds))
+         ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,coin2str(unconfFunds))
+
       lblTotalFunds  = QRichLabel(totStr, doWrap=False)
       lblSpendFunds  = QRichLabel(spdStr, doWrap=False)
       lblUnconfFunds = QRichLabel(ucnStr, doWrap=False)
@@ -910,9 +917,10 @@ class DlgWalletDetails(QDialog):
                        'Armory supports importing of external '
                        'addresses into your wallet, including encryption, '
                        'but imported addresses <b>cannot</b> be protected/saved '
-                       'by a paper backups.  Watching-only wallets will include '
-                       'imported addresses if the watching-only wallet was '
-                       'created after the address was imported.', None)
+                       'by a paper backups.'
+                       '<br><br>' 
+                       'Please use "Backup Individual Keys" from the wallet '
+                       'properties dialog to backup the imported keys.', None)
          self.main.settings.set('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
@@ -1512,29 +1520,83 @@ class DlgImportAddress(QDialog):
       self.wlt = wlt
       self.parent = parent
       self.main   = main
-      descrText = ('Enter a list of private keys (one per line).'
-                   'The keys can either be imported into your wallet, '
-                   'or have their available balance "swept" to another address '
-                   'already in your wallet.  Only import private '
-                   'key data if you are absolutely sure that no one else '
-                   'has access to it.  Otherwise, sweep it to get '
-                   'the funds out of it.\n\nAll standard private-key formats '
-                   'are supported.')
-                  
 
+
+      lblImportLbl = QRichLabel('Import:')
+
+      self.radioImportOne   = QRadioButton('One Key')
+      self.radioImportMany  = QRadioButton('Multiple Keys')
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.radioImportOne)
+      btngrp.addButton(self.radioImportMany)
+      btngrp.setExclusive(True)
+      self.radioImportOne.setChecked(True)
+      self.connect(self.radioImportOne,   SIGNAL('clicked()'), self.clickImportCount)
+      self.connect(self.radioImportMany,  SIGNAL('clicked()'), self.clickImportCount)
+
+      frmTop = makeHorizFrame([lblImportLbl, self.radioImportOne, \
+                                             self.radioImportMany, 'Stretch'])
+      self.stackedImport = QStackedWidget()
+      stkOneLayout  = QVBoxLayout()
+      stkManyLayout = QVBoxLayout()
+
+
+      # Set up the single-key import widget
+      lblDescrOne = QRichLabel('The key can either be imported into your wallet, '
+                     'or have its available balance "swept" to another address '
+                     'in your wallet.  Only import private '
+                     'key data if you are absolutely sure that no one else '
+                     'has access to it.  Otherwise, sweep it to get '
+                     'the funds out of it.\n\nAll standard private-key formats '
+                     'are supported.')
+
+      lblPrivOne = QRichLabel('Private Key')
+      self.edtPrivData = QLineEdit()
+      self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*70)[0])
       privTooltip = createToolTipObject( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
                        'without checksums), and mini-private-key format '
                        'used on Casascius physical bitcoins.  Private keys '
-                       'that use "compressed public keys" are not yet '
+                       'that use <i>compressed</i> public keys are not yet '
                        'supported by Armory.')
-         
-      lblDescr = QLabel(descrText)
-      lblDescr.setWordWrap(True)
+
+      frmMid1 = makeHorizFrame([lblPrivOne, self.edtPrivData, privTooltip])
+      stkOne = makeVertFrame([HLINE(),lblDescrOne, frmMid1, 'Stretch'])
+      self.stackedImport.addWidget(stkOne)
+      
+
+
+      # Set up the multi-key import widget
+      lblDescrMany = QRichLabel( \
+                   'Enter a list of private keys to be "swept" or imported. '
+                   'All standard private-key formats are supported.  ')
+      lblPrivMany = QRichLabel('Private Key List')
+      lblPrivMany.setAlignment(Qt.AlignTop)
+      #self.chkSwitchEnd = QCheckBox('Private Keys are Little Endian');
+      #if self.main.usermode != USERMODE.Developer:
+         #self.chkSwitchEnd.setVisible(False)
+      #ttipSwitchEnd = createToolTipObject( \
+         #'Most private keys are in Big-Endian, but in rare cases you may '
+         #'end up with keys in Little-Endian.  Please check that the addresses '
+         #'on the confirmation dialog match what you are expecting.')
+      ttipPrivMany = createToolTipObject( \
+                  'Enter any number of lines containing private keys.  '
+                  'If there is non-key-data on the line, it must be '
+                  'before the private key and separated by a \':\'. ')
+      self.txtPrivBulk = QTextEdit()
+      w,h = tightSizeStr(self.edtPrivData, 'X'*70)
+      self.txtPrivBulk.setMinimumWidth(w)
+      self.txtPrivBulk.setMinimumHeight( 2.2*h)
+      self.txtPrivBulk.setMaximumHeight( 4.2*h)
+      frmMid = makeHorizFrame([lblPrivMany, self.txtPrivBulk, ttipPrivMany])
+      stkMany = makeVertFrame([HLINE(),lblDescrMany, frmMid])
+      self.stackedImport.addWidget(stkMany)
 
 
 
+
+      # Set up the Import/Sweep select frame
       ## Import option
       self.radioSweep  = QRadioButton('Sweep any funds owned by these addresses '
                                       'into your wallet\n'
@@ -1542,6 +1604,7 @@ class DlgImportAddress(QDialog):
       self.radioImport = QRadioButton('Import these addresses to your wallet\n'
                                       'Only select this option if you are positive '
                                       'that no one else has access to this key')
+
 
       ## Sweep option (only available when online)
       if self.main.isOnline:
@@ -1574,8 +1637,6 @@ class DlgImportAddress(QDialog):
       btngrp.addButton(self.radioImport)
       btngrp.setExclusive(True)
 
-
-
       frmWarn = QFrame()
       frmWarn.setFrameStyle(QFrame.Box|QFrame.Plain)
       frmWarnLayout = QGridLayout()
@@ -1585,38 +1646,47 @@ class DlgImportAddress(QDialog):
       frmWarnLayout.addWidget(importTooltip,      1,1, 1,1)
       frmWarn.setLayout(frmWarnLayout)
 
-
-      lblPrivData = QLabel('Private Keys:')
-      self.edtPrivData = QLineEdit()
-      #self.txtPrivDataMulti = QTextEdit()
-      
-      Fixed8 = GETFONT('Fixed', 8)
-      self.edtPrivData.setFont( Fixed8 )
-      #self.txtPrivData.setFont( Fixed8 )
-      #w,h = tightSizeNChar(Fixed8, 80)
-      #self.txtPrivData.sizeHint = lambda: QSize(w, h*4.2)
-      #self.txtPrivData.setSizePolicy(QSizePolicy.Minimum, QSizePolicy.Expanding)
+        
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
                                    QDialogButtonBox.Cancel)
-      self.connect(buttonbox, SIGNAL('accepted()'), self.processUserString)
+      self.connect(buttonbox, SIGNAL('accepted()'), self.okayClicked)
       self.connect(buttonbox, SIGNAL('rejected()'), self.reject)
 
       
 
-      layout = QGridLayout()
-      layout.addWidget(lblDescr,          0, 0, 1, 3)
-      layout.addWidget(lblPrivData,       1, 0, 1, 1)
-      layout.addWidget(self.edtPrivData,  1, 1, 1, 1)
-      layout.addWidget(privTooltip,       1, 2, 1, 1)
-      layout.addWidget(frmWarn,           2, 0, 1, 3)
-      layout.addWidget(buttonbox,         4, 0, 1, 3)
+      
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmTop)
+      layout.addWidget(self.stackedImport)
+      layout.addWidget(frmWarn)
+      layout.addWidget(buttonbox)
 
       self.setWindowTitle('Private Key Import')
       self.setLayout(layout)
 
 
 
+
+   #############################################################################
+   def clickImportCount(self):
+      isOne = self.radioImportOne.isChecked()
+      if isOne:
+         self.stackedImport.setCurrentIndex(0)
+      else:
+         self.stackedImport.setCurrentIndex(1)
+
+
+   #############################################################################
+   def okayClicked(self):
+      if self.radioImportOne.isChecked():
+         self.processUserString()
+      else:
+         self.processMultiKey()
+
+
+   #############################################################################
    def processUserString(self):
       theStr = str(self.edtPrivData.text()).strip().replace(' ','')
       binKeyData, addr160, addrStr = '','',''
@@ -1799,20 +1869,194 @@ class DlgImportAddress(QDialog):
 
 
 
+   #############################################################################
    def processMultiKey(self):
-      inputLines = [s.strip().replace(' ','') for s in str(self.txtPrivData.text()).split('\n')]
+      thisWltID = self.wlt.uniqueIDB58
+
+      inputText = str(self.txtPrivBulk.toPlainText())
+      inputLines = [s.strip().replace(' ','') for s in inputText.split('\n')]
       binKeyData, addr160, addrStr = '','',''
 
       privKeyList = []
       for line in inputLines:
+         line = line.split(':')[-1]
          try:
-            binKeyData, keyType = parsePrivateKeyData(theStr)
-            addr160 = convertKeyDataToAddress(privKey=binKeyData)
+            binKeyData = SecureBinaryData(parsePrivateKeyData(line)[0])
+            addr160 = convertKeyDataToAddress(privKey=binKeyData.toBinStr())
             addrStr = hash160_to_addrStr(addr160)
-            privKeyList.append([addr160, binKeyData])
+            privKeyList.append([addr160, addrStr, binKeyData])
          except:
             continue
 
+      #privKeyList now contains:
+      #  [ [A160, AddrStr, Priv],
+      #    [A160, AddrStr, Priv], 
+      #    [A160, AddrStr, Priv], ... ]
+      # Determine if any addresses are already part of some wallets  
+      addr_to_wltID = lambda a: self.main.getWalletForAddr160(a)
+      allWltList = [ [addr_to_wltID(k[0]), k[1]] for k in privKeyList]
+      # allWltList   [ [WltID, AddrStr], [WltID, AddrStr], ... ]
+   
+
+
+      
+      if self.radioSweep.isChecked():
+         ##### SWEEPING #####
+         dupeWltList = filter(lambda a: len(a[0])>0, allWltList)
+         if len(dupeWltList)>0:
+            reply = QMessageBox.critical(self, 'Duplicate Addresses!', \
+               'You are attempting to sweep %d addresses, but %d of them '
+               'are already part of existing wallets.  That means that some '
+               'of the Bitcoins you sweep may already be owned by you. <br><br>'
+               'Would you like to continue anyway?' % \
+               (len(allWltList), len(dupeWltList)), \
+               QMessageBox.Ok | QMessageBox.Cancel)
+            if reply==QMessageBox.Cancel:
+               return
+         
+   
+         cppWlt = Cpp.BtcWallet()
+         for addr160,addrStr,SecurePriv in privKeyList:
+            cppWlt.addAddress_1_(addr160)
+
+         
+         warnMsg = ( \
+            'The global tranasction history must be scanned in order to '
+            'accumulate the balance of these addresses.  You cannot sweep '
+            'the addresses until this operation finishes.  It can take '
+            'between 5 seconds and 3 minutes depending on your system.  '
+            '<br><br>'
+            'Would you like to continue?')
+         waitMsg = 'Searching the global transaction history'
+         if self.main.BDM_SyncCppWallet_Confirm(cppWlt, warnMsg, waitMsg):
+            TheBDM.registerWallet(cppWlt)
+            TheBDM.scanBlockchainForTx(cppWlt,0)
+         else:
+            QMessageBox.warning(self, 'Operation canceled!',
+               'Operation canceled!  No addresses were imported or swept', \
+               QMessageBox.Ok)
+            return
+         
+
+
+         # If we got here, let's go ahead and sweep!
+         addrList = []
+         for addr160,addrStr,SecurePriv in privKeyList:
+            pyAddr = PyBtcAddress().createFromPlainKeyData(SecurePriv)
+            addrList.append(pyAddr)
+
+         #######################################################################
+         # The createSweepTx method will return instantly because the blockchain
+         # has already been rescanned, as described above
+         targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+         finishedTx, outVal, fee = self.main.createSweepAddrTx(addrList, targAddr160)
+
+         if outVal<=fee:
+            QMessageBox.critical(self, 'Cannot sweep',\
+            'You cannot sweep the funds from these addresses, because the '
+            'transaction fee would be equal to or greater than the amount '
+            'swept.', QMessageBox.Ok)
+            return
+
+         if outVal==0:
+            QMessageBox.critical(self, 'Nothing to do', \
+            'The private keys you have provided does not appear to contain '
+            'any funds.  There is nothing to sweep.', \
+            QMessageBox.Ok)
+            return
+
+
+      
+         # Finally, if we got here, we're ready to broadcast!
+         dispIn  = '<Multiple Addresses>' % oldAddr.getAddrStr()
+         dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+         if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
+            self.main.broadcastTransaction(finishedTx, dryRun=False)
+
+      else:
+         ##### IMPORTING #####
+
+         # Warn about addresses that would be duplicates.
+         # Addresses already in the selected wallet will simply be skipped, no 
+         # need to do anything about that -- only addresses that would appear in 
+         # two wlts if we were to continue.
+         dupeWltList = filter(lambda a: (len(a[0])>0 and a[0]!=thisWltID), allWltList)
+         if len(dupeWltList)>0:
+            dupeAddrStrList = [d[1] for d in dupeWltList]
+            dlg = DlgDuplicateAddr(dupeAddrStrList, self, self.main)
+            didAccept = dlg.exec_()
+            if not didAccept or dlg.doCancel:
+               return
+   
+            if dlg.newOnly:
+               privKeyList = filter(lambda x: (x[1] not in dupeAddrStrList), privKeyList)
+            elif dlg.takeAll:
+               pass # we already have duplicates in the list, leave them
+      
+
+         # Confirm import
+         addrStrList = [k[1] for k in privKeyList]
+         dlg = DlgConfirmBulkImport(addrStrList, thisWltID, self, self.main)
+         if not dlg.exec_():
+            return
+   
+         if self.wlt.useEncryption and self.wlt.isLocked:
+            # Target wallet is encrypted...
+            unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Wallet to Import')
+            if not unlockdlg.exec_():
+               QMessageBox.critical(self, 'Wallet is Locked', \
+                  'Cannot import private keys without unlocking wallet!', \
+                  QMessageBox.Ok)
+               return
+   
+         
+         nImport = 0
+         nError  = 0
+         for addr160,addrStr,sbdKey in privKeyList:
+            try:
+               self.wlt.importExternalAddressData(privKey=sbdKey)
+               nImport += 1
+            except Exception,msg:
+               print '***ERROR importing:', addrB58
+               print '         Error Msg:', msg
+               nError += 1
+   
+         if nImport==0:
+            MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
+               'Please check the logfile (ArmoryQt.exe.log) or the console output '
+               'for information about why it failed (and email alan.reiner@gmail.com '
+               'for help fixing the problem).')
+         else:
+            if nError == 0:
+               MsgBoxCustom(MSGBOX.Good, 'Success!', \
+                  'Success: %d private keys were imported into your wallet.' % nImport)
+            else:
+               MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
+                  '%d private keys were imported into your wallet, but there was '
+                  'also %d addresses that could not be imported (see console '
+                  'or log file for more information).  It is safe to try this '
+                  'operation again: all addresses previously imported will be '
+                  'skipped. %s' % (nImport, nError, restartMsg))
+   
+         ##########################################################################
+         warnMsg = ( \
+            'Would you like to rescan the blockchain for all the addresses you '
+            'just imported?  This operation can take between 5 seconds to 3 minutes '
+            'depending on your system.  If you skip this operation, it will be '
+            'performed the next time you restart Armory. Wallet balances may '
+            'be incorrect until then.')
+         waitMsg = 'Searching the global transaction history'
+            
+         if self.main.BDM_SyncArmoryWallet_Confirm(self.wlt, 0, warnMsg):
+            self.wlt.syncWithBlockchain(0)
+         else:
+            self.main.isDirty = True
+         ##########################################################################
+   
+
+      self.main.walletListChanged()
+      self.accept()
+       
 
 #############################################################################
 class DlgVerifySweep(QDialog):
