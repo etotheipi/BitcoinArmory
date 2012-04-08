@@ -49,6 +49,30 @@ from twisted.internet.defer import Deferred
 
 
 
+################################################################################
+# 
+# Make Armory a singleton class
+#
+#    This is a crazy hack for detecting the app being opened twice:
+#    Start listening on a constant port.  First instance succeeds.
+#    All extra instances fail because the socket is already in use!
+#
+#    For reference, I tried fcntl.lockf() and os.open(), but neither
+#    of them would hold the lock after the GUI was open.  If I paused
+#    loading with a raw_input() call right after locking, it worked.
+#    But if I let it open the GUI (or even put locking in the main 
+#    class, it refused to hold the lock persistent.
+#
+from socket import *
+PORT_NUM_THAT_NO_OTHER_APP_WOULD_USE = 822288
+locksock = socket(AF_INET, SOCK_STREAM)
+try:
+   locksock.bind( ('', PORT_NUM_THAT_NO_OTHER_APP_WOULD_USE) )
+except:
+   print 'ARMORY ALREADY OPEN!  Only one allowed!!!'
+   print 'Exiting...'
+   os._exit(0)
+
 
 
 class ArmoryMainWindow(QMainWindow):
@@ -121,8 +145,6 @@ class ArmoryMainWindow(QMainWindow):
          self.walletsView.hideColumn(0)
       else:
          initialColResize(self.walletsView, [0.15, 0.30, 0.2, 0.20])
-
-   
 
 
       self.connect(self.walletsView, SIGNAL('doubleClicked(QModelIndex)'), \
@@ -1733,7 +1755,6 @@ class ArmoryMainWindow(QMainWindow):
 
 if 1:  #__name__ == '__main__':
  
-
 
    app = QApplication(sys.argv)
    import qt4reactor
