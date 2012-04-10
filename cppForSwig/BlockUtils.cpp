@@ -1270,6 +1270,68 @@ void BtcWallet::pprintLedger(void)
 }
 
 
+
+
+////////////////////////////////////////////////////////////////////////////////
+// Return a list of addresses this wallet has ever sent to (w/o change addr)
+// Does not include zero-conf tx
+//
+// TODO:  should spend the time to pass out a tx list with it the addrs so
+//        that I don't have to re-search for them later...
+vector<BinaryData> BtcWallet::collectSendToAddrs(void)
+{
+   vector<BinaryData> sentToVect;
+   sentToVect.reserve((uint32_t)(1.5f*txioMap_.size()));
+   set<HashString> allOutAddrs;
+
+   vector<RegisteredTx> sortableTxList;  // will be collecting all tx out of order
+
+   // Go through all TxIO for this wallet, collect outgoing transactions
+   map<OutPoint, TxIOPair>::iterator txioIter;
+   for(txioIter  = txioMap_.begin();  
+       txioIter != txioMap_.end();  
+       txioIter++)
+   {
+      TxIOPair & txio = txioIter->second;
+
+      // TxIns only occur on outgoing BTC, which include sent-to addrs
+      if( !txio.hasTxIn() )
+         continue;
+
+      RegisteredTx sortableTx(txio.getTxRefOfInput());
+      sortableTxList.push_back( sortableTx );
+   }
+
+   // Sort the list so that all output addr will be in chronological order
+   // (ordered by first-seen date, in the case we sent to it multiple times)
+   sort(sortableTxList.begin(), sortableTxList.end());
+
+
+   // Go through the sorted list, add all addresses as we encounter them.
+   vector<RegisteredTx>::iterator txIter;
+   for(txIter  = sortableTxList.begin();
+       txIter != sortableTxList.end();
+       txIter++)
+   {
+      TxRef & tx = *(txIter->txrefPtr_);
+
+      // Iterate over all TxOut in this Tx for recipients
+      for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+      {
+         // Add it to the list it's not ours, and not already in the list
+         HashString addr160 = tx.getTxOutRef(iout).getRecipientAddr();
+         if( !hasAddr(addr160)  &&  allOutAddrs.count(addr160)==0 )
+         {
+            allOutAddrs.insert(addr160);
+            sentToVect.push_back(addr160);
+         }
+      }
+   }
+
+   return sentToVect;
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 //

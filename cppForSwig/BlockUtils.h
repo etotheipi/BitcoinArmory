@@ -255,6 +255,7 @@ class BtcWallet;
 // This class is only for scanning the blockchain (information only).  It has
 // no need to keep track of the public and private keys of various addresses,
 // which is done by the python code leveraging this class.
+//
 ////////////////////////////////////////////////////////////////////////////////
 class BtcAddress
 {
@@ -312,6 +313,8 @@ public:
    void pprintLedger(void);
 
    void clearBlkData(void);
+
+   
 
 private:
    BinaryData address20_;
@@ -429,6 +432,8 @@ public:
    void clearBlkData(void);
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
+   
+   vector<BinaryData> collectSendToAddrs(void);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
@@ -502,19 +507,28 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // We're going to need to be able to sort our list of registered transactions,
 // so I decided to make a new class to support it, with a native operator<().
+//
+// I debated calling this class "SortableTx"
 class RegisteredTx
 {
 public:
+   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
    HashString    txHash_;
    uint32_t      blkNum_;
    uint32_t      txIndex_;
 
 
    RegisteredTx(HashString txHash, uint32_t blkNum, uint32_t txIndex) :
+         txrefPtr_(NULL),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
 
+   RegisteredTx(TxRef & txref) :
+         txrefPtr_(&txref),
+         txHash_(txref.getThisHash()),
+         blkNum_(txref.getBlockHeight()),
+         txIndex_(txref.getBlockTxIndex()) { }
 
 
    bool operator<(RegisteredTx const & rt2) const 

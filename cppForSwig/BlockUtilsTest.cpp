@@ -68,8 +68,8 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   //TestReadAndOrganizeChainWithWallet(blkfile);
+   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -83,8 +83,8 @@ int main(void)
    //printTestHeader("Crypto-ECDSA-sign-verify");
    //TestECDSA();
 
-   printTestHeader("ECDSA Point Compression");
-   TestPointCompression();
+   //printTestHeader("ECDSA Point Compression");
+   //TestPointCompression();
 
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -279,10 +279,10 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    BtcWallet wlt2;
    
    // Main-network addresses
-   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
    myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
 
    // Add some relevant testnet addresses
@@ -356,6 +356,51 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    cout << endl << "Rescan unregistered wallet: addr should be registered, so no rescan..." << endl;
    bdm.scanBlockchainForTx(wlt3);
    wlt3.pprintLedger();
+
+
+   cout << endl << endl;
+   cout << "Getting Sent-To Address List for Wlt1:" << endl;
+   vector<HashString> targAddrVect = wlt1.collectSendToAddrs();
+   for(uint32_t i=0; i<targAddrVect.size(); i++)
+      cout << targAddrVect[i].toHexStr() << endl;
+
+
+   // Results for the sent-to address list, as of 09 Apr, 2012
+   /*
+   "13Tn1QkAcqnQvGA7kBiCBH7NbijNcr6GMs"
+   "17ZqBkFgR6TWawd8rRKbyJAnpTWDWtok72"
+   "12irKW1XFSnnu6v5FevcC3wZ6hfvPmaEDQ"
+   "12Tg96ZPSYc3P2g5c9c4znFFH2whriN9NQ"
+   "1PymCiNzubeTtJt47dqFdi31Zy9MAM1YZk"
+   "1H3Jbv99F7Ng8oiadCovvda17CGZ9EFkPM"
+   "16jN5NhB4eoUqFrSvuNnvDEc57oz6GRNi4"
+   "17aLXn2XHKH7nhwdCPaWmkY6jgr36zSjyz"
+   "1PjURhoxGr6cdK5YY5SyDDY2pQhEpbZdoK"
+   "1NgBFTvqM6FsooFtkvFgf7VxzRBdXKnxpR"
+   "176msrhhemi6q8DEdpBCoTQJvRCiGV5qEm"
+   "16FSHWWyUv6wzT9qpbi7tCaovf6XX7T9xN"
+   "1JiLbGTrVNmk6BsePVQWmBiD7DFUDmMYXw"
+   "124DJWV7vYS8DUcVan4SXcGNAubopS1BHj"
+   "1PESigPSLwsvaQAQfCDDPZM21i9m8Vqt21"
+   "18i1rVZHMMXQwRxZuSrHZrpqUoejkV2Gh2"
+   "1PZjRprkrM93GVXNdJ5zu7C1p84weTovWj"
+   "14cKqt9e8QvgMaBrwbuykBjha1vXNtaj72"
+   "1QJUzen8xL7EyBTGnkDUX6fnoMX9TL1fU7"
+   "17iRBkToUTzDvVpXsNUT8usT6c6aEDe15R"
+   "1NVJS8DWLdrte45rc5oGvWyjrAe9y1rtFt"
+   "1MzxEf2Ck9XSC7U5y5DHQvMyPhL2UNcjSD"
+   "1F7G4aq9fbAhqGb9jcnsVn6CRm6dqJf3sD"
+   "15dYCgedoR1s4y1t5iiKNrRbgHNDize8VW"
+   "15XopyBFQetJzyhE5BbM6WiuYDPeKPNfVP"
+   "1SAD1wfvNCxz23WjEyQMG6fjKsiQx7FFK"
+   "1TaintGh3cPFVGX9REbRk8FXSKTb1pcFZ"
+   "1SAD2i96iGVQvsfhdhEhpi5GeFQpuP4Ye"
+   "1SAD5qJu5UhhXdAZbW7zpjso4ay364W3B"
+   "1SAD7gSBTkhMz5Qaf92SFjUdAsZiE6fq3"
+   "13Sgmy78mfw7ToMiKQujyad9spmPGUZvCN"
+   "1M7bd7iYNuJoFw8F7fGXvz2Fe9cGnhA3P6"
+   */
+  
 }
 
 
