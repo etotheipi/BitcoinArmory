@@ -1278,13 +1278,10 @@ void BtcWallet::pprintLedger(void)
 //
 // TODO:  should spend the time to pass out a tx list with it the addrs so
 //        that I don't have to re-search for them later...
-vector<BinaryData> BtcWallet::collectSendToAddrs(void)
+vector<AddressBookEntry> BtcWallet::collectSentToAddrs(void)
 {
-   vector<BinaryData> sentToVect;
-   sentToVect.reserve((uint32_t)(1.5f*txioMap_.size()));
-   set<HashString> allOutAddrs;
-
-   vector<RegisteredTx> sortableTxList;  // will be collecting all tx out of order
+   // Start by collecting all outgoing transactions for this wallet
+   vector<RegisteredTx> sortableTxList;  
 
    // Go through all TxIO for this wallet, collect outgoing transactions
    map<OutPoint, TxIOPair>::iterator txioIter;
@@ -1294,7 +1291,7 @@ vector<BinaryData> BtcWallet::collectSendToAddrs(void)
    {
       TxIOPair & txio = txioIter->second;
 
-      // TxIns only occur on outgoing BTC, which include sent-to addrs
+      // It's only outgoing if it has a TxIn
       if( !txio.hasTxIn() )
          continue;
 
@@ -1307,6 +1304,10 @@ vector<BinaryData> BtcWallet::collectSendToAddrs(void)
    sort(sortableTxList.begin(), sortableTxList.end());
 
 
+   // Collect all data into a map -- later converted to vector and sorted
+   map<HashString, AddressBookEntry> sentToMap;
+   set<HashString> allTxList;
+
    // Go through the sorted list, add all addresses as we encounter them.
    vector<RegisteredTx>::iterator txIter;
    for(txIter  = sortableTxList.begin();
@@ -1315,20 +1316,42 @@ vector<BinaryData> BtcWallet::collectSendToAddrs(void)
    {
       TxRef & tx = *(txIter->txrefPtr_);
 
+      HashString txHash = tx.getThisHash();
+      if(allTxList.count(txHash) > 0)
+         continue;
+
+      allTxList.insert(txHash);
+
       // Iterate over all TxOut in this Tx for recipients
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
-         // Add it to the list it's not ours, and not already in the list
          HashString addr160 = tx.getTxOutRef(iout).getRecipientAddr();
-         if( !hasAddr(addr160)  &&  allOutAddrs.count(addr160)==0 )
-         {
-            allOutAddrs.insert(addr160);
-            sentToVect.push_back(addr160);
-         }
+
+         // Skip this address if it's in our wallet (usually change addr)
+         if( hasAddr(addr160) )
+            continue; 
+
+         // It's someone else's address for sure, add it to the map if necessary
+         if( sentToMap.count(addr160)==0 )
+            sentToMap[addr160] = AddressBookEntry(addr160);
+
+         cout << "   " << addr160.toHexStr() << " " << tx.getThisHash().toHexStr() << endl;
+         sentToMap[addr160].addTx(tx);
       }
    }
 
-   return sentToVect;
+
+   vector<AddressBookEntry> outputVect( sentToMap.size() );
+   map<HashString, AddressBookEntry>::iterator mapIter;
+   for(mapIter  = sentToMap.begin();
+       mapIter != sentToMap.end();
+       mapIter++)
+   {
+      outputVect.push_back(mapIter->second);
+   }
+
+   sort(outputVect.begin(), outputVect.end());
+   return outputVect;
 }
 
 

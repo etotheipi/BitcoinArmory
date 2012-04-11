@@ -246,6 +246,83 @@ private:
 }; 
 
 
+////////////////////////////////////////////////////////////////////////////////
+// We're going to need to be able to sort our list of registered transactions,
+// so I decided to make a new class to support it, with a native operator<().
+//
+// I debated calling this class "SortableTx"
+class RegisteredTx
+{
+public:
+   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
+   HashString    txHash_;
+   uint32_t      blkNum_;
+   uint32_t      txIndex_;
+
+
+   RegisteredTx(HashString txHash, uint32_t blkNum, uint32_t txIndex) :
+         txrefPtr_(NULL),
+         txHash_(txHash),
+         blkNum_(blkNum),
+         txIndex_(txIndex) { }
+
+   RegisteredTx(TxRef & txref) :
+         txrefPtr_(&txref),
+         txHash_(txref.getThisHash()),
+         blkNum_(txref.getBlockHeight()),
+         txIndex_(txref.getBlockTxIndex()) { }
+
+
+   bool operator<(RegisteredTx const & rt2) const 
+   {
+      if( blkNum_ < rt2.blkNum_ )
+         return true;
+      else if( rt2.blkNum_ < blkNum_ )
+         return false;
+      else
+         return (txIndex_<rt2.txIndex_);
+   }
+};
+
+
+////////////////////////////////////////////////////////////////////////////////
+class AddressBookEntry
+{
+public:
+
+   /////
+   AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
+   AddressBookEntry(HashString a160) : addr160_(a160) { txList_.clear(); }
+
+   /////
+   void addTx(TxRef & txref) { txList_.push_back( RegisteredTx(txref) ); }
+
+   /////
+   HashString getAddr160(void) { return addr160_; }
+
+   /////
+   vector<RegisteredTx> getTxList(void)
+   { 
+      sort(txList_.begin(), txList_.end()); 
+      return txList_;
+   }
+
+   /////
+   bool operator<(AddressBookEntry const & abe2) const
+   {
+      // If one of the entries has no tx (this shouldn't happen), sort by hash
+      if( txList_.size()==0 || abe2.txList_.size()==0)
+         return addr160_ < abe2.addr160_;
+
+      return (txList_[0] < abe2.txList_[0]);
+   }
+
+private:
+   HashString addr160_;
+   vector<RegisteredTx> txList_;
+};
+
+
 class BtcWallet;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -433,7 +510,7 @@ public:
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
    
-   vector<BinaryData> collectSendToAddrs(void);
+   vector<AddressBookEntry> collectSentToAddrs(void);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
@@ -504,75 +581,10 @@ public:
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-// We're going to need to be able to sort our list of registered transactions,
-// so I decided to make a new class to support it, with a native operator<().
-//
-// I debated calling this class "SortableTx"
-class RegisteredTx
-{
-public:
-   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
-   HashString    txHash_;
-   uint32_t      blkNum_;
-   uint32_t      txIndex_;
-
-
-   RegisteredTx(HashString txHash, uint32_t blkNum, uint32_t txIndex) :
-         txrefPtr_(NULL),
-         txHash_(txHash),
-         blkNum_(blkNum),
-         txIndex_(txIndex) { }
-
-   RegisteredTx(TxRef & txref) :
-         txrefPtr_(&txref),
-         txHash_(txref.getThisHash()),
-         blkNum_(txref.getBlockHeight()),
-         txIndex_(txref.getBlockTxIndex()) { }
-
-
-   bool operator<(RegisteredTx const & rt2) const 
-   {
-      if( blkNum_ < rt2.blkNum_ )
-         return true;
-      else if( rt2.blkNum_ < blkNum_ )
-         return false;
-      else
-         return (txIndex_<rt2.txIndex_);
-   }
-};
 
 
 
-// Some might argue that inheritance would be useful here.  I'm not a software
-// guy, and I have to write all the methods for each class anyway.  So I'm 
-// foregoing the inheritance.  Just writing each class separately
 
-// FullRAM BDM:
-//    Very few use cases, and will be nearly impossible if transaction volume
-//    picks up at all.  However, if you need to do TONS of computation on the
-//    blockchain very quickly, and you have the RAM, this may be useful for you
-//    Headers and BlockData/Tx stored in the same structure
-//class BlockDataManager_MMAP;
-
-// FullHDD BDM:
-//    This is the standard full-blockchain node.  It pulls all the blockdata
-//    into memory only to scan it and index it.  After that, it stores byte
-//    locations of the block chain, and reads the data from file on demand.
-//    Headers and BlockData/Tx stored in the same structure
-//class BlockDataManager_FullHDD;
-
-// Medium BDM:
-//    No storage of the blockchain, only the headers and TxOut/TxIn lists 
-//    are stored in memory and blocks data is pulled from the network as needed
-//    Headers are stored in their own compact structure
-//class BlockDataManager_Medium;
-
-// Connection BDM:
-//    Basically a proxy to a BDM on another system to be accessed via sockets
-//    This may not actually be needed, as it would probably be easier to 
-//    implement in python
-//class BlockDataManager_ServerConnection;
 
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -33,8 +33,8 @@
 %typedef int                int32_t;
 %typedef long long          int64_t;
 %typedef unsigned int       size_t;
-%typedef unsigned int TXIN_SCRIPT_TYPE;
-%typedef unsigned int TXOUT_SCRIPT_TYPE;
+%typedef unsigned int       TXIN_SCRIPT_TYPE;
+%typedef unsigned int       TXOUT_SCRIPT_TYPE;
 
 namespace std
 {
@@ -46,6 +46,8 @@ namespace std
    %template(vector_HeaderRefPtr) std::vector<BlockHeaderRef*>;
    %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
+   %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;
+   %template(vector_RegisteredTx) std::vector<RegisteredTx>;
 }
 /******************************************************************************/
 /* Convert Python(str) to C++(BinaryData) */

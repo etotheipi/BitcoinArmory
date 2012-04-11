@@ -616,6 +616,96 @@ class TxOutDispModel(QAbstractTableModel):
             if section==COLS.ScrType: return QVariant(Qt.AlignHCenter | Qt.AlignVCenter)
          return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
+
+
+
+
+################################################################################
+class SentToAddrBookModel(QAbstractTableModel):
+   def __init__(self, wltIDList, main=None):
+      super(SentToAddrBookModel, self).__init__()
+
+      self.wltIDList = wltIDList
+      self.main      = main
+      
+
+   def rowCount(self, index=QModelIndex()):
+      return len(self.addr160List)
+
+   def columnCount(self, index=QModelIndex()):
+      return 5
+
+   def data(self, index, role=Qt.DisplayRole):
+      COL = ADDRESSCOLS
+      row,col = index.row(), index.column()
+      addr = self.wlt.addrMap[self.addr160List[row]]
+      addr160 = addr.getAddr160()
+      addrB58 = addr.getAddrStr()
+      if role==Qt.DisplayRole:
+         if col==COL.Address: 
+            return QVariant( addrB58 )
+         if col==COL.Comment: 
+            if addr160 in self.wlt.commentsMap:
+               return QVariant( self.wlt.commentsMap[addr160] )
+            else:
+               return QVariant('')
+         if col==COL.NumTx: 
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            return QVariant( len(cppAddr.getTxLedger()) + \
+                             len(cppAddr.getZeroConfLedger()))
+         if col==COL.Imported:
+            if self.wlt.addrMap[addr160].chainIndex==-2:
+               return QVariant('Imported')
+            else:
+               return QVariant()
+         if col==COL.Balance: 
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
+      elif role==Qt.TextAlignmentRole:
+         if col in (COL.Address, COL.Comment):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif col in (COL.NumTx,COL.Imported):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+         elif col in (COL.Balance,):
+            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+      elif role==Qt.ForegroundRole:
+         if col==COL.Balance:
+            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+            val = cppAddr.getFullBalance()
+            if   val>0: return QVariant(Colors.Green)
+            else:       return QVariant(Colors.DarkGray)
+      elif role==Qt.FontRole:
+         if col==COL.Balance:
+            return GETFONT('Fixed')
+      elif role==Qt.BackgroundColorRole:
+         cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
+         val = cppAddr.getFullBalance()
+         if val>0:
+            return QVariant( Colors.LightGreen )
+         else:
+            return QVariant( Colors.WltOther )
+
+      return QVariant()
+
+   def headerData(self, section, orientation, role=Qt.DisplayRole):
+      COL = ADDRESSCOLS
+      if role==Qt.DisplayRole:
+         if orientation==Qt.Horizontal:
+            if section==COL.Address:  return QVariant( 'Address' )
+            if section==COL.Comment:  return QVariant( 'Comment' )
+            if section==COL.NumTx:    return QVariant( '#Tx'     )
+            if section==COL.Imported: return QVariant( ''        )
+            if section==COL.Balance:  return QVariant( 'Balance' )
+         elif role==Qt.TextAlignmentRole:
+            if section in (COL.Address, COL.Comment):
+               return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+            elif section in (COL.NumTx,):
+               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            elif section in (COL.Balance,):
+               return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+
+      return QVariant()
+
 """
 
 class HeaderDataModel(QAbstractTableModel):

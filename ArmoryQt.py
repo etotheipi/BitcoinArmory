@@ -35,7 +35,7 @@ from datetime import datetime
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 
-# 8000 lines of python to help us out...
+# Over 15,000 lines of python to help us out
 from armoryengine import *
 from armorymodels import *
 from qtdialogs    import *

@@ -360,9 +360,10 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
 
    cout << endl << endl;
    cout << "Getting Sent-To Address List for Wlt1:" << endl;
-   vector<HashString> targAddrVect = wlt1.collectSendToAddrs();
+   vector<AddressBookEntry> targAddrVect = wlt1.collectSentToAddrs();
    for(uint32_t i=0; i<targAddrVect.size(); i++)
-      cout << targAddrVect[i].toHexStr() << endl;
+      cout << targAddrVect[i].getAddr160().toHexStr() << " " 
+           << targAddrVect[i].getTxList().size() << endl;
 
 
    // Results for the sent-to address list, as of 09 Apr, 2012
@@ -400,6 +401,42 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    "13Sgmy78mfw7ToMiKQujyad9spmPGUZvCN"
    "1M7bd7iYNuJoFw8F7fGXvz2Fe9cGnhA3P6"
    */
+
+   /* Here's the hash160 version of the above list
+   "1b00a2f6899335366f04b277e19d777559c35bc8"
+   "480649dc5fd4448f8c4bf75b3c84bb98ec40b45a"
+   "12e259809932ee8fdab278946911dbd6c6e9e977"
+   "10039ce4fdb5d4ee56148fe3935b9bfbbe4ecc89"
+   "fc0ef58380e6d4bcb9599c5369ce82d0bc01a5c4"
+   "aff189b24a36a1b93de2ea4d157c13d18251270a"
+   "3edbb132f2cd894bc45fee76cfbf13d79fa87bbb"
+   "481ec8e7d30c484ea664824fb7f52b5ae0a99d1d"
+   "f95b21b39dbd7cfe9dd5ef81fe19777707b57f00"
+   "edc36b7309fe440fea79e59c3b50d3969e7fa97d"
+   "42e84bba78b26c2a8917f5cb48493316c3766f88"
+   "39938f166521cbbef621f7c016308fbb428fd9e0"
+   "c24b8bdcba3cb15a7fe95aa99b7ab6ceba5a4c2c"
+   "0b93a48b5ebf29c0e6c7ce53d6701cb4495fc623"
+   "f3dda4c01f89186a012c68607899a5cfd172e408"
+   "548aa5b107b7a5d787c3b21db4fa07ec1cd7b1ec"
+   "f7837ec1fccdbcb1c9848c271468aa9ddf12bf7a"
+   "2796aa497bf2e3d8989319ceff88d1f30300ae36"
+   "ff9955241d540b35fcd429b04e4f59fcfa34580d"
+   "49a5ff7f45c3e2c256adf0615f45f2bbba7a33d3"
+   "ebb4d74391893c08716988c5b9f684275be5966b"
+   "e658556ebd5104f49ea88c27212e8fba71f38e3d"
+   "9ac0d4663bae84fbccfb3f3d887551c075283d7b"
+   "32c985fe4602556cef24b9fd1a35459a0d39e806"
+   "31b4123c92a4aed2d7cfd08edced603dedefcfb7"
+   "04c215b608229b1e71f6314d6973d235fe448c2e"
+   "0506f6a7742b6b4c554ada6c780f7242c85bfdc2"
+   "04c215c2800a1fb2a50f79865bd87a51ae9505c5"
+   "04c215f54c237440e91ebc0e7ed01ecec18d09c0"
+   "04c21613557ce112d0b95a37e08fabf3f8ec96b2"
+   "1acbda75c997d00e2cef09389750708e75433357"
+   "dca1e9baf8d970229f5efa269a15dd420ea7cfab"
+   */
+
   
 }
 

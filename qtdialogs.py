@@ -8058,21 +8058,67 @@ class DlgECDSACalc(QDialog):
 
 
 
+################################################################################
+class DlgAddressSelect(QDialog):
+   def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
+      super(DlgAddressBook, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      if defaultWltID==None:
+         defaultWltID = self.main.walletIDList[0]
+
+
+      lblDescr = QRichLabel('Please Select an Address:')
+
+      #lblToWlt  = QRichLabel('Send to Wallet (create new address):')
+      #lblToAddr = QRichLabel('Send to Address:')
+      #for lbl in [lblToAddr,lblToAddr]:
+         #lbl.setText('<u>' + lbl.text() '</u>')
+
+      
+      
+      self.wltidlist = [''] 
+      self.lstWallets = QListWidget()
+      #self.lstWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
+      for wltID in self.main.walletIDList:
+         wlt = self.main.walletMap[wltID]
+         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
+            continue
+         self.lstWallets.addItem( \
+                QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
+         self.wltidlist.append(wltID)
+      self.lstWallets.setCurrentRow(0)
+      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.wltSelected)
+      
+      
+      
+      
 
 
 
 
+
+      self.setWindowTitle('Address Book')
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+
+   def wltSelected(self, row):
+      if row==0:
+         self.addrBookModel = 
 
 
 ################################################################################
-################################################################################
-if __name__=='__main__':
-   app = QApplication(sys.argv)
+class DlgHelpAbout(QDialog):
+   def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
+      super(DlgHelpAbout, self).__init__(parent)
 
-   #form = dlgchangepassphrase(noprevencrypt=true)
 
-   form.show()
-   app.exec_()
+
+
 
 
 
