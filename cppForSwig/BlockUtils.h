@@ -510,7 +510,7 @@ public:
    //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
    //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
    
-   vector<AddressBookEntry> collectSentToAddrs(void);
+   vector<AddressBookEntry> createAddressBook(void);
 
 private:
    vector<BtcAddress*>          addrPtrVect_;

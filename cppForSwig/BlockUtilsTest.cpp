@@ -360,10 +360,19 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
 
    cout << endl << endl;
    cout << "Getting Sent-To Address List for Wlt1:" << endl;
-   vector<AddressBookEntry> targAddrVect = wlt1.collectSentToAddrs();
+   vector<AddressBookEntry> targAddrVect = wlt1.createAddressBook();
    for(uint32_t i=0; i<targAddrVect.size(); i++)
+   {
+      vector<RegisteredTx> txList = targAddrVect[i].getTxList();
+
       cout << targAddrVect[i].getAddr160().toHexStr() << " " 
-           << targAddrVect[i].getTxList().size() << endl;
+           << txList.size() << endl;
+      
+      for(uint32_t j=0; j<txList.size(); j++)
+         cout << "   " << txList[j].txHash_.toHexStr()
+              << "   " << txList[j].blkNum_
+              << "   " << txList[j].txIndex_ << endl;
+   }
 
 
    // Results for the sent-to address list, as of 09 Apr, 2012
