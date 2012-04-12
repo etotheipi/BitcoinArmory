@@ -8060,55 +8060,179 @@ class DlgECDSACalc(QDialog):
 
 ################################################################################
 class DlgAddressSelect(QDialog):
-   def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
+   """
+   This dialog is provided a widget which has a "setText()" method.  When the 
+   user selects the address, this dialog will enter the text into the widget 
+   and then close itself.
+   
+   The exclWltID is for the case we are already looking at a wallet and expect
+   to send to a different wallet, not the same one.
+   """
+   def __init__(self, parent, main, putResultInWidget=None, defaultWltID=None, exclWltID=None):
       super(DlgAddressBook, self).__init__(parent)
 
       self.parent = parent
       self.main   = main
+      self.target = putResultInWidget
 
       if defaultWltID==None:
          defaultWltID = self.main.walletIDList[0]
 
+      self.wlt = self.main.walletMap[defaultWltID]
 
-      lblDescr = QRichLabel('Please Select an Address:')
+      lblDescr = QRichLabel('Choose an address from your transaction history, '
+                            'or your own wallet.  If you choose to send to one '
+                            'of your own wallets, the next unused address in '
+                            'that wallet will be used.')
 
-      #lblToWlt  = QRichLabel('Send to Wallet (create new address):')
-      #lblToAddr = QRichLabel('Send to Address:')
-      #for lbl in [lblToAddr,lblToAddr]:
-         #lbl.setText('<u>' + lbl.text() '</u>')
+      lblToWlt  = QRichLabel('Send to Wallet (create new address):')
+      lblToAddr = QRichLabel('Send to Address:')
+      for lbl in [lblToWlt,lblToAddr]:
+         lbl.setText('<u>' + lbl.text() + '</u>')
+         lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
       
-      
-      self.wltidlist = [''] 
-      self.lstWallets = QListWidget()
-      #self.lstWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
+      # For send-to-wallet
+      self.wltWltIdList = [''] 
+      self.wltListWallets = QListWidget()
+      #self.wltListWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
       for wltID in self.main.walletIDList:
          wlt = self.main.walletMap[wltID]
          wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
          if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
             continue
-         self.lstWallets.addItem( \
+         txt = '%s (%s)' % (wlt.labelName, wltID) 
+         if exclWltID==wltID:
+            txt = '<font color="gray">' + txt + '</font>'
+         self.wltListWallets.addItem( QListWidgetItem(txt) )
+         self.wltWltIdList.append(wltID)
+      self.wltListWallets.setCurrentRow(0)
+      #self.connect(self.wltListWallets, SIGNAL('currentRowChanged(int)'), self.wltSelected)
+      
+      
+      # For send-to-address
+      self.addrWltIdList = [''] 
+      self.addrListWallets = QListWidget()
+      #self.addrListWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
+      for wltID in self.main.walletIDList:
+         wlt = self.main.walletMap[wltID]
+         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
+            continue
+         self.addrListWallets.addItem( \
                 QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
-         self.wltidlist.append(wltID)
-      self.lstWallets.setCurrentRow(0)
-      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.wltSelected)
+         self.addrWltIdList.append(wltID)
+      self.addrListWallets.setCurrentRow(0)
+      self.connect(self.addrListWallets, SIGNAL('currentRowChanged(int)'), self.addrWltSelected)
+        
       
-      
-      
-      
+      self.addrBookModel = SentToAddrBookModel(defaultWltID)
+      self.addrBookView  = QTableView()
+      self.addrBookView.setModel(self.addrBookModel)
+      self.addrBookView.setSelectionBehavior(QTableView.SelectRows)
+      self.addrBookView.setSelectionMode(QTableView.SingleSelection)
+      self.addrBookView.horizontalHeader().setStretchLastSection(True)
+      self.addrBookView.verticalHeader().setDefaultSectionSize(20)
+      #self.addrBookView.setMinimumWidth(550)
+      #self.addrBookView.setMinimumHeight(150)
+      #iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
+      freqSize = 1.3 * tightSizeStr(self.addrBookView, 'Times Used')[0]
+      initialColResize(self.wltAddrView, [0.3, 0.1, freqSize, 0.5])
+      self.addrBookView.hideColumn(ADDRBOOKCOLS.WltID)
+      self.addrBookView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
+
+      #self.addrBookView.setContextMenuPolicy(Qt.CustomContextMenu)
+      #self.addrBookView.customContextMenuRequested.connect(self.showContextMenu)
+   
+      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
+                   self.dblClickAddressView)
 
 
 
 
+      btnSelectWlt  = QPushButton('Send to this Wallet')
+      btnSelectAddr = QPushButton('Send to Selected Address')
+      btnCancel     = QPushButton('Cancel')
+
+      if self.target==None:
+         btnSelectWlt.setVisible(False)
+         btnSelectAddr.setVisible(False)
+         btnCancel = QPushButton('<<< Go Back')
+
+      self.connect(btnSelectWlt,  SIGNAL('clicked()'), self.acceptWltSelection)
+      self.connect(btnSelectAddr, SIGNAL('clicked()'), self.acceptAddrSelection)
+      self.connect(btnCancel,     SIGNAL('clicked()'), self.reject)
+
+
+      dlgLayout = QVBoxLayout()
+
+      frmWlt    = makeHorizFrame([lblToWlt, self.wltListWallets, 'Stretch', btnSelectWlt])
+      frmAddr   = makeHorizFrame([lblToAddr, self.addrListWallets, self.addrBookView, btnSelectAddr])
+      frmCancel = makeHorizFrame(['Stretch', btnCancel])
+
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(frmWlt)
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(frmAddr)
+      dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(frmCancel)
+
+      self.setLayout(dlgLayout)
 
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
+   
+   def dblClickAddressView(self, index):
+      # For now, we won't do anything except for change the comment. 
+      # May upgrade this method later to do more
+      self.main.updateAddrBookCommentFromView(self.addrBookView, self.wlt)
 
-   def wltSelected(self, row):
-      if row==0:
-         self.addrBookModel = 
+      #model = index.model()
+      #if index.column()==ADDRBOOKCOLS.Comment:
+         #self.main.updateAddrBookCommentFromView(self.addrBookView, self.wlt)
+      #else:
+         #addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
+         #dlg = DlgAddressInfo(self.wlt, addrStr_to_hash160(addrStr), self, self.main)
+         #dlg.exec_()
+         #pass
+
+
+   def addrWltSelected(self, row):
+      currRow = self.addrListWallets.currentRow()
+      wltID = self.addrWltIdList[currRow][0]
+
+      self.addrBookModel = SentToAddrBookModel(wltID)
+      self.addrBookView.setModel(self.addrBookModel)
+      self.addrBookModel.reset()
+
+
+   def acceptWltSelection(self):
+      # Figure out what has been selected
+      pass
+      
+      row = self.wltListWallets.currentRow()
+      wltID = self.wltWltIdList[row]
+      addr160 = self.main.walletMap[wltID].getNextUnusedAddress().getAddr160()
+      self.target.setText(hash160_to_addrStr(addr160))
+      self.accept()
+      
+
+   def acceptAddrSelection(self):
+      # Figure out what has been selected
+      index = self.addrBookView.selectedIndexes()
+      if len(index)==0:
+         QMessageBox.warning(self, 'No selection!', 'You did not select an '
+            'address from the address list!', QMessageBox.Ok)
+         return
+
+      index = index[0]
+      row,col = index.row(), index.column()
+      addrB58 = str(self.addrBookView.model().index(row, ADDRBOOKCOLS.Address).data().toString())
+      self.target.setText(addrB58)
+      self.accept()
 
 
 ################################################################################

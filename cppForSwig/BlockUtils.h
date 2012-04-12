@@ -260,6 +260,12 @@ public:
    uint32_t      txIndex_;
 
 
+   RegisteredTx(void) :
+         txrefPtr_(NULL),
+         txHash_(""),
+         blkNum_(0),
+         txIndex_(0) { }
+
    RegisteredTx(HashString txHash, uint32_t blkNum, uint32_t txIndex) :
          txrefPtr_(NULL),
          txHash_(txHash),
@@ -293,11 +299,7 @@ public:
    /////
    AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
    AddressBookEntry(HashString a160) : addr160_(a160) { txList_.clear(); }
-
-   /////
    void addTx(TxRef & txref) { txList_.push_back( RegisteredTx(txref) ); }
-
-   /////
    HashString getAddr160(void) { return addr160_; }
 
    /////
@@ -507,8 +509,6 @@ public:
 
    void setBdmPtr(BlockDataManager_MMAP * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);
-   //map<OutPoint,TxOutRef> & getMyZeroConfTxOuts(void) {return myZeroConfTxOuts_;}
-   //set<OutPoint> & getMyZeroConfOutPointsToSelf(void) {return myZeroConfOutPointsToSelf_;}
    
    vector<AddressBookEntry> createAddressBook(void);
 

@@ -22,7 +22,8 @@ from qtdefines import *
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
-ADDRESSCOLS = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
+ADDRESSCOLS  = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
+ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
                                        'ScrType', 'Sequence', 'Script')
@@ -622,87 +623,77 @@ class TxOutDispModel(QAbstractTableModel):
 
 ################################################################################
 class SentToAddrBookModel(QAbstractTableModel):
-   def __init__(self, wltIDList, main=None):
+   def __init__(self, wltID, main):
       super(SentToAddrBookModel, self).__init__()
 
-      self.wltIDList = wltIDList
-      self.main      = main
+      self.wltID = wltID
+      self.main  = main
+      self.wlt   = self.main.walletMap[wltID]
+
+      # Get a vector of "AddressBookEntry" objects sorted by first-sent-to
+      self.addrBook = self.wlt.cppWallet.createAddressBook()
+
+      print len(self.addrBook)
+
+      # Delete entries that are our own addr in other wallets
+      for i in range(len(self.addrBook)):
+         abe = self.addrBook[i]
+         if self.main.getWalletForAddr160(abe.getAddr160()):
+            del self.addrBook[i]       
+
+      print len(self.addrBook)
       
 
    def rowCount(self, index=QModelIndex()):
-      return len(self.addr160List)
+      return len(self.addrBook)
 
    def columnCount(self, index=QModelIndex()):
-      return 5
+      return 4
 
    def data(self, index, role=Qt.DisplayRole):
-      COL = ADDRESSCOLS
+      COL = ADDRBOOKCOLS
       row,col = index.row(), index.column()
-      addr = self.wlt.addrMap[self.addr160List[row]]
-      addr160 = addr.getAddr160()
-      addrB58 = addr.getAddrStr()
+      abe     = self.addrBook[row]
+      addr160 = abe.getAddr160()
+      addrB58 = hash160_to_addrStr(addr160)
+      wltID   = self.main.getWalletForAddr160(addr160)
+      numSent =   len(abe.getTxList())
+      comment = self.wlt.getCommentForAddrBookEntry(abe)
+      
+      #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
       if role==Qt.DisplayRole:
          if col==COL.Address: 
             return QVariant( addrB58 )
+         if col==COL.NumSent: 
+            return QVariant( numSent ) 
          if col==COL.Comment: 
-            if addr160 in self.wlt.commentsMap:
-               return QVariant( self.wlt.commentsMap[addr160] )
-            else:
-               return QVariant('')
-         if col==COL.NumTx: 
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( len(cppAddr.getTxLedger()) + \
-                             len(cppAddr.getZeroConfLedger()))
-         if col==COL.Imported:
-            if self.wlt.addrMap[addr160].chainIndex==-2:
-               return QVariant('Imported')
-            else:
-               return QVariant()
-         if col==COL.Balance: 
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
+            return QVariant( comment )
+         if col==COL.WltID:
+            return QVariant( wltID )
       elif role==Qt.TextAlignmentRole:
-         if col in (COL.Address, COL.Comment):
+         if col in (COL.Address, COL.Comment, COL.WltID):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         elif col in (COL.NumTx,COL.Imported):
+         elif col in (COL.NumSent,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-         elif col in (COL.Balance,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
-      elif role==Qt.ForegroundRole:
-         if col==COL.Balance:
-            cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-            val = cppAddr.getFullBalance()
-            if   val>0: return QVariant(Colors.Green)
-            else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
-         if col==COL.Balance:
-            return GETFONT('Fixed')
-      elif role==Qt.BackgroundColorRole:
-         cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
-         val = cppAddr.getFullBalance()
-         if val>0:
-            return QVariant( Colors.LightGreen )
-         else:
-            return QVariant( Colors.WltOther )
+         isFreqAddr = (numSent>1)
+         return GETFONT('Var', bold=isFreqAddr)
 
       return QVariant()
 
    def headerData(self, section, orientation, role=Qt.DisplayRole):
-      COL = ADDRESSCOLS
+      COL = ADDRBOOKCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
-            if section==COL.Address:  return QVariant( 'Address' )
-            if section==COL.Comment:  return QVariant( 'Comment' )
-            if section==COL.NumTx:    return QVariant( '#Tx'     )
-            if section==COL.Imported: return QVariant( ''        )
-            if section==COL.Balance:  return QVariant( 'Balance' )
-         elif role==Qt.TextAlignmentRole:
-            if section in (COL.Address, COL.Comment):
-               return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-            elif section in (COL.NumTx,):
-               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
-            elif section in (COL.Balance,):
-               return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+            if section==COL.Address:  return QVariant( 'Address'    )
+            if section==COL.WltID:    return QVariant( 'Ownership'  )
+            if section==COL.NumSent:  return QVariant( 'Times Used' )
+            if section==COL.Comment:  return QVariant( 'Comment'    )
+      elif role==Qt.TextAlignmentRole:
+         if section in (COL.Address, COL.Comment, COL.WltID):
+            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+         elif section in (COL.NumSent,):
+            return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
       return QVariant()
 

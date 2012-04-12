@@ -5572,68 +5572,24 @@ class PyBtcWallet(object):
          print '***WARNING: Blockchain-sync requested, but current wallet'
          print '            is set to BLOCKCHAIN_DONOTUSE'
 
+
+
+
+
+
    #############################################################################
-   def computeSentToAddrList(self, withInefficientTxCommentSearch=True):
-      """ 
-      Return a list of addresses that have ever received BTC from this wallet.
-      The underlying C++ code [collectSendToAddrs()] does not return tx-info
-      about the addresses, only a raw list.  Therefore, I will post-process
-      the returned information by searching the wallet's tx list looking for
-      where this addr was used, and attach the tx comment to that address,
-      if the address doesn't already have a comment associated with it.
+   def getCommentForAddrBookEntry(self, abe):
+      comment = self.getComment(abe.getAddr160())
+      if len(comment)>0:
+         return comment
 
-      This method returns a list: 
-            [ [Hash160(1), Comment(1)], 
-              [Hash160(2), Comment(2)], 
-              ...
-              [Hash160(N), Comment(N)]  ]
+      for regTx in abe.getTxList():
+         comment = self.getComment(regTx.txHash_)
+         if len(comment)>0:
+            return comment
 
-      TODO: I can just as easily use the last comment as the first one
-            I should investigate what would be better...
-      """
+      return ''
       
-      if not TheBDM.isInitialized():
-         return []
-
-      # Returned list is chronologically sorted
-      vectHash160 = self.cppWallet.collectSendToAddrs()
-      addrCommentList = [[a, self.getComment(a)] for a in vectHash160] 
-      
-      # If we only care about explicitly-set comments, we're done!
-      if not withInefficientTxCommentSearch:
-         return addrCommentList
-
-
-      ########
-      # The inefficient search looks for the first tx that has a comment
-      # If the user doesn't like it, they can explicitly set the comment
-      # for this addr and this code here will no longer tag it
-      addrNoComments = {}
-      for i in range(len(addrCommentList)):
-         if len(addrCommentList[i][1])==0:
-            addrNoComments[addrCommentList[i][0]] = i
-         
-      
-      # Go through the ledger
-      for le in self.getTxLedger():
-         txhash = le.getTxHash()
-
-         # No point in attaching tx comment to addr if it's empty
-         txComment = self.getComment(txhash)
-         if len(txComment)==0:
-            continue
-
-         # We have a tx comment, attach it to the addr
-         tx = TheBDM.getTxByHash(txhash)
-         for i in range(tx.getNumTxOut()):
-            addr160 = tx.getTxOutRef(i).getRecipientAddr()
-            if addrNoComments.has_key(addr160):
-               idxToChange = addrNoComments[addr160]
-               addrCommentList[idxToChange][1] = txComment
-               del addrNoComments[addr160] # remove this to use last comment
-               
-               
-      return addrCommentList
          
 
    #############################################################################

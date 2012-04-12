@@ -415,16 +415,18 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList[MENUS.Tools].addAction(actOwnership)
 
 
-      actCreateNew      = self.createAction('Create &New Wallet',        self.createNewWallet)
-      actImportWlt      = self.createAction('Import Armory Wallet',      self.execGetImportWltName)
-      actRestorePaper   = self.createAction('Restore from Paper Backup', self.execRestorePaperBackup)
-      actMigrateSatoshi = self.createAction('Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
+      actCreateNew      = self.createAction('&Create &New Wallet',        self.createNewWallet)
+      actImportWlt      = self.createAction('&Import Armory Wallet',      self.execGetImportWltName)
+      actRestorePaper   = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
+      actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
+      actAddressBook    = self.createAction('View &Address Book',         self.execAddressBook)
 
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addAction(actRestorePaper)
       self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
+      self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
 
@@ -1118,6 +1120,19 @@ class ArmoryMainWindow(QMainWindow):
          addr160 = addrStr_to_hash160(addrStr)
          wlt.setComment(addr160, newComment)
 
+   #############################################################################
+   def updateAddrBookCommentFromView(self, view, wlt):
+      index = view.selectedIndexes()[0]
+      row, col = index.row(), index.column()
+      addrStr     = str(view.model().index(row, ADDRBOOKCOLS.Address).data().toString())
+      currComment = str(view.model().index(row, ADDRBOOKCOLS.Comment).data().toString())
+
+      dialog = DlgSetComment(currComment, 'Address', self, self)
+      if dialog.exec_():
+         newComment = str(dialog.edtComment.text())
+         addr160 = addrStr_to_hash160(addrStr)
+         wlt.setComment(addr160, newComment)
+
 
    #############################################################################
    def getAddrCommentIfAvail(self, txHash):
@@ -1565,6 +1580,12 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       DlgMigrateSatoshiWallet(self, self).exec_()
+
+
+
+   #############################################################################
+   def execAddressBook(self):
+      DlgAddressSelect(self, self, None, None, None).exec_()
 
 
    #############################################################################

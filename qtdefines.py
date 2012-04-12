@@ -35,24 +35,30 @@ def VLINE(style=QFrame.Plain):
 
 
 # Setup fixed-width and var-width fonts
-def GETFONT(ftype, sz=10):
+def GETFONT(ftype, sz=10, bold=False):
+   fnt = None
    if ftype.lower().startswith('fix'):
       if OS_WINDOWS:
-         return QFont("Courier", sz)
+         fnt = QFont("Courier", sz)
       else: 
-         return QFont("DejaVu Sans Mono", sz)
+         fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
       if OS_WINDOWS:
-         return QFont("Tahoma", sz)
+         fnt = QFont("Tahoma", sz)
       else: 
-         return QFont("Sans", sz)
+         fnt = QFont("Sans", sz)
    elif ftype.lower().startswith('money'):
       if OS_WINDOWS:
-         return QFont("Courier", sz)
+         fnt = QFont("Courier", sz)
       else: 
-         return QFont("DejaVu Sans Mono", sz)
+         fnt = QFont("DejaVu Sans Mono", sz)
    else:
-      return QFont(ftype, sz)
+      fnt = QFont(ftype, sz)
+
+   if bold:
+      fnt.setWeight(QFont.Bold)
+   
+   return fnt
       
 
 
