@@ -90,6 +90,7 @@ class ArmoryMainWindow(QMainWindow):
       self.isDirty   = True
       
       self.settingsPath = CLI_OPTIONS.settingsPath
+      print self.settingsPath, os.path.exists(self.settingsPath)
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
@@ -232,9 +233,9 @@ class ArmoryMainWindow(QMainWindow):
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       self.lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      self.lblTotalFunds  = QRichLabel('', doWrap=False)
-      self.lblSpendFunds  = QRichLabel('', doWrap=False)
-      self.lblUnconfFunds = QRichLabel('', doWrap=False)
+      self.lblTotalFunds  = QRichLabel('-'*12, doWrap=False)
+      self.lblSpendFunds  = QRichLabel('-'*12, doWrap=False)
+      self.lblUnconfFunds = QRichLabel('-'*12, doWrap=False)
       self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
       self.lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
       self.lblUnconfFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
@@ -1114,19 +1115,6 @@ class ArmoryMainWindow(QMainWindow):
       row, col = index.row(), index.column()
       currComment = str(view.model().index(row, ADDRESSCOLS.Comment).data().toString())
       addrStr     = str(view.model().index(row, ADDRESSCOLS.Address).data().toString())
-
-      dialog = DlgSetComment(currComment, 'Address', self, self)
-      if dialog.exec_():
-         newComment = str(dialog.edtComment.text())
-         addr160 = addrStr_to_hash160(addrStr)
-         wlt.setComment(addr160, newComment)
-
-   #############################################################################
-   def updateAddrBookCommentFromView(self, view, wlt):
-      index = view.selectedIndexes()[0]
-      row, col = index.row(), index.column()
-      addrStr     = str(view.model().index(row, ADDRBOOKCOLS.Address).data().toString())
-      currComment = str(view.model().index(row, ADDRBOOKCOLS.Comment).data().toString())
 
       dialog = DlgSetComment(currComment, 'Address', self, self)
       if dialog.exec_():

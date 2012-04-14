@@ -366,8 +366,11 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.Green)
             else:       return QVariant(Colors.DarkGray)
       elif role==Qt.FontRole:
+         doBold = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
          if col==COL.Balance:
-            return GETFONT('Fixed')
+            return GETFONT('Fixed',bold=doBold)
+         else:
+            return GETFONT('Var',bold=doBold)
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getFullBalance()

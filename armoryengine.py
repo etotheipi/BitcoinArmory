@@ -156,7 +156,7 @@ else:
 BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 
 if CLI_OPTIONS.settingsPath.lower()=='default':
-   CLI_OPTIONS.settingsPath = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
+   CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
 
