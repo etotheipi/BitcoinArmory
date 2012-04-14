@@ -4204,7 +4204,7 @@ class DlgConfirmSend(QDialog):
 
 
 class DlgSendBitcoins(QDialog):
-   COLS = enum('LblAddr','Addr','LblBtc','Btc','LblComm','Comm')
+   COLS = enum('LblAddr','Addr','AddrBook', 'LblBtc','Btc','LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None, donateIsDefault=False):
       super(DlgSendBitcoins, self).__init__(parent)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
@@ -4705,10 +4705,12 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 40)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 35)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setFont(GETFONT('var',9))
 
+         addrEntryBox = self.widgetTable[-1][-1]
+         self.widgetTable[-1].append( createAddrBookButton(self, addrEntryBox, self.wlt.uniqueIDB58) )
          self.widgetTable[-1].append( QLabel('BTC:') )
 
          self.widgetTable[-1].append( QLineEdit() )
@@ -4730,12 +4732,13 @@ class DlgSendBitcoins(QDialog):
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr], 0, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],    0, 1, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblBtc],  0, 2, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],     0, 3, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm], 1, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],    1, 1, 1, 3)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr],  0, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],     0, 1, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.AddrBook], 0, 2, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblBtc],   0, 3, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      0, 4, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  1, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     1, 1, 1, 4)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
@@ -8059,7 +8062,7 @@ class DlgECDSACalc(QDialog):
 
 
 ################################################################################
-class DlgAddressSelect(QDialog):
+class DlgAddressBook(QDialog):
    """
    This dialog is provided a widget which has a "setText()" method.  When the 
    user selects the address, this dialog will enter the text into the widget 
@@ -8075,6 +8078,8 @@ class DlgAddressSelect(QDialog):
       self.main   = main
       self.target = putResultInWidget
 
+      self.isBrowsingOnly = (self.target==None)
+
       if defaultWltID==None:
          defaultWltID = self.main.walletIDList[0]
 
@@ -8084,49 +8089,37 @@ class DlgAddressSelect(QDialog):
                             'or your own wallet.  If you choose to send to one '
                             'of your own wallets, the next unused address in '
                             'that wallet will be used.')
+      if self.isBrowsingOnly:
+         lblDescr = QRichLabel('Browse all sending and receiving addresses in '
+                               'this wallet, and all addresses to which this '
+                               'wallet has sent Bitcoins.')
 
       lblToWlt  = QRichLabel('Send to Wallet (create new address):')
       lblToAddr = QRichLabel('Send to Address:')
       for lbl in [lblToWlt,lblToAddr]:
          lbl.setText('<u>' + lbl.text() + '</u>')
          lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         if self.isBrowsingOnly:
+            lbl.setVisible(False)
 
-      
-      # For send-to-wallet
-      self.wltWltIdList = [''] 
-      self.wltListWallets = QListWidget()
-      #self.wltListWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
-      for wltID in self.main.walletIDList:
-         wlt = self.main.walletMap[wltID]
-         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
-         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
-            continue
-         txt = '%s (%s)' % (wlt.labelName, wltID) 
-         if exclWltID==wltID:
-            txt = '<font color="gray">' + txt + '</font>'
-         self.wltListWallets.addItem( QListWidgetItem(txt) )
-         self.wltWltIdList.append(wltID)
-      self.wltListWallets.setCurrentRow(0)
-      #self.connect(self.wltListWallets, SIGNAL('currentRowChanged(int)'), self.wltSelected)
+
+
+      self.wltDispModel = AllWalletsDispModel(self.main)
+      self.wltDispView = QTableView()
+      self.wltDispView.setModel(self.wltDispModel)
+      self.wltDispView.setSelectionBehavior(QTableView.SelectRows)
+      self.wltDispView.setSelectionMode(QTableView.SingleSelection)
+      self.wltDispView.horizontalHeader().setStretchLastSection(True)
+      self.wltDispView.verticalHeader().setDefaultSectionSize(20)
+      initialColResize(self.wltDispView, [0.15, 0.30, 0.2, 0.20])
+      self.connect(self.wltDispView.selectionModel(), \
+                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
+                   self.wltTableClicked)
       
       
-      # For send-to-address
-      self.addrWltIdList = [''] 
-      self.addrListWallets = QListWidget()
-      #self.addrListWallets.addItem(QListWidgetItem('<b>All Wallets</b>'))
-      for wltID in self.main.walletIDList:
-         wlt = self.main.walletMap[wltID]
-         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
-         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
-            continue
-         self.addrListWallets.addItem( \
-                QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
-         self.addrWltIdList.append(wltID)
-      self.addrListWallets.setCurrentRow(0)
-      self.connect(self.addrListWallets, SIGNAL('currentRowChanged(int)'), self.addrWltSelected)
-        
       
-      self.addrBookModel = SentToAddrBookModel(defaultWltID)
+      
+      self.addrBookModel = SentToAddrBookModel(defaultWltID, self.main)
       self.addrBookView  = QTableView()
       self.addrBookView.setModel(self.addrBookModel)
       self.addrBookView.setSelectionBehavior(QTableView.SelectRows)
@@ -8135,86 +8128,92 @@ class DlgAddressSelect(QDialog):
       self.addrBookView.verticalHeader().setDefaultSectionSize(20)
       #self.addrBookView.setMinimumWidth(550)
       #self.addrBookView.setMinimumHeight(150)
-      #iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
       freqSize = 1.3 * tightSizeStr(self.addrBookView, 'Times Used')[0]
-      initialColResize(self.wltAddrView, [0.3, 0.1, freqSize, 0.5])
+      initialColResize(self.addrBookView, [0.3, 0.1, freqSize, 0.5])
       self.addrBookView.hideColumn(ADDRBOOKCOLS.WltID)
       self.addrBookView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
       #self.addrBookView.setContextMenuPolicy(Qt.CustomContextMenu)
       #self.addrBookView.customContextMenuRequested.connect(self.showContextMenu)
    
-      self.connect(self.wltAddrView, SIGNAL('doubleClicked(QModelIndex)'), \
+      self.connect(self.addrBookView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
+      self.connect(self.addrBookView.selectionModel(), \
+                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
+                   self.addrTableClicked)
 
 
 
-
-      btnSelectWlt  = QPushButton('Send to this Wallet')
-      btnSelectAddr = QPushButton('Send to Selected Address')
+      self.btnSelectWlt  = QPushButton('No Wallet Selected')
+      self.btnSelectAddr = QPushButton('No Address Selected')
+      self.btnSelectWlt.setEnabled(False)
+      self.btnSelectAddr.setEnabled(False)
       btnCancel     = QPushButton('Cancel')
 
-      if self.target==None:
-         btnSelectWlt.setVisible(False)
-         btnSelectAddr.setVisible(False)
+      if self.isBrowsingOnly:
+         self.btnSelectWlt.setVisible(False)
+         self.btnSelectAddr.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
+         
 
-      self.connect(btnSelectWlt,  SIGNAL('clicked()'), self.acceptWltSelection)
-      self.connect(btnSelectAddr, SIGNAL('clicked()'), self.acceptAddrSelection)
+      self.connect(self.btnSelectWlt,  SIGNAL('clicked()'), self.acceptWltSelection)
+      self.connect(self.btnSelectAddr, SIGNAL('clicked()'), self.acceptAddrSelection)
       self.connect(btnCancel,     SIGNAL('clicked()'), self.reject)
 
 
       dlgLayout = QVBoxLayout()
-
-      frmWlt    = makeHorizFrame([lblToWlt, self.wltListWallets, 'Stretch', btnSelectWlt])
-      frmAddr   = makeHorizFrame([lblToAddr, self.addrListWallets, self.addrBookView, btnSelectAddr])
-      frmCancel = makeHorizFrame(['Stretch', btnCancel])
-
       dlgLayout.addWidget(lblDescr)
       dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(frmWlt)
+      dlgLayout.addWidget(lblToWlt)
+      dlgLayout.addWidget(self.wltDispView)
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectWlt]))
       dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(frmAddr)
+      dlgLayout.addWidget(self.addrBookView)
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]))
       dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(frmCancel)
+      dlgLayout.addWidget(makeHorizFrame([btnCancel, 'Stretch']))
 
       self.setLayout(dlgLayout)
+      self.sizeHint = lambda: QSize(700, 500)
 
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
    
+
+
+   def wltTableClicked(self, currIndex, prevIndex):
+      self.btnSelectWlt.setEnabled(True)
+      row = currIndex.row()
+      self.selectedWltID = str(currIndex.model().index(row, WLTVIEWCOLS.ID).data().toString())
+   
+
+      self.addrBookModel = SentToAddrBookModel(self.selectedWltID, self.main)
+      self.addrBookView.setModel(self.addrBookModel)
+
+      if not self.isBrowsingOnly:
+         self.btnSelectWlt.setText('Send to Wallet: %s' % self.selectedWltID)
+      self.addrBookModel.reset()
+
+
+   def addrTableClicked(self, currIndex, prevIndex):
+      self.btnSelectAddr.setEnabled(True)
+      row = currIndex.row()
+      addrB58 = str(currIndex.model().index(row, ADDRBOOKCOLS.Address).data().toString())
+
+      if not self.isBrowsingOnly:
+         self.btnSelectAddr.setText('Send to Address: %s...' % addrB58[:10])
+
+
    def dblClickAddressView(self, index):
       # For now, we won't do anything except for change the comment. 
       # May upgrade this method later to do more
       self.main.updateAddrBookCommentFromView(self.addrBookView, self.wlt)
 
-      #model = index.model()
-      #if index.column()==ADDRBOOKCOLS.Comment:
-         #self.main.updateAddrBookCommentFromView(self.addrBookView, self.wlt)
-      #else:
-         #addrStr = str(index.model().index(index.row(), ADDRESSCOLS.Address).data().toString())
-         #dlg = DlgAddressInfo(self.wlt, addrStr_to_hash160(addrStr), self, self.main)
-         #dlg.exec_()
-         #pass
-
-
-   def addrWltSelected(self, row):
-      currRow = self.addrListWallets.currentRow()
-      wltID = self.addrWltIdList[currRow][0]
-
-      self.addrBookModel = SentToAddrBookModel(wltID)
-      self.addrBookView.setModel(self.addrBookModel)
-      self.addrBookModel.reset()
-
 
    def acceptWltSelection(self):
-      # Figure out what has been selected
-      pass
-      
-      row = self.wltListWallets.currentRow()
-      wltID = self.wltWltIdList[row]
+      wltID = self.selectedWltID
       addr160 = self.main.walletMap[wltID].getNextUnusedAddress().getAddr160()
       self.target.setText(hash160_to_addrStr(addr160))
       self.accept()
@@ -8233,6 +8232,19 @@ class DlgAddressSelect(QDialog):
       addrB58 = str(self.addrBookView.model().index(row, ADDRBOOKCOLS.Address).data().toString())
       self.target.setText(addrB58)
       self.accept()
+
+
+
+################################################################################
+def createAddrBookButton(parent, targWidget, defaultWlt):
+   btn = QPushButton('A')
+
+   def execAddrBook():
+      dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt)
+      dlg.exec_()
+
+   parent.connect(btn, SIGNAL('clicked()'), execAddrBook)
+   return btn
 
 
 ################################################################################

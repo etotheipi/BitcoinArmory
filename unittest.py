@@ -16,7 +16,7 @@ BE = BIGENDIAN
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
-Test_SimpleAddress    = True
+Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
@@ -29,6 +29,7 @@ Test_NetworkObjects   = False
 Test_ReactorLoop      = False
 Test_SettingsFile     = False
 Test_WalletMigrate    = False
+Test_AddressBooks     = True
 
 '''
 import optparse
@@ -1818,5 +1819,44 @@ if Test_WalletMigrate:
    print len(crypt)
    print sum([1 if p[2] else 0 for p in crypt])
    print sum([0 if p[2] else 1 for p in crypt])
+
+
+
+
+
+
+if Test_AddressBooks:
+
+      
+   cppWlt = Cpp.BtcWallet()
+   cppWlt.addAddress_1_(hex_to_binary("0c6b92101c7025643c346d9c3e23034a8a843e21"))
+   cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+   cppWlt.addAddress_1_(hex_to_binary("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"))
+   cppWlt.addAddress_1_(hex_to_binary("d77561813ca968270d5f63794ddb6aab3493605e"))
+   cppWlt.addAddress_1_(hex_to_binary("0e0aec36fe2545fb31a41164fb6954adcd96b342"))
+   cppWlt.addAddress_1_(hex_to_binary("6c27c8e67b7376f3ab63553fe37a4481c4f951cf"))
+
+   TheBDM.registerWallet(cppWlt)
+   
+   print '\n\nLoading Blockchain from:', BLK0001_PATH
+   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print 'Done!'
+
+   TheBDM.scanBlockchainForTx(cppWlt)
+   cppWlt.pprintLedger()
+
+
+   AddrBook = cppWlt.createAddressBook()
+   print "AB  ", len(AddrBook)
+   print "Lst ", len(list(AddrBook))
+   print "[:] ", len(AddrBook[:])
+
+   for abe in AddrBook:
+      print binary_to_hex(abe.getAddr160()),
+      print len(abe.getTxList())
+      for rtx in abe.getTxList():
+         print '\t', binary_to_hex(rtx.getTxHash()), rtx.getBlkNum(), rtx.getTxIndex()
+
+
 
 

@@ -810,8 +810,8 @@ class ArmoryMainWindow(QMainWindow):
                print 'Syncing wallet: ', wltID
                self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
                self.walletMap[wltID].syncWithBlockchain()
-               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
    
+            
                
             self.createCombinedLedger()
             self.ledgerSize = len(self.combinedLedger)
@@ -825,6 +825,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
+         
    
          # This will force the table to refresh with new data
          self.walletModel.reset()
@@ -1585,7 +1586,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execAddressBook(self):
-      DlgAddressSelect(self, self, None, None, None).exec_()
+      DlgAddressBook(self, self, None, None, None).exec_()
 
 
    #############################################################################

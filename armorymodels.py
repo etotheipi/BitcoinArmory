@@ -633,15 +633,13 @@ class SentToAddrBookModel(QAbstractTableModel):
       # Get a vector of "AddressBookEntry" objects sorted by first-sent-to
       self.addrBook = self.wlt.cppWallet.createAddressBook()
 
-      print len(self.addrBook)
-
       # Delete entries that are our own addr in other wallets
-      for i in range(len(self.addrBook)):
-         abe = self.addrBook[i]
-         if self.main.getWalletForAddr160(abe.getAddr160()):
-            del self.addrBook[i]       
+      otherAddr = []
+      for abe in self.addrBook:
+         if not self.main.getWalletForAddr160(abe.getAddr160()):
+            otherAddr.append(abe)
 
-      print len(self.addrBook)
+      self.addrBook = otherAddr
       
 
    def rowCount(self, index=QModelIndex()):

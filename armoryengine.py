@@ -77,7 +77,7 @@ USE_TESTNET = CLI_OPTIONS.testnet
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 70, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 72, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -155,10 +155,10 @@ else:
 
 BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 
-if CLI_OPTIONS.settingsPath=='DEFAULT':
-   SETTINGS_PATH   = CLI_OPTIONS.settingsPath
-else:
-   SETTINGS_PATH   = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
+if CLI_OPTIONS.settingsPath.lower()=='default':
+   CLI_OPTIONS.settingsPath = os.path.join(BTC_HOME_DIR, 'ArmorySettings.txt')
+
+SETTINGS_PATH = CLI_OPTIONS.settingsPath
 
 
 print 'Detected Operating system:', OS_NAME
@@ -5584,12 +5584,21 @@ class PyBtcWallet(object):
          return comment
 
       for regTx in abe.getTxList():
-         comment = self.getComment(regTx.txHash_)
+         comment = self.getComment(regTx.getTxHash())
          if len(comment)>0:
             return comment
 
       return ''
       
+   #############################################################################
+   def printAddressBook(self):
+      addrbook = self.cppWallet.createAddressBook()
+      for abe in addrbook:
+         print hash160_to_addrStr(abe.getAddr160()),
+         txlist = abe.getTxList()
+         print len(txlist)
+         for rtx in txlist:
+            print '\t', binary_to_hex(rtx.getTxHash(), BIGENDIAN)
          
 
    #############################################################################
