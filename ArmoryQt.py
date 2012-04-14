@@ -703,7 +703,7 @@ class ArmoryMainWindow(QMainWindow):
       
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
-         print '   Wallet (%s):'.ljust(20) % wlt.uniqueIDB58,
+         print ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25),
          print '"'+wlt.labelName.ljust(34)+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          # Register all wallets with TheBDM

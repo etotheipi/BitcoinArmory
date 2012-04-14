@@ -4688,7 +4688,7 @@ class DlgSendBitcoins(QDialog):
       for i in range(nRecip):
          if i<prevNRecip and i<nRecip:
             inputs.append([])
-            for j in (1,3,5):
+            for j in (1,4,6):
                inputs[-1].append(str(self.widgetTable[i][j].text()))
 
 
@@ -8094,14 +8094,11 @@ class DlgAddressBook(QDialog):
                                'this wallet, and all addresses to which this '
                                'wallet has sent Bitcoins.')
 
-      lblToWlt  = QRichLabel('Send to Wallet (create new address):')
+      lblToWlt  = QRichLabel('Send to Wallet:')
       lblToAddr = QRichLabel('Send to Address:')
-      for lbl in [lblToWlt,lblToAddr]:
-         lbl.setText('<u>' + lbl.text() + '</u>')
-         lbl.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-         if self.isBrowsingOnly:
-            lbl.setVisible(False)
-
+      if self.isBrowsingOnly:
+         lblToWlt.setVisible(False)
+         lblToAddr.setVisible(False)
 
 
       self.wltDispModel = AllWalletsDispModel(self.main)
@@ -8118,32 +8115,17 @@ class DlgAddressBook(QDialog):
       
       
       
-      
-      self.addrBookModel = SentToAddrBookModel(defaultWltID, self.main)
-      self.addrBookView  = QTableView()
-      self.addrBookView.setModel(self.addrBookModel)
-      self.addrBookView.setSelectionBehavior(QTableView.SelectRows)
-      self.addrBookView.setSelectionMode(QTableView.SingleSelection)
-      self.addrBookView.horizontalHeader().setStretchLastSection(True)
-      self.addrBookView.verticalHeader().setDefaultSectionSize(20)
-      #self.addrBookView.setMinimumWidth(550)
-      #self.addrBookView.setMinimumHeight(150)
-      freqSize = 1.3 * tightSizeStr(self.addrBookView, 'Times Used')[0]
-      initialColResize(self.addrBookView, [0.3, 0.1, freqSize, 0.5])
-      self.addrBookView.hideColumn(ADDRBOOKCOLS.WltID)
-      self.addrBookView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
-
-      #self.addrBookView.setContextMenuPolicy(Qt.CustomContextMenu)
-      #self.addrBookView.customContextMenuRequested.connect(self.showContextMenu)
-   
+       
+      self.addrBookView = QTableView()
+      self.addrBookModel = None
+      self.setAddrBookModel(defaultWltID)
       self.connect(self.addrBookView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
-      self.connect(self.addrBookView.selectionModel(), \
-                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
-                   self.addrTableClicked)
 
 
 
+
+      self.lblSelectWlt  = QRichLabel('(<i>Will create a new address</i>)', doWrap=False)
       self.btnSelectWlt  = QPushButton('No Wallet Selected')
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
@@ -8153,12 +8135,13 @@ class DlgAddressBook(QDialog):
       if self.isBrowsingOnly:
          self.btnSelectWlt.setVisible(False)
          self.btnSelectAddr.setVisible(False)
+         self.lblSelectWlt.setVisible(False)
          btnCancel = QPushButton('<<< Go Back')
          
 
       self.connect(self.btnSelectWlt,  SIGNAL('clicked()'), self.acceptWltSelection)
       self.connect(self.btnSelectAddr, SIGNAL('clicked()'), self.acceptAddrSelection)
-      self.connect(btnCancel,     SIGNAL('clicked()'), self.reject)
+      self.connect(btnCancel,          SIGNAL('clicked()'), self.reject)
 
 
       dlgLayout = QVBoxLayout()
@@ -8166,8 +8149,9 @@ class DlgAddressBook(QDialog):
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToWlt)
       dlgLayout.addWidget(self.wltDispView)
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectWlt]))
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.lblSelectWlt, self.btnSelectWlt]))
       dlgLayout.addWidget(HLINE())
+      dlgLayout.addWidget(lblToAddr)
       dlgLayout.addWidget(self.addrBookView)
       dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]))
       dlgLayout.addWidget(HLINE())
@@ -8181,6 +8165,19 @@ class DlgAddressBook(QDialog):
 
 
    
+   def setAddrBookModel(self, wltID):
+      self.addrBookModel = SentToAddrBookModel(wltID, self.main)
+      self.addrBookView.setModel(self.addrBookModel)
+      self.addrBookView.setSelectionBehavior(QTableView.SelectRows)
+      self.addrBookView.setSelectionMode(QTableView.SingleSelection)
+      self.addrBookView.horizontalHeader().setStretchLastSection(True)
+      self.addrBookView.verticalHeader().setDefaultSectionSize(20)
+      freqSize = 1.3 * tightSizeStr(self.addrBookView, 'Times Used')[0]
+      initialColResize(self.addrBookView, [0.3, 0.1, freqSize, 0.5])
+      self.addrBookView.hideColumn(ADDRBOOKCOLS.WltID)
+      self.connect(self.addrBookView.selectionModel(), \
+                   SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
+                   self.addrTableClicked)
 
 
    def wltTableClicked(self, currIndex, prevIndex):
@@ -8189,8 +8186,7 @@ class DlgAddressBook(QDialog):
       self.selectedWltID = str(currIndex.model().index(row, WLTVIEWCOLS.ID).data().toString())
    
 
-      self.addrBookModel = SentToAddrBookModel(self.selectedWltID, self.main)
-      self.addrBookView.setModel(self.addrBookModel)
+      self.setAddrBookModel(self.selectedWltID)
 
       if not self.isBrowsingOnly:
          self.btnSelectWlt.setText('Send to Wallet: %s' % self.selectedWltID)
@@ -8209,7 +8205,8 @@ class DlgAddressBook(QDialog):
    def dblClickAddressView(self, index):
       # For now, we won't do anything except for change the comment. 
       # May upgrade this method later to do more
-      self.main.updateAddrBookCommentFromView(self.addrBookView, self.wlt)
+      wlt = self.main.walletMap[self.selectedWltID]
+      self.main.updateAddrBookCommentFromView(self.addrBookView, wlt)
 
 
    def acceptWltSelection(self):
@@ -8237,13 +8234,17 @@ class DlgAddressBook(QDialog):
 
 ################################################################################
 def createAddrBookButton(parent, targWidget, defaultWlt):
-   btn = QPushButton('A')
-
+   btn = QPushButton('')
+   ico = QIcon(QPixmap(':/addr_book_icon.png'))
+   btn.setIcon(ico)
    def execAddrBook():
       dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt)
       dlg.exec_()
 
+   btn.setMaximumWidth(24)
+   btn.setMaximumHeight(24)
    parent.connect(btn, SIGNAL('clicked()'), execAddrBook)
+   btn.setToolTip('Select from Address Book')
    return btn
 
 

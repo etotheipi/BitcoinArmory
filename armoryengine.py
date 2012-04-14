@@ -6597,7 +6597,6 @@ class PyBtcWallet(object):
       updEntry = []
       isNewComment = False
       if self.commentsMap.has_key(hashVal):
-         print binary_to_hex(hashVal)
          # If there is already a comment for this address, overwrite it
          oldCommentLen = len(self.commentsMap[hashVal])
          oldCommentLoc = self.commentLocs[hashVal]
