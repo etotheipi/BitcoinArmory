@@ -2041,6 +2041,8 @@ class DlgImportAddress(QDialog):
       else:
          ##### IMPORTING #####
 
+         # allWltList is [ [WltID, AddrStr], [WltID, AddrStr], ... ]
+
          # Warn about addresses that would be duplicates.
          # Addresses already in the selected wallet will simply be skipped, no 
          # need to do anything about that -- only addresses that would appear in 
@@ -2075,26 +2077,49 @@ class DlgImportAddress(QDialog):
                return
    
          
+         nTotal = 0
          nImport = 0
+         nAlready = 0
          nError  = 0
          for addr160,addrStr,sbdKey in privKeyList:
+            nTotal += 1 
             try:
-               self.wlt.importExternalAddressData(privKey=sbdKey)
-               nImport += 1
+               prevPartOfWallet = self.main.getWalletForAddr160(addr160)
+               if not self.main.getWalletForAddr160(addr160)==thisWltID:
+                  self.wlt.importExternalAddressData(privKey=sbdKey)
+                  nImport += 1
+               else:
+                  nAlready += 1
             except Exception,msg:
                print '***ERROR importing:', addrB58
                print '         Error Msg:', msg
                nError += 1
    
-         if nImport==0:
+
+         print nTotal, nImport, nAlready, nError
+
+         if nAlready==nTotal:
+            MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '
+               'chosen to be imported are already part of this wallet. '
+               'Nothing was imported.')
+            return
+         elif nImport==0 and nTotal>0:
             MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
                'Please check the logfile (ArmoryQt.exe.log) or the console output '
                'for information about why it failed (and email alan.reiner@gmail.com '
                'for help fixing the problem).')
+            return
          else:
             if nError == 0:
-               MsgBoxCustom(MSGBOX.Good, 'Success!', \
-                  'Success: %d private keys were imported into your wallet.' % nImport)
+               if nAlready>0:
+                  MsgBoxCustom(MSGBOX.Good, 'Success!', \
+                     'Success: %d private keys were imported into your wallet. ' 
+                     '<br><br>'
+                     'The other %d private keys were skipped, because they were '
+                     'already part of your wallet.' % (nImport, nAlready))
+               else:
+                  MsgBoxCustom(MSGBOX.Good, 'Success!', \
+                     'Success: %d private keys were imported into your wallet.' % nImport)
             else:
                MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
                   '%d private keys were imported into your wallet, but there was '
@@ -8234,7 +8259,7 @@ class DlgAddressBook(QDialog):
          'Addresses that are in other wallets you own are <b>not showns</b>.')
 
 
-      self.lblSelectWlt  = QRichLabel('(<i>Will create a new address</i>)', doWrap=False)
+      self.lblSelectWlt  = QRichLabel('', doWrap=False)
       self.btnSelectWlt  = QPushButton('No Wallet Selected')
       self.btnSelectAddr = QPushButton('No Address Selected')
       self.btnSelectWlt.setEnabled(False)
@@ -8264,7 +8289,8 @@ class DlgAddressBook(QDialog):
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToWlt)
       dlgLayout.addWidget(self.wltDispView)
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.lblSelectWlt, self.btnSelectWlt]))
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectWlt]))
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.lblSelectWlt]))
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToAddr)
       dlgLayout.addWidget(self.tabWidget)
@@ -8321,8 +8347,12 @@ class DlgAddressBook(QDialog):
       self.setAddrBookTxModel(self.selectedWltID)
       self.setAddrBookRxModel(self.selectedWltID)
 
+
       if not self.isBrowsingOnly:
-         self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
+         wlt = self.main.walletMap[self.selectedWltID]
+         self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
+         nextAddr160 = wlt.peekNextUnusedAddr160()
+         self.lblSelectWlt.setText('Will create new address: <i>%s</i>' % hash160_to_addrStr(nextAddr160))
       self.addrBookTxModel.reset()
 
 
