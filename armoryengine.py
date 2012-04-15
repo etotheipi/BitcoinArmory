@@ -5931,6 +5931,14 @@ class PyBtcWallet(object):
 
 
    #############################################################################
+   def peekNextUnusedAddr160(self):
+      try:
+         return self.getAddress160ByChainIndex(self.highestUsedChainIndex+1)
+      except:
+         # Not sure why we'd fail, maybe addrPoolSize==0?
+         return ''
+
+   #############################################################################
    def getNextUnusedAddress(self):
       if self.lastComputedChainIndex - self.highestUsedChainIndex < \
                                               max(self.addrPoolSize-1,1):
