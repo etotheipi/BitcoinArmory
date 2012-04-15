@@ -348,7 +348,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile and not self.options.ignoreblk:
+      if self.haveBlkFile and not CLI_OPTIONS.ignoreblk:
          tstart = RightNow()
          self.loadBlockchain()
          print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
@@ -583,7 +583,7 @@ class ArmoryMainWindow(QMainWindow):
          
       self.isOnline = (self.internetAvail and self.satoshiAvail and not CLI_OPTIONS.offline)
 
-      if not self.isOnline and not CLI_OPTIONS.offline:
+      if not self.isOnline:
          dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
          dlg.exec_()
          self.NetworkingFactory = FakeClientFactory()

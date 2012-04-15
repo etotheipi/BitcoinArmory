@@ -764,7 +764,7 @@ class DlgWalletDetails(QDialog):
       dev = (self.main.usermode==USERMODE.Developer)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
-      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160")
+      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
       idx = self.wltAddrView.selectedIndexes()[0]
@@ -1877,11 +1877,13 @@ class DlgImportAddress(QDialog):
 
       privKeyList = []
       addrSet = set()
+      nLines = 0
       for line in inputLines:
          if 'PublicX' in line or 'PublicY' in line:
             continue
          lineend = line.split(':')[-1]
          try:
+            nLines += 1
             binKeyData = SecureBinaryData(parsePrivateKeyData(lineend)[0])
             addr160 = convertKeyDataToAddress(privKey=binKeyData.toBinStr())
             if not addr160 in addrSet:
@@ -1890,6 +1892,13 @@ class DlgImportAddress(QDialog):
                privKeyList.append([addr160, addrStr, binKeyData])
          except:
             continue
+
+      print nLines
+      if len(privKeyList)==0:
+         if nLines>1:
+            QMessageBox.critical(self, 'Invalid Data', \
+               'No valid private key data was entered.', QMessageBox.Ok )
+         return
 
       #privKeyList now contains:
       #  [ [A160, AddrStr, Priv],
@@ -6926,7 +6935,7 @@ class DlgBadConnection(QDialog):
       lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
 
       lblDescr = QLabel()
-      if not haveInternet and not self.main.ignoreblk:
+      if not haveInternet and not CLI_OPTIONS.ignoreblk:
          lblDescr = QRichLabel( \
             'Armory was not able to detect an internet connection, so Armory '
             'will operate in "Offline" mode.  In this mode, only wallet'
@@ -7240,7 +7249,7 @@ class DlgECDSACalc(QDialog):
          'Standard Bitcoin address expressed in Base58')
 
 
-      btnAbk = createAddrBookButton(self, self.txtAddr, None, 'Select')
+      btnAbk = createAddrBookButton(self, self.txtAddr, None, 'Select', True)
 
       headPrvR  = makeHorizFrame([QLabel('Encoded Private Key'), ttipPrvR, 'Stretch'])
       headPriv  = makeHorizFrame([QLabel('Raw Private Key'), ttipPriv, 'Stretch'])
@@ -8083,7 +8092,10 @@ class DlgAddressBook(QDialog):
    user selects the address, this dialog will enter the text into the widget 
    and then close itself.
    """
-   def __init__(self, parent, main, putResultInWidget=None, defaultWltID=None, actionStr='Select'):
+   def __init__(self, parent, main, putResultInWidget=None, \
+                                    defaultWltID=None, \
+                                    actionStr='Select', \
+                                    selectExistingOnly=False):
       super(DlgAddressBook, self).__init__(parent)
 
       self.parent = parent
@@ -8102,7 +8114,8 @@ class DlgAddressBook(QDialog):
                             'or your own wallet.  If you choose to send to one '
                             'of your own wallets, the next unused address in '
                             'that wallet will be used.')
-      if self.isBrowsingOnly:
+
+      if self.isBrowsingOnly or selectExistingOnly:
          lblDescr = QRichLabel('Browse all receiving addresses in '
                                'this wallet, and all addresses to which this '
                                'wallet has sent Bitcoins.')
@@ -8112,6 +8125,7 @@ class DlgAddressBook(QDialog):
       if self.isBrowsingOnly:
          lblToWlt.setVisible(False)
          lblToAddr.setVisible(False)
+
 
 
       self.wltDispModel = AllWalletsDispModel(self.main)
@@ -8137,6 +8151,9 @@ class DlgAddressBook(QDialog):
       self.connect(self.addrBookTxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
 
+      self.addrBookTxView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.addrBookTxView.customContextMenuRequested.connect(self.showContextMenuTx)
+
       # DISPLAY receiving addresses  
       self.addrBookRxModel = None
       self.addrBookRxView = QTableView()
@@ -8144,6 +8161,8 @@ class DlgAddressBook(QDialog):
       self.connect(self.addrBookRxView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickAddressView)
 
+      self.addrBookRxView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.addrBookRxView.customContextMenuRequested.connect(self.showContextMenuRx)
 
 
       self.tabWidget = QTabWidget()
@@ -8173,6 +8192,11 @@ class DlgAddressBook(QDialog):
          btnCancel = QPushButton('<<< Go Back')
          ttipSendAddr.setVisible(False)
          
+      if selectExistingOnly:
+         lblToWlt.setVisible(False)
+         self.lblSelectWlt.setVisible(False)
+         self.btnSelectWlt.setVisible(False)
+         ttipSendWlt.setVisible(False)
 
       self.connect(self.btnSelectWlt,  SIGNAL('clicked()'), self.acceptWltSelection)
       self.connect(self.btnSelectAddr, SIGNAL('clicked()'), self.acceptAddrSelection)
@@ -8304,15 +8328,69 @@ class DlgAddressBook(QDialog):
       self.target.setText(self.selectedAddr)
       self.accept()
 
+   #############################################################################
+   def showContextMenuTx(self, pos):
+      menu = QMenu(self.addrBookTxView)
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
+      
+      if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
+      if True:  actionCopyComment = menu.addAction("Copy Comment")
+      idx = self.addrBookTxView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+         
+      if action==actionCopyAddr:
+         s = self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Address).data().toString()
+      elif dev and action==actionCopyHash160:
+         s = str(self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Address).data().toString())
+         s = binary_to_hex(addrStr_to_hash160(s))
+      elif action==actionCopyComment:
+         s = self.addrBookTxView.model().index(idx.row(), ADDRBOOKCOLS.Comment).data().toString()
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(s).strip())
+
+
+   #############################################################################
+   def showContextMenuRx(self, pos):
+      menu = QMenu(self.addrBookRxView)
+      std = (self.main.usermode==USERMODE.Standard)
+      adv = (self.main.usermode==USERMODE.Advanced)
+      dev = (self.main.usermode==USERMODE.Developer)
+      
+      if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
+      if True:  actionCopyComment = menu.addAction("Copy Comment")
+      idx = self.addrBookRxView.selectedIndexes()[0]
+      action = menu.exec_(QCursor.pos())
+         
+      if action==actionCopyAddr:
+         s = self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif dev and action==actionCopyHash160:
+         s = str(self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
+         s = binary_to_hex(addrStr_to_hash160(s))
+      elif action==actionCopyComment:
+         s = self.addrBookRxView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
+      else:
+         return
+
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(str(s).strip())
 
 
 ################################################################################
-def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select"):
+def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", selectExistingOnly=False):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
    def execAddrBook():
-      dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt, actionStr)
+      dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt, actionStr, selectExistingOnly)
       dlg.exec_()
 
    btn.setMaximumWidth(24)
