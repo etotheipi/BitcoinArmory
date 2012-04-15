@@ -567,14 +567,14 @@ class ArmoryMainWindow(QMainWindow):
       # Check general internet connection
       try:
          import urllib2
-         response=urllib2.urlopen('http://google.com', timeout=1)
+         response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
          self.internetAvail = True
       except ImportError:
          print 'No module urllib2 -- cannot determine if internet is available'
       except urllib2.URLError:
          # In the extremely rare case that google might be down...
          try:
-            response=urllib2.urlopen('http://microsoft.com', timeout=1)
+            response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
          except urllib2.URLError:
             self.internetAvail = False
 

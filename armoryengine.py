@@ -68,6 +68,8 @@ parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", defau
                   help="Use the testnet protocol")
 parser.add_option("--offline", dest="offline", action="store_true", default=False,
                   help="Use the testnet protocol")
+parser.add_option("--nettimeout", dest="nettimeout", default=1, type="int",
+                  help="Timeout for detecting internet connection at startup")
 
 (CLI_OPTIONS, args) = parser.parse_args()
 
