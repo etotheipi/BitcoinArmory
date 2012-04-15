@@ -1,4 +1,4 @@
-#from PyQt4.QtCore import QColor
+import sys
 from PyQt4.QtGui  import QColor, QPalette, QApplication
 
 
@@ -75,8 +75,8 @@ def luminance(qcolor):
    return int(0.2*r + 0.6*g + 0.2*b)
    
 
-fakeapp = QApplication([])
-qpal = fakeapp.palette()
+QAPP = QApplication(sys.argv)
+qpal = QAPP.palette()
 
 # Some of the standard colors to be tweaked
 class ArbitraryStruct: pass
@@ -96,28 +96,34 @@ Colors.TextWarn         = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
 Colors.TextRed          = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
 Colors.TextGreen        = tweakColor(Colors.Foreground, '+', [ -40, +100,  -40])
 Colors.TextBlue         = tweakColor(Colors.Foreground, '+', [ -40,  -40, +100])
-Colors.SlightRed        = tweakColor(Colors.Foreground, '+', [ 1.2,  0.8,  0.8])
-Colors.SlightGreen      = tweakColor(Colors.Foreground, '+', [ 0.8,  1.2,  0.8])
-Colors.SlightBlue       = tweakColor(Colors.Foreground, '+', [ 0.8,  0.8,  1.2])
+Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
+Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.92, 1.08, 0.92])
+Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
 
 Colors.TextNoConfirm    = tweakColor(Colors.Mid, '*', [ 0.8,  0.8,  0.8])
 Colors.TextSomeConfirm  = tweakColor(Colors.Mid, '*', [ 1.1,  1.1,  1.1])
 
 
-Colors.TextMoneyGood    = tweakColor(Colors.Foreground, '+', [ -50, +100,  -50])
-Colors.TextMoneyBad     = tweakColor(Colors.Foreground, '+', [+100,  -40,  -40])
-Colors.TblWltOther      = tweakColor(Colors.Background, '*', [1.05, 1.05, 1.05])
-Colors.TblWltMine       = tweakColor(Colors.Background, '*', [ 0.9,  0.9,  1.2])
-Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [ 0.8,  0.8,  1.4])
+Colors.MoneyPos         = tweakColor(Colors.Foreground, '+', [ -50, +100,  -50])
+Colors.MoneyNeg         = tweakColor(Colors.Foreground, '+', [+150,  -40,  -40])
+Colors.TblWltOther      = tweakColor(Colors.Background, '*', [1.00, 1.00, 1.00])
+Colors.TblWltMine       = tweakColor(Colors.Background, '*', [0.95, 0.95,  1.3])
+Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [ 0.8,  0.8,  1.5])
 
-Colors.LBtnNormalBG     = Colors.Background
-Colors.LBtnHoverBG      = tweakColor(Colors.Background, '*', [ 1.0,  1.0,  2.0])
-Colors.LBtnNormalFG     = Colors.Link
-Colors.LBtnHoverFG      = Colors.Link
+if(Colors.isDarkBkgd):
+   Colors.LBtnNormalBG  = Colors.Background
+   Colors.LBtnHoverBG   = tweakColor(Colors.Background, '+', [ +25,  +25,    0])
+   Colors.LBtnNormalFG  = tweakColor(Colors.Link,       '+', [+150, +150,    0])
+   Colors.LBtnHoverFG   = tweakColor(Colors.Link,       '+', [+150, +150,    0])
+else:
+   Colors.LBtnNormalBG  = Colors.Background
+   Colors.LBtnHoverBG   = tweakColor(Colors.Background, '*', [ 0.8,  0.8,  1.7])
+   Colors.LBtnNormalFG  = Colors.Link
+   Colors.LBtnHoverFG   = Colors.Link
 
-Colors.ToolTipQ         = Colors.Link
+Colors.ToolTipQ         = Colors.LBtnNormalFG
 
-fakeapp.quit()
+
 
 ################################################################################
 def htmlColor(name):

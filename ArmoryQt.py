@@ -40,7 +40,7 @@ from armoryengine import *
 from armorymodels import *
 from qtdialogs    import *
 from qtdefines    import *
-from armorycolors import Colors
+from armorycolors import Colors, htmlColor, QAPP
 
 import qrc_img_resources
 
@@ -114,10 +114,14 @@ class ArmoryMainWindow(QMainWindow):
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h72.png'))
+         if Colors.isDarkBkgd:
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h72.png'))
+         if Colors.isDarkBkgd:
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       #self.setWindowIcon(QIcon(':/armory_logo_32x32.png'))
@@ -904,8 +908,8 @@ class ArmoryMainWindow(QMainWindow):
             self.lblUnconfFunds.setText('-'*12 )
             return
             
-         uncolor  = htmlColor('TextRed')   if unconfFunds>0          else htmlColor('Foreground')
-         btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('TextGreen')
+         uncolor =  htmlColor('MoneyNeg')  if unconfFunds>0          else htmlColor('Foreground')
+         btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('MoneyPos')
          lblcolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('Foreground')
          goodColor= htmlColor('TextGreen')
          self.lblTotalFunds.setText( '<b><font color="%s">%s</font></b>' % (btccolor,coin2str(totalFunds)))
@@ -1780,7 +1784,6 @@ class ArmoryMainWindow(QMainWindow):
 if 1:  #__name__ == '__main__':
  
 
-   app = QApplication(sys.argv)
    import qt4reactor
    qt4reactor.install()
 
@@ -1791,7 +1794,7 @@ if 1:  #__name__ == '__main__':
    SPLASH = QSplashScreen(pixLogo)
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()
-   app.processEvents()
+   QAPP.processEvents()
 
 
    form = ArmoryMainWindow(opts=CLI_OPTIONS)
@@ -1806,13 +1809,13 @@ if 1:  #__name__ == '__main__':
       TheBDM.Reset()
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
-      app.quit()
+      QAPP.quit()
       os._exit(0)
       
-   app.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
+   QAPP.connect(form, SIGNAL("lastWindowClosed()"), endProgram)
    reactor.addSystemEventTrigger('before', 'shutdown', endProgram)
-   app.setQuitOnLastWindowClosed(True)
+   QAPP.setQuitOnLastWindowClosed(True)
    reactor.runReturn()
-   os._exit(app.exec_())
+   os._exit(QAPP.exec_())
 
 

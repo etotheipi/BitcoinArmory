@@ -193,8 +193,8 @@ class QMoneyLabel(QLabel):
       self.setFont(theFont)
       self.setWordWrap(False)
       valStr = coin2str(nBtc, ndec=ndec, maxZeros=maxZeros)
-      goodMoney = htmlColor('textMoneyGood')
-      badMoney  = htmlColor('textMoneyBad')
+      goodMoney = htmlColor('MoneyPos')
+      badMoney  = htmlColor('MoneyNeg')
       if nBtc < 0 and wColor:
          self.setText('<font color=%s>%s</font>' % (badMoney, valStr))
       elif nBtc > 0 and wColor:

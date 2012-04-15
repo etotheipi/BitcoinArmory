@@ -255,13 +255,13 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
 
    def paint(self, painter, option, index):
-      #bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
-      #if option.state & QStyle.State_Selected:
-         #bgcolor = QApplication.palette().highlight().color()
-
-      bgcolor = Colors.Background
+      bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
       if option.state & QStyle.State_Selected:
-         bgcolor = Colors.Highlight
+         bgcolor = QApplication.palette().highlight().color()
+
+      #bgcolor = Colors.Background
+      #if option.state & QStyle.State_Selected:
+         #bgcolor = Colors.Highlight
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]

@@ -425,8 +425,8 @@ class DlgChangePassphrase(QDialog):
          return True
       p1 = self.edtPasswd1.text()
       p2 = self.edtPasswd2.text()
-      goodColor = htmlColor('TextRed')
-      badColor  = htmlColor('TextGreen')
+      goodColor = htmlColor('TextGreen')
+      badColor  = htmlColor('TextRed')
       if not p1==p2:
          self.lblMatches.setText('<font color=%s><b>Passphrases do not match!</b></font>' % badColor)
          return False
@@ -715,8 +715,8 @@ class DlgWalletDetails(QDialog):
       totalFunds = self.wlt.getBalance('Total')
       spendFunds = self.wlt.getBalance('Spendable')
       unconfFunds= self.wlt.getBalance('Unconfirmed')
-      uncolor =  htmlColor('TextRed')   if unconfFunds>0          else htmlColor('Foreground')
-      btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('TextGreen')
+      uncolor =  htmlColor('MoneyNeg')  if unconfFunds>0          else htmlColor('Foreground')
+      btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('MoneyPos')
       lblcolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('Foreground')
       goodColor= htmlColor('TextGreen')
 
@@ -1242,6 +1242,7 @@ class DlgWalletDetails(QDialog):
       
 
    def execSetOwner(self):
+      print 'EXEC SET OWNER'
       dlg = self.dlgChangeOwner(self.wltID, self) 
       if dlg.exec_():
          if dlg.chkIsMine.isChecked():
@@ -2792,7 +2793,9 @@ class DlgAddressInfo(QDialog):
       lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
       balStr = coin2str(cppAddr.getSpendableBalance(), maxZeros=1)
       if cppAddr.getSpendableBalance()>0:
-         lbls[-1].append( QRichLabel( '<font color="green">' + balStr.strip() + '</font> BTC' ))
+         goodColor = htmlColor('MoneyPos')
+         lbls[-1].append( QRichLabel( \
+            '<font color=' + goodColor + '>' + balStr.strip() + '</font> BTC' ))
       else:   
          lbls[-1].append( QRichLabel( balStr.strip() + ' BTC'))
 
@@ -3023,11 +3026,11 @@ class DlgShowKeys(QDialog):
       if addr.binPrivKey32_Plain.getSize()>0:
          plainPriv = True
          lblWarn = QRichLabel( \
-            '<font color="red"><b>Warning:</b> the unencrypted private keys '
+            '<font color=%s><b>Warning:</b> the unencrypted private keys '
             'for this address are shown below.  They are "private" because '
             'anyone who obtains them can spend the money held '
             'by this address.  Please protect this information the '
-            'same as you protect your wallet.</font>')
+            'same as you protect your wallet.</font>' % htmlColor('TextWarn'))
       warnFrm = makeLayoutFrame('Horiz', [lblWarn])
 
       endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
@@ -3559,7 +3562,7 @@ class GfxItemQRCode(QGraphicsItem):
 
    def paint(self, painter, option, widget=None):
       painter.setPen(Qt.NoPen)
-      painter.setBrush(QBrush(QColor(Colors.Black)))
+      painter.setBrush(QBrush(QColor(0,0,0)))
 
       for r in range(self.modCt):
          for c in range(self.modCt):
@@ -4330,21 +4333,21 @@ class DlgSendBitcoins(QDialog):
 
       if not self.main.isOnline:
          lblNoSend.setText(
-            '<font color=#550000>'
+            '<font color=%s>'
             'You can sign this transaction, but you do not have '
             'access to the Bitcoin network in order to broadcast '
             'it.  However, you can create the transaction that '
             'you <i>want</i> to send, and then broadcast it from a computer '
-            'that <i>is</i> connected to the network.</font>')
+            'that <i>is</i> connected to the network.</font>' % htmlColor('TextWarn'))
       elif wlt.watchingOnly:
          lblNoSend = QRichLabel( \
-            '<font color=#550000>'
+            '<font color=%s>'
             'This is an "offline" wallet, which means that the '
             'private keys needed to send Bitcoins are not on this computer. '
             'However, you can create the transaction you would like to '
             'spend, then Armory will provide you with a file that can be '
             'signed by the computer that <i>does</i> have the private '
-            'keys.</font>')
+            'keys.</font>' % htmlColor('TextWarn'))
 
 
       if not wlt.watchingOnly:
