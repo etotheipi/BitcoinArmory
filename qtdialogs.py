@@ -1174,7 +1174,10 @@ class DlgWalletDetails(QDialog):
             pass
    
    
-      for lbl in self.labelValues:
+      for i,lbl in enumerate(self.labelValues):
+         if i==WLTFIELDS.BelongsTo:
+            lbl.setContentsMargins(10, 0, 10, 0)
+            continue
          try:
             lbl.setText( '<i>' + lbl.text() + '</i>')
             lbl.setContentsMargins(10, 0, 10, 0)
@@ -1242,7 +1245,6 @@ class DlgWalletDetails(QDialog):
       
 
    def execSetOwner(self):
-      print 'EXEC SET OWNER'
       dlg = self.dlgChangeOwner(self.wltID, self) 
       if dlg.exec_():
          if dlg.chkIsMine.isChecked():
