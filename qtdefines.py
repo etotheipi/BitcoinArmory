@@ -8,6 +8,7 @@
 from armoryengine import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
+from armorycolors import Colors, htmlColor
 
 SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE = enum('Standard', 'Advanced', 'Developer')
@@ -63,6 +64,7 @@ def GETFONT(ftype, sz=10, bold=False):
 
 
 
+#######
 def UserModeStr(mode):
    if mode==USERMODE.Standard:
       return 'Standard'
@@ -71,23 +73,6 @@ def UserModeStr(mode):
    elif mode==USERMODE.Developer:
       return 'Developer'
 
-Colors = enum( \
-              LabelBtn=    QColor(225,225,255), \
-              WltMine=     QColor(225,225,255), \
-              WltOffline=  QColor(205,215,255), \
-              LightGreen=  QColor(225,255,225), \
-              DarkGreen=   QColor(  0,100,  0), \
-              WltOther=    QColor(235,235,235), \
-              MidGray=     QColor(170,170,170), \
-              Gray=        QColor(128,128,128), \
-              DarkGray=    QColor( 64, 64, 64), \
-              Green=       QColor(  0,100,  0), \
-              DarkRed=     QColor( 75,  0,  0), \
-              Red=         QColor(200, 50, 50), \
-              LightRed=    QColor(255,100,100), \
-              Black=       QColor(  0,  0,  0), \
-              White=       QColor(255,255,255)  \
-                                                 )
 
 #######
 def tightSizeNChar(obj, nChar):
@@ -188,10 +173,6 @@ def initialColResize(tblViewObj, sizeList):
    tblViewObj.horizontalHeader().setStretchLastSection(True)
 
 
-      
-
-def color_to_style_str(c):
-   return '#%s%s%s' % (int_to_hex(c.red()), int_to_hex(c.green()), int_to_hex(c.blue()))
 
 
 class QRichLabel(QLabel):
@@ -205,36 +186,36 @@ class QMoneyLabel(QLabel):
    def __init__(self, nBtc, ndec=8, maxZeros=2, wColor=True, wBold=False):
       QLabel.__init__(self, coin2str(nBtc))
 
-      theFont = QFont("DejaVu Sans Mono", 10)
+      theFont = GETFONT("Fixed", 10)
       if wBold:
          theFont.setWeight(QFont.Bold)
 
       self.setFont(theFont)
       self.setWordWrap(False)
       valStr = coin2str(nBtc, ndec=ndec, maxZeros=maxZeros)
+      goodMoney = htmlColor('textMoneyGood')
+      badMoney  = htmlColor('textMoneyBad')
       if nBtc < 0 and wColor:
-         self.setText('<font color="red">%s</font>' % valStr)
+         self.setText('<font color=%s>%s</font>' % (badMoney, valStr))
       elif nBtc > 0 and wColor:
-         self.setText('<font color="green">%s</font>' % valStr)
+         self.setText('<font color=%s>%s</font>' % (goodMoney, valStr))
       else:
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-   #def setText(val, *args):
-      #self.__init__(val, *args)
 
 
 class QLabelButton(QLabel):
 
-   def __init__(self, txt, colorOn=Colors.LabelBtn):  
-      QLabel.__init__(self, '<font color=#00009f><u>'+txt+'</u></font>')  
+   def __init__(self, txt):
+      colorStr = htmlColor('LBtnNormalFG')
+      QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
       self.plainText = txt
-      self.bgColorOffStr = color_to_style_str(QApplication.palette().window().color())
-      self.bgColorOnStr  = color_to_style_str(QColor(colorOn))
       self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
    def setText(self, txt):
-      QLabel.setText(self, '<font color=#00009f><u>'+txt+'</u></font>')  
+      colorStr = htmlColor('LBtnNormalFG')
+      QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
   
    def sizeHint(self):
       w,h = relaxedSizeStr(self, self.plainText)
@@ -244,17 +225,18 @@ class QLabelButton(QLabel):
       self.emit(SIGNAL('clicked()'))  
 
    def enterEvent(self, ev):  
-      ssStr = "QLabel { background-color : %s }" % self.bgColorOnStr
+      ssStr = "QLabel { background-color : %s }" % htmlColor('LBtnHoverBG')
       self.setStyleSheet(ssStr)
 
    def leaveEvent(self, ev):
-      ssStr = "QLabel { background-color : %s }" % self.bgColorOffStr
+      ssStr = "QLabel { background-color : %s }" % htmlColor('LBtnNormalBG')
       self.setStyleSheet(ssStr)
 
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
-   lbl = QLabel('<font size=%d color="blue">(?)</font>' % iconSz)
+   fgColor = htmlColor('ToolTipQ')
+   lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
    lbl.setToolTip('<u></u>' + tiptext)
    lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
    return lbl

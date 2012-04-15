@@ -40,6 +40,7 @@ from armoryengine import *
 from armorymodels import *
 from qtdialogs    import *
 from qtdefines    import *
+from armorycolors import Colors
 
 import qrc_img_resources
 
@@ -98,8 +99,8 @@ class ArmoryMainWindow(QMainWindow):
          os._exit(0)
 
       self.extraHeartbeatFunctions = []
-      self.lblArmoryStatus = QRichLabel('<font color=#550000><i>Offline</i></font>', \
-                                                                          doWrap=False)
+      self.lblArmoryStatus = QRichLabel('<font color=%s><i>Offline</i></font>' % \
+                                           htmlColor('TextWarn'), doWrap=False)
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
       # Keep a persistent printer object for paper backups
@@ -348,7 +349,7 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile and not CLI_OPTIONS.ignoreblk:
+      if self.haveBlkFile and not CLI_OPTIONS.offline:
          tstart = RightNow()
          self.loadBlockchain()
          print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
@@ -403,17 +404,16 @@ class ArmoryMainWindow(QMainWindow):
          self.usermode = USERMODE.Standard               
          actSetModeStd.setChecked(True)
       elif currmode=='Advanced':
-         self.usermode = USERMODE.Standard               
+         self.usermode = USERMODE.Advanced               
          actSetModeAdv.setChecked(True)
       elif currmode=='Developer':
-         self.usermode = USERMODE.Standard               
+         self.usermode = USERMODE.Developer               
          actSetModeDev.setChecked(True)
 
       actOpenSigner = self.createAction('&Message Signing', lambda: DlgECDSACalc(self,self, 0).exec_())
       actOpenTools  = self.createAction('&EC Calculator',   lambda: DlgECDSACalc(self,self, 1).exec_())
       self.menusList[MENUS.Tools].addAction(actOpenSigner)
       self.menusList[MENUS.Tools].addAction(actOpenTools)
-      #self.menusList[MENUS.Tools].addAction(actOwnership)
 
 
       actCreateNew      = self.createAction('&Create &New Wallet',        self.createNewWallet)
@@ -584,8 +584,9 @@ class ArmoryMainWindow(QMainWindow):
       self.isOnline = (self.internetAvail and self.satoshiAvail and not CLI_OPTIONS.offline)
 
       if not self.isOnline:
-         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
-         dlg.exec_()
+         if not CLI_OPTIONS.offline:
+            dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
+            dlg.exec_()
          self.NetworkingFactory = FakeClientFactory()
          return
    
@@ -820,7 +821,8 @@ class ArmoryMainWindow(QMainWindow):
    
             if self.isOnline:
                self.lblArmoryStatus.setText(\
-                  '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+                  '<font color=%s>Connected (%s blocks)</font> ' % 
+                  (htmlColor('TextGreen'), self.latestBlockNum))
             self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
             self.isDirty = False
          else:
@@ -902,13 +904,14 @@ class ArmoryMainWindow(QMainWindow):
             self.lblUnconfFunds.setText('-'*12 )
             return
             
-         uncolor = 'red' if unconfFunds>0 else 'black'
-         btccolor = '#999999' if spendFunds==totalFunds else 'green'
-         lblcolor = '#999999' if spendFunds==totalFunds else 'black'
+         uncolor  = htmlColor('TextRed')   if unconfFunds>0          else htmlColor('Foreground')
+         btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('TextGreen')
+         lblcolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('Foreground')
+         goodColor= htmlColor('TextGreen')
          self.lblTotalFunds.setText( '<b><font color="%s">%s</font></b>' % (btccolor,coin2str(totalFunds)))
          self.lblTot.setText('<b><font color="%s">Maximum Funds:</font></b>' % lblcolor)
          self.lblBTC1.setText('<b><font color="%s">BTC</font></b>' % lblcolor)
-         self.lblSpendFunds.setText( '<b><font color="green">%s</font></b>' % coin2str(spendFunds))
+         self.lblSpendFunds.setText( '<b><font color=%s>%s</font></b>' % (goodColor, coin2str(spendFunds)))
          self.lblUnconfFunds.setText('<b><font color="%s">%s</font></b>' % \
                                              (uncolor, coin2str(unconfFunds)))
 
@@ -1629,6 +1632,16 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
+      if not self.isOnline:
+         QMessageBox.warning(self, 'Offline Mode', \
+           'Armory is currently running in offline mode, and has no '
+           'ability to determine balances or create transactions. '
+           '<br><br>'
+           'In order to send coins from this wallet you must use a '
+           'full copy of this wallet from an online computer, '
+           'or initiate an "offline transaction" using a watching-only '
+           'wallet on an online computer.', QMessageBox.Ok)
+         return
 
       wltID = None
       selectionMade = True
@@ -1724,7 +1737,8 @@ class ArmoryMainWindow(QMainWindow):
       
             if self.isOnline:
                self.lblArmoryStatus.setText(\
-                  '<font color="green">Connected (%s blocks)</font> ' % self.latestBlockNum)
+                  '<font color=%s>Connected (%s blocks)</font> ' % \
+                  (htmlColor('TextGreen'), self.latestBlockNum))
 
          nowtime = RightNow()
          blkRecvAgo  = nowtime - self.blkReceived
@@ -1771,9 +1785,6 @@ if 1:  #__name__ == '__main__':
    qt4reactor.install()
 
 
-   if CLI_OPTIONS.offline:
-      CLI_OPTIONS.ignoreblk = True
-      
    pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:
       pixLogo = QPixmap(':/splashlogo_testnet.png')

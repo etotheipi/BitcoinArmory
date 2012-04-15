@@ -16,6 +16,7 @@ sys.path.append('../cppForSwig')
 from armoryengine import *
 from CppBlockUtils import *
 from qtdefines import *
+from armorycolors import Colors, htmlColor
 
 
 
@@ -74,11 +75,11 @@ class AllWalletsDispModel(QAbstractTableModel):
       elif role==Qt.BackgroundColorRole:
          t = determineWalletType(wlt, self.main)[0]
          if t==WLTTYPES.WatchOnly:
-            return QVariant( Colors.WltOther )
+            return QVariant( Colors.TblWltOther )
          elif t==WLTTYPES.Offline:
-            return QVariant( Colors.WltOffline )
+            return QVariant( Colors.TblWltOffline )
          else:
-            return QVariant( Colors.WltMine )
+            return QVariant( Colors.TblWltMine )
       elif role==Qt.FontRole:
          if col==COL.Bal:
             return GETFONT('Fixed')
@@ -162,27 +163,27 @@ class LedgerDispModelSimple(QAbstractTableModel):
          pass
       elif role==Qt.BackgroundColorRole:
          if wtype==WLTTYPES.WatchOnly:
-            return QVariant( Colors.WltOther )
+            return QVariant( Colors.TblWltOther )
          elif wtype==WLTTYPES.Offline:
-            return QVariant( Colors.WltOffline )
+            return QVariant( Colors.TblWltOffline )
          else:
-            return QVariant( Colors.WltMine )
+            return QVariant( Colors.TblWltMine )
       elif role==Qt.ForegroundRole:
          if self.index(index.row(),COL.DoubleSpend).data().toBool():
-            return QVariant(Colors.Red)
+            return QVariant(Colors.TextRed)
          if nConf <= 2:
-            return QVariant(Colors.MidGray)
+            return QVariant(Colors.TextNoConfirm)
          elif nConf <= 4:
-            return QVariant(Colors.Gray)
+            return QVariant(Colors.TextSomeConfirm)
          
          if col==COL.Amount:
             toSelf = self.index(index.row(), COL.toSelf).data().toBool()
             if toSelf:
-               return QVariant(Colors.MidGray)
+               return QVariant(Colors.Mid)
             amt = float(rowData[COL.Amount])
-            if   amt>0: return QVariant(Colors.Green)
-            elif amt<0: return QVariant(Colors.Red)
-            else:       return QVariant(Colors.DarkGray)
+            if   amt>0: return QVariant(Colors.TextGreen)
+            elif amt<0: return QVariant(Colors.TextRed)
+            else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
          if col==COL.Amount:
             f = GETFONT('Fixed')
@@ -254,9 +255,13 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
 
    def paint(self, painter, option, index):
-      bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      #bgcolor = QColor(index.model().data(index, Qt.BackgroundColorRole))
+      #if option.state & QStyle.State_Selected:
+         #bgcolor = QApplication.palette().highlight().color()
+
+      bgcolor = Colors.Background
       if option.state & QStyle.State_Selected:
-         bgcolor = QApplication.palette().highlight().color()
+         bgcolor = Colors.Highlight
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
@@ -363,8 +368,8 @@ class WalletAddrDispModel(QAbstractTableModel):
          if col==COL.Balance:
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             val = cppAddr.getFullBalance()
-            if   val>0: return QVariant(Colors.Green)
-            else:       return QVariant(Colors.DarkGray)
+            if   val>0: return QVariant(Colors.TextGreen)
+            else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
          doBold = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
          if col==COL.Balance:
@@ -375,9 +380,9 @@ class WalletAddrDispModel(QAbstractTableModel):
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getFullBalance()
          if val>0:
-            return QVariant( Colors.LightGreen )
+            return QVariant( Colors.SlightGreen )
          else:
-            return QVariant( Colors.WltOther )
+            return QVariant( Colors.TblWltOther )
 
       return QVariant()
 
@@ -491,11 +496,11 @@ class TxInDispModel(QAbstractTableModel):
          if self.dispTable[row][COLS.WltID]:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
-               return QVariant( Colors.WltOther )
+               return QVariant( Colors.TblWltOther )
             elif wtype==WLTTYPES.Offline:
-               return QVariant( Colors.WltOffline )
+               return QVariant( Colors.TblWltOffline )
             else:
-               return QVariant( Colors.WltMine )
+               return QVariant( Colors.TblWltMine )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
             return GETFONT('Fixed')
@@ -588,16 +593,16 @@ class TxOutDispModel(QAbstractTableModel):
          if col==COLS.ScrType: return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if row in self.idxGray:
-            return QVariant(Colors.MidGray)
+            return QVariant(Colors.Mid)
       elif role==Qt.BackgroundColorRole:
          if wltID:
             wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
             if wtype==WLTTYPES.WatchOnly:
-               return QVariant( Colors.WltOther )
+               return QVariant( Colors.TblWltOther )
             if wtype==WLTTYPES.Offline:
-               return QVariant( Colors.WltOffline )
+               return QVariant( Colors.TblWltOffline )
             else:
-               return QVariant( Colors.WltMine )
+               return QVariant( Colors.TblWltMine )
       elif role==Qt.FontRole:
          if col==COLS.Btc:
             return GETFONT('Fixed')

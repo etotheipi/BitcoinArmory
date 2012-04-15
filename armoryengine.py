@@ -64,11 +64,9 @@ parser.add_option("--testnet", dest="testnet", action="store_true", default=Fals
                   help="Use the testnet protocol")
 parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
                   help="Use the testnet protocol")
-parser.add_option("--noblockchain", dest="ignoreblk", action="store_true", default=False,
-                  help="Use the testnet protocol")
 parser.add_option("--offline", dest="offline", action="store_true", default=False,
-                  help="Use the testnet protocol")
-parser.add_option("--nettimeout", dest="nettimeout", default=1, type="int",
+                  help="Force Armory to run in offline mode")
+parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 
 (CLI_OPTIONS, args) = parser.parse_args()
@@ -8798,10 +8796,10 @@ class SettingsFile(object):
    and strings, or lists/tuples of them.
 
    Will write all the settings to file.  Each line will look like:
-         SingleValueSetting1 # 3824.8 
-         SingleValueSetting2 # this is a string
-         Tuple Or List Obj 1 # 12 | 43 | 13 | 33
-         Tuple Or List Obj 2 # str1 | another str
+         SingleValueSetting1 | 3824.8 
+         SingleValueSetting2 | this is a string
+         Tuple Or List Obj 1 | 12 $ 43 $ 13 $ 33
+         Tuple Or List Obj 2 | str1 $ another str
    """
 
    #############################################################################
