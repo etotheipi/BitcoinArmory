@@ -606,7 +606,7 @@ class ArmoryMainWindow(QMainWindow):
          self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
          reactor.listenTCP(ARMORY_LISTENING_PORT, self.InstanceListener)
       except:
-         print 'Socket already occupied!  This must be a duplicate Armory instances!'
+         print 'Socket already occupied!  This must be a duplicate Armory instance!'
          QMessageBox.warning(self, 'Only One, Please!', \
             'Armory is already running!  You can only have one instance open '
             'at a time.  Aborting...', QMessageBox.Ok)

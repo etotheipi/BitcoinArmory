@@ -8246,8 +8246,8 @@ class DlgAddressBook(QDialog):
 
 
       self.tabWidget = QTabWidget()
-      self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
       self.tabWidget.addTab(self.addrBookRxView, 'Receiving (Mine)')
+      self.tabWidget.addTab(self.addrBookTxView, 'Sending (Other\'s)')
       self.tabWidget.setCurrentIndex(0)
       
 
@@ -8288,13 +8288,13 @@ class DlgAddressBook(QDialog):
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToWlt)
       dlgLayout.addWidget(self.wltDispView)
-      dlgLayout.addWidget(makeHorizFrame([self.btnSelectWlt, 'Stretch', self.lblSelectWlt]))
+      dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, 'Stretch', self.btnSelectWlt]))
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToAddr)
       dlgLayout.addWidget(self.tabWidget)
-      dlgLayout.addWidget(makeHorizFrame([self.btnSelectAddr, 'Stretch']))
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]))
       dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', btnCancel]))
+      dlgLayout.addWidget(makeHorizFrame([btnCancel, 'Stretch']))
 
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
@@ -8350,7 +8350,7 @@ class DlgAddressBook(QDialog):
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
-         self.lblSelectWlt.setText('Will create new address: %s' % hash160_to_addrStr(nextAddr160))
+         self.lblSelectWlt.setText('Will create new address: %s' % hash160_to_addrStr(nextAddr160)[:10])
       self.addrBookTxModel.reset()
 
 
