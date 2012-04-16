@@ -1634,9 +1634,10 @@ class DlgImportAddress(QDialog):
          #'end up with keys in Little-Endian.  Please check that the addresses '
          #'on the confirmation dialog match what you are expecting.')
       ttipPrivMany = createToolTipObject( \
-                  'Enter any number of lines containing private keys.  '
-                  'If there is non-key-data on the line, it must be '
-                  'before the private key and separated by a \':\'. ')
+                  'One private key per line, in any standard format. '
+                  'Data may be copied directly from file the "Backup '
+                  'Individual Keys" dialog (all text on a line preceding '
+                  'the key data, separated by a colon, will be ignored).')
       self.txtPrivBulk = QTextEdit()
       w,h = tightSizeStr(self.edtPrivData, 'X'*70)
       self.txtPrivBulk.setMinimumWidth(w)
@@ -1948,7 +1949,6 @@ class DlgImportAddress(QDialog):
          except:
             continue
 
-      print nLines
       if len(privKeyList)==0:
          if nLines>1:
             QMessageBox.critical(self, 'Invalid Data', \
@@ -1971,8 +1971,9 @@ class DlgImportAddress(QDialog):
          if len(dupeWltList)>0:
             reply = QMessageBox.critical(self, 'Duplicate Addresses!', \
                'You are attempting to sweep %d addresses, but %d of them '
-               'are already part of existing wallets.  That means that some '
-               'of the Bitcoins you sweep may already be owned by you. <br><br>'
+               'are already part of existing wallets.  That means that some or '
+               'all of the Bitcoins you sweep may already be owned by you. '
+               '<br><br>'
                'Would you like to continue anyway?' % \
                (len(allWltList), len(dupeWltList)), \
                QMessageBox.Ok | QMessageBox.Cancel)
@@ -2095,8 +2096,6 @@ class DlgImportAddress(QDialog):
                print '         Error Msg:', msg
                nError += 1
    
-
-         print nTotal, nImport, nAlready, nError
 
          if nAlready==nTotal:
             MsgBoxCustom(MSGBOX.Warning, 'Nothing Imported!', 'All addresses '
@@ -8289,14 +8288,13 @@ class DlgAddressBook(QDialog):
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToWlt)
       dlgLayout.addWidget(self.wltDispView)
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectWlt]))
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.lblSelectWlt]))
+      dlgLayout.addWidget(makeHorizFrame([self.btnSelectWlt, 'Stretch', self.lblSelectWlt]))
       dlgLayout.addWidget(HLINE())
       dlgLayout.addWidget(lblToAddr)
       dlgLayout.addWidget(self.tabWidget)
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]))
+      dlgLayout.addWidget(makeHorizFrame([self.btnSelectAddr, 'Stretch']))
       dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(makeHorizFrame([btnCancel, 'Stretch']))
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', btnCancel]))
 
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
@@ -8352,7 +8350,7 @@ class DlgAddressBook(QDialog):
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
-         self.lblSelectWlt.setText('Will create new address: <i>%s</i>' % hash160_to_addrStr(nextAddr160))
+         self.lblSelectWlt.setText('Will create new address: %s' % hash160_to_addrStr(nextAddr160))
       self.addrBookTxModel.reset()
 
 

@@ -108,7 +108,7 @@ Colors.MoneyPos         = tweakColor(Colors.Foreground, '+', [ -50, +100,  -50])
 Colors.MoneyNeg         = tweakColor(Colors.Foreground, '+', [+150,  -40,  -40])
 Colors.TblWltOther      = tweakColor(Colors.Background, '*', [1.00, 1.00, 1.00])
 Colors.TblWltMine       = tweakColor(Colors.Background, '*', [0.95, 0.95,  1.3])
-Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [ 0.8,  0.8,  1.5])
+Colors.TblWltOffline    = tweakColor(Colors.Background, '*', [ 0.8,  0.8,  1.3])
 
 if(Colors.isDarkBkgd):
    Colors.LBtnNormalBG  = Colors.Background

@@ -265,11 +265,11 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
-         pixmaps = ['img/conf%dt.png'%i for i in range(6)]
+         pixmaps = [':/conf%dt.png'%i for i in range(6)]
          if nConf<6:
             image = QImage(pixmaps[nConf])
          else:
-            image = QImage('img/conf6t.png')
+            image = QImage(':/conf6t.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
@@ -283,15 +283,15 @@ class LedgerDispDelegate(QStyledItemDelegate):
          # isCoinbase still needs to be flagged in the C++ utils
          isCoinbase = False
          if isCoinbase:
-            image = QImage('img/moneyCoinbase.png')
+            image = QImage(':/moneyCoinbase.png')
          elif toSelf:
-            image = QImage('img/moneySelf.png')
+            image = QImage(':/moneySelf.png')
          else:
             txdir = str(index.model().data(index).toString()).strip()
             if txdir[0].startswith('-'):
-               image = QImage('img/moneyOut.png')
+               image = QImage(':/moneyOut.png')
             else:
-               image = QImage('img/moneyIn.png')
+               image = QImage(':/moneyIn.png')
 
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)

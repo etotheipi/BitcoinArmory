@@ -50,29 +50,10 @@ from twisted.internet.defer import Deferred
 
 
 
-################################################################################
-# 
-# Make Armory a singleton class
-#
-#    This is a crazy hack for detecting the app being opened twice:
-#    Start listening on a constant port.  First instance succeeds.
-#    All extra instances fail because the socket is already in use!
-#
-#    For reference, I tried fcntl.lockf() and os.open(), but neither
-#    of them would hold the lock after the GUI was open.  If I paused
-#    loading with a raw_input() call right after locking, it worked.
-#    But if I let it open the GUI (or even put locking in the main 
-#    class, it refused to hold the lock persistent.
-#
-from socket import *
-PORT_NUM_THAT_NO_OTHER_APP_WOULD_USE = 822288
-locksock = socket(AF_INET, SOCK_STREAM)
-try:
-   locksock.bind( ('', PORT_NUM_THAT_NO_OTHER_APP_WOULD_USE) )
-except:
-   print 'ARMORY ALREADY OPEN!  Only one allowed!!!'
-   print 'Exiting...'
-   os._exit(0)
+ARMORY_LISTENING_PORT = 63331
+if USE_TESTNET:
+   ARMORY_LISTENING_PORT = 63332
+
 
 
 
@@ -91,7 +72,6 @@ class ArmoryMainWindow(QMainWindow):
       self.isDirty   = True
       
       self.settingsPath = CLI_OPTIONS.settingsPath
-      print self.settingsPath, os.path.exists(self.settingsPath)
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
@@ -329,7 +309,7 @@ class ArmoryMainWindow(QMainWindow):
       btnFrame.setLayout(layout)
 
       
-      lblInfo = QLabel('Armory (%s-beta)-alpha / %s User Mode' % \
+      lblInfo = QLabel('Armory (%s-alpha) / %s User Mode' % \
                (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
       lblInfo.setFont(GETFONT('var',10))
       lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -619,6 +599,28 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+      def uriClick_partial(a):
+         self.uriLinkClicked(a)
+
+      try:
+         self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
+         reactor.listenTCP(ARMORY_LISTENING_PORT, self.InstanceListener)
+      except:
+         print 'Socket already occupied!  This must be a duplicate Armory instances!'
+         QMessageBox.warning(self, 'Only One, Please!', \
+            'Armory is already running!  You can only have one instance open '
+            'at a time.  Aborting...', QMessageBox.Ok)
+         os._exit(0)
+
+
+
+   #############################################################################
+   def uriLinkClicked(self, uri):
+      # TODO: will make this useful once I actually get the interprocess 
+      #       communication working...
+      print '********************************'
+      print 'URI:', uri
+      print '********************************'
 
    #############################################################################
    def loadWalletsAndSettings(self):
@@ -1778,7 +1780,45 @@ class ArmoryMainWindow(QMainWindow):
       
       
 
-   
+############################################
+class ArmoryInstanceListener(Protocol):
+   def connectionMade(self):
+      print 'Connection Made (Listener)!'
+
+   def dataReceived(self, data):
+      print 'Data:', data
+      self.factory.func_recv_data(data)
+      self.transport.loseConnection()
+
+############################################
+class ArmoryListenerFactory(ClientFactory):
+   protocol = ArmoryInstanceListener
+   def __init__(self, fn_recv_data=None):
+      self.func_recv_data = fn_recv_data
+
+############################################
+class ArmoryInstanceChecker(Protocol):
+   def connectionMade(self):
+      print 'Connection Made! (Checker)'
+      self.transport.write(sys.argv[-1])
+      self.transport.loseConnection()
+      self.factory.func_second_instance()
+
+   def clientConnectionFailed(self):
+      print 'Connection Failed! (Checker)'
+      self.factory.func_first_instance()
+      self.transport.loseConnection()
+
+############################################
+class ArmoryCheckerFactory(ClientFactory):
+   protocol = ArmoryInstanceChecker
+   def __init__(self, fn_first_instance, fn_second_instance):
+      self.func_first_instance = fn_first_instance
+      self.func_second_instance = fn_second_instance
+
+
+      
+      
 
 
 if 1:  #__name__ == '__main__':
@@ -1786,6 +1826,28 @@ if 1:  #__name__ == '__main__':
 
    import qt4reactor
    qt4reactor.install()
+
+
+  
+   # For whatever reason, I couldnt' get this to work.  Only kinda worked.
+   # For now, duplicate instances are prevented by the listenTCP call 
+   # in the setupNetworking method
+   """
+   alreadyRunning = False
+   def i_am_first():
+      print '***** I am the first Armory instance!'
+      alreadyRunning = False
+
+   def i_am_second():
+      print '***** Another Armory made it here before me :('
+      alreadyRunning = True
+      os._exit(0)
+
+   from twisted.internet import reactor
+   checkerFactory = ArmoryCheckerFactory(i_am_first, i_am_second)
+   conn = reactor.connectTCP('127.0.0.1', ARMORY_LISTENING_PORT, checkerFactory)
+   conn.disconnect()
+   """
 
 
    pixLogo = QPixmap(':/splashlogo.png')
@@ -1796,10 +1858,8 @@ if 1:  #__name__ == '__main__':
    SPLASH.show()
    QAPP.processEvents()
 
-
    form = ArmoryMainWindow(opts=CLI_OPTIONS)
    form.show()
-
 
    SPLASH.finish(form)
 

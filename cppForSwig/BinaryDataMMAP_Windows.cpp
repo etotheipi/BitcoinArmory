@@ -105,8 +105,8 @@ bool BinaryDataMMAP::createMMAP(string filename)
    // Open the file to be mapped
    hFile_ =  CreateFile(
                      WindowsfyFilename(filename).c_str(),
-                     GENERIC_READ,
-                     FILE_SHARE_READ,
+                     GENERIC_READ | GENERIC_WRITE,
+                     FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL,
                      OPEN_EXISTING,
                      FILE_FLAG_SEQUENTIAL_SCAN,

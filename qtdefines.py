@@ -256,17 +256,17 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'):
          msgIcon = QLabel()
          fpix = ''
          if dtype==MSGBOX.Good:
-            fpix = 'img/MsgBox_good48.png'
+            fpix = ':/MsgBox_good48.png'
          if dtype==MSGBOX.Info:
-            fpix = 'img/MsgBox_info48.png'
+            fpix = ':/MsgBox_info48.png'
          if dtype==MSGBOX.Question:
-            fpix = 'img/MsgBox_question64.png'
+            fpix = ':/MsgBox_question64.png'
          if dtype==MSGBOX.Warning:
-            fpix = 'img/MsgBox_warning48.png'
+            fpix = ':/MsgBox_warning48.png'
          if dtype==MSGBOX.Critical:
-            fpix = 'img/MsgBox_critical64.png'
+            fpix = ':/MsgBox_critical64.png'
          if dtype==MSGBOX.Error:
-            fpix = 'img/MsgBox_error64.png'
+            fpix = ':/MsgBox_error64.png'
    
    
          if len(fpix)>0:
@@ -330,19 +330,19 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
          msgIcon = QLabel()
          fpix = ''
          if dtype==MSGBOX.Info:
-            fpix = 'img/MsgBox_info48.png'
+            fpix = ':/MsgBox_info48.png'
             if not dmsg:  dmsg = 'Do not show this message again'
          if dtype==MSGBOX.Question:
-            fpix = 'img/MsgBox_question64.png'
+            fpix = ':/MsgBox_question64.png'
             if not dmsg:  dmsg = 'Do not ask again'
          if dtype==MSGBOX.Warning:
-            fpix = 'img/MsgBox_warning48.png'
+            fpix = ':/MsgBox_warning48.png'
             if not dmsg:  dmsg = 'Do not show this warning again'
          if dtype==MSGBOX.Critical:
-            fpix = 'img/MsgBox_critical64.png'
+            fpix = ':/MsgBox_critical64.png'
             if not dmsg:  dmsg = None  # should always show crits
          if dtype==MSGBOX.Error:
-            fpix = 'img/MsgBox_error64.png'
+            fpix = ':/MsgBox_error64.png'
             if not dmsg:  dmsg = None  # should always show errors
    
    

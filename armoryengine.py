@@ -77,7 +77,7 @@ USE_TESTNET = CLI_OPTIONS.testnet
    
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 72, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 73, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
