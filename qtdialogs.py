@@ -8350,7 +8350,7 @@ class DlgAddressBook(QDialog):
          wlt = self.main.walletMap[self.selectedWltID]
          self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
-         self.lblSelectWlt.setText('Will create new address: %s' % hash160_to_addrStr(nextAddr160)[:10])
+         self.lblSelectWlt.setText('Will create new address: %s...' % hash160_to_addrStr(nextAddr160)[:10])
       self.addrBookTxModel.reset()
 
 
