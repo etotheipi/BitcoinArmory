@@ -334,6 +334,8 @@ class WalletAddrDispModel(QAbstractTableModel):
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRESSCOLS
       row,col = index.row(), index.column()
+      if row>=len(self.addr160List):
+         return QVariant('')
       addr = self.wlt.addrMap[self.addr160List[row]]
       addr160 = addr.getAddr160()
       addrB58 = addr.getAddrStr()
