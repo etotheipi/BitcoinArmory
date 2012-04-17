@@ -536,6 +536,21 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiAvail  = False
 
 
+      # Prevent Armory from being opened twice
+      from twisted.internet import reactor
+      def uriClick_partial(a):
+         self.uriLinkClicked(a)
+      try:
+         self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
+         reactor.listenTCP(ARMORY_LISTENING_PORT, self.InstanceListener)
+      except:
+         print 'Socket already occupied!  This must be a duplicate Armory instance!'
+         QMessageBox.warning(self, 'Only One, Please!', \
+            'Armory is already running!  You can only have one instance open '
+            'at a time.  Aborting...', QMessageBox.Ok)
+         os._exit(0)
+      
+
       # Check for Satoshi-client connection
       import socket
       s = socket.socket()
@@ -599,18 +614,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      def uriClick_partial(a):
-         self.uriLinkClicked(a)
-
-      try:
-         self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
-         reactor.listenTCP(ARMORY_LISTENING_PORT, self.InstanceListener)
-      except:
-         print 'Socket already occupied!  This must be a duplicate Armory instance!'
-         QMessageBox.warning(self, 'Only One, Please!', \
-            'Armory is already running!  You can only have one instance open '
-            'at a time.  Aborting...', QMessageBox.Ok)
-         os._exit(0)
 
 
 
