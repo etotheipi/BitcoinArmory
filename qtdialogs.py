@@ -1897,21 +1897,22 @@ class DlgImportAddress(QDialog):
          self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
-         #######################################################################
-         warnMsg = ( \
-            'The address was imported successfully, but its balance will be '
-            'incorrect until the global transaction history is searched for '
-            'previous transactions.  Depending on your system, this operation '
-            'can take anywhere from 5 seconds to 3 minutes.  '
-            '<br><br>'
-            'If you click "Cancel", the address will still appear in your '
-            'wallet but its balanace will be incorrect until the Armory '
-            'is restarted.')
-         if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
-            return
-         #######################################################################
-         if TheBDM.isInitialized():
-            self.wlt.syncWithBlockchain(0)
+         if self.main.isOnline:
+            #######################################################################
+            warnMsg = ( \
+               'The address was imported successfully, but its balance will be '
+               'incorrect until the global transaction history is searched for '
+               'previous transactions.  Depending on your system, this operation '
+               'can take anywhere from 5 seconds to 3 minutes.  '
+               '<br><br>'
+               'If you click "Cancel", the address will still appear in your '
+               'wallet but its balanace will be incorrect until the Armory '
+               'is restarted.')
+            if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
+               return
+            #######################################################################
+            if TheBDM.isInitialized():
+               self.wlt.syncWithBlockchain(0)
 
          self.main.walletListChanged()
 
@@ -2590,21 +2591,22 @@ class DlgMigrateSatoshiWallet(QDialog):
                'operation again: all addresses previously imported will be '
                'skipped. %s' % (self.nImport, self.nError, restartMsg))
       
-      ##########################################################################
-      warnMsg = ( \
-         'Would you like to rescan the blockchain for all the addresses you '
-         'just migrated?  This operation can take between 5 seconds to 3 minutes '
-         'depending on your system.  If you skip this operation, it will be '
-         'performed the next time you restart Armory. Wallet balances may '
-         'be incorrect until then.')
-      waitMsg = 'Searching the global transaction history'
+      if self.main.isOnline:
+         ##########################################################################
+         warnMsg = ( \
+            'Would you like to rescan the blockchain for all the addresses you '
+            'just migrated?  This operation can take between 5 seconds to 3 minutes '
+            'depending on your system.  If you skip this operation, it will be '
+            'performed the next time you restart Armory. Wallet balances may '
+            'be incorrect until then.')
+         waitMsg = 'Searching the global transaction history'
          
-      if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
-         TheBDM.registerWallet(wlt.cppWallet)
-         wlt.syncWithBlockchain(0)
-      else:
-         self.main.isDirty = True
-      ##########################################################################
+         if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
+            TheBDM.registerWallet(wlt.cppWallet)
+            wlt.syncWithBlockchain(0)
+         else:
+            self.main.isDirty = True
+         ##########################################################################
 
       self.main.addWalletToApplication(wlt, walletIsNew=False)
 
