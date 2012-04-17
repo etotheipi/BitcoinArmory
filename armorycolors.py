@@ -100,8 +100,8 @@ Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
 Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.92, 1.08, 0.92])
 Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
 
-Colors.TextNoConfirm    = tweakColor(Colors.Mid, '*', [ 0.8,  0.8,  0.8])
-Colors.TextSomeConfirm  = tweakColor(Colors.Mid, '*', [ 1.1,  1.1,  1.1])
+Colors.TextNoConfirm    = tweakColor(Colors.Mid, '*', [ 0.9,  0.9,  0.9])
+Colors.TextSomeConfirm  = tweakColor(Colors.Mid, '*', [ 0.7,  0.7,  0.7])
 
 
 Colors.MoneyPos         = tweakColor(Colors.Foreground, '+', [ -50, +100,  -50])
