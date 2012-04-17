@@ -1914,13 +1914,14 @@ class DlgImportAddress(QDialog):
             self.wlt.syncWithBlockchain(0)
 
          self.main.walletListChanged()
-         self.accept()
+
       
       try:
          self.parent.wltAddrModel.reset()
       except:
          pass
 
+      self.accept()
 
 
    #############################################################################
@@ -2143,12 +2144,17 @@ class DlgImportAddress(QDialog):
                self.main.isDirty = True
          ##########################################################################
    
-         try:
-            self.main.wltAddrModel.reset()
-         except AttributeError:
-            pass
 
-      self.main.walletListChanged()
+      try:
+         self.main.walletListChanged()
+      except:
+         pass
+
+      try:
+         self.parent.wltAddrModel.reset()
+      except AttributeError:
+         pass
+
       self.accept()
        
 
@@ -4002,7 +4008,7 @@ class DlgRemoveAddress(QDialog):
 
          try:
             #self.parent.accept()
-            self.main.wltAddrModel.reset()
+            self.parent.wltAddrModel.reset()
          except AttributeError:
             pass
          self.accept()
