@@ -53,7 +53,10 @@ with open('armoryengine.py') as f:
             vstr += '.%03d' % vquad[3]
          break
 
-pkgdir = 'armory-%s' % vstr
+pyversion = platform.python_version()
+pyversion2 = '.'.join(pyversion.split('.')[:2])
+
+pkgdir = 'armory-%s-python%s' % (vstr, pyversion2)
 
 if not vstr:
    print '***ERROR: Could not deduce version from armoryengine.py. '
@@ -70,6 +73,8 @@ dpkgfiles = ['control', 'copyright', 'postinst', 'postrm']
 origDir = pwd().split('/')[-1]
 execAndWait('make clean')
 cd('..')
+execAndWait('rm -rf %s' % pkgdir)
+execAndWait('rm -f %s*' % pkgdir)
 shutil.copytree(origDir, pkgdir)
 execAndWait('tar -zcf %s.tar.gz %s' % (pkgdir, pkgdir))
 cd(pkgdir)
