@@ -78,7 +78,8 @@ CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_
 #************************************************************************
 clean:
 	touch CppBlockUtils.i
-	-rm *.o *.out 
+	rm -f *.o *.out *.a cryptopp/*.out
+	cd cryptopp; make clean;
 	
 
 
