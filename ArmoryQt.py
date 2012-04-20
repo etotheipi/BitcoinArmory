@@ -414,6 +414,27 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
+      ####################################################
+      # Creating a QSystemTray
+      self.sysTray = QSystemTrayIcon(self)
+      self.sysTray.setIcon( QIcon(self.iconfile) )
+      self.sysTray.setVisible(True)
+      self.connect(self.sysTray, SIGNAL('activated(QSystemTrayIcon::ActivationReason)'), \
+                   self.sysTrayActivated)
+      menu = QMenu(self)
+      actShowArmory = self.createAction('Show Armory', self.bringArmoryToFront);
+      actSendBtc    = self.createAction('Send Bitcoins', self.clickSendBitcoins);
+      actRcvBtc     = self.createAction('Receive Bitcoins', self.clickReceiveCoins);
+      actClose      = self.createAction('Close Armory', self.closeEvent);
+      # Create a short menu of options
+      menu.addAction(actShowArmory)
+      menu.addAction(actSendBtc)
+      menu.addAction(actRcvBtc)
+      menu.addSeparator()
+      menu.addAction(actClose)
+      self.sysTray.setContextMenu(menu)
+
+
 
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(5, self.Heartbeat)
@@ -1713,6 +1734,32 @@ class ArmoryMainWindow(QMainWindow):
          if showWatchOnlyRecvWarningIfNecessary(wlt, self):
             DlgNewAddressDisp(wlt, self, self).exec_()
 
+
+
+   #############################################################################
+   def sysTrayActivated(self, reason):
+      if reason==QSystemTrayIcon.DoubleClick:
+         print 'Attempting to activate window...'
+         self.bringArmoryToFront()
+      elif reason==QSystemTrayIcon.Context:
+         print 'Attempting to open context menu...'
+
+      
+
+   #############################################################################
+   def bringArmoryToFront(self):
+      self.setWindowState(Qt.WindowActive)
+
+   #############################################################################
+   def minimizeArmory(self):
+      self.setWindowState(Qt.WindowMinimized)
+      
+
+
+   #############################################################################
+   def blinkTaskbar(self):
+      self.activateWindow()
+      
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=2):
