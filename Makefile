@@ -12,4 +12,4 @@ install :
 	cp *.py *.so README LICENSE $(DESTDIR)/usr/share/armory/
 	cp img/* $(DESTDIR)/usr/share/armory/img
 	mkdir -p $(DESTDIR)/usr/share/applications
-	cp dpkgfiles/armory.desktop $(DESTDIR)/usr/share/applications/armory.desktop
+	cp dpkgfiles/armory*.desktop $(DESTDIR)/usr/share/applications/
