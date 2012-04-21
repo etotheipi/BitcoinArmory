@@ -47,9 +47,9 @@ with open('armoryengine.py') as f:
          vquad = tuple([int(v) for v in vstr.replace(' ','').split(',')])
          print vquad, len(vquad)
          vstr = '%d.%02d' % vquad[:2]
-         if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
+         if (vquad[2] > 0 or vquad[3] > 0):
             vstr += '.%02d' % vquad[2]
-         if vquad[3] > 0 and numPieces>3:
+         if vquad[3] > 0:
             vstr += '.%03d' % vquad[3]
          break
 
@@ -65,7 +65,7 @@ if not vstr:
 
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
-shutil.copy('dpkgfiles/control%s_python%s' % (osBits,pyversion2), 'dpkgfiles/control')
+shutil.copy('dpkgfiles/control%s_py%s' % (osBits,pyversion2), 'dpkgfiles/control')
 dpkgfiles = ['control', 'copyright', 'postinst', 'postrm']
 
 

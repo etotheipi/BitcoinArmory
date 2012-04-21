@@ -1083,7 +1083,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & tx)
       static uint8_t scriptLenFirstByte;
 
       uint8_t const * ptr = txStartPtr + tx.getTxOutOffset(iout);
-      scriptLenFirstByte = *(uint8_t*)ptr;
+      scriptLenFirstByte = *(uint8_t*)(ptr+8);
       if(scriptLenFirstByte == 25)
       {
          // Std TxOut with 25-byte script

@@ -218,11 +218,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                'You can change this behavior in the Armory '
                                'preferences window.')
             else:
-               return QVariant('The net effect on the balance of this wallet '
-                               '<b>including transaction fees.</b>  '
-                               'If you would like to see only the amounts '
-                               'directly paid or received, you can modify '
-                               'the appropriate setting in the Armory preferences.')
+               return QVariant('The net effect on the balance of this wallet, '
+                               'including transaction fees.')
 
       return QVariant()
 

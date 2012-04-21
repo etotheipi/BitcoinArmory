@@ -50,11 +50,6 @@ from twisted.internet.defer import Deferred
 
 
 
-ARMORY_LISTENING_PORT = 63332
-if USE_TESTNET:
-   ARMORY_LISTENING_PORT = 63334
-
-
 
 
 class ArmoryMainWindow(QMainWindow):
@@ -64,33 +59,8 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None, opts=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
-      self.haveBlkFile = os.path.exists(BLK0001_PATH)
-      self.abortLoad = False
-      self.options = opts
-
-      # Not used just yet...
-      self.isDirty   = True
-      
-      self.settingsPath = CLI_OPTIONS.settingsPath
-      self.loadWalletsAndSettings()
-      self.setupNetworking()
-
-      if self.abortLoad:
-         os._exit(0)
-
-      self.extraHeartbeatFunctions = [self.doTheSystemTrayThing]
-
-      self.lblArmoryStatus = QRichLabel('<font color=%s><i>Offline</i></font>' % \
-                                           htmlColor('TextWarn'), doWrap=False)
-      self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
-
-      # Keep a persistent printer object for paper backups
-      self.printer = QPrinter(QPrinter.HighResolution)
-      self.printer.setPageSize(QPrinter.Letter)
-
+      # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
-      #self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_64x64.png'))
-
       if USE_TESTNET:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.iconfile = ':/armory_icon_green_32x32.png'
@@ -105,7 +75,34 @@ class ArmoryMainWindow(QMainWindow):
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      #self.setWindowIcon(QIcon(':/armory_logo_32x32.png'))
+
+
+      # Show the system tray icon immeidiately, in case splash screen disappears
+      self.setupSystemTray()
+
+      
+      self.haveBlkFile = os.path.exists(BLK0001_PATH)
+      self.abortLoad = False
+      self.isDirty   = True
+      
+      self.settingsPath = CLI_OPTIONS.settingsPath
+      self.loadWalletsAndSettings()
+      self.setupNetworking()
+
+      # setupNetworking may have set this flag if something went wrong
+      if self.abortLoad:
+         os._exit(0)
+
+      self.extraHeartbeatFunctions = [self.doTheSystemTrayThing]
+
+      self.lblArmoryStatus = QRichLabel('<font color=%s><i>Offline</i></font>' % \
+                                           htmlColor('TextWarn'), doWrap=False)
+      self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
+
+      # Keep a persistent printer object for paper backups
+      self.printer = QPrinter(QPrinter.HighResolution)
+      self.printer.setPageSize(QPrinter.Letter)
+
 
       # Table for all the wallets
       self.walletModel = AllWalletsDispModel(self)
@@ -415,11 +412,21 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
-      ####################################################
+
+
+
+      reactor.callLater(0.1,  self.execIntroDialog)
+      reactor.callLater(5, self.Heartbeat)
+
+
+
+   ####################################################
+   def setupSystemTray(self):
       # Creating a QSystemTray
       self.sysTray = QSystemTrayIcon(self)
       self.sysTray.setIcon( QIcon(self.iconfile) )
       self.sysTray.setVisible(True)
+      self.connect(self.sysTray, SIGNAL('messageClicked()'), self.bringArmoryToFront)
       self.connect(self.sysTray, SIGNAL('activated(QSystemTrayIcon::ActivationReason)'), \
                    self.sysTrayActivated)
       menu = QMenu(self)
@@ -434,15 +441,8 @@ class ArmoryMainWindow(QMainWindow):
       menu.addSeparator()
       menu.addAction(actClose)
       self.sysTray.setContextMenu(menu)
-
       self.notifyQueue = []
-      self.alreadyNotified = set()
-
-
-
-      reactor.callLater(0.1,  self.execIntroDialog)
-      reactor.callLater(5, self.Heartbeat)
-
+      self.notifyBlockedUntil = 0
 
 
    #############################################################################
@@ -565,15 +565,20 @@ class ArmoryMainWindow(QMainWindow):
       from twisted.internet import reactor
       def uriClick_partial(a):
          self.uriLinkClicked(a)
-      try:
-         self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
-         reactor.listenTCP(ARMORY_LISTENING_PORT, self.InstanceListener)
-      except:
-         print 'Socket already occupied!  This must be a duplicate Armory instance!'
-         QMessageBox.warning(self, 'Only One, Please!', \
-            'Armory is already running!  You can only have one instance open '
-            'at a time.  Aborting...', QMessageBox.Ok)
-         os._exit(0)
+
+      self.uriListenPort = CLI_OPTIONS.interport + (1 if USE_TESTNET else 0)
+      if self.uriListenPort > 1:
+         try:
+            self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
+            reactor.listenTCP(self.uriListenPort, self.InstanceListener)
+         except:
+            print 'Socket already occupied!  This must be a duplicate Armory instance!'
+            QMessageBox.warning(self, 'Only One, Please!', \
+               'Armory is already running!  You can only have one instance open '
+               'at a time.  Aborting...', QMessageBox.Ok)
+            os._exit(0)
+      else:
+         print '*** Listening port is disabled.  URI-handling will not work'
       
 
       # Check for Satoshi-client connection
@@ -634,7 +639,6 @@ class ArmoryMainWindow(QMainWindow):
             le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
 
             # If it is ours, let's add it to the notifier queue
-            print 'NewTxFunc: ', binary_to_hex(le.getTxHash()), le.getValue()/1e8
             if not le.getTxHash()=='\x00'*32:
                self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
 
@@ -1849,62 +1853,77 @@ class ArmoryMainWindow(QMainWindow):
       received.  I will store them in self.notifyQueue, and this method will
       do nothing if it's empty.
       """
-      if not TheBDM.isInitialized() or len(self.notifyQueue)==0:
+      if not TheBDM.isInitialized() or RightNow()<self.notifyBlockedUntil:
          return
 
       # Input is:  [WltID, LedgerEntry, NotifiedAlready] 
       txNotifyList = []
       for i in range(len(self.notifyQueue)):
-         wltID, le, notifiedYet = notifyQueue[i]
+         wltID, le, alreadyNotified = self.notifyQueue[i]
          wlt = self.walletMap[wltID]
 
          # Skip the ones we've notified of already
-         if notifiedYet == False
+         if alreadyNotified:
             continue
 
          # Notification is not actually for us
          if le.getTxHash()=='\x00'*32:
             continue
          
-         notifiedYet = True
+         self.notifyQueue[i][2] = True
          if le.isSentToSelf():
-            amt = determineSentToSelfAmt(le, wlt)[0]
-            self.sysTray.showMessage('Circular Bitcoins', \
-               'Wallet "<b>%s" (%s) just sent %s BTC to itself!' % \
-               (wlt.labelName, wltID, coin2str(amt)), 10000)
+            amt = self.determineSentToSelfAmt(le, wlt)[0]
+            self.sysTray.showMessage('Your Bitcoins just did a lap!', \
+               'Wallet "%s" (%s) just sent %s BTC to itself!' % \
+               (wlt.labelName, wltID, coin2str(amt,maxZeros=0).strip()),
+               QSystemTrayIcon.Information, 10000)
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
-            recips = [txref.getTxOutRef(i).getRecipientAddr() \
-                                       for i in range(txref.getNumTxOut())]
-            mine   = filter(lambda a: wlt.hasAddr(a), recips)
-            others = filter(lambda a: not wlt.hasAddr(a), recips)
+            nOut = txref.getNumTxOut()
+            recips = [txref.getTxOutRef(i).getRecipientAddr() for i in range(nOut)]
+            values = [txref.getTxOutRef(i).getValue()         for i in range(nOut)]
+            idxMine  = filter(lambda i:     wlt.hasAddr(recips[i]), range(nOut))
+            idxOther = filter(lambda i: not wlt.hasAddr(recips[i]), range(nOut))
+            mine  = [(recips[i],values[i]) for i in idxMine]
+            other = [(recips[i],values[i]) for i in idxOther]
             dispLines = []
+            title = ''
+
+            # Collected everything we need to display, now construct it and do it
             if le.getValue()>0:
                # Received!
-               dispLines.append('Amount: <b>%s</b>' % coin2str(le.getValue()))
-               dispLines.append('Wallet: "%s" (%s)' % (wlt.labelName, wltID)
+               title = 'Bitcoins Received!'
+               totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=0)
+               dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
                if len(mine)==1:
-                  dispLines.append('Received with: %s...' % hash160_to_addrStr(mine[0])[:16]
-                  addrComment = wlt.getComment(mine[0])
-                  if addrComment:
-                     dispLines.append('<i>%s</i>...' % addrComment[:24])
+                  dispLines.append('Address:\t%s...' % hash160_to_addrStr(mine[0][0]))
+                  addrComment = wlt.getComment(mine[0][0])
+                  #if addrComment:
+                     #dispLines.append('%s...' % addrComment[:24])
                else:
                   dispLines.append('<Received with Multiple Addresses>')
+               dispLines.append(   'Wallet:\t"%s" (%s)' % (wlt.labelName, wltID))
             elif le.getValue()<0:
                # Sent!
-               dispLines.append('Amount: <b>%s</b>' % coin2str(-le.getValue()))
-               dispLines.append('From Wallet: "%s" (%s)' % (wlt.labelName, wltID)
-               if len(others)==1:
-                  dispLines.append('Sent To: %s...' % hash160_to_addrStr(others[0])[:16]
-                  addrComment = wlt.getComment(others[0])
-                  if addrComment:
-                     dispLines.append('<i>%s</i>...' % addrComment[:24])
+               title = 'Bitcoins Sent!'
+               totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=0)
+               dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
+               if len(other)==1:
+                  dispLines.append('Sent To:\t%s...' % hash160_to_addrStr(other[0][0]))
+                  addrComment = wlt.getComment(other[0][0])
+                  #if addrComment:
+                     #dispLines.append('%s...' % addrComment[:24])
                else:
                   dispLines.append('<Sent to Multiple Addresses>')
+               dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, wltID))
 
-               self.sysTray.showMessage('Bitcoins Received!', \
-                                        '<br>'.join(dispLines),  \
-                                        10000)
+            self.sysTray.showMessage(title, \
+                                     '\n'.join(dispLines),  \
+                                     QSystemTrayIcon.Information, \
+                                     10000)
+
+         self.notifyBlockedUntil = RightNow() + 5
+         return
             
       
       
@@ -1991,7 +2010,7 @@ if 1:  #__name__ == '__main__':
 
    from twisted.internet import reactor
    checkerFactory = ArmoryCheckerFactory(i_am_first, i_am_second)
-   conn = reactor.connectTCP('127.0.0.1', ARMORY_LISTENING_PORT, checkerFactory)
+   conn = reactor.connectTCP('127.0.0.1', self.uriListenPort, checkerFactory)
    conn.disconnect()
    """
 
