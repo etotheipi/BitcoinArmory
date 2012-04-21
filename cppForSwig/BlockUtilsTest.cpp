@@ -446,6 +446,16 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    "dca1e9baf8d970229f5efa269a15dd420ea7cfab"
    */
 
+   cout << "Testing soft-scanning..." << endl;
+
+   BinaryData txHash1 = BinaryData::CreateFromHex("2ec3a745e032c8bcc1061ebf270afcee47318a43462ba57215174084775c794d");
+   BinaryData txHash2 = BinaryData::CreateFromHex("b754fa89f7eb7f7c564611d9297dbcb471cf8d3cb0d235686323b6a5b263b094");
+
+   LedgerEntry le;
+   le = wlt1.calcLedgerEntryForTx( *bdm.getTxByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+   le = wlt2.calcLedgerEntryForTx( *bdm.getTxByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+   le = wlt1.calcLedgerEntryForTx( *bdm.getTxByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+   le = wlt2.calcLedgerEntryForTx( *bdm.getTxByHash(txHash2) ); le.pprintOneLine(); cout << endl;
   
 }
 

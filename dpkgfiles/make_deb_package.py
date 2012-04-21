@@ -65,7 +65,7 @@ if not vstr:
 
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
-shutil.copy('dpkgfiles/control%s' % osBits, 'dpkgfiles/control')
+shutil.copy('dpkgfiles/control%s_python%s' % (osBits,pyversion2), 'dpkgfiles/control')
 dpkgfiles = ['control', 'copyright', 'postinst', 'postrm']
 
 

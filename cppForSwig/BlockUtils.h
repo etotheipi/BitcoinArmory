@@ -481,6 +481,8 @@ public:
                            uint32_t txoutidx,
                            BtcAddress& addr);
 
+   LedgerEntry calcLedgerEntryForTx(TxRef & tx);
+   LedgerEntry calcLedgerEntryForTxStr(BinaryData txStr);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
    // on number of confirmations.  But for "spendable" TxOut list, it is

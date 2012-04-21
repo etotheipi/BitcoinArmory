@@ -68,6 +68,8 @@ parser.add_option("--offline", dest="offline", action="store_true", default=Fals
                   help="Force Armory to run in offline mode")
 parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
+parser.add_option("--interport", dest="interport", default=8223, type="int",
+                  help="Port for inter-process comm between Armory instances")
 
 (CLI_OPTIONS, args) = parser.parse_args()
 

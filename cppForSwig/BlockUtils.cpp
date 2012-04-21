@@ -1042,10 +1042,93 @@ void BtcWallet::scanTx(TxRef & tx,
          ledgerAllAddrZC_.push_back(le);
       else
          ledgerAllAddr_.push_back(le);
-
    }
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
+// Soft calculation:  does not affect the wallet at all
+//
+// I really need a method to scan an arbitrary tx, regardless of whether it
+// is new, and return the LedgerEntry it would've created as if it were new.  
+// This is mostly a rewrite of the isMineBulkFilter, and kind of replicates
+// the behavior of ScanTx.  But scanTx has been exhaustively tested with all
+// the crazy input variations and conditional paths, I don't want to touch 
+// it to try to accommodate this use case.
+LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & tx)
+{
+   int64_t totalValue = 0;
+   uint8_t const * txStartPtr = tx.getPtr();
+   bool anyTxInIsOurs = false;
+   bool allTxOutIsOurs = true;
+   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   {
+      // We have the txin, now check if it contains one of our TxOuts
+      static OutPoint op;
+      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      if(txioMap_.find(op) != txioMap_.end())
+      {
+         anyTxInIsOurs = true;
+         totalValue -= txioMap_[op].getValue();
+      }
+   }
+
+
+   // TxOuts are a little more complicated, because we have to process each
+   // different type separately.  Nonetheless, 99% of transactions use the
+   // 25-byte repr which is ridiculously fast
+   HashString addr20(20);
+   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   {
+      static uint8_t scriptLenFirstByte;
+
+      uint8_t const * ptr = txStartPtr + tx.getTxOutOffset(iout);
+      scriptLenFirstByte = *(uint8_t*)ptr;
+      if(scriptLenFirstByte == 25)
+      {
+         // Std TxOut with 25-byte script
+         addr20.copyFrom(ptr+12, 20);
+         if( hasAddr(addr20) )
+            totalValue += *(uint64_t*)ptr;
+         else
+            allTxOutIsOurs = false;
+      }
+      else if(scriptLenFirstByte==67)
+      {
+         // Std spend-coinbase TxOut script
+         BtcUtils::getHash160_NoSafetyCheck(ptr+10, 65, addr20);
+         if( hasAddr(addr20) )
+            totalValue += *(uint64_t*)ptr;
+         else
+            allTxOutIsOurs = false;
+      }
+      else
+         allTxOutIsOurs = false;
+   }
+
+
+   bool isSentToSelf = (anyTxInIsOurs && allTxOutIsOurs);
+
+   if( !anyTxInIsOurs && totalValue==0 )
+      return LedgerEntry();
+
+   return LedgerEntry(BinaryData(0),
+                      totalValue, 
+                      0, 
+                      tx.getThisHash(), 
+                      0,
+                      0,
+                      isSentToSelf,
+                      false);
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+LedgerEntry BtcWallet::calcLedgerEntryForTxStr(BinaryData txStr)
+{
+   TxRef tx(txStr);
+   return calcLedgerEntryForTx(tx);
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////

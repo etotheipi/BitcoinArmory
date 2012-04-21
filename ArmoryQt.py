@@ -78,7 +78,8 @@ class ArmoryMainWindow(QMainWindow):
       if self.abortLoad:
          os._exit(0)
 
-      self.extraHeartbeatFunctions = []
+      self.extraHeartbeatFunctions = [self.doTheSystemTrayThing]
+
       self.lblArmoryStatus = QRichLabel('<font color=%s><i>Offline</i></font>' % \
                                            htmlColor('TextWarn'), doWrap=False)
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
@@ -434,6 +435,9 @@ class ArmoryMainWindow(QMainWindow):
       menu.addAction(actClose)
       self.sysTray.setContextMenu(menu)
 
+      self.notifyQueue = []
+      self.alreadyNotified = set()
+
 
 
       reactor.callLater(0.1,  self.execIntroDialog)
@@ -623,8 +627,17 @@ class ArmoryMainWindow(QMainWindow):
       def newTxFunc(pytxObj):
          TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
          for wltID,wlt in self.walletMap.iteritems():
+            # Absorb the new tx into the BDM & wallets
             TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-         #self.walletListChanged()
+      
+            # Above doesn't return anything, but we want to know what it is...
+            le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
+
+            # If it is ours, let's add it to the notifier queue
+            print 'NewTxFunc: ', binary_to_hex(le.getTxHash()), le.getValue()/1e8
+            if not le.getTxHash()=='\x00'*32:
+               self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
+
          self.createCombinedLedger()
          self.ledgerModel.reset()
 
@@ -1739,10 +1752,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def sysTrayActivated(self, reason):
       if reason==QSystemTrayIcon.DoubleClick:
-         print 'Attempting to activate window...'
          self.bringArmoryToFront()
-      elif reason==QSystemTrayIcon.Context:
-         print 'Attempting to open context menu...'
 
       
 
@@ -1787,6 +1797,9 @@ class ArmoryMainWindow(QMainWindow):
             if didAffectUs:
                print 'New Block contained a transaction relevant to us!'
                self.walletListChanged()
+               self.notifyOnSurpriseTx(self.latestBlockNum-newBlks, \
+                                       self.latestBlockNum+1)
+
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
             self.settings.set('LastBlkRecvTime', self.blkReceived)
@@ -1799,21 +1812,101 @@ class ArmoryMainWindow(QMainWindow):
          nowtime = RightNow()
          blkRecvAgo  = nowtime - self.blkReceived
          blkStampAgo = nowtime - self.topTimestamp
-         #if self.usermode==USERMODE.Standard:
-            #self.lblArmoryStatus.setToolTip( 'Last block was received %s ago' % \
-                                                         #secondsToHumanTime(blkRecvAgo))
          self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
                                                    secondsToHumanTime(blkStampAgo))
-      
+
 
       for idx,wltID in enumerate(self.walletIDList):
          self.walletMap[wltID].checkWalletLockTimeout()
-
 
       for func in self.extraHeartbeatFunctions:
          func()
 
       reactor.callLater(nextBeatSec, self.Heartbeat)
+      
+
+   #############################################################################
+   def notifyOnSurpriseTx(self, blk0, blk1):
+      # We usually see transactions as zero-conf first, then they show up in 
+      # a block. It is a "surprise" when the first time we see it is in a block
+      notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
+      for blk in range(blk0, blk1):
+         for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
+            for wltID,wlt in self.walletMap.iteritems():
+               le = wlt.cppWallet.calcLedgerEntryForTx(tx)
+               print 'This tx is ours!'
+               if not le.getTxHash() in notifiedAlready:
+                  print '...but we\'ve been notified before, alread'
+                  #self.notifyQueue.append([wltID, le, False])
+               
+            
+
+   #############################################################################
+   def doTheSystemTrayThing(self):
+      """
+      I named this method as it is because this is not just "show a message."
+      I need to display all relevant transactions, in sequence that they were 
+      received.  I will store them in self.notifyQueue, and this method will
+      do nothing if it's empty.
+      """
+      if not TheBDM.isInitialized() or len(self.notifyQueue)==0:
+         return
+
+      # Input is:  [WltID, LedgerEntry, NotifiedAlready] 
+      txNotifyList = []
+      for i in range(len(self.notifyQueue)):
+         wltID, le, notifiedYet = notifyQueue[i]
+         wlt = self.walletMap[wltID]
+
+         # Skip the ones we've notified of already
+         if notifiedYet == False
+            continue
+
+         # Notification is not actually for us
+         if le.getTxHash()=='\x00'*32:
+            continue
+         
+         notifiedYet = True
+         if le.isSentToSelf():
+            amt = determineSentToSelfAmt(le, wlt)[0]
+            self.sysTray.showMessage('Circular Bitcoins', \
+               'Wallet "<b>%s" (%s) just sent %s BTC to itself!' % \
+               (wlt.labelName, wltID, coin2str(amt)), 10000)
+         else:
+            txref = TheBDM.getTxByHash(le.getTxHash())
+            recips = [txref.getTxOutRef(i).getRecipientAddr() \
+                                       for i in range(txref.getNumTxOut())]
+            mine   = filter(lambda a: wlt.hasAddr(a), recips)
+            others = filter(lambda a: not wlt.hasAddr(a), recips)
+            dispLines = []
+            if le.getValue()>0:
+               # Received!
+               dispLines.append('Amount: <b>%s</b>' % coin2str(le.getValue()))
+               dispLines.append('Wallet: "%s" (%s)' % (wlt.labelName, wltID)
+               if len(mine)==1:
+                  dispLines.append('Received with: %s...' % hash160_to_addrStr(mine[0])[:16]
+                  addrComment = wlt.getComment(mine[0])
+                  if addrComment:
+                     dispLines.append('<i>%s</i>...' % addrComment[:24])
+               else:
+                  dispLines.append('<Received with Multiple Addresses>')
+            elif le.getValue()<0:
+               # Sent!
+               dispLines.append('Amount: <b>%s</b>' % coin2str(-le.getValue()))
+               dispLines.append('From Wallet: "%s" (%s)' % (wlt.labelName, wltID)
+               if len(others)==1:
+                  dispLines.append('Sent To: %s...' % hash160_to_addrStr(others[0])[:16]
+                  addrComment = wlt.getComment(others[0])
+                  if addrComment:
+                     dispLines.append('<i>%s</i>...' % addrComment[:24])
+               else:
+                  dispLines.append('<Sent to Multiple Addresses>')
+
+               self.sysTray.showMessage('Bitcoins Received!', \
+                                        '<br>'.join(dispLines),  \
+                                        10000)
+            
+      
       
 
    #############################################################################
@@ -1882,6 +1975,9 @@ if 1:  #__name__ == '__main__':
    # For whatever reason, I couldnt' get this to work.  Only kinda worked.
    # For now, duplicate instances are prevented by the listenTCP call 
    # in the setupNetworking method
+   # UPDATE:  I know why this didn't work.  It's all called before the 
+   #          reactor is running!  Need to implement this with a separate
+   #          reactor start-stop cycle, or put it in the networking...
    """
    alreadyRunning = False
    def i_am_first():
