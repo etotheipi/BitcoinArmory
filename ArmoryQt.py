@@ -1906,9 +1906,9 @@ class ArmoryMainWindow(QMainWindow):
                # Received!
                title = 'Bitcoins Received!'
                totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=1)
-               dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
+               dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
                if len(mine)==1:
-                  dispLines.append('Address:\t%s...' % hash160_to_addrStr(mine[0][0]))
+                  dispLines.append('Address:\t%s' % hash160_to_addrStr(mine[0][0]))
                   addrComment = wlt.getComment(mine[0][0])
                   #if addrComment:
                      #dispLines.append('%s...' % addrComment[:24])
@@ -1919,9 +1919,9 @@ class ArmoryMainWindow(QMainWindow):
                # Sent!
                title = 'Bitcoins Sent!'
                totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=1)
-               dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
+               dispLines.append(   'Amount: \t%s BTC' % totalStr.strip())
                if len(other)==1:
-                  dispLines.append('Sent To:\t%s...' % hash160_to_addrStr(other[0][0]))
+                  dispLines.append('Sent To:\t%s' % hash160_to_addrStr(other[0][0]))
                   addrComment = wlt.getComment(other[0][0])
                   #if addrComment:
                      #dispLines.append('%s...' % addrComment[:24])
