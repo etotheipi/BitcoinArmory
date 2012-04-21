@@ -426,14 +426,24 @@ class ArmoryMainWindow(QMainWindow):
       self.sysTray = QSystemTrayIcon(self)
       self.sysTray.setIcon( QIcon(self.iconfile) )
       self.sysTray.setVisible(True)
+      self.sysTray.setToolTip('Armory' + (' [Testnet]' if USE_TESTNET else ''))
       self.connect(self.sysTray, SIGNAL('messageClicked()'), self.bringArmoryToFront)
       self.connect(self.sysTray, SIGNAL('activated(QSystemTrayIcon::ActivationReason)'), \
                    self.sysTrayActivated)
       menu = QMenu(self)
-      actShowArmory = self.createAction('Show Armory', self.bringArmoryToFront);
-      actSendBtc    = self.createAction('Send Bitcoins', self.clickSendBitcoins);
-      actRcvBtc     = self.createAction('Receive Bitcoins', self.clickReceiveCoins);
-      actClose      = self.createAction('Close Armory', self.closeEvent);
+
+      def traySend():
+         self.bringArmoryToFront()
+         self.clickSendBitcoins()
+
+      def trayRecv():
+         self.bringArmoryToFront()
+         self.clickSendBitcoins()
+
+      actShowArmory = self.createAction('Show Armory', self.bringArmoryToFront)
+      actSendBtc    = self.createAction('Send Bitcoins', traySend)
+      actRcvBtc     = self.createAction('Receive Bitcoins', trayRecv)
+      actClose      = self.createAction('Close Armory', self.closeEvent)
       # Create a short menu of options
       menu.addAction(actShowArmory)
       menu.addAction(actSendBtc)
@@ -1763,6 +1773,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def bringArmoryToFront(self):
       self.setWindowState(Qt.WindowActive)
+      self.activateWindow()
+      #self.raise()
 
    #############################################################################
    def minimizeArmory(self):
@@ -1875,7 +1887,7 @@ class ArmoryMainWindow(QMainWindow):
             amt = self.determineSentToSelfAmt(le, wlt)[0]
             self.sysTray.showMessage('Your Bitcoins just did a lap!', \
                'Wallet "%s" (%s) just sent %s BTC to itself!' % \
-               (wlt.labelName, wltID, coin2str(amt,maxZeros=0).strip()),
+               (wlt.labelName, wltID, coin2str(amt,maxZeros=1).strip()),
                QSystemTrayIcon.Information, 10000)
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
@@ -1893,7 +1905,7 @@ class ArmoryMainWindow(QMainWindow):
             if le.getValue()>0:
                # Received!
                title = 'Bitcoins Received!'
-               totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=0)
+               totalStr = coin2str( sum([mine[i][1] for i in range(len(mine))]), maxZeros=1)
                dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
                if len(mine)==1:
                   dispLines.append('Address:\t%s...' % hash160_to_addrStr(mine[0][0]))
@@ -1906,7 +1918,7 @@ class ArmoryMainWindow(QMainWindow):
             elif le.getValue()<0:
                # Sent!
                title = 'Bitcoins Sent!'
-               totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=0)
+               totalStr = coin2str( sum([other[i][1] for i in range(len(other))]), maxZeros=1)
                dispLines.append(   'Amount:   \t%s BTC' % totalStr.strip())
                if len(other)==1:
                   dispLines.append('Sent To:\t%s...' % hash160_to_addrStr(other[0][0]))
@@ -1934,6 +1946,7 @@ class ArmoryMainWindow(QMainWindow):
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
+      form.sysTray.hide()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
       reactor.stop()
