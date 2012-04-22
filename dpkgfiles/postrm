@@ -5,6 +5,7 @@ import time
 from subprocess import Popen, PIPE
 
 def execAndWait(cli_str):
+   print '\tEXEC:', cli_str
    process = Popen(cli_str, shell=True)
    while process.poll() == None:
       time.sleep(0.01)

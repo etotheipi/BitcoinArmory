@@ -2098,41 +2098,20 @@ class ArmoryListenerFactory(ClientFactory):
       self.func_recv_data = fn_recv_data
 
 
-############################################
-class ArmoryInstanceChecker(Protocol):
-   def connectionMade(self):
-      print 'Armory is already open!  Sending CLI args and closing'
-      if len(CLI_ARGS)>0:
-         self.transport.write(CLI_ARGS[0])
-      self.transport.loseConnection()
-      self.factory.alreadyRunning = True
 
-
-############################################
-class ArmoryCheckerFactory(ClientFactory):
-   protocol = ArmoryInstanceChecker
-   def __init__(self):
-      self.alreadyRunning = None
-
-   def clientConnectionFailed(self, conn, reason):
-      self.alreadyRunning = False
-
-
-      
 ############################################
 def checkForAlreadyOpen():
+   import socket
+   try:
+      # If create doesn't throw an error, there's another Armory open already!
+      sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
+      if CLI_ARGS:
+         sock.send(CLI_ARGS[0])
+      sock.close()
+      os._exit(0)
+   except:
+      pass
 
-   def checkConnected(chkFact):
-      if chkFact.alreadyRunning == True:
-         os._exit(0)
-      else:
-         reactor.stop()
-         
-   from twisted.internet import reactor
-   checkerFactory = ArmoryCheckerFactory()
-   reactor.connectTCP('127.0.0.1', CLI_OPTIONS.interport, checkerFactory)
-   reactor.callLater(0.25, checkConnected, checkerFactory)
-   reactor.run()
       
 
 ############################################
