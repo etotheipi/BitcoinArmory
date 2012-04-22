@@ -418,6 +418,9 @@ class ArmoryMainWindow(QMainWindow):
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(5, self.Heartbeat)
 
+      if CLI_ARGS:
+         reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+
 
 
    ####################################################
