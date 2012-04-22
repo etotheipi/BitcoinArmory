@@ -651,45 +651,6 @@ public:
    }
 
 
-   /////////////////////////////////////////////////////////////////////////////
-   static bool isTxFinal(TxRef & tx, uint32_t currBlk)
-   {
-      // Anything that is replaceable (regular or through blockchain injection)
-      // will be considered isFinal==false.  Users shouldn't even see the tx,
-      // because the concept may be confusing, and the current use of non-final
-      // tx is most likely for malicious purposes.
-      //
-      // This will change as multi-sig becomes integrated, and replacement will
-      // eventually be enabled (properly), in which case I will expand this
-      // to be more rigorous.
-      //
-      // For now I consider anything time-based locktimes (instead of block-
-      // based locktimes) to be final if this is more than one day after the 
-      // locktime expires.  This accommodates the most extreme case of silliness
-      // due to time-zones (this shouldn't be an issue, but I haven't spent the
-      // time to figure out how UTC and local time interact with time.h and 
-      // block timestamps).  In cases where locktime is legitimately used, it 
-      // is likely to be many days in the future, and one day may not even
-      // matter.  I'm erring on the side of safety, not convenience.
-      
-      if(tx.getLockTime() == 0)
-         return true;
-
-      bool allSeqMax = true;
-      for(uint32_t i=0; i<tx.getNumTxIn(); i++)
-         if(tx.getTxInRef(i).getSequence() < UINT32_MAX)
-            allSeqMax = false;
-
-      if(allSeqMax)
-         return true;
-
-      if(tx.getLockTime() < 500000000)
-         return (currBlk>tx.getLockTime());
-      else
-         return (time(NULL)>tx.getLockTime()+7200)
-   }
-
-
 
    /////////////////////////////////////////////////////////////////////////////
    static double convertDiffBitsToDouble(BinaryData const & diffBitsBinary)

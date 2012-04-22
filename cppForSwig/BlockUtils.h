@@ -842,6 +842,7 @@ public:
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
    void rescanWalletZeroConf(BtcWallet & wlt);
+   bool isTxFinal(TxRef & tx);
 
 
    // After reading in all headers, find the longest chain and set nextHash vals
