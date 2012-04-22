@@ -441,7 +441,7 @@ class ArmoryMainWindow(QMainWindow):
 
       def trayRecv():
          self.bringArmoryToFront()
-         self.clickSendBitcoins()
+         self.clickReceiveCoins()
 
       actShowArmory = self.createAction('Show Armory', self.bringArmoryToFront)
       actSendBtc    = self.createAction('Send Bitcoins', traySend)
