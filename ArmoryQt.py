@@ -75,9 +75,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
 
-      # Show the system tray icon immeidiately, in case splash screen disappears
-      self.setupSystemTray()
-
       
       self.haveBlkFile = os.path.exists(BLK0001_PATH)
       self.abortLoad = False
@@ -86,6 +83,11 @@ class ArmoryMainWindow(QMainWindow):
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
       self.setupNetworking()
+
+      # Setup system tray and register "bitcoin:" URLs with the OS
+      self.setupSystemTray()
+      self.setupUriRegistration()
+
 
       # setupNetworking may have set this flag if something went wrong
       if self.abortLoad:
@@ -451,6 +453,39 @@ class ArmoryMainWindow(QMainWindow):
       self.sysTray.setContextMenu(menu)
       self.notifyQueue = []
       self.notifyBlockedUntil = 0
+
+
+   #############################################################################
+   def setupUriRegistration(self):
+      if OS_LINUX:
+         out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
+      
+         def setAsDefault():
+            print 'Setting up Armory as default URI handler...'
+            execAndWait('gconftool-2 -t string -s /desktop/gnome/url-handlers/bitcoin/command "python /usr/share/armory/ArmoryQt.py \"%s\""')
+            execAndWait('gconftool-2 -s /desktop/gnome/url-handlers/bitcoin/needs_terminal false -t bool')
+            execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled true')
+
+         isFirstLoad = self.settings.getSettingOrSetDefault('First_Load', True)
+
+         if 'no value' in out.lower() or 'no value' in err.lower():
+            # Silently add Armory if it's never been set before
+            setAsDefault()
+         elif not 'armory' in out.lower() and not isFirstLoad:
+            # If another application has it, ask for permission to change it
+            if not self.settings.getSettingOrSetDefault('DNAA_DefaultApp', False):
+               reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+                  'Armory is not set as your default application for handling '
+                  '"bitcoin:" links.  Would you like to use Armory as the '
+                  'default?', 'Do not ask this question again')
+               if reply[0]==True:
+                  setAsDefault()
+               if reply[1]==True:
+                  self.settings.set('DNAA_DefaultApp', True)
+
+      if OS_WINDOWS:
+         pass # not sure about this one yet
+         
 
 
    #############################################################################
@@ -2097,9 +2132,19 @@ def checkForAlreadyOpen():
    reactor.run()
       
 
+############################################
+def execAndWait(cli_str):
+   from subprocess import Popen, PIPE
+   process = Popen(cli_str, shell=True, stdout=PIPE, stderr=PIPE)
+   while process.poll() == None:
+      time.sleep(0.1)
+   out,err = process.communicate()
+   return [out,err]
 
-if 1:  #__name__ == '__main__':
- 
+
+
+############################################
+if __name__ == '__main__':
 
    import qt4reactor
    qt4reactor.install()
