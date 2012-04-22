@@ -1956,6 +1956,7 @@ class ArmoryMainWindow(QMainWindow):
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):
+      print 'Another Armory just tried to overthrow us!'
       self.factory.func_conn_made()
       
    def dataReceived(self, data):
@@ -1995,8 +1996,8 @@ class ArmoryCheckerFactory(ClientFactory):
 ############################################
 def checkForAlreadyOpen():
 
-   def checkConnected(f):
-      if f.alreadyRunning == True:
+   def checkConnected(chkFact):
+      if chkFact.alreadyRunning == True:
          os._exit(0)
       else:
          reactor.stop()

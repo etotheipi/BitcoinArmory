@@ -202,6 +202,7 @@ class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
 class BadInputError(Exception): pass
+class BadURIError(Exception): pass
 
 
 
@@ -236,6 +237,50 @@ NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
+
+
+
+
+# This is a sweet trick for create enum-like dictionaries. 
+# Either automatically numbers (*args), or name-val pairs (**kwargs)
+#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    return type('Enum', (), enums)
+
+
+
+# Some useful constants to be used throughout everything
+BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+LITTLEENDIAN  = '<';
+BIGENDIAN     = '>';
+NETWORKENDIAN = '!';
+ONE_BTC       = long(100000000)
+CENT          = long(1000000)
+UNINITIALIZED = None
+UNKNOWN       = -2
+MIN_TX_FEE    = 50000
+MIN_RELAY_TX_FEE = 10000
+
+UINT8_MAX  = 2**8-1
+UINT16_MAX = 2**16-1
+UINT32_MAX = 2**32-1
+UINT64_MAX = 2**64-1
+
+RightNow = time.time
+SECOND   = 1
+MINUTE   = 60
+HOUR     = 3600
+DAY      = 24*HOUR
+WEEK     = 7*DAY
+MONTH    = 30*DAY
+YEAR     = 365*DAY
+
+# Some time methods (RightNow() return local unix timestamp)
+RightNow = time.time
+def RightNowUTC():
+   return time.mktime(time.gmtime(RightNow()))
 
 
 def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
@@ -291,46 +336,13 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
-# This is a sweet trick for create enum-like dictionaries. 
-# Either automatically numbers (*args), or name-val pairs (**kwargs)
-#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    return type('Enum', (), enums)
 
-
-
-# Some useful constants to be used throughout everything
-BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
-ONE_BTC       = long(100000000)
-CENT          = long(1000000)
-UNINITIALIZED = None
-UNKNOWN       = -2
-MIN_TX_FEE    = 50000
-MIN_RELAY_TX_FEE = 10000
-
-UINT8_MAX  = 2**8-1
-UINT16_MAX = 2**16-1
-UINT32_MAX = 2**32-1
-UINT64_MAX = 2**64-1
-
-RightNow = time.time
-SECOND   = 1
-MINUTE   = 60
-HOUR     = 3600
-DAY      = 24*HOUR
-WEEK     = 7*DAY
-MONTH    = 30*DAY
-YEAR     = 365*DAY
-
-# Some time methods (RightNow() return local unix timestamp)
-RightNow = time.time
-def RightNowUTC():
-   return time.mktime(time.gmtime(RightNow()))
+def str2coin(coinStr):
+   if not '.' in coinStr:
+      return int(coinStr)*ONE_BTC
+   else:
+      lhs,rhs = coinStr.split('.')
+      return int(lhs)*ONE_BTC + int(rhs.ljust(8,'0'))
 
 
 
@@ -1055,6 +1067,7 @@ def convertKeyDataToAddress(privKey=None, pubKey=None):
 
 
 
+################################################################################
 def decodeMiniPrivateKey(keyStr):
    """
    Converts a 22, 26 or 30-character Base58 mini private key into a 
@@ -1074,6 +1087,7 @@ def decodeMiniPrivateKey(keyStr):
    return sha256(keyStr)
    
 
+################################################################################
 def parsePrivateKeyData(theStr):
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
@@ -1129,6 +1143,77 @@ def parsePrivateKeyData(theStr):
    
 
 
+
+
+################################################################################
+def parseBitcoinURI(theStr):
+   """ Takes a URI string, returns the pieces of it, in a dictionary """
+
+   # Start by splitting it into pieces on any separator
+   seplist = ':;?&'
+   for c in seplist:
+      theStr = theStr.replace(c,' ')
+   parts = theStr.split()
+
+   # Now start walking through the parts and get the info out of it
+   if not parts[0] == 'bitcoin':
+      return {}
+
+   uriData = {}
+   uriData['address'] = parts[1]
+
+   for p in parts[2:]:
+      if not '=' in p:
+         raise BadURIError, 'Unrecognized URI field: "%s"'%p
+         
+      # All fields must be "key=value" making it pretty easy to parse
+      key, value = p.split('=')
+
+      # A few
+      if key.lower()=='amount':
+         uriData['amount'] = str2coin(value)
+      elif key.lower() in ('label','message'):
+         uriData[key] = uriPercentToReserved(value)
+      else:
+         uriData[key] = value
+   
+   return uriData
+
+
+################################################################################
+def uriReservedToPercent(theStr):
+   """ 
+   Convert from a regular string to a percent-encoded string
+   """
+   #Must replace '%' first, to avoid recursive (and incorrect) replacement!
+   reserved = "%!*'();:@&=+$,/?#[] "
+
+   for c in reserved:
+      theStr = theStr.replace(c, '%%%s' % int_to_hex(ord(c)))
+   return theStr
+
+
+################################################################################
+def uriPercentToReserved(theStr):
+   """ 
+   This replacement direction is much easier!
+   Convert from a percent-encoded string to a 
+   """
+   
+   parts = theStr.split('%')
+   if len(parts)>1:
+      for p in parts[1:]:
+         parts[0] += chr( hex_to_int(p[:2]) ) + p[2:]
+   return parts[0][:]
+   
+
+################################################################################
+def createBitcoinURI(addr):
+   pass
+   
+
+
+################################################################################
 class PyBtcAddress(object):
    """
    PyBtcAddress --

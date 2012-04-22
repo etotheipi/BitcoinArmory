@@ -29,7 +29,8 @@ Test_NetworkObjects   = False
 Test_ReactorLoop      = False
 Test_SettingsFile     = False
 Test_WalletMigrate    = False
-Test_AddressBooks     = True
+Test_AddressBooks     = False
+Test_URIParse         = True
 
 '''
 import optparse
@@ -1858,5 +1859,49 @@ if Test_AddressBooks:
          print '\t', binary_to_hex(rtx.getTxHash()), rtx.getBlkNum(), rtx.getTxIndex()
 
 
+if Test_URIParse:
 
+   print 'Testing percent-encoding:'
+   test = []
+   test.append('regularmessage')
+   test.append('regular_message')
+   test.append('regular%message')
+   test.append('regular&message')
+   test.append('regular message~')
+
+   for t in test:
+      t1 = uriReservedToPercent(t)
+      t2 = uriPercentToReserved(t1)
+      passStr = 'PASS' if t==t2 else '***FAIL***'
+      print '\t',
+      print ('"%s"'%t).ljust(20),
+      print ('"%s"'%t1).ljust(20),
+      print ('"%s"'%t2).ljust(20),
+      print ('(%s)'%passStr)
+      
+
+
+   print 'Testing URI parsing'
+   test = []
+   test.append('notavaliduristring')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L;version=1.0')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=20.3')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L;version=1.0?amount=20.3')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=0.00003&label=Luke-Jr')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L;version=1.0?amount=20.3&label=Luke-Jr')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L;version=1.0?amount=203&label=Luke-Jr')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=203&message=Donation%20for%20proj')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=203&label=Alan%27s%20key&message=Donation%20for%20proj')
+
+   for t in test:
+      print 'URI:', t
+      outputdict = parseBitcoinURI(t)
+      if len(outputdict)==0:
+         print '\t<empty>'
+         continue
+
+      for key,val in outputdict.iteritems():
+         print '\t', key.ljust(12), '=', val
+      
 
