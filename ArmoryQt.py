@@ -677,17 +677,39 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.warning(self, 'Invalid URI', warnMsg, QMessageBox.Ok)
          return
 
+      if not uriDict.has_key('address'):
+         QMessageBox.warning(self, 'The "bitcoin:" link you just clicked '
+            'does not even contain an address!  There is nothing that '
+            'Armory can do with this link!', QMessageBox.Ok)
+         return
+
+      # Verify the URI is for the same network as this Armory instnance
+      theAddrByte = checkAddrType(base58_to_binary(uriDict['address']))
+      if theAddrByte!=-1 and theAddrByte!=ADDRBYTE:
+         net = 'Unknown Network'
+         if NETWORKS.has_key(theAddrByte):
+            net = NETWORKS[theAddrByte]
+         QMessageBox.warning(self, 'Wrong Network!', \
+            'The address for the "bitcoin:" link you just clicked is '
+            'for the wrong network!  You are on the <b>%s</b> '
+            'and the address you supplied is for the the '
+            '<b>%s</b>!' % (NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+         return
+
+      # If the URI contains "req-" strings we don't recognize, throw error
       recognized = ['address','version','amount','label','message']
       for key,value in uriDict.iteritems():
          if key.startswith('req-') and not key[4:] in recognized:
             QMessageBox.warning(self,'Unsupported URI', 'The "bitcoin:" link '
                'you just clicked contains fields that are required but not '
-               'recognized by Armory.  The action cannot be completed.', \
+               'recognized by Armory.  This may be an older version of Armory, '
+               'or the link you clicked on uses an exotic, unsupported format.'
+               '<br><br>The action cannot be completed.', \
                QMessageBox.Ok)
             return
          
       self.bringArmoryToFront() 
-      kldjfsldj self.clickSendBitcoins(uriDict)
+      self.uriSendBitcoins(uriDict)
       
 
    #############################################################################
@@ -1748,17 +1770,50 @@ class ArmoryMainWindow(QMainWindow):
    
 
    #############################################################################
-   def uriSendBitcoins(self, wltID):
-      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=False)
+   def uriSendBitcoins(self, uriDict):
+      uri_has = lambda s: uriDict.has_key(s)
+      
+      descrStr = ''
+      descrStr = ('You just clicked on a "bitcoin:" link requesting Bitcoins ' 
+                'to be sent to the following address:<br> ')
+
+      descrStr += '<br>--<b>Address</b>:\t%s ' % uriDict['address']
+
+      amt = 0
+      if uri_has('label'):
+         if len(uriDict['label'])>30:
+            descrStr += '(%s...)' % uriDict['label'][:30]
+         else:
+            descrStr += '(%s)' % uriDict['label']
+
+      if uri_has('amount'):
+         amt     = uriDict['amount']
+         amtstr  = coin2str(amt, maxZeros=1)
+         descrStr += '<br>--<b>Amount</b>:\t%s BTC' % amtstr
+
+      if uri_has('message'):
+         if len(uriDict['message'])>60:
+            descrStr += '<br>--<b>Message</b>:\t%s...' % uriDict['message'][:60]
+         else:
+            descrStr += '<br>--<b>Message</b>:\t%s' % uriDict['message']
+
+      
+      if not uri_has('amount'):
+          descrStr += ('<br><br>There is no amount specified in the link, so '
+            'you can decide the amount after selecting a wallet to use '
+            'for this this transaction. ')
+      else:
+          descrStr += ('<br><br><b>The specified amount <u>can</u> be changed</b> on the '
+            'next screen before hitting the "Send" button. ')
+
+      #descrStr += 'Please select a wallet to use for this transaction:'
+
+      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
+                            onlyMyWallets=True, atLeast=amt)
       if dlg.exec_():
          wltID = dlg.selectedID 
-      else:
-         return
-
-      if selectionMade:
          wlt = self.walletMap[wltID]
-         wlttype = determineWalletType(wlt, self)[0]
-         dlgSend = DlgSendBitcoins(wlt, self, self)
+         dlgSend = DlgSendBitcoins(wlt, self, self, uriDict)
          dlgSend.exec_()
       
 
@@ -1781,7 +1836,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:

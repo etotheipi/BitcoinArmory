@@ -2160,6 +2160,9 @@ void BlockDataManager_MMAP::scanRegisteredTxForWallet( BtcWallet & wlt,
       if(thisBlk < blkStart || thisBlk>=blkEnd)
          continue;
 
+      if( !isTxFinal(*txptr, getTopBlockHeight()))
+         continue;
+
       // If we made it here, we want to scan this tx!
       wlt.scanTx(*txptr, txptr->getBlockTxIndex(), bhr->getTimestamp(), thisBlk);
    }
@@ -3190,8 +3193,13 @@ void BlockDataManager_MMAP::rescanWalletZeroConf(BtcWallet & wlt)
        iter != zeroConfRawTxList_.end();
        iter++)
    {
+
       BtcUtils::getHash256(*iter, txHash);
       ZeroConfData & zcd = zeroConfMap_[txHash];
+
+      if( !isTxFinal(zcd.txref_, getTopBlockHeight()))
+         continue;
+
       wlt.scanTx(zcd.txref_, 0, zcd.txtime_, UINT32_MAX);
    }
 }

@@ -4022,12 +4022,14 @@ class DlgRemoveAddress(QDialog):
 
 class DlgWalletSelect(QDialog):
    def __init__(self, parent=None, main=None,  title='Select Wallet:', \
-                             firstSelect=None, onlyMyWallets=False, wltIDList=None):
+                             descr='', firstSelect=None, onlyMyWallets=False, \
+                             wltIDList=None, atLeast=0):
       super(DlgWalletSelect, self).__init__(parent)
 
       self.parent = parent
       self.main   = main
       self.lstWallets = QListWidget()
+      self.balAtLeast = atLeast
 
       if self.main and len(self.main.walletMap)==0:
          QMessageBox.critical(self, 'No Wallets!', \
@@ -4066,10 +4068,13 @@ class DlgWalletSelect(QDialog):
 
       self.connect(self.lstWallets, SIGNAL('itemDoubleClicked(QListWidgetItem *)'), self.dblclick)
 
-      layout = QGridLayout()
-      layout.addWidget(QLabel(title), 0, 0,  1, 1)
-      layout.addWidget(self.lstWallets,          1, 0,  3, 1)
 
+      # Start the layout
+      layout = QVBoxLayout()
+
+      if descr:
+         layout.addWidget(makeHorizFrame([QRichLabel(descr)], STYLE_SUNKEN))
+      layout.addWidget(QRichLabel('<b><u>'+title+'</u></b>'))
 
 
       lbls = []
@@ -4123,9 +4128,11 @@ class DlgWalletSelect(QDialog):
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       buttonBox.addButton(btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(btnCancel, QDialogButtonBox.RejectRole)
-      layout.addWidget(frm,                     1, 1,  3, 2)
-      layout.addWidget(buttonBox,               4, 0,  1, 3)
 
+      layout.addWidget(makeHorizFrame([self.lstWallets, frm]))
+      layout.addWidget(buttonBox)
+
+      layout.setSpacing(15)
       self.setLayout(layout)
 
       if not self.selectedID==None:
@@ -4149,10 +4156,11 @@ class DlgWalletSelect(QDialog):
          return
       
       bal = wlt.getBalance('Spendable')
-      if bal==0:
-         self.dispBal.setText('<font color="red"><b>0.0</b></font>')
+      balStr = coin2str(wlt.getBalance('Spendable'), maxZeros=1)
+      if bal<=self.balAtLeast:
+         self.dispBal.setText('<font color="red"><b>%s</b></font>' % balStr)
       else:
-         self.dispBal.setText('<b>'+coin2str(wlt.getBalance('Spendable'), maxZeros=1)+'</b>')
+         self.dispBal.setText('<b>'+balStr+'</b>')
 
 
    def dblclick(self, *args):
@@ -4301,7 +4309,7 @@ class DlgConfirmSend(QDialog):
 
 class DlgSendBitcoins(QDialog):
    COLS = enum('LblAddr','Addr','AddrBook', 'LblBtc','Btc','LblComm','Comm')
-   def __init__(self, wlt, parent=None, main=None, uriDict=None):
+   def __init__(self, wlt, parent=None, main=None, prefill=None):
       super(DlgSendBitcoins, self).__init__(parent)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
 
@@ -4404,6 +4412,12 @@ class DlgSendBitcoins(QDialog):
       btnUnsigned = QPushButton('Create Unsigned Transaction')
       self.connect(btnUnsigned, SIGNAL('clicked()'), self.createTxDPAndDisplay)
 
+
+      def addDonation():
+         self.addOneRecipient(ARMORY_DONATION_ADDR, ONE_BTC, \
+            'Donation to Armory Developers.  Thank you for your generosit!', \
+            label='Armory Donation Address')
+         
          
       btnDonate = QPushButton("Donate to Armory Developers!")
       ttipDonate = createToolTipObject( \
@@ -4456,7 +4470,17 @@ class DlgSendBitcoins(QDialog):
       lastPestering  = self.main.settings.getSettingOrSetDefault('DonateLastPester', 0)
       donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 20)
       dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
-      if not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
+
+
+      if prefill:
+         get = lambda s: prefill[s] if prefill.has_key(s) else ''
+         addr160  = addrStr_to_hash160(get('address'))
+         amount   = get('amount')
+         message  = get('message')
+         label    = get('label')
+         self.addOneRecipient(addr160, amount, message, label)
+      
+      elif not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
          not loadCount==lastPestering and not dnaaDonate and \
          wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
@@ -4472,11 +4496,10 @@ class DlgSendBitcoins(QDialog):
             'select "Yes," a donation field will be added to your '
             'next transaction.  You will have the opportunity to remove or change '
             'the amount before sending the transaction.', None)
-
          self.main.settings.set('DonateLastPester', loadCount)
 
          if result[0]==True:
-            self.addDonation(ONE_BTC)
+            self.addDonation()
             self.makeRecipFrame(2)
 
          if result[1]==True:
@@ -4610,9 +4633,9 @@ class DlgSendBitcoins(QDialog):
                if NETWORKS.has_key(addrBytes[i]):
                   net = NETWORKS[addrBytes[i]]
                QMessageBox.warning(self, 'Wrong Network!', \
-                  'Address %d is for the wrong network!  You are on the %s '
+                  'Address %d is for the wrong network!  You are on the <b>%s</b> '
                   'and the address you supplied is for the the '
-                  '%s!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
+                  '<b>%s</b>!' % (i+1, NETWORKS[ADDRBYTE], net), QMessageBox.Ok)
          return False
 
 
@@ -4792,9 +4815,11 @@ class DlgSendBitcoins(QDialog):
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
       self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
+      self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
+      self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Comm].setText(msg)
-
+      self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
 
    #####################################################################
    def makeRecipFrame(self, nRecip):
@@ -4821,7 +4846,7 @@ class DlgSendBitcoins(QDialog):
          self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 35)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[-1][-1].setFont(GETFONT('var',9))
 
@@ -8422,6 +8447,7 @@ class DlgAddressBook(QDialog):
       wltID = self.selectedWltID
       addr160 = self.main.walletMap[wltID].getNextUnusedAddress().getAddr160()
       self.target.setText(hash160_to_addrStr(addr160))
+      self.target.setCursorPosition(0)
       self.accept()
       
 
@@ -8438,6 +8464,7 @@ class DlgAddressBook(QDialog):
       #row,col = index.row(), index.column()
       #addrB58 = str(self.addrBookTxView.model().index(row, ADDRBOOKCOLS.Address).data().toString())
       self.target.setText(self.selectedAddr)
+      self.target.setCursorPosition(0)
       self.accept()
 
    #############################################################################
