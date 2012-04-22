@@ -4301,7 +4301,7 @@ class DlgConfirmSend(QDialog):
 
 class DlgSendBitcoins(QDialog):
    COLS = enum('LblAddr','Addr','AddrBook', 'LblBtc','Btc','LblComm','Comm')
-   def __init__(self, wlt, parent=None, main=None, donateIsDefault=False):
+   def __init__(self, wlt, parent=None, main=None, uriDict=None):
       super(DlgSendBitcoins, self).__init__(parent)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
 
@@ -4775,6 +4775,26 @@ class DlgSendBitcoins(QDialog):
       self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
       self.widgetTable[-1][self.COLS.Comm].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
+
+
+   #############################################################################
+   def addOneRecipient(self, addr160, amt, msg, label=''):
+      if len(label)>0:
+         self.wlt.setComment(addr160, label)
+
+      COLS = self.COLS
+      lastIsEmpty = True
+      for col in (COLS.Addr, COLS.Btc, COLS.Comm):
+         if len(str(self.widgetTable[-1][col].text()))>0:
+            lastIsEmpty = False
+         
+      if not lastIsEmpty:
+         self.makeRecipFrame( len(self.widgetTable)+1 )
+
+      self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
+      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
+      self.widgetTable[-1][self.COLS.Comm].setText(msg)
+
 
    #####################################################################
    def makeRecipFrame(self, nRecip):

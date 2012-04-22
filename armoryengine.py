@@ -1160,22 +1160,25 @@ def parseBitcoinURI(theStr):
       return {}
 
    uriData = {}
-   uriData['address'] = parts[1]
-
-   for p in parts[2:]:
-      if not '=' in p:
-         raise BadURIError, 'Unrecognized URI field: "%s"'%p
-         
-      # All fields must be "key=value" making it pretty easy to parse
-      key, value = p.split('=')
-
-      # A few
-      if key.lower()=='amount':
-         uriData['amount'] = str2coin(value)
-      elif key.lower() in ('label','message'):
-         uriData[key] = uriPercentToReserved(value)
-      else:
-         uriData[key] = value
+   
+   try:
+      uriData['address'] = parts[1]
+      for p in parts[2:]:
+         if not '=' in p:
+            raise BadURIError, 'Unrecognized URI field: "%s"'%p
+            
+         # All fields must be "key=value" making it pretty easy to parse
+         key, value = p.split('=')
+   
+         # A few
+         if key.lower()=='amount':
+            uriData['amount'] = str2coin(value)
+         elif key.lower() in ('label','message'):
+            uriData[key] = uriPercentToReserved(value)
+         else:
+            uriData[key] = value
+   except:
+      return {}
    
    return uriData
 

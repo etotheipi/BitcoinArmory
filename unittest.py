@@ -1893,6 +1893,7 @@ if Test_URIParse:
    test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L;version=1.0?amount=203&label=Luke-Jr')
    test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=203&message=Donation%20for%20proj')
    test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=203&label=Alan%27s%20key&message=Donation%20for%20proj')
+   test.append('bitcoin:1NS17iag9jJgTHD1VXjvLCEnZuQ3rJED9L?amount=2f03&label=invalid')
 
    for t in test:
       print 'URI:', t

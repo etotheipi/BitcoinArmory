@@ -664,12 +664,31 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def uriLinkClicked(self, uri):
-      # TODO: will make this useful once I actually get the interprocess 
-      #       communication working...
-      print '********************************'
-      print 'URI:', uri
-      print '********************************'
+   def uriLinkClicked(self, uriStr):
+      uriDict = parseBitcoinURI(uriStr)
+      if len(uriDict)==0:
+         warnMsg = ('It looks like you just clicked a "bitcoin:" link, but '
+                    'that link is malformed.  ')
+         if self.usermode == USERMODE.Standard:
+            warnMsg += ('Please check the source of the link and enter the '
+                        'transaction manually.')
+         else:
+            warnMsg += 'The raw URI string is:<br><br>' + uriStr
+         QMessageBox.warning(self, 'Invalid URI', warnMsg, QMessageBox.Ok)
+         return
+
+      recognized = ['address','version','amount','label','message']
+      for key,value in uriDict.iteritems():
+         if key.startswith('req-') and not key[4:] in recognized:
+            QMessageBox.warning(self,'Unsupported URI', 'The "bitcoin:" link '
+               'you just clicked contains fields that are required but not '
+               'recognized by Armory.  The action cannot be completed.', \
+               QMessageBox.Ok)
+            return
+         
+      self.bringArmoryToFront() 
+      kldjfsldj self.clickSendBitcoins(uriDict)
+      
 
    #############################################################################
    def loadWalletsAndSettings(self):
@@ -1729,6 +1748,21 @@ class ArmoryMainWindow(QMainWindow):
    
 
    #############################################################################
+   def uriSendBitcoins(self, wltID):
+      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltID, onlyMyWallets=False)
+      if dlg.exec_():
+         wltID = dlg.selectedID 
+      else:
+         return
+
+      if selectionMade:
+         wlt = self.walletMap[wltID]
+         wlttype = determineWalletType(wlt, self)[0]
+         dlgSend = DlgSendBitcoins(wlt, self, self)
+         dlgSend.exec_()
+      
+
+   #############################################################################
    def clickReceiveCoins(self):
       wltID = None
       selectionMade = True
@@ -1772,7 +1806,7 @@ class ArmoryMainWindow(QMainWindow):
    def bringArmoryToFront(self):
       self.setWindowState(Qt.WindowActive)
       self.activateWindow()
-      #self.raise()
+      self.raise_()
 
    #############################################################################
    def minimizeArmory(self):
@@ -1956,11 +1990,10 @@ class ArmoryMainWindow(QMainWindow):
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):
-      print 'Another Armory just tried to overthrow us!'
+      print 'Another Armory instance just tried to overthrow me! (P.S. - it was defeated)'
       self.factory.func_conn_made()
       
    def dataReceived(self, data):
-      print 'Data (Listener):', data
       self.factory.func_recv_data(data)
       self.transport.loseConnection()
 
