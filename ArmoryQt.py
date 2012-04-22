@@ -50,8 +50,6 @@ from twisted.internet.defer import Deferred
 
 
 
-
-
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
@@ -576,12 +574,12 @@ class ArmoryMainWindow(QMainWindow):
       def uriClick_partial(a):
          self.uriLinkClicked(a)
 
-      self.uriListenPort = CLI_OPTIONS.interport + (1 if USE_TESTNET else 0)
-      if self.uriListenPort > 1:
+      if CLI_OPTIONS.interport > 1:
          try:
-            self.InstanceListener = ArmoryListenerFactory(uriClick_partial)
-            reactor.listenTCP(self.uriListenPort, self.InstanceListener)
-         except:
+            self.InstanceListener = ArmoryListenerFactory(self.bringArmoryToFront, \
+                                                          uriClick_partial )
+            reactor.listenTCP(CLI_OPTIONS.interport, self.InstanceListener)
+         except twisted.internet.error.CannotListenError:
             print 'Socket already occupied!  This must be a duplicate Armory instance!'
             QMessageBox.warning(self, 'Only One, Please!', \
                'Armory is already running!  You can only have one instance open '
@@ -763,7 +761,7 @@ class ArmoryMainWindow(QMainWindow):
       print 'Number of wallets read in:', len(self.walletMap)
       for wltID, wlt in self.walletMap.iteritems():
          print ('   Wallet (%s):' % wlt.uniqueIDB58).ljust(25),
-         print '"'+wlt.labelName.ljust(34)+'"   ',
+         print '"'+wlt.labelName.ljust(32)+'"   ',
          print '(Encrypted)' if wlt.useEncryption else '(No Encryption)'
          # Register all wallets with TheBDM
          TheBDM.registerWallet( wlt.cppWallet )
@@ -1958,41 +1956,56 @@ class ArmoryMainWindow(QMainWindow):
 ############################################
 class ArmoryInstanceListener(Protocol):
    def connectionMade(self):
-      print 'Connection Made (Listener)!'
-
+      self.factory.func_conn_made()
+      
    def dataReceived(self, data):
-      print 'Data:', data
+      print 'Data (Listener):', data
       self.factory.func_recv_data(data)
       self.transport.loseConnection()
 
 ############################################
 class ArmoryListenerFactory(ClientFactory):
    protocol = ArmoryInstanceListener
-   def __init__(self, fn_recv_data=None):
+   def __init__(self, fn_conn_made, fn_recv_data):
+      self.func_conn_made = fn_conn_made
       self.func_recv_data = fn_recv_data
+
 
 ############################################
 class ArmoryInstanceChecker(Protocol):
    def connectionMade(self):
-      print 'Connection Made! (Checker)'
-      self.transport.write(sys.argv[-1])
+      print 'Armory is already open!  Sending CLI args and closing'
+      if len(CLI_ARGS)>0:
+         self.transport.write(CLI_ARGS[0])
       self.transport.loseConnection()
-      self.factory.func_second_instance()
+      self.factory.alreadyRunning = True
 
-   def clientConnectionFailed(self):
-      print 'Connection Failed! (Checker)'
-      self.factory.func_first_instance()
-      self.transport.loseConnection()
 
 ############################################
 class ArmoryCheckerFactory(ClientFactory):
    protocol = ArmoryInstanceChecker
-   def __init__(self, fn_first_instance, fn_second_instance):
-      self.func_first_instance = fn_first_instance
-      self.func_second_instance = fn_second_instance
+   def __init__(self):
+      self.alreadyRunning = None
+
+   def clientConnectionFailed(self, conn, reason):
+      self.alreadyRunning = False
 
 
       
+############################################
+def checkForAlreadyOpen():
+
+   def checkConnected(f):
+      if f.alreadyRunning == True:
+         os._exit(0)
+      else:
+         reactor.stop()
+         
+   from twisted.internet import reactor
+   checkerFactory = ArmoryCheckerFactory()
+   reactor.connectTCP('127.0.0.1', CLI_OPTIONS.interport, checkerFactory)
+   reactor.callLater(0.25, checkConnected, checkerFactory)
+   reactor.run()
       
 
 
@@ -2002,31 +2015,8 @@ if 1:  #__name__ == '__main__':
    import qt4reactor
    qt4reactor.install()
 
-
-  
-   # For whatever reason, I couldnt' get this to work.  Only kinda worked.
-   # For now, duplicate instances are prevented by the listenTCP call 
-   # in the setupNetworking method
-   # UPDATE:  I know why this didn't work.  It's all called before the 
-   #          reactor is running!  Need to implement this with a separate
-   #          reactor start-stop cycle, or put it in the networking...
-   """
-   alreadyRunning = False
-   def i_am_first():
-      print '***** I am the first Armory instance!'
-      alreadyRunning = False
-
-   def i_am_second():
-      print '***** Another Armory made it here before me :('
-      alreadyRunning = True
-      os._exit(0)
-
-   from twisted.internet import reactor
-   checkerFactory = ArmoryCheckerFactory(i_am_first, i_am_second)
-   conn = reactor.connectTCP('127.0.0.1', self.uriListenPort, checkerFactory)
-   conn.disconnect()
-   """
-
+   if CLI_OPTIONS.interport > 1:
+      checkForAlreadyOpen()
 
    pixLogo = QPixmap(':/splashlogo.png')
    if USE_TESTNET:

@@ -68,15 +68,21 @@ parser.add_option("--offline", dest="offline", action="store_true", default=Fals
                   help="Force Armory to run in offline mode")
 parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
-parser.add_option("--interport", dest="interport", default=8223, type="int",
+parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
 
-(CLI_OPTIONS, args) = parser.parse_args()
+(CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
    
+
+# Set default port for inter-process communication
+if CLI_OPTIONS.interport < 0:
+   CLI_OPTIONS.interport = 8223 + (1 if USE_TESTNET else 0)
+
+
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
 BTCARMORY_VERSION    = (0, 75, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
