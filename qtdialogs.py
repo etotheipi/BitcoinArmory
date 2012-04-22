@@ -4814,9 +4814,12 @@ class DlgSendBitcoins(QDialog):
       if not lastIsEmpty:
          self.makeRecipFrame( len(self.widgetTable)+1 )
 
+      if amt:
+         amt = coin2str(amt, maxZeros=2).strip()
+
       self.widgetTable[-1][self.COLS.Addr].setText(hash160_to_addrStr(addr160))
       self.widgetTable[-1][self.COLS.Addr].setCursorPosition(0)
-      self.widgetTable[-1][self.COLS.Btc].setText(coin2str(amt, maxZeros=2).strip())
+      self.widgetTable[-1][self.COLS.Btc].setText(amt)
       self.widgetTable[-1][self.COLS.Btc].setCursorPosition(0)
       self.widgetTable[-1][self.COLS.Comm].setText(msg)
       self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
