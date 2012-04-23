@@ -11,13 +11,13 @@ if osBits=='64':
 baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
 
 updateKeys = []
-updateKeys.append(['bitcoin', '', 'URL:bitcoin Protocol'])
-updateKeys.append(['bitcoin', 'URL Protocol', ""])
-updateKeys.append(['bitcoin\\shell', '', None])
-updateKeys.append(['bitcoin\\shell\\open', '',  None])
-updateKeys.append(['bitcoin\\shell\\open\\command',  '', \
+updateKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
+updateKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
+updateKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
+updateKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
+updateKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
                    '"%s\\Armory.exe" %%1' % baseDir])
-updateKeys.append(['bitcoin\\DefaultIcon', '',  \
+updateKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
                    '"%s\\armory48x48.ico"' % baseDir])
 
 print 'Attempting to read registry keys...'
@@ -31,8 +31,7 @@ for key,name,val in updateKeys:
       registryKey = OpenKey(HKEY_CURRENT_USER, key, 0, KEY_READ)
       origRegistry[dkey] = QueryValueEx(registryKey, name)
    except:
-      raise
-      origRegistry[dkey] = ''
+      origRegistry[dkey] = ['',0]
 
 print 'Keys read:'
 for k,v in origRegistry.iteritems():
