@@ -29,6 +29,7 @@ import sys
 import shutil
 import math
 import threading
+import platform
 from datetime import datetime
 
 # PyQt4 Imports
@@ -460,6 +461,13 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setupUriRegistration(self):
+      """
+      Setup Armory as the default application for handling bitcoin: links
+      """
+      # Don't bother the user on the first load with it if verification is 
+      # needed.  They have enough to worry about with this weird new program.
+      isFirstLoad = self.settings.getSettingOrSetDefault('First_Load', True)
+
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
       
@@ -469,7 +477,6 @@ class ArmoryMainWindow(QMainWindow):
             execAndWait('gconftool-2 -s /desktop/gnome/url-handlers/bitcoin/needs_terminal false -t bool')
             execAndWait('gconftool-2 -t bool -s /desktop/gnome/url-handlers/bitcoin/enabled true')
 
-         isFirstLoad = self.settings.getSettingOrSetDefault('First_Load', True)
 
          if 'no value' in out.lower() or 'no value' in err.lower():
             # Silently add Armory if it's never been set before
@@ -487,7 +494,72 @@ class ArmoryMainWindow(QMainWindow):
                   self.settings.set('DNAA_DefaultApp', True)
 
       if OS_WINDOWS:
-         pass # not sure about this one yet
+         from _winreg import *
+         # Check for existing registration (user first, then root, if necessary)
+         action = 'DoNothing'
+         rootKey = 'bitcoin\\shell\\open\\command'
+         try:
+            userKey = 'Software\\Classes\\' + rootKey
+            registryKey = OpenKey(HKEY_CURRENT_USER, userKey, 0, KEY_READ)
+            val,code = QueryValueEx(registryKey, '')
+            if 'armory.exe' in val.lower():
+               # Already set to Armory, we're done!
+               return
+            else:
+               # Already set to something (at least created, which is enough)
+               action = 'AskUser'
+         except:
+            # No user-key set, check if root-key is set
+            try:
+               registryKey = OpenKey(HKEY_CLASSES_ROOT, rootKey, 0, KEY_READ)
+               val,code = QueryValueEx(registryKey, '')
+               if 'armory.exe' in val.lower():
+                  # Already set to Armory, we're done!
+                  return
+               else:
+                  # Root key is set (or at least created, which is enough)
+                  action = 'AskUser'
+            except:
+               action = 'DoIt'
+
+         dontAsk = self.settings.getSettingOrSetDefault('DNAA_DefaultApp', False)
+         if action=='AskUser' and not isFirstLoad and not dontAsk:
+            # If another application has it, ask for permission to change it
+            reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
+               'Armory is not set as your default application for handling '
+               '"bitcoin:" links.  Would you like to use Armory as the '
+               'default?', 'Do not ask this question again')
+
+            if reply[1]==True:
+               self.settings.set('DNAA_DefaultApp', True)
+
+            if reply[0]==True:
+               action = 'DoIt'
+            else:
+               return 
+
+         # Finally, do it if we're supposed to!
+         if action=='DoIt':
+            x86str = '' if platform.architecture()[0][:2]=='32' else ' (x86)'
+            baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
+            regKeys = []
+            regKeys.append(['Software\\Classes\\bitcoin', '', 'URL:bitcoin Protocol'])
+            regKeys.append(['Software\\Classes\\bitcoin', 'URL Protocol', ""])
+            regKeys.append(['Software\\Classes\\bitcoin\\shell', '', None])
+            regKeys.append(['Software\\Classes\\bitcoin\\shell\\open', '',  None])
+            regKeys.append(['Software\\Classes\\bitcoin\\shell\\open\\command',  '', \
+                           '"%s\\Armory.exe" %%1' % baseDir])
+            regKeys.append(['Software\\Classes\\bitcoin\\DefaultIcon', '',  \
+                           '"%s\\armory48x48.ico"' % baseDir])
+
+            for key,name,val in regKeys:
+               dkey = '%s\\%s' % (key,name)
+               print '\tWriting key: [HKEY_CURRENT_USER\\]' + dkey
+               registryKey = CreateKey(HKEY_CURRENT_USER, key)
+               SetValueEx(registryKey, name, 0, REG_SZ, val)
+               CloseKey(registryKey)
+
+         
          
 
 
