@@ -239,50 +239,6 @@ NETWORKS['\x34'] = "Namecoin Network"
 
 
 
-
-
-# This is a sweet trick for create enum-like dictionaries. 
-# Either automatically numbers (*args), or name-val pairs (**kwargs)
-#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
-def enum(*sequential, **named):
-    enums = dict(zip(sequential, range(len(sequential))), **named)
-    return type('Enum', (), enums)
-
-
-
-# Some useful constants to be used throughout everything
-BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
-LITTLEENDIAN  = '<';
-BIGENDIAN     = '>';
-NETWORKENDIAN = '!';
-ONE_BTC       = long(100000000)
-CENT          = long(1000000)
-UNINITIALIZED = None
-UNKNOWN       = -2
-MIN_TX_FEE    = 50000
-MIN_RELAY_TX_FEE = 10000
-
-UINT8_MAX  = 2**8-1
-UINT16_MAX = 2**16-1
-UINT32_MAX = 2**32-1
-UINT64_MAX = 2**64-1
-
-RightNow = time.time
-SECOND   = 1
-MINUTE   = 60
-HOUR     = 3600
-DAY      = 24*HOUR
-WEEK     = 7*DAY
-MONTH    = 30*DAY
-YEAR     = 365*DAY
-
-# Some time methods (RightNow() return local unix timestamp)
-RightNow = time.time
-def RightNowUTC():
-   return time.mktime(time.gmtime(RightNow()))
-
-
 def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
@@ -336,6 +292,12 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
+# This is a sweet trick for create enum-like dictionaries. 
+# Either automatically numbers (*args), or name-val pairs (**kwargs)
+#http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
+def enum(*sequential, **named):
+    enums = dict(zip(sequential, range(len(sequential))), **named)
+    return type('Enum', (), enums)
 
 def str2coin(coinStr):
    if not '.' in coinStr:
@@ -343,6 +305,39 @@ def str2coin(coinStr):
    else:
       lhs,rhs = coinStr.split('.')
       return int(lhs)*ONE_BTC + int(rhs.ljust(8,'0'))
+
+
+# Some useful constants to be used throughout everything
+BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+LITTLEENDIAN  = '<';
+BIGENDIAN     = '>';
+NETWORKENDIAN = '!';
+ONE_BTC       = long(100000000)
+CENT          = long(1000000)
+UNINITIALIZED = None
+UNKNOWN       = -2
+MIN_TX_FEE    = 50000
+MIN_RELAY_TX_FEE = 10000
+
+UINT8_MAX  = 2**8-1
+UINT16_MAX = 2**16-1
+UINT32_MAX = 2**32-1
+UINT64_MAX = 2**64-1
+
+RightNow = time.time
+SECOND   = 1
+MINUTE   = 60
+HOUR     = 3600
+DAY      = 24*HOUR
+WEEK     = 7*DAY
+MONTH    = 30*DAY
+YEAR     = 365*DAY
+
+# Some time methods (RightNow() return local unix timestamp)
+RightNow = time.time
+def RightNowUTC():
+   return time.mktime(time.gmtime(RightNow()))
 
 
 

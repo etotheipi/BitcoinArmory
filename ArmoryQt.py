@@ -50,12 +50,15 @@ from twisted.internet.protocol import Protocol, ClientFactory
 from twisted.internet.defer import Deferred
 
 
+if OS_WINDOWS:
+   from _winreg import *
+
 
 class ArmoryMainWindow(QMainWindow):
    """ The primary Armory window """
 
    #############################################################################
-   def __init__(self, parent=None, opts=None):
+   def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
       # SETUP THE WINDOWS DECORATIONS
@@ -494,7 +497,6 @@ class ArmoryMainWindow(QMainWindow):
                   self.settings.set('DNAA_DefaultApp', True)
 
       if OS_WINDOWS:
-         from _winreg import *
          # Check for existing registration (user first, then root, if necessary)
          action = 'DoNothing'
          rootKey = 'bitcoin\\shell\\open\\command'
@@ -2214,7 +2216,7 @@ if __name__ == '__main__':
    SPLASH.show()
    QAPP.processEvents()
 
-   form = ArmoryMainWindow(opts=CLI_OPTIONS)
+   form = ArmoryMainWindow()
    form.show()
 
    SPLASH.finish(form)
