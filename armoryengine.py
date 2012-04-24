@@ -70,6 +70,8 @@ parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
+parser.add_option("--disable-conn-notify", dest="disable_conn_notify", action="store_true", default=False,
+                  help="Disable notifactions about Satoshi client connections")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -8577,6 +8579,7 @@ class ArmoryClient(Protocol):
       msgVersion.subver   = ''
       msgVersion.height0  = -1
       self.sendMessage( msgVersion )
+      self.factory.func_madeConnect()
       
    ############################################################
    def dataReceived(self, data):
@@ -8745,6 +8748,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    def __init__(self, \
                 def_handshake=None, \
                 func_loseConnect=None, \
+                func_madeConnect=None, \
                 func_newTx=None, \
                 func_doubleSpendAlert=None):
       """
@@ -8764,6 +8768,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       #         need to expand the versatility of this class, I'll start 
       #         doing more OOP/deferreds/etc
       self.func_loseConnect = func_loseConnect
+      self.func_madeConnect = func_madeConnect
       self.func_doubleSpendAlert = func_doubleSpendAlert
       self.func_newTx = func_newTx
 
@@ -8821,6 +8826,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    #############################################################################
    def clientConnectionLost(self, connector, reason):
       print '***Connection to Satoshi client LOST!  Attempting to reconnect...'
+      self.func_loseConnect()
       ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
 
       
