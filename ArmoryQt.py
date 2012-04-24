@@ -1920,11 +1920,24 @@ class ArmoryMainWindow(QMainWindow):
 
       #descrStr += 'Please select a wallet to use for this transaction:'
 
-      dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
-                            onlyMyWallets=True, atLeast=amt)
+      selectedWalletID = None
+      if len(self.walletMap)==0:
+         reply = QMessageBox.information(self, 'No Wallets!', \
+            'You just clicked on a "bitcoin:" link to send money, but you '
+            'currently have no wallets!  Would you like to create a wallet '
+            'now?', QMessageBox.Yes | QMessageBox.No)
+         if reply==QMessageBox.Yes:
+            self.createNewWallet(initLabel='Primary Wallet')
+         return
+      elif len(self.walletMap)>1:
+         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
+                               onlyMyWallets=True, atLeast=amt)
+         selectedWalletID = dlg.selectedID
+      else:
+         selectedWalletID = self.walletIDList[0]
+         
       if dlg.exec_():
-         wltID = dlg.selectedID 
-         wlt = self.walletMap[wltID]
+         wlt = self.walletMap[selectedWalletID]
          dlgSend = DlgSendBitcoins(wlt, self, self, uriDict)
          dlgSend.exec_()
       
