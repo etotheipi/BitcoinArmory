@@ -329,7 +329,7 @@ class ArmoryMainWindow(QMainWindow):
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
       #if self.usermode==USERMODE.Standard:
-      self.setMinimumSize(900,300)
+      self.setMinimumSize(800,400)
       #else:
          #self.setMinimumSize(1200,300)
 
@@ -2228,6 +2228,9 @@ if __name__ == '__main__':
    SPLASH.setMask(pixLogo.mask())
    SPLASH.show()
    QAPP.processEvents()
+
+   # Will make this customizable
+   QAPP.setFont(GETFONT('var'))
 
    form = ArmoryMainWindow()
    form.show()

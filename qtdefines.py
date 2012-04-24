@@ -44,10 +44,11 @@ def GETFONT(ftype, sz=10, bold=False):
       else: 
          fnt = QFont("DejaVu Sans Mono", sz)
    elif ftype.lower().startswith('var'):
-      if OS_WINDOWS:
-         fnt = QFont("Tahoma", sz)
-      else: 
-         fnt = QFont("Sans", sz)
+      fnt = QFont("Verdana", sz)
+      #if OS_WINDOWS:
+         #fnt = QFont("Tahoma", sz)
+      #else: 
+         #fnt = QFont("Sans", sz)
    elif ftype.lower().startswith('money'):
       if OS_WINDOWS:
          fnt = QFont("Courier", sz)
