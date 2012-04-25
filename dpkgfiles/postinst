@@ -3,12 +3,23 @@
 import os
 import time
 from subprocess import Popen, PIPE
+import platform
 
 def execAndWait(cli_str):
    print '\tEXEC:', cli_str
    process = Popen(cli_str, shell=True)
    while process.poll() == None:
       time.sleep(0.01)
+
+# Ubuntu 10.10+ has issues with the regular gconftool-2 commands
+# for registering URL handlers.  Need a different solution, but 
+# it's a permanent one.
+perm_app_register = False
+dist,version,ID = platform.linux_distribution()
+major,minor = [int(v) for v in version.split('.')]
+if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
+   perm_app_register = True
+
 
 def createDesktopFile(name, idstr, arglist, toDir=''):
    toPath = os.path.join(toDir, 'armory%s.desktop' % idstr) 
@@ -25,10 +36,14 @@ def createDesktopFile(name, idstr, arglist, toDir=''):
    deskfile.write('Exec=python /usr/share/armory/ArmoryQt.py')
    for a in arglist:
       deskfile.write(' --%s' % a)
+   if perm_app_register:
+      deskfile.write(' %u')
    deskfile.write('\n')
    deskfile.write('Icon=armory%sicon\n' % idstr)
    deskfile.write('StartupNotify=false\n')
    deskfile.write('Terminal=false\n')
+   if name=='' and perm_app_register:
+      deskfile.write('MimeType=x-scheme-handler/bitcoin\n')
    deskfile.close()
 
 
