@@ -773,7 +773,7 @@ class ArmoryMainWindow(QMainWindow):
             '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
          self.sysTray.showMessage('Disconnected', \
                'Connection to Satoshi client lost!  Armory cannot send \n'
-               'or receive Bitcoins until Satoshi client is opened again.', \
+               'or receive Bitcoins until Satoshi client is available.', \
                QSystemTrayIcon.Critical, 10000)
 
 
