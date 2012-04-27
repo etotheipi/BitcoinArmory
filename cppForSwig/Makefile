@@ -6,16 +6,23 @@ COMPILER_OPTS = -c -O2 -pipe -fPIC
 LINKER = g++ 
 OBJS = UniversalTimer.o BinaryData.o BinaryDataMMAP_POSIX.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o EncryptionUtils.o libcryptopp.a
 
+UNAME := $(shell uname)
+ifeq ($(UNAME), Darwin)
+  DEPSDIR = $(shell brew --prefix)
+else
+  DEPSDIR = /usr
+endif
+
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread -lpython2.7
-SWIG_INC     += -I/usr/include/python2.7
+SWIG_INC     += -I"$(DEPSDIR)/include/python2.7"
 SWIG_OPTS    += -c++ -python -classic
 
-ifneq (exists, $(shell [ -d /usr/include/python2.7 ]  && echo exists ))
-   SWIG_INC     = -I/usr/include/python2.6
+ifneq (exists, $(shell [ -d "$(DEPSDIR)/include/python2.7" ]  && echo exists ))
+   SWIG_INC     = -I"$(DEPSDIR)/include/python2.6"
    LIBRARY_OPTS = -lpthread -lpython2.6
-   ifneq (exists, $(shell [ -d /usr/include/python2.6 ]  && echo exists ))
-      SWIG_INC     = -I/usr/include/python2.5
+   ifneq (exists, $(shell [ -d "$(DEPSDIR)/include/python2.6" ]  && echo exists ))
+      SWIG_INC     = -I"$(DEPSDIR)/include/python2.5"
       LIBRARY_OPTS = -lpthread -lpython2.5
    endif
 endif
