@@ -87,7 +87,7 @@ if CLI_OPTIONS.interport < 0:
 
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 75, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 75, 1, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -96,9 +96,9 @@ ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
    if (vquad[2] > 0 or vquad[3] > 0) and numPieces>2:
-      vstr += '.%02d' % vquad[2]
+      vstr += '.%d' % vquad[2]
    if vquad[3] > 0 and numPieces>3:
-      vstr += '.%03d' % vquad[3]
+      vstr += '.%d' % vquad[3]
    return vstr
 
 def getVersionInt(vquad, numPieces=4):

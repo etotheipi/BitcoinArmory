@@ -13,7 +13,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
+Test_BasicUtils       = True
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -30,7 +30,7 @@ Test_ReactorLoop      = False
 Test_SettingsFile     = False
 Test_WalletMigrate    = False
 Test_AddressBooks     = False
-Test_URIParse         = True
+Test_URIParse         = False
 
 '''
 import optparse
@@ -158,7 +158,7 @@ if Test_BasicUtils:
 
    verTuple = (0,20,0,108)
    verInt   =  2000108
-   verStr   = '0.20.00.108'
+   verStr   = '0.20.0.108'
    testFunction('getVersionString',   verStr, verTuple)
    testFunction('getVersionInt',      verInt, verTuple)
    testFunction('readVersionString',  verTuple, verStr)

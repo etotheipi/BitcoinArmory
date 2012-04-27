@@ -48,9 +48,9 @@ with open('armoryengine.py') as f:
          print vquad, len(vquad)
          vstr = '%d.%02d' % vquad[:2]
          if (vquad[2] > 0 or vquad[3] > 0):
-            vstr += '.%02d' % vquad[2]
+            vstr += '.%d' % vquad[2]
          if vquad[3] > 0:
-            vstr += '.%03d' % vquad[3]
+            vstr += '.%d' % vquad[3]
          break
 
 pyversion = platform.python_version()
