@@ -1,563 +1,581 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0fede594_2459_461c_9b71_e81f14e618eb" nextUniqueId="1509" projectName="Armory Bitcoin Client" projectUuid="c41005d1-c532-48c9-8a9a-cd534771d8fb" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.75" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="C:\Users\vbox\ArmoryCheckout" projectTargetName="ArmorySetup" projectType="0" projectUserInterface="WixUI_Minimal">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="1868" projectName="Armory Bitcoin Client" projectUuid="4fa466db-cb14-45ac-bfe9-c648584a5653" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.75.1" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="Armory_Win64" projectType="0" projectUserInterface="WixUI_Minimal">
   <LicencePaths>
     <string>C:\Program Files (x86)\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
   <Virgin>false</Virgin>
   <projectFeatures featureId="ID90E1C812AFA05D225FBD63E0FC11FD98" featureName="Armory" featureDescription="The complete package" configurableDirectory="APPLICATIONFOLDER" configurableDirectoryDefaultPath="[ProjectName]" enableInDefaultInstall="true" enableInMinimalInstall="true" excludeFromBuild="false">
-    <childFeatures featureId="PROGRAM" featureName="Program" featureDescription="The Main Executable" enableInDefaultInstall="true" enableInMinimalInstall="true" excludeFromBuild="false">
-      <components componentId="ID1103" componentGuid="6f79bd89-3f97-44f9-a596-396851153625">
-        <componentFiles fileId="ID_735a33c5_c732_4eca_a08d_0c1c6814ed40" srcName="QtGui4.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="QtGui4.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="QtGui4" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1102" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+    <childFeatures featureId="ID56094662528CCBB1F81093993B346D0C" featureName="Program" featureDescription="Full Client Installation" enableInDefaultInstall="true" enableInMinimalInstall="true" excludeFromBuild="false">
+      <components componentId="ID1592" componentGuid="839a6238-b6bc-4951-8b23-6ad25563867c">
+        <componentFiles fileId="ID_523387eb_9bbd_41bb_909e_a545cd172d76" srcName="POWRPROF.dll" srcDirectory="..\ArmoryStandalone" dstName="POWRPROF.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="POWRPROF" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1591" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1105" componentGuid="0d90d9da-b735-4be1-8540-81f4c426f3cd">
-        <componentFiles fileId="ID_39c9f62c_4cee_4301_8d3d_5ef92e309982" srcName="select.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="select.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="select" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1104" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1594" componentGuid="c1cc5876-c1eb-4531-9450-b2d6902a79bf">
+        <componentFiles fileId="ID_a0783dad_9c48_4fbe_abe3_d5e0b5bb937e" srcName="pyexpat.pyd" srcDirectory="..\ArmoryStandalone" dstName="pyexpat.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="pyexpat" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1593" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1107" componentGuid="9bc29b6a-8566-4ea9-b7b9-7d44d14a8198">
-        <componentFiles fileId="ID_6b185ab7_fdd8_4826_a4d0_c10041d1da33" srcName="SETUPAPI.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="SETUPAPI.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="SETUPAPI" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1106" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1596" componentGuid="a6ad62f8-cc88-4f9d-898a-5d931f4ca285">
+        <componentFiles fileId="ID_2f859d64_c252_459d_b676_bef8bbe603cb" srcName="PyQt4.QtCore.pyd" srcDirectory="..\ArmoryStandalone" dstName="PyQt4.QtCore.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="PyQt4.QtCore" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1595" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1109" componentGuid="d26afd52-e7ec-4809-b2a2-b2687de1ca1f">
-        <componentFiles fileId="ID_119acc00_6a9a_4061_bf1d_8ed538b59ef3" srcName="sip.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="sip.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="sip" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1108" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1598" componentGuid="d1a9d0fb-2d77-4ec0-84c0-1d349504f6c9">
+        <componentFiles fileId="ID_97cdac09_b2ed_49d1_b637_8fe255d3f029" srcName="PyQt4.QtGui.pyd" srcDirectory="..\ArmoryStandalone" dstName="PyQt4.QtGui.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="PyQt4.QtGui" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1597" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1111" componentGuid="3277dac3-fcbf-4c87-b13f-95ec8b637632">
-        <componentFiles fileId="ID_d7fd07a3_bc4b_48ff_90bf_cb950d9d2c79" srcName="twisted.python._initgroups.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="twisted.python._initgroups.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="twisted.python._initgroups" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1110" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1600" componentGuid="2783ad53-e9f8-4859-9851-617d1f41beed">
+        <componentFiles fileId="ID_89d6497f_9eea_4c89_a06e_3d17ae32b48b" srcName="python27.dll" srcDirectory="..\ArmoryStandalone" dstName="python27.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="python27" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1599" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1113" componentGuid="8f06c60a-6e58-4451-bbbe-f4cd999a7364">
-        <componentFiles fileId="ID_f0339d82_11ef_40f0_bd57_0299ced72d29" srcName="unicodedata.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="unicodedata.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="unicodedata" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1112" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1602" componentGuid="c92e052a-bcee-4b88-9aa8-716b622a0fb0">
+        <componentFiles fileId="ID_38a51e05_2eac_48c4_a897_830138ae0e0f" srcName="pywintypes27.dll" srcDirectory="..\ArmoryStandalone" dstName="pywintypes27.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="pywintypes27" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1601" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1115" componentGuid="e11a405b-ded2-4cd1-ab2a-05b096c089f5">
-        <componentFiles fileId="ID_613ecec5_e0db_4f12_905d_584cfe27bfb2" srcName="win32api.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32api.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32api" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1114" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1604" componentGuid="f2c058b7-5b86-4ac6-bc18-a79b24d0a766">
+        <componentFiles fileId="ID_81f36466_c999_4728_b379_109d99ae0fef" srcName="QtCore4.dll" srcDirectory="..\ArmoryStandalone" dstName="QtCore4.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="QtCore4" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1603" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1117" componentGuid="2cbff642-b18f-4a4c-8086-8a613a024482">
-        <componentFiles fileId="ID_be36c870_e0f1_4aed_aedb_7701036e2a84" srcName="win32event.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32event.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32event" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1116" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1606" componentGuid="ae861dc0-c774-4933-9709-dba844f5eafb">
+        <componentFiles fileId="ID_aaf97147_e0c7_46e6_8bfb_5daef484d6cd" srcName="QtGui4.dll" srcDirectory="..\ArmoryStandalone" dstName="QtGui4.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="QtGui4" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1605" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1119" componentGuid="8eb9d4e2-b093-44aa-b82d-e6c4649aa1bf">
-        <componentFiles fileId="ID_be6f09ca_99d4_405f_8b89_75e60d571655" srcName="win32file.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32file.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32file" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1118" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1608" componentGuid="9803434d-9037-4cd9-834b-d531a4117953">
+        <componentFiles fileId="ID_54d09adf_a9e2_471d_a36b_2b5c8d5f73df" srcName="README" srcDirectory="..\ArmoryStandalone" dstName="README" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="README" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1607" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1121" componentGuid="ae6cdcb8-48c7-43ea-8339-adc8d1f638d0">
-        <componentFiles fileId="ID_97e902c2_85e9_4a5c_a4ef_41b0ee244ead" srcName="win32gui.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32gui.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32gui" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1120" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1610" componentGuid="f29d8c55-3644-4fcc-88e5-2f66dd9df9a2">
+        <componentFiles fileId="ID_b29630be_6b66_492f_b9a4_53c6814d2be4" srcName="select.pyd" srcDirectory="..\ArmoryStandalone" dstName="select.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="select" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1609" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1123" componentGuid="a0c2ad63-b5f2-40cb-9d30-eded4ea138b7">
-        <componentFiles fileId="ID_bd4fc26c_606d_4946_be1c_bffb4870c1c5" srcName="win32pipe.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32pipe.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32pipe" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1122" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1612" componentGuid="517f1950-440d-4640-b1c1-9cd8439866c9">
+        <componentFiles fileId="ID_699f5d8c_ca8b_4a84_bd17_ec40423b30b3" srcName="SETUPAPI.dll" srcDirectory="..\ArmoryStandalone" dstName="SETUPAPI.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="SETUPAPI" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1611" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1125" componentGuid="fe93bd4d-ad5f-48b8-81e6-6f0f34f82402">
-        <componentFiles fileId="ID_bd1195df_f8c3_48ce_a295_05390dbb9f1e" srcName="win32process.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32process.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32process" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1124" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1614" componentGuid="fb31cdfa-ba1f-4edc-bd37-86cb34a51617">
+        <componentFiles fileId="ID_45c71643_9bc6_440e_9a66_2da6fe87bbd7" srcName="sip.pyd" srcDirectory="..\ArmoryStandalone" dstName="sip.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="sip" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1613" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1127" componentGuid="5edcfa3d-9e37-4836-9f61-4df6dd6e5c6d">
-        <componentFiles fileId="ID_0f3c9489_41c7_438b_917b_623c760c94f2" srcName="win32security.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="win32security.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32security" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1126" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1616" componentGuid="b40b3691-12e8-4e86-9c32-4914399cb8e8">
+        <componentFiles fileId="ID_9afceb66_7e38_440b_8720_b9622bb912dc" srcName="twisted.python._initgroups.pyd" srcDirectory="..\ArmoryStandalone" dstName="twisted.python._initgroups.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="twisted.python._initgroups" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1615" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1129" componentGuid="3aed9639-6c38-45ad-942e-543fb1996c19">
-        <componentFiles fileId="ID_cce4a3c5_513b_4bc3_87fa_079e0ddd8eac" srcName="_bsddb.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_bsddb.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_bsddb" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1128" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1618" componentGuid="cbce337e-2706-425a-8ca0-97a344ce07d8">
+        <componentFiles fileId="ID_3a9cfc0e_5466_4cb9_9edb_35bb909263de" srcName="unicodedata.pyd" srcDirectory="..\ArmoryStandalone" dstName="unicodedata.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="unicodedata" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1617" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1131" componentGuid="5bd23e54-f06d-4bd8-b4a1-a803fc1ea480">
-        <componentFiles fileId="ID_f0807246_c9a5_481f_bc71_689731bade9b" srcName="_CppBlockUtils.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_CppBlockUtils.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1130" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1620" componentGuid="b181e614-f2f0-4e83-ac83-6868af1a0f4a">
+        <componentFiles fileId="ID_0811e231_46fb_401d_a902_9d3dab122aa4" srcName="win32api.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32api.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32api" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1619" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1133" componentGuid="299da921-af8b-4d6f-8e25-a3e46ba2705a">
-        <componentFiles fileId="ID_8b313c47_b82e_479a_96a9_ec402403014f" srcName="_ctypes.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_ctypes.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_ctypes" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1132" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1622" componentGuid="667d746d-5055-4f83-a9ad-0701d3d1919e">
+        <componentFiles fileId="ID_8d09c0e7_9b82_4a59_be37_5241789befb6" srcName="win32event.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32event.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32event" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1621" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1135" componentGuid="ba8ccc53-2cee-4f3e-9c4f-4c3b1d351af7">
-        <componentFiles fileId="ID_1d5fdad0_4384_49b3_af1f_3d4d43d04a5b" srcName="_hashlib.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_hashlib.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_hashlib" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1134" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1624" componentGuid="edba7b6e-f7bb-454c-9478-9dcc40b17f30">
+        <componentFiles fileId="ID_12cf91d6_6810_4606_b331_7a18f560eee0" srcName="win32file.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32file.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32file" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1623" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1137" componentGuid="3155b522-d0ac-4702-a012-b1598fb50639">
-        <componentFiles fileId="ID_c5fcf03e_ff0c_489c_a42a_767ab403a8d1" srcName="_socket.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_socket.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_socket" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1136" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1626" componentGuid="4a0b9205-6dc3-4379-af08-b40feff3e508">
+        <componentFiles fileId="ID_f85d4dbc_a950_4497_93d1_23dcb7c3bf20" srcName="win32gui.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32gui.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32gui" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1625" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1139" componentGuid="be3a0c31-61d5-4621-b43b-263746b86313">
-        <componentFiles fileId="ID_ee014b5a_c617_4bda_94b7_e1ad55a1f5b7" srcName="_ssl.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_ssl.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_ssl" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1138" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1628" componentGuid="d7dd9a7c-0325-4361-be33-525e8beaa892">
+        <componentFiles fileId="ID_043c3416_73dd_4e67_907f_26ede5144173" srcName="win32pipe.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32pipe.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32pipe" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1627" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1141" componentGuid="33e6c67b-b4c1-44f9-89ce-ccbe2347b6aa">
-        <componentFiles fileId="ID_6832c04b_a39b_4d2e_ab0d_d02c482c9e50" srcName="_win32sysloader.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="_win32sysloader.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_win32sysloader" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1140" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1630" componentGuid="5c5627f6-ce3e-40a6-aedc-d18ada987c05">
+        <componentFiles fileId="ID_123a2698_7349_4ada_8390_017826c256db" srcName="win32process.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32process.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32process" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1629" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1143" componentGuid="3846712e-a22d-4ccd-b2c8-5423a9177546">
-        <componentFiles fileId="ID_c0e6ca9e_ff23_4c3f_8adb_483b63c59551" srcName="API-MS-Win-Core-Debug-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Debug-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Debug-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1142" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1632" componentGuid="9ccffd32-cf2a-4c28-b09b-308148e2b0e1">
+        <componentFiles fileId="ID_05184380_9b30_4481_adef_4eadb7fa3b5e" srcName="win32security.pyd" srcDirectory="..\ArmoryStandalone" dstName="win32security.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="win32security" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1631" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1145" componentGuid="60d5b091-6a49-4908-b6e3-2a4b7448c032">
-        <componentFiles fileId="ID_8c27dbe0_1154_4f9d_a256_b9816079e1cb" srcName="API-MS-Win-Core-DelayLoad-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-DelayLoad-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-DelayLoad-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1144" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1634" componentGuid="0594c602-7608-48d6-8508-5f3a03a8eb98">
+        <componentFiles fileId="ID_83967676_f1a6_46ad_a280_2a2c378f1337" srcName="_bsddb.pyd" srcDirectory="..\ArmoryStandalone" dstName="_bsddb.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_bsddb" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1633" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1147" componentGuid="c763b56e-177e-4a4e-bdb0-e19674eb09b0">
-        <componentFiles fileId="ID_ae6203b2_9341_4cae_a678_428d5bcf03a1" srcName="API-MS-Win-Core-ErrorHandling-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-ErrorHandling-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ErrorHandling-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1146" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1636" componentGuid="5d78170b-d97d-4446-85d3-0a5c806667e9">
+        <componentFiles fileId="ID_5e3b175e_ed5d_4447_b63e_5f36852b7a4f" srcName="_CppBlockUtils.pyd" srcDirectory="..\ArmoryStandalone" dstName="_CppBlockUtils.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1635" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1149" componentGuid="e46d5867-d463-41bb-a672-195ebf81344d">
-        <componentFiles fileId="ID_272db83d_1ae0_45c0_9eae_ce3a53b6c3ee" srcName="API-MS-Win-Core-Handle-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Handle-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Handle-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1148" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1638" componentGuid="f27d29be-708d-4896-8cc0-72bb2f055231">
+        <componentFiles fileId="ID_79303996_9df5_4e3e_88ea_1518bb1f249e" srcName="_ctypes.pyd" srcDirectory="..\ArmoryStandalone" dstName="_ctypes.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_ctypes" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1637" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1151" componentGuid="87ddc48f-18e8-4828-b0c9-4322f4f19839">
-        <componentFiles fileId="ID_004450e5_5ee2_4dcc_8c15_219880a9e7c0" srcName="API-MS-Win-Core-IO-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-IO-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-IO-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1150" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1640" componentGuid="814a6677-4c51-432d-8198-523998a66ea2">
+        <componentFiles fileId="ID_252e0ba4_69c6_4111_bfc7_c1cee62438a4" srcName="_hashlib.pyd" srcDirectory="..\ArmoryStandalone" dstName="_hashlib.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_hashlib" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1639" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1153" componentGuid="0ef86275-cc8d-4a21-8327-095d7c34e8f5">
-        <componentFiles fileId="ID_89f4e77b_2867_41e3_8dbd_3bd316bacf13" srcName="API-MS-Win-Core-LibraryLoader-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-LibraryLoader-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-LibraryLoader-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1152" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1642" componentGuid="8fabf180-46b5-4f86-9ed3-ee6d6fc8df7f">
+        <componentFiles fileId="ID_4227690c_9d12_4979_b38c_22d0dc693315" srcName="_socket.pyd" srcDirectory="..\ArmoryStandalone" dstName="_socket.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_socket" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1641" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1155" componentGuid="f78a1f14-aa2b-4de1-97ae-0d3c5dfcf50c">
-        <componentFiles fileId="ID_ffa9d7d4_e925_416d_b434_a4058c4ebb75" srcName="API-MS-Win-Core-Localization-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Localization-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Localization-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1154" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1644" componentGuid="048fef9a-af30-43e4-b08a-404213de98e4">
+        <componentFiles fileId="ID_e1e83f11_cc99_466b_ac02_58c4c78ad24c" srcName="_ssl.pyd" srcDirectory="..\ArmoryStandalone" dstName="_ssl.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_ssl" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1643" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1157" componentGuid="1b7d089c-703b-46da-9a2e-3e2bddddf346">
-        <componentFiles fileId="ID_f1a683b5_30db_46c5_af87_e74ba7aff6c3" srcName="API-MS-Win-Core-LocalRegistry-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-LocalRegistry-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-LocalRegistry-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1156" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1646" componentGuid="60985093-1514-43b4-886a-8e42d0d040aa">
+        <componentFiles fileId="ID_f75b8576_c833_4c0b_8fc3_94a0f805adfa" srcName="_win32sysloader.pyd" srcDirectory="..\ArmoryStandalone" dstName="_win32sysloader.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="_win32sysloader" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1645" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1159" componentGuid="b9f72197-9283-4152-9ac4-72e95ff5f2e5">
-        <componentFiles fileId="ID_79c36295_c1b6_481d_b3ca_e3ea90726df4" srcName="API-MS-Win-Core-Memory-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Memory-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Memory-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1158" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1648" componentGuid="84b25d94-990d-46f6-85b6-b15e8061efa5">
+        <componentFiles fileId="ID_8f5b8c8d_0258_4a99_96df_8809963bc401" srcName="API-MS-Win-Core-Debug-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Debug-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Debug-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1647" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1161" componentGuid="9ed8def4-b329-412d-8ff6-dfb0e321c01d">
-        <componentFiles fileId="ID_90ab913e_4acf_4ede_a0f9_68e1910b244b" srcName="API-MS-Win-Core-Misc-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Misc-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Misc-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1160" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1650" componentGuid="f9d36fb2-bc01-4031-891a-e52db87dab79">
+        <componentFiles fileId="ID_6e8cc121_db3d_4c21_9e1c_6db4cde0efcf" srcName="API-MS-Win-Core-DelayLoad-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-DelayLoad-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-DelayLoad-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1649" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1163" componentGuid="d6d674de-85fb-4fa4-bd03-eb14a564069a">
-        <componentFiles fileId="ID_8fe8ad8a_93ab_4156_8693_11b765f5c0ad" srcName="API-MS-Win-Core-ProcessEnvironment-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-ProcessEnvironment-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ProcessEnvironment-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1162" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1652" componentGuid="f247d331-b47a-4fd0-abe0-cbd1a15dd12f">
+        <componentFiles fileId="ID_fa60b53f_0747_479d_90c3_bcf76744cbc2" srcName="API-MS-Win-Core-ErrorHandling-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-ErrorHandling-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ErrorHandling-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1651" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1165" componentGuid="6316ac64-05c2-480c-92d0-14a5997eb406">
-        <componentFiles fileId="ID_0903804d_92b7_473f_93a4_e23c124017b8" srcName="API-MS-Win-Core-ProcessThreads-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-ProcessThreads-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ProcessThreads-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1164" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1654" componentGuid="223b4135-673e-4916-85c7-f6f552d6995d">
+        <componentFiles fileId="ID_8866e755_a790_4222_b767_0d56a2828660" srcName="API-MS-Win-Core-Handle-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Handle-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Handle-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1653" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1167" componentGuid="8d528fac-38d4-4784-a0e6-b02cb6e97221">
-        <componentFiles fileId="ID_f8e082d7_d22e_4e44_9b38_8552b73f7b70" srcName="API-MS-Win-Core-Profile-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Profile-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Profile-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1166" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1656" componentGuid="990b6654-0d55-4290-9209-ce0b8ffbbe13">
+        <componentFiles fileId="ID_f14a42e2_c983_46a5_9b8c_a5dcc6a56a02" srcName="API-MS-Win-Core-IO-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-IO-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-IO-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1655" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1169" componentGuid="e1d86c81-3549-4415-9348-a98fc5c52169">
-        <componentFiles fileId="ID_e1df3d17_0992_4fbd_a6cd_18efa81cf6a3" srcName="API-MS-Win-Core-String-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-String-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-String-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1168" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1658" componentGuid="752e2b1a-7fea-4043-9358-c162f2cb99aa">
+        <componentFiles fileId="ID_2c159ab4_557d_4990_a46f_863350634dae" srcName="API-MS-Win-Core-LibraryLoader-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-LibraryLoader-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-LibraryLoader-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1657" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1171" componentGuid="0d53545a-668b-467b-825d-daf276ff8422">
-        <componentFiles fileId="ID_1452daee_2f8d_4c03_b4c8_a2d7bc55e925" srcName="API-MS-Win-Core-Synch-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-Synch-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Synch-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1170" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1660" componentGuid="fa1f66cf-ee82-4e1e-914e-3105996e6636">
+        <componentFiles fileId="ID_ee462531_417e_4905_9a32_384fe4782b8d" srcName="API-MS-Win-Core-Localization-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Localization-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Localization-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1659" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1173" componentGuid="064ab7bf-5a11-452f-8503-ca62a51c66aa">
-        <componentFiles fileId="ID_607e3a13_dc50_4594_9ada_2244e2f11868" srcName="API-MS-Win-Core-SysInfo-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Core-SysInfo-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-SysInfo-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1172" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1662" componentGuid="b8123e0d-14bb-4dd8-8836-04288e8ed09c">
+        <componentFiles fileId="ID_57be7819_6879_412a_a9c4_046226f132b0" srcName="API-MS-Win-Core-LocalRegistry-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-LocalRegistry-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-LocalRegistry-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1661" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1175" componentGuid="11abb0ab-e8d1-4300-ae0e-8af1f6e5eb99">
-        <componentFiles fileId="ID_e0b307ee_3aae_40d8_9a0c_23feafb2ba50" srcName="API-MS-Win-Security-Base-L1-1-0.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="API-MS-Win-Security-Base-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Security-Base-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1174" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1664" componentGuid="b2a89af6-f731-4f66-9db3-70acb1db7151">
+        <componentFiles fileId="ID_82091c85_ea7b_4a99_a7d0_512636c6cc0d" srcName="API-MS-Win-Core-Memory-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Memory-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Memory-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1663" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1177" componentGuid="04d286b5-b945-499c-93fd-ae44459bdacd">
-        <componentFiles fileId="ID_0fede594_2459_461c_9b71_e81f14e618eb" srcName="ArmoryQt.exe" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="Armory.exe" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="Armory" shortcutInProgramFilesMenu="true" shortcutOnDesktop="true" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1176" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1666" componentGuid="366c02bc-e767-41f5-9b83-c75edf3d3dde">
+        <componentFiles fileId="ID_52797f63_66c0_4735_93f3_6b3ee737b676" srcName="API-MS-Win-Core-Misc-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Misc-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Misc-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1665" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1179" componentGuid="0b462d3b-08e3-4c97-8395-afa699060c71">
-        <componentFiles fileId="ID_d0c2706e_c253_4612_a25e_e849a8fb74e9" srcName="bz2.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="bz2.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="bz2" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1178" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1668" componentGuid="e02b1598-7702-44ee-816c-b5512efea294">
+        <componentFiles fileId="ID_9c6ba154_fa5f_40e5_9ce0_a6130063a538" srcName="API-MS-Win-Core-ProcessEnvironment-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-ProcessEnvironment-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ProcessEnvironment-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1667" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1181" componentGuid="9d5227ab-aefd-4738-92b5-005946831501">
-        <componentFiles fileId="ID_53faa26f_034d_401a_a3d1_2dfdcc0376e1" srcName="CFGMGR32.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="CFGMGR32.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CFGMGR32" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1180" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1670" componentGuid="57b28e88-a189-48ec-901e-aca6868ae4c3">
+        <componentFiles fileId="ID_0cf235f2_278f_4e0a_a7e5_2931c2283f4c" srcName="API-MS-Win-Core-ProcessThreads-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-ProcessThreads-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-ProcessThreads-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1669" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1183" componentGuid="0e40d558-acbe-467e-ab96-07dc98853b1f">
-        <componentFiles fileId="ID_f099e98c_23e8_4137_8838_e05d545ff8c9" srcName="DEVOBJ.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="DEVOBJ.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="DEVOBJ" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1182" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1672" componentGuid="1d8d8827-82dc-49af-ab0b-ad3991336a0a">
+        <componentFiles fileId="ID_e8ac38d5_fc15_4951_bf30_2437c0a70f30" srcName="API-MS-Win-Core-Profile-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Profile-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Profile-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1671" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1185" componentGuid="6287c04a-a115-4e0a-9b61-3c1464509ecd">
-        <componentFiles fileId="ID_a7c96274_e02d_4b53_b1d6_486395534c4b" srcName="KERNELBASE.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="KERNELBASE.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="KERNELBASE" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1184" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1674" componentGuid="99867504-037e-4c78-a48d-aaea66f3b765">
+        <componentFiles fileId="ID_1279df0e_56a2_48ae_a828_62696d3b5710" srcName="API-MS-Win-Core-String-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-String-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-String-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1673" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1187" componentGuid="d689f201-b378-4838-9540-7da43936ed8e">
-        <componentFiles fileId="ID_4cff1e48_ca49_42f8_8146_862e7ef57c5d" srcName="library.zip" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="library.zip" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="library" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1186" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1676" componentGuid="5262350f-9984-4d86-88aa-472544eaa802">
+        <componentFiles fileId="ID_528ad583_60f0_46d6_8c09_b4b6e343036d" srcName="API-MS-Win-Core-Synch-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-Synch-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-Synch-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1675" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1189" componentGuid="13dfaf9a-6ba6-4f52-9e3d-e735bf7a53b5">
-        <componentFiles fileId="ID_b40143cf_2aff_4f35_a0d8_518d17d1f260" srcName="MSWSOCK.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="MSWSOCK.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="MSWSOCK" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1188" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1678" componentGuid="a260cace-9231-4c79-95ee-d6a9fcc5c1db">
+        <componentFiles fileId="ID_8c23d101_c0fc_4061_8971_47f9a450c57f" srcName="API-MS-Win-Core-SysInfo-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Core-SysInfo-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Core-SysInfo-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1677" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1191" componentGuid="8fec6f86-bf3d-4db8-8f61-d80ecd915c2b">
-        <componentFiles fileId="ID_3b3bfa04_7c4f_47bb_b414_747dd7701275" srcName="POWRPROF.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="POWRPROF.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="POWRPROF" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1190" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1680" componentGuid="93191b35-9139-4573-90c9-3ef2c1f1c365">
+        <componentFiles fileId="ID_bee3ca64_6317_4424_9767_d6b7e04f3f19" srcName="API-MS-Win-Security-Base-L1-1-0.dll" srcDirectory="..\ArmoryStandalone" dstName="API-MS-Win-Security-Base-L1-1-0.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="API-MS-Win-Security-Base-L1-1-0" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1679" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1193" componentGuid="d7b520f0-98c6-4923-9c56-1898e2ab098f">
-        <componentFiles fileId="ID_a9b6e416_ea59_48b5_bbb8_1fb812212531" srcName="pyexpat.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="pyexpat.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="pyexpat" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1192" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1682" componentGuid="addd80c0-d01a-478e-aa6b-6921162d6f65">
+        <componentFiles fileId="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" srcName="ArmoryQt.exe" srcDirectory="..\ArmoryStandalone" dstName="Armory.exe" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="Armory" shortcutInProgramFilesMenu="true" shortcutOnDesktop="true" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1681" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1195" componentGuid="31802208-e192-4608-a27b-6fb19f063268">
-        <componentFiles fileId="ID_889b0a93_401d_4f74_a606_3e788420b703" srcName="PyQt4.QtCore.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="PyQt4.QtCore.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="PyQt4.QtCore" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1194" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1684" componentGuid="bbaa3d60-f12a-4ac3-9b4e-345ea942f006">
+        <componentFiles fileId="ID_56514bcb_aaf9_42cd_9f12_c7bec244884d" srcName="bz2.pyd" srcDirectory="..\ArmoryStandalone" dstName="bz2.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="bz2" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1683" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1197" componentGuid="a87ef54a-edd6-4bbb-8e9a-8f987751b6ff">
-        <componentFiles fileId="ID_df5ad9cc_e2c4_4c3d_b3db_6e0d10e9472b" srcName="PyQt4.QtGui.pyd" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="PyQt4.QtGui.pyd" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="PyQt4.QtGui" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1196" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1686" componentGuid="d7faad13-3bbd-4559-9d39-e9af35ae603c">
+        <componentFiles fileId="ID_89cfdd31_2cea_456e_aeb4_28e564ea0094" srcName="CFGMGR32.dll" srcDirectory="..\ArmoryStandalone" dstName="CFGMGR32.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CFGMGR32" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1685" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1199" componentGuid="f4ce5204-d036-455a-91e8-9082d0d127f9">
-        <componentFiles fileId="ID_a3febe18_93b9_47e3_8de3_55ce551a59d8" srcName="python27.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="python27.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="python27" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1198" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1688" componentGuid="dd2c56b1-12bd-4549-a444-1b2bf10a6a12">
+        <componentFiles fileId="ID_030685b6_4b6e_44db_8d81_153d1d0589b9" srcName="DEVOBJ.dll" srcDirectory="..\ArmoryStandalone" dstName="DEVOBJ.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="DEVOBJ" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1687" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1201" componentGuid="b8a7ec82-4882-4645-b235-88e0849f05d7">
-        <componentFiles fileId="ID_c5bae492_f4b9_48ba_8125_6f61711656bd" srcName="pywintypes27.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="pywintypes27.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="pywintypes27" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1200" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1690" componentGuid="e0e59c53-7c00-469e-9986-32fe348d260c">
+        <componentFiles fileId="ID_c12eb106_46c5_4eab_9766_ae5d95a9c3c5" srcName="KERNELBASE.dll" srcDirectory="..\ArmoryStandalone" dstName="KERNELBASE.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="KERNELBASE" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1689" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1203" componentGuid="949b9ee2-fa5a-4443-aac2-b937973f0023">
-        <componentFiles fileId="ID_6cc5002b_985f_436d_bdac_f79c894f4bc7" srcName="QtCore4.dll" srcDirectory=".\BitcoinArmory\ArmoryStandalone" dstName="QtCore4.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="QtCore4" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1202" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1692" componentGuid="b5cb6666-c40b-4afd-b555-30cae3e24d29">
+        <componentFiles fileId="ID_57ce8ae2_911e_471f_97b1_c67c17641531" srcName="library.zip" srcDirectory="..\ArmoryStandalone" dstName="library.zip" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="library" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1691" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1433" componentGuid="a8436554-92f5-44fd-bfc9-1f85962baa42">
-        <componentFiles fileId="ID_81cc11ed_6caa_453f_ba44_d4774e907797" srcName="armory48x48.ico" srcDirectory=".\BitcoinArmory\img" dstName="armory48x48.ico" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armory48x48" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1432" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1694" componentGuid="d2279506-dbe0-4dee-8ba9-ae477065a0ae">
+        <componentFiles fileId="ID_dc934288_8bad_42c0_9df1_29832ca9eb45" srcName="LICENSE" srcDirectory="..\ArmoryStandalone" dstName="LICENSE" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="LICENSE" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1693" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <defaultInstallMode>3</defaultInstallMode>
-      <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Testnet)" workingDir="" commandArguments="--testnet" description="Run Armory on the test-network" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1333" />
-      <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Offline)" workingDir="" commandArguments="--offline" description="Run Armory in offline mode (wallet management and transaction signing only)" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1334" />
+      <components componentId="ID1696" componentGuid="461d28d7-1f6b-4808-a3ba-630eab0ff56d">
+        <componentFiles fileId="ID_cace0bd1_f9ad_4bdd_8ec5_20d77fd02d1a" srcName="MSWSOCK.dll" srcDirectory="..\ArmoryStandalone" dstName="MSWSOCK.dll" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="MSWSOCK" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1695" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+        </componentFiles>
+        <addToCreateFolder>false</addToCreateFolder>
+      </components>
+      <defaultInstallMode>0</defaultInstallMode>
+      <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Offline)" workingDir="" commandArguments="--offline" description="Use Armory for cold storage or quick wallet management" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1697" />
+      <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Testnet)" workingDir="" commandArguments="--testnet" description="Use Armory on the Test Network" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1698" />
     </childFeatures>
-    <childFeatures featureId="ID78DFE147F810E4906514DE256C3A941F" featureName="Source Code" featureDescription="Enter Description Here" enableInDefaultInstall="true" enableInMinimalInstall="true" excludeFromBuild="false">
-      <components componentId="ID1205" componentGuid="498de948-bbaa-45a0-ba85-a423762e9b92">
-        <componentFiles fileId="ID_3d6082dd_fff2_4484_a0da_2cd383ac6038" srcName="armorymodels.py" srcDirectory=".\BitcoinArmory" dstName="armorymodels.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armorymodels" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1204" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+    <childFeatures featureId="ID04A049AFE1CA659EF1B8257EDB64A6DD" featureName="Source Code" featureDescription="Armory Sources" enableInDefaultInstall="true" enableInMinimalInstall="true" excludeFromBuild="false">
+      <components componentId="ID1510" componentGuid="e767c37d-10b4-435c-8be7-a45685ca28e9">
+        <componentFiles fileId="ID_e3bee3b6_3ee2_4c1f_bdb1_c164e92d9bb1" srcName="CppBlockUtils.py" srcDirectory=".." dstName="CppBlockUtils.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1509" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1207" componentGuid="bdbb5d0f-1027-466b-84c1-fb8eca503111">
-        <componentFiles fileId="ID_7ae50ad7_aa7c_486c_807b_b016f9a82102" srcName="ArmoryQt.py" srcDirectory=".\BitcoinArmory" dstName="ArmoryQt.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="ArmoryQt" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1206" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1512" componentGuid="90c91085-3640-4501-9539-6c406bd88094">
+        <componentFiles fileId="ID_6e6f3b25_988b_4941_93d9_fd92c14b58a5" srcName="createTxFromAddrList.py" srcDirectory=".." dstName="createTxFromAddrList.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="createTxFromAddrList" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1511" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1209" componentGuid="946b2ec4-cd72-4876-b04c-18245e704acb">
-        <componentFiles fileId="ID_2d4e6efa_8d43_4002_9071_e9e5419a9742" srcName="CppBlockUtils.py" srcDirectory=".\BitcoinArmory" dstName="CppBlockUtils.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1208" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1514" componentGuid="cb32a6c4-0cf2-4d75-9ee0-f84eb1a314d5">
+        <componentFiles fileId="ID_963f58cb_8b61_4117_afca_5b56f4ed8fbf" srcName="qrc_img_resources.py" srcDirectory=".." dstName="qrc_img_resources.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrc_img_resources" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1513" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1211" componentGuid="378ec375-9c9a-4b46-af33-d586619c35e4">
-        <componentFiles fileId="ID_aecb4784_0267_44f5_adaf_111aef8c0b22" srcName="createTxFromAddrList.py" srcDirectory=".\BitcoinArmory" dstName="createTxFromAddrList.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="createTxFromAddrList" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1210" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1516" componentGuid="ec2edf61-9d23-4a98-9545-844c1fb4e3bb">
+        <componentFiles fileId="ID_9f4532de_460e_4b0a_8c80_8c4631885bb8" srcName="qrcodenative - Copy.py" srcDirectory=".." dstName="qrcodenative - Copy.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrcodenative - Copy" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1515" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1213" componentGuid="6ed81ad6-770b-4fc0-8392-29cf070a1a6a">
-        <componentFiles fileId="ID_9d210f44_7e2f_40a7_ae2f_7e42f074f965" srcName="qrc_img_resources.py" srcDirectory=".\BitcoinArmory" dstName="qrc_img_resources.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrc_img_resources" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1212" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1518" componentGuid="863a00ab-852e-42f5-a869-3497876c2559">
+        <componentFiles fileId="ID_476271d0_8c77_48b1_ae38_78fbec6d8e48" srcName="qrcodenative.py" srcDirectory=".." dstName="qrcodenative.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrcodenative" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1517" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1215" componentGuid="cba045e4-07b2-4e30-8993-659b76b70030">
-        <componentFiles fileId="ID_56cf3b2f_be5f_4888_b2d7_1e652a8372b9" srcName="qrcodenative - Copy.py" srcDirectory=".\BitcoinArmory" dstName="qrcodenative - Copy.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrcodenative - Copy" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1214" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1520" componentGuid="e1147e74-5d4b-44e2-bb3f-9aa7e2d9fb69">
+        <componentFiles fileId="ID_b3d9bf4e_6be2_4d74_8703_2559ebf4f34c" srcName="qt4reactor.py" srcDirectory=".." dstName="qt4reactor.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qt4reactor" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1519" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1217" componentGuid="868bfadc-cd94-428b-85ee-a2811090b56f">
-        <componentFiles fileId="ID_1d2b55e3_a27d_4ed9_908a_7243c26ca728" srcName="qrcodenative.py" srcDirectory=".\BitcoinArmory" dstName="qrcodenative.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrcodenative" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1216" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1522" componentGuid="6c057d60-6c8d-4d48-acdf-ba99f896c90e">
+        <componentFiles fileId="ID_9f85d205_9abe_4181_9fa6_0083fa1d6e13" srcName="qtdefines.py" srcDirectory=".." dstName="qtdefines.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qtdefines" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1521" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1219" componentGuid="075649e5-ebee-4de8-babc-405c1931bc8c">
-        <componentFiles fileId="ID_c4b1f0b1_d1dd_4e51_9eff_d2a678103b96" srcName="qt4reactor.py" srcDirectory=".\BitcoinArmory" dstName="qt4reactor.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qt4reactor" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1218" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1524" componentGuid="6f0465d8-b2c3-4369-9dd2-c32834fa5e56">
+        <componentFiles fileId="ID_b4a6b2ea_cf10_4366_b072_91e7df66d067" srcName="qtdialogs.py" srcDirectory=".." dstName="qtdialogs.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qtdialogs" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1523" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1221" componentGuid="963d4a46-35dd-4633-a295-aa165f6af935">
-        <componentFiles fileId="ID_325f80e7_173e_4928_b480_4504d87be934" srcName="qtdefines.py" srcDirectory=".\BitcoinArmory" dstName="qtdefines.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qtdefines" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1220" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1526" componentGuid="dc9cdc5d-1b87-4485-9cc7-35c25af70dea">
+        <componentFiles fileId="ID_a64830ac_afeb_4f12_a6f6_5ab061ea9d20" srcName="sample_armory_code.py" srcDirectory=".." dstName="sample_armory_code.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="sample_armory_code" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1525" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1223" componentGuid="ad8c3b85-d2c8-4d8d-a10c-781037f7c759">
-        <componentFiles fileId="ID_ad2a9d33_9f73_4813_9391_3c3a0ccac39c" srcName="qtdialogs.py" srcDirectory=".\BitcoinArmory" dstName="qtdialogs.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qtdialogs" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1222" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1528" componentGuid="74494669-bb41-45f1-9f07-74d52c2cd2db">
+        <componentFiles fileId="ID_76220aa3_736c_4151_bbaa_b12be51bbba4" srcName="setup.py" srcDirectory=".." dstName="setup.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="setup" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1527" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1225" componentGuid="f5853614-6daf-4a79-8fbd-03fd06e84e02">
-        <componentFiles fileId="ID_dc7a89f6_2984_42ec_bfb0_6cf40605b9c4" srcName="setup.py" srcDirectory=".\BitcoinArmory" dstName="setup.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="setup" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1224" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1530" componentGuid="db8a2a33-585e-4e14-9514-b6b63d497698">
+        <componentFiles fileId="ID_833de6ae_6d1a_4cdb_89f6_3e461c60a796" srcName="unittest.py" srcDirectory=".." dstName="unittest.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="unittest" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1529" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1227" componentGuid="1b7547a1-7a5c-4d11-a31a-9f42cc4b85c7">
-        <componentFiles fileId="ID_74766652_9b61_446e_8ff0_3def638e3734" srcName="unittest.py" srcDirectory=".\BitcoinArmory" dstName="unittest.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="unittest" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1226" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1532" componentGuid="e4d29787-c642-4ea7-b337-c69721bc07fd">
+        <componentFiles fileId="ID_23b9e559_3501_44f1_a42a_96df05a52e60" srcName="WindowsBuild.txt" srcDirectory=".." dstName="WindowsBuild.txt" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="WindowsBuild" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1531" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1229" componentGuid="f6894278-0a7e-42c2-a2d9-4a6088f9fc28">
-        <componentFiles fileId="ID_ec0ef3ba_0db9_4fc8_9cea_08b75fec5ee9" srcName="armorycolors.py" srcDirectory=".\BitcoinArmory" dstName="armorycolors.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armorycolors" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1228" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1534" componentGuid="ba1e0161-18ae-4d17-a01b-1e032b40124c">
+        <componentFiles fileId="ID_3e8d5460_b177_4562_a39d_4991f249dda0" srcName="imgList.xml" srcDirectory=".." dstName="imgList.xml" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="imgList" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1533" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1231" componentGuid="59f80703-0c11-4063-8ce8-c0900f084357">
-        <componentFiles fileId="ID_2d806b5c_c1dd_4984_b364_b110a023c3a5" srcName="armoryengine.py" srcDirectory=".\BitcoinArmory" dstName="armoryengine.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armoryengine" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1230" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1536" componentGuid="f0044c16-2113-41a1-b84b-c753a7925ad4">
+        <componentFiles fileId="ID_593eb1c4_b20a_4a15_8bba_654d24ebf257" srcName="Makefile" srcDirectory=".." dstName="Makefile" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="Makefile" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1535" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1233" componentGuid="5a457160-ae0b-4af3-a907-eb89a9de72b4">
-        <componentFiles fileId="ID_411e7a6c_e678_486c_a0c3_b1789f996b4a" srcName="BlockUtils.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1232" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1538" componentGuid="fd7e2b52-7332-49b5-ba4e-4afd17894a4e">
+        <componentFiles fileId="ID_95cb13d6_bda9_43fd_a9a9_78f820ee5e13" srcName="armorycolors.py" srcDirectory=".." dstName="armorycolors.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armorycolors" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1537" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1235" componentGuid="ec4f567c-054a-4258-a52b-516bf87bc770">
-        <componentFiles fileId="ID_13cac9fc_27bf_4ee1_8ff2_e611847712bc" srcName="BtcUtils.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BtcUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BtcUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1234" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1540" componentGuid="0b62e2ed-3fce-42d1-a9b2-83c6d6a7d455">
+        <componentFiles fileId="ID_9526fa98_724e_48af_9085_88b9ca7ccfb3" srcName="armoryengine.py" srcDirectory=".." dstName="armoryengine.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armoryengine" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1539" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1237" componentGuid="06c8ab2a-b772-446f-a9c4-8880bec0b4da">
-        <componentFiles fileId="ID_74a3f9f6_22c7_471f_9047_bcf7831d1093" srcName="EncryptionUtils.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="EncryptionUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="EncryptionUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1236" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1542" componentGuid="3d05b290-58c3-4050-89d5-b9d6cff9d67d">
+        <componentFiles fileId="ID_800b3ab9_c319_453c_a29e_cd8157ea19e0" srcName="armorymodels.py" srcDirectory=".." dstName="armorymodels.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="armorymodels" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1541" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1239" componentGuid="e34448b1-5d4e-4d65-9c0c-7e9cf59a4cd2">
-        <componentFiles fileId="ID_8ecb8561_29db_4795_a091_d2950d463cff" srcName="UniversalTimer.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="UniversalTimer.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="UniversalTimer" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1238" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1544" componentGuid="eb0cf706-c6ee-4f6f-b9b8-dbcfdb5980ac">
+        <componentFiles fileId="ID_2366ad2b_ce24_428c_9f46_e52d5a68c60d" srcName="ArmoryQt.py" srcDirectory=".." dstName="ArmoryQt.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="ArmoryQt" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1543" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1241" componentGuid="754ce381-2521-4160-a4a0-1c099848b202">
-        <componentFiles fileId="ID_75c0bb22_b9cd_4b09_9f25_802839a77967" srcName="BinaryData.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryData.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryData" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1240" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1546" componentGuid="f8922cca-aba7-4504-8022-3cc7a77f9805">
+        <componentFiles fileId="ID_7b91e328_e38b_4cda_8536_3a4fa12f62e0" srcName="BlockObjRef.h" srcDirectory="..\cppForSwig" dstName="BlockObjRef.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1545" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1243" componentGuid="c6e5629f-5ba0-40af-9bf6-73faa09784ac">
-        <componentFiles fileId="ID_f02696bb_56fc_44bb_ab52_c3d8fe281953" srcName="BinaryDataMMAP_POSIX.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryDataMMAP_POSIX.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1242" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1548" componentGuid="75331ad5-607a-402b-98a4-e1ba9da6ae28">
+        <componentFiles fileId="ID_be4725f8_b307_48dc_8fe4_13aae94b5855" srcName="BlockUtils.h" srcDirectory="..\cppForSwig" dstName="BlockUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1547" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1245" componentGuid="4bf7dee9-3083-4a1a-9fb5-4f703d1e180d">
-        <componentFiles fileId="ID_d1680ec6_d01f_4e30_aa94_7fd2b4f6d019" srcName="BinaryDataMMAP_Windows.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryDataMMAP_Windows.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1244" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1550" componentGuid="0b10017d-de8a-4a89-8730-7bca22ff5c3b">
+        <componentFiles fileId="ID_206fcbb7_dac4_49ca_83a8_b2de8110fbdd" srcName="BtcUtils.h" srcDirectory="..\cppForSwig" dstName="BtcUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BtcUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1549" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1247" componentGuid="8b6fb2b8-d50f-4fd9-8297-c4fa1f0c3a70">
-        <componentFiles fileId="ID_09c491df_9c07_4d56_81a4_66fb155309a1" srcName="BlockObj.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockObj.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1246" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1552" componentGuid="d710a311-0cf9-431c-afb7-5375195144ba">
+        <componentFiles fileId="ID_48df1ad8_20eb_4833_8b71_3d5d3fc638bd" srcName="EncryptionUtils.h" srcDirectory="..\cppForSwig" dstName="EncryptionUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="EncryptionUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1551" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1249" componentGuid="51ee3d89-a5a7-4620-b88f-d7936d19addb">
-        <componentFiles fileId="ID_dcd66143_1037_4c6b_a30c_28dc6fa0c725" srcName="BlockObjRef.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockObjRef.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1248" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1554" componentGuid="9a22dad8-7d05-4121-8a12-0f991b2d59cf">
+        <componentFiles fileId="ID_d0890fcd_6418_459a_a8c6_4cb194f1ee65" srcName="UniversalTimer.h" srcDirectory="..\cppForSwig" dstName="UniversalTimer.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="UniversalTimer" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1553" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1251" componentGuid="37d3d0fd-6e10-4875-82f4-1800a57da79b">
-        <componentFiles fileId="ID_807e6561_7327_4054_9718_095cb2b7e6f7" srcName="BlockUtils.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1250" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1556" componentGuid="75f70525-0c27-46d9-9401-05f268c19cad">
+        <componentFiles fileId="ID_b9d05a02_c0b5_4526_875e_fd8b66957bee" srcName="BinaryData.cpp" srcDirectory="..\cppForSwig" dstName="BinaryData.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryData" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1555" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1253" componentGuid="c7c8d5bd-6b62-4ce5-8f31-488a2378bb02">
-        <componentFiles fileId="ID_e171c469_1836_4942_9b1e_09bda32000b5" srcName="BlockUtilsTest.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockUtilsTest.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtilsTest" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1252" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1558" componentGuid="c24611d2-3919-4ce6-b225-529894fda602">
+        <componentFiles fileId="ID_68a2e20b_f07d_4bdd_8f74_aad6a4eb752e" srcName="BinaryDataMMAP_POSIX.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1557" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1255" componentGuid="9695b3b2-b8ce-4685-af9c-919c020d5287">
-        <componentFiles fileId="ID_3c5438fa_ae21_49de_ab06_98c133822894" srcName="BtcUtils.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BtcUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BtcUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1254" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1560" componentGuid="a855f731-1b07-43a3-8504-7ae15d77b821">
+        <componentFiles fileId="ID_c159fd43_5443_4c64_9b0c_f49b75377abd" srcName="BinaryDataMMAP_Windows.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1559" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1257" componentGuid="550fcd7b-57bd-4d2d-9a67-785e6086383f">
-        <componentFiles fileId="ID_159d2ddd_7de9_403a_b5ea_17dc9caebbaf" srcName="EncryptionUtils.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="EncryptionUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="EncryptionUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1256" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1562" componentGuid="5814e311-9df7-4cc7-af4e-536c09735a9e">
+        <componentFiles fileId="ID_ce6482d7_e24e_4aa3_9c09_497002b8024a" srcName="BlockObj.cpp" srcDirectory="..\cppForSwig" dstName="BlockObj.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1561" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1259" componentGuid="390a620f-080b-4536-b9b1-eb2e738869cd">
-        <componentFiles fileId="ID_f4d417ca_ffbe_43c8_b66c_a537bcdbb1d8" srcName="UniversalTimer.cpp" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="UniversalTimer.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="UniversalTimer" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1258" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1564" componentGuid="989e9560-edba-448b-a450-fd817728df5c">
+        <componentFiles fileId="ID_02c50cce_e4a4_47e1_8952_4b3fbda5abbc" srcName="BlockObjRef.cpp" srcDirectory="..\cppForSwig" dstName="BlockObjRef.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1563" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1261" componentGuid="79739f63-f739-4f37-82ae-c80052d41959">
-        <componentFiles fileId="ID_9ad9a2a5_3352_471a_b0ed_145fc9229eb0" srcName="Makefile" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="Makefile" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="Makefile" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1260" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1566" componentGuid="15f6ce4e-77a0-46c0-b3e8-6f00c23650d3">
+        <componentFiles fileId="ID_7495492b_c210_4dc6_ba20_270acb1c8d54" srcName="BlockUtils.cpp" srcDirectory="..\cppForSwig" dstName="BlockUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1565" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1263" componentGuid="d270a6fe-7d99-4af0-b573-7f85dadd291c">
-        <componentFiles fileId="ID_d02802ed_133c_443e_b2a2_402347c7c0ed" srcName="ArmoryEngine_MSVS2005.sln" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="ArmoryEngine_MSVS2005.sln" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="ArmoryEngine_MSVS2005" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1262" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1568" componentGuid="7829cb9d-9ddf-4a37-b802-2e1c675dbd89">
+        <componentFiles fileId="ID_0ea35ed4_e553_490f_861f_4e45154926c8" srcName="BlockUtilsTest.cpp" srcDirectory="..\cppForSwig" dstName="BlockUtilsTest.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtilsTest" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1567" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1265" componentGuid="3c3b5aa3-2287-46bf-9e66-55d55ddb147a">
-        <componentFiles fileId="ID_d111b148_1fba_4727_af92_e256e0a36026" srcName="CppBlockUtils.i" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="CppBlockUtils.i" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1264" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1570" componentGuid="11c5145c-af1a-4c1d-8fae-4b4248673b74">
+        <componentFiles fileId="ID_e7999725_06a2_4bdb_91a9_1c3e45e6d391" srcName="BtcUtils.cpp" srcDirectory="..\cppForSwig" dstName="BtcUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BtcUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1569" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1267" componentGuid="687d9e8d-1067-4410-b96f-f791a0f8dd63">
-        <componentFiles fileId="ID_2f3e7c7e_7e9a_49f2_be19_3c3b85a7413c" srcName="ArmoryEngine_MSVS2005.vcproj" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="ArmoryEngine_MSVS2005.vcproj" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="ArmoryEngine_MSVS2005" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1266" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1572" componentGuid="3d5804a0-7c72-4d8f-b7a1-a230e7113ed6">
+        <componentFiles fileId="ID_72b99bc9_9ce1_40b3_b830_4409c8761043" srcName="EncryptionUtils.cpp" srcDirectory="..\cppForSwig" dstName="EncryptionUtils.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="EncryptionUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1571" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1269" componentGuid="44ed8be1-06a1-4997-80c1-c87b963cc64e">
-        <componentFiles fileId="ID_3f23a66f_e376_4d50_853e_beb7fdbacb3d" srcName="SWIG_compile_dll_MSVS2005.vcproj" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="SWIG_compile_dll_MSVS2005.vcproj" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="SWIG_compile_dll_MSVS2005" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1268" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1574" componentGuid="18999d7c-c08a-4237-88ae-1181a0016277">
+        <componentFiles fileId="ID_ed205d5c_7d39_421b_a20a_e2b302ca9da4" srcName="UniversalTimer.cpp" srcDirectory="..\cppForSwig" dstName="UniversalTimer.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="UniversalTimer" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1573" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1271" componentGuid="83255fc1-0b02-4e44-9c06-088cb20dab5c">
-        <componentFiles fileId="ID_cc9b06f6_9719_4415_9a73_1e6dfc3c5202" srcName="BinaryData.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryData.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryData" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1270" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1576" componentGuid="3d457d0b-52e2-47ee-9c1d-4dfab66209ff">
+        <componentFiles fileId="ID_748d3e0f_8535_4651_be33_f7897eae8236" srcName="Makefile" srcDirectory="..\cppForSwig" dstName="Makefile" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="Makefile" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1575" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1273" componentGuid="889d5b34-ed40-48de-af91-b8e2d08ead64">
-        <componentFiles fileId="ID_01f7d2ab_e8b4_4937_926b_d564bf54a170" srcName="BinaryDataMMAP.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryDataMMAP.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1272" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1578" componentGuid="b43f18c4-f9d6-4865-bd41-7df63d0f8c56">
+        <componentFiles fileId="ID_32df6229_651a_41af_96fe_62b314a2192f" srcName="ArmoryEngine_MSVS2005.sln" srcDirectory="..\cppForSwig" dstName="ArmoryEngine_MSVS2005.sln" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="ArmoryEngine_MSVS2005" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1577" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1275" componentGuid="24acf2e3-fba0-42f1-bf7d-8ba265ee6ebe">
-        <componentFiles fileId="ID_cdb57be7_e6e1_4511_a229_6e11139857bd" srcName="BinaryDataMMAP_POSIX.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryDataMMAP_POSIX.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1274" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1580" componentGuid="9b790995-0781-445f-883e-f31024f11eaa">
+        <componentFiles fileId="ID_df131c83_b4a3_49e6_b54b_e766d6d117ed" srcName="CppBlockUtils.i" srcDirectory="..\cppForSwig" dstName="CppBlockUtils.i" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1579" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1277" componentGuid="58fa2af1-b40d-44d4-9635-078284e098c9">
-        <componentFiles fileId="ID_62714387_4c70_49a0_8f16_07fad4342197" srcName="BinaryDataMMAP_Windows.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BinaryDataMMAP_Windows.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1276" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1582" componentGuid="a4f767f1-fc0e-45e9-83c9-a6081c834cf7">
+        <componentFiles fileId="ID_e6d29c2c_db35_43b3_ad53_4a4a7b0e0809" srcName="BinaryData.h" srcDirectory="..\cppForSwig" dstName="BinaryData.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryData" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1581" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1279" componentGuid="8caf42cd-8236-4e10-b677-924731c45c75">
-        <componentFiles fileId="ID_b1fe8f10_2d63_4c09_8284_2a45c3138989" srcName="BlockObj.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockObj.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1278" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1584" componentGuid="2647f2f4-931c-48e8-a625-b582ef91461c">
+        <componentFiles fileId="ID_7f667ca9_ce1b_4f4b_beb7_ad0b3b865fbe" srcName="BinaryDataMMAP.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1583" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1281" componentGuid="dcb885ef-a86f-4da3-865a-15794c2affea">
-        <componentFiles fileId="ID_f64152a6_e6c3_4c74_9ce5_57412afc6bbb" srcName="BlockObjRef.h" srcDirectory=".\BitcoinArmory\cppForSwig" dstName="BlockObjRef.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1280" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+      <components componentId="ID1586" componentGuid="7bd56d52-5ea1-4739-a376-191afaf934d9">
+        <componentFiles fileId="ID_49faf536_5ff1_43d3_aedc_c2f56a65054f" srcName="BinaryDataMMAP_POSIX.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1585" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <defaultInstallMode>1</defaultInstallMode>
+      <components componentId="ID1588" componentGuid="1abbb413-ac64-43ef-8280-b995f130f697">
+        <componentFiles fileId="ID_bc67eedc_5e4d_4b96_a391_d64964eb7006" srcName="BinaryDataMMAP_Windows.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1587" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+        </componentFiles>
+        <addToCreateFolder>false</addToCreateFolder>
+      </components>
+      <components componentId="ID1590" componentGuid="0f3640e6-5f5f-43e6-8247-2ae49bbdf5fa">
+        <componentFiles fileId="ID_2952f683_e3ee_4b37_8fab_a684d220095a" srcName="BlockObj.h" srcDirectory="..\cppForSwig" dstName="BlockObj.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1589" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+        </componentFiles>
+        <addToCreateFolder>false</addToCreateFolder>
+      </components>
+      <defaultInstallMode>0</defaultInstallMode>
     </childFeatures>
     <defaultInstallMode>3</defaultInstallMode>
   </projectFeatures>
