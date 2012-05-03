@@ -22,9 +22,11 @@
       <file alias="armory_icon_green_fullres.png">img/armory_icon_green_fullres.png</file>
       <file alias="armory_logo_fullres.png">img/armory_logo_fullres.png</file>
       <file alias="armory_logo_green_h72.png">img/armory_logo_green_h72.png</file>
+      <file alias="armory_logo_green_h56.png">img/armory_logo_green_h56.png</file>
       <file alias="armory_logo_h36.png">img/armory_logo_h36.png</file>
       <file alias="armory_logo_h48.png">img/armory_logo_h48.png</file>
       <file alias="armory_logo_h72.png">img/armory_logo_h72.png</file>
+      <file alias="armory_logo_h56.png">img/armory_logo_h56.png</file>
       <file alias="armory_logo_white_text_h72.png">img/armory_logo_white_text_h72.png</file>
       <file alias="armory_logo_white_text_green_h72.png">img/armory_logo_white_text_green_h72.png</file>
       <file alias="arrow_down.png">img/arrow_down.png</file>

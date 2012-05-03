@@ -4924,7 +4924,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
          '<br><br>'
          'In order to complete this transaction, you need to send this '
          'chunk of data (the proposed transaction) to the party who holds the '
-         'private keys for this wallet.  They can load this data into Armory '
+         'full version of this wallet.  They can load this data into Armory '
          'and broadcast the transaction if they chose to sign it. ')
       else:
          canSign = True
@@ -5676,6 +5676,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
       self.txtTxDP.setText(newTxdp.serializeAscii())
       self.txdpObj = newTxdp
 
+      self.saveTx()
+
 
    def broadTx(self):
       if not self.main.internetAvail:
@@ -5709,9 +5711,9 @@ class DlgReviewOfflineTx(ArmoryDialog):
    def saveTx(self):
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
          reply = QMessageBox.question(self,'Overwrite?', \
-         'The signed transaction you are saving was originally loaded '
-         'from:\n\n%s\n\nWould you like to overwrite it with this '
-         'signed transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
+         'This transaction was loaded from the following file:'
+         '\n\n%s\n\nWould you like to overwrite it with this signed '
+         'transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
             f = open(newSaveFile, 'w')

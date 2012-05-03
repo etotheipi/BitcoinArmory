@@ -60,6 +60,8 @@ parser = optparse.OptionParser(usage="%prog [options]\n")
                   #help="port to connect to (default: %default)")
 parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="str",
                   help="load Armory with a specific settings file")
+parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
+                  help="Change the directory that Armory calls home")
 parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                   help="Use the testnet protocol")
 parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
@@ -165,10 +167,19 @@ else:
 
 BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
 
+
+if not CLI_OPTIONS.datadir.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.datadir):
+      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
+   else:
+      ARMORY_HOME_DIR = CLI_OPTIONS.datadir
+
 if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
+
+
 
 
 print 'Detected Operating system:', OS_NAME
@@ -1106,7 +1117,7 @@ def parsePrivateKeyData(theStr):
                raise BadInputError, 'Invalid mini-private key string'
             keyType = 'Mini Private Key Format'
             isMini = True
-         elif len(theStr) in (50,51,52,53):
+         elif len(theStr) in range(48,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
          else:
@@ -1119,7 +1130,7 @@ def parsePrivateKeyData(theStr):
 
 
       if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
-         if len(theStr)==36:
+         if len(binEntry)==36:
             keydata = binEntry[:32 ]
             chk     = binEntry[ 32:]
             binEntry = verifyChecksum(keydata, chk)

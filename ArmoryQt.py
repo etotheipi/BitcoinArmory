@@ -66,13 +66,13 @@ class ArmoryMainWindow(QMainWindow):
       if USE_TESTNET:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.iconfile = ':/armory_icon_green_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h72.png'))
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h72.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
          self.iconfile = ':/armory_icon_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h72.png'))
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
       self.setWindowIcon(QIcon(self.iconfile))
@@ -159,7 +159,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
       self.ledgerView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.ledgerView.verticalHeader().hide()
-      self.ledgerView.setMinimumSize(viewWidth, viewHeight)
+      #self.ledgerView.setMinimumSize(viewWidth, viewHeight)
       #self.walletsView.setStretchFactor(4)
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
       self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
@@ -769,12 +769,15 @@ class ArmoryMainWindow(QMainWindow):
          if CLI_OPTIONS.disable_conn_notify:
             return 
 
-         self.lblArmoryStatus.setText( \
-            '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
-         self.sysTray.showMessage('Disconnected', \
-               'Connection to Satoshi client lost!  Armory cannot send \n'
-               'or receive Bitcoins until Satoshi client is available.', \
-               QSystemTrayIcon.Critical, 10000)
+         try:
+            self.lblArmoryStatus.setText( \
+               '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
+            self.sysTray.showMessage('Disconnected', \
+                  'Connection to Satoshi client lost!  Armory cannot send \n'
+                  'or receive Bitcoins until Satoshi client is available.', \
+                  QSystemTrayIcon.Critical, 10000)
+         except:
+            pass
 
 
       self.connectCount = 0
@@ -782,14 +785,17 @@ class ArmoryMainWindow(QMainWindow):
          if CLI_OPTIONS.disable_conn_notify:
             return 
 
-         self.lblArmoryStatus.setText(\
-                  '<font color=%s>Connected (%s blocks)</font> ' % 
-                  (htmlColor('TextGreen'), self.latestBlockNum))
-         if self.connectCount>0:
-            self.sysTray.showMessage('Connected', \
-               'Connection to Satoshi re-established', \
-               QSystemTrayIcon.Information, 10000)
-         self.connectCount += 1
+         try:
+            self.lblArmoryStatus.setText(\
+                     '<font color=%s>Connected (%s blocks)</font> ' % 
+                     (htmlColor('TextGreen'), self.latestBlockNum))
+            if self.connectCount>0:
+               self.sysTray.showMessage('Connected', \
+                  'Connection to Satoshi re-established', \
+                  QSystemTrayIcon.Information, 10000)
+            self.connectCount += 1
+         except:
+            pass
 
 
       self.NetworkingFactory = ArmoryClientFactory( \
@@ -922,8 +928,18 @@ class ArmoryMainWindow(QMainWindow):
 
             if wltID in self.walletIDSet:
                print '***WARNING: Duplicate wallet detected,', wltID
-               print ' '*10, 'Wallet 1 (loaded): ', self.walletMap[wltID].walletPath
-               print ' '*10, 'Wallet 2 (skipped):', fpath
+               wo1 = self.walletMap[wltID].watchingOnly
+               wo2 = wltLoad.watchingOnly
+               if wo1 and not wo2:
+                  prevWltPath = self.walletMap[wltID].walletPath
+                  self.walletMap[wltID] = wltLoad
+                  print 'First wallet is more useful than the second one...'
+                  print ' '*10, 'Wallet 1 (loaded): ', fpath
+                  print ' '*10, 'Wallet 2 (skipped):', prevWltPath
+               else:
+                  print 'Second wallet is more useful than the first one...'
+                  print ' '*10, 'Wallet 1 (loaded): ', self.walletMap[wltID].walletPath
+                  print ' '*10, 'Wallet 2 (skipped):', fpath
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
