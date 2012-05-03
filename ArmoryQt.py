@@ -1962,7 +1962,6 @@ class ArmoryMainWindow(QMainWindow):
           descrStr += ('<br><br><b>The specified amount <u>can</u> be changed</b> on the '
             'next screen before hitting the "Send" button. ')
 
-      #descrStr += 'Please select a wallet to use for this transaction:'
 
       selectedWalletID = None
       if len(self.walletMap)==0:
@@ -1976,14 +1975,15 @@ class ArmoryMainWindow(QMainWindow):
       elif len(self.walletMap)>1:
          dlg = DlgWalletSelect(self, self, 'Send from Wallet...', descrStr, \
                                onlyMyWallets=True, atLeast=amt)
+         if not dlg.exec_():
+            return
          selectedWalletID = dlg.selectedID
       else:
          selectedWalletID = self.walletIDList[0]
          
-      if dlg.exec_():
-         wlt = self.walletMap[selectedWalletID]
-         dlgSend = DlgSendBitcoins(wlt, self, self, uriDict)
-         dlgSend.exec_()
+      wlt = self.walletMap[selectedWalletID]
+      dlgSend = DlgSendBitcoins(wlt, self, self, uriDict)
+      dlgSend.exec_()
       
 
    #############################################################################
