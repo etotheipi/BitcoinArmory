@@ -765,8 +765,36 @@ class ArmoryMainWindow(QMainWindow):
          self.createCombinedLedger()
          self.ledgerModel.reset()
 
+      def showOfflineMsg():
+         if CLI_OPTIONS.disable_conn_notify:
+            return 
+
+         self.lblArmoryStatus.setText( \
+            '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
+         self.sysTray.showMessage('Disconnected', \
+               'Connection to Satoshi client lost!  Armory cannot send \n'
+               'or receive Bitcoins until Satoshi client is available.', \
+               QSystemTrayIcon.Critical, 10000)
+
+
+      self.connectCount = 0
+      def showOnlineMsg():
+         if CLI_OPTIONS.disable_conn_notify:
+            return 
+
+         self.lblArmoryStatus.setText(\
+                  '<font color=%s>Connected (%s blocks)</font> ' % 
+                  (htmlColor('TextGreen'), self.latestBlockNum))
+         if self.connectCount>0:
+            self.sysTray.showMessage('Connected', \
+               'Connection to Satoshi re-established', \
+               QSystemTrayIcon.Information, 10000)
+         self.connectCount += 1
+
+
       self.NetworkingFactory = ArmoryClientFactory( \
-                                       func_loseConnect=restartConnection, \
+                                       func_loseConnect=showOfflineMsg, \
+                                       func_madeConnect=showOnlineMsg, \
                                        func_newTx=newTxFunc)
       reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
