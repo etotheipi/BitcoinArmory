@@ -39,82 +39,6 @@ class ArmoryDialog(QDialog):
 
 
 
-################################################################################
-class ArmoryTableView(QTableView):
-   """
-   def __init__(self, parent=None, model=None):
-      super(ArmoryTableView, self).__init__(parent)
-
-      self.colWidths = []
-      if model:
-         self.setModel(model)
-   """
-
-   
-   """
-   def setColWidthRule(self, col, rule):
-      while len(self.colWidths)<=col:
-         self.colWidths.append([])
-         self.colCount.append(0)
-
-   
-   
-
-      # If just a single item, it's intended to be all 3 (min,nom,max)
-      if not isinstance(rule, (list,tuple)):
-         rule = [rule]
-
-      self.colCount[col] = len(rule)
-      self.colWidths[col] = []
-
-      for r in rule:
-         assert(isinstance(r, (str, int, long, float)))
-         if isinstance(r, str):
-            theFont = self.font()
-            try:
-               firstRow = self.model().index(row,col)
-               theFont = self.model().data(index=firstRow, role=Qt.FontRole)
-            except:
-               raise
-               pass
-            self.colWidths[col].append( tightSizeStr(theFont, r)[0] ) 
-         else:
-            self.colWidths[col].append( r )
-
-      # Should decide if this is a fixed-width col or var width
-      # It's because resizing must first set fixed cols, and split
-      # the var-width columns among the remaining columns
-      #varThatMatters = self.colWidths[col][0]
-      #if self.colCount[col]>1:
-         #varThatMatters = self.colWidths[col][1]
-          
-      #if varThatMatters > 1:
-         #self.colsFixed.append(col)
-      #else:
-         #self.varCols.append(col)
-            
-   """
-
-   #def resizeEvent(self, event):
-      #try:
-         #for i,c in enumerate(range(self.model().columnCount())):
-            #print self.columnWidth(c),
-      #except:
-         #raise
-   pass
-   """
-      if self.model().columnCount() > 0:
-         return
-
-      totalWidth = event.size().width()
-      remainWidth = totalWidth
-      for f in fixedCols:
-         rule = self.colWidths[col]
-         
-         self.setColumnWidth( 
-      self.setColumnWidth(1, width * 0.25) # 25% Width Column
-      self.setColumnWidth(2, width * 0.75) # 75% Width Column
-   """
 
 
 ################################################################################
@@ -871,18 +795,48 @@ class DlgWalletDetails(ArmoryDialog):
 
       lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>')
       layout = QGridLayout()
-      layout.addWidget(self.frm,              0, 0, 3, 4)
-      layout.addWidget(lblWltAddr,            4, 0, 1, 4)
-      layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
-      layout.addWidget(bottomFrm,             7, 0, 2, 4)
+      layout.addWidget(self.frm,              0, 0)
+      layout.addWidget(lblWltAddr,            1, 0)
+      layout.addWidget(self.wltAddrView,      2, 0)
+      layout.addWidget(bottomFrm,             3, 0)
 
-      layout.addWidget(QLabel("Available Actions:"), \
-                                              0, 4)
-      layout.addWidget(optFrame,              1, 4, 9, 2)
+      #layout.addWidget(QLabel("Available Actions:"), 0, 4)
+      layout.addWidget(optFrame,              0, 1, 4, 1)
+      layout.setRowStretch(0, 0)
+      layout.setRowStretch(1, 0)
+      layout.setRowStretch(2, 1)
+      layout.setRowStretch(3, 0)
+      layout.setColumnStretch(0, 1)
+      layout.setColumnStretch(1, 0)
       self.setLayout(layout)
 
       self.setWindowTitle('Wallet Properties')
 
+      hexgeom = self.main.settings.get('WltPropGeometry')
+      tblgeom = self.main.settings.get('WltPropAddrCols')
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+      if len(tblgeom)>0:
+         restoreTableView(self.wltAddrView, tblgeom)
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
+      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      super(DlgWalletDetails, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
+      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      super(DlgWalletDetails, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
+      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      super(DlgWalletDetails, self).reject(*args)
       
    #############################################################################
    def showContextMenu(self, pos):
@@ -931,8 +885,8 @@ class DlgWalletDetails(ArmoryDialog):
       if dlgLabels.exec_():
          # Make sure to use methods like this which not only update in memory,
          # but guarantees the file is updated, too
-         newName  = str(dlgLabels.edtName.text())
-         newDescr = str(dlgLabels.edtDescr.toPlainText())
+         newName  = str(dlgLabels.edtName.text())[:32]
+         newDescr = str(dlgLabels.edtDescr.toPlainText())[:256]
          self.wlt.setWalletLabels(newName, newDescr)
 
          #self.setWltDetailsFrame()
@@ -1114,14 +1068,14 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltID = self.wlt.uniqueIDB58
 
       if dispCrypto:
-         kdftimestr = "%0.3f seconds" % self.wlt.testKdfComputeTime()
+         kdftimestr = "%0.3f sec" % self.wlt.testKdfComputeTime()
          mem = self.wlt.kdf.getMemoryReqtBytes()
          kdfmemstr = str(mem/1024)+' kB'
          if mem >= 1024*1024:
             kdfmemstr = str(mem/(1024*1024))+' MB'
    
    
-      tooltips = [[]]*9
+      tooltips = [[]]*10
    
       tooltips[WLTFIELDS.Name] = createToolTipObject(
             'This is the name stored with the wallet file.  Click on the '
@@ -1189,13 +1143,19 @@ class DlgWalletDetails(ArmoryDialog):
             'Memory values above 2 MB pretty much guarantee that GPU-acceleration '
             'will be useless for guessing your passphrase')
    
-      labelNames = [[]]*9
+      tooltips[WLTFIELDS.Version] = createToolTipObject(
+            'Wallets created with different versions of Armory, may have '
+            'different wallet versions.  Not all functionality may be '
+            'available with all wallet versions.  Creating a new wallet will '
+            'always create the latest version.')
+      labelNames = [[]]*10
       labelNames[WLTFIELDS.Name]    = QLabel('Wallet Name:')
       labelNames[WLTFIELDS.Descr]   = QLabel('Description:')
    
       labelNames[WLTFIELDS.WltID]     = QLabel('Wallet ID:')
       labelNames[WLTFIELDS.NumAddr]   = QLabel('#Addresses:')
       labelNames[WLTFIELDS.Secure]    = QLabel('Security:')
+      labelNames[WLTFIELDS.Version]   = QLabel('Version:')
 
       labelNames[WLTFIELDS.BelongsTo] = QLabel('Belongs to:')
    
@@ -1207,7 +1167,7 @@ class DlgWalletDetails(ArmoryDialog):
          labelNames[WLTFIELDS.Time]   = QLabel('Unlock Time:')
          labelNames[WLTFIELDS.Mem]    = QLabel('Unlock Memory:')
    
-      self.labelValues = [[]]*9
+      self.labelValues = [[]]*10
       self.labelValues[WLTFIELDS.Name]    = QLabel(self.wlt.labelName)
       self.labelValues[WLTFIELDS.Descr]   = QLabel(self.wlt.labelDescr)
    
@@ -1215,6 +1175,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.labelValues[WLTFIELDS.NumAddr]   = QLabel(str(len(self.wlt.getLinearAddrList())))
       self.labelValues[WLTFIELDS.Secure]    = QLabel(self.typestr)
       self.labelValues[WLTFIELDS.BelongsTo] = QLabel('')
+      self.labelValues[WLTFIELDS.Version]   = QLabel(getVersionString(self.wlt.version))
 
       # Set the owner appropriately
       if self.wlt.watchingOnly:
@@ -1279,26 +1240,32 @@ class DlgWalletDetails(ArmoryDialog):
       lblEmpty = QLabel(' '*20)
    
       layout = QGridLayout()
-      layout.addWidget(tooltips[WLTFIELDS.Name],             0, 0); 
-      layout.addWidget(labelNames[WLTFIELDS.Name],           0, 1); 
-      layout.addWidget(self.labelValues[WLTFIELDS.Name],     0, 2)
+
+      layout.addWidget(tooltips[WLTFIELDS.WltID],            0, 0); 
+      layout.addWidget(labelNames[WLTFIELDS.WltID],          0, 1); 
+      layout.addWidget(self.labelValues[WLTFIELDS.WltID],    0, 2)
+
+      layout.addWidget(tooltips[WLTFIELDS.Name],             1, 0); 
+      layout.addWidget(labelNames[WLTFIELDS.Name],           1, 1); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Name],     1, 2)
    
-      layout.addWidget(tooltips[WLTFIELDS.Descr],            1, 0); 
-      layout.addWidget(labelNames[WLTFIELDS.Descr],          1, 1); 
-      layout.addWidget(self.labelValues[WLTFIELDS.Descr],    1, 2, 3, 1)
+      layout.addWidget(tooltips[WLTFIELDS.Descr],            2, 0); 
+      layout.addWidget(labelNames[WLTFIELDS.Descr],          2, 1); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Descr],    2, 2, 4, 1)
    
-      layout.addWidget(tooltips[WLTFIELDS.WltID],            0, 3); 
-      layout.addWidget(labelNames[WLTFIELDS.WltID],          0, 4); 
-      layout.addWidget(self.labelValues[WLTFIELDS.WltID],    0, 5)
+      layout.addWidget(tooltips[WLTFIELDS.Version],          0, 3); 
+      layout.addWidget(labelNames[WLTFIELDS.Version],        0, 4); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Version],  0, 5)
    
-      layout.addWidget(tooltips[WLTFIELDS.NumAddr],          1, 3); 
-      layout.addWidget(labelNames[WLTFIELDS.NumAddr],        1, 4); 
-      layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  1, 5)
+      #layout.addWidget(tooltips[WLTFIELDS.NumAddr],          1, 3); 
+      #layout.addWidget(labelNames[WLTFIELDS.NumAddr],        1, 4); 
+      #layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  1, 5)
    
-      layout.addWidget(tooltips[WLTFIELDS.Secure],           2, 3); 
-      layout.addWidget(labelNames[WLTFIELDS.Secure],         2, 4); 
-      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   2, 5)
+      layout.addWidget(tooltips[WLTFIELDS.Secure],           1, 3); 
+      layout.addWidget(labelNames[WLTFIELDS.Secure],         1, 4); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   1, 5)
    
+
       if self.wlt.watchingOnly:
          layout.addWidget(tooltips[WLTFIELDS.BelongsTo],           3, 3); 
          layout.addWidget(labelNames[WLTFIELDS.BelongsTo],         3, 4); 
@@ -1306,23 +1273,18 @@ class DlgWalletDetails(ArmoryDialog):
       
    
       if dispCrypto:
-         layout.addWidget(tooltips[WLTFIELDS.Crypto],         0, 6); 
-         layout.addWidget(labelNames[WLTFIELDS.Crypto],       0, 7); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Crypto], 0, 8)
+         layout.addWidget(tooltips[WLTFIELDS.Crypto],         2, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.Crypto],       2, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.Crypto], 2, 5)
    
-         layout.addWidget(tooltips[WLTFIELDS.Time],           1, 6); 
-         layout.addWidget(labelNames[WLTFIELDS.Time],         1, 7); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Time],   1, 8)
+         layout.addWidget(tooltips[WLTFIELDS.Time],           3, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.Time],         3, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.Time],   3, 5)
    
-         layout.addWidget(tooltips[WLTFIELDS.Mem],            2, 6); 
-         layout.addWidget(labelNames[WLTFIELDS.Mem],          2, 7); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Mem],    2, 8)
-      else:
-         layout.addWidget(lblEmpty, 0, 4); layout.addWidget(lblEmpty, 0, 5)
-         layout.addWidget(lblEmpty, 1, 4); layout.addWidget(lblEmpty, 1, 5)
-         layout.addWidget(lblEmpty, 2, 4); layout.addWidget(lblEmpty, 2, 5)
-         pass
-         
+         layout.addWidget(tooltips[WLTFIELDS.Mem],            4, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.Mem],          4, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.Mem],    4, 5)
+
    
       self.frm = QFrame()
       self.frm.setFrameStyle(STYLE_SUNKEN)

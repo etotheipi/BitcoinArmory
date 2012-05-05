@@ -15,7 +15,7 @@ USERMODE = enum('Standard', 'Advanced', 'Developer')
 ARMORYMODE = enum('WITH_BLOCKCHAIN', 'WALLET_ONLY')
 WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
-                    'BelongsTo', 'Crypto', 'Time', 'Mem')
+                    'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken

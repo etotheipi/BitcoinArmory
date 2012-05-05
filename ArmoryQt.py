@@ -417,7 +417,6 @@ class ArmoryMainWindow(QMainWindow):
       if len(hexgeom)>0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
-
       if len(hexwltsz)>0:
          restoreTableView(self.walletsView, hexwltsz)
       if len(hexledgsz)>0:
@@ -2225,9 +2224,8 @@ class ArmoryMainWindow(QMainWindow):
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
       try:
-         print 'Saving main window geometry'
          # Save the main window geometry in the settings file
-         self.saveGeometry().toHex()
+         print 'Saving main window geometry'
          self.settings.set('MainGeometry',   str(self.saveGeometry().toHex()))
          self.settings.set('MainWalletCols', saveTableView(self.walletsView))
          self.settings.set('MainLedgerCols', saveTableView(self.ledgerView))
