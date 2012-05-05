@@ -455,3 +455,27 @@ def QImageLabel(imgfn, stretch='NoStretch'):
    
 
 
+
+def restoreTableView(qtbl, hexBytes):
+   binunpack = BinaryUnpacker(hex_to_binary(hexBytes))
+   binLen = binunpack.get(UINT8)
+   toRestore = []
+   for i in range(binLen):
+      sz = binunpack.get(UINT16)
+      if sz>0:
+         toRestore.append([i,sz])
+      
+   for i,c in toRestore[:-1]:
+      qtbl.setColumnWidth(i, c)
+
+
+def saveTableView(qtbl):
+   nCol = qtbl.model().columnCount()
+   sz = [None]*nCol
+   for i in range(nCol):
+      sz[i] = qtbl.columnWidth(i)      
+
+   first = int_to_hex(nCol)
+   rest  = [int_to_hex(s, widthBytes=2) for s in sz]
+   return first + ''.join(rest)
+

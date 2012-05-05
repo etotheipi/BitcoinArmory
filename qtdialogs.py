@@ -18,6 +18,7 @@ import qrc_img_resources
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
 
+################################################################################
 class ArmoryDialog(QDialog):
    def __init__(self, parent=None, main=None):
       super(ArmoryDialog, self).__init__(parent)
@@ -35,6 +36,85 @@ class ArmoryDialog(QDialog):
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
 
 
+
+
+
+################################################################################
+class ArmoryTableView(QTableView):
+   """
+   def __init__(self, parent=None, model=None):
+      super(ArmoryTableView, self).__init__(parent)
+
+      self.colWidths = []
+      if model:
+         self.setModel(model)
+   """
+
+   
+   """
+   def setColWidthRule(self, col, rule):
+      while len(self.colWidths)<=col:
+         self.colWidths.append([])
+         self.colCount.append(0)
+
+   
+   
+
+      # If just a single item, it's intended to be all 3 (min,nom,max)
+      if not isinstance(rule, (list,tuple)):
+         rule = [rule]
+
+      self.colCount[col] = len(rule)
+      self.colWidths[col] = []
+
+      for r in rule:
+         assert(isinstance(r, (str, int, long, float)))
+         if isinstance(r, str):
+            theFont = self.font()
+            try:
+               firstRow = self.model().index(row,col)
+               theFont = self.model().data(index=firstRow, role=Qt.FontRole)
+            except:
+               raise
+               pass
+            self.colWidths[col].append( tightSizeStr(theFont, r)[0] ) 
+         else:
+            self.colWidths[col].append( r )
+
+      # Should decide if this is a fixed-width col or var width
+      # It's because resizing must first set fixed cols, and split
+      # the var-width columns among the remaining columns
+      #varThatMatters = self.colWidths[col][0]
+      #if self.colCount[col]>1:
+         #varThatMatters = self.colWidths[col][1]
+          
+      #if varThatMatters > 1:
+         #self.colsFixed.append(col)
+      #else:
+         #self.varCols.append(col)
+            
+   """
+
+   #def resizeEvent(self, event):
+      #try:
+         #for i,c in enumerate(range(self.model().columnCount())):
+            #print self.columnWidth(c),
+      #except:
+         #raise
+   pass
+   """
+      if self.model().columnCount() > 0:
+         return
+
+      totalWidth = event.size().width()
+      remainWidth = totalWidth
+      for f in fixedCols:
+         rule = self.colWidths[col]
+         
+         self.setColumnWidth( 
+      self.setColumnWidth(1, width * 0.25) # 25% Width Column
+      self.setColumnWidth(2, width * 0.75) # 75% Width Column
+   """
 
 
 ################################################################################
@@ -787,13 +867,14 @@ class DlgWalletDetails(ArmoryDialog):
 
       frmTotals.setLayout(frmTotalsLayout)
 
+      bottomFrm = makeHorizFrame([btnGoBack, 'Stretch', frmTotals])
+
       lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>')
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0, 3, 4)
       layout.addWidget(lblWltAddr,            4, 0, 1, 4)
       layout.addWidget(self.wltAddrView,      5, 0, 2, 4)
-      layout.addWidget(btnGoBack,             7, 0, 2, 1)
-      layout.addWidget(frmTotals,             7, 3, 2, 1)
+      layout.addWidget(bottomFrm,             7, 0, 2, 4)
 
       layout.addWidget(QLabel("Available Actions:"), \
                                               0, 4)

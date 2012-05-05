@@ -114,9 +114,9 @@ class ArmoryMainWindow(QMainWindow):
 
       # For some reason, I can't get an acceptable value that works for both
       if OS_WINDOWS:
-         w,h = tightSizeNChar(self.walletsView, 100)
+         w,h = tightSizeNChar(self.walletsView, 80)
       else:
-         w,h = tightSizeNChar(self.walletsView, 70)
+         w,h = tightSizeNChar(self.walletsView, 55)
       viewWidth  = 1.2*w
       sectionSz  = 1.5*h
       viewHeight = 4.4*sectionSz
@@ -178,25 +178,15 @@ class ArmoryMainWindow(QMainWindow):
          #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
          #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
          #self.ledgerView.setColumnHidden(LEDGERCOLS.TxHash, False)
-
-
       
       self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickLedger)
-
 
 
       btnAddWallet = QPushButton("Create New Wallet")
       btnImportWlt = QPushButton("Import Wallet")
       self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
       self.connect(btnImportWlt, SIGNAL('clicked()'), self.execImportWallet)
-
-      layout = QHBoxLayout()
-      layout.addSpacing(100)
-      layout.addWidget(btnAddWallet)
-      layout.addWidget(btnImportWlt)
-      frmAddImport = QFrame()
-      frmAddImport.setFrameShape(QFrame.NoFrame)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
@@ -210,7 +200,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # Combo box to filter ledger display
       self.comboWalletSelect = QComboBox()
-      #self.comboWalletSelect.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       self.populateLedgerComboBox()
 
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
@@ -273,15 +262,15 @@ class ArmoryMainWindow(QMainWindow):
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
       ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
-      ledgLayout.addWidget(self.ledgerView,           1,0, 3,4)
-      ledgLayout.addWidget(frmLower,                  4,0, 1,4)
+      ledgLayout.addWidget(self.ledgerView,           1,0)
+      ledgLayout.addWidget(frmLower,                  2,0)
+      ledgLayout.setRowStretch(0, 0)
+      ledgLayout.setRowStretch(1, 1)
+      ledgLayout.setRowStretch(2, 0)
+
       ledgFrame.setLayout(ledgLayout)
 
 
-      #self.lblUcn.setVisible(False)
-      #self.lblBTC3.setVisible(False)
-      #self.lblUnconfFunds.setVisible(False)
-      #self.ttipUcn.setVisible(False)
 
       btnSendBtc   = QPushButton("Send Bitcoins")
       btnRecvBtc   = QPushButton("Receive Bitcoins")
@@ -295,41 +284,44 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnDevTools, SIGNAL('clicked()'), self.openToolsDlg)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
-      # QTableView.selectedIndexes to get the selection
 
-      layout = QVBoxLayout()
-      layout.addWidget(btnSendBtc)
-      layout.addWidget(btnRecvBtc)
-      layout.addWidget(btnWltProps)
-      
-      if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
-         layout.addWidget(btnOfflineTx)
-      #if self.usermode==USERMODE.Developer:
-         #layout.addWidget(btnDevTools)
-      layout.addStretch()
-      btnFrame = QFrame()
-      btnFrame.setLayout(layout)
-
-      
-      lblInfo = QLabel('Armory (%s-alpha) / %s User Mode' % \
-               (getVersionString(BTCARMORY_VERSION), UserModeStr(self.usermode)))
+      verStr = 'Armory %s-alpha / %s User' % (getVersionString(BTCARMORY_VERSION), \
+                                              UserModeStr(self.usermode))
+      lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
       lblInfo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      layout.addWidget(lblInfo)
-               
+
+      logoBtnFrame = []
+      logoBtnFrame.append(self.lblLogoIcon)
+      print self.lblLogoIcon.width(), self.lblLogoIcon.height()
+      logoBtnFrame.append(btnSendBtc)
+      logoBtnFrame.append(btnRecvBtc)
+      logoBtnFrame.append(btnWltProps)
+      if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         logoBtnFrame.append(btnOfflineTx)
+      logoBtnFrame.append(lblInfo)
+      #logoBtnFrame.append(btnDevTools)
+      logoBtnFrame.append('Stretch')
+
+      btnFrame = makeVertFrame(logoBtnFrame, STYLE_SUNKEN)
+      logoWidth=275
+      btnFrame.sizeHint = lambda: QSize(logoWidth*1.0, 10)
+      btnFrame.setMaximumWidth(logoWidth*1.1)
+      btnFrame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
       
       layout = QGridLayout()
-      layout.addWidget(self.lblLogoIcon,  0, 0, 1, 2)
-      layout.addWidget(btnFrame,          1, 0, 2, 2)
-      layout.addWidget(wltFrame,          0, 2, 3, 2)
-      layout.addWidget(ledgFrame,         3, 0, 4, 4)
+      layout.addWidget(btnFrame,          0, 0, 1, 1)
+      layout.addWidget(wltFrame,          0, 1, 1, 1)
+      layout.addWidget(ledgFrame,         1, 0, 1, 2)
+      layout.setRowStretch(0, 1)
+      layout.setRowStretch(1, 5)
 
       # Attach the layout to the frame that will become the central widget
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
       #if self.usermode==USERMODE.Standard:
-      self.setMinimumSize(800,400)
+      self.setMinimumSize(800,500)
       #else:
          #self.setMinimumSize(1200,300)
 
@@ -416,6 +408,20 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
+
+      # Restore any main-window geometry saved in the settings file
+      print 'Restoring main window geometry'
+      hexgeom   = self.settings.get('MainGeometry')
+      hexledgsz = self.settings.get('MainLedgerCols')
+      hexwltsz  = self.settings.get('MainWalletCols')
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+
+      if len(hexwltsz)>0:
+         restoreTableView(self.walletsView, hexwltsz)
+      if len(hexledgsz)>0:
+         restoreTableView(self.ledgerView, hexledgsz)
 
 
 
@@ -1927,7 +1933,21 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def uriSendBitcoins(self, uriDict):
+      # Because Bitcoin-Qt doesn't store the message= field we have to assume
+      # that the label field holds the Tx-info.  So we concatenate them for 
+      # the display message
       uri_has = lambda s: uriDict.has_key(s)
+
+      haveLbl = uri_has('label')
+      haveMsg = uri_has('message')
+
+      newMsg = '' 
+      if haveLbl and haveMsg:
+         newMsg = uriDict['label'] + ': ' + uriDict['message']
+      elif not haveLbl and haveMsg:
+         newMsg = uriDict['message']
+      elif haveLbl and not haveMsg:
+         newMsg = uriDict['label']
       
       descrStr = ''
       descrStr = ('You just clicked on a "bitcoin:" link requesting Bitcoins ' 
@@ -1935,24 +1955,26 @@ class ArmoryMainWindow(QMainWindow):
 
       descrStr += '<br>--<b>Address</b>:\t%s ' % uriDict['address']
 
-      amt = 0
-      if uri_has('label'):
-         if len(uriDict['label'])>30:
-            descrStr += '(%s...)' % uriDict['label'][:30]
-         else:
-            descrStr += '(%s)' % uriDict['label']
+      #if uri_has('label'):
+         #if len(uriDict['label'])>30:
+            #descrStr += '(%s...)' % uriDict['label'][:30]
+         #else:
+            #descrStr += '(%s)' % uriDict['label']
 
+      amt = 0
       if uri_has('amount'):
          amt     = uriDict['amount']
          amtstr  = coin2str(amt, maxZeros=1)
          descrStr += '<br>--<b>Amount</b>:\t%s BTC' % amtstr
 
-      if uri_has('message'):
-         if len(uriDict['message'])>60:
-            descrStr += '<br>--<b>Message</b>:\t%s...' % uriDict['message'][:60]
-         else:
-            descrStr += '<br>--<b>Message</b>:\t%s' % uriDict['message']
 
+      if newMsg:
+         if len(newMsg)>60:
+            descrStr += '<br>--<b>Message</b>:\t%s...' % newMsg[:60]
+         else:
+            descrStr += '<br>--<b>Message</b>:\t%s' % newMsg
+
+      uriDict['message'] = newMsg
       
       if not uri_has('amount'):
           descrStr += ('<br><br>There is no amount specified in the link, so '
@@ -2202,6 +2224,18 @@ class ArmoryMainWindow(QMainWindow):
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
       '''
+      try:
+         print 'Saving main window geometry'
+         # Save the main window geometry in the settings file
+         self.saveGeometry().toHex()
+         self.settings.set('MainGeometry',   str(self.saveGeometry().toHex()))
+         self.settings.set('MainWalletCols', saveTableView(self.walletsView))
+         self.settings.set('MainLedgerCols', saveTableView(self.ledgerView))
+      except:
+         # Don't want a strange error here interrupt shutdown 
+         raise
+         pass
+
       form.sysTray.hide()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
