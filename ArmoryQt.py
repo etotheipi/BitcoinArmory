@@ -142,7 +142,7 @@ class ArmoryMainWindow(QMainWindow):
       w,h = tightSizeNChar(GETFONT('var'), 100)
       viewWidth = 1.2*w
       if OS_WINDOWS:
-         sectionSz = 1.55*h
+         sectionSz = 1.3*h
          viewHeight = 6.0*sectionSz
       else:
          sectionSz = 1.3*h
