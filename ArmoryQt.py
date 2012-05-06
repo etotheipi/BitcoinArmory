@@ -88,14 +88,14 @@ class ArmoryMainWindow(QMainWindow):
       self.loadWalletsAndSettings()
       self.setupNetworking()
 
+      # setupNetworking may have set this flag if something went wrong
+      if self.abortLoad:
+         os._exit(0)
+
       # Setup system tray and register "bitcoin:" URLs with the OS
       self.setupSystemTray()
       self.setupUriRegistration()
 
-
-      # setupNetworking may have set this flag if something went wrong
-      if self.abortLoad:
-         os._exit(0)
 
       self.extraHeartbeatFunctions = [self.doTheSystemTrayThing]
 

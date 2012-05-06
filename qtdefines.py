@@ -457,17 +457,22 @@ def QImageLabel(imgfn, stretch='NoStretch'):
 
 
 def restoreTableView(qtbl, hexBytes):
-   binunpack = BinaryUnpacker(hex_to_binary(hexBytes))
-   hexByte = binunpack.get(UINT8)
-   binLen = binunpack.get(UINT8)
-   toRestore = []
-   for i in range(binLen):
-      sz = binunpack.get(UINT16)
-      if sz>0:
-         toRestore.append([i,sz])
-      
-   for i,c in toRestore[:-1]:
-      qtbl.setColumnWidth(i, c)
+   try:
+      binunpack = BinaryUnpacker(hex_to_binary(hexBytes))
+      hexByte = binunpack.get(UINT8)
+      binLen = binunpack.get(UINT8)
+      toRestore = []
+      for i in range(binLen):
+         sz = binunpack.get(UINT16)
+         if sz>0:
+            toRestore.append([i,sz])
+         
+      for i,c in toRestore[:-1]:
+         qtbl.setColumnWidth(i, c)
+   except Exception, e:
+      print 'ERROR!'
+      pass
+      # Don't want to crash the program just because couldn't load tbl data
 
 
 def saveTableView(qtbl):
