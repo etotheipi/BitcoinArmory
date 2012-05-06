@@ -821,21 +821,23 @@ class DlgWalletDetails(ArmoryDialog):
          restoreTableView(self.wltAddrView, tblgeom)
 
    #############################################################################
-   def closeEvent(self, event):
+   def saveGeometrySettings(self):
       self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
       self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
       super(DlgWalletDetails, self).closeEvent(event)
 
    #############################################################################
    def accept(self, *args):
-      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
-      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      self.saveGeometrySettings()
       super(DlgWalletDetails, self).accept(*args)
 
    #############################################################################
    def reject(self, *args):
-      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
-      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      self.saveGeometrySettings()
       super(DlgWalletDetails, self).reject(*args)
       
    #############################################################################
@@ -4320,7 +4322,7 @@ class DlgConfirmSend(ArmoryDialog):
 
 
 class DlgSendBitcoins(ArmoryDialog):
-   COLS = enum('LblAddr','Addr','AddrBook', 'LblBtc','Btc','LblComm','Comm')
+   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit', 'LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None, prefill=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
@@ -4331,7 +4333,6 @@ class DlgSendBitcoins(ArmoryDialog):
 
       self.widgetTable = []
 
-      layout = QGridLayout()
       self.scrollRecipArea = QScrollArea()
       #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
@@ -4361,9 +4362,6 @@ class DlgSendBitcoins(ArmoryDialog):
 
       spacer = QSpacerItem(20, 1)
 
-      layout.addWidget(lblRecip,                   0, 1, 1, 5)
-      layout.addWidget(self.scrollRecipArea,       1, 1, 4, 5)
-
 
       btnSend = QPushButton('Send!')
       self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
@@ -4373,7 +4371,7 @@ class DlgSendBitcoins(ArmoryDialog):
                                        feetip, \
                                        'stretch', \
                                        btnSend])
-      layout.addWidget(txFrm, 5,1, 1,5)
+
 
       
 
@@ -4467,8 +4465,19 @@ class DlgSendBitcoins(ArmoryDialog):
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
 
-      layout.addWidget(lblSend,       0,0,  1,1)
-      layout.addWidget(frmBottomLeft, 1,0,  5,1)
+
+      layout = QGridLayout()
+
+      layout.addWidget(lblSend,                  0,0,  1,1)
+      layout.addWidget(frmBottomLeft,            1,0,  2,1)
+
+      layout.addWidget(lblRecip,                 0,1,  1,1)
+      layout.addWidget(self.scrollRecipArea,     1,1,  1,1)
+      layout.addWidget(txFrm,                    2,1,  1,1)
+
+      layout.setRowStretch(0,0)
+      layout.setRowStretch(1,1)
+      layout.setRowStretch(2,0)
       self.setLayout(layout)
 
       self.makeRecipFrame(1)
@@ -4515,9 +4524,31 @@ class DlgSendBitcoins(ArmoryDialog):
          if result[1]==True:
             self.main.settings.set('DonateDNAA', True)
       
+      hexgeom = self.main.settings.get('SendBtcGeometry')
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
             
          
 
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.settings.set('SendBtcGeometry', str(self.saveGeometry().toHex()))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).reject(*args)
 
    #############################################################################
    def createTxDPAndDisplay(self):
@@ -4622,7 +4653,7 @@ class DlgSendBitcoins(ArmoryDialog):
          if not addrIsValid:
             okayToSend = False
             palette = QPalette()
-            palette.setColor( QPalette.Base, Colors.LightRed )
+            palette.setColor( QPalette.Base, Colors.SlightRed )
             boldFont = self.widgetTable[i][COLS.Addr].font()
             boldFont.setWeight(QFont.Bold)
             self.widgetTable[i][COLS.Addr].setFont(boldFont)
@@ -4694,7 +4725,7 @@ class DlgSendBitcoins(ArmoryDialog):
       bal = self.wlt.getBalance('Spendable')
       if totalSend+fee > bal:
          QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
-            '%s BTC (including tx fee), but you only have %s BTC (spendable) in this wallet!' % \
+            '%s BTC, including fee, but you only have %s BTC (spendable) in this wallet!' % \
                (coin2str(totalSend+fee, maxZeros=2).strip(), \
                 coin2str(bal, maxZeros=2).strip()), \
             QMessageBox.Ok)
@@ -4842,7 +4873,7 @@ class DlgSendBitcoins(ArmoryDialog):
       for i in range(nRecip):
          if i<prevNRecip and i<nRecip:
             inputs.append([])
-            for j in (1,4,6):
+            for j in (1,4,7):
                inputs[-1].append(str(self.widgetTable[i][j].text()))
 
 
@@ -4864,15 +4895,19 @@ class DlgSendBitcoins(ArmoryDialog):
          self.widgetTable[-1][-1].setFont(GETFONT('var',9))
 
          addrEntryBox = self.widgetTable[-1][-1]
-         self.widgetTable[-1].append( createAddrBookButton(self, addrEntryBox, self.wlt.uniqueIDB58, 'Send to') )
-         self.widgetTable[-1].append( QLabel('BTC:') )
+         self.widgetTable[-1].append( createAddrBookButton(self, addrEntryBox, \
+                                      self.wlt.uniqueIDB58, 'Send to') )
+         self.widgetTable[-1].append( QLabel('Amount:') )
 
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(GETFONT('Fixed'))
-         self.widgetTable[-1][-1].setMaximumWidth(tightSizeNChar(GETFONT('Fixed'), 10)[0])
+         self.widgetTable[-1][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setAlignment(Qt.AlignRight)
+         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft)
       
+         self.widgetTable[-1].append( QLabel('BTC') )
+         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
          self.widgetTable[-1].append( QLabel('Comment:') )
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
@@ -4887,12 +4922,15 @@ class DlgSendBitcoins(ArmoryDialog):
          subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
          subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr],  0, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],     0, 1, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.AddrBook], 0, 2, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblBtc],   0, 3, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      0, 4, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  1, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     1, 1, 1, 4)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],     0, 1, 1, 5)
+         subLayout.addWidget(self.widgetTable[-1][COLS.AddrBook], 0, 6, 1, 1)
+
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblAmt],   1, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      1, 1, 1, 2)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblUnit],  1, 3, 1, 4)
+
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  2, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     2, 1, 1, 7)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
@@ -4914,7 +4952,7 @@ class DlgSendBitcoins(ArmoryDialog):
       btnLayout.addWidget(lbtnRmRecip)
       btnFrm.setLayout(btnLayout)
 
-      #widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblBtc, COLS.Btc]
+      #widgetsForWidth = [COLS.LblAddr, COLS.Addr, COLS.LblAmt, COLS.Btc]
       #minScrollWidth = sum([self.widgetTable[0][col].width() for col in widgetsForWidth])
 
       frmRecipLayout.addWidget(btnFrm)
@@ -8346,7 +8384,41 @@ class DlgAddressBook(ArmoryDialog):
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
+      hexgeom = self.main.settings.get('AddrBookGeometry')
+      wltgeom = self.main.settings.get('AddrBookWltTbl')
+      rxgeom  = self.main.settings.get('AddrBookRxTbl')
+      txgeom  = self.main.settings.get('AddrBookTxTbl')
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+      if len(wltgeom)>0:
+         restoreTableView(self.wltDispView, wltgeom)
+      if len(rxgeom)>0:
+         restoreTableView(self.addrBookRxView, rxgeom)
+      if len(txgeom)>0:
+         restoreTableView(self.addrBookTxView, txgeom)
 
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.settings.set('AddrBookGeometry', str(self.saveGeometry().toHex()))
+      self.main.settings.set('AddrBookWltTbl',   saveTableView(self.wltDispView))
+      self.main.settings.set('AddrBookRxTbl',    saveTableView(self.addrBookRxView))
+      self.main.settings.set('AddrBookTxTbl',    saveTableView(self.addrBookTxView))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      super(DlgAddressBook, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      super(DlgAddressBook, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgAddressBook, self).reject(*args)
    
    #############################################################################
    def setAddrBookTxModel(self, wltID):
