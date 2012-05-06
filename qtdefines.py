@@ -458,6 +458,7 @@ def QImageLabel(imgfn, stretch='NoStretch'):
 
 def restoreTableView(qtbl, hexBytes):
    binunpack = BinaryUnpacker(hex_to_binary(hexBytes))
+   hexByte = binunpack.get(UINT8)
    binLen = binunpack.get(UINT8)
    toRestore = []
    for i in range(binLen):
@@ -475,7 +476,11 @@ def saveTableView(qtbl):
    for i in range(nCol):
       sz[i] = qtbl.columnWidth(i)      
 
+   # Use 'ff' as a kind of magic byte for this data.  Most importantly
+   # we want to guarantee that the settings file will interpret this
+   # as hex data -- I once had an unlucky hex string written out with 
+   # all digits and then intepretted as an integer on the next load :( 
    first = int_to_hex(nCol)
    rest  = [int_to_hex(s, widthBytes=2) for s in sz]
-   return first + ''.join(rest)
+   return 'ff' + first + ''.join(rest)
 

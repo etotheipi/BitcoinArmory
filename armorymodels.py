@@ -243,6 +243,49 @@ class LedgerDispModelSimple(QAbstractTableModel):
 
 
 
+################################################################################
+class LedgerDispSortProxy(QSortFilterProxyModel):
+   """      
+   Acts as a proxy that re-maps indices to the table view so that data 
+   appears sorted, without actually touching the model
+   """      
+   def lessThan(self, idxLeft, idxRight):
+      COL = LEDGERCOLS
+      thisCol  = self.sortColumn()
+
+      def getDouble(idx, col):
+         return self.sourceModel().index(idx.row(), col).data().toDouble()[0]
+
+      def getInt(idx, col):
+         return self.sourceModel().index(idx.row(), col).data().toInt()[0]
+
+
+      if thisCol==COL.NumConf:
+         lConf = getInt(idxLeft,  COL.NumConf)
+         rConf = getInt(idxRight, COL.NumConf)
+         if lConf==rConf:
+            tLeft  = getDouble(idxLeft,  COL.UnixTime)
+            tRight = getDouble(idxRight, COL.UnixTime)
+            if tLeft==tRight:
+               btcLeft  = getDouble(idxLeft,  COL.Amount)
+               btcRight = getDouble(idxRight, COL.Amount)
+               return (abs(btcLeft)>abs(btcRight))
+            return (tLeft<tRight)
+         return (lConf>rConf)
+      if thisCol==COL.DateStr:
+         tLeft  = getDouble(idxLeft,  COL.UnixTime)
+         tRight = getDouble(idxRight, COL.UnixTime)
+         return (tLeft<tRight)
+      if thisCol==COL.Amount:
+         btcLeft  = getDouble(idxLeft,  COL.Amount)
+         btcRight = getDouble(idxRight, COL.Amount)
+         return (abs(btcLeft) < abs(btcRight))
+      else:
+         return super(LedgerDispSortProxy, self).lessThan(idxLeft, idxRight)
+
+
+
+################################################################################
 class LedgerDispDelegate(QStyledItemDelegate):
 
    COL = LEDGERCOLS
@@ -403,8 +446,28 @@ class WalletAddrDispModel(QAbstractTableModel):
                return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
 
       return QVariant()
-            
-      
+
+   
+################################################################################
+class WalletAddrSortProxy(QSortFilterProxyModel):
+   """      
+   Acts as a proxy that re-maps indices to the table view so that data 
+   appears sorted, without actually touching the model
+   """      
+   def lessThan(self, idxLeft, idxRight):
+      COL = ADDRESSCOLS
+      thisCol  = self.sortColumn()
+      strLeft  = str(self.sourceModel().data(idxLeft).toString())
+      strRight = str(self.sourceModel().data(idxRight).toString())
+      if thisCol==COL.Address:
+         return (strLeft.lower() < strRight.lower())
+      elif thisCol==COL.Comment:
+         return (strLeft < strRight)
+      elif thisCol==COL.Balance:
+         return (float(strLeft.strip()) < float(strRight.strip()))
+      else:
+         return super(WalletAddrSortProxy, self).lessThan(idxLeft, idxRight)
+         
 
 ################################################################################
 class TxInDispModel(QAbstractTableModel):
@@ -701,6 +764,47 @@ class SentToAddrBookModel(QAbstractTableModel):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
 
       return QVariant()
+
+
+################################################################################
+class SentAddrSortProxy(QSortFilterProxyModel):
+   def lessThan(self, idxLeft, idxRight):
+      COL = ADDRBOOKCOLS
+      thisCol  = self.sortColumn()
+      strLeft  = str(self.sourceModel().data(idxLeft).toString())
+      strRight = str(self.sourceModel().data(idxRight).toString())
+
+
+      def getProxyData(idx, col, dtype):
+         iunix = self.sourceModel().index(idx.row(), col)
+         return dtype(str(iunix.data().toString()))
+
+      #WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
+      #LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
+                        #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
+      #ADDRESSCOLS  = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
+      #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
+
+      tLeft    = getProxyData(idxLeft,  COL.UnixTime, float)
+      tRight   = getProxyData(idxRight, COL.UnixTime, float)
+      btcLeft  = getProxyData(idxLeft,  COL.Amount,   float)
+      btcRight = getProxyData(idxRight, COL.Amount,   float)
+
+      if thisCol==COL.NumConf:
+         lConf = int(strLeft)
+         rConf = int(strRight)
+         if lConf==rConf:
+            if tLeft==tRight:
+               return (abs(btcLeft)>abs(btcRight))
+            return (tLeft<tRight)
+         return (lConf>rConf)
+      if thisCol==COL.DateStr:
+         return (tLeft<tRight)
+      if thisCol==COL.Amount:
+         return (abs(btcLeft) < abs(btcRight))
+      else:
+         return super(LedgerDispSortProxy, self).lessThan(idxLeft, idxRight)
+
 
 """
 

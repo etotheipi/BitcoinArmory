@@ -139,12 +139,7 @@ class ArmoryMainWindow(QMainWindow):
                    self.execDlgWalletDetails)
                   
 
-      # Table to display ledger/activity
-      self.ledgerTable = []
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-      self.ledgerView  = QTableView()
-
-      w,h = tightSizeNChar(self.ledgerView, 110)
+      w,h = tightSizeNChar(GETFONT('var'), 100)
       viewWidth = 1.2*w
       if OS_WINDOWS:
          sectionSz = 1.55*h
@@ -153,14 +148,28 @@ class ArmoryMainWindow(QMainWindow):
          sectionSz = 1.3*h
          viewHeight = 6.4*sectionSz
 
-      self.ledgerView.setModel(self.ledgerModel)
+
+      # Table to display ledger/activity
+      self.ledgerTable = []
+      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+
+      self.ledgerProxy = LedgerDispSortProxy()
+      self.ledgerProxy.setSourceModel(self.ledgerModel)
+      self.ledgerProxy.setDynamicSortFilter(False)
+      self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
+
+      self.ledgerView  = QTableView()
+      self.ledgerView.setModel(self.ledgerProxy)
+      self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
       self.ledgerView.setSelectionMode(QTableView.SingleSelection)
+
       self.ledgerView.verticalHeader().setDefaultSectionSize(sectionSz)
       self.ledgerView.verticalHeader().hide()
-      #self.ledgerView.setMinimumSize(viewWidth, viewHeight)
-      #self.walletsView.setStretchFactor(4)
+      self.ledgerView.horizontalHeader().setResizeMode(0, QHeaderView.Fixed)
+      self.ledgerView.horizontalHeader().setResizeMode(3, QHeaderView.Fixed)
+
       self.ledgerView.hideColumn(LEDGERCOLS.isOther)
       self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
@@ -331,9 +340,6 @@ class ArmoryMainWindow(QMainWindow):
          tstart = RightNow()
          self.loadBlockchain()
          print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
-      self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-      self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-      self.ledgerView.setModel(self.ledgerModel)
       from twisted.internet import reactor
 
       ##########################################################################
@@ -410,7 +416,6 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Restore any main-window geometry saved in the settings file
-      print 'Restoring main window geometry'
       hexgeom   = self.settings.get('MainGeometry')
       hexledgsz = self.settings.get('MainLedgerCols')
       hexwltsz  = self.settings.get('MainWalletCols')
@@ -1175,7 +1180,10 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-         self.ledgerView.setModel(self.ledgerModel)
+         #self.ledgerProxy = LedgerDispSortProxy()
+         #self.ledgerProxy.setDynamicSortFilter(True)
+         self.ledgerProxy.setSourceModel(self.ledgerModel)
+         self.ledgerView.setModel(self.ledgerProxy)
          #self.ledgerModel.reset()
 
       except AttributeError:
@@ -2225,7 +2233,6 @@ class ArmoryMainWindow(QMainWindow):
       '''
       try:
          # Save the main window geometry in the settings file
-         print 'Saving main window geometry'
          self.settings.set('MainGeometry',   str(self.saveGeometry().toHex()))
          self.settings.set('MainWalletCols', saveTableView(self.walletsView))
          self.settings.set('MainLedgerCols', saveTableView(self.ledgerView))

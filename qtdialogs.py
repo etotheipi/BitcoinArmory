@@ -579,8 +579,12 @@ class DlgWalletDetails(ArmoryDialog):
       # Address view
       lblAddrList = QLabel('Addresses in Wallet:')
       self.wltAddrModel = WalletAddrDispModel(wlt, self)
+      self.wltAddrProxy = WalletAddrSortProxy(self)
+      self.wltAddrProxy.setSourceModel(self.wltAddrModel)
       self.wltAddrView  = QTableView()
-      self.wltAddrView.setModel(self.wltAddrModel)
+      self.wltAddrView.setModel(self.wltAddrProxy)
+      self.wltAddrView.setSortingEnabled(True)
+
       self.wltAddrView.setSelectionBehavior(QTableView.SelectRows)
       self.wltAddrView.setSelectionMode(QTableView.SingleSelection)
       self.wltAddrView.horizontalHeader().setStretchLastSection(True)
@@ -8289,6 +8293,7 @@ class DlgAddressBook(ArmoryDialog):
          lblToAddr.setVisible(False)
 
 
+      rowHeight = tightSizeStr(self.font, 'XygjpHI')[1]
 
       self.wltDispModel = AllWalletsDispModel(self.main)
       self.wltDispView = QTableView()
@@ -8297,6 +8302,7 @@ class DlgAddressBook(ArmoryDialog):
       self.wltDispView.setSelectionMode(QTableView.SingleSelection)
       self.wltDispView.horizontalHeader().setStretchLastSection(True)
       self.wltDispView.verticalHeader().setDefaultSectionSize(20)
+      self.wltDispView.setMaximumHeight(rowHeight*7.7)
       initialColResize(self.wltDispView, [0.15, 0.30, 0.2, 0.20])
       self.connect(self.wltDispView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
@@ -8309,9 +8315,10 @@ class DlgAddressBook(ArmoryDialog):
       # DISPLAY sent-to addresses  
       self.addrBookTxModel = None
       self.addrBookTxView = QTableView()
+      self.addrBookTxView.setSortingEnabled(True)
       self.setAddrBookTxModel(defaultWltID)
       self.connect(self.addrBookTxView, SIGNAL('doubleClicked(QModelIndex)'), \
-                   self.dblClickAddressView)
+                   self.dblClickAddressTx)
 
       self.addrBookTxView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.addrBookTxView.customContextMenuRequested.connect(self.showContextMenuTx)
@@ -8319,9 +8326,10 @@ class DlgAddressBook(ArmoryDialog):
       # DISPLAY receiving addresses  
       self.addrBookRxModel = None
       self.addrBookRxView = QTableView()
+      self.addrBookRxView.setSortingEnabled(True)
       self.setAddrBookRxModel(defaultWltID)
       self.connect(self.addrBookRxView, SIGNAL('doubleClicked(QModelIndex)'), \
-                   self.dblClickAddressView)
+                   self.dblClickAddressRx)
 
       self.addrBookRxView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.addrBookRxView.customContextMenuRequested.connect(self.showContextMenuRx)
@@ -8365,24 +8373,28 @@ class DlgAddressBook(ArmoryDialog):
       self.connect(btnCancel,          SIGNAL('clicked()'), self.reject)
 
 
-      dlgLayout = QVBoxLayout()
-      dlgLayout.addWidget(lblDescr)
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(lblToWlt)
-      dlgLayout.addWidget(self.wltDispView)
-      dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, 'Stretch', self.btnSelectWlt]))
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(lblToAddr)
-      dlgLayout.addWidget(self.tabWidget)
-      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]))
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(makeHorizFrame([btnCancel, 'Stretch']))
+      dlgLayout = QGridLayout()
+      dlgLayout.addWidget(lblDescr, 0,0)
+      dlgLayout.addWidget(HLINE(), 1,0)
+      dlgLayout.addWidget(lblToWlt, 2,0)
+      dlgLayout.addWidget(self.wltDispView, 3,0)
+      dlgLayout.addWidget(makeHorizFrame([self.lblSelectWlt, 'Stretch', self.btnSelectWlt]), 4,0)
+      dlgLayout.addWidget(HLINE(), 5,0)
+      dlgLayout.addWidget(lblToAddr, 6,0)
+      dlgLayout.addWidget(self.tabWidget, 7,0)
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnSelectAddr]), 8,0)
+      dlgLayout.addWidget(HLINE(), 9,0)
+      dlgLayout.addWidget(makeHorizFrame([btnCancel, 'Stretch']), 10,0)
+      dlgLayout.setRowStretch(3, 1)
+      dlgLayout.setRowStretch(7, 2)
 
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
 
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
+
+      self.setMinimumWidth(300)
 
       hexgeom = self.main.settings.get('AddrBookGeometry')
       wltgeom = self.main.settings.get('AddrBookWltTbl')
@@ -8423,7 +8435,12 @@ class DlgAddressBook(ArmoryDialog):
    #############################################################################
    def setAddrBookTxModel(self, wltID):
       self.addrBookTxModel = SentToAddrBookModel(wltID, self.main)
-      self.addrBookTxView.setModel(self.addrBookTxModel)
+
+      self.addrBookTxProxy = QSortFilterProxyModel(self)
+      self.addrBookTxProxy.setSourceModel(self.addrBookTxModel)
+      self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
+
+      self.addrBookTxView.setModel(self.addrBookTxProxy)
       self.addrBookTxView.setSelectionBehavior(QTableView.SelectRows)
       self.addrBookTxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookTxView.horizontalHeader().setStretchLastSection(True)
@@ -8440,7 +8457,12 @@ class DlgAddressBook(ArmoryDialog):
    def setAddrBookRxModel(self, wltID):
       wlt = self.main.walletMap[wltID]
       self.addrBookRxModel = WalletAddrDispModel(wlt, self)
-      self.addrBookRxView.setModel(self.addrBookRxModel)
+
+      self.addrBookRxProxy = WalletAddrSortProxy(self)
+      self.addrBookRxProxy.setSourceModel(self.addrBookRxModel)
+      self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
+
+      self.addrBookRxView.setModel(self.addrBookRxProxy)
       self.addrBookRxView.setSelectionBehavior(QTableView.SelectRows)
       self.addrBookRxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookRxView.horizontalHeader().setStretchLastSection(True)
@@ -8493,9 +8515,13 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
-   def dblClickAddressView(self, index):
+   def dblClickAddressRx(self, index):
       # For now, we won't do anything except for change the comment. 
       # May upgrade this method later to do more
+      if index.column()!=ADDRESSCOLS.Comment:
+         self.acceptAddrSelection()
+         return
+
       wlt = self.main.walletMap[self.selectedWltID]
 
       dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
@@ -8504,6 +8530,21 @@ class DlgAddressBook(ArmoryDialog):
          addr160 = addrStr_to_hash160(self.selectedAddr)
          wlt.setComment(addr160, newComment)
 
+   #############################################################################
+   def dblClickAddressTx(self, index):
+      # For now, we won't do anything except for change the comment. 
+      # May upgrade this method later to do more
+      if index.column()!=ADDRBOOKCOLS.Comment:
+         self.acceptAddrSelection()
+         return
+
+      wlt = self.main.walletMap[self.selectedWltID]
+
+      dialog = DlgSetComment(self.selectedCmmt, 'Address', self, self.main)
+      if dialog.exec_():
+         newComment = str(dialog.edtComment.text())
+         addr160 = addrStr_to_hash160(self.selectedAddr)
+         wlt.setComment(addr160, newComment)
 
    #############################################################################
    def acceptWltSelection(self):
