@@ -543,9 +543,13 @@ class TxOutDispModel(QAbstractTableModel):
       self.wltIDList = []
       self.idxGray = idxGray
       for i,txout in enumerate(self.tx.outputs):
-         recip160 = TxOutScriptExtractAddr160(txout.binScript)
+         txoutType = getTxOutScriptType(txout.binScript)
+         if txoutType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            recip160 = TxOutScriptExtractAddr160(txout.binScript)
+         else:
+            recip160 = None
          self.txOutList.append(txout)
-         if main:
+         if main and recip160:
             self.wltIDList.append(main.getWalletForAddr160(recip160))
          else:
             self.wltIDList.append('')
