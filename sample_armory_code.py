@@ -54,18 +54,35 @@ start = RightNow()
 print '\n\nCollect all difficulty changes...'
 print 'Block'.rjust(10), 'Difficulty'.rjust(14), '\t', 'Date'
 prevDiff = 0
+maxDiff = hex_to_int('ff'*32)
+minDiff = maxDiff
+minDiffBlk = hex_to_int('ff'*32)
 for h in xrange(0,topBlock+1):
    header = TheBDM.getHeaderByHeight(h)
    currDiff = header.getDifficulty()
+   thisHash = header.getThisHash()
+   thisDiff = binary_to_int(thisHash);
+
+   if thisDiff < minDiff:
+      minDiff = thisDiff
+      minDiffBlk = h
+   
    if not prevDiff==currDiff:
       print str(h).rjust(10),
       print ('%0.1f'%currDiff).rjust(14),
       print '\t', unixTimeToFormatStr(header.getTimestamp())
    prevDiff = currDiff
 
+from math import log
 print 'Took %0.1f seconds to collect difficulty list' % (RightNow()-start)
+print '\nBlock with the lowest difficulty:'
+print '   Block Num:      ', minDiffBlk
+print '   Block Hash:     ', int_to_hex(minDiff, 32, BIGENDIAN)
+print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
+print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
       
       
+
 print '\n\nCount the number of unique addresses in the blockchain'
 start = RightNow()
 allAddr = set()
