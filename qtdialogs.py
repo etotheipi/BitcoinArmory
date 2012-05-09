@@ -6244,7 +6244,6 @@ class DlgDispTxInfo(QDialog):
 
       # Should try to identify what is change and what's not
       wltLE = None
-      IsNonStandard = False
       fee = None
       txAmt = data[FIELDS.SumOut]
 
@@ -6263,8 +6262,6 @@ class DlgDispTxInfo(QDialog):
             else:
                rvPairOther.append( [recip, amt] )
                indicesOther.append( idx )
-         else:
-            IsNonStandard = True
          idx+=1
 
       txdir = None 
@@ -6313,20 +6310,6 @@ class DlgDispTxInfo(QDialog):
       # information available in the TxDP structure
       if precomputeAmt:
          txAmt = precomputeAmt
-
-      if IsNonStandard:
-         # TODO:  Need to do something with this non-std tx!
-         print '***Non-std transaction!'
-         QMessageBox.critical(self, 'Non-Standard Transaction', \
-           'This is a non-standard transaction, which cannot be '
-           'interpretted by this program.  DO NOT ASSUME that you '
-           'own these Bitcoins, even if you see your address in '
-           'any part of the transaction.  Only an expert can tell '
-           'you if and how these coins can be redeemed!  \n\n'
-           'If you would like more information, please copy the '
-           'information on the next window into an email and send '
-           'it to alan.reiner@gmail.com.', QMessageBox.Ok)
-         self.mode=USERMODE.Developer
 
 
 
