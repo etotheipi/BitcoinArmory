@@ -200,17 +200,19 @@ if run_SatoshiDice:
       pass
    
    
-   print 'Results:'
-   print '   ',
-   print 'Address'.rjust(12),
-   print 'Target'.rjust(12),
-   print 'Theory'.rjust(12),
-   print 'Total Bets'.rjust(12),
-   print 'Win'.center(16),
-   print 'Lose'.center(16),
-   print 'Refunds'.center(16),
+   print 'Results:', unixTimeToFormatStr(RightNow())
+   print ''
+   print 'Address'.rjust(10),
+   print 'Target'.rjust(8),
+   print 'Should Win'.rjust(12), '|',
+   print '#Bets'.rjust(8), '|',
+   print 'Win'.center(16), '|',
+   print 'Lose'.center(16), '|',
+   print 'Refunds'.center(17), '|',
    print 'Accounted-for'
+   print '-'*118
    
+   totalBets = 0
    diceAddrList = []
    for a160,ct in diceBetsMadeMap.iteritems():
       diceAddrList.append([a160, diceTargetMap[a160]])
@@ -223,16 +225,19 @@ if run_SatoshiDice:
       losers  = diceBetsPaidOut[a160][LOSE]
       refunds = diceBetsPaidOut[a160][REFUND]
       total2  = winners+losers
-      print '   ',
-      print hash160_to_addrStr(a160)[:8].rjust(12),
-      print str(targ).rjust(12),
-      print ('%0.3f' % (targ/65536.)).rjust(12),
-      print str(total).rjust(12),
+      print hash160_to_addrStr(a160)[:9].rjust(10),
+      print str(targ).rjust(8),
+      print ('%0.5f' % (targ/65536.)).rjust(12),
+      print '|', str(total).rjust(8),
    
-      print str(winners).rjust(7), ('%0.3f'%(winners/float(total2))).rjust(7),
-      print str(losers).rjust(7),  ('%0.3f'%(losers/float(total2))).rjust(7),
-      print str(refunds).rjust(7), ('%0.3f'%(refunds/float(total2))).rjust(7),
+      print '|', str(winners).rjust(6), ('(%0.5f)'%(winners/float(total2))).rjust(8), 
+      print '|', str(losers).rjust(6),  ('(%0.5f)'%(losers/float(total2))).rjust(8), 
+      print '|', str(refunds).rjust(6), ('(%0.5f)'%(refunds/float(total2))).rjust(8), 
 
-      print '\t(%0.3f)' % ((winners+losers+refunds)/float(total))
+      print '|', '(%0.3f)'.rjust(10) % ((winners+losers+refunds)/float(total))
+      totalBets += total
 
+   print '-'*118
+   print ' '*32, '|', str(totalBets).rjust(8), '|'
+   print ''
 
