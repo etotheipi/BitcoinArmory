@@ -184,15 +184,15 @@ if run_SatoshiDice:
                         diceAddr = betsIn[bettorAddr][i][3]
                         recvAmt = txout.getValue()
                         loseAmt = betsIn[bettorAddr][i][LOSE]
-                        if abs(betsIn[bettorAddr][i][WIN]-recvAmt) < 2*loseAmt :
+                        if abs(betsIn[bettorAddr][i][WIN]-recvAmt) < loseAmt/2 :
                            diceBetsPaidOut[diceAddr][WIN] += 1
                            del betsIn[bettorAddr][i]
                            break;
-                        elif abs(betsIn[bettorAddr][i][LOSE]-recvAmt) < 2*loseAmt:
+                        elif abs(betsIn[bettorAddr][i][LOSE]-recvAmt) < loseAmt/2:
                            diceBetsPaidOut[diceAddr][LOSE] += 1
                            del betsIn[bettorAddr][i]
                            break;
-                        elif abs(betsIn[bettorAddr][i][REFUND]-recvAmt) < 2*loseAmt:
+                        elif abs(betsIn[bettorAddr][i][REFUND]-recvAmt) < loseAmt/2:
                            diceBetsPaidOut[diceAddr][REFUND] += 1
                            del betsIn[bettorAddr][i]
                            break;

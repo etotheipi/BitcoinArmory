@@ -11,11 +11,17 @@
 #              ones without private keys) this script extracts don't actually
 #              contribute anything to your wallet.
 #
+#  NOTE:       This was created before wallets ever used encryption.  It's 
+#              probably fairly useless... but any unencrypted wallets created
+#              before Bitcoin-Qt 0.6.0 would still be recoverable, even if 
+#              corrupted
+#
 #
 from sys import argv, path
 path.append('..')
 path.append('.')
 from armoryengine import *
+from CppBlockUtils import *
 
 
 pubfile  = 'keylistpub.txt'
@@ -23,6 +29,8 @@ pairfile = 'keylistpair.txt'
 
 if len(argv)<2:
    print 'USAGE:', argv[0], 'path/to/wallet.dat'
+   for a in argv:
+      print a
    exit(0)
 else:
    wallet = open(argv[1], 'rb')
@@ -39,6 +47,8 @@ pubout = open(pubfile,'w')
 keyout = open(pairfile,'w')
 
 
+print 'Wallet is %d bytes ' % len(walletBytes)
+
 privKeyDict = {}
 pubKeyDict = {}
 
@@ -47,15 +57,13 @@ for i in range(len(walletBytes)):
       continue
    else:
       try:
-         potentialPubKey = walletBytes[i+1:i+65]
-         x = binary_to_int( potentialPubKey[:32], BIGENDIAN)
-         y = binary_to_int( potentialPubKey[32:], BIGENDIAN)
-         if isValidEcPoint(x,y):
-            acct =  PyBtcAddress().createFromPublicKey((x,y))
+         potentialPubKey = SecureBinaryData(walletBytes[i:i+65])
+         if CryptoECDSA().VerifyPublicKeyValid(potentialPubKey):
             fileloc = int_to_hex(i, widthBytes=4, endOut=BIGENDIAN)
             print '\nFound PUBLIC key in file (0x%08s) / ' % (fileloc,),
-            addrStr   = acct.calculateAddrStr()
-            pubkeyHex = binary_to_hex(acct.pubKey_serialize()[1:])
+            hash160   = potentialPubKey.getHash160()
+            addrStr   = hash160_to_addrStr(hash160)
+            pubkeyHex = potentialPubKey.toHexStr()
             print ' Addr: %-34s' % (addrStr,), '   PrivKey:',
 
             # Now search for a private key that matches
@@ -65,13 +73,11 @@ for i in range(len(walletBytes)):
                   continue
                startIdx = j+2
                endIdx = startIdx+32
-               potentialPrivKeyBE = binary_to_int(walletBytes[startIdx:endIdx], BIGENDIAN)
-               pubpointBE = EC_GenPt * potentialPrivKeyBE
-               x2 = pubpointBE.x()
-               y2 = pubpointBE.y()
-               if( (x==x2 and y==y2)):
+               potentialPrivKey = SecureBinaryData(walletBytes[startIdx:endIdx])
+               computedPub = CryptoECDSA().ComputePublicKey(potentialPrivKey)
+               if( hash160 == computedPub.getHash160()):
                   havePrivKey = True
-                  privkeyHex =  binary_to_hex(walletBytes[startIdx:endIdx])
+                  privkeyHex =  potentialPrivKey.toHexStr()
                   break
    
             if not havePrivKey:
@@ -81,7 +87,7 @@ for i in range(len(walletBytes)):
                privKeyDict[addrStr] = (pubkeyHex, privkeyHex)
                print ' FOUND ',
       except:
-         pass
+         raise
          
 for k,v in privKeyDict.iteritems():
    keyout.write('\nAddrStr : %s:\nPubX(BE): %s\nPubY(BE): %s\nPriv(BE): %s' % \
