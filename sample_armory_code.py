@@ -124,35 +124,77 @@ if run_UniqueAddresses:
 ################################################################################
 if run_SatoshiDice:
    print '\n\nLet look at all the bets ever placed at SatoshiDice.com'
-   diceOddsTable = [line.split() for line in open('dicelist.txt').readlines()]
+
+   # First, get the Satoshi dice page so we can extract the addresses and payouts
+   import urllib
+   httppage = urllib.urlopen('http://www.satoshidice.com').read().split('\n')
+
+   # Given this line is part of the wager/addr table, get all the data from it
+   def extractLineData(line):
+      line2 = line.replace('<','~').replace('>','~').replace('=','~').replace(' ','~')
+      pcs = line2.split('~')
+      out = []
+      ltflag = False
+      for pc in pcs:
+         if pc=='lessthan':
+            ltflag = True
+         if ltflag and pc.isdigit():
+            out.append(pc)
+            ltflag = False   
+         if pc.startswith('1dice') or pc.endswith('%') or pc.endswith('x'):
+            out.append(pc)
+      return out
+
+
+   # We have a webpage and a method to process the relevant lines
    diceTargetMap = {}
    dicePctWinMap  = {}
    diceWinMultMap = {}
+   diceLoseMultMap = {}
    diceBetsMadeMap = {}
    diceBetsPaidOut = {}
    WIN, LOSE, REFUND = 0,1,2
-   for row in diceOddsTable:
-      diceAddr = addrStr_to_hash160(row[1])
-      diceTargetMap[diceAddr]         = int(row[0])
-      dicePctWinMap[diceAddr]         = float(row[2][:-1])
-      diceWinMultMap[diceAddr]        = float(row[3][:-1])
-      diceLoseMultiplier              = 536./(2*65536.)
-      diceBetsMadeMap[diceAddr]       = 0
-      diceBetsPaidOut[diceAddr]       = [0, 0, 0]
+   for line in httppage:
+      if 'lessthan' in line and '1dice' in line:
+         targ,addr,winr,mult,hous,rtrn   = extractLineData(line)
+         diceAddr                        = addrStr_to_hash160(addr)
+         diceTargetMap[diceAddr]         = int(targ)
+         dicePctWinMap[diceAddr]         = float(winr[:-1])/100.0
+         diceWinMultMap[diceAddr]        = float(mult[:-1])
+         diceLoseMultMap[diceAddr]       =(float(hous[:-1])/100.0)/2.0
+         diceBetsMadeMap[diceAddr]       = 0
+         diceBetsPaidOut[diceAddr]       = [0, 0, 0]
+
    
    betsIn  = {}
+   sdRecvAmt = 0
+   sdRtrnAmt = 0
+   sdFeePaid = 0
    totalBets = 0
-   
+
+
+   def getTxFee(tx):
+      btcIn, btcOut = 0,0
+      for i in range(tx.getNumTxIn()):
+         btcIn += TheBDM.getSentValue(tx.getTxInRef(i))
+      for i in range(tx.getNumTxOut()):
+         btcOut += tx.getTxOutRef(i).getValue()
+      return (btcIn - btcOut)
+
+      
+         
+
    try:
-      for h in xrange(170000,topBlock+1):
+      for h in xrange(175000,topBlock+1):
          if h%10000 == 0:
             print '\tSearched %d blocks' % h
    
          header = TheBDM.getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
+
          for tx in txList:
-   
             # Check every TxOut in this transaction for SatoshiDice bets
+            txHash = tx.getThisHash()
             for nout in range(tx.getNumTxOut()):
                txout = tx.getTxOutRef(nout)
                if txout.isStandard():
@@ -162,20 +204,70 @@ if run_SatoshiDice:
                      diceAddr = txout.getRecipientAddr()
                      betAmt = txout.getValue()
                      betWin = betAmt * diceWinMultMap[diceAddr]
-                     betLos = betAmt * diceLoseMultiplier
-   
-                     # The payout always goes to first input
+                     betLos = betAmt * diceLoseMultMap[diceAddr]
+
                      firstTxIn = tx.getTxInRef(0)
                      bettorAddr = TheBDM.getSenderAddr20(firstTxIn)
    
-                     # For sure, a bet was made to this address
+                     ## Create the serialized OutPoint, store the tx
+                     outpointStr = txHash + int_to_binary(nout, widthBytes=4)
+                     betsIn[outpointStr] = [betAmt, betWin, betLos, diceAddr, bettorAddr]
+                     sdRecvAmt += betAmt
                      diceBetsMadeMap[diceAddr] += 1
-   
+
+
+            for nin in range(tx.getNumTxIn()):
+               txin = tx.getTxInRef(nin)
+               op = txin.getOutPoint()
+               opStr = op.getTxHash() + int_to_binary(op.getTxOutIndex(), widthBytes=4)
+               returned = -1
+               if betsIn.has_key(opStr):
+                  betAmt, betWin, betLos, diceAddr, addr160 = betsIn[opStr]
+                  for nout in range(tx.getNumTxOut()):
+                     if addr160 == tx.getTxOutRef(nout).getRecipientAddr():
+                        returned = tx.getTxOutRef(nout).getValue()
+                        sdRtrnAmt += returned
+                        sdFeePaid += getTxFee(tx)
+                        break
+
+                  if returned==-1:
+                     print 'Did not find recip, failed...'
+                     continue
+                     #print 'Did not find recip, look for closest match...'
+                     #for nout in range(tx.getNumTxOut()):
+                        #if abs(tx.getTxOutRef(nout).getValue()-betAmt) < betLos/2.0:
+                           #returned = tx.getTxOutRef(nout).getValue()
+                           #sdRtrnAmt += returned
+                           #break;
+                  else:
+                     if returned <= betLos*1.25:
+                        diceBetsPaidOut[diceAddr][LOSE] += 1
+                     elif abs(returned - betAmt) < betLos/2.0:
+                        diceBetsPaidOut[diceAddr][REFUND] += 1
+                     else:
+                        diceBetsPaidOut[diceAddr][WIN] += 1
+                     del betsIn[opStr]
+                     break
+                        
+                     
+
+                  """
+                     # I didn't realize when I wrote this originally, that the 
+                     # wager tx is always spent to return all rewards... so just 
+                     # save the outpoint and look for it later...
+      
+                     # All the old code is below...
+
+                     # The payout always goes to first input
+                     #firstTxIn = tx.getTxInRef(0)
+                     #bettorAddr = TheBDM.getSenderAddr20(firstTxIn)
+                     # For sure, a bet was made to this address
+                     #diceBetsMadeMap[diceAddr] += 1
                      # Lookup table for the bettor's addresses to find payout later
-                     if not betsIn.has_key(bettorAddr):
-                        betsIn[bettorAddr] = []
-   
-                     betsIn[bettorAddr].append([betWin, betLos, betAmt, diceAddr])
+                     #if not betsIn.has_key(bettorAddr):
+                        #betsIn[bettorAddr] = []
+                     #betsIn[bettorAddr].append([betWin, betLos, betAmt, diceAddr])
+
    
    
                   if betsIn.has_key(txout.getRecipientAddr()):
@@ -196,8 +288,9 @@ if run_SatoshiDice:
                            diceBetsPaidOut[diceAddr][REFUND] += 1
                            del betsIn[bettorAddr][i]
                            break;
+                  """
    except:
-      pass
+      raise
    
    
    print 'Results:', unixTimeToFormatStr(RightNow())
@@ -240,4 +333,11 @@ if run_SatoshiDice:
    print '-'*118
    print ' '*32, '|', str(totalBets).rjust(8), '|'
    print ''
+   print '-'*118
+   print 'Total Bets Made:          ', totalBets
+   print 'Cumulative Wagers:        ', coin2str(sdRecvAmt)
+   print 'Cumulative Rewards:       ', coin2str(sdRtrnAmt)
+   print 'Cumulative Fees Paid:     ', coin2str(sdFeePaid)
+   print '----'
+   print 'SatoshiDice Profit/Loss:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid))
 
