@@ -233,12 +233,6 @@ if run_SatoshiDice:
                   if returned==-1:
                      print 'Did not find recip, failed...'
                      continue
-                     #print 'Did not find recip, look for closest match...'
-                     #for nout in range(tx.getNumTxOut()):
-                        #if abs(tx.getTxOutRef(nout).getValue()-betAmt) < betLos/2.0:
-                           #returned = tx.getTxOutRef(nout).getValue()
-                           #sdRtrnAmt += returned
-                           #break;
                   else:
                      if returned <= betLos*1.25:
                         diceBetsPaidOut[diceAddr][LOSE] += 1
@@ -249,50 +243,27 @@ if run_SatoshiDice:
                      del betsIn[opStr]
                      break
                         
-                     
-
-                  """
-                     # I didn't realize when I wrote this originally, that the 
-                     # wager tx is always spent to return all rewards... so just 
-                     # save the outpoint and look for it later...
-      
-                     # All the old code is below...
-
-                     # The payout always goes to first input
-                     #firstTxIn = tx.getTxInRef(0)
-                     #bettorAddr = TheBDM.getSenderAddr20(firstTxIn)
-                     # For sure, a bet was made to this address
-                     #diceBetsMadeMap[diceAddr] += 1
-                     # Lookup table for the bettor's addresses to find payout later
-                     #if not betsIn.has_key(bettorAddr):
-                        #betsIn[bettorAddr] = []
-                     #betsIn[bettorAddr].append([betWin, betLos, betAmt, diceAddr])
-
-   
-   
-                  if betsIn.has_key(txout.getRecipientAddr()):
-                     bettorAddr = txout.getRecipientAddr()
-                     for i in range(len(betsIn[bettorAddr])):
-                        diceAddr = betsIn[bettorAddr][i][3]
-                        recvAmt = txout.getValue()
-                        loseAmt = betsIn[bettorAddr][i][LOSE]
-                        if abs(betsIn[bettorAddr][i][WIN]-recvAmt) < loseAmt/2 :
-                           diceBetsPaidOut[diceAddr][WIN] += 1
-                           del betsIn[bettorAddr][i]
-                           break;
-                        elif abs(betsIn[bettorAddr][i][LOSE]-recvAmt) < loseAmt/2:
-                           diceBetsPaidOut[diceAddr][LOSE] += 1
-                           del betsIn[bettorAddr][i]
-                           break;
-                        elif abs(betsIn[bettorAddr][i][REFUND]-recvAmt) < loseAmt/2:
-                           diceBetsPaidOut[diceAddr][REFUND] += 1
-                           del betsIn[bettorAddr][i]
-                           break;
-                  """
    except:
       raise
    
+
    
+   print 'Unaccounted-for Bets:'
+   i = 0
+   unacctBTC = 0
+   for key,val in betsIn.iteritems():
+      txid   = binary_to_hex(key[:32 ])
+      outidx = binary_to_int(key[ 32:])
+      betAmt = val[0]
+      sdAddr = val[3]
+      recip1 = val[4]
+
+      print i, hex_switchEndian(txid), '%03d'%outidx, coin2str(betAmt), 
+      print hash160_to_addrStr(sdAddr)[:8], hash160_to_addrStr(recip1)[:8]
+      i += 1
+      unacctBTC += betAmt
+
+
    print 'Results:', unixTimeToFormatStr(RightNow())
    print ''
    print 'Address'.rjust(10),
@@ -334,10 +305,11 @@ if run_SatoshiDice:
    print ' '*32, '|', str(totalBets).rjust(8), '|'
    print ''
    print '-'*118
-   print 'Total Bets Made:          ', totalBets
-   print 'Cumulative Wagers:        ', coin2str(sdRecvAmt)
-   print 'Cumulative Rewards:       ', coin2str(sdRtrnAmt)
-   print 'Cumulative Fees Paid:     ', coin2str(sdFeePaid)
+   print 'Total Bets Made:              ', totalBets
+   print 'Cumulative Wagers:        ', coin2str(sdRecvAmt), 'BTC'
+   print 'Cumulative Rewards:       ', coin2str(sdRtrnAmt), 'BTC'
+   print 'Cumulative Fees Paid:     ', coin2str(sdFeePaid), 'BTC'
+   print 'Cumulative Unreturned:    ', coin2str(unacctBTC), 'BTC'
    print '----'
-   print 'SatoshiDice Profit/Loss:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid))
+   print 'SatoshiDice Profit/Loss:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid)), 'BTC'
 
