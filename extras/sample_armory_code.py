@@ -1,4 +1,5 @@
 from armoryengine import *
+from math import sqrt
 
 run_WalletCreate    = False
 run_LoadBlockchain  = True
@@ -153,6 +154,7 @@ if run_SatoshiDice:
    diceLoseMultMap = {}
    diceBetsMadeMap = {}
    diceBetsPaidOut = {}
+   diceBetsMadeMapList = {}
    WIN, LOSE, REFUND = 0,1,2
    for line in httppage:
       if 'lessthan' in line and '1dice' in line:
@@ -164,6 +166,7 @@ if run_SatoshiDice:
          diceLoseMultMap[diceAddr]       =(float(hous[:-1])/100.0)/2.0
          diceBetsMadeMap[diceAddr]       = 0
          diceBetsPaidOut[diceAddr]       = [0, 0, 0]
+         diceBetsMadeMapList[diceAddr]   = []
 
    
    betsIn  = {}
@@ -182,7 +185,33 @@ if run_SatoshiDice:
       return (btcIn - btcOut)
 
       
+
+   # Approximation of a bet's variance isn't good enough for me.  Assume fair
+   # odds, compute exactly!  These are the stats for SatoshiDice.com bank acct
+   def computeWagerStats(amt, diceAddr):
+      # SD loses money on winning bets, gains money on losing bets
+      afterFee = amt - 0.0005e8
+      winAmt = afterFee - diceWinMultMap[diceAddr]*amt
+      winPct = diceTargetMap[diceAddr] / 65536.0;
+      losAmt = afterFee - diceLoseMultMap[diceAddr]*amt
+      losPct = 1-winPct
+
+      avg = winPct*winAmt + losPct*losAmt
+      var = (winPct*(winAmt-avg)**2) + (losPct*(losAmt-avg)**2)
+      print amt, diceTargetMap[diceAddr], diceWinMultMap[diceAddr], diceLoseMultMap[diceAddr]
+      print winAmt, winPct, losAmt, losPct
+      print avg, var, sqrt(var)
+      print coin2str(avg), coin2str(var), coin2str(sqrt(var))
+      print '\n'
+      #exit(0)
+      return [avg, var]
+      
+
          
+   completedIn = 0.0
+   completedOut = 0.0
+   totalAvgSum = 0.0
+   totalVarSum = 0.0
 
    try:
       for h in xrange(175000,topBlock+1):
@@ -228,6 +257,13 @@ if run_SatoshiDice:
                         returned = tx.getTxOutRef(nout).getValue()
                         sdRtrnAmt += returned
                         sdFeePaid += getTxFee(tx)
+   
+                        #completedIn  += betAmt
+                        #completedOut += returned
+                        #avg, var = computeWagerStats(betAmt, diceAddr)
+                        #totalAvgSum  += avg
+                        #totalVarSum  += var
+                        #diceBetsMadeMapList[diceAddr].append(betAmt)
                         break
 
                   if returned==-1:
@@ -258,8 +294,8 @@ if run_SatoshiDice:
       sdAddr = val[3]
       recip1 = val[4]
 
-      print i, hex_switchEndian(txid), '%03d'%outidx, coin2str(betAmt), 
-      print hash160_to_addrStr(sdAddr)[:8], hash160_to_addrStr(recip1)[:8]
+      #print i, hex_switchEndian(txid), '%03d'%outidx, coin2str(betAmt), 
+      #print hash160_to_addrStr(sdAddr)[:8], hash160_to_addrStr(recip1)[:8]
       i += 1
       unacctBTC += betAmt
 
@@ -305,11 +341,31 @@ if run_SatoshiDice:
    print ' '*32, '|', str(totalBets).rjust(8), '|'
    print ''
    print '-'*118
-   print 'Total Bets Made:              ', totalBets
-   print 'Cumulative Wagers:        ', coin2str(sdRecvAmt), 'BTC'
-   print 'Cumulative Rewards:       ', coin2str(sdRtrnAmt), 'BTC'
-   print 'Cumulative Fees Paid:     ', coin2str(sdFeePaid), 'BTC'
-   print 'Cumulative Unreturned:    ', coin2str(unacctBTC), 'BTC'
+   print 'Total Bets Made:               ', totalBets
+   print 'Cumulative Wagers:         ', coin2str(sdRecvAmt), 'BTC'
+   print 'Cumulative Rewards:        ', coin2str(sdRtrnAmt), 'BTC'
+   print 'Cumulative Fees Paid:      ', coin2str(sdFeePaid), 'BTC'
+   print 'Cumulative Unreturned:     ', coin2str(unacctBTC), 'BTC'
    print '----'
-   print 'SatoshiDice Profit/Loss:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid)), 'BTC'
+   print 'SD Profit/Loss From Games: ', coin2str(sdRecvAmt - sdRtrnAmt), 'BTC'
+   print 'SD Profit/Loss With Fees:  ', coin2str(sdRecvAmt - (sdRtrnAmt + sdFeePaid)), 'BTC'
 
+
+
+   """
+   print 'In:  ', completedIn
+   print 'Out: ', completedOut
+   print 'Diff:', completedIn - completedOut
+   print 'Mean:    ', coin2str(totalAvgSum)
+   print 'VarSum:  ', totalVarSum
+   print 'StdDev:  ', coin2str(sqrt(totalVarSum))
+   print '3*StdDev:', coin2str(3*sqrt(totalVarSum))
+
+
+   #f = open('bethist.txt','w')
+   #for a160,targ in diceAddrList:
+      #f.write(str(targ)+'\n')
+      #f.write(' '.join([coin2str(b) for b in diceBetsMadeMapList[a160]]))
+      #f.write('\n')
+   #f.close()
+   """
