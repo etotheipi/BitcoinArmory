@@ -283,17 +283,34 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static inline uint32_t calcVarIntSize(uint64_t regularIteger)
+   static inline uint32_t calcVarIntSize(uint64_t regularInteger)
    {
-      if(regularIteger < 0xfd)
+      if(regularInteger < 0xfd)
          return 1;
-      else if(regularIteger <= 0xffff)
+      else if(regularInteger <= 0xffff)
          return 3;
-      else if(regularIteger <= 0xffffffff)
+      else if(regularInteger <= 0xffffffff)
          return 5;
       else
          return 9;
    }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   static uint64_t getFilesize(string filename)
+   {
+      ifstream is(filename.c_str(), ios::in|ios::binary);
+      if(!is.is_open())
+         return UINT64_MAX;
+   
+      is.seekg(0, ios::end);
+      uint64_t filesize = (size_t)is.tellg();
+      is.close();
+      return filesize;
+   }
+
+
+
 
    /////////////////////////////////////////////////////////////////////////////
    static void getHash256(uint8_t const * strToHash,

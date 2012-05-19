@@ -14,19 +14,11 @@
 #include "BtcUtils.h"
 #include "BlockUtils.h"
 #include "EncryptionUtils.h"
+#include "FileDataRef.h"
 
 
 using namespace std;
 
-void copyFile(string src, string dst)
-{
-   fstream fin(src.c_str(), ios::in | ios::binary);
-   fstream fout(dst.c_str(), ios::out | ios::binary);
-   if(fin == NULL || fout == NULL) { cout <<"error"; return; }
-   // read from the first file then write to the second file
-   char c;
-   while(!fin.eof()) { fin.get(c); fout.put(c); }
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -39,6 +31,7 @@ void TestZeroConf(void);
 void TestCrypto(void);
 void TestECDSA(void);
 void TestPointCompression(void);
+void TestFileCache(void);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
@@ -68,8 +61,8 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   TestReadAndOrganizeChainWithWallet(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   //TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -86,6 +79,10 @@ int main(void)
    //printTestHeader("ECDSA Point Compression");
    //TestPointCompression();
 
+   printTestHeader("Testing file cache");
+   TestFileCache();
+   
+   
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
    //       Any method, anywhere, that called UniversalTimer
@@ -1109,3 +1106,64 @@ void TestPointCompression(void)
 
 
 }
+
+
+
+void TestFileCache(void)
+{
+   uint32_t nTestFiles = 3;
+   vector<string> filenames(nTestFiles);
+
+   // Create some test files
+   for(uint32_t i=0; i<nTestFiles; i++)
+   {
+      char fn[256];
+      sprintf(fn, "test_file_cache_%04d.dat", i);
+      filenames[i] = string(fn);
+      ofstream os(fn, ios::out | ios::binary);
+      for(uint32_t j=0; j<(i+3)*1024; j++)
+         os << (uint8_t)(j%256);
+      os.close();
+   }
+
+
+   // Setup the file cache -- test with a cache of 1 kB
+   FileDataRef::SetupFileCaching(1024);
+   FileDataCache & fdcache = FileDataRef::getGlobalCacheRef();
+   
+   for(uint32_t i=0; i<nTestFiles; i++)
+   {
+      fdcache.openFile(i, filenames[i]); 
+      fdcache.pprintCacheState();
+   }
+
+
+   vector<FileDataRef> fdrefs;
+   fdrefs.push_back(FileDataRef(0,    0,   32));
+   fdrefs.push_back(FileDataRef(0,    0,   64));
+   fdrefs.push_back(FileDataRef(0,   16,   16));
+   fdrefs.push_back(FileDataRef(0,   16,   32));
+   fdrefs.push_back(FileDataRef(0, 3040,   32));
+   
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
