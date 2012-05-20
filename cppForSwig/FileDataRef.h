@@ -14,6 +14,7 @@
 #include <vector>
 #include <string>
 #include "BinaryData.h"
+#include "BtcUtils.h"
 
 
 #define DEFAULT_CACHE_SIZE (16*1024*1024)
@@ -53,7 +54,7 @@ public:
    FileDataRef(uint32_t fidx, uint32_t start, uint32_t nbytes) : 
       fileIndex_(fidx), 
       startByte_(start),
-      numBytes(nbytes) {}
+      numBytes_(nbytes) {}
 
 
    uint32_t getFileIndex(void) const {return fileIndex_;}
@@ -69,7 +70,7 @@ public:
    {
       if(fileIndex_ == loc2.fileIndex_)
          return (startByte_<loc2.startByte_);
-      else:
+      else
          return (fileIndex_<loc2.fileIndex_);
    }
 
@@ -82,8 +83,8 @@ public:
    }
 
 
-   uint8_t* getTempDataPtr(void) { return globalCache_.getCachedDataPtr(*this); }
-   BinaryData getDataCopy(void)  { return globalCache_.getData(*this); }
+   uint8_t* getTempDataPtr(void); 
+   BinaryData getDataCopy(void) const;  
 
    static void SetupFileCaching(uint64_t maxCacheSize_=DEFAULT_CACHE_SIZE);
    static FileDataCache & getGlobalCacheRef(void) { return globalCache_; }
@@ -112,11 +113,21 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   ~FileDataCache(void)
+   { 
+      clear(); 
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    void clear(void)
    {
-      openFiles_.clear() 
-      cachedData_.clear() 
-      cacheMap_.clear() 
+      for(uint8_t i=0; i<openFiles_.size(); i++)
+         if(openFiles_[i] != NULL)
+            delete openFiles_[i];
+
+      openFiles_.clear();
+      cachedData_.clear();
+      cacheMap_.clear();
       cacheUsed_ = 0;
       cacheSize_ = 0;
    }
@@ -138,19 +149,28 @@ public:
 
       while(fIndex >= openFiles_.size())
       {
-         openFiles_.push_back(ifstream());
-         fileSizes_.push_back(0);
+         openFiles_.push_back(NULL);
+         fileSizes_.push_back((uint32_t)0);
          fileNames_.push_back(string(""));
-         cumulSizes_.push_back(0);
+         cumulSizes_.push_back((uint64_t)0);
       }
 
       
-      if(openFiles_[fIndex].is_open())
-         openFiles_[fIndex].close();
+      ifstream* istrmPtr = openFiles_[fIndex];
+      if(istrmPtr==NULL)
+      {
+         openFiles_[fIndex] = new ifstream;
+      }
+      else
+      {
+         if(istrmPtr->is_open())
+            istrmPtr->close();
+      }
 
-      openFiles_[fIndex].open(filename, ios::in|ios::binary);
 
-      if( !openFiles_[fIndex].is_open() )
+      istrmPtr->open(filename.c_str(), ios::in|ios::binary);
+
+      if( !istrmPtr->is_open() )
       {
          cout << "***ERROR:  Could not open file! : " << filename << endl;
          return UINT32_MAX;
@@ -159,9 +179,9 @@ public:
       fileNames_[fIndex] = filename;
 
       // Get the filesize
-      openFiles_[fIndex].seekg(0, ios::end);
-      fileSizes_[fIndex] = openFiles_[fIndex].tellg();
-      openFiles_[fIndex].seekg(0, ios::beg);
+      istrmPtr->seekg(0, ios::end);
+      fileSizes_[fIndex] = istrmPtr->tellg();
+      istrmPtr->seekg(0, ios::beg);
 
       // Update the cumulative filesize list
       uint64_t csize = 0;
@@ -177,9 +197,15 @@ public:
    
 
    /////////////////////////////////////////////////////////////////////////////
+   void closeFile(uint32_t fidx)
+   {
+      
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    uint8_t* dataIsCached(FileDataRef const & fdref)
    {
-      static map<FileDataRef, CacheListIter>::iterator iter;
+      static map<FileDataRef, list<CacheData>::iterator>::iterator iter;
 
       // Retrieve one above the top.
       iter = cacheMap_.upper_bound(fdref);
@@ -187,46 +213,51 @@ public:
          return NULL;
       
       iter--;
-      uint32_t cidx   = iter->first.getFileIndex()
-      uint32_t cstart = iter->first.getStartByte()
-      uint32_t crefsz = iter->second.getSize()
+      uint32_t cidx   = iter->first.getFileIndex();
+      uint32_t cstart = iter->first.getStartByte();
+      uint32_t crefsz = iter->second->second.getSize();
 
       if(cidx != fdref.getFileIndex())
          return NULL;
 
       // We have cached data in the same file, and starting before fdref...
       uint32_t coffset = fdref.getStartByte() - cstart;
-      if(coffset + nbyte > crefsize)
+      if(coffset + fdref.getNumBytes() > crefsz)
          return NULL;
 
-      return iter->second.getPtr() + coffset;
+      return iter->second->second.getPtr() + coffset;
    }
 
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t* getCachedDataPtr(FileDataRef const & fdref)
    {
-      uint8_t* ptr = dataIsCached(fdref, nbyte);
+      uint8_t* ptr = dataIsCached(fdref);
       if(ptr != NULL)
       {
          cout << "Cache Hit!" << endl;
          return ptr;
       }
-      cout << "Cache Miss!" << endl;
 
-      // The data is not in the cache, let's get it, then return its pointer
-      uint32_t cidx   = fdref.getFileIndex()
-      uint32_t cstart = fdref.getStartByte()
-      uint32_t cbytes = fdref.getNumBytes()
+      // Wasn't in the cache yet, let's get it into the cache...
+      cout << "Cache Miss!" << endl;
+      uint32_t cidx   = fdref.getFileIndex();
+      uint32_t cstart = fdref.getStartByte();
+      uint32_t cbytes = fdref.getNumBytes();
 
       clearExcessCacheData(cbytes);
 
       if( cidx >= cachedData_.size() )
          return NULL;
 
-      openFiles_[cidx].seek(cstart);
+      openFiles_[cidx]->seekg(cstart);
       cachedData_.push_back( CacheData(fdref, BinaryData(cbytes)) );
-      cachedData_.
+      list<CacheData>::iterator iter = cachedData_.end();
+      iter--;
+      uint8_t* newDataPtr = iter->second.getPtr();
+      openFiles_[cidx]->read((char*)newDataPtr, cbytes);
+
+      return newDataPtr;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -251,7 +282,7 @@ public:
          FileDataRef & toRemove = cIter->first;
          cacheUsed_ -= toRemove.getNumBytes();
          cachedData_.erase(cachedData_.begin());
-         cacheMap_.erase(toRemove)
+         cacheMap_.erase(toRemove);
       }
       
    }
@@ -295,10 +326,10 @@ private:
    typedef pair<FileDataRef, BinaryData>   CacheData;
 
 
-   vector<ifstream>                              openFiles_;
+   vector<ifstream*>                             openFiles_;
    vector<uint32_t>                              fileSizes_;
-   vector<uint32_t>                              fileNames_;
    vector<uint64_t>                              cumulSizes_;
+   vector<string>                                fileNames_;
    list<CacheData>                               cachedData_;
    map<FileDataRef, list<CacheData>::iterator>   cacheMap_;
    uint64_t                                      cacheUsed_;

@@ -6,7 +6,11 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
+
+
 #include "FileDataRef.h"
+
+FileDataCache FileDataRef::globalCache_;
 
 
 
@@ -16,3 +20,12 @@ void FileDataRef::SetupFileCaching(uint64_t maxCacheSize_)
 }
 
 
+uint8_t* FileDataRef::getTempDataPtr(void) 
+{ 
+   return globalCache_.getCachedDataPtr(*this); 
+}
+
+BinaryData FileDataRef::getDataCopy(void) const
+{ 
+   return globalCache_.getData(*this); 
+}

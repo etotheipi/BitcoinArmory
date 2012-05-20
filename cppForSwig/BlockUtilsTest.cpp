@@ -1128,7 +1128,7 @@ void TestFileCache(void)
 
 
    // Setup the file cache -- test with a cache of 1 kB
-   FileDataRef::SetupFileCaching(1024);
+   FileDataRef::SetupFileCaching(128);
    FileDataCache & fdcache = FileDataRef::getGlobalCacheRef();
    
    for(uint32_t i=0; i<nTestFiles; i++)
@@ -1138,12 +1138,24 @@ void TestFileCache(void)
    }
 
 
+   // Start testing only for a single file
    vector<FileDataRef> fdrefs;
-   fdrefs.push_back(FileDataRef(0,    0,   32));
-   fdrefs.push_back(FileDataRef(0,    0,   64));
-   fdrefs.push_back(FileDataRef(0,   16,   16));
-   fdrefs.push_back(FileDataRef(0,   16,   32));
-   fdrefs.push_back(FileDataRef(0, 3040,   32));
+   //                           File  Start  Bytes
+   fdrefs.push_back(FileDataRef(   0,     0,    16  ));
+   fdrefs.push_back(FileDataRef(   0,     0,    32  ));
+   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
+   fdrefs.push_back(FileDataRef(   0,     8,    16  ));
+   fdrefs.push_back(FileDataRef(   0,  3060,    12  ));
+   fdrefs.push_back(FileDataRef(   0,  3060,    13  ));
+   fdrefs.push_back(FileDataRef(   0,  3050,    22  ));
+   fdrefs.push_back(FileDataRef(   0,  1024,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   512,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   768,    64  ));
+
+   for(uint32_t i=0; i<fdrefs.size(); i++)
+   {
+      cout << fdrefs[i].getDataCopy().toHexStr();
+   }
    
 }
 
