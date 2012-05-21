@@ -1153,12 +1153,35 @@ void TestFileCache(void)
    fdrefs.push_back(FileDataRef(   0,  1024,    64  ));
    fdrefs.push_back(FileDataRef(   0,   512,    64  ));
    fdrefs.push_back(FileDataRef(   0,   768,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   768,   129  ));
 
    for(uint32_t i=0; i<fdrefs.size(); i++)
    {
       cout << fdrefs[i].getDataCopy().toHexStr() << endl;
    }
-   
+
+
+   FileDataRef fdrHit(   0, 768,  16 );
+   FileDataRef fdrMiss1( 0,   0, 128 );
+   FileDataRef fdrMiss2( 0, 256, 128 );
+
+   cout << "Testing Cache Hits" << endl;
+   TIMER_START("CacheHit_50000");
+   for(uint32_t i=0; i<50000; i++)
+   {
+      fdrHit.getTempDataPtr();
+   }
+   TIMER_STOP("CacheHit_50000");
+
+
+   cout << "Testing Cache Misses" << endl;
+   TIMER_START("CacheMiss_50000");
+   for(uint32_t i=0; i<50000; i++)
+   {
+      fdrMiss1.getTempDataPtr();
+      fdrMiss2.getTempDataPtr();
+   }
+   TIMER_STOP("CacheMiss_50000");
 }
 
 

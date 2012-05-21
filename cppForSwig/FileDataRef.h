@@ -241,14 +241,10 @@ public:
    uint8_t* getCachedDataPtr(FileDataRef const & fdref)
    {
       uint8_t* ptr = dataIsCached(fdref);
-      if(ptr != NULL)
-      {
-         cout << "Cache Hit:  ";
+      if(ptr != NULL || fdref.getNumBytes() > cacheSize_)
          return ptr;
-      }
 
       // Wasn't in the cache yet, let's get it into the cache...
-      cout << "Cache Miss: ";
       uint32_t cidx   = fdref.getFileIndex();
       uint32_t cstart = fdref.getStartByte();
       uint32_t cbytes = fdref.getNumBytes();
