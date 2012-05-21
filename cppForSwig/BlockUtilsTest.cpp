@@ -1182,6 +1182,47 @@ void TestFileCache(void)
       fdrMiss2.getTempDataPtr();
    }
    TIMER_STOP("CacheMiss_50000");
+
+
+
+
+   // Test multi-file caching
+   fdrefs.clear();
+   fdrefs.push_back(FileDataRef(   0,     0,    16  ));
+   fdrefs.push_back(FileDataRef(   0,     0,     8  ));
+   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
+   fdrefs.push_back(FileDataRef(   0,     0,    32  ));
+   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
+   fdrefs.push_back(FileDataRef(   0,     8,    16  ));
+   fdrefs.push_back(FileDataRef(   0,  3060,    12  ));
+   fdrefs.push_back(FileDataRef(   0,  3060,    13  ));
+   fdrefs.push_back(FileDataRef(   0,  3050,    22  ));
+   fdrefs.push_back(FileDataRef(   0,  1024,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   512,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   768,    64  ));
+   fdrefs.push_back(FileDataRef(   0,   768,   129  ));
+   fdrefs.push_back(FileDataRef(   1,     0,    16  ));
+   fdrefs.push_back(FileDataRef(   1,     0,     8  ));
+   fdrefs.push_back(FileDataRef(   1,     8,     8  ));
+   fdrefs.push_back(FileDataRef(   1,     0,    32  ));
+   fdrefs.push_back(FileDataRef(   1,     8,     8  ));
+   fdrefs.push_back(FileDataRef(   1,     8,    16  ));
+   fdrefs.push_back(FileDataRef(   1,  3060,    12  ));
+   fdrefs.push_back(FileDataRef(   1,  3060,    13  ));
+   fdrefs.push_back(FileDataRef(   1,  3050,    22  ));
+   fdrefs.push_back(FileDataRef(   1,  1024,    64  ));
+   fdrefs.push_back(FileDataRef(   1,   512,    64  ));
+   fdrefs.push_back(FileDataRef(   1,   768,    64  ));
+   fdrefs.push_back(FileDataRef(   1,   768,   129  ));
+   fdrefs.push_back(FileDataRef(   2,     0,    16  ));
+   fdrefs.push_back(FileDataRef(   2,   129,    16  ));
+   for(uint32_t i=0; i<fdrefs.size(); i++)
+      cout << fdrefs[i].getDataCopy().toHexStr() << endl;
+
+
+      
+
+
 }
 
 
