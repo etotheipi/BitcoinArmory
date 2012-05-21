@@ -384,6 +384,10 @@
 				>
 			</File>
 			<File
+				RelativePath=".\FileDataRef.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\UniversalTimer.cpp"
 				>
 			</File>
@@ -423,6 +427,10 @@
 			</File>
 			<File
 				RelativePath=".\EncryptionUtils.h"
+				>
+			</File>
+			<File
+				RelativePath=".\FileDataRef.h"
 				>
 			</File>
 			<File

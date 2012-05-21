@@ -1142,6 +1142,8 @@ void TestFileCache(void)
    vector<FileDataRef> fdrefs;
    //                           File  Start  Bytes
    fdrefs.push_back(FileDataRef(   0,     0,    16  ));
+   fdrefs.push_back(FileDataRef(   0,     0,     8  ));
+   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
    fdrefs.push_back(FileDataRef(   0,     0,    32  ));
    fdrefs.push_back(FileDataRef(   0,     8,     8  ));
    fdrefs.push_back(FileDataRef(   0,     8,    16  ));
@@ -1154,7 +1156,7 @@ void TestFileCache(void)
 
    for(uint32_t i=0; i<fdrefs.size(); i++)
    {
-      cout << fdrefs[i].getDataCopy().toHexStr();
+      cout << fdrefs[i].getDataCopy().toHexStr() << endl;
    }
    
 }

@@ -69,7 +69,12 @@ public:
    bool operator<(FileDataRef const & loc2) const
    {
       if(fileIndex_ == loc2.fileIndex_)
-         return (startByte_<loc2.startByte_);
+      {
+         if(startByte_ == loc2.startByte_)
+            return (numBytes_<loc2.numBytes_);
+         else
+            return (startByte_<loc2.startByte_);
+      }
       else
          return (fileIndex_<loc2.fileIndex_);
    }
@@ -77,7 +82,9 @@ public:
    // An equality operator helps
    bool operator==(FileDataRef const & loc2) const
    {
-      if(startByte_ == loc2.startByte_ && fileIndex_ == loc2.fileIndex_)
+      if(startByte_ == loc2.startByte_ && 
+         fileIndex_ == loc2.fileIndex_ && 
+         numBytes_  == loc2.numBytes_)
          return true;
       return false;
    }
@@ -168,6 +175,7 @@ public:
       }
 
 
+      istrmPtr = openFiles_[fIndex];
       istrmPtr->open(filename.c_str(), ios::in|ios::binary);
 
       if( !istrmPtr->is_open() )
@@ -209,7 +217,7 @@ public:
 
       // Retrieve one above the top.
       iter = cacheMap_.upper_bound(fdref);
-      if(iter==cacheMap_.begin() || iter==cacheMap_.end())
+      if(iter==cacheMap_.begin())
          return NULL;
       
       iter--;
@@ -235,19 +243,19 @@ public:
       uint8_t* ptr = dataIsCached(fdref);
       if(ptr != NULL)
       {
-         cout << "Cache Hit!" << endl;
+         cout << "Cache Hit:  ";
          return ptr;
       }
 
       // Wasn't in the cache yet, let's get it into the cache...
-      cout << "Cache Miss!" << endl;
+      cout << "Cache Miss: ";
       uint32_t cidx   = fdref.getFileIndex();
       uint32_t cstart = fdref.getStartByte();
       uint32_t cbytes = fdref.getNumBytes();
 
       clearExcessCacheData(cbytes);
 
-      if( cidx >= cachedData_.size() )
+      if( cidx >= openFiles_.size() || cstart + cbytes > fileSizes_[cidx] )
          return NULL;
 
       openFiles_[cidx]->seekg(cstart);
@@ -256,6 +264,8 @@ public:
       iter--;
       uint8_t* newDataPtr = iter->second.getPtr();
       openFiles_[cidx]->read((char*)newDataPtr, cbytes);
+      cacheMap_[fdref] = iter;
+      cacheUsed_ += cbytes;
 
       return newDataPtr;
    }
@@ -281,8 +291,8 @@ public:
          list<CacheData>::iterator cIter = cachedData_.begin();
          FileDataRef & toRemove = cIter->first;
          cacheUsed_ -= toRemove.getNumBytes();
-         cachedData_.erase(cachedData_.begin());
          cacheMap_.erase(toRemove);
+         cachedData_.erase(cIter);
       }
       
    }
