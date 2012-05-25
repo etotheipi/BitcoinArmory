@@ -47,7 +47,8 @@ class BlockHeaderRef
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeaderRef(void) : isInitialized_(false),  blkByteLoc_(0), isFinishedCalc_(false) {}
+   BlockHeaderRef(void) : 
+           isInitialized_(false),  isFinishedCalc_(false) {}
    BlockHeaderRef(uint8_t const * ptr)       { unserialize(ptr); }
    BlockHeaderRef(BinaryRefReader & brr)     { unserialize(brr); }
    BlockHeaderRef(BinaryDataRef const & str) { unserialize(str); }
@@ -74,8 +75,10 @@ public:
    BinaryDataRef getNextHashRef(void) const   { return nextHash_.getRef();            }
    BinaryDataRef getMerkleRootRef(void) const { return BinaryDataRef(getPtr()+36,32); }
    BinaryDataRef getDiffBitsRef(void) const   { return BinaryDataRef(getPtr()+72,4 ); }
-   uint64_t      getBlkStartByte(void) const  { return blkByteLoc_;                   }
+   FileDataRef   getBlkFileRef(void) const    { return blkFileRef_;                   }
    uint32_t      getNumTx(void) const         { return txPtrList_.size();             }
+
+   void          setBlkFileRef(FileDataRef const & fdr) { blkFileRef_ = fdr; }
 
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return self_.getPtr(); }
    uint32_t        getSize(void) const { assert(isInitialized_); return self_.getSize(); }
@@ -122,7 +125,7 @@ private:
    BinaryData     nextHash_;
    uint32_t       blockNumBytes_;
    uint32_t       blockHeight_;
-   uint64_t       blkByteLoc_;
+   FileDataRef    blkFileRef_;
    double         difficultySum_;
    bool           isMainBranch_;
    bool           isOrphan_;
@@ -348,8 +351,8 @@ public:
    BinaryDataRef      getThisHashRef(void) const { return BinaryDataRef(thisHash_); }
    void               setMainBranch(bool b=true) { isMainBranch_ = b; }
    bool               isMainBranch(void)  const { return isMainBranch_; }
-   uint64_t           getTxStartByte(void) { return fileByteLoc_; }
-   void               setTxStartByte(uint64_t b) { fileByteLoc_ = b; }
+   FileDataRef        getBlkFileRef(void) { return blkFileRef_; }
+   void               setBlkFileRef(FileDataRef b) { blkFileRef_ = b; }
 
    uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }
    uint32_t           getTxOutOffset(uint32_t i) const { return offsetsTxOut_[i]; }
@@ -400,7 +403,7 @@ private:
    // Derived properties - we expect these to be set after construct/copy
    BinaryData       thisHash_;
    uint32_t         nBytes_;
-   uint64_t         fileByteLoc_;
+   FileDataRef      blkFileRef_;
    vector<uint32_t> offsetsTxIn_;
    vector<uint32_t> offsetsTxOut_;
 

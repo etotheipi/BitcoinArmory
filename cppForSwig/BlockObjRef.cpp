@@ -59,7 +59,7 @@ BlockHeader BlockHeaderRef::getCopy(void) const
    bh.nextHash_     = nextHash_;
    bh.numTx_        = getNumTx();
    bh.blockHeight_  = blockHeight_;
-   bh.blkByteLoc_  = blkByteLoc_;
+   bh.blkFileRef_  = blkFileRef_;
    bh.difficultyDbl_ = difficultyDbl_;
    bh.difficultySum_ = difficultySum_;
    bh.isMainBranch_ = isMainBranch_;
@@ -85,7 +85,7 @@ void BlockHeaderRef::unserialize(uint8_t const * ptr)
    nextHash_ = BinaryData(0);
    blockHeight_ = UINT32_MAX;
    blockNumBytes_ = 0;
-   blkByteLoc_ = 0;
+   blkFileRef_ = FileDataRef();
    difficultySum_ = -1;
    isMainBranch_ = false;
    isOrphan_ = true;

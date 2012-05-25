@@ -51,6 +51,11 @@ class FileDataCache;
 class FileDataRef
 {
 public:
+   FileDataRef(void) :
+      fileIndex_(UINT32_MAX), 
+      startByte_(UINT32_MAX),
+      numBytes_(0) {}
+
    FileDataRef(uint32_t fidx, uint32_t start, uint32_t nbytes) : 
       fileIndex_(fidx), 
       startByte_(start),
@@ -326,6 +331,7 @@ public:
       cout << endl;
    }
 
+   uint32_t getFileSize(uint32_t i) {return fileSizes_[i]; }
 
 
 private:

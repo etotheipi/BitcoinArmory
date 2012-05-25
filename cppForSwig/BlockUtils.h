@@ -51,7 +51,7 @@
 
 using namespace std;
 
-class BlockDataManager_MMAP;
+class BlockDataManager_FileRefs;
 
 
 
@@ -514,7 +514,7 @@ public:
    void pprintLedger(void);
    void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
-   void setBdmPtr(BlockDataManager_MMAP * bdmptr) {bdmPtr_=bdmptr;}
+   void setBdmPtr(BlockDataManager_FileRefs * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
@@ -535,7 +535,7 @@ private:
    // With MMAP'd blockchain, any wallets that are registered should be 
    // aware that they are registered, and make sure the BDM is aware of 
    // when addresses get added or deleted.
-   BlockDataManager_MMAP*       bdmPtr_;
+   BlockDataManager_FileRefs*       bdmPtr_;
 };
 
 
@@ -631,7 +631,7 @@ typedef enum
 
 
 
-class BlockDataManager_MMAP;
+class BlockDataManager_FileRefs;
 
 
 
@@ -641,16 +641,16 @@ class BlockDataManager_MMAP;
 //
 // BlockDataManager is a SINGLETON:  only one is ever created.  
 //
-// Access it via BlockDataManager_MMAP::GetInstance();
+// Access it via BlockDataManager_FileRefs::GetInstance();
 //
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_MMAP
+class BlockDataManager_FileRefs
 {
 private:
 
    // These four data structures contain all the *real* data.  Everything 
    // else is just references and pointers to this data
-   string                             blkfilePath_;
+   string                             blkFileDir_;
    BinaryDataMMAP                     blockchainData_ALL_;
    list<BinaryData>                   blockchainData_NEW_; 
    map<HashString, BlockHeaderRef>    headerHashMap_;
@@ -697,7 +697,7 @@ private:
    vector<BlockHeaderRef*>           previouslyValidBlockHeaderPtrs_;
    vector<BlockHeaderRef*>           orphanChainStartBlocks_;
 
-   static BlockDataManager_MMAP* theOnlyBDM_;
+   static BlockDataManager_FileRefs* theOnlyBDM_;
    static bool bdmCreatedYet_;
    bool isInitialized_;
 
@@ -726,11 +726,11 @@ private:
 
 private:
    // Set the constructor to private so that only one can ever be created
-   BlockDataManager_MMAP(void);
+   BlockDataManager_FileRefs(void);
 
 public:
 
-   static BlockDataManager_MMAP & GetInstance(void);
+   static BlockDataManager_FileRefs & GetInstance(void);
    bool isInitialized(void) { return isInitialized_;}
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
@@ -745,7 +745,7 @@ public:
    BlockHeaderRef * getHeaderByHeight(int index);
    BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
    TxRef *          getTxByHash(BinaryData const & txHash);
-   string           getBlockfilePath(void) {return blkfilePath_;}
+   string           getBlockfilePath(void) {return blkFileDir_;}
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
@@ -894,12 +894,12 @@ private:
 class BlockDataManager
 {
 public:
-   BlockDataManager(void) { bdm_ = &(BlockDataManager_MMAP::GetInstance());}
+   BlockDataManager(void) { bdm_ = &(BlockDataManager_FileRefs::GetInstance());}
    
-   BlockDataManager_MMAP & getBDM(void) { return *bdm_; }
+   BlockDataManager_FileRefs & getBDM(void) { return *bdm_; }
 
 private:
-   BlockDataManager_MMAP* bdm_;
+   BlockDataManager_FileRefs* bdm_;
 };
 
 
