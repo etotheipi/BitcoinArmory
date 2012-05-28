@@ -68,13 +68,13 @@ class ArmoryMainWindow(QMainWindow):
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 

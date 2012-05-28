@@ -3563,6 +3563,8 @@ class GfxItemText(QGraphicsTextItem):
       if lineWidth:
          self.setTextWidth(lineWidth)
 
+      self.setDefaultTextColor(QColor(0,0,0))
+
    def boundingRect(self):
       w,h = relaxedSizeStr(self, self.toPlainText())
       nLine=1
@@ -6913,6 +6915,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.view = GfxViewPaper()
       self.scene = QGraphicsScene(self)
       self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
+      self.scene.setBackgroundBrush(QColor(255,255,255))
       self.view.setScene(self.scene)
 
 
