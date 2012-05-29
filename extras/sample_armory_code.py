@@ -1,3 +1,7 @@
+import sys
+sys.path.append('..')
+sys.path.append('.')
+
 from armoryengine import *
 from math import sqrt
 
@@ -163,7 +167,7 @@ if run_SatoshiDice:
          diceTargetMap[diceAddr]         = int(targ)
          dicePctWinMap[diceAddr]         = float(winr[:-1])/100.0
          diceWinMultMap[diceAddr]        = float(mult[:-1])
-         diceLoseMultMap[diceAddr]       =(float(hous[:-1])/100.0)/2.0
+         diceLoseMultMap[diceAddr]       = 0.005 # looks to be a static 0.5% now, spread is all in the win mult
          diceBetsMadeMap[diceAddr]       = 0
          diceBetsPaidOut[diceAddr]       = [0, 0, 0]
          diceBetsMadeMapList[diceAddr]   = []
@@ -190,20 +194,28 @@ if run_SatoshiDice:
    # odds, compute exactly!  These are the stats for SatoshiDice.com bank acct
    def computeWagerStats(amt, diceAddr):
       # SD loses money on winning bets, gains money on losing bets
-      afterFee = amt - 0.0005e8
-      winAmt = afterFee - diceWinMultMap[diceAddr]*amt
+      #afterFee = amt - 0.0005e8
+      #winAmt = afterFee - diceWinMultMap[diceAddr]*amt
+      #winPct = diceTargetMap[diceAddr] / 65536.0;
+      #losAmt = afterFee - diceLoseMultMap[diceAddr]*amt
+      #losPct = 1-winPct
+      
+      # Modified calculation to produce theoretical numbers assuming better
+      # game design
+      payout = 0.97
+      afterFee = amt 
+      winAmt = afterFee - payout*amt
       winPct = diceTargetMap[diceAddr] / 65536.0;
-      losAmt = afterFee - diceLoseMultMap[diceAddr]*amt
+      losAmt = afterFee - ((1-payout)/2)*amt
       losPct = 1-winPct
 
       avg = winPct*winAmt + losPct*losAmt
       var = (winPct*(winAmt-avg)**2) + (losPct*(losAmt-avg)**2)
-      print amt, diceTargetMap[diceAddr], diceWinMultMap[diceAddr], diceLoseMultMap[diceAddr]
-      print winAmt, winPct, losAmt, losPct
-      print avg, var, sqrt(var)
-      print coin2str(avg), coin2str(var), coin2str(sqrt(var))
-      print '\n'
-      #exit(0)
+      #print amt, diceTargetMap[diceAddr], diceWinMultMap[diceAddr], diceLoseMultMap[diceAddr]
+      #print winAmt, winPct, losAmt, losPct
+      #print avg, var, sqrt(var)
+      #print coin2str(avg), coin2str(var), coin2str(sqrt(var))
+      #print '\n'
       return [avg, var]
       
 
@@ -213,6 +225,14 @@ if run_SatoshiDice:
    totalAvgSum = 0.0
    totalVarSum = 0.0
 
+   firstSDTxPassed = False
+   totalSDBytes = 0
+   totalBCBytes = 0
+   totalSDTx    = 0
+   totalBCTx    = 0
+
+
+   fileAllBets = open('sdAllBets.txt','w')
    try:
       for h in xrange(175000,topBlock+1):
          if h%10000 == 0:
@@ -224,11 +244,25 @@ if run_SatoshiDice:
          for tx in txList:
             # Check every TxOut in this transaction for SatoshiDice bets
             txHash = tx.getThisHash()
+            if firstSDTxPassed:
+               totalBCBytes += tx.getSize()               
+               totalBCTx += 1
+
+            
+            thisIsAWager = False
             for nout in range(tx.getNumTxOut()):
                txout = tx.getTxOutRef(nout)
                if txout.isStandard():
                   if dicePctWinMap.has_key(txout.getRecipientAddr()):
                      # This is a SatoshiDice bet!
+                     firstSDTxPassed = True
+
+                     # Add this to the total tx/byte count, first time
+                     if not thisIsAWager:
+                        totalSDBytes += tx.getSize()
+                        totalSDTx += 1
+                     thisIsAWager = True
+
                      totalBets += 1
                      diceAddr = txout.getRecipientAddr()
                      betAmt = txout.getValue()
@@ -244,6 +278,12 @@ if run_SatoshiDice:
                      sdRecvAmt += betAmt
                      diceBetsMadeMap[diceAddr] += 1
 
+                     winPct = diceTargetMap[diceAddr] / 65536.0;
+                     losPct = 1-winPct
+                     winMult = diceWinMultMap[diceAddr]
+                     losMult = diceLoseMultMap[diceAddr]
+                     fileAllBets.write('%s %d %f %f %f %f\n' % (coin2str(betAmt), diceTargetMap[diceAddr], winPct, winMult, losPct, losMult))
+
 
             for nin in range(tx.getNumTxIn()):
                txin = tx.getTxInRef(nin)
@@ -258,12 +298,14 @@ if run_SatoshiDice:
                         sdRtrnAmt += returned
                         sdFeePaid += getTxFee(tx)
    
-                        #completedIn  += betAmt
-                        #completedOut += returned
-                        #avg, var = computeWagerStats(betAmt, diceAddr)
-                        #totalAvgSum  += avg
-                        #totalVarSum  += var
-                        #diceBetsMadeMapList[diceAddr].append(betAmt)
+                        completedIn  += betAmt
+                        completedOut += returned
+                        avg, var = computeWagerStats(betAmt, diceAddr)
+                        totalAvgSum  += avg
+                        totalVarSum  += var
+                        diceBetsMadeMapList[diceAddr].append(betAmt)
+                        totalSDBytes += tx.getSize()               
+                        totalSDTx += 1
                         break
 
                   if returned==-1:
@@ -352,14 +394,6 @@ if run_SatoshiDice:
 
 
 
-   """
-   print 'In:  ', completedIn
-   print 'Out: ', completedOut
-   print 'Diff:', completedIn - completedOut
-   print 'Mean:    ', coin2str(totalAvgSum)
-   print 'VarSum:  ', totalVarSum
-   print 'StdDev:  ', coin2str(sqrt(totalVarSum))
-   print '3*StdDev:', coin2str(3*sqrt(totalVarSum))
 
 
    #f = open('bethist.txt','w')
@@ -368,4 +402,8 @@ if run_SatoshiDice:
       #f.write(' '.join([coin2str(b) for b in diceBetsMadeMapList[a160]]))
       #f.write('\n')
    #f.close()
-   """
+
+   BtoMB = lambda x: float(x)/(1024*1024.)
+   print 'Since Satoshi Dice started, there have been:'
+   print 'Blockchain Tx:  %d  :  SatoshiDice Tx: %d  (%0.1f%%)' % (totalBCTx, totalSDTx, 100*float(totalSDTx)/totalBCTx)
+   print 'Blockchain MB:  %0.1f  :  SatoshiDice Tx: %0.1f  (%0.1f%%)' % (BtoMB(totalBCBytes), BtoMB(totalSDBytes), 100*float(totalSDBytes)/totalBCBytes)

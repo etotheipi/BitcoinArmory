@@ -2296,7 +2296,7 @@ def execAndWait(cli_str):
 
 
 ############################################
-if __name__ == '__main__':
+if 1:
 
    import qt4reactor
    qt4reactor.install()
