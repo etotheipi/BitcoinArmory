@@ -4535,6 +4535,11 @@ class DlgSendBitcoins(ArmoryDialog):
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
             
+
+      if self.main.isOnline and not wlt.watchingOnly:
+         btnSend.setDefault(True)
+      else:
+         btnUnsigned.setDefault(True)
          
 
    #############################################################################
@@ -8439,11 +8444,13 @@ class DlgAddressBook(ArmoryDialog):
    def setAddrBookTxModel(self, wltID):
       self.addrBookTxModel = SentToAddrBookModel(wltID, self.main)
 
-      self.addrBookTxProxy = QSortFilterProxyModel(self)
+      #
+      self.addrBookTxProxy = SentAddrSortProxy(self)
       self.addrBookTxProxy.setSourceModel(self.addrBookTxModel)
       self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
 
       self.addrBookTxView.setModel(self.addrBookTxProxy)
+      self.addrBookTxView.setSortingEnabled(True)
       self.addrBookTxView.setSelectionBehavior(QTableView.SelectRows)
       self.addrBookTxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookTxView.horizontalHeader().setStretchLastSection(True)

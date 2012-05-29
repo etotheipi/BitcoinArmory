@@ -30,6 +30,7 @@ import shutil
 import math
 import threading
 import platform
+import traceback
 from datetime import datetime
 
 # PyQt4 Imports
@@ -160,6 +161,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.ledgerView  = QTableView()
       self.ledgerView.setModel(self.ledgerProxy)
+      #self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -212,7 +214,7 @@ class ArmoryMainWindow(QMainWindow):
       self.populateLedgerComboBox()
 
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
-      self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
+      self.connect(self.comboWalletSelect, SIGNAL('activated(int)'), ccl)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -771,9 +773,8 @@ class ArmoryMainWindow(QMainWindow):
             # If it is ours, let's add it to the notifier queue
             if not le.getTxHash()=='\x00'*32:
                self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-
-         self.createCombinedLedger()
-         self.ledgerModel.reset()
+               self.createCombinedLedger()
+               #self.ledgerModel.reset()
 
       def showOfflineMsg():
          if CLI_OPTIONS.disable_conn_notify:
@@ -1104,6 +1105,7 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
+
       start = RightNow()
       if wltIDList==None:
          # Create a list of [wltID, type] pairs
@@ -1180,10 +1182,11 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-         #self.ledgerProxy = LedgerDispSortProxy()
-         #self.ledgerProxy.setDynamicSortFilter(True)
+         self.ledgerProxy = LedgerDispSortProxy()
+         self.ledgerProxy.setDynamicSortFilter(True)
          self.ledgerProxy.setSourceModel(self.ledgerModel)
          self.ledgerView.setModel(self.ledgerProxy)
+         #self.ledgerView.setModel(self.ledgerModel)
          #self.ledgerModel.reset()
 
       except AttributeError:
@@ -2131,14 +2134,16 @@ class ArmoryMainWindow(QMainWindow):
       # We usually see transactions as zero-conf first, then they show up in 
       # a block. It is a "surprise" when the first time we see it is in a block
       notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
+      print blk0, blk1
       for blk in range(blk0, blk1):
          for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                print 'This tx is ours!'
                if not le.getTxHash() in notifiedAlready:
+                  self.notifyQueue.append([wltID, le, False])
+               else:
                   print '...but we\'ve been notified before, alread'
-                  #self.notifyQueue.append([wltID, le, False])
                
             
 

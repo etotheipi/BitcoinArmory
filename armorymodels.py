@@ -254,22 +254,20 @@ class LedgerDispSortProxy(QSortFilterProxyModel):
       thisCol  = self.sortColumn()
 
       def getDouble(idx, col):
-         return self.sourceModel().index(idx.row(), col).data().toDouble()[0]
+         return float(self.sourceModel().ledger[idx.row()][col])
 
       def getInt(idx, col):
-         return self.sourceModel().index(idx.row(), col).data().toInt()[0]
+         return int(self.sourceModel().ledger[idx.row()][col])
 
 
+      #LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
+                        #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
       if thisCol==COL.NumConf:
          lConf = getInt(idxLeft,  COL.NumConf)
          rConf = getInt(idxRight, COL.NumConf)
          if lConf==rConf:
             tLeft  = getDouble(idxLeft,  COL.UnixTime)
             tRight = getDouble(idxRight, COL.UnixTime)
-            if tLeft==tRight:
-               btcLeft  = getDouble(idxLeft,  COL.Amount)
-               btcRight = getDouble(idxRight, COL.Amount)
-               return (abs(btcLeft)>abs(btcRight))
             return (tLeft<tRight)
          return (lConf>rConf)
       if thisCol==COL.DateStr:
@@ -775,35 +773,12 @@ class SentAddrSortProxy(QSortFilterProxyModel):
       strRight = str(self.sourceModel().data(idxRight).toString())
 
 
-      def getProxyData(idx, col, dtype):
-         iunix = self.sourceModel().index(idx.row(), col)
-         return dtype(str(iunix.data().toString()))
-
-      #WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
-      #LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
-                        #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
-      #ADDRESSCOLS  = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
       #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
-      tLeft    = getProxyData(idxLeft,  COL.UnixTime, float)
-      tRight   = getProxyData(idxRight, COL.UnixTime, float)
-      btcLeft  = getProxyData(idxLeft,  COL.Amount,   float)
-      btcRight = getProxyData(idxRight, COL.Amount,   float)
-
-      if thisCol==COL.NumConf:
-         lConf = int(strLeft)
-         rConf = int(strRight)
-         if lConf==rConf:
-            if tLeft==tRight:
-               return (abs(btcLeft)>abs(btcRight))
-            return (tLeft<tRight)
-         return (lConf>rConf)
-      if thisCol==COL.DateStr:
-         return (tLeft<tRight)
-      if thisCol==COL.Amount:
-         return (abs(btcLeft) < abs(btcRight))
+      if thisCol==COL.Address:
+         return (strLeft.lower() < strRight.lower())
       else:
-         return super(LedgerDispSortProxy, self).lessThan(idxLeft, idxRight)
+         return super(SentAddrSortProxy, self).lessThan(idxLeft, idxRight)
 
 
 """

@@ -15,10 +15,14 @@ def execAndWait(cli_str):
 # for registering URL handlers.  Need a different solution, but 
 # it's a permanent one.
 perm_app_register = False
-dist,version,ID = platform.linux_distribution()
-major,minor = [int(v) for v in version.split('.')]
-if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
-   perm_app_register = True
+try:
+   # No reason to fail installation just because we don't recognize the OS
+   dist,version,ID = platform.linux_distribution()
+   major,minor = [int(v) for v in version.split('.')][:2]
+   if dist=='Ubuntu' and ((major,minor)==(10,10) or major>=11):
+      perm_app_register = True
+except:
+   pass
 
 
 def createDesktopFile(name, idstr, arglist, toDir=''):
