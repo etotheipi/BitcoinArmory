@@ -6623,20 +6623,20 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.hideColumn(TXINCOLS.OutPt) 
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 
-      if haveBDM:
-         if self.mode==USERMODE.Standard:
-            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.ScrType) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Advanced:
-            initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Developer:
-            self.txInView.resizeColumnsToContents()
+
+      if self.mode==USERMODE.Standard:
+         initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.ScrType) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Advanced:
+         initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Developer:
+         self.txInView.resizeColumnsToContents()
             
       self.txInView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.txInView.customContextMenuRequested.connect(self.showContextMenuTxIn)
@@ -8447,7 +8447,7 @@ class DlgAddressBook(ArmoryDialog):
       #
       self.addrBookTxProxy = SentAddrSortProxy(self)
       self.addrBookTxProxy.setSourceModel(self.addrBookTxModel)
-      self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
+      #self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
 
       self.addrBookTxView.setModel(self.addrBookTxProxy)
       self.addrBookTxView.setSortingEnabled(True)
@@ -8470,7 +8470,7 @@ class DlgAddressBook(ArmoryDialog):
 
       self.addrBookRxProxy = WalletAddrSortProxy(self)
       self.addrBookRxProxy.setSourceModel(self.addrBookRxModel)
-      self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
+      #self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
 
       self.addrBookRxView.setModel(self.addrBookRxProxy)
       self.addrBookRxView.setSelectionBehavior(QTableView.SelectRows)

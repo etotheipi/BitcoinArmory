@@ -475,7 +475,6 @@ class TxInDispModel(QAbstractTableModel):
       self.txInList = []
       self.dispTable = []
 
-
       # If this is actually a TxDP in here, then let's use that
       # We do this to make sure we have somewhere to put txdp-specific
       # code, but we don't really need it yet, except to identify

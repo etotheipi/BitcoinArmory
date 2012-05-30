@@ -157,7 +157,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerProxy = LedgerDispSortProxy()
       self.ledgerProxy.setSourceModel(self.ledgerModel)
       self.ledgerProxy.setDynamicSortFilter(False)
-      self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
+      #self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
 
       self.ledgerView  = QTableView()
       self.ledgerView.setModel(self.ledgerProxy)
@@ -428,6 +428,8 @@ class ArmoryMainWindow(QMainWindow):
          restoreTableView(self.walletsView, hexwltsz)
       if len(hexledgsz)>0:
          restoreTableView(self.ledgerView, hexledgsz)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
 
@@ -1183,9 +1185,15 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
          self.ledgerProxy = LedgerDispSortProxy()
-         self.ledgerProxy.setDynamicSortFilter(True)
+         #self.ledgerProxy.setDynamicSortFilter(True)
          self.ledgerProxy.setSourceModel(self.ledgerModel)
          self.ledgerView.setModel(self.ledgerProxy)
+         self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+         self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
+         self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+         self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+         self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+         self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
          #self.ledgerView.setModel(self.ledgerModel)
          #self.ledgerModel.reset()
 

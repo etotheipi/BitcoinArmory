@@ -5359,7 +5359,7 @@ class PyTxDistProposal(object):
       while not 'END-TRANSACTION' in line: 
          [iin, val] = line.split('_')[2:]
          iin = int(iin)
-         self.inputValues[iin] = long(float(val)*ONE_BTC)
+         self.inputValues[iin] = str2coin(val)
          
          line = nextLine(L)
          while '_SIG_' in line:
