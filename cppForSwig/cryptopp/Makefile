@@ -37,7 +37,7 @@ ifneq ($(GCC42_OR_LATER),0)
 ifeq ($(UNAME),Darwin)
 CXXFLAGS += -arch x86_64 -arch i386
 else
-CXXFLAGS += -march=native
+#CXXFLAGS += -march=native
 endif
 endif
 
