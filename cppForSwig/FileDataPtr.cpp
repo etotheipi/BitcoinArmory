@@ -8,24 +8,24 @@
 
 
 
-#include "FileDataRef.h"
+#include "FileDataPtr.h"
 
-FileDataCache FileDataRef::globalCache_;
+FileDataCache FileDataPtr::globalCache_;
 
 
 
-void FileDataRef::SetupFileCaching(uint64_t maxCacheSize_)
+void FileDataPtr::SetupFileCaching(uint64_t maxCacheSize_)
 {
    globalCache_.setCacheSize(maxCacheSize_);
 }
 
 
-uint8_t* FileDataRef::getTempDataPtr(void) 
+uint8_t* FileDataPtr::getTempDataPtr(void) 
 { 
    return globalCache_.getCachedDataPtr(*this); 
 }
 
-BinaryData FileDataRef::getDataCopy(void) const
+BinaryData FileDataPtr::getDataCopy(void) const
 { 
    return globalCache_.getData(*this); 
 }

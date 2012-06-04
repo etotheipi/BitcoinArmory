@@ -6,8 +6,8 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 
-#ifndef _FILEDATAREF_H_
-#define _FILEDATAREF_H_
+#ifndef _FILEDATAPTR_H_
+#define _FILEDATAPTR_H_
 
 
 #include <fstream>
@@ -40,7 +40,7 @@
 //       files never exceed 2 GB.  Therefore, the file offset will never
 //       overflow this variable.  For other applications, this may 
 //       necessitate a change.  But for now, this reduces the size of
-//       the individual FileDataRef objects, which is actually quite useful.
+//       the individual FileDataPtr objects, which is actually quite useful.
 //
 //
 ////////////////////////////////////////////////////////////////////////////////
@@ -48,15 +48,15 @@
 class FileDataCache;
 
 // All data will be stored as one of these sortable file references
-class FileDataRef
+class FileDataPtr
 {
 public:
-   FileDataRef(void) :
+   FileDataPtr(void) :
       fileIndex_(UINT32_MAX), 
       startByte_(UINT32_MAX),
       numBytes_(0) {}
 
-   FileDataRef(uint32_t fidx, uint32_t start, uint32_t nbytes) : 
+   FileDataPtr(uint32_t fidx, uint32_t start, uint32_t nbytes) : 
       fileIndex_(fidx), 
       startByte_(start),
       numBytes_(nbytes) {}
@@ -71,7 +71,7 @@ public:
    uint32_t setNumBytes(uint32_t n)  {numBytes_  = n;}
 
    // We need to be able to sort these things...
-   bool operator<(FileDataRef const & loc2) const
+   bool operator<(FileDataPtr const & loc2) const
    {
       if(fileIndex_ == loc2.fileIndex_)
       {
@@ -85,7 +85,7 @@ public:
    }
 
    // An equality operator helps
-   bool operator==(FileDataRef const & loc2) const
+   bool operator==(FileDataPtr const & loc2) const
    {
       if(startByte_ == loc2.startByte_ && 
          fileIndex_ == loc2.fileIndex_ && 
@@ -216,9 +216,9 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t* dataIsCached(FileDataRef const & fdref)
+   uint8_t* dataIsCached(FileDataPtr const & fdref)
    {
-      static map<FileDataRef, list<CacheData>::iterator>::iterator iter;
+      static map<FileDataPtr, list<CacheData>::iterator>::iterator iter;
 
       // Retrieve one above the top.
       iter = cacheMap_.upper_bound(fdref);
@@ -243,7 +243,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   uint8_t* getCachedDataPtr(FileDataRef const & fdref)
+   uint8_t* getCachedDataPtr(FileDataPtr const & fdref)
    {
       uint8_t* ptr = dataIsCached(fdref);
       if(ptr != NULL || fdref.getNumBytes() > cacheSize_)
@@ -272,7 +272,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData getData(FileDataRef const & fdref)
+   BinaryData getData(FileDataPtr const & fdref)
    {
       uint8_t* cachePtr = getCachedDataPtr(fdref);
       if(cachePtr==NULL)
@@ -290,7 +290,7 @@ public:
       while(cacheUsed_+incomingBytes > cacheSize_ )
       {
          list<CacheData>::iterator cIter = cachedData_.begin();
-         FileDataRef & toRemove = cIter->first;
+         FileDataPtr & toRemove = cIter->first;
          cacheUsed_ -= toRemove.getNumBytes();
          cacheMap_.erase(toRemove);
          cachedData_.erase(cIter);
@@ -318,7 +318,7 @@ public:
 
       cout << "   Cached Data: " << cachedData_.size() << " cache chunks " << endl;
 
-      map<FileDataRef, list<CacheData>::iterator>::iterator mapIter;
+      map<FileDataPtr, list<CacheData>::iterator>::iterator mapIter;
       uint32_t i=0;
       for(mapIter = cacheMap_.begin(); mapIter != cacheMap_.end();  mapIter++)
       {
@@ -332,10 +332,11 @@ public:
    }
 
    uint32_t getFileSize(uint32_t i) {return fileSizes_[i]; }
+   uint32_t getCumulFileSize(uint32_t i) {return cumulSizes_[i]; }
 
 
 private:
-   typedef pair<FileDataRef, BinaryData>   CacheData;
+   typedef pair<FileDataPtr, BinaryData>   CacheData;
 
 
    vector<ifstream*>                             openFiles_;
@@ -343,7 +344,7 @@ private:
    vector<uint64_t>                              cumulSizes_;
    vector<string>                                fileNames_;
    list<CacheData>                               cachedData_;
-   map<FileDataRef, list<CacheData>::iterator>   cacheMap_;
+   map<FileDataPtr, list<CacheData>::iterator>   cacheMap_;
    uint64_t                                      cacheUsed_;
    uint64_t                                      cacheSize_;
 
@@ -352,7 +353,7 @@ private:
 
 
 /*
-class FileDataRef
+class FileDataPtr
 {
 private:
 
@@ -360,22 +361,22 @@ private:
 
 public:
 
-   FileDataRef(void) : 
+   FileDataPtr(void) : 
       fileLoc_(UINT32_MAX, UINT32_MAX),
       nBytes_(0),
       theData_(0) {} 
 
-   FileDataRef(uint32_t fileIdx, uint32_t start, uint32_t nByte) : 
+   FileDataPtr(uint32_t fileIdx, uint32_t start, uint32_t nByte) : 
       fileIndex_(fileIdx),
       startByte_(start),
       nBytes_(nByte),
       theData_(0) 
    {
       if(fileIdx >= openFiles_.size())
-         cout << "***ERROR: FileDataRef fileIndex_ out of range!" << endl;
+         cout << "***ERROR: FileDataPtr fileIndex_ out of range!" << endl;
    } 
 
-   ~FileDataRef(void) { theData_.clear(); }
+   ~FileDataPtr(void) { theData_.clear(); }
 
    uint8_t* getPtr()
    {
@@ -394,7 +395,7 @@ public:
       uint32_t numRead = openFiles_[fileIndex_].read(theData_.getPtr(), nBytes_);
       if( numRead != nBytes_ )
       {
-         cout << "***ERROR:  EOF reached before FileDataRef finished " << endl;
+         cout << "***ERROR:  EOF reached before FileDataPtr finished " << endl;
          return NULL;
       }
    }
@@ -405,7 +406,7 @@ public:
    static ifstream &   getOpenFileRef(uint32_t i) {return openFiles_[i]; }
 
    // This method will figure out if there is already a cached 
-   static uint8_t*     refIsInCache(FileDataRef fdref) 
+   static uint8_t*     refIsInCache(FileDataPtr fdref) 
    {
       return openFiles_[i]; 
    }
@@ -413,7 +414,7 @@ public:
 
 
 private:
-   FileDataRef  fileLoc_;
+   FileDataPtr  fileLoc_;
    uint32_t nBytes_;
 
 
