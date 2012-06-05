@@ -95,10 +95,25 @@ public:
    }
 
 
-   uint8_t* getTempDataPtr(void); 
+   // This returns a pointer to the data in cache -- it's pulled into the
+   // cache if it wasn't there already.  It's unsafe because the pointer
+   // could become invalid if new data is pulled into cache and this data
+   // is removed from the cache... 
+   // It can be used safely only if you guarantee that no other cache ops
+   // will be executed between calling this method and using the pointer.
+   uint8_t* getUnsafeDataPtr(void); 
+
+   // This is always safe.  If the data is cached, it is copied to the 
+   // return value.  If not, it's retrieved from disk and then copied.
    BinaryData getDataCopy(void) const;  
 
+   // Use this to set the size of the cache, if you don't want the default
    static void SetupFileCaching(uint64_t maxCacheSize_=DEFAULT_CACHE_SIZE);
+
+   // Sometimes we need to do a sequence of operations on the FileDataCache
+   // itself, so you might as well just get a reference to it and use that.
+   // Under most conditions, though, you won't need this...
+   // (usually only when specifying what files to track)
    static FileDataCache & getGlobalCacheRef(void) { return globalCache_; }
 
 private:

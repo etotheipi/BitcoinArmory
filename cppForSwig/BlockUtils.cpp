@@ -794,7 +794,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
 
 /////////////////////////////////////////////////////////////////////////////
 // Pass this wallet a TxRef and current time/blknumber.  I used to just pass
-// in the BlockHeaderRef with it, but this may be a Tx not in a block yet, 
+// in the BlockHeader with it, but this may be a Tx not in a block yet, 
 // but I still need the time/num 
 //
 // You must clear the zero-conf pool for this address, before you do a 
@@ -1436,7 +1436,6 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
       blockchainData_ALL_(0),
       lastEOFByteLoc_(0),
       totalBlockchainBytes_(0),
-      isAllAddrLoaded_(false),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
       lastBlockWasReorg_(false),
@@ -1447,7 +1446,7 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
       allRegAddrScannedUpToBlk_(0)
 {
    blockchainData_NEW_.clear();
-   headerHashMap_.clear();
+   headerMap_.clear();
    txHashMap_.clear();
 
    zeroConfRawTxList_.clear();
@@ -1529,12 +1528,8 @@ void BlockDataManager_FileRefs::Reset(void)
 {
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
-   headerHashMap_.clear();
+   headerMap_.clear();
    txHashMap_.clear();
-
-   // If we decided to store ALL addresses
-   allAddrTxMap_.clear();
-   isAllAddrLoaded_ = false;
 
    // These are not used at the moment, but we should clear them anyway
    blockchainFilenames_.clear();
@@ -1587,7 +1582,7 @@ int32_t BlockDataManager_FileRefs::getNumConfirmations(HashString txHash)
          return TX_0_UNCONFIRMED; 
       else
       { 
-         BlockHeaderRef & txbh = *(findResult->second.getHeaderPtr());
+         BlockHeader & txbh = *(findResult->second.getHeaderPtr());
          if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
@@ -1600,7 +1595,7 @@ int32_t BlockDataManager_FileRefs::getNumConfirmations(HashString txHash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeaderRef & BlockDataManager_FileRefs::getTopBlockHeader(void) 
+BlockHeader & BlockDataManager_FileRefs::getTopBlockHeader(void) 
 {
    if(topBlockPtr_ == NULL)
       topBlockPtr_ = &(getGenesisBlock());
@@ -1608,16 +1603,16 @@ BlockHeaderRef & BlockDataManager_FileRefs::getTopBlockHeader(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BlockHeaderRef & BlockDataManager_FileRefs::getGenesisBlock(void) 
+BlockHeader & BlockDataManager_FileRefs::getGenesisBlock(void) 
 {
    if(genBlockPtr_ == NULL)
-      genBlockPtr_ = &(headerHashMap_[GenesisHash_]);
+      genBlockPtr_ = &(headerMap_[GenesisHash_]);
    return *genBlockPtr_;
 }
 
 /////////////////////////////////////////////////////////////////////////////
 // Get a blockheader based on its height on the main chain
-BlockHeaderRef * BlockDataManager_FileRefs::getHeaderByHeight(int index)
+BlockHeader * BlockDataManager_FileRefs::getHeaderByHeight(int index)
 {
    if( index<0 || index>=(int)headersByHeight_.size())
       return NULL;
@@ -1628,10 +1623,10 @@ BlockHeaderRef * BlockDataManager_FileRefs::getHeaderByHeight(int index)
 
 /////////////////////////////////////////////////////////////////////////////
 // The most common access method is to get a block by its hash
-BlockHeaderRef * BlockDataManager_FileRefs::getHeaderByHash(HashString const & blkHash)
+BlockHeader * BlockDataManager_FileRefs::getHeaderByHash(HashString const & blkHash)
 {
-   map<HashString, BlockHeaderRef>::iterator it = headerHashMap_.find(blkHash);
-   if(it==headerHashMap_.end())
+   map<HashString, BlockHeader>::iterator it = headerMap_.find(blkHash);
+   if(it==headerMap_.end())
       return NULL;
    else
       return &(it->second);
@@ -1674,16 +1669,16 @@ bool BlockDataManager_FileRefs::hasTxWithHash(HashString const & txhash,
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::hasHeaderWithHash(HashString const & txhash) const
 {
-   return (headerHashMap_.find(txhash) != headerHashMap_.end());
+   return (headerMap_.find(txhash) != headerMap_.end());
 }
 
 /////////////////////////////////////////////////////////////////////////////
-vector<BlockHeaderRef*> BlockDataManager_FileRefs::prefixSearchHeaders(BinaryData const & searchStr)
+vector<BlockHeader*> BlockDataManager_FileRefs::prefixSearchHeaders(BinaryData const & searchStr)
 {
-   vector<BlockHeaderRef*> outList(0);
-   map<HashString, BlockHeaderRef>::iterator iter;
-   for(iter  = headerHashMap_.begin();
-       iter != headerHashMap_.end();
+   vector<BlockHeader*> outList(0);
+   map<HashString, BlockHeader>::iterator iter;
+   for(iter  = headerMap_.begin();
+       iter != headerMap_.end();
        iter++)
    {
       if(iter->first.startsWith(searchStr))
@@ -2063,7 +2058,7 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    // startBlknum might have to be set to 0 if any addr need full rescan
    for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
    {
-      BlockHeaderRef & bhr = *(headersByHeight_[h]);
+      BlockHeader & bhr = *(headersByHeight_[h]);
       vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
 
       ///// LOOP OVER ALL TX FOR THIS HEADER/////
@@ -2142,7 +2137,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
       }
 
-      BlockHeaderRef* bhr = txptr->getHeaderPtr();
+      BlockHeader* bhr = txptr->getHeaderPtr();
       if( bhr==NULL )
       {
          cout << "***WARNING: How did we get a tx without a header?" << endl;
@@ -2185,7 +2180,7 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
    ///// LOOP OVER ALL HEADERS ////
    for(uint32_t h=0; h<nHeaders; h++)
    {
-      BlockHeaderRef & bhr = *(headersByHeight_[h]);
+      BlockHeader & bhr = *(headersByHeight_[h]);
       vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
 
       ///// LOOP OVER ALL TX /////
@@ -2268,19 +2263,13 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
 
    if(highestBlkFileIndex==UINT16_MAX)
    {
-      cout << "Error finding blockchain files (blk000X.dat)" << endl;
+      cout << "Error finding blockchain files (blkXXXX.dat)" << endl;
       return 0;
    }
    cout << "Highest blkXXXX.dat file: " << highestBlkFileIndex << endl;
 
 
-
-
-   // If we want to force a rescan, just pass in "" for filename
-   if(filename.size()==0)
-      filename = blkFileDir_;
-
-   if(filename.compare(blkfilePath_)==0)
+   if(blkdir.compare(blkFileDir_)==0)
    {
       cout << "Call to load a blockchain that is already loaded!  Skipping..." << endl;
       return 0;
@@ -2321,7 +2310,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
       }
 
 
-      // Blockchain data is now in its permanent location in memory
+      // Now have a bunch of blockchain data buffered
       BinaryStreamBuffer bsb;
       bsb.attachAsStreamBuffer(is, filesize);
    
@@ -2543,12 +2532,12 @@ bool BlockDataManager_FileRefs::verifyBlkFileIntegrity(void)
 {
    PDEBUG("Verifying blk0001.dat integrity");
    bool isGood = true;
-   map<HashString, BlockHeaderRef>::iterator headIter;
-   for(headIter  = headerHashMap_.begin();
-       headIter != headerHashMap_.end();
+   map<HashString, BlockHeader>::iterator headIter;
+   for(headIter  = headerMap_.begin();
+       headIter != headerMap_.end();
        headIter++)
    {
-      BlockHeaderRef & bhr = headIter->second;
+      BlockHeader & bhr = headIter->second;
       bool thisHeaderIsGood = bhr.verifyIntegrity();
       if( !thisHeaderIsGood )
       {
@@ -2578,17 +2567,17 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
                                                   uint32_t blockSize)
 {
    // Create the objects once that will be used for insertion
-   static pair<HashString, TxRef>                               txInputPair;
-   static pair<HashString, BlockHeaderRef>                      bhInputPair;
-   static pair<map<HashString, TxRef>::iterator, bool>          txInsResult;
-   static pair<map<HashString, BlockHeaderRef>::iterator, bool> bhInsResult;
+   static pair<HashString, TxRef>                            txInputPair;
+   static pair<HashString, BlockHeader>                      bhInputPair;
+   static pair<map<HashString, TxRef>::iterator, bool>       txInsResult;
+   static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
 
    
    // Read off the header 
    bhInputPair.second.unserialize(brr);
    bhInputPair.first = bhInputPair.second.getThisHash();
-   bhInsResult = headerHashMap_.insert(bhInputPair);
-   BlockHeaderRef * bhptr = &(bhInsResult.first->second);
+   bhInsResult = headerMap_.insert(bhInputPair);
+   BlockHeader * bhptr = &(bhInsResult.first->second);
 
    // The key is to keep the file ref... the pointer will be going out of scope
    FileDataRef fdrThisHeader(fileIndex, blockHeaderOffset, HEADER_SIZE); 
@@ -2762,9 +2751,9 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockDataRef(BinaryDataRef bdr,
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
-                                                BlockHeaderRef* newTopPtr,
-                                                BlockHeaderRef* branchPtr)
+void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeader* oldTopPtr,
+                                                    BlockHeader* newTopPtr,
+                                                    BlockHeader* branchPtr)
 {
    cout << "Reassessing Tx validity after (after reorg?)" << endl;
 
@@ -2772,7 +2761,7 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
    // Mark transactions as invalid
    txJustInvalidated_.clear();
    txJustAffected_.clear();
-   BlockHeaderRef* thisHeaderPtr = oldTopPtr;
+   BlockHeader* thisHeaderPtr = oldTopPtr;
    cout << "Invalidating old-chain transactions..." << endl;
    while(thisHeaderPtr != branchPtr)
    {
@@ -2811,13 +2800,13 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeaderRef* oldTopPtr,
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<BlockHeaderRef*> BlockDataManager_FileRefs::getHeadersNotOnMainChain(void)
+vector<BlockHeader*> BlockDataManager_FileRefs::getHeadersNotOnMainChain(void)
 {
    PDEBUG("Getting headers not on main chain");
-   vector<BlockHeaderRef*> out(0);
-   map<HashString, BlockHeaderRef>::iterator iter;
-   for(iter  = headerHashMap_.begin(); 
-       iter != headerHashMap_.end(); 
+   vector<BlockHeader*> out(0);
+   map<HashString, BlockHeader>::iterator iter;
+   for(iter  = headerMap_.begin(); 
+       iter != headerMap_.end(); 
        iter++)
    {
       if( ! iter->second.isMainBranch() )
@@ -2844,9 +2833,9 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
    // than a second, anyway.
    if(forceRebuild)
    {
-      map<HashString, BlockHeaderRef>::iterator iter;
-      for( iter  = headerHashMap_.begin(); 
-           iter != headerHashMap_.end(); 
+      map<HashString, BlockHeader>::iterator iter;
+      for( iter  = headerMap_.begin(); 
+           iter != headerMap_.end(); 
            iter++)
       {
          iter->second.difficultySum_  = -1;
@@ -2858,7 +2847,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
    }
 
    // Set genesis block
-   BlockHeaderRef & genBlock = getGenesisBlock();
+   BlockHeader & genBlock = getGenesisBlock();
    genBlock.blockHeight_    = 0;
    genBlock.difficultyDbl_  = 1.0;
    genBlock.difficultySum_  = 1.0;
@@ -2881,9 +2870,9 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
    prevTopBlockPtr_ = topBlockPtr_;
 
    // Iterate over all blocks, track the maximum difficulty-sum block
-   map<HashString, BlockHeaderRef>::iterator iter;
+   map<HashString, BlockHeader>::iterator iter;
    double   maxDiffSum     = prevTopBlockPtr_->getDifficultySum();
-   for( iter = headerHashMap_.begin(); iter != headerHashMap_.end(); iter ++)
+   for( iter = headerMap_.begin(); iter != headerMap_.end(); iter ++)
    {
       // *** Walk down the chain following prevHash fields, until
       //     you find a "solved" block.  Then walk back up and 
@@ -2905,7 +2894,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
    // Also set headersByHeight_;
    bool prevChainStillValid = (topBlockPtr_ == prevTopBlockPtr_);
    topBlockPtr_->nextHash_ = BtcUtils::EmptyHash_;
-   BlockHeaderRef* thisHeaderPtr = topBlockPtr_;
+   BlockHeader* thisHeaderPtr = topBlockPtr_;
    headersByHeight_.resize(topBlockPtr_->getBlockHeight()+1);
    while( !thisHeaderPtr->isFinishedCalc_ )
    {
@@ -2924,7 +2913,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
       }
 
       HashString & childHash    = thisHeaderPtr->thisHash_;
-      thisHeaderPtr             = &(headerHashMap_[thisHeaderPtr->getPrevHash()]);
+      thisHeaderPtr             = &(headerMap_[thisHeaderPtr->getPrevHash()]);
       thisHeaderPtr->nextHash_  = childHash;
 
       if(thisHeaderPtr == prevTopBlockPtr_)
@@ -2947,7 +2936,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
       // RIGHT NOW, but won't be once I make the recursive call to organizeChain
       // I need to save it now, and re-assign it after the organizeChain call.
       // (I might consider finding a way to avoid this, but it's fine as-is)
-      BlockHeaderRef* prevtopblk = prevTopBlockPtr_;
+      BlockHeader* prevtopblk = prevTopBlockPtr_;
       organizeChain(true); // force-rebuild blockchain (takes less than 1s)
       prevTopBlockPtr_ = prevtopblk;
       return false;
@@ -2963,21 +2952,21 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
 // Start from a node, trace down to the highest solved block, accumulate
 // difficulties and difficultySum values.  Return the difficultySum of 
 // this block.
-double BlockDataManager_FileRefs::traceChainDown(BlockHeaderRef & bhpStart)
+double BlockDataManager_FileRefs::traceChainDown(BlockHeader & bhpStart)
 {
    if(bhpStart.difficultySum_ > 0)
       return bhpStart.difficultySum_;
 
    // Prepare some data structures for walking down the chain
-   vector<BlockHeaderRef*>   headerPtrStack(headerHashMap_.size());
-   vector<double>           difficultyStack(headerHashMap_.size());
+   vector<BlockHeader*>   headerPtrStack(headerMap_.size());
+   vector<double>           difficultyStack(headerMap_.size());
    uint32_t blkIdx = 0;
    double thisDiff;
 
    // Walk down the chain of prevHash_ values, until we find a block
    // that has a definitive difficultySum value (i.e. >0). 
-   BlockHeaderRef* thisPtr = &bhpStart;
-   map<HashString, BlockHeaderRef>::iterator iter;
+   BlockHeader* thisPtr = &bhpStart;
+   map<HashString, BlockHeader>::iterator iter;
    while( thisPtr->difficultySum_ < 0)
    {
       thisDiff                = thisPtr->difficultyDbl_;
@@ -2985,8 +2974,8 @@ double BlockDataManager_FileRefs::traceChainDown(BlockHeaderRef & bhpStart)
       headerPtrStack[blkIdx]  = thisPtr;
       blkIdx++;
 
-      iter = headerHashMap_.find(thisPtr->getPrevHash());
-      if( iter != headerHashMap_.end() )
+      iter = headerMap_.find(thisPtr->getPrevHash());
+      if( iter != headerMap_.end() )
          thisPtr = &(iter->second);
       else
       {
@@ -3020,14 +3009,14 @@ double BlockDataManager_FileRefs::traceChainDown(BlockHeaderRef & bhpStart)
 
 
 /////////////////////////////////////////////////////////////////////////////
-void BlockDataManager_FileRefs::markOrphanChain(BlockHeaderRef & bhpStart)
+void BlockDataManager_FileRefs::markOrphanChain(BlockHeader & bhpStart)
 {
    PDEBUG("Marking orphan chain");
    bhpStart.isMainBranch_ = true;
-   map<HashString, BlockHeaderRef>::iterator iter;
-   iter = headerHashMap_.find(bhpStart.getPrevHash());
+   map<HashString, BlockHeader>::iterator iter;
+   iter = headerMap_.find(bhpStart.getPrevHash());
    HashStringRef lastHeadHash(32);
-   while( iter != headerHashMap_.end() )
+   while( iter != headerMap_.end() )
    {
       // I don't see how it's possible to have a header that used to be 
       // in the main branch, but is now an ORPHAN (meaning it has no
@@ -3043,9 +3032,9 @@ void BlockDataManager_FileRefs::markOrphanChain(BlockHeaderRef & bhpStart)
       iter->second.isOrphan_ = true;
       iter->second.isMainBranch_ = false;
       lastHeadHash.setRef(iter->second.thisHash_);
-      iter = headerHashMap_.find(iter->second.getPrevHash());
+      iter = headerMap_.find(iter->second.getPrevHash());
    }
-   orphanChainStartBlocks_.push_back(&(headerHashMap_[lastHeadHash.copy()]));
+   orphanChainStartBlocks_.push_back(&(headerMap_[lastHeadHash.copy()]));
    PDEBUG("Done marking orphan chain");
 }
 

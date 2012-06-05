@@ -648,13 +648,13 @@ class BlockDataManager_FileRefs
 {
 private:
 
-   // These four data structures contain all the *real* data.  Everything 
-   // else is just references and pointers to this data
+   // All blkXXXX.dat files stored in this directory
    string                             blkFileDir_;
-   BinaryDataMMAP                     blockchainData_ALL_;
-   list<BinaryData>                   blockchainData_NEW_; 
-   map<HashString, BlockHeaderRef>    headerHashMap_;
-   map<HashString, TxRef>             txHashMap_;
+
+   // Store the full BlockHeaders in this map.  Store TxRefs in another map
+   map<HashString, BlockHeader>       headerMap_;
+   multimap<HashString, TxRef>        txHintMap_;
+   map<HashString, Tx>                selectedTxMap_;
 
    
    // Need a separate memory pool just for zero-confirmation transactions
@@ -668,18 +668,6 @@ private:
    // This is for detecting external changes made to the blk0001.dat file
    uint64_t                           lastEOFByteLoc_;
    uint64_t                           totalBlockchainBytes_;
-
-   // If we are really ambitious and have a lot of RAM, we might save
-   // all addresses for super-fast lookup.  The key is the 20B addr
-   // and the value is a vector of tx-hashes that include this addr
-   map<BinaryData, set<HashString> >  allAddrTxMap_;
-   bool                               isAllAddrLoaded_;
-
-   // For the case of keeping tx/header data on disk:
-   vector<string>                     blockchainFilenames_;
-   map<HashString, pair<int,int> >    txFileRefs_;
-   map<HashString, pair<int,int> >    headerFileRefs_;
-
 
    // These should be set after the blockchain is organized
    deque<BlockHeaderRef*>            headersByHeight_;
@@ -800,7 +788,7 @@ public:
    bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true) const;
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
-   uint32_t getNumBlocks(void) const { return headerHashMap_.size(); }
+   uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    uint32_t getNumTx(void) const { return txHashMap_.size(); }
 
    vector<BlockHeaderRef*> getHeadersNotOnMainChain(void);

@@ -20,180 +20,7 @@
 #include <stdlib.h>
 
 
-//#include <pthread.h>
 
-
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// BlockHeaderRef methods
-//
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-// Returns the size of the header + numTx + tx[i], no leading bytes
-uint32_t BlockHeaderRef::getBlockSize(void) const
-{
-   uint32_t nBytes = HEADER_SIZE; 
-   uint32_t nTx = txPtrList_.size();
-   for(uint32_t i=0; i<nTx; i++)
-   {
-      if(txPtrList_[i] == NULL)
-         return 0;
-      else
-         nBytes += txPtrList_[i]->getSize();
-   }
-
-   // Add in a couple bytes for the var_int
-   nBytes += BinaryWriter().put_var_int(nTx);
-   return nBytes;
-}
-
-BlockHeader BlockHeaderRef::getCopy(void) const
-{
-   assert(isInitialized_);
-   BlockHeader bh;
-   bh.unserialize(self_);
-
-   bh.thisHash_     = thisHash_;
-   bh.nextHash_     = nextHash_;
-   bh.numTx_        = getNumTx();
-   bh.blockHeight_  = blockHeight_;
-   bh.blkFileRef_  = blkFileRef_;
-   bh.difficultyDbl_ = difficultyDbl_;
-   bh.difficultySum_ = difficultySum_;
-   bh.isMainBranch_ = isMainBranch_;
-   bh.isOrphan_     = isOrphan_;
-   bh.isFinishedCalc_ = isFinishedCalc_;
-   bh.isOnDiskYet_  = isOnDiskYet_;
-
-   // The copy doesn't have pointers to any Tx (because BHRef class doesn't
-   // use any real Tx's, only TxRefs
-   bh.txPtrList_.clear();
-
-   return bh;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::unserialize(uint8_t const * ptr)
-{
-   self_.setRef(ptr, HEADER_SIZE);
-   BtcUtils::getHash256(self_.getPtr(), HEADER_SIZE, thisHash_);
-   difficultyDbl_ = BtcUtils::convertDiffBitsToDouble( 
-                              BinaryDataRef(self_.getPtr()+72, 4));
-   isInitialized_ = true;
-   nextHash_ = BinaryData(0);
-   blockHeight_ = UINT32_MAX;
-   blockNumBytes_ = 0;
-   blkFileRef_ = FileDataRef();
-   difficultySum_ = -1;
-   isMainBranch_ = false;
-   isOrphan_ = true;
-   isFinishedCalc_ = false;
-   isOnDiskYet_ = false;
-   txPtrList_ = vector<TxRef*>(0);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::unserialize(BinaryDataRef const & str) 
-{ 
-   unserialize(str.getPtr()); 
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::unserialize(BinaryRefReader & brr) 
-{ 
-   unserialize(brr.get_BinaryDataRef(HEADER_SIZE)); 
-}
-
-////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockHeaderRef::serializeWholeBlock(BinaryData const & magic, 
-                                               bool withLead8Bytes) const
-{
-   BinaryWriter serializedBlock;
-   uint32_t blksize = getBlockSize();
-   if(withLead8Bytes)
-   {
-      serializedBlock.reserve(blksize + 8);
-      serializedBlock.put_BinaryData(magic);
-      serializedBlock.put_uint32_t(blksize);
-   }
-   else
-      serializedBlock.reserve(blksize);
-
-   serializedBlock.put_BinaryData(self_);
-   serializedBlock.put_var_int(getNumTx());
-   for(uint32_t i=0; i<getNumTx(); i++)
-      serializedBlock.put_BinaryData(txPtrList_[i]->serialize());
-
-   return serializedBlock.getData();
-   
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::pprint(ostream & os, int nIndent, bool pBigendian) const
-{
-   getCopy().pprint(os, nIndent, pBigendian);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-void BlockHeaderRef::pprintAlot(ostream & os)
-{
-   cout << "Header:   " << getBlockHeight() << endl;
-   cout << "Hash:     " << getThisHash().toHexStr(true)  << endl;
-   cout << "Hash:     " << getThisHash().toHexStr(false) << endl;
-   cout << "PrvHash:  " << getPrevHash().toHexStr(true)  << endl;
-   cout << "PrvHash:  " << getPrevHash().toHexStr(false) << endl;
-   cout << "this*:    " << this << endl;
-   cout << "TotSize:  " << getBlockSize() << endl;
-   vector<TxRef*> txlist = getTxRefPtrList();
-   vector<BinaryData> hashlist = getTxHashList();
-   cout << "Number of Tx:  " << txlist.size() << ", " << hashlist.size() << endl;
-   for(uint32_t i=0; i<txlist.size(); i++)
-      txlist[i]->pprintAlot();
-
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-vector<BinaryData> BlockHeaderRef::getTxHashList(void)
-{
-   vector<BinaryData> vectOut(getNumTx());
-   for(uint32_t i=0; i<getNumTx(); i++)
-      vectOut[i] = txPtrList_[i]->getThisHash();
-
-   return vectOut;
-}
-////////////////////////////////////////////////////////////////////////////////
-BinaryData BlockHeaderRef::calcMerkleRoot(vector<BinaryData>* treeOut) 
-{
-   if(treeOut == NULL)
-      return BtcUtils::calculateMerkleRoot( getTxHashList() );
-   else
-   {
-      *treeOut = BtcUtils::calculateMerkleTree( getTxHashList() );
-      return (*treeOut)[treeOut->size()-1];
-   }
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockHeaderRef::verifyMerkleRoot(void)
-{
-   return  (calcMerkleRoot() == getMerkleRoot());
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool BlockHeaderRef::verifyIntegrity(void)
-{
-   // Calculate the merkle root, and compare to the one already stored in header
-   bool merkleIsGood = (calcMerkleRoot() == getMerkleRoot());
-
-   // Check that the last four bytes of the hash are zeros
-   BinaryData fourzerobytes = BtcUtils::EmptyHash_.getSliceCopy(0,4);
-   bool headerIsGood = (thisHash_.getSliceCopy(28,4) == fourzerobytes);
-   return (merkleIsGood && headerIsGood);
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -436,14 +263,25 @@ void TxOutRef::pprint(ostream & os, int nIndent, bool pBigendian)
 //
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-void TxRef::unserialize(uint8_t const * ptr)
+Tx TxRef::getTxCopy(void)
 {
-   nBytes_ = BtcUtils::TxCalcLength(ptr, &offsetsTxIn_, &offsetsTxOut_);
-   BtcUtils::getHash256(ptr, nBytes_, thisHash_);
-   self_.setRef(ptr, nBytes_);
-   headerPtr_ = NULL;
-   isInitialized_ = true;
-   isMainBranch_ = false;  // only BDM::organizeChain() can set this
+   return Tx(blkFilePtr_.getTempDataPtr(), blkFilePtr_.getNumBytes());
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool TxRef::isMainBranch(void) const
+{
+   if(headerPtr_==NULL || !headerPtr_->isMainBranch())
+      return false;
+   else
+      return true;   
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool TxRef::getThisHash(void) const
+{
+   uint8_t* tempPtr = blkFilePtr_.getTempDataPtr();
+   return BtcUtils::getHash256(tempPtr, blkFilePtr_.getNumBytes());
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -453,15 +291,8 @@ void TxRef::unserialize(BinaryRefReader & brr)
    brr.advance(nBytes_);
 }
 
-// We actually can't get the values in without going and finding the 
-// referenced TxOuts -- need BDM to help with this
-//uint64_t TxRef::getSumOfInputs(void)
-//{
-   //uint64_t sumVal = 0;
-   //for(int i=0; i<getNumTxIn(); i++)
-      //sumVal += ...
-//}
 
+/////////////////////////////////////////////////////////////////////////////
 uint32_t TxRef::getLockTime(void) const
 { 
    assert(isInitialized_); 

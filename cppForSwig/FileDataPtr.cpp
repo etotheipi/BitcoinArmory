@@ -20,7 +20,7 @@ void FileDataPtr::SetupFileCaching(uint64_t maxCacheSize_)
 }
 
 
-uint8_t* FileDataPtr::getTempDataPtr(void) 
+uint8_t* FileDataPtr::getUnsafeDataPtr(void) 
 { 
    return globalCache_.getCachedDataPtr(*this); 
 }

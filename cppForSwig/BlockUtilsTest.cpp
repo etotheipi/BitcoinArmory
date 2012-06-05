@@ -1169,7 +1169,7 @@ void TestFileCache(void)
    TIMER_START("CacheHit_50000");
    for(uint32_t i=0; i<50000; i++)
    {
-      fdrHit.getTempDataPtr();
+      fdrHit.getUnsafeDataPtr();
    }
    TIMER_STOP("CacheHit_50000");
 
@@ -1178,8 +1178,8 @@ void TestFileCache(void)
    TIMER_START("CacheMiss_50000");
    for(uint32_t i=0; i<50000; i++)
    {
-      fdrMiss1.getTempDataPtr();
-      fdrMiss2.getTempDataPtr();
+      fdrMiss1.getUnsafeDataPtr();
+      fdrMiss2.getUnsafeDataPtr();
    }
    TIMER_STOP("CacheMiss_50000");
 
