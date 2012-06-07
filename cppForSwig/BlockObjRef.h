@@ -27,9 +27,6 @@ class TxIn;
 class TxOut;
 class Tx;
 
-class OutPointRef;
-class TxInRef;
-class TxOutRef;
 class TxRef;
 
 
@@ -44,22 +41,19 @@ class TxRef
    friend class BlockDataManager_MMAP;
 
 public:
-   TxRef(void) : isInitialized_(false), headerPtr_(NULL) {}
-   TxRef(uint8_t const * ptr)       { unserialize(ptr);       }
-   TxRef(BinaryRefReader & brr)     { unserialize(brr);       }
-   TxRef(BinaryData const & str)    { unserialize(str);       }
-   TxRef(BinaryDataRef const & str) { unserialize(str);       }
-
+   /////////////////////////////////////////////////////////////////////////////
+   TxRef(void) : headerPtr_(NULL) {}
    TxRef(FileDataPtr fdr) : blkFilePtr_(fdr), headerPtr_(NULL) {}
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
+   bool               isInitialized(void)  const;
 
    /////////////////////////////////////////////////////////////////////////////
-   BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
+   BlockHeader*       getHeaderPtr(void) const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
-
+   FileDataPtr*       getBlkFilePtr(void) const { return blkFilePtr_; }
    
    /////////////////////////////////////////////////////////////////////////////
    bool               isMainBranch(void)  const;

@@ -4,7 +4,7 @@ COMPILER_OPTS = -c -O2 -pipe -fPIC
 
 #**************************************************************************
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o FileDataRef.o BinaryDataMMAP_POSIX.o BtcUtils.o BlockObj.o BlockObjRef.o BlockUtils.o EncryptionUtils.o libcryptopp.a
+OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BinaryDataMMAP_POSIX.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a
 
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread -lpython2.7
@@ -40,14 +40,11 @@ libcryptopp.a: Makefile
 UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) UniversalTimer.cpp
 
-UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) UniversalTimer.cpp
-
 BinaryData.o: BinaryData.h BinaryData.cpp BtcUtils.h 
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryData.cpp
 
-FileDataRef.o: FileDataRef.h BtcUtils.h BinaryData.h FileDataRef.cpp
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) FileDataRef.cpp
+FileDataPtr.o: FileDataPtr.h BtcUtils.h BinaryData.h FileDataPtr.cpp
+	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) FileDataPtr.cpp
 
 BinaryDataMMAP_POSIX.o: BinaryDataMMAP_POSIX.h BinaryDataMMAP_POSIX.cpp BtcUtils.h 
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BinaryDataMMAP_POSIX.cpp
@@ -55,11 +52,8 @@ BinaryDataMMAP_POSIX.o: BinaryDataMMAP_POSIX.h BinaryDataMMAP_POSIX.cpp BtcUtils
 BtcUtils.o: BtcUtils.h BtcUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BtcUtils.cpp
 
-BlockObj.o: BinaryData.h BtcUtils.h BlockObjRef.h BlockObj.h BlockObj.cpp
+BlockObj.o: BinaryData.h BtcUtils.h BlockObj.h BlockObj.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockObj.cpp
-
-BlockObjRef.o: BinaryData.h BtcUtils.h BlockObj.h BlockObjRef.h BlockObjRef.cpp
-	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockObjRef.cpp
 
 BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockUtils.cpp
@@ -67,7 +61,7 @@ BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h BlockUtils.cpp
 EncryptionUtils.o: BtcUtils.h BinaryData.h EncryptionUtils.h EncryptionUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) EncryptionUtils.cpp
 
-CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h BlockObjRef.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
+CppBlockUtils_wrap.cxx: BlockUtils.h BinaryData.h BlockObj.h UniversalTimer.h BlockUtils.h BlockUtils.cpp CppBlockUtils.i
 	swig $(SWIG_OPTS) -outdir ../ -v CppBlockUtils.i 
 
 CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_wrap.cxx
