@@ -66,6 +66,9 @@ public:
    uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const;
+   FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
+   void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
+
 
    /////////////////////////////////////////////////////////////////////////////
    vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
@@ -102,6 +105,7 @@ private:
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
    double         difficultyDbl_;
+   FileDataPtr    thisBlockFilePtr_;  // points to beginning of blk, magic bytes
 
    // Need to compute these later
    BinaryData     nextHash_;
@@ -338,6 +342,7 @@ public:
    uint32_t           getNumTxOut(void)  const { return offsetsTxOut_.size()-1;}
    BinaryData         getThisHash(void)  const;
    bool               isMainBranch(void) const;
+   bool               isInitialized(void) const { return isInitialized_; }
 
 
    uint32_t           getTxInOffset(uint32_t i) const  { return offsetsTxIn_[i]; }

@@ -64,7 +64,7 @@ TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    isTxOutFromSelf_(false),
    isFromCoinbase_(false)
 { 
-   setTxOutRef(txPtrO, txoutIndex);
+   setTxOut(txPtrO, txoutIndex);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -80,8 +80,8 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
    isTxOutFromSelf_(false),
    isFromCoinbase_(false)
 { 
-   setTxOutRef(txPtrO, txoutIndex);
-   setTxInRef (txPtrI, txinIndex );
+   setTxOut(txPtrO, txoutIndex);
+   setTxIn (txPtrI, txinIndex );
 }
 
 
@@ -103,27 +103,34 @@ HashString TxIOPair::getTxHashOfInput(void)
       return txPtrOfInput_->getThisHash();
 }
 
-TxOutRef TxIOPair::getTxOutRef(void) const
+
+//////////////////////////////////////////////////////////////////////////////
+TxOut TxIOPair::getTxOut(void) const
 {
-   // I actually want this to segfault when there is no TxOutRef... 
+   // I actually want this to segfault when there is no TxOut... 
    // we should't ever be trying to access it without checking it 
-   // first in the calling code
+   // first in the calling code (hasTxOut/hasTxOutZC)
    if(hasTxOut())
-      return txPtrOfOutput_->getTxOutRef(indexOfOutput_);
+      return txPtrOfOutput_->getTxOut(indexOfOutput_);
    else
-      return getTxOutRefZC();
+      return getTxOutZC();
 }
 
-TxInRef TxIOPair::getTxInRef(void) const
+
+//////////////////////////////////////////////////////////////////////////////
+TxIn TxIOPair::getTxIn(void) const
 {
+   // I actually want this to segfault when there is no TxIn... 
+   // we should't ever be trying to access it without checking it 
+   // first in the calling code (hasTxIn/hasTxInZC)
    if(hasTxIn())
-      return txPtrOfInput_->getTxInRef(indexOfInput_);
+      return txPtrOfInput_->getTxIn(indexOfInput_);
    else
-      return getTxInRefZC();
+      return getTxInZC();
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
+bool TxIOPair::setTxIn(TxRef* txref, uint32_t index, bool isZeroConf)
 { 
    if(isZeroConf)
    {
@@ -149,7 +156,7 @@ bool TxIOPair::setTxInRef(TxRef* txref, uint32_t index, bool isZeroConf)
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
+bool TxIOPair::setTxOut(TxRef* txref, uint32_t index, bool isZeroConf)
 {
    if(isZeroConf)
    {
@@ -162,7 +169,7 @@ bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
          txPtrOfOutputZC_ = txref; 
          indexOfOutputZC_ = index;
          if(hasTxOutZC())
-            amount_ = getTxOutRefZC().getValue();
+            amount_ = getTxOutZC().getValue();
       }
    }
    else
@@ -172,7 +179,7 @@ bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
       txPtrOfOutputZC_ = NULL;
       indexOfOutputZC_ = 0;
       if(hasTxOut())
-         amount_ = getTxOutRef().getValue();
+         amount_ = getTxOut().getValue();
    }
    return true;
 }
@@ -181,7 +188,7 @@ bool TxIOPair::setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf)
 bool TxIOPair::isStandardTxOutScript(void) 
 { 
    if(hasTxOut()) 
-      return getTxOutRef().isStandard();
+      return getTxOut().isStandard();
    return false;
 }
 
@@ -373,12 +380,12 @@ uint64_t BtcAddress::getSpendableBalance(uint32_t currBlk)
    uint64_t balance = 0;
    for(uint32_t i=0; i<relevantTxIOPtrs_.size(); i++)
    {
-      if(relevantTxIOPtrs_[i]->isSpendable())
+      if(relevantTxIOPtrs_[i]->isSpendable(currBlk))
          balance += relevantTxIOPtrs_[i]->getValue();
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
    {
-      if(relevantTxIOPtrsZC_[i]->isSpendable())
+      if(relevantTxIOPtrsZC_[i]->isSpendable(currBlk))
          balance += relevantTxIOPtrsZC_[i]->getValue();
    }
    return balance;
@@ -429,8 +436,8 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrs_[i];
       if(txio.isSpendable(blkNum))
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
@@ -438,8 +445,8 @@ vector<UnspentTxOut> BtcAddress::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
       if(txio.isSpendable(blkNum))
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
    return utxoList;
@@ -454,8 +461,8 @@ vector<UnspentTxOut> BtcAddress::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrs_[i];
       if(txio.isUnspent())
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
    for(uint32_t i=0; i<relevantTxIOPtrsZC_.size(); i++)
@@ -463,8 +470,8 @@ vector<UnspentTxOut> BtcAddress::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = *relevantTxIOPtrsZC_[i];
       if(txio.isUnspent())
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back( UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back( UnspentTxOut(txout, blkNum) );
       }
    }
    return utxoList;
@@ -633,12 +640,12 @@ bool BtcWallet::hasAddr(HashString const & addr20)
 /////////////////////////////////////////////////////////////////////////////
 // Determine, as fast as possible, whether this tx is relevant to us
 // Return  <IsOurs, InputIsOurs>
-pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
+pair<bool,bool> BtcWallet::isMineBulkFilter( Tx & tx )
 {
    // Since 99.999%+ of all transactions are not ours, let's do the 
    // fastest bulk filter possible, even though it will add 
    // redundant computation to the tx that are ours.  In fact,
-   // we will skip the TxInRef/TxOutRef convenience methods and follow the
+   // we will skip the TxIn/TxOut convenience methods and follow the
    // pointers directly the data we want
 
    uint8_t const * txStartPtr = tx.getPtr();
@@ -678,7 +685,7 @@ pair<bool,bool> BtcWallet::isMineBulkFilter( TxRef & tx )
       }
       else
       {
-         //TxOutRef txout = tx.getTxOutRef(iout);
+         //TxOut txout = tx.getTxOut(iout);
          //for(uint32_t i=0; i<addrPtrVect_.size(); i++)
          //{
             //BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -705,7 +712,7 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
    // .insert() function returns pair<iter,bool> with bool true if inserted
    if(registeredTxSet_.insert(txHash).second == true)
    {
-      TxRef* tx_ptr = getTxByHash(txHash);
+      TxRef* tx_ptr = getTxRefPtrByHash(txHash);
       uint32_t tx_blknum = tx_ptr->getBlockHeight();
       uint32_t tx_blkidx = tx_ptr->getBlockTxIndex();
       RegisteredTx regTx(txHash, tx_blknum, tx_blkidx);
@@ -720,20 +727,33 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
 //  BDM to collect data on registered wallets/addresses during the initial
 //  blockchain scan.  It needs to track relevant OutPoints and produce a 
 //  list of transactions that are relevant to the registered wallets.
-void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
+//
+//  Also, this takes a raw pointer to memory, because it is assumed that 
+//  the data is being buffered and not converted/parsed for Tx objects, yet
+void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr )
 {
+   static vector<uint32_t> txInOffsets;
+   static vector<uint32_t> txOutOffsets;
+   
+   uint32_t txlen = BtcUtils::TxCalcLength(txptr, &txInOffsets, &txOutOffsets);
+   
+   uint32_t nTxIn  = txInOffsets.size()-1;
+   uint32_t nTxOut = txOutOffsets.size()-1;
+   
+
    if(registeredAddrMap_.size() == 0)
       return;
 
-   uint8_t const * txStartPtr = tx.getPtr();
-   for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
+   uint8_t const * txStartPtr = txptr;
+   for(uint32_t iin=0; iin<nTxIn; iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+      op.unserialize(txStartPtr + txInOffsets(iin));
       if(registeredOutPoints_.count(op) > 0)
       {
-         insertRegisteredTxIfNew(tx.getThisHash());
+         
+         insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txlen));
          break; // we only care if ANY txIns are ours, not which ones
       }
    }
@@ -741,12 +761,12 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
    // We have to scan all TxOuts regardless, to make sure our list of 
    // registeredOutPoints_ is up-to-date so that we can identify TxIns that are
    // ours on future to-be-scanned transactions
-   for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+   for(uint32_t iout=0; iout<nTxOut; iout++)
    {
       static uint8_t scriptLenFirstByte;
       static HashString addr20(20);
 
-      uint8_t const * ptr = (txStartPtr + tx.getTxOutOffset(iout) + 8);
+      uint8_t const * ptr = (txStartPtr + txOutOffsets(iout) + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
       {
@@ -754,7 +774,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
          addr20.copyFrom(ptr+4, 20);
          if( addressIsRegistered(addr20) )
          {
-            HashString txHash = tx.getThisHash();
+            HashString txHash = BtcUtils::getHash256(txptr, txlen);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
@@ -766,7 +786,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
          BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
          if( addressIsRegistered(addr20) )
          {
-            HashString txHash = tx.getThisHash();
+            HashString txHash = BtcUtils::getHash256(txptr, txlen);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
          }
@@ -775,7 +795,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
       {
          /* TODO:  Right now we will just ignoring non-std tx
                    I don't do anything with them right now, anyway
-         TxOutRef txout = tx.getTxOutRef(iout);
+         TxOut txout = tx.getTxOut(iout);
          for(uint32_t i=0; i<addrPtrVect_.size(); i++)
          {
             BtcAddress & thisAddr = *(addrPtrVect_[i]);
@@ -799,7 +819,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( TxRef & tx )
 //
 // You must clear the zero-conf pool for this address, before you do a 
 // rescan of the wallet (it's done in rescanWalletZeroConf)
-void BtcWallet::scanTx(TxRef & tx, 
+void BtcWallet::scanTx(Tx & tx, 
                        uint32_t txIndex,
                        uint32_t txtime,
                        uint32_t blknum)
@@ -832,7 +852,7 @@ void BtcWallet::scanTx(TxRef & tx,
       ///// LOOP OVER ALL TXIN IN BLOCK /////
       for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
       {
-         TxInRef txin = tx.getTxInRef(iin);
+         TxIn txin = tx.getTxIn(iin);
          OutPoint outpt = txin.getOutPoint();
          // Empty hash in Outpoint means it's a COINBASE tx --> no addr inputs
          if(outpt.getTxHashRef() == BtcUtils::EmptyHash_)
@@ -847,17 +867,18 @@ void BtcWallet::scanTx(TxRef & tx,
          if(txioWasInMapAlready)
          {
             // If we are here, we know that this input is spending an 
-            // output owned by this wallet (though this address may not
-            // be the one affected)
-            // We need to make sure the ledger entry makes sense, and make
-            // sure we update TxIO objects appropriately
+            // output owned by this wallet.
+            // We will get here for every address in the search, even 
+            // though it is only relevant to one of the addresses.
             TxIOPair & txio  = txioIter->second;
-            TxOutRef const & txout = txio.getTxOutRef();
+            TxOut txout = txio.getTxOut();
 
             // Skip if this TxIO is not for this address
             if(!(txout.getRecipientAddr()==thisAddr.getAddrStr20()))
                continue;
 
+            // We need to make sure the ledger entry makes sense, and make
+            // sure we update TxIO objects appropriately
             int64_t thisVal = (int64_t)txout.getValue();
             totalLedgerAmt -= thisVal;
 
@@ -871,7 +892,7 @@ void BtcWallet::scanTx(TxRef & tx,
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
                // (i.e. we have a ref to the prev output, but it's been spent!)
-               bool isValidNew = txio.setTxInRef(&tx, iin, isZeroConf);
+               bool isValidNew = txio.setTxIn(tx.getTxRefPtr(), iin, isZeroConf);
                if(!isValidNew)
                   continue;
 
@@ -899,7 +920,7 @@ void BtcWallet::scanTx(TxRef & tx,
             // be there
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
-               nonStdTxioMap_[outpt].setTxInRef(&tx, iin, isZeroConf);
+               nonStdTxioMap_[outpt].setTxIn(&tx, iin, isZeroConf);
                nonStdUnspentOutPoints_.erase(outpt);
             }
          }
@@ -909,7 +930,7 @@ void BtcWallet::scanTx(TxRef & tx,
       ///// LOOP OVER ALL TXOUT IN TX /////
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
-         TxOutRef txout = tx.getTxOutRef(iout);
+         TxOut txout = tx.getTxOut(iout);
          if( txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN )
          {
             if(txout.getScriptRef().find(thisAddr.getAddrStr20()) > -1)
@@ -922,12 +943,6 @@ void BtcWallet::scanTx(TxRef & tx,
             // If we got here, at least this TxOut is for this address.
             // But we still need to find out if it's new and update
             // ledgers/TXIOs appropriately
-            
-            // TODO:  Verify this logic is correct:  totalLedgerAmt will
-            //        be used in the wallet-level ledgerEntry.  There are 
-            //        a variety of conditions under which we skip processing
-            //        the addr-level LE, but we probably still need to keep
-            //        an accurate totalLedgerAmt for this tx as a whole
             int64_t thisVal = (int64_t)(txout.getValue());
             totalLedgerAmt += thisVal;
 
@@ -947,7 +962,7 @@ void BtcWallet::scanTx(TxRef & tx,
                   // there was no existing TxOut referenced by it.  Probably,
                   // there was, but that TxOut was invalidated due to reorg
                   // and now being re-added
-                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  txioIter->second.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
                   thisAddr.addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -962,7 +977,7 @@ void BtcWallet::scanTx(TxRef & tx,
                   // relevantTxIOPtrs_ does not have this yet so it needs 
                   // to be added (it's already part of the relevantTxIOPtrsZC_
                   // but that will be removed)
-                  txioIter->second.setTxOutRef(&tx, iout, isZeroConf);
+                  txioIter->second.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
                   thisAddr.addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -971,7 +986,7 @@ void BtcWallet::scanTx(TxRef & tx,
             {
                // TxIO is not in the map yet -- create and add it
                TxIOPair newTxio;
-               newTxio.setTxOutRef(&tx, iout, isZeroConf);
+               newTxio.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
    
                pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
                txioIter = txioMap_.insert(toBeInserted).first;
@@ -980,10 +995,10 @@ void BtcWallet::scanTx(TxRef & tx,
             }
 
             if(anyTxInIsOurs)
-               txioIter->second.setTxOutFromSelf();
+               txioIter->second.setTxOutFromSelf(true);
            
             if(isCoinbaseTx)
-               txioIter->second.setFromCoinbase();
+               txioIter->second.setFromCoinbase(true);
 
             anyNewTxOutIsOurs = true;
             thisTxOutIsOurs[iout] = true;
@@ -1055,7 +1070,7 @@ void BtcWallet::scanTx(TxRef & tx,
 // the behavior of ScanTx.  But scanTx has been exhaustively tested with all
 // the crazy input variations and conditional paths, I don't want to touch 
 // it to try to accommodate this use case.
-LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & tx)
+LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
 {
    int64_t totalValue = 0;
    uint8_t const * txStartPtr = tx.getPtr();
@@ -1122,11 +1137,17 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & tx)
                       false);
 }
 
+////////////////////////////////////////////////////////////////////////////////
+LedgerEntry BtcWallet::calcLedgerEntryForTx(TxRef & txref)
+{
+   Tx theTx = txref.getTxCopy();
+   return calcLedgerEntryForTx(theTx);
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 LedgerEntry BtcWallet::calcLedgerEntryForTxStr(BinaryData txStr)
 {
-   TxRef tx(txStr);
+   Tx tx(txStr);
    return calcLedgerEntryForTx(tx);
 }
 
@@ -1159,11 +1180,11 @@ void BtcWallet::clearBlkData(void)
 // scripts and not clutter the regular scanning code
 void BtcWallet::scanNonStdTx(uint32_t blknum, 
                              uint32_t txidx, 
-                             TxRef&   tx,
+                             Tx &     tx,
                              uint32_t txoutidx,
                              BtcAddress& thisAddr)
 {
-   TxOutRef txout = tx.getTxOutRef(txoutidx);
+   TxOut txout = tx.getTxOut(txoutidx);
    int findIdx = txout.getScriptRef().find(thisAddr.getAddrStr20());
    if(findIdx > -1)
    {
@@ -1267,8 +1288,8 @@ vector<UnspentTxOut> BtcWallet::getSpendableTxOutList(uint32_t blkNum)
       TxIOPair & txio = iter->second;
       if(txio.isSpendable(blkNum))
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back(UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back(UnspentTxOut(txout, blkNum) );
       }
    }
    return utxoList;
@@ -1287,28 +1308,14 @@ vector<UnspentTxOut> BtcWallet::getFullTxOutList(uint32_t blkNum)
       TxIOPair & txio = iter->second;
       if(txio.isUnspent())
       {
-         TxOutRef txoutref = txio.getTxOutRef();
-         utxoList.push_back(UnspentTxOut(txoutref, blkNum) );
+         TxOut txout = txio.getTxOut();
+         utxoList.push_back(UnspentTxOut(txout, blkNum) );
       }
    }
    return utxoList;
 }
 
 
-
-   
-////////////////////////////////////////////////////////////////////////////////
-//uint64_t BtcWallet::getBalance(uint32_t i)
-//{
-   //return addrPtrVect_[i]->getBalance();
-//}
-
-//////////////////////////////////////////////////////////////////////////////////
-//uint64_t BtcWallet::getBalance(BinaryData const & addr20)
-//{
-   //assert(hasAddr(addr20)); 
-   //return addrMap_[addr20].getBalance();
-//}
 
 ////////////////////////////////////////////////////////////////////////////////
 uint32_t BtcWallet::removeInvalidEntries(void)   
@@ -1336,6 +1343,7 @@ void BtcWallet::sortLedger(void)
 
 
 
+////////////////////////////////////////////////////////////////////////////////
 bool BtcWallet::isOutPointMine(HashString const & hsh, uint32_t idx)
 {
    OutPoint op(hsh, idx);
@@ -1393,7 +1401,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
       perTxAddrSet.clear();
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
       {
-         HashString addr160 = tx.getTxOutRef(iout).getRecipientAddr();
+         HashString addr160 = tx.getTxOut(iout).getRecipientAddr();
 
          // Skip this address if it's in our wallet (usually change addr)
          if( hasAddr(addr160) || perTxAddrSet.count(addr160)>0)
@@ -1447,7 +1455,7 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
 {
    blockchainData_NEW_.clear();
    headerMap_.clear();
-   txHashMap_.clear();
+   txHintMap_.clear();
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
@@ -1484,6 +1492,7 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
 
 
 
+/////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::SelectNetwork(string netName)
 {
    if(netName.compare("Main") == 0)
@@ -1529,7 +1538,7 @@ void BlockDataManager_FileRefs::Reset(void)
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
    headerMap_.clear();
-   txHashMap_.clear();
+   txHintMap_.clear();
 
    // These are not used at the moment, but we should clear them anyway
    blockchainFilenames_.clear();
@@ -1573,16 +1582,17 @@ void BlockDataManager_FileRefs::Reset(void)
 /////////////////////////////////////////////////////////////////////////////
 int32_t BlockDataManager_FileRefs::getNumConfirmations(HashString txHash)
 {
-   map<HashString, TxRef>::iterator findResult = txHashMap_.find(txHash); 
-   if(findResult == txHashMap_.end())
+   map<HashString, TxRef>::iterator findResult = txHintMap_.find(txHash); 
+   TxRef* txrefptr = getTxRefPtrByHash(txHash);
+   if(txrefptr == NULL)
       return TX_NOT_EXIST;
    else
    {
-      if(findResult->second.getHeaderPtr() == NULL)
+      if(txrefptr->getHeaderPtr() == NULL)
          return TX_0_UNCONFIRMED; 
       else
       { 
-         BlockHeader & txbh = *(findResult->second.getHeaderPtr());
+         BlockHeader & txbh = *(txrefptr->getHeaderPtr());
          if(!txbh.isMainBranch())
             return TX_OFF_MAIN_BRANCH;
 
@@ -1632,22 +1642,48 @@ BlockHeader * BlockDataManager_FileRefs::getHeaderByHash(HashString const & blkH
       return &(it->second);
 }
 
+
+
 /////////////////////////////////////////////////////////////////////////////
-// Get a blockheader based on its height on the main chain
-TxRef* BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
+TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
 {
-   map<HashString, TxRef>::iterator it = txHashMap_.find(txhash);
-   if(it==txHashMap_.end())
+   typedef typename map<HashString,TxRef>::iterator hintMapIter;
+
+   BinaryData hash4 = txhash.getSliceCopy(0, 4);
+   pair<hintMapIter, hintMapIter> eqRange = txHintMap_.equal_range(hash4);
+
+   if(eqRange.first==eqRange.second)
+      return NULL;
+   else
+   {
+      hintMapIter iter;
+      for( iter = eqRange.first; iter != eqRange.second; iter++ )
+         if(iter->getThisHash() == txhash)
+            return &(iter->second);
+
+      // If we got here, we have some matching prefixes, but no tx that
+      // match the full requested tx-hash
+      return NULL;
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
+{
+
+   TxRef* txrefptr = getTxRefPtrByHash(txhash);
+
+   if(txrefptr!=NULL)
+      return txrefptr->getTxCopy();
+   else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
       map<HashString, ZeroConfData>::iterator iter = zeroConfMap_.find(txhash);
       if(iter==zeroConfMap_.end())
-         return NULL;
+         return Tx();
       else
-         return &(iter->second.txref_);
+         return iter->second.txobj_;
    }
-   else
-      return &(it->second);
 }
 
 
@@ -1655,7 +1691,7 @@ TxRef* BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
 bool BlockDataManager_FileRefs::hasTxWithHash(HashString const & txhash,
                                              bool includeZeroConf) const
 {
-   if(txHashMap_.find(txhash) == txHashMap_.end())
+   if(getTxRefPtrByHash(txhash)==NULL)
    {
       if(zeroConfMap_.find(txhash)==zeroConfMap_.end() || !includeZeroConf)
          return false;
@@ -1676,13 +1712,29 @@ bool BlockDataManager_FileRefs::hasHeaderWithHash(HashString const & txhash) con
 vector<BlockHeader*> BlockDataManager_FileRefs::prefixSearchHeaders(BinaryData const & searchStr)
 {
    vector<BlockHeader*> outList(0);
+   uint32_t lenSearch = searchStr.getSize();
+   if(lenSearch < 2)
+      return outList;  // don't search unless we have at least two bytes
+
+   BinaryData searchLow(32);
+   BinaryData searchHigh(32);
+   for(uint32_t i=0; i<lenSearch; i++)
+   {
+      searchLow[i]  = searchStr[i];
+      searchHigh[i] = searchStr[i];
+   }
+   for(uint32_t i=lenSearch; i<32; i++)
+   {
+      searchLow[i]  = 0;
+      searchHigh[i] = 255;
+   }
+
    map<HashString, BlockHeader>::iterator iter;
-   for(iter  = headerMap_.begin();
-       iter != headerMap_.end();
+   for(iter  = headerMap_.lower_bound(searchLow);
+       iter != headerMap_.upper_bound(searchHigh);
        iter++)
    {
-      if(iter->first.startsWith(searchStr))
-         outList.push_back(&(iter->second));
+      outList.push_back(&(iter->second));
    }
    return outList;
 }
@@ -1691,12 +1743,31 @@ vector<BlockHeader*> BlockDataManager_FileRefs::prefixSearchHeaders(BinaryData c
 vector<TxRef*> BlockDataManager_FileRefs::prefixSearchTx(BinaryData const & searchStr)
 {
    vector<TxRef*> outList(0);
-   map<HashString, TxRef>::iterator iter;
-   for(iter  = txHashMap_.begin();
-       iter != txHashMap_.end();
+   uint32_t lenSearch = searchStr.getSize();
+   if(lenSearch < 2)
+      return outList;  // don't search unless we have at least two bytes
+
+   BinaryData searchLow(32);
+   BinaryData searchHigh(32);
+   for(uint32_t i=0; i<lenSearch; i++)
+   {
+      searchLow[i]  = searchStr[i];
+      searchHigh[i] = searchStr[i];
+   }
+   for(uint32_t i=lenSearch; i<32; i++)
+   {
+      searchLow[i]  = 0;
+      searchHigh[i] = 255;
+   }
+
+   BinaryData searchLow4  = searchLow.getSliceCopy(0,4);
+   BinaryData searchHigh4 = searchHigh.getSliceCopy(0,4);
+   multimap<HashString, TxRef>::iterator iter;
+   for(iter  = txHashMap_.lower_bound(searchLow4);
+       iter != txHashMap_.upper_bound(searchHigh4);
        iter++)
    {
-      if(iter->first.startsWith(searchStr))
+      if(iter->second.getThisHash().startsWith(searchStr))
          outList.push_back(&(iter->second));
    }
    return outList;
@@ -2037,8 +2108,8 @@ bool BlockDataManager_FileRefs::addressIsRegistered(HashString addr160)
 //     sort registered list
 //     scanTx all tx in registered list between 1000 and 2000
 void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
-                                                uint32_t startBlknum,
-                                                uint32_t endBlknum)
+                                                    uint32_t startBlknum,
+                                                    uint32_t endBlknum)
 {
 
    // The BDM knows the highest block to which ALL CURRENT REGISTERED ADDRESSES
@@ -2118,8 +2189,8 @@ void BlockDataManager_FileRefs::pprintRegisteredWallets(void)
 // the initial blockchain scan.  The blockchain contains millions of tx,
 // but this list will at least 3 orders of magnitude smaller
 void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
-                                                       uint32_t blkStart,
-                                                       uint32_t blkEnd)
+                                                           uint32_t blkStart,
+                                                           uint32_t blkEnd)
 {
    PDEBUG("Scanning relevant tx list for wallet");
 
@@ -2130,32 +2201,32 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
        txIter++)
    {
       // Skip transactions if they exist only on an invalid block
-      TxRef* txptr = getTxByHash(txIter->txHash_);
-      if( txptr==NULL )
+      Tx theTx = getTxByHash(txIter->txHash_);
+      if( theTx.isInitialized() )
       {
          cout << "***WARNING: How did we get a NULL tx?" << endl;
          continue;
       }
 
-      BlockHeader* bhr = txptr->getHeaderPtr();
-      if( bhr==NULL )
+      BlockHeader* bhptr = theTx->getHeaderPtr();
+      if( bhptr==NULL )
       {
          cout << "***WARNING: How did we get a tx without a header?" << endl;
          continue;
       }
 
-      if( !bhr->isMainBranch() )
+      if( !bhptr->isMainBranch() )
          continue;
 
-      uint32_t thisBlk = bhr->getBlockHeight();
-      if(thisBlk < blkStart || thisBlk>=blkEnd)
+      uint32_t thisBlk = bhptr->getBlockHeight();
+      if(thisBlk < blkStart  ||  thisBlk >= blkEnd)
          continue;
 
-      if( !isTxFinal(*txptr) )
+      if( !isTxFinal(theTx) )
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(*txptr, txptr->getBlockTxIndex(), bhr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, theTx->getBlockTxIndex(), bhptr->getTimestamp(), thisBlk);
    }
  
    wlt.sortLedger();
@@ -2191,7 +2262,7 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
          ///// LOOP OVER ALL TXIN IN BLOCK /////
          for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
          {
-            TxInRef txin = tx.getTxInRef(iin);
+            TxIn txin = tx.getTxIn(iin);
             if(txin.getScriptType() == TXIN_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);
@@ -2211,7 +2282,7 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
          for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
          {
             
-            TxOutRef txout = tx.getTxOutRef(iout);
+            TxOut txout = tx.getTxOut(iout);
             if(txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN)
             {
                txVectOut.push_back(&tx);               
@@ -2236,16 +2307,21 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
+uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
+                                     string   blkdir, 
+                                     uint32_t cacheSize=DEFAULT_CACHE_SIZE)
 {
    // First thing we need to do is find all the blk000X.dat files.
    // To avoid branching the code based on OS, I do something slightly
    // awkward but will work on all systems.  I can do this because I know
    // exactly what files I'm looking for...
    // Also initialize a global cache that will be used...
-   uint32_t highestBlkFileIndex=0;
+   uint16_t highestBlkFileIndex=0;
    uint64_t totalBlkBytes = 0;
    blkFileList_.clear();
+
+   FileDataPtr globalCache = FileDataPtr::getGlobalCacheRef();
+   globalCache.setCacheSize(cacheSize);
    while(highestBlkFileIndex < UINT16_MAX)
    {
       highestBlkFileIndex++;
@@ -2256,7 +2332,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
          break;
 
       blkFileList_.push_back(string(path));
-      totalBlkBytes += fdcache.openFile(highestBlkFileIndex, path);
+      totalBlkBytes += globalCache.openFile(highestBlkFileIndex, path);
       is.close();
    }
    highestBlkFileIndex--;
@@ -2282,6 +2358,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
       return 0;
    }
 
+   // Start scanning the entire blockchain, one blkXXXX.dat file at a time
    for(uint32_t fidx=1; fidx<=highestBlkFileIndex; fidx++)
    {
       string blkfile = blkFileList_[fidx];
@@ -2306,6 +2383,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
       if( !(fileMagic == MagicBytes_ ) )
       {
          cerr << "***ERROR:  Block file is for the wrong network!" << endl;
+         cerr << "           MagicBytes of this file: " << fileMagic.toHexStr().c_str() << endl;
          return 0;
       }
 
@@ -2335,7 +2413,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(string blkdir)
             if(bsb.getBufferSizeRemaining() < nextBlkSize)
             {
                alreadyRead8B = true;
-               continue;
+               break;
             }
             alreadyRead8B = false;
    
@@ -2580,8 +2658,8 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    BlockHeader * bhptr = &(bhInsResult.first->second);
 
    // The key is to keep the file ref... the pointer will be going out of scope
-   FileDataRef fdrThisHeader(fileIndex, blockHeaderOffset, HEADER_SIZE); 
-   bhptr->setBlkFileRef(fdrThisHeader);
+   FileDataPtr fdrThisBlock(fileIndex, blockHeaderOffset-8, blockSize+8); 
+   bhptr->setBlockFilePtr(fdrThisBlock);
 
    // Read the #tx and fill in some header properties
    uint8_t viSize;
@@ -2603,8 +2681,8 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       // Add a pointer to this tx to the header's tx-ptr-list
       bhptr->txPtrList_.push_back( txptr );
 
-      FileDataRef fdrThisTx(fileIndex, txOffset, txptr->getSize());
-      txptr->setBlkFileRef(fdrdThisTx);
+      FileDataPtr fdrThisTx(fileIndex, txOffset, txptr->getSize());
+      txptr->setBlkFilePtr(fdrdThisTx);
       txOffset += txptr->getSize();
       // We don't set this tx's headerPtr because there could be multiple
       // headers that reference this tx... we will wait until the chain
@@ -3023,6 +3101,8 @@ void BlockDataManager_FileRefs::markOrphanChain(BlockHeader & bhpStart)
       // parent).  It will be good to detect this case, though
       if(iter->second.isMainBranch() == true)
       {
+         // NOTE: this actually gets triggered when we scan the testnet
+         //       blk0001.dat file on main net, etc
          cout << "***ERROR: Block previously main branch, now orphan!?"
               << iter->second.getThisHash().toHexStr() << endl;
          cerr << "***ERROR: Block previously main branch, now orphan!?"
@@ -3043,19 +3123,19 @@ void BlockDataManager_FileRefs::markOrphanChain(BlockHeader & bhpStart)
 // We're going to need the BDM's help to get the sender for a TxIn since it
 // sometimes requires going and finding the TxOut from the distant past
 ////////////////////////////////////////////////////////////////////////////////
-TxOutRef BlockDataManager_FileRefs::getPrevTxOut(TxInRef & txin)
+TxOut BlockDataManager_FileRefs::getPrevTxOut(TxIn & txin)
 {
    if(txin.isCoinbase())
-      return TxOutRef();
+      return TxOut();
 
-   OutPointRef opr = txin.getOutPointRef();
-   TxRef & tx = *(getTxByHash(opr.getTxHash()));
-   uint32_t idx = opr.getTxOutIndex();
-   return tx.getTxOutRef(idx);
+   OutPoint op = txin.getOutPointRef();
+   Tx theTx = *(getTxByHash(op.getTxHash()));
+   uint32_t idx = op.getTxOutIndex();
+   return theTx.getTxOut(idx);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-HashString BlockDataManager_FileRefs::getSenderAddr20(TxInRef & txin)
+HashString BlockDataManager_FileRefs::getSenderAddr20(TxIn & txin)
 {
    if(txin.isCoinbase())
       return HashString(0);
@@ -3065,7 +3145,7 @@ HashString BlockDataManager_FileRefs::getSenderAddr20(TxInRef & txin)
 
 
 ////////////////////////////////////////////////////////////////////////////////
-int64_t BlockDataManager_FileRefs::getSentValue(TxInRef & txin)
+int64_t BlockDataManager_FileRefs::getSentValue(TxIn & txin)
 {
    if(txin.isCoinbase())
       return -1;
@@ -3129,8 +3209,8 @@ void BlockDataManager_FileRefs::disableZeroConf(string zcFilename)
 
 ////////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx, 
-                                                uint64_t txtime,
-                                                bool writeToFile)
+                                                 uint64_t txtime,
+                                                 bool writeToFile)
 {
    // TODO:  We should do some kind of verification check on this tx
    //        to make sure it's potentially valid.  Right now, it doesn't 
@@ -3258,7 +3338,7 @@ void BlockDataManager_FileRefs::pprintZeroConfPool(void)
       TxRef & txref = zcd.txref_;
       cout << txref.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
       for(uint32_t i=0; i<txref.getNumTxOut(); i++)
-         cout << txref.getTxOutRef(i).getValue() << " ";
+         cout << txref.getTxOut(i).getValue() << " ";
       cout << endl;
    }
 }
@@ -3336,7 +3416,7 @@ vector<LedgerEntry> BtcWallet::getZeroConfLedger(HashString const * addr160)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FileRefs::isTxFinal(TxRef & tx)
+bool BlockDataManager_FileRefs::isTxFinal(Tx & tx)
 {
    // Anything that is replaceable (regular or through blockchain injection)
    // will be considered isFinal==false.  Users shouldn't even see the tx,
@@ -3361,7 +3441,7 @@ bool BlockDataManager_FileRefs::isTxFinal(TxRef & tx)
 
    bool allSeqMax = true;
    for(uint32_t i=0; i<tx.getNumTxIn(); i++)
-      if(tx.getTxInRef(i).getSequence() < UINT32_MAX)
+      if(tx.getTxIn(i).getSequence() < UINT32_MAX)
          allSeqMax = false;
 
    if(allSeqMax)

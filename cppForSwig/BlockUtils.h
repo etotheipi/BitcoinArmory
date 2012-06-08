@@ -29,10 +29,8 @@
 #include <limits>
 
 #include "BinaryData.h"
-#include "BinaryDataMMAP.h"
 #include "BtcUtils.h"
 #include "BlockObj.h"
-#include "BlockObjRef.h"
 
 #include "cryptlib.h"
 #include "sha.h"
@@ -92,10 +90,10 @@ public:
    uint64_t  getValue(void) const   { return  amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
-   TxOutRef  getTxOutRef(void) const;   
-   TxInRef   getTxInRef(void) const;   
-   TxOutRef  getTxOutRefZC(void) const {return txPtrOfOutputZC_->getTxOutRef(indexOfOutputZC_);}
-   TxInRef   getTxInRefZC(void) const  {return txPtrOfInputZC_->getTxInRef(indexOfInputZC_);}
+   TxOut     getTxOut(void) const;   
+   TxIn      getTxIn(void) const;   
+   TxOut     getTxOutZC(void) const {return txPtrOfOutputZC_->getTxOut(indexOfOutputZC_);}
+   TxIn      getTxInZC(void) const  {return txPtrOfInputZC_->getTxIn(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
    TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
@@ -111,8 +109,8 @@ public:
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
-   bool setTxInRef (TxRef* txref, uint32_t index, bool isZeroConf=false);
-   bool setTxOutRef(TxRef* txref, uint32_t index, bool isZeroConf=false);
+   bool setTxIn (TxRef* txref, uint32_t index, bool isZeroConf=false);
+   bool setTxOut(TxRef* txref, uint32_t index, bool isZeroConf=false);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
@@ -470,18 +468,19 @@ public:
    // you will save time by not checking addresses that are much newr than
    // the block
    pair<bool,bool> isMineBulkFilter( TxRef & tx );
-   void       scanTx(TxRef & tx, 
+
+   void       scanTx(Tx & tx, 
                      uint32_t txIndex = UINT32_MAX,
                      uint32_t blktime = UINT32_MAX,
                      uint32_t blknum  = UINT32_MAX);
 
-   void       scanNonStdTx(uint32_t blknum, 
-                           uint32_t txidx, 
-                           TxRef&   txref,
-                           uint32_t txoutidx,
+   void       scanNonStdTx(uint32_t    blknum, 
+                           uint32_t    txidx, 
+                           Tx &        txref,
+                           uint32_t    txoutidx,
                            BtcAddress& addr);
 
-   LedgerEntry calcLedgerEntryForTx(TxRef & tx);
+   LedgerEntry calcLedgerEntryForTx(Tx & tx);
    LedgerEntry calcLedgerEntryForTxStr(BinaryData txStr);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
@@ -532,9 +531,6 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 
-   // With MMAP'd blockchain, any wallets that are registered should be 
-   // aware that they are registered, and make sure the BDM is aware of 
-   // when addresses get added or deleted.
    BlockDataManager_FileRefs*       bdmPtr_;
 };
 
@@ -544,7 +540,7 @@ private:
 class ZeroConfData
 {
 public:
-   TxRef         txref_;   
+   Tx            txobj_;   
    uint64_t      txtime_;
    list<BinaryData>::iterator iter_;
 
@@ -653,6 +649,11 @@ private:
 
    // Store the full BlockHeaders in this map.  Store TxRefs in another map
    map<HashString, BlockHeader>       headerMap_;
+
+   // We index Tx in a multimap, indexed by first X bytes of the hash
+   // If we need to get a tx by hash, get list of all of the ones with the
+   // matching prefix, and then compute hashes to find it.
+   // Saves a ton of space relative at the expense of search time
    multimap<HashString, TxRef>        txHintMap_;
    map<HashString, Tx>                selectedTxMap_;
 
@@ -670,24 +671,24 @@ private:
    uint64_t                           totalBlockchainBytes_;
 
    // These should be set after the blockchain is organized
-   deque<BlockHeaderRef*>            headersByHeight_;
-   BlockHeaderRef*                   topBlockPtr_;
-   BlockHeaderRef*                   genBlockPtr_;
+   deque<BlockHeader*>                headersByHeight_;
+   BlockHeader*                       topBlockPtr_;
+   BlockHeader*                       genBlockPtr_;
 
    // Reorganization details
-   bool                              lastBlockWasReorg_;
-   BlockHeaderRef*                   reorgBranchPoint_;
-   BlockHeaderRef*                   prevTopBlockPtr_;
-   set<HashString>                   txJustInvalidated_;
-   set<HashString>                   txJustAffected_;
+   bool                               lastBlockWasReorg_;
+   BlockHeader*                       reorgBranchPoint_;
+   BlockHeader*                       prevTopBlockPtr_;
+   set<HashString>                    txJustInvalidated_;
+   set<HashString>                    txJustAffected_;
 
    // Store info on orphan chains
-   vector<BlockHeaderRef*>           previouslyValidBlockHeaderPtrs_;
-   vector<BlockHeaderRef*>           orphanChainStartBlocks_;
+   vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
+   vector<BlockHeader*>               orphanChainStartBlocks_;
 
-   static BlockDataManager_FileRefs* theOnlyBDM_;
-   static bool bdmCreatedYet_;
-   bool isInitialized_;
+   static BlockDataManager_FileRefs*  theOnlyBDM_;
+   static bool                        bdmCreatedYet_;
+   bool                               isInitialized_;
 
 
    // These will be set for the specific network we are testing
@@ -696,14 +697,8 @@ private:
    BinaryData MagicBytes_;
 
 
-   // Since switching from RAM to mmap ops, we needed to combine the original
-   // blockchain scan with the wallet bulk-filter, i.e. combine
-   // readBlkFile_FromScratch   and   scanBlockchainForTx into one search.
-   // Additionally, make sure that each blockchain scan operation is checking
-   // for information related to these addresses.
-   //
    // We will now "register" all wallets and addresses, so that the BDM knows
-   // what addresses to look for 
+   // what addresses to look for in its first scan
    set<BtcWallet*>                    registeredWallets_;
    map<HashString, RegisteredAddress> registeredAddrMap_;
    list<RegisteredTx>                 registeredTxList_;
@@ -728,10 +723,10 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t          getNumConfirmations(BinaryData txHash);
-   BlockHeaderRef & getTopBlockHeader(void) ;
-   BlockHeaderRef & getGenesisBlock(void) ;
-   BlockHeaderRef * getHeaderByHeight(int index);
-   BlockHeaderRef * getHeaderByHash(BinaryData const & blkHash);
+   BlockHeader &    getTopBlockHeader(void) ;
+   BlockHeader &    getGenesisBlock(void) ;
+   BlockHeader *    getHeaderByHeight(int index);
+   BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
@@ -760,7 +755,7 @@ public:
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
-   void     registeredAddrScan( TxRef & tx );
+   void     registeredAddrScan( uint8_t * txptr );
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
@@ -781,9 +776,9 @@ public:
    vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
                                        bool writeToBlk0001=false);
 
-   void             reassessAfterReorg(BlockHeaderRef* oldTopPtr,
-                                       BlockHeaderRef* newTopPtr,
-                                       BlockHeaderRef* branchPtr );
+   void             reassessAfterReorg(BlockHeader* oldTopPtr,
+                                       BlockHeader* newTopPtr,
+                                       BlockHeader* branchPtr );
 
    bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true) const;
    bool hasHeaderWithHash(BinaryData const & txhash) const;
@@ -791,12 +786,12 @@ public:
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
    uint32_t getNumTx(void) const { return txHashMap_.size(); }
 
-   vector<BlockHeaderRef*> getHeadersNotOnMainChain(void);
+   vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
    // Prefix searches would be much better if we had an some kind of underlying
    // Trie/PatriciaTrie/DeLaBrandiaTrie instead of std::map<>.  For now this
    // search will simply be suboptimal...
-   vector<BlockHeaderRef*> prefixSearchHeaders(BinaryData const & searchStr);
+   vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
    vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
    vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);
 
@@ -810,8 +805,8 @@ public:
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
    void scanRegisteredTxForWallet( BtcWallet & wlt,
-                                 uint32_t blkStart=0,
-                                 uint32_t blkEnd=UINT32_MAX);
+                                   uint32_t blkStart=0,
+                                   uint32_t blkEnd=UINT32_MAX);
 
 
  
@@ -863,8 +858,8 @@ private:
    // Start from a node, trace down to the highest solved block, accumulate
    // difficulties and difficultySum values.  Return the difficultySum of 
    // this block.
-   double traceChainDown(BlockHeaderRef & bhpStart);
-   void   markOrphanChain(BlockHeaderRef & bhpStart);
+   double traceChainDown(BlockHeader & bhpStart);
+   void   markOrphanChain(BlockHeader & bhpStart);
 
 
    

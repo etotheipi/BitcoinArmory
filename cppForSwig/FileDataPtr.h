@@ -17,7 +17,7 @@
 #include "BtcUtils.h"
 
 
-#define DEFAULT_CACHE_SIZE (16*1024*1024)
+#define DEFAULT_CACHE_SIZE (32*1024*1024)
 
 ////////////////////////////////////////////////////////////////////////////////
 //
@@ -52,23 +52,23 @@ class FileDataPtr
 {
 public:
    FileDataPtr(void) :
-      fileIndex_(UINT32_MAX), 
+      fileIndex_(UINT16_MAX), 
       startByte_(UINT32_MAX),
       numBytes_(0) {}
 
-   FileDataPtr(uint32_t fidx, uint32_t start, uint32_t nbytes) : 
+   FileDataPtr(uint16_t fidx, uint32_t start, uint32_t nbytes) : 
       fileIndex_(fidx), 
       startByte_(start),
       numBytes_(nbytes) {}
 
 
-   uint32_t getFileIndex(void) const {return fileIndex_;}
+   uint16_t getFileIndex(void) const {return fileIndex_;}
    uint32_t getStartByte(void) const {return startByte_;}
    uint32_t getNumBytes(void) const  {return numBytes_;}
 
-   uint32_t setFileIndex(uint32_t i) {fileIndex_ = i;}
-   uint32_t setStartByte(uint32_t b) {startByte_ = b;}
-   uint32_t setNumBytes(uint32_t n)  {numBytes_  = n;}
+   void     setFileIndex(uint16_t i) {fileIndex_ = i;}
+   void     setStartByte(uint32_t b) {startByte_ = b;}
+   void     setNumBytes(uint32_t n)  {numBytes_  = n;}
 
    // We need to be able to sort these things...
    bool operator<(FileDataPtr const & loc2) const
@@ -117,7 +117,7 @@ public:
    static FileDataCache & getGlobalCacheRef(void) { return globalCache_; }
 
 private:
-   uint32_t fileIndex_;
+   uint16_t fileIndex_;
    uint32_t startByte_;
    uint32_t numBytes_;
 
