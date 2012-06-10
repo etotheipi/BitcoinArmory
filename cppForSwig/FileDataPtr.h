@@ -101,11 +101,18 @@ public:
    // is removed from the cache... 
    // It can be used safely only if you guarantee that no other cache ops
    // will be executed between calling this method and using the pointer.
-   uint8_t* getUnsafeDataPtr(void); 
+   uint8_t* getUnsafeDataPtr(void) const;
 
    // This is always safe.  If the data is cached, it is copied to the 
    // return value.  If not, it's retrieved from disk and then copied.
    BinaryData getDataCopy(void) const;  
+
+   // All this does is retrieve the data as if it was requested, but
+   // doesn't actually return it.  Therefore it will pull it into the 
+   // cache, so that calls requesting relevant data will be pre-cached.
+   // For instance, you may use this for a full 2MB chunk of data, which
+   // you know contains a dozens of data requests you're about to make.
+   void preCacheThisChunk(void) const; 
 
    // Use this to set the size of the cache, if you don't want the default
    static void SetupFileCaching(uint64_t maxCacheSize_=DEFAULT_CACHE_SIZE);
@@ -179,7 +186,7 @@ public:
       cout << "Opening file " << fIndex << ": " << filename.c_str() << endl;
 
       // Make sure file exists
-      if(BtcUtils::getFilesize(filename) == UINT64_MAX)
+      if(BtcUtils::GetFileSize(filename) == UINT64_MAX)
          return UINT32_MAX;
 
       while(fIndex >= openFiles_.size())

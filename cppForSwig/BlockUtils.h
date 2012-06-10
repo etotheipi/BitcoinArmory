@@ -259,6 +259,7 @@ public:
 
 
    TxRef *    getTxRefPtr()  { return txrefPtr_; }
+   Tx         getTxCopy()    { return txrefPtr_->getTxCopy(); }
    BinaryData getTxHash()    { return txHash_; }
    uint32_t   getBlkNum()    { return blkNum_; }
    uint32_t   getTxIndex()   { return txIndex_; }
@@ -281,6 +282,11 @@ public:
          blkNum_(txref.getBlockHeight()),
          txIndex_(txref.getBlockTxIndex()) { }
 
+   RegisteredTx(Tx & tx) :
+         txrefPtr_(tx.getTxRefPtr()),
+         txHash_(tx.getThisHash()),
+         blkNum_(tx.getBlockHeight()),
+         txIndex_(tx.getBlockTxIndex()) { }
 
    bool operator<(RegisteredTx const & rt2) const 
    {
@@ -302,7 +308,7 @@ public:
    /////
    AddressBookEntry(void) : addr160_(BtcUtils::EmptyHash_) { txList_.clear(); }
    AddressBookEntry(BinaryData a160) : addr160_(a160) { txList_.clear(); }
-   void addTx(TxRef & txref) { txList_.push_back( RegisteredTx(txref) ); }
+   void addTx(Tx & tx) { txList_.push_back( RegisteredTx(tx) ); }
    BinaryData getAddr160(void) { return addr160_; }
 
    /////
@@ -467,7 +473,7 @@ public:
    // Scan a Tx for our TxIns/TxOuts.  Override default blk vals if you think
    // you will save time by not checking addresses that are much newr than
    // the block
-   pair<bool,bool> isMineBulkFilter( TxRef & tx );
+   pair<bool,bool> isMineBulkFilter( Tx & tx );
 
    void       scanTx(Tx & tx, 
                      uint32_t txIndex = UINT32_MAX,
@@ -481,6 +487,7 @@ public:
                            BtcAddress& addr);
 
    LedgerEntry calcLedgerEntryForTx(Tx & tx);
+   LedgerEntry calcLedgerEntryForTx(TxRef & txref);
    LedgerEntry calcLedgerEntryForTxStr(BinaryData txStr);
 
    // BlkNum is necessary for "unconfirmed" list, since it is dependent
@@ -729,8 +736,10 @@ public:
    BlockHeader &    getGenesisBlock(void) ;
    BlockHeader *    getHeaderByHeight(int index);
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
-   TxRef *          getTxByHash(BinaryData const & txHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
+
+   TxRef *          getTxRefPtrByHash(HashString const & txHash) const;
+   Tx               getTxByHash(HashString const & txHash) const;
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
@@ -757,10 +766,11 @@ public:
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
-   void     registeredAddrScan( uint8_t * txptr,
-                                uint32_t txSize,
-                                vector<uint32_t> * txInOffsets,
-                                vector<uint32_t> * txOutOffsets)
+   void     registeredAddrScan( Tx & theTx );
+   void     registeredAddrScan( uint8_t const * txptr,
+                                uint32_t txSize=0,
+                                vector<uint32_t> * txInOffsets=NULL,
+                                vector<uint32_t> * txOutOffsets=NULL);
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
@@ -774,15 +784,16 @@ public:
 
 
    // Does a full scan!
-   uint32_t readBlkFile_FromScratch(string filename);
+   uint32_t parseEntireBlockchain(string blkdir, 
+                                  uint32_t cacheSz=DEFAULT_CACHE_SIZE);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
-   vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
-                                       uint32_t fileIndex,
-                                       uint32_t thisHeaderOffset,
-                                       uint32_t blockSize);
+   vector<bool>     addNewBlockData(   BinaryRefReader & brrRawBlock,
+                                       uint32_t        fileIndex,
+                                       uint32_t        thisHeaderOffset,
+                                       uint32_t        blockSize);
 
    void             reassessAfterReorg(BlockHeader* oldTopPtr,
                                        BlockHeader* newTopPtr,
@@ -819,9 +830,9 @@ public:
 
  
    // This is extremely slow and RAM-hungry, but may be useful on occasion
-   uint32_t       readBlkFileUpdate(string filename="");
+   uint32_t       readBlkFileUpdate(void);
    bool           verifyBlkFileIntegrity(void);
-   vector<TxRef*> findAllNonStdTx(void);
+   //vector<TxRef*> findAllNonStdTx(void);
    
 
    // For zero-confirmation tx-handling
@@ -833,7 +844,7 @@ public:
    void pprintZeroConfPool(void);
    void rewriteZeroConfFile(void);
    void rescanWalletZeroConf(BtcWallet & wlt);
-   bool isTxFinal(TxRef & tx);
+   bool isTxFinal(Tx & tx);
 
 
    // After reading in all headers, find the longest chain and set nextHash vals
@@ -856,9 +867,9 @@ public:
    ////////////////////////////////////////////////////////////////////////////////
    // We're going to need the BDM's help to get the sender for a TxIn since it
    // sometimes requires going and finding the TxOut from the distant past
-   TxOutRef   getPrevTxOut(TxInRef & txin);
-   BinaryData getSenderAddr20(TxInRef & txin);
-   int64_t    getSentValue(TxInRef & txin);
+   TxOut      getPrevTxOut(TxIn & txin);
+   BinaryData getSenderAddr20(TxIn & txin);
+   int64_t    getSentValue(TxIn & txin);
 
 private:
 

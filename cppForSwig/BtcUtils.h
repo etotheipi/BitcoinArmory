@@ -699,6 +699,17 @@ public:
    }
 
 
+   static string getBlkFilename(string dir, uint32_t fblkNum)
+   {
+      char* fname = new char[256];
+      sprintf(fname, "%s/blk%04d.dat", dir.c_str(), fblkNum);
+      string strName(fname);
+      delete[] fname;
+      return strName;
+   }
+
+
+
    static string getOpCodeName(OPCODETYPE opcode)
    {
       switch (opcode)

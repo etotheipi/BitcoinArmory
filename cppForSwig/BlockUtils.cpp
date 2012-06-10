@@ -111,7 +111,7 @@ TxOut TxIOPair::getTxOut(void) const
    // we should't ever be trying to access it without checking it 
    // first in the calling code (hasTxOut/hasTxOutZC)
    if(hasTxOut())
-      return txPtrOfOutput_->getTxOut(indexOfOutput_);
+      return txPtrOfOutput_->getTxCopy().getTxOut(indexOfOutput_);
    else
       return getTxOutZC();
 }
@@ -124,7 +124,7 @@ TxIn TxIOPair::getTxIn(void) const
    // we should't ever be trying to access it without checking it 
    // first in the calling code (hasTxIn/hasTxInZC)
    if(hasTxIn())
-      return txPtrOfInput_->getTxIn(indexOfInput_);
+      return txPtrOfInput_->getTxCopy().getTxIn(indexOfInput_);
    else
       return getTxInZC();
 }
@@ -796,7 +796,7 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
 //  If the txSize and offsets have been pre-calculated, you can pass them 
 //  in, or pass {0, NULL, NULL} to have it calculated for you.
 //  
-void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr,
+void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
                                                     uint32_t txSize,
                                                     vector<uint32_t> * txInOffsets,
                                                     vector<uint32_t> * txOutOffsets)
@@ -812,8 +812,8 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr,
       uint32_t txSize = BtcUtils::TxCalcLength(txptr, txInOffsets, txOutOffsets);
    }
    
-   uint32_t nTxIn  = txInOffsets.size()-1;
-   uint32_t nTxOut = txOutOffsets.size()-1;
+   uint32_t nTxIn  = txInOffsets->size()-1;
+   uint32_t nTxOut = txOutOffsets->size()-1;
    
 
    if(registeredAddrMap_.size() == 0)
@@ -824,7 +824,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr,
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
-      op.unserialize(txStartPtr + txInOffsets(iin));
+      op.unserialize(txStartPtr + (*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
          
@@ -841,7 +841,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr,
       static uint8_t scriptLenFirstByte;
       static HashString addr20(20);
 
-      uint8_t const * ptr = (txStartPtr + txOutOffsets(iout) + 8);
+      uint8_t const * ptr = (txStartPtr + (*txOutOffsets)[iout] + 8);
       scriptLenFirstByte = *(uint8_t*)ptr;
       if(scriptLenFirstByte == 25)
       {
@@ -885,6 +885,15 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t * txptr,
    }
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FileRefs::registeredAddrScan( Tx & theTx )
+{
+   registeredAddrScan(theTx.getPtr(),
+                      theTx.getSize(),
+                      &theTx.offsetsTxIn_,
+                      &theTx.offsetsTxOut_);
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -995,7 +1004,7 @@ void BtcWallet::scanTx(Tx & tx,
             // be there
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
-               nonStdTxioMap_[outpt].setTxIn(&tx, iin, isZeroConf);
+               nonStdTxioMap_[outpt].setTxIn(tx.getTxRefPtr(), iin, isZeroConf);
                nonStdUnspentOutPoints_.erase(outpt);
             }
          }
@@ -1296,7 +1305,7 @@ void BtcWallet::scanNonStdTx(uint32_t blknum,
       OutPoint outpt(tx.getThisHash(), txoutidx);      
       nonStdUnspentOutPoints_.insert(outpt);
       pair< map<OutPoint, TxIOPair>::iterator, bool> insResult;
-      pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(&tx,txoutidx));
+      pair<OutPoint, TxIOPair> toBeInserted(outpt, TxIOPair(tx.getTxRefPtr(),txoutidx));
       insResult = nonStdTxioMap_.insert(toBeInserted);
       //insResult = txioMap_.insert(toBeInserted);
    }
@@ -1463,8 +1472,8 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
       if( !txio.hasTxIn() )
          continue;
 
-      TxRef & tx = txio.getTxRefOfInput();
-      HashString txHash = tx.getThisHash();
+      Tx thisTx = txio.getTxRefOfInput().getTxCopy();
+      HashString txHash = thisTx.getThisHash();
 
       if(allTxList.count(txHash) > 0)
          continue;
@@ -1474,9 +1483,9 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 
       // Iterate over all TxOut in this Tx for recipients
       perTxAddrSet.clear();
-      for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
+      for(uint32_t iout=0; iout<thisTx.getNumTxOut(); iout++)
       {
-         HashString addr160 = tx.getTxOut(iout).getRecipientAddr();
+         HashString addr160 = thisTx.getTxOut(iout).getRecipientAddr();
 
          // Skip this address if it's in our wallet (usually change addr)
          if( hasAddr(addr160) || perTxAddrSet.count(addr160)>0)
@@ -1486,7 +1495,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
          if(sentToMap.count(addr160)==0)
             sentToMap[addr160] = AddressBookEntry(addr160);
 
-         sentToMap[addr160].addTx(tx);
+         sentToMap[addr160].addTx(thisTx);
          perTxAddrSet.insert(addr160);
       }
       
@@ -1516,8 +1525,6 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) : 
-      blockchainData_ALL_(0),
-      lastEOFByteLoc_(0),
       totalBlockchainBytes_(0),
       lastBlkFileBytes_(0),
       topBlockPtr_(NULL),
@@ -1529,7 +1536,6 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
       MagicBytes_(0),
       allRegAddrScannedUpToBlk_(0)
 {
-   blockchainData_NEW_.clear();
    headerMap_.clear();
    txHintMap_.clear();
 
@@ -1539,9 +1545,7 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
    zcFilename_ = string("");
 
    headersByHeight_.clear();
-   txFileRefs_.clear();
-   headerFileRefs_.clear();
-   blockchainFilenames_.clear();
+   blkFileList_.clear();
    previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
 }
@@ -1617,9 +1621,7 @@ void BlockDataManager_FileRefs::Reset(void)
    txHintMap_.clear();
 
    // These are not used at the moment, but we should clear them anyway
-   blockchainFilenames_.clear();
-   txFileRefs_.clear();
-   headerFileRefs_.clear();
+   blkFileList_.clear();
 
 
    // These should be set after the blockchain is organized
@@ -1637,7 +1639,6 @@ void BlockDataManager_FileRefs::Reset(void)
    previouslyValidBlockHeaderPtrs_.clear();
    orphanChainStartBlocks_.clear();
    
-   lastEOFByteLoc_ = 0;
    totalBlockchainBytes_ = 0;
    lastBlkFileBytes_ = 0;
 
@@ -1722,9 +1723,9 @@ BlockHeader * BlockDataManager_FileRefs::getHeaderByHash(HashString const & blkH
 
 
 /////////////////////////////////////////////////////////////////////////////
-TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
+TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash) const
 {
-   typedef typename map<HashString,TxRef>::iterator hintMapIter;
+   typedef map<HashString,TxRef>::iterator hintMapIter;
 
    BinaryData hash4 = txhash.getSliceCopy(0, 4);
    pair<hintMapIter, hintMapIter> eqRange = txHintMap_.equal_range(hash4);
@@ -1735,7 +1736,7 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
    {
       hintMapIter iter;
       for( iter = eqRange.first; iter != eqRange.second; iter++ )
-         if(iter->getThisHash() == txhash)
+         if(iter->second.getThisHash() == txhash)
             return &(iter->second);
 
       // If we got here, we have some matching prefixes, but no tx that
@@ -1745,7 +1746,7 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
+Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash) const
 {
 
    TxRef* txrefptr = getTxRefPtrByHash(txhash);
@@ -1755,7 +1756,7 @@ Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
    else
    {
       // It's not in the blockchain, but maybe in the zero-conf tx list
-      map<HashString, ZeroConfData>::iterator iter = zeroConfMap_.find(txhash);
+      map<HashString, ZeroConfData>::const_iterator iter = zeroConfMap_.find(txhash);
       if(iter==zeroConfMap_.end())
          return Tx();
       else
@@ -1840,8 +1841,8 @@ vector<TxRef*> BlockDataManager_FileRefs::prefixSearchTx(BinaryData const & sear
    BinaryData searchLow4  = searchLow.getSliceCopy(0,4);
    BinaryData searchHigh4 = searchHigh.getSliceCopy(0,4);
    multimap<HashString, TxRef>::iterator iter;
-   for(iter  = txHashMap_.lower_bound(searchLow4);
-       iter != txHashMap_.upper_bound(searchHigh4);
+   for(iter  = txHintMap_.lower_bound(searchLow4);
+       iter != txHintMap_.upper_bound(searchHigh4);
        iter++)
    {
       if(iter->second.getThisHash().startsWith(searchStr))
@@ -2145,6 +2146,8 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    // TODO:  I am assuming this will be too slow, but I will test/time it
    //        before making that conclusion:  perhaps pre-caching is enough
    //        to avoid complicating this to the level of parseEntireBlockchain
+   cout << "Timing Test for [slow-method] rescan...";
+   TIMER_START("RescanTiming");
    for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
@@ -2157,10 +2160,12 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
       ///// LOOP OVER ALL TX FOR THIS HEADER/////
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
-         Tx thisTx = txlist[itx]->getDataCopy();
-         registeredAddrScan(thisTx.getPtr());
+         Tx thisTx = txlist[itx]->getTxCopy();
+         registeredAddrScan(thisTx);
       }
    }
+   TIMER_STOP("RescanTiming");
+   cout << UniversalTimer::instance().getLastTiming() << " seconds" << endl;
 
    allRegAddrScannedUpToBlk_ = endBlknum;
    updateRegisteredAddresses(endBlknum);
@@ -2223,15 +2228,15 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
        txIter != registeredTxList_.end();
        txIter++)
    {
-      // Skip transactions if they exist only on an invalid block
-      Tx theTx = getTxByHash(txIter->txHash_);
+      // Pull the tx from disk and check it for the supplied wallet
+      Tx theTx = txIter->getTxCopy();
       if( theTx.isInitialized() )
       {
          cout << "***WARNING: How did we get a NULL tx?" << endl;
          continue;
       }
 
-      BlockHeader* bhptr = theTx->getHeaderPtr();
+      BlockHeader* bhptr = theTx.getHeaderPtr();
       if( bhptr==NULL )
       {
          cout << "***WARNING: How did we get a tx without a header?" << endl;
@@ -2249,7 +2254,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, theTx->getBlockTxIndex(), bhptr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, theTx.getBlockTxIndex(), bhptr->getTimestamp(), thisBlk);
    }
  
    wlt.sortLedger();
@@ -2265,6 +2270,8 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
 
 
 /////////////////////////////////////////////////////////////////////////////
+/*  This is not currently being used, and is actually likely to change 
+ *  a bit before it is needed, so I have just disabled it.
 vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 {
    PDEBUG("Finding all non-std tx");
@@ -2327,15 +2334,15 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
    PDEBUG("Done finding all non-std tx");
    return txVectOut;
 }
+*/
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
-                                     string   blkdir, 
-                                     uint32_t cacheSize=DEFAULT_CACHE_SIZE)
+uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir, 
+                                                           uint32_t cacheSize)
 {
    // Initialize a global cache that will be used...
-   FileDataPtr globalCache = FileDataPtr::getGlobalCacheRef();
+   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
    globalCache.setCacheSize(cacheSize);
 
    // Next thing we need to do is find all the blk000X.dat files.
@@ -2345,11 +2352,10 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
    uint64_t totalBlkBytes = 0;
    blkFileList_.clear();
 
-   char * path = new char[256];
    while(highestBlkFileNum < UINT16_MAX)
    {
       highestBlkFileNum++;
-      sprintf(path, "%s/blk%04d.dat", blkdir, highestBlkFileNum);
+      string path = BtcUtils::getBlkFilename(blkFileDir_, highestBlkFileNum);
       if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
          break;
 
@@ -2357,7 +2363,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
       totalBlkBytes += globalCache.openFile(highestBlkFileNum, path);
    }
    highestBlkFileNum--;
-   delete[] path;
 
    if(highestBlkFileNum==UINT16_MAX)
    {
@@ -2383,15 +2388,17 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
+   uint32_t nBlkRead = 0;
+   uint32_t nBytesRead = 0;
    for(uint32_t fidx=1; fidx<=highestBlkFileNum; fidx++)
    {
       string blkfile = blkFileList_[fidx];
       cout << "Attempting to read blockchain from file: " << blkfile.c_str() << endl;
-      uint64_t filesize = BtcUtils::GetFileSize(blkfile) 
-      if( fsize == FILE_DOES_NOT_EXIST )
+      uint64_t filesize = BtcUtils::GetFileSize(blkfile);
+      if( filesize == FILE_DOES_NOT_EXIST )
       {
-         cout << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
-         cerr << "***ERROR:  Cannot open " << blkfilePath_.c_str() << endl;
+         cout << "***ERROR:  Cannot open " << blkfile.c_str() << endl;
+         cerr << "***ERROR:  Cannot open " << blkfile.c_str() << endl;
          return 0;
       }
 
@@ -2414,9 +2421,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
       BinaryStreamBuffer bsb;
       bsb.attachAsStreamBuffer(is, filesize);
    
-      uint32_t nBlkRead = 0;
-      uint32_t nBytesRead = 0;
-   
       bool alreadyRead8B = false;
       uint32_t nextBlkSize;
       TIMER_START("ScanBlockchain");
@@ -2428,7 +2432,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
             if(!alreadyRead8B)
             {
                bsb.reader().advance(4);
-               nextBlkSize = bsb.reader().get_uint32_t()
+               nextBlkSize = bsb.reader().get_uint32_t();
                nBytesRead += 8;
             }
    
@@ -2479,22 +2483,12 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(
 // NOTE:  You might want to check lastBlockWasReorg_ variable to know whether 
 //        to expect some previously valid headers/txs to still be valid
 //
-uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
+uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 {
    TIMER_START("getBlockfileUpdates");
 
-   // The only use for supplying diff filename is for unit-testing, I have 
-   // two copies of the blockchain one with an extra block or two in it.
-   // Under normal conditions, we'll never pass in a filename arg.
-   if(filename.size() == 0)
-   {
-      char* fname = new char[256];
-      sprintf(fname, "%s/blk%04d.dat", blkdir, numBlkFiles_);
-      filename = string(fname);
-      delete[] fname;
-   }
-
    // Make sure the file exists and is readable
+   string filename = blkFileList_[blkFileList_.size()-1];
    uint64_t filesize = BtcUtils::GetFileSize(filename);
    if( filesize == FILE_DOES_NOT_EXIST )
    {
@@ -2507,13 +2501,8 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    uint32_t currBlkBytesToRead = (uint32_t)(filesize - lastBlkFileBytes_);
 
    // Check to see if there was a blkfile split, and we have to switch
-   // to tracking the new file..
-   char* nextFname = new char[256];
-   sprintf(nextFname, "%s/blk%04d.dat", blkdir, numBlkFiles_+1);
-   string nextFilename(nextFname);
-   delete[] nextFname;
-
-   // This condition may trigger only once a year...
+   // to tracking the new file..  this condition may trigger only once a year...
+   string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_+1);
    uint32_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
    if( nextBlkBytesToRead == FILE_DOES_NOT_EXIST )
       nextBlkBytesToRead = 0;
@@ -2537,7 +2526,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    BinaryData newBlockDataRaw(currBlkBytesToRead + nextBlkBytesToRead);
 
    // Seek to the beginning of the new data and read it
-   ifstream is(filename, ios::in | ios::binary);
+   ifstream is(filename.c_str(), ios::in | ios::binary);
    is.seekg(lastBlkFileBytes_, ios::beg);
    is.read((char*)newBlockDataRaw.getPtr(), currBlkBytesToRead);
    is.close();
@@ -2561,11 +2550,11 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t firstHeaderOffset = lastBlkFileBytes_ + brr.getPosition();
+      uint32_t blockHeaderOffset = lastBlkFileBytes_ + brr.getPosition();
       if(brr.getPosition() >= currBlkBytesToRead)
       {
          useFileIndex0Idx++;
-         firstHeaderOffset = brr.getPosition();
+         blockHeaderOffset = brr.getPosition();
       }
       
 
@@ -2576,7 +2565,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
       //BinaryDataRef nextRawBlockRef(brr.getCurrPtr(), nextBlockSize+8);
       blockAddResults = addNewBlockData( brr,
                                          useFileIndex0Idx,
-                                         firstHeaderOffset,
+                                         blockHeaderOffset,
                                          nextBlockSize);
       ////////////
 
@@ -2599,6 +2588,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
             // Update all the registered wallets...
             cout << "This block forced a reorg!" << endl;
             updateWalletsAfterReorg(registeredWallets_);
+            // TODO:  Any other processing to do on reorg?
          }
       }
       
@@ -2606,12 +2596,12 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
          keepGoing = false;
    }
    TIMER_STOP("getBlockfileUpdates");
+   lastBlkFileBytes_ += currBlkBytesToRead;
 
    if(prevRegisteredUpToDate)
       updateRegisteredAddresses(getTopBlockHeight()+1);
 
-   // Finally, update the last known blkfile size and return nBlks added
-   //PDEBUG2("Added new blocks to memory pool: ", nBlkRead);
+   // If the blk file split, switch to tracking it
    cout << "Added new blocks to memory pool: " << nBlkRead << endl;
    if(nextBlkBytesToRead>0)
    {
@@ -2638,7 +2628,7 @@ void BlockDataManager_FileRefs::updateWalletAfterReorg(BtcWallet & wlt)
          wlt.getTxLedger()[i].setValid(false);
 
       if(txJustAffected_.count(txHash) > 0)
-         wlt.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
+         wlt.getTxLedger()[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
    }
 
    // Now fix the individual address ledgers
@@ -2652,7 +2642,7 @@ void BlockDataManager_FileRefs::updateWalletAfterReorg(BtcWallet & wlt)
             addr.getTxLedger()[i].setValid(false);
    
          if(txJustAffected_.count(txHash) > 0) 
-            addr.getTxLedger()[i].changeBlkNum(getTxByHash(txHash)->getBlockHeight());
+            addr.getTxLedger()[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
       }
    }
 }
@@ -2712,7 +2702,7 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
                                                   uint32_t thisHeaderOffset,
                                                   uint32_t blockSize)
 {
-   if(brr.getRemainingSize() < blockSize || brr.isEndOfStream())
+   if(brr.getSizeRemaining() < blockSize || brr.isEndOfStream())
    {
       cout << "***ERROR:  parseNewBlockData did not get enough data..." << endl;
       cerr << "***ERROR:  parseNewBlockData did not get enough data..." << endl;
@@ -2720,9 +2710,10 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    }
 
    // Create the objects once that will be used for insertion
+   // (txInsResult always succeeds--because multimap--so only iterator returns)
    static pair<HashString, TxRef>                            txInputPair;
    static pair<HashString, BlockHeader>                      bhInputPair;
-   static pair<map<HashString, TxRef>::iterator, bool>       txInsResult;
+   static multimap<HashString, TxRef>::iterator              txInsResult;
    static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
 
    
@@ -2758,19 +2749,19 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
 
       FileDataPtr fdpThisTx(fileIndex0Idx, txOffset, txSize);
-      txInputPair.second.setBlkFilePtr(fdpdThisTx);
+      txInputPair.second.setBlkFilePtr(fdpThisTx);
 
       // Insert the FileDataPtr into the multimap
       txInputPair.first = txInputPair.second.getThisHash().getSliceCopy(0,4);
       txInsResult = txHintMap_.insert(txInputPair);
 
       // Get the pointer to the newly-added element and save it with the header
-      bhptr->txPtrList_.push_back( &(txInsResult.first->second) );
+      bhptr->txPtrList_.push_back( &(txInsResult->second) );
 
       // We don't set this tx's headerPtr because there could be multiple
       // headers that reference this tx... we will wait until the chain
-      // is organized and make sure this tx points to the header that 
-      // is on the main chain.
+      // is organized and then go through and set these pointers after we 
+      // know what the main chain is...
       // <...>
 
       // Figure out, as quickly as possible, whether this tx has any relevance
@@ -2796,7 +2787,7 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
 // we will need to copy it to its permanent memory location before parsing it.
 // Btw, yes I know I could've used a bitset here, but I was too lazy to add
 // the #include and look up the members for using it...
-vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader brrRawBlock,
+vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader & brrRawBlock,
                                                         uint32_t fileIndex0Idx,
                                                         uint32_t thisHeaderOffset,
                                                         uint32_t blockSize)
@@ -2825,15 +2816,18 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader brrRawBl
    // Check the lastBlockWasReorg_ variable to see if there was a reorg
    PDEBUG("New block!  Re-assess blockchain state after adding new data...");
    bool prevTopBlockStillValid = organizeChain(); 
+   lastBlockWasReorg_ = false;
 
    // I cannot just do a rescan:  the user needs this to be done manually so
    // that we can identify headers/txs that were previously valid, but no more
    if(!prevTopBlockStillValid)
    {
+      lastBlockWasReorg_ = true;
       cout << "Blockchain Reorganization detected!" << endl;
       reassessAfterReorg(prevTopBlockPtr_, topBlockPtr_, reorgBranchPoint_);
       cout << "Done reassessing tx validity " << endl;
    }
+   
 
    // Since this method only adds one block, if it's not on the main branch,
    // then it's not the new head
@@ -2901,7 +2895,7 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeader* oldTopPtr,
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
          cout << "   Tx: " << txptr->getThisHash().getSliceCopy(0,8).toHexStr() << endl;
          txptr->setHeaderPtr(NULL);
-         txptr->setMainBranch(false);
+         //txptr->setMainBranch(false);
          txJustInvalidated_.insert(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
@@ -2919,7 +2913,7 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeader* oldTopPtr,
          TxRef * txptr = thisHeaderPtr->getTxRefPtrList()[i];
          cout << "   Tx: " << txptr->getThisHash().getSliceCopy(0,8).toHexStr() << endl;
          txptr->setHeaderPtr(thisHeaderPtr);
-         txptr->setMainBranch(true);
+         //txptr->setMainBranch(true);
          txJustInvalidated_.erase(txptr->getThisHash());
          txJustAffected_.insert(txptr->getThisHash());
       }
@@ -2970,7 +2964,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
       {
          iter->second.difficultySum_  = -1;
          iter->second.blockHeight_    =  0;
-         iter->second.isFinishedCalc_ = false;
+         iter->second.isFinishedCalc_ =  false;
          iter->second.nextHash_       =  BtcUtils::EmptyHash_;
       }
       topBlockPtr_ = NULL;
@@ -2986,8 +2980,8 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
    genBlock.isFinishedCalc_ = true;
    genBlock.isInitialized_  = true; 
    genBlock.txPtrList_      = vector<TxRef*>(1);
-   genBlock.txPtrList_[0]   = getTxByHash(GenesisTxHash_);
-   genBlock.txPtrList_[0]->setMainBranch(true);
+   genBlock.txPtrList_[0]   = getTxRefPtrByHash(GenesisTxHash_);
+   //genBlock.txPtrList_[0]->setMainBranch(true);
    genBlock.txPtrList_[0]->setHeaderPtr(&genBlock);
 
 
@@ -3039,7 +3033,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
       {
          TxRef & tx = *(thisHeaderPtr->getTxRefPtrList()[i]);
          tx.setHeaderPtr(thisHeaderPtr);
-         tx.setMainBranch(true);
+         //tx.setMainBranch(true);
       }
 
       HashString & childHash    = thisHeaderPtr->thisHash_;
@@ -3062,7 +3056,7 @@ bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
       PDEBUG("Reorg detected!");
       reorgBranchPoint_ = thisHeaderPtr;
 
-      // This is a dangerous bug -- prevTopBlockPtr_ is set correctly 
+      // There was a dangerous bug -- prevTopBlockPtr_ is set correctly 
       // RIGHT NOW, but won't be once I make the recursive call to organizeChain
       // I need to save it now, and re-assign it after the organizeChain call.
       // (I might consider finding a way to avoid this, but it's fine as-is)
@@ -3180,8 +3174,8 @@ TxOut BlockDataManager_FileRefs::getPrevTxOut(TxIn & txin)
    if(txin.isCoinbase())
       return TxOut();
 
-   OutPoint op = txin.getOutPointRef();
-   Tx theTx = *(getTxByHash(op.getTxHash()));
+   OutPoint op = txin.getOutPoint();
+   Tx theTx = getTxByHash(op.getTxHash());
    uint32_t idx = op.getTxOutIndex();
    return theTx.getTxOut(idx);
 }
@@ -3266,15 +3260,17 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
       txtime = time(NULL);
 
    HashString txHash = BtcUtils::getHash256(rawTx);
-   if(zeroConfMap_.find(txHash) != zeroConfMap_.end() ||
-      txHashMap_.find(txHash)   != txHashMap_.end())
+    
+   // If this is already in the zero-conf map or in the blockchain, ignore it
+   if(zeroConfMap_.find(txHash) != zeroConfMap_.end() || 
+      getTxRefPtrByHash(txHash) != NULL)
       return false;
    
    
    zeroConfMap_[txHash] = ZeroConfData();
    ZeroConfData & zc = zeroConfMap_[txHash];
    zc.iter_ = zeroConfRawTxList_.insert(zeroConfRawTxList_.end(), rawTx);
-   zc.txref_.unserialize(*(zc.iter_));
+   zc.txobj_.unserialize(*(zc.iter_));
    zc.txtime_ = txtime;
 
    // Record time.  Write to file
@@ -3282,7 +3278,7 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
    {
       ofstream zcFile(zcFilename_.c_str(), ios::app | ios::binary);
       zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)zc.txref_.getPtr(),  zc.txref_.getSize());
+      zcFile.write( (char*)zc.txobj_.getPtr(),  zc.txobj_.getSize());
       zcFile.close();
    }
    return true;
@@ -3301,8 +3297,7 @@ void BlockDataManager_FileRefs::purgeZeroConfPool(void)
        iter != zeroConfMap_.end();
        iter++)
    {
-      // txHashMap_ holds only blocks in the blockchain
-      if(txHashMap_.find(iter->first) != txHashMap_.end())
+      if(getTxRefPtrByHash(iter->first) != NULL)
          mapRmList.push_back(iter);
    }
 
@@ -3338,7 +3333,7 @@ void BlockDataManager_FileRefs::rewriteZeroConfFile(void)
       BtcUtils::getHash256(*iter, txHash);
       ZeroConfData & zcd = zeroConfMap_[txHash];
       zcFile.write( (char*)(&zcd.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)(zcd.txref_.getPtr()),  zcd.txref_.getSize());
+      zcFile.write( (char*)(zcd.txobj_.getPtr()),  zcd.txobj_.getSize());
    }
 
    zcFile.close();
@@ -3361,10 +3356,10 @@ void BlockDataManager_FileRefs::rescanWalletZeroConf(BtcWallet & wlt)
       BtcUtils::getHash256(*iter, txHash);
       ZeroConfData & zcd = zeroConfMap_[txHash];
 
-      if( !isTxFinal(zcd.txref_) )
+      if( !isTxFinal(zcd.txobj_) )
          continue;
 
-      wlt.scanTx(zcd.txref_, 0, zcd.txtime_, UINT32_MAX);
+      wlt.scanTx(zcd.txobj_, 0, zcd.txtime_, UINT32_MAX);
    }
 }
 
@@ -3380,10 +3375,10 @@ void BlockDataManager_FileRefs::pprintZeroConfPool(void)
    {
       BtcUtils::getHash256(*iter, txHash);
       ZeroConfData & zcd = zeroConfMap_[txHash];
-      TxRef & txref = zcd.txref_;
-      cout << txref.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
-      for(uint32_t i=0; i<txref.getNumTxOut(); i++)
-         cout << txref.getTxOut(i).getValue() << " ";
+      Tx & tx = zcd.txobj_;
+      cout << tx.getThisHash().getSliceCopy(0,8).toHexStr().c_str() << " ";
+      for(uint32_t i=0; i<tx.getNumTxOut(); i++)
+         cout << tx.getTxOut(i).getValue() << " ";
       cout << endl;
    }
 }
@@ -3465,8 +3460,8 @@ bool BlockDataManager_FileRefs::isTxFinal(Tx & tx)
 {
    // Anything that is replaceable (regular or through blockchain injection)
    // will be considered isFinal==false.  Users shouldn't even see the tx,
-   // because the concept may be confusing, and the current use of non-final
-   // tx is most likely for malicious purposes.
+   // because the concept may be confusing, and the CURRENT use of non-final
+   // tx is most likely for malicious purposes (as of this writing)
    //
    // This will change as multi-sig becomes integrated, and replacement will
    // eventually be enabled (properly), in which case I will expand this
@@ -3495,7 +3490,7 @@ bool BlockDataManager_FileRefs::isTxFinal(Tx & tx)
    if(tx.getLockTime() < 500000000)
       return (getTopBlockHeight()>tx.getLockTime());
    else
-      return (time(NULL)>tx.getLockTime()+7200);
+      return (time(NULL)>tx.getLockTime()+86400);
 }
 
 

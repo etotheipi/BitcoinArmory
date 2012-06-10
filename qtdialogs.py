@@ -2430,7 +2430,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
       self.setLayout(dlgLayout)
 
       self.setMinimumWidth(500)
-      self.setWindowTitle('Migrate Satoshi Wallet')
+      self.setWindowTitle('Migrate Bitcoin-Qt Wallet')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
 
@@ -2611,7 +2611,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                self.nError += 1
 
 
-      DlgExecLongProcess(finallyDoMigrate, "Migrating Satoshi Wallet", self, self.main).exec_()
+      DlgExecLongProcess(finallyDoMigrate, "Migrating Bitcoin-Qt Wallet", self, self.main).exec_()
 
 
       if self.nImport==0:
@@ -3234,9 +3234,9 @@ class DlgIntroMessage(ArmoryDialog):
       
       lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
       strReqts = []
-      strReqts.append('Must have Satoshi client (www.bitcoin.org) open and on '
-                      'the same network (Main-net or Testnet)')
-      strReqts.append('<b>Please</b> make sure the Satoshi client is sync\'d '
+      strReqts.append('Must have Bitcoin-Qt or bitcoind client (www.bitcoin.org) '
+                      'open and on the same network (Main-net or Testnet)')
+      strReqts.append('<b>Please</b> make sure the Bitcoin-Qt client is sync\'d '
                       'with the network before loading Armory.')
       lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
 
@@ -7116,16 +7116,17 @@ class DlgBadConnection(ArmoryDialog):
             'restart Armory.<br><br>Would you like to continue in "Offline" mode? ')
       elif haveInternet and not haveSatoshi:
          lblDescr = QRichLabel( \
-            'Armory was not able to detect the presence of the Satoshi Bitcoin '
-            'client (available at http://www.bitcoin.org).  Please make sure that '
-            'the Satoshi client is... <br><br><b>(1)</b> ...open and connected to the network '
+            'Armory was not able to detect the presence of Bitcoin-Qt or bitcoind '
+            'client software (available at http://www.bitcoin.org).  Please make sure that '
+            'the one of those programs is... <br>'
+            '<br><b>(1)</b> ...open and connected to the network '
             '<br><b>(2)</b> ...on the same network as Armory (main-network or test-network)'
             '<br><b>(3)</b> ...synchronized with the blockchain before '
-            'starting Armory<br><br>Without the Satoshi client open, you will only '
+            'starting Armory<br><br>Without the Bitcoin-Qt or bitcoind open, you will only '
             'be able to run Armory in "Offline" mode, which will not have access '
             'to new blockchain data, and you will not be able to send outgoing '
             'transactions<br><br>If you do not want to be in "Offline" mode, please '
-            'restart Armory after the Satoshi client is open and synchronized with '
+            'restart Armory after one of these programs is open and synchronized with '
             'the network')
       else:
          # Nothing to do -- we shouldn't have even gotten here

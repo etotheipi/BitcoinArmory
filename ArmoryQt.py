@@ -738,7 +738,7 @@ class ArmoryMainWindow(QMainWindow):
             self.internetAvail = False
 
       print 'Internet connection is Available: ', self.internetAvail
-      print 'Satoshi Client is Available:      ', self.satoshiAvail
+      print 'Bitcoin-Qt/bitcoind is Available: ', self.satoshiAvail
          
       self.isOnline = (self.internetAvail and self.satoshiAvail and not CLI_OPTIONS.offline)
 
@@ -754,7 +754,7 @@ class ArmoryMainWindow(QMainWindow):
       from twisted.internet import reactor
       def restartConnection(protoObj, failReason):
          QMessageBox.critical(self, 'Lost Connection', \
-            'Connection to Satoshi client was interrupted.  Please make sure '
+            'Connection to Bitcoin-Qt was interrupted.  Please make sure '
             'bitcoin/bitcoind is running, and restart Armory', QMessageBox.Ok)
          print '! Trying to restart connection !'
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
@@ -783,8 +783,8 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
             self.sysTray.showMessage('Disconnected', \
-                  'Connection to Satoshi client lost!  Armory cannot send \n'
-                  'or receive Bitcoins until Satoshi client is available.', \
+                  'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
+                  'or receive Bitcoins until connection is re-established.', \
                   QSystemTrayIcon.Critical, 10000)
          except:
             pass
@@ -801,7 +801,7 @@ class ArmoryMainWindow(QMainWindow):
                      (htmlColor('TextGreen'), self.latestBlockNum))
             if self.connectCount>0:
                self.sysTray.showMessage('Connected', \
-                  'Connection to Satoshi re-established', \
+                  'Connection to Bitcoin-Qt re-established', \
                   QSystemTrayIcon.Information, 10000)
             self.connectCount += 1
          except:
@@ -1830,7 +1830,7 @@ class ArmoryMainWindow(QMainWindow):
            'to use the tool on such wallets until it is officially supported '
            'by Armory.'
            '<br><br>'
-           'Has your wallet ever been opened in the 0.6.0+ Satoshi client?', \
+           'Has your wallet ever been opened in the 0.6.0+ Bitcoin-Qt client?', \
            yesStr='Yes, Abort!', noStr='No, Carry On!')
             
       if reply:

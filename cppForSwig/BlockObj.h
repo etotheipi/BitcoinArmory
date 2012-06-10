@@ -368,7 +368,6 @@ public:
    uint32_t    getLockTime(void) const { return lockTime_; }
    uint64_t    getSumOfOutputs(void);
 
-
    /////////////////////////////////////////////////////////////////////////////
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
@@ -385,6 +384,8 @@ public:
    void pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
    void pprintAlot(ostream & os=cout);
 
+
+   
 
 
 private:
@@ -421,8 +422,8 @@ public:
    TxRef(FileDataPtr fdr) : blkFilePtr_(fdr), headerPtr_(NULL) {}
      
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData         getThisHash(void);
-   Tx                 getTxCopy(void);
+   BinaryData         getThisHash(void) const;
+   Tx                 getTxCopy(void) const;
    bool               isInitialized(void)  const;
    bool               isMainBranch(void)  const;
    uint32_t           getSize(void) const {  return blkFilePtr_.getNumBytes(); }
@@ -444,9 +445,12 @@ public:
    TxOut              getTxOut(int i);
    
    /////////////////////////////////////////////////////////////////////////////
-   uint32_t           getBlockTimestamp(void);
-   uint32_t           getBlockHeight(void);
-   uint32_t           getBlockTxIndex(void);
+   uint32_t           getBlockTimestamp(void) const;
+   uint32_t           getBlockHeight(void) const;
+   uint32_t           getBlockTxIndex(void) const;
+
+   /////////////////////////////////////////////////////////////////////////////
+   void               pprint(ostream & os=cout, int nIndent=0) const;
 
 private:
    FileDataPtr        blkFilePtr_;

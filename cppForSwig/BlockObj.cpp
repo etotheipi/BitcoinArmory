@@ -660,10 +660,13 @@ void Tx::pprintAlot(ostream & os)
 
 
 /////////////////////////////////////////////////////////////////////////////
-Tx TxRef::getTxCopy(void)
+Tx TxRef::getTxCopy(void) const
 {
+   // It seems unnecessary to have to make this method non-const, but also
+   // unnecessary to require (TxRef const *) for the tx copy...
+   // I've never used const_cast before, but it seems appropriate here...
    Tx out(blkFilePtr_.getUnsafeDataPtr());
-   out.setTxRefPtr(this);
+   out.setTxRefPtr(const_cast<TxRef*>(this));
    out.setHeaderPtr(headerPtr_);
    return out;
 }
@@ -678,7 +681,7 @@ bool TxRef::isMainBranch(void) const
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData TxRef::getThisHash(void) 
+BinaryData TxRef::getThisHash(void) const
 {
    uint8_t* tempPtr = blkFilePtr_.getUnsafeDataPtr();
    return BtcUtils::getHash256(tempPtr, blkFilePtr_.getNumBytes());
@@ -686,7 +689,7 @@ BinaryData TxRef::getThisHash(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t TxRef::getBlockTimestamp(void)
+uint32_t TxRef::getBlockTimestamp(void) const
 {
    if(headerPtr_!=NULL)
       return headerPtr_->getTimestamp();
@@ -694,7 +697,7 @@ uint32_t TxRef::getBlockTimestamp(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t TxRef::getBlockHeight(void)
+uint32_t TxRef::getBlockHeight(void) const
 {
    if(headerPtr_!=NULL && headerPtr_->isMainBranch())
          return headerPtr_->getBlockHeight();
@@ -704,7 +707,7 @@ uint32_t TxRef::getBlockHeight(void)
 /////////////////////////////////////////////////////////////////////////////
 // We have the TxRef, but we don't know its index... gotta get Tx list from
 // header and try to match up
-uint32_t TxRef::getBlockTxIndex(void)
+uint32_t TxRef::getBlockTxIndex(void) const
 {
    if(headerPtr_ == NULL)
       return UINT32_MAX;
@@ -717,6 +720,20 @@ uint32_t TxRef::getBlockTxIndex(void)
 }
 
 
+/////////////////////////////////////////////////////////////////////////////
+void TxRef::pprint(ostream & os, int nIndent) const
+{
+   os << "TxRef Information:" << endl;
+   os << "   Hash:      " << getThisHash().toHexStr() << endl;
+   os << "   Height:    " << getBlockHeight() << endl;
+   os << "   BlkIndex:  " << getBlockTxIndex() << endl;
+   os << "   FileIdx:   " << blkFilePtr_.getFileIndex() << endl;
+   os << "   FileStart: " << blkFilePtr_.getStartByte() << endl;
+   os << "   NumBytes:  " << blkFilePtr_.getNumBytes() << endl;
+   os << "   ----- " << endl;
+   os << "   Read from disk, full tx-info: " << endl;
+   getTxCopy().pprint(os, nIndent+1); 
+}
 
 
 
