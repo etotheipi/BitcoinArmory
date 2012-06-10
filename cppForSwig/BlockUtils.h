@@ -807,9 +807,6 @@ public:
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
-   // Prefix searches would be much better if we had an some kind of underlying
-   // Trie/PatriciaTrie/DeLaBrandiaTrie instead of std::map<>.  For now this
-   // search will simply be suboptimal...
    vector<BlockHeader*>    prefixSearchHeaders(BinaryData const & searchStr);
    vector<TxRef*>          prefixSearchTx     (BinaryData const & searchStr);
    vector<BinaryData>      prefixSearchAddress(BinaryData const & searchStr);

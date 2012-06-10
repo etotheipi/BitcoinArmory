@@ -353,10 +353,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\BlockObjRef.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\BlockUtils.cpp"
 				>
 			</File>
@@ -373,7 +369,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\FileDataRef.cpp"
+				RelativePath=".\FileDataPtr.cpp"
 				>
 			</File>
 			<File
@@ -403,10 +399,6 @@
 				>
 			</File>
 			<File
-				RelativePath=".\BlockObjRef.h"
-				>
-			</File>
-			<File
 				RelativePath=".\BlockUtils.h"
 				>
 			</File>
@@ -419,7 +411,7 @@
 				>
 			</File>
 			<File
-				RelativePath=".\FileDataRef.h"
+				RelativePath=".\FileDataPtr.h"
 				>
 			</File>
 			<File

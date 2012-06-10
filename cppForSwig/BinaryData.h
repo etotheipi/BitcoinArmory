@@ -781,7 +781,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryReader(int sz=0) :
       bdStr_(sz),
-      totalSize_(sz),
       pos_(0)
    {
       // Nothing needed here
@@ -790,7 +789,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryReader(BinaryData const & toRead) :
       bdStr_(toRead),
-      totalSize_(toRead.getSize()),
       pos_(0)
    {
       // Nothing needed here
@@ -800,7 +798,7 @@ public:
    void advance(uint32_t nBytes) 
    { 
       pos_ += nBytes;  
-      pos_ = min(pos_, totalSize_);
+      pos_ = min(pos_, getSize());
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -894,21 +892,20 @@ public:
 
       pos_ = 0;
 
-      return make_pair(bdStr_.getPtr() + nRemain, totalSize_ - nRemain);
+      return make_pair(bdStr_.getPtr() + nRemain, getSize() - nRemain);
    }
 
    /////////////////////////////////////////////////////////////////////////////
    void     resetPosition(void)           { pos_ = 0; }
    uint32_t getPosition(void) const       { return pos_; }
-   uint32_t getSize(void) const           { return totalSize_; }
-   uint32_t getSizeRemaining(void) const  { return totalSize_ - pos_; }
-   bool     isEndOfStream(void) const     { return pos_ >= totalSize_; }
+   uint32_t getSize(void) const           { return bdStr_.getSize(); }
+   uint32_t getSizeRemaining(void) const  { return getSize() - pos_; }
+   bool     isEndOfStream(void) const     { return pos_ >= getSize(); }
    uint8_t* exposeDataPtr(void)           { return bdStr_.getPtr(); }
    uint8_t const * getCurrPtr(void)       { return bdStr_.getPtr() + pos_; }
 
 private:
    BinaryData bdStr_;
-   uint32_t totalSize_;
    uint32_t pos_;
 
 };

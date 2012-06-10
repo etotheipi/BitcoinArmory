@@ -22,11 +22,11 @@ using namespace std;
 
 
 ////////////////////////////////////////////////////////////////////////////////
-void TestReadAndOrganizeChain(string blkfile);
-void TestFindNonStdTx(string blkfile);
-void TestReadAndOrganizeChainWithWallet(string blkfile);
-void TestScanForWalletTx(string blkfile);
-void TestReorgBlockchain(string blkfile);
+void TestReadAndOrganizeChain(string blkdir);
+void TestFindNonStdTx(string blkdir);
+void TestReadAndOrganizeChainWithWallet(string blkdir);
+void TestScanForWalletTx(string blkdir);
+void TestReorgBlockchain(string blkdir);
 void TestZeroConf(void);
 void TestCrypto(void);
 void TestECDSA(void);
@@ -48,23 +48,23 @@ int main(void)
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
    
 
-   string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
-   //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
+   //string blkdir("/home/alan/.bitcoin/testnet/");
+   string blkdir("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet");
 
-   printTestHeader("Read-and-Organize-Blockchain");
-   TestReadAndOrganizeChain(blkfile);
+   //printTestHeader("Read-and-Organize-Blockchain");
+   //TestReadAndOrganizeChain(blkdir);
 
    //printTestHeader("Wallet-Relevant-Tx-Scan");
-   //TestScanForWalletTx(blkfile);
+   //TestScanForWalletTx(blkdir);
 
    //printTestHeader("Find-Non-Standard-Tx");
-   //TestFindNonStdTx(blkfile);
+   //TestFindNonStdTx(blkdir);
 
    printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   TestReadAndOrganizeChainWithWallet(blkfile);
+   TestReadAndOrganizeChainWithWallet(blkdir);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
-   //TestReorgBlockchain(blkfile);
+   //TestReorgBlockchain(blkdir);
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -102,13 +102,13 @@ int main(void)
 
 
 
-void TestReadAndOrganizeChain(string blkfile)
+void TestReadAndOrganizeChain(string blkdir)
 {
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.parseEntireBlockchain(blkfile);  
+   bdm.parseEntireBlockchain(blkdir);  
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -138,12 +138,12 @@ void TestReadAndOrganizeChain(string blkfile)
 
 
 
-void TestFindNonStdTx(string blkfile)
+void TestFindNonStdTx(string blkdir)
 {
    /*
    // This is mostly just for debugging...
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkfile); 
+   bdm.parseEntireBlockchain(blkdir); 
    bdm.findAllNonStdTx();
    // At one point I had code to print out nonstd txinfo... not sure
    // what happened to it...
@@ -152,10 +152,10 @@ void TestFindNonStdTx(string blkfile)
 
 
 
-void TestScanForWalletTx(string blkfile)
+void TestScanForWalletTx(string blkdir)
 {
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkfile);
+   bdm.parseEntireBlockchain(blkdir);
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
    BtcWallet wlt;
@@ -267,7 +267,7 @@ void TestScanForWalletTx(string blkfile)
 }
 
 
-void TestReadAndOrganizeChainWithWallet(string blkfile)
+void TestReadAndOrganizeChainWithWallet(string blkdir)
 {
    cout << endl << "Starting blockchain loading with wallets..." << endl;
    /////////////////////////////////////////////////////////////////////////////
@@ -299,7 +299,7 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.parseEntireBlockchain(blkfile);  
+   bdm.parseEntireBlockchain(blkdir);  
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -458,7 +458,7 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
 }
 
 
-void TestReorgBlockchain(string blkfile)
+void TestReorgBlockchain(string blkdir)
 {
    // June, 2012:  The reorg test compiled&worked up until I changed everything
    //              to FileDataPtrs, and now I don't have a good way to force 

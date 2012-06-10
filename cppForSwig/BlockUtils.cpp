@@ -775,9 +775,10 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
    if(registeredTxSet_.insert(txHash).second == true)
    {
       TxRef* tx_ptr = getTxRefPtrByHash(txHash);
-      uint32_t tx_blknum = tx_ptr->getBlockHeight();
-      uint32_t tx_blkidx = tx_ptr->getBlockTxIndex();
-      RegisteredTx regTx(txHash, tx_blknum, tx_blkidx);
+      //uint32_t tx_blknum = tx_ptr->getBlockHeight();
+      //uint32_t tx_blkidx = tx_ptr->getBlockTxIndex();
+      //RegisteredTx regTx(txHash, tx_blknum, tx_blkidx);
+      RegisteredTx regTx(*tx_ptr);
       registeredTxList_.push_back(regTx);
    }
 }
@@ -1660,7 +1661,6 @@ void BlockDataManager_FileRefs::Reset(void)
 /////////////////////////////////////////////////////////////////////////////
 int32_t BlockDataManager_FileRefs::getNumConfirmations(HashString txHash)
 {
-   map<HashString, TxRef>::iterator findResult = txHintMap_.find(txHash); 
    TxRef* txrefptr = getTxRefPtrByHash(txHash);
    if(txrefptr == NULL)
       return TX_NOT_EXIST;
@@ -2230,7 +2230,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
    {
       // Pull the tx from disk and check it for the supplied wallet
       Tx theTx = txIter->getTxCopy();
-      if( theTx.isInitialized() )
+      if( !theTx.isInitialized() )
       {
          cout << "***WARNING: How did we get a NULL tx?" << endl;
          continue;
@@ -2355,12 +2355,12 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    while(highestBlkFileNum < UINT16_MAX)
    {
       highestBlkFileNum++;
-      string path = BtcUtils::getBlkFilename(blkFileDir_, highestBlkFileNum);
+      string path = BtcUtils::getBlkFilename(blkdir, highestBlkFileNum);
       if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
          break;
 
       blkFileList_.push_back(string(path));
-      totalBlkBytes += globalCache.openFile(highestBlkFileNum, path);
+      totalBlkBytes += globalCache.openFile(highestBlkFileNum-1, path);
    }
    highestBlkFileNum--;
 
@@ -2377,6 +2377,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
       cout << "Call to load a blockchain that is already loaded!  Skipping..." << endl;
       return 0;
    }
+   blkFileDir_ = blkdir;
 
    if(GenesisHash_.getSize() == 0)
    {
@@ -2390,9 +2391,9 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    // Now we start the meat of this process...
    uint32_t nBlkRead = 0;
    uint32_t nBytesRead = 0;
-   for(uint32_t fidx=1; fidx<=highestBlkFileNum; fidx++)
+   for(uint32_t fnum=1; fnum<=highestBlkFileNum; fnum++)
    {
-      string blkfile = blkFileList_[fidx];
+      string blkfile = blkFileList_[fnum-1];
       cout << "Attempting to read blockchain from file: " << blkfile.c_str() << endl;
       uint64_t filesize = BtcUtils::GetFileSize(blkfile);
       if( filesize == FILE_DOES_NOT_EXIST )
@@ -2426,9 +2427,8 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
       TIMER_START("ScanBlockchain");
       while(bsb.streamPull())
       {
-         while(bsb.getBufferSizeRemaining() > 8)
+         while(bsb.reader().getSizeRemaining() > 8)
          {
-   
             if(!alreadyRead8B)
             {
                bsb.reader().advance(4);
@@ -2436,7 +2436,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
                nBytesRead += 8;
             }
    
-            if(bsb.getBufferSizeRemaining() < nextBlkSize)
+            if(bsb.reader().getSizeRemaining() < nextBlkSize)
             {
                alreadyRead8B = true;
                break;
@@ -2444,9 +2444,10 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             alreadyRead8B = false;
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-            parseNewBlockData(brr, fidx, nBytesRead, nextBlkSize);
+            parseNewBlockData(brr, fnum-1, nBytesRead, nextBlkSize);
             nBlkRead++;
             nBytesRead += nextBlkSize;
+            bsb.reader().advance(nextBlkSize);
          }
       }
       TIMER_STOP("ScanBlockchain");

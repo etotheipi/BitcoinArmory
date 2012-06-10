@@ -351,7 +351,7 @@ public:
    static Tx          createFromStr(BinaryData const & bd) {return Tx(bd);}
 
    TxRef*             getTxRefPtr(void) const { return txRefPtr_; }
-   TxRef*             setTxRefPtr(TxRef* ptr) { txRefPtr_ = ptr; }
+   void               setTxRefPtr(TxRef* ptr) { txRefPtr_ = ptr; }
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
 

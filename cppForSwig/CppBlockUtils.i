@@ -14,7 +14,6 @@
 %{
 #define SWIG_PYTHON_EXTRA_NATIVE_CONTAINERS
 #include "BlockObj.h"
-#include "BlockObjRef.h"
 #include "BlockUtils.h"
 #include "BtcUtils.h"
 #include "EncryptionUtils.h"
@@ -98,7 +97,6 @@ namespace std
 
 /* With our typemaps, we can finally include our other objects */
 %include "BlockObj.h"
-%include "BlockObjRef.h"
 %include "BlockUtils.h"
 %include "BtcUtils.h"
 %include "EncryptionUtils.h"
