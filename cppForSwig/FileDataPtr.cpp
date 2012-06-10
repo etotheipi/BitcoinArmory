@@ -29,3 +29,9 @@ BinaryData FileDataPtr::getDataCopy(void) const
 { 
    return globalCache_.getData(*this); 
 }
+
+void FileDataPtr::preCacheThisChunk(void) const
+{ 
+   globalCache_.getCachedDataPtr(*this); 
+}
+

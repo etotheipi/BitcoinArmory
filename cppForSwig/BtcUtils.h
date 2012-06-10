@@ -48,6 +48,9 @@
 #endif
 
 
+#define FILE_DOES_NOT_EXIST UINT64_MAX
+
+
 #define TESTNET_MAGIC_BYTES "fabfb5da"
 #define TESTNET_GENESIS_HASH_HEX    "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
 #define TESTNET_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
@@ -297,11 +300,17 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static uint64_t getFilesize(string filename)
+   static uint64_t GetFileSize(char const * filename)
+   {
+      return GetFileSize(string(filename));
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static uint64_t GetFileSize(string filename)
    {
       ifstream is(filename.c_str(), ios::in|ios::binary);
       if(!is.is_open())
-         return UINT64_MAX;
+         return FILE_DOES_NOT_EXIST;
    
       is.seekg(0, ios::end);
       uint64_t filesize = (size_t)is.tellg();

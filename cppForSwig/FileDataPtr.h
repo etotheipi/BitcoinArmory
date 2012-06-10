@@ -166,10 +166,18 @@ public:
       clearExcessCacheData();
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   uint32_t refreshLastFile(void)
+   {
+      uint32_t lastIndex = openFiles_.size()-1;
+      return openFile(lastIndex, fileNames_[lastIndex]);
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t openFile(uint32_t fIndex, string filename)
    {
+      cout << "Opening file " << fIndex << ": " << filename.c_str() << endl;
+
       // Make sure file exists
       if(BtcUtils::getFilesize(filename) == UINT64_MAX)
          return UINT32_MAX;
@@ -347,7 +355,14 @@ public:
    }
 
    uint32_t getFileSize(uint32_t i) {return fileSizes_[i]; }
-   uint32_t getCumulFileSize(uint32_t i) {return cumulSizes_[i]; }
+   uint32_t getLastFileSize(void) {return fileSizes_[fileSizes_.size()-1]; }
+   uint64_t getCumulFileSize(uint32_t i=UINT32_MAX)
+   {
+      if(i==UINT32_MAX)
+         return cumulSizes_[cumulSizes_.size()-1];
+      else
+         return cumulSizes_[i];
+   }
 
 
 private:

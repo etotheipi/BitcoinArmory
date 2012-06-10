@@ -667,8 +667,9 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
-   uint64_t                           lastEOFByteLoc_;
+   uint64_t                           numBlkFiles_;
    uint64_t                           totalBlockchainBytes_;
+   uint64_t                           lastBlkFileBytes_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -755,14 +756,20 @@ public:
    bool     walletIsRegistered(BtcWallet & wlt);
    bool     addressIsRegistered(HashString addr160);
    void     insertRegisteredTxIfNew(HashString txHash);
-   void     registeredAddrScan( uint8_t * txptr );
+   void     registeredAddrScan( uint8_t * txptr,
+                                uint32_t txSize,
+                                vector<uint32_t> * txInOffsets,
+                                vector<uint32_t> * txOutOffsets)
    void     resetRegisteredWallets(void);
    void     pprintRegisteredWallets(void);
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   bool             parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                                      uint64_t & currBlockchainSize);
+   bool     parseNewBlockData(BinaryRefReader & rawBlockDataReader,
+                              uint32_t fileIndex,
+                              uint32_t thisHeaderOffset,
+                              uint32_t blockSize);
+                     
 
 
    // Does a full scan!
@@ -772,9 +779,13 @@ public:
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
    vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
-                                       bool writeToBlk0001=false);
+                                       uint32_t fileIndex,
+                                       uint32_t thisHeaderOffset,
+                                       uint32_t blockSize);
    vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
-                                       bool writeToBlk0001=false);
+                                       uint32_t fileIndex,
+                                       uint32_t thisHeaderOffset,
+                                       uint32_t blockSize);
 
    void             reassessAfterReorg(BlockHeader* oldTopPtr,
                                        BlockHeader* newTopPtr,
@@ -784,7 +795,7 @@ public:
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
-   uint32_t getNumTx(void) const { return txHashMap_.size(); }
+   uint32_t getNumTx(void) const { return txHintMap_.size(); }
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
