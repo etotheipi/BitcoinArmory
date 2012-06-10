@@ -667,6 +667,7 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+   vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
    uint64_t                           totalBlockchainBytes_;
    uint64_t                           lastBlkFileBytes_;
@@ -779,10 +780,6 @@ public:
    // permanent memory location before parsing it.
    // These methods return (blockAddSucceeded, newBlockIsTop, didCauseReorg)
    vector<bool>     addNewBlockData(   BinaryData rawBlockDataCopy,
-                                       uint32_t fileIndex,
-                                       uint32_t thisHeaderOffset,
-                                       uint32_t blockSize);
-   vector<bool>     addNewBlockDataRef(BinaryDataRef nonPermBlockDataRef,
                                        uint32_t fileIndex,
                                        uint32_t thisHeaderOffset,
                                        uint32_t blockSize);

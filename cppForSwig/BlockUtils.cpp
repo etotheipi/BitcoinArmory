@@ -2513,9 +2513,12 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    string nextFilename(nextFname);
    delete[] nextFname;
 
-   uint32_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFName);
+   // This condition may trigger only once a year...
+   uint32_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
    if( nextBlkBytesToRead == FILE_DOES_NOT_EXIST )
       nextBlkBytesToRead = 0;
+   else
+      cout << "New block file split! " << nextFilename << endl;
 
    // If there is no new data, no need to continue
    if(currBlkBytesToRead==0 && nextBlkBytesToRead==0)
@@ -2542,7 +2545,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    // If a new block file exists, read that one too
    if(nextBlkBytesToRead>0)
    {
-      is.open(nextFname, ios::in | ios::binary);
+      is.open(nextFilename.c_str(), ios::in | ios::binary);
       is.read((char*)newBlockDataRaw.getPtr(), nextBlkBytesToRead);
       is.close();
    }
@@ -2555,24 +2558,26 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    bool keepGoing = true;
    while(keepGoing)
    {
+      // We concatenated all data together, even if across two files
+      // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      if(brr.getPosition() >= currBlkBytesToRead)
-         useFileIndex0Idx++;
-
       uint32_t firstHeaderOffset = lastBlkFileBytes_ + brr.getPosition();
       if(brr.getPosition() >= currBlkBytesToRead)
+      {
+         useFileIndex0Idx++;
          firstHeaderOffset = brr.getPosition();
+      }
       
-      next 
 
       ////////////
       // The reader should be at the start of magic bytes of the new block
-      uint32_t nextBlockSize = *(uint32_t*)(brr.getCurrPtr()+4);
-      BinaryDataRef nextRawBlockRef(brr.getCurrPtr(), nextBlockSize+8);
-      blockAddResults = addNewBlockDataRef( nextRawBlockRef,
-                                            useFileIndex0Idx,
-                                            firstHeaderOffset,
-      brr.advance(nextBlockSize+8);
+      brr.advance(4);
+      uint32_t nextBlockSize = brr.get_uint32_t();
+      //BinaryDataRef nextRawBlockRef(brr.getCurrPtr(), nextBlockSize+8);
+      blockAddResults = addNewBlockData( brr,
+                                         useFileIndex0Idx,
+                                         firstHeaderOffset,
+                                         nextBlockSize);
       ////////////
 
       bool blockAddSucceeded = blockAddResults[0];
@@ -2597,7 +2602,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
          }
       }
       
-
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
          keepGoing = false;
    }
@@ -2609,7 +2613,13 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(string filename)
    // Finally, update the last known blkfile size and return nBlks added
    //PDEBUG2("Added new blocks to memory pool: ", nBlkRead);
    cout << "Added new blocks to memory pool: " << nBlkRead << endl;
-   lastBlkFileBytes_ = filesize;
+   if(nextBlkBytesToRead>0)
+   {
+      lastBlkFileBytes_ = nextBlkBytesToRead;
+      FileDataPtr::getGlobalCacheRef().openFile(numBlkFiles_, nextFilename);
+      numBlkFiles_ += 1;
+      blkFileList_.push_back(nextFilename);
+   }
    return nBlkRead;
 }
 
@@ -2723,8 +2733,8 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    BlockHeader * bhptr = &(bhInsResult.first->second);
 
    // The pointer will be going out of scope, but keep the file location data
-   FileDataPtr fdrThisBlock(fileIndex0Idx, thisHeaderOffset-8, blockSize+8); 
-   bhptr->setBlockFilePtr(fdrThisBlock);
+   FileDataPtr fdpThisBlock(fileIndex0Idx, thisHeaderOffset-8, blockSize+8); 
+   bhptr->setBlockFilePtr(fdpThisBlock);
 
    // Read the #tx and fill in some header properties
    uint8_t viSize;
@@ -2747,8 +2757,8 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       
       txSize = BtcUtils::TxCalcLength(ptrToRawTx, &offsetsIn, &offsetsOut);
 
-      FileDataPtr fdrThisTx(fileIndex0Idx, txOffset, txSize);
-      txInputPair.second.setBlkFilePtr(fdrdThisTx);
+      FileDataPtr fdpThisTx(fileIndex0Idx, txOffset, txSize);
+      txInputPair.second.setBlkFilePtr(fdpdThisTx);
 
       // Insert the FileDataPtr into the multimap
       txInputPair.first = txInputPair.second.getThisHash().getSliceCopy(0,4);
@@ -2767,11 +2777,10 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       // to any of the registered addresses.  Again, using pointers...
       registeredAddrScan(ptrToRawTx, txSize, &offsetsIn, &offsetsOut);
 
-      // Prepare for the next tx, if there is one
+      // Prepare for the next tx.  Manually advance brr since used ptr directly
       txOffset += txSize;
       brr.advance(txSize);
    }
-   currBlockchainSize += nBytes+8;
    return true;
 }
    
@@ -2792,9 +2801,8 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader brrRawBl
                                                         uint32_t thisHeaderOffset,
                                                         uint32_t blockSize)
 {
-   BinaryData rawHeader(HEADER_SIZE);
-   brrRawBlock.get_BinaryData(rawHeader, HEADER_SIZE);
-   brrRawBlock.rewind(HEADER_SIZE);
+   uint8_t const * startPtr = brrRawBlock.getCurrPtr();
+   HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
    // Now parse the block data and record where it will be on disk
    bool addDataSucceeded = parseNewBlockData(brrRawBlock, 
@@ -2829,7 +2837,6 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader brrRawBl
 
    // Since this method only adds one block, if it's not on the main branch,
    // then it's not the new head
-   HashString newHeadHash = BtcUtils::getHash256(rawHeader);
    bool newBlockIsNewTop = getHeaderByHash(newHeadHash)->isMainBranch();
 
    // Need to purge the zero-conf pool and re-evaluate -- the new block 
@@ -2843,17 +2850,6 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader brrRawBl
    return vb;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-// This method returns two booleans:
-//    (1)  Block data was added to memory pool successfully
-//    (2)  Adding block data caused blockchain reorganization
-vector<bool> BlockDataManager_FileRefs::addNewBlockDataRef(BinaryDataRef bdr,
-                                                           uint32_t fileIndex0Idx,
-                                                           uint32_t thisHeaderOffset,
-                                                           uint32_t blockSize)
-{
-   return addNewBlockData(bdr.copy(), fileIndex0Idx, thisHeaderOffset, blockSize);
-}
 
 
 // This piece may be useful for adding new data, but I don't want to enforce it,
