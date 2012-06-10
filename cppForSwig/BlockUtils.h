@@ -92,8 +92,8 @@ public:
    //////////////////////////////////////////////////////////////////////////////
    TxOut     getTxOut(void) const;   
    TxIn      getTxIn(void) const;   
-   TxOut     getTxOutZC(void) const {return txPtrOfOutputZC_->getTxOut(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txPtrOfInputZC_->getTxIn(indexOfInputZC_);}
+   TxOut     getTxOutZC(void) const {return txPtrOfOutputZC_->getTxCopy().getTxOut(indexOfOutputZC_);}
+   TxIn      getTxInZC(void) const  {return txPtrOfInputZC_->getTxCopy().getTxIn(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
    TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
@@ -738,8 +738,8 @@ public:
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
-   TxRef *          getTxRefPtrByHash(HashString const & txHash) const;
-   Tx               getTxByHash(HashString const & txHash) const;
+   TxRef *          getTxRefPtrByHash(HashString const & txHash);
+   Tx               getTxByHash(HashString const & txHash);
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
@@ -799,7 +799,7 @@ public:
                                        BlockHeader* newTopPtr,
                                        BlockHeader* branchPtr );
 
-   bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true) const;
+   bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true);
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }

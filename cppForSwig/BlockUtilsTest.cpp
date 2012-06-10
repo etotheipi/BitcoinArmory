@@ -14,7 +14,7 @@
 #include "BtcUtils.h"
 #include "BlockUtils.h"
 #include "EncryptionUtils.h"
-#include "FileDataRef.h"
+#include "FileDataPtr.h"
 
 
 using namespace std;
@@ -45,15 +45,14 @@ void printTestHeader(string TestName)
 
 int main(void)
 {
-   BlockDataManager_MMAP::GetInstance().SelectNetwork("Test");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
    
 
    string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
-   //string blkfile("/home/alan/.bitcoin/testnet/blk0001.dat");
    //string blkfile("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet/blk0001.dat");
 
-   //printTestHeader("Read-and-Organize-Blockchain");
-   //TestReadAndOrganizeChain(blkfile);
+   printTestHeader("Read-and-Organize-Blockchain");
+   TestReadAndOrganizeChain(blkfile);
 
    //printTestHeader("Wallet-Relevant-Tx-Scan");
    //TestScanForWalletTx(blkfile);
@@ -61,8 +60,8 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkfile);
 
-   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   //TestReadAndOrganizeChainWithWallet(blkfile);
+   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   TestReadAndOrganizeChainWithWallet(blkfile);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkfile);
@@ -79,8 +78,8 @@ int main(void)
    //printTestHeader("ECDSA Point Compression");
    //TestPointCompression();
 
-   printTestHeader("Testing file cache");
-   TestFileCache();
+   //printTestHeader("Testing file cache");
+   //TestFileCache();
    
    
    /////////////////////////////////////////////////////////////////////////////
@@ -105,11 +104,11 @@ int main(void)
 
 void TestReadAndOrganizeChain(string blkfile)
 {
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.readBlkFile_FromScratch(blkfile);  
+   bdm.parseEntireBlockchain(blkfile);  
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -141,20 +140,22 @@ void TestReadAndOrganizeChain(string blkfile)
 
 void TestFindNonStdTx(string blkfile)
 {
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
-   bdm.readBlkFile_FromScratch(blkfile); 
+   /*
    // This is mostly just for debugging...
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.parseEntireBlockchain(blkfile); 
    bdm.findAllNonStdTx();
    // At one point I had code to print out nonstd txinfo... not sure
    // what happened to it...
+   */
 }
 
 
 
 void TestScanForWalletTx(string blkfile)
 {
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
-   bdm.readBlkFile_FromScratch(blkfile);
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.parseEntireBlockchain(blkfile);
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
    BtcWallet wlt;
@@ -270,7 +271,7 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
 {
    cout << endl << "Starting blockchain loading with wallets..." << endl;
    /////////////////////////////////////////////////////////////////////////////
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt1;
    BtcWallet wlt2;
@@ -298,7 +299,7 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.readBlkFile_FromScratch(blkfile);  
+   bdm.parseEntireBlockchain(blkfile);  
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -310,12 +311,12 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    cout << (isGenOnMainChain ? "No Reorg!" : "Reorg Detected!") << endl;
    cout << endl << endl;
 
-   cout << endl << "Updating wallet (1) based on initial MMAP blockchain scan" << endl;
+   cout << endl << "Updating wallet (1) based on initial blockchain scan" << endl;
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt1));
    cout << "Printing Wallet(1) Ledger" << endl;
    wlt1.pprintLedger();
 
-   cout << endl << "Updating wallet (2) based on initial MMAP blockchain scan" << endl;
+   cout << endl << "Updating wallet (2) based on initial blockchain scan" << endl;
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
    cout << "Printing Wallet(2) Ledger" << endl;
    wlt2.pprintLedger();
@@ -449,17 +450,22 @@ void TestReadAndOrganizeChainWithWallet(string blkfile)
    BinaryData txHash2 = BinaryData::CreateFromHex("b754fa89f7eb7f7c564611d9297dbcb471cf8d3cb0d235686323b6a5b263b094");
 
    LedgerEntry le;
-   le = wlt1.calcLedgerEntryForTx( *bdm.getTxByHash(txHash1) ); le.pprintOneLine(); cout << endl;
-   le = wlt2.calcLedgerEntryForTx( *bdm.getTxByHash(txHash1) ); le.pprintOneLine(); cout << endl;
-   le = wlt1.calcLedgerEntryForTx( *bdm.getTxByHash(txHash2) ); le.pprintOneLine(); cout << endl;
-   le = wlt2.calcLedgerEntryForTx( *bdm.getTxByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+   le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+   le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+   le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+   le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
   
 }
 
 
 void TestReorgBlockchain(string blkfile)
 {
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
+   // June, 2012:  The reorg test compiled&worked up until I changed everything
+   //              to FileDataPtrs, and now I don't have a good way to force 
+   //              different blk files (because I auto-detect blkfiles...)
+   //              Will revive this when I figure it out...
+   /*
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -497,7 +503,7 @@ void TestReorgBlockchain(string blkfile)
    bdm.Reset();
    cout << "Done!" << endl;
    cout << "Reading in initial block chain (Blocks 0 through 4)..." ;
-   bdm.readBlkFile_FromScratch("reorgTest/blk_0_to_4.dat");
+   bdm.parseEntireBlockchain("reorgTest/blk_0_to_4.dat");
    bdm.organizeChain();
    cout << "Done" << endl;
 
@@ -609,6 +615,7 @@ void TestReorgBlockchain(string blkfile)
    // END BLOCKCHAIN REORG UNIT-TEST
    //
    /////////////////////////////////////////////////////////////////////////////
+   */
   
 
 }
@@ -617,12 +624,12 @@ void TestReorgBlockchain(string blkfile)
 void TestZeroConf(void)
 {
 
-   BlockDataManager_MMAP & bdm = BlockDataManager_MMAP::GetInstance(); 
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt;
    /*
    bdm.Reset();
-   bdm.readBlkFile_FromScratch("zctest/blk0001.dat");
+   bdm.parseEntireBlockchain("zctest/blk0001.dat");
 
    // More testnet addresses, with only a few transactions
    myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
@@ -675,6 +682,9 @@ void TestZeroConf(void)
    }
    */
 
+   /*  Not only does this test not work anymore (due to FileDataPtr updates),
+    *  I appear to have lost my carefully-constructed zctest directory since
+    *  I ran this last... :(
    ifstream is("zctest/mempool_new.bin", ios::in  | ios::binary);
    ofstream os("zctest/mempool.bin",     ios::out | ios::binary);
    is.seekg(0, ios::end);
@@ -691,7 +701,7 @@ void TestZeroConf(void)
    // Start testing balance/wlt update after a new block comes in
 
    bdm.Reset();
-   bdm.readBlkFile_FromScratch("zctest/blk0001.dat");
+   bdm.parseEntireBlockchain("zctest/blk0001.dat");
    // More testnet addresses, with only a few transactions
    wlt = BtcWallet();
    myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
@@ -713,6 +723,7 @@ void TestZeroConf(void)
    bdm.scanBlockchainForTx(wlt, topBlk);
    topBlk = bdm.getTopBlockHeader().getBlockHeight();
    wlt.pprintAlot(topBlk, true);
+   */
 
 }
 
@@ -1128,8 +1139,8 @@ void TestFileCache(void)
 
 
    // Setup the file cache -- test with a cache of 1 kB
-   FileDataRef::SetupFileCaching(128);
-   FileDataCache & fdcache = FileDataRef::getGlobalCacheRef();
+   FileDataPtr::SetupFileCaching(128);
+   FileDataCache & fdcache = FileDataPtr::getGlobalCacheRef();
    
    for(uint32_t i=0; i<nTestFiles; i++)
    {
@@ -1139,21 +1150,21 @@ void TestFileCache(void)
 
 
    // Start testing only for a single file
-   vector<FileDataRef> fdrefs;
+   vector<FileDataPtr> fdrefs;
    //                           File  Start  Bytes
-   fdrefs.push_back(FileDataRef(   0,     0,    16  ));
-   fdrefs.push_back(FileDataRef(   0,     0,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     0,    32  ));
-   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     8,    16  ));
-   fdrefs.push_back(FileDataRef(   0,  3060,    12  ));
-   fdrefs.push_back(FileDataRef(   0,  3060,    13  ));
-   fdrefs.push_back(FileDataRef(   0,  3050,    22  ));
-   fdrefs.push_back(FileDataRef(   0,  1024,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   512,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   768,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   768,   129  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,    16  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,    32  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,    16  ));
+   fdrefs.push_back(FileDataPtr(   0,  3060,    12  ));
+   fdrefs.push_back(FileDataPtr(   0,  3060,    13  ));
+   fdrefs.push_back(FileDataPtr(   0,  3050,    22  ));
+   fdrefs.push_back(FileDataPtr(   0,  1024,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   512,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   768,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   768,   129  ));
 
    for(uint32_t i=0; i<fdrefs.size(); i++)
    {
@@ -1161,9 +1172,9 @@ void TestFileCache(void)
    }
 
 
-   FileDataRef fdrHit(   0, 768,  16 );
-   FileDataRef fdrMiss1( 0,   0, 128 );
-   FileDataRef fdrMiss2( 0, 256, 128 );
+   FileDataPtr fdrHit(   0, 768,  16 );
+   FileDataPtr fdrMiss1( 0,   0, 128 );
+   FileDataPtr fdrMiss2( 0, 256, 128 );
 
    cout << "Testing Cache Hits" << endl;
    TIMER_START("CacheHit_50000");
@@ -1188,34 +1199,34 @@ void TestFileCache(void)
 
    // Test multi-file caching
    fdrefs.clear();
-   fdrefs.push_back(FileDataRef(   0,     0,    16  ));
-   fdrefs.push_back(FileDataRef(   0,     0,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     0,    32  ));
-   fdrefs.push_back(FileDataRef(   0,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   0,     8,    16  ));
-   fdrefs.push_back(FileDataRef(   0,  3060,    12  ));
-   fdrefs.push_back(FileDataRef(   0,  3060,    13  ));
-   fdrefs.push_back(FileDataRef(   0,  3050,    22  ));
-   fdrefs.push_back(FileDataRef(   0,  1024,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   512,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   768,    64  ));
-   fdrefs.push_back(FileDataRef(   0,   768,   129  ));
-   fdrefs.push_back(FileDataRef(   1,     0,    16  ));
-   fdrefs.push_back(FileDataRef(   1,     0,     8  ));
-   fdrefs.push_back(FileDataRef(   1,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   1,     0,    32  ));
-   fdrefs.push_back(FileDataRef(   1,     8,     8  ));
-   fdrefs.push_back(FileDataRef(   1,     8,    16  ));
-   fdrefs.push_back(FileDataRef(   1,  3060,    12  ));
-   fdrefs.push_back(FileDataRef(   1,  3060,    13  ));
-   fdrefs.push_back(FileDataRef(   1,  3050,    22  ));
-   fdrefs.push_back(FileDataRef(   1,  1024,    64  ));
-   fdrefs.push_back(FileDataRef(   1,   512,    64  ));
-   fdrefs.push_back(FileDataRef(   1,   768,    64  ));
-   fdrefs.push_back(FileDataRef(   1,   768,   129  ));
-   fdrefs.push_back(FileDataRef(   2,     0,    16  ));
-   fdrefs.push_back(FileDataRef(   2,   129,    16  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,    16  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     0,    32  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   0,     8,    16  ));
+   fdrefs.push_back(FileDataPtr(   0,  3060,    12  ));
+   fdrefs.push_back(FileDataPtr(   0,  3060,    13  ));
+   fdrefs.push_back(FileDataPtr(   0,  3050,    22  ));
+   fdrefs.push_back(FileDataPtr(   0,  1024,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   512,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   768,    64  ));
+   fdrefs.push_back(FileDataPtr(   0,   768,   129  ));
+   fdrefs.push_back(FileDataPtr(   1,     0,    16  ));
+   fdrefs.push_back(FileDataPtr(   1,     0,     8  ));
+   fdrefs.push_back(FileDataPtr(   1,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   1,     0,    32  ));
+   fdrefs.push_back(FileDataPtr(   1,     8,     8  ));
+   fdrefs.push_back(FileDataPtr(   1,     8,    16  ));
+   fdrefs.push_back(FileDataPtr(   1,  3060,    12  ));
+   fdrefs.push_back(FileDataPtr(   1,  3060,    13  ));
+   fdrefs.push_back(FileDataPtr(   1,  3050,    22  ));
+   fdrefs.push_back(FileDataPtr(   1,  1024,    64  ));
+   fdrefs.push_back(FileDataPtr(   1,   512,    64  ));
+   fdrefs.push_back(FileDataPtr(   1,   768,    64  ));
+   fdrefs.push_back(FileDataPtr(   1,   768,   129  ));
+   fdrefs.push_back(FileDataPtr(   2,     0,    16  ));
+   fdrefs.push_back(FileDataPtr(   2,   129,    16  ));
    for(uint32_t i=0; i<fdrefs.size(); i++)
       cout << fdrefs[i].getDataCopy().toHexStr() << endl;
 

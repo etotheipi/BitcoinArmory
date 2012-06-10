@@ -1723,11 +1723,11 @@ BlockHeader * BlockDataManager_FileRefs::getHeaderByHash(HashString const & blkH
 
 
 /////////////////////////////////////////////////////////////////////////////
-TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash) const
+TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash) 
 {
-   typedef map<HashString,TxRef>::iterator hintMapIter;
+   typedef multimap<HashString,TxRef>::iterator hintMapIter;
 
-   BinaryData hash4 = txhash.getSliceCopy(0, 4);
+   HashString hash4 = txhash.getSliceCopy(0, 4);
    pair<hintMapIter, hintMapIter> eqRange = txHintMap_.equal_range(hash4);
 
    if(eqRange.first==eqRange.second)
@@ -1746,7 +1746,7 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash) c
 }
 
 /////////////////////////////////////////////////////////////////////////////
-Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash) const
+Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
 {
 
    TxRef* txrefptr = getTxRefPtrByHash(txhash);
@@ -1767,7 +1767,7 @@ Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash) const
 
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::hasTxWithHash(HashString const & txhash,
-                                             bool includeZeroConf) const
+                                             bool includeZeroConf)
 {
    if(getTxRefPtrByHash(txhash)==NULL)
    {
