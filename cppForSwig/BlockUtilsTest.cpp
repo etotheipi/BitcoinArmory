@@ -50,6 +50,8 @@ int main(void)
 
    //string blkdir("/home/alan/.bitcoin/testnet/");
    string blkdir("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet");
+   string blkdir("C:/Documents and Settings/VBox/Application Data/Bitcoin");
+   //string blkdir("C:/Users/vbox/AppData/Roaming/Bitcoin");
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkdir);

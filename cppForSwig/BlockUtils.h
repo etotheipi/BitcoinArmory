@@ -267,8 +267,8 @@ public:
    RegisteredTx(void) :
          txrefPtr_(NULL),
          txHash_(""),
-         blkNum_(0),
-         txIndex_(0) { }
+         blkNum_(UINT32_MAX),
+         txIndex_(UINT32_MAX) { }
 
    RegisteredTx(BinaryData txHash, uint32_t blkNum, uint32_t txIndex) :
          txrefPtr_(NULL),

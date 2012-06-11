@@ -2172,18 +2172,8 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
 
 
    // *********************************************************************** //
-   // Sort the list of transactions:  if we had to rescan parts of the chain,
-   // then the registeredTxList_ will probably be out of order
-   registeredTxList_.sort();
-
-
-   // *********************************************************************** //
    // Finally, walk through all the registered tx
    scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
-
-
-
-   myWallet.sortLedger(); // removes invalid tx and sorts
 
    // We should clean up any dangling TxIOs in the wallet then rescan
    if(zcEnabled_)
@@ -2222,8 +2212,24 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
 {
    PDEBUG("Scanning relevant tx list for wallet");
 
-   ///// LOOP OVER ALL RELEVANT TX ////
+   // Make sure RegisteredTx objects have correct data, then sort.
+   // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
+   //        I was able to sort correctly without this step, before...?
    list<RegisteredTx>::iterator txIter;
+   for(txIter  = registeredTxList_.begin();
+       txIter != registeredTxList_.end();
+       txIter++)
+   {
+      if(txIter->txIndex_ > UINT32_MAX/2)
+      {
+         // The RegisteredTx was created before the chain was organized
+         txIter->blkNum_ = txIter->txrefPtr_->getBlockHeight();
+         txIter->txIndex_ = txIter->txrefPtr_->getBlockTxIndex();
+      }
+   }
+   registeredTxList_.sort();
+
+   ///// LOOP OVER ALL RELEVANT TX ////
    for(txIter  = registeredTxList_.begin();
        txIter != registeredTxList_.end();
        txIter++)
@@ -2254,7 +2260,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
          continue;
 
       // If we made it here, we want to scan this tx!
-      wlt.scanTx(theTx, theTx.getBlockTxIndex(), bhptr->getTimestamp(), thisBlk);
+      wlt.scanTx(theTx, txIter->txIndex_, bhptr->getTimestamp(), thisBlk);
    }
  
    wlt.sortLedger();

@@ -317,14 +317,29 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void clearExcessCacheData(uint64_t incomingBytes=0)
    {
-      while(cacheUsed_+incomingBytes > cacheSize_ )
+      // TODO:  This turned out to be ridiculously slow!  
+      //        every single one of these lines should
+      //        be efficient, but I must've missed something!
+      //while(cacheUsed_+incomingBytes > cacheSize_ )
+      //{
+         //list<CacheData>::iterator cIter = cachedData_.begin();
+         //FileDataPtr & toRemove = cIter->first;
+         //cacheUsed_ -= toRemove.getNumBytes();
+         //cacheMap_.erase(toRemove);
+         //cachedData_.erase(cIter);
+      //}
+
+      // This is a very "dumb" version that works great for pre-caching
+      // which is the really important part.  If the cache is full, just
+      // clear it completely!
+      //
+      if(cacheUsed_+incomingBytes > cacheSize_ )
       {
-         list<CacheData>::iterator cIter = cachedData_.begin();
-         FileDataPtr & toRemove = cIter->first;
-         cacheUsed_ -= toRemove.getNumBytes();
-         cacheMap_.erase(toRemove);
-         cachedData_.erase(cIter);
+         cachedData_.clear();
+         cacheMap_.clear();
+         cacheUsed_ = 0;
       }
+               
       
    }
 
