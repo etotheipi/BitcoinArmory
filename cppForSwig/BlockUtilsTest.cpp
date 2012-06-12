@@ -32,6 +32,8 @@ void TestCrypto(void);
 void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
+
+void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
@@ -49,9 +51,9 @@ int main(void)
    
 
    //string blkdir("/home/alan/.bitcoin/testnet/");
-   string blkdir("C:/Documents and Settings/VBox/Application Data/Bitcoin/testnet");
-   string blkdir("C:/Documents and Settings/VBox/Application Data/Bitcoin");
-   //string blkdir("C:/Users/vbox/AppData/Roaming/Bitcoin");
+   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
+   string blkdir("./multiblktest");
+   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/");
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkdir);
@@ -446,16 +448,22 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    "dca1e9baf8d970229f5efa269a15dd420ea7cfab"
    */
 
-   cout << "Testing soft-scanning..." << endl;
-
    BinaryData txHash1 = BinaryData::CreateFromHex("2ec3a745e032c8bcc1061ebf270afcee47318a43462ba57215174084775c794d");
    BinaryData txHash2 = BinaryData::CreateFromHex("b754fa89f7eb7f7c564611d9297dbcb471cf8d3cb0d235686323b6a5b263b094");
 
-   LedgerEntry le;
-   le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
-   le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
-   le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
-   le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+   if( bdm.getTxRefPtrByHash(txHash1) != NULL &&
+       bdm.getTxRefPtrByHash(txHash2) != NULL)
+   {
+      cout << "Testing soft-scanning..." << endl;
+      LedgerEntry le;
+      le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+      le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash1) ); le.pprintOneLine(); cout << endl;
+      le = wlt1.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+      le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
+   }
+
+   cout << "Num Headers: " << bdm.getNumHeaders() << endl;
+   cout << "Num Tx:      " << bdm.getNumTx() << endl;
   
 }
 
@@ -1239,7 +1247,61 @@ void TestFileCache(void)
 }
 
 
+// This is not ever needed for anything, except to take an existing blk000X.dat
+// file and split it into multiple pieces.  I need this for testing purposes...
+void CreateMultiBlkFile(string blkdir)
+{
+   string targDir("multiblktest"); 
 
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.parseEntireBlockchain(blkdir);  
+
+   uint32_t topBlk = bdm.getTopBlockHeight();
+   uint32_t onethird = topBlk/3;
+   uint32_t twothird = 2*topBlk/3;
+
+   char fname[256];
+   BinaryData magic = bdm.getMagicBytes();
+   ofstream os;
+
+   sprintf(fname, "%s/blk0001.dat", targDir.c_str());
+   os.open(fname, ios::out | ios::binary);
+   for(uint32_t i=0; i<onethird; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+
+   sprintf(fname, "%s/blk0002.dat", targDir.c_str());
+   os.open(fname, ios::out | ios::binary);
+   for(uint32_t i=onethird; i<twothird; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+   sprintf(fname, "%s/blk0003.dat", targDir.c_str());
+   os.open(fname, ios::out | ios::binary);
+   for(uint32_t i=twothird; i<topBlk-4; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+   sprintf(fname, "%s/blk0004.dat", targDir.c_str());
+   os.open(fname, ios::out | ios::binary);
+   for(uint32_t i=topBlk-4; i<topBlk; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+}
 
 
 

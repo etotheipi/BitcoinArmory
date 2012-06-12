@@ -31,6 +31,7 @@
 #include "cryptlib.h"
 #include "sha.h"
 #include "ripemd.h"
+#include "UniversalTimer.h"
 
 #define HEADER_SIZE 80
 #define CONVERTBTC 100000000

@@ -2450,7 +2450,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             alreadyRead8B = false;
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-            parseNewBlockData(brr, fnum-1, nBytesRead, nextBlkSize);
+            parseNewBlockData(brr, fnum-1, bsb.getFileByteLocation(), nextBlkSize);
             nBlkRead++;
             nBytesRead += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
@@ -2742,11 +2742,12 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    uint32_t txOffset = thisHeaderOffset + HEADER_SIZE + viSize; 
 
    // Read each of the Tx
-   bhptr->txPtrList_.clear();
+   bhptr->txPtrList_.resize(nTx);
    uint32_t txSize;
    static vector<uint32_t> offsetsIn;
    static vector<uint32_t> offsetsOut;
 
+   TIMER_START("parseNewBlockData_Scan_Tx_List");
    for(uint32_t i=0; i<nTx; i++)
    {
       // We get a little funky here because I need to avoid ALL unnecessary
@@ -2759,11 +2760,12 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       txInputPair.second.setBlkFilePtr(fdpThisTx);
 
       // Insert the FileDataPtr into the multimap
-      txInputPair.first = txInputPair.second.getThisHash().getSliceCopy(0,4);
+      BtcUtils::getHash256(ptrToRawTx, txSize, txInputPair.first);
+      txInputPair.first.resize(4);
       txInsResult = txHintMap_.insert(txInputPair);
 
       // Get the pointer to the newly-added element and save it with the header
-      bhptr->txPtrList_.push_back( &(txInsResult->second) );
+      bhptr->txPtrList_[i] = &(txInsResult->second);
 
       // We don't set this tx's headerPtr because there could be multiple
       // headers that reference this tx... we will wait until the chain
@@ -2779,6 +2781,7 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       txOffset += txSize;
       brr.advance(txSize);
    }
+   TIMER_STOP("parseNewBlockData_Scan_Tx_List");
    return true;
 }
    

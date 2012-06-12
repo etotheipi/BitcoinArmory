@@ -270,8 +270,14 @@ public:
          blkNum_(UINT32_MAX),
          txIndex_(UINT32_MAX) { }
 
-   RegisteredTx(BinaryData txHash, uint32_t blkNum, uint32_t txIndex) :
+   RegisteredTx(BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
          txrefPtr_(NULL),
+         txHash_(txHash),
+         blkNum_(blkNum),
+         txIndex_(txIndex) { }
+
+   RegisteredTx(TxRef* txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+         txrefPtr_(txptr),
          txHash_(txHash),
          blkNum_(blkNum),
          txIndex_(txIndex) { }
@@ -704,6 +710,7 @@ private:
    BinaryData GenesisHash_;
    BinaryData GenesisTxHash_;
    BinaryData MagicBytes_;
+   
 
 
    // We will now "register" all wallets and addresses, so that the BDM knows
@@ -729,6 +736,10 @@ public:
                              BinaryData const & MagicBytes);
    void SelectNetwork(string netName);
 
+   BinaryData getGenesisHash(void)   { return GenesisHash_;   }
+   BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
+   BinaryData getMagicBytes(void)    { return MagicBytes_;    }
+
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);
    int32_t          getNumConfirmations(BinaryData txHash);
@@ -743,6 +754,9 @@ public:
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
+
+   uint32_t getNumTx(void) { return txHintMap_.size(); }
+   uint32_t getNumHeaders(void) { return headerMap_.size(); }
 
    /////////////////////////////////////////////////////////////////////////////
    // If you register you wallet with the BDM, it will automatically maintain 

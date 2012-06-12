@@ -1200,11 +1200,11 @@ public:
    // left in the stream
    bool streamPull(void)
    {
-      TIMER_START("Stream Pull");
       uint32_t prevBufSizeRemain = binReader_.getSizeRemaining();
       if(fileBytesRemaining_ == 0)
          return false;
 
+      TIMER_START("Stream Pull");
       if( binReader_.getPosition() <= 0)
       {
          // No data to shuffle, just pull from the stream buffer
