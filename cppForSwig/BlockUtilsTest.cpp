@@ -78,13 +78,13 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
    //string blkdir("/home/alan/.bitcoin/testnet/");
+   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
-   string blkdir("./multiblktest");
-   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/");
+   string multitest("./multiblktest");
    
    // ONLY USE THIS TO CREATE THE TEST BLOCKCHAIN -- then comment it out
    //CreateMultiBlkFile(blkdir); return 0;
@@ -99,11 +99,11 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkdir);
 
-   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   //TestReadAndOrganizeChainWithWallet(blkdir);
+   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   TestReadAndOrganizeChainWithWallet(blkdir);
 
-   printTestHeader("Read-and-Update-Blockchain");
-   TestReadAndUpdateBlkFile(blkdir);
+   //printTestHeader("Read-and-Update-Blockchain");
+   //TestReadAndUpdateBlkFile(multitest);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkdir);

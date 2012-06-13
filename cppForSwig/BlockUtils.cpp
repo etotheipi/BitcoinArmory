@@ -2610,7 +2610,10 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    lastBlkFileBytes_ += currBlkBytesToRead;
 
    if(prevRegisteredUpToDate)
-      updateRegisteredAddresses(getTopBlockHeight()+1);
+   {
+      allRegAddrScannedUpToBlk_ = getTopBlockHeight()+1;
+      updateRegisteredAddresses(allRegAddrScannedUpToBlk_);
+   }
 
    // If the blk file split, switch to tracking it
    cout << "Added new blocks to memory pool: " << nBlkRead << endl;
