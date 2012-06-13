@@ -749,8 +749,8 @@ public:
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
-   TxRef *          getTxRefPtrByHash(HashString const & txHash);
-   Tx               getTxByHash(HashString const & txHash);
+   TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
+   Tx               getTxByHash(BinaryData const & txHash);
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
