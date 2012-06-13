@@ -6,6 +6,7 @@
 //                                                                            //
 ////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
+#include <stdio.h>
 #include <fstream>
 #include <string>
 #include <sstream>
@@ -25,6 +26,7 @@ using namespace std;
 void TestReadAndOrganizeChain(string blkdir);
 void TestFindNonStdTx(string blkdir);
 void TestReadAndOrganizeChainWithWallet(string blkdir);
+void TestReadAndUpdateBlkFile(string blkdir);
 void TestScanForWalletTx(string blkdir);
 void TestReorgBlockchain(string blkdir);
 void TestZeroConf(void);
@@ -45,6 +47,35 @@ void printTestHeader(string TestName)
    cout << endl;
 }
 
+bool copyFile(string src, string dst)
+{
+   uint32_t srcsz = BtcUtils::GetFileSize(src);
+   if(srcsz == FILE_DOES_NOT_EXIST)
+      return false;
+
+   BinaryData temp(srcsz);
+   ifstream is(src.c_str(), ios::in  | ios::binary);
+   is.read((char*)temp.getPtr(), srcsz);
+   is.close();
+
+   ofstream os(dst.c_str(), ios::out | ios::binary);
+   os.write((char*)temp.getPtr(), srcsz);
+   os.close();
+   return true;
+}
+
+
+string pathJoin(string dir, string file)
+{
+   int const TOTALSZ = dir.size() + file.size() + 10;
+   char * path = new char[TOTALSZ];
+   sprintf(path, "%s/%s", dir.c_str(), file.c_str());
+   string ret(path);
+   return ret;
+}
+
+
+
 int main(void)
 {
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
@@ -54,6 +85,10 @@ int main(void)
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    string blkdir("./multiblktest");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/");
+   
+   // ONLY USE THIS TO CREATE THE TEST BLOCKCHAIN -- then comment it out
+   //CreateMultiBlkFile(blkdir); return 0;
+
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkdir);
@@ -64,11 +99,15 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkdir);
 
-   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   TestReadAndOrganizeChainWithWallet(blkdir);
+   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   //TestReadAndOrganizeChainWithWallet(blkdir);
+
+   printTestHeader("Read-and-Update-Blockchain");
+   TestReadAndUpdateBlkFile(blkdir);
 
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkdir);
+
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -467,6 +506,51 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
   
 }
 
+
+void TestReadAndUpdateBlkFile(string tempBlkDir)
+{
+
+   string blk3  = pathJoin(tempBlkDir, "blk0003.dat");
+   string blk3s = pathJoin(tempBlkDir, "blk0003sm.dat");
+   string blk3b = pathJoin(tempBlkDir, "blk0003big.dat");
+   string blk3g = pathJoin(tempBlkDir, "blk0003bigger.dat");
+   string blk4  = pathJoin(tempBlkDir, "blk0004.dat");
+   string blk4s = pathJoin(tempBlkDir, "blk0004sm.dat");
+   string blk5  = pathJoin(tempBlkDir, "blk0005.dat");
+   string blk5s = pathJoin(tempBlkDir, "blk0005sm.dat");
+   uint32_t nblk;
+
+   // Clean up from the previous run
+   copyFile(blk3s,  blk3);
+   if( BtcUtils::GetFileSize(blk4) != FILE_DOES_NOT_EXIST ) 
+      remove(blk4.c_str());
+   if( BtcUtils::GetFileSize(blk5) != FILE_DOES_NOT_EXIST ) 
+      remove(blk5.c_str());
+
+
+   // The newblk directory has a blk0003.dat file with one more block
+   // and blk0004.dat file with 4 more blocks
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.parseEntireBlockchain(tempBlkDir);  
+
+   // Test standard blkfile expansion
+   copyFile(blk3b, blk3);
+   nblk = bdm.readBlkFileUpdate();
+   cout << "New Blocks Read: " << nblk << endl;
+
+   // Test both blkfile expansion and splitting
+   copyFile(blk3g, blk3);
+   copyFile(blk4s, blk4);
+   nblk = bdm.readBlkFileUpdate();
+   cout << "New Blocks Read: " << nblk << endl;
+
+
+   // Test just blockfile splitting
+   copyFile(blk5s, blk5);
+   nblk = bdm.readBlkFileUpdate();
+   cout << "New Blocks Read: " << nblk << endl;
+
+}
 
 void TestReorgBlockchain(string blkdir)
 {
@@ -1260,12 +1344,12 @@ void CreateMultiBlkFile(string blkdir)
    uint32_t onethird = topBlk/3;
    uint32_t twothird = 2*topBlk/3;
 
-   char fname[256];
+   string fname;
    BinaryData magic = bdm.getMagicBytes();
    ofstream os;
 
-   sprintf(fname, "%s/blk0001.dat", targDir.c_str());
-   os.open(fname, ios::out | ios::binary);
+   fname = pathJoin(targDir, "blk0001.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
    for(uint32_t i=0; i<onethird; i++)
    {
       BlockHeader * bhp = bdm.getHeaderByHeight(i);
@@ -1274,8 +1358,8 @@ void CreateMultiBlkFile(string blkdir)
    os.close();
 
 
-   sprintf(fname, "%s/blk0002.dat", targDir.c_str());
-   os.open(fname, ios::out | ios::binary);
+   fname = pathJoin(targDir, "blk0002.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
    for(uint32_t i=onethird; i<twothird; i++)
    {
       BlockHeader * bhp = bdm.getHeaderByHeight(i);
@@ -1283,24 +1367,50 @@ void CreateMultiBlkFile(string blkdir)
    }
    os.close();
 
-   sprintf(fname, "%s/blk0003.dat", targDir.c_str());
-   os.open(fname, ios::out | ios::binary);
+   fname = pathJoin(targDir, "blk0003sm.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
+   for(uint32_t i=twothird; i<topBlk-8; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+   fname = pathJoin(targDir, "blk0003big.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
+   for(uint32_t i=twothird; i<topBlk-6; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
+
+   fname = pathJoin(targDir, "blk0003bigger.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
    for(uint32_t i=twothird; i<topBlk-4; i++)
    {
       BlockHeader * bhp = bdm.getHeaderByHeight(i);
       os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
    }
    os.close();
-
-   sprintf(fname, "%s/blk0004.dat", targDir.c_str());
-   os.open(fname, ios::out | ios::binary);
-   for(uint32_t i=topBlk-4; i<topBlk; i++)
+   
+   fname = pathJoin(targDir, "blk0004sm.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
+   for(uint32_t i=topBlk-4; i<topBlk-2; i++)
    {
       BlockHeader * bhp = bdm.getHeaderByHeight(i);
       os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
    }
    os.close();
 
+   fname = pathJoin(targDir, "blk0005sm.dat");
+   os.open(fname.c_str(), ios::out | ios::binary);
+   for(uint32_t i=topBlk-2; i<topBlk; i++)
+   {
+      BlockHeader * bhp = bdm.getHeaderByHeight(i);
+      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
+   }
+   os.close();
 }
 
 

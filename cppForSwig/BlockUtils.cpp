@@ -2510,7 +2510,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    // Check to see if there was a blkfile split, and we have to switch
    // to tracking the new file..  this condition may trigger only once a year...
    string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_+1);
-   uint32_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
+   uint64_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
    if( nextBlkBytesToRead == FILE_DOES_NOT_EXIST )
       nextBlkBytesToRead = 0;
    else
@@ -2533,16 +2533,20 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    BinaryData newBlockDataRaw(currBlkBytesToRead + nextBlkBytesToRead);
 
    // Seek to the beginning of the new data and read it
-   ifstream is(filename.c_str(), ios::in | ios::binary);
-   is.seekg(lastBlkFileBytes_, ios::beg);
-   is.read((char*)newBlockDataRaw.getPtr(), currBlkBytesToRead);
-   is.close();
+   if(currBlkBytesToRead>0)
+   {
+      ifstream is(filename.c_str(), ios::in | ios::binary);
+      is.seekg(lastBlkFileBytes_, ios::beg);
+      is.read((char*)newBlockDataRaw.getPtr(), currBlkBytesToRead);
+      is.close();
+   }
 
    // If a new block file exists, read that one too
    if(nextBlkBytesToRead>0)
    {
-      is.open(nextFilename.c_str(), ios::in | ios::binary);
-      is.read((char*)newBlockDataRaw.getPtr(), nextBlkBytesToRead);
+      uint8_t* ptrNextData = newBlockDataRaw.getPtr() + currBlkBytesToRead;
+      ifstream is(nextFilename.c_str(), ios::in | ios::binary);
+      is.read((char*)ptrNextData, nextBlkBytesToRead);
       is.close();
    }
 
@@ -2557,11 +2561,11 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t blockHeaderOffset = lastBlkFileBytes_ + brr.getPosition();
+      uint32_t blockHeaderOffset = lastBlkFileBytes_ + brr.getPosition() + 8;
       if(brr.getPosition() >= currBlkBytesToRead)
       {
          useFileIndex0Idx++;
-         blockHeaderOffset = brr.getPosition();
+         blockHeaderOffset = brr.getPosition() - currBlkBytesToRead + 8;
       }
       
 
@@ -2722,6 +2726,7 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    static pair<HashString, BlockHeader>                      bhInputPair;
    static multimap<HashString, TxRef>::iterator              txInsResult;
    static pair<map<HashString, BlockHeader>::iterator, bool> bhInsResult;
+   txInputPair.first.resize(4);
 
    
    // Read off the header 
@@ -2746,6 +2751,7 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    uint32_t txSize;
    static vector<uint32_t> offsetsIn;
    static vector<uint32_t> offsetsOut;
+   static BinaryData hashResult(32);
 
    TIMER_START("parseNewBlockData_Scan_Tx_List");
    for(uint32_t i=0; i<nTx; i++)
@@ -2760,8 +2766,8 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       txInputPair.second.setBlkFilePtr(fdpThisTx);
 
       // Insert the FileDataPtr into the multimap
-      BtcUtils::getHash256(ptrToRawTx, txSize, txInputPair.first);
-      txInputPair.first.resize(4);
+      BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
+      txInputPair.first.copyFrom(hashResult.getPtr(), 4);
       txInsResult = txHintMap_.insert(txInputPair);
 
       // Get the pointer to the newly-added element and save it with the header
