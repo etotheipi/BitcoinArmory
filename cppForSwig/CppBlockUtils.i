@@ -42,7 +42,8 @@ namespace std
    %template(vector_BinaryData) std::vector<BinaryData>;
    %template(vector_LedgerEntry) std::vector<LedgerEntry>;
    %template(vector_TxRefPtr) std::vector<TxRef*>;
-   %template(vector_HeaderRefPtr) std::vector<BlockHeaderRef*>;
+   %template(vector_Tx) std::vector<Tx>;
+   %template(vector_BlockHeaderPtr) std::vector<BlockHeader>;
    %template(vector_UnspentTxOut) std::vector<UnspentTxOut>;
    %template(vector_BtcWallet) std::vector<BtcWallet*>;
    %template(vector_AddressBookEntry) std::vector<AddressBookEntry>;

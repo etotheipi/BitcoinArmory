@@ -424,7 +424,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
-   bool               isInitialized(void)  const;
+   //bool               isInitialized(void)  const { return blkFilePtr_!=NULL; }
    bool               isMainBranch(void)  const;
    uint32_t           getSize(void) const {  return blkFilePtr_.getNumBytes(); }
 
@@ -434,16 +434,9 @@ public:
    FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
    void               setBlkFilePtr(FileDataPtr b) { blkFilePtr_ = b; }
 
-   
-
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const { return blkFilePtr_.getDataCopy(); }
 
-
-   /////////////////////////////////////////////////////////////////////////////
-   TxIn               getTxIn(int i);
-   TxOut              getTxOut(int i);
-   
    /////////////////////////////////////////////////////////////////////////////
    uint32_t           getBlockTimestamp(void) const;
    uint32_t           getBlockHeight(void) const;

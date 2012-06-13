@@ -62,6 +62,8 @@ parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="st
                   help="load Armory with a specific settings file")
 parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
                   help="Change the directory that Armory calls home")
+parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str', 
+                  help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                   help="Use the testnet protocol")
 parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
@@ -165,27 +167,35 @@ else:
    print '***Unknown operating system!'
    print '***Cannot determine default directory locations'
 
-BLK0001_PATH    = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
+
+# Allow user to override default bitcoin-qt/bitcoind home directory
+if not CLI_OPTIONS.satoshiHome.lower()=='default':
+   if not os.path.exists(CLI_OPTIONS.satoshiHome):
+      print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.satoshiHome
+   else:
+      BTC_HOME_DIR = CLI_OPTIONS.satoshiHome
 
 
+# Allow user to override default Armory home directory
 if not CLI_OPTIONS.datadir.lower()=='default':
    if not os.path.exists(CLI_OPTIONS.datadir):
       print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
    else:
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
 
+# Change the settings file to use
 if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
-SETTINGS_PATH = CLI_OPTIONS.settingsPath
 
+
+SETTINGS_PATH = CLI_OPTIONS.settingsPath
 
 
 
 print 'Detected Operating system:', OS_NAME
 print '   User home-directory   :', USER_HOME_DIR
 print '   Satoshi BTC directory :', BTC_HOME_DIR
-print '   Satoshi blk0001.dat   :', BLK0001_PATH
 print '   Armory home dir       :', ARMORY_HOME_DIR
 
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
@@ -823,18 +833,18 @@ def difficulty_to_binaryBits(i):
 
 
 ################################################################################
-def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
+def BDM_LoadBlockchainFile(blkdir=None, wltList=None):
    """
-   Looks for the blk0001.dat file in the default location for your operating
-   system.  If it is found, it is loaded into RAM and the longest chain is
-   computed.  Access to any information in the blockchain can be found via
+   Looks for blkXXXX.dat files.  If they are found, it is indexed into RAM
+   and then all blockchain data can be accessed through the BDM object. 
+   Access to any information in the blockchain can be found via
    the bdm object.
    """
-   if blkfile==None:
-      blkfile = BLK0001_PATH
+   if blkdir==None:
+      blkdir = BTC_HOME_DIR
 
-   if not os.path.exists(blkfile):
-      raise FileExistsError, ('File does not exist: %s' % blkfile)
+   if not os.path.exists(blkdir):
+      raise FileExistsError, ('Directory does not exist: %s' % blkdir)
 
    TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
 
@@ -843,7 +853,7 @@ def BDM_LoadBlockchainFile(blkfile=None, wltList=None):
       for wlt in wltList:
          TheBDM.registerWallet(wlt.cppWallet, False)  # isWltNew=False
 
-   return TheBDM.readBlkFile_FromScratch(blkfile)
+   return TheBDM.parseEntireBlockchain(blkdir)
 
 
 ################################################################################

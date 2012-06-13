@@ -78,9 +78,9 @@ class ArmoryMainWindow(QMainWindow):
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-
-      
-      self.haveBlkFile = os.path.exists(BLK0001_PATH)
+      # Only need to check for the first blk file
+      blk0001filename = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
+      self.haveBlkFile = os.path.exists(blk0001filename)
       self.abortLoad = False
       self.isDirty   = True
       
@@ -1096,6 +1096,22 @@ class ArmoryMainWindow(QMainWindow):
          self.walletModel.reset()
          
 
+   #############################################################################
+   def checkMemoryPoolCorruption(self, mempoolname):
+      memfile = open(mempoolname, 'r')
+      memdata = memfile.read()
+      memfile.close()
+
+      binunpacker = BinaryUnpacker(memdata)
+      try:
+         while binunpacker.getRemainingSize() > 0:
+            binunpacker.get(UINT64)
+            PyTx().unserialize(binunpacker)
+      except:
+         print 'Memory pool file was corrupt.  Deleted.'
+         os.remove(mempoolname);
+      
+
    
 
    #############################################################################
@@ -1199,9 +1215,9 @@ class ArmoryMainWindow(QMainWindow):
             return 0
          valIn, valOut = 0,0
          for i in range(txref.getNumTxIn()):
-            valIn += TheBDM.getSentValue(txref.getTxInRef(i))
+            valIn += TheBDM.getSentValue(txref.getTxIn(i))
          for i in range(txref.getNumTxOut()):
-            valOut += txref.getTxOutRef(i).getValue()
+            valOut += txref.getTxOut(i).getValue()
          return valIn - valOut
       
 
@@ -1219,18 +1235,18 @@ class ArmoryMainWindow(QMainWindow):
          if not txref:
             return (0, 0)
          if txref.getNumTxOut()==1:
-            return (txref.getTxOutRef(0).getValue(), -1)
+            return (txref.getTxOut(0).getValue(), -1)
          maxChainIndex = -5
          txOutChangeVal = 0
          txOutIndex = -1
          valSum = 0
          for i in range(txref.getNumTxOut()):
-            valSum += txref.getTxOutRef(i).getValue()
-            addr160 = txref.getTxOutRef(i).getRecipientAddr()
+            valSum += txref.getTxOut(i).getValue()
+            addr160 = txref.getTxOut(i).getRecipientAddr()
             addr    = wlt.getAddrByHash160(addr160)
             if addr and addr.chainIndex > maxChainIndex:
                maxChainIndex = addr.chainIndex
-               txOutChangeVal = txref.getTxOutRef(i).getValue()
+               txOutChangeVal = txref.getTxOut(i).getValue()
                txOutIndex = i
                   
          amt = valSum - txOutChangeVal
@@ -2177,8 +2193,8 @@ class ArmoryMainWindow(QMainWindow):
          else:
             txref = TheBDM.getTxByHash(le.getTxHash())
             nOut = txref.getNumTxOut()
-            recips = [txref.getTxOutRef(i).getRecipientAddr() for i in range(nOut)]
-            values = [txref.getTxOutRef(i).getValue()         for i in range(nOut)]
+            recips = [txref.getTxOut(i).getRecipientAddr() for i in range(nOut)]
+            values = [txref.getTxOut(i).getValue()         for i in range(nOut)]
             idxMine  = filter(lambda i:     wlt.hasAddr(recips[i]), range(nOut))
             idxOther = filter(lambda i: not wlt.hasAddr(recips[i]), range(nOut))
             mine  = [(recips[i],values[i]) for i in idxMine]
