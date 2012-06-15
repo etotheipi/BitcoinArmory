@@ -775,10 +775,10 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
    if(registeredTxSet_.insert(txHash).second == true)
    {
       TxRef* tx_ptr = getTxRefPtrByHash(txHash);
-      //uint32_t tx_blknum = tx_ptr->getBlockHeight();
-      //uint32_t tx_blkidx = tx_ptr->getBlockTxIndex();
-      //RegisteredTx regTx(txHash, tx_blknum, tx_blkidx);
-      RegisteredTx regTx(*tx_ptr);
+      RegisteredTx regTx(tx_ptr,
+                         tx_ptr->getThisHash(),
+                         tx_ptr->getBlockHeight(),
+                         tx_ptr->getBlockTxIndex());
       registeredTxList_.push_back(regTx);
    }
 }
@@ -1727,7 +1727,8 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
 {
    typedef multimap<HashString,TxRef>::iterator hintMapIter;
 
-   HashString hash4 = txhash.getSliceCopy(0, 4);
+   static HashString hash4(4);
+   hash4.copyFrom(txhash.getPtr(), 4);
    pair<hintMapIter, hintMapIter> eqRange = txHintMap_.equal_range(hash4);
 
    if(eqRange.first==eqRange.second)
@@ -1743,6 +1744,47 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
       // match the full requested tx-hash
       return NULL;
    }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Returns a pointer to the TxRef as it resides in the multimap node
+// There should only ever be exactly one copy
+// NOTE:  This method was created because multimaps allow duplicate 
+//        elements (which are nodes with the same 4-byte prefix). 
+//        However, we don't want to allow two identical transactions
+//        at different locations in the blkfile lead to duplicate
+//        multimap nodes.  
+//
+//        i.e. transactions with same 4-byte prefix -- OK
+//             transactions with same 32-byte hash  -- NOT OK
+TxRef * BlockDataManager_FileRefs::insertTxRef(HashString const & txHash, 
+                                               FileDataPtr & fdp,
+                                               BlockHeader * bhptr)
+{
+   static multimap<HashString, TxRef>::iterator lowerBound;
+   static multimap<HashString, TxRef>::iterator upperBound;
+   static pair<HashString, TxRef>               txInputPair;
+   static multimap<HashString, TxRef>::iterator txInsResult;
+
+   txInputPair.first.copyFrom(txHash.getPtr(), 4);
+   lowerBound = txHintMap_.lower_bound(txInputPair.first);
+   upperBound = txHintMap_.upper_bound(txInputPair.first);
+
+   bool needInsert = false;
+   if(lowerBound!=upperBound)
+   {
+      multimap<HashString, TxRef>::iterator iter;
+      for(iter = lowerBound; iter != upperBound; iter++)
+         if(iter->second.getThisHash() == txHash)
+            return &(iter->second);
+   }
+
+   // If we got here, the tx doesn't exist in the multimap yet,
+   // and lowerBound is an appropriate hint for inserting the TxRef
+   txInputPair.second.setBlkFilePtr(fdp);
+   txInputPair.second.setHeaderPtr(bhptr);
+   txInsResult = txHintMap_.insert(lowerBound, txInputPair);
+   return &(txInsResult->second);
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2770,11 +2812,11 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
 
       // Insert the FileDataPtr into the multimap
       BtcUtils::getHash256_NoSafetyCheck(ptrToRawTx, txSize, hashResult);
-      txInputPair.first.copyFrom(hashResult.getPtr(), 4);
-      txInsResult = txHintMap_.insert(txInputPair);
 
-      // Get the pointer to the newly-added element and save it with the header
-      bhptr->txPtrList_[i] = &(txInsResult->second);
+      // Insert TxRef into txHintMap_, making sure there's no duplicates 
+      // of this exactly transaction (which happens on one-block forks).
+      // Store the pointer to the newly-added txref, save it with the header
+      bhptr->txPtrList_[i] = insertTxRef(hashResult, fdpThisTx, NULL);
 
       // We don't set this tx's headerPtr because there could be multiple
       // headers that reference this tx... we will wait until the chain

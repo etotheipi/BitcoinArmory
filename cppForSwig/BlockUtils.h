@@ -752,6 +752,13 @@ public:
    TxRef *          getTxRefPtrByHash(HashString const & txHash);
    Tx               getTxByHash(HashString const & txHash);
 
+   //////////////////////////////////////////////////////////////////////////
+   // Returns a pointer to the TxRef as it resides in the multimap node
+   // There should only ever be exactly one copy
+   TxRef *          insertTxRef(HashString const & txHash,
+                                FileDataPtr & fdp,
+                                BlockHeader * bhptr=NULL);
+
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
 

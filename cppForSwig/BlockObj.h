@@ -432,7 +432,7 @@ public:
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
    FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
-   void               setBlkFilePtr(FileDataPtr b) { blkFilePtr_ = b; }
+   void               setBlkFilePtr(FileDataPtr const & b) { blkFilePtr_ = b; }
 
    
 
