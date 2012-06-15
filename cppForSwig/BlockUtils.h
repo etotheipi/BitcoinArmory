@@ -749,8 +749,8 @@ public:
    BlockHeader *    getHeaderByHash(BinaryData const & blkHash);
    string           getBlockfilePath(void) {return blkFileDir_;}
 
-   TxRef *          getTxRefPtrByHash(HashString const & txHash);
-   Tx               getTxByHash(HashString const & txHash);
+   TxRef *          getTxRefPtrByHash(BinaryData const & txHash);
+   Tx               getTxByHash(BinaryData const & txHash);
 
    //////////////////////////////////////////////////////////////////////////
    // Returns a pointer to the TxRef as it resides in the multimap node

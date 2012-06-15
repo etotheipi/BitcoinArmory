@@ -81,8 +81,9 @@ int main(void)
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
+   string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
-   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
+   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    string multitest("./multiblktest");
    
@@ -324,11 +325,11 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
    //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
    //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
    myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt2.addAddress(myAddress);
 
    // Add some relevant testnet addresses
-   //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
    myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
    myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
    myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
@@ -366,18 +367,6 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
    cout << "Printing Wallet(2) Ledger" << endl;
    wlt2.pprintLedger();
-
-   //multimap<HashString,TxRef>::iterator iter;
-   //for(iter  = bdm.txHintMap_.begin();
-       //iter != bdm.txHintMap_.end();
-       //iter++)
-   //{
-      //uint32_t num = bdm.txHintMap_.count(iter->first);
-      //if(num > 1)
-         //cout << "Tx Prefix : " << iter->first.toHexStr().c_str() << " repeated " << num << " times!" << endl;
-      //for(uint32_t i=0; i<num; i++)
-         //iter++;
-   //}
 
    /*
    cout << endl << "Rescanning wlt2 multiple times" << endl;

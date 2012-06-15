@@ -894,7 +894,8 @@ class HeaderDataModel(QAbstractTableModel):
       txlist = header.getTxRefPtrList()
       total = 0
       for tx in txlist:
-         total += tx.getSumOfOutputs()
+         txcopy = tx.getTxCopy()
+         total += txcopy.getSumOfOutputs()
       return total
 
    def data(self, index, role=Qt.DisplayRole):
@@ -964,21 +965,21 @@ class TxDataModel(QAbstractTableModel):
    def columnCount(self, index=QModelIndex()):
       return len(txColLabels)
 
-   def getTxSrcStr(self, txref):
-      if txref.getNumTxIn() > 1:
-         return '<%d sources>' % txref.getNumTxIn()
+   def getTxSrcStr(self, tx):
+      if tx.getNumTxIn() > 1:
+         return '<%d sources>' % tx.getNumTxIn()
       else:
-         txin = txref.getTxInRef(0)
+         txin = tx.getTxIn(0)
          if txin.isCoinbase():
             return '<COINBASE>'
          else:
             return hash160_to_addrStr(self.bdm.getSenderAddr20(txin))
 
-   def getTxDstStr(self, txref):
-      if txref.getNumTxOut() > 1:
-         return '<%d recipients>' % txref.getNumTxOut()
+   def getTxDstStr(self, tx):
+      if tx.getNumTxOut() > 1:
+         return '<%d recipients>' % tx.getNumTxOut()
       else:
-         return hash160_to_addrStr(txref.getTxOutRef(0).getRecipientAddr())
+         return hash160_to_addrStr(tx.getTxOut(0).getRecipientAddr())
 
    def data(self, index, role=Qt.DisplayRole):
       nTx = self.rowCount()
@@ -1044,7 +1045,7 @@ class TxInDataModel(QAbstractTableModel):
       row,col = index.row(), index.column()
 
       if role==Qt.DisplayRole:
-         cppTxIn = self.tx.getTxInRef(row)
+         cppTxIn = self.tx.getTxIn(row)
          if cppTxIn == None:
             return QVariant()
          if col == TXIN_SRC:
@@ -1114,7 +1115,7 @@ class TxOutDataModel(QAbstractTableModel):
          return QVariant()
 
       if role==Qt.DisplayRole:
-         cppTxOut = self.txSelect.getTxOutRef(row)
+         cppTxOut = self.txSelect.getTxOut(row)
          if cppTxOut == None:
             return QVariant()
          if col == TXOUT_RECIP:
