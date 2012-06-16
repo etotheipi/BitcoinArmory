@@ -501,6 +501,7 @@ void Tx::unserialize(uint8_t const * ptr)
 
    isInitialized_ = true;
    headerPtr_ = NULL;
+   txRefPtr_ = NULL;
 }
 
 /////////////////////////////////////////////////////////////////////////////

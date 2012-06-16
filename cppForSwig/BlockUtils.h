@@ -84,16 +84,16 @@ public:
    bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
    bool      hasTxOutInMain(void) const;
    bool      hasTxInInMain(void) const;
-   bool      hasTxOutZC(void) const { return (txPtrOfOutputZC_ != NULL); }
-   bool      hasTxInZC(void) const  { return (txPtrOfInputZC_  != NULL); }
+   bool      hasTxOutZC(void) const;
+   bool      hasTxInZC(void) const;
    bool      hasValue(void) const   { return (amount_!=0); }
    uint64_t  getValue(void) const   { return  amount_;}
 
    //////////////////////////////////////////////////////////////////////////////
    TxOut     getTxOut(void) const;   
    TxIn      getTxIn(void) const;   
-   TxOut     getTxOutZC(void) const {return txPtrOfOutputZC_->getTxCopy().getTxOut(indexOfOutputZC_);}
-   TxIn      getTxInZC(void) const  {return txPtrOfInputZC_->getTxCopy().getTxIn(indexOfInputZC_);}
+   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
+   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
    TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
    TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
    OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
@@ -109,8 +109,10 @@ public:
    BinaryData    getTxHashOfInput(void);
    BinaryData    getTxHashOfOutput(void);
 
-   bool setTxIn (TxRef* txref, uint32_t index, bool isZeroConf=false);
-   bool setTxOut(TxRef* txref, uint32_t index, bool isZeroConf=false);
+   bool setTxIn   (TxRef* txref, uint32_t index);
+   bool setTxOut  (TxRef* txref, uint32_t index);
+   bool setTxInZC (Tx*    tx,    uint32_t index);
+   bool setTxOutZC(Tx*    tx,    uint32_t index);
 
    //////////////////////////////////////////////////////////////////////////////
    bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
@@ -131,9 +133,10 @@ private:
    TxRef*    txPtrOfInput_;
    uint32_t  indexOfInput_;
 
-   TxRef*    txPtrOfOutputZC_;
+   // Zero-conf data isn't on disk, yet, so can't use TxRef
+   Tx *      txOfOutputZC_;
    uint32_t  indexOfOutputZC_;
-   TxRef*    txPtrOfInputZC_;
+   Tx *      txOfInputZC_;
    uint32_t  indexOfInputZC_;
 
    bool      isTxOutFromSelf_;
@@ -550,13 +553,11 @@ private:
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
-class ZeroConfData
+struct ZeroConfData
 {
-public:
    Tx            txobj_;   
    uint64_t      txtime_;
    list<BinaryData>::iterator iter_;
-
 };
 
 

@@ -31,9 +31,9 @@ TxIOPair::TxIOPair(void) :
    indexOfOutput_(0),
    txPtrOfInput_(NULL),
    indexOfInput_(0),
-   txPtrOfOutputZC_(NULL),
+   txOfOutputZC_(NULL),
    indexOfOutputZC_(0),
-   txPtrOfInputZC_(NULL),
+   txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false) {}
@@ -45,9 +45,9 @@ TxIOPair::TxIOPair(uint64_t  amount) :
    indexOfOutput_(0),
    txPtrOfInput_(NULL),
    indexOfInput_(0),
-   txPtrOfOutputZC_(NULL),
+   txOfOutputZC_(NULL),
    indexOfOutputZC_(0),
-   txPtrOfInputZC_(NULL),
+   txOfInputZC_(NULL),
    indexOfInputZC_(0) ,
    isTxOutFromSelf_(false),
    isFromCoinbase_(false) {}
@@ -57,9 +57,9 @@ TxIOPair::TxIOPair(TxRef* txPtrO, uint32_t txoutIndex) :
    amount_(0),
    txPtrOfInput_(NULL),
    indexOfInput_(0) ,
-   txPtrOfOutputZC_(NULL),
+   txOfOutputZC_(NULL),
    indexOfOutputZC_(0),
-   txPtrOfInputZC_(NULL),
+   txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false)
@@ -73,9 +73,9 @@ TxIOPair::TxIOPair(TxRef*    txPtrO,
                    TxRef*    txPtrI, 
                    uint32_t  txinIndex) :
    amount_(0),
-   txPtrOfOutputZC_(NULL),
+   txOfOutputZC_(NULL),
    indexOfOutputZC_(0),
-   txPtrOfInputZC_(NULL),
+   txOfInputZC_(NULL),
    indexOfInputZC_(0),
    isTxOutFromSelf_(false),
    isFromCoinbase_(false)
@@ -130,56 +130,58 @@ TxIn TxIOPair::getTxIn(void) const
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxIn(TxRef* txref, uint32_t index, bool isZeroConf)
+bool TxIOPair::setTxIn(TxRef* txref, uint32_t index)
 { 
-   if(isZeroConf)
-   {
-      if(hasTxInInMain() || hasTxInZC())
-         return false;
-      else
-      {
-         txPtrOfInput_    = NULL;
-         indexOfInput_    = 0;
-         txPtrOfInputZC_  = txref;
-         indexOfInputZC_  = index;
-      }
-   }
+   txPtrOfInput_  = txref;
+   indexOfInput_  = index;
+   txOfInputZC_   = NULL;
+   indexOfInputZC_= 0;
+
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxInZC(Tx* tx, uint32_t index)
+{ 
+   if(hasTxInInMain() || hasTxInZC())
+      return false;
    else
    {
-      txPtrOfInput_  = txref;
-      indexOfInput_  = index;
-      txPtrOfInputZC_  = NULL;
-      indexOfInputZC_  = 0;
+      txPtrOfInput_    = NULL;
+      indexOfInput_    = 0;
+      txOfInputZC_     = tx;
+      indexOfInputZC_  = index;
    }
 
    return true;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-bool TxIOPair::setTxOut(TxRef* txref, uint32_t index, bool isZeroConf)
+bool TxIOPair::setTxOut(TxRef* txref, uint32_t index)
 {
-   if(isZeroConf)
-   {
-      if(hasTxOutInMain() || hasTxOutZC())
-         return false;
-      else
-      {
-         txPtrOfOutput_   = NULL;
-         indexOfOutput_   = 0;
-         txPtrOfOutputZC_ = txref; 
-         indexOfOutputZC_ = index;
-         if(hasTxOutZC())
-            amount_ = getTxOutZC().getValue();
-      }
-   }
+   txPtrOfOutput_   = txref; 
+   indexOfOutput_   = index;
+   txOfOutputZC_    = NULL;
+   indexOfOutputZC_ = 0;
+   if(hasTxOut())
+      amount_ = getTxOut().getValue();
+
+   return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+bool TxIOPair::setTxOutZC(Tx* tx, uint32_t index)
+{
+   if(hasTxOutInMain() || hasTxOutZC())
+      return false;
    else
    {
-      txPtrOfOutput_ = txref; 
-      indexOfOutput_ = index;
-      txPtrOfOutputZC_ = NULL;
-      indexOfOutputZC_ = 0;
-      if(hasTxOut())
-         amount_ = getTxOut().getValue();
+      txPtrOfOutput_   = NULL;
+      indexOfOutput_   = 0;
+      txOfOutputZC_    = tx;
+      indexOfOutputZC_ = index;
+      if(hasTxOutZC())
+         amount_ = getTxOutZC().getValue();
    }
    return true;
 }
@@ -278,10 +280,20 @@ bool TxIOPair::hasTxInInMain(void) const
    return (hasTxIn() && txPtrOfInput_->isMainBranch());
 }
 
+bool TxIOPair::hasTxOutZC(void) const
+{ 
+   return (txOfInputZC_!=NULL && txOfOutputZC_->isInitialized()); 
+}
+
+bool TxIOPair::hasTxInZC(void) const
+{ 
+   return (txOfInputZC_!=NULL && txOfInputZC_->isInitialized());
+}
+
 void TxIOPair::clearZCFields(void)
 {
-   txPtrOfOutputZC_ = NULL;
-   txPtrOfInputZC_  = NULL;
+   txOfOutputZC_ = NULL;
+   txOfInputZC_  = NULL;
    indexOfOutputZC_ = 0;
    indexOfInputZC_  = 0;
    isTxOutFromSelf_ = false;
@@ -977,7 +989,12 @@ void BtcWallet::scanTx(Tx & tx,
                // If it didn't, it's because this is from a zero-conf tx but this 
                // TxIn already exists in the blockchain spending the same output.
                // (i.e. we have a ref to the prev output, but it's been spent!)
-               bool isValidNew = txio.setTxIn(tx.getTxRefPtr(), iin, isZeroConf);
+               bool isValidNew;
+               if(isZeroConf)
+                  isValidNew = txio.setTxInZC(&tx, iin);
+               else
+                  isValidNew = txio.setTxIn(tx.getTxRefPtr(), iin);
+
                if(!isValidNew)
                   continue;
 
@@ -1005,7 +1022,10 @@ void BtcWallet::scanTx(Tx & tx,
             // be there
             if(nonStdTxioMap_.find(outpt) != nonStdTxioMap_.end())
             {
-               nonStdTxioMap_[outpt].setTxIn(tx.getTxRefPtr(), iin, isZeroConf);
+               if(isZeroConf)
+                  nonStdTxioMap_[outpt].setTxInZC(&tx, iin);
+               else
+                  nonStdTxioMap_[outpt].setTxIn(tx.getTxRefPtr(), iin);
                nonStdUnspentOutPoints_.erase(outpt);
             }
          }
@@ -1047,7 +1067,7 @@ void BtcWallet::scanTx(Tx & tx,
                   // there was no existing TxOut referenced by it.  Probably,
                   // there was, but that TxOut was invalidated due to reorg
                   // and now being re-added
-                  txioIter->second.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
+                  txioIter->second.setTxOutZC(&tx, iout);
                   thisAddr.addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -1062,7 +1082,7 @@ void BtcWallet::scanTx(Tx & tx,
                   // relevantTxIOPtrs_ does not have this yet so it needs 
                   // to be added (it's already part of the relevantTxIOPtrsZC_
                   // but that will be removed)
-                  txioIter->second.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
+                  txioIter->second.setTxOut(tx.getTxRefPtr(), iout);
                   thisAddr.addTxIO( txioIter->second, isZeroConf);
                   doAddLedgerEntry = true;
                }
@@ -1071,7 +1091,10 @@ void BtcWallet::scanTx(Tx & tx,
             {
                // TxIO is not in the map yet -- create and add it
                TxIOPair newTxio;
-               newTxio.setTxOut(tx.getTxRefPtr(), iout, isZeroConf);
+               if(isZeroConf)
+                  newTxio.setTxOutZC(&tx, iout);
+               else
+                  newTxio.setTxOut(tx.getTxRefPtr(), iout);
    
                pair<OutPoint, TxIOPair> toBeInserted(outpt, newTxio);
                txioIter = txioMap_.insert(toBeInserted).first;

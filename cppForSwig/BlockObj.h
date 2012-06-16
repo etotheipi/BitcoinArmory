@@ -326,7 +326,7 @@ class Tx
    friend class BlockDataManager_FileRefs;
 
 public:
-   Tx(void) : isInitialized_(false), headerPtr_(NULL) {}
+   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }
@@ -355,9 +355,13 @@ public:
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
 
+   // This is to identify whether this tx has an counterpart on disk
+   // If not, it's just a floater (probably zero-conf tx) and we need
+   // to avoid using the txRefPtr_
+   bool               isTethered(void) {return txRefPtr_!=NULL; }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData    serialize(void) const    { return dataCopy_; }
+   BinaryData         serialize(void) const    { return dataCopy_; }
 
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);

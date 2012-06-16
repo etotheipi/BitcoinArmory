@@ -81,9 +81,9 @@ int main(void)
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
-   string blkdir("/home/alan/.bitcoin");
+   //string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
-   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
+   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
