@@ -183,7 +183,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint32_t openFile(uint32_t fIndex, string filename)
    {
-      cout << "Opening file " << fIndex << ": " << filename.c_str() << endl;
 
       // Make sure file exists
       if(BtcUtils::GetFileSize(filename) == UINT64_MAX)
@@ -201,6 +200,7 @@ public:
       ifstream* istrmPtr = openFiles_[fIndex];
       if(istrmPtr==NULL)
       {
+         cout << "Opening file " << fIndex+1 << ": " << filename.c_str() << endl;
          openFiles_[fIndex] = new ifstream;
       }
       else

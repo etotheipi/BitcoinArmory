@@ -85,7 +85,7 @@ int main(void)
    //string blkdir("/home/alan/.bitcoin/testnet/");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
-   string multitest("./multiblktest");
+   //string multitest("./multiblktest");
    
    // ONLY USE THIS TO CREATE THE TEST BLOCKCHAIN -- then comment it out
    //CreateMultiBlkFile(blkdir); return 0;
@@ -341,7 +341,6 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    bdm.registerWallet(&wlt1);
    bdm.registerWallet(&wlt2);
 
-   blkdir = string("C:/Users/vbox/Downloads");
 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;

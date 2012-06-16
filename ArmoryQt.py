@@ -2125,6 +2125,7 @@ class ArmoryMainWindow(QMainWindow):
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
                   (htmlColor('TextGreen'), self.latestBlockNum))
+            self.walletModel.reset()
 
          nowtime = RightNow()
          blkRecvAgo  = nowtime - self.blkReceived

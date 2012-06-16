@@ -543,7 +543,7 @@ uint64_t Tx::getSumOfOutputs(void)
 // information, so it can probably just be computed on the fly
 TxIn Tx::getTxIn(int i)
 {
-   assert(isInitialized_);
+   assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
    return TxIn(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, getTxRefPtr(), i);
 }
@@ -554,7 +554,7 @@ TxIn Tx::getTxIn(int i)
 // information, so it can probably just be computed on the fly
 TxOut Tx::getTxOut(int i)
 {
-   assert(isInitialized_);
+   assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
    return TxOut(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, getTxRefPtr(), i);
 }

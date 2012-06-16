@@ -2188,7 +2188,6 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    // TODO:  I am assuming this will be too slow, but I will test/time it
    //        before making that conclusion:  perhaps pre-caching is enough
    //        to avoid complicating this to the level of parseEntireBlockchain
-   cout << "Timing Test for [slow-method] rescan...";
    TIMER_START("RescanTiming");
    for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
    {
@@ -2207,7 +2206,6 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
       }
    }
    TIMER_STOP("RescanTiming");
-   cout << UniversalTimer::instance().getLastTiming() << " seconds" << endl;
 
    allRegAddrScannedUpToBlk_ = endBlknum;
    updateRegisteredAddresses(endBlknum);

@@ -5761,7 +5761,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
       self.txtTxDP.setText(newTxdp.serializeAscii())
       self.txdpObj = newTxdp
 
-      self.saveTx()
+      if not self.fileLoaded==None:
+         self.saveTx()
 
 
    def broadTx(self):
@@ -6166,15 +6167,15 @@ def extractTxInfo(pytx, rcvTime=None):
       sumTxOut += txout.value
   
 
-   txref = None
+   txcpp = Tx()
    if TheBDM.isInitialized(): 
-      txref = TheBDM.getTxByHash(txHash)
-      if txref:
-         headref = txref.getHeaderPtr()
+      txcpp = TheBDM.getTxByHash(txHash)
+      if txcpp.isInitialized():
+         headref = txcpp.getHeaderPtr()
          if headref:
             txTime  = unixTimeToFormatStr(headref.getTimestamp())
             txBlk   = headref.getBlockHeight()
-            txIdx   = txref.getBlockTxIndex()
+            txIdx   = txcpp.getBlockTxIndex()
          else:
             if rcvTime==None:
                txTime  = 'Unknown'
@@ -6188,13 +6189,13 @@ def extractTxInfo(pytx, rcvTime=None):
             txIdx   = -1
    
    txinFromList = []
-   if TheBDM.isInitialized() and not txref==None:
+   if TheBDM.isInitialized() and txcpp.isInitialized():
       # Use BDM to get all the info about the TxOut being spent
       # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
       haveAllInput=True
-      for i in range(txref.getNumTxIn()):
+      for i in range(txcpp.getNumTxIn()):
          txinFromList.append([])
-         cppTxin = txref.getTxInRef(i)
+         cppTxin = txcpp.getTxIn(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
          if TheBDM.getTxByHash(prevTxHash):
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
