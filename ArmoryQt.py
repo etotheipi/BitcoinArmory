@@ -302,7 +302,6 @@ class ArmoryMainWindow(QMainWindow):
 
       logoBtnFrame = []
       logoBtnFrame.append(self.lblLogoIcon)
-      print self.lblLogoIcon.width(), self.lblLogoIcon.height()
       logoBtnFrame.append(btnSendBtc)
       logoBtnFrame.append(btnRecvBtc)
       logoBtnFrame.append(btnWltProps)
@@ -1066,7 +1065,9 @@ class ArmoryMainWindow(QMainWindow):
    
          # Now that theb blockchain is loaded, let's populate the wallet info
          if TheBDM.isInitialized():
-            TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+            self.checkMemoryPoolCorruption(mempoolfile)
+            TheBDM.enableZeroConf(mempoolfile)
    
             self.statusBar().showMessage('Syncing wallets with blockchain...')
             print 'Syncing wallets with blockchain...'
@@ -1098,6 +1099,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
+      if not os.path.exists(mempoolname): 
+         return
+
       memfile = open(mempoolname, 'r')
       memdata = memfile.read()
       memfile.close()
@@ -1108,7 +1112,7 @@ class ArmoryMainWindow(QMainWindow):
             binunpacker.get(UINT64)
             PyTx().unserialize(binunpacker)
       except:
-         print 'Memory pool file was corrupt.  Deleted.'
+         print 'Memory pool file was corrupt.  Deleted. (no further action is needed)'
          os.remove(mempoolname);
       
 
@@ -2125,6 +2129,8 @@ class ArmoryMainWindow(QMainWindow):
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
                   (htmlColor('TextGreen'), self.latestBlockNum))
+
+            # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()
 
          nowtime = RightNow()
