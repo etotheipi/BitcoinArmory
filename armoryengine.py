@@ -8683,7 +8683,7 @@ class ArmoryClient(Protocol):
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
                from twisted.internet import reactor
-            if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
+            if inv[0]==MSG_INV_TX and not TheBDM.getTxByHash(inv[1]).isInitialized():
                #print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)
          self.sendMessage(getdataMsg)

@@ -1203,19 +1203,22 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-         self.ledgerProxy = LedgerDispSortProxy()
-         #self.ledgerProxy.setDynamicSortFilter(True)
-         self.ledgerProxy.setSourceModel(self.ledgerModel)
-         self.ledgerView.setModel(self.ledgerProxy)
-         self.ledgerView.hideColumn(LEDGERCOLS.isOther)
-         self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
-         self.ledgerView.hideColumn(LEDGERCOLS.WltID)
-         self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
-         self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
-         self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+         self.ledgerModel.ledger = self.ledgerTable
+         self.ledgerModel.reset()
+         self.ledgerProxy.reset()
+
+         #self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+         #self.ledgerProxy = LedgerDispSortProxy()
+         ##self.ledgerProxy.setDynamicSortFilter(True)
+         #self.ledgerProxy.setSourceModel(self.ledgerModel)
+         #self.ledgerView.setModel(self.ledgerProxy)
+         #self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+         #self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
+         #self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+         #self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+         #self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+         #self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
          #self.ledgerView.setModel(self.ledgerModel)
-         #self.ledgerModel.reset()
 
       except AttributeError:
          pass
@@ -2170,7 +2173,6 @@ class ArmoryMainWindow(QMainWindow):
          for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
-               print 'This tx is ours!'
                if not le.getTxHash() in notifiedAlready:
                   self.notifyQueue.append([wltID, le, False])
                else:
