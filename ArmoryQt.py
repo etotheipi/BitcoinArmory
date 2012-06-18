@@ -30,6 +30,7 @@ import shutil
 import math
 import threading
 import platform
+import traceback
 from datetime import datetime
 
 # PyQt4 Imports
@@ -68,13 +69,13 @@ class ArmoryMainWindow(QMainWindow):
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -156,10 +157,11 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerProxy = LedgerDispSortProxy()
       self.ledgerProxy.setSourceModel(self.ledgerModel)
       self.ledgerProxy.setDynamicSortFilter(False)
-      self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
+      #self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
 
       self.ledgerView  = QTableView()
       self.ledgerView.setModel(self.ledgerProxy)
+      #self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -212,7 +214,7 @@ class ArmoryMainWindow(QMainWindow):
       self.populateLedgerComboBox()
 
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
-      self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
+      self.connect(self.comboWalletSelect, SIGNAL('activated(int)'), ccl)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -425,6 +427,8 @@ class ArmoryMainWindow(QMainWindow):
          restoreTableView(self.walletsView, hexwltsz)
       if len(hexledgsz)>0:
          restoreTableView(self.ledgerView, hexledgsz)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
 
@@ -770,9 +774,8 @@ class ArmoryMainWindow(QMainWindow):
             # If it is ours, let's add it to the notifier queue
             if not le.getTxHash()=='\x00'*32:
                self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-
-         self.createCombinedLedger()
-         self.ledgerModel.reset()
+               self.createCombinedLedger()
+               #self.ledgerModel.reset()
 
       def showOfflineMsg():
          if CLI_OPTIONS.disable_conn_notify:
@@ -1124,6 +1127,7 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
+
       start = RightNow()
       if wltIDList==None:
          # Create a list of [wltID, type] pairs
@@ -1200,10 +1204,17 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
          self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-         #self.ledgerProxy = LedgerDispSortProxy()
+         self.ledgerProxy = LedgerDispSortProxy()
          #self.ledgerProxy.setDynamicSortFilter(True)
          self.ledgerProxy.setSourceModel(self.ledgerModel)
          self.ledgerView.setModel(self.ledgerProxy)
+         self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+         self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
+         self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+         self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+         self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+         self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+         #self.ledgerView.setModel(self.ledgerModel)
          #self.ledgerModel.reset()
 
       except AttributeError:
@@ -2154,14 +2165,16 @@ class ArmoryMainWindow(QMainWindow):
       # We usually see transactions as zero-conf first, then they show up in 
       # a block. It is a "surprise" when the first time we see it is in a block
       notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
+      print blk0, blk1
       for blk in range(blk0, blk1):
          for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                print 'This tx is ours!'
                if not le.getTxHash() in notifiedAlready:
+                  self.notifyQueue.append([wltID, le, False])
+               else:
                   print '...but we\'ve been notified before, alread'
-                  #self.notifyQueue.append([wltID, le, False])
                
             
 
@@ -2319,7 +2332,7 @@ def execAndWait(cli_str):
 
 
 ############################################
-if __name__ == '__main__':
+if 1:
 
    import qt4reactor
    qt4reactor.install()

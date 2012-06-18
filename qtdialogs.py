@@ -3563,6 +3563,8 @@ class GfxItemText(QGraphicsTextItem):
       if lineWidth:
          self.setTextWidth(lineWidth)
 
+      self.setDefaultTextColor(QColor(0,0,0))
+
    def boundingRect(self):
       w,h = relaxedSizeStr(self, self.toPlainText())
       nLine=1
@@ -4533,6 +4535,11 @@ class DlgSendBitcoins(ArmoryDialog):
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
             
+
+      if self.main.isOnline and not wlt.watchingOnly:
+         btnSend.setDefault(True)
+      else:
+         btnUnsigned.setDefault(True)
          
 
    #############################################################################
@@ -6617,20 +6624,20 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.hideColumn(TXINCOLS.OutPt) 
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 
-      if haveBDM:
-         if self.mode==USERMODE.Standard:
-            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.ScrType) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Advanced:
-            initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Developer:
-            self.txInView.resizeColumnsToContents()
+
+      if self.mode==USERMODE.Standard:
+         initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.ScrType) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Advanced:
+         initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Developer:
+         self.txInView.resizeColumnsToContents()
             
       self.txInView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.txInView.customContextMenuRequested.connect(self.showContextMenuTxIn)
@@ -6914,6 +6921,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.view = GfxViewPaper()
       self.scene = QGraphicsScene(self)
       self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
+      self.scene.setBackgroundBrush(QColor(255,255,255))
       self.view.setScene(self.scene)
 
 
@@ -8438,11 +8446,13 @@ class DlgAddressBook(ArmoryDialog):
    def setAddrBookTxModel(self, wltID):
       self.addrBookTxModel = SentToAddrBookModel(wltID, self.main)
 
-      self.addrBookTxProxy = QSortFilterProxyModel(self)
+      #
+      self.addrBookTxProxy = SentAddrSortProxy(self)
       self.addrBookTxProxy.setSourceModel(self.addrBookTxModel)
-      self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
+      #self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
 
       self.addrBookTxView.setModel(self.addrBookTxProxy)
+      self.addrBookTxView.setSortingEnabled(True)
       self.addrBookTxView.setSelectionBehavior(QTableView.SelectRows)
       self.addrBookTxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookTxView.horizontalHeader().setStretchLastSection(True)
@@ -8462,7 +8472,7 @@ class DlgAddressBook(ArmoryDialog):
 
       self.addrBookRxProxy = WalletAddrSortProxy(self)
       self.addrBookRxProxy.setSourceModel(self.addrBookRxModel)
-      self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
+      #self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
 
       self.addrBookRxView.setModel(self.addrBookRxProxy)
       self.addrBookRxView.setSelectionBehavior(QTableView.SelectRows)

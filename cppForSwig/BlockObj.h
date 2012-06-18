@@ -97,6 +97,7 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
+   void clearDataCopy() {dataCopy_.resize(0);}
 
 private:
    BinaryData     dataCopy_;

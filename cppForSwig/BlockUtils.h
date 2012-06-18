@@ -890,6 +890,14 @@ public:
    BinaryData getSenderAddr20(TxIn & txin);
    int64_t    getSentValue(TxIn & txin);
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   // A couple random methods to expose internal data structures for testing.
+   // These methods should not be used for nominal operation.
+   multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
+   map<HashString, BlockHeader> & getHeaderMapRef(void) { return headerMap_; }
+   deque<BlockHeader*> &          getHeadersByHeightRef(void) { return headersByHeight_;}
+
 private:
 
    /////////////////////////////////////////////////////////////////////////////
