@@ -1228,7 +1228,7 @@ class ArmoryMainWindow(QMainWindow):
    def getFeeForTx(self, txHash):
       if TheBDM.isInitialized():
          txref = TheBDM.getTxByHash(txHash)
-         if not txref:
+         if not txref.isInitialized():
             print 'Why no txref? ', binary_to_hex(txHash)
             return 0
          valIn, valOut = 0,0

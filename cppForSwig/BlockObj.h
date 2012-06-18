@@ -327,7 +327,8 @@ class Tx
    friend class BlockDataManager_FileRefs;
 
 public:
-   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL) {}
+   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
+              offsetsTxIn_(0), offsetsTxOut_(0) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }

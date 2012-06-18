@@ -53,10 +53,8 @@ with open('armoryengine.py') as f:
             vstr += '.%d' % vquad[3]
          break
 
-pyversion = platform.python_version()
-pyversion2 = '.'.join(pyversion.split('.')[:2])
 
-pkgdir = 'armory-%s-python%s' % (vstr, pyversion2)
+pkgdir = 'armory-%s' % (vstr,)
 
 if not vstr:
    print '***ERROR: Could not deduce version from armoryengine.py. '
@@ -65,7 +63,7 @@ if not vstr:
 
 # Copy the correct control file (for 32-bit or 64-bit OS)
 osBits = platform.architecture()[0][:2]
-shutil.copy('dpkgfiles/control%s_py%s' % (osBits,pyversion2), 'dpkgfiles/control')
+shutil.copy('dpkgfiles/control%s' % (osBits), 'dpkgfiles/control')
 dpkgfiles = ['control', 'copyright', 'postinst', 'postrm']
 
 

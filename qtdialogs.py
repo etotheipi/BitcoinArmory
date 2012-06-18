@@ -6204,8 +6204,9 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxIn(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.getTxByHash(prevTxHash):
+         if TheBDM.getTxByHash(prevTxHash).isInitialized():
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
+            prevTxOut.pprint()
             txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
             txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
