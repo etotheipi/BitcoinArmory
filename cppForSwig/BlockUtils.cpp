@@ -338,6 +338,7 @@ bool LedgerEntry::operator==(LedgerEntry const & le2) const
    return (blockNum_ == le2.blockNum_ && index_ == le2.index_);
 }
 
+//////////////////////////////////////////////////////////////////////////////
 void LedgerEntry::pprint(void)
 {
    cout << "LedgerEntry: " << endl;
@@ -347,11 +348,13 @@ void LedgerEntry::pprint(void)
    cout << "   TxHash  : " << getTxHash().toHexStr() << endl;
    cout << "   TxIndex : " << getIndex() << endl;
    cout << "   isValid : " << (isValid() ? 1 : 0) << endl;
+   cout << "   Coinbase: " << (isCoinbase() ? 1 : 0) << endl;
    cout << "   sentSelf: " << (isSentToSelf() ? 1 : 0) << endl;
    cout << "   isChange: " << (isChangeBack() ? 1 : 0) << endl;
    cout << endl;
 }
 
+//////////////////////////////////////////////////////////////////////////////
 void LedgerEntry::pprintOneLine(void)
 {
    printf("   Addr:%s Tx:%s:%02d   BTC:%0.3f   Blk:%06d\n", 
@@ -1006,6 +1009,7 @@ void BtcWallet::scanTx(Tx & tx,
                                     tx.getThisHash(), 
                                     iin,
                                     txtime,
+                                    isCoinbaseTx,
                                     false,  // SentToSelf is meaningless for addr ledger
                                     false); // "isChangeBack" is meaningless for TxIn
                thisAddr.addLedgerEntry(newEntry, isZeroConf);
@@ -1119,6 +1123,7 @@ void BtcWallet::scanTx(Tx & tx,
                                      tx.getThisHash(), 
                                      iout,
                                      txtime,
+                                     isCoinbaseTx, // input was coinbase/generation
                                      false,   // sentToSelf meaningless for addr ledger
                                      false);  // we don't actually know
                thisAddr.addLedgerEntry(newLedger, isZeroConf);
@@ -1158,6 +1163,7 @@ void BtcWallet::scanTx(Tx & tx,
                       tx.getThisHash(), 
                       txIndex,
                       txtime,
+                      isCoinbaseTx,
                       isSentToSelf,
                       isChangeBack);
 
@@ -1184,11 +1190,16 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
    uint8_t const * txStartPtr = tx.getPtr();
    bool anyTxInIsOurs = false;
    bool allTxOutIsOurs = true;
+   bool isCoinbaseTx = false;
    for(uint32_t iin=0; iin<tx.getNumTxIn(); iin++)
    {
       // We have the txin, now check if it contains one of our TxOuts
       static OutPoint op;
       op.unserialize(txStartPtr + tx.getTxInOffset(iin));
+
+      if(op.getTxHashRef() == BtcUtils::EmptyHash_)
+         isCoinbaseTx = true;
+
       if(txioMap_.find(op) != txioMap_.end())
       {
          anyTxInIsOurs = true;
@@ -1241,6 +1252,7 @@ LedgerEntry BtcWallet::calcLedgerEntryForTx(Tx & tx)
                       tx.getThisHash(), 
                       0,
                       0,
+                      isCoinbaseTx,
                       isSentToSelf,
                       false);
 }
@@ -2306,11 +2318,9 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
       }
 
       BlockHeader* bhptr = theTx.getHeaderPtr();
+      // This condition happens on invalid Tx (like invalid P2Pool coinbases)
       if( bhptr==NULL )
-      {
-         cout << "***WARNING: How did we get a tx without a header?" << endl;
          continue;
-      }
 
       if( !bhptr->isMainBranch() )
          continue;

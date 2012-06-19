@@ -2905,6 +2905,7 @@ class DlgAddressInfo(ArmoryDialog):
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.WltName)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+      self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
 
@@ -3531,10 +3532,10 @@ PAPER_A4_HEIGHT = 11.0*PAPER_DPI
 #  preserve the capitalization of the letters, meaning that Base58
 #  is not a feasible options
 NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
-BASE16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
+EASY16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
 hex_to_base16_map = {}
 base16_to_hex_map = {}
-for n,b in zip(NORMALCHARS,BASE16CHARS):
+for n,b in zip(NORMALCHARS,EASY16CHARS):
    hex_to_base16_map[n] = b
    base16_to_hex_map[b] = n
 

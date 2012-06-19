@@ -91,7 +91,7 @@ if CLI_OPTIONS.interport < 0:
 
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 79,99, 1)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 79,99, 2)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -332,7 +332,7 @@ def str2coin(coinStr):
 
 # Some useful constants to be used throughout everything
 BASE58CHARS  = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
-BASE16CHARS  = 'abcd eghj knrs uwxy'.replace(' ','')
+BASE16CHARS  = '0123 4567 89ab cdef'.replace(' ','')
 LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 NETWORKENDIAN = '!';
@@ -391,6 +391,30 @@ except:
 ################################################################################
 # Might as well create the BDM right here -- there will only ever be one, anyway
 TheBDM = Cpp.BlockDataManager().getBDM()
+
+
+
+DATATYPE = enum("Binary", "ASCII", 'Base58', 'Hex')
+def isLikelyDataType(theStr):
+   """ 
+   This really shouldn't be used on short strings.  Hence
+   why it's called "likely" datatype...
+   """
+   hexCount = sum([1 if c in BASE16CHARS else 0 for c in theStr])
+   b58Count = sum([1 if c in BASE58CHARS else 0 for c in theStr])
+   canBeHex = hexCount==len(theStr)
+   canBeB58 = b58Count==len(theStr)
+   if canBeHex:
+      return DATATYPE.Hex
+   if canBeB58 and not canBeHex:
+      return DATATYPE.Base58
+
+   ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
+   if ascCount==len(theStr):
+      return DATATYPE.ASCII
+   else:
+      return DATATYPE.Binary
+
 
 
 def getCurrTimeAndBlock():
@@ -5837,8 +5861,10 @@ class PyBtcWallet(object):
       if isinstance(addrData, str):
          if len(addrData) == 20:
             return self.addrMap.has_key(addrData)
-         else:
+         elif isLikelyDataType(addrData)==DATATYPE.Base58:
             return self.addrMap.has_key(addrStr_to_hash160(addrData))
+         else:
+            return False
       elif isinstance(addrData, PyBtcAddress):
          return self.addrMap.has_key(addrData.getAddr160())
       else:
@@ -7374,10 +7400,10 @@ class PyBtcWallet(object):
          print 'This address is already in your wallet!'
          return
 
-      if pubKey and not computedPubkey==pubKey:
-         raise ECDSA_Error, 'Private and public keys to be imported do not match!'
-      if addr20 and not computedAddr20==addr20:
-         raise ECDSA_Error, 'Supplied address hash does not match key data!'
+      #if pubKey and not computedPubkey==pubKey:
+         #raise ECDSA_Error, 'Private and public keys to be imported do not match!'
+      #if addr20 and not computedAddr20==addr20:
+         #raise ECDSA_Error, 'Supplied address hash does not match key data!'
 
       addr20 = computedAddr20
       
@@ -7390,6 +7416,8 @@ class PyBtcWallet(object):
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
 
 
+      securePubKey = SecureBinaryData(pubKey)
+
       if privKey:
          # For priv key, lots of extra encryption and verification options
          newAddr = PyBtcAddress().createFromPlainKeyData( addr160=addr20, \
@@ -7400,7 +7428,6 @@ class PyBtcWallet(object):
          if self.useEncryption:
             newAddr.lock(self.kdfKey)
             newAddr.unlock(self.kdfKey)
-
       elif pubKey:
          newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey)
       else:

@@ -69,6 +69,12 @@
       <file alias="conf4t.png">img/conf4t.png</file>
       <file alias="conf5t.png">img/conf5t.png</file>
       <file alias="conf6t.png">img/conf6t.png</file>
+      <file alias="conf0t_nonum.png">img/conf0t_nonum.png</file>
+      <file alias="conf1t_nonum.png">img/conf1t_nonum.png</file>
+      <file alias="conf2t_nonum.png">img/conf2t_nonum.png</file>
+      <file alias="conf3t_nonum.png">img/conf3t_nonum.png</file>
+      <file alias="conf4t_nonum.png">img/conf4t_nonum.png</file>
+      <file alias="conf5t_nonum.png">img/conf5t_nonum.png</file>
       <file alias="folder-new-5.png">img/folder-new-5.png</file>
       <file alias="folder.png">img/folder.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>

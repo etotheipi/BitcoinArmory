@@ -160,6 +160,7 @@ private:
 //    txHash_    -  hash of the tx in which this txin/txout was included
 //    index_     -  index of the txin/txout in this tx
 //    isValid_   -  default to true -- invalidated due to reorg/double-spend
+//    isCoinbase -  is the input side a coinbase/generation input
 //    isSentToSelf_ - if this is a txOut, did it come from ourself?
 //    isChangeBack_ - meaningless:  can't quite figure out how to determine
 //                    this unless I do a prescan to determine if all txOuts
@@ -173,6 +174,7 @@ private:
 //    txHash_    -  hash of this tx 
 //    index_     -  index of the tx in the block
 //    isValid_   -  default to true -- invalidated due to reorg/double-spend
+//    isCoinbase -  is the input side a coinbase/generation input
 //    isSentToSelf_ - if we supplied inputs and rx ALL outputs
 //    isChangeBack_ - if we supplied inputs and rx ANY outputs
 //
@@ -188,6 +190,7 @@ public:
       index_(UINT32_MAX),
       txTime_(0),
       isValid_(false),
+      isCoinbase_(false),
       isSentToSelf_(false),
       isChangeBack_(false) {}
 
@@ -197,6 +200,7 @@ public:
                BinaryData const & txhash, 
                uint32_t idx,
                uint64_t txtime=0,
+               bool isCoinbase=false,
                bool isToSelf=false,
                bool isChange=false) :
       addr20_(addr20),
@@ -206,6 +210,7 @@ public:
       index_(idx),
       txTime_(txtime),
       isValid_(true),
+      isCoinbase_(isCoinbase),
       isSentToSelf_(isToSelf),
       isChangeBack_(isChange) {}
 
@@ -216,6 +221,7 @@ public:
    uint32_t            getIndex(void) const     { return index_;         }
    uint32_t            getTxTime(void) const    { return txTime_;        }
    bool                isValid(void) const      { return isValid_;       }
+   bool                isCoinbase(void) const   { return isCoinbase_;    }
    bool                isSentToSelf(void) const { return isSentToSelf_;  }
    bool                isChangeBack(void) const { return isChangeBack_;  }
 
@@ -239,6 +245,7 @@ private:
    uint32_t         index_;  // either a tx index, txout index or txin index
    uint64_t         txTime_;
    bool             isValid_;
+   bool             isCoinbase_;
    bool             isSentToSelf_;
    bool             isChangeBack_;;
 

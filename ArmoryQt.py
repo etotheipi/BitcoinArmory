@@ -176,6 +176,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
       self.ledgerView.hideColumn(LEDGERCOLS.WltID)
       self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+      self.ledgerView.hideColumn(LEDGERCOLS.isCoinbase)
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
 
@@ -1338,6 +1339,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # TxHash
          row.append( binary_to_hex(le.getTxHash() ))
+
+         # Is this a coinbase/generation transaction
+         row.append( le.isCoinbase() )
 
          # Sent-to-self
          row.append( le.isSentToSelf() )

@@ -22,7 +22,7 @@ from armorycolors import Colors, htmlColor
 
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
-                   'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
+                   'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
 ADDRESSCOLS  = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
@@ -138,7 +138,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       return len(self.ledger)
 
    def columnCount(self, index=QModelIndex()):
-      return 12
+      return 13
 
    def data(self, index, role=Qt.DisplayRole):
       COL = LEDGERCOLS
@@ -149,7 +149,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
       wtype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
 
       #LEDGERCOLS  = enum('NumConf', 'UnixTime','DateStr', 'TxDir', 'WltName', 'Comment', \
-                         #'Amount', 'isOther', 'WltID', 'TxHash', 'toSelf', 'DoubleSpend')
+                         #'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
       if role==Qt.DisplayRole:
          return QVariant(rowData[col])
       elif role==Qt.TextAlignmentRole:
@@ -169,7 +169,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
          else:
             return QVariant( Colors.TblWltMine )
       elif role==Qt.ForegroundRole:
-         if self.index(index.row(),COL.DoubleSpend).data().toBool():
+         #if self.index(index.row(),COL.DoubleSpend).data().toBool():
+         if rowData[COL.DoubleSpend]:
             return QVariant(Colors.TextRed)
          if nConf <= 2:
             return QVariant(Colors.TextNoConfirm)
@@ -177,7 +178,8 @@ class LedgerDispModelSimple(QAbstractTableModel):
             return QVariant(Colors.TextSomeConfirm)
          
          if col==COL.Amount:
-            toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            toSelf = rowData[COL.toSelf]
             if toSelf:
                return QVariant(Colors.Mid)
             amt = float(rowData[COL.Amount])
@@ -191,22 +193,37 @@ class LedgerDispModelSimple(QAbstractTableModel):
             return f
       elif role==Qt.ToolTipRole:
          if col in (COL.NumConf, COL.DateStr):
-            if rowData[COL.NumConf]>5:
+            nConf = rowData[COL.NumConf]
+            isCB  = rowData[COL.isCoinbase]
+            isConfirmed = (nConf>119 if isCB else nConf>5)
+            if isConfirmed:
                return QVariant('Transaction confirmed!\n(%d confirmations)'%nConf)
             else:
-               tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
-               tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
-                               'confirmations is usually acceptable.\n'
-                               'For larger transactions, you should\n'
-                               'wait for 6 confirmations before\n'
-                               'trusting that the transaction valid.')
+               tooltipStr = ''
+               if isCB:
+                  tooltipStr = '%d/120 confirmations'%nConf
+                  tooltipStr += ( '\n\nThis is a "generation" transaction from\n'
+                                 'Bitcoin mining.  These transactions take\n'
+                                 '120 confirmations (approximately one day)\n'
+                                 'before they are available to be spent.')
+               else:
+                  tooltipStr = '%d/6 confirmations'%rowData[COL.NumConf]
+                  tooltipStr += ( '\n\nFor small transactions, 2 or 3\n'
+                                 'confirmations is usually acceptable.\n'
+                                 'For larger transactions, you should\n'
+                                 'wait for 6 confirmations before\n'
+                                 'trusting that the transaction valid.')
                return QVariant(tooltipStr)
          if col==COL.TxDir:
-            toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            #toSelf = self.index(index.row(), COL.toSelf).data().toBool()
+            toSelf = rowData[COL.toSelf]
             if toSelf:
                return QVariant('Bitcoins sent and received by the same wallet')
             else:
-               txdir = str(index.model().data(index).toString()).strip()
+               #txdir = str(index.model().data(index).toString()).strip()
+               txdir = rowData[COL.TxDir]
+               if rowData[COL.isCoinbase]:
+                  return QVariant('You mined these Bitcoins!')
                if txdir[0].startswith('-'):
                   return QVariant('Bitcoins sent')
                else:
@@ -303,11 +320,19 @@ class LedgerDispDelegate(QStyledItemDelegate):
 
       if index.column() == self.COL.NumConf:
          nConf = index.model().data(index).toInt()[0]
-         pixmaps = [':/conf%dt.png'%i for i in range(6)]
-         if nConf<6:
-            image = QImage(pixmaps[nConf])
-         else:
-            image = QImage(':/conf6t.png')
+         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data().toBool()
+         image=None
+         if isCoinbase:
+            if nConf<120:
+               effectiveNConf = int(6*float(nConf)/120.)
+               image = QImage(':/conf%dt_nonum.png'%effectiveNConf)
+            else:
+               image = QImage(':/conf6t.png')
+         else: 
+            if nConf<6:
+               image = QImage(':/conf%dt.png'%nConf)
+            else:
+               image = QImage(':/conf6t.png')
          painter.fillRect(option.rect, bgcolor)
          pixmap = QPixmap.fromImage(image)
          #pixmap.scaled(70, 30, Qt.KeepAspectRatio)
@@ -315,11 +340,11 @@ class LedgerDispDelegate(QStyledItemDelegate):
       elif index.column() == self.COL.TxDir:
          # This is frustrating... QVariant doesn't support 64-bit ints
          # So I have to pass the amt as string, then convert here to long
-         toSelf = index.model().index(index.row(), self.COL.toSelf).data().toBool()
+         toSelf     = index.model().index(index.row(), self.COL.toSelf).data().toBool()
+         isCoinbase = index.model().index(index.row(), self.COL.isCoinbase).data().toBool()
          image = QImage()
 
          # isCoinbase still needs to be flagged in the C++ utils
-         isCoinbase = False
          if isCoinbase:
             image = QImage(':/moneyCoinbase.png')
          elif toSelf:
