@@ -346,13 +346,14 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User', 'Tools', 'Wallets')
+      MENUS = enum('File', 'User', 'Tools', 'Wallets', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       self.menusList.append( self.menu.addMenu('&User') )
       self.menusList.append( self.menu.addMenu('&Tools') )
       self.menusList.append( self.menu.addMenu('&Wallets') )
+      self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
@@ -415,6 +416,9 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
+      execAbout = lambda: DlgHelpAbout(self).exec_()
+      actAboutWindow = self.createAction('About Armory', execAbout)
+      self.menusList[MENUS.Help].addAction(actAboutWindow)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')

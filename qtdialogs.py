@@ -3231,6 +3231,7 @@ class DlgIntroMessage(ArmoryDialog):
          'agreeing to the terms set forth in the LICENSE file included with this '
          'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
          'http://bitcoinarmory.com/index.php/software-licence</a>.')
+      lblDescr.setOpenExternalLinks(True)
       
       lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
       strReqts = []
@@ -6319,6 +6320,7 @@ class DlgDispTxInfo(ArmoryDialog):
                rvPairOther.append( [recip, amt] )
                indicesOther.append( idx )
          else:
+            # This isn't actually true:  P2Pool outputs get flagged as non-std...
             IsNonStandard = True
          idx+=1
 
@@ -6369,19 +6371,20 @@ class DlgDispTxInfo(ArmoryDialog):
       if precomputeAmt:
          txAmt = precomputeAmt
 
-      if IsNonStandard:
-         # TODO:  Need to do something with this non-std tx!
-         print '***Non-std transaction!'
-         QMessageBox.critical(self, 'Non-Standard Transaction', \
-           'This is a non-standard transaction, which cannot be '
-           'interpretted by this program.  DO NOT ASSUME that you '
-           'own these Bitcoins, even if you see your address in '
-           'any part of the transaction.  Only an expert can tell '
-           'you if and how these coins can be redeemed!  \n\n'
-           'If you would like more information, please copy the '
-           'information on the next window into an email and send '
-           'it to alan.reiner@gmail.com.', QMessageBox.Ok)
-         self.mode=USERMODE.Developer
+
+      # This is incorrectly flagging P2Pool outputs as non-std!
+      #if IsNonStandard:
+         ## TODO:  Need to do something with this non-std tx!
+         #print '***Non-std transaction!'
+         #QMessageBox.critical(self, 'Non-Standard Transaction', \
+           #'This is a non-standard transaction, which cannot be '
+           #'interpretted by this program.  DO NOT ASSUME that you '
+           #'own these Bitcoins, even if you see your address in '
+           #'any part of the transaction.  Only an expert can tell '
+           #'you if and how these coins can be redeemed!  \n\n'
+           #'If you would like more information, please copy the '
+           #'information on the next window into an email and send '
+           #'it to alan.reiner@gmail.com.', QMessageBox.Ok)
 
 
 
@@ -8667,8 +8670,32 @@ class DlgHelpAbout(ArmoryDialog):
    def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
       super(DlgHelpAbout, self).__init__(parent)
 
+      imgLogo = QLabel()
+      imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))
+      imgLogo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
+      lblHead = QRichLabel('Armory Bitcoin Client : Version %s-beta' % \
+                                    getVersionString(BTCARMORY_VERSION), doWrap=False)
+      lblWebpage = QRichLabel('<a href="http://www.bitcoinarmory.com">http://www.bitcoinarmory.com</a>')
+      lblWebpage.setOpenExternalLinks(True)
+      lblCopyright = QRichLabel('Copyright \xa9 2011-2012 Alan C. Reiner')
+      lblLicense = QRichLabel('Licensed under the '
+                              '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
+                              'Affero General Public License, Version 3</a> (AGPLv3)')
+      lblLicense.setOpenExternalLinks(True)
 
+      lblHead.setAlignment(Qt.AlignHCenter)
+      lblWebpage.setAlignment(Qt.AlignHCenter)
+      lblCopyright.setAlignment(Qt.AlignHCenter)
+      lblLicense.setAlignment(Qt.AlignHCenter)
+
+      dlgLayout = QHBoxLayout()
+      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, 'Stretch', lblLicense] ))
+      self.setLayout(dlgLayout)
+
+      self.setMinimumWidth(300)
+
+      self.setWindowTitle('About Armory')
 
 
 
