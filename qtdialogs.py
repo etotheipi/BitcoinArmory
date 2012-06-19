@@ -6169,7 +6169,7 @@ def extractTxInfo(pytx, rcvTime=None):
          print 'No OP_EVAL support yet!'
          txOutToList[-1].append(txout.binScript)
       elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-         print 'Unknown TxOut type'
+         #print 'Unknown TxOut type'
          txOutToList[-1].append(txout.binScript)
       else:
          print 'How did we miss TXOUT_SCRIPT_UNKNOWN txout type?'
