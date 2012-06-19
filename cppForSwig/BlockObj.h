@@ -97,6 +97,7 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
+   void clearDataCopy() {dataCopy_.resize(0);}
 
 private:
    BinaryData     dataCopy_;
@@ -326,7 +327,8 @@ class Tx
    friend class BlockDataManager_FileRefs;
 
 public:
-   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL) {}
+   Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
+              offsetsTxIn_(0), offsetsTxOut_(0) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }

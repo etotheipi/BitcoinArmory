@@ -3231,6 +3231,7 @@ class DlgIntroMessage(ArmoryDialog):
          'agreeing to the terms set forth in the LICENSE file included with this '
          'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
          'http://bitcoinarmory.com/index.php/software-licence</a>.')
+      lblDescr.setOpenExternalLinks(True)
       
       lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
       strReqts = []
@@ -3562,6 +3563,8 @@ class GfxItemText(QGraphicsTextItem):
       self.setPos(position)
       if lineWidth:
          self.setTextWidth(lineWidth)
+
+      self.setDefaultTextColor(QColor(0,0,0))
 
    def boundingRect(self):
       w,h = relaxedSizeStr(self, self.toPlainText())
@@ -4533,6 +4536,11 @@ class DlgSendBitcoins(ArmoryDialog):
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
             
+
+      if self.main.isOnline and not wlt.watchingOnly:
+         btnSend.setDefault(True)
+      else:
+         btnUnsigned.setDefault(True)
          
 
    #############################################################################
@@ -6197,13 +6205,20 @@ def extractTxInfo(pytx, rcvTime=None):
          txinFromList.append([])
          cppTxin = txcpp.getTxIn(i)
          prevTxHash = cppTxin.getOutPoint().getTxHash()
-         if TheBDM.getTxByHash(prevTxHash):
+         if TheBDM.getTxByHash(prevTxHash).isInitialized():
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
             txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
-            txinFromList[-1].append(prevTxOut.getIndex())
+            if prevTxOut.getParentTxPtr():
+               txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
+               txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
+               txinFromList[-1].append(prevTxOut.getIndex())
+            else:
+               print 'How did we get a bad parent pointer? (extractTxInfo)'
+               prevTxOut.pprint()
+               txinFromList[-1].append('')
+               txinFromList[-1].append('')
+               txinFromList[-1].append('')
          else:
             haveAllInput=False
             txin = PyTxIn().unserialize(cppTxin.serialize())
@@ -6305,6 +6320,7 @@ class DlgDispTxInfo(ArmoryDialog):
                rvPairOther.append( [recip, amt] )
                indicesOther.append( idx )
          else:
+            # This isn't actually true:  P2Pool outputs get flagged as non-std...
             IsNonStandard = True
          idx+=1
 
@@ -6355,19 +6371,20 @@ class DlgDispTxInfo(ArmoryDialog):
       if precomputeAmt:
          txAmt = precomputeAmt
 
-      if IsNonStandard:
-         # TODO:  Need to do something with this non-std tx!
-         print '***Non-std transaction!'
-         QMessageBox.critical(self, 'Non-Standard Transaction', \
-           'This is a non-standard transaction, which cannot be '
-           'interpretted by this program.  DO NOT ASSUME that you '
-           'own these Bitcoins, even if you see your address in '
-           'any part of the transaction.  Only an expert can tell '
-           'you if and how these coins can be redeemed!  \n\n'
-           'If you would like more information, please copy the '
-           'information on the next window into an email and send '
-           'it to alan.reiner@gmail.com.', QMessageBox.Ok)
-         self.mode=USERMODE.Developer
+
+      # This is incorrectly flagging P2Pool outputs as non-std!
+      #if IsNonStandard:
+         ## TODO:  Need to do something with this non-std tx!
+         #print '***Non-std transaction!'
+         #QMessageBox.critical(self, 'Non-Standard Transaction', \
+           #'This is a non-standard transaction, which cannot be '
+           #'interpretted by this program.  DO NOT ASSUME that you '
+           #'own these Bitcoins, even if you see your address in '
+           #'any part of the transaction.  Only an expert can tell '
+           #'you if and how these coins can be redeemed!  \n\n'
+           #'If you would like more information, please copy the '
+           #'information on the next window into an email and send '
+           #'it to alan.reiner@gmail.com.', QMessageBox.Ok)
 
 
 
@@ -6617,20 +6634,20 @@ class DlgDispTxInfo(ArmoryDialog):
       self.txInView.hideColumn(TXINCOLS.OutPt) 
       self.txInView.hideColumn(TXINCOLS.OutIdx) 
       self.txInView.hideColumn(TXINCOLS.Script) 
-      if haveBDM:
-         if self.mode==USERMODE.Standard:
-            initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.ScrType) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Advanced:
-            initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
-            self.txInView.hideColumn(TXINCOLS.FromBlk) 
-            self.txInView.hideColumn(TXINCOLS.Sequence) 
-            #self.txInView.setSelectionMode(QTableView.NoSelection)
-         elif self.mode==USERMODE.Developer:
-            self.txInView.resizeColumnsToContents()
+
+      if self.mode==USERMODE.Standard:
+         initialColResize(self.txInView, [wWlt, wAddr, wAmt, 0, 0, 0, 0, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.ScrType) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Advanced:
+         initialColResize(self.txInView, [0.8*wWlt, 0.6*wAddr, wAmt, 0, 0, 0, 0.2, 0, 0])
+         self.txInView.hideColumn(TXINCOLS.FromBlk) 
+         self.txInView.hideColumn(TXINCOLS.Sequence) 
+         #self.txInView.setSelectionMode(QTableView.NoSelection)
+      elif self.mode==USERMODE.Developer:
+         self.txInView.resizeColumnsToContents()
             
       self.txInView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.txInView.customContextMenuRequested.connect(self.showContextMenuTxIn)
@@ -6914,6 +6931,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.view = GfxViewPaper()
       self.scene = QGraphicsScene(self)
       self.scene.setSceneRect(0,0, PAPER_A4_WIDTH, PAPER_A4_HEIGHT)
+      self.scene.setBackgroundBrush(QColor(255,255,255))
       self.view.setScene(self.scene)
 
 
@@ -8438,11 +8456,13 @@ class DlgAddressBook(ArmoryDialog):
    def setAddrBookTxModel(self, wltID):
       self.addrBookTxModel = SentToAddrBookModel(wltID, self.main)
 
-      self.addrBookTxProxy = QSortFilterProxyModel(self)
+      #
+      self.addrBookTxProxy = SentAddrSortProxy(self)
       self.addrBookTxProxy.setSourceModel(self.addrBookTxModel)
-      self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
+      #self.addrBookTxProxy.sort(ADDRBOOKCOLS.Address)
 
       self.addrBookTxView.setModel(self.addrBookTxProxy)
+      self.addrBookTxView.setSortingEnabled(True)
       self.addrBookTxView.setSelectionBehavior(QTableView.SelectRows)
       self.addrBookTxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookTxView.horizontalHeader().setStretchLastSection(True)
@@ -8462,7 +8482,7 @@ class DlgAddressBook(ArmoryDialog):
 
       self.addrBookRxProxy = WalletAddrSortProxy(self)
       self.addrBookRxProxy.setSourceModel(self.addrBookRxModel)
-      self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
+      #self.addrBookRxProxy.sort(ADDRESSCOLS.Address)
 
       self.addrBookRxView.setModel(self.addrBookRxProxy)
       self.addrBookRxView.setSelectionBehavior(QTableView.SelectRows)
@@ -8650,8 +8670,32 @@ class DlgHelpAbout(ArmoryDialog):
    def __init__(self, putResultInWidget, defaultWltID=None, parent=None, main=None):
       super(DlgHelpAbout, self).__init__(parent)
 
+      imgLogo = QLabel()
+      imgLogo.setPixmap(QPixmap(':/armory_logo_h56.png'))
+      imgLogo.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
+      lblHead = QRichLabel('Armory Bitcoin Client : Version %s-beta' % \
+                                    getVersionString(BTCARMORY_VERSION), doWrap=False)
+      lblWebpage = QRichLabel('<a href="http://www.bitcoinarmory.com">http://www.bitcoinarmory.com</a>')
+      lblWebpage.setOpenExternalLinks(True)
+      lblCopyright = QRichLabel('Copyright \xa9 2011-2012 Alan C. Reiner')
+      lblLicense = QRichLabel('Licensed under the '
+                              '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
+                              'Affero General Public License, Version 3</a> (AGPLv3)')
+      lblLicense.setOpenExternalLinks(True)
 
+      lblHead.setAlignment(Qt.AlignHCenter)
+      lblWebpage.setAlignment(Qt.AlignHCenter)
+      lblCopyright.setAlignment(Qt.AlignHCenter)
+      lblLicense.setAlignment(Qt.AlignHCenter)
+
+      dlgLayout = QHBoxLayout()
+      dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, 'Stretch', lblLicense] ))
+      self.setLayout(dlgLayout)
+
+      self.setMinimumWidth(300)
+
+      self.setWindowTitle('About Armory')
 
 
 

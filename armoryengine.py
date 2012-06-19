@@ -91,7 +91,7 @@ if CLI_OPTIONS.interport < 0:
 
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 79,99, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 79,99, 1)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -5369,7 +5369,7 @@ class PyTxDistProposal(object):
       while not 'END-TRANSACTION' in line: 
          [iin, val] = line.split('_')[2:]
          iin = int(iin)
-         self.inputValues[iin] = long(float(val)*ONE_BTC)
+         self.inputValues[iin] = str2coin(val)
          
          line = nextLine(L)
          while '_SIG_' in line:
@@ -8683,7 +8683,7 @@ class ArmoryClient(Protocol):
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
                from twisted.internet import reactor
-            if inv[0]==MSG_INV_TX    and not TheBDM.getTxByHash(inv[1]):
+            if inv[0]==MSG_INV_TX and not TheBDM.getTxByHash(inv[1]).isInitialized():
                #print 'Requesting new tx data'
                getdataMsg.payload.invList.append(inv)
          self.sendMessage(getdataMsg)

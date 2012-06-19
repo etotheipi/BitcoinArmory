@@ -30,6 +30,7 @@ import shutil
 import math
 import threading
 import platform
+import traceback
 from datetime import datetime
 
 # PyQt4 Imports
@@ -68,13 +69,13 @@ class ArmoryMainWindow(QMainWindow):
          self.iconfile = ':/armory_icon_green_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_green_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
          if Colors.isDarkBkgd:
-            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h72.png'))
+            self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -156,10 +157,11 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerProxy = LedgerDispSortProxy()
       self.ledgerProxy.setSourceModel(self.ledgerModel)
       self.ledgerProxy.setDynamicSortFilter(False)
-      self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
+      #self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
 
       self.ledgerView  = QTableView()
       self.ledgerView.setModel(self.ledgerProxy)
+      #self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -212,7 +214,7 @@ class ArmoryMainWindow(QMainWindow):
       self.populateLedgerComboBox()
 
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
-      self.connect(self.comboWalletSelect, SIGNAL('currentIndexChanged(QString)'), ccl)
+      self.connect(self.comboWalletSelect, SIGNAL('activated(int)'), ccl)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -302,7 +304,6 @@ class ArmoryMainWindow(QMainWindow):
 
       logoBtnFrame = []
       logoBtnFrame.append(self.lblLogoIcon)
-      print self.lblLogoIcon.width(), self.lblLogoIcon.height()
       logoBtnFrame.append(btnSendBtc)
       logoBtnFrame.append(btnRecvBtc)
       logoBtnFrame.append(btnWltProps)
@@ -345,13 +346,14 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User', 'Tools', 'Wallets')
+      MENUS = enum('File', 'User', 'Tools', 'Wallets', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       self.menusList.append( self.menu.addMenu('&User') )
       self.menusList.append( self.menu.addMenu('&Tools') )
       self.menusList.append( self.menu.addMenu('&Wallets') )
+      self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
@@ -414,6 +416,9 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
+      execAbout = lambda: DlgHelpAbout(self).exec_()
+      actAboutWindow = self.createAction('About Armory', execAbout)
+      self.menusList[MENUS.Help].addAction(actAboutWindow)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -426,6 +431,8 @@ class ArmoryMainWindow(QMainWindow):
          restoreTableView(self.walletsView, hexwltsz)
       if len(hexledgsz)>0:
          restoreTableView(self.ledgerView, hexledgsz)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.NumConf, 20)
+         self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
 
@@ -771,9 +778,8 @@ class ArmoryMainWindow(QMainWindow):
             # If it is ours, let's add it to the notifier queue
             if not le.getTxHash()=='\x00'*32:
                self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-
-         self.createCombinedLedger()
-         self.ledgerModel.reset()
+               self.createCombinedLedger()
+               #self.ledgerModel.reset()
 
       def showOfflineMsg():
          if CLI_OPTIONS.disable_conn_notify:
@@ -1066,7 +1072,9 @@ class ArmoryMainWindow(QMainWindow):
    
          # Now that theb blockchain is loaded, let's populate the wallet info
          if TheBDM.isInitialized():
-            TheBDM.enableZeroConf(os.path.join(ARMORY_HOME_DIR,'mempool.bin'))
+            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+            self.checkMemoryPoolCorruption(mempoolfile)
+            TheBDM.enableZeroConf(mempoolfile)
    
             self.statusBar().showMessage('Syncing wallets with blockchain...')
             print 'Syncing wallets with blockchain...'
@@ -1098,6 +1106,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
+      if not os.path.exists(mempoolname): 
+         return
+
       memfile = open(mempoolname, 'r')
       memdata = memfile.read()
       memfile.close()
@@ -1108,7 +1119,7 @@ class ArmoryMainWindow(QMainWindow):
             binunpacker.get(UINT64)
             PyTx().unserialize(binunpacker)
       except:
-         print 'Memory pool file was corrupt.  Deleted.'
+         print 'Memory pool file was corrupt.  Deleted. (no further action is needed)'
          os.remove(mempoolname);
       
 
@@ -1120,6 +1131,7 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
+
       start = RightNow()
       if wltIDList==None:
          # Create a list of [wltID, type] pairs
@@ -1195,12 +1207,22 @@ class ArmoryMainWindow(QMainWindow):
 
          # Finally, update the ledger table
          self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-         self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
+         self.ledgerModel.ledger = self.ledgerTable
+         self.ledgerModel.reset()
+         self.ledgerProxy.reset()
+
+         #self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
          #self.ledgerProxy = LedgerDispSortProxy()
-         #self.ledgerProxy.setDynamicSortFilter(True)
-         self.ledgerProxy.setSourceModel(self.ledgerModel)
-         self.ledgerView.setModel(self.ledgerProxy)
-         #self.ledgerModel.reset()
+         ##self.ledgerProxy.setDynamicSortFilter(True)
+         #self.ledgerProxy.setSourceModel(self.ledgerModel)
+         #self.ledgerView.setModel(self.ledgerProxy)
+         #self.ledgerView.hideColumn(LEDGERCOLS.isOther)
+         #self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
+         #self.ledgerView.hideColumn(LEDGERCOLS.WltID)
+         #self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
+         #self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
+         #self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
+         #self.ledgerView.setModel(self.ledgerModel)
 
       except AttributeError:
          pass
@@ -1210,7 +1232,7 @@ class ArmoryMainWindow(QMainWindow):
    def getFeeForTx(self, txHash):
       if TheBDM.isInitialized():
          txref = TheBDM.getTxByHash(txHash)
-         if not txref:
+         if not txref.isInitialized():
             print 'Why no txref? ', binary_to_hex(txHash)
             return 0
          valIn, valOut = 0,0
@@ -1232,7 +1254,7 @@ class ArmoryMainWindow(QMainWindow):
       amt = 0
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
-         if not txref:
+         if not txref.isInitialized():
             return (0, 0)
          if txref.getNumTxOut()==1:
             return (txref.getTxOut(0).getValue(), -1)
@@ -1413,7 +1435,7 @@ class ArmoryMainWindow(QMainWindow):
          return ''
       else:
          tx = TheBDM.getTxByHash(txHash)
-         if not tx:
+         if not tx.isInitialized():
             return ''
          else:
             addrComments = []
@@ -1728,7 +1750,7 @@ class ArmoryMainWindow(QMainWindow):
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
-            if not TheBDM.getTxByHash(newTxHash):
+            if not TheBDM.getTxByHash(newTxHash).isInitialized():
                failedFN = os.path.join(ARMORY_HOME_DIR, 'failedtx.bin')
                f = open(failedFN, 'ab')
                bp = BinaryPacker()
@@ -1899,7 +1921,7 @@ class ArmoryMainWindow(QMainWindow):
          txHashBin = hex_to_binary(txHash)
          if TheBDM.isInitialized():
             cppTx = TheBDM.getTxByHash(txHashBin)
-            if cppTx:
+            if cppTx.isInitialized():
                pytx = PyTx().unserialize(cppTx.serialize())
 
          if pytx==None:
@@ -2125,6 +2147,8 @@ class ArmoryMainWindow(QMainWindow):
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
                   (htmlColor('TextGreen'), self.latestBlockNum))
+
+            # Update the wallet view to immediately reflect new balances
             self.walletModel.reset()
 
          nowtime = RightNow()
@@ -2148,14 +2172,15 @@ class ArmoryMainWindow(QMainWindow):
       # We usually see transactions as zero-conf first, then they show up in 
       # a block. It is a "surprise" when the first time we see it is in a block
       notifiedAlready = set([ n[1].getTxHash() for n in self.notifyQueue ])
+      print blk0, blk1
       for blk in range(blk0, blk1):
          for tx in TheBDM.getHeaderByHeight(blk).getTxRefPtrList():
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
-               print 'This tx is ours!'
                if not le.getTxHash() in notifiedAlready:
+                  self.notifyQueue.append([wltID, le, False])
+               else:
                   print '...but we\'ve been notified before, alread'
-                  #self.notifyQueue.append([wltID, le, False])
                
             
 
@@ -2313,7 +2338,7 @@ def execAndWait(cli_str):
 
 
 ############################################
-if __name__ == '__main__':
+if 1:
 
    import qt4reactor
    qt4reactor.install()

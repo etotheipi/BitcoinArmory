@@ -35,6 +35,7 @@ void TestCrypto(void);
 void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
+void TestMemoryUsage_UseSystemMonitor(string blkdir);
 
 void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
@@ -82,9 +83,9 @@ int main(void)
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
-   //string blkdir("/home/alan/.bitcoin");
+   string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
-   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
+   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
@@ -113,6 +114,8 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkdir);
 
+   printTestHeader("Test-Memory-Usage-With-System-Monitor");
+   TestMemoryUsage_UseSystemMonitor(blkdir);
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -1477,6 +1480,33 @@ void CreateMultiBlkFile(string blkdir)
 
 
 
+void TestMemoryUsage_UseSystemMonitor(string blkdir)
+{
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.parseEntireBlockchain(blkdir);  
+
+   char a[256];
+   cout << "About to clear txHintMap" << endl;
+   cin >> a;
+   
+   bdm.getTxHintMapRef().clear();
+
+   cin >> a;
+   cout << "About to clear txPtrs in headers" << endl;
+   cin >> a;
+
+   for(uint32_t i=0; i<bdm.getTopBlockHeight(); i++)
+      bdm.getHeadersByHeightRef()[i]->getTxRefPtrList().clear();
+      
+   cin >> a;
+   cout << "About to clear Headers datacopy" << endl;
+   cin >> a;
+
+   for(uint32_t i=0; i<bdm.getTopBlockHeight(); i++)
+      bdm.getHeadersByHeightRef()[i]->clearDataCopy();
+
+   cin >> a;
+}
 
 
 

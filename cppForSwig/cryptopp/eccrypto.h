@@ -147,7 +147,7 @@ public:
 	void Initialize(const DL_GroupParameters_EC<EC> &params, const Element &Q)
 		{this->AccessGroupParameters() = params; this->SetPublicElement(Q);}
 	void Initialize(const EC &ec, const Element &G, const Integer &n, const Element &Q)
-		{this->AccessGroupParameters().Initialize(ec, G, n); SetPublicElement(Q);}
+		{this->AccessGroupParameters().Initialize(ec, G, n); this->SetPublicElement(Q);}
 
 	// X509PublicKey
 	void BERDecodePublicKey(BufferedTransformation &bt, bool parametersPresent, size_t size);
