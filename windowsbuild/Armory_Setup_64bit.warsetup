@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="1918" projectName="Armory Bitcoin Client" projectUuid="d9f91487-0ed6-4513-8e1b-e55470465a67" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.76" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="Armory_Win64" projectType="0" projectUserInterface="WixUI_Minimal">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="1944" projectName="Armory Bitcoin Client" projectUuid="91d37322-59d1-49ef-84ce-1be3abae7fa7" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.79.99" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="Armory_Win64" projectType="0" projectUserInterface="WixUI_Minimal">
   <LicencePaths>
     <string>C:\Program Files (x86)\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
@@ -437,12 +437,6 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1546" componentGuid="f8922cca-aba7-4504-8022-3cc7a77f9805">
-        <componentFiles fileId="ID_7b91e328_e38b_4cda_8536_3a4fa12f62e0" srcName="BlockObjRef.h" srcDirectory="..\cppForSwig" dstName="BlockObjRef.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1545" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1548" componentGuid="75331ad5-607a-402b-98a4-e1ba9da6ae28">
         <componentFiles fileId="ID_be4725f8_b307_48dc_8fe4_13aae94b5855" srcName="BlockUtils.h" srcDirectory="..\cppForSwig" dstName="BlockUtils.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1547" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
@@ -473,27 +467,9 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1558" componentGuid="c24611d2-3919-4ce6-b225-529894fda602">
-        <componentFiles fileId="ID_68a2e20b_f07d_4bdd_8f74_aad6a4eb752e" srcName="BinaryDataMMAP_POSIX.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1557" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1560" componentGuid="a855f731-1b07-43a3-8504-7ae15d77b821">
-        <componentFiles fileId="ID_c159fd43_5443_4c64_9b0c_f49b75377abd" srcName="BinaryDataMMAP_Windows.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1559" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1562" componentGuid="5814e311-9df7-4cc7-af4e-536c09735a9e">
         <componentFiles fileId="ID_ce6482d7_e24e_4aa3_9c09_497002b8024a" srcName="BlockObj.cpp" srcDirectory="..\cppForSwig" dstName="BlockObj.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1561" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1564" componentGuid="989e9560-edba-448b-a450-fd817728df5c">
-        <componentFiles fileId="ID_02c50cce_e4a4_47e1_8952_4b3fbda5abbc" srcName="BlockObjRef.cpp" srcDirectory="..\cppForSwig" dstName="BlockObjRef.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1563" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
@@ -551,27 +527,21 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1584" componentGuid="2647f2f4-931c-48e8-a625-b582ef91461c">
-        <componentFiles fileId="ID_7f667ca9_ce1b_4f4b_beb7_ad0b3b865fbe" srcName="BinaryDataMMAP.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1583" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1586" componentGuid="7bd56d52-5ea1-4739-a376-191afaf934d9">
-        <componentFiles fileId="ID_49faf536_5ff1_43d3_aedc_c2f56a65054f" srcName="BinaryDataMMAP_POSIX.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1585" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1588" componentGuid="1abbb413-ac64-43ef-8280-b995f130f697">
-        <componentFiles fileId="ID_bc67eedc_5e4d_4b96_a391_d64964eb7006" srcName="BinaryDataMMAP_Windows.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1587" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1590" componentGuid="0f3640e6-5f5f-43e6-8247-2ae49bbdf5fa">
         <componentFiles fileId="ID_2952f683_e3ee_4b37_8fab_a684d220095a" srcName="BlockObj.h" srcDirectory="..\cppForSwig" dstName="BlockObj.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1589" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+        </componentFiles>
+        <addToCreateFolder>false</addToCreateFolder>
+      </components>
+      <components componentId="ID1941" componentGuid="7d4e92bb-8fec-497d-bc5b-72d98e25a004">
+        <componentFiles fileId="ID_ae727d0d_c5bc_4f63_a2fa_a2109559fc6f" srcName="FileDataPtr.h" srcDirectory="..\cppForSwig" dstName="FileDataPtr.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="FileDataPtr" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1940" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
+        </componentFiles>
+        <addToCreateFolder>false</addToCreateFolder>
+      </components>
+      <components componentId="ID1943" componentGuid="dc8bcd51-9a83-4254-b224-a605ca19bc28">
+        <componentFiles fileId="ID_32975344_bf6d_4bea_a2b7_fdc82879b0f7" srcName="FileDataPtr.cpp" srcDirectory="..\cppForSwig" dstName="FileDataPtr.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="FileDataPtr" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
+          <service StartWhenInstalled="true" Remove="both" id="ID1942" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
