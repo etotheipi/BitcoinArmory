@@ -6206,12 +6206,18 @@ def extractTxInfo(pytx, rcvTime=None):
          prevTxHash = cppTxin.getOutPoint().getTxHash()
          if TheBDM.getTxByHash(prevTxHash).isInitialized():
             prevTxOut = TheBDM.getPrevTxOut(cppTxin)
-            prevTxOut.pprint()
             txinFromList[-1].append(TheBDM.getSenderAddr20(cppTxin))
             txinFromList[-1].append(TheBDM.getSentValue(cppTxin))
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
-            txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
-            txinFromList[-1].append(prevTxOut.getIndex())
+            if prevTxOut.getParentTxPtr():
+               txinFromList[-1].append(prevTxOut.getParentTxPtr().getBlockHeight())
+               txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
+               txinFromList[-1].append(prevTxOut.getIndex())
+            else:
+               print 'How did we get a bad parent pointer? (extractTxInfo)'
+               prevTxOut.pprint()
+               txinFromList[-1].append('')
+               txinFromList[-1].append('')
+               txinFromList[-1].append('')
          else:
             haveAllInput=False
             txin = PyTxIn().unserialize(cppTxin.serialize())

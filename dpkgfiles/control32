@@ -1,0 +1,17 @@
+Source: armory
+Section: net
+Priority: extra
+Maintainer: Alan C. Reiner <alan.reiner@gmail.com>
+Build-Depends: debhelper (>= 7), pyqt4-dev-tools, swig, libqtcore4, libqt4-dev, python-qt4, python-dev, python-twisted
+Standards-Version: 3.8.3
+Homepage: http://www.bitcoinarmory.com
+
+Package: armory
+Architecture: i386
+Depends: python-qt4, python-twisted
+Description: Advanced Bitcoin Wallet Management Software
+ Armory is advanced program for managing multiple Bitcoin wallets with the 
+ highest level of security available.  Use top-of-the-line wallet encryption,
+ print permanent paper backups of your wallets, and store your Bitcoins on 
+ an offline computer for 100% security from online attackers.  Armory is 
+ open-source software licensed under the AGPLv3. 

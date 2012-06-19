@@ -1250,7 +1250,7 @@ class ArmoryMainWindow(QMainWindow):
       amt = 0
       if TheBDM.isInitialized() and le.isSentToSelf():
          txref = TheBDM.getTxByHash(le.getTxHash())
-         if not txref:
+         if not txref.isInitialized():
             return (0, 0)
          if txref.getNumTxOut()==1:
             return (txref.getTxOut(0).getValue(), -1)
@@ -1431,7 +1431,7 @@ class ArmoryMainWindow(QMainWindow):
          return ''
       else:
          tx = TheBDM.getTxByHash(txHash)
-         if not tx:
+         if not tx.isInitialized():
             return ''
          else:
             addrComments = []
@@ -1746,7 +1746,7 @@ class ArmoryMainWindow(QMainWindow):
             # balance occur.  In some cases, that may be more satisfying than
             # just seeing the updated balance when they get back to the main
             # screen
-            if not TheBDM.getTxByHash(newTxHash):
+            if not TheBDM.getTxByHash(newTxHash).isInitialized():
                failedFN = os.path.join(ARMORY_HOME_DIR, 'failedtx.bin')
                f = open(failedFN, 'ab')
                bp = BinaryPacker()
@@ -1917,7 +1917,7 @@ class ArmoryMainWindow(QMainWindow):
          txHashBin = hex_to_binary(txHash)
          if TheBDM.isInitialized():
             cppTx = TheBDM.getTxByHash(txHashBin)
-            if cppTx:
+            if cppTx.isInitialized():
                pytx = PyTx().unserialize(cppTx.serialize())
 
          if pytx==None:
