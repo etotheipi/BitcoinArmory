@@ -26,6 +26,7 @@ using namespace std;
 void TestReadAndOrganizeChain(string blkdir);
 void TestFindNonStdTx(string blkdir);
 void TestReadAndOrganizeChainWithWallet(string blkdir);
+void TestBalanceConstruction(string blkdir);
 void TestReadAndUpdateBlkFile(string blkdir);
 void TestScanForWalletTx(string blkdir);
 void TestReorgBlockchain(string blkdir);
@@ -100,8 +101,11 @@ int main(void)
    //printTestHeader("Find-Non-Standard-Tx");
    //TestFindNonStdTx(blkdir);
 
-   printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
-   TestReadAndOrganizeChainWithWallet(blkdir);
+   //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
+   //TestReadAndOrganizeChainWithWallet(blkdir);
+
+   printTestHeader("Test-Balance-Construction");
+   TestBalanceConstruction(blkdir);
 
    //printTestHeader("Read-and-Update-Blockchain");
    //TestReadAndUpdateBlkFile(multitest);
@@ -325,14 +329,17 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
    //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
    //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt2.addAddress(myAddress);
 
+   // P2Pool Address
+   myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt1.addAddress(myAddress);
+   
    // Add some relevant testnet addresses
-   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
-   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
-   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
-   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
+   //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
+   //myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
+   //myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
+   //myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
 
    vector<BtcWallet*> wltList;
    wltList.push_back(&wlt1);
@@ -510,6 +517,56 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
   
 }
 
+void TestBalanceConstruction(string blkdir)
+{
+   cout << endl << "Starting blockchain loading with wallets..." << endl;
+   /////////////////////////////////////////////////////////////////////////////
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BinaryData myAddress;
+   BtcWallet wlt;
+   
+   // Main-network addresses
+   //myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt.addAddress(myAddress);
+
+   // P2Pool Address
+   myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
+   
+   // Add some relevant testnet addresses
+   //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
+
+   vector<BtcWallet*> wltList;
+   wltList.push_back(&wlt);
+
+   bdm.registerWallet(&wlt);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Reading data from blockchain... (with wallet scan)" << endl;
+   TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
+   bdm.parseEntireBlockchain(blkdir);  
+   TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
+   cout << endl << endl;
+
+
+   cout << endl << "Scanning wallet tx based on initial blockchain scan" << endl;
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
+   cout << "Printing Wallet Ledger" << endl;
+   wlt.pprintLedger();
+
+   uint32_t topBlk = bdm.getTopBlockHeight();
+   uint64_t balFul = wlt.getFullBalance();
+   uint64_t balSpd = wlt.getSpendableBalance(topBlk);
+   uint64_t balUnc = wlt.getUnconfirmedBalance(topBlk);
+
+}
 
 void TestReadAndUpdateBlkFile(string tempBlkDir)
 {

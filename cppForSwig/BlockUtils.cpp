@@ -2308,6 +2308,10 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
       BlockHeader* bhptr = theTx.getHeaderPtr();
       if( bhptr==NULL )
       {
+         // This appears to happen with invalid transactions:  specifically,
+         // the only time I've seen this triggered is on P2Pool blocks that
+         // were later invalidated.  This conditional appears to work fine 
+         // as-is, skipping over such transactions so they aren't scanned.
          cout << "***WARNING: How did we get a tx without a header?" << endl;
          continue;
       }
