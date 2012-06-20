@@ -83,9 +83,10 @@ int main(void)
    BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
-   string blkdir("/home/alan/.bitcoin");
+   //string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
+   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
@@ -529,6 +530,7 @@ void TestBalanceConstruction(string blkdir)
    BtcWallet wlt;
    
    // Main-network addresses
+   // I do not remember anymore what any of these addresses are for ...
    //myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
    //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
    //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
@@ -537,8 +539,11 @@ void TestBalanceConstruction(string blkdir)
    //myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt.addAddress(myAddress);
 
    // P2Pool Address
-   myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
-   
+   //myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
+
+   // An address that had a zero-conf tx, at some point
+   myAddress.createFromHex("3b2e7f4db6eefe457fddc0d21cc59baa6e4fd3af"); wlt.addAddress(myAddress);
+
    // Add some relevant testnet addresses
    //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
    //myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
@@ -563,6 +568,12 @@ void TestBalanceConstruction(string blkdir)
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
    cout << "Printing Wallet Ledger" << endl;
    wlt.pprintLedger();
+
+
+   // We want to check the memory pool transactions...
+   string mempool("C:/Users/VBox/AppData/Roaming/Armory/mempool.bin");
+   bdm.enableZeroConf(mempool);
+   TIMER_WRAP(bdm.scanBlockchainForTx(wlt));
 
    uint32_t topBlk = bdm.getTopBlockHeight();
    uint64_t balFul = wlt.getFullBalance();

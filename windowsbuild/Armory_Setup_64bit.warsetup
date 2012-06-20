@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="1944" projectName="Armory Bitcoin Client" projectUuid="91d37322-59d1-49ef-84ce-1be3abae7fa7" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.79.99" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="Armory_Win64" projectType="0" projectUserInterface="WixUI_Minimal">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="1966" projectName="Armory Bitcoin Client" projectUuid="00b5bfcf-222d-49ba-82b7-cc998aa9ca5a" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.79.99.1" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="Armory_Win64" projectType="0" projectUserInterface="WixUI_Minimal">
   <LicencePaths>
     <string>C:\Program Files (x86)\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
@@ -374,12 +374,6 @@
       <components componentId="ID1524" componentGuid="6f0465d8-b2c3-4369-9dd2-c32834fa5e56">
         <componentFiles fileId="ID_b4a6b2ea_cf10_4366_b072_91e7df66d067" srcName="qtdialogs.py" srcDirectory=".." dstName="qtdialogs.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qtdialogs" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1523" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1526" componentGuid="dc9cdc5d-1b87-4485-9cc7-35c25af70dea">
-        <componentFiles fileId="ID_a64830ac_afeb_4f12_a6f6_5ab061ea9d20" srcName="sample_armory_code.py" srcDirectory=".." dstName="sample_armory_code.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="sample_armory_code" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1525" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>

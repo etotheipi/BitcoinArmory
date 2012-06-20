@@ -282,7 +282,7 @@ bool TxIOPair::hasTxInInMain(void) const
 
 bool TxIOPair::hasTxOutZC(void) const
 { 
-   return (txOfInputZC_!=NULL && txOfOutputZC_->isInitialized()); 
+   return (txOfOutputZC_!=NULL && txOfOutputZC_->isInitialized()); 
 }
 
 bool TxIOPair::hasTxInZC(void) const
