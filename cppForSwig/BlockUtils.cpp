@@ -296,7 +296,7 @@ void TxIOPair::clearZCFields(void)
    txOfInputZC_  = NULL;
    indexOfOutputZC_ = 0;
    indexOfInputZC_  = 0;
-   isTxOutFromSelf_ = false;
+   //isTxOutFromSelf_ = false;
 }
 
 
@@ -1034,7 +1034,13 @@ void BtcWallet::scanTx(Tx & tx,
             }
          }
       } // loop over TxIns
+   }
 
+
+   for(uint32_t i=0; i<addrPtrVect_.size(); i++)
+   {
+      BtcAddress & thisAddr = *(addrPtrVect_[i]);
+      HashString const & addr20 = thisAddr.getAddrStr20();
 
       ///// LOOP OVER ALL TXOUT IN TX /////
       for(uint32_t iout=0; iout<tx.getNumTxOut(); iout++)
