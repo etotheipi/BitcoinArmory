@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_05d6da4c_e71f_4beb_8b11_7008dd568474" nextUniqueId="1209" projectName="Armory Bitcoin Client" projectUuid="dc42fe0e-f3f8-4d9d-b352-04ee74b6d988" projectUpgradeUuid="2652272c-281a-4c00-b02e-0e5584fa41fd" projectVersion="0.75.1" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win32" projectTargetName="Armory_Win32" projectType="0" projectUserInterface="WixUI_Minimal">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_05d6da4c_e71f_4beb_8b11_7008dd568474" nextUniqueId="1252" projectName="Armory Bitcoin Client" projectUuid="fdcf7769-d608-4e47-b39d-2b9230cc3e7e" projectUpgradeUuid="2652272c-281a-4c00-b02e-0e5584fa41fd" projectVersion="0.79.99.1" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win32" projectTargetName="Armory_Win32" projectType="0" projectUserInterface="WixUI_Minimal">
   <LicencePaths>
     <string>C:\Program Files\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
@@ -197,12 +197,6 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1063" componentGuid="4816119f-ac66-4c1b-ac2f-9deb75d32694">
-        <componentFiles fileId="ID_5b0707ec_4b06_43ce_aa87_e44cae8bf1dd" srcName="sample_armory_code.py" srcDirectory=".." dstName="sample_armory_code.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="sample_armory_code" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1062" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1065" componentGuid="e6e341f0-5e62-4b7d-a3f7-9bf00e445d15">
         <componentFiles fileId="ID_fe97c0e7_179b_4af6_8d0d_3d0dcc8474ac" srcName="setup.py" srcDirectory=".." dstName="setup.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="setup" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1064" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
@@ -281,27 +275,9 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1091" componentGuid="5b26e2f8-34e1-4020-954b-6c294c3835d8">
-        <componentFiles fileId="ID_00518c11_0577_4a65_bcb3_52684b20385b" srcName="BinaryDataMMAP_POSIX.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1090" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1093" componentGuid="afbcfb44-abf5-452f-a273-eb2829c838d7">
-        <componentFiles fileId="ID_d7af1bc8_2a94_4f34_a757_a5c85639511f" srcName="BinaryDataMMAP_Windows.cpp" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1092" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1095" componentGuid="99296f02-8449-4417-9355-fc280be9cf1e">
         <componentFiles fileId="ID_bb192ae6_a2fb_4b2d_9fd7_63064e9c2067" srcName="BlockObj.cpp" srcDirectory="..\cppForSwig" dstName="BlockObj.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1094" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1097" componentGuid="ad3334bf-d5f6-4a3e-9fc2-575e1b228467">
-        <componentFiles fileId="ID_a0ecbb8c_a581_4bcb_9699_ba2110142b8d" srcName="BlockObjRef.cpp" srcDirectory="..\cppForSwig" dstName="BlockObjRef.cpp" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1096" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
@@ -365,33 +341,9 @@
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
-      <components componentId="ID1119" componentGuid="2d7cfa33-fc3d-4980-95ff-cd6fdce3c20a">
-        <componentFiles fileId="ID_753b9001_2908_4157_b77c_d4b329f6aeef" srcName="BinaryDataMMAP.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1118" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1121" componentGuid="71740251-ad52-4df9-bb97-c8db31259dcb">
-        <componentFiles fileId="ID_a1945086_90d4_45c3_953e_29df9562e6e8" srcName="BinaryDataMMAP_POSIX.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_POSIX.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_POSIX" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1120" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1123" componentGuid="0d084486-8b6a-4f06-bbe9-1107620c6c12">
-        <componentFiles fileId="ID_b55c0170_8dc5_434a_89c1_05a2cc259a4c" srcName="BinaryDataMMAP_Windows.h" srcDirectory="..\cppForSwig" dstName="BinaryDataMMAP_Windows.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BinaryDataMMAP_Windows" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1122" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
       <components componentId="ID1125" componentGuid="304a9e7e-b542-4c3f-8304-252ef3af00ab">
         <componentFiles fileId="ID_3def5f7a_9a32_40f1_9de4_adbb96ffd783" srcName="BlockObj.h" srcDirectory="..\cppForSwig" dstName="BlockObj.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObj" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1124" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1127" componentGuid="dc597272-df2e-45bb-a677-07b779ddea8c">
-        <componentFiles fileId="ID_1eab36c4_900f_4a2a_9bb4_029715b84784" srcName="BlockObjRef.h" srcDirectory="..\cppForSwig" dstName="BlockObjRef.h" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="BlockObjRef" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1126" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
@@ -434,7 +386,7 @@
     <System>true</System>
     <Name>GNU Affero General Public License (AGPL) Version 3.0</Name>
   </License>
-  <projectProperties LicencePath="" TopBanner="" BigBanner="" ExclamationIcon="" InfoIcon="" NewIcon="" UpIcon="" VS2003Integration="VS2003_INTEGRATION" VS2005Integration="VS2005_INTEGRATION" UseRelativePaths="true" LaunchAppText="Launch Armory (only offline-mode in 32-bit Windows)" UseWixUI_ErrorProgressText="true" UseWixUI="true" CreateUninstallShortcut="true" Codepage="1252" ProductLanguage="1033" AlwaysMajorUpgrade="true" SupressValidation="true" Compress="true" BuildTarget="true" PublisherUrl="" SupportContact="" SupportUrl="" SupportPhone="" ReadMeFile="[APPLICATIONFOLDER]\README" UpdateUrl="" Comments="Advanced Bitcoin Wallet Application" Icon="[APPLICATIONFOLDER]\armory48x48.ico" EmbedCab="true" MaxCabSize="0" CabCompressionLevel="mszip" InstallerVersion="300">
+  <projectProperties LicencePath="" TopBanner="" BigBanner="" ExclamationIcon="" InfoIcon="" NewIcon="" UpIcon="" VS2003Integration="VS2003_INTEGRATION" VS2005Integration="VS2005_INTEGRATION" UseRelativePaths="true" LaunchAppText="Launch Armory (May take up to 3 minutes on Windows 32-bit!)" UseWixUI_ErrorProgressText="true" UseWixUI="true" CreateUninstallShortcut="true" Codepage="1252" ProductLanguage="1033" AlwaysMajorUpgrade="true" SupressValidation="true" Compress="true" BuildTarget="true" PublisherUrl="" SupportContact="" SupportUrl="" SupportPhone="" ReadMeFile="[APPLICATIONFOLDER]\README" UpdateUrl="" Comments="Advanced Bitcoin Wallet Application" Icon="[APPLICATIONFOLDER]\armory48x48.ico" EmbedCab="true" MaxCabSize="0" CabCompressionLevel="mszip" InstallerVersion="300">
     <UiCultures Name="en-US" Enabled="true" />
     <UiCultures Name="de-de" Enabled="false" />
     <UiCultures Name="es-es" Enabled="false" />
