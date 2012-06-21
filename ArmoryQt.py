@@ -1161,6 +1161,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                pass
                #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
+         self.settings.set('LastFilterState', currIdx)
                
 
       if wltIDList==None:
@@ -1359,7 +1360,6 @@ class ArmoryMainWindow(QMainWindow):
    def walletListChanged(self):
       self.walletModel.reset()
       self.populateLedgerComboBox()
-      #self.comboWalletSelect.setCurrentItem(0)
       self.createCombinedLedger()
 
 
@@ -1374,6 +1374,8 @@ class ArmoryMainWindow(QMainWindow):
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
       self.comboWalletSelect.insertSeparator(4)
+      comboIdx = self.settings.getSettingOrSetDefault('LastFilterState', 0)
+      self.comboWalletSelect.setCurrentIndex(comboIdx)
       
 
    #############################################################################

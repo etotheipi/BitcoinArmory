@@ -207,7 +207,7 @@ class QMoneyLabel(QLabel):
 
 
 class QLabelButton(QLabel):
-   mousePressOn = {}
+   mousePressOn = set()
 
    def __init__(self, txt):
       colorStr = htmlColor('LBtnNormalFG')
@@ -225,13 +225,13 @@ class QLabelButton(QLabel):
 
    def mousePressEvent(self, ev):  
       # Prevent click-bleed-through to dialogs being opened
-      self.mousePressOn[str(self.text())] = True
-      print self.mousePressOn
+      txt = str(self.text())
+      self.mousePressOn.add(txt)
 
    def mouseReleaseEvent(self, ev):  
       txt = str(self.text())
-      if self.mousePressOn.has_key(txt) and self.mousePressOn[txt]:
-         self.mousePressOn[txt] = False
+      if txt in self.mousePressOn:
+         self.mousePressOn.remove(txt)
          self.emit(SIGNAL('clicked()'))  
 
    def enterEvent(self, ev):  
