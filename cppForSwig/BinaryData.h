@@ -62,7 +62,7 @@
 #include "cryptlib.h"
 #include "osrng.h"
 
-#define DEFAULT_BUFFER_SIZE 25*1048576
+#define DEFAULT_BUFFER_SIZE 64*1048576
 
 #include "UniversalTimer.h"
 
