@@ -4345,28 +4345,22 @@ class DlgSendBitcoins(ArmoryDialog):
       #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
-      #'<b>Enter Recipients</b>:  In most cases, you will only be specifying '
-      #'one recipient, but you can combine any number of transactions into one '
-      #'wallet operation by specifying more.  Blank entries will be ignored')
          
 
-      #lbtnTxFeeOpt = QLabelButton('More Info')
-      #self.connect(lbtnTxFeeOpt, SIGNAL('clicked()'), self.txFeeOptions)
       feetip = createToolTipObject( \
-            'Transaction fees go to other users who contribute computing power to '
-            'keep the Bitcoin network secure, and guarantees that your transaciton '
-            'is confirmed in the "blockchain."   <b>Most transactions '
-            'do not require</b> a fee but it is recommended to include one anyway '
-            'since it guarantees quick processing for less than $0.01 USD.  '  
-            'You will will be prompted if a higher fee is '
-            'recommended than specified here.')
+            'Transaction fees go to users who contribute computing power to '
+            'keep the Bitcoin network secure, and in return they get your transaction '
+            'included in the blockchain faster.  <b>Most transactions '
+            'do not require a fee</b> but it is recommended anyway '
+            'since it guarantees quick processing for less than $0.01 USD and '
+            'helps the network.')
 
       self.edtFeeAmt = QLineEdit()
       self.edtFeeAmt.setFont(GETFONT('Fixed'))
       self.edtFeeAmt.setMaximumWidth(tightSizeNChar(self.edtFeeAmt, 12)[0])
       self.edtFeeAmt.setMaximumHeight(self.maxHeight)
       self.edtFeeAmt.setAlignment(Qt.AlignRight)
-      self.edtFeeAmt.setText(coin2str(MIN_TX_FEE, ndec=4))
+      self.edtFeeAmt.setText(coin2str(txFee, maxZeros=1).strip())
 
       spacer = QSpacerItem(20, 1)
 
@@ -4757,8 +4751,7 @@ class DlgSendBitcoins(ArmoryDialog):
       #        algorithm to try to leave some room in the tx so that the fee
       #        will not change the I/Os).   Despite this, I will concede 
       #        the extremely rare situation where this would happen, I think 
-      #        it will be okay to send a slightly sub-optimal fee.  I'll add 
-      #        this to my TODO list.
+      #        it will be okay to send a slightly sub-standard fee.  
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
       if fee<minFeeRec[1]:
 
@@ -4783,20 +4776,24 @@ class DlgSendBitcoins(ArmoryDialog):
          minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
-         if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
-            if not overrideMin:
-               extraMsg = ('\n\n(It is not recommended to override this behavior, '
-                           'but as an advanced user, you can go into the settings file '
-                           'and manually change the "OverrideMinFee" property to '
-                           '"True".  Do so at your own risk, as many transactions '
-                           'have been known to "get stuck" when insufficient fee '
-                           'was included)')
+         #if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+            #if not overrideMin:
+               #extraMsg = ('\n\n(It is not recommended to override this behavior, '
+                           #'but as an advanced user, you can go into the settings file '
+                           #'and manually change the "OverrideMinFee" property to '
+                           #'"True".  Do so at your own risk, as many transactions '
+                           #'have been known to "get stuck" when insufficient fee '
+                           #'was included)')
 
-         if overrideMin:
-            msgBtns = QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
-            extraMsg = ('\n\nYou have disbled mandatory transaction fees.  '
-                        'Clicking "No" will send the transaction with the '
-                        'original fee that you specified.')
+         #if overrideMin:
+            #msgBtns = QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
+            #extraMsg = ('\n\nYou have disbled mandatory transaction fees.  '
+                        #'Clicking "No" will send the transaction with the '
+                        #'original fee that you specified.')
+
+         # While the Satoshi client sits between us and the network, sub-standard
+         # fees will be DOA -- there is nothing Armory can do to force sub-std fees
+         extraMsg = ''
 
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
@@ -4975,11 +4972,6 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
-   def txFeeOptions(self):
-      dlg = DlgTxFeeOptions(self, self, self.main)
-      if dlg.exec_():
-         # TODO: do something!
-         pass
 
 
 
@@ -8694,17 +8686,176 @@ class DlgHelpAbout(ArmoryDialog):
       dlgLayout.addWidget(makeVertFrame([imgLogo, lblHead, lblCopyright, lblWebpage, 'Stretch', lblLicense] ))
       self.setLayout(dlgLayout)
 
-      self.setMinimumWidth(300)
+      self.setMinimumWidth(450)
 
       self.setWindowTitle('About Armory')
 
 
+################################################################################
+class DlgPreferences(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgPreferences, self).__init__(parent, main)
 
 
 
+      txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions.</b><br>'
+                                 'Fees go to users that contribute computing power '
+                                 'to keep the Bitcoin network secure and increases '
+                                 'the priority of your transactions on the network '
+                                 '(%s BTC is standard).' % \
+                                 coin2str(MIN_TX_FEE, maxZeros=0).strip())
+      ttipDefaultFee = createToolTipObject( \
+                                 'NOTE: some transactions will require a fee '
+                                 'regardless of your preferences -- in such cases '
+                                 'you will be prompted to include the correct '
+                                 'value or abort the transaction')
+      self.edtDefaultFee = QLineEdit()
+      self.edtDefaultFee.setText( coin2str(txFee, maxZeros=1).strip())
+      lblDefaultFee.setMinimumWidth(400)
+
+
+      #doInclFee = self.main.settings.getSettingOrSetDefault('LedgDisplayFee', True)
+      #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
+                                #'primary ledger</b>.<br>Unselect if you want to '
+                                #'see only the value received by the recipient.')
+      #ttipLedgerFee = createToolTipObject( \
+                                #'If you send someone 1.0 '
+                                #'BTC with a 0.001 fee, the ledger will display '
+                                #'"1.001" in the "Amount" column if this option '
+                                #'is checked.')
+      #self.chkInclFee = QCheckBox('')
+      #self.chkInclFee.setChecked(doInclFee)
+
+
+      lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
+      notifyBtcIn  = self.main.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
+      notifyBtcOut = self.main.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+      notifyDiscon = self.main.settings.getSettingOrSetDefault('NotifyDiscon', True)
+      notifyReconn = self.main.settings.getSettingOrSetDefault('NotifyReconn', True)
+      lblBtcIn  = QRichLabel('Bitcoins Received')
+      lblBtcOut = QRichLabel('Bitcoins Sent')
+      lblDiscon = QRichLabel('Bitcoin-Qt/bitcoind disconnected')
+      lblReconn = QRichLabel('Bitcoin-Qt/bitcoind reconnected')
+
+      self.chkBtcIn  = QCheckBox('')
+      self.chkBtcOut = QCheckBox('')
+      self.chkDiscon = QCheckBox('')
+      self.chkReconn = QCheckBox('')
+      self.chkBtcIn.setChecked(notifyBtcIn)
+      self.chkBtcOut.setChecked(notifyBtcOut)
+      self.chkDiscon.setChecked(notifyDiscon)
+      self.chkReconn.setChecked(notifyReconn)
+
+      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton("Save")
+      self.btnAccept.setDefault(True)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+
+      frmLayout = QGridLayout()
+
+      i=0
+      frmLayout.addWidget( lblDefaultFee,         i,0 )
+      frmLayout.addWidget( ttipDefaultFee,        i,1 )
+      frmLayout.addWidget( self.edtDefaultFee,    i,2 )
+
+      #i+=1
+      #frmLayout.addWidget( HLINE(),               i,0, 1,3)
+      
+      #i+=1
+      #frmLayout.addWidget( lblLedgerFee,          i,0 )
+      #frmLayout.addWidget( ttipLedgerFee,         i,1 )
+      #frmLayout.addWidget( self.chkInclFee,       i,2 )
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( lblNotify,             i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( lblBtcIn,              i,0 )
+      frmLayout.addWidget( QLabel(''),            i,1 )
+      frmLayout.addWidget( self.chkBtcIn,         i,2 )
+
+      i+=1
+      frmLayout.addWidget( lblBtcOut,             i,0 )
+      frmLayout.addWidget( QLabel(''),            i,1 )
+      frmLayout.addWidget( self.chkBtcOut,        i,2 )
+      
+      i+=1
+      frmLayout.addWidget( lblDiscon,             i,0 )
+      frmLayout.addWidget( QLabel(''),            i,1 )
+      frmLayout.addWidget( self.chkDiscon,        i,2 )
+
+      i+=1
+      frmLayout.addWidget( lblReconn,             i,0 )
+      frmLayout.addWidget( QLabel(''),            i,1 )
+      frmLayout.addWidget( self.chkReconn,        i,2 )
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+
+      frmOptions = QFrame()
+      frmOptions.setLayout(frmLayout)
+
+      self.scrollOptions = QScrollArea()
+      self.scrollOptions.setWidget(frmOptions)
 
 
 
+      dlgLayout = QVBoxLayout()      
+      dlgLayout.addWidget(self.scrollOptions)
+      dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept]))
 
+      self.setLayout(dlgLayout)
+
+      # NOTE:  This was getting complicated for a variety of reasons, so switched
+      #        to manually constructing the options window.  May come back to this
+      #        at a later time.
+      #
+      # Let's create a scalable list of options.  Each row of this list looks like:
+      #
+      #     [OptionType, SettingsName, DefaultValue, BoldText, NormalText, Tooltip]
+      #
+      # SettingsName is the string used in self.main.settings.getSettingOrSetDefault()
+      # OptionType can be one of:
+      #     {'Checkbox', 'LineEdit', 'Combo|Opt1|Opt2|...', 'Separator', 'Header'} 
+      #
+      # "Separator adds a horizontal-ruler to separate option groups, and "Header" 
+      # is basically a textual separator with no actual option
+
+      #self.Options = []
+      #self.Options.append( ['LineEdit', 'Default_Fee', MIN_TX_FEE, \
+                           #'Default fee to include with transactions.', \
+                           #'Fees go to users that contribute computing power '
+                           #'to keep the Bitcoin network secure (0.0005 BTC is '
+                           #'standard).', \
+                           #'NOTE: some transactions will require a fee '
+                           #'regardless of your preferences -- in such cases '
+                           #'you will be prompted to include the correct '
+                           #'value or abort the transaction'])
+          
+   def accept(self, *args):
+      try:
+         defaultFee = str2coin( str(self.edtDefaultFee.text()).replace(' ','') )
+         self.main.settings.set('Default_Fee', defaultFee)
+      except:
+         raise
+         QMessageBox.warning(self, 'Invalid Amount', \
+                  'The default fee specified could not be understood.  Please '
+                  'specify in BTC with no more than 8 decimal places.', \
+                  QMessageBox.Ok)
+         return
+         
+      #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
+      self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
+      self.main.settings.set('NotifyBtcOut', self.chkBtcOut.isChecked())
+      self.main.settings.set('NotifyDiscon', self.chkDiscon.isChecked())
+      self.main.settings.set('NotifyReconn', self.chkReconn.isChecked())
+      super(DlgPreferences, self).accept(*args)
+      
 
 

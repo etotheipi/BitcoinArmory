@@ -74,8 +74,6 @@ parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
-parser.add_option("--disable-conn-notify", dest="disable_conn_notify", action="store_true", default=False,
-                  help="Disable notifactions about Satoshi client connections")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 

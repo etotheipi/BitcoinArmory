@@ -358,7 +358,9 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
-      actCloseApp = self.createAction('&Quit Armory', self.closeEvent)
+      actPreferences = self.createAction('&Preferences', self.openPrefDlg)
+      actCloseApp    = self.createAction('&Quit Armory', self.closeEvent)
+      self.menusList[MENUS.File].addAction(actPreferences)
       self.menusList[MENUS.File].addAction(actCloseApp)
 
       
@@ -444,6 +446,10 @@ class ArmoryMainWindow(QMainWindow):
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
 
 
+   ####################################################
+   def openPrefDlg(self):
+      dlgPref = DlgPreferences(self, self)
+      dlgPref.exec_()
 
    ####################################################
    def setupSystemTray(self):
@@ -778,17 +784,19 @@ class ArmoryMainWindow(QMainWindow):
 
             # If it is ours, let's add it to the notifier queue
             if not le.getTxHash()=='\x00'*32:
-               self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-               self.createCombinedLedger()
-               #self.ledgerModel.reset()
+               notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
+               notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+               if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+                  self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
+                  self.createCombinedLedger()
 
       def showOfflineMsg():
-         if CLI_OPTIONS.disable_conn_notify:
+         self.lblArmoryStatus.setText( \
+            '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
+         if not self.settings.getSettingOrSetDefault('NotifyDiscon', True):
             return 
 
          try:
-            self.lblArmoryStatus.setText( \
-               '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
             self.sysTray.showMessage('Disconnected', \
                   'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
                   'or receive Bitcoins until connection is re-established.', \
@@ -799,13 +807,13 @@ class ArmoryMainWindow(QMainWindow):
 
       self.connectCount = 0
       def showOnlineMsg():
-         if CLI_OPTIONS.disable_conn_notify:
-            return 
+         self.lblArmoryStatus.setText(\
+                  '<font color=%s>Connected (%s blocks)</font> ' % 
+                  (htmlColor('TextGreen'), self.latestBlockNum))
+         if not self.settings.getSettingOrSetDefault('NotifyReconn', True):
+            return
 
          try:
-            self.lblArmoryStatus.setText(\
-                     '<font color=%s>Connected (%s blocks)</font> ' % 
-                     (htmlColor('TextGreen'), self.latestBlockNum))
             if self.connectCount>0:
                self.sysTray.showMessage('Connected', \
                   'Connection to Bitcoin-Qt re-established', \
@@ -1403,7 +1411,7 @@ class ArmoryMainWindow(QMainWindow):
       wlt = self.walletMap[self.walletIDList[index.row()]]
       dialog = DlgWalletDetails(wlt, self.usermode, self, self)
       dialog.exec_()
-      self.walletListChanged()
+      #self.walletListChanged()
          
          
          
@@ -2184,9 +2192,12 @@ class ArmoryMainWindow(QMainWindow):
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
-                  self.notifyQueue.append([wltID, le, False])
+                  notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
+                  notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+                  if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+                     self.notifyQueue.append([wltID, le, False])
                else:
-                  print '...but we\'ve been notified before, alread'
+                  print '...but we\'ve been notified before, already'
                
             
 
