@@ -8935,8 +8935,8 @@ class DlgExportTxHistory(ArmoryDialog):
       self.cmbWltSelect.addItem( 'Offline Wallets'   )
       self.cmbWltSelect.addItem( 'Other Wallets'  )
       self.cmbWltSelect.addItem( 'All Wallets'       )
-      for wltID in self.walletIDList:
-         self.cmbWltSelect.addItem( self.walletMap[wltID].labelName )
+      for wltID in self.main.walletIDList:
+         self.cmbWltSelect.addItem( self.main.walletMap[wltID].labelName )
       self.cmbWltSelect.insertSeparator(4)
       self.cmbWltSelect.insertSeparator(4)
 
@@ -8957,10 +8957,11 @@ class DlgExportTxHistory(ArmoryDialog):
 
       self.edtDateFormat = QLineEdit()
       self.edtDateFormat.setText('%Y-%b-%d %I:%M%p')
-      self.lblFormatDescr = QRichLabel( \
+      self.ttipFormatDescr = createToolTipObject( \
                '%Y~year; %b~month name; %m~month number; %d~day number; '
                '%I~hour 1-12; %H~hour 0-23; %M~minute; %p~{pm,am}')
       self.lblDateExample = QRichLabel( '' )
+      self.lblDateExample.setAlignment(Qt.AlignTop)
       self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.dispEx)
       self.dispEx()
 
@@ -8974,6 +8975,13 @@ class DlgExportTxHistory(ArmoryDialog):
       dlgLayout = QGridLayout()
    
       i=0
+      dlgLayout.addWidget(QRichLabel('Export Format:'),      i,0)
+      dlgLayout.addWidget(self.cmbFileFormat,                i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
+
+      i+=1
       dlgLayout.addWidget(QRichLabel('Wallets to export:'),  i,0)
       dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
 
@@ -8982,21 +8990,21 @@ class DlgExportTxHistory(ArmoryDialog):
       
       i+=1
       dlgLayout.addWidget(QRichLabel('Sort Method:'),        i,0)
-      dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
+      dlgLayout.addWidget(self.cmbSortSelect,                i,1)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
 
       i+=1
-      dlgLayout.addWidget(QRichLabel('Date Format'),         i,0)
-      dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
+      fmtfrm = makeHorizFrame([QRichLabel('Date Format'), 'Stretch', self.ttipFormatDescr])
+      dlgLayout.addWidget(fmtfrm,                            i,0)
+      dlgLayout.addWidget(self.edtDateFormat,                i,1)
+
       i+=1
-      dlgLayout.addWidget(self.lblFormatDescr,               i,0)
       dlgLayout.addWidget(self.lblDateExample,               i,1)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
-
 
       i+=1
       dlgLayout.addWidget(btnBox,                            i,0, 1,2)
@@ -9010,10 +9018,10 @@ class DlgExportTxHistory(ArmoryDialog):
    def dispEx(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text()) 
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(fmtstr))
+         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1000000000, fmtstr))
          self.isValidFormat = True
       except:
-         self.lblDateExample.setText('')
+         self.lblDateExample.setText('Example: <invalid date format>')
          self.isValidFormat = False
 
    #############################################################################
@@ -9033,8 +9041,9 @@ class DlgExportTxHistory(ArmoryDialog):
       # This was pretty much copied from the createCombinedLedger method...
       # I rarely do this, but modularizing this piece is a non-trivial
       wltIDList = []
-      typelist = [[wid, determineWalletType(self.main.walletMap[wid], self)[0]] \
+      typelist = [[wid, determineWalletType(self.main.walletMap[wid], self.main)[0]] \
                                                    for wid in self.main.walletIDList]
+      currIdx = self.cmbWltSelect.currentIndex()
       if currIdx>=4:
          wltIDList = [self.walletIDList[currIdx-6]]
       else:
@@ -9054,31 +9063,33 @@ class DlgExportTxHistory(ArmoryDialog):
          else:
             pass
 
+      totalFunds,spendFunds,unconfFunds,combinedLedger = 0,0,0,[]
       for wltID in wltIDList:
          wlt = self.main.walletMap[wltID]
          id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
-         self.combinedLedger.extend(id_le_pairs)
+         combinedLedger.extend(id_le_pairs)
          totalFunds += wlt.getBalance('Total')
          spendFunds += wlt.getBalance('Spendable')
          unconfFunds += wlt.getBalance('Unconfirmed')
+      # END createCombinedLedger copy
+
+      ledgerTable = self.main.convertLedgerToTable(combinedLedger)
 
       sortTxt = str(self.cmbSortSelect.currentText())
       if 'newest' in sortTxt:
-         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
+         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
       elif 'oldest' in sortTxt:
-         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
+         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
       elif 'ascend' in sortTxt:
-         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.TxHash])
+         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash])
       elif 'descend' in sortTxt:
-         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
+         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
       else:
          print '***ERROR: bad sort string!?'
          return
 
-      self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
-      # END createCombinedLedger copy
 
-      wltSelectStr = str(self.cmbWltSelect.text()).replace(' ','_')
+      wltSelectStr = str(self.cmbWltSelect.currentText()).replace(' ','_')
       timestampStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
       filenamePrefix = 'ArmoryTxHistory_%s_%s' % (wltSelectStr, timestampStr) 
       fmtstr = str(self.cmbFileFormat.currentText())
@@ -9094,26 +9105,27 @@ class DlgExportTxHistory(ArmoryDialog):
          f = open(fullpath, 'w')
          f.write('Date,Transaction ID,#Conf,Wallet,Total Credit,Total Debit,Fee,Comment\n')
          COL = LEDGERCOLS
-         for row in self.ledgerTable:
+         for row in ledgerTable:
             vals = []
 
             fmtstr = str(self.edtDateFormat.text())
             unixTime = row[COL.UnixTime]
             vals.append( unixTimeToFormatStr(unixTime, fmtstr) )
-            vals.append( binary_to_hex(row[COL.TxHash], endOut=BIGENDIAN) )
+            vals.append( row[COL.TxHash] )
             vals.append( row[COL.NumConf] )
             vals.append( row[COL.WltID] )
 
             wltEffect = row[COL.Amount]
-            if wltEffect > 0:
-               vals.append( coin2str(wltEffect, ndec=8).strip() )
-               vals.append( '' )
+            txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
+            if float(wltEffect) > 0:
+               vals.append( wltEffect.strip() )
+               vals.append( ' ' )
+               vals.append( ' ' )
             else:
-               vals.append( '' )
-               vals.append( coin2str(wltEffect, ndec=8).strip() )
+               vals.append( ' ' )
+               vals.append( wltEffect.strip() )
+               vals.append( coin2str(-txFee).strip() )
 
-            txFee = self.main.getFeeForTx(row[COL.TxHash])
-            vals.append( coin2str(txFee, ndec=8).strip() )
             vals.append( row[COL.Comment] )
 
             f.write('%s,%s,%d,%s,%s,%s,%s,%s\n' % tuple(vals))

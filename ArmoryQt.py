@@ -1302,10 +1302,9 @@ class ArmoryMainWindow(QMainWindow):
 
          # We need to compute the fee by adding inputs and outputs...
          amt = le.getValue()
-         removeFee = self.settings.getSettingOrSetDefault('DispRmFee', False)
-         if TheBDM.isInitialized() and removeFee and amt<0:
-            theFee = self.getFeeForTx(le.getTxHash())
-            amt += theFee
+         #removeFee = self.settings.getSettingOrSetDefault('DispRmFee', False)
+         #if TheBDM.isInitialized() and removeFee and amt<0:
+            #amt += self.getFeeForTx(le.getTxHash())
 
          # If this was sent-to-self... we should display the actual specified
          # value when the transaction was executed.  This is pretty difficult 
