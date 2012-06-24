@@ -358,8 +358,11 @@ class ArmoryMainWindow(QMainWindow):
       #self.menusList.append( self.menu.addMenu('&Network') )
 
 
+      exportFn = lambda: DlgExportTxHistory(self,self).exec_()
+      actExportTx    = self.createAction('&Export Transactions', exportFn)
       actPreferences = self.createAction('&Preferences', self.openPrefDlg)
       actCloseApp    = self.createAction('&Quit Armory', self.closeEvent)
+      self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actPreferences)
       self.menusList[MENUS.File].addAction(actCloseApp)
 
@@ -1334,7 +1337,10 @@ class ArmoryMainWindow(QMainWindow):
          if wlt.commentsMap.has_key(le.getTxHash()):
             row.append(wlt.commentsMap[le.getTxHash()])
          else:
+            # [[ COMMENTS ]] are not meant to be displayed on main ledger
             comment = self.getAddrCommentIfAvail(le.getTxHash())
+            if comment.startswith('[[') and comment.endswith(']]'):
+               comment = ''
             row.append(comment)
 
          # Amount

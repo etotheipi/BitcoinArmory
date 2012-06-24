@@ -21,6 +21,8 @@ MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
+
+CHANGE_ADDR_DESCR_STRING = '[[ Created for change-back-to-self ]]'
  
 
 def HLINE(style=QFrame.Plain):

@@ -4822,7 +4822,9 @@ class DlgSendBitcoins(ArmoryDialog):
 
       self.origRVPairs = list(recipValuePairs)
       if totalChange>0:
-         recipValuePairs.append( [self.wlt.getNextUnusedAddress().getAddr160(), totalChange])
+         change160 = self.wlt.getNextUnusedAddress().getAddr160()
+         recipValuePairs.append( [change160, totalChange])
+         self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
@@ -8901,14 +8903,14 @@ class DlgPreferences(ArmoryDialog):
          strDescr += \
             ('"Standard" is for users that only need the core set of features '
              'to send and receive Bitcoins.  This includes maintaining multiple '
-             'wallets, wallet encryption, and the ability to make one-time backups '
+             'wallets, wallet encryption, and the ability to make backups '
              'of your wallets.')
       elif modestr.lower() == 'advanced':
          strDescr += \
             ('"Advanced" mode provides '
              'extra Armory features such as private key '
              'importing & sweeping, message signing, and the offline wallet '
-             'interface.  Use with caution!')
+             'interface.  But, with advanced features come advanced risks...')
       elif modestr.lower() == 'expert':
          strDescr += \
             ('"Expert" mode is similar to "Advanced" but includes '
@@ -8916,4 +8918,206 @@ class DlgPreferences(ArmoryDialog):
              'and network protocol.  Most extra functionality is geared '
              'towards Bitcoin software developers.')
       self.lblUsermodeDescr.setText(strDescr)
+
+
+
+
+################################################################################
+class DlgExportTxHistory(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgExportTxHistory, self).__init__(parent, main)
+
+
+
+      self.cmbWltSelect = QComboBox()
+      self.cmbWltSelect.clear()
+      self.cmbWltSelect.addItem( 'My Wallets'        )
+      self.cmbWltSelect.addItem( 'Offline Wallets'   )
+      self.cmbWltSelect.addItem( 'Other Wallets'  )
+      self.cmbWltSelect.addItem( 'All Wallets'       )
+      for wltID in self.walletIDList:
+         self.cmbWltSelect.addItem( self.walletMap[wltID].labelName )
+      self.cmbWltSelect.insertSeparator(4)
+      self.cmbWltSelect.insertSeparator(4)
+
+
+
+      self.cmbSortSelect = QComboBox()
+      self.cmbSortSelect.clear()
+      self.cmbSortSelect.addItem('Date (newest first)')
+      self.cmbSortSelect.addItem('Date (oldest first)')
+      self.cmbSortSelect.addItem('Transaction ID (ascending)')
+      self.cmbSortSelect.addItem('Transaction ID (descending)')
+
+
+      self.cmbFileFormat = QComboBox()
+      self.cmbFileFormat.clear()
+      self.cmbFileFormat.addItem('Comma-Separated Values (*.csv)')
+
+
+      self.edtDateFormat = QLineEdit()
+      self.edtDateFormat.setText('%Y-%b-%d %I:%M%p')
+      self.lblFormatDescr = QRichLabel( \
+               '%Y~year; %b~month name; %m~month number; %d~day number; '
+               '%I~hour 1-12; %H~hour 0-23; %M~minute; %p~{pm,am}')
+      self.lblDateExample = QRichLabel( '' )
+      self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.dispEx)
+      self.dispEx()
+
+      # Add the usual buttons
+      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton("Export")
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+      btnBox = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+
+      dlgLayout = QGridLayout()
+   
+      i=0
+      dlgLayout.addWidget(QRichLabel('Wallets to export:'),  i,0)
+      dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
+      
+      i+=1
+      dlgLayout.addWidget(QRichLabel('Sort Method:'),        i,0)
+      dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
+
+      i+=1
+      dlgLayout.addWidget(QRichLabel('Date Format'),         i,0)
+      dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
+      i+=1
+      dlgLayout.addWidget(self.lblFormatDescr,               i,0)
+      dlgLayout.addWidget(self.lblDateExample,               i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
+
+
+      i+=1
+      dlgLayout.addWidget(btnBox,                            i,0, 1,2)
+
+      self.setLayout(dlgLayout)
+
+
+
+
+   #############################################################################
+   def dispEx(self, qstr=None):
+      fmtstr = str(self.edtDateFormat.text()) 
+      try:
+         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(fmtstr))
+         self.isValidFormat = True
+      except:
+         self.lblDateExample.setText('')
+         self.isValidFormat = False
+
+   #############################################################################
+   def accept(self, *args):
+      self.createFile_CSV() 
+      super(DlgExportTxHistory, self).accept(*args)
+
+
+   #############################################################################
+   def createFile_CSV(self):
+      if not self.isValidFormat:
+         QMessageBox.warning(self, 'Invalid date format', \
+                  'Cannot create CSV without a valid format for transaction '
+                  'dates and times', QMessageBox.Ok)
+         return
+         
+      # This was pretty much copied from the createCombinedLedger method...
+      # I rarely do this, but modularizing this piece is a non-trivial
+      wltIDList = []
+      typelist = [[wid, determineWalletType(self.main.walletMap[wid], self)[0]] \
+                                                   for wid in self.main.walletIDList]
+      if currIdx>=4:
+         wltIDList = [self.walletIDList[currIdx-6]]
+      else:
+         listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
+         listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
+         listCrypt    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Crypt,     typelist)]
+         listPlain    = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Plain,     typelist)]
+         
+         if currIdx==0:
+            wltIDList = listOffline + listCrypt + listPlain
+         elif currIdx==1:
+            wltIDList = listOffline
+         elif currIdx==2:
+            wltIDList = listWatching
+         elif currIdx==3:
+            wltIDList = self.walletIDList
+         else:
+            pass
+
+      for wltID in wltIDList:
+         wlt = self.main.walletMap[wltID]
+         id_le_pairs = [[wltID, le] for le in wlt.getTxLedger('Full')]
+         self.combinedLedger.extend(id_le_pairs)
+         totalFunds += wlt.getBalance('Total')
+         spendFunds += wlt.getBalance('Spendable')
+         unconfFunds += wlt.getBalance('Unconfirmed')
+
+      sortTxt = str(self.cmbSortSelect.currentText())
+      if 'newest' in sortTxt:
+         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
+      elif 'oldest' in sortTxt:
+         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
+      elif 'ascend' in sortTxt:
+         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.TxHash])
+      elif 'descend' in sortTxt:
+         self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
+      else:
+         print '***ERROR: bad sort string!?'
+         return
+
+      self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
+      # END createCombinedLedger copy
+
+      wltSelectStr = str(self.cmbWltSelect.text()).replace(' ','_')
+      timestampStr = unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
+      filenamePrefix = 'ArmoryTxHistory_%s_%s' % (wltSelectStr, timestampStr) 
+      fmtstr = str(self.cmbFileFormat.currentText())
+      if 'csv' in fmtstr:
+         defaultName = filenamePrefix + '.csv' 
+         fullpath = self.main.getFileSave( 'Save CSV File', \
+                                           ['Comma-Separated Values (*.csv)'], \
+                                           defaultName)
+
+         if len(fullpath)==0:
+            return
+
+         f = open(fullpath, 'w')
+         f.write('Date,Transaction ID,#Conf,Wallet,Total Credit,Total Debit,Fee,Comment\n')
+         COL = LEDGERCOLS
+         for row in self.ledgerTable:
+            vals = []
+
+            fmtstr = str(self.edtDateFormat.text())
+            unixTime = row[COL.UnixTime]
+            vals.append( unixTimeToFormatStr(unixTime, fmtstr) )
+            vals.append( binary_to_hex(row[COL.TxHash], endOut=BIGENDIAN) )
+            vals.append( row[COL.NumConf] )
+            vals.append( row[COL.WltID] )
+
+            wltEffect = row[COL.Amount]
+            if wltEffect > 0:
+               vals.append( coin2str(wltEffect, ndec=8).strip() )
+               vals.append( '' )
+            else:
+               vals.append( '' )
+               vals.append( coin2str(wltEffect, ndec=8).strip() )
+
+            txFee = self.main.getFeeForTx(row[COL.TxHash])
+            vals.append( coin2str(txFee, ndec=8).strip() )
+            vals.append( row[COL.Comment] )
+
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s\n' % tuple(vals))
+
+         f.close()
+
 
