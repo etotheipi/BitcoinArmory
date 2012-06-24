@@ -11,7 +11,7 @@ from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
 
 SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-USERMODE = enum('Standard', 'Advanced', 'Developer')
+USERMODE = enum('Standard', 'Advanced', 'Expert')
 ARMORYMODE = enum('WITH_BLOCKCHAIN', 'WALLET_ONLY')
 WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
@@ -71,8 +71,8 @@ def UserModeStr(mode):
       return 'Standard'
    elif mode==USERMODE.Advanced:
       return 'Advanced'
-   elif mode==USERMODE.Developer:
-      return 'Developer'
+   elif mode==USERMODE.Expert:
+      return 'Expert'
 
 
 #######

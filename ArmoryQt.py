@@ -186,7 +186,7 @@ class ArmoryMainWindow(QMainWindow):
       cWidth = 20 # num-confirm icon width
       tWidth = 72 # date icon width
       initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, 0.30, 0.40, 0.3])
-      #elif self.usermode in (USERMODE.Advanced, USERMODE.Developer):
+      #elif self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
          #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
          #self.ledgerView.setColumnHidden(LEDGERCOLS.TxHash, False)
@@ -288,7 +288,7 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
       btnOfflineTx = QPushButton("Offline Transactions")
-      btnDevTools  = QPushButton("Developer Tools")
+      btnDevTools  = QPushButton("Expert Tools")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
@@ -308,7 +308,7 @@ class ArmoryMainWindow(QMainWindow):
       logoBtnFrame.append(btnSendBtc)
       logoBtnFrame.append(btnRecvBtc)
       logoBtnFrame.append(btnWltProps)
-      if self.usermode in (USERMODE.Advanced, USERMODE.Developer):
+      if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          logoBtnFrame.append(btnOfflineTx)
       logoBtnFrame.append(lblInfo)
       #logoBtnFrame.append(btnDevTools)
@@ -369,12 +369,12 @@ class ArmoryMainWindow(QMainWindow):
       def chngAdv(b): 
          if b: self.setUserMode(USERMODE.Advanced)
       def chngDev(b): 
-         if b: self.setUserMode(USERMODE.Developer)
+         if b: self.setUserMode(USERMODE.Expert)
 
       modeActGrp = QActionGroup(self)
       actSetModeStd = self.createAction('&Standard',  chngStd, True)
       actSetModeAdv = self.createAction('&Advanced',  chngAdv, True)
-      actSetModeDev = self.createAction('&Developer', chngDev, True)
+      actSetModeDev = self.createAction('&Expert', chngDev, True)
 
       modeActGrp.addAction(actSetModeStd)
       modeActGrp.addAction(actSetModeAdv)
@@ -395,8 +395,8 @@ class ArmoryMainWindow(QMainWindow):
       elif currmode=='Advanced':
          self.usermode = USERMODE.Advanced               
          actSetModeAdv.setChecked(True)
-      elif currmode=='Developer':
-         self.usermode = USERMODE.Developer               
+      elif currmode=='Expert':
+         self.usermode = USERMODE.Expert               
          actSetModeDev.setChecked(True)
 
       actOpenSigner = self.createAction('&Message Signing', lambda: DlgECDSACalc(self,self, 0).exec_())
@@ -686,8 +686,8 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('User_Mode', 'Standard')
       if mode==USERMODE.Advanced:
          self.settings.set('User_Mode', 'Advanced')
-      if mode==USERMODE.Developer:
-         self.settings.set('User_Mode', 'Developer')
+      if mode==USERMODE.Expert:
+         self.settings.set('User_Mode', 'Expert')
 
       if not self.firstModeSwitch:
          QMessageBox.information(self,'Restart Required', \
@@ -912,8 +912,8 @@ class ArmoryMainWindow(QMainWindow):
       self.usermode = USERMODE.Standard
       if self.settings.get('User_Mode') == 'Advanced':
          self.usermode = USERMODE.Advanced
-      elif self.settings.get('User_Mode') == 'Developer':
-         self.usermode = USERMODE.Developer
+      elif self.settings.get('User_Mode') == 'Expert':
+         self.usermode = USERMODE.Expert
 
       # Load wallets found in the .armory directory
       wltPaths = self.settings.get('Other_Wallets', expectList=True)

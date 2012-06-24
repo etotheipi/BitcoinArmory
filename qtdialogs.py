@@ -689,7 +689,7 @@ class DlgWalletDetails(ArmoryDialog):
       optLayout = QVBoxLayout()
 
       hasPriv = not self.wlt.watchingOnly
-      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
+      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Expert))
 
       def createVBoxSeparator():
          frm = QFrame()
@@ -849,7 +849,7 @@ class DlgWalletDetails(ArmoryDialog):
       menu = QMenu(self.wltAddrView)
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
@@ -1070,7 +1070,7 @@ class DlgWalletDetails(ArmoryDialog):
    #############################################################################
    def setWltDetailsFrame(self):
       dispCrypto = self.wlt.useEncryption and (self.usermode==USERMODE.Advanced or \
-                                               self.usermode==USERMODE.Developer)
+                                               self.usermode==USERMODE.Expert)
       self.wltID = self.wlt.uniqueIDB58
 
       if dispCrypto:
@@ -1673,7 +1673,7 @@ class DlgImportAddress(ArmoryDialog):
       lblPrivMany = QRichLabel('Private Key List')
       lblPrivMany.setAlignment(Qt.AlignTop)
       #self.chkSwitchEnd = QCheckBox('Private Keys are Little Endian');
-      #if self.main.usermode != USERMODE.Developer:
+      #if self.main.usermode != USERMODE.Expert:
          #self.chkSwitchEnd.setVisible(False)
       #ttipSwitchEnd = createToolTipObject( \
          #'Most private keys are in Big-Endian, but in rare cases you may '
@@ -2290,12 +2290,12 @@ class DlgImportWallet(ArmoryDialog):
       layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
       layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
-      if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+      if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
          lbl = QLabel('You can manually add wallets to armory by copying them '
                       'into your application directory:  ' + ARMORY_HOME_DIR)
          lbl.setWordWrap(True)
          layout.addWidget(lbl, 4,0, 1, 2); 
-         if self.main.usermode==USERMODE.Developer:
+         if self.main.usermode==USERMODE.Expert:
             lbl = QLabel('Any files in the application data directory above are '
                          'used in the application if the first 8 bytes of the file '
                          'are "\\xbaWALLET\\x00".  Wallets in this directory can be '
@@ -2815,13 +2815,13 @@ class DlgAddressInfo(ArmoryDialog):
       lbls = []
 
       # Hash160
-      if mode in (USERMODE.Advanced, USERMODE.Developer):
+      if mode in (USERMODE.Advanced, USERMODE.Expert):
          bin25   = base58_to_binary(addrStr)
          lbls.append([])
          lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
          lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
          h160Str = binary_to_hex(bin25[1:-4])
-         if mode==USERMODE.Developer:
+         if mode==USERMODE.Expert:
             network = binary_to_hex(bin25[:1    ])
             hash160 = binary_to_hex(bin25[ 1:-4 ])
             addrChk = binary_to_hex(bin25[   -4:])
@@ -2949,7 +2949,7 @@ class DlgAddressInfo(ArmoryDialog):
       optLayout = QVBoxLayout()
 
       hasPriv = self.addr.hasPrivKey()
-      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Developer))
+      adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Expert))
       watch = self.wlt.watchingOnly
 
       #def createVBoxSeparator():
@@ -4776,7 +4776,7 @@ class DlgSendBitcoins(ArmoryDialog):
          minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
-         #if self.main.usermode in (USERMODE.Advanced, USERMODE.Developer):
+         #if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
             #if not overrideMin:
                #extraMsg = ('\n\n(It is not recommended to override this behavior, '
                            #'but as an advanced user, you can go into the settings file '
@@ -5950,7 +5950,7 @@ class DlgShowKeyList(ArmoryDialog):
 
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       if std:
          self.chkList['PubKeyHash'].setVisible(False)
          self.chkList['PrivCrypt' ].setVisible(False)
@@ -6028,7 +6028,7 @@ class DlgShowKeyList(ArmoryDialog):
       L = []
       L.append('Wallet ID:    ' + self.wlt.uniqueIDB58)
       L.append('Wallet Name:  ' + self.wlt.labelName)
-      if self.main.usermode==USERMODE.Developer:
+      if self.main.usermode==USERMODE.Expert:
          L.append('Chain Code:   ' + fmtBin(self.wlt.addrMap['ROOT'].chaincode.toBinStr()))
          L.append('Highest Used: ' + str(self.wlt.highestUsedChainIndex))
       L.append('')
@@ -6397,7 +6397,7 @@ class DlgDispTxInfo(ArmoryDialog):
       # I hate BE, but block-explorer requires it so it's probably a better default
       endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
       estr = ''
-      if self.mode in (USERMODE.Advanced, USERMODE.Developer):
+      if self.mode in (USERMODE.Advanced, USERMODE.Expert):
          estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
    
       lbls.append([])
@@ -6429,7 +6429,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       lbls[-1][-1].setMinimumWidth(w)
 
-      if self.mode in (USERMODE.Developer,):
+      if self.mode in (USERMODE.Expert,):
          # Add protocol version and locktime to the display
          lbls.append([])
          lbls[-1].append(createToolTipObject('Bitcoin Protocol Version Number'))
@@ -6482,7 +6482,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QRichLabel( '<i>Not in the blockchain yet</i>' ))
          else:
             idxStr = ''
-            if not data[FIELDS.Idx]==None and self.mode==USERMODE.Developer:
+            if not data[FIELDS.Idx]==None and self.mode==USERMODE.Expert:
                idxStr = '  (Tx #%d)'%data[FIELDS.Idx]
             lbls.append([])
             lbls[-1].append(createToolTipObject( 
@@ -6639,7 +6639,7 @@ class DlgDispTxInfo(ArmoryDialog):
          self.txInView.hideColumn(TXINCOLS.FromBlk) 
          self.txInView.hideColumn(TXINCOLS.Sequence) 
          #self.txInView.setSelectionMode(QTableView.NoSelection)
-      elif self.mode==USERMODE.Developer:
+      elif self.mode==USERMODE.Expert:
          self.txInView.resizeColumnsToContents()
             
       self.txInView.setContextMenuPolicy(Qt.CustomContextMenu)
@@ -6667,7 +6667,7 @@ class DlgDispTxInfo(ArmoryDialog):
       elif self.mode==USERMODE.Advanced:
          initialColResize(self.txOutView, [0.8*wWlt, 0.6*wAddr, wAmt, 0.25, 0])
          #self.txOutView.setSelectionMode(QTableView.NoSelection)
-      elif self.mode==USERMODE.Developer:
+      elif self.mode==USERMODE.Expert:
          initialColResize(self.txOutView, [wWlt, wAddr, wAmt, 0.25, 0])
       #self.txOutView.resizeColumnsToContents()
 
@@ -6739,7 +6739,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.connect(self.btnCopy,   SIGNAL('clicked()'), self.copyRawTx)
 
       btnStrip = makeLayoutFrame('Horiz', [self.btnIOList, self.btnCopy, self.lblCopied, 'Stretch', self.btnOk])
-      if not self.mode==USERMODE.Developer:
+      if not self.mode==USERMODE.Expert:
          self.btnCopy.setVisible(False)
       
 
@@ -6771,7 +6771,7 @@ class DlgDispTxInfo(ArmoryDialog):
          self.frmIOList.setVisible(True)
          self.btnCopy.setVisible(True)
          self.lblCopied.setVisible(True)
-         self.scriptArea.setVisible(self.mode==USERMODE.Developer)
+         self.scriptArea.setVisible(self.mode==USERMODE.Expert)
          self.btnIOList.setText('<<< Less Info')
       else:
          self.frmIOList.setVisible(False)
@@ -6829,7 +6829,7 @@ class DlgDispTxInfo(ArmoryDialog):
       menu = QMenu(self.txInView)
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       
       if True:   actCopySender = menu.addAction("Copy Sender Address")
       if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
@@ -6863,7 +6863,7 @@ class DlgDispTxInfo(ArmoryDialog):
       menu = QMenu(self.txOutView)
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       
       if True:   actCopySender = menu.addAction("Copy Recipient Address")
       if True:   actCopyWltID  = menu.addAction("Copy Wallet ID")
@@ -8591,7 +8591,7 @@ class DlgAddressBook(ArmoryDialog):
       menu = QMenu(self.addrBookTxView)
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
@@ -8619,7 +8619,7 @@ class DlgAddressBook(ArmoryDialog):
       menu = QMenu(self.addrBookRxView)
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
-      dev = (self.main.usermode==USERMODE.Developer)
+      dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
@@ -8699,21 +8699,22 @@ class DlgPreferences(ArmoryDialog):
 
 
       txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
-      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions.</b><br>'
+      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>'
                                  'Fees go to users that contribute computing power '
                                  'to keep the Bitcoin network secure and increases '
                                  'the priority of your transactions on the network '
                                  '(%s BTC is standard).' % \
                                  coin2str(MIN_TX_FEE, maxZeros=0).strip())
       ttipDefaultFee = createToolTipObject( \
-                                 'NOTE: some transactions will require a fee '
+                                 'NOTE: some transactions will require a certain fee '
                                  'regardless of your preferences -- in such cases '
                                  'you will be prompted to include the correct '
-                                 'value or abort the transaction')
+                                 'value or cancel the transaction')
       self.edtDefaultFee = QLineEdit()
       self.edtDefaultFee.setText( coin2str(txFee, maxZeros=1).strip())
       lblDefaultFee.setMinimumWidth(400)
 
+      self.connect(self.edtDefaultFee, SIGNAL('returnPressed()'), self.accept)
 
       #doInclFee = self.main.settings.getSettingOrSetDefault('LedgDisplayFee', True)
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
@@ -8749,9 +8750,30 @@ class DlgPreferences(ArmoryDialog):
 
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Save")
-      self.btnAccept.setDefault(True)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
+
+
+
+      self.cmbUsermode = QComboBox()
+      self.cmbUsermode.clear()
+      self.cmbUsermode.addItem( 'Standard' )
+      self.cmbUsermode.addItem( 'Advanced' )
+      self.cmbUsermode.addItem( 'Expert' )
+
+
+      if self.main.usermode==USERMODE.Standard:
+         self.cmbUsermode.setCurrentIndex(0)
+      elif self.main.usermode==USERMODE.Advanced:
+         self.cmbUsermode.setCurrentIndex(1)
+      elif self.main.usermode==USERMODE.Expert:
+         self.cmbUsermode.setCurrentIndex(2)
+
+      self.lblUsermodeDescr = QRichLabel('')
+      self.setUsermodeDescr()
+
+      self.connect(self.cmbUsermode, SIGNAL('activated(int)'), self.setUsermodeDescr)
+
 
       frmLayout = QGridLayout()
 
@@ -8796,6 +8818,12 @@ class DlgPreferences(ArmoryDialog):
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( self.lblUsermodeDescr, i,0 )
+      frmLayout.addWidget( QLabel(''),            i,1 )
+      frmLayout.addWidget( self.cmbUsermode,      i,2 )
+
 
 
       frmOptions = QFrame()
@@ -8849,7 +8877,15 @@ class DlgPreferences(ArmoryDialog):
                   'specify in BTC with no more than 8 decimal places.', \
                   QMessageBox.Ok)
          return
-         
+
+      modestr = str(self.cmbUsermode.currentText())
+      if modestr.lower() == 'standard':
+         self.main.setUserMode(USERMODE.Standard)
+      elif modestr.lower() == 'advanced':
+         self.main.setUserMode(USERMODE.Advanced)
+      elif modestr.lower() == 'expert':
+         self.main.setUserMode(USERMODE.Expert)
+
       #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
       self.main.settings.set('NotifyBtcOut', self.chkBtcOut.isChecked())
@@ -8858,4 +8894,26 @@ class DlgPreferences(ArmoryDialog):
       super(DlgPreferences, self).accept(*args)
       
 
+   def setUsermodeDescr(self):
+      strDescr = '<b>Armory user mode:</b><br>'
+      modestr =  str(self.cmbUsermode.currentText())
+      if modestr.lower() == 'standard':
+         strDescr += \
+            ('"Standard" is for users that only need the core set of features '
+             'to send and receive Bitcoins.  This includes maintaining multiple '
+             'wallets, wallet encryption, and the ability to make one-time backups '
+             'of your wallets.')
+      elif modestr.lower() == 'advanced':
+         strDescr += \
+            ('"Advanced" mode provides '
+             'extra Armory features such as private key '
+             'importing & sweeping, message signing, and the offline wallet '
+             'interface.  Use with caution!')
+      elif modestr.lower() == 'expert':
+         strDescr += \
+            ('"Expert" mode is similar to "Advanced" but includes '
+             'access to lower-level info about transactions, scripts, keys '
+             'and network protocol.  Most extra functionality is geared '
+             'towards Bitcoin software developers.')
+      self.lblUsermodeDescr.setText(strDescr)
 
