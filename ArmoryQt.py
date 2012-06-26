@@ -1318,6 +1318,7 @@ class ArmoryMainWindow(QMainWindow):
    def convertLedgerToTable(self, ledger):
       
       table2D = []
+      datefmt = self.getPreferredDateFormat()
       for wltID,le in ledger: 
          row = []
 
@@ -1350,7 +1351,7 @@ class ArmoryMainWindow(QMainWindow):
          row.append(le.getTxTime())
 
          # Date
-         row.append(unixTimeToFormatStr(le.getTxTime()))
+         row.append(unixTimeToFormatStr(le.getTxTime(), datefmt))
 
          # TxDir (actually just the amt... use the sign of the amt to determine dir)
          row.append(coin2str(le.getValue(), maxZeros=2))

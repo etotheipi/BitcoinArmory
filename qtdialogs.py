@@ -8707,7 +8707,8 @@ class DlgPreferences(ArmoryDialog):
 
 
       txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
-      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>'
+      lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>')
+      lblDefaultDescr = QRichLabel( \
                                  'Fees go to users that contribute computing power '
                                  'to keep the Bitcoin network secure and increases '
                                  'the priority of your transactions on the network '
@@ -8761,12 +8762,23 @@ class DlgPreferences(ArmoryDialog):
 
       ###############################################################
       # Date format preferences
-      lblDateFmt = QLabel('<b>Preferred Date Format<b>:')
+      lblDateFmt   = QRichLabel('<b>Preferred Date Format<b>:<br>')
+      lblDateDescr = QRichLabel( \
+                          'You can specify how you would like dates '
+                          'to be displayed throughout Armory by entering '
+                          '"strftime" symbols on the right. The mouseover '
+                          'text of the "(?)" shows the most commonly '
+                          'used symbols.  The text above it shows how '
+                          '"27 Aug, 2002, 10:32pm" would be shown '
+                          'with the current format.')
       lblDateFmt.setAlignment(Qt.AlignTop)
       fmt = self.main.getPreferredDateFormat()
       ttipStr = 'Use any of the following symbols:<br>'
       fmtSymbols = [x[0] + ' = ' + x[1] for x in FORMAT_SYMBOLS]
       ttipStr += '<br>'.join(fmtSymbols)
+
+      fmtSymbols = [x[0] + '~' + x[1] for x in FORMAT_SYMBOLS]
+      lblStk = QRichLabel('; '.join(fmtSymbols))
 
       self.edtDateFormat = QLineEdit()
       self.edtDateFormat.setText(fmt)
@@ -8787,8 +8799,9 @@ class DlgPreferences(ArmoryDialog):
       frmTop = makeHorizFrame([self.lblDateExample, 'Stretch', self.ttipFormatDescr])
       frmMid = makeHorizFrame([self.edtDateFormat])
       frmBot = makeHorizFrame([self.btnResetFormat, 'Stretch'])
-      fStack = makeVertFrame( [frmTop, frmMid, frmBot])
-      subFrm = makeHorizFrame([lblDateFmt, 'Stretch', fStack])
+      fStack = makeVertFrame( [frmTop, frmMid, frmBot, 'Stretch'])
+      lblStk = makeVertFrame( [lblDateFmt, lblDateDescr, 'Stretch'])
+      subFrm = makeHorizFrame([lblStk, 'Stretch', fStack])
 
 
       ###############################################################
@@ -8815,6 +8828,7 @@ class DlgPreferences(ArmoryDialog):
       elif self.main.usermode==USERMODE.Expert:
          self.cmbUsermode.setCurrentIndex(2)
 
+      lblUsermode = QRichLabel('<b>Armory user mode:</b>')
       self.lblUsermodeDescr = QRichLabel('')
       self.setUsermodeDescr()
 
@@ -8827,6 +8841,9 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( lblDefaultFee,         i,0 )
       frmLayout.addWidget( ttipDefaultFee,        i,1 )
       frmLayout.addWidget( self.edtDefaultFee,    i,2 )
+
+      i+=1
+      frmLayout.addWidget( lblDefaultDescr,       i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -8864,10 +8881,12 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( self.lblUsermodeDescr, i,0 )
+      frmLayout.addWidget( lblUsermode,           i,0 )
       frmLayout.addWidget( QLabel(''),            i,1 )
       frmLayout.addWidget( self.cmbUsermode,      i,2 )
 
+      i+=1
+      frmLayout.addWidget( self.lblUsermodeDescr, i,0, 1,3)
 
 
       frmOptions = QFrame()
@@ -8942,12 +8961,14 @@ class DlgPreferences(ArmoryDialog):
       self.main.settings.set('NotifyBtcOut', self.chkBtcOut.isChecked())
       self.main.settings.set('NotifyDiscon', self.chkDiscon.isChecked())
       self.main.settings.set('NotifyReconn', self.chkReconn.isChecked())
+
+      self.main.createCombinedLedger()
       super(DlgPreferences, self).accept(*args)
       
 
    #############################################################################
    def setUsermodeDescr(self):
-      strDescr = '<b>Armory user mode:</b><br>'
+      strDescr = ''
       modestr =  str(self.cmbUsermode.currentText())
       if modestr.lower() == 'standard':
          strDescr += \
