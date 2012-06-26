@@ -7430,8 +7430,6 @@ class PyBtcWallet(object):
          raise WalletLockError, 'Cannot import private key when wallet is locked!'
 
 
-      securePubKey = SecureBinaryData(pubKey)
-
       if privKey:
          # For priv key, lots of extra encryption and verification options
          newAddr = PyBtcAddress().createFromPlainKeyData( addr160=addr20, \
@@ -7443,6 +7441,7 @@ class PyBtcWallet(object):
             newAddr.lock(self.kdfKey)
             newAddr.unlock(self.kdfKey)
       elif pubKey:
+         securePubKey = SecureBinaryData(pubKey)
          newAddr = PyBtcAddress().createFromPublicKeyData(securePubKey)
       else:
          newAddr = PyBtcAddress().createFromPublicKeyHash160(addr20)

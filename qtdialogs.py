@@ -624,7 +624,7 @@ class DlgWalletDetails(ArmoryDialog):
       if self.wlt.watchingOnly:
          lbtnSendBtc = QLabelButton('Prepare Offline Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
-      lbtnImportA = QLabelButton('Import Private Keys')
+      lbtnImportA = QLabelButton('Import/Sweep Private Keys')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
       #lbtnSweepA  = QLabelButton('Sweep Wallet/Address')
       lbtnForkWlt = QLabelButton('Create Watching-Only Copy')
@@ -1621,7 +1621,7 @@ class DlgImportAddress(ArmoryDialog):
       self.wlt = wlt
 
 
-      lblImportLbl = QRichLabel('Import:')
+      lblImportLbl = QRichLabel('Enter:')
 
       self.radioImportOne   = QRadioButton('One Key')
       self.radioImportMany  = QRadioButton('Multiple Keys')
@@ -2082,7 +2082,7 @@ class DlgImportAddress(ArmoryDialog):
 
       
          # Finally, if we got here, we're ready to broadcast!
-         dispIn  = '<Multiple Addresses>' % oldAddr.getAddrStr()
+         dispIn  = '<Multiple Addresses>' 
          dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
          if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
             self.main.broadcastTransaction(finishedTx, dryRun=False)
@@ -2140,9 +2140,10 @@ class DlgImportAddress(ArmoryDialog):
                else:
                   nAlready += 1
             except Exception,msg:
-               print '***ERROR importing:', addrB58
-               print '         Error Msg:', msg
-               nError += 1
+               #print '***ERROR importing:', addrStr
+               #print '         Error Msg:', msg
+               #nError += 1
+               raise
    
 
          if nAlready==nTotal:
