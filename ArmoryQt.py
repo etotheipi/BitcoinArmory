@@ -707,7 +707,7 @@ class ArmoryMainWindow(QMainWindow):
       # interfere with the SettingsFile symbols
       globalDefault = binary_to_hex(DEFAULT_DATE_FORMAT)
       fmt = self.settings.getSettingOrSetDefault('DateFormat', globalDefault)
-      return hex_to_binary(fmt)
+      return hex_to_binary(str(fmt))  # short hex strings could look like int()
 
    #############################################################################
    def setPreferredDateFormat(self, fmtStr):
