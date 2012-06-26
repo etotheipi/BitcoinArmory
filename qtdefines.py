@@ -22,7 +22,7 @@ STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
 
-CHANGE_ADDR_DESCR_STRING = '[[ Created for change-back-to-self ]]'
+CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
  
 
 def HLINE(style=QFrame.Plain):
@@ -38,7 +38,7 @@ def VLINE(style=QFrame.Plain):
 
 
 # Setup fixed-width and var-width fonts
-def GETFONT(ftype, sz=10, bold=False):
+def GETFONT(ftype, sz=10, bold=False, italic=False):
    fnt = None
    if ftype.lower().startswith('fix'):
       if OS_WINDOWS:
@@ -61,6 +61,9 @@ def GETFONT(ftype, sz=10, bold=False):
 
    if bold:
       fnt.setWeight(QFont.Bold)
+
+   if italic:
+      fnt.setItalic(True)
    
    return fnt
       

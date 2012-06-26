@@ -9018,7 +9018,7 @@ class DlgExportTxHistory(ArmoryDialog):
    def dispEx(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text()) 
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1000000000, fmtstr))
+         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1000500000, fmtstr))
          self.isValidFormat = True
       except:
          self.lblDateExample.setText('Example: <invalid date format>')
@@ -9026,8 +9026,8 @@ class DlgExportTxHistory(ArmoryDialog):
 
    #############################################################################
    def accept(self, *args):
-      self.createFile_CSV() 
-      super(DlgExportTxHistory, self).accept(*args)
+      if self.createFile_CSV():
+         super(DlgExportTxHistory, self).accept(*args)
 
 
    #############################################################################
@@ -9036,7 +9036,7 @@ class DlgExportTxHistory(ArmoryDialog):
          QMessageBox.warning(self, 'Invalid date format', \
                   'Cannot create CSV without a valid format for transaction '
                   'dates and times', QMessageBox.Ok)
-         return
+         return False
          
       # This was pretty much copied from the createCombinedLedger method...
       # I rarely do this, but modularizing this piece is a non-trivial
@@ -9045,7 +9045,7 @@ class DlgExportTxHistory(ArmoryDialog):
                                                    for wid in self.main.walletIDList]
       currIdx = self.cmbWltSelect.currentIndex()
       if currIdx>=4:
-         wltIDList = [self.walletIDList[currIdx-6]]
+         wltIDList = [self.main.walletIDList[currIdx-6]]
       else:
          listOffline  = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.Offline,   typelist)]
          listWatching = [t[0] for t in filter(lambda x: x[1]==WLTTYPES.WatchOnly, typelist)]
@@ -9059,7 +9059,7 @@ class DlgExportTxHistory(ArmoryDialog):
          elif currIdx==2:
             wltIDList = listWatching
          elif currIdx==3:
-            wltIDList = self.walletIDList
+            wltIDList = self.main.walletIDList
          else:
             pass
 
@@ -9103,7 +9103,20 @@ class DlgExportTxHistory(ArmoryDialog):
             return
 
          f = open(fullpath, 'w')
-         f.write('Date,Transaction ID,#Conf,Wallet,Total Credit,Total Debit,Fee,Comment\n')
+
+         f.write('Export Date:, %s\n' % unixTimeToFormatStr(RightNow()))
+         f.write('Total Funds:, %s\n' % coin2str(totalFunds, maxZeros=0)).strip()
+         f.write('Spendable Funds:, %s\n' % coin2str(spendFunds, maxZeros=0)).strip()
+         f.write('Unconfirmed Funds:, %s\n' % coin2str(unconfFunds, maxZeros=0)).strip()
+         f.write('\n')
+
+         f.write('Included Wallets:\n')
+         for wltID in wltIDList:
+            wlt = self.main.walletMap[wltID]
+            f.write('%s,%s\n' % (wltID, wlt.labelName.replace(',',';')))
+         f.write('\n')
+
+         f.write('Date,Transaction ID,#Conf,Wallet ID, Wallet Name,Total Credit,Total Debit,Fee (wallet paid),Comment\n')
          COL = LEDGERCOLS
          for row in ledgerTable:
             vals = []
@@ -9114,6 +9127,7 @@ class DlgExportTxHistory(ArmoryDialog):
             vals.append( row[COL.TxHash] )
             vals.append( row[COL.NumConf] )
             vals.append( row[COL.WltID] )
+            vals.append( self.main.walletMap[row[COL.WltID]].labelName.replace(',',';'))
 
             wltEffect = row[COL.Amount]
             txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
@@ -9128,8 +9142,9 @@ class DlgExportTxHistory(ArmoryDialog):
 
             vals.append( row[COL.Comment] )
 
-            f.write('%s,%s,%d,%s,%s,%s,%s,%s\n' % tuple(vals))
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s\n' % tuple(vals))
 
          f.close()
+      return True
 
 

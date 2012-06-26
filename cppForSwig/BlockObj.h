@@ -170,7 +170,8 @@ class TxIn
    friend class BlockDataManager_FileRefs;
 
 public:
-   TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), scriptOffset_(0) {}
+   TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
+                scriptOffset_(0), parentHash_(0) {}
 
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
    TxIn(uint8_t const * ptr,  
@@ -201,10 +202,15 @@ public:
    TxRef*           getParentTxPtr(void) { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
 
-   void setParentTx(TxRef* txref, int32_t idx=-1) { parentTx_=txref; index_=-1;}
+   void setParentTx(TxRef* txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
 
    uint32_t         getSequence(void)   { return *(uint32_t*)(getPtr()+getSize()-4); }
 
+   BinaryData       getParentHash(void);
+   uint32_t         getParentHeight(void);
+
+   void             setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
+   void             setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData       serialize(void)    { return dataCopy_; }
@@ -231,6 +237,8 @@ public:
 
 private:
    BinaryData       dataCopy_;
+   BinaryData       parentHash_;
+   uint32_t         parentHeight_;
 
    // Derived properties - we expect these to be set after construct/copy
    uint32_t         index_;
@@ -251,7 +259,7 @@ class TxOut
 public:
 
    /////////////////////////////////////////////////////////////////////////////
-   TxOut(void) : dataCopy_(0) {}
+   TxOut(void) : dataCopy_(0), parentHash_(0) {}
    TxOut(uint8_t const * ptr, 
          uint32_t        nBytes=0, 
          TxRef*          parent=NULL, 
@@ -265,7 +273,7 @@ public:
    TxRef*          getParentTxPtr(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
 
-   void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=-1;}
+   void setParentTx(TxRef * txref, int32_t idx=-1) { parentTx_=txref; index_=idx;}
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -288,6 +296,12 @@ public:
    BinaryData         serialize(void) { return BinaryData(dataCopy_); }
    BinaryDataRef      serializeRef(void) { return dataCopy_; }
 
+   BinaryData         getParentHash(void);
+   uint32_t           getParentHeight(void);
+
+   void               setParentHash(BinaryData const & txhash) {parentHash_ = txhash;}
+   void               setParentHeight(uint32_t blkheight) {parentHeight_ = blkheight;}
+
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr, 
                          uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
@@ -302,6 +316,8 @@ public:
 
 private:
    BinaryData        dataCopy_;
+   BinaryData        parentHash_;
+   uint32_t          parentHeight_;
 
    // Derived properties - we expect these to be set after construct/copy
    uint32_t          scriptOffset_;

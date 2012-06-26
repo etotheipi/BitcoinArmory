@@ -369,6 +369,23 @@ BinaryData TxIn::getSenderAddrIfAvailable(void) const
    return addrTarget;
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData TxIn::getParentHash(void)
+{
+   if(parentTx_==NULL)
+      return parentHash_;
+   else
+      return parentTx_->getThisHash();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t TxIn::getParentHeight(void)
+{
+   if(parentTx_==NULL)
+      return parentHeight_;
+   else
+      return parentTx_->getBlockHeight();
+}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -446,6 +463,24 @@ void TxOut::unserialize(BinaryRefReader & brr, uint32_t nbytes, TxRef* parent, i
    brr.advance(getSize());
 }
 
+////////////////////////////////////////////////////////////////////////////////
+BinaryData TxOut::getParentHash(void)
+{
+   if(parentTx_==NULL)
+      return parentHash_;
+   else
+      return parentTx_->getThisHash();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+uint32_t   TxOut::getParentHeight(void)
+{
+   if(parentTx_==NULL)
+      return parentHeight_;
+   else
+      return parentTx_->getBlockHeight();
+
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -546,7 +581,14 @@ TxIn Tx::getTxIn(int i)
 {
    assert(isInitialized());
    uint32_t txinSize = offsetsTxIn_[i+1] - offsetsTxIn_[i];
-   return TxIn(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, getTxRefPtr(), i);
+   TxIn out(dataCopy_.getPtr()+offsetsTxIn_[i], txinSize, getTxRefPtr(), i);
+   
+   if(getTxRefPtr()==NULL)
+   {
+      out.setParentHash(getThisHash());
+      out.setParentHeight(UINT32_MAX);
+   }
+   return out;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -557,7 +599,14 @@ TxOut Tx::getTxOut(int i)
 {
    assert(isInitialized());
    uint32_t txoutSize = offsetsTxOut_[i+1] - offsetsTxOut_[i];
-   return TxOut(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, getTxRefPtr(), i);
+   TxOut out(dataCopy_.getPtr()+offsetsTxOut_[i], txoutSize, getTxRefPtr(), i);
+   
+   if(getTxRefPtr()==NULL)
+   {
+      out.setParentHash(getThisHash());
+      out.setParentHeight(UINT32_MAX);
+   }
+   return out;
 }
 
 
@@ -762,9 +811,9 @@ UnspentTxOut::UnspentTxOut(void) :
 ////////////////////////////////////////////////////////////////////////////////
 void UnspentTxOut::init(TxOut & txout, uint32_t blkNum)
 {
-   txHash_     = txout.getParentTxPtr()->getThisHash();
+   txHash_     = txout.getParentHash();
    txOutIndex_ = txout.getIndex();
-   txHeight_   = txout.getParentTxPtr()->getBlockHeight();
+   txHeight_   = txout.getParentHeight();
    value_      = txout.getValue();
    script_     = txout.getScript();
    updateNumConfirm(blkNum);

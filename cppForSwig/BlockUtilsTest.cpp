@@ -80,14 +80,13 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
-   //string blkdir("/home/alan/.bitcoin");
+   string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
-   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
-   string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
+   //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
    // ONLY USE THIS TO CREATE THE TEST BLOCKCHAIN -- then comment it out
@@ -115,8 +114,8 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkdir);
 
-   printTestHeader("Test-Memory-Usage-With-System-Monitor");
-   TestMemoryUsage_UseSystemMonitor(blkdir);
+   //printTestHeader("Test-Memory-Usage-With-System-Monitor");
+   //TestMemoryUsage_UseSystemMonitor(blkdir);
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -329,21 +328,21 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    BtcWallet wlt2;
    
    // Main-network addresses
-   //myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt2.addAddress(myAddress);
 
    // P2Pool Address
    myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt1.addAddress(myAddress);
    
    // Add some relevant testnet addresses
-   //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
-   //myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
-   //myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
-   //myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt2.addAddress(myAddress);
+   myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt1.addAddress(myAddress);
+   myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt1.addAddress(myAddress);
 
    vector<BtcWallet*> wltList;
    wltList.push_back(&wlt1);
@@ -378,7 +377,6 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    cout << "Printing Wallet(2) Ledger" << endl;
    wlt2.pprintLedger();
 
-   /*
    cout << endl << "Rescanning wlt2 multiple times" << endl;
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
    TIMER_WRAP(bdm.scanBlockchainForTx(wlt2));
@@ -428,7 +426,6 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
               << "   " << txList[j].blkNum_
               << "   " << txList[j].txIndex_ << endl;
    }
-   */
 
 
    // Results for the sent-to address list, as of 09 Apr, 2012
@@ -540,7 +537,7 @@ void TestBalanceConstruction(string blkdir)
    //myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt.addAddress(myAddress);
 
    // P2Pool Address
-   //myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
 
    // Add some relevant testnet addresses
    //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
@@ -579,6 +576,15 @@ void TestBalanceConstruction(string blkdir)
    uint64_t balSpd = wlt.getSpendableBalance(topBlk);
    uint64_t balUnc = wlt.getUnconfirmedBalance(topBlk);
 
+   vector<UnspentTxOut> utxoF = wlt.getFullTxOutList(topBlk);
+   vector<UnspentTxOut> utxoS = wlt.getSpendableTxOutList(topBlk);
+   cout << "FULL:" << endl;
+   for(uint32_t i=0; i<utxoF.size(); i++)
+      utxoF[i].pprintOneLine(topBlk);
+
+   cout << "SPENDABLE:" << endl;
+   for(uint32_t i=0; i<utxoS.size(); i++)
+      utxoS[i].pprintOneLine(topBlk);
 }
 
 void TestReadAndUpdateBlkFile(string tempBlkDir)

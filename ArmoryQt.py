@@ -789,9 +789,9 @@ class ArmoryMainWindow(QMainWindow):
             if not le.getTxHash()=='\x00'*32:
                notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
                notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
-               if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
+               if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
                   self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-                  self.createCombinedLedger()
+               self.createCombinedLedger()
 
       def showOfflineMsg():
          self.lblArmoryStatus.setText( \

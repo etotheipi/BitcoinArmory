@@ -436,11 +436,22 @@ class WalletAddrDispModel(QAbstractTableModel):
             if   val>0: return QVariant(Colors.TextGreen)
             else:       return QVariant(Colors.Foreground)
       elif role==Qt.FontRole:
-         doBold = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
+         hasTx = len(self.wlt.cppWallet.getAddrByHash160(addr160).getTxLedger())>0
+         cmt = str(self.index(index.row(),COL.Comment).data().toString())
+         isChange = (cmt==CHANGE_ADDR_DESCR_STRING)
+
          if col==COL.Balance:
-            return GETFONT('Fixed',bold=doBold)
+            return GETFONT('Fixed',bold=hasTx)
          else:
-            return GETFONT('Var',bold=doBold)
+            doBold   = hasTx and not isChange
+            doItalic = isChange
+            return GETFONT('Var',bold=doBold, italic=doItalic)
+      elif role==Qt.ToolTipRole:
+         cmt = str(self.index(index.row(),COL.Comment).data().toString())
+         if cmt==CHANGE_ADDR_DESCR_STRING:
+            return QVariant('This address was created by Armory to '
+                            'receive the change from an oversized, outgoing '
+                            'transaction.')
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getFullBalance()

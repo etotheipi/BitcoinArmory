@@ -66,8 +66,6 @@ parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', ty
                   help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                   help="Use the testnet protocol")
-parser.add_option("--mainnet", dest="testnet", action="store_false", default=False,
-                  help="Use the testnet protocol")
 parser.add_option("--offline", dest="offline", action="store_true", default=False,
                   help="Force Armory to run in offline mode")
 parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
