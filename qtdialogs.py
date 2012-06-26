@@ -5142,6 +5142,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
                                       ['Armory Transactions (*.unsigned.tx)'], \
                                       'armory_%s_.unsigned.tx' % dpid)
+      print toSave
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtTxDP.toPlainText())
@@ -5155,6 +5156,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
                                       'armory_%s_.signed.tx' % dpid)
+      print toSave
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtSigned.toPlainText())
@@ -5826,6 +5828,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
       filename = self.main.getFileSave('Save Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'], \
                              defaultFilename)
+      print "Default:", defaultFilename
+      print filename
 
       if len(str(filename))>0:
          f = open(filename, 'w')
@@ -5836,6 +5840,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
    def loadTx(self):
       filename = self.main.getFileLoad('Load Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'])
+      print filename
       if len(str(filename))>0:
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
@@ -8731,6 +8736,8 @@ class DlgPreferences(ArmoryDialog):
       #self.chkInclFee.setChecked(doInclFee)
 
 
+      ###############################################################
+      # Notifications
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
       notifyBtcIn  = self.main.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
       notifyBtcOut = self.main.settings.getSettingOrSetDefault('NotifyBtcOut', True)
@@ -8750,6 +8757,41 @@ class DlgPreferences(ArmoryDialog):
       self.chkDiscon.setChecked(notifyDiscon)
       self.chkReconn.setChecked(notifyReconn)
 
+
+      ###############################################################
+      # Date format preferences
+      lblDateFmt = QLabel('<b>Preferred Date Format<b>:')
+      lblDateFmt.setAlignment(Qt.AlignTop)
+      fmt = self.main.getPreferredDateFormat()
+      ttipStr = 'Use any of the following symbols:<br>'
+      fmtSymbols = [x[0] + ' = ' + x[1] for x in FORMAT_SYMBOLS]
+      ttipStr += '<br>'.join(fmtSymbols)
+
+      self.edtDateFormat = QLineEdit()
+      self.edtDateFormat.setText(fmt)
+      self.ttipFormatDescr = createToolTipObject( ttipStr )
+
+      self.lblDateExample = QRichLabel( '', doWrap=False)
+      self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.doExampleDate)
+      self.doExampleDate()
+      self.btnResetFormat = QPushButton("Reset to Default")
+
+      def doReset():
+         self.edtDateFormat.setText(DEFAULT_DATE_FORMAT)
+         self.doExampleDate()
+      self.connect(self.btnResetFormat, SIGNAL('clicked()'), doReset)
+
+      # Make a little subframe just for the date format stuff... everything
+      # fits nicer if I do this...
+      frmTop = makeHorizFrame([self.lblDateExample, 'Stretch', self.ttipFormatDescr])
+      frmMid = makeHorizFrame([self.edtDateFormat])
+      frmBot = makeHorizFrame([self.btnResetFormat, 'Stretch'])
+      fStack = makeVertFrame( [frmTop, frmMid, frmBot])
+      subFrm = makeHorizFrame([lblDateFmt, 'Stretch', fStack])
+
+
+      ###############################################################
+      # Save/Cancel Button
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Save")
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -8763,6 +8805,7 @@ class DlgPreferences(ArmoryDialog):
       self.cmbUsermode.addItem( 'Advanced' )
       self.cmbUsermode.addItem( 'Expert' )
 
+      self.usermodeInit = self.main.usermode
 
       if self.main.usermode==USERMODE.Standard:
          self.cmbUsermode.setCurrentIndex(0)
@@ -8784,13 +8827,11 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( ttipDefaultFee,        i,1 )
       frmLayout.addWidget( self.edtDefaultFee,    i,2 )
 
-      #i+=1
-      #frmLayout.addWidget( HLINE(),               i,0, 1,3)
-      
-      #i+=1
-      #frmLayout.addWidget( lblLedgerFee,          i,0 )
-      #frmLayout.addWidget( ttipLedgerFee,         i,1 )
-      #frmLayout.addWidget( self.chkInclFee,       i,2 )
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget(subFrm,                 i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -8841,6 +8882,9 @@ class DlgPreferences(ArmoryDialog):
       dlgLayout.addWidget(makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept]))
 
       self.setLayout(dlgLayout)
+      
+      self.setMinimumWidth(650)
+      self.setWindowTitle('Armory Preferences')
 
       # NOTE:  This was getting complicated for a variety of reasons, so switched
       #        to manually constructing the options window.  May come back to this
@@ -8880,13 +8924,17 @@ class DlgPreferences(ArmoryDialog):
                   QMessageBox.Ok)
          return
 
-      modestr = str(self.cmbUsermode.currentText())
-      if modestr.lower() == 'standard':
-         self.main.setUserMode(USERMODE.Standard)
-      elif modestr.lower() == 'advanced':
-         self.main.setUserMode(USERMODE.Advanced)
-      elif modestr.lower() == 'expert':
-         self.main.setUserMode(USERMODE.Expert)
+      if not self.main.setPreferredDateFormat(str(self.edtDateFormat.text())):
+         return
+
+      if not self.usermodeInit == self.cmbUsermode.currentIndex():
+         modestr = str(self.cmbUsermode.currentText())
+         if modestr.lower() == 'standard':
+            self.main.setUserMode(USERMODE.Standard)
+         elif modestr.lower() == 'advanced':
+            self.main.setUserMode(USERMODE.Advanced)
+         elif modestr.lower() == 'expert':
+            self.main.setUserMode(USERMODE.Expert)
 
       #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
@@ -8896,6 +8944,7 @@ class DlgPreferences(ArmoryDialog):
       super(DlgPreferences, self).accept(*args)
       
 
+   #############################################################################
    def setUsermodeDescr(self):
       strDescr = '<b>Armory user mode:</b><br>'
       modestr =  str(self.cmbUsermode.currentText())
@@ -8920,6 +8969,15 @@ class DlgPreferences(ArmoryDialog):
       self.lblUsermodeDescr.setText(strDescr)
 
 
+   #############################################################################
+   def doExampleDate(self, qstr=None):
+      fmtstr = str(self.edtDateFormat.text()) 
+      try:
+         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1030501970, fmtstr))
+         self.isValidFormat = True
+      except:
+         self.lblDateExample.setText('Example: [[invalid date format]]')
+         self.isValidFormat = False
 
 
 ################################################################################
@@ -8955,15 +9013,24 @@ class DlgExportTxHistory(ArmoryDialog):
       self.cmbFileFormat.addItem('Comma-Separated Values (*.csv)')
 
 
+      fmt = self.main.getPreferredDateFormat()
+      ttipStr = 'Use any of the following symbols:<br>'
+      fmtSymbols = [x[0] + ' = ' + x[1] for x in FORMAT_SYMBOLS]
+      ttipStr += '<br>'.join(fmtSymbols)
+
       self.edtDateFormat = QLineEdit()
-      self.edtDateFormat.setText('%Y-%b-%d %I:%M%p')
-      self.ttipFormatDescr = createToolTipObject( \
-               '%Y~year; %b~month name; %m~month number; %d~day number; '
-               '%I~hour 1-12; %H~hour 0-23; %M~minute; %p~{pm,am}')
-      self.lblDateExample = QRichLabel( '' )
-      self.lblDateExample.setAlignment(Qt.AlignTop)
-      self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.dispEx)
-      self.dispEx()
+      self.edtDateFormat.setText(fmt)
+      self.ttipFormatDescr = createToolTipObject( ttipStr )
+                                                 
+      self.lblDateExample = QRichLabel( '', doWrap=False)
+      self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.doExampleDate)
+      self.doExampleDate()
+      self.btnResetFormat = QPushButton("Reset to Default")
+
+      def doReset():
+         self.edtDateFormat.setText(DEFAULT_DATE_FORMAT)
+         self.doExampleDate()
+      self.connect(self.btnResetFormat, SIGNAL('clicked()'), doReset)
 
       # Add the usual buttons
       self.btnCancel = QPushButton("Cancel")
@@ -8971,6 +9038,7 @@ class DlgExportTxHistory(ArmoryDialog):
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
       btnBox = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+
 
       dlgLayout = QGridLayout()
    
@@ -8982,26 +9050,27 @@ class DlgExportTxHistory(ArmoryDialog):
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
 
       i+=1
-      dlgLayout.addWidget(QRichLabel('Wallets to export:'),  i,0)
+      dlgLayout.addWidget(QRichLabel('Wallet(s) to export:'),i,0)
       dlgLayout.addWidget(self.cmbWltSelect,                 i,1)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
       
       i+=1
-      dlgLayout.addWidget(QRichLabel('Sort Method:'),        i,0)
+      dlgLayout.addWidget(QRichLabel('Sort Table:'),         i,0)
       dlgLayout.addWidget(self.cmbSortSelect,                i,1)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
 
       i+=1
-      fmtfrm = makeHorizFrame([QRichLabel('Date Format'), 'Stretch', self.ttipFormatDescr])
-      dlgLayout.addWidget(fmtfrm,                            i,0)
-      dlgLayout.addWidget(self.edtDateFormat,                i,1)
+      dlgLayout.addWidget(QRichLabel('Date Format:'),        i,0)
+      fmtfrm = makeHorizFrame([self.lblDateExample, 'Stretch', self.ttipFormatDescr])
+      dlgLayout.addWidget(fmtfrm,                            i,1)
 
       i+=1
-      dlgLayout.addWidget(self.lblDateExample,               i,1)
+      dlgLayout.addWidget(self.btnResetFormat,               i,0)
+      dlgLayout.addWidget(self.edtDateFormat,                i,1)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
@@ -9015,13 +9084,13 @@ class DlgExportTxHistory(ArmoryDialog):
 
 
    #############################################################################
-   def dispEx(self, qstr=None):
+   def doExampleDate(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text()) 
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1000500000, fmtstr))
+         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1030501970, fmtstr))
          self.isValidFormat = True
       except:
-         self.lblDateExample.setText('Example: <invalid date format>')
+         self.lblDateExample.setText('Example: [[invalid date format]]')
          self.isValidFormat = False
 
    #############################################################################
@@ -9105,9 +9174,9 @@ class DlgExportTxHistory(ArmoryDialog):
          f = open(fullpath, 'w')
 
          f.write('Export Date:, %s\n' % unixTimeToFormatStr(RightNow()))
-         f.write('Total Funds:, %s\n' % coin2str(totalFunds, maxZeros=0)).strip()
-         f.write('Spendable Funds:, %s\n' % coin2str(spendFunds, maxZeros=0)).strip()
-         f.write('Unconfirmed Funds:, %s\n' % coin2str(unconfFunds, maxZeros=0)).strip()
+         f.write('Total Funds:, %s\n' % coin2str(totalFunds, maxZeros=0).strip())
+         f.write('Spendable Funds:, %s\n' % coin2str(spendFunds, maxZeros=0).strip())
+         f.write('Unconfirmed Funds:, %s\n' % coin2str(unconfFunds, maxZeros=0).strip())
          f.write('\n')
 
          f.write('Included Wallets:\n')

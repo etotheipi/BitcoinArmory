@@ -353,6 +353,24 @@ WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
 
+# Set the default-default 
+DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
+FORMAT_SYMBOLS = [ \
+   ['%y', 'year, two digit (00-99)'], \
+   ['%Y', 'year, four digit'], \
+   ['%b', 'month name (abbrev)'], \
+   ['%B', 'month name (full)'], \
+   ['%m', 'month number (01-12)'], \
+   ['%d', 'day of month (01-31)'], \
+   ['%H', 'hour 24h (00-23)'], \
+   ['%I', 'hour 12h (01-12)'], \
+   ['%M', 'minute (00-59)'], \
+   ['%p', 'morning/night (am,pm)'], \
+   ['%a', 'day of week (abbrev)'], \
+   ['%A', 'day of week (full)'], \
+   ['%%', 'percent symbol'] ]
+
+
 # Some time methods (RightNow() return local unix timestamp)
 RightNow = time.time
 def RightNowUTC():
@@ -702,7 +720,7 @@ def float_to_btc (f):
 
 
 ##### And a few useful utilities #####
-def unixTimeToFormatStr(unixTime, formatStr='%Y-%b-%d %I:%M%p'):
+def unixTimeToFormatStr(unixTime, formatStr=DEFAULT_DATE_FORMAT):
    """
    Converts a unix time (like those found in block headers) to a
    pleasant, human-readable format

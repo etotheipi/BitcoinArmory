@@ -702,6 +702,31 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def getPreferredDateFormat(self):
+      # Treat the format as "binary" to make sure any special symbols don't
+      # interfere with the SettingsFile symbols
+      globalDefault = binary_to_hex(DEFAULT_DATE_FORMAT)
+      fmt = self.settings.getSettingOrSetDefault('DateFormat', globalDefault)
+      return hex_to_binary(fmt)
+
+   #############################################################################
+   def setPreferredDateFormat(self, fmtStr):
+      # Treat the format as "binary" to make sure any special symbols don't
+      # interfere with the SettingsFile symbols
+      try:
+         unixTimeToFormatStr(1000000000, fmtStr)
+      except:
+         QMessageBox.warning(self, 'Invalid Date Format', \
+            'The date format you specified was not valid.  Please re-enter '
+            'it using only the strftime symbols shown in the help text.', \
+            QMessageBox.Ok)
+         return False
+
+      self.settings.set('DateFormat', binary_to_hex(fmtStr))
+      return True
+
+
+   #############################################################################
    def setupNetworking(self):
 
       self.internetAvail = False
