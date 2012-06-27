@@ -4755,23 +4755,23 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    option of coin-selection profiles -- such as "max anonymity", "min fee",
    "balanced", etc).
    """
-   SCORES = getSelectCoinsScores(utxoSelectList, targetOutVal, minFee)
-   if SCORES==-1:
+   scores = getSelectCoinsScores(utxoSelectList, targetOutVal, minFee)
+   if scores==-1:
       return -1
 
    # Combine all the scores
    score  = 0
-   score += WEIGHTS[IDX_NOZEROCONF] * SCORES[IDX_NOZEROCONF]
-   score += WEIGHTS[IDX_PRIORITY]   * SCORES[IDX_PRIORITY]
-   score += WEIGHTS[IDX_NUMADDR]    * SCORES[IDX_NUMADDR]
-   score += WEIGHTS[IDX_TXSIZE]     * SCORES[IDX_TXSIZE]
-   score += WEIGHTS[IDX_OUTANONYM]  * SCORES[IDX_OUTANONYM]
+   score += weights[IDX_NOZEROCONF] * scores[IDX_NOZEROCONF]
+   score += weights[IDX_PRIORITY]   * scores[IDX_PRIORITY]
+   score += weights[IDX_NUMADDR]    * scores[IDX_NUMADDR]
+   score += weights[IDX_TXSIZE]     * scores[IDX_TXSIZE]
+   score += weights[IDX_OUTANONYM]  * scores[IDX_OUTANONYM]
 
    # If we're already paying a fee, why bother including this weight?
    if minFee < 0.0005:
-      score += WEIGHTS[IDX_ALLOWFREE]  * SCORES[IDX_ALLOWFREE]
+      theScore += weights[IDX_ALLOWFREE]  * scores[IDX_ALLOWFREE]
 
-   return score
+   return theScore
 
 
 ################################################################################

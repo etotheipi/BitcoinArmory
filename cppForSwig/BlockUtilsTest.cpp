@@ -17,6 +17,8 @@
 #include "EncryptionUtils.h"
 #include "FileDataPtr.h"
 
+#include "leveldb/db.h"
+
 
 using namespace std;
 
@@ -36,6 +38,7 @@ void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
 void TestMemoryUsage_UseSystemMonitor(string blkdir);
+void TestLevelDB(string testLDBDir);
 
 void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
@@ -1527,6 +1530,19 @@ void TestMemoryUsage_UseSystemMonitor(string blkdir)
 
 
 
+void TestLevelDB(string testLDBDir)
+{
+   leveldb::DB* ldb;
+   leveldb::Options opts;   
+   
+   // Setup the optoins for this particular database
+   opts.create_if_missing = true;
+   opts.compression       = leveldb::kNoCompression;
+   opts.filter_policy     = NewBloomFilter(10);
+
+   delete ldb;
+   delete opts.filter_policy;
+}
 
 
 
