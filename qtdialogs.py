@@ -9054,6 +9054,28 @@ class DlgExportTxHistory(ArmoryDialog):
          self.doExampleDate()
       self.connect(self.btnResetFormat, SIGNAL('clicked()'), doReset)
 
+
+      # Configure weights for SelectCoins
+      lblSelectCoin = QRichLabel('<b>Coin Selection Preferences:</b>')
+      lblSelectCoinDescr = QRichLabel( \
+            'When Armory constructs a transaction, there are many different '
+            'ways for it to select from coins that make up your balance. '
+            'The "SelectCoins" algorithm can be set to prefer more-anonymous '
+            'coin selections or to prefer avoiding mandatory transaction fees. '
+            '<B>No guarantees are made about the relative anonymity of the '
+            'coin selection, only that Armory will <i>prefer</i> a transaction '
+            'that requires a fee if it can increase anonymity.</b>')
+
+      self.cmbSelectCoins = QComboBox()
+      self.cmbSelectCoins.clear()
+      self.cmbSelectCoins.addItem( 'Prefer free transactions' )
+      self.cmbSelectCoins.addItem( 'Maximize anonymity'   )
+      self.cmbSelectCoins.setCurrentIndex(0)
+
+      
+               
+
+
       # Add the usual buttons
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Export")
@@ -9093,6 +9115,16 @@ class DlgExportTxHistory(ArmoryDialog):
       i+=1
       dlgLayout.addWidget(self.btnResetFormat,               i,0)
       dlgLayout.addWidget(self.edtDateFormat,                i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
+
+      i+=1
+      dlgLayout.addWidget(lblSelectCoin,                     i,0)
+      dlgLayout.addWidget(self.cmbSelectCoins,               i,1)
+
+      i+=1
+      dlgLayout.addWidget(lblSelectCoinDescr,                i,0, 1,2)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
