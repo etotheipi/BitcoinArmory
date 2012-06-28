@@ -9271,3 +9271,66 @@ class DlgExportTxHistory(ArmoryDialog):
       return True
 
 
+################################################################################
+class DlgRequestPayment(ArmoryDialog):
+   def __init__(self, parent, main, recvAddr, amt=None, msg=''):
+      super(DlgRequestPayment, self).__init__(parent, main)
+
+
+      if isLikelyDataType(recvAddr, DATATYPE.Binary) and len(recvAddr)==20:
+         self.recvAddr = hash160_to_addrStr(recvAddr)
+      elif isLikelyDataType(recvAddr, DATATYPE.Base58):
+         self.recvAddr = recvAddr
+      else:
+         raise BadAddressError, 'Unrecognized address input'
+
+
+      self.edtAmount = QLineEdit()
+      if amt:
+         self.edtAmount.setText( coin2str(amt, maxZeros=0) )
+
+      self.edtMessage = QLineEdit()
+      if msg:
+         self.edtMessage.setText(msg)
+
+      self.edtLinkDisplayText = QLineEdit()
+
+      self.lblLink = QRichLabel('')
+      self.lblLink.setOpenExternalLinks(True)
+
+      self.edtLblRaw = QLineEdit('')
+      self.edtLblRaw.color
+
+      self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+      self.lblRaw.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+
+
+   def setLabels(self):
+      
+      amtStr = str(self.edtAmount.text()).strip()
+      if len(amtStr)==0:
+         amtStr = None
+      else:
+         amtStr = str2coin(amtStr)
+
+      msgStr = str(self.edtMessage.text()).strip()
+      if len(msgStr)==0:
+         msgStr = None
+         
+      # must have address, maybe have amount or 
+      uriRaw = createBitcoinURI(self.recvAddr, amtStr, msgStr)
+      
+      self.edtLblRaw.setReadOnly(True)
+      self.edtLblRaw.setCursorPosition(0)
+      self.edtLblRaw.setText(uriRaw)
+
+
+
+
+
+
+
+
+
+
+

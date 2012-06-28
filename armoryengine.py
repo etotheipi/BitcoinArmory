@@ -409,26 +409,31 @@ TheBDM = Cpp.BlockDataManager().getBDM()
 
 
 DATATYPE = enum("Binary", "ASCII", 'Base58', 'Hex')
-def isLikelyDataType(theStr):
+def isLikelyDataType(theStr, dtype=None):
    """ 
    This really shouldn't be used on short strings.  Hence
    why it's called "likely" datatype...
    """
+   ret = None
    hexCount = sum([1 if c in BASE16CHARS else 0 for c in theStr])
    b58Count = sum([1 if c in BASE58CHARS else 0 for c in theStr])
    canBeHex = hexCount==len(theStr)
    canBeB58 = b58Count==len(theStr)
    if canBeHex:
-      return DATATYPE.Hex
+      ret = DATATYPE.Hex
    if canBeB58 and not canBeHex:
-      return DATATYPE.Base58
+      ret = DATATYPE.Base58
 
    ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
    if ascCount==len(theStr):
-      return DATATYPE.ASCII
+      ret = DATATYPE.ASCII
    else:
-      return DATATYPE.Binary
+      ret = DATATYPE.Binary
 
+   if dtype==None:
+      return ret
+   else:
+      return dtype==ret
 
 
 def getCurrTimeAndBlock():
@@ -1200,6 +1205,7 @@ def parsePrivateKeyData(theStr):
 
 
 
+URI_VERSION_STR = '1.0'
 
 ################################################################################
 def parseBitcoinURI(theStr):
@@ -1267,9 +1273,22 @@ def uriPercentToReserved(theStr):
    
 
 ################################################################################
-def createBitcoinURI(addr):
-   pass
+def createBitcoinURI(addr, amt=None, msg=None):
+   uriStr = 'bitcoin:%s' % addr 
+   if amt or msg:
+      uriStr += '?'
    
+   if amt:
+      uriStr += 'amount=%s' % coin2str(amt, maxZeros=0)
+
+   if amt and msg:
+      uriStr += '&'
+
+   if msg:
+      uriStr += '&label=%s' % uriReservedToPercent(msg)
+
+   return uriStr
+
 
 
 ################################################################################
@@ -4755,23 +4774,23 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
    option of coin-selection profiles -- such as "max anonymity", "min fee",
    "balanced", etc).
    """
-   SCORES = getSelectCoinsScores(utxoSelectList, targetOutVal, minFee)
-   if SCORES==-1:
+   scores = getSelectCoinsScores(utxoSelectList, targetOutVal, minFee)
+   if scores==-1:
       return -1
 
    # Combine all the scores
    score  = 0
-   score += WEIGHTS[IDX_NOZEROCONF] * SCORES[IDX_NOZEROCONF]
-   score += WEIGHTS[IDX_PRIORITY]   * SCORES[IDX_PRIORITY]
-   score += WEIGHTS[IDX_NUMADDR]    * SCORES[IDX_NUMADDR]
-   score += WEIGHTS[IDX_TXSIZE]     * SCORES[IDX_TXSIZE]
-   score += WEIGHTS[IDX_OUTANONYM]  * SCORES[IDX_OUTANONYM]
+   score += weights[IDX_NOZEROCONF] * scores[IDX_NOZEROCONF]
+   score += weights[IDX_PRIORITY]   * scores[IDX_PRIORITY]
+   score += weights[IDX_NUMADDR]    * scores[IDX_NUMADDR]
+   score += weights[IDX_TXSIZE]     * scores[IDX_TXSIZE]
+   score += weights[IDX_OUTANONYM]  * scores[IDX_OUTANONYM]
 
    # If we're already paying a fee, why bother including this weight?
    if minFee < 0.0005:
-      score += WEIGHTS[IDX_ALLOWFREE]  * SCORES[IDX_ALLOWFREE]
+      theScore += weights[IDX_ALLOWFREE]  * scores[IDX_ALLOWFREE]
 
-   return score
+   return theScore
 
 
 ################################################################################
