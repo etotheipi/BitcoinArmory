@@ -87,7 +87,7 @@ if CLI_OPTIONS.interport < 0:
 
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 81, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 82, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -417,15 +417,14 @@ def isLikelyDataType(theStr, dtype=None):
    ret = None
    hexCount = sum([1 if c in BASE16CHARS else 0 for c in theStr])
    b58Count = sum([1 if c in BASE58CHARS else 0 for c in theStr])
+   ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
    canBeHex = hexCount==len(theStr)
    canBeB58 = b58Count==len(theStr)
    if canBeHex:
       ret = DATATYPE.Hex
-   if canBeB58 and not canBeHex:
+   elif canBeB58 and not canBeHex:
       ret = DATATYPE.Base58
-
-   ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
-   if ascCount==len(theStr):
+   elif ascCount==len(theStr):
       ret = DATATYPE.ASCII
    else:
       ret = DATATYPE.Binary
@@ -1279,7 +1278,7 @@ def createBitcoinURI(addr, amt=None, msg=None):
       uriStr += '?'
    
    if amt:
-      uriStr += 'amount=%s' % coin2str(amt, maxZeros=0)
+      uriStr += 'amount=%s' % coin2str(amt, maxZeros=0).strip()
 
    if amt and msg:
       uriStr += '&'
@@ -4779,12 +4778,12 @@ def PyEvalCoinSelect(utxoSelectList, targetOutVal, minFee, weights=WEIGHTS):
       return -1
 
    # Combine all the scores
-   score  = 0
-   score += weights[IDX_NOZEROCONF] * scores[IDX_NOZEROCONF]
-   score += weights[IDX_PRIORITY]   * scores[IDX_PRIORITY]
-   score += weights[IDX_NUMADDR]    * scores[IDX_NUMADDR]
-   score += weights[IDX_TXSIZE]     * scores[IDX_TXSIZE]
-   score += weights[IDX_OUTANONYM]  * scores[IDX_OUTANONYM]
+   theScore  = 0
+   theScore += weights[IDX_NOZEROCONF] * scores[IDX_NOZEROCONF]
+   theScore += weights[IDX_PRIORITY]   * scores[IDX_PRIORITY]
+   theScore += weights[IDX_NUMADDR]    * scores[IDX_NUMADDR]
+   theScore += weights[IDX_TXSIZE]     * scores[IDX_TXSIZE]
+   theScore += weights[IDX_OUTANONYM]  * scores[IDX_OUTANONYM]
 
    # If we're already paying a fee, why bother including this weight?
    if minFee < 0.0005:

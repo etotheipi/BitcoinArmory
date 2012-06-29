@@ -20,6 +20,7 @@ MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
+STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'

@@ -852,6 +852,7 @@ class DlgWalletDetails(ArmoryDialog):
       dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
@@ -860,6 +861,10 @@ class DlgWalletDetails(ArmoryDialog):
          
       if action==actionCopyAddr:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif action==actionReqPayment:
+         addr = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()).strip()
+         DlgRequestPayment(self, self.main, addr).exec_() 
+         return
       elif dev and action==actionCopyHash160:
          s = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
          s = binary_to_hex(addrStr_to_hash160(s))
@@ -1441,9 +1446,19 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.edtNewAddr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       btnClipboard = QPushButton('Copy to Clipboard')
       #lbtnClipboard.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      self.lblIsCopied = QLabel('')
+      self.lblIsCopied = QLabel(' or ')
       self.lblIsCopied.setTextFormat(Qt.RichText)
       self.connect(btnClipboard, SIGNAL('clicked()'), self.setClipboard)
+
+      def openPaymentRequest():
+         msgTxt = str(self.edtComm.toPlainText())
+         msgTxt = msgTxt.split('\n')[0][:128]
+         dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr(), msg=msgTxt)
+         dlg.exec_()
+
+      btnLink = QPushButton('Create Clickable Link')
+      self.connect(btnLink, SIGNAL('clicked()'), openPaymentRequest)
+
       
       tooltip1 = createToolTipObject( \
             'You can securely use this address as many times as you want. '
@@ -1475,6 +1490,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmCopyLayout.addStretch()
       frmCopyLayout.addWidget(btnClipboard)
       frmCopyLayout.addWidget(self.lblIsCopied)
+      frmCopyLayout.addWidget(btnLink)
       frmCopyLayout.addStretch()
       frmCopy.setLayout(frmCopyLayout)
 
@@ -1487,8 +1503,6 @@ class DlgNewAddressDisp(ArmoryDialog):
             'this address.  The comment can be changed '
             'at a later time in the wallet properties dialog.')
       lblCommDescr.setWordWrap(True)
-      #lblComm = QLabel('Comment:')
-      #lblComm.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       self.edtComm = QTextEdit()
       tightHeight = tightSizeNChar(self.edtComm, 1)[1]
       self.edtComm.setMaximumHeight(tightHeight*3.2)
@@ -1497,14 +1511,12 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmComment.setFrameStyle(STYLE_RAISED)
       frmCommentLayout = QGridLayout()
       frmCommentLayout.addWidget(lblCommDescr,    0,0, 1,2)
-      #frmCommentLayout.addWidget(lblComm,         1,0, 1,1)
       frmCommentLayout.addWidget(self.edtComm,    1,0, 2,2)
       frmComment.setLayout(frmCommentLayout)
 
       
-      lblRecvWlt = QRichLabel( \
-            'Money sent to this address will appear in the following wallet:', \
-            doWrap=False)
+      lblRecvWlt = QRichLabel( 'Money sent to this address will '
+            'appear in the following wallet:', doWrap=False)
       
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -9286,6 +9298,8 @@ class DlgRequestPayment(ArmoryDialog):
 
 
       self.edtAmount = QLineEdit()
+      self.edtAmount.setFont(GETFONT('Fixed'))
+      self.edtAmount.setMaximumWidth(relaxedSizeNChar(GETFONT('Fixed'), 13)[0])
       if amt:
          self.edtAmount.setText( coin2str(amt, maxZeros=0) )
 
@@ -9293,37 +9307,181 @@ class DlgRequestPayment(ArmoryDialog):
       if msg:
          self.edtMessage.setText(msg)
 
-      self.edtLinkDisplayText = QLineEdit()
 
+      # Enter the text to be displayed as the link
+      self.edtLinkText = QLineEdit()
+      if amt:
+         self.edtLinkText.setText('Click to pay %s BTC to %s...' % \
+                                                  (coin2str_approx(amt), recvAddr[:8]) )
+      else:
+         self.edtLinkText.setText('Click here to pay address "%s..."' % (recvAddr[:8],))
+      self.edtLinkText.setCursorPosition(0)
+
+      self.connect(self.edtMessage,  SIGNAL('textChanged(QString)'), self.setLabels)
+      self.connect(self.edtAmount,   SIGNAL('textChanged(QString)'), self.setLabels)
+      self.connect(self.edtLinkText, SIGNAL('textChanged(QString)'), self.setLabels)
+
+
+
+
+      # This is the "output"
       self.lblLink = QRichLabel('')
       self.lblLink.setOpenExternalLinks(True)
-
-      self.edtLblRaw = QLineEdit('')
-      self.edtLblRaw.color
-
       self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
-      self.lblRaw.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+      self.lblLink.setMinimumHeight( 4*tightSizeNChar(self, 0)[1] )
+      self.lblLink.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
+
+      self.btnCopyHtml = QPushButton('Copy Raw HTML')
+      self.btnCopyRaw  = QPushButton('Copy Raw URL')
+      self.lblWarn = QRichLabel('')
+      self.lblWarn.setAlignment(Qt.AlignHCenter)
+
+      if self.main.usermode in (USERMODE.Standard,):
+         self.btnCopyHtml.setVisible(False)
+         self.btnCopyRaw.setVisible(False)
+      copyWarnStrip = makeHorizFrame([self.btnCopyHtml, self.btnCopyRaw, self.lblWarn])
+      frmOut = makeVertFrame([self.lblLink, copyWarnStrip], STYLE_PLAIN)
+
+      self.connect(self.btnCopyRaw,  SIGNAL('clicked()'), self.clickCopyRaw )
+      self.connect(self.btnCopyHtml, SIGNAL('clicked()'), self.clickCopyHtml)
+
+      lblDescr = QRichLabel( \
+         'Create a clickable payment-request link (URL) to copy & '
+         'paste directly into an email or webpage.'
+         '<br><br>'
+         'If the user is running a Bitcoin program that' 
+         'that supports "bitcoin:" URLs, that program will open with '
+         'all the fields pre-filled with the information below.'
+         '<br><br>'
+         'It is recommended you copy the informational lines below '
+         'the link, as well, to accommodate users that do not have '
+         'a supporting Bitcoin application.')
+
+      lblDescr.setContentsMargins(15, 15, 15, 15)
+      frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
+
+      #lblPreview = QRichLabel( \
+         #'It is recommended that you copy '
+         #'all four lines so that payment information is visible for '
+         #'those that are not using an application supporting the links.')
+      ttipPreview = createToolTipObject( \
+         'The following Bitcoin desktop applications <i>try</i> to '
+         'register themselves with your computer to handle "bitcoin:" '
+         'links: Armory, Multibit, Electrum')
+
+      
+
+      self.edtTxLabel = QLineEdit()
+      lblTxLabelDescr = QRichLabel( \
+         'A transaction label is a string of text you are recommending '
+         'be attached to this transaction in the user\'s ledger.  This '
+         'text will become visible in their Bitcoin application after '
+         'they click on it.')
+      ttipTxLabel = createToolTipObject( \
+         'This field allows you to pre-fill the transaction label/comment '
+         'for the convenience of the other user.  This can be used to '
+         'provide contact information or order/confirmation numbers.')
+
+      btnClose = QPushButton('Close')
+      self.connect(btnClose, SIGNAL('clicked()'), self.accept)
+
+      dlgLayout = QGridLayout()
+
+      i=0
+      dlgLayout.addWidget(frmDescr,                               i,0,  1,2)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                                i,0,  1,2)
+   
+      i+=1
+      dlgLayout.addWidget(QRichLabel('<b>Address (yours):</b>'),  i,0)
+      dlgLayout.addWidget(QRichLabel(recvAddr),                   i,1)
+
+      i+=1
+      dlgLayout.addWidget(QRichLabel('<b>Request (BTC):</b>'),    i,0)
+      dlgLayout.addWidget(self.edtAmount,                         i,1)
+
+      i+=1
+      dlgLayout.addWidget(QRichLabel('<b>Transaction Label:</b>'),  i,0)
+      dlgLayout.addWidget(self.edtTxLabel,                        i,1)
+
+      i+=1
+      dlgLayout.addWidget(QRichLabel('<b>Link Text:</b>'),        i,0)
+      dlgLayout.addWidget(self.edtLinkText,                       i,1)
+
+      i+=1
+      dlgLayout.addWidget(lblTxLabelDescr,                        i,0,  1,2)
+
+      i+=1
+      dlgLayout.addWidget(frmOut,                                 i,0,  1,2)
+
+      #i+=1
+      #dlgLayout.addWidget(lblPreview,                             i,0,  1,2)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                                i,0,  1,2)
+
+      i+=1
+      dlgLayout.addWidget(makeHorizFrame(['Stretch',btnClose]),   i,0,  1,2)
+      
+
+      self.setLabels()
+      self.setMinimumWidth(550)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Create Payment Request Link')
+
 
 
    def setLabels(self):
       
-      amtStr = str(self.edtAmount.text()).strip()
-      if len(amtStr)==0:
-         amtStr = None
-      else:
-         amtStr = str2coin(amtStr)
-
-      msgStr = str(self.edtMessage.text()).strip()
-      if len(msgStr)==0:
-         msgStr = None
+      try:
+         amtStr = str(self.edtAmount.text()).strip()
+         if len(amtStr)==0:
+            amtStr = None
+         else:
+            amtStr = str2coin(amtStr)
+   
+         msgStr = str(self.edtMessage.text()).strip()
+         if len(msgStr)==0:
+            msgStr = None
          
-      # must have address, maybe have amount or 
-      uriRaw = createBitcoinURI(self.recvAddr, amtStr, msgStr)
-      
-      self.edtLblRaw.setReadOnly(True)
-      self.edtLblRaw.setCursorPosition(0)
-      self.edtLblRaw.setText(uriRaw)
 
+         # must have address, maybe have amount and/or message
+         self.rawURI = createBitcoinURI(self.recvAddr, amtStr, msgStr)
+      except:
+         raise
+         self.lblWarn = QRichLabel('<font color="red">Invalid Inputs</font>')
+         self.btnCopyRaw.setEnabled(False)
+         self.btnCopyHtml.setEnabled(False)
+         self.lblLink.setEnabled(False)
+         return
+      
+      self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
+      dispText = self.rawHtml[:]
+      dispText += '<br>'
+      dispText += '<b>Pay to</b>:   %s<br>' % self.recvAddr
+      if amtStr:
+         dispText += '<b>Amount</b>:   %s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
+      if msgStr:
+         dispText += '<b>Message</b>:  %s<br>' % msgStr
+      self.lblLink.setText(dispText)
+
+      self.lblLink.setEnabled(True)
+      self.btnCopyRaw.setEnabled(True)
+      self.btnCopyHtml.setEnabled(True)
+
+
+   def clickCopyRaw(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.rawURI)
+      self.lblWarn.setText('<i>Copied!</i>')
+
+   def clickCopyHtml(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.rawHtml)
+      self.lblWarn.setText('<i>Copied!</i>')
 
 
 
