@@ -9304,6 +9304,7 @@ class DlgRequestPayment(ArmoryDialog):
          self.edtAmount.setText( coin2str(amt, maxZeros=0) )
 
       self.edtMessage = QLineEdit()
+      self.edtMessage.setMaxLength(128)
       if msg:
          self.edtMessage.setText(msg)
 
@@ -9329,33 +9330,42 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblLink.setOpenExternalLinks(True)
       self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
       self.lblLink.setMinimumHeight( 4*tightSizeNChar(self, 0)[1] )
-      self.lblLink.setAlignment(Qt.AlignBottom | Qt.AlignHCenter)
+      self.lblLink.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+      self.lblLink.setContentsMargins(10,10,10,10)
+      frmOut = makeHorizFrame([self.lblLink], QFrame.Box | QFrame.Raised)
+      frmOut.setLineWidth(1)
+      frmOut.setMidLineWidth(5)
+
+
+      self.lblWarn = QRichLabel('')
+      self.lblWarn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
 
       self.btnCopyHtml = QPushButton('Copy Raw HTML')
       self.btnCopyRaw  = QPushButton('Copy Raw URL')
-      self.lblWarn = QRichLabel('')
-      self.lblWarn.setAlignment(Qt.AlignHCenter)
+      self.btnCopyAll  = QPushButton('Copy All Text')
 
       if self.main.usermode in (USERMODE.Standard,):
          self.btnCopyHtml.setVisible(False)
          self.btnCopyRaw.setVisible(False)
-      copyWarnStrip = makeHorizFrame([self.btnCopyHtml, self.btnCopyRaw, self.lblWarn])
-      frmOut = makeVertFrame([self.lblLink, copyWarnStrip], STYLE_PLAIN)
+      frmCopyBtnStrip = makeHorizFrame([self.btnCopyAll, \
+                                        self.btnCopyHtml, \
+                                        self.btnCopyRaw, \
+                                        'Stretch', \
+                                        self.lblWarn])
 
       self.connect(self.btnCopyRaw,  SIGNAL('clicked()'), self.clickCopyRaw )
       self.connect(self.btnCopyHtml, SIGNAL('clicked()'), self.clickCopyHtml)
+      self.connect(self.btnCopyAll,  SIGNAL('clicked()'), self.clickCopyAll)
 
       lblDescr = QRichLabel( \
-         'Create a clickable payment-request link (URL) to copy & '
-         'paste directly into an email or webpage.'
-         '<br><br>'
-         'If the user is running a Bitcoin program that' 
+         'Create a clickable link that you can copy into email or webpage to '
+         'request a payment.   If the user is running a Bitcoin program ' 
          'that supports "bitcoin:" URLs, that program will open with '
-         'all the fields pre-filled with the information below.'
+         'all the fields pre-filled with the information you entered.'
          '<br><br>'
-         'It is recommended you copy the informational lines below '
-         'the link, as well, to accommodate users that do not have '
-         'a supporting Bitcoin application.')
+         'Please copy everything inside the box so users that do '
+         'not have supporting Bitcoin programs can still see the '
+         'payment information.')
 
       lblDescr.setContentsMargins(15, 15, 15, 15)
       frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
@@ -9372,16 +9382,15 @@ class DlgRequestPayment(ArmoryDialog):
       
 
       self.edtTxLabel = QLineEdit()
-      lblTxLabelDescr = QRichLabel( \
-         'A transaction label is a string of text you are recommending '
-         'be attached to this transaction in the user\'s ledger.  This '
-         'text will become visible in their Bitcoin application after '
-         'they click on it.')
-      ttipTxLabel = createToolTipObject( \
-         'This field allows you to pre-fill the transaction label/comment '
-         'for the convenience of the other user.  This can be used to '
-         'provide contact information or order/confirmation numbers.')
+      ttipMessage = createToolTipObject( \
+         'This text will be shown as the label for '
+         'this transaction after the user clicks on the link. They '
+         'can modify it to meet their own needs, but you can include useful '
+         'details for them automatically (confirmation number, contact info, etc).')
 
+      lblLinkBoxDescr = QRichLabel( \
+         'When all the information is correct, manually select everything in the '
+         'box with your mouse, then copy & paste it into an email or webpage.')
       btnClose = QPushButton('Close')
       self.connect(btnClose, SIGNAL('clicked()'), self.accept)
 
@@ -9402,21 +9411,21 @@ class DlgRequestPayment(ArmoryDialog):
       dlgLayout.addWidget(self.edtAmount,                         i,1)
 
       i+=1
-      dlgLayout.addWidget(QRichLabel('<b>Transaction Label:</b>'),  i,0)
-      dlgLayout.addWidget(self.edtTxLabel,                        i,1)
-
-      i+=1
       dlgLayout.addWidget(QRichLabel('<b>Link Text:</b>'),        i,0)
       dlgLayout.addWidget(self.edtLinkText,                       i,1)
 
       i+=1
-      dlgLayout.addWidget(lblTxLabelDescr,                        i,0,  1,2)
+      dlgLayout.addWidget(QRichLabel('<b>Message:</b>'),i,0)
+      dlgLayout.addWidget(self.edtMessage,                        i,1)
+
+      i+=1
+      dlgLayout.addWidget(lblLinkBoxDescr,                        i,0,  1,2)
 
       i+=1
       dlgLayout.addWidget(frmOut,                                 i,0,  1,2)
 
-      #i+=1
-      #dlgLayout.addWidget(lblPreview,                             i,0,  1,2)
+      i+=1
+      dlgLayout.addWidget(frmCopyBtnStrip,                       i,0,  1,2)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                                i,0,  1,2)
@@ -9449,26 +9458,29 @@ class DlgRequestPayment(ArmoryDialog):
          # must have address, maybe have amount and/or message
          self.rawURI = createBitcoinURI(self.recvAddr, amtStr, msgStr)
       except:
-         raise
-         self.lblWarn = QRichLabel('<font color="red">Invalid Inputs</font>')
+         self.lblWarn.setText('<font color="red">Invalid Inputs</font>')
          self.btnCopyRaw.setEnabled(False)
          self.btnCopyHtml.setEnabled(False)
+         self.btnCopyAll.setEnabled(False)
+         self.lblLink.setText('<br>'.join(str(self.lblLink.text()).split('<br>')[1:]))
          self.lblLink.setEnabled(False)
          return
       
       self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
-      dispText = self.rawHtml[:]
-      dispText += '<br>'
-      dispText += '<b>Pay to</b>:   %s<br>' % self.recvAddr
+      self.lblWarn.setText('')
+      self.dispText = self.rawHtml[:]
+      self.dispText += '<br>'
+      self.dispText += '<b>Pay to</b>:\t%s<br>' % self.recvAddr
       if amtStr:
-         dispText += '<b>Amount</b>:   %s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
+         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
       if msgStr:
-         dispText += '<b>Message</b>:  %s<br>' % msgStr
-      self.lblLink.setText(dispText)
+         self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
+      self.lblLink.setText(self.dispText)
 
       self.lblLink.setEnabled(True)
       self.btnCopyRaw.setEnabled(True)
       self.btnCopyHtml.setEnabled(True)
+      self.btnCopyAll.setEnabled(True)
 
 
    def clickCopyRaw(self):
@@ -9483,6 +9495,13 @@ class DlgRequestPayment(ArmoryDialog):
       clipb.setText(self.rawHtml)
       self.lblWarn.setText('<i>Copied!</i>')
 
+   def clickCopyAll(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      qmd = QMimeData()
+      qmd.setHtml(self.dispText)
+      clipb.setMimeData(qmd)
+      self.lblWarn.setText('<i>Copied!</i>')
 
 
 
