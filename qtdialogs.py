@@ -4465,13 +4465,13 @@ class DlgSendBitcoins(ArmoryDialog):
                'Most transactions end up with oversized inputs and Armory will send '
                'the change to the next address in this wallet.  You may change this '
                'behavior by checking this box.')
-         self.radioFeedback = QRadioButton('Send change to one of the input addresses')
+         self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify  = QRadioButton('Specify a change address')
          self.lblChangeAddr = QRichLabel('Send Change To:')
          self.edtChangeAddr = QLineEdit()
          self.btnChangeAddr = createAddrBookButton(self, self.edtChangeAddr, \
                                        self.wlt.uniqueIDB58, 'Send change to')
-         self.chkSaveSetting = QCheckBox('Remember for future transactions')
+         self.chkRememberChng = QCheckBox('Remember for future transactions')
          self.vertLine = VLINE()
 
          # Make sure that there can only be one selection
@@ -4488,7 +4488,7 @@ class DlgSendBitcoins(ArmoryDialog):
          def toggleChngAddr(b):
             self.radioFeedback.setVisible(b)
             self.radioSpecify.setVisible(b)
-            self.chkSaveSetting.setVisible(b)
+            self.chkRememberChng.setVisible(b)
             self.vertLine.setVisible(b)
             toggleSpecify(b and self.radioSpecify.isChecked())
             
@@ -4505,6 +4505,7 @@ class DlgSendBitcoins(ArmoryDialog):
             self.radioFeedback.setChecked(True)
             self.radioSpecify.setChecked(False)
             toggleChngAddr(True)
+            self.chkRememberChng.setChecked(True)
          elif chngBehave == 'Specify':
             self.chkDefaultChangeAddr.setChecked(True)
             self.radioFeedback.setChecked(False)
@@ -4513,6 +4514,7 @@ class DlgSendBitcoins(ArmoryDialog):
             if checkAddrStrValid(chngAddr):
                self.edtChangeAddr.setText(chngAddr)
                self.edtChangeAddr.setCursorPosition(0)
+               self.chkRememberChng.setChecked(True)
          else:
             # Other option is "NewAddr" but in case there's an error, should run
             # this branch by default
@@ -4520,6 +4522,11 @@ class DlgSendBitcoins(ArmoryDialog):
             self.radioFeedback.setChecked(False)
             self.radioSpecify.setChecked(False)
             toggleChngAddr(False)
+
+         if(    self.chkDefaultChangeAddr.isChecked() and \
+            not self.radioFeedback.isChecked() and \
+            not self.radioSpecify.isChecked()):
+            self.radioFeedback.setChecked(True) 
 
          frmChngLayout = QGridLayout()
          i=0;
@@ -4534,7 +4541,7 @@ class DlgSendBitcoins(ArmoryDialog):
          frmChngLayout.addWidget(self.edtChangeAddr,          i,3, 1,4)
          frmChngLayout.addWidget(self.btnChangeAddr,          i,7, 1,1)
          i+=1
-         frmChngLayout.addWidget(self.chkSaveSetting,         i,1, 1,7)
+         frmChngLayout.addWidget(self.chkRememberChng,         i,1, 1,7)
 
          frmChngLayout.addWidget(self.vertLine,               1,0, i-1,1)
       
@@ -4554,8 +4561,6 @@ class DlgSendBitcoins(ArmoryDialog):
       #btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
       #btnFrame.setLayout(btnFrameLayout)
 
-      #frmUnsigned   = makeLayoutFrame('Horiz', [btnUnsigned, ttipUnsigned])
-      #frmDonate     = makeLayoutFrame('Horiz', [btnDonate, ttipDonate])
 
       frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], STYLE_SUNKEN)
       if not wlt.watchingOnly:
@@ -4886,30 +4891,12 @@ class DlgSendBitcoins(ArmoryDialog):
          minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
-         #if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
-            #if not overrideMin:
-               #extraMsg = ('\n\n(It is not recommended to override this behavior, '
-                           #'but as an advanced user, you can go into the settings file '
-                           #'and manually change the "OverrideMinFee" property to '
-                           #'"True".  Do so at your own risk, as many transactions '
-                           #'have been known to "get stuck" when insufficient fee '
-                           #'was included)')
-
-         #if overrideMin:
-            #msgBtns = QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
-            #extraMsg = ('\n\nYou have disbled mandatory transaction fees.  '
-                        #'Clicking "No" will send the transaction with the '
-                        #'original fee that you specified.')
-
-         # While the Satoshi client sits between us and the network, sub-standard
-         # fees will be DOA -- there is nothing Armory can do to force sub-std fees
-         extraMsg = ''
 
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr) + extraMsg,  msgBtns)
+            (feeStr, minRecStr, minRecStr),  msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
@@ -4925,16 +4912,17 @@ class DlgSendBitcoins(ArmoryDialog):
          return
          
 
-      ### IF we got here, everything should be good to go... generate a new
-      #   address, calculate the change (add to recip list) and do our thing.
+      ### IF we got here, everything is good to go...
+      #   Just need to get a change address and then construct the tx
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
       self.origRVPairs = list(recipValuePairs)
       if totalChange>0:
-         change160 = self.wlt.getNextUnusedAddress().getAddr160()
+         change160 = self.determineChangeAddr(utxoSelect)
+         if not change160:
+            return
          recipValuePairs.append( [change160, totalChange])
-         self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
@@ -4945,6 +4933,44 @@ class DlgSendBitcoins(ArmoryDialog):
       return txdp
 
       
+
+   #############################################################################
+   def determineChangeAddr(self, utxoList):
+      change160 = ''
+      selectedBehavior = 'NewAddr'
+      addrStr = ''
+      if not self.main.usermode==USERMODE.Expert:
+         change160 = self.wlt.getNextUnusedAddress().getAddr160()
+         self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
+      else:
+         if not self.chkDefaultChangeAddr.isChecked():
+            change160 = self.wlt.getNextUnusedAddress().getAddr160()
+            self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
+            # If generate new address, remove previously-remembered behavior
+            self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
+         else:
+            if self.radioFeedback.isChecked():
+               change160 = utxoList[0].getRecipientAddr()
+               selectedBehavior = 'Feedback'
+            elif self.radioSpecify.isChecked():
+               addrStr = str(self.edtChangeAddr.text()).strip()
+               if not checkAddrStrValid(addrStr):
+                  QMessageBox.warning(self, 'Invalid Address', \
+                     'You specified an invalid change address '
+                     'for this transcation.', QMessageBox.Ok)
+                  return ''
+               change160 = addrStr_to_hash160(addrStr)
+               selectedBehavior = 'Specify'
+
+      if self.chkRememberChng.isChecked():
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
+         if selectedBehavior=='Specify' and len(addrStr)>0:
+            self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
+         
+      
+      return change160
+                  
+               
             
    #############################################################################
    def addDonation(self, amt=ONE_BTC):
