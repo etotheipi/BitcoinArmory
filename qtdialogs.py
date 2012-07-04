@@ -8737,6 +8737,20 @@ class DlgPreferences(ArmoryDialog):
 
       self.connect(self.edtDefaultFee, SIGNAL('returnPressed()'), self.accept)
 
+
+      ###############################################################
+      # Minimize on Close
+      moc = self.main.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      lblMinOrClose = QRichLabel('<br>Minimize Armory to system tray instead '
+                                 'of closing it.<br>' )
+      ttipMinOrClose = createToolTipObject( \
+         'If this is checked, you can still close Armory through the right-click menu '
+         'on the system tray icon, or by "File"->"Quit Armory" on the main window')
+      self.chkMinOrClose = QCheckBox('')
+      if moc=='Minimize':
+         self.chkMinOrClose.setChecked(True)
+
+
       #doInclFee = self.main.settings.getSettingOrSetDefault('LedgDisplayFee', True)
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
                                 #'primary ledger</b>.<br>Unselect if you want to '
@@ -8867,6 +8881,14 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
 
       i+=1
+      frmLayout.addWidget( lblMinOrClose,         i,0 )
+      frmLayout.addWidget( ttipMinOrClose,        i,1 )
+      frmLayout.addWidget( self.chkMinOrClose,    i,2 )
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
       frmLayout.addWidget( lblNotify,             i,0, 1,3)
 
       i+=1
@@ -8967,6 +8989,11 @@ class DlgPreferences(ArmoryDialog):
             self.main.setUserMode(USERMODE.Advanced)
          elif modestr.lower() == 'expert':
             self.main.setUserMode(USERMODE.Expert)
+
+      if self.chkMinOrClose.isChecked():
+         self.main.settings.set('MinimizeOrClose', 'Minimize')
+      else:
+         self.main.settings.set('MinimizeOrClose', 'Close')
 
       #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
@@ -9311,7 +9338,8 @@ class DlgRequestPayment(ArmoryDialog):
       if msg:
          self.edtMessage.setText(msg)
       else:
-         self.edtMessage.setText('Joe\'s Widgets Inc - 3 widgets- Order #182199 - (888) 555-1212' )
+         self.edtMessage.setText('Joe\'s Fish Shop - Order #123 - 3 kg tuna - (888)555-1212' )
+      self.edtMessage.setCursorPosition(0)
 
 
 
@@ -9355,23 +9383,25 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblWarn = QRichLabel('')
       self.lblWarn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
 
+      self.btnOtherOpt = QPushButton('Other Options >>>')
       self.btnCopyHtml = QPushButton('Copy Raw HTML')
       self.btnCopyRaw  = QPushButton('Copy Raw URL')
       self.btnCopyAll  = QPushButton('Copy All Text')
 
       # I never actally got this button working right...
+      self.btnOtherOpt.setCheckable(True)
       self.btnCopyAll.setVisible(False)
-
-      if self.main.usermode in (USERMODE.Standard,):
-         self.btnCopyHtml.setVisible(False)
-         self.btnCopyRaw.setVisible(False)
+      self.btnCopyHtml.setVisible(False)
+      self.btnCopyRaw.setVisible(False)
       frmCopyBtnStrip = makeHorizFrame([ \
+                                        self.btnOtherOpt, \
                                         self.btnCopyHtml, \
                                         self.btnCopyRaw, \
                                         'Stretch', \
                                         self.lblWarn])
                                         #self.btnCopyAll, \
 
+      self.connect(self.btnOtherOpt, SIGNAL('toggled(bool)'), self.clickOtherOpt)
       self.connect(self.btnCopyRaw,  SIGNAL('clicked()'), self.clickCopyRaw )
       self.connect(self.btnCopyHtml, SIGNAL('clicked()'), self.clickCopyHtml)
       self.connect(self.btnCopyAll,  SIGNAL('clicked()'), self.clickCopyAll)
@@ -9407,8 +9437,9 @@ class DlgRequestPayment(ArmoryDialog):
 
 
       lblLinkBoxDescr = QRichLabel( \
-         'When all the information is correct, manually select everything in the '
-         'box with your mouse, then copy & paste it into an email or webpage.')
+         'When all the information is correct, select everything in the '
+         'box with your mouse (try triple-click), then copy & paste to the desired window.')
+      lblLinkBoxDescr.setContentsMargins(10,0,10,0)
       btnClose = QPushButton('Close')
       self.connect(btnClose, SIGNAL('clicked()'), self.accept)
 
@@ -9569,7 +9600,14 @@ class DlgRequestPayment(ArmoryDialog):
       clipb.setMimeData(qmd)
       self.lblWarn.setText('<i>Copied!</i>')
 
+   def clickOtherOpt(self, boolState):
+      self.btnCopyHtml.setVisible(boolState)
+      self.btnCopyRaw.setVisible(boolState)
 
+      if boolState:
+         self.btnOtherOpt.setText('Hide Buttons <<<')
+      else:
+         self.btnOtherOpt.setText('Other Options >>>')
 
 
 

@@ -361,9 +361,11 @@ class ArmoryMainWindow(QMainWindow):
       exportFn = lambda: DlgExportTxHistory(self,self).exec_()
       actExportTx    = self.createAction('&Export Transactions', exportFn)
       actPreferences = self.createAction('&Preferences', self.openPrefDlg)
-      actCloseApp    = self.createAction('&Quit Armory', self.closeEvent)
+      actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
+      actCloseApp    = self.createAction('&Quit Armory', self.closeForReal)
       self.menusList[MENUS.File].addAction(actExportTx)
       self.menusList[MENUS.File].addAction(actPreferences)
+      self.menusList[MENUS.File].addAction(actMinimApp)
       self.menusList[MENUS.File].addAction(actCloseApp)
 
       
@@ -477,7 +479,7 @@ class ArmoryMainWindow(QMainWindow):
       actShowArmory = self.createAction('Show Armory', self.bringArmoryToFront)
       actSendBtc    = self.createAction('Send Bitcoins', traySend)
       actRcvBtc     = self.createAction('Receive Bitcoins', trayRecv)
-      actClose      = self.createAction('Close Armory', self.closeEvent)
+      actClose      = self.createAction('Quit Armory', self.closeForReal)
       # Create a short menu of options
       menu.addAction(actShowArmory)
       menu.addAction(actSendBtc)
@@ -2141,14 +2143,15 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def bringArmoryToFront(self):
+      self.show()
       self.setWindowState(Qt.WindowActive)
       self.activateWindow()
       self.raise_()
 
    #############################################################################
    def minimizeArmory(self):
-      self.setWindowState(Qt.WindowMinimized)
-      
+      self.hide()
+      self.sysTray.show()
 
 
    #############################################################################
@@ -2315,9 +2318,38 @@ class ArmoryMainWindow(QMainWindow):
             
       
       
-
    #############################################################################
    def closeEvent(self, event=None):
+      moc = self.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      doClose, doMinimize = False, False
+      if moc=='DontKnow':
+         reply,remember = MsgBoxWithDNAA(MSGBOX.Question, 'Minimize or Close', \
+            'Would you like to minimize Armory to the system tray instead '
+            'of closing it?', dnaaMsg='Remember my answer', \
+            yesStr='Minimize', noStr='Close')
+         if reply==True:
+            doMinimize = True
+            if remember:
+               self.settings.set('MinimizeOrClose', 'Minimize')
+         else:
+            doClose = True;
+            if remember:
+               self.settings.set('MinimizeOrClose', 'Close')
+
+      if doMinimize or moc=='Minimize':
+         self.minimizeArmory()
+         if event:
+            event.ignore()
+      elif doClose or moc=='Close':
+         self.sysTray.hide()
+         self.closeForReal(event)
+      else:
+         return  # how would we get here?
+
+
+
+   #############################################################################
+   def closeForReal(self, event=None):
       '''
       Seriously, I could not figure out how to exit gracefully, so the next
       best thing is to just hard-kill the app with a sys.exit() call.  Oh well... 
@@ -2329,10 +2361,8 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('MainLedgerCols', saveTableView(self.ledgerView))
       except:
          # Don't want a strange error here interrupt shutdown 
-         raise
          pass
 
-      form.sysTray.hide()
       from twisted.internet import reactor
       print 'Attempting to close the main window!'
       reactor.stop()
