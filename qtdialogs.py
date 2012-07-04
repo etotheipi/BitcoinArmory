@@ -4893,8 +4893,9 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
 
+
    #####################################################################
-   def setMaximum(self, amtRecipIndex):
+   def setMaximum(self, targWidget):
       nRecip = len(self.widgetTable)
       totalOther = 0
       r=0  
@@ -4903,7 +4904,7 @@ class DlgSendBitcoins(ArmoryDialog):
          txFee = str2coin(str(self.edtFeeAmt.text()))
          while r<nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
-            if r==amtRecipIndex:
+            if targWidget==self.widgetTable[r][self.COLS.Btc]:
                r+=1
                continue
 
@@ -4913,15 +4914,35 @@ class DlgSendBitcoins(ArmoryDialog):
             r+=1
    
       except:
-         raise
          QMessageBox.warning(self, 'Invalid Input', \
-               'Cannot compute the maximum amount for this '
-               'recipient because there is an error in the amount '
-               'for recipient %d.' % r+1, QMessageBox.Ok)
+               'Cannot compute the maximum amount '
+               'because there is an error in the amount '
+               'for recipient %d.' % (r+1,), QMessageBox.Ok)
+         return
 
 
-      maxAmt = coin2str( (bal - (txFee + totalOther)), maxZeros=0 )
-      self.widgetTable[amtRecipIndex][self.COLS.Btc].setText(maxAmt.strip())
+      maxStr = coin2str( (bal - (txFee + totalOther)), maxZeros=0 )
+      if bal < txFee+totalOther:
+         QMessageBox.warning(self, 'Insufficient funds', \
+               'You have specified more than your spendable balance to '
+               'the other recipients and the transaction fee.  Therefore, the '
+               'maximum amount for this recipient would actually be negative.', \
+               QMessageBox.Ok)
+         return
+         
+      targWidget.setText(maxStr.strip())
+
+
+   #####################################################################
+   def createSetMaxButton(self, targWidget):
+      newBtn = QPushButton('MAX')
+      newBtn.setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
+      newBtn.setToolTip( 'Fills in the maximum spendable amount minus '
+                         'the amounts specified for other recipients '
+                         'and the transaction fee ')
+      funcSetMax = lambda:  self.setMaximum( targWidget )
+      self.connect( newBtn, SIGNAL('clicked()'), funcSetMax )
+      return newBtn
 
 
    #####################################################################
@@ -4946,57 +4967,60 @@ class DlgSendBitcoins(ArmoryDialog):
       for r in range(nRecip):
          self.widgetTable.append([])
 
-         self.widgetTable[-1].append( QLabel('Address %d:' % (r+1,)) )
+         self.widgetTable[r].append( QLabel('Address %d:' % (r+1,)) )
 
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setFont(GETFONT('var',9))
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r][-1].setFont(GETFONT('var',9))
 
-         addrEntryBox = self.widgetTable[-1][-1]
-         self.widgetTable[-1].append( createAddrBookButton(self, addrEntryBox, \
+         addrEntryBox = self.widgetTable[r][-1]
+         self.widgetTable[r].append( createAddrBookButton(self, addrEntryBox, \
                                       self.wlt.uniqueIDB58, 'Send to') )
-         self.widgetTable[-1].append( QLabel('Amount:') )
+         self.widgetTable[r].append( QLabel('Amount:') )
 
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('Fixed'))
-         self.widgetTable[-1][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft)
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setFont(GETFONT('Fixed'))
+         self.widgetTable[r][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft)
       
-         self.widgetTable[-1].append( QLabel('BTC') )
-         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         self.widgetTable[r].append( QLabel('BTC') )
+         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-         btnMax = QPushButton('MAX')
-         btnMax.setToolTip('Fills in the maximum spendable amount minus amounts '
-                           'specified for other recipients and the transaction fee ')
-         self.connect(btnMax, SIGNAL('clicked()'),  lambda: self.setMaximum(r))
-         self.widgetTable[-1].append( btnMax )
+         #self.widgetTable[r].append( QPushButton('MAX') )
+         #self.widgetTable[r][-1].setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
+         #self.widgetTable[r][-1].setToolTip( \
+                           #'Fills in the maximum spendable amount minus amounts '
+                           #'specified for other recipients and the transaction fee ')
+         #self.connect(self.widgetTable[r][-1], SIGNAL('clicked()'),  setMaxFunc)
+         self.widgetTable[r].append( self.createSetMaxButton(self.widgetTable[r][COLS.Btc]) )
 
-         self.widgetTable[-1].append( QLabel('Comment:') )
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r].append( QLabel('Comment:') )
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setFont(GETFONT('var', 9))
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
 
          if r<nRecip and r<prevNRecip:
-            self.widgetTable[-1][COLS.Addr].setText( inputs[r][0] )
-            self.widgetTable[-1][COLS.Btc ].setText( inputs[r][1] )
-            self.widgetTable[-1][COLS.Comm].setText( inputs[r][2] )
+            self.widgetTable[r][COLS.Addr].setText( inputs[r][0] )
+            self.widgetTable[r][COLS.Btc ].setText( inputs[r][1] )
+            self.widgetTable[r][COLS.Comm].setText( inputs[r][2] )
 
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr],  0, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],     0, 1, 1, 5)
-         subLayout.addWidget(self.widgetTable[-1][COLS.AddrBook], 0, 6, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblAddr],  0, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Addr],     0, 1, 1, 5)
+         subLayout.addWidget(self.widgetTable[r][COLS.AddrBook], 0, 6, 1, 1)
 
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblAmt],   1, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      1, 1, 1, 2)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblUnit],  1, 3, 1, 2)
-         subLayout.addWidget(self.widgetTable[-1][COLS.BtnMax],   1, 5, 1, 2)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblAmt],   1, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Btc],      1, 1, 1, 2)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblUnit],  1, 3, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.BtnMax],   1, 4, 1, 1)
+         subLayout.addWidget(QLabel(''),                         1, 5, 1, 2)
 
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  2, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     2, 1, 1, 6)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblComm],  2, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Comm],     2, 1, 1, 6)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
