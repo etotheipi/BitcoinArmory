@@ -4350,6 +4350,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
 
       self.wlt    = wlt  
+      self.wltID  = wlt.uniqueIDB58
 
       txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
 
@@ -4446,7 +4447,7 @@ class DlgSendBitcoins(ArmoryDialog):
       btnDonate = QPushButton("Donate to Armory Developers!")
       ttipDonate = createToolTipObject( \
          'Making this software was a lot of work.  You can give back '
-         'by adding a small donation to the developers of Armory.  '
+         'by adding a small donation to go to the Armory developers.  '
          'You will have the ability to change the donation amount '
          'before finalizing the transaction.')
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
@@ -4454,14 +4455,104 @@ class DlgSendBitcoins(ArmoryDialog):
          btnDonate.setVisible(False)
          ttipDonate.setVisible(False)
 
-      btnFrame = QFrame()
-      btnFrame.setFrameStyle(QFrame.NoFrame)
-      btnFrameLayout = QGridLayout()
-      btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
-      btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
-      btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
-      btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
-      btnFrame.setLayout(btnFrameLayout)
+
+      ########################################################################
+      # In Expert usermode, allow the user to modify the change address
+      frmChangeAddr = QFrame()
+      if self.main.usermode == USERMODE.Expert:
+         self.chkDefaultChangeAddr = QCheckBox('Specify change address for this transaction')
+         self.ttipSendChange = createToolTipObject( \
+               'Most transactions end up with oversized inputs and Armory will send '
+               'the change to the next address in this wallet.  You may change this '
+               'behavior by checking this box.')
+         self.radioFeedback = QRadioButton('Send change to one of the input addresses')
+         self.radioSpecify  = QRadioButton('Specify a change address')
+         self.lblChangeAddr = QRichLabel('Send Change To:')
+         self.edtChangeAddr = QLineEdit()
+         self.btnChangeAddr = createAddrBookButton(self, self.edtChangeAddr, \
+                                       self.wlt.uniqueIDB58, 'Send change to')
+         self.chkSaveSetting = QCheckBox('Remember for future transactions')
+         self.vertLine = VLINE()
+
+         # Make sure that there can only be one selection
+         btngrp = QButtonGroup(self)
+         btngrp.addButton(self.radioFeedback)
+         btngrp.addButton(self.radioSpecify)
+         btngrp.setExclusive(True)
+
+         def toggleSpecify(b):
+            self.lblChangeAddr.setVisible(b)
+            self.edtChangeAddr.setVisible(b)
+            self.btnChangeAddr.setVisible(b)
+            
+         def toggleChngAddr(b):
+            self.radioFeedback.setVisible(b)
+            self.radioSpecify.setVisible(b)
+            self.chkSaveSetting.setVisible(b)
+            self.vertLine.setVisible(b)
+            toggleSpecify(b and self.radioSpecify.isChecked())
+            
+         
+         self.connect(self.chkDefaultChangeAddr, SIGNAL('toggled(bool)'), toggleChngAddr)
+         self.connect(self.radioSpecify,         SIGNAL('toggled(bool)'), toggleSpecify)
+   
+         # Pre-set values based on settings
+         
+         chngBehave = self.main.getWltSetting(self.wltID, 'ChangeBehavior')
+         chngAddr   = self.main.getWltSetting(self.wltID, 'ChangeAddr')
+         if chngBehave == 'Feedback':
+            self.chkDefaultChangeAddr.setChecked(True)
+            self.radioFeedback.setChecked(True)
+            self.radioSpecify.setChecked(False)
+            toggleChngAddr(True)
+         elif chngBehave == 'Specify':
+            self.chkDefaultChangeAddr.setChecked(True)
+            self.radioFeedback.setChecked(False)
+            self.radioSpecify.setChecked(True)
+            toggleChngAddr(True)
+            if checkAddrStrValid(chngAddr):
+               self.edtChangeAddr.setText(chngAddr)
+               self.edtChangeAddr.setCursorPosition(0)
+         else:
+            # Other option is "NewAddr" but in case there's an error, should run
+            # this branch by default
+            self.chkDefaultChangeAddr.setChecked(False)
+            self.radioFeedback.setChecked(False)
+            self.radioSpecify.setChecked(False)
+            toggleChngAddr(False)
+
+         frmChngLayout = QGridLayout()
+         i=0;
+         frmChngLayout.addWidget(self.chkDefaultChangeAddr,   i,0, 1,6)
+         frmChngLayout.addWidget(self.ttipSendChange,         i,6, 1,2)
+         i+=1
+         frmChngLayout.addWidget(self.radioFeedback,          i,1, 1,7)
+         i+=1
+         frmChngLayout.addWidget(self.radioSpecify,           i,1, 1,7)
+         i+=1
+         frmChngLayout.addWidget(self.lblChangeAddr,          i,1, 1,2)
+         frmChngLayout.addWidget(self.edtChangeAddr,          i,3, 1,4)
+         frmChngLayout.addWidget(self.btnChangeAddr,          i,7, 1,1)
+         i+=1
+         frmChngLayout.addWidget(self.chkSaveSetting,         i,1, 1,7)
+
+         frmChngLayout.addWidget(self.vertLine,               1,0, i-1,1)
+      
+         frmChangeAddr.setLayout(frmChngLayout)
+         
+   
+   
+      #btnFrame = makeVertFrame([btnUnsigned, ttipUnsigned, btnDonate, ttipDonate])
+      frmUnsigned = makeHorizFrame([btnUnsigned, ttipUnsigned])
+      frmDonate   = makeHorizFrame([btnDonate,   ttipDonate])
+      #btnFrame = QFrame()
+      #btnFrame.setFrameStyle(QFrame.NoFrame)
+      #btnFrameLayout = QGridLayout()
+      #btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
+      #btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
+      #btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
+      #btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
+      #btnFrame.setLayout(btnFrameLayout)
 
       #frmUnsigned   = makeLayoutFrame('Horiz', [btnUnsigned, ttipUnsigned])
       #frmDonate     = makeLayoutFrame('Horiz', [btnDonate, ttipDonate])
@@ -4473,10 +4564,15 @@ class DlgSendBitcoins(ArmoryDialog):
             btnUnsigned.setVisible(False)
             ttipUnsigned.setVisible(False)
 
-      frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
-                                                btnFrame, \
-                                                'Stretch', \
-                                                frmNoSend], STYLE_SUNKEN)
+      #frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
+                                                #btnFrame, \
+                                                #'Stretch', \
+                                                #frmNoSend], STYLE_SUNKEN)
+      frmBottomLeft = makeVertFrame( [self.frmInfo, \
+                                      frmUnsigned, \
+                                      frmDonate, \
+                                      'Stretch', \
+                                      frmChangeAddr],  STYLE_SUNKEN )
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
