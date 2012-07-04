@@ -6,6 +6,7 @@
 #
 ################################################################################
 import sys
+import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qtdefines import *
@@ -4343,7 +4344,7 @@ class DlgConfirmSend(ArmoryDialog):
 
 
 class DlgSendBitcoins(ArmoryDialog):
-   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit', 'LblComm','Comm')
+   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit','BtnMax',  'LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None, prefill=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
@@ -4438,7 +4439,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
       def addDonation():
          self.addOneRecipient(ARMORY_DONATION_ADDR, ONE_BTC, \
-            'Donation to Armory Developers.  Thank you for your generosit!', \
+            'Donation to Armory Developers.  Thank you for your generosity!', \
             label='Armory Donation Address')
          
          
@@ -4890,6 +4891,39 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable[-1][self.COLS.Comm].setText(msg)
       self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
 
+
+
+   #####################################################################
+   def setMaximum(self, amtRecipIndex):
+      nRecip = len(self.widgetTable)
+      totalOther = 0
+      r=0  
+      try:
+         bal = self.wlt.getBalance('Spendable')
+         txFee = str2coin(str(self.edtFeeAmt.text()))
+         while r<nRecip:
+            # Use while loop so 'r' is still in scope in the except-clause
+            if r==amtRecipIndex:
+               r+=1
+               continue
+
+            amtStr = str(self.widgetTable[r][self.COLS.Btc].text()).strip()
+            if len(amtStr)>0:
+               totalOther += str2coin(amtStr)
+            r+=1
+   
+      except:
+         raise
+         QMessageBox.warning(self, 'Invalid Input', \
+               'Cannot compute the maximum amount for this '
+               'recipient because there is an error in the amount '
+               'for recipient %d.' % r+1, QMessageBox.Ok)
+
+
+      maxAmt = coin2str( (bal - (txFee + totalOther)), maxZeros=0 )
+      self.widgetTable[amtRecipIndex][self.COLS.Btc].setText(maxAmt.strip())
+
+
    #####################################################################
    def makeRecipFrame(self, nRecip):
       prevNRecip = len(self.widgetTable)
@@ -4898,7 +4932,7 @@ class DlgSendBitcoins(ArmoryDialog):
       for i in range(nRecip):
          if i<prevNRecip and i<nRecip:
             inputs.append([])
-            for j in (1,4,7):
+            for j in (self.COLS.Addr, self.COLS.Btc, self.COLS.Comm):
                inputs[-1].append(str(self.widgetTable[i][j].text()))
 
 
@@ -4909,10 +4943,10 @@ class DlgSendBitcoins(ArmoryDialog):
       COLS = self.COLS 
       
       self.widgetTable = []
-      for i in range(nRecip):
+      for r in range(nRecip):
          self.widgetTable.append([])
 
-         self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
+         self.widgetTable[-1].append( QLabel('Address %d:' % (r+1,)) )
 
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
@@ -4933,15 +4967,21 @@ class DlgSendBitcoins(ArmoryDialog):
          self.widgetTable[-1].append( QLabel('BTC') )
          self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+         btnMax = QPushButton('MAX')
+         btnMax.setToolTip('Fills in the maximum spendable amount minus amounts '
+                           'specified for other recipients and the transaction fee ')
+         self.connect(btnMax, SIGNAL('clicked()'),  lambda: self.setMaximum(r))
+         self.widgetTable[-1].append( btnMax )
+
          self.widgetTable[-1].append( QLabel('Comment:') )
          self.widgetTable[-1].append( QLineEdit() )
          self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
          self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
 
-         if i<nRecip and i<prevNRecip:
-            self.widgetTable[-1][COLS.Addr].setText( inputs[i][0] )
-            self.widgetTable[-1][COLS.Btc ].setText( inputs[i][1] )
-            self.widgetTable[-1][COLS.Comm].setText( inputs[i][2] )
+         if r<nRecip and r<prevNRecip:
+            self.widgetTable[-1][COLS.Addr].setText( inputs[r][0] )
+            self.widgetTable[-1][COLS.Btc ].setText( inputs[r][1] )
+            self.widgetTable[-1][COLS.Comm].setText( inputs[r][2] )
 
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
@@ -4952,10 +4992,11 @@ class DlgSendBitcoins(ArmoryDialog):
 
          subLayout.addWidget(self.widgetTable[-1][COLS.LblAmt],   1, 0, 1, 1)
          subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      1, 1, 1, 2)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblUnit],  1, 3, 1, 4)
+         subLayout.addWidget(self.widgetTable[-1][COLS.LblUnit],  1, 3, 1, 2)
+         subLayout.addWidget(self.widgetTable[-1][COLS.BtnMax],   1, 5, 1, 2)
 
          subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  2, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     2, 1, 1, 7)
+         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     2, 1, 1, 6)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
@@ -8741,8 +8782,11 @@ class DlgPreferences(ArmoryDialog):
       ###############################################################
       # Minimize on Close
       moc = self.main.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
-      lblMinOrClose = QRichLabel('<br>Minimize Armory to system tray instead '
-                                 'of closing it.<br>' )
+      lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
+      lblMoCDescr   = QRichLabel( 'When you click the "x" on the top window bar, '
+                                 'Armory will stay open but run in the background.  '
+                                 'You will still receive notifications, and '
+                                 'can access it through the system tray.')
       ttipMinOrClose = createToolTipObject( \
          'If this is checked, you can still close Armory through the right-click menu '
          'on the system tray icon, or by "File"->"Quit Armory" on the main window')
@@ -8788,15 +8832,19 @@ class DlgPreferences(ArmoryDialog):
 
       ###############################################################
       # Date format preferences
+      exampleTimeTuple = (2012, 4, 29,  19,45, 0,  -1,-1,-1)
+      self.exampleUnixTime = time.mktime(exampleTimeTuple)
+      exampleStr = unixTimeToFormatStr(self.exampleUnixTime, '%c')
       lblDateFmt   = QRichLabel('<b>Preferred Date Format<b>:<br>')
       lblDateDescr = QRichLabel( \
                           'You can specify how you would like dates '
-                          'to be displayed throughout Armory by entering '
-                          '"strftime" symbols on the right. The mouseover '
-                          'text of the "(?)" shows the most commonly '
-                          'used symbols.  The text above it shows how '
-                          '"27 Aug, 2002, 10:32pm" would be shown '
-                          'with the current format.')
+                          'to be displayed using percent-codes to '
+                          'represent components of the date.  The '
+                          'mouseover text of the "(?)" icon shows '
+                          'the most commonly used codes/symbols.  '
+                          'The text next to it shows how '
+                          '"%s" would be shown with the '
+                          'specified format.' % exampleStr )
       lblDateFmt.setAlignment(Qt.AlignTop)
       fmt = self.main.getPreferredDateFormat()
       ttipStr = 'Use any of the following symbols:<br>'
@@ -8884,6 +8932,9 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( lblMinOrClose,         i,0 )
       frmLayout.addWidget( ttipMinOrClose,        i,1 )
       frmLayout.addWidget( self.chkMinOrClose,    i,2 )
+
+      i+=1
+      frmLayout.addWidget( lblMoCDescr,           i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -9034,10 +9085,10 @@ class DlgPreferences(ArmoryDialog):
    def doExampleDate(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text()) 
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1030501970, fmtstr))
+         self.lblDateExample.setText('Sample: ' + unixTimeToFormatStr(self.exampleUnixTime, fmtstr))
          self.isValidFormat = True
       except:
-         self.lblDateExample.setText('Example: [[invalid date format]]')
+         self.lblDateExample.setText('Sample: [[invalid date format]]')
          self.isValidFormat = False
 
 
