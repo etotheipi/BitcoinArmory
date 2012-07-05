@@ -1455,6 +1455,7 @@ class DlgNewAddressDisp(ArmoryDialog):
          msgTxt = str(self.edtComm.toPlainText())
          msgTxt = msgTxt.split('\n')[0][:128]
          dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr(), msg=msgTxt)
+         #dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr())
          dlg.exec_()
 
       btnLink = QPushButton('Create Clickable Link')
@@ -4460,7 +4461,7 @@ class DlgSendBitcoins(ArmoryDialog):
       # In Expert usermode, allow the user to modify the change address
       frmChangeAddr = QFrame()
       if self.main.usermode == USERMODE.Expert:
-         self.chkDefaultChangeAddr = QCheckBox('Specify change address for this transaction')
+         self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
          self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify  = QRadioButton('Specify a change address')
          self.lblChangeAddr = QRichLabel('Send Change To:')
@@ -4564,6 +4565,7 @@ class DlgSendBitcoins(ArmoryDialog):
          frmChngLayout.addWidget(self.vertLine,               1,0, i-1,1)
       
          frmChangeAddr.setLayout(frmChngLayout)
+         frmChangeAddr.setFrameStyle(STYLE_SUNKEN)
          
    
    
@@ -4980,7 +4982,7 @@ class DlgSendBitcoins(ArmoryDialog):
                change160 = addrStr_to_hash160(addrStr)
                selectedBehavior = 'Specify'
 
-      if self.chkRememberChng.isChecked():
+      if self.main.usermode==USERMODE.Expert and self.chkRememberChng.isChecked():
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
          if selectedBehavior=='Specify' and len(addrStr)>0:
             self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
@@ -8989,15 +8991,11 @@ class DlgPreferences(ArmoryDialog):
       notifyBtcOut = self.main.settings.getSettingOrSetDefault('NotifyBtcOut', True)
       notifyDiscon = self.main.settings.getSettingOrSetDefault('NotifyDiscon', True)
       notifyReconn = self.main.settings.getSettingOrSetDefault('NotifyReconn', True)
-      lblBtcIn  = QRichLabel('Bitcoins Received')
-      lblBtcOut = QRichLabel('Bitcoins Sent')
-      lblDiscon = QRichLabel('Bitcoin-Qt/bitcoind disconnected')
-      lblReconn = QRichLabel('Bitcoin-Qt/bitcoind reconnected')
 
-      self.chkBtcIn  = QCheckBox('')
-      self.chkBtcOut = QCheckBox('')
-      self.chkDiscon = QCheckBox('')
-      self.chkReconn = QCheckBox('')
+      self.chkBtcIn  = QCheckBox('Bitcoins Received')
+      self.chkBtcOut = QCheckBox('Bitcoins Sent')
+      self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
+      self.chkReconn = QCheckBox('Bitcoin-Qt/bitcoind reconnected')
       self.chkBtcIn.setChecked(notifyBtcIn)
       self.chkBtcOut.setChecked(notifyBtcOut)
       self.chkDiscon.setChecked(notifyDiscon)
@@ -9141,24 +9139,16 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( lblNotify,             i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblBtcIn,              i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkBtcIn,         i,2 )
+      frmLayout.addWidget( self.chkBtcIn,         i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblBtcOut,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkBtcOut,        i,2 )
+      frmLayout.addWidget( self.chkBtcOut,        i,0, 1,3)
       
       i+=1
-      frmLayout.addWidget( lblDiscon,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkDiscon,        i,2 )
+      frmLayout.addWidget( self.chkDiscon,        i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblReconn,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkReconn,        i,2 )
+      frmLayout.addWidget( self.chkReconn,        i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -9574,7 +9564,9 @@ class DlgRequestPayment(ArmoryDialog):
 
       # Link Text:
       self.edtLinkText = QLineEdit()
-      self.edtLinkText.setText('Click here to pay!')
+      defaultText = binary_to_hex('Click here to pay for your order!')
+      linkText = hex_to_binary(self.main.settings.getSettingOrSetDefault('DefaultLinkText',defaultText))
+      self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
 
       qpal = QPalette()
@@ -9663,7 +9655,7 @@ class DlgRequestPayment(ArmoryDialog):
 
       lblLinkBoxDescr = QRichLabel( \
          'When all the information is correct, select everything in the '
-         'box with your mouse (try triple-click), then copy & paste to the desired window.')
+         'box with your mouse (triple-click), then copy & paste to the desired window.')
       lblLinkBoxDescr.setContentsMargins(10,0,10,0)
       btnClose = QPushButton('Close')
       self.connect(btnClose, SIGNAL('clicked()'), self.accept)
@@ -9731,6 +9723,14 @@ class DlgRequestPayment(ArmoryDialog):
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
 
+
+   def saveLinkText(self):
+      linktext = str(self.edtLinkText.text()).strip()
+      if len(linktext)>0:
+         hexText = binary_to_hex(linktext)
+         self.main.settings.set('DefaultLinkText',hexText)
+         
+
    #############################################################################
    def saveGeometrySettings(self):
       self.main.settings.set('PayReqestGeometry', str(self.saveGeometry().toHex()))
@@ -9738,11 +9738,13 @@ class DlgRequestPayment(ArmoryDialog):
    #############################################################################
    def closeEvent(self, event):
       self.saveGeometrySettings()
+      self.saveLinkText()
       super(DlgRequestPayment, self).closeEvent(event)
 
    #############################################################################
    def accept(self, *args):
       self.saveGeometrySettings()
+      self.saveLinkText()
       super(DlgRequestPayment, self).accept(*args)
 
    #############################################################################
@@ -9790,7 +9792,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblWarn.setText('')
       self.dispText = self.rawHtml[:]
       self.dispText += '<br>'
-      self.dispText += 'If the link does not work on your system, use this payment information:'
+      self.dispText += 'Use the following payment info if the link does not work on your system:'
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % self.recvAddr
       if amtStr:

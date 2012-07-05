@@ -1284,7 +1284,7 @@ def createBitcoinURI(addr, amt=None, msg=None):
       uriStr += '&'
 
    if msg:
-      uriStr += '&label=%s' % uriReservedToPercent(msg)
+      uriStr += 'label=%s' % uriReservedToPercent(msg)
 
    return uriStr
 
