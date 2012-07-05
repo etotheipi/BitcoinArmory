@@ -3502,7 +3502,7 @@ class DlgSetComment(ArmoryDialog):
       super(DlgSetComment, self).__init__(parent, main)
 
 
-      self.setWindowTitle('Add or Change Comment')
+      self.setWindowTitle('Modify Comment')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
@@ -4461,10 +4461,6 @@ class DlgSendBitcoins(ArmoryDialog):
       frmChangeAddr = QFrame()
       if self.main.usermode == USERMODE.Expert:
          self.chkDefaultChangeAddr = QCheckBox('Specify change address for this transaction')
-         self.ttipSendChange = createToolTipObject( \
-               'Most transactions end up with oversized inputs and Armory will send '
-               'the change to the next address in this wallet.  You may change this '
-               'behavior by checking this box.')
          self.radioFeedback = QRadioButton('Send change to first input address')
          self.radioSpecify  = QRadioButton('Specify a change address')
          self.lblChangeAddr = QRichLabel('Send Change To:')
@@ -4473,6 +4469,24 @@ class DlgSendBitcoins(ArmoryDialog):
                                        self.wlt.uniqueIDB58, 'Send change to')
          self.chkRememberChng = QCheckBox('Remember for future transactions')
          self.vertLine = VLINE()
+
+         self.ttipSendChange = createToolTipObject( \
+               'Most transactions end up with oversized inputs and Armory will send '
+               'the change to the next address in this wallet.  You may change this '
+               'behavior by checking this box.')
+         self.ttipFeedback = createToolTipObject( \
+               'Guarantees that no new addresses will be created to receive '
+               'change. This reduces anonymity, but is useful if you '
+               'created this wallet solely for managing imported addresses, '
+               'and want to keep all funds within existing addresses.')
+         self.ttipSpecify = createToolTipObject( \
+               'You can specify any valid Bitcoin address for the change.  '
+               '<b>NOTE:</b> If the address you specify is not in this wallet, '
+               'Armory will not be able to distinguish the outputs when it shows '
+               'up in your ledger.  The change will look like a second recipient, '
+               'and the total debit to your wallet will be equal to the amount '
+               'you sent to the recipient <b>plus</b> the change.')
+
 
          # Make sure that there can only be one selection
          btngrp = QButtonGroup(self)
@@ -4488,6 +4502,8 @@ class DlgSendBitcoins(ArmoryDialog):
          def toggleChngAddr(b):
             self.radioFeedback.setVisible(b)
             self.radioSpecify.setVisible(b)
+            self.ttipFeedback.setVisible(b)
+            self.ttipSpecify.setVisible(b)
             self.chkRememberChng.setVisible(b)
             self.vertLine.setVisible(b)
             toggleSpecify(b and self.radioSpecify.isChecked())
@@ -4533,9 +4549,11 @@ class DlgSendBitcoins(ArmoryDialog):
          frmChngLayout.addWidget(self.chkDefaultChangeAddr,   i,0, 1,6)
          frmChngLayout.addWidget(self.ttipSendChange,         i,6, 1,2)
          i+=1
-         frmChngLayout.addWidget(self.radioFeedback,          i,1, 1,7)
+         frmChngLayout.addWidget(self.radioFeedback,          i,1, 1,5)
+         frmChngLayout.addWidget(self.ttipFeedback,           i,6, 1,2)
          i+=1
-         frmChngLayout.addWidget(self.radioSpecify,           i,1, 1,7)
+         frmChngLayout.addWidget(self.radioSpecify,           i,1, 1,5)
+         frmChngLayout.addWidget(self.ttipSpecify,            i,6, 1,2)
          i+=1
          frmChngLayout.addWidget(self.lblChangeAddr,          i,1, 1,2)
          frmChngLayout.addWidget(self.edtChangeAddr,          i,3, 1,4)
@@ -4966,7 +4984,8 @@ class DlgSendBitcoins(ArmoryDialog):
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
          if selectedBehavior=='Specify' and len(addrStr)>0:
             self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
-         
+      else:
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
       
       return change160
                   
@@ -8506,8 +8525,8 @@ class DlgAddressBook(ArmoryDialog):
                                'this wallet, and all addresses to which this '
                                'wallet has sent Bitcoins.')
 
-      lblToWlt  = QRichLabel('Send to Wallet:')
-      lblToAddr = QRichLabel('Send to Address:')
+      lblToWlt  = QRichLabel('<b>Send to Wallet:</b>')
+      lblToAddr = QRichLabel('<b>Send to Address:</b>')
       if self.isBrowsingOnly:
          lblToWlt.setVisible(False)
          lblToAddr.setVisible(False)
@@ -8527,7 +8546,6 @@ class DlgAddressBook(ArmoryDialog):
       self.connect(self.wltDispView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.wltTableClicked)
-      
       
 
       
@@ -8611,6 +8629,14 @@ class DlgAddressBook(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
 
+      # Auto-select the default wallet, if there is one
+      rowNum = 0
+      if defaultWltID and self.main.walletMap.has_key(defaultWltID):
+         rowNum = self.main.walletIndices[defaultWltID] 
+      rowIndex = self.wltDispModel.index(rowNum,0)
+      self.wltDispView.setCurrentIndex(rowIndex)
+      self.wltTableClicked(rowIndex)
+      
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
@@ -8697,7 +8723,10 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
-   def wltTableClicked(self, currIndex, prevIndex):
+   def wltTableClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectWlt.setEnabled(True)
       row = currIndex.row()
       self.selectedWltID = str(currIndex.model().index(row, WLTVIEWCOLS.ID).data().toString())
@@ -8708,14 +8737,24 @@ class DlgAddressBook(ArmoryDialog):
 
       if not self.isBrowsingOnly:
          wlt = self.main.walletMap[self.selectedWltID]
-         self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
+         self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
          self.lblSelectWlt.setText('Will create new address: %s...' % hash160_to_addrStr(nextAddr160)[:10])
+
+         # If switched wallet selection, de-select address so it doesn't look
+         # like the currently-selected address is for this different wallet
+         self.btnSelectAddr.setEnabled(False)
+         self.btnSelectAddr.setText('No Address Selected')
+         self.selectedAddr = ''
+         self.selectedCmmt = ''
       self.addrBookTxModel.reset()
 
 
    #############################################################################
-   def addrTableTxClicked(self, currIndex, prevIndex):
+   def addrTableTxClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectAddr.setEnabled(True)
       row = currIndex.row()
       self.selectedAddr = str(currIndex.model().index(row, ADDRBOOKCOLS.Address).data().toString())
@@ -8726,7 +8765,10 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
-   def addrTableRxClicked(self, currIndex, prevIndex):
+   def addrTableRxClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectAddr.setEnabled(True)
       row = currIndex.row()
       self.selectedAddr = str(currIndex.model().index(row, ADDRESSCOLS.Address).data().toString())
@@ -8738,8 +8780,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressRx(self, index):
-      # For now, we won't do anything except for change the comment. 
-      # May upgrade this method later to do more
       if index.column()!=ADDRESSCOLS.Comment:
          self.acceptAddrSelection()
          return
@@ -8754,8 +8794,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressTx(self, index):
-      # For now, we won't do anything except for change the comment. 
-      # May upgrade this method later to do more
       if index.column()!=ADDRBOOKCOLS.Comment:
          self.acceptAddrSelection()
          return
@@ -8779,16 +8817,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      # Figure out what has been selected
-      #index = self.addrBookTxView.selectedIndexes()
-      #if len(index)==0:
-         #QMessageBox.warning(self, 'No selection!', 'You did not select an '
-            #'address from the address list!', QMessageBox.Ok)
-         #return
-
-      #index = index[0]
-      #row,col = index.row(), index.column()
-      #addrB58 = str(self.addrBookTxView.model().index(row, ADDRBOOKCOLS.Address).data().toString())
       self.target.setText(self.selectedAddr)
       self.target.setCursorPosition(0)
       self.accept()
@@ -9022,6 +9050,30 @@ class DlgPreferences(ArmoryDialog):
       fStack = makeVertFrame( [frmTop, frmMid, frmBot, 'Stretch'])
       lblStk = makeVertFrame( [lblDateFmt, lblDateDescr, 'Stretch'])
       subFrm = makeHorizFrame([lblStk, 'Stretch', fStack])
+
+
+      ###############################################################
+      # SelectCoins preferences
+      # NOT ENABLED YET -- BUT WILL BE SOON
+      #lblSelectCoin = QRichLabel('<b>Coin Selection Preferences:</b>')
+      #lblSelectCoinDescr = QRichLabel( \
+            #'When Armory constructs a transaction, there are many different '
+            #'ways for it to select from coins that make up your balance. '
+            #'The "SelectCoins" algorithm can be set to prefer more-anonymous '
+            #'coin selections or to prefer avoiding mandatory transaction fees. '
+            #'<B>No guarantees are made about the relative anonymity of the '
+            #'coin selection, only that Armory will <i>prefer</i> a transaction '
+            #'that requires a fee if it can increase anonymity.</b>')
+      #self.cmbSelectCoins = QComboBox()
+      #self.cmbSelectCoins.clear()
+      #self.cmbSelectCoins.addItem( 'Prefer free transactions' )
+      #self.cmbSelectCoins.addItem( 'Maximize anonymity'   )
+      #self.cmbSelectCoins.setCurrentIndex(0)
+      #i+=1
+      #dlgLayout.addWidget(lblSelectCoin,                     i,0)
+      #dlgLayout.addWidget(self.cmbSelectCoins,               i,1)
+      #i+=1
+      #dlgLayout.addWidget(lblSelectCoinDescr,                i,0, 1,2)
 
 
       ###############################################################
@@ -9291,24 +9343,7 @@ class DlgExportTxHistory(ArmoryDialog):
       self.connect(self.btnResetFormat, SIGNAL('clicked()'), doReset)
 
 
-      # Configure weights for SelectCoins
-      lblSelectCoin = QRichLabel('<b>Coin Selection Preferences:</b>')
-      lblSelectCoinDescr = QRichLabel( \
-            'When Armory constructs a transaction, there are many different '
-            'ways for it to select from coins that make up your balance. '
-            'The "SelectCoins" algorithm can be set to prefer more-anonymous '
-            'coin selections or to prefer avoiding mandatory transaction fees. '
-            '<B>No guarantees are made about the relative anonymity of the '
-            'coin selection, only that Armory will <i>prefer</i> a transaction '
-            'that requires a fee if it can increase anonymity.</b>')
 
-      self.cmbSelectCoins = QComboBox()
-      self.cmbSelectCoins.clear()
-      self.cmbSelectCoins.addItem( 'Prefer free transactions' )
-      self.cmbSelectCoins.addItem( 'Maximize anonymity'   )
-      self.cmbSelectCoins.setCurrentIndex(0)
-
-      
                
 
 
@@ -9354,13 +9389,6 @@ class DlgExportTxHistory(ArmoryDialog):
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
-
-      i+=1
-      dlgLayout.addWidget(lblSelectCoin,                     i,0)
-      dlgLayout.addWidget(self.cmbSelectCoins,               i,1)
-
-      i+=1
-      dlgLayout.addWidget(lblSelectCoinDescr,                i,0, 1,2)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
@@ -9501,7 +9529,7 @@ class DlgExportTxHistory(ArmoryDialog):
 
             vals.append( row[COL.Comment] )
 
-            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s\n' % tuple(vals))
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
 
          f.close()
       return True
