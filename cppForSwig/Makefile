@@ -11,18 +11,10 @@ DEPSDIR ?= /usr
 
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread 
-SWIG_INC     += -I"$(DEPSDIR)/include/python2.7"
-STATICPYTHON +=   "$(DEPSDIR)/lib/libpython2.7.a"
 SWIG_OPTS    += -c++ -python -classic
-
-ifneq (exists, $(shell [ -d "$(DEPSDIR)/include/python2.7" ]  && echo exists ))
-   SWIG_INC     = -I"$(DEPSDIR)/include/python2.6"
-   STATICPYTHON = "$(DEPSDIR)/lib/libpython2.6.a"
-   ifneq (exists, $(shell [ -d "$(DEPSDIR)/include/python2.6" ]  && echo exists ))
-      SWIG_INC     = -I"$(DEPSDIR)/include/python2.5"
-      STATICPYTHON =   "$(DEPSDIR)/lib/libpython2.5.a"
-   endif
-endif
+PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
+SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
+STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
 
 
 #**************************************************************************
