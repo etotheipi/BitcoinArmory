@@ -4270,7 +4270,7 @@ def getWalletInfoFrame(wlt):
 
 class DlgConfirmSend(ArmoryDialog):
 
-   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False):
+   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
       
       self.wlt    = wlt
@@ -4318,6 +4318,24 @@ class DlgConfirmSend(ArmoryDialog):
          self.btnAccept = QPushButton('Continue')
          lblLastConfirm.setText('')
 
+
+      # Acknowledge if the user has selected a non-std change location
+      lblSpecialChange = QRichLabel('')
+      if self.main.usermode==USERMODE.Expert and changeBehave:
+         chngAddr160   = changeBehave[0]
+         chngAddrStr   = hash160_to_addrStr(chngAddr160)
+         chngBehaveStr = changeBehave[1]
+         if chngBehaveStr=='Feedback':
+            lblSpecialChange.setText('*Change will be sent back to first input address')
+         elif chngBehaveStr=='Specify':
+            wltID = self.main.getWalletForAddr160(changeBehave[0])
+            msg = '*Change will be sent to %s...' % chngAddrStr[:12]
+            if wltID:
+               msg += ' (Wallet: %s)'%wltID
+            lblSpecialChange.setText(msg)
+         elif chngBehaveStr=='NoChange':
+            lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
+            
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -4325,17 +4343,27 @@ class DlgConfirmSend(ArmoryDialog):
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
+
+      frmTable = makeLayoutFrame('Vert', recipLbls, STYLE_RAISED)
+      frmRight = makeVertFrame( [ lblMsg, \
+                                  'Space(20)', \
+                                  frmTable, \
+                                  lblSpecialChange, \
+                                  'Space(10)', \
+                                  lblLastConfirm, \
+                                  'Space(10)', \
+                                  buttonBox ] )
+
+      frmAll = makeHorizFrame( [ lblInfoImg, frmRight ] )
       
-      layout.addWidget(lblInfoImg,           0, 0,   1, 1)
-      layout.addWidget(lblMsg,               0, 1,   1, 1)
+      layout.addWidget(frmAll)
+      #layout.addWidget(lblMsg,               0, 1,   1, 1)
 
-      lblFrm = makeLayoutFrame('Vert', recipLbls, STYLE_RAISED)
-      layout.addWidget(lblFrm,               1, 1,   1, 1)
+      #layout.addWidget(lblFrm,               1, 1,   1, 1)
 
-      r = len(recipLbls)+1
-      layout.addWidget(lblLastConfirm, 2, 1,  1, 1)
-      layout.addWidget(buttonBox,            3, 1,  1, 1)
-      layout.setSpacing(20)
+      #layout.addWidget(lblLastConfirm,       2, 1,  1, 1)
+      #layout.addWidget(buttonBox,            3, 1,  1, 1)
+      #layout.setSpacing(20)
 
       self.setLayout(layout)
       self.setMinimumWidth(350)
@@ -4436,7 +4464,7 @@ class DlgSendBitcoins(ArmoryDialog):
          btnSend.setEnabled(False)
             
       btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createTxDPAndDisplay)
+      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createOfflineTxDPAndDisplay)
 
 
       def addDonation():
@@ -4507,6 +4535,8 @@ class DlgSendBitcoins(ArmoryDialog):
             self.ttipSpecify.setVisible(b)
             self.chkRememberChng.setVisible(b)
             self.vertLine.setVisible(b)
+            if not self.radioFeedback.isChecked() and not self.radioSpecify.isChecked():
+               self.radioFeedback.setChecked(True)
             toggleSpecify(b and self.radioSpecify.isChecked())
             
          
@@ -4693,26 +4723,16 @@ class DlgSendBitcoins(ArmoryDialog):
       super(DlgSendBitcoins, self).reject(*args)
 
    #############################################################################
-   def createTxDPAndDisplay(self):
+   def createOfflineTxDPAndDisplay(self):
       self.txValues = []
       self.origRVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
 
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main, False)
+      changePair = (self.change160, self.selectedBehavior)
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+                                                   self.main, False, changePair)
       if dlg.exec_():
-         #try:
-            #if self.wlt.isLocked:
-               #unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
-               #if not unlockdlg.exec_():
-                  #QMessageBox.critical(self, 'Wallet is Locked', \
-                     #'Cannot sign transaction while your wallet is locked. ', \
-                     #QMessageBox.Ok)
-                  #return
-         #except:
-            #print 'Issue unlocking wallet!'
-            #raise
-
          dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
          dlg.exec_()
          self.accept()
@@ -4734,8 +4754,9 @@ class DlgSendBitcoins(ArmoryDialog):
             QMessageBox.Ok)
          
       
-      #totalOutStr = coin2str(self.txValues[0])
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main)
+      changePair = (self.change160, self.selectedBehavior)
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+                                                   self.main, True, changePair)
       if dlg.exec_():
          try:
             if self.wlt.isLocked:
@@ -4938,11 +4959,17 @@ class DlgSendBitcoins(ArmoryDialog):
       totalChange = totalTxSelect - (totalSend + fee)
 
       self.origRVPairs = list(recipValuePairs)
+      self.change160 = ''
+      self.selectedBehavior = ''
       if totalChange>0:
-         change160 = self.determineChangeAddr(utxoSelect)
-         if not change160:
+         self.change160 = self.determineChangeAddr(utxoSelect)
+         print 'Change address behavior: ', self.selectedBehavior
+         if not self.change160:
             return
-         recipValuePairs.append( [change160, totalChange])
+         recipValuePairs.append( [self.change160, totalChange])
+      else:
+         if self.main.usermode==USERMODE.Expert and self.chkDefaultChangeAddr.isChecked():
+            self.selectedBehavior = 'NoChange'
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
@@ -4956,40 +4983,40 @@ class DlgSendBitcoins(ArmoryDialog):
 
    #############################################################################
    def determineChangeAddr(self, utxoList):
-      change160 = ''
-      selectedBehavior = 'NewAddr'
+      changeAddr160 = ''
+      self.selectedBehavior = 'NewAddr'
       addrStr = ''
       if not self.main.usermode==USERMODE.Expert:
-         change160 = self.wlt.getNextUnusedAddress().getAddr160()
-         self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
+         changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+         self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
       else:
          if not self.chkDefaultChangeAddr.isChecked():
-            change160 = self.wlt.getNextUnusedAddress().getAddr160()
-            self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
+            changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+            self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
             # If generate new address, remove previously-remembered behavior
-            self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
+            self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
          else:
             if self.radioFeedback.isChecked():
-               change160 = utxoList[0].getRecipientAddr()
-               selectedBehavior = 'Feedback'
+               changeAddr160 = utxoList[0].getRecipientAddr()
+               self.selectedBehavior = 'Feedback'
             elif self.radioSpecify.isChecked():
                addrStr = str(self.edtChangeAddr.text()).strip()
                if not checkAddrStrValid(addrStr):
                   QMessageBox.warning(self, 'Invalid Address', \
                      'You specified an invalid change address '
                      'for this transcation.', QMessageBox.Ok)
-                  return ''
-               change160 = addrStr_to_hash160(addrStr)
-               selectedBehavior = 'Specify'
+                  return '',False
+               changeAddr160 = addrStr_to_hash160(addrStr)
+               self.selectedBehavior = 'Specify'
 
       if self.main.usermode==USERMODE.Expert and self.chkRememberChng.isChecked():
-         self.main.setWltSetting(self.wltID, 'ChangeBehavior', selectedBehavior)
-         if selectedBehavior=='Specify' and len(addrStr)>0:
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
+         if self.selectedBehavior=='Specify' and len(addrStr)>0:
             self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
       else:
          self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
       
-      return change160
+      return changeAddr160
                   
                
             
