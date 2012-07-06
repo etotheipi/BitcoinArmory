@@ -47,6 +47,7 @@ import sys
 import shutil
 import math
 import logging
+import logging.handlers
 import ast
 from struct import pack, unpack
 from datetime import datetime
@@ -78,9 +79,6 @@ parser.add_option("--logging", dest="logstr", default='Info', type="str",
                   help="Set the amount of logging information to write to disk")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
-
-print "CLI_OPTIONS:", CLI_OPTIONS
-print "CLI_ARGS:   ", CLI_ARGS
 
 
 # Use CLI args to determine testnet or not
@@ -266,20 +264,29 @@ NETWORKS['\x34'] = "Namecoin Network"
 
 
 #########  INITIALIZE THE LOGGER WRITE OUT STARTUP INFO  #########
+#
+# Setup logging to write INFO+ to file, and WARNING+ to console
+# Up to 3 log files will be rotated, 10 MB each.
+#
 loglevel = getattr(logging, CLI_OPTIONS.logstr.upper(), None)
 if loglevel==None:
-   print 'Unrecognized logging options.  Defaulting to "INFO"'
    loglevel = logging.Info
 
-logging.basicConfig(format='%(asctime)s (%(levelname)s) -- %(funcName)s::%(lineno)d -- %(message)s', \
-                    datefmt='%Y-%m-%d %H:%M:%S', \
-                    filename=os.path.join(ARMORY_HOME_DIR, 'armorylog.txt'), \
-                    level=loglevel)
+logfilename = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+logging.getLogger('').setLevel(loglevel)
+rotateFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(funcName)s::%(lineno)d -- %(message)s', \
+                                     datefmt='%Y-%m-%d %H:%M:%S')
+rotateHandler = logging.handlers.RotatingFileHandler(logfilename, maxBytes=10*1024*1024, backupCount=3)
+rotateHandler.setLevel(loglevel)
+rotateHandler.setFormatter(rotateFormatter)
+logging.getLogger('').addHandler(rotateHandler)
 
+consoleFormatter = logging.Formatter('(%(levelname)s) %(message)s')
 consoleHandler = logging.StreamHandler()
 consoleHandler.setLevel(min(loglevel+10, logging.CRITICAL))
-consoleHandler.setFormatter( logging.Formatter('(%(levelname)s) %(message)s'))
+consoleHandler.setFormatter( consoleFormatter )
 logging.getLogger('').addHandler(consoleHandler)
+######### FINISHED SETING UP LOGGER FOR CONSOLE AND FILE ##########
 
 logging.info('')
 logging.info('')
