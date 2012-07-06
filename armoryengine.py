@@ -46,6 +46,8 @@ import string
 import sys
 import shutil
 import math
+import logging
+import ast
 from struct import pack, unpack
 from datetime import datetime
 
@@ -72,8 +74,13 @@ parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
+parser.add_option("--logging", dest="logstr", default='Info', type="str",
+                  help="Set the amount of logging information to write to disk")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
+
+print "CLI_OPTIONS:", CLI_OPTIONS
+print "CLI_ARGS:   ", CLI_ARGS
 
 
 # Use CLI args to determine testnet or not
@@ -258,6 +265,49 @@ NETWORKS['\x34'] = "Namecoin Network"
 
 
 
+#########  INITIALIZE THE LOGGER WRITE OUT STARTUP INFO  #########
+loglevel = getattr(logging, CLI_OPTIONS.logstr.upper(), None)
+if loglevel==None:
+   print 'Unrecognized logging options.  Defaulting to "INFO"'
+   loglevel = logging.Info
+
+logging.basicConfig(format='%(asctime)s (%(levelname)s) -- %(funcName)s::%(lineno)d -- %(message)s', \
+                    datefmt='%Y-%m-%d %H:%M:%S', \
+                    filename=os.path.join(ARMORY_HOME_DIR, 'armorylog.txt'), \
+                    level=loglevel)
+
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(min(loglevel+10, logging.CRITICAL))
+consoleHandler.setFormatter( logging.Formatter('(%(levelname)s) %(message)s'))
+logging.getLogger('').addHandler(consoleHandler)
+
+logging.info('')
+logging.info('')
+logging.info('')
+logging.info('************************************************************')
+logging.info('Loading Armory Engine:')
+logging.info('   Armory Version:       ' + getVersionString(BTCARMORY_VERSION))
+logging.info('   PyBtcAddress Version: ' + getVersionString(PYBTCADDRESS_VERSION))
+logging.info('   PyBtcWallet  Version: ' + getVersionString(PYBTCWALLET_VERSION))
+logging.info('Detected Operating system: ' + OS_NAME)
+logging.info('   User home-directory   : ' + USER_HOME_DIR)
+logging.info('   Satoshi BTC directory : ' + BTC_HOME_DIR)
+logging.info('   Armory home dir       : ' + ARMORY_HOME_DIR)
+logging.info('')
+logging.info('Network Name: ' + NETWORKS[ADDRBYTE])
+logging.info('Satoshi Port: %d', BITCOIN_PORT)
+logging.info('Named options/arguments to armoryengine.py:')
+for key,val in ast.literal_eval(str(CLI_OPTIONS)).iteritems():
+   logging.info('    %-16s: %s', key,val)
+logging.info('Other arguments:')
+for val in CLI_ARGS:
+   logging.info('    %s', val)
+logging.info('************************************************************')
+
+
+
+
+
 def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
@@ -387,18 +437,19 @@ def RightNowUTC():
 try:
    import CppBlockUtils as Cpp
    from CppBlockUtils import KdfRomix, CryptoECDSA, CryptoAES, SecureBinaryData
+   logging.info('C++ block utilities loaded successfully')
 except:
-   print '***ERROR:  C++ block utilities not available.'
-   print '           Make sure that you have the SWIG-compiled modules'
-   print '           in the current directory (or added to the PATH)'
-   print '           Specifically, you need:'
-   print '                  CppBlockUtils.py     and'
+   logging.critical('C++ block utilities not available.')
+   logging.critical('   Make sure that you have the SWIG-compiled modules')
+   logging.critical('   in the current directory (or added to the PATH)')
+   logging.critical('   Specifically, you need:')
+   logging.critical('       CppBlockUtils.py     and')
    if OS_LINUX or OS_MACOSX:
-      print '                  _CppBlockUtils.so'
+      logging.critical('       _CppBlockUtils.so')
    elif OS_WINDOWS:
-      print '                  _CppBlockUtils.pyd'
+      logging.critical('       _CppBlockUtils.pyd')
    else:
-      print '\n\n... UNKNOWN operating system'
+      logging.critical('\n\n... UNKNOWN operating system')
    raise
 
 
