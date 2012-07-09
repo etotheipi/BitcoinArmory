@@ -1660,8 +1660,9 @@ class DlgImportAddress(ArmoryDialog):
                      'in your wallet.  Only import private '
                      'key data if you are absolutely sure that no one else '
                      'has access to it.  Otherwise, sweep it to get '
-                     'the funds out of it.\n\nAll standard private-key formats '
-                     'are supported.')
+                     'the funds out of it.  All standard private-key formats '
+                     'are supported <i>except for private keys created by '
+                     'Bitcoin-Qt version 0.6.0 and later</i>.')
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
@@ -1815,15 +1816,18 @@ class DlgImportAddress(ArmoryDialog):
             'contain a consistency check.  This consistency '
             'check failed.  Please verify you entered the '
             'key data correctly.', QMessageBox.Ok)
+         LOGERROR('Private key consistency check failed.')
          return
       except BadInputError, e:
          QMessageBox.critical(self, 'Invalid Data', 'Something went terribly '
             'wrong!  (key data unrecognized)', QMessageBox.Ok)
+         LOGERROR('Unrecognized key data!')
          return
       except:
          QMessageBox.critical(self, 'Error Processing Key', \
             'There was an error processing the private key data. '
             'Please check that you entered it correctly', QMessageBox.Ok)
+         LOGEXCEPT('Error processing the private key data')
          return
          
 
@@ -2009,6 +2013,7 @@ class DlgImportAddress(ArmoryDialog):
                addrStr = hash160_to_addrStr(addr160)
                privKeyList.append([addr160, addrStr, binKeyData])
          except:
+            LOGWARN('Key line skipped, probably not a private key (key not shown for security)')
             continue
 
       if len(privKeyList)==0:
@@ -2157,6 +2162,7 @@ class DlgImportAddress(ArmoryDialog):
                #print '***ERROR importing:', addrStr
                #print '         Error Msg:', msg
                #nError += 1
+               LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
    
 
@@ -2508,6 +2514,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                'The specified wallet.dat file is for a different network! '
                '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
                QMessageBox.Ok)
+            LOGERROR('Wallet is for the wrong network!')
             return
       else:
          correctPassphrase = False
@@ -2537,6 +2544,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                      'The specified wallet.dat file is for a different network! '
                      '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
                      QMessageBox.Ok)
+                  LOGERROR('Wallet is for the wrong network!')
                   return
 
       # We're done accessing the file, delete the
@@ -2621,8 +2629,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                wlt.setComment(a160, cmt)
                self.nImport += 1
             except Exception,msg:
-               print '***ERROR importing:', addrB58
-               print '         Error Msg:', msg
+               LOGERROR('Problem importing: %s: %s', addrB58, msg)
                self.nError += 1
 
 
@@ -3081,13 +3088,6 @@ class DlgAddressInfo(ArmoryDialog):
       dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-         #if self.wlt.useEncryption and self.wlt.isLocked:
-            #unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
-            #if not unlockdlg.exec_():
-               #QMessageBox.critical(self, 'Wallet is Locked', \
-                  #'Cannot sweep an address while its keys are locked.', \
-                  #QMessageBox.Ok)
-               #return
          self.main.broadcastTransaction(finishedTx, dryRun=False)
 
    def deleteAddr(self):
@@ -3530,7 +3530,7 @@ class DlgSetComment(ArmoryDialog):
 try:
    from qrcodenative import *
 except ImportError:
-   print 'QR-generation code not available...'
+   LOGERROR('QR-generation code not available...')
 
 PAPER_DPI       = 72
 PAPER_A4_WIDTH  =  8.5*PAPER_DPI
@@ -3622,6 +3622,7 @@ class GfxItemQRCode(QGraphicsItem):
             break
          except TypeError:
             #print 'Failed to generate QR code:  likely too much data for the size'
+            #LOGWARN('Could not generate QR code for size %d (too much data?)', sz)
             sz += 1
             pass
 
@@ -4790,7 +4791,7 @@ class DlgSendBitcoins(ArmoryDialog):
             except:
                pass
          except:
-            print 'Issue sending!'
+            LOGEXCEPT('Problem sending transaction!')
             # TODO: not sure what errors to catch here, yet...
             raise
 
@@ -4868,8 +4869,9 @@ class DlgSendBitcoins(ArmoryDialog):
                continue
          except ValueError:
             QMessageBox.critical(self, 'Invalid Value String', \
-                'The value you specified '
-                'to send to address %d is invalid.' % (i+1,), QMessageBox.Ok)
+                'The amount you specified '
+                'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
+            LOGERROR('Invalid amount specified: %s', valueStr)
             return False
 
          try:
@@ -4877,6 +4879,7 @@ class DlgSendBitcoins(ArmoryDialog):
          except ValueError:
             QMessageBox(self, 'Invalid Value String', 'The fee you specified '
                 'is invalid.', QMessageBox.Ok)
+            LOGERROR('Invalid fee specified: %s', valueStr)
             return False
             
          totalSend += value
@@ -5390,12 +5393,13 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
                                       ['Armory Transactions (*.unsigned.tx)'], \
                                       'armory_%s_.unsigned.tx' % dpid)
-      print toSave
+      LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtTxDP.toPlainText())
          theFile.close()
       except IOError:
+         LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
    def doSaveFileS(self):
@@ -5404,12 +5408,13 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
                                       'armory_%s_.signed.tx' % dpid)
-      print toSave
+      LOGINFO('Saving signed tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtSigned.toPlainText())
          theFile.close()
       except IOError:
+         LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
    def txtSignedFirstClick(self):
@@ -5442,6 +5447,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
          # One of the rare few times I ever catch-all exception
          self.lblRight.setText(a + 'Unrecognized Input!' + b)
          self.btnReady.setEnabled(False)
+         LOGWARN('Unrecognized TxDP input!')
          return
 
       self.lblRight.setText('<b><i><font color="green">Signature Valid!</font></i></b>')
@@ -5487,6 +5493,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
          strUnsign = str(self.txtTxDP.toPlainText())
          txdpUnsign = PyTxDistProposal().unserializeAscii(strUnsign)
       except:
+         LOGEXCEPT('Could not unserialize TxDP')
          raise
 
       if self.wlt.useEncryption and self.wlt.isLocked:
@@ -9237,7 +9244,6 @@ class DlgPreferences(ArmoryDialog):
          defaultFee = str2coin( str(self.edtDefaultFee.text()).replace(' ','') )
          self.main.settings.set('Default_Fee', defaultFee)
       except:
-         raise
          QMessageBox.warning(self, 'Invalid Amount', \
                   'The default fee specified could not be understood.  Please '
                   'specify in BTC with no more than 8 decimal places.', \
@@ -9528,7 +9534,7 @@ class DlgExportTxHistory(ArmoryDialog):
             fmtstr = str(self.edtDateFormat.text())
             unixTime = row[COL.UnixTime]
             vals.append( unixTimeToFormatStr(unixTime, fmtstr) )
-            vals.append( row[COL.TxHash] )
+            vals.append( hex_switchEndian(row[COL.TxHash]) )
             vals.append( row[COL.NumConf] )
             vals.append( row[COL.WltID] )
             vals.append( self.main.walletMap[row[COL.WltID]].labelName.replace(',',';'))

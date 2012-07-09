@@ -49,6 +49,7 @@ import math
 import logging
 import logging.handlers
 import ast
+import traceback
 from struct import pack, unpack
 from datetime import datetime
 
@@ -75,8 +76,10 @@ parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
-parser.add_option("--logging", dest="logstr", default='Info', type="str",
-                  help="Set the amount of logging information to write to disk")
+parser.add_option("--debug", dest="doDebug", action="store_true", default=False, 
+                  help="Increase amount of debugging output")
+parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
+                  help="Disable all logging")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -191,6 +194,7 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
 
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
+ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 
 
 
@@ -266,28 +270,7 @@ NETWORKS['\x34'] = "Namecoin Network"
 #########  INITIALIZE LOGGING UTILITIES  ##########
 #
 # Setup logging to write INFO+ to file, and WARNING+ to console
-# Up to 3 log files will be rotated, 10 MB each.
-#
-loglevel = getattr(logging, CLI_OPTIONS.logstr.upper(), None)
-if loglevel==None:
-   loglevel = logging.Info
-
-logfilename = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
-logging.getLogger('').setLevel(loglevel)
-rotateFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(funcName)s::%(lineno)d -- %(message)s', \
-                                     datefmt='%Y-%m-%d %H:%M:%S')
-rotateHandler = logging.handlers.RotatingFileHandler(logfilename, maxBytes=10*1024*1024, backupCount=3)
-rotateHandler.setLevel(loglevel)
-rotateHandler.setFormatter(rotateFormatter)
-logging.getLogger('').addHandler(rotateHandler)
-
-consoleFormatter = logging.Formatter('(%(levelname)s) %(message)s')
-consoleHandler = logging.StreamHandler()
-consoleHandler.setLevel(min(loglevel+10, logging.CRITICAL))
-consoleHandler.setFormatter( consoleFormatter )
-logging.getLogger('').addHandler(consoleHandler)
-
-######### Define some aliases & methods for logging ######
+# Up to 3 log files will be rotated, 5 MB each.
 #
 LOGDEBUG = logging.debug
 LOGINFO  = logging.info
@@ -296,21 +279,89 @@ LOGERROR = logging.error
 LOGCRIT  = logging.critical
 LOGEXCEPT= logging.exception
 
-DEFAULT_PPRINT_LOGLEVEL = logging.DEBUG
+DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
+DEFAULT_FILE_LOGTHRESH    = logging.INFO
 
-############
-# When we call pprint functions, we usually want to write the printed 
-# information to the logfile, too.  As such, I create a special func 
-# here, just for handling such pprint methods.  This method can be 
-# over-ridden to turn off printing all together, print only to console,
-# or print to file, set debug level, etc.
-#
-def LOGPRINT(msg, *args, **kwargs):
-   loglevel = DEFAULT_PPRINT_LOGLEVEL
-   if kwargs.has_key('level') and isinstance(kwargs['level'], int):
-      loglevel = kwargs.pop('level')
-   logging.log(loglevel, msg, *args, **kwargs)
+DEFAULT_PPRINT_LOGLEVEL   = logging.DEBUG
+DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
+
+rootLogger = logging.getLogger('')
+if CLI_OPTIONS.doDebug:
+   # Drop it all one level: console will see INFO, file will see DEBUG
+   DEFAULT_FILE_LOGTHRESH    -= 10
+   DEFAULT_PPRINT_LOGTHRESH  -= 10
+
+
+if CLI_OPTIONS.logDisable:
+   print 'Logging is disabled'
+   rootLogger.disabled = True
+
+# Now set loglevels
+logging.getLogger('').setLevel(logging.DEBUG)
+rotateFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(filename)s::%(lineno)d -- %(message)s', \
+                                     datefmt='%Y-%m-%d %H:%M')
+rotateHandler = logging.handlers.RotatingFileHandler(ARMORY_LOG_FILE, maxBytes=5*1024*1024, backupCount=3)
+rotateHandler.setLevel(DEFAULT_FILE_LOGTHRESH)
+rotateHandler.setFormatter(rotateFormatter)
+logging.getLogger('').addHandler(rotateHandler)
+
+consoleFormatter = logging.Formatter('(%(levelname)s) %(message)s')
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(DEFAULT_CONSOLE_LOGTHRESH)
+consoleHandler.setFormatter( consoleFormatter )
+logging.getLogger('').addHandler(consoleHandler)
+
       
+
+class stringAggregator(object):
+   def __init__(self):
+      self.theStr = ''
+   def getStr(self):
+      return self.theStr
+   def write(self, theStr):
+      self.theStr += theStr
+
+
+# A method to redirect pprint() calls to the log file
+# Need a way to take a pprint-able object, and redirect its output to file
+# Do this by swapping out sys.stdout temporarily, execute theObj.pprint()
+# then set sys.stdout back to the original.  
+def LOGPPRINT(theObj, loglevel=DEFAULT_PPRINT_LOGLEVEL):
+   sys.stdout = stringAggregator()
+   theObj.pprint()
+   printedStr = sys.stdout.getStr()
+   sys.stdout = sys.__stdout__
+   stkOneUp   = traceback.extract_stack()[1]
+   filename   = stkOneUp[0]
+   methodLine = stkOneUp[1]
+   methodStr  = '(PPRINT from %s::%d)\n' % (filename,methodLine)
+   logging.log(loglevel, methodStr + printedStr)
+   
+# For super-debug mode, we'll write out raw data
+def LOGRAWDATA(rawStr, loglevel=DEFAULT_RAWDATA_LOGLEVEL):
+   dtype = isLikelyDataType(rawStr)
+   stkOneUp   = traceback.extract_stack()[1]
+   filename   = stkOneUp[0]
+   methodLine = stkOneUp[1]
+   methodStr  = '(PPRINT from %s::%d)\n' % (filename,methodLine)
+   pstr = rawStr[:]
+   if dtype==DATATYPE.Binary:
+      pstr = binary_to_hex(rawStr)
+      pstr = prettyHex(pstr, indent='  ')
+   elif dtype==DATATYPE.Hex:
+      pstr = prettyHex(pstr, indent='  ')
+
+   logging.log(loglevel, methodStr + pstr)
+
+   
+
+def logexcept_override(type, value, tback):
+   strList = traceback.format_exception(type,value,tback)
+   LOGERROR(''.join([s for s in strList]))
+   # then call the default handler
+   sys.__excepthook__(type, value, tback) 
+
+sys.excepthook = logexcept_override
 
 
 LOGINFO('')
@@ -320,9 +371,9 @@ LOGINFO('************************************************************')
 LOGINFO('Invoked: ' + ' '.join(argv))
 LOGINFO('************************************************************')
 LOGINFO('Loading Armory Engine:')
-LOGINFO('   Armory Version:       ' + getVersionString(BTCARMORY_VERSION))
-LOGINFO('   PyBtcAddress Version: ' + getVersionString(PYBTCADDRESS_VERSION))
-LOGINFO('   PyBtcWallet  Version: ' + getVersionString(PYBTCWALLET_VERSION))
+LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
+LOGINFO('   PyBtcAddress Version  : ' + getVersionString(PYBTCADDRESS_VERSION))
+LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
@@ -5400,7 +5451,7 @@ class PyTxDistProposal(object):
             raise SignatureError, 'Invalid script for input %d' % i
          else:
             if len(self.inAddr20Lists)==1: print 'Signature', i, 'is valid!'
-            else: LOGINFO('Signatures for input', i, 'are valid!')
+            else: LOGDEBUG('Signatures for input', i, 'are valid!')
       return finalTx
 
 
@@ -7338,14 +7389,14 @@ class PyBtcWallet(object):
 
       if not os.path.exists(walletFileBackup):
          # We haven't even created a backup file, yet
-         LOGINFO('Creating backup file %s', walletFileBackup)
+         LOGDEBUG('Creating backup file %s', walletFileBackup)
          touchFile(backupUpdateFlag)
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
 
       if os.path.exists(backupUpdateFlag) and os.path.exists(mainUpdateFlag):
          # Here we actually have a good main file, but backup never succeeded
-         LOGINFO('***WARNING: error in backup file... how did that happen?')
+         LOGWARN('***WARNING: error in backup file... how did that happen?')
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(mainUpdateFlag)
          os.remove(backupUpdateFlag)
@@ -7691,8 +7742,8 @@ class PyBtcWallet(object):
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
       numMyAddr = len(wltAddr)
-      LOGINFO('Total number of inputs in transaction:  %d', numInputs)
-      LOGINFO('Number of inputs that you can sign for: %d', numMyAddr)
+      LOGDEBUG('Total number of inputs in transaction:  %d', numInputs)
+      LOGDEBUG('Number of inputs that you can sign for: %d', numMyAddr)
 
 
       # Unlock the wallet if necessary, sign inputs 
@@ -7763,6 +7814,7 @@ class PyBtcWallet(object):
       locked.
       """
       
+      LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
       if not secureKdfOutput and not securePassphrase:
          raise PassphraseError, "No passphrase/key provided to unlock wallet!"
          
@@ -7794,6 +7846,7 @@ class PyBtcWallet(object):
                                                 addrObj.serialize()]])
 
       self.isLocked = False
+      LOGDEBUG('Unlock succeeded: %s', self.uniqueIDB58)
 
 
    #############################################################################
@@ -7829,6 +7882,7 @@ class PyBtcWallet(object):
       #       input for PyBtcAddress::lock for "I don't have it".  In most 
       #       cases, it is actually possible to lock the wallet without the 
       #       kdfKey because we saved the encrypted versions before unlocking
+      LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
       try:
          for addr160,addrObj in self.addrMap.iteritems():
             self.addrMap[addr160].lock(self.kdfKey)
@@ -7842,6 +7896,8 @@ class PyBtcWallet(object):
          LOGERROR('Usually occurs on newly-encrypted wallets that have')
          LOGERROR('never been encrypted before.')
          raise WalletLockError, 'Unlock with passphrase before locking again'
+      LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+
 
    #############################################################################
    def getAddrListSortedByChainIndex(self, withRoot=False):
