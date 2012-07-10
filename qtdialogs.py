@@ -3220,6 +3220,67 @@ class DlgShowKeys(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.setWindowTitle('Address Key Information')
 
+#############################################################################
+class DlgEULA(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgEULA, self).__init__(parent, main)
+
+      txtWidth,txtHeight = tightSizeNChar(self, 110)
+      txtLicense = QTextEdit()
+      txtLicense.sizeHint = lambda: QSize(txtWidth, 14*txtHeight)
+      txtLicense.setReadOnly(True)
+
+      licFile = QFile(":/LICENSE")
+      licFile.open(QIODevice.ReadOnly | QIODevice.Text)
+      txtLicense.setText(str(licFile.readData(UINT32_MAX)))
+      licFile.close()
+   
+      self.chkAgree = QCheckBox('I agree to all the terms of the license above')
+
+      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton("Accept")
+      self.btnAccept.setEnabled(False)
+      self.connect(self.btnCancel, SIGNAL('clicked()'),     self.reject)
+      self.connect(self.btnAccept, SIGNAL('clicked()'),     self.accept)
+      self.connect(self.chkAgree,  SIGNAL('toggled(bool)'), self.toggleChkBox)
+      btnBox = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+
+
+      lblPleaseAgree = QRichLabel( \
+         '<b>Armory Bitcoin Client is licensed under the <i>Affero General '
+         'Public License, Version 3 (AGPLv3)</i></b>'
+         '<br><br>'
+         'Among other things, this '
+         'license states as a condition of receiving this software '
+         'for free, you accept all risks associated with using it '
+         'and the developers of Armory will not be held liable for any '
+         'loss of money due to software defects.'
+         '<br><br>'
+         '<b>Please read the full terms of the license indicate your '
+         'agreement with its terms.</b>')
+
+
+      dlgLayout = QVBoxLayout()
+      frmChk = makeHorizFrame([self.chkAgree, 'Stretch'])
+      frmBtn = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+      frmAll = makeVertFrame([lblPleaseAgree, txtLicense, frmChk, frmBtn])
+
+      dlgLayout.addWidget(frmAll)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Armory License Agreement')
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   def reject(self):
+      self.main.abortLoad = True
+      super(DlgEULA, self).reject()
+      
+   def accept(self):
+      self.main.settings.set('Agreed_to_EULA', True) 
+      super(DlgEULA, self).accept()
+
+   def toggleChkBox(self, isEnabled):
+      self.btnAccept.setEnabled(isEnabled)
 
 #############################################################################
 class DlgIntroMessage(ArmoryDialog):

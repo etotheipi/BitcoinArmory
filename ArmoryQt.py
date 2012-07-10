@@ -62,6 +62,8 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
+
+
       # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
       if USE_TESTNET:
@@ -87,10 +89,16 @@ class ArmoryMainWindow(QMainWindow):
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
+
+      eulaAgreed = self.settings.getSettingOrSetDefault('Agreed_to_EULA', False)
+      if not eulaAgreed:
+         DlgEULA(self,self).exec_()
+
       self.setupNetworking()
 
       # setupNetworking may have set this flag if something went wrong
       if self.abortLoad:
+         LOGWARN('Armory startup was aborted.  Closing.')
          os._exit(0)
 
       # Setup system tray and register "bitcoin:" URLs with the OS
@@ -685,6 +693,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setUserMode(self, mode):
+      LOGINFO('Changing usermode:')
+      LOGINFO('   From: %s', self.settings.get('User_Mode'))
       self.usermode = mode
       if mode==USERMODE.Standard:
          self.settings.set('User_Mode', 'Standard')
@@ -692,6 +702,7 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('User_Mode', 'Advanced')
       if mode==USERMODE.Expert:
          self.settings.set('User_Mode', 'Expert')
+      LOGINFO('     To: %s', self.settings.get('User_Mode'))
 
       if not self.firstModeSwitch:
          QMessageBox.information(self,'Restart Required', \
@@ -730,6 +741,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setupNetworking(self):
 
+      LOGINFO('Setting up networking...')
       self.internetAvail = False
       self.satoshiAvail  = False
 
@@ -2101,6 +2113,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickReceiveCoins(self):
+      LOGDEBUG('Clicked "Receive Bitcoins Button"')
       wltID = None
       selectionMade = True
       if len(self.walletMap)==0:
@@ -2148,6 +2161,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def minimizeArmory(self):
+      LOGDEBUG('Minimizing Armory')
       self.hide()
       self.sysTray.show()
 
@@ -2180,6 +2194,7 @@ class ArmoryMainWindow(QMainWindow):
                                   defaultFilename=defaultFn)
          if len(str(logfn)) > 0:
             shutil.copy(ARMORY_LOG_FILE, logfn)
+            LOGINFO('Log saved to %s', logfn)
 
    #############################################################################
    def blinkTaskbar(self):
@@ -2200,6 +2215,7 @@ class ArmoryMainWindow(QMainWindow):
          if newBlks>0:
             self.ledgerModel.reset()
             self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+            LOGINFO('New Block! : %d', self.latestBlockNum)
             didAffectUs = False
             for wltID in self.walletMap.keys():
                prevLedgerSize = len(self.walletMap[wltID].getTxLedger())
@@ -2208,7 +2224,6 @@ class ArmoryMainWindow(QMainWindow):
                newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                didAffectUs = (prevLedgerSize != newLedgerSize)
          
-            LOGINFO('New Block! : %d', self.latestBlockNum)
             if didAffectUs:
                LOGINFO('New Block contained a transaction relevant to us!')
                self.walletListChanged()
@@ -2420,6 +2435,7 @@ class ArmoryListenerFactory(ClientFactory):
 ############################################
 def checkForAlreadyOpen():
    import socket
+   LOGDEBUG('Checking for already open socket...')
    try:
       # If create doesn't throw an error, there's another Armory open already!
       sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
@@ -2470,7 +2486,8 @@ if 1:
 
    from twisted.internet import reactor
    def endProgram():
-      LOGWARN('Resetting BlockDataMgr, freeing memory')
+      print 'Resetting BlockDataMgr, freeing memory'
+      LOGINFO('Resetting BlockDataMgr, freeing memory')
       TheBDM.Reset()
       if reactor.threadpool is not None:
          reactor.threadpool.stop()

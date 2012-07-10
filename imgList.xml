@@ -97,5 +97,6 @@
       <file alias="unlockedIcon.png">img/unlockedIcon.png</file>
       <file alias="view-refresh-4.png">img/view-refresh-4.png</file>
       <file alias="wallet_16x12.png">img/wallet_16x12.png</file>
+      <file alias="LICENSE">LICENSE</file>
    </qresource>
 </RCC>

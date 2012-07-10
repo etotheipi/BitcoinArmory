@@ -21,19 +21,21 @@
     This license applies to all works under this directory tree EXCEPT for:
     
           cppForSwig/cryptopp/*
+          cppForSwig/leveldb/*
           qtreactor4.py
           qrcodenative.py
     
     Everything in the cryptopp directory is considered public domain according 
-    to http://www.cryptopp.com/ and included here only for convenience.  Please
-    contact me at alan.reiner@gmail.com if you believe that I am not in
-    compliance with the crypto++ licence.
+    to http://www.cryptopp.com/ and included with the source distribution 
+    as a convenience to the user.  The leveldb library has been included, 
+    unmodified, in compliance with its license that can be found in the
+    cppForSwig/leveldb directory.
 
 ********************************************************************************
    
     ***  If you wish to use this work in a way not compliant with the 
          AGPLv3 license, please contact me to work out an agreement for
-         dual-licensing.   alan.reiner@gmail.com
+         dual-licensing.   Contact information is at the top.
 
 ********************************************************************************
 
