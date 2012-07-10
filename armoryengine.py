@@ -288,8 +288,8 @@ DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
 rootLogger = logging.getLogger('')
 if CLI_OPTIONS.doDebug:
    # Drop it all one level: console will see INFO, file will see DEBUG
-   DEFAULT_FILE_LOGTHRESH    -= 10
-   DEFAULT_PPRINT_LOGTHRESH  -= 10
+   DEFAULT_CONSOLE_LOGTHRESH  -= 10
+   DEFAULT_FILE_LOGTHRESH     -= 10
 
 
 if CLI_OPTIONS.logDisable:
@@ -331,25 +331,25 @@ def LOGPPRINT(theObj, loglevel=DEFAULT_PPRINT_LOGLEVEL):
    theObj.pprint()
    printedStr = sys.stdout.getStr()
    sys.stdout = sys.__stdout__
-   stkOneUp   = traceback.extract_stack()[1]
-   filename   = stkOneUp[0]
-   methodLine = stkOneUp[1]
-   methodStr  = '(PPRINT from %s::%d)\n' % (filename,methodLine)
+   stkOneUp = traceback.extract_stack()[-2]
+   filename,method = stkOneUp[0], stkOneUp[1]
+   methodStr  = '(PPRINT from %s:%d)\n' % (filename,method)
    logging.log(loglevel, methodStr + printedStr)
    
 # For super-debug mode, we'll write out raw data
 def LOGRAWDATA(rawStr, loglevel=DEFAULT_RAWDATA_LOGLEVEL):
    dtype = isLikelyDataType(rawStr)
-   stkOneUp   = traceback.extract_stack()[1]
-   filename   = stkOneUp[0]
-   methodLine = stkOneUp[1]
-   methodStr  = '(PPRINT from %s::%d)\n' % (filename,methodLine)
+   stkOneUp = traceback.extract_stack()[-2]
+   filename,method = stkOneUp[0], stkOneUp[1]
+   methodStr  = '(PPRINT from %s:%d)\n' % (filename,method)
    pstr = rawStr[:]
    if dtype==DATATYPE.Binary:
       pstr = binary_to_hex(rawStr)
-      pstr = prettyHex(pstr, indent='  ')
+      pstr = prettyHex(pstr, indent='  ', withAddr=False)
    elif dtype==DATATYPE.Hex:
-      pstr = prettyHex(pstr, indent='  ')
+      pstr = prettyHex(pstr, indent='  ', withAddr=False)
+   else:
+      pstr = '   ' + '\n   '.join(pstr.split('\n'))
 
    logging.log(loglevel, methodStr + pstr)
 
@@ -544,7 +544,7 @@ TheBDM = Cpp.BlockDataManager().getBDM()
 
 
 
-DATATYPE = enum("Binary", "ASCII", 'Base58', 'Hex')
+DATATYPE = enum("Binary", 'Base58', 'Hex')
 def isLikelyDataType(theStr, dtype=None):
    """ 
    This really shouldn't be used on short strings.  Hence
@@ -553,15 +553,12 @@ def isLikelyDataType(theStr, dtype=None):
    ret = None
    hexCount = sum([1 if c in BASE16CHARS else 0 for c in theStr])
    b58Count = sum([1 if c in BASE58CHARS else 0 for c in theStr])
-   ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
    canBeHex = hexCount==len(theStr)
    canBeB58 = b58Count==len(theStr)
    if canBeHex:
       ret = DATATYPE.Hex
    elif canBeB58 and not canBeHex:
       ret = DATATYPE.Base58
-   elif ascCount==len(theStr):
-      ret = DATATYPE.ASCII
    else:
       ret = DATATYPE.Binary
 
@@ -5497,7 +5494,7 @@ class PyTxDistProposal(object):
 
       endline = ('-------END-TRANSACTION-' + self.uniqueB58 + '-----').ljust(80,'-')
       txdpLines.append( endline )
-      self.pprint()
+      LOGPPRINT(self, logging.DEBUG)
       return '\n'.join(txdpLines)
       
 

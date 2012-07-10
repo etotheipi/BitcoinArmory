@@ -329,7 +329,7 @@ class DlgNewWallet(ArmoryDialog):
          if kdfUnit.lower()=='kb':
             self.kdfBytes = round(float(kdfM))*(1024.0)
 
-         print 'KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes'
+         LOGINFO('KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes')
       except:
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
             'Please specify time with units, such as '
@@ -3438,7 +3438,7 @@ class DlgImportPaperWallet(ArmoryDialog):
                'fixed automatically.  Please double-check that you entered the '
                'text exactly as it appears on the wallet-backup page.', \
                QMessageBox.Ok)
-            print 'BadData!'
+            LOGERROR('Error in wallet restore field')
             self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
             return
          if not fixedData==data:
@@ -3897,7 +3897,7 @@ class DlgRemoveWallet(ArmoryDialog):
             thepathBackup = wlt.getWalletPath('backup')
 
             if self.radioWatch.isChecked():
-               print '***Converting to watching-only wallet'
+               LOGINFO('***Converting to watching-only wallet')
                newWltPath = wlt.getWalletPath('WatchOnly')
                wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
                newWlt = PyBtcWallet().readWalletFile(newWltPath)
@@ -3910,7 +3910,7 @@ class DlgRemoveWallet(ArmoryDialog):
                self.main.statusBar().showMessage( \
                      'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
             elif self.radioDelete.isChecked():
-               print '***Completely deleting wallet'
+               LOGINFO('***Completely deleting wallet')
                os.remove(thepath)
                os.remove(thepathBackup)
                self.main.removeWalletFromApplication(wltID) 
@@ -4783,7 +4783,6 @@ class DlgSendBitcoins(ArmoryDialog):
             finalTx = txdp.prepareFinalTx()
             if len(commentStr)>0:
                self.wlt.setComment(finalTx.getHash(), commentStr)
-            print binary_to_hex(finalTx.serialize())
             self.main.broadcastTransaction(finalTx)
             self.accept()
             try:
@@ -4966,7 +4965,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.selectedBehavior = ''
       if totalChange>0:
          self.change160 = self.determineChangeAddr(utxoSelect)
-         print 'Change address behavior: ', self.selectedBehavior
+         LOGINFO('Change address behavior: ', self.selectedBehavior)
          if not self.change160:
             return
          recipValuePairs.append( [self.change160, totalChange])
@@ -6083,8 +6082,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       filename = self.main.getFileSave('Save Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'], \
                              defaultFilename)
-      print "Default:", defaultFilename
-      print filename
+      LOGINFO('Saved transaction file: %s', filename)
 
       if len(str(filename))>0:
          f = open(filename, 'w')
@@ -6095,8 +6093,9 @@ class DlgReviewOfflineTx(ArmoryDialog):
    def loadTx(self):
       filename = self.main.getFileLoad('Load Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'])
-      print filename
+      
       if len(str(filename))>0:
+         LOGINFO('Selected transaction file to load: %s', filename)
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
          f.close()
@@ -6420,13 +6419,13 @@ def extractTxInfo(pytx, rcvTime=None):
          txOutToList[-1].append(pubs)
          txOutToList[-1].append(mstype[0]) # this is M (from M-of-N)
       elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
-         print 'No OP_EVAL support yet!'
+         LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
          txOutToList[-1].append(txout.binScript)
       elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-         #print 'Unknown TxOut type'
+         LOGERROR('Unknown TxOut type')
          txOutToList[-1].append(txout.binScript)
       else:
-         print 'How did we miss TXOUT_SCRIPT_UNKNOWN txout type?'
+         LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
       sumTxOut += txout.value
   
 
@@ -6469,7 +6468,7 @@ def extractTxInfo(pytx, rcvTime=None):
                txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
                txinFromList[-1].append(prevTxOut.getIndex())
             else:
-               print 'How did we get a bad parent pointer? (extractTxInfo)'
+               LOGERROR('How did we get a bad parent pointer? (extractTxInfo)')
                prevTxOut.pprint()
                txinFromList[-1].append('')
                txinFromList[-1].append('')
@@ -9495,7 +9494,7 @@ class DlgExportTxHistory(ArmoryDialog):
       elif 'descend' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
       else:
-         print '***ERROR: bad sort string!?'
+         LOGERROR('***ERROR: bad sort string!?')
          return
 
 

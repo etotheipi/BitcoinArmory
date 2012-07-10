@@ -288,13 +288,11 @@ class ArmoryMainWindow(QMainWindow):
       btnRecvBtc   = QPushButton("Receive Bitcoins")
       btnWltProps  = QPushButton("Wallet Properties")
       btnOfflineTx = QPushButton("Offline Transactions")
-      btnDevTools  = QPushButton("Expert Tools")
  
 
       self.connect(btnWltProps, SIGNAL('clicked()'), self.execDlgWalletDetails)
       self.connect(btnRecvBtc,  SIGNAL('clicked()'), self.clickReceiveCoins)
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
-      self.connect(btnDevTools, SIGNAL('clicked()'), self.openToolsDlg)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
 
       verStr = 'Armory %s-alpha / %s User' % (getVersionString(BTCARMORY_VERSION), \
@@ -311,7 +309,6 @@ class ArmoryMainWindow(QMainWindow):
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          logoBtnFrame.append(btnOfflineTx)
       logoBtnFrame.append(lblInfo)
-      #logoBtnFrame.append(btnDevTools)
       logoBtnFrame.append('Stretch')
 
       btnFrame = makeVertFrame(logoBtnFrame, STYLE_SUNKEN)
@@ -1808,36 +1805,26 @@ class ArmoryMainWindow(QMainWindow):
             # just seeing the updated balance when they get back to the main
             # screen
             if not TheBDM.getTxByHash(newTxHash).isInitialized():
-               #failedFN = os.path.join(ARMORY_HOME_DIR, 'failedtx.bin')
-               #f = open(failedFN, 'ab')
-               #bp = BinaryPacker()
-               #bp.put(UINT64, long(RightNow()))
-               #f.write(bp.getBinaryString())
-               #f.write(pytx.serialize())
-               #f.close()
                LOGERROR('Transaction was not accepted by the Satoshi client')
                LOGERROR('Raw transaction:')
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
                LOGERROR('Transaction details')
                LOGPPRINT(pytx, logging.ERROR)
                QMessageBox.warning(self, 'Invalid Transaction', \
-               'The transaction that you just executed, does not '
-               'appear to have been accepted by the Bitcoin network. '
-               'This sometimes happens with legitimate transactions '
-               'when a fee is not included but was required.  Sometimes '
-               'it will happen when you have zero-confirmation transactions '
-               'waiting to get into the blockchain.  Or it is due to a '
-               'bug in the Armory software.  '
-               '<br><br>Please consider reporting this error the the Armory '
-               'developers.  All information the developers need is '
-               'in the following file: <br><br>' + ARMORY_LOG_FILE + '<br><br>'
-               'This file never '
-               'contains any sensitive data, so it is safe to send to '
-               'the Armory developers for help diagnosing the issue, and '
-               'fixing any potential bugs.  '
-               'Please email the above file to '
-               'alan.reiner@gmail.com along with any information you can '
-               'provide about the context of this failed transaction.', QMessageBox.Ok)
+                  'The transaction that you just executed, does not '
+                  'appear to have been accepted by the Bitcoin network. '
+                  'This sometimes happens with legitimate transactions '
+                  'when a fee is not included but was required.  Sometimes it '
+                  'is caused by network issues.  '
+                  'Or it is due to a bug in the Armory software.  '
+                  '<br><br>Please consider reporting this error the the Armory '
+                  'developers.  If you do, please use '
+                  '"<b>File</b>"-->"<b>Export Log File</b>" '
+                  'from the main window to make a copy of your log file to send '
+                  'via email to alan.reiner@gmail.com.  Please also include any '
+                  'information you might consider relevant about the context of '
+                  'this failed transaction.' , \
+                  QMessageBox.Ok)
                   
          reactor.callLater(2, sendGetDataMsg)
          reactor.callLater(4, checkForTxInBDM)
