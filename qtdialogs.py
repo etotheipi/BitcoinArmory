@@ -1823,6 +1823,13 @@ class DlgImportAddress(ArmoryDialog):
             'wrong!  (key data unrecognized)', QMessageBox.Ok)
          LOGERROR('Unrecognized key data!')
          return
+      except CompressedKeyError, e:
+         QMessageBox.critical(self, 'Unsupported key type', 'You entered a key '
+            'for an address that uses a compressed public key, usually produced '
+            'in Bitcoin-Qt/bitcoind wallets created after version 0.6.0.  Armory '
+            'does not yet support this key type.')
+         LOGERROR('Compressed key data recognized but not supported')
+         return
       except:
          QMessageBox.critical(self, 'Error Processing Key', \
             'There was an error processing the private key data. '
@@ -3250,13 +3257,12 @@ class DlgEULA(ArmoryDialog):
          '<b>Armory Bitcoin Client is licensed under the <i>Affero General '
          'Public License, Version 3 (AGPLv3)</i></b>'
          '<br><br>'
-         'Among other things, this '
-         'license states as a condition of receiving this software '
+         'Additionally, as a condition of receiving this software '
          'for free, you accept all risks associated with using it '
          'and the developers of Armory will not be held liable for any '
-         'loss of money due to software defects.'
+         'loss of money or Bitcoins due to software defects.'
          '<br><br>'
-         '<b>Please read the full terms of the license indicate your '
+         '<b>Please read the full terms of the license and indicate your '
          'agreement with its terms.</b>')
 
 
@@ -3273,6 +3279,7 @@ class DlgEULA(ArmoryDialog):
 
    def reject(self):
       self.main.abortLoad = True
+      LOGERROR('User did not accept the EULA')
       super(DlgEULA, self).reject()
       
    def accept(self):

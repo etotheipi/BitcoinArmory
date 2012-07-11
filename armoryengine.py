@@ -231,6 +231,7 @@ class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
 class BadInputError(Exception): pass
 class BadURIError(Exception): pass
+class CompressedKeyError(Exception): pass
 
 
 
@@ -1332,6 +1333,8 @@ def parsePrivateKeyData(theStr):
 
          if binEntry=='':
             raise InvalidHashError, 'Private Key checksum failed!'
+      elif len(binEntry) in (33, 37) and binEntry[-1]=='\x01':
+         raise CompressedKeyError, 'Compressed Public keys not supported!'
       return binEntry, keyType
    
 
