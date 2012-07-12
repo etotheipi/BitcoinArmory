@@ -18,6 +18,18 @@ VERSION 0.82.1
         the master branch of Armory on github.  It will then notify you if
         your version is older than the latest one.
 
+   - Removed Bitcoin-Qt Wallet Migration
+        This was causing more confusion than it was helping.  Given that 
+        very few users will benefit from it anymore, it has been removed
+        until the new wallet format is finished.
+
+   - Added EULA Acknowledgement
+        All users will now be presented with a standrad "licence agreement"
+        dialog when they open Armory the first time.  If they do not agree,
+        Armory will close.  This is done due to the lack of exposure of 
+        Linux/OSX users to the EULA that is presented to Windows users 
+        during installation.
+
 #-------------------------------------------------------------------------------
 VERSION 0.82
 
@@ -34,7 +46,7 @@ VERSION 0.82
         New button for each recipient in the send-bitcoins window.  Given
         the values already entered for other recipients and the transaction
         fee, it will compute the max spendable balance for this recipient 
-        and insert it into the "Amount" field.  Makes 
+        and insert it into the "Amount" field.  
       
    - Specify Change Address (Expert Mode Only!)  
         The send-bitcoins window now has options in the bottom-left corner

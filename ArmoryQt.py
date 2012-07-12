@@ -420,14 +420,14 @@ class ArmoryMainWindow(QMainWindow):
       actCreateNew      = self.createAction('&Create &New Wallet',        self.createNewWallet)
       actImportWlt      = self.createAction('&Import Armory Wallet',      self.execGetImportWltName)
       actRestorePaper   = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
-      actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
+      #actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
       actAddressBook    = self.createAction('View &Address Book',         self.execAddressBook)
 
 
       self.menusList[MENUS.Wallets].addAction(actCreateNew)
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addAction(actRestorePaper)
-      self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
+      #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 

@@ -325,11 +325,11 @@ class DlgNewWallet(ArmoryDialog):
 
          kdfM, kdfUnit = str(self.edtComputeMem.text()).split(' ')
          if kdfUnit.lower()=='mb':
-            self.kdfBytes = round(float(kdfM))*(1024.0**2) 
+            self.kdfBytes = round(float(kdfM)*(1024.0**2) )
          if kdfUnit.lower()=='kb':
-            self.kdfBytes = round(float(kdfM))*(1024.0)
+            self.kdfBytes = round(float(kdfM)*(1024.0))
 
-         LOGINFO('KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes')
+         LOGINFO('KDF takes %0.2fsec and %dbytes', self.kdfSec, self.kdfBytes)
       except:
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
             'Please specify time with units, such as '
@@ -2316,7 +2316,7 @@ class DlgImportWallet(ArmoryDialog):
       layout.addWidget(lblImportDescr,      0,0, 1, 2)
       layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
       layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
-      layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
+      #layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
       if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
          lbl = QLabel('You can manually add wallets to armory by copying them '
@@ -5033,7 +5033,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.selectedBehavior = ''
       if totalChange>0:
          self.change160 = self.determineChangeAddr(utxoSelect)
-         LOGINFO('Change address behavior: ', self.selectedBehavior)
+         LOGINFO('Change address behavior: %s', self.selectedBehavior)
          if not self.change160:
             return
          recipValuePairs.append( [self.change160, totalChange])

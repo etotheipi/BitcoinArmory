@@ -80,6 +80,8 @@ parser.add_option("--debug", dest="doDebug", action="store_true", default=False,
                   help="Increase amount of debugging output")
 parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
                   help="Disable all logging")
+parser.add_option("--logcpp", dest="logcpp", action="store_true", default=False,
+                  help="Log C++/SWIG console output by redirecting *all* stdout to log file")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -194,7 +196,8 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
 
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
-ARMORY_LOG_FILE = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+ARMORY_LOG_FILE     = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+#ARMORY_LOG_FILE_CPP = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
 
 
 
@@ -271,7 +274,7 @@ NETWORKS['\x34'] = "Namecoin Network"
 #########  INITIALIZE LOGGING UTILITIES  ##########
 #
 # Setup logging to write INFO+ to file, and WARNING+ to console
-# Up to 3 log files will be rotated, 5 MB each.
+# In debug mode, will write DEBUG+ to file and INFO+ to console
 #
 LOGDEBUG = logging.debug
 LOGINFO  = logging.info
@@ -293,18 +296,42 @@ if CLI_OPTIONS.doDebug:
    DEFAULT_FILE_LOGTHRESH     -= 10
 
 
-if CLI_OPTIONS.logDisable:
-   print 'Logging is disabled'
-   rootLogger.disabled = True
+def chopLogFile(filename, size):
+   if not os.path.exists(filename):
+      print 'Log file doesn\'t exist [yet]'
+      return
+
+   logfile = open(filename, 'r')
+   allLines = logfile.readlines()
+   logfile.close()
+
+   nBytes,nLines = 0,0;
+   for line in allLines[::-1]:
+      nBytes += len(line)
+      nLines += 1
+      if nBytes>size:
+         break
+
+   logfile = open(filename, 'w')
+   for line in allLines[-nLines:]:
+      logfile.write(line)
+   logfile.close()
+
+
+
+# Cut down the log file to just the most recent 100 kB
+chopLogFile(ARMORY_LOG_FILE, 100*1024)
+
 
 # Now set loglevels
+DateFormat = '%Y-%m-%d %H:%M:%S'
 logging.getLogger('').setLevel(logging.DEBUG)
-rotateFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(filename)s::%(lineno)d -- %(message)s', \
-                                     datefmt='%Y-%m-%d %H:%M')
-rotateHandler = logging.handlers.RotatingFileHandler(ARMORY_LOG_FILE, maxBytes=5*1024*1024, backupCount=3)
-rotateHandler.setLevel(DEFAULT_FILE_LOGTHRESH)
-rotateHandler.setFormatter(rotateFormatter)
-logging.getLogger('').addHandler(rotateHandler)
+fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(filename)s::%(lineno)d -- %(message)s', \
+                                     datefmt=DateFormat)
+fileHandler = logging.FileHandler(ARMORY_LOG_FILE)
+fileHandler.setLevel(DEFAULT_FILE_LOGTHRESH)
+fileHandler.setFormatter(fileFormatter)
+logging.getLogger('').addHandler(fileHandler)
 
 consoleFormatter = logging.Formatter('(%(levelname)s) %(message)s')
 consoleHandler = logging.StreamHandler()
@@ -354,6 +381,40 @@ def LOGRAWDATA(rawStr, loglevel=DEFAULT_RAWDATA_LOGLEVEL):
 
    logging.log(loglevel, methodStr + pstr)
 
+
+cpplogfile = None
+if CLI_OPTIONS.logDisable:
+   print 'Logging is disabled'
+   rootLogger.disabled = True
+
+# For now, ditch the C++-console-catching.  Logging python is enough
+# My attempt at C++ logging too was becoming a hack...
+"""
+elif CLI_OPTIONS.logcpp:
+   # In order to catch C++ output, we have to redirect ALL stdout
+   # (which means that console writes by python, too)
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'r')
+   allLines = cpplogfile.readlines()
+   cpplogfile.close()
+   # Chop off the beginning of the file
+   nBytes,nLines = 0,0;
+   for line in allLines[::-1]:
+      nBytes += len(line)
+      nLines += 1
+      if nBytes>100*1024:
+         break
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'w')
+   print 'nlines:', nLines
+   for line in allLines[-nLines:]:
+      print line,
+      cpplogfile.write(line)
+   cpplogfile.close()
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'a')
+   raw_input()
+   os.dup2(cpplogfile.fileno(), sys.stdout.fileno())
+   raw_input()
+   os.dup2(cpplogfile.fileno(), sys.stderr.fileno())
+"""
    
 
 def logexcept_override(type, value, tback):
@@ -944,7 +1005,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       -- One byte error:  return input with fixed byte
       -- 2+ bytes error:  return ''
 
-   This method will check the checksum itself for errors, but not correct them.
+   This method will check the CHECKSUM ITSELF for errors, but not correct them.
    However, for PyBtcWallet serialization, if I determine that it is a chksum
    error and simply return the original string, then PyBtcWallet will correct
    the checksum in the file, next time it reserializes the data. 
@@ -2083,7 +2144,7 @@ class PyBtcAddress(object):
       next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
       """
-
+      LOGDEBUG('Extending address chain')
       if not self.chaincode.getSize() == 32:
          raise KeyDataError, 'No chaincode has been defined to extend chain'
 
@@ -2287,6 +2348,7 @@ class PyBtcAddress(object):
    #############################################################################
    def scanBlockchainForAddress(self):
       if TheBDM.isInitialized():
+         LOGDEBUG('Scanning blockchain for address')
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
          TheBDM.scanBlockchainForTx(cppWlt)
