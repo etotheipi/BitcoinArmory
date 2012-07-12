@@ -63,7 +63,6 @@ class ArmoryMainWindow(QMainWindow):
       super(ArmoryMainWindow, self).__init__(parent)
 
 
-
       # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
       if USE_TESTNET:
@@ -93,6 +92,9 @@ class ArmoryMainWindow(QMainWindow):
       eulaAgreed = self.settings.getSettingOrSetDefault('Agreed_to_EULA', False)
       if not eulaAgreed:
          DlgEULA(self,self).exec_()
+
+
+      self.checkForLatestVersion()
 
       self.setupNetworking()
 
@@ -739,6 +741,64 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
+   def checkForLatestVersion(self):
+      # Download latest versions.txt file, accumulate changelog
+      versionFile = None
+      try:
+         import urllib2
+         versionLines = urllib2.urlopen(HTTP_VERSION_FILE, timeout=CLI_OPTIONS.nettimeout)
+         versionLines = versionLines.readlines()
+      except ImportError:
+         LOGERROR('No module urllib2 -- cannot get latest version')
+         return
+      except (urllib2.URLError, urllib2.HTTPError):
+         LOGERROR('Could not access latest Armory version information')
+         LOGERROR('Tried: %s', HTTP_VERSION_FILE)
+         return
+      
+      try:
+         currLineIdx = [0]
+
+         def popNextLine(currIdx):
+            if currIdx[0] < len(versionLines):
+               outstr = versionLines[ currIdx[0] ]
+               currIdx[0] += 1
+               return outstr.strip()
+            else:
+               return None
+            
+
+         thisVerString = getVersionString(BTCARMORY_VERSION)
+         changeLog = []
+         vernum = ''
+
+         line = popNextLine(currLineIdx)
+         while line != None:
+            if not line.startswith('#') and len(line)>0:
+               if line.startswith('VERSION'):
+                  vstr = line.split(' ')[-1]
+                  if vstr == thisVerString:
+                     break
+                  changeLog.append([vstr, []])
+               elif line.startswith('-'):
+                  featureTitle = line[2:]
+                  changeLog[-1][1].append([featureTitle, ''])
+               else:
+                  changeLog[-1][1][-1][1] += line+' '
+            line = popNextLine(currLineIdx)
+
+         if len(changeLog)==0:
+            LOGINFO('You are running the latest version!')
+         else:
+            DlgVersionNotify(self,self, changeLog).exec_()
+
+         
+               
+      except:
+         LOGEXCEPT('Error trying to parse versions.txt file')
+       
+
+   #############################################################################
    def setupNetworking(self):
 
       LOGINFO('Setting up networking...')
@@ -786,7 +846,7 @@ class ArmoryMainWindow(QMainWindow):
       except ImportError:
          LOGERROR('No module urllib2 -- cannot determine if internet is available')
       except urllib2.URLError:
-         # In the extremely rare case that google might be down...
+         # In the extremely rare case that google might be down (or just to try again...)
          try:
             response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
          except urllib2.URLError:

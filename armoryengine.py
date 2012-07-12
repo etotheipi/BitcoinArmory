@@ -97,7 +97,7 @@ if CLI_OPTIONS.interport < 0:
 
 
 # Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 82, 1, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 80, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
@@ -197,7 +197,6 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE     = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
-#ARMORY_LOG_FILE_CPP = os.path.join(ARMORY_HOME_DIR, 'armorycpplog.txt')
 
 
 

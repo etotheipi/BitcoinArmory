@@ -8,10 +8,30 @@
 #-------------------------------------------------------------------------------
 VERSION 0.82.1
 
+   - URI Creator
+        Right click on an address in your address book, or press "Create 
+        Clickable Link" when you get a new address.  Use this to email 
+        payment requests to others, or post payment information on webpages.
+
+   - Minimize-to-system-tray  
+        The file menu now has a "Minimize" option, and you can set it to 
+        minimize-by-default when you click the "x" on the top window bar.
+
    - Logging system implemented
         The datadir will now have armorylog.txt which contains everything
         that is normally written to the console.  This makes it much easier,
         especially for Windows users, to report bugs/crashes.
+
+   - Specify Change Address (Expert Mode Only!)  
+        The send-bitcoins window now has options in the bottom-left corner
+        to specify how you want change outputs to be constructed.  Either 
+        recycle change into existing addresses, or specify an address.  
+        
+   - New "MAX" button
+        New button for each recipient in the send-bitcoins window.  Given
+        the values already entered for other recipients and the transaction
+        fee, it will compute the max spendable balance for this recipient 
+        and insert it into the "Amount" field.  
 
    - Version Checking and Notification
         When you start Armory, it will automatically check versions.txt in
@@ -23,36 +43,14 @@ VERSION 0.82.1
         very few users will benefit from it anymore, it has been removed
         until the new wallet format is finished.
 
-   - Added EULA Acknowledgement
-        All users will now be presented with a standrad "licence agreement"
+   - Added EULA Acknowledgement Window
+        All users will now be presented with a standard "licence agreement"
         dialog when they open Armory the first time.  If they do not agree,
         Armory will close.  This is done due to the lack of exposure of 
         Linux/OSX users to the EULA that is presented to Windows users 
         during installation.
 
-#-------------------------------------------------------------------------------
-VERSION 0.82
-
-   - URI Creator
-        Right click on an address in your address book, or press "Create 
-        Clickable Link" when you get a new address.  Use this to email 
-        payment requests to others, or post payment information on webpages.
-
-   - Minimize-to-system-tray  
-        The file menu now has a "Minimize" option, and you can set it to 
-        minimize-by-default when you click the "x" on the top window bar.
-
-   - New "MAX" button
-        New button for each recipient in the send-bitcoins window.  Given
-        the values already entered for other recipients and the transaction
-        fee, it will compute the max spendable balance for this recipient 
-        and insert it into the "Amount" field.  
       
-   - Specify Change Address (Expert Mode Only!)  
-        The send-bitcoins window now has options in the bottom-left corner
-        to specify how you want change outputs to be constructed.  Either 
-        recycle change into existing addresses, or specify an address.  
-        The 
 
 
 #-------------------------------------------------------------------------------

@@ -9938,6 +9938,67 @@ class DlgRequestPayment(ArmoryDialog):
 
 
 
+################################################################################
+class DlgVersionNotify(ArmoryDialog):
+   def __init__(self, parent, main, changelog):
+      super(DlgVersionNotify, self).__init__(parent, main)
+
+      myVersion = getVersionString(BTCARMORY_VERSION)
+      latestVer = changelog[0][0]
+      lblDescr = QRichLabel( \
+         'There is a new version of Armory available! '
+         '<br><br>'
+         '<b>Current Version</b>: %s<br>'
+         '<b>Lastest Version</b>: %s<br><br>'
+         'Please visit the '
+         '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
+         'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
+         'to get the most recent version.'
+         '<br><br>'
+         'Installing the latest version of Armory on top of your existing '
+         'version is perfectly safe.  All your wallets and settings '
+         'will remain untouched through the update process.'
+         '<br><br>'
+         'The following is a list of changes and new features you will '
+         'have access to if you update:' % (myVersion, latestVer))
+      lblDescr.setOpenExternalLinks(True)
+
+      
+      txtChangeLog = QTextEdit()
+      txtChangeLog.setReadOnly(True)
+
+      w,h = tightSizeNChar(self, 100)
+      w = min(w,600)
+      h = min(h,400)
+      txtChangeLog.sizeHint = lambda: QSize(w,15*h)
+
+      for versionTbl in changelog:
+         versionStr  = versionTbl[0]
+         featureList = versionTbl[1]
+         txtChangeLog.insertHtml('<b><u>Version %s</u></b><br><br>' % versionStr)
+         for feat in featureList:
+            txtChangeLog.insertHtml('<b>%s</b><br>' % feat[0])
+            txtChangeLog.insertHtml('%s<br>' % feat[1])
+         txtChangeLog.insertHtml('<br><br>')
+
+      txtChangeLog.textCursor().movePosition(QTextCursor.Start)
+            
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(txtChangeLog)
+      dlgLayout.setContentsMargins(20,20,20,20)
+      
+      self.setLayout(dlgLayout)   
+      self.setWindowTitle('New Version Available!')
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+
+
+
+
+
 
 
 
