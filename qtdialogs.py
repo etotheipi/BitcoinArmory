@@ -9940,28 +9940,48 @@ class DlgRequestPayment(ArmoryDialog):
 
 ################################################################################
 class DlgVersionNotify(ArmoryDialog):
-   def __init__(self, parent, main, changelog):
+   def __init__(self, parent, main, changelog, wasRequested=False):
       super(DlgVersionNotify, self).__init__(parent, main)
 
-      myVersion = getVersionString(BTCARMORY_VERSION)
-      latestVer = changelog[0][0]
-      lblDescr = QRichLabel( \
-         'There is a new version of Armory available! '
-         '<br><br>'
-         '<b>Current Version</b>: %s<br>'
-         '<b>Lastest Version</b>: %s<br><br>'
-         'Please visit the '
-         '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
-         'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
-         'to get the most recent version.'
-         '<br><br>'
-         'Installing the latest version of Armory on top of your existing '
-         'version is perfectly safe.  All your wallets and settings '
-         'will remain untouched through the update process.'
-         '<br><br>'
-         'The following is a list of changes and new features you will '
-         'have access to if you update:' % (myVersion, latestVer))
+      self.myVersion = getVersionString(BTCARMORY_VERSION)
+      self.latestVer = changelog[0][0]
+      lblDescr = QRichLabel('')
+
+      if self.myVersion==self.latestVer:
+         lblDescr = QRichLabel( \
+            'Your Armory installation is up-to-date!'
+            '<br><br>'
+            '<b>Installed Version</b>: %s<br>'
+            '<br><br>'
+            'When they become available, you can find and download new '
+            'versions of Armory from: '
+            '<a href="http://bitcoinarmory.com/index.php/get-armory">'
+            'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersion)
+      else:
+         lblDescr = QRichLabel( \
+            '<font size=4><u><b>There is a new version of Armory available!</b></u></font>'
+            '<br><br>'
+            '<b>Current Version</b>: %s<br>'
+            '<b>Lastest Version</b>: %s<br><br>'
+            'Please visit the '
+            '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
+            'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
+            'to get the most recent version. '
+            'Installing over your existing '
+            'version is perfectly safe.  All your wallets and settings '
+            'will remain untouched through the update process.' % \
+            (self.myVersion, self.latestVer))
+
       lblDescr.setOpenExternalLinks(True)
+      lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                       Qt.TextSelectableByKeyboard)
+      lblChnglog = QRichLabel('')
+      if wasRequested:
+         lblChnglog = QRichLabel("<b>Changelog</b>:")
+      else:
+         lblChnglog = QRichLabel('New features added between version %s and %s:' % \
+                                                      (self.myVersion,self.latestVer))
+
 
       
       txtChangeLog = QTextEdit()
@@ -9978,22 +9998,44 @@ class DlgVersionNotify(ArmoryDialog):
          txtChangeLog.insertHtml('<b><u>Version %s</u></b><br><br>' % versionStr)
          for feat in featureList:
             txtChangeLog.insertHtml('<b>%s</b><br>' % feat[0])
-            txtChangeLog.insertHtml('%s<br>' % feat[1])
+            for dtxt in feat[1]:
+               txtChangeLog.insertHtml('%s<br>' % dtxt)
          txtChangeLog.insertHtml('<br><br>')
 
-      txtChangeLog.textCursor().movePosition(QTextCursor.Start)
-            
+      curs = txtChangeLog.textCursor()
+      curs.movePosition(QTextCursor.Start)
+      txtChangeLog.setTextCursor(curs)
 
+      btnDNAA  = QPushButton('Do not notify me of new versions')
+      btnDelay = QPushButton('No more reminders until next version')
+      btnOkay  = QPushButton('Okay')
+      self.connect(btnDNAA,  SIGNAL('clicked()'), self.clickDNAA)
+      self.connect(btnDelay, SIGNAL('clicked()'), self.clickDelay)
+      self.connect(btnOkay,  SIGNAL('clicked()'), self.accept)
+            
+      frmDescr = makeVertFrame([lblDescr], STYLE_SUNKEN)
+      frmLog   = makeVertFrame([lblChnglog, 'Space(5)', txtChangeLog], STYLE_SUNKEN)
+      frmBtn   = makeHorizFrame([btnDNAA, btnDelay, 'Stretch', btnOkay], STYLE_SUNKEN)
       dlgLayout = QVBoxLayout()
-      dlgLayout.addWidget(lblDescr)
-      dlgLayout.addWidget(txtChangeLog)
+      dlgLayout.addWidget(frmDescr)
+      dlgLayout.addWidget(frmLog)
+      dlgLayout.addWidget(frmBtn)
       dlgLayout.setContentsMargins(20,20,20,20)
       
       self.setLayout(dlgLayout)   
-      self.setWindowTitle('New Version Available!')
+      self.setWindowTitle('New Armory Version')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
 
+   def clickDNAA(self):
+      self.main.settings.set('CheckVersion', 'Never')
+      self.accept()
+
+   def clickDelay(self):
+      self.main.settings.set('CheckVersion', 'v'+self.latestVer)
+      self.accept()
+
+      
 
 
 

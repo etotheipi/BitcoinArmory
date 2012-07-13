@@ -8,7 +8,7 @@
 #-------------------------------------------------------------------------------
 VERSION 0.82.1
 
-   - URI Creator
+   - URL/Link Creator
         Right click on an address in your address book, or press "Create 
         Clickable Link" when you get a new address.  Use this to email 
         payment requests to others, or post payment information on webpages.
@@ -18,9 +18,11 @@ VERSION 0.82.1
         minimize-by-default when you click the "x" on the top window bar.
 
    - Logging system implemented
-        The datadir will now have armorylog.txt which contains everything
-        that is normally written to the console.  This makes it much easier,
-        especially for Windows users, to report bugs/crashes.
+        All information normally written to console is now saved to a
+        log file in the Armory home directory.  This makes it much easier,
+        to report bugs/crashes, especially for Windows users.  Please use 
+        "File"-->"Export Log File" to save a copy and send it with your 
+        bug reports. 
 
    - Specify Change Address (Expert Mode Only!)  
         The send-bitcoins window now has options in the bottom-left corner
@@ -43,12 +45,6 @@ VERSION 0.82.1
         very few users will benefit from it anymore, it has been removed
         until the new wallet format is finished.
 
-   - Added EULA Acknowledgement Window
-        All users will now be presented with a standard "licence agreement"
-        dialog when they open Armory the first time.  If they do not agree,
-        Armory will close.  This is done due to the lack of exposure of 
-        Linux/OSX users to the EULA that is presented to Windows users 
-        during installation.
 
       
 

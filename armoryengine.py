@@ -34,6 +34,11 @@
 ################################################################################
 
 
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 80, 3, 0)  # (Major, Minor, Minor++, even-more-minor)
+PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 
    
 
@@ -96,12 +101,6 @@ if CLI_OPTIONS.interport < 0:
 
 
 
-# Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 80, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-
-ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -138,7 +137,6 @@ def readVersionInt(verInt):
 print '********************************************************************************'
 print 'Loading Armory Engine:'
 print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
-print '   PyBtcAddress Version:', getVersionString(PYBTCADDRESS_VERSION)
 print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
 
 # Get the host operating system
@@ -323,7 +321,7 @@ chopLogFile(ARMORY_LOG_FILE, 100*1024)
 
 
 # Now set loglevels
-DateFormat = '%Y-%m-%d %H:%M:%S'
+DateFormat = '%Y-%m-%d %H:%M'
 logging.getLogger('').setLevel(logging.DEBUG)
 fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(filename)s::%(lineno)d -- %(message)s', \
                                      datefmt=DateFormat)
@@ -433,7 +431,6 @@ LOGINFO('Invoked: ' + ' '.join(argv))
 LOGINFO('************************************************************')
 LOGINFO('Loading Armory Engine:')
 LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
-LOGINFO('   PyBtcAddress Version  : ' + getVersionString(PYBTCADDRESS_VERSION))
 LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
@@ -2306,7 +2303,7 @@ class PyBtcAddress(object):
       binOut = BinaryPacker()
       binOut.put(BINARY_CHUNK,   self.addrStr20,                    width=20)
       binOut.put(BINARY_CHUNK,   chk(self.addrStr20),               width= 4)
-      binOut.put(UINT32,         getVersionInt(PYBTCADDRESS_VERSION))
+      binOut.put(UINT32,         getVersionInt(PYBTCWALLET_VERSION))
       binOut.put(UINT64,         bitset_to_int(flags))
 
       # Write out address-chaining parameters (for deterministic wallets)

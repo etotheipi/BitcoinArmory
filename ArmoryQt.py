@@ -94,8 +94,6 @@ class ArmoryMainWindow(QMainWindow):
          DlgEULA(self,self).exec_()
 
 
-      self.checkForLatestVersion()
-
       self.setupNetworking()
 
       # setupNetworking may have set this flag if something went wrong
@@ -433,9 +431,12 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
-      execAbout = lambda: DlgHelpAbout(self).exec_()
-      actAboutWindow = self.createAction('About Armory', execAbout)
+      execAbout   = lambda: DlgHelpAbout(self).exec_()
+      execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
+      actAboutWindow  = self.createAction('About Armory', execAbout)
+      actVersionCheck = self.createAction('Armory Version...', execVersion)
       self.menusList[MENUS.Help].addAction(actAboutWindow)
+      self.menusList[MENUS.Help].addAction(actVersionCheck)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -458,6 +459,10 @@ class ArmoryMainWindow(QMainWindow):
 
       if CLI_ARGS:
          reactor.callLater(1, self.uriLinkClicked, CLI_ARGS[0])
+      elif not self.firstLoad:
+         # Don't need to bother the user on the first load with updating
+         reactor.callLater(0.2, self.checkForLatestVersion)
+
 
 
    ####################################################
@@ -741,8 +746,22 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def checkForLatestVersion(self):
+   def checkForLatestVersion(self, wasRequested=False):
       # Download latest versions.txt file, accumulate changelog
+
+      optChkVer = self.settings.getSettingOrSetDefault('CheckVersion', 'Always')
+      if optChkVer.lower()=='never' and not wasRequested:
+         LOGINFO('User requested never check for new versions', optChkVer)
+         return
+
+      if wasRequested and not self.internetAvail:
+         QMessageBox.critical(self, 'Offline Mode', \
+            'You are in offline mode, which means that version information '
+            'cannot be retrieved from the internet.  Please visit '
+            'www.bitcoinarmory.com from an internet-connected computer '
+            'to get the latest version information.', QMessageBox.Ok)
+         return
+
       versionFile = None
       try:
          import urllib2
@@ -752,6 +771,11 @@ class ArmoryMainWindow(QMainWindow):
          LOGERROR('No module urllib2 -- cannot get latest version')
          return
       except (urllib2.URLError, urllib2.HTTPError):
+         if wasRequested:
+            QMessageBox.critical(self, 'Unavailable',  \
+              'The latest Armory version information could not be retrieved.'
+              'Please check www.bitcoinarmory.com for the latest version '
+              'information.', QMessageBox.Ok)
          LOGERROR('Could not access latest Armory version information')
          LOGERROR('Tried: %s', HTTP_VERSION_FILE)
          return
@@ -777,24 +801,29 @@ class ArmoryMainWindow(QMainWindow):
             if not line.startswith('#') and len(line)>0:
                if line.startswith('VERSION'):
                   vstr = line.split(' ')[-1]
-                  if vstr == thisVerString:
+                  if vstr==thisVerString and not wasRequested:
                      break
                   changeLog.append([vstr, []])
                elif line.startswith('-'):
                   featureTitle = line[2:]
-                  changeLog[-1][1].append([featureTitle, ''])
+                  changeLog[-1][1].append([featureTitle, []])
                else:
-                  changeLog[-1][1][-1][1] += line+' '
+                  changeLog[-1][1][-1][1].append(line)
             line = popNextLine(currLineIdx)
 
-         if len(changeLog)==0:
+         if len(changeLog)==0 and not wasRequested:
             LOGINFO('You are running the latest version!')
+         elif optChkVer[1:]==changeLog[0][0]:
+            LOGINFO('Latest version is %s -- Notify user on next version.', optChkVer)
+            return
          else:
-            DlgVersionNotify(self,self, changeLog).exec_()
-
-         
-               
+            DlgVersionNotify(self,self, changeLog, wasRequested).exec_()
       except:
+         if wasRequested:
+            QMessageBox.critical(self, 'Parse Error',  \
+              'The version information is malformed and cannot be understood. '
+              'Please check www.bitcoinarmory.com for the latest version '
+              'information.', QMessageBox.Ok)
          LOGEXCEPT('Error trying to parse versions.txt file')
        
 
