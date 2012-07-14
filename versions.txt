@@ -10,6 +10,9 @@ VERSION 0.83
    - Version 0.82.1 is still the latest version
         This fake version was added solely for testing the version notification
         window.  Version 0.83 does not actually exist yet!
+
+   - Manually check for new versions
+        Use "Help"->"Armory Versions" from the main window!
       
 
 #-------------------------------------------------------------------------------

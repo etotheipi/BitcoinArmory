@@ -792,8 +792,7 @@ class ArmoryMainWindow(QMainWindow):
                return None
             
 
-         #thisVerString = getVersionString(BTCARMORY_VERSION)
-         thisVerString = '0.80'
+         thisVerString = getVersionString(BTCARMORY_VERSION)
          changeLog = []
          vernum = ''
 
@@ -2257,27 +2256,42 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def exportLogFile(self):
-      reply = QMessageBox.warning(self, 'Export Log File', \
-         'The log file contains information about recent transactions and '
-         'general usage information about your interactions wth Armory.  This '
+      extraStr = ''
+      if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
+         extraStr = ( \
+            '<br><br><b><u>Advanced tip:</u></b> The log file is maintained at '
+            'the following location on your hard drive:'
+            '<br><br>'
+            '%s'
+            '<br><br>'
+            'You can manually edit this file to remove information that '
+            'does not seem relevant for debugging purposes, or simply '
+            'copy the error messages inline to an email.' % ARMORY_LOG_FILE)
+            
+      #reply = QMessageBox.warning(self, 'Export Log File', \
+      reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', \
+         'The log file contains information about your interactions '
+         'with Armory and recent transactions.  This '
          'includes error messages produced by Armory that the developers need '
-         'to help diagnose problems with the software.'
+         'to help diagnose bugs.'
          '<br><br>'
-         'This information may be considered sensitive to some users.  '
+         'This information may be considered sensitive by some users.  '
          'Log files should be protected the same '
          'way you would protect a watcing-only wallet, even though it '
          'typically will not even contain that much information.'
          '<br><br>'
-         'Note that <i>no private key data is ever written to the log file</i>,'
-         ' and all other information included is related strictly to your '
+         '<i>No private key data is ever written to the log file</i>, '
+         'and all other logged information is related only to your '
          '<i>usage</i> of Armory.  There is no intention to record any '
-         'information about what addresses you own or their balances, but some '
-         'of that information may be deducible from this file.'
+         'information about your addresses, wallets or balances, but fragments '
+         'of that information may be in this file.'
          '<br><br>'
-         'If this makes you uncomfortable, please press "Cancel" below.',  \
-         QMessageBox.Cancel, QMessageBox.Ok)
+         'Please do not send the log file to the Armory developers if you are not '
+         'comfortable with the privacy implications.' + extraStr, \
+         wCancel=True, yesStr='Export', noStr='Cancel')
+         
 
-      if reply==QMessageBox.Ok:
+      if reply:
          defaultFn = 'armorylog_%s.txt' % unixTimeToFormatStr(RightNow(), '%Y%m%d_%H%M')
          logfn = self.getFileSave(title='Export Log File', \
                                   ffilter=['Text Files (*.txt)'], \
@@ -2495,7 +2509,7 @@ class ArmoryMainWindow(QMainWindow):
          pass
 
       from twisted.internet import reactor
-      LOGWARN('Attempting to close the main window!')
+      LOGINFO('Attempting to close the main window!')
       reactor.stop()
       if event:
          event.accept()

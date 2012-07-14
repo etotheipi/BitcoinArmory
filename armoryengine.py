@@ -445,7 +445,7 @@ if CLI_OPTIONS.logDisable:
    rootLogger.disabled = True
 
 # For now, ditch the C++-console-catching.  Logging python is enough
-# My attempt at C++ logging too was becoming a hack...
+# My attempt at C++ logging too was becoming a hardcore hack...
 """
 elif CLI_OPTIONS.logcpp:
    # In order to catch C++ output, we have to redirect ALL stdout

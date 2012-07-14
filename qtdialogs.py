@@ -1026,9 +1026,14 @@ class DlgWalletDetails(ArmoryDialog):
          self.main.settings.set('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
-      # The import dialog, now
+      # the import dialog
       dlg = DlgImportAddress(self.wlt, self, self.main)
       dlg.exec_()
+
+      try:
+         self.parent.wltAddrModel.reset()
+      except AttributeError:
+         pass
 
 
 
@@ -4113,13 +4118,7 @@ class DlgRemoveAddress(ArmoryDialog):
 
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
-      
-         if self.main.isOnline:
-            TheBDM.registerWallet( self.wlt.cppWallet )
-            self.wlt.syncWithBlockchain(0)
-
          try:
-            #self.parent.accept()
             self.parent.wltAddrModel.reset()
          except AttributeError:
             pass
@@ -9884,10 +9883,13 @@ class DlgRequestPayment(ArmoryDialog):
          self.btnCopyRaw.setEnabled(False)
          self.btnCopyHtml.setEnabled(False)
          self.btnCopyAll.setEnabled(False)
-         self.lblLink.setText('<br>'.join(str(self.lblLink.text()).split('<br>')[1:]))
+         #self.lblLink.setText('<br>'.join(str(self.lblLink.text()).split('<br>')[1:]))
          self.lblLink.setEnabled(False)
+         self.lblLink.setTextInteractionFlags(Qt.NoTextInteraction)
          return
       
+      self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                           Qt.TextSelectableByKeyboard)
       self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
       self.lblWarn.setText('')
       self.dispText = self.rawHtml[:]
@@ -9943,8 +9945,7 @@ class DlgVersionNotify(ArmoryDialog):
    def __init__(self, parent, main, changelog, wasRequested=False):
       super(DlgVersionNotify, self).__init__(parent, main)
 
-      #self.myVersion = getVersionString(BTCARMORY_VERSION)
-      self.myVersion = '0.80'
+      self.myVersion = getVersionString(BTCARMORY_VERSION)
       self.latestVer = changelog[0][0]
       lblDescr = QRichLabel('')
 
