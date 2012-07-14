@@ -25,10 +25,8 @@ STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 
-if USE_TESTNET:
-   HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
-else:
-   HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/master/versions.txt'
+# TODO: switch to checking master branch once this is out
+HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
  
 
 def HLINE(style=QFrame.Plain):
