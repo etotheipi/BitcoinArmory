@@ -325,7 +325,7 @@ def LOGCRIT(msg, *a):
    try:
       logstr = msg % a
       callerStr = getCallerLine() + ' - '
-      logging.crit(callerStr + logstr)
+      logging.critical(callerStr + logstr)
    except TypeError:
       traceback.print_stack()
       raise
