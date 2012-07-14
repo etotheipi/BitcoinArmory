@@ -273,12 +273,72 @@ NETWORKS['\x34'] = "Namecoin Network"
 # Setup logging to write INFO+ to file, and WARNING+ to console
 # In debug mode, will write DEBUG+ to file and INFO+ to console
 #
-LOGDEBUG = logging.debug
-LOGINFO  = logging.info
-LOGWARN  = logging.warning
-LOGERROR = logging.error
-LOGCRIT  = logging.critical
-LOGEXCEPT= logging.exception
+
+# Want to get the line in which an error was triggered, but by wrapping
+# the logger function (as I will below), the displayed "file:linenum" 
+# references the logger function, not the function that called it.
+# So I use traceback to find the file and line number two up in the 
+# stack trace, and return that to be displayed instead of default 
+# [Is this a hack?  Yes and no.  I see no other way to do this]
+def getCallerLine():
+   stkTwoUp = traceback.extract_stack()[-3]
+   filename,method = stkTwoUp[0], stkTwoUp[1]
+   return '%s:%d' % (os.path.basename(filename),method)
+   
+# When there's an error in the logging function, it's impossible to find!
+# These wrappers will print the full stack so that it's possible to find 
+# which line triggered the error
+def LOGDEBUG(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.debug(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+
+def LOGINFO(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.info(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGWARN(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.warn(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGERROR(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.error(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGCRIT(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.crit(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGEXCEPT(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.exception(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+
+
 
 DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
 DEFAULT_FILE_LOGTHRESH    = logging.INFO
@@ -323,7 +383,7 @@ chopLogFile(ARMORY_LOG_FILE, 100*1024)
 # Now set loglevels
 DateFormat = '%Y-%m-%d %H:%M'
 logging.getLogger('').setLevel(logging.DEBUG)
-fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(filename)s::%(lineno)d -- %(message)s', \
+fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
                                      datefmt=DateFormat)
 fileHandler = logging.FileHandler(ARMORY_LOG_FILE)
 fileHandler.setLevel(DEFAULT_FILE_LOGTHRESH)

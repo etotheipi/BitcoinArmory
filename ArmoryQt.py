@@ -751,7 +751,7 @@ class ArmoryMainWindow(QMainWindow):
 
       optChkVer = self.settings.getSettingOrSetDefault('CheckVersion', 'Always')
       if optChkVer.lower()=='never' and not wasRequested:
-         LOGINFO('User requested never check for new versions', optChkVer)
+         LOGINFO('User requested never check for new versions')
          return
 
       if wasRequested and not self.internetAvail:
@@ -792,7 +792,8 @@ class ArmoryMainWindow(QMainWindow):
                return None
             
 
-         thisVerString = getVersionString(BTCARMORY_VERSION)
+         #thisVerString = getVersionString(BTCARMORY_VERSION)
+         thisVerString = '0.80'
          changeLog = []
          vernum = ''
 

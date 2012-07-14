@@ -4,6 +4,13 @@
 # about the latest version.  This is a good way to document progress,
 # anyway...
 
+#-------------------------------------------------------------------------------
+VERSION 0.83
+
+   - Version 0.82.1 is still the latest version
+        This fake version was added solely for testing the version notification
+        window.  Version 0.83 does not actually exist yet!
+      
 
 #-------------------------------------------------------------------------------
 VERSION 0.82.1

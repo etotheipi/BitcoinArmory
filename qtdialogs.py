@@ -329,7 +329,7 @@ class DlgNewWallet(ArmoryDialog):
          if kdfUnit.lower()=='kb':
             self.kdfBytes = round(float(kdfM)*(1024.0))
 
-         LOGINFO('KDF takes %0.2fsec and %dbytes', self.kdfSec, self.kdfBytes)
+         LOGINFO('KDF takes %0.2f seconds and %d bytes', self.kdfSec, self.kdfBytes)
       except:
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
             'Please specify time with units, such as '
@@ -3364,7 +3364,7 @@ class DlgIntroMessage(ArmoryDialog):
                                             self.btnImport, \
                                             self.btnCreate])
       else:
-         self.btnOkay = QPushButton("Okay!")
+         self.btnOkay = QPushButton("OK!")
          self.connect(self.btnOkay, SIGNAL('clicked()'), self.accept)
          buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
          frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, \
@@ -8463,7 +8463,7 @@ class DlgECDSACalc(ArmoryDialog):
             w,h = tightSizeNChar(fnt, 70)
             self.txtbox.setMinimumWidth(w)
             self.txtbox.setMinimumHeight(6.2*h)
-            btnOkay   = QPushButton('Okay')
+            btnOkay   = QPushButton('OK')
             btnCancel = QPushButton('Cancel')
             self.connect(btnOkay,   SIGNAL('clicked()'), self.pressOkay)
             self.connect(btnCancel, SIGNAL('clicked()'), self.pressCancel)
@@ -9943,7 +9943,8 @@ class DlgVersionNotify(ArmoryDialog):
    def __init__(self, parent, main, changelog, wasRequested=False):
       super(DlgVersionNotify, self).__init__(parent, main)
 
-      self.myVersion = getVersionString(BTCARMORY_VERSION)
+      #self.myVersion = getVersionString(BTCARMORY_VERSION)
+      self.myVersion = '0.80'
       self.latestVer = changelog[0][0]
       lblDescr = QRichLabel('')
 
@@ -9951,26 +9952,26 @@ class DlgVersionNotify(ArmoryDialog):
          lblDescr = QRichLabel( \
             'Your Armory installation is up-to-date!'
             '<br><br>'
-            '<b>Installed Version</b>: %s<br>'
+            '<b>Installed Version</b>: %s'
             '<br><br>'
             'When they become available, you can find and download new '
-            'versions of Armory from: '
+            'versions of Armory from:<br><br> '
             '<a href="http://bitcoinarmory.com/index.php/get-armory">'
             'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersion)
       else:
          lblDescr = QRichLabel( \
-            '<font size=4><u><b>There is a new version of Armory available!</b></u></font>'
+            '<font size=4><u><b>There is a new version of Armory available!</b>'
+            '</u></font>'
             '<br><br>'
             '<b>Current Version</b>: %s<br>'
-            '<b>Lastest Version</b>: %s<br><br>'
+            '<b>Lastest Version</b>: %s'
+            '<br><br>'
             'Please visit the '
             '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
             'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
             'to get the most recent version. '
-            'Installing over your existing '
-            'version is perfectly safe.  All your wallets and settings '
-            'will remain untouched through the update process.' % \
-            (self.myVersion, self.latestVer))
+            'All your wallets and settings will remain untouched when you '
+            'reinstall Armory.' % (self.myVersion, self.latestVer))
 
       lblDescr.setOpenExternalLinks(True)
       lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
@@ -10006,12 +10007,12 @@ class DlgVersionNotify(ArmoryDialog):
       curs.movePosition(QTextCursor.Start)
       txtChangeLog.setTextCursor(curs)
 
-      btnDNAA  = QPushButton('Do not notify me of new versions')
-      btnDelay = QPushButton('No more reminders until next version')
-      btnOkay  = QPushButton('Okay')
+      btnDNAA  = QPushButton('&Do not notify me of new versions')
+      btnDelay = QPushButton('&No more reminders until next version')
+      btnOkay  = QPushButton('&OK')
       self.connect(btnDNAA,  SIGNAL('clicked()'), self.clickDNAA)
       self.connect(btnDelay, SIGNAL('clicked()'), self.clickDelay)
-      self.connect(btnOkay,  SIGNAL('clicked()'), self.accept)
+      self.connect(btnOkay,  SIGNAL('clicked()'), self.clickOkay)
             
       frmDescr = makeVertFrame([lblDescr], STYLE_SUNKEN)
       frmLog   = makeVertFrame([lblChnglog, 'Space(5)', txtChangeLog], STYLE_SUNKEN)
@@ -10035,6 +10036,9 @@ class DlgVersionNotify(ArmoryDialog):
       self.main.settings.set('CheckVersion', 'v'+self.latestVer)
       self.accept()
 
+   def clickOkay(self):
+      self.main.settings.set('CheckVersion', 'Always')
+      self.accept()
       
 
 
