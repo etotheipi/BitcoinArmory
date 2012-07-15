@@ -3242,10 +3242,8 @@ class DlgEULA(ArmoryDialog):
       txtLicense.sizeHint = lambda: QSize(txtWidth, 14*txtHeight)
       txtLicense.setReadOnly(True)
 
-      licFile = QFile(":/LICENSE")
-      licFile.open(QIODevice.ReadOnly | QIODevice.Text)
-      txtLicense.setText(str(licFile.readData(UINT32_MAX)))
-      licFile.close()
+      from LICENSE import licenseText
+      txtLicense.setText(licenseText())
    
       self.chkAgree = QCheckBox('I agree to all the terms of the license above')
 
