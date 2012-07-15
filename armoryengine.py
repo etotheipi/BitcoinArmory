@@ -5569,7 +5569,7 @@ class PyTxDistProposal(object):
             raise SignatureError, 'Invalid script for input %d' % i
          else:
             if len(self.inAddr20Lists)==1: print 'Signature', i, 'is valid!'
-            else: LOGDEBUG('Signatures for input', i, 'are valid!')
+            else: LOGDEBUG('Signatures for input %d are valid!', i)
       return finalTx
 
 
