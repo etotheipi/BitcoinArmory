@@ -94,7 +94,8 @@ class ArmoryMainWindow(QMainWindow):
          DlgEULA(self,self).exec_()
 
 
-      self.setupNetworking()
+      if not self.abortLoad:
+         self.setupNetworking()
 
       # setupNetworking may have set this flag if something went wrong
       if self.abortLoad:

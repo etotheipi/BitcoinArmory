@@ -19,9 +19,9 @@ def licenseText():
 
 ********************************************************************************
    
-    ***  If you wish to use this work in a way not compliant with the 
-         AGPLv3 license, please contact me to work out an agreement for
-         dual-licensing.   Contact information is at the top.
+    ***  If you wish to use this program or source code in a way not 
+         compliant with the AGPLv3, please contact me to work out an 
+         agreement for dual-licensing.   Contact information is at the top.
 
 ********************************************************************************
 
