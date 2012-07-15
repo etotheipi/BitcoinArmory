@@ -766,6 +766,8 @@ class ArmoryMainWindow(QMainWindow):
       versionFile = None
       try:
          import urllib2
+         import socket
+         socket.setdefaulttimeout(CLI_OPTIONS.nettimeout)
          versionLines = urllib2.urlopen(HTTP_VERSION_FILE, timeout=CLI_OPTIONS.nettimeout)
          versionLines = versionLines.readlines()
       except ImportError:
