@@ -972,8 +972,18 @@ class ArmoryMainWindow(QMainWindow):
    def uriLinkClicked(self, uriStr):
       LOGINFO('URI link clicked!')
       LOGINFO('The following string was passed through the socket')
-      LOGINFO(uriStr)
+      LOGINFO(uriStr.replace('%','%%'))
       uriDict = parseBitcoinURI(uriStr)
+      if not self.isOnline:
+         LOGERROR('Clicked "bitcoin:" link in offline mode.')
+         self.bringArmoryToFront() 
+         QMessageBox.warning(self, 'Offline Mode',
+            'You clicked on a "bitcoin:" link, but Armory is in '
+            'offline mode, and is not capable of creating transactions. '
+            'Clicking on links will only work if Armory is connected '
+            'to the Bitcoin network!', QMessageBox.Ok)
+         return
+         
       if len(uriDict)==0:
          warnMsg = ('It looks like you just clicked a "bitcoin:" link, but '
                     'that link is malformed.  ')

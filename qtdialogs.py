@@ -5608,7 +5608,10 @@ class DlgOfflineSelect(ArmoryDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
-      if not self.main.internetAvail or not self.main.satoshiAvail:
+      if not self.main.internetAvail or \
+         not self.main.satoshiAvail  or \
+         not self.main.isOnline:
+         btnCreate.setEnabled(False)
          if len(self.main.walletMap)==0:
             btnReview = QPushButton('No wallets, no network connection')
             btnReview.setEnabled(False)
