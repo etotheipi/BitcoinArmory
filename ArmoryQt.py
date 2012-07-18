@@ -1110,12 +1110,12 @@ class ArmoryMainWindow(QMainWindow):
                   prevWltPath = self.walletMap[wltID].walletPath
                   self.walletMap[wltID] = wltLoad
                   LOGWARN('First wallet is more useful than the second one...')
-                  LOGWARN(' '*10, 'Wallet 1 (loaded):  %s', fpath)
-                  LOGWARN(' '*10, 'Wallet 2 (skipped): %s', prevWltPath)
+                  LOGWARN('   Wallet 1 (loaded):  %s', fpath)
+                  LOGWARN('   Wallet 2 (skipped): %s', prevWltPath)
                else:
                   LOGWARN('Second wallet is more useful than the first one...')
-                  LOGWARN(' '*10, 'Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
-                  LOGWARN(' '*10, 'Wallet 2 (skipped): %s', fpath)
+                  LOGWARN('   Wallet 1 (loaded):  %s', self.walletMap[wltID].walletPath)
+                  LOGWARN('   Wallet 2 (skipped): %s', fpath)
             else:
                # Update the maps/dictionaries
                self.walletMap[wltID] = wltLoad
