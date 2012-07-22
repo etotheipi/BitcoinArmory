@@ -9608,7 +9608,15 @@ class DlgExportTxHistory(ArmoryDialog):
 
             wltEffect = row[COL.Amount]
             txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
-            if float(wltEffect) > 0:
+            if row[COL.toSelf]:
+               # For sent-to-self transactions, the ledger table contains the
+               # *transaction value* not the net wallet credit/debit.  Need to
+               # show this as both credit and debit
+               amt = abs(str2coin(wltEffect.strip()))
+               vals.append( coin2str(amt, maxZeros=2).strip() )
+               vals.append( coin2str(-amt-txFee, maxZeros=2).strip() )
+               vals.append( coin2str(-txFee).strip() )
+            elif float(wltEffect) > 0:
                vals.append( wltEffect.strip() )
                vals.append( ' ' )
                vals.append( ' ' )
