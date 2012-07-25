@@ -26,7 +26,7 @@ STYLE_NONE   = QFrame.NoFrame
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
 
 # TODO: switch to checking master branch once this is out
-HTTP_VERSION_FILE = 'https://donoteventry.com'
+HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
 #HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
 #HTTP_VERSION_FILE = 'https://github.com/downloads/etotheipi/BitcoinArmory/versions.txt'
 #HTTP_VERSION_FILE = 'http://bitcoinarmory.com/wp-content/uploads/2012/07/versions.txt'
