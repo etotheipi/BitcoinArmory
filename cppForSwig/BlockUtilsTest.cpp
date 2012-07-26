@@ -108,8 +108,8 @@ int main(void)
    //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
    //TestReadAndOrganizeChainWithWallet(blkdir);
 
-   printTestHeader("Test-Balance-Construction");
-   TestBalanceConstruction(blkdir);
+   //printTestHeader("Test-Balance-Construction");
+   //TestBalanceConstruction(blkdir);
 
    //printTestHeader("Read-and-Update-Blockchain");
    //TestReadAndUpdateBlkFile(multitest);
@@ -135,6 +135,8 @@ int main(void)
    //printTestHeader("Testing file cache");
    //TestFileCache();
    
+   printTestHeader("Testing LevelDB");
+   TestLevelDB("leveldb_testdir");
    
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -1528,6 +1530,14 @@ void TestMemoryUsage_UseSystemMonitor(string blkdir)
 }
 
 
+bool checkStatus(leveldb::Status stat)
+{
+   if( stat.ok() )
+      return true;
+
+   cout << "***LevelDB Error: " << stat.ToString() << endl;
+   return false;
+}
 
 
 void TestLevelDB(string testLDBDir)
@@ -1538,10 +1548,47 @@ void TestLevelDB(string testLDBDir)
    // Setup the optoins for this particular database
    opts.create_if_missing = true;
    opts.compression       = leveldb::kNoCompression;
-   opts.filter_policy     = NewBloomFilter(10);
+   //opts.filter_policy     = NewBloomFilter(10);
+
+   leveldb::Status stat = leveldb::DB::Open(opts, testLDBDir.c_str(), &ldb);
+   assert(checkStatus(stat));
+
+   for(uint32_t i=0; i<10; i++)
+   {
+      uint32_t ncharKey = 2*(i%6)+1;
+      uint32_t ncharVal = 3*(i%8)+1;
+      BinaryData insertKey(ncharKey);
+      BinaryData insertVal(ncharVal);
+      insertKey.fill( (uint8_t)i%255 );
+      insertVal.fill( (uint8_t)i%256 );
+      
+      cout << "Inserting: (" << insertKey.toHexStr() << "," 
+                             << insertVal.toHexStr() << ")" << endl;
+
+      stat = ldb->Put(leveldb::WriteOptions(), 
+                      insertKey.toBinStr(), 
+                      insertVal.toBinStr()); 
+      assert(checkStatus(stat));
+   }
+
+   leveldb::Iterator* it = ldb->NewIterator(leveldb::ReadOptions());
+   uint32_t idx = 1;
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      BinaryData key(it->key().ToString());
+      BinaryData val(it->value().ToString());
+      cout << idx++ << ": " << key.toHexStr() << ": " << val.toHexStr() << endl;
+   }
+
+   cout << "Keys in DB: " << idx-1 << endl;
+
+   string val2;
+   stat = ldb->Get(leveldb::ReadOptions(), "MyKey", &val2);
+   checkStatus(stat);
+   cout << "Plowed through the error..." << endl;
 
    delete ldb;
-   delete opts.filter_policy;
+   //delete opts.filter_policy;
 }
 
 

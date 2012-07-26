@@ -10,7 +10,7 @@ OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUt
 DEPSDIR ?= /usr
 
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread 
+LIBRARY_OPTS += -lpthread -L. -lleveldb 
 SWIG_INC     += -I"$(DEPSDIR)/include/python2.7"
 STATICPYTHON +=   "$(DEPSDIR)/lib/libpython2.7.a"
 SWIG_OPTS    += -c++ -python -classic
