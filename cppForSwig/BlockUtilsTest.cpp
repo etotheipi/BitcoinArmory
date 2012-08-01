@@ -1694,6 +1694,8 @@ void TestLDBScanBlockchain(string testdbpath)
    addr.createFromHex("fe3959db250f247ad724f2af5439ca32e8be3db1"); addrMap[addr] = 1;
    addr.createFromHex("b13dbee832ca3954aff224d77a240f25db5939fe"); addrMap[addr] = 1;
 
+   map<OutPoint, uint64_t> unspentOutPoints;
+
    leveldb::Iterator* it = ldb->NewIterator(leveldb::ReadOptions());
    uint32_t idx = 1;
    vector<uint32_t> offsetsIn;
@@ -1706,11 +1708,25 @@ void TestLDBScanBlockchain(string testdbpath)
    for(it->SeekToFirst(); it->Valid(); it->Next())
    {
       BinaryData val(it->value().ToString());
-      if(val.getSize()==80)
+      if(val.getSize()==80)  // need to add another condition
          continue;
 
       uint32_t txLen = BtcUtils::TxCalcLength(val.getPtr(), &offsetsIn, &offsetsOut);
       
+      OutPoint op;
+      map<OutPoint, uint64_t>::iterator iter;
+      for(uint32_t iin=0; iin<offsetsIn.size()-1; iin++)
+      {
+         op.unserialize(val.getPtr() + offsetsIn[iin]);
+         iter = unspentOutPoints.find(op); 
+         if(iter != unspentOutPoints.end())
+         {
+            cout << "   Spent a TxOut! " << endl;
+            allbtc -= iter->second;
+            unspentOutPoints.erase(iter);
+         }
+      }
+
       for(uint32_t iout=0; iout<offsetsOut.size()-1; iout++)
       {
          static uint8_t scriptLenFirstByte;
@@ -1718,15 +1734,18 @@ void TestLDBScanBlockchain(string testdbpath)
    
          uint8_t const * ptr = (val.getPtr() + offsetsOut[iout] + 8);
          scriptLenFirstByte = *(uint8_t*)ptr;
-         uint64_t val = *(uint64_t*)(ptr-8);
          if(scriptLenFirstByte == 25)
          {
             // Std TxOut with 25-byte script
             addr20.copyFrom(ptr+4, 20);
             if( addrMap.find(addr20) != addrMap.end() )
             {
-               cout << "   Found a TxOut! " << val/1e8 << endl;
+               uint64_t val = *(uint64_t*)(ptr-8);
+               cout << "   Received a TxOut! " << val/1e8 << endl;
                allbtc += val;
+               op.setTxHash(it->key().ToString());
+               op.setTxOutIndex(iout);
+               unspentOutPoints[op] = val;
             }
          }
          else if(scriptLenFirstByte==67)
@@ -1736,8 +1755,12 @@ void TestLDBScanBlockchain(string testdbpath)
             BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
             if( addrMap.find(addr20) != addrMap.end() )
             {
-               cout << "   Found a TxOut!" << endl;
+               uint64_t val = *(uint64_t*)(ptr-8);
+               cout << "   Received a TxOut!" << val/1e8 << endl;
                allbtc += val;
+               op.setTxHash(it->key().ToString());
+               op.setTxOutIndex(iout);
+               unspentOutPoints[op] = val;
             }
          }
          else
