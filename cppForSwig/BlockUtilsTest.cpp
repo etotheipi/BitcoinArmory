@@ -1714,18 +1714,6 @@ void TestLDBScanBlockchain(string testdbpath)
       uint32_t txLen = BtcUtils::TxCalcLength(val.getPtr(), &offsetsIn, &offsetsOut);
       
       OutPoint op;
-      map<OutPoint, uint64_t>::iterator iter;
-      for(uint32_t iin=0; iin<offsetsIn.size()-1; iin++)
-      {
-         op.unserialize(val.getPtr() + offsetsIn[iin]);
-         iter = unspentOutPoints.find(op); 
-         if(iter != unspentOutPoints.end())
-         {
-            cout << "   Spent a TxOut! " << endl;
-            allbtc -= iter->second;
-            unspentOutPoints.erase(iter);
-         }
-      }
 
       for(uint32_t iout=0; iout<offsetsOut.size()-1; iout++)
       {
@@ -1772,6 +1760,30 @@ void TestLDBScanBlockchain(string testdbpath)
       if(++nObj % 50000 == 0)
          cout << "Processed " << nObj << " tx " << endl;
    }
+
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      BinaryData val(it->value().ToString());
+      if(val.getSize()==80)  // need to add another condition
+         continue;
+
+      uint32_t txLen = BtcUtils::TxCalcLength(val.getPtr(), &offsetsIn, &offsetsOut);
+      
+      OutPoint op;
+      map<OutPoint, uint64_t>::iterator iter;
+      for(uint32_t iin=0; iin<offsetsIn.size()-1; iin++)
+      {
+         op.unserialize(val.getPtr() + offsetsIn[iin]);
+         iter = unspentOutPoints.find(op); 
+         if(iter != unspentOutPoints.end())
+         {
+            cout << "   Spent a TxOut! " << endl;
+            allbtc -= iter->second;
+            unspentOutPoints.erase(iter);
+         }
+      }
+   }
+
    TIMER_STOP("Rescan_from_LevelDB");
    cout << "Total TxOuts: " << allbtc/1e8 << endl;
 
