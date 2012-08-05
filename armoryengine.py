@@ -4751,7 +4751,7 @@ def PySelectCoins_MultiInput_SingleValue( \
    for utxo in unspentTxOutInfo:
       sumVal += utxo.getValue()
       outList.append(utxo)
-      if sumVal>=targetOutVal:
+      if sumVal>=target:
          break
 
    return outList
