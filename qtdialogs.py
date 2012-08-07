@@ -4794,7 +4794,9 @@ class DlgSendBitcoins(ArmoryDialog):
       self.origRVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
-
+      if not txdp:
+         return
+      
       changePair = (self.change160, self.selectedBehavior)
       dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
                                                    self.main, False, changePair)
@@ -4981,16 +4983,18 @@ class DlgSendBitcoins(ArmoryDialog):
          overrideMin = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
          if totalSend+minFeeRec[1] > bal:
             # Need to adjust this based on overrideMin flag
+            self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
             QMessageBox.warning(self, 'Insufficient Balance', \
                'You have specified a valid amount to send, but the required '
                'transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of ' + coin2str(minFeeRec[1], maxZeros=0).strip() + '.' 
+               'pay a fee of <b>' + coin2str(minFeeRec[1], maxZeros=0).strip() + ' BTC</b>.  '
+               '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed ' + coin2str(bal-minFeeRec[1], maxZeros=0).strip() + 
-               ' BTC.', \
-               QMessageBox.Ok)
-            self.edtFeeAmt.setText(coin2str(minFeeRec[1]))
+               'to exceed a total of <b>' + coin2str(bal-minFeeRec[1], maxZeros=0).strip() +
+               ' BTC</b> (the necessary fee has been entered into the form, so you '
+               'can use the "MAX" button to enter the remaining balance for a '
+               'recipient).', QMessageBox.Ok)
             return
                         
 
@@ -9608,15 +9612,7 @@ class DlgExportTxHistory(ArmoryDialog):
 
             wltEffect = row[COL.Amount]
             txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
-            if row[COL.toSelf]:
-               # For sent-to-self transactions, the ledger table contains the
-               # *transaction value* not the net wallet credit/debit.  Need to
-               # show this as both credit and debit
-               amt = abs(str2coin(wltEffect.strip()))
-               vals.append( coin2str(amt, maxZeros=2).strip() )
-               vals.append( coin2str(-amt-txFee, maxZeros=2).strip() )
-               vals.append( coin2str(-txFee).strip() )
-            elif float(wltEffect) > 0:
+            if float(wltEffect) > 0:
                vals.append( wltEffect.strip() )
                vals.append( ' ' )
                vals.append( ' ' )
