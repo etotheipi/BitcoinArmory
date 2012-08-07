@@ -2880,12 +2880,15 @@ def getTxInScriptType(txinObj):
       return TXIN_SCRIPT_UNKNOWN
 
    SigSize = binary_to_int(b2) + 3
-   PubkeySize = 66  # 0x4104[Pubx][Puby]
+   UncompPubkeySize = 66  # 0x4104[Pubx][Puby]
+   CompPubkeySize = 34 # 0x41(02|03)Pub
 
    if len(binScript)==SigSize:
       return TXIN_SCRIPT_SPENDCB
-   elif len(binScript)==(SigSize + PubkeySize + 1):
-      return TXIN_SCRIPT_STANDARD
+   elif len(binScript)==(SigSize + UncompPubkeySize + 1):
+      return TXIN_SCRIPT_STANDARD  # Uncompressed key
+   elif len(binScript)==(SigSize + CompPubkeySize + 1):
+      return TXIN_SCRIPT_STANDARD  # Compressed key
 
    return TXIN_SCRIPT_UNKNOWN
 
