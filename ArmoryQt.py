@@ -2409,6 +2409,8 @@ class ArmoryMainWindow(QMainWindow):
       txNotifyList = []
       for i in range(len(self.notifyQueue)):
          wltID, le, alreadyNotified = self.notifyQueue[i]
+         if not self.walletMap.has_key(wltID):
+            continue
          wlt = self.walletMap[wltID]
 
          # Skip the ones we've notified of already

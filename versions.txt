@@ -4,19 +4,9 @@
 # about the latest version.  This is a good way to document progress,
 # anyway...
 
-#-------------------------------------------------------------------------------
-VERSION 0.83
-
-   - Version 0.82.1 is still the latest version
-        This fake version was added solely for testing the version notification
-        window.  Version 0.83 does not actually exist yet!
-
-   - Manually check for new versions
-        Use "Help"->"Armory Versions" from the main window!
-      
 
 #-------------------------------------------------------------------------------
-VERSION 0.82.1
+VERSION 0.82.2
 
    - URL/Link Creator
         Right click on an address in your address book, or press "Create 
@@ -54,6 +44,9 @@ VERSION 0.82.1
         This was causing more confusion than it was helping.  Given that 
         very few users will benefit from it anymore, it has been removed
         until the new wallet format is finished.
+
+   - Fixed SelectCoins Bug
+        Many users reported issues sending coins under some circumstances.        
 
 
       
