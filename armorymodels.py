@@ -450,7 +450,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          if cmt==CHANGE_ADDR_DESCR_STRING:
             return QVariant('This address was created by Armory to '
-                            'receive the change from an oversized, outgoing '
+                            'receive change-back-to-self from an oversized '
                             'transaction.')
       elif role==Qt.BackgroundColorRole:
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)

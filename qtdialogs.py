@@ -6,6 +6,7 @@
 #
 ################################################################################
 import sys
+import time
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qtdefines import *
@@ -324,11 +325,11 @@ class DlgNewWallet(ArmoryDialog):
 
          kdfM, kdfUnit = str(self.edtComputeMem.text()).split(' ')
          if kdfUnit.lower()=='mb':
-            self.kdfBytes = round(float(kdfM))*(1024.0**2) 
+            self.kdfBytes = round(float(kdfM)*(1024.0**2) )
          if kdfUnit.lower()=='kb':
-            self.kdfBytes = round(float(kdfM))*(1024.0)
+            self.kdfBytes = round(float(kdfM)*(1024.0))
 
-         print 'KDF takes', self.kdfSec, 'sec and', self.kdfBytes, 'bytes'
+         LOGINFO('KDF takes %0.2f seconds and %d bytes', self.kdfSec, self.kdfBytes)
       except:
          QMessageBox.critical(self, 'Invalid KDF Parameters', \
             'Please specify time with units, such as '
@@ -852,6 +853,7 @@ class DlgWalletDetails(ArmoryDialog):
       dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
       if True:  actionCopyBalance = menu.addAction("Copy Balance")
@@ -860,6 +862,10 @@ class DlgWalletDetails(ArmoryDialog):
          
       if action==actionCopyAddr:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif action==actionReqPayment:
+         addr = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()).strip()
+         DlgRequestPayment(self, self.main, addr).exec_() 
+         return
       elif dev and action==actionCopyHash160:
          s = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
          s = binary_to_hex(addrStr_to_hash160(s))
@@ -1020,9 +1026,14 @@ class DlgWalletDetails(ArmoryDialog):
          self.main.settings.set('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
-      # The import dialog, now
+      # the import dialog
       dlg = DlgImportAddress(self.wlt, self, self.main)
       dlg.exec_()
+
+      try:
+         self.parent.wltAddrModel.reset()
+      except AttributeError:
+         pass
 
 
 
@@ -1441,9 +1452,20 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.edtNewAddr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       btnClipboard = QPushButton('Copy to Clipboard')
       #lbtnClipboard.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      self.lblIsCopied = QLabel('')
+      self.lblIsCopied = QLabel(' or ')
       self.lblIsCopied.setTextFormat(Qt.RichText)
       self.connect(btnClipboard, SIGNAL('clicked()'), self.setClipboard)
+
+      def openPaymentRequest():
+         msgTxt = str(self.edtComm.toPlainText())
+         msgTxt = msgTxt.split('\n')[0][:128]
+         dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr(), msg=msgTxt)
+         #dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr())
+         dlg.exec_()
+
+      btnLink = QPushButton('Create Clickable Link')
+      self.connect(btnLink, SIGNAL('clicked()'), openPaymentRequest)
+
       
       tooltip1 = createToolTipObject( \
             'You can securely use this address as many times as you want. '
@@ -1475,6 +1497,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmCopyLayout.addStretch()
       frmCopyLayout.addWidget(btnClipboard)
       frmCopyLayout.addWidget(self.lblIsCopied)
+      frmCopyLayout.addWidget(btnLink)
       frmCopyLayout.addStretch()
       frmCopy.setLayout(frmCopyLayout)
 
@@ -1487,8 +1510,6 @@ class DlgNewAddressDisp(ArmoryDialog):
             'this address.  The comment can be changed '
             'at a later time in the wallet properties dialog.')
       lblCommDescr.setWordWrap(True)
-      #lblComm = QLabel('Comment:')
-      #lblComm.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       self.edtComm = QTextEdit()
       tightHeight = tightSizeNChar(self.edtComm, 1)[1]
       self.edtComm.setMaximumHeight(tightHeight*3.2)
@@ -1497,14 +1518,12 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmComment.setFrameStyle(STYLE_RAISED)
       frmCommentLayout = QGridLayout()
       frmCommentLayout.addWidget(lblCommDescr,    0,0, 1,2)
-      #frmCommentLayout.addWidget(lblComm,         1,0, 1,1)
       frmCommentLayout.addWidget(self.edtComm,    1,0, 2,2)
       frmComment.setLayout(frmCommentLayout)
 
       
-      lblRecvWlt = QRichLabel( \
-            'Money sent to this address will appear in the following wallet:', \
-            doWrap=False)
+      lblRecvWlt = QRichLabel( 'Money sent to this address will '
+            'appear in the following wallet:', doWrap=False)
       
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -1646,8 +1665,9 @@ class DlgImportAddress(ArmoryDialog):
                      'in your wallet.  Only import private '
                      'key data if you are absolutely sure that no one else '
                      'has access to it.  Otherwise, sweep it to get '
-                     'the funds out of it.\n\nAll standard private-key formats '
-                     'are supported.')
+                     'the funds out of it.  All standard private-key formats '
+                     'are supported <i>except for private keys created by '
+                     'Bitcoin-Qt version 0.6.0 and later</i>.')
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
@@ -1801,15 +1821,25 @@ class DlgImportAddress(ArmoryDialog):
             'contain a consistency check.  This consistency '
             'check failed.  Please verify you entered the '
             'key data correctly.', QMessageBox.Ok)
+         LOGERROR('Private key consistency check failed.')
          return
       except BadInputError, e:
          QMessageBox.critical(self, 'Invalid Data', 'Something went terribly '
             'wrong!  (key data unrecognized)', QMessageBox.Ok)
+         LOGERROR('Unrecognized key data!')
+         return
+      except CompressedKeyError, e:
+         QMessageBox.critical(self, 'Unsupported key type', 'You entered a key '
+            'for an address that uses a compressed public key, usually produced '
+            'in Bitcoin-Qt/bitcoind wallets created after version 0.6.0.  Armory '
+            'does not yet support this key type.')
+         LOGERROR('Compressed key data recognized but not supported')
          return
       except:
          QMessageBox.critical(self, 'Error Processing Key', \
             'There was an error processing the private key data. '
             'Please check that you entered it correctly', QMessageBox.Ok)
+         LOGEXCEPT('Error processing the private key data')
          return
          
 
@@ -1995,6 +2025,7 @@ class DlgImportAddress(ArmoryDialog):
                addrStr = hash160_to_addrStr(addr160)
                privKeyList.append([addr160, addrStr, binKeyData])
          except:
+            LOGWARN('Key line skipped, probably not a private key (key not shown for security)')
             continue
 
       if len(privKeyList)==0:
@@ -2143,6 +2174,7 @@ class DlgImportAddress(ArmoryDialog):
                #print '***ERROR importing:', addrStr
                #print '         Error Msg:', msg
                #nError += 1
+               LOGERROR('Problem importing: %s: %s', addrStr, msg)
                raise
    
 
@@ -2289,7 +2321,7 @@ class DlgImportWallet(ArmoryDialog):
       layout.addWidget(lblImportDescr,      0,0, 1, 2)
       layout.addWidget(self.btnImportFile,  1,0, 1, 2); layout.addWidget(ttip1, 1,2,1,1)
       layout.addWidget(self.btnImportPaper, 2,0, 1, 2); layout.addWidget(ttip2, 2,2,1,1)
-      layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
+      #layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
       if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
          lbl = QLabel('You can manually add wallets to armory by copying them '
@@ -2494,6 +2526,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                'The specified wallet.dat file is for a different network! '
                '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
                QMessageBox.Ok)
+            LOGERROR('Wallet is for the wrong network!')
             return
       else:
          correctPassphrase = False
@@ -2523,6 +2556,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                      'The specified wallet.dat file is for a different network! '
                      '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
                      QMessageBox.Ok)
+                  LOGERROR('Wallet is for the wrong network!')
                   return
 
       # We're done accessing the file, delete the
@@ -2607,8 +2641,7 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
                wlt.setComment(a160, cmt)
                self.nImport += 1
             except Exception,msg:
-               print '***ERROR importing:', addrB58
-               print '         Error Msg:', msg
+               LOGERROR('Problem importing: %s: %s', addrB58, msg)
                self.nError += 1
 
 
@@ -3067,13 +3100,6 @@ class DlgAddressInfo(ArmoryDialog):
       dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-         #if self.wlt.useEncryption and self.wlt.isLocked:
-            #unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
-            #if not unlockdlg.exec_():
-               #QMessageBox.critical(self, 'Wallet is Locked', \
-                  #'Cannot sweep an address while its keys are locked.', \
-                  #QMessageBox.Ok)
-               #return
          self.main.broadcastTransaction(finishedTx, dryRun=False)
 
    def deleteAddr(self):
@@ -3206,6 +3232,65 @@ class DlgShowKeys(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.setWindowTitle('Address Key Information')
 
+#############################################################################
+class DlgEULA(ArmoryDialog):
+   def __init__(self, parent=None, main=None):
+      super(DlgEULA, self).__init__(parent, main)
+
+      txtWidth,txtHeight = tightSizeNChar(self, 110)
+      txtLicense = QTextEdit()
+      txtLicense.sizeHint = lambda: QSize(txtWidth, 14*txtHeight)
+      txtLicense.setReadOnly(True)
+
+      from LICENSE import licenseText
+      txtLicense.setText(licenseText())
+   
+      self.chkAgree = QCheckBox('I agree to all the terms of the license above')
+
+      self.btnCancel = QPushButton("Cancel")
+      self.btnAccept = QPushButton("Accept")
+      self.btnAccept.setEnabled(False)
+      self.connect(self.btnCancel, SIGNAL('clicked()'),     self.reject)
+      self.connect(self.btnAccept, SIGNAL('clicked()'),     self.accept)
+      self.connect(self.chkAgree,  SIGNAL('toggled(bool)'), self.toggleChkBox)
+      btnBox = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+
+
+      lblPleaseAgree = QRichLabel( \
+         '<b>Armory Bitcoin Client is licensed under the <i>Affero General '
+         'Public License, Version 3 (AGPLv3)</i></b>'
+         '<br><br>'
+         'Additionally, as a condition of receiving this software '
+         'for free, you accept all risks associated with using it '
+         'and the developers of Armory will not be held liable for any '
+         'loss of money or Bitcoins due to software defects.'
+         '<br><br>'
+         '<b>Please read the full terms of the license and indicate your '
+         'agreement with its terms.</b>')
+
+
+      dlgLayout = QVBoxLayout()
+      frmChk = makeHorizFrame([self.chkAgree, 'Stretch'])
+      frmBtn = makeHorizFrame(['Stretch', self.btnCancel, self.btnAccept])
+      frmAll = makeVertFrame([lblPleaseAgree, txtLicense, frmChk, frmBtn])
+
+      dlgLayout.addWidget(frmAll)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Armory License Agreement')
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   def reject(self):
+      self.main.abortLoad = True
+      LOGERROR('User did not accept the EULA')
+      super(DlgEULA, self).reject()
+      
+   def accept(self):
+      self.main.settings.set('Agreed_to_EULA', True) 
+      super(DlgEULA, self).accept()
+
+   def toggleChkBox(self, isEnabled):
+      self.btnAccept.setEnabled(isEnabled)
 
 #############################################################################
 class DlgIntroMessage(ArmoryDialog):
@@ -3282,7 +3367,7 @@ class DlgIntroMessage(ArmoryDialog):
                                             self.btnImport, \
                                             self.btnCreate])
       else:
-         self.btnOkay = QPushButton("Okay!")
+         self.btnOkay = QPushButton("OK!")
          self.connect(self.btnOkay, SIGNAL('clicked()'), self.accept)
          buttonBox.addButton(self.btnOkay, QDialogButtonBox.AcceptRole)
          frmBtn = makeLayoutFrame('Horiz', [self.chkDnaaIntroDlg, \
@@ -3424,7 +3509,7 @@ class DlgImportPaperWallet(ArmoryDialog):
                'fixed automatically.  Please double-check that you entered the '
                'text exactly as it appears on the wallet-backup page.', \
                QMessageBox.Ok)
-            print 'BadData!'
+            LOGERROR('Error in wallet restore field')
             self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
             return
          if not fixedData==data:
@@ -3489,7 +3574,7 @@ class DlgSetComment(ArmoryDialog):
       super(DlgSetComment, self).__init__(parent, main)
 
 
-      self.setWindowTitle('Add or Change Comment')
+      self.setWindowTitle('Modify Comment')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
       buttonbox = QDialogButtonBox(QDialogButtonBox.Ok | \
@@ -3516,7 +3601,7 @@ class DlgSetComment(ArmoryDialog):
 try:
    from qrcodenative import *
 except ImportError:
-   print 'QR-generation code not available...'
+   LOGERROR('QR-generation code not available...')
 
 PAPER_DPI       = 72
 PAPER_A4_WIDTH  =  8.5*PAPER_DPI
@@ -3608,6 +3693,7 @@ class GfxItemQRCode(QGraphicsItem):
             break
          except TypeError:
             #print 'Failed to generate QR code:  likely too much data for the size'
+            #LOGWARN('Could not generate QR code for size %d (too much data?)', sz)
             sz += 1
             pass
 
@@ -3882,7 +3968,7 @@ class DlgRemoveWallet(ArmoryDialog):
             thepathBackup = wlt.getWalletPath('backup')
 
             if self.radioWatch.isChecked():
-               print '***Converting to watching-only wallet'
+               LOGINFO('***Converting to watching-only wallet')
                newWltPath = wlt.getWalletPath('WatchOnly')
                wlt.forkOnlineWallet(newWltPath, wlt.labelName, wlt.labelDescr)
                newWlt = PyBtcWallet().readWalletFile(newWltPath)
@@ -3895,7 +3981,7 @@ class DlgRemoveWallet(ArmoryDialog):
                self.main.statusBar().showMessage( \
                      'Wallet %s was replaced with a watching-only wallet.' % wltID, 10000)
             elif self.radioDelete.isChecked():
-               print '***Completely deleting wallet'
+               LOGINFO('***Completely deleting wallet')
                os.remove(thepath)
                os.remove(thepathBackup)
                self.main.removeWalletFromApplication(wltID) 
@@ -4030,13 +4116,7 @@ class DlgRemoveAddress(ArmoryDialog):
 
       if reply==QMessageBox.Yes:
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
-      
-         if self.main.isOnline:
-            TheBDM.registerWallet( self.wlt.cppWallet )
-            self.wlt.syncWithBlockchain(0)
-
          try:
-            #self.parent.accept()
             self.parent.wltAddrModel.reset()
          except AttributeError:
             pass
@@ -4256,7 +4336,7 @@ def getWalletInfoFrame(wlt):
 
 class DlgConfirmSend(ArmoryDialog):
 
-   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False):
+   def __init__(self, wlt, recipValPairs, fee, parent=None, main=None, sendNow=False, changeBehave=None):
       super(DlgConfirmSend, self).__init__(parent, main)
       
       self.wlt    = wlt
@@ -4304,6 +4384,24 @@ class DlgConfirmSend(ArmoryDialog):
          self.btnAccept = QPushButton('Continue')
          lblLastConfirm.setText('')
 
+
+      # Acknowledge if the user has selected a non-std change location
+      lblSpecialChange = QRichLabel('')
+      if self.main.usermode==USERMODE.Expert and changeBehave:
+         chngAddr160   = changeBehave[0]
+         chngAddrStr   = hash160_to_addrStr(chngAddr160)
+         chngBehaveStr = changeBehave[1]
+         if chngBehaveStr=='Feedback':
+            lblSpecialChange.setText('*Change will be sent back to first input address')
+         elif chngBehaveStr=='Specify':
+            wltID = self.main.getWalletForAddr160(changeBehave[0])
+            msg = '*Change will be sent to %s...' % chngAddrStr[:12]
+            if wltID:
+               msg += ' (Wallet: %s)'%wltID
+            lblSpecialChange.setText(msg)
+         elif chngBehaveStr=='NoChange':
+            lblSpecialChange.setText('(This transaction is exact -- there are no change outputs)')
+            
       self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnAccept, SIGNAL('clicked()'), self.accept)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
@@ -4311,17 +4409,27 @@ class DlgConfirmSend(ArmoryDialog):
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
+
+      frmTable = makeLayoutFrame('Vert', recipLbls, STYLE_RAISED)
+      frmRight = makeVertFrame( [ lblMsg, \
+                                  'Space(20)', \
+                                  frmTable, \
+                                  lblSpecialChange, \
+                                  'Space(10)', \
+                                  lblLastConfirm, \
+                                  'Space(10)', \
+                                  buttonBox ] )
+
+      frmAll = makeHorizFrame( [ lblInfoImg, frmRight ] )
       
-      layout.addWidget(lblInfoImg,           0, 0,   1, 1)
-      layout.addWidget(lblMsg,               0, 1,   1, 1)
+      layout.addWidget(frmAll)
+      #layout.addWidget(lblMsg,               0, 1,   1, 1)
 
-      lblFrm = makeLayoutFrame('Vert', recipLbls, STYLE_RAISED)
-      layout.addWidget(lblFrm,               1, 1,   1, 1)
+      #layout.addWidget(lblFrm,               1, 1,   1, 1)
 
-      r = len(recipLbls)+1
-      layout.addWidget(lblLastConfirm, 2, 1,  1, 1)
-      layout.addWidget(buttonBox,            3, 1,  1, 1)
-      layout.setSpacing(20)
+      #layout.addWidget(lblLastConfirm,       2, 1,  1, 1)
+      #layout.addWidget(buttonBox,            3, 1,  1, 1)
+      #layout.setSpacing(20)
 
       self.setLayout(layout)
       self.setMinimumWidth(350)
@@ -4331,12 +4439,13 @@ class DlgConfirmSend(ArmoryDialog):
 
 
 class DlgSendBitcoins(ArmoryDialog):
-   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit', 'LblComm','Comm')
+   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit','BtnMax',  'LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None, prefill=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
 
       self.wlt    = wlt  
+      self.wltID  = wlt.uniqueIDB58
 
       txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
 
@@ -4421,19 +4530,19 @@ class DlgSendBitcoins(ArmoryDialog):
          btnSend.setEnabled(False)
             
       btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createTxDPAndDisplay)
+      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createOfflineTxDPAndDisplay)
 
 
       def addDonation():
          self.addOneRecipient(ARMORY_DONATION_ADDR, ONE_BTC, \
-            'Donation to Armory Developers.  Thank you for your generosit!', \
+            'Donation to Armory Developers.  Thank you for your generosity!', \
             label='Armory Donation Address')
          
          
       btnDonate = QPushButton("Donate to Armory Developers!")
       ttipDonate = createToolTipObject( \
          'Making this software was a lot of work.  You can give back '
-         'by adding a small donation to the developers of Armory.  '
+         'by adding a small donation to go to the Armory developers.  '
          'You will have the ability to change the donation amount '
          'before finalizing the transaction.')
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
@@ -4441,17 +4550,133 @@ class DlgSendBitcoins(ArmoryDialog):
          btnDonate.setVisible(False)
          ttipDonate.setVisible(False)
 
-      btnFrame = QFrame()
-      btnFrame.setFrameStyle(QFrame.NoFrame)
-      btnFrameLayout = QGridLayout()
-      btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
-      btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
-      btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
-      btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
-      btnFrame.setLayout(btnFrameLayout)
 
-      #frmUnsigned   = makeLayoutFrame('Horiz', [btnUnsigned, ttipUnsigned])
-      #frmDonate     = makeLayoutFrame('Horiz', [btnDonate, ttipDonate])
+      ########################################################################
+      # In Expert usermode, allow the user to modify the change address
+      frmChangeAddr = QFrame()
+      if self.main.usermode == USERMODE.Expert:
+         self.chkDefaultChangeAddr = QCheckBox('Use an existing address for change')
+         self.radioFeedback = QRadioButton('Send change to first input address')
+         self.radioSpecify  = QRadioButton('Specify a change address')
+         self.lblChangeAddr = QRichLabel('Send Change To:')
+         self.edtChangeAddr = QLineEdit()
+         self.btnChangeAddr = createAddrBookButton(self, self.edtChangeAddr, \
+                                       self.wlt.uniqueIDB58, 'Send change to')
+         self.chkRememberChng = QCheckBox('Remember for future transactions')
+         self.vertLine = VLINE()
+
+         self.ttipSendChange = createToolTipObject( \
+               'Most transactions end up with oversized inputs and Armory will send '
+               'the change to the next address in this wallet.  You may change this '
+               'behavior by checking this box.')
+         self.ttipFeedback = createToolTipObject( \
+               'Guarantees that no new addresses will be created to receive '
+               'change. This reduces anonymity, but is useful if you '
+               'created this wallet solely for managing imported addresses, '
+               'and want to keep all funds within existing addresses.')
+         self.ttipSpecify = createToolTipObject( \
+               'You can specify any valid Bitcoin address for the change.  '
+               '<b>NOTE:</b> If the address you specify is not in this wallet, '
+               'Armory will not be able to distinguish the outputs when it shows '
+               'up in your ledger.  The change will look like a second recipient, '
+               'and the total debit to your wallet will be equal to the amount '
+               'you sent to the recipient <b>plus</b> the change.')
+
+
+         # Make sure that there can only be one selection
+         btngrp = QButtonGroup(self)
+         btngrp.addButton(self.radioFeedback)
+         btngrp.addButton(self.radioSpecify)
+         btngrp.setExclusive(True)
+
+         def toggleSpecify(b):
+            self.lblChangeAddr.setVisible(b)
+            self.edtChangeAddr.setVisible(b)
+            self.btnChangeAddr.setVisible(b)
+            
+         def toggleChngAddr(b):
+            self.radioFeedback.setVisible(b)
+            self.radioSpecify.setVisible(b)
+            self.ttipFeedback.setVisible(b)
+            self.ttipSpecify.setVisible(b)
+            self.chkRememberChng.setVisible(b)
+            self.vertLine.setVisible(b)
+            if not self.radioFeedback.isChecked() and not self.radioSpecify.isChecked():
+               self.radioFeedback.setChecked(True)
+            toggleSpecify(b and self.radioSpecify.isChecked())
+            
+         
+         self.connect(self.chkDefaultChangeAddr, SIGNAL('toggled(bool)'), toggleChngAddr)
+         self.connect(self.radioSpecify,         SIGNAL('toggled(bool)'), toggleSpecify)
+   
+         # Pre-set values based on settings
+         
+         chngBehave = self.main.getWltSetting(self.wltID, 'ChangeBehavior')
+         chngAddr   = self.main.getWltSetting(self.wltID, 'ChangeAddr')
+         if chngBehave == 'Feedback':
+            self.chkDefaultChangeAddr.setChecked(True)
+            self.radioFeedback.setChecked(True)
+            self.radioSpecify.setChecked(False)
+            toggleChngAddr(True)
+            self.chkRememberChng.setChecked(True)
+         elif chngBehave == 'Specify':
+            self.chkDefaultChangeAddr.setChecked(True)
+            self.radioFeedback.setChecked(False)
+            self.radioSpecify.setChecked(True)
+            toggleChngAddr(True)
+            if checkAddrStrValid(chngAddr):
+               self.edtChangeAddr.setText(chngAddr)
+               self.edtChangeAddr.setCursorPosition(0)
+               self.chkRememberChng.setChecked(True)
+         else:
+            # Other option is "NewAddr" but in case there's an error, should run
+            # this branch by default
+            self.chkDefaultChangeAddr.setChecked(False)
+            self.radioFeedback.setChecked(False)
+            self.radioSpecify.setChecked(False)
+            toggleChngAddr(False)
+
+         if(    self.chkDefaultChangeAddr.isChecked() and \
+            not self.radioFeedback.isChecked() and \
+            not self.radioSpecify.isChecked()):
+            self.radioFeedback.setChecked(True) 
+
+         frmChngLayout = QGridLayout()
+         i=0;
+         frmChngLayout.addWidget(self.chkDefaultChangeAddr,   i,0, 1,6)
+         frmChngLayout.addWidget(self.ttipSendChange,         i,6, 1,2)
+         i+=1
+         frmChngLayout.addWidget(self.radioFeedback,          i,1, 1,5)
+         frmChngLayout.addWidget(self.ttipFeedback,           i,6, 1,2)
+         i+=1
+         frmChngLayout.addWidget(self.radioSpecify,           i,1, 1,5)
+         frmChngLayout.addWidget(self.ttipSpecify,            i,6, 1,2)
+         i+=1
+         frmChngLayout.addWidget(self.lblChangeAddr,          i,1, 1,2)
+         frmChngLayout.addWidget(self.edtChangeAddr,          i,3, 1,4)
+         frmChngLayout.addWidget(self.btnChangeAddr,          i,7, 1,1)
+         i+=1
+         frmChngLayout.addWidget(self.chkRememberChng,         i,1, 1,7)
+
+         frmChngLayout.addWidget(self.vertLine,               1,0, i-1,1)
+      
+         frmChangeAddr.setLayout(frmChngLayout)
+         frmChangeAddr.setFrameStyle(STYLE_SUNKEN)
+         
+   
+   
+      #btnFrame = makeVertFrame([btnUnsigned, ttipUnsigned, btnDonate, ttipDonate])
+      frmUnsigned = makeHorizFrame([btnUnsigned, ttipUnsigned])
+      frmDonate   = makeHorizFrame([btnDonate,   ttipDonate])
+      #btnFrame = QFrame()
+      #btnFrame.setFrameStyle(QFrame.NoFrame)
+      #btnFrameLayout = QGridLayout()
+      #btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
+      #btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
+      #btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
+      #btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
+      #btnFrame.setLayout(btnFrameLayout)
+
 
       frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], STYLE_SUNKEN)
       if not wlt.watchingOnly:
@@ -4460,10 +4685,15 @@ class DlgSendBitcoins(ArmoryDialog):
             btnUnsigned.setVisible(False)
             ttipUnsigned.setVisible(False)
 
-      frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
-                                                btnFrame, \
-                                                'Stretch', \
-                                                frmNoSend], STYLE_SUNKEN)
+      #frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
+                                                #btnFrame, \
+                                                #'Stretch', \
+                                                #frmNoSend], STYLE_SUNKEN)
+      frmBottomLeft = makeVertFrame( [self.frmInfo, \
+                                      frmUnsigned, \
+                                      frmDonate, \
+                                      'Stretch', \
+                                      frmChangeAddr],  STYLE_SUNKEN )
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
       lblSend.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
@@ -4559,26 +4789,18 @@ class DlgSendBitcoins(ArmoryDialog):
       super(DlgSendBitcoins, self).reject(*args)
 
    #############################################################################
-   def createTxDPAndDisplay(self):
+   def createOfflineTxDPAndDisplay(self):
       self.txValues = []
       self.origRVPairs = []
       self.comments = []
       txdp = self.validateInputsGetTxDP()
-
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main, False)
+      if not txdp:
+         return
+      
+      changePair = (self.change160, self.selectedBehavior)
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+                                                   self.main, False, changePair)
       if dlg.exec_():
-         #try:
-            #if self.wlt.isLocked:
-               #unlockdlg = DlgUnlockWallet(self.wlt, self, self.main)
-               #if not unlockdlg.exec_():
-                  #QMessageBox.critical(self, 'Wallet is Locked', \
-                     #'Cannot sign transaction while your wallet is locked. ', \
-                     #QMessageBox.Ok)
-                  #return
-         #except:
-            #print 'Issue unlocking wallet!'
-            #raise
-
          dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
          dlg.exec_()
          self.accept()
@@ -4600,8 +4822,9 @@ class DlgSendBitcoins(ArmoryDialog):
             QMessageBox.Ok)
          
       
-      #totalOutStr = coin2str(self.txValues[0])
-      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, self.main)
+      changePair = (self.change160, self.selectedBehavior)
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+                                                   self.main, True, changePair)
       if dlg.exec_():
          try:
             if self.wlt.isLocked:
@@ -4627,7 +4850,6 @@ class DlgSendBitcoins(ArmoryDialog):
             finalTx = txdp.prepareFinalTx()
             if len(commentStr)>0:
                self.wlt.setComment(finalTx.getHash(), commentStr)
-            print binary_to_hex(finalTx.serialize())
             self.main.broadcastTransaction(finalTx)
             self.accept()
             try:
@@ -4635,7 +4857,7 @@ class DlgSendBitcoins(ArmoryDialog):
             except:
                pass
          except:
-            print 'Issue sending!'
+            LOGEXCEPT('Problem sending transaction!')
             # TODO: not sure what errors to catch here, yet...
             raise
 
@@ -4713,8 +4935,9 @@ class DlgSendBitcoins(ArmoryDialog):
                continue
          except ValueError:
             QMessageBox.critical(self, 'Invalid Value String', \
-                'The value you specified '
-                'to send to address %d is invalid.' % (i+1,), QMessageBox.Ok)
+                'The amount you specified '
+                'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
+            LOGERROR('Invalid amount specified: %s', valueStr)
             return False
 
          try:
@@ -4722,6 +4945,7 @@ class DlgSendBitcoins(ArmoryDialog):
          except ValueError:
             QMessageBox(self, 'Invalid Value String', 'The fee you specified '
                 'is invalid.', QMessageBox.Ok)
+            LOGERROR('Invalid fee specified: %s', valueStr)
             return False
             
          totalSend += value
@@ -4759,16 +4983,18 @@ class DlgSendBitcoins(ArmoryDialog):
          overrideMin = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
          if totalSend+minFeeRec[1] > bal:
             # Need to adjust this based on overrideMin flag
+            self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
             QMessageBox.warning(self, 'Insufficient Balance', \
                'You have specified a valid amount to send, but the required '
                'transaction fee causes this transaction to exceed your balance.  '
                'In order to send this transaction, you will be required to '
-               'pay a fee of ' + coin2str(minFeeRec[1], maxZeros=0).strip() + '.' 
+               'pay a fee of <b>' + coin2str(minFeeRec[1], maxZeros=0).strip() + ' BTC</b>.  '
+               '<br><br>'
                'Please go back and adjust the value of your transaction, not '
-               'to exceed ' + coin2str(bal-minFeeRec[1], maxZeros=0).strip() + 
-               ' BTC.', \
-               QMessageBox.Ok)
-            self.edtFeeAmt.setText(coin2str(minFeeRec[1]))
+               'to exceed a total of <b>' + coin2str(bal-minFeeRec[1], maxZeros=0).strip() +
+               ' BTC</b> (the necessary fee has been entered into the form, so you '
+               'can use the "MAX" button to enter the remaining balance for a '
+               'recipient).', QMessageBox.Ok)
             return
                         
 
@@ -4777,30 +5003,12 @@ class DlgSendBitcoins(ArmoryDialog):
          minRecStr = coin2str(minFeeRec[1], maxZeros=0).strip()
 
          msgBtns = QMessageBox.Yes | QMessageBox.Cancel
-         #if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
-            #if not overrideMin:
-               #extraMsg = ('\n\n(It is not recommended to override this behavior, '
-                           #'but as an advanced user, you can go into the settings file '
-                           #'and manually change the "OverrideMinFee" property to '
-                           #'"True".  Do so at your own risk, as many transactions '
-                           #'have been known to "get stuck" when insufficient fee '
-                           #'was included)')
-
-         #if overrideMin:
-            #msgBtns = QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel
-            #extraMsg = ('\n\nYou have disbled mandatory transaction fees.  '
-                        #'Clicking "No" will send the transaction with the '
-                        #'original fee that you specified.')
-
-         # While the Satoshi client sits between us and the network, sub-standard
-         # fees will be DOA -- there is nothing Armory can do to force sub-std fees
-         extraMsg = ''
 
          reply = QMessageBox.warning(self, 'Insufficient Fee', \
             'The fee you have specified (%s BTC) is insufficient for the size '
             'and priority of your transaction.  You must include at least '
             '%s BTC to send this transaction.  \n\nDo you agree to the fee of %s BTC?  ' % \
-            (feeStr, minRecStr, minRecStr) + extraMsg,  msgBtns)
+            (feeStr, minRecStr, minRecStr),  msgBtns)
          if reply == QMessageBox.Cancel:
             return False
          if reply == QMessageBox.No:
@@ -4816,16 +5024,23 @@ class DlgSendBitcoins(ArmoryDialog):
          return
          
 
-      ### IF we got here, everything should be good to go... generate a new
-      #   address, calculate the change (add to recip list) and do our thing.
+      ### IF we got here, everything is good to go...
+      #   Just need to get a change address and then construct the tx
       totalTxSelect = sum([u.getValue() for u in utxoSelect])
       totalChange = totalTxSelect - (totalSend + fee)
 
       self.origRVPairs = list(recipValuePairs)
+      self.change160 = ''
+      self.selectedBehavior = ''
       if totalChange>0:
-         change160 = self.wlt.getNextUnusedAddress().getAddr160()
-         recipValuePairs.append( [change160, totalChange])
-         self.wlt.setComment(change160, CHANGE_ADDR_DESCR_STRING)
+         self.change160 = self.determineChangeAddr(utxoSelect)
+         LOGINFO('Change address behavior: %s', self.selectedBehavior)
+         if not self.change160:
+            return
+         recipValuePairs.append( [self.change160, totalChange])
+      else:
+         if self.main.usermode==USERMODE.Expert and self.chkDefaultChangeAddr.isChecked():
+            self.selectedBehavior = 'NoChange'
    
       # Anonymize the outputs
       random.shuffle(recipValuePairs)
@@ -4836,6 +5051,45 @@ class DlgSendBitcoins(ArmoryDialog):
       return txdp
 
       
+
+   #############################################################################
+   def determineChangeAddr(self, utxoList):
+      changeAddr160 = ''
+      self.selectedBehavior = 'NewAddr'
+      addrStr = ''
+      if not self.main.usermode==USERMODE.Expert:
+         changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+         self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
+      else:
+         if not self.chkDefaultChangeAddr.isChecked():
+            changeAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
+            self.wlt.setComment(changeAddr160, CHANGE_ADDR_DESCR_STRING)
+            # If generate new address, remove previously-remembered behavior
+            self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
+         else:
+            if self.radioFeedback.isChecked():
+               changeAddr160 = utxoList[0].getRecipientAddr()
+               self.selectedBehavior = 'Feedback'
+            elif self.radioSpecify.isChecked():
+               addrStr = str(self.edtChangeAddr.text()).strip()
+               if not checkAddrStrValid(addrStr):
+                  QMessageBox.warning(self, 'Invalid Address', \
+                     'You specified an invalid change address '
+                     'for this transcation.', QMessageBox.Ok)
+                  return '',False
+               changeAddr160 = addrStr_to_hash160(addrStr)
+               self.selectedBehavior = 'Specify'
+
+      if self.main.usermode==USERMODE.Expert and self.chkRememberChng.isChecked():
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', self.selectedBehavior)
+         if self.selectedBehavior=='Specify' and len(addrStr)>0:
+            self.main.setWltSetting(self.wltID, 'ChangeAddr', addrStr)
+      else:
+         self.main.setWltSetting(self.wltID, 'ChangeBehavior', 'NewAddr')
+      
+      return changeAddr160
+                  
+               
             
    #############################################################################
    def addDonation(self, amt=ONE_BTC):
@@ -4878,6 +5132,60 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable[-1][self.COLS.Comm].setText(msg)
       self.widgetTable[-1][self.COLS.Comm].setCursorPosition(0)
 
+
+
+
+   #####################################################################
+   def setMaximum(self, targWidget):
+      nRecip = len(self.widgetTable)
+      totalOther = 0
+      r=0  
+      try:
+         bal = self.wlt.getBalance('Spendable')
+         txFee = str2coin(str(self.edtFeeAmt.text()))
+         while r<nRecip:
+            # Use while loop so 'r' is still in scope in the except-clause
+            if targWidget==self.widgetTable[r][self.COLS.Btc]:
+               r+=1
+               continue
+
+            amtStr = str(self.widgetTable[r][self.COLS.Btc].text()).strip()
+            if len(amtStr)>0:
+               totalOther += str2coin(amtStr)
+            r+=1
+   
+      except:
+         QMessageBox.warning(self, 'Invalid Input', \
+               'Cannot compute the maximum amount '
+               'because there is an error in the amount '
+               'for recipient %d.' % (r+1,), QMessageBox.Ok)
+         return
+
+
+      maxStr = coin2str( (bal - (txFee + totalOther)), maxZeros=0 )
+      if bal < txFee+totalOther:
+         QMessageBox.warning(self, 'Insufficient funds', \
+               'You have specified more than your spendable balance to '
+               'the other recipients and the transaction fee.  Therefore, the '
+               'maximum amount for this recipient would actually be negative.', \
+               QMessageBox.Ok)
+         return
+         
+      targWidget.setText(maxStr.strip())
+
+
+   #####################################################################
+   def createSetMaxButton(self, targWidget):
+      newBtn = QPushButton('MAX')
+      newBtn.setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
+      newBtn.setToolTip( 'Fills in the maximum spendable amount minus '
+                         'the amounts specified for other recipients '
+                         'and the transaction fee ')
+      funcSetMax = lambda:  self.setMaximum( targWidget )
+      self.connect( newBtn, SIGNAL('clicked()'), funcSetMax )
+      return newBtn
+
+
    #####################################################################
    def makeRecipFrame(self, nRecip):
       prevNRecip = len(self.widgetTable)
@@ -4886,7 +5194,7 @@ class DlgSendBitcoins(ArmoryDialog):
       for i in range(nRecip):
          if i<prevNRecip and i<nRecip:
             inputs.append([])
-            for j in (1,4,7):
+            for j in (self.COLS.Addr, self.COLS.Btc, self.COLS.Comm):
                inputs[-1].append(str(self.widgetTable[i][j].text()))
 
 
@@ -4897,53 +5205,63 @@ class DlgSendBitcoins(ArmoryDialog):
       COLS = self.COLS 
       
       self.widgetTable = []
-      for i in range(nRecip):
+      for r in range(nRecip):
          self.widgetTable.append([])
 
-         self.widgetTable[-1].append( QLabel('Address %d:' % (i+1,)) )
+         self.widgetTable[r].append( QLabel('Address %d:' % (r+1,)) )
 
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setFont(GETFONT('var',9))
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r][-1].setFont(GETFONT('var',9))
 
-         addrEntryBox = self.widgetTable[-1][-1]
-         self.widgetTable[-1].append( createAddrBookButton(self, addrEntryBox, \
+         addrEntryBox = self.widgetTable[r][-1]
+         self.widgetTable[r].append( createAddrBookButton(self, addrEntryBox, \
                                       self.wlt.uniqueIDB58, 'Send to') )
-         self.widgetTable[-1].append( QLabel('Amount:') )
+         self.widgetTable[r].append( QLabel('Amount:') )
 
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('Fixed'))
-         self.widgetTable[-1][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
-         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft)
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setFont(GETFONT('Fixed'))
+         self.widgetTable[r][-1].setMinimumWidth(tightSizeNChar(GETFONT('Fixed'), 14)[0])
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft)
       
-         self.widgetTable[-1].append( QLabel('BTC') )
-         self.widgetTable[-1][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         self.widgetTable[r].append( QLabel('BTC') )
+         self.widgetTable[r][-1].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
-         self.widgetTable[-1].append( QLabel('Comment:') )
-         self.widgetTable[-1].append( QLineEdit() )
-         self.widgetTable[-1][-1].setFont(GETFONT('var', 9))
-         self.widgetTable[-1][-1].setMaximumHeight(self.maxHeight)
+         #self.widgetTable[r].append( QPushButton('MAX') )
+         #self.widgetTable[r][-1].setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
+         #self.widgetTable[r][-1].setToolTip( \
+                           #'Fills in the maximum spendable amount minus amounts '
+                           #'specified for other recipients and the transaction fee ')
+         #self.connect(self.widgetTable[r][-1], SIGNAL('clicked()'),  setMaxFunc)
+         self.widgetTable[r].append( self.createSetMaxButton(self.widgetTable[r][COLS.Btc]) )
 
-         if i<nRecip and i<prevNRecip:
-            self.widgetTable[-1][COLS.Addr].setText( inputs[i][0] )
-            self.widgetTable[-1][COLS.Btc ].setText( inputs[i][1] )
-            self.widgetTable[-1][COLS.Comm].setText( inputs[i][2] )
+         self.widgetTable[r].append( QLabel('Comment:') )
+         self.widgetTable[r].append( QLineEdit() )
+         self.widgetTable[r][-1].setFont(GETFONT('var', 9))
+         self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
+
+         if r<nRecip and r<prevNRecip:
+            self.widgetTable[r][COLS.Addr].setText( inputs[r][0] )
+            self.widgetTable[r][COLS.Btc ].setText( inputs[r][1] )
+            self.widgetTable[r][COLS.Comm].setText( inputs[r][2] )
 
          subfrm = QFrame()
          subfrm.setFrameStyle(STYLE_RAISED)
          subLayout = QGridLayout()
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblAddr],  0, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Addr],     0, 1, 1, 5)
-         subLayout.addWidget(self.widgetTable[-1][COLS.AddrBook], 0, 6, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblAddr],  0, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Addr],     0, 1, 1, 5)
+         subLayout.addWidget(self.widgetTable[r][COLS.AddrBook], 0, 6, 1, 1)
 
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblAmt],   1, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Btc],      1, 1, 1, 2)
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblUnit],  1, 3, 1, 4)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblAmt],   1, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Btc],      1, 1, 1, 2)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblUnit],  1, 3, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.BtnMax],   1, 4, 1, 1)
+         subLayout.addWidget(QLabel(''),                         1, 5, 1, 2)
 
-         subLayout.addWidget(self.widgetTable[-1][COLS.LblComm],  2, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[-1][COLS.Comm],     2, 1, 1, 7)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblComm],  2, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Comm],     2, 1, 1, 6)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
@@ -5143,12 +5461,13 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
                                       ['Armory Transactions (*.unsigned.tx)'], \
                                       'armory_%s_.unsigned.tx' % dpid)
-      print toSave
+      LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtTxDP.toPlainText())
          theFile.close()
       except IOError:
+         LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
    def doSaveFileS(self):
@@ -5157,12 +5476,13 @@ class DlgOfflineTxCreated(ArmoryDialog):
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
                                       'armory_%s_.signed.tx' % dpid)
-      print toSave
+      LOGINFO('Saving signed tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
          theFile.write(self.txtSigned.toPlainText())
          theFile.close()
       except IOError:
+         LOGEXCEPT('Failed to save file: %s', toSave)
          pass
 
    def txtSignedFirstClick(self):
@@ -5195,6 +5515,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
          # One of the rare few times I ever catch-all exception
          self.lblRight.setText(a + 'Unrecognized Input!' + b)
          self.btnReady.setEnabled(False)
+         LOGWARN('Unrecognized TxDP input!')
          return
 
       self.lblRight.setText('<b><i><font color="green">Signature Valid!</font></i></b>')
@@ -5240,6 +5561,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
          strUnsign = str(self.txtTxDP.toPlainText())
          txdpUnsign = PyTxDistProposal().unserializeAscii(strUnsign)
       except:
+         LOGEXCEPT('Could not unserialize TxDP')
          raise
 
       if self.wlt.useEncryption and self.wlt.isLocked:
@@ -5290,7 +5612,10 @@ class DlgOfflineSelect(ArmoryDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
-      if not self.main.internetAvail or not self.main.satoshiAvail:
+      if not self.main.internetAvail or \
+         not self.main.satoshiAvail  or \
+         not self.main.isOnline:
+         btnCreate.setEnabled(False)
          if len(self.main.walletMap)==0:
             btnReview = QPushButton('No wallets, no network connection')
             btnReview.setEnabled(False)
@@ -5829,8 +6154,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       filename = self.main.getFileSave('Save Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'], \
                              defaultFilename)
-      print "Default:", defaultFilename
-      print filename
+      LOGINFO('Saved transaction file: %s', filename)
 
       if len(str(filename))>0:
          f = open(filename, 'w')
@@ -5841,8 +6165,9 @@ class DlgReviewOfflineTx(ArmoryDialog):
    def loadTx(self):
       filename = self.main.getFileLoad('Load Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'])
-      print filename
+      
       if len(str(filename))>0:
+         LOGINFO('Selected transaction file to load: %s', filename)
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
          f.close()
@@ -6166,13 +6491,13 @@ def extractTxInfo(pytx, rcvTime=None):
          txOutToList[-1].append(pubs)
          txOutToList[-1].append(mstype[0]) # this is M (from M-of-N)
       elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
-         print 'No OP_EVAL support yet!'
+         LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
          txOutToList[-1].append(txout.binScript)
       elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-         #print 'Unknown TxOut type'
+         LOGERROR('Unknown TxOut type')
          txOutToList[-1].append(txout.binScript)
       else:
-         print 'How did we miss TXOUT_SCRIPT_UNKNOWN txout type?'
+         LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
       sumTxOut += txout.value
   
 
@@ -6215,7 +6540,7 @@ def extractTxInfo(pytx, rcvTime=None):
                txinFromList[-1].append(prevTxOut.getParentTxPtr().getThisHash())
                txinFromList[-1].append(prevTxOut.getIndex())
             else:
-               print 'How did we get a bad parent pointer? (extractTxInfo)'
+               LOGERROR('How did we get a bad parent pointer? (extractTxInfo)')
                prevTxOut.pprint()
                txinFromList[-1].append('')
                txinFromList[-1].append('')
@@ -8142,7 +8467,7 @@ class DlgECDSACalc(ArmoryDialog):
             w,h = tightSizeNChar(fnt, 70)
             self.txtbox.setMinimumWidth(w)
             self.txtbox.setMinimumHeight(6.2*h)
-            btnOkay   = QPushButton('Okay')
+            btnOkay   = QPushButton('OK')
             btnCancel = QPushButton('Cancel')
             self.connect(btnOkay,   SIGNAL('clicked()'), self.pressOkay)
             self.connect(btnCancel, SIGNAL('clicked()'), self.pressCancel)
@@ -8307,8 +8632,8 @@ class DlgAddressBook(ArmoryDialog):
                                'this wallet, and all addresses to which this '
                                'wallet has sent Bitcoins.')
 
-      lblToWlt  = QRichLabel('Send to Wallet:')
-      lblToAddr = QRichLabel('Send to Address:')
+      lblToWlt  = QRichLabel('<b>Send to Wallet:</b>')
+      lblToAddr = QRichLabel('<b>Send to Address:</b>')
       if self.isBrowsingOnly:
          lblToWlt.setVisible(False)
          lblToAddr.setVisible(False)
@@ -8328,7 +8653,6 @@ class DlgAddressBook(ArmoryDialog):
       self.connect(self.wltDispView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.wltTableClicked)
-      
       
 
       
@@ -8412,6 +8736,14 @@ class DlgAddressBook(ArmoryDialog):
       self.setLayout(dlgLayout)
       self.sizeHint = lambda: QSize(760, 500)
 
+      # Auto-select the default wallet, if there is one
+      rowNum = 0
+      if defaultWltID and self.main.walletMap.has_key(defaultWltID):
+         rowNum = self.main.walletIndices[defaultWltID] 
+      rowIndex = self.wltDispModel.index(rowNum,0)
+      self.wltDispView.setCurrentIndex(rowIndex)
+      self.wltTableClicked(rowIndex)
+      
       self.setWindowTitle('Address Book')
       self.setWindowIcon(QIcon(self.main.iconfile))
 
@@ -8498,7 +8830,10 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
-   def wltTableClicked(self, currIndex, prevIndex):
+   def wltTableClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectWlt.setEnabled(True)
       row = currIndex.row()
       self.selectedWltID = str(currIndex.model().index(row, WLTVIEWCOLS.ID).data().toString())
@@ -8509,14 +8844,24 @@ class DlgAddressBook(ArmoryDialog):
 
       if not self.isBrowsingOnly:
          wlt = self.main.walletMap[self.selectedWltID]
-         self.btnSelectWlt.setText('%s Wallet: "%s" (%s)' % (self.actStr, wlt.labelName, self.selectedWltID))
+         self.btnSelectWlt.setText('%s Wallet: %s' % (self.actStr, self.selectedWltID))
          nextAddr160 = wlt.peekNextUnusedAddr160()
          self.lblSelectWlt.setText('Will create new address: %s...' % hash160_to_addrStr(nextAddr160)[:10])
+
+         # If switched wallet selection, de-select address so it doesn't look
+         # like the currently-selected address is for this different wallet
+         self.btnSelectAddr.setEnabled(False)
+         self.btnSelectAddr.setText('No Address Selected')
+         self.selectedAddr = ''
+         self.selectedCmmt = ''
       self.addrBookTxModel.reset()
 
 
    #############################################################################
-   def addrTableTxClicked(self, currIndex, prevIndex):
+   def addrTableTxClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectAddr.setEnabled(True)
       row = currIndex.row()
       self.selectedAddr = str(currIndex.model().index(row, ADDRBOOKCOLS.Address).data().toString())
@@ -8527,7 +8872,10 @@ class DlgAddressBook(ArmoryDialog):
 
 
    #############################################################################
-   def addrTableRxClicked(self, currIndex, prevIndex):
+   def addrTableRxClicked(self, currIndex, prevIndex=None):
+      if prevIndex==currIndex:
+         return 
+
       self.btnSelectAddr.setEnabled(True)
       row = currIndex.row()
       self.selectedAddr = str(currIndex.model().index(row, ADDRESSCOLS.Address).data().toString())
@@ -8539,8 +8887,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressRx(self, index):
-      # For now, we won't do anything except for change the comment. 
-      # May upgrade this method later to do more
       if index.column()!=ADDRESSCOLS.Comment:
          self.acceptAddrSelection()
          return
@@ -8555,8 +8901,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def dblClickAddressTx(self, index):
-      # For now, we won't do anything except for change the comment. 
-      # May upgrade this method later to do more
       if index.column()!=ADDRBOOKCOLS.Comment:
          self.acceptAddrSelection()
          return
@@ -8580,16 +8924,6 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      # Figure out what has been selected
-      #index = self.addrBookTxView.selectedIndexes()
-      #if len(index)==0:
-         #QMessageBox.warning(self, 'No selection!', 'You did not select an '
-            #'address from the address list!', QMessageBox.Ok)
-         #return
-
-      #index = index[0]
-      #row,col = index.row(), index.column()
-      #addrB58 = str(self.addrBookTxView.model().index(row, ADDRBOOKCOLS.Address).data().toString())
       self.target.setText(self.selectedAddr)
       self.target.setCursorPosition(0)
       self.accept()
@@ -8725,6 +9059,23 @@ class DlgPreferences(ArmoryDialog):
 
       self.connect(self.edtDefaultFee, SIGNAL('returnPressed()'), self.accept)
 
+
+      ###############################################################
+      # Minimize on Close
+      moc = self.main.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
+      lblMoCDescr   = QRichLabel( 'When you click the "x" on the top window bar, '
+                                 'Armory will stay open but run in the background.  '
+                                 'You will still receive notifications, and '
+                                 'can access it through the system tray.')
+      ttipMinOrClose = createToolTipObject( \
+         'If this is checked, you can still close Armory through the right-click menu '
+         'on the system tray icon, or by "File"->"Quit Armory" on the main window')
+      self.chkMinOrClose = QCheckBox('')
+      if moc=='Minimize':
+         self.chkMinOrClose.setChecked(True)
+
+
       #doInclFee = self.main.settings.getSettingOrSetDefault('LedgDisplayFee', True)
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
                                 #'primary ledger</b>.<br>Unselect if you want to '
@@ -8745,15 +9096,11 @@ class DlgPreferences(ArmoryDialog):
       notifyBtcOut = self.main.settings.getSettingOrSetDefault('NotifyBtcOut', True)
       notifyDiscon = self.main.settings.getSettingOrSetDefault('NotifyDiscon', True)
       notifyReconn = self.main.settings.getSettingOrSetDefault('NotifyReconn', True)
-      lblBtcIn  = QRichLabel('Bitcoins Received')
-      lblBtcOut = QRichLabel('Bitcoins Sent')
-      lblDiscon = QRichLabel('Bitcoin-Qt/bitcoind disconnected')
-      lblReconn = QRichLabel('Bitcoin-Qt/bitcoind reconnected')
 
-      self.chkBtcIn  = QCheckBox('')
-      self.chkBtcOut = QCheckBox('')
-      self.chkDiscon = QCheckBox('')
-      self.chkReconn = QCheckBox('')
+      self.chkBtcIn  = QCheckBox('Bitcoins Received')
+      self.chkBtcOut = QCheckBox('Bitcoins Sent')
+      self.chkDiscon = QCheckBox('Bitcoin-Qt/bitcoind disconnected')
+      self.chkReconn = QCheckBox('Bitcoin-Qt/bitcoind reconnected')
       self.chkBtcIn.setChecked(notifyBtcIn)
       self.chkBtcOut.setChecked(notifyBtcOut)
       self.chkDiscon.setChecked(notifyDiscon)
@@ -8762,15 +9109,19 @@ class DlgPreferences(ArmoryDialog):
 
       ###############################################################
       # Date format preferences
+      exampleTimeTuple = (2012, 4, 29,  19,45, 0,  -1,-1,-1)
+      self.exampleUnixTime = time.mktime(exampleTimeTuple)
+      exampleStr = unixTimeToFormatStr(self.exampleUnixTime, '%c')
       lblDateFmt   = QRichLabel('<b>Preferred Date Format<b>:<br>')
       lblDateDescr = QRichLabel( \
                           'You can specify how you would like dates '
-                          'to be displayed throughout Armory by entering '
-                          '"strftime" symbols on the right. The mouseover '
-                          'text of the "(?)" shows the most commonly '
-                          'used symbols.  The text above it shows how '
-                          '"27 Aug, 2002, 10:32pm" would be shown '
-                          'with the current format.')
+                          'to be displayed using percent-codes to '
+                          'represent components of the date.  The '
+                          'mouseover text of the "(?)" icon shows '
+                          'the most commonly used codes/symbols.  '
+                          'The text next to it shows how '
+                          '"%s" would be shown with the '
+                          'specified format.' % exampleStr )
       lblDateFmt.setAlignment(Qt.AlignTop)
       fmt = self.main.getPreferredDateFormat()
       ttipStr = 'Use any of the following symbols:<br>'
@@ -8802,6 +9153,30 @@ class DlgPreferences(ArmoryDialog):
       fStack = makeVertFrame( [frmTop, frmMid, frmBot, 'Stretch'])
       lblStk = makeVertFrame( [lblDateFmt, lblDateDescr, 'Stretch'])
       subFrm = makeHorizFrame([lblStk, 'Stretch', fStack])
+
+
+      ###############################################################
+      # SelectCoins preferences
+      # NOT ENABLED YET -- BUT WILL BE SOON
+      #lblSelectCoin = QRichLabel('<b>Coin Selection Preferences:</b>')
+      #lblSelectCoinDescr = QRichLabel( \
+            #'When Armory constructs a transaction, there are many different '
+            #'ways for it to select from coins that make up your balance. '
+            #'The "SelectCoins" algorithm can be set to prefer more-anonymous '
+            #'coin selections or to prefer avoiding mandatory transaction fees. '
+            #'<B>No guarantees are made about the relative anonymity of the '
+            #'coin selection, only that Armory will <i>prefer</i> a transaction '
+            #'that requires a fee if it can increase anonymity.</b>')
+      #self.cmbSelectCoins = QComboBox()
+      #self.cmbSelectCoins.clear()
+      #self.cmbSelectCoins.addItem( 'Prefer free transactions' )
+      #self.cmbSelectCoins.addItem( 'Maximize anonymity'   )
+      #self.cmbSelectCoins.setCurrentIndex(0)
+      #i+=1
+      #dlgLayout.addWidget(lblSelectCoin,                     i,0)
+      #dlgLayout.addWidget(self.cmbSelectCoins,               i,1)
+      #i+=1
+      #dlgLayout.addWidget(lblSelectCoinDescr,                i,0, 1,2)
 
 
       ###############################################################
@@ -8855,27 +9230,30 @@ class DlgPreferences(ArmoryDialog):
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
 
       i+=1
+      frmLayout.addWidget( lblMinOrClose,         i,0 )
+      frmLayout.addWidget( ttipMinOrClose,        i,1 )
+      frmLayout.addWidget( self.chkMinOrClose,    i,2 )
+
+      i+=1
+      frmLayout.addWidget( lblMoCDescr,           i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
       frmLayout.addWidget( lblNotify,             i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblBtcIn,              i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkBtcIn,         i,2 )
+      frmLayout.addWidget( self.chkBtcIn,         i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblBtcOut,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkBtcOut,        i,2 )
+      frmLayout.addWidget( self.chkBtcOut,        i,0, 1,3)
       
       i+=1
-      frmLayout.addWidget( lblDiscon,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkDiscon,        i,2 )
+      frmLayout.addWidget( self.chkDiscon,        i,0, 1,3)
 
       i+=1
-      frmLayout.addWidget( lblReconn,             i,0 )
-      frmLayout.addWidget( QLabel(''),            i,1 )
-      frmLayout.addWidget( self.chkReconn,        i,2 )
+      frmLayout.addWidget( self.chkReconn,        i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -8937,7 +9315,6 @@ class DlgPreferences(ArmoryDialog):
          defaultFee = str2coin( str(self.edtDefaultFee.text()).replace(' ','') )
          self.main.settings.set('Default_Fee', defaultFee)
       except:
-         raise
          QMessageBox.warning(self, 'Invalid Amount', \
                   'The default fee specified could not be understood.  Please '
                   'specify in BTC with no more than 8 decimal places.', \
@@ -8955,6 +9332,11 @@ class DlgPreferences(ArmoryDialog):
             self.main.setUserMode(USERMODE.Advanced)
          elif modestr.lower() == 'expert':
             self.main.setUserMode(USERMODE.Expert)
+
+      if self.chkMinOrClose.isChecked():
+         self.main.settings.set('MinimizeOrClose', 'Minimize')
+      else:
+         self.main.settings.set('MinimizeOrClose', 'Close')
 
       #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
       self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
@@ -8995,10 +9377,10 @@ class DlgPreferences(ArmoryDialog):
    def doExampleDate(self, qstr=None):
       fmtstr = str(self.edtDateFormat.text()) 
       try:
-         self.lblDateExample.setText('Example: ' + unixTimeToFormatStr(1030501970, fmtstr))
+         self.lblDateExample.setText('Sample: ' + unixTimeToFormatStr(self.exampleUnixTime, fmtstr))
          self.isValidFormat = True
       except:
-         self.lblDateExample.setText('Example: [[invalid date format]]')
+         self.lblDateExample.setText('Sample: [[invalid date format]]')
          self.isValidFormat = False
 
 
@@ -9054,6 +9436,11 @@ class DlgExportTxHistory(ArmoryDialog):
          self.doExampleDate()
       self.connect(self.btnResetFormat, SIGNAL('clicked()'), doReset)
 
+
+
+               
+
+
       # Add the usual buttons
       self.btnCancel = QPushButton("Cancel")
       self.btnAccept = QPushButton("Export")
@@ -9093,6 +9480,9 @@ class DlgExportTxHistory(ArmoryDialog):
       i+=1
       dlgLayout.addWidget(self.btnResetFormat,               i,0)
       dlgLayout.addWidget(self.edtDateFormat,                i,1)
+
+      i+=1
+      dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
 
       i+=1
       dlgLayout.addWidget(HLINE(),                           i,0, 1,2)
@@ -9176,7 +9566,7 @@ class DlgExportTxHistory(ArmoryDialog):
       elif 'descend' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
       else:
-         print '***ERROR: bad sort string!?'
+         LOGERROR('***ERROR: bad sort string!?')
          return
 
 
@@ -9215,7 +9605,7 @@ class DlgExportTxHistory(ArmoryDialog):
             fmtstr = str(self.edtDateFormat.text())
             unixTime = row[COL.UnixTime]
             vals.append( unixTimeToFormatStr(unixTime, fmtstr) )
-            vals.append( row[COL.TxHash] )
+            vals.append( hex_switchEndian(row[COL.TxHash]) )
             vals.append( row[COL.NumConf] )
             vals.append( row[COL.WltID] )
             vals.append( self.main.walletMap[row[COL.WltID]].labelName.replace(',',';'))
@@ -9233,9 +9623,435 @@ class DlgExportTxHistory(ArmoryDialog):
 
             vals.append( row[COL.Comment] )
 
-            f.write('%s,%s,%d,%s,%s,%s,%s,%s,%s\n' % tuple(vals))
+            f.write('%s,%s,%d,%s,%s,%s,%s,%s,"%s"\n' % tuple(vals))
 
          f.close()
       return True
+
+
+################################################################################
+class DlgRequestPayment(ArmoryDialog):
+   def __init__(self, parent, main, recvAddr, amt=None, msg=''):
+      super(DlgRequestPayment, self).__init__(parent, main)
+
+
+      if isLikelyDataType(recvAddr, DATATYPE.Binary) and len(recvAddr)==20:
+         self.recvAddr = hash160_to_addrStr(recvAddr)
+      elif isLikelyDataType(recvAddr, DATATYPE.Base58):
+         self.recvAddr = recvAddr
+      else:
+         raise BadAddressError, 'Unrecognized address input'
+
+
+      # Amount
+      self.edtAmount = QLineEdit()
+      self.edtAmount.setFont(GETFONT('Fixed'))
+      self.edtAmount.setMaximumWidth(relaxedSizeNChar(GETFONT('Fixed'), 13)[0])
+      if amt:
+         self.edtAmount.setText( coin2str(amt, maxZeros=0) )
+
+
+      # Message:
+      self.edtMessage = QLineEdit()
+      self.edtMessage.setMaxLength(128)
+      if msg:
+         self.edtMessage.setText(msg)
+      else:
+         self.edtMessage.setText('Joe\'s Fish Shop - Order #123 - 3 kg tuna - (888)555-1212' )
+      self.edtMessage.setCursorPosition(0)
+
+
+
+      # Address:
+      self.edtAddress = QLineEdit()
+      self.edtAddress.setText(self.recvAddr)
+
+      # Link Text:
+      self.edtLinkText = QLineEdit()
+      defaultText = binary_to_hex('Click here to pay for your order!')
+      linkText = hex_to_binary(self.main.settings.getSettingOrSetDefault('DefaultLinkText',defaultText))
+      self.edtLinkText.setText(linkText)
+      self.edtLinkText.setCursorPosition(0)
+
+      qpal = QPalette()
+      qpal.setColor(QPalette.Text, Colors.TextBlue)
+      self.edtLinkText.setPalette(qpal)
+      edtFont = self.edtLinkText.font()
+      edtFont.setUnderline(True)
+      self.edtLinkText.setFont(edtFont)
+
+	
+
+      self.connect(self.edtMessage,  SIGNAL('textChanged(QString)'), self.setLabels)
+      self.connect(self.edtAddress,  SIGNAL('textChanged(QString)'), self.setLabels)
+      self.connect(self.edtAmount,   SIGNAL('textChanged(QString)'), self.setLabels)
+      self.connect(self.edtLinkText, SIGNAL('textChanged(QString)'), self.setLabels)
+
+
+      # This is the "output"
+      self.lblLink = QRichLabel('')
+      self.lblLink.setOpenExternalLinks(True)
+      self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | Qt.TextSelectableByKeyboard)
+      self.lblLink.setMinimumHeight( 3*tightSizeNChar(self, 1)[1] )
+      self.lblLink.setAlignment(Qt.AlignVCenter | Qt.AlignLeft)
+      self.lblLink.setContentsMargins(10,5,10,5)
+      self.lblLink.setStyleSheet('QLabel { background-color : %s }' % htmlColor('SlightBkgdDark'))
+      frmOut = makeHorizFrame([self.lblLink], QFrame.Box | QFrame.Raised)
+      frmOut.setLineWidth(1)
+      frmOut.setMidLineWidth(5)
+
+
+      self.lblWarn = QRichLabel('')
+      self.lblWarn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+
+      self.btnOtherOpt = QPushButton('Other Options >>>')
+      self.btnCopyHtml = QPushButton('Copy Raw HTML')
+      self.btnCopyRaw  = QPushButton('Copy Raw URL')
+      self.btnCopyAll  = QPushButton('Copy All Text')
+
+      # I never actally got this button working right...
+      self.btnOtherOpt.setCheckable(True)
+      self.btnCopyAll.setVisible(False)
+      self.btnCopyHtml.setVisible(False)
+      self.btnCopyRaw.setVisible(False)
+      frmCopyBtnStrip = makeHorizFrame([ \
+                                        self.btnOtherOpt, \
+                                        self.btnCopyHtml, \
+                                        self.btnCopyRaw, \
+                                        'Stretch', \
+                                        self.lblWarn])
+                                        #self.btnCopyAll, \
+
+      self.connect(self.btnOtherOpt, SIGNAL('toggled(bool)'), self.clickOtherOpt)
+      self.connect(self.btnCopyRaw,  SIGNAL('clicked()'), self.clickCopyRaw )
+      self.connect(self.btnCopyHtml, SIGNAL('clicked()'), self.clickCopyHtml)
+      self.connect(self.btnCopyAll,  SIGNAL('clicked()'), self.clickCopyAll)
+
+      lblDescr = QRichLabel( \
+         'Create a clickable link that you can copy into email or webpage to '
+         'request a payment.   If the user is running a Bitcoin program ' 
+         'that supports "bitcoin:" links, that program will open with '
+         'all this information pre-filled after they click the link.')
+
+      lblDescr.setContentsMargins(5, 5, 5, 5)
+      frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
+
+
+      ttipPreview = createToolTipObject( \
+         'The following Bitcoin desktop applications <i>try</i> to '
+         'register themselves with your computer to handle "bitcoin:" '
+         'links: Armory, Multibit, Electrum')
+      ttipLinkText = createToolTipObject( \
+         'This is the text to be shown as the clickable link.  It should '
+         'usually begin with "Click here..." to reaffirm to the user it is '
+         'is clickable.')
+      ttipAmount = createToolTipObject( \
+         'All amounts are specifed in BTC')
+      ttipAddress = createToolTipObject( \
+         'The person clicking the link will be sending Bitcoins to this address')
+      ttipMessage = createToolTipObject( \
+         'This text will be pre-filled as the label/comment field '
+         'after the user clicks on the link. They '
+         'can modify it to meet their own needs, but you can '
+         'provide useful information such as contact details and '
+         'purchase info as a convenience to them.')
+
+
+      lblLinkBoxDescr = QRichLabel( \
+         'When all the information is correct, select everything in the '
+         'box with your mouse (triple-click), then copy & paste to the desired window.')
+      lblLinkBoxDescr.setContentsMargins(10,0,10,0)
+      btnClose = QPushButton('Close')
+      self.connect(btnClose, SIGNAL('clicked()'), self.accept)
+
+
+      frmEntry = QFrame()
+      frmEntry.setFrameStyle(STYLE_SUNKEN)
+      layoutEntry = QGridLayout()
+      i=0
+      layoutEntry.addWidget(QRichLabel('<b>Link Text:</b>'),        i,0)
+      layoutEntry.addWidget(self.edtLinkText,                       i,1)
+      layoutEntry.addWidget(ttipLinkText,                           i,2)
+
+      i+=1
+      layoutEntry.addWidget(QRichLabel('<b>Address (yours):</b>'),  i,0)
+      layoutEntry.addWidget(self.edtAddress,                        i,1)
+      layoutEntry.addWidget(ttipAddress,                            i,2)
+
+      i+=1
+      layoutEntry.addWidget(QRichLabel('<b>Request (BTC):</b>'),    i,0)
+      layoutEntry.addWidget(self.edtAmount,                         i,1)
+
+      i+=1
+      layoutEntry.addWidget(QRichLabel('<b>Message:</b>'),          i,0)
+      layoutEntry.addWidget(self.edtMessage,                        i,1)
+      layoutEntry.addWidget(ttipMessage,                            i,2)
+      frmEntry.setLayout(layoutEntry)
+      
+
+
+      frmOutput = makeVertFrame([lblLinkBoxDescr, frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
+      frmOutput.layout().setStretch(0, 0)
+      frmOutput.layout().setStretch(1, 1)
+      frmOutput.layout().setStretch(2, 0)
+      frmClose = makeHorizFrame(['Stretch', btnClose])
+
+      dlgLayout = QGridLayout()
+
+      i=0
+      dlgLayout.addWidget(frmDescr,   i,0,  1,2)
+      i+=1
+      dlgLayout.addWidget(frmEntry,   i,0,  1,2)
+      i+=1
+      dlgLayout.addWidget(frmOutput,  i,0,  1,2)
+      i+=1
+      dlgLayout.addWidget(HLINE(),    i,0,  1,2)
+      i+=1
+      dlgLayout.addWidget(frmClose,   i,0,  1,2)
+
+      dlgLayout.setRowStretch(0, 0)
+      dlgLayout.setRowStretch(1, 0)
+      dlgLayout.setRowStretch(2, 1)
+      dlgLayout.setRowStretch(3, 0)
+      dlgLayout.setRowStretch(4, 0)
+      
+
+      self.setLabels()
+      self.setMinimumWidth(600)
+      self.setLayout(dlgLayout)
+      self.setWindowTitle('Create Payment Request Link')
+
+
+      hexgeom = str(self.main.settings.get('PayReqestGeometry'))
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+
+
+   def saveLinkText(self):
+      linktext = str(self.edtLinkText.text()).strip()
+      if len(linktext)>0:
+         hexText = binary_to_hex(linktext)
+         self.main.settings.set('DefaultLinkText',hexText)
+         
+
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.settings.set('PayReqestGeometry', str(self.saveGeometry().toHex()))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      self.saveLinkText()
+      super(DlgRequestPayment, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      self.saveLinkText()
+      super(DlgRequestPayment, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgRequestPayment, self).reject(*args)
+
+
+   #############################################################################
+   def setLabels(self):
+      
+      lastTry = ''
+      try:
+         # The 
+         lastTry = 'Amount'
+         amtStr = str(self.edtAmount.text()).strip()
+         if len(amtStr)==0:
+            amtStr = None
+         else:
+            amtStr = str2coin(amtStr)
+   
+         lastTry = 'Message'
+         msgStr = str(self.edtMessage.text()).strip()
+         if len(msgStr)==0:
+            msgStr = None
+         
+         lastTry = 'Address'
+         addr = str(self.edtAddress.text()).strip()
+         if not checkAddrStrValid(addr):
+            raise
+
+         errorIn = 'Inputs'
+         # must have address, maybe have amount and/or message
+         self.rawURI = createBitcoinURI(self.recvAddr, amtStr, msgStr)
+      except:
+         self.lblWarn.setText('<font color="red">Invalid %s</font>' % lastTry)
+         self.btnCopyRaw.setEnabled(False)
+         self.btnCopyHtml.setEnabled(False)
+         self.btnCopyAll.setEnabled(False)
+         #self.lblLink.setText('<br>'.join(str(self.lblLink.text()).split('<br>')[1:]))
+         self.lblLink.setEnabled(False)
+         self.lblLink.setTextInteractionFlags(Qt.NoTextInteraction)
+         return
+      
+      self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                           Qt.TextSelectableByKeyboard)
+      self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
+      self.lblWarn.setText('')
+      self.dispText = self.rawHtml[:]
+      self.dispText += '<br>'
+      self.dispText += 'Use the following payment info if the link does not work on your system:'
+      self.dispText += '<br>'
+      self.dispText += '<b>Pay to</b>:\t%s<br>' % self.recvAddr
+      if amtStr:
+         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
+      if msgStr:
+         self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
+      self.lblLink.setText(self.dispText)
+
+      self.lblLink.setEnabled(True)
+      self.btnCopyRaw.setEnabled(True)
+      self.btnCopyHtml.setEnabled(True)
+      self.btnCopyAll.setEnabled(True)
+
+
+   def clickCopyRaw(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.rawURI)
+      self.lblWarn.setText('<i>Copied!</i>')
+
+   def clickCopyHtml(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(self.rawHtml)
+      self.lblWarn.setText('<i>Copied!</i>')
+
+   def clickCopyAll(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      qmd = QMimeData()
+      qmd.setHtml(self.dispText)
+      clipb.setMimeData(qmd)
+      self.lblWarn.setText('<i>Copied!</i>')
+
+   def clickOtherOpt(self, boolState):
+      self.btnCopyHtml.setVisible(boolState)
+      self.btnCopyRaw.setVisible(boolState)
+
+      if boolState:
+         self.btnOtherOpt.setText('Hide Buttons <<<')
+      else:
+         self.btnOtherOpt.setText('Other Options >>>')
+
+
+
+################################################################################
+class DlgVersionNotify(ArmoryDialog):
+   def __init__(self, parent, main, changelog, wasRequested=False):
+      super(DlgVersionNotify, self).__init__(parent, main)
+
+      self.myVersion = getVersionString(BTCARMORY_VERSION)
+      self.latestVer = changelog[0][0]
+      lblDescr = QRichLabel('')
+
+      if self.myVersion==self.latestVer:
+         lblDescr = QRichLabel( \
+            'Your Armory installation is up-to-date!'
+            '<br><br>'
+            '<b>Installed Version</b>: %s'
+            '<br><br>'
+            'When they become available, you can find and download new '
+            'versions of Armory from:<br><br> '
+            '<a href="http://bitcoinarmory.com/index.php/get-armory">'
+            'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersion)
+      else:
+         lblDescr = QRichLabel( \
+            '<font size=4><u><b>There is a new version of Armory available!</b>'
+            '</u></font>'
+            '<br><br>'
+            '<b>Current Version</b>: %s<br>'
+            '<b>Lastest Version</b>: %s'
+            '<br><br>'
+            'Please visit the '
+            '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
+            'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
+            'to get the most recent version. '
+            'All your wallets and settings will remain untouched when you '
+            'reinstall Armory.' % (self.myVersion, self.latestVer))
+
+      lblDescr.setOpenExternalLinks(True)
+      lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                       Qt.TextSelectableByKeyboard)
+      lblChnglog = QRichLabel('')
+      if wasRequested:
+         lblChnglog = QRichLabel("<b>Changelog</b>:")
+      else:
+         lblChnglog = QRichLabel('New features added between version %s and %s:' % \
+                                                      (self.myVersion,self.latestVer))
+
+
+      
+      txtChangeLog = QTextEdit()
+      txtChangeLog.setReadOnly(True)
+
+      w,h = tightSizeNChar(self, 100)
+      w = min(w,600)
+      h = min(h,400)
+      txtChangeLog.sizeHint = lambda: QSize(w,15*h)
+
+      for versionTbl in changelog:
+         versionStr  = versionTbl[0]
+         featureList = versionTbl[1]
+         txtChangeLog.insertHtml('<b><u>Version %s</u></b><br><br>' % versionStr)
+         for feat in featureList:
+            txtChangeLog.insertHtml('<b>%s</b><br>' % feat[0])
+            for dtxt in feat[1]:
+               txtChangeLog.insertHtml('%s<br>' % dtxt)
+         txtChangeLog.insertHtml('<br><br>')
+
+      curs = txtChangeLog.textCursor()
+      curs.movePosition(QTextCursor.Start)
+      txtChangeLog.setTextCursor(curs)
+
+      btnDNAA  = QPushButton('&Do not notify me of new versions')
+      btnDelay = QPushButton('&No more reminders until next version')
+      btnOkay  = QPushButton('&OK')
+      self.connect(btnDNAA,  SIGNAL('clicked()'), self.clickDNAA)
+      self.connect(btnDelay, SIGNAL('clicked()'), self.clickDelay)
+      self.connect(btnOkay,  SIGNAL('clicked()'), self.clickOkay)
+            
+      frmDescr = makeVertFrame([lblDescr], STYLE_SUNKEN)
+      frmLog   = makeVertFrame([lblChnglog, 'Space(5)', txtChangeLog], STYLE_SUNKEN)
+      frmBtn   = makeHorizFrame([btnDNAA, btnDelay, 'Stretch', btnOkay], STYLE_SUNKEN)
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(frmDescr)
+      dlgLayout.addWidget(frmLog)
+      dlgLayout.addWidget(frmBtn)
+      dlgLayout.setContentsMargins(20,20,20,20)
+      
+      self.setLayout(dlgLayout)   
+      self.setWindowTitle('New Armory Version')
+      self.setWindowIcon(QIcon(self.main.iconfile))
+
+
+   def clickDNAA(self):
+      self.main.settings.set('CheckVersion', 'Never')
+      self.accept()
+
+   def clickDelay(self):
+      self.main.settings.set('CheckVersion', 'v'+self.latestVer)
+      self.accept()
+
+   def clickOkay(self):
+      self.main.settings.set('CheckVersion', 'Always')
+      self.accept()
+      
+
+
+
+
+
+
+
 
 

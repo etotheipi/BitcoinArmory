@@ -2535,6 +2535,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             bsb.reader().advance(nextBlkSize);
          }
       }
+      globalCache.openFile(fnum-1, blkfile);
       TIMER_STOP("ScanBlockchain");
 
    }

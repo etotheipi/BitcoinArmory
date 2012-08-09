@@ -20,10 +20,16 @@ MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
+STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
- 
+
+# TODO: switch to checking master branch once this is out
+HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
+#HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
+#HTTP_VERSION_FILE = 'https://github.com/downloads/etotheipi/BitcoinArmory/versions.txt'
+#HTTP_VERSION_FILE = 'http://bitcoinarmory.com/wp-content/uploads/2012/07/versions.txt'
 
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
@@ -258,14 +264,13 @@ def createToolTipObject(tiptext, iconSz=2):
 
    
 ################################################################################
-def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'): 
+def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None): 
    """
-   Creates a warning/question/critical dialog, but with a "Do not ask again"
-   checkbox.  Will return a pair  (response, DNAA-is-checked)
+   Creates a message box with custom button text and icon
    """
 
    class dlgWarn(QDialog):
-      def __init__(self, dtype, dtitle, wmsg, withCancel=False): 
+      def __init__(self, dtype, dtitle, wmsg, withCancel=False, yesStr=None, noStr=None):
          super(dlgWarn, self).__init__(None)
          
          msgIcon = QLabel()
@@ -286,7 +291,7 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'):
    
          if len(fpix)>0:
             msgIcon.setPixmap(QPixmap(fpix))
-            msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+            msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
    
          lblMsg = QLabel(msg)
          lblMsg.setTextFormat(Qt.RichText)
@@ -298,6 +303,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'):
          buttonbox = QDialogButtonBox()
 
          if dtype==MSGBOX.Question:
+            if not yesStr: yesStr = '&Yes'
+            if not noStr:  noStr = '&No'
             btnYes = QPushButton(yesStr)
             btnNo  = QPushButton(noStr)
             self.connect(btnYes, SIGNAL('clicked()'), self.accept)
@@ -305,13 +312,15 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'):
             buttonbox.addButton(btnYes,QDialogButtonBox.AcceptRole)
             buttonbox.addButton(btnNo, QDialogButtonBox.RejectRole)
          else:
-            btnOk = QPushButton('Ok')
+            if not yesStr: yesStr = '&OK'
+            if not noStr:  noStr = '&Cancel'
+            btnOk = QPushButton(yesStr)
             self.connect(btnOk, SIGNAL('clicked()'), self.accept)
             buttonbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
             if withCancel:
-               btnOk = QPushButton('Cancel')
-               self.connect(btnOk, SIGNAL('clicked()'), self.reject)
-               buttonbox.addButton(btnOk, QDialogButtonBox.RejectRole)
+               btnCancel = QPushButton(noStr)
+               self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+               buttonbox.addButton(btnCancel, QDialogButtonBox.RejectRole)
             
 
          spacer = QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding)
@@ -326,10 +335,11 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr='Yes', noStr='No'):
          self.setLayout(layout)
          self.setWindowTitle(dtitle)
 
-   dlg = dlgWarn(wtype, title, msg, wCancel) 
+   dlg = dlgWarn(wtype, title, msg, wCancel, yesStr, noStr) 
    result = dlg.exec_()
    
    return result
+
 
 ################################################################################
 def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noStr='No'):

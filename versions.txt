@@ -1,0 +1,95 @@
+#-------------------------------------------------------------------------------
+# https://raw.github.com/etotheipi/BitcoinArmory/master/versions.txt
+# Maintain this file in the repo so that Armory can always find info
+# about the latest version.  This is a good way to document progress,
+# anyway...
+
+
+#-------------------------------------------------------------------------------
+VERSION 0.82.2
+
+   - URL/Link Creator
+        Right click on an address in your address book, or press "Create 
+        Clickable Link" when you get a new address.  Use this to email 
+        payment requests to others, or post payment information on webpages.
+
+   - Minimize-to-system-tray  
+        The file menu now has a "Minimize" option, and you can set it to 
+        minimize-by-default when you click the "x" on the top window bar.
+
+   - Logging system implemented
+        All information normally written to console is now saved to a
+        log file in the Armory home directory.  This makes it much easier,
+        to report bugs/crashes, especially for Windows users.  Please use 
+        "File"-->"Export Log File" to save a copy and send it with your 
+        bug reports. 
+
+   - Specify Change Address (Expert Mode Only!)  
+        The send-bitcoins window now has options in the bottom-left corner
+        to specify how you want change outputs to be constructed.  Either 
+        recycle change into existing addresses, or specify an address.  
+        
+   - New "MAX" button
+        New button for each recipient in the send-bitcoins window.  Given
+        the values already entered for other recipients and the transaction
+        fee, it will compute the max spendable balance for this recipient 
+        and insert it into the "Amount" field.  
+
+   - Version Checking and Notification
+        When you start Armory, it will automatically check versions.txt in
+        the master branch of Armory on github.  It will then notify you if
+        your version is older than the latest one.
+
+   - Removed Bitcoin-Qt Wallet Migration
+        This was causing more confusion than it was helping.  Given that 
+        very few users will benefit from it anymore, it has been removed
+        until the new wallet format is finished.
+
+   - Fixed SelectCoins Bug
+        Many users reported issues sending coins under some circumstances.        
+
+
+      
+
+
+#-------------------------------------------------------------------------------
+VERSION 0.81
+
+   - Export Transactions Window
+        Export your transaction history in *.csv format.  You can select 
+        which wallets to export, sort order, and date format.  
+
+   - Options/Preferences Dialog
+        Set your default transaction fee, date formats, usermode, and 
+        system tray notifications!
+
+   - Bug fix (Major: spend zero-conf change)
+        If Armory needed to use zero-confirmation outputs to construct 
+        your transaction, it would crash.  This has been fixed.
+   
+   - Bug fix (Major: address importing)
+        There was an incompatibility between old address importing code
+        and the new blockchain engine.  All import/sweep operations should
+        work as expected now
+
+
+#-------------------------------------------------------------------------------
+VERSION 0.80
+
+   - New Blockchain Engine!
+        Rewrite of the blockchain engine (under-the-hood) that won't crash when
+        the blk000X.dat file splits at 2 GB.  It also makes it easier to later
+        implement saving data between loads so that it only takes a long time 
+        the first time you load, or when you import new addresses.
+
+   - Balances zero-conf tx and sent-to-self change
+        There was previously multiple issues with the way that Armory was adding
+        up balances that included change outputs and zero-confirmation outputs.  
+        This should be fixed  
+
+   - Coinbase Transaction Display
+        Coinbase transactions (such as mining in P2Pool) now display properly, 
+        and will be not be considered spendable until 120 confirmations
+   
+   
+

@@ -99,6 +99,8 @@ Colors.TextBlue         = tweakColor(Colors.Foreground, '+', [ -40,  -40, +100])
 Colors.SlightRed        = tweakColor(Colors.Background, '*', [1.05, 0.95, 0.95])
 Colors.SlightGreen      = tweakColor(Colors.Background, '*', [0.92, 1.08, 0.92])
 Colors.SlightBlue       = tweakColor(Colors.Background, '*', [0.95, 0.95, 1.05])
+Colors.SlightBkgdDark   = tweakColor(Colors.Background, '*', [0.95, 0.95, 0.95])
+Colors.SlightBkgdLight  = tweakColor(Colors.Background, '*', [1.05, 1.05, 1.05])
 
 Colors.TextNoConfirm    = tweakColor(Colors.Mid, '*', [ 0.9,  0.9,  0.9])
 Colors.TextSomeConfirm  = tweakColor(Colors.Mid, '*', [ 0.7,  0.7,  0.7])
