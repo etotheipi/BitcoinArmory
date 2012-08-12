@@ -85,8 +85,10 @@ parser.add_option("--debug", dest="doDebug", action="store_true", default=False,
                   help="Increase amount of debugging output")
 parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
                   help="Disable all logging")
-parser.add_option("--logcpp", dest="logcpp", action="store_true", default=False,
-                  help="Log C++/SWIG console output by redirecting *all* stdout to log file")
+#parser.add_option("--logcpp", dest="logcpp", action="store_true", default=False,
+                  #help="Log C++/SWIG console output by redirecting *all* stdout to log file")
+parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
+                  help="Log networking messages sent and received by Armory")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -347,7 +349,7 @@ DEFAULT_PPRINT_LOGLEVEL   = logging.DEBUG
 DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
 
 rootLogger = logging.getLogger('')
-if CLI_OPTIONS.doDebug:
+if CLI_OPTIONS.doDebug or CLI_OPTIONS.netlog:
    # Drop it all one level: console will see INFO, file will see DEBUG
    DEFAULT_CONSOLE_LOGTHRESH  -= 10
    DEFAULT_FILE_LOGTHRESH     -= 10
@@ -8897,8 +8899,6 @@ class ArmoryClient(Protocol):
             # recvData is only modified if the unserialize succeeds
             messages.append( PyMessage().unserialize(buf) )
             self.recvData = buf.getRemainingString()
-            #print '\n  Message', len(messages), 'read: ',
-            #print messages[-1].cmd.upper(),
          except NetworkIDError:
             LOGERROR('Message for a different network!' )
             if BLOCKCHAINS.has_key(self.recvData[:4]):
@@ -8918,8 +8918,10 @@ class ArmoryClient(Protocol):
       # Finally, we have some message to process, let's do it
       for msg in messages:
          cmd = msg.cmd
-         #print '\nBuffer: '
-         #pprintHex(binary_to_hex(data), indent=' '*6)
+         if CLI_OPTIONS.netlog:
+            LOGDEBUG( 'DataReceived: %s', msg.payload.command)
+            if not msg.payload.command in ['tx','inv']:
+               LOGRAWDATA( msg.serialize() )
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
@@ -8988,14 +8990,23 @@ class ArmoryClient(Protocol):
       If you have a fully-serialized message (with header) already,
       easy enough to user PyMessage().unserialize(binMsg)
       """
+         
       if isinstance(msg, PyMessage):
          #print '\n\nSending Message:', msg.payload.command.upper()
          #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         if CLI_OPTIONS.netlog:
+            LOGDEBUG( 'SendMessage: %s', msg.payload.command)
+            if not msg.payload.command in ['tx','inv','getdata']:
+               LOGRAWDATA( msg.serialize() )
          self.transport.write(msg.serialize())
       else:
          msg = PyMessage(payload=msg)
          #print '\n\nSending Message:', msg.payload.command.upper()
          #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
+         if CLI_OPTIONS.netlog:
+            LOGDEBUG( 'SendMessage: %s', msg.payload.command)
+            if not msg.payload.command in ['tx','inv','getdata']:
+               LOGRAWDATA( msg.serialize() )
          self.transport.write(msg.serialize())
 
 
