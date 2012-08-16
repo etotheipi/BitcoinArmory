@@ -4943,7 +4943,7 @@ class DlgSendBitcoins(ArmoryDialog):
          try:
             fee = round(float(feeStr) * ONE_BTC)
          except ValueError:
-            QMessageBox(self, 'Invalid Value String', 'The fee you specified '
+            QMessageBox.critical(self, 'Invalid Fee String', 'The fee you specified '
                 'is invalid.', QMessageBox.Ok)
             LOGERROR('Invalid fee specified: %s', valueStr)
             return False
