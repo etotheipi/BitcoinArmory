@@ -9378,304 +9378,304 @@ class SettingsFile(object):
 # Read Satoshi Wallets (wallet.dat) to import into Armory wallet
 # BSDDB wallet-reading code taken from Joric's pywallet:  he declared it 
 # public domain. 
-try:
-   from bsddb.db import *
-except ImportError:
-   # Apparently bsddb3 is needed on OSX 
-   from bsddb3.db import *
-
-import json
-import struct
-
-class BCDataStream(object):
-   def __init__(self):
-      self.input = None
-      self.read_cursor = 0
-
-   def clear(self):
-      self.input = None
-      self.read_cursor = 0
-
-   def write(self, bytes):   # Initialize with string of bytes
-      if self.input is None:
-         self.input = bytes
-      else:
-         self.input += bytes
-
-   def map_file(self, file, start):   # Initialize with bytes from file
-      self.input = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ)
-      self.read_cursor = start
-   def seek_file(self, position):
-      self.read_cursor = position
-   def close_file(self):
-      self.input.close()
-
-   def read_string(self):
-      # Strings are encoded depending on length:
-      # 0 to 252 :   1-byte-length followed by bytes (if any)
-      # 253 to 65,535 : byte'253' 2-byte-length followed by bytes
-      # 65,536 to 4,294,967,295 : byte '254' 4-byte-length followed by bytes
-      # ... and the Bitcoin client is coded to understand:
-      # greater than 4,294,967,295 : byte '255' 8-byte-length followed by bytes of string
-      # ... but I don't think it actually handles any strings that big.
-      if self.input is None:
-         raise SerializationError("call write(bytes) before trying to deserialize")
-
-      try:
-         length = self.read_compact_size()
-      except IndexError:
-         raise SerializationError("attempt to read past end of buffer")
-
-      return self.read_bytes(length)
-
-   def write_string(self, string):
-      # Length-encoded as with read-string
-      self.write_compact_size(len(string))
-      self.write(string)
-
-   def read_bytes(self, length):
-      try:
-         result = self.input[self.read_cursor:self.read_cursor+length]
-         self.read_cursor += length
-         return result
-      except IndexError:
-         raise SerializationError("attempt to read past end of buffer")
-
-      return ''
-
-   def read_boolean(self): return self.read_bytes(1)[0] != chr(0)
-   def read_int16(self): return self._read_num('<h')
-   def read_uint16(self): return self._read_num('<H')
-   def read_int32(self): return self._read_num('<i')
-   def read_uint32(self): return self._read_num('<I')
-   def read_int64(self): return self._read_num('<q')
-   def read_uint64(self): return self._read_num('<Q')
-
-   def write_boolean(self, val): return self.write(chr(1) if val else chr(0))
-   def write_int16(self, val): return self._write_num('<h', val)
-   def write_uint16(self, val): return self._write_num('<H', val)
-   def write_int32(self, val): return self._write_num('<i', val)
-   def write_uint32(self, val): return self._write_num('<I', val)
-   def write_int64(self, val): return self._write_num('<q', val)
-   def write_uint64(self, val): return self._write_num('<Q', val)
-
-   def read_compact_size(self):
-      size = ord(self.input[self.read_cursor])
-      self.read_cursor += 1
-      if size == 253:
-         size = self._read_num('<H')
-      elif size == 254:
-         size = self._read_num('<I')
-      elif size == 255:
-         size = self._read_num('<Q')
-      return size
-
-   def write_compact_size(self, size):
-      if size < 0:
-         raise SerializationError("attempt to write size < 0")
-      elif size < 253:
-          self.write(chr(size))
-      elif size < 2**16:
-         self.write('\xfd')
-         self._write_num('<H', size)
-      elif size < 2**32:
-         self.write('\xfe')
-         self._write_num('<I', size)
-      elif size < 2**64:
-         self.write('\xff')
-         self._write_num('<Q', size)
-
-   def _read_num(self, format):
-      (i,) = struct.unpack_from(format, self.input, self.read_cursor)
-      self.read_cursor += struct.calcsize(format)
-      return i
-
-   def _write_num(self, format, num):
-      s = struct.pack(format, num)
-      self.write(s)
-
-
-################################################################################
-def create_env(wltDir):
-   """ 
-   This appears to set the "environment" for BSDDB:  the directory containing
-   all the DB we plan to open: which in this case is just one:  wallet.dat
-   """
-   db_env = DBEnv(0)
-   r = db_env.open(wltDir, \
-     (DB_CREATE|DB_INIT_LOCK|DB_INIT_LOG|DB_INIT_MPOOL|DB_INIT_TXN|DB_THREAD|DB_RECOVER))
-   return db_env
-
-################################################################################
-def pubkey_to_addrStr(pubKey):
-   a160 = hash160(pubKey)
-   return hash160_to_addrStr(a160)
-
-################################################################################
-def open_wallet(db_env, wltFile):
-   db = DB(db_env)
-   flags = DB_THREAD | DB_RDONLY
-   try:
-      r = db.open(wltFile, "main", DB_BTREE, flags)
-   except DBError:
-      r = True
-
-   if r is not None:
-      LOGERROR("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
-      sys.exit(1)
-   
-   return db
-
-
-
-################################################################################
-def GetKeyFromPassphraseSatoshi(passwd, vSalt, nIter, deriveMethod):
-   """
-   Returns the encryption (key, IV) to be used to decrypt the master key
-   """
-   if deriveMethod != 0:
-      return 0
-
-   if not isinstance(passwd, str):
-      passwd = passwd.toBinStr()
-
-   data = passwd + vSalt
-   for i in xrange(nIter):
-      data = sha512(data)
-   return data[0:32], data[32:32+16]
-
-
-
-################################################################################
-def read_wallet(db_env, wltFile):
-   db = open_wallet(db_env, wltFile)
-
-   # Moved parse_wallet code inline here
-   kds = BCDataStream()
-   vds = BCDataStream()
-
-   plainPrivList = []
-   cryptPrivList = []
-   masterEncrKey = {}
-   poolKeysList  = []
-   addrNames     = {}
-
-   wltNetByte = None
-   for (key, value) in db.items():
-      d = { }
-
-      kds.clear()
-      vds.clear()
-      kds.write(key)
-      vds.write(value)
-
-      dType = kds.read_string()
-
-      d["__key__"] = key
-      d["__value__"] = value
-      d["__type__"] = dType
-
-
-      if dType == "key":
-         priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
-         plainPrivList.append(priv)
-      elif dType == "ckey":
-         pub = kds.read_bytes(kds.read_compact_size())
-         ckey = vds.read_bytes(vds.read_compact_size())
-         cryptPrivList.append( [pub, ckey] )
-      elif dType == "mkey":
-         masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
-         masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
-         masterEncrKey['mthd'] = vds.read_int32()
-         masterEncrKey['iter'] = vds.read_int32()
-         masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
-      elif dType == "pool":
-         d['n'] = kds.read_int64()
-         ver = vds.read_int32()
-         ntime = vds.read_int64()
-         pubkey = vds.read_bytes(vds.read_compact_size())
-         poolKeysList.append(pubkey_to_addrStr(pubkey))
-      elif dType == "name":
-         addrB58 = kds.read_string()
-         name    = vds.read_string()
-         addrNames[addrB58] = name
-         wltNetByte = base58_to_binary(addrB58)[0]
-         if not wltNetByte==ADDRBYTE:
-            s = 'Wallet is for a different network!  ' 
-            if NETWORKS.has_key(wltNetByte):
-               s += '(for network: %s)' %  NETWORKS[wltNetByte]
-            raise NetworkIDError, s
-      else:
-         pass
-
-   db.close()
-
-   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList, addrNames)
-
-
-
-
-
-
-def extractSatoshiKeys(wltPath, passphrase=None):
-   # Returns a list of [privKey, usedYet] pairs
-   if not os.path.exists(wltPath):
-      raise FileExistsError, 'Specified Satoshi wallet does not exist!'
-
-   wltDir,wltFile = os.path.split(wltPath)
-
-   db_env = create_env(wltDir) 
-
-   plainkeys,mkey,crypt,pool,names = read_wallet(db_env, wltFile)
-   
-   if len(crypt)>0:
-      # Satoshi Wallet is encrypted!
-      plainkeys = []
-      if not passphrase:
-         raise EncryptionError, 'Satoshi wallet is encrypted but no passphrase supplied'
-      
-      pKey,IV = GetKeyFromPassphraseSatoshi( passphrase, \
-                                             mkey['salt'], \
-                                             mkey['iter'], \
-                                             mkey['mthd'])
-
-      masterKey = CryptoAES().DecryptCBC( SecureBinaryData(mkey['mkey']), \
-                                          SecureBinaryData(pKey), \
-                                          SecureBinaryData(IV) )
-      masterKey.resize(32)
-
-      checkedCorrectPassphrase = False
-      for pub,ckey in crypt:
-         iv = hash256(pub)[:16]
-         privKey = CryptoAES().DecryptCBC( SecureBinaryData(ckey), \
-                                           SecureBinaryData(masterKey), \
-                                           SecureBinaryData(iv))
-         privKey.resize(32)
-         if not checkedCorrectPassphrase:
-            checkedCorrectPassphrase = True
-            if not CryptoECDSA().CheckPubPrivKeyMatch(privKey, SecureBinaryData(pub)):
-               raise EncryptionError, 'Incorrect Passphrase!'
-         plainkeys.append(privKey)
-
-   outputList = []
-   for key in plainkeys:
-      addr = hash160_to_addrStr(convertKeyDataToAddress(key.toBinStr()))
-      strName = ''
-      if names.has_key(addr):
-         strName = names[addr] 
-      outputList.append( [addr, key, (not addr in pool), strName] )
-   return outputList
-         
-
-
-def checkSatoshiEncrypted(wltPath):
-   try:
-      extractSatoshiKeys(wltPath, '')
-      return False
-   except EncryptionError:
-      return True
-      
-   
-
-
-
+#try:
+#   from bsddb.db import *
+#except ImportError:
+#   # Apparently bsddb3 is needed on OSX 
+#   from bsddb3.db import *
+#
+#import json
+#import struct
+#
+#class BCDataStream(object):
+#   def __init__(self):
+#      self.input = None
+#      self.read_cursor = 0
+#
+#   def clear(self):
+#      self.input = None
+#      self.read_cursor = 0
+#
+#   def write(self, bytes):   # Initialize with string of bytes
+#      if self.input is None:
+#         self.input = bytes
+#      else:
+#         self.input += bytes
+#
+#   def map_file(self, file, start):   # Initialize with bytes from file
+#      self.input = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ)
+#      self.read_cursor = start
+#   def seek_file(self, position):
+#      self.read_cursor = position
+#   def close_file(self):
+#      self.input.close()
+#
+#   def read_string(self):
+#      # Strings are encoded depending on length:
+#      # 0 to 252 :   1-byte-length followed by bytes (if any)
+#      # 253 to 65,535 : byte'253' 2-byte-length followed by bytes
+#      # 65,536 to 4,294,967,295 : byte '254' 4-byte-length followed by bytes
+#      # ... and the Bitcoin client is coded to understand:
+#      # greater than 4,294,967,295 : byte '255' 8-byte-length followed by bytes of string
+#      # ... but I don't think it actually handles any strings that big.
+#      if self.input is None:
+#         raise SerializationError("call write(bytes) before trying to deserialize")
+#
+#      try:
+#         length = self.read_compact_size()
+#      except IndexError:
+#         raise SerializationError("attempt to read past end of buffer")
+#
+#      return self.read_bytes(length)
+#
+#   def write_string(self, string):
+#      # Length-encoded as with read-string
+#      self.write_compact_size(len(string))
+#      self.write(string)
+#
+#   def read_bytes(self, length):
+#      try:
+#         result = self.input[self.read_cursor:self.read_cursor+length]
+#         self.read_cursor += length
+#         return result
+#      except IndexError:
+#         raise SerializationError("attempt to read past end of buffer")
+#
+#      return ''
+#
+#   def read_boolean(self): return self.read_bytes(1)[0] != chr(0)
+#   def read_int16(self): return self._read_num('<h')
+#   def read_uint16(self): return self._read_num('<H')
+#   def read_int32(self): return self._read_num('<i')
+#   def read_uint32(self): return self._read_num('<I')
+#   def read_int64(self): return self._read_num('<q')
+#   def read_uint64(self): return self._read_num('<Q')
+#
+#   def write_boolean(self, val): return self.write(chr(1) if val else chr(0))
+#   def write_int16(self, val): return self._write_num('<h', val)
+#   def write_uint16(self, val): return self._write_num('<H', val)
+#   def write_int32(self, val): return self._write_num('<i', val)
+#   def write_uint32(self, val): return self._write_num('<I', val)
+#   def write_int64(self, val): return self._write_num('<q', val)
+#   def write_uint64(self, val): return self._write_num('<Q', val)
+#
+#   def read_compact_size(self):
+#      size = ord(self.input[self.read_cursor])
+#      self.read_cursor += 1
+#      if size == 253:
+#         size = self._read_num('<H')
+#      elif size == 254:
+#         size = self._read_num('<I')
+#      elif size == 255:
+#         size = self._read_num('<Q')
+#      return size
+#
+#   def write_compact_size(self, size):
+#      if size < 0:
+#         raise SerializationError("attempt to write size < 0")
+#      elif size < 253:
+#          self.write(chr(size))
+#      elif size < 2**16:
+#         self.write('\xfd')
+#         self._write_num('<H', size)
+#      elif size < 2**32:
+#         self.write('\xfe')
+#         self._write_num('<I', size)
+#      elif size < 2**64:
+#         self.write('\xff')
+#         self._write_num('<Q', size)
+#
+#   def _read_num(self, format):
+#      (i,) = struct.unpack_from(format, self.input, self.read_cursor)
+#      self.read_cursor += struct.calcsize(format)
+#      return i
+#
+#   def _write_num(self, format, num):
+#      s = struct.pack(format, num)
+#      self.write(s)
+#
+#
+#################################################################################
+#def create_env(wltDir):
+#   """ 
+#   This appears to set the "environment" for BSDDB:  the directory containing
+#   all the DB we plan to open: which in this case is just one:  wallet.dat
+#   """
+#   db_env = DBEnv(0)
+#   r = db_env.open(wltDir, \
+#     (DB_CREATE|DB_INIT_LOCK|DB_INIT_LOG|DB_INIT_MPOOL|DB_INIT_TXN|DB_THREAD|DB_RECOVER))
+#   return db_env
+#
+#################################################################################
+#def pubkey_to_addrStr(pubKey):
+#   a160 = hash160(pubKey)
+#   return hash160_to_addrStr(a160)
+#
+#################################################################################
+#def open_wallet(db_env, wltFile):
+#   db = DB(db_env)
+#   flags = DB_THREAD | DB_RDONLY
+#   try:
+#      r = db.open(wltFile, "main", DB_BTREE, flags)
+#   except DBError:
+#      r = True
+#
+#   if r is not None:
+#      LOGERROR("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
+#      sys.exit(1)
+#   
+#   return db
+#
+#
+#
+#################################################################################
+#def GetKeyFromPassphraseSatoshi(passwd, vSalt, nIter, deriveMethod):
+#   """
+#   Returns the encryption (key, IV) to be used to decrypt the master key
+#   """
+#   if deriveMethod != 0:
+#      return 0
+#
+#   if not isinstance(passwd, str):
+#      passwd = passwd.toBinStr()
+#
+#   data = passwd + vSalt
+#   for i in xrange(nIter):
+#      data = sha512(data)
+#   return data[0:32], data[32:32+16]
+#
+#
+#
+#################################################################################
+#def read_wallet(db_env, wltFile):
+#   db = open_wallet(db_env, wltFile)
+#
+#   # Moved parse_wallet code inline here
+#   kds = BCDataStream()
+#   vds = BCDataStream()
+#
+#   plainPrivList = []
+#   cryptPrivList = []
+#   masterEncrKey = {}
+#   poolKeysList  = []
+#   addrNames     = {}
+#
+#   wltNetByte = None
+#   for (key, value) in db.items():
+#      d = { }
+#
+#      kds.clear()
+#      vds.clear()
+#      kds.write(key)
+#      vds.write(value)
+#
+#      dType = kds.read_string()
+#
+#      d["__key__"] = key
+#      d["__value__"] = value
+#      d["__type__"] = dType
+#
+#
+#      if dType == "key":
+#         priv = SecureBinaryData(vds.read_bytes(vds.read_compact_size())[9:9+32])
+#         plainPrivList.append(priv)
+#      elif dType == "ckey":
+#         pub = kds.read_bytes(kds.read_compact_size())
+#         ckey = vds.read_bytes(vds.read_compact_size())
+#         cryptPrivList.append( [pub, ckey] )
+#      elif dType == "mkey":
+#         masterEncrKey['mkey'] = vds.read_bytes(vds.read_compact_size())
+#         masterEncrKey['salt'] = vds.read_bytes(vds.read_compact_size())
+#         masterEncrKey['mthd'] = vds.read_int32()
+#         masterEncrKey['iter'] = vds.read_int32()
+#         masterEncrKey['othr'] = vds.read_bytes(vds.read_compact_size())
+#      elif dType == "pool":
+#         d['n'] = kds.read_int64()
+#         ver = vds.read_int32()
+#         ntime = vds.read_int64()
+#         pubkey = vds.read_bytes(vds.read_compact_size())
+#         poolKeysList.append(pubkey_to_addrStr(pubkey))
+#      elif dType == "name":
+#         addrB58 = kds.read_string()
+#         name    = vds.read_string()
+#         addrNames[addrB58] = name
+#         wltNetByte = base58_to_binary(addrB58)[0]
+#         if not wltNetByte==ADDRBYTE:
+#            s = 'Wallet is for a different network!  ' 
+#            if NETWORKS.has_key(wltNetByte):
+#               s += '(for network: %s)' %  NETWORKS[wltNetByte]
+#            raise NetworkIDError, s
+#      else:
+#         pass
+#
+#   db.close()
+#
+#   return (plainPrivList, masterEncrKey, cryptPrivList, poolKeysList, addrNames)
+#
+#
+#
+#
+#
+#
+#def extractSatoshiKeys(wltPath, passphrase=None):
+#   # Returns a list of [privKey, usedYet] pairs
+#   if not os.path.exists(wltPath):
+#      raise FileExistsError, 'Specified Satoshi wallet does not exist!'
+#
+#   wltDir,wltFile = os.path.split(wltPath)
+#
+#   db_env = create_env(wltDir) 
+#
+#   plainkeys,mkey,crypt,pool,names = read_wallet(db_env, wltFile)
+#   
+#   if len(crypt)>0:
+#      # Satoshi Wallet is encrypted!
+#      plainkeys = []
+#      if not passphrase:
+#         raise EncryptionError, 'Satoshi wallet is encrypted but no passphrase supplied'
+#      
+#      pKey,IV = GetKeyFromPassphraseSatoshi( passphrase, \
+#                                             mkey['salt'], \
+#                                             mkey['iter'], \
+#                                             mkey['mthd'])
+#
+#      masterKey = CryptoAES().DecryptCBC( SecureBinaryData(mkey['mkey']), \
+#                                          SecureBinaryData(pKey), \
+#                                          SecureBinaryData(IV) )
+#      masterKey.resize(32)
+#
+#      checkedCorrectPassphrase = False
+#      for pub,ckey in crypt:
+#         iv = hash256(pub)[:16]
+#         privKey = CryptoAES().DecryptCBC( SecureBinaryData(ckey), \
+#                                           SecureBinaryData(masterKey), \
+#                                           SecureBinaryData(iv))
+#         privKey.resize(32)
+#         if not checkedCorrectPassphrase:
+#            checkedCorrectPassphrase = True
+#            if not CryptoECDSA().CheckPubPrivKeyMatch(privKey, SecureBinaryData(pub)):
+#               raise EncryptionError, 'Incorrect Passphrase!'
+#         plainkeys.append(privKey)
+#
+#   outputList = []
+#   for key in plainkeys:
+#      addr = hash160_to_addrStr(convertKeyDataToAddress(key.toBinStr()))
+#      strName = ''
+#      if names.has_key(addr):
+#         strName = names[addr] 
+#      outputList.append( [addr, key, (not addr in pool), strName] )
+#   return outputList
+#         
+#
+#
+#def checkSatoshiEncrypted(wltPath):
+#   try:
+#      extractSatoshiKeys(wltPath, '')
+#      return False
+#   except EncryptionError:
+#      return True
+#      
+#   
+#
+#
+#
