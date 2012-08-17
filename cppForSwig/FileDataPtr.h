@@ -17,7 +17,7 @@
 #include "BtcUtils.h"
 
 
-#define DEFAULT_CACHE_SIZE (32*1024*1024)
+#define DEFAULT_CACHE_SIZE (1*1024*1024)
 
 ////////////////////////////////////////////////////////////////////////////////
 //

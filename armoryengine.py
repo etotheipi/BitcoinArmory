@@ -34,6 +34,11 @@
 ################################################################################
 
 
+# Version Numbers 
+BTCARMORY_VERSION    = (0, 82, 2, 0)  # (Major, Minor, Minor++, even-more-minor)
+PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+
+ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 
    
 
@@ -46,6 +51,10 @@ import string
 import sys
 import shutil
 import math
+import logging
+import logging.handlers
+import ast
+import traceback
 from struct import pack, unpack
 from datetime import datetime
 
@@ -72,6 +81,12 @@ parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
                   help="Port for inter-process comm between Armory instances")
+parser.add_option("--debug", dest="doDebug", action="store_true", default=False, 
+                  help="Increase amount of debugging output")
+parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
+                  help="Disable all logging")
+parser.add_option("--logcpp", dest="logcpp", action="store_true", default=False,
+                  help="Log C++/SWIG console output by redirecting *all* stdout to log file")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -86,12 +101,6 @@ if CLI_OPTIONS.interport < 0:
 
 
 
-# Version Numbers -- numDigits [var, 2, 2, 3]
-BTCARMORY_VERSION    = (0, 82, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCADDRESS_VERSION = (1, 00, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
-
-ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
 
 def getVersionString(vquad, numPieces=4):
    vstr = '%d.%02d' % vquad[:2]
@@ -128,7 +137,6 @@ def readVersionInt(verInt):
 print '********************************************************************************'
 print 'Loading Armory Engine:'
 print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
-print '   PyBtcAddress Version:', getVersionString(PYBTCADDRESS_VERSION)
 print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
 
 # Get the host operating system
@@ -186,6 +194,7 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
 
 
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
+ARMORY_LOG_FILE     = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 
 
 
@@ -222,6 +231,7 @@ class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
 class BadInputError(Exception): pass
 class BadURIError(Exception): pass
+class CompressedKeyError(Exception): pass
 
 
 
@@ -255,6 +265,249 @@ NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
+
+
+
+#########  INITIALIZE LOGGING UTILITIES  ##########
+#
+# Setup logging to write INFO+ to file, and WARNING+ to console
+# In debug mode, will write DEBUG+ to file and INFO+ to console
+#
+
+# Want to get the line in which an error was triggered, but by wrapping
+# the logger function (as I will below), the displayed "file:linenum" 
+# references the logger function, not the function that called it.
+# So I use traceback to find the file and line number two up in the 
+# stack trace, and return that to be displayed instead of default 
+# [Is this a hack?  Yes and no.  I see no other way to do this]
+def getCallerLine():
+   stkTwoUp = traceback.extract_stack()[-3]
+   filename,method = stkTwoUp[0], stkTwoUp[1]
+   return '%s:%d' % (os.path.basename(filename),method)
+   
+# When there's an error in the logging function, it's impossible to find!
+# These wrappers will print the full stack so that it's possible to find 
+# which line triggered the error
+def LOGDEBUG(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.debug(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+
+def LOGINFO(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.info(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGWARN(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.warn(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGERROR(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.error(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGCRIT(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.critical(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+def LOGEXCEPT(msg, *a):
+   try:
+      logstr = msg % a
+      callerStr = getCallerLine() + ' - '
+      logging.exception(callerStr + logstr)
+   except TypeError:
+      traceback.print_stack()
+      raise
+
+
+
+DEFAULT_CONSOLE_LOGTHRESH = logging.WARNING
+DEFAULT_FILE_LOGTHRESH    = logging.INFO
+
+DEFAULT_PPRINT_LOGLEVEL   = logging.DEBUG
+DEFAULT_RAWDATA_LOGLEVEL  = logging.DEBUG
+
+rootLogger = logging.getLogger('')
+if CLI_OPTIONS.doDebug:
+   # Drop it all one level: console will see INFO, file will see DEBUG
+   DEFAULT_CONSOLE_LOGTHRESH  -= 10
+   DEFAULT_FILE_LOGTHRESH     -= 10
+
+
+def chopLogFile(filename, size):
+   if not os.path.exists(filename):
+      print 'Log file doesn\'t exist [yet]'
+      return
+
+   logfile = open(filename, 'r')
+   allLines = logfile.readlines()
+   logfile.close()
+
+   nBytes,nLines = 0,0;
+   for line in allLines[::-1]:
+      nBytes += len(line)
+      nLines += 1
+      if nBytes>size:
+         break
+
+   logfile = open(filename, 'w')
+   for line in allLines[-nLines:]:
+      logfile.write(line)
+   logfile.close()
+
+
+
+# Cut down the log file to just the most recent 100 kB
+chopLogFile(ARMORY_LOG_FILE, 100*1024)
+
+
+# Now set loglevels
+DateFormat = '%Y-%m-%d %H:%M'
+logging.getLogger('').setLevel(logging.DEBUG)
+fileFormatter  = logging.Formatter('%(asctime)s (%(levelname)s) -- %(message)s', \
+                                     datefmt=DateFormat)
+fileHandler = logging.FileHandler(ARMORY_LOG_FILE)
+fileHandler.setLevel(DEFAULT_FILE_LOGTHRESH)
+fileHandler.setFormatter(fileFormatter)
+logging.getLogger('').addHandler(fileHandler)
+
+consoleFormatter = logging.Formatter('(%(levelname)s) %(message)s')
+consoleHandler = logging.StreamHandler()
+consoleHandler.setLevel(DEFAULT_CONSOLE_LOGTHRESH)
+consoleHandler.setFormatter( consoleFormatter )
+logging.getLogger('').addHandler(consoleHandler)
+
+      
+
+class stringAggregator(object):
+   def __init__(self):
+      self.theStr = ''
+   def getStr(self):
+      return self.theStr
+   def write(self, theStr):
+      self.theStr += theStr
+
+
+# A method to redirect pprint() calls to the log file
+# Need a way to take a pprint-able object, and redirect its output to file
+# Do this by swapping out sys.stdout temporarily, execute theObj.pprint()
+# then set sys.stdout back to the original.  
+def LOGPPRINT(theObj, loglevel=DEFAULT_PPRINT_LOGLEVEL):
+   sys.stdout = stringAggregator()
+   theObj.pprint()
+   printedStr = sys.stdout.getStr()
+   sys.stdout = sys.__stdout__
+   stkOneUp = traceback.extract_stack()[-2]
+   filename,method = stkOneUp[0], stkOneUp[1]
+   methodStr  = '(PPRINT from %s:%d)\n' % (filename,method)
+   logging.log(loglevel, methodStr + printedStr)
+   
+# For super-debug mode, we'll write out raw data
+def LOGRAWDATA(rawStr, loglevel=DEFAULT_RAWDATA_LOGLEVEL):
+   dtype = isLikelyDataType(rawStr)
+   stkOneUp = traceback.extract_stack()[-2]
+   filename,method = stkOneUp[0], stkOneUp[1]
+   methodStr  = '(PPRINT from %s:%d)\n' % (filename,method)
+   pstr = rawStr[:]
+   if dtype==DATATYPE.Binary:
+      pstr = binary_to_hex(rawStr)
+      pstr = prettyHex(pstr, indent='  ', withAddr=False)
+   elif dtype==DATATYPE.Hex:
+      pstr = prettyHex(pstr, indent='  ', withAddr=False)
+   else:
+      pstr = '   ' + '\n   '.join(pstr.split('\n'))
+
+   logging.log(loglevel, methodStr + pstr)
+
+
+cpplogfile = None
+if CLI_OPTIONS.logDisable:
+   print 'Logging is disabled'
+   rootLogger.disabled = True
+
+# For now, ditch the C++-console-catching.  Logging python is enough
+# My attempt at C++ logging too was becoming a hardcore hack...
+"""
+elif CLI_OPTIONS.logcpp:
+   # In order to catch C++ output, we have to redirect ALL stdout
+   # (which means that console writes by python, too)
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'r')
+   allLines = cpplogfile.readlines()
+   cpplogfile.close()
+   # Chop off the beginning of the file
+   nBytes,nLines = 0,0;
+   for line in allLines[::-1]:
+      nBytes += len(line)
+      nLines += 1
+      if nBytes>100*1024:
+         break
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'w')
+   print 'nlines:', nLines
+   for line in allLines[-nLines:]:
+      print line,
+      cpplogfile.write(line)
+   cpplogfile.close()
+   cpplogfile = open(ARMORY_LOG_FILE_CPP, 'a')
+   raw_input()
+   os.dup2(cpplogfile.fileno(), sys.stdout.fileno())
+   raw_input()
+   os.dup2(cpplogfile.fileno(), sys.stderr.fileno())
+"""
+   
+
+def logexcept_override(type, value, tback):
+   strList = traceback.format_exception(type,value,tback)
+   LOGERROR(''.join([s for s in strList]))
+   # then call the default handler
+   sys.__excepthook__(type, value, tback) 
+
+sys.excepthook = logexcept_override
+
+
+LOGINFO('')
+LOGINFO('')
+LOGINFO('')
+LOGINFO('************************************************************')
+LOGINFO('Invoked: ' + ' '.join(argv))
+LOGINFO('************************************************************')
+LOGINFO('Loading Armory Engine:')
+LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
+LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
+LOGINFO('Detected Operating system: ' + OS_NAME)
+LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
+LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
+LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
+LOGINFO('')
+LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
+LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
+LOGINFO('Named options/arguments to armoryengine.py:')
+for key,val in ast.literal_eval(str(CLI_OPTIONS)).iteritems():
+   LOGINFO('    %-16s: %s', key,val)
+LOGINFO('Other arguments:')
+for val in CLI_ARGS:
+   LOGINFO('    %s', val)
+LOGINFO('************************************************************')
+
+
 
 
 
@@ -387,18 +640,19 @@ def RightNowUTC():
 try:
    import CppBlockUtils as Cpp
    from CppBlockUtils import KdfRomix, CryptoECDSA, CryptoAES, SecureBinaryData
+   LOGINFO('C++ block utilities loaded successfully')
 except:
-   print '***ERROR:  C++ block utilities not available.'
-   print '           Make sure that you have the SWIG-compiled modules'
-   print '           in the current directory (or added to the PATH)'
-   print '           Specifically, you need:'
-   print '                  CppBlockUtils.py     and'
+   LOGCRIT('C++ block utilities not available.')
+   LOGCRIT('   Make sure that you have the SWIG-compiled modules')
+   LOGCRIT('   in the current directory (or added to the PATH)')
+   LOGCRIT('   Specifically, you need:')
+   LOGCRIT('       CppBlockUtils.py     and')
    if OS_LINUX or OS_MACOSX:
-      print '                  _CppBlockUtils.so'
+      LOGCRIT('       _CppBlockUtils.so')
    elif OS_WINDOWS:
-      print '                  _CppBlockUtils.pyd'
+      LOGCRIT('       _CppBlockUtils.pyd')
    else:
-      print '\n\n... UNKNOWN operating system'
+      LOGCRIT('\n\n... UNKNOWN operating system')
    raise
 
 
@@ -408,7 +662,7 @@ TheBDM = Cpp.BlockDataManager().getBDM()
 
 
 
-DATATYPE = enum("Binary", "ASCII", 'Base58', 'Hex')
+DATATYPE = enum("Binary", 'Base58', 'Hex')
 def isLikelyDataType(theStr, dtype=None):
    """ 
    This really shouldn't be used on short strings.  Hence
@@ -417,15 +671,12 @@ def isLikelyDataType(theStr, dtype=None):
    ret = None
    hexCount = sum([1 if c in BASE16CHARS else 0 for c in theStr])
    b58Count = sum([1 if c in BASE58CHARS else 0 for c in theStr])
-   ascCount = sum([1 if 32<=ord(c)<=126 else 0 for c in theStr])
    canBeHex = hexCount==len(theStr)
    canBeB58 = b58Count==len(theStr)
    if canBeHex:
       ret = DATATYPE.Hex
    elif canBeB58 and not canBeHex:
       ret = DATATYPE.Base58
-   elif ascCount==len(theStr):
-      ret = DATATYPE.ASCII
    else:
       ret = DATATYPE.Binary
 
@@ -810,7 +1061,7 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       -- One byte error:  return input with fixed byte
       -- 2+ bytes error:  return ''
 
-   This method will check the checksum itself for errors, but not correct them.
+   This method will check the CHECKSUM ITSELF for errors, but not correct them.
    However, for PyBtcWallet serialization, if I determine that it is a chksum
    error and simply return the original string, then PyBtcWallet will correct
    the checksum in the file, next time it reserializes the data. 
@@ -822,21 +1073,21 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
    if hashFunc(bin1).startswith(chksum):
       return bin1
    elif hashFunc(bin2).startswith(chksum):
-      if not beQuiet: print '***Checksum valid for input with reversed endianness'
+      if not beQuiet: LOGWARN( '***Checksum valid for input with reversed endianness')
       if fixIfNecessary:
          return bin2
    elif fixIfNecessary:
-      if not beQuiet: print '***Checksum error!  Attempting to fix...',
+      if not beQuiet: LOGWARN('***Checksum error!  Attempting to fix...'),
       fixStr = fixChecksumError(bin1, chksum, hashFunc)
       if len(fixStr)>0:
-         if not beQuiet: print 'fixed!'
+         if not beQuiet: LOGWARN('fixed!')
          return fixStr
       else:
          # ONE LAST CHECK SPECIFIC TO MY SERIALIZATION SCHEME:
          # If the string was originally all zeros, chksum is hash256('')
          # ...which is a known value, and frequently used in my files
          if chksum==hex_to_binary('5df6e0e2'):
-            if not beQuiet: print 'fixed!'
+            if not beQuiet: LOGWARN('fixed!')
             return ''
 
 
@@ -847,10 +1098,10 @@ def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
       for ch in range(256):
          chkArray[i] = chr(ch)
          if origHash.startswith(''.join(chkArray)):
-            print '***Checksum error!  Incorrect byte in checksum!'
+            LOGWARN('***Checksum error!  Incorrect byte in checksum!')
             return bin1
 
-   print 'Checksum fix failed'
+   LOGWARN('Checksum fix failed')
    return ''
 
 
@@ -1002,7 +1253,7 @@ class BinaryUnpacker(object):
          self.advance(sz)
          return binOut
 
-      print 'Var Type not recognized!  VarType =', varType
+      LOGERROR('Var Type not recognized!  VarType = %d', varType)
       raise UnpackerError, "Var type not recognized!  VarType="+str(varType)
 
 
@@ -1199,6 +1450,8 @@ def parsePrivateKeyData(theStr):
 
          if binEntry=='':
             raise InvalidHashError, 'Private Key checksum failed!'
+      elif len(binEntry) in (33, 37) and binEntry[-1]=='\x01':
+         raise CompressedKeyError, 'Compressed Public keys not supported!'
       return binEntry, keyType
    
 
@@ -1495,7 +1748,7 @@ class PyBtcAddress(object):
          return False
 
       if self.useEncryption and not secureKdfOutput:
-         print 'No encryption key supplied to verifyEncryption!'
+         LOGERROR('No encryption key supplied to verifyEncryption!')
          return False
 
 
@@ -1533,19 +1786,16 @@ class PyBtcAddress(object):
       """
       if self.binInitVect16.getSize()==16:
          if self.isLocked:
-            print '***WARNING:  Address already locked with different IV.'
-            print '             Changing IV may cause loss of keydata.'
+            LOGERROR('Address already locked with different IV.')
+            LOGERROR('Changing IV may cause loss of keydata.')
          else:
-            print '***WARNING:  Address already contains an initialization'
-            print '             vector.  If you change IV without updating'
-            print '             the encrypted storage, you may permanently'
-            print '             lose the encrypted data'
+            LOGERROR('Address already contains an initialization')
+            LOGERROR('vector.  If you change IV without updating')
+            LOGERROR('the encrypted storage, you may permanently')
+            LOGERROR('lose the encrypted data')
 
-         if force:
-            pass
-         else:
-            print '             If you really want to do this, re-execute'
-            print '             this call with force=True'
+         if not force:
+            LOGERROR('If you really want to do this, re-execute this call with force=True')
             return ''
 
       if IV16:
@@ -1849,7 +2099,7 @@ class PyBtcAddress(object):
                   '\x02' + sSize + sBin
          return sigScr
       except:
-         print 'Failed signature generation'
+         LOGERROR('Failed signature generation')
       finally:
          # Always re-lock/cleanup after unlocking, even after an exception.
          # If locking triggers an error too, we will just skip it.
@@ -1950,7 +2200,7 @@ class PyBtcAddress(object):
       next time the user unlocks their wallet.  Thus, we have to save off the
       data they will need to create the key, to be applied on next unlock.
       """
-
+      LOGDEBUG('Extending address chain')
       if not self.chaincode.getSize() == 32:
          raise KeyDataError, 'No chaincode has been defined to extend chain'
 
@@ -2075,12 +2325,12 @@ class PyBtcAddress(object):
       if self.useEncryption and \
          self.binPrivKey32_Encr.getSize()==0 and \
          self.binPrivKey32_Plain.getSize()>0:
-         print ''
-         print '***WARNING: you have chosen to serialize a key you hope to be'
-         print '            encrypted, but have not yet chosen a passphrase for'
-         print '            it.  The only way to serialize this address is with '
-         print '            the plaintext keys.  Please lock this address at'
-         print '            least once in order to enable encrypted output.'
+         LOGERROR('')
+         LOGERROR('***WARNING: you have chosen to serialize a key you hope to be')
+         LOGERROR('            encrypted, but have not yet chosen a passphrase for')
+         LOGERROR('            it.  The only way to serialize this address is with ')
+         LOGERROR('            the plaintext keys.  Please lock this address at')
+         LOGERROR('            least once in order to enable encrypted output.')
          serializeWithEncryption = False
 
       # Before starting, let's construct the flags for this address
@@ -2113,7 +2363,7 @@ class PyBtcAddress(object):
       binOut = BinaryPacker()
       binOut.put(BINARY_CHUNK,   self.addrStr20,                    width=20)
       binOut.put(BINARY_CHUNK,   chk(self.addrStr20),               width= 4)
-      binOut.put(UINT32,         getVersionInt(PYBTCADDRESS_VERSION))
+      binOut.put(UINT32,         getVersionInt(PYBTCWALLET_VERSION))
       binOut.put(UINT64,         bitset_to_int(flags))
 
       # Write out address-chaining parameters (for deterministic wallets)
@@ -2154,6 +2404,7 @@ class PyBtcAddress(object):
    #############################################################################
    def scanBlockchainForAddress(self):
       if TheBDM.isInitialized():
+         LOGDEBUG('Scanning blockchain for address')
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
          TheBDM.scanBlockchainForTx(cppWlt)
@@ -3551,7 +3802,7 @@ class PyScriptProcessor(object):
 
       if isinstance(txOldData, PyTx):
          if not self.txHash == hash256(txOldData.serialize()):
-            print '*** Supplied incorrect pair of transactions!'
+            LOGERROR('*** Supplied incorrect pair of transactions!')
          self.script2 = str(txOldData.outputs[self.txOutIndex].binScript)
       elif isinstance(txOldData, PyTxOut):
          self.script2 = str(txOldData.binScript)
@@ -3597,13 +3848,13 @@ class PyScriptProcessor(object):
          exitCode = self.executeOpCode(opcode, scriptData, self.stack, self.stackAlt)
          if not exitCode == SCRIPT_NO_ERROR:
             if exitCode==OP_NOT_IMPLEMENTED:
-               print '***ERROR: OpCodes OP_IF, OP_NOTIF, OP_ELSE, OP_ENDIF,'
-               print '          have not been implemented, yet.  This script'
-               print '          could not be evaluated.'
+               LOGERROR('***ERROR: OpCodes OP_IF, OP_NOTIF, OP_ELSE, OP_ENDIF,')
+               LOGERROR('          have not been implemented, yet.  This script')
+               LOGERROR('          could not be evaluated.')
             if exitCode==OP_DISABLED:
-               print '***ERROR: This script included an op code that has been'
-               print '          disabled for security reasons.  Script eval'
-               print '          failed'
+               LOGERROR('***ERROR: This script included an op code that has been')
+               LOGERROR('          disabled for security reasons.  Script eval')
+               LOGERROR('          failed.')
             return exitCode
 
       return SCRIPT_NO_ERROR
@@ -3647,7 +3898,7 @@ class PyScriptProcessor(object):
       justSig = binSig[:-1]
 
       if not hashtype == 1:
-         print 'Non-unity hashtypes not implemented yet! ( hashtype =', hashtype,')'
+         LOGERROR('Non-unity hashtypes not implemented yet! (hashtype = %d)', hashtype)
          assert(False)
 
       # 5. Make a copy of the transaction -- we will be hashing a modified version
@@ -4500,7 +4751,7 @@ def PySelectCoins_MultiInput_SingleValue( \
    for utxo in unspentTxOutInfo:
       sumVal += utxo.getValue()
       outList.append(utxo)
-      if sumVal>=targetOutVal:
+      if sumVal>=target:
          break
 
    return outList
@@ -5107,8 +5358,8 @@ class PyTxDistProposal(object):
       """
 
       pprintUnspentTxOutList(utxoSelection)
-      print sumTxOutList(utxoSelection)
-      print sum([a[1] for a in recip160ValPairs])
+      #print sumTxOutList(utxoSelection)
+      #print sum([a[1] for a in recip160ValPairs])
       assert(sumTxOutList(utxoSelection) >= sum([a[1] for a in recip160ValPairs]))
       thePyTx = PyTx()
       thePyTx.version = 1
@@ -5311,14 +5562,14 @@ class PyTxDistProposal(object):
          psp.setTxObjects(self.txOutScripts[i], finalTx, i)
          totalScriptValid = psp.verifyTransactionValid()
          if not totalScriptValid:
-            print 'Invalid script for input %d:'
+            LOGWARN('Invalid script for input %d:')
             pprintScript(finalTx.inputs[i].binScript, 2)
-            print 'Spending txout script:'
+            LOGWARN('Spending txout script:')
             pprintScript(self.txOutScripts[i], 2)
             raise SignatureError, 'Invalid script for input %d' % i
          else:
             if len(self.inAddr20Lists)==1: print 'Signature', i, 'is valid!'
-            else: print 'Signatures for input', i, 'are valid!'
+            else: LOGDEBUG('Signatures for input %d are valid!', i)
       return finalTx
 
 
@@ -5364,7 +5615,7 @@ class PyTxDistProposal(object):
 
       endline = ('-------END-TRANSACTION-' + self.uniqueB58 + '-----').ljust(80,'-')
       txdpLines.append( endline )
-      self.pprint()
+      LOGPPRINT(self, logging.DEBUG)
       return '\n'.join(txdpLines)
       
 
@@ -5442,10 +5693,10 @@ class PyTxDistProposal(object):
             binSig = hex_to_binary(hexSig)
             idx, sigOrder, addr160 = self.processSignature(binSig, iin)
             if idx == -1:
-               #raise SignatureError, 'Invalid sig: Input %d, addr=%s' % (iin, addrB58)
-               print  'Invalid sig: Input %d, addr=%s' % (iin, addrB58)
+               LOGWARN('Invalid sig: Input %d, addr=%s' % (iin, addrB58))
             elif not hash160_to_addrStr(addr160)== addrB58:
-               raise BadAddressError, 'Listed addr does not match computed addr'
+               LOGERROR('Listed addr does not match computed addr')
+               raise BadAddressError 
             # If we got here, the signature is valid!
             self.signatures[iin][sigOrder] = binSig
 
@@ -5739,8 +5990,8 @@ class PyBtcWallet(object):
          TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
          self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
       else:
-         print '***WARNING: Blockchain-sync requested, but current wallet'
-         print '            is set to BLOCKCHAIN_DONOTUSE'
+         LOGERROR('Blockchain-sync requested, but current wallet')
+         LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
 
 
 
@@ -5863,7 +6114,7 @@ class PyBtcWallet(object):
          else:
             raise TypeError, 'Unknown balance type! ' + txType
       else:
-         print '***Blockchain is not available for accessing wallet-tx data'
+         LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
 
    #############################################################################
@@ -5880,7 +6131,7 @@ class PyBtcWallet(object):
          else:
             raise TypeError, 'Unknown TxOutList type! ' + txType
       else:
-         print '***Blockchain is not available for accessing wallet-tx data'
+         LOGERROR('***Blockchain is not available for accessing wallet-tx data')
          return []
 
 
@@ -5980,15 +6231,15 @@ class PyBtcWallet(object):
       if withEncrypt and not securePassphrase:
          raise EncryptionError, 'Cannot create encrypted wallet without passphrase'
 
-      print '***Creating new deterministic wallet'
+      LOGINFO('***Creating new deterministic wallet')
 
       # Set up the KDF
       if not withEncrypt:
          self.kdfKey = None
       else:
-         print '(with encryption)',
+         LOGINFO('(with encryption)')
          self.kdf = KdfRomix()
-         print kdfTargSec, kdfMaxMem
+         LOGINFO('Target (time,RAM)=(%0.3f,%d)', kdfTargSec, kdfMaxMem)
          (mem,niter,salt) = self.computeSystemSpecificKdfParams( \
                                                 kdfTargSec, kdfMaxMem)
          self.kdf.usePrecomputedKdfParams(mem, niter, salt)
@@ -6046,7 +6297,7 @@ class PyBtcWallet(object):
          newName = 'armory_%s_.wallet' % self.uniqueIDB58
          self.walletPath = os.path.join(ARMORY_HOME_DIR, newName)
 
-      print '   New wallet will be written to:', self.walletPath
+      LOGINFO('   New wallet will be written to: %s', self.walletPath)
       newfile = open(self.walletPath, 'wb')
       fileData = BinaryPacker()
 
@@ -6174,7 +6425,7 @@ class PyBtcWallet(object):
    #############################################################################
    def setAddrPoolSize(self, newSize):
       if newSize<5:
-         print 'Will not allow address pool sizes smaller than 5...'
+         LOGERROR('Will not allow address pool sizes smaller than 5...')
          return
 
       self.addrPoolSize = newSize
@@ -6218,7 +6469,7 @@ class PyBtcWallet(object):
       highest address used.      
       """
       if not TheBDM.isInitialized():
-         print 'Cannot detect any usage information without the blockchain'
+         LOGERROR('Cannot detect any usage information without the blockchain')
          return -1
 
       oldSync = self.doBlockchainSync
@@ -6311,7 +6562,8 @@ class PyBtcWallet(object):
       Make a copy of this wallet that contains no private key data
       """
       if not self.addrMap['ROOT'].hasPrivKey():
-         print 'This wallet is already void of any private key data!'
+         LOGWARN('This wallet is already void of any private key data!')
+         LOGWARN('Aborting wallet fork operation.')
 
       onlineWallet = PyBtcWallet()
       onlineWallet.fileTypeStr = self.fileTypeStr
@@ -6447,7 +6699,7 @@ class PyBtcWallet(object):
          self.walletFileSafeUpdate( \
                [[WLT_UPDATE_MODIFY, self.offsetKdfParams, fixedKdfData]])
          allKdfData = fixedKdfData
-         print '***WARNING: KDF params in wallet were corrupted, but fixed'
+         LOGWARN('KDF params in wallet were corrupted, but fixed')
 
       kdfUnpacker = BinaryUnpacker(allKdfData)
       mem   = kdfUnpacker.get(UINT64)
@@ -6560,14 +6812,15 @@ class PyBtcWallet(object):
       """
       if self.useEncryption:
          if not securePassphrase:
-            print ''
-            print '***ERROR:  You have requested changing the key-derivation'
-            print '           parameters on an already-encrypted wallet, which'
-            print '           requires modifying the encryption on this wallet.'
-            print '           Please unlock your wallet before attempting to'
-            print '           change the KDF parameters.'
+            LOGERROR('')
+            LOGERROR('You have requested changing the key-derivation')
+            LOGERROR('parameters on an already-encrypted wallet, which')
+            LOGERROR('requires modifying the encryption on this wallet.')
+            LOGERROR('Please unlock your wallet before attempting to')
+            LOGERROR('change the KDF parameters.')
             raise WalletLockError, 'Cannot change KDF without unlocking wallet'
          elif not self.verifyPassphrase(securePassphrase):
+            LOGERROR('Incorrect passphrase to unlock wallet')
             raise PassphraseError, 'Incorrect passphrase to unlock wallet'
 
       secureSalt = SecureBinaryData(salt)
@@ -6645,7 +6898,7 @@ class PyBtcWallet(object):
          newKdfKey = self.kdf.DeriveKey(securePassphrase)
 
       if oldUsedEncryption and newUsesEncryption and self.verifyEncryptionKey(newKdfKey):
-         print 'Attempting to change encryption to same passphrase!'
+         LOGWARN('Attempting to change encryption to same passphrase!')
          return # Wallet is encrypted with the new passphrase already
 
 
@@ -6708,44 +6961,6 @@ class PyBtcWallet(object):
             fpath = pieces[0] + nameSuffix + pieces[1]
       return fpath
 
-   #############################################################################
-   def upgradeWalletVersion(self ):
-      """
-      This function will be called on any wallet that has a version older than
-      the current PYBTCWALLET_VERSION.  It will incrementally apply version
-      upgrade logic, starting at the current version.  Every time the version
-      in increased, I will add another conditional to the end to further 
-      the upgrade process
-      """
-      if self.version==PYBTCWALLET_VERSION:
-         return
-
-      if getVersionInt(self.version) < getVersionInt( (1, 35, 0, 0) ):
-         print '   Upgrading from version', self.version, '...'
-         firstAddr = self.addrMap['ROOT'].extendAddressChain()
-         self.uniqueIDBin =  (ADDRBYTE + firstAddr.getAddr160()[:5])[::-1]
-         self.uniqueIDB58 = binary_to_base58(self.uniqueIDBin)
-         self.version = (1, 35, 0, 0)
-
-      #if getVersionInt(self.version) < getVersionInt( (1, 50, 0, 0) ):
-      # ...
-
-      self.version = PYBTCWALLET_VERSION
-
-      # Shuffle wallet files:  save new one to temp, delete old, rename new
-      print self.walletPath
-      oldBackupOrig = self.getWalletPath('backup')
-      oldBackupSave = self.getWalletPath('oldversion_backup')
-
-      shutil.move(self.walletPath, oldBackupSave) 
-      os.remove(oldBackupOrig)
-
-      # With the old version copied, we can overwrite the current wallet.
-      # When the new 
-      self.writeFreshWalletFile(self.walletPath)
-      self.readWalletFile(self.walletPath)
-
-      print '   Upgraded wallet to version', PYBTCWALLET_VERSION
 
 
    #############################################################################
@@ -6921,14 +7136,14 @@ class PyBtcWallet(object):
 
       # We now have both the magic bytes and network byte
       if not self.magicBytes == MAGIC_BYTES:
-         print '***ERROR:  Requested wallet is for a different blockchain!'
-         print '           Wallet is for:   ', BLOCKCHAINS[self.magicBytes]
-         print '           ArmoryEngine:    ', BLOCKCHAINS[MAGIC_BYTES]
+         LOGERROR('Requested wallet is for a different blockchain!')
+         LOGERROR('Wallet is for:   ', BLOCKCHAINS[self.magicBytes])
+         LOGERROR('ArmoryEngine:    ', BLOCKCHAINS[MAGIC_BYTES])
          return
       if not self.uniqueIDBin[-1] == ADDRBYTE:
-         print '***ERROR:  Requested wallet is for a different network!'
-         print '           Wallet is for:   ', NETWORKS[netByte]
-         print '           ArmoryEngine:    ', NETWORKS[ADDRBYTE]
+         LOGERROR('Requested wallet is for a different network!')
+         LOGERROR('Wallet is for:   ', NETWORKS[netByte])
+         LOGERROR('ArmoryEngine:    ', NETWORKS[ADDRBYTE])
          return
 
       # User-supplied description/name for wallet
@@ -7016,8 +7231,7 @@ class PyBtcWallet(object):
          try:
             nError = self.doWalletFileConsistencyCheck()
          except KeyDataError, errmsg:
-            print '***ERROR:  Wallet file had unfixable errors.'
-            print '***ERROR:', errmsg
+            LOGEXCEPT('***ERROR:  Wallet file had unfixable errors.')
             raise KeyDataError, errmsg
 
 
@@ -7075,10 +7289,8 @@ class PyBtcWallet(object):
 
       ### Update the wallet version if necessary ###
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
-         if verifyIntegrity:
-            print '*** UPGRADING WALLET VERSION '
-            self.upgradeWalletVersion()
-            print '*** UPGRADE COMPLETE!'
+         LOGERROR('Wallets older than version 1.35 no loger supported!')
+         return
 
       return self
 
@@ -7190,11 +7402,10 @@ class PyBtcWallet(object):
                updateLocations.append(updateInfo[0])
                dataToChange.append( updateInfo )
             else:
-               print '***ERROR:  Unknown wallet-update type!'
+               LOGERROR('Unknown wallet-update type!')
                raise Exception, 'Unknown wallet-update type!'
       except Exception:
-         print '***ERROR: '
-         print '***ERROR:  Bad input to walletFileSafeUpdate'
+         LOGEXCEPT('Bad input to walletFileSafeUpdate')
          return []
 
       binaryToAppend = toAppend.getBinaryString()
@@ -7218,7 +7429,7 @@ class PyBtcWallet(object):
          wltfile.close()
 
       except IOError:
-         print '***ERROR: could not write data to wallet.  Permissions?'
+         LOGEXCEPT('Could not write data to wallet.  Permissions?')
          shutil.copy(walletFileBackup, self.walletPath)
          os.remove(mainUpdateFlag)
          return []
@@ -7248,7 +7459,7 @@ class PyBtcWallet(object):
          backupfile.close()
 
       except IOError:
-         print '***WARNING: could not write backup wallet.  Permissions?'
+         LOGEXCEPT('Could not write backup wallet.  Permissions?')
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(mainUpdateFlag)
          return []
@@ -7296,24 +7507,24 @@ class PyBtcWallet(object):
 
       if not os.path.exists(walletFileBackup):
          # We haven't even created a backup file, yet
-         print 'Creating backup file', walletFileBackup
+         LOGDEBUG('Creating backup file %s', walletFileBackup)
          touchFile(backupUpdateFlag)
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
 
       if os.path.exists(backupUpdateFlag) and os.path.exists(mainUpdateFlag):
          # Here we actually have a good main file, but backup never succeeded
-         print '***WARNING: error in backup file... how did that happen?'
+         LOGWARN('***WARNING: error in backup file... how did that happen?')
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(mainUpdateFlag)
          os.remove(backupUpdateFlag)
       elif os.path.exists(mainUpdateFlag):
-         print '***WARNING: last file operation failed!  Restoring wallet from backup'
+         LOGWARN('***WARNING: last file operation failed!  Restoring wallet from backup')
          # main wallet file might be corrupt, copy from backup
          shutil.copy(walletFileBackup, self.walletPath)
          os.remove(mainUpdateFlag)
       elif os.path.exists(backupUpdateFlag):
-         print '***WARNING: creation of backup was interrupted -- fixing'
+         LOGWARN('***WARNING: creation of backup was interrupted -- fixing')
          shutil.copy(self.walletPath, walletFileBackup)
          os.remove(backupUpdateFlag)
 
@@ -7386,12 +7597,12 @@ class PyBtcWallet(object):
       """
 
       if not privKey and not self.watchingOnly:
-         print ''
-         print '***ERROR:  This wallet is strictly for addresses that you'
-         print '           own.  You cannot import addresses without the'
-         print '           the associated private key.  Instead, use a'
-         print '           watching-only wallet to import this address.'
-         print '           (actually, this is currently, completely disabled)'
+         LOGERROR('')
+         LOGERROR('This wallet is strictly for addresses that you')
+         LOGERROR('own.  You cannot import addresses without the')
+         LOGERROR('the associated private key.  Instead, use a')
+         LOGERROR('watching-only wallet to import this address.')
+         LOGERROR('(actually, this is currently, completely disabled)')
          raise WalletAddressError, 'Cannot import non-private-key addresses'
 
 
@@ -7429,7 +7640,7 @@ class PyBtcWallet(object):
 
       # Now a few sanity checks
       if self.addrMap.has_key(addr20):
-         print 'This address is already in your wallet!'
+         LOGWARN('This address is already in your wallet!')
          return
 
       #if pubKey and not computedPubkey==pubKey:
@@ -7621,7 +7832,7 @@ class PyBtcWallet(object):
    #############################################################################
    def signTxDistProposal(self, txdp, hashcode=1):
       if not hashcode==1:
-         print '***ERROR: hashcode!=1 is not supported at this time!'
+         LOGERROR('hashcode!=1 is not supported at this time!')
          return
 
       # If the wallet is locked, we better bail now
@@ -7649,8 +7860,8 @@ class PyBtcWallet(object):
       # WltAddr now contains a list of every input we can sign for, and the
       # PyBtcAddress object that can be used to sign it.  Let's do it.
       numMyAddr = len(wltAddr)
-      print 'Total number of inputs in transaction:  ', numInputs
-      print 'Number of inputs that you can sign for: ', numMyAddr
+      LOGDEBUG('Total number of inputs in transaction:  %d', numInputs)
+      LOGDEBUG('Number of inputs that you can sign for: %d', numMyAddr)
 
 
       # Unlock the wallet if necessary, sign inputs 
@@ -7697,7 +7908,7 @@ class PyBtcWallet(object):
             sigLenInBinary = int_to_binary(len(signature))
             txdp.signatures[idx][sigIdx] = (sigLenInBinary + signature)
          else:
-            print '***WARNING: unknown txOut script type'
+            LOGERROR('Unknown txOut script type')
 
       
       prevHighestIndex = self.highestUsedChainIndex  
@@ -7721,6 +7932,7 @@ class PyBtcWallet(object):
       locked.
       """
       
+      LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
       if not secureKdfOutput and not securePassphrase:
          raise PassphraseError, "No passphrase/key provided to unlock wallet!"
          
@@ -7752,6 +7964,7 @@ class PyBtcWallet(object):
                                                 addrObj.serialize()]])
 
       self.isLocked = False
+      LOGDEBUG('Unlock succeeded: %s', self.uniqueIDB58)
 
 
    #############################################################################
@@ -7787,6 +8000,7 @@ class PyBtcWallet(object):
       #       input for PyBtcAddress::lock for "I don't have it".  In most 
       #       cases, it is actually possible to lock the wallet without the 
       #       kdfKey because we saved the encrypted versions before unlocking
+      LOGDEBUG('Attempting to lock wallet: %s', self.uniqueIDB58)
       try:
          for addr160,addrObj in self.addrMap.iteritems():
             self.addrMap[addr160].lock(self.kdfKey)
@@ -7796,10 +8010,12 @@ class PyBtcWallet(object):
             self.kdfKey = None
          self.isLocked = True
       except WalletLockError:
-         print '***ERROR: Locking wallet requires encryption key.  This error'
-         print '          Usually occurs on newly-encrypted wallets that have'
-         print '          never been encrypted before.'
+         LOGERROR('Locking wallet requires encryption key.  This error')
+         LOGERROR('Usually occurs on newly-encrypted wallets that have')
+         LOGERROR('never been encrypted before.')
          raise WalletLockError, 'Unlock with passphrase before locking again'
+      LOGDEBUG('Wallet locked: %s', self.uniqueIDB58)
+
 
    #############################################################################
    def getAddrListSortedByChainIndex(self, withRoot=False):
@@ -8593,8 +8809,8 @@ try:
    from twisted.internet.protocol import Protocol, ReconnectingClientFactory
    from twisted.internet.defer import Deferred
 except ImportError:
-   print '***Python-Twisted is not installed -- cannot enable'
-   print '   networking-related methods for ArmoryEngine' 
+   LOGERROR('***Python-Twisted is not installed -- cannot enable')
+   LOGERROR('   networking-related methods for ArmoryEngine' )
 
 
 ################################################################################
@@ -8684,9 +8900,9 @@ class ArmoryClient(Protocol):
             #print '\n  Message', len(messages), 'read: ',
             #print messages[-1].cmd.upper(),
          except NetworkIDError:
-            print 'Message for a different network!' 
+            LOGERROR('Message for a different network!' )
             if BLOCKCHAINS.has_key(self.recvData[:4]):
-               print '(for network:', BLOCKCHAINS[self.recvData[:4]], ')'
+               LOGERROR( '(for network: %s)', BLOCKCHAINS[self.recvData[:4]])
             # Before raising the error, we should've finished reading the msg
             # So pop it off the front of the buffer
             self.recvData = buf.getRemainingString()
@@ -8865,7 +9081,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def handshakeFinished(self, protoObj):
-      print 'Handshake finished, connection open!'
+      LOGINFO('Handshake finished, connection open!')
       self.proto = protoObj
       if self.deferred_handshake:
          d, self.deferred_handshake = self.deferred_handshake, None
@@ -8904,7 +9120,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def clientConnectionLost(self, connector, reason):
-      print '***Connection to Satoshi client LOST!  Attempting to reconnect...'
+      LOGERROR('***Connection to Satoshi client LOST!  Attempting to reconnect...')
       self.func_loseConnect()
       ReconnectingClientFactory.clientConnectionLost(self,connector,reason)
 
@@ -8917,7 +9133,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
       to reopen the connection... and I'll need to copy the Deferred so
       that it is ready for the next connection failure
       """
-      print '***Initial connection to Satoshi client failed!  Retrying...'
+      LOGERROR('***Initial connection to Satoshi client failed!  Retrying...')
       ReconnectingClientFactory.connectionFailed(self, protoObj, reason)
 
 
@@ -8993,7 +9209,7 @@ class SettingsFile(object):
       if not path:
          self.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt') 
 
-      print 'Using settings file:', self.settingsPath
+      LOGINFO('Using settings file: %s', self.settingsPath)
       if os.path.exists(self.settingsPath):
          self.loadSettingsFile(path)
 
@@ -9094,7 +9310,7 @@ class SettingsFile(object):
                valStr = ' $  '.join([str(v) for v in val])
             f.write(key.ljust(36) + ' | ' + valStr + '\n')
          except:
-            print 'Invalid entry in SettingsFile... skipping'
+            LOGWARN('Invalid entry in SettingsFile... skipping')
       f.close()
       
 
@@ -9140,7 +9356,7 @@ class SettingsFile(object):
             else:
                self.settingsMap[key.strip()] = valList
          except:
-            print 'Invalid setting in', path, ' (skipping...)'
+            LOGWARN('Invalid setting in %s (skipping...)', path)
 
 
 
@@ -9294,7 +9510,7 @@ def open_wallet(db_env, wltFile):
       r = True
 
    if r is not None:
-      logging.error("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
+      LOGERROR("Couldn't open wallet.dat/main. Try quitting Bitcoin and running this again.")
       sys.exit(1)
    
    return db
