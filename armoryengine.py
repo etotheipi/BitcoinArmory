@@ -475,8 +475,10 @@ elif CLI_OPTIONS.logcpp:
    
 
 def logexcept_override(type, value, tback):
+   import traceback
+   import logging
    strList = traceback.format_exception(type,value,tback)
-   LOGERROR(''.join([s for s in strList]))
+   logging.error(''.join([s for s in strList]))
    # then call the default handler
    sys.__excepthook__(type, value, tback) 
 
@@ -5109,23 +5111,34 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    # anonymity: this extra output may cause a tx with good output anonymity
    # to no longer possess this property
    IDEAL_NUM_INPUTS = 5
-   if len(finalSelection)>=IDEAL_NUM_INPUTS or SCORES[IDX_PRIORITY]<0.5:
-      return finalSelection
-   else:
-      for sel in finalSelection:
-         addrAlreadyUsed = sel.getRecipientAddr()
-         for other in sorted(unspentTxOutInfo, key=(lambda a: a.getValue())):
-            # First 3 conditions make sure we're not picking txOut already selected
-            if(  addrAlreadyUsed == other.getRecipientAddr() and \
-                 sel.getValue() != other.getValue() and \
-                 sel.getNumConfirm() != other.getNumConfirm() and \
-                 other not in finalSelection and \
-                 other.getValue()*other.getNumConfirm() < 10*ONE_BTC*144./250. and \
-                 other.getNumConfirm() > 0 and \
-                 SCORES[IDX_OUTANONYM] == 0):
-               finalSelection.append(other)
-               if len(finalSelection)>=IDEAL_NUM_INPUTS:
-                  return finalSelection
+   if len(finalSelection) < IDEAL_NUM_INPUTS and \
+          SCORES[IDX_OUTANONYM] == 0:
+
+      alreadyUsedAddr = set( [utxo.getRecipientAddr() for utxo in finalSelection] )
+      getPriority = lambda a: a.getValue() * a.getNumConfirm()
+      utxoSmallToLarge = sorted(unspentTxOutInfo, key=getPriority)
+      
+      for other in utxoSmallToLarge:
+         
+         # Skip it if it is already selected
+         if other in finalSelection:
+            continue
+
+         # We only consider UTXOs that won't link any new addresses together
+         if not other.getRecipientAddr() in alreadyUsedAddr:
+            continue
+         
+         # Avoid zero-conf inputs altogether
+         if other.getNumConfirm() == 0:
+            continue
+
+         # Don't consider any inputs that are high priority already
+         if getPriority(other) > ONE_BTC*144:
+            continue
+
+         finalSelection.append(other) 
+         if len(finalSelection)>=IDEAL_NUM_INPUTS:
+            break
 
    return finalSelection
 
