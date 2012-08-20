@@ -8869,6 +8869,7 @@ class ArmoryClient(Protocol):
       Construct the initial version message and send it right away.
       Everything else will be handled by dataReceived.
       """
+      LOGINFO('Connection initiated.  Start handshake')
       addrTo   = str_to_quad(self.transport.getPeer().host)
       portTo   =             self.transport.getPeer().port
       addrFrom = str_to_quad(self.transport.getHost().host)
@@ -9020,6 +9021,7 @@ class ArmoryClient(Protocol):
       object, or a binary serialized tx.  It will be converted to
       a PyMessage and forwarded to our peer(s)
       """
+      LOGINFO('sendTx called...')
       if   isinstance(txObj, PyMessage):
          self.sendMessage( txObj )
       elif isinstance(txObj, PyTx):
