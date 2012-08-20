@@ -106,7 +106,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="swigwin\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
+				CommandLine="swigwin-2.0.4\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
@@ -145,9 +145,10 @@
 			/>
 			<Tool
 				Name="VCLinkerTool"
-				OutputFile="cryptlib.lib"
+				AdditionalDependencies="cryptlib.lib"
+				OutputFile=""
 				LinkIncremental="2"
-				AdditionalLibraryDirectories="cryptopp\x64\output\debug"
+				AdditionalLibraryDirectories="cryptopp\x64\Output\Debug"
 				GenerateDebugInformation="true"
 				SubSystem="1"
 				RandomizedBaseAddress="1"
@@ -174,6 +175,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
+				CommandLine="copy x64\Debug\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd&#x0D;&#x0A;C:\Python27\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\qrc_img_resources.py ..\imgList.xml&#x0D;&#x0A;python ../setup.py py2exe --includes sip,hashlib -d ../ArmoryStandalone&#x0D;&#x0A;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 		<Configuration
