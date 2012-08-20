@@ -22,7 +22,7 @@ Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
-Test_SelectCoins      = False
+Test_SelectCoins      = True
 Test_CryptoTiming     = False
 
 Test_NetworkObjects   = False
@@ -1588,7 +1588,56 @@ if Test_TxDistProposals:
    # TODO: test a multisig TxDP
 
 
+################################################################################
+################################################################################
+if Test_SelectCoins:
+   print ''
+   print '*********************************************************************'
+   print 'Testing SelectCoins'
+   print '*********************************************************************'
+   print ''
 
+   addrs = [ch*20 for ch in ['\xaa','\xbb','\xcc','\xdd','\xee']]
+   utxo3s = [ [addrs[0], ONE_BTC*1.0,     5  ], \
+              [addrs[0], ONE_BTC*1.5,     130], \
+              [addrs[0], ONE_BTC*0.0005,  200], \
+              [addrs[0], ONE_BTC*2.1,     130], \
+              [addrs[0], ONE_BTC*0.0001,  130], \
+              [addrs[0], ONE_BTC*5.5,       0], \
+              [addrs[0], ONE_BTC*0.3,       0], \
+              [addrs[0], ONE_BTC*10.1,    130], \
+              #[addrs[1], ONE_BTC*22.3331, 130], \
+              [addrs[1], ONE_BTC*0.0004, 1000], \
+              [addrs[1], ONE_BTC*1.1,     100], \
+              [addrs[1], ONE_BTC*3.3,     130], \
+              [addrs[2], ONE_BTC*5.2,     130], \
+              [addrs[3], ONE_BTC*5.3,     130], \
+              [addrs[4], ONE_BTC*5.4,     130] ]
+   utxolist = []
+   for trip in utxo3s:
+      utxo = PyUnspentTxOut() 
+      utxo.addr = trip[0]
+      utxo.val  = trip[1]
+      utxo.conf = trip[2]
+      utxo.binScript = '\x76\xa9\x14' + utxo.addr + '\x88\xac'
+      utxolist.append(utxo)
+   
+
+   targetOutVal = 10*ONE_BTC
+   minFee = 0
+   
+   
+   pprintUnspentTxOutList(utxolist, 'Test set of UTXOs')
+
+   testTargs = [t*ONE_BTC for t in [0.001, 0.01, 0.0005, 0.1, 1.0, 2.5, 5.0, 1.3928, 10.0, 22.32221, 50, 60, 90]]
+   testFees  = [f*ONE_BTC for f in [0, 0.0001, 0.0005, 0.01, 0.1]]
+
+   for targ in testTargs:
+      for fee in testFees:
+         selected = PySelectCoins(utxolist, targ, fee)
+         pprintUnspentTxOutList(selected, '(Targ,Fee) = (%s,%s)' % (coin2str(targ).strip(), coin2str(fee).strip()))
+
+   
 
 
 

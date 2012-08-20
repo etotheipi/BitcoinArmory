@@ -961,7 +961,9 @@ class ArmoryMainWindow(QMainWindow):
                                        func_loseConnect=showOfflineMsg, \
                                        func_madeConnect=showOnlineMsg, \
                                        func_newTx=newTxFunc)
-      reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+
+      reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', BITCOIN_PORT, \
+                                                         self.NetworkingFactory)
 
 
 
