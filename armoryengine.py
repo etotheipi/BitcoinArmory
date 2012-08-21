@@ -55,6 +55,7 @@ import logging
 import logging.handlers
 import ast
 import traceback
+import threading
 from struct import pack, unpack
 from datetime import datetime
 
@@ -9689,8 +9690,79 @@ class SettingsFile(object):
 #      return False
 #   except EncryptionError:
 #      return True
-#      
-#   
-#
-#
-#
+
+
+
+
+
+class PyBackgroundThread(threading.Thread):
+   '''
+   Define a thread object that will execute a preparatory function
+   (blocking), and then a long processing thread followed by something
+   to do when it's done (both non-blocking).  After the 3 methods and 
+   their arguments are set, use obj.start() to kick it off.
+   '''
+   
+   def __init__(self, *args, **kwargs):
+      super(PyBackgroundThread, self).__init__
+      threading.Thread.__init__(self)
+
+      self.preFunc  = lambda: ()
+      self.postFunc = lambda: ()
+
+      if len(args)==0:
+         self.func  = lambda: ()
+      else:
+         if not hasattr(args[0], '__call__'):
+            raise TypeError, ('PyBkgdThread constructor first arg '
+                              '(if any) must be a function')
+         else:
+            self.setThreadFunction(args[0], *args[1:], **kwargs)
+
+   def setPreThreadFunction(self, prefunc, *args, **kwargs):
+      def preFuncPartial():
+         prefunc(*args, **kwargs)
+      self.preFunc = preFuncPartial
+
+
+   def setThreadFunction(self, thefunc, *args, **kwargs):
+      def funcPartial():
+         thefunc(*args, **kwargs)
+      self.func = funcPartial
+
+   def setPostThreadFunction(self, postfunc, *args, **kwargs):
+      def postFuncPartial():
+         postfunc(*args, **kwargs)
+      self.postFunc = postFuncPartial
+
+
+   def run(self):
+      print 'Executing run()...'
+      self.func()
+      self.postFunc()
+
+   def start(self):
+      print 'Executing start()...'
+      # This is blocking: we may want to guarantee that something critical 
+      #                   is in place before we start the thread
+      self.preFunc()
+      super(PyBackgroundThread, self).start()
+
+      
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

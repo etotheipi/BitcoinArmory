@@ -13,7 +13,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
+Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -22,7 +22,7 @@ Test_TxSimpleCreate   = False
 Test_EncryptedAddress = False
 Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
-Test_SelectCoins      = True
+Test_SelectCoins      = False
 Test_CryptoTiming     = False
 
 Test_NetworkObjects   = False
@@ -31,6 +31,7 @@ Test_SettingsFile     = False
 Test_WalletMigrate    = False
 Test_AddressBooks     = False
 Test_URIParse         = False
+Test_BkgdThread       = True
 
 '''
 import optparse
@@ -1954,4 +1955,51 @@ if Test_URIParse:
       for key,val in outputdict.iteritems():
          print '\t', key.ljust(12), '=', val
       
+
+if Test_BkgdThread:
+   import math
+
+   def longFuncA(a,b,c):
+      print 'FuncA', a,b,c
+      nIter = 10**7
+      start = RightNow()
+      for i in xrange(nIter):
+         math.log(float(i)+1)
+      print 'Finished %d log() calculations'%nIter
+      print '...in', RightNow() - start, 'seconds'
+
+
+   def longFuncB(a,b,c):
+      print 'FuncB', a,b,c
+      nIter = 10**7
+      start = RightNow()
+      for i in xrange(nIter):
+         math.sqrt(float(i)+1)
+      print 'Finished %d sqrt() calculations'%nIter
+      print '...in', RightNow() - start, 'seconds'
+
+
+   def longFuncC(a,b,c):
+      print 'FuncC', a,b,c
+      nIter = 10**7
+      start = RightNow()
+      for i in xrange(nIter):
+         math.sin(float(i)+1)
+      print 'Finished %d sin() calculations'%nIter
+      print '...in', RightNow() - start, 'seconds'
+
+
+   print 'Creating Thread'
+   thr = PyBackgroundThread()
+   thr.setPreThreadFunction(longFuncA, 1, '2', 3.0)
+   thr.setThreadFunction(longFuncB, *(5, '6', 8.0))
+   thr.setPostThreadFunction(longFuncC, a=50, b='90', c=12.0)
+   print 'Starting thread...'
+   thr.start()
+   print 'Print statement right after thread.start()... waiting'
+   print 'Run longFuncC again just for fun, while we wait...'
+   longFuncC(0,0,0)
+
+
+
 
