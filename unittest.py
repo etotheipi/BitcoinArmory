@@ -1965,7 +1965,7 @@ if Test_BkgdThread:
       start = RightNow()
       for i in xrange(nIter):
          math.log(float(i)+1)
-      print 'Finished %d log() calculations'%nIter
+      print 'Finished %d log() calculations'%nIter,
       print '...in', RightNow() - start, 'seconds'
 
 
@@ -1975,7 +1975,7 @@ if Test_BkgdThread:
       start = RightNow()
       for i in xrange(nIter):
          math.sqrt(float(i)+1)
-      print 'Finished %d sqrt() calculations'%nIter
+      print 'Finished %d sqrt() calculations'%nIter,
       print '...in', RightNow() - start, 'seconds'
 
 
@@ -1985,7 +1985,7 @@ if Test_BkgdThread:
       start = RightNow()
       for i in xrange(nIter):
          math.sin(float(i)+1)
-      print 'Finished %d sin() calculations'%nIter
+      print 'Finished %d sin() calculations'%nIter,
       print '...in', RightNow() - start, 'seconds'
 
 

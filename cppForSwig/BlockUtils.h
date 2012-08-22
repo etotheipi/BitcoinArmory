@@ -690,7 +690,6 @@ private:
    // This is for detecting external changes made to the blk0001.dat file
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
-   uint64_t                           totalBlockchainBytes_;
    uint64_t                           lastBlkFileBytes_;
 
    // These should be set after the blockchain is organized
@@ -719,6 +718,13 @@ private:
    BinaryData GenesisTxHash_;
    BinaryData MagicBytes_;
    
+  
+   // Variables that will be updated as the blockchain loads:
+   // can be used to report load progress
+   uint64_t totalBlockchainBytes_;
+   uint64_t bytesReadSoFar_;
+   uint32_t blocksReadSoFar_;
+   uint16_t filesReadSoFar_;
 
 
    // We will now "register" all wallets and addresses, so that the BDM knows
@@ -738,7 +744,7 @@ private:
 public:
 
    static BlockDataManager_FileRefs & GetInstance(void);
-   bool isInitialized(void) { return isInitialized_;}
+   bool isInitialized(void) const { return isInitialized_;}
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
@@ -747,6 +753,12 @@ public:
    BinaryData getGenesisHash(void)   { return GenesisHash_;   }
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
    BinaryData getMagicBytes(void)    { return MagicBytes_;    }
+
+   uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
+   uint16_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
+   uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
+   uint32_t getLoadProgressBlocks(void)   const {return blocksReadSoFar_;}
+   uint16_t getLoadProgressFiles(void)    const {return filesReadSoFar_;}
 
    /////////////////////////////////////////////////////////////////////////////
    void Reset(void);

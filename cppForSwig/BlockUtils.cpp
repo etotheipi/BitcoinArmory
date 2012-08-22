@@ -2433,28 +2433,28 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    // Next thing we need to do is find all the blk000X.dat files.
    // BtcUtils::GetFileSize uses only ifstreams, and thus should be
    // able to determine if a file exists in an OS-independent way.
-   uint16_t highestBlkFileNum=0;
-   uint64_t totalBlkBytes = 0;
+   numBlkFiles_=0;
+   totalBlockchainBytes_ = 0;
    blkFileList_.clear();
 
-   while(highestBlkFileNum < UINT16_MAX)
+   while(numBlkFiles_ < UINT16_MAX)
    {
-      highestBlkFileNum++;
-      string path = BtcUtils::getBlkFilename(blkdir, highestBlkFileNum);
+      numBlkFiles_++;
+      string path = BtcUtils::getBlkFilename(blkdir, numBlkFiles_);
       if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
          break;
 
       blkFileList_.push_back(string(path));
-      totalBlkBytes += globalCache.openFile(highestBlkFileNum-1, path);
+      totalBlockchainBytes_ += globalCache.openFile(numBlkFiles_-1, path);
    }
-   highestBlkFileNum--;
+   numBlkFiles_--;
 
-   if(highestBlkFileNum==UINT16_MAX)
+   if(numBlkFiles_==UINT16_MAX)
    {
       cout << "Error finding blockchain files (blkXXXX.dat)" << endl;
       return 0;
    }
-   cout << "Highest blkXXXX.dat file: " << highestBlkFileNum << endl;
+   cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
 
 
    if(blkdir.compare(blkFileDir_)==0)
@@ -2474,9 +2474,9 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
 
    /////////////////////////////////////////////////////////////////////////////
    // Now we start the meat of this process...
-   uint32_t nBlkRead = 0;
-   uint32_t nBytesRead = 0;
-   for(uint32_t fnum=1; fnum<=highestBlkFileNum; fnum++)
+   uint32_t blocksReadSoFar_ = 0;
+   uint32_t bytesReadSoFar_ = 0;
+   for(uint32_t fnum=1; fnum<=numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum-1];
       cout << "Attempting to read blockchain from file: " << blkfile.c_str() << endl;
@@ -2518,7 +2518,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             {
                bsb.reader().advance(4);
                nextBlkSize = bsb.reader().get_uint32_t();
-               nBytesRead += 8;
+               bytesReadSoFar_ += 8;
             }
    
             if(bsb.reader().getSizeRemaining() < nextBlkSize)
@@ -2530,10 +2530,12 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
             parseNewBlockData(brr, fnum-1, bsb.getFileByteLocation(), nextBlkSize);
-            nBlkRead++;
-            nBytesRead += nextBlkSize;
+            blocksReadSoFar_++;
+            bytesReadSoFar_ += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
          }
+         cout << "Bytes:  " << bytesReadSoFar_ << endl;
+         cout << "Blocks: " << blocksReadSoFar_ << endl;
       }
       globalCache.openFile(fnum-1, blkfile);
       TIMER_STOP("ScanBlockchain");
@@ -2542,7 +2544,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
 
    
    // We need to maintain the physical size of all blkXXXX.dat files together
-   numBlkFiles_          = highestBlkFileNum;
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
    lastBlkFileBytes_     = globalCache.getLastFileSize();
 
@@ -2558,7 +2559,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
    purgeZeroConfPool();
-   return nBlkRead;
+   return blocksReadSoFar_;
 }
 
 

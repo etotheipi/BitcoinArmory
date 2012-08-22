@@ -288,9 +288,15 @@ class ArmoryMainWindow(QMainWindow):
       ledgLayout.setRowStretch(0, 0)
       ledgLayout.setRowStretch(1, 1)
       ledgLayout.setRowStretch(2, 0)
-
       ledgFrame.setLayout(ledgLayout)
 
+
+      self.stkLedger = QStackedWidget()
+      lblPleaseWait = QRichLabel('Please wait while the blockchain is loaded')
+      lblPleaseWait.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      waitFrame = makeHorizFrame([lblPleaseWait])
+      self.stkLedger.addWidget(ledgFrame)
+      self.stkLedger.addWidget(waitFrame)
 
 
       btnSendBtc   = QPushButton("Send Bitcoins")
@@ -329,7 +335,7 @@ class ArmoryMainWindow(QMainWindow):
       layout = QGridLayout()
       layout.addWidget(btnFrame,          0, 0, 1, 1)
       layout.addWidget(wltFrame,          0, 1, 1, 1)
-      layout.addWidget(ledgFrame,         1, 0, 1, 2)
+      layout.addWidget(self.stkLedger,    1, 0, 1, 2)
       layout.setRowStretch(0, 1)
       layout.setRowStretch(1, 5)
 
@@ -344,11 +350,14 @@ class ArmoryMainWindow(QMainWindow):
 
       #self.statusBar().showMessage('Blockchain loading, please wait...')
 
-      if self.haveBlkFile and not CLI_OPTIONS.offline:
-         tstart = RightNow()
-         self.loadBlockchain()
-         LOGINFO('Loading blockchain took %0.1f seconds' % (RightNow()-tstart))
       from twisted.internet import reactor
+      self.prevBlkLoadFinish = False
+      if self.haveBlkFile and not CLI_OPTIONS.offline:
+         self.stkLedger.setCurrentIndex(1)
+         reactor.callLater(0,self.startLoadBlockchain)
+      else:
+         self.stkLedger.setCurrentIndex(1)
+
 
       ##########################################################################
       # Set up menu and actions
@@ -907,6 +916,9 @@ class ArmoryMainWindow(QMainWindow):
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
       def newTxFunc(pytxObj):
+         if not TheBDM.isInitialized():
+            return
+
          TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
          for wltID,wlt in self.walletMap.iteritems():
             # Absorb the new tx into the BDM & wallets
@@ -1223,13 +1235,19 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def loadBlockchain(self):
-
+   def startLoadBlockchain(self):
       if not self.isOnline:
          LOGINFO('Skip blockchain loading in offline mode')
       else:
-         LOGINFO('Loading blockchain')
-         BDM_LoadBlockchainFile()
+         LOGINFO('Starting Blockchain Loading (in background thread)')
+         self.prevBlkLoadFinish = False
+         self.stkLedger.setCurrentIndex(1)
+         loadBlockchainThread = PyBackgroundThread(BDM_LoadBlockchainFile)
+         loadBlockchainThread.start()
+
+
+   #############################################################################
+   def finishLoadBlockchain(self):
          self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
    
          # Now that theb blockchain is loaded, let's populate the wallet info
@@ -1713,7 +1731,9 @@ class ArmoryMainWindow(QMainWindow):
                                            longLabel=descr)
 
 
-      TheBDM.registerWallet(newWallet.cppWallet, True) # is new, no blk rescan
+      if TheBDM.isInitialized():
+         TheBDM.registerWallet(newWallet.cppWallet, True) # is new, no blk rescan
+
       self.addWalletToApplication(newWallet)
 
       if dlg.chkPrintPaper.isChecked():
@@ -2327,6 +2347,18 @@ class ArmoryMainWindow(QMainWindow):
       run every 2 seconds, or whatever is specified in the nextBeatSec
       argument.
       """
+
+      if TheBDM.isInitialized() and not self.prevBlkLoadFinish:
+         self.stkLedger.setCurrentIndex(0)
+         self.finishLoadBlockchain()
+         #if not self.prevBlkLoadFinish:
+         print 'Total Bytes: ', TheBDM.getTotalBlockchainBytes()
+         print 'Bytes Read:  ', TheBDM.getLoadProgressBytes()
+         print 'Blocks Read: ', TheBDM.getLoadProgressBlocks()
+         print 'Files Read:  ', TheBDM.getLoadProgressFiles()
+      self.prevBlkLoadFinish = TheBDM.isInitialized()
+
+
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
          newBlks = TheBDM.readBlkFileUpdate()
