@@ -219,6 +219,112 @@ class ArmoryMainWindow(QMainWindow):
       wltLayout.addWidget(self.walletsView, 1,0, 1,3)
       wltFrame.setLayout(wltLayout)
 
+
+
+      # Make the bottom 2/3 a tabwidget
+      self.mainDisplayTabs = QTabWidget()
+
+      # Dashboard describes stuff, and is what's shown while the blockchain loads
+      self.tabDashboard   = QStackedWidget()
+      self.stkDashOnline  = QWidget()
+      self.stkDashLoading = QWidget()
+      self.stkDashOffline = QWidget()
+
+
+      lblDescrLoading = QRichLabel('<b>Please wait while the blockchain is loading.</b> '
+                                   '<br><br>'
+                                   'Depending on your computer and its operating system, '
+                                   'this may take up to five minutes!  While you wait, '
+                                   'you may manage your wallets and addresses.  The '
+                                   'following functionality is available:'
+                                   '<br><br>'
+                                   '<ul>'
+                                   '<li>Create, import or recover wallets</li>'
+                                   '<li>Generate new receiving addresses for your wallets</li>'
+                                   '<li>Create backups of your wallets (printed or digital)</li>'
+                                   '<li>Import private keys to wallets (no sweeping)</li>'
+                                   '<li>Change wallet encryption settings</li>'
+                                   '</ul>'
+                                   '<br><br>'
+                                   'The main window will update with your balances and '
+                                   'transaction history as soon as Armory is finished '
+                                   'scanning the blockchain')
+
+      
+      lblDescrOffline = QRichLabel('<b>You are currently running Armory in <u>offline mode</u>.</b>  '
+                                   'If you expected to be connected to the Bitcoin network, '
+                                   'please make sure that Bitcoin-Qt is open and running (and '
+                                   'preferably synchronized with the network), then restart '
+                                   'Armory.  '
+                                   'In offline mode, The following functionality is available:'
+                                   '<br><br>'
+                                   '<ul>'
+                                   '<li>Create, import or recover wallets</li>'
+                                   '<li>Generate new receiving addresses for your wallets</li>'
+                                   '<li>Send Bitcoins to other people</li>'
+                                   '<li>Click on "bitcoin:" links in your web browser</li>'
+                                   '<li>Create backups of your wallets (printed or digital)</li>'
+                                   '<li>Import private keys to wallets (no sweeping)</li>'
+                                   '<li>Monitor payments to watching-only wallets and '
+                                       'create unsigned transactions</li>'
+                                   '</ul>'
+                                   '<br><br>'
+                                   'The main window will update with your balances and '
+                                   'transaction history as soon as Armory is finished '
+                                   'scanning the blockchain')
+      
+      lblDescrOnline = QRichLabel( '<b>You are currently online with Armory!</b>  '
+                                   'You now have access to all the features Armory has to offer! '
+                                   '<br><br>'
+                                   'To see your balances and transaction history, please click '
+                                   'on the "Activity" tab above this text.'
+                                   '<br><br>'
+                                   'Here\'s some things you can do with Armory Bitcoin Client:'
+                                   '<ul>'
+                                   '<li>Create, import or recover wallets</li>'
+                                   '<li>Generate new addresses to receive coins</li>'
+                                   '<li>Create backups of your wallets (printed or digital)</li>'
+                                   '<li>Import private keys to wallets (no sweeping)</li>'
+                                   '<li>Sign transactions generated from another system</li>'
+                                   '<li>Change wallet encryption settings</li>'
+                                   '</ul>'
+                                   '<br><br>'
+                                   'If you experience any performance issues with Armory, '
+                                   'please confirm that Bitcoin-Qt is running and <i>fully '
+                                   'synchronized with the Bitcoin network</i>.  You will see '
+                                   'a green checkmark in the bottom right corner of the '
+                                   'Bitcoin-Qt window if it is synchronized.  If not, it is '
+                                   'recommended you close Armory and restart it only when you '
+                                   'see that checkmark.'
+                                   '<br><br>'
+                                   '<b>Please backup your wallets!</b>  Armory wallets are '
+                                   '"deterministic", meaning they only need to be backed up '
+                                   'one time (unless you have imported external addresses/keys). '
+                                   'Make a backup and keep it in a safe place!  All funds from '
+                                   'Armory-generated addresses will always be recoverable with '
+                                   'a paper backup, any time in the future.  Use the "Backup '
+                                   'Individual Keys" option fore each wallet to backup imported '
+                                   'keys.')
+
+      # Put the labels into scroll areas just in case window size is small.
+      scrollLoading = QScrollArea()
+      scrollOffline = QScrollArea()
+      scrollOnline  = QScrollArea()
+      scrollLoading.setWidget(lblDescrLoading)
+      scrollOffline.setWidget(lblDescrOffline)
+      scrollOnline.setWidget(lblDescrOnline)
+
+      self.stkDashLoading = makeHorizFrame([scrollLoading])
+      self.stkDashOnline  = makeHorizFrame([scrollOnline])
+      self.stkDashOffline = makeHorizFrame([scrollOffline])
+
+      self.tabDashboard.addWidget(self.stkDashLoading)
+      self.tabDashboard.addWidget(self.stkDashOffline)
+      self.tabDashboard.addWidget(self.stkDashOnline)
+      
+      
+
+
       # Combo box to filter ledger display
       self.comboWalletSelect = QComboBox()
       self.populateLedgerComboBox()
@@ -282,7 +388,7 @@ class ArmoryMainWindow(QMainWindow):
       ledgFrame = QFrame()
       ledgFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       ledgLayout = QGridLayout()
-      ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
+      #ledgLayout.addWidget(QLabel("<b>Ledger</b>:"),  0,0)
       ledgLayout.addWidget(self.ledgerView,           1,0)
       ledgLayout.addWidget(frmLower,                  2,0)
       ledgLayout.setRowStretch(0, 0)
@@ -290,13 +396,18 @@ class ArmoryMainWindow(QMainWindow):
       ledgLayout.setRowStretch(2, 0)
       ledgFrame.setLayout(ledgLayout)
 
+      self.tabActivity = QWidget()
+      self.tabActivity.setLayout(ledgLayout)
 
-      self.stkLedger = QStackedWidget()
-      lblPleaseWait = QRichLabel('Please wait while the blockchain is loaded')
-      lblPleaseWait.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      waitFrame = makeHorizFrame([lblPleaseWait])
-      self.stkLedger.addWidget(ledgFrame)
-      self.stkLedger.addWidget(waitFrame)
+      # Add the available tabs to the main tab widget
+      self.DashboardModes = enum('LOADING','ONLINE','OFFLINE')
+      self.MainDispModes  = enum('DASHBOARD','ACTIVITY')
+
+      self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
+      self.mainDisplayTabs.addTab(self.tabActivity, 'Activity')
+
+      self.tabDashboard.setCurrentIndex( self.DashboardModes.OFFLINE )
+      self.mainDisplayTabs.setCurrentIndex( self.MainDispModes.DASHBOARD )
 
 
       btnSendBtc   = QPushButton("Send Bitcoins")
@@ -335,7 +446,7 @@ class ArmoryMainWindow(QMainWindow):
       layout = QGridLayout()
       layout.addWidget(btnFrame,          0, 0, 1, 1)
       layout.addWidget(wltFrame,          0, 1, 1, 1)
-      layout.addWidget(self.stkLedger,    1, 0, 1, 2)
+      layout.addWidget(self.mainDisplayTabs,  1, 0, 1, 2)
       layout.setRowStretch(0, 1)
       layout.setRowStretch(1, 5)
 
@@ -353,10 +464,10 @@ class ArmoryMainWindow(QMainWindow):
       from twisted.internet import reactor
       self.prevBlkLoadFinish = False
       if self.haveBlkFile and not CLI_OPTIONS.offline:
-         self.stkLedger.setCurrentIndex(1)
+         self.mainDisplayTabs.setCurrentIndex(0)
          reactor.callLater(0,self.startLoadBlockchain)
       else:
-         self.stkLedger.setCurrentIndex(1)
+         self.mainDisplayTabs.setCurrentIndex(0)
 
 
       ##########################################################################
@@ -1241,7 +1352,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          LOGINFO('Starting Blockchain Loading (in background thread)')
          self.prevBlkLoadFinish = False
-         self.stkLedger.setCurrentIndex(1)
+         self.mainDisplayTabs.setCurrentIndex(1)
          loadBlockchainThread = PyBackgroundThread(BDM_LoadBlockchainFile)
          loadBlockchainThread.start()
 
@@ -2349,7 +2460,7 @@ class ArmoryMainWindow(QMainWindow):
       """
 
       if TheBDM.isInitialized() and not self.prevBlkLoadFinish:
-         self.stkLedger.setCurrentIndex(0)
+         self.mainDisplayTabs.setCurrentIndex(0)
          self.finishLoadBlockchain()
          #if not self.prevBlkLoadFinish:
          print 'Total Bytes: ', TheBDM.getTotalBlockchainBytes()

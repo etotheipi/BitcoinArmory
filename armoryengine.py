@@ -9704,7 +9704,6 @@ class PyBackgroundThread(threading.Thread):
    '''
    
    def __init__(self, *args, **kwargs):
-      super(PyBackgroundThread, self).__init__
       threading.Thread.__init__(self)
 
       self.preFunc  = lambda: ()
@@ -9724,7 +9723,6 @@ class PyBackgroundThread(threading.Thread):
          prefunc(*args, **kwargs)
       self.preFunc = preFuncPartial
 
-
    def setThreadFunction(self, thefunc, *args, **kwargs):
       def funcPartial():
          thefunc(*args, **kwargs)
@@ -9737,12 +9735,12 @@ class PyBackgroundThread(threading.Thread):
 
 
    def run(self):
-      print 'Executing run()...'
+      print 'Executing thread.run()...'
       self.func()
       self.postFunc()
 
    def start(self):
-      print 'Executing start()...'
+      print 'Executing thread.start()...'
       # This is blocking: we may want to guarantee that something critical 
       #                   is in place before we start the thread
       self.preFunc()

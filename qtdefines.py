@@ -513,3 +513,68 @@ def saveTableView(qtbl):
    rest  = [int_to_hex(s, widthBytes=2) for s in sz]
    return 'ff' + first + ''.join(rest)
 
+
+
+
+class QtBackgroundThread(QThread):
+   '''
+   Define a thread object that will execute a preparatory function
+   (blocking), and then a long processing thread followed by something
+   to do when it's done (both non-blocking).  After the 3 methods and 
+   their arguments are set, use obj.start() to kick it off.
+
+   NOTE: This is basically just a copy of PyBackgroundThread in
+         armoryengine.py, but I needed a version that can access
+         Qt elements.  Using vanilla python threads with calls 
+         to Qt signals/slots/methods/etc, throws all sorts of errors.
+   '''
+
+   def __init__(self, parent, *args, **kwargs):
+      QThread.__init__(self, parent)
+
+      self.preFunc  = lambda: ()
+      self.postFunc = lambda: ()
+
+      if len(args)==0:
+         self.func  = lambda: ()
+      else:
+         if not hasattr(args[0], '__call__'):
+            raise TypeError, ('QtBkgdThread constructor first arg '
+                              '(if any) must be a function')
+         else:
+            self.setThreadFunction(args[0], *args[1:], **kwargs)
+
+   def setPreThreadFunction(self, prefunc, *args, **kwargs):
+      def preFuncPartial():
+         prefunc(*args, **kwargs)
+      self.preFunc = preFuncPartial
+
+   def setThreadFunction(self, thefunc, *args, **kwargs):
+      def funcPartial():
+         thefunc(*args, **kwargs)
+      self.func = funcPartial
+
+   def setPostThreadFunction(self, postfunc, *args, **kwargs):
+      def postFuncPartial():
+         postfunc(*args, **kwargs)
+      self.postFunc = postFuncPartial
+
+
+   def run(self):
+      print 'Executing QThread.run()...'
+      self.func()
+      self.postFunc()
+
+   def start(self):
+      print 'Executing QThread.start()...'
+      # This is blocking: we may want to guarantee that something critical 
+      #                   is in place before we start the thread
+      self.preFunc()
+      super(QtBackgroundThread, self).start()
+
+
+
+
+
+
+

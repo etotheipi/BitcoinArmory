@@ -2534,8 +2534,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             bytesReadSoFar_ += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
          }
-         cout << "Bytes:  " << bytesReadSoFar_ << endl;
-         cout << "Blocks: " << blocksReadSoFar_ << endl;
       }
       globalCache.openFile(fnum-1, blkfile);
       TIMER_STOP("ScanBlockchain");
