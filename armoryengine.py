@@ -90,6 +90,8 @@ parser.add_option("--nologging", dest="logDisable", action="store_true", default
                   #help="Log C++/SWIG console output by redirecting *all* stdout to log file")
 parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
+parser.add_option("--force-online", dest="forceOnline", action="store_true", default=False,
+                  help="Use online mode, even if internet connection isn't detected")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 

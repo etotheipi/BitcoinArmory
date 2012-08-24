@@ -10,13 +10,14 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
 
-SETTINGS_PATH = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
-USERMODE = enum('Standard', 'Advanced', 'Expert')
-ARMORYMODE = enum('WITH_BLOCKCHAIN', 'WALLET_ONLY')
-WLTTYPES = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
-WLTFIELDS = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
-                    'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
-MSGBOX = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
+USERMODE        = enum('Standard', 'Advanced', 'Expert')
+BLOCKCHAINMODE  = enum('Offline', 'Full', 'Scanning', 'FullPrune', 'Lite')
+NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
+WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
+WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
+                       'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
+MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised

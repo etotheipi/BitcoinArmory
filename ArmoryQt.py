@@ -80,11 +80,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      # Only need to check for the first blk file
-      blk0001filename = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
-      self.haveBlkFile = os.path.exists(blk0001filename)
       self.abortLoad = False
-      self.isDirty   = True
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -406,8 +402,13 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity, 'Activity')
 
-      self.tabDashboard.setCurrentIndex( self.DashboardModes.OFFLINE )
-      self.mainDisplayTabs.setCurrentIndex( self.MainDispModes.DASHBOARD )
+      if self.blkMode == BLOCKCHAINMODE.Offline:
+         self.setMainDisplay('Dashboard', 'OFFLINE')
+      elif self.blkMode == BLOCKCHAINMODE.Scanning:
+         self.setMainDisplay('Dashboard', 'LOADING')
+
+      #self.tabDashboard.setCurrentIndex( self.DashboardModes.OFFLINE )
+      #self.mainDisplayTabs.setCurrentIndex( self.MainDispModes.DASHBOARD )
 
 
       btnSendBtc   = QPushButton("Send Bitcoins")
@@ -463,11 +464,9 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       self.prevBlkLoadFinish = False
-      if self.haveBlkFile and not CLI_OPTIONS.offline:
-         self.mainDisplayTabs.setCurrentIndex(0)
+      self.mainDisplayTabs.setCurrentIndex(self.MainDispModes.DASHBOARD)
+      if self.blkMode == BLOCKCHAINMODE.Full
          reactor.callLater(0,self.startLoadBlockchain)
-      else:
-         self.mainDisplayTabs.setCurrentIndex(0)
 
 
       ##########################################################################
@@ -957,6 +956,9 @@ class ArmoryMainWindow(QMainWindow):
       self.internetAvail = False
       self.satoshiAvail  = False
 
+      # Only need to check for the first blk file
+      blk0001filename = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
+      self.haveBlkFile = os.path.exists(blk0001filename)
 
       # Prevent Armory from being opened twice
       from twisted.internet import reactor
@@ -991,34 +993,53 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Check general internet connection
-      try:
-         import urllib2
-         response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
-         self.internetAvail = True
-      except ImportError:
-         LOGERROR('No module urllib2 -- cannot determine if internet is available')
-      except urllib2.URLError:
-         # In the extremely rare case that google might be down (or just to try again...)
+      self.internetAvail = False
+      if not self.forceOnline:
          try:
-            response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+            import urllib2
+            response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
+            self.internetAvail = True
+         except ImportError:
+            LOGERROR('No module urllib2 -- cannot determine if internet is available')
          except urllib2.URLError:
-            self.internetAvail = False
+            # In the extremely rare case that google might be down (or just to try again...)
+            try:
+               response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
+            except urllib2.URLError:
+               self.internetAvail = False
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.satoshiAvail)
          
-      self.isOnline = (self.internetAvail and self.satoshiAvail and not CLI_OPTIONS.offline)
 
-      if not self.isOnline:
-         if not CLI_OPTIONS.offline:
-            dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
-            dlg.exec_()
+       
+
+      if CLI_OPTIONS.offline:
+         if CLI_OPTIONS.forceOnline:
+            LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
+         self.blkMode = BLOCKCHAINMODE.Offline
+         self.netMode = NETWORKMODE.Offline
+      elif (self.internetAvail or CLI_OPTIONS.forceOnline) and \
+            self.satoshiAvail and \
+            self.haveBlkFile)
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+         self.netMode = NETWORKMODE.Full
+      else:
+         # For now, either we have all three above, or we are offline
+         self.blkMode = BLOCKCHAINMODE.Offline
+         self.netMode = NETWORKMODE.Offline
+         dlg = DlgBadConnection(self.internetAvail, self.satoshiAvail, self, self)
+         dlg.exec_()
+
+
+      if self.netMode == NETWORKMODE.Offline:
          self.NetworkingFactory = FakeClientFactory()
          return
-   
 
 
+      # Actually setup the networking, now
       from twisted.internet import reactor
+
       def restartConnection(protoObj, failReason):
          QMessageBox.critical(self, 'Lost Connection', \
             'Connection to Bitcoin-Qt was interrupted.  Please make sure '
@@ -1026,26 +1047,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARN('! Trying to restart connection !')
          reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
 
-      def newTxFunc(pytxObj):
-         if not TheBDM.isInitialized():
-            return
-
-         TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
-         for wltID,wlt in self.walletMap.iteritems():
-            # Absorb the new tx into the BDM & wallets
-            TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-      
-            # Above doesn't return anything, but we want to know what it is...
-            le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
-
-            # If it is ours, let's add it to the notifier queue
-            if not le.getTxHash()=='\x00'*32:
-               notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
-               notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
-               if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
-                  self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-               self.createCombinedLedger()
-               self.walletModel.reset()
 
       def showOfflineMsg():
          self.lblArmoryStatus.setText( \
@@ -1083,13 +1084,34 @@ class ArmoryMainWindow(QMainWindow):
       self.NetworkingFactory = ArmoryClientFactory( \
                                        func_loseConnect=showOfflineMsg, \
                                        func_madeConnect=showOnlineMsg, \
-                                       func_newTx=newTxFunc)
+                                       func_newTx=self.newTxFunc)
 
       reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', BITCOIN_PORT, \
                                                          self.NetworkingFactory)
 
 
 
+   #############################################################################
+   def newTxFunc(self, pytxObj):
+      if not TheBDM.isInitialized():
+         return
+
+      TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True)
+      for wltID,wlt in self.walletMap.iteritems():
+         # Absorb the new tx into the BDM & wallets
+         TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+   
+         # Above doesn't return anything, but we want to know what it is...
+         le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
+
+         # If it is ours, let's add it to the notifier queue
+         if not le.getTxHash()=='\x00'*32:
+            notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
+            notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+            if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
+               self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
+            self.createCombinedLedger()
+            self.walletModel.reset()
 
 
 
@@ -1099,7 +1121,7 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('The following string was passed through the socket')
       LOGINFO(uriStr.replace('%','%%'))
       uriDict = parseBitcoinURI(uriStr)
-      if not self.isOnline:
+      if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Clicked "bitcoin:" link in offline mode.')
          self.bringArmoryToFront() 
          QMessageBox.warning(self, 'Offline Mode',
@@ -1347,12 +1369,12 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def startLoadBlockchain(self):
-      if not self.isOnline:
+      if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGINFO('Skip blockchain loading in offline mode')
       else:
          LOGINFO('Starting Blockchain Loading (in background thread)')
          self.prevBlkLoadFinish = False
-         self.mainDisplayTabs.setCurrentIndex(1)
+         self.mainDisplayTabs.setCurrentIndex(self.MainDispModes.DASHBOARD)
          loadBlockchainThread = PyBackgroundThread(BDM_LoadBlockchainFile)
          loadBlockchainThread.start()
 
@@ -1380,12 +1402,11 @@ class ArmoryMainWindow(QMainWindow):
             self.ledgerSize = len(self.combinedLedger)
             self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
    
-            if self.isOnline:
+            if self.netMode==NETWORKMODE.Full:
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % 
                   (htmlColor('TextGreen'), self.latestBlockNum))
             self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
-            self.isDirty = False
          else:
             self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -1480,7 +1501,7 @@ class ArmoryMainWindow(QMainWindow):
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
       try:
-         if not self.isOnline:
+         if self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
             self.lblTotalFunds.setText( '-'*12 )
             self.lblSpendFunds.setText( '-'*12 )
             self.lblUnconfFunds.setText('-'*12 )
@@ -2228,10 +2249,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
-      if not self.isOnline:
+      if self.blkMode==BLOCKCHAINMODE.Offline:
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
+           '<br><br>'
+           'In order to send coins from this wallet you must use a '
+           'full copy of this wallet from an online computer, '
+           'or initiate an "offline transaction" using a watching-only '
+           'wallet on an online computer.', QMessageBox.Ok)
+         return
+      elif self.blkMode==BLOCKCHAINMODE.Rescanning:
+         QMessageBox.warning(self, 'Armory Not Ready', \
+           'Armory is currently rescanning the blockchain, and will '
+           'not be able to create transactions until it is done.  '
            '<br><br>'
            'In order to send coins from this wallet you must use a '
            'full copy of this wallet from an online computer, '
@@ -2452,6 +2483,22 @@ class ArmoryMainWindow(QMainWindow):
       
 
    #############################################################################
+   def setMainDisplay(self, tabName, secondaryName=None):
+      try: 
+         tabIndex = getattr(self.MainDispModes, tabName.upper())
+         self.mainDisplayTabs.setCurrentIndex(tabIndex)
+      except AttributeError:
+         LOGERROR('No tab on main display named: %s', tabName)
+
+      if tabname.lower() == 'dashboard':
+         try:
+            stkIndex = getattr(self.DashboardModes, secondaryName)
+            self.tabDashboard.setCurrentIndex(stkIndex)
+         except AttributeError:
+            LOGERROR('No frame on dashboard named: %s', secondaryName)
+
+
+   #############################################################################
    def Heartbeat(self, nextBeatSec=2):
       """
       This method is invoked when the app is initialized, and will
@@ -2460,15 +2507,13 @@ class ArmoryMainWindow(QMainWindow):
       """
 
       if TheBDM.isInitialized() and not self.prevBlkLoadFinish:
-         self.mainDisplayTabs.setCurrentIndex(0)
+         #self.setMainDisplay('Activity')
+         self.tabDashboard.setCurrentIndex(self.DashboardModes.ONLINE)
+         self.mainDisplayTabs.tabBar().setTabTextColor(self.MainDispModes.ACTIVITY, Colors.TextGreen)
          self.finishLoadBlockchain()
-         #if not self.prevBlkLoadFinish:
-         print 'Total Bytes: ', TheBDM.getTotalBlockchainBytes()
-         print 'Bytes Read:  ', TheBDM.getLoadProgressBytes()
-         print 'Blocks Read: ', TheBDM.getLoadProgressBlocks()
-         print 'Files Read:  ', TheBDM.getLoadProgressFiles()
       self.prevBlkLoadFinish = TheBDM.isInitialized()
 
+      print self.mainDisplayTabs.currentIndex()
 
       # Check for new blocks in the blk0001.dat file
       if TheBDM.isInitialized():
@@ -2496,7 +2541,7 @@ class ArmoryMainWindow(QMainWindow):
             self.blkReceived  = RightNow()
             self.settings.set('LastBlkRecvTime', self.blkReceived)
       
-            if self.isOnline:
+            if self.blkMode==BLOCKCHAINMODE.ONLINE:
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
                   (htmlColor('TextGreen'), self.latestBlockNum))
