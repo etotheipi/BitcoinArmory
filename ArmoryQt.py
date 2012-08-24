@@ -80,12 +80,15 @@ class ArmoryMainWindow(QMainWindow):
       self.setWindowIcon(QIcon(self.iconfile))
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      self.abortLoad = False
+      self.abortLoad   = False
+      self.isDirty     = True
+      self.allowRescan = True
+      self.WltsToScan  = []
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
 
-      eulaAgreed = self.settings.getSettingOrSetDefault('Agreed_to_EULA', False)
+      eulaAgreed = self.getSettingWithDefault('Agreed_to_EULA', False)
       if not eulaAgreed:
          DlgEULA(self,self).exec_()
 
@@ -396,19 +399,19 @@ class ArmoryMainWindow(QMainWindow):
       self.tabActivity.setLayout(ledgLayout)
 
       # Add the available tabs to the main tab widget
-      self.DashboardModes = enum('LOADING','ONLINE','OFFLINE')
-      self.MainDispModes  = enum('DASHBOARD','ACTIVITY')
+      self.DASHMODES = enum('Loading','Online','Offline')
+      self.MAINTABS  = enum('Dashboard','Activity')
 
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity, 'Activity')
 
       if self.blkMode == BLOCKCHAINMODE.Offline:
          self.setMainDisplay('Dashboard', 'OFFLINE')
-      elif self.blkMode == BLOCKCHAINMODE.Scanning:
+      elif self.blkMode == BLOCKCHAINMODE.Rescanning:
          self.setMainDisplay('Dashboard', 'LOADING')
 
-      #self.tabDashboard.setCurrentIndex( self.DashboardModes.OFFLINE )
-      #self.mainDisplayTabs.setCurrentIndex( self.MainDispModes.DASHBOARD )
+      #self.tabDashboard.setCurrentIndex( self.DASHMODES.Offline )
+      #self.mainDisplayTabs.setCurrentIndex( self.MAINTABS.Dashboard )
 
 
       btnSendBtc   = QPushButton("Send Bitcoins")
@@ -464,7 +467,7 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       self.prevBlkLoadFinish = False
-      self.mainDisplayTabs.setCurrentIndex(self.MainDispModes.DASHBOARD)
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
       if self.blkMode == BLOCKCHAINMODE.Full
          reactor.callLater(0,self.startLoadBlockchain)
 
@@ -518,7 +521,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
-      currmode = self.settings.getSettingOrSetDefault('User_Mode', 'Advanced')
+      currmode = self.getSettingWithDefault('User_Mode', 'Advanced')
       LOGINFO('Usermode: %s', currmode)
       self.firstModeSwitch=True
       if currmode=='Standard':
@@ -632,7 +635,7 @@ class ArmoryMainWindow(QMainWindow):
       """
       # Don't bother the user on the first load with it if verification is 
       # needed.  They have enough to worry about with this weird new program.
-      isFirstLoad = self.settings.getSettingOrSetDefault('First_Load', True)
+      isFirstLoad = self.getSettingWithDefault('First_Load', True)
 
       if OS_LINUX:
          out,err = execAndWait('gconftool-2 --get /desktop/gnome/url-handlers/bitcoin/command')
@@ -649,7 +652,7 @@ class ArmoryMainWindow(QMainWindow):
             setAsDefault()
          elif not 'armory' in out.lower() and not isFirstLoad:
             # If another application has it, ask for permission to change it
-            if not self.settings.getSettingOrSetDefault('DNAA_DefaultApp', False):
+            if not self.getSettingWithDefault('DNAA_DefaultApp', False):
                reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
                   'Armory is not set as your default application for handling '
                   '"bitcoin:" links.  Would you like to use Armory as the '
@@ -657,7 +660,7 @@ class ArmoryMainWindow(QMainWindow):
                if reply[0]==True:
                   setAsDefault()
                if reply[1]==True:
-                  self.settings.set('DNAA_DefaultApp', True)
+                  self.writeSetting('DNAA_DefaultApp', True)
 
       if OS_WINDOWS:
          # Check for existing registration (user first, then root, if necessary)
@@ -687,7 +690,7 @@ class ArmoryMainWindow(QMainWindow):
             except:
                action = 'DoIt'
 
-         dontAsk = self.settings.getSettingOrSetDefault('DNAA_DefaultApp', False)
+         dontAsk = self.getSettingWithDefault('DNAA_DefaultApp', False)
          if action=='AskUser' and not isFirstLoad and not dontAsk:
             # If another application has it, ask for permission to change it
             reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
@@ -696,7 +699,7 @@ class ArmoryMainWindow(QMainWindow):
                'default?', 'Do not ask this question again')
 
             if reply[1]==True:
-               self.settings.set('DNAA_DefaultApp', True)
+               self.writeSetting('DNAA_DefaultApp', True)
 
             if reply[0]==True:
                action = 'DoIt'
@@ -775,12 +778,12 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execIntroDialog(self):
-      if not self.settings.getSettingOrSetDefault('DNAA_IntroDialog', False):
+      if not self.getSettingWithDefault('DNAA_IntroDialog', False):
          dlg = DlgIntroMessage(self, self)
          result = dlg.exec_()
 
          if dlg.chkDnaaIntroDlg.isChecked():
-            self.settings.set('DNAA_IntroDialog', True)
+            self.writeSetting('DNAA_IntroDialog', True)
 
          if dlg.requestCreate:
             self.createNewWallet(initLabel='Primary Wallet')
@@ -824,11 +827,11 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('   From: %s', self.settings.get('User_Mode'))
       self.usermode = mode
       if mode==USERMODE.Standard:
-         self.settings.set('User_Mode', 'Standard')
+         self.writeSetting('User_Mode', 'Standard')
       if mode==USERMODE.Advanced:
-         self.settings.set('User_Mode', 'Advanced')
+         self.writeSetting('User_Mode', 'Advanced')
       if mode==USERMODE.Expert:
-         self.settings.set('User_Mode', 'Expert')
+         self.writeSetting('User_Mode', 'Expert')
       LOGINFO('     To: %s', self.settings.get('User_Mode'))
 
       if not self.firstModeSwitch:
@@ -845,7 +848,7 @@ class ArmoryMainWindow(QMainWindow):
       # Treat the format as "binary" to make sure any special symbols don't
       # interfere with the SettingsFile symbols
       globalDefault = binary_to_hex(DEFAULT_DATE_FORMAT)
-      fmt = self.settings.getSettingOrSetDefault('DateFormat', globalDefault)
+      fmt = self.getSettingWithDefault('DateFormat', globalDefault)
       return hex_to_binary(str(fmt))  # short hex strings could look like int()
 
    #############################################################################
@@ -861,7 +864,7 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return False
 
-      self.settings.set('DateFormat', binary_to_hex(fmtStr))
+      self.writeSetting('DateFormat', binary_to_hex(fmtStr))
       return True
 
 
@@ -869,7 +872,7 @@ class ArmoryMainWindow(QMainWindow):
    def checkForLatestVersion(self, wasRequested=False):
       # Download latest versions.txt file, accumulate changelog
 
-      optChkVer = self.settings.getSettingOrSetDefault('CheckVersion', 'Always')
+      optChkVer = self.getSettingWithDefault('CheckVersion', 'Always')
       if optChkVer.lower()=='never' and not wasRequested:
          LOGINFO('User requested never check for new versions')
          return
@@ -1051,7 +1054,7 @@ class ArmoryMainWindow(QMainWindow):
       def showOfflineMsg():
          self.lblArmoryStatus.setText( \
             '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
-         if not self.settings.getSettingOrSetDefault('NotifyDiscon', True):
+         if not self.getSettingWithDefault('NotifyDiscon', True):
             return 
 
          try:
@@ -1068,7 +1071,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % 
                   (htmlColor('TextGreen'), self.latestBlockNum))
-         if not self.settings.getSettingOrSetDefault('NotifyReconn', True):
+         if not self.getSettingWithDefault('NotifyReconn', True):
             return
 
          try:
@@ -1106,8 +1109,8 @@ class ArmoryMainWindow(QMainWindow):
 
          # If it is ours, let's add it to the notifier queue
          if not le.getTxHash()=='\x00'*32:
-            notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
-            notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+            notifyIn  = self.getSettingWithDefault('NotifyBtcIn',  True)
+            notifyOut = self.getSettingWithDefault('NotifyBtcOut', True)
             if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
                self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
             self.createCombinedLedger()
@@ -1185,24 +1188,24 @@ class ArmoryMainWindow(QMainWindow):
    def loadWalletsAndSettings(self):
       self.settings = SettingsFile(self.settingsPath)
 
-      self.settings.getSettingOrSetDefault('First_Load',         True)
-      self.settings.getSettingOrSetDefault('Load_Count',         0)
-      self.settings.getSettingOrSetDefault('User_Mode',          'Advanced')
-      self.settings.getSettingOrSetDefault('UnlockTimeout',      10)
-      self.settings.getSettingOrSetDefault('DNAA_UnlockTimeout', False)
+      self.getSettingWithDefault('First_Load',         True)
+      self.getSettingWithDefault('Load_Count',         0)
+      self.getSettingWithDefault('User_Mode',          'Advanced')
+      self.getSettingWithDefault('UnlockTimeout',      10)
+      self.getSettingWithDefault('DNAA_UnlockTimeout', False)
 
 
       # Determine if we need to do new-user operations, increment load-count
       self.firstLoad = False
-      if self.settings.getSettingOrSetDefault('First_Load', True):
+      if self.getSettingWithDefault('First_Load', True):
          self.firstLoad = True
-         self.settings.set('First_Load', False)
-         self.settings.set('First_Load_Date', long(RightNow()))
-         self.settings.set('Load_Count', 1)
-         self.settings.set('AdvFeature_UseCt', 0)
+         self.writeSetting('First_Load', False)
+         self.writeSetting('First_Load_Date', long(RightNow()))
+         self.writeSetting('Load_Count', 1)
+         self.writeSetting('AdvFeature_UseCt', 0)
       else:
-         self.settings.set('Load_Count', (self.settings.get('Load_Count')+1) % 100)
-         firstDate = self.settings.getSettingOrSetDefault('First_Load_Date', RightNow())
+         self.writeSetting('Load_Count', (self.settings.get('Load_Count')+1) % 100)
+         firstDate = self.getSettingWithDefault('First_Load_Date', RightNow())
          daysSinceFirst = (RightNow() - firstDate) / (60*60*24)
          
 
@@ -1292,7 +1295,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(savedDir)==0 or not os.path.exists(savedDir):
          savedDir = ARMORY_HOME_DIR
       self.lastDirectory = savedDir
-      self.settings.set('LastDirectory', savedDir)
+      self.writeSetting('LastDirectory', savedDir)
 
 
    #############################################################################
@@ -1314,7 +1317,7 @@ class ArmoryMainWindow(QMainWindow):
 
       fdir,fname = os.path.split(fullPath)
       if fdir:
-         self.settings.set('LastDirectory', fdir)
+         self.writeSetting('LastDirectory', fdir)
       return fullPath
       
 
@@ -1329,7 +1332,7 @@ class ArmoryMainWindow(QMainWindow):
       typesStr = ';; '.join(types)
       fullPath = unicode(QFileDialog.getOpenFileName(self, title, lastDir, typesStr))
 
-      self.settings.set('LastDirectory', os.path.split(fullPath)[0])
+      self.writeSetting('LastDirectory', os.path.split(fullPath)[0])
       return fullPath
    
    ##############################################################################
@@ -1343,7 +1346,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setWltSetting(self, wltID, propName, value):
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
-      self.settings.set(wltPropName, value)
+      self.writeSetting(wltPropName, value)
 
 
    #############################################################################
@@ -1365,6 +1368,16 @@ class ArmoryMainWindow(QMainWindow):
       return ''
 
 
+   #############################################################################
+   def getSettingWithDefault(self, settingName, defaultVal, forceStr=False):
+      s = self.settings.getSettingOrSetDefault(settingName, defaultVal)
+      if forceStr:
+         s = str(s)
+      return s
+
+   #############################################################################
+   def writeSetting(self, settingName, val):
+      self.writeSetting(settingName, val)
 
 
    #############################################################################
@@ -1373,10 +1386,67 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('Skip blockchain loading in offline mode')
       else:
          LOGINFO('Starting Blockchain Loading (in background thread)')
-         self.prevBlkLoadFinish = False
-         self.mainDisplayTabs.setCurrentIndex(self.MainDispModes.DASHBOARD)
-         loadBlockchainThread = PyBackgroundThread(BDM_LoadBlockchainFile)
+         self.statusBar().showMessage('Syncing wallets with blockchain...')
+         def setBlkModeFull():
+            self.blkMode = BLOCKCHAINMODE.Full
+         self.prevBlkMode = BLOCKCHAINMODE.Rescanning
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+         loadBlockchainThread = PyBackgroundThread()
+         loadBlockchainThread.setThreadFunction(BDM_LoadBlockchainFile)
+         loadBlockchainThread.setPostThreadFunction(setBlkModeFull)
          loadBlockchainThread.start()
+
+   #############################################################################
+   def startRescanBlockchain(self):
+      if self.blkMode==BLOCKCHAINMODE.Offline:
+         LOGWARNING('Rescan requested but Armory is in offline mode')
+         return 
+
+      if not self.isDirty:
+         LOGWARNING('Rescan requested but there is no evidence it is needed')
+         # no return, we will rescan anyway
+
+      if not self.allowRescan:
+         LOGWARNING('Rescan requested but allowRescan=False')
+         return 
+
+      if self.blkMode==BLOCKCHAINMODE.Rescanning:
+         LOGINFO('Need to rescan again but previous rescan not finished')
+         return
+
+      elif self.blkMode==BLOCKCHAINMODE.Full:
+         if len(self.WltsToScan)==0:
+            LOGERROR('Supposed to rescan, but no wallets in the list!')
+            return
+
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+         def rescanAllWlts():
+            while len(self.WltsToScan)>0:
+               wltID = self.WltsToScan[0]
+               self.walletMap[wltID].syncWithBlockchain(0)
+               del self.WltsToScan[0]
+         def setBlkModeFull():
+            self.blkMode = BLOCKCHAINMODE.Full
+         self.prevBlkMode = BLOCKCHAINMODE.Rescanning
+         rescanThread = PyBackgroundThread()
+         rescanThread.setThreadFunction(rescanAllWlts)
+         rescanThread.setPostThreadFunction(setBlkModeFull)
+         rescanThread.start()
+
+
+   #############################################################################
+   def setBlockchainMode(self, newMode):
+      self.prevBlkMode = self.blkMode
+      self.blkMode = newMode
+      if newMode == BLOCKCHAINMODE.Full: 
+         self.tabActivity.setEnabled(True)      
+         self.tabDashboard.tabDashboard.setCurrentIndex(self.DASHMODES.Online)
+      elif newMode == BLOCKCHAINMODE.Offline
+         self.tabActivity.setEnabled(False)      
+         self.tabDashboard.tabDashboard.setCurrentIndex(self.DASHMODES.Offline)
+      elif newMode == BLOCKCHAINMODE.Rescanning
+         self.tabActivity.setEnabled(False)      
+         self.tabDashboard.tabDashboard.setCurrentIndex(self.DASHMODES.Loading)
 
 
    #############################################################################
@@ -1385,19 +1455,27 @@ class ArmoryMainWindow(QMainWindow):
    
          # Now that theb blockchain is loaded, let's populate the wallet info
          if TheBDM.isInitialized():
+            if self.getSettingWithDefault('NotifyBlkFinish',True):
+               reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
+                  'Blockchain Loaded!', 'Blockchain loading is complete.  '
+                  'Your balances and transaction history are now available '
+                  'under the "Activity" tab, and you can now create '
+                  'transactions.', yesStr='OK')
+                  
+               if reply==True:
+                  self.writeSetting('NotifyBlkFinish',False):
+                  
+
             mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
             self.checkMemoryPoolCorruption(mempoolfile)
             TheBDM.enableZeroConf(mempoolfile)
    
-            self.statusBar().showMessage('Syncing wallets with blockchain...')
-            LOGINFO('Syncing wallets with blockchain...')
             for wltID, wlt in self.walletMap.iteritems():
                LOGINFO('Syncing wallet: %s', wltID)
                self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
                self.walletMap[wltID].syncWithBlockchain()
    
             
-               
             self.createCombinedLedger()
             self.ledgerSize = len(self.combinedLedger)
             self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000)
@@ -1406,7 +1484,8 @@ class ArmoryMainWindow(QMainWindow):
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % 
                   (htmlColor('TextGreen'), self.latestBlockNum))
-            self.blkReceived  = self.settings.getSettingOrSetDefault('LastBlkRecvTime', 0)
+            self.blkReceived  = self.getSettingWithDefault('LastBlkRecvTime', 0)
+            self.isDirty = False
          else:
             self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -1472,7 +1551,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                pass
                #raise WalletExistsError, 'Bad combo-box selection: ' + str(currIdx)
-         self.settings.set('LastFilterState', currIdx)
+         self.writeSetting('LastFilterState', currIdx)
                
 
       if wltIDList==None:
@@ -1603,7 +1682,7 @@ class ArmoryMainWindow(QMainWindow):
 
          # We need to compute the fee by adding inputs and outputs...
          amt = le.getValue()
-         #removeFee = self.settings.getSettingOrSetDefault('DispRmFee', False)
+         #removeFee = self.getSettingWithDefault('DispRmFee', False)
          #if TheBDM.isInitialized() and removeFee and amt<0:
             #amt += self.getFeeForTx(le.getTxHash())
 
@@ -1688,7 +1767,7 @@ class ArmoryMainWindow(QMainWindow):
          self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
       self.comboWalletSelect.insertSeparator(4)
       self.comboWalletSelect.insertSeparator(4)
-      comboIdx = self.settings.getSettingOrSetDefault('LastFilterState', 0)
+      comboIdx = self.getSettingWithDefault('LastFilterState', 0)
       self.comboWalletSelect.setCurrentIndex(comboIdx)
       
 
@@ -1906,7 +1985,7 @@ class ArmoryMainWindow(QMainWindow):
 
       if minFee > 0 and \
          not forceZeroFee and \
-         not self.settings.getSettingOrSetDefault('OverrideMinFee', False):
+         not self.getSettingWithDefault('OverrideMinFee', False):
          LOGDEBUG( 'Subtracting fee from Sweep-output')
          outValue -= minFee
       outputSide = []
@@ -2261,13 +2340,11 @@ class ArmoryMainWindow(QMainWindow):
          return
       elif self.blkMode==BLOCKCHAINMODE.Rescanning:
          QMessageBox.warning(self, 'Armory Not Ready', \
-           'Armory is currently rescanning the blockchain, and will '
-           'not be able to create transactions until it is done.  '
-           '<br><br>'
-           'In order to send coins from this wallet you must use a '
-           'full copy of this wallet from an online computer, '
-           'or initiate an "offline transaction" using a watching-only '
-           'wallet on an online computer.', QMessageBox.Ok)
+           'Armory is currently scanning the blockchain to collect '
+           'the information needed to create transactions.  This typically '
+           'takes between one and five minutes.  Please wait until your '
+           'balance appears on the main window, then try again.', \
+            QMessageBox.Ok)
          return
 
       wltID = None
@@ -2482,21 +2559,6 @@ class ArmoryMainWindow(QMainWindow):
       self.activateWindow()
       
 
-   #############################################################################
-   def setMainDisplay(self, tabName, secondaryName=None):
-      try: 
-         tabIndex = getattr(self.MainDispModes, tabName.upper())
-         self.mainDisplayTabs.setCurrentIndex(tabIndex)
-      except AttributeError:
-         LOGERROR('No tab on main display named: %s', tabName)
-
-      if tabname.lower() == 'dashboard':
-         try:
-            stkIndex = getattr(self.DashboardModes, secondaryName)
-            self.tabDashboard.setCurrentIndex(stkIndex)
-         except AttributeError:
-            LOGERROR('No frame on dashboard named: %s', secondaryName)
-
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=2):
@@ -2506,12 +2568,11 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
-      if TheBDM.isInitialized() and not self.prevBlkLoadFinish:
-         #self.setMainDisplay('Activity')
-         self.tabDashboard.setCurrentIndex(self.DashboardModes.ONLINE)
-         self.mainDisplayTabs.tabBar().setTabTextColor(self.MainDispModes.ACTIVITY, Colors.TextGreen)
+      if self.blkMode==BLOCKCHAINMODE.Full and not self.prevBlkMode==BLOCKCHAINMODE.Full:
+         self.tabDashboard.setCurrentIndex(self.DASHMODES.Online)
+         self.mainDisplayTabs.tabBar().setTabTextColor(self.MAINTABS.Activity, Colors.TextGreen)
          self.finishLoadBlockchain()
-      self.prevBlkLoadFinish = TheBDM.isInitialized()
+      self.prevBlkLoadFinish = self.blkMode
 
       print self.mainDisplayTabs.currentIndex()
 
@@ -2539,9 +2600,9 @@ class ArmoryMainWindow(QMainWindow):
 
             self.createCombinedLedger()
             self.blkReceived  = RightNow()
-            self.settings.set('LastBlkRecvTime', self.blkReceived)
+            self.writeSetting('LastBlkRecvTime', self.blkReceived)
       
-            if self.blkMode==BLOCKCHAINMODE.ONLINE:
+            if self.netMode==NETWORKMODE.Full:
                self.lblArmoryStatus.setText(\
                   '<font color=%s>Connected (%s blocks)</font> ' % \
                   (htmlColor('TextGreen'), self.latestBlockNum))
@@ -2575,8 +2636,8 @@ class ArmoryMainWindow(QMainWindow):
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
-                  notifyIn  = self.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
-                  notifyOut = self.settings.getSettingOrSetDefault('NotifyBtcOut', True)
+                  notifyIn  = self.getSettingWithDefault('NotifyBtcIn',  True)
+                  notifyOut = self.getSettingWithDefault('NotifyBtcOut', True)
                   if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
                      self.notifyQueue.append([wltID, le, False])
                else:
@@ -2670,7 +2731,7 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def closeEvent(self, event=None):
-      moc = self.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      moc = self.getSettingWithDefault('MinimizeOrClose', 'DontKnow')
       doClose, doMinimize = False, False
       if moc=='DontKnow':
          reply,remember = MsgBoxWithDNAA(MSGBOX.Question, 'Minimize or Close', \
@@ -2680,11 +2741,11 @@ class ArmoryMainWindow(QMainWindow):
          if reply==True:
             doMinimize = True
             if remember:
-               self.settings.set('MinimizeOrClose', 'Minimize')
+               self.writeSetting('MinimizeOrClose', 'Minimize')
          else:
             doClose = True;
             if remember:
-               self.settings.set('MinimizeOrClose', 'Close')
+               self.writeSetting('MinimizeOrClose', 'Close')
 
       if doMinimize or moc=='Minimize':
          self.minimizeArmory()
@@ -2706,9 +2767,9 @@ class ArmoryMainWindow(QMainWindow):
       '''
       try:
          # Save the main window geometry in the settings file
-         self.settings.set('MainGeometry',   str(self.saveGeometry().toHex()))
-         self.settings.set('MainWalletCols', saveTableView(self.walletsView))
-         self.settings.set('MainLedgerCols', saveTableView(self.ledgerView))
+         self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
+         self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
+         self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
       except:
          # Don't want a strange error here interrupt shutdown 
          pass

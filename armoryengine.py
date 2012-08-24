@@ -74,6 +74,8 @@ parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
                   help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str', 
                   help="The Bitcoin-Qt/bitcoind home directory")
+parser.add_option("--satoshi-port", dest="satoshiPort", default='DEFAULT', type="str",
+                  help="For Bitcoin-Qt instances operating on a non-standard port")
 parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
                   help="Use the testnet protocol")
 parser.add_option("--offline", dest="offline", action="store_true", default=False,
@@ -81,7 +83,7 @@ parser.add_option("--offline", dest="offline", action="store_true", default=Fals
 parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
                   help="Timeout for detecting internet connection at startup")
 parser.add_option("--interport", dest="interport", default=-1, type="int",
-                  help="Port for inter-process comm between Armory instances")
+                  help="Port for inter-process communication between Armory instances")
 parser.add_option("--debug", dest="doDebug", action="store_true", default=False, 
                   help="Increase amount of debugging output")
 parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
@@ -91,7 +93,7 @@ parser.add_option("--nologging", dest="logDisable", action="store_true", default
 parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
 parser.add_option("--force-online", dest="forceOnline", action="store_true", default=False,
-                  help="Use online mode, even if internet connection isn't detected")
+                  help="Go into online mode, even if internet connection isn't detected")
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -260,6 +262,12 @@ else:
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x6f'
+
+if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
+   try:
+      BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
+   except:
+      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
 
 
 BLOCKCHAINS = {}

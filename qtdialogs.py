@@ -738,7 +738,7 @@ class DlgWalletDetails(ArmoryDialog):
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      if not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
          totStr = '-'*12
          spdStr = '-'*12
          ucnStr = '-'*12
@@ -827,8 +827,8 @@ class DlgWalletDetails(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.settings.set('WltPropGeometry', str(self.saveGeometry().toHex()))
-      self.main.settings.set('WltPropAddrCols', saveTableView(self.wltAddrView))
+      self.main.writeSetting('WltPropGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('WltPropAddrCols', saveTableView(self.wltAddrView))
 
    #############################################################################
    def closeEvent(self, event):
@@ -946,7 +946,7 @@ class DlgWalletDetails(ArmoryDialog):
        
 
    def execSendBtc(self):
-      if not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if self.main.blkMode == BLOCKCHAINMODE.Offline:
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -955,6 +955,14 @@ class DlgWalletDetails(ArmoryDialog):
            'full copy of this wallet from an online computer, '
            'or initiate an "offline transaction" using a watching-only '
            'wallet on an online computer.', QMessageBox.Ok)
+         return
+      if self.main.blkMode == BLOCKCHAINMODE.Rescanning:
+         QMessageBox.warning(self, 'Armory Not Ready', \
+           'Armory is currently scanning the blockchain to collect '
+           'the information needed to create transactions.  This typically '
+           'takes between one and five minutes.  Please wait until your '
+           'balance appears on the main window, then try again.', \
+            QMessageBox.Ok)
          return
       dlgSend = DlgSendBitcoins(self.wlt, self, self.main)
       dlgSend.exec_()
@@ -1014,7 +1022,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-      if not self.main.settings.getSettingOrSetDefault('DNAA_ImportWarning', False):
+      if not self.main.getSettingWithDefault('DNAA_ImportWarning', False):
          result = MsgBoxWithDNAA(MSGBOX.Warning, 'Import Address Warning', \
                        'Armory supports importing of external '
                        'addresses into your wallet, including encryption, '
@@ -1023,7 +1031,7 @@ class DlgWalletDetails(ArmoryDialog):
                        '<br><br>' 
                        'Please use "Backup Individual Keys" from the wallet '
                        'properties dialog to backup the imported keys.', None)
-         self.main.settings.set('DNAA_ImportWarning', result[1])
+         self.main.writeSetting('DNAA_ImportWarning', result[1])
 
       # Now we are past the [potential] warning box.  Actually open
       # the import dialog
@@ -1399,7 +1407,7 @@ def showWatchOnlyRecvWarningIfNecessary(wlt, main):
    notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
    offlineWallet = (wlttype==WLTTYPES.Offline)
    dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
-   dnaaThisWallet = main.settings.getSettingOrSetDefault(dnaaPropName, False)
+   dnaaThisWallet = main.getSettingWithDefault(dnaaPropName, False)
    if notMyWallet and not dnaaThisWallet:
       result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
             'You are getting an address for a wallet that '
@@ -1410,7 +1418,7 @@ def showWatchOnlyRecvWarningIfNecessary(wlt, main):
             'wallet on a separate computer), then please change the '
             '"Belongs To" field in the wallet-properties for this wallet.', \
             'Do not show this warning again', wCancel=True)
-      main.settings.set(dnaaPropName, result[1])
+      main.writeSetting(dnaaPropName, result[1])
       return result[0]
 
    if offlineWallet and not dnaaThisWallet:
@@ -1424,7 +1432,7 @@ def showWatchOnlyRecvWarningIfNecessary(wlt, main):
             'address.  Instead, change the wallet properties "Belongs To" field '
             'to specify that this wallet is not actually yours.', \
             'Do not show this warning again', wCancel=True)
-      main.settings.set(dnaaPropName, result[1])
+      main.writeSetting(dnaaPropName, result[1])
       return result[0]
    return True
 
@@ -1627,7 +1635,7 @@ class DlgImportWarning(ArmoryDialog):
 
    def acceptWarning(self):
       if self.chkDNAA.isChecked():
-         self.main.settings.set('DNAA_ImportWarning', True)
+         self.main.writeSetting('DNAA_ImportWarning', True)
       self.accept()
 
 
@@ -1727,15 +1735,20 @@ class DlgImportAddress(ArmoryDialog):
 
 
       ## Sweep option (only available when online)
-      if self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if self.main.blkMode==BLOCKCHAINMODE.Full:
          self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
                                          'into your wallet\n'
                                          'Select this option if someone else gave you this key')
          self.radioSweep.setChecked(True)
       else:
-         self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
-                                         'into your wallet\n'
-                                         '(Not available in offline mode)')
+         if self.main.blkMode==BLOCKCHAINMODE.Offline:
+            self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                            'into your wallet\n'
+                                            '(Not available in offline mode)')
+         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+            self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
+                                            'into your wallet\n'
+                                            '(Must wait for blockchain scanning to finish)')
          self.radioImport.setChecked(True)
          self.radioSweep.setEnabled(False)
 
@@ -1973,8 +1986,10 @@ class DlgImportAddress(ArmoryDialog):
          self.main.statusBar().showMessage( 'Successful import of address ' \
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
-         if self.main.blkMode==BLOCKCHAINMODE.ONLINE:
-            #######################################################################
+         #######################################################################
+         self.main.isDirty = True
+         self.main.allowRescan = True
+         if self.main.blkMode==BLOCKCHAINMODE.Full:
             warnMsg = ( \
                'The address was imported successfully, but its balance will be '
                'incorrect until the global transaction history is searched for '
@@ -1982,13 +1997,24 @@ class DlgImportAddress(ArmoryDialog):
                'can take anywhere from 5 seconds to 3 minutes.  '
                '<br><br>'
                'If you click "Cancel", the address will still appear in your '
-               'wallet but its balanace will be incorrect until the Armory '
+               'wallet but its balanace will be incorrect until Armory '
                'is restarted.')
             if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
+               self.main.allowRescan = False
                return
-            #######################################################################
+
+            self.main.WltsToScan
             if TheBDM.isInitialized():
                self.wlt.syncWithBlockchain(0)
+
+         #######################################################################
+         if self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+            warnMsg = ( \
+               'The address was imported successfully, but you are currently in '
+               'the middle of a blockchain scan which cannot be interrupted. '
+               'The address will show up in your wallet, but its balance will '
+               'be incorrect until Armory is restarted.')
+            QMessageBox.warning(self, 'Operation Queued', warnMsg, QMessageBox.Ok)
 
          self.main.walletListChanged()
 
@@ -2211,15 +2237,17 @@ class DlgImportAddress(ArmoryDialog):
          ##########################################################################
          warnMsg = ( \
             'Would you like to rescan the blockchain for all the addresses you '
-            'just imported?  This operation can take between 5 seconds to 3 minutes '
+            'just imported?  This operation can take from one to five minutes '
             'depending on your system.  If you skip this operation, it will be '
             'performed the next time you restart Armory. Wallet balances may '
             'be incorrect until then.')
          waitMsg = 'Searching the global transaction history'
             
-         if self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+         self.main.isDirty = True
+         if self.main.blkMode==BLOCKCHAINMODE.Full:
             if self.main.BDM_SyncArmoryWallet_Confirm(self.wlt, 0, warnMsg):
                self.wlt.syncWithBlockchain(0)
+            else:
          ##########################################################################
    
 
@@ -2468,10 +2496,10 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
    def getSatoshiFilename(self):
       # Temporarily reset the "LastDir" to where the default wallet.dat is
       prevLastDir = self.main.settings.get('LastDirectory')
-      self.main.settings.set('LastDirectory', BTC_HOME_DIR)
+      self.main.writeSetting('LastDirectory', BTC_HOME_DIR)
       satoshiWltFile = self.main.getFileLoad('Load Bitcoin Wallet File', \
                                              ['Bitcoin Wallets (*.dat)'])
-      self.main.settings.set('LastDirectory', prevLastDir)
+      self.main.writeSetting('LastDirectory', prevLastDir)
       if len(str(satoshiWltFile))>0:
          self.txtWalletPath.setText(satoshiWltFile)
       
@@ -2676,6 +2704,8 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
          if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
             TheBDM.registerWallet(wlt.cppWallet)
             wlt.syncWithBlockchain(0)
+         else:
+            self.main.isDirty = True
          ##########################################################################
 
       self.main.addWalletToApplication(wlt, walletIsNew=False)
@@ -3123,7 +3153,7 @@ class DlgShowKeys(ArmoryDialog):
             'same as you protect your wallet.</font>' % htmlColor('TextWarn'))
       warnFrm = makeLayoutFrame('Horiz', [lblWarn])
 
-      endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
+      endianness = self.main.getSettingWithDefault('PrefEndian', BIGENDIAN)
       estr = 'BE' if endianness==BIGENDIAN else 'LE'
       def formatBinData(binStr, endian=LITTLEENDIAN):
          binHex = binary_to_hex(binStr)
@@ -3282,7 +3312,7 @@ class DlgEULA(ArmoryDialog):
       super(DlgEULA, self).reject()
       
    def accept(self):
-      self.main.settings.set('Agreed_to_EULA', True) 
+      self.main.writeSetting('Agreed_to_EULA', True) 
       super(DlgEULA, self).accept()
 
    def toggleChkBox(self, isEnabled):
@@ -4223,7 +4253,7 @@ class DlgWalletSelect(ArmoryDialog):
       
 
       buttonBox = QDialogButtonBox()
-      btnAccept = QPushButton('Ok')
+      btnAccept = QPushButton('OK')
       btnCancel = QPushButton('Cancel')
       self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
@@ -4443,7 +4473,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.wlt    = wlt  
       self.wltID  = wlt.uniqueIDB58
 
-      txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      txFee = self.main.getSettingWithDefault('Default_Fee', MIN_TX_FEE)
 
       self.widgetTable = []
 
@@ -4714,10 +4744,10 @@ class DlgSendBitcoins(ArmoryDialog):
       self.setMinimumHeight(self.maxHeight*20)
 
       loadCount      = self.main.settings.get('Load_Count')
-      alreadyDonated = self.main.settings.getSettingOrSetDefault('DonateAlready', False)
-      lastPestering  = self.main.settings.getSettingOrSetDefault('DonateLastPester', 0)
-      donateFreq     = self.main.settings.getSettingOrSetDefault('DonateFreq', 20)
-      dnaaDonate     = self.main.settings.getSettingOrSetDefault('DonateDNAA', False)
+      alreadyDonated = self.main.getSettingWithDefault('DonateAlready', False)
+      lastPestering  = self.main.getSettingWithDefault('DonateLastPester', 0)
+      donateFreq     = self.main.getSettingWithDefault('DonateFreq', 20)
+      dnaaDonate     = self.main.getSettingWithDefault('DonateDNAA', False)
 
 
       if prefill:
@@ -4744,14 +4774,14 @@ class DlgSendBitcoins(ArmoryDialog):
             'select "Yes," a donation field will be added to your '
             'next transaction.  You will have the opportunity to remove or change '
             'the amount before sending the transaction.', None)
-         self.main.settings.set('DonateLastPester', loadCount)
+         self.main.writeSetting('DonateLastPester', loadCount)
 
          if result[0]==True:
             self.addDonation()
             self.makeRecipFrame(2)
 
          if result[1]==True:
-            self.main.settings.set('DonateDNAA', True)
+            self.main.writeSetting('DonateDNAA', True)
       
       hexgeom = self.main.settings.get('SendBtcGeometry')
       if len(hexgeom)>0:
@@ -4767,7 +4797,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.settings.set('SendBtcGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('SendBtcGeometry', str(self.saveGeometry().toHex()))
 
    #############################################################################
    def closeEvent(self, event):
@@ -4976,7 +5006,7 @@ class DlgSendBitcoins(ArmoryDialog):
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
       if fee<minFeeRec[1]:
 
-         overrideMin = self.main.settings.getSettingOrSetDefault('OverrideMinFee', False)
+         overrideMin = self.main.getSettingWithDefault('OverrideMinFee', False)
          if totalSend+minFeeRec[1] > bal:
             # Need to adjust this based on overrideMin flag
             self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
@@ -6404,7 +6434,7 @@ class DlgShowKeyList(ArmoryDialog):
       
    def saveToFile(self):
       if self.havePriv:
-         if not self.main.settings.getSettingOrSetDefault('DNAA_WarnPrintKeys', False):
+         if not self.main.getSettingWithDefault('DNAA_WarnPrintKeys', False):
             result = MsgBoxWithDNAA(MSGBOX.Warning, title='Plaintext Private Keys', \
                   msg='<font color="red"><b>REMEMBER:</b></font> The data you '
                   'are about to save contains private keys.  Please make sure '
@@ -6413,7 +6443,7 @@ class DlgShowKeyList(ArmoryDialog):
                   dnaaMsg=None, wCancel=True)
             if not result[0]:
                return
-            self.main.settings.set('DNAA_WarnPrintKeys', result[1])
+            self.main.writeSetting('DNAA_WarnPrintKeys', result[1])
             
       wltID = self.wlt.uniqueIDB58
       fn = self.main.getFileSave(title='Save Key List', \
@@ -6724,7 +6754,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       # Show the transaction ID, with the user's preferred endianness
       # I hate BE, but block-explorer requires it so it's probably a better default
-      endianness = self.main.settings.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
+      endianness = self.main.getSettingWithDefault('PrefEndian', BIGENDIAN)
       estr = ''
       if self.mode in (USERMODE.Advanced, USERMODE.Expert):
          estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
@@ -7061,7 +7091,7 @@ class DlgDispTxInfo(ArmoryDialog):
       self.btnIOList = QPushButton('')
       self.btnCopy   = QPushButton('Copy Raw Tx')
       self.lblCopied = QRichLabel('')
-      self.btnOk     = QPushButton('Ok')
+      self.btnOk     = QPushButton('OK')
       self.btnIOList.setCheckable(True)
       self.connect(self.btnIOList, SIGNAL('clicked()'), self.extraInfoClicked)
       self.connect(self.btnOk,     SIGNAL('clicked()'), self.accept)
@@ -8761,10 +8791,10 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.settings.set('AddrBookGeometry', str(self.saveGeometry().toHex()))
-      self.main.settings.set('AddrBookWltTbl',   saveTableView(self.wltDispView))
-      self.main.settings.set('AddrBookRxTbl',    saveTableView(self.addrBookRxView))
-      self.main.settings.set('AddrBookTxTbl',    saveTableView(self.addrBookTxView))
+      self.main.writeSetting('AddrBookGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('AddrBookWltTbl',   saveTableView(self.wltDispView))
+      self.main.writeSetting('AddrBookRxTbl',    saveTableView(self.addrBookRxView))
+      self.main.writeSetting('AddrBookTxTbl',    saveTableView(self.addrBookTxView))
 
    #############################################################################
    def closeEvent(self, event):
@@ -9036,7 +9066,7 @@ class DlgPreferences(ArmoryDialog):
 
 
 
-      txFee = self.main.settings.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
+      txFee = self.main.getSettingWithDefault('Default_Fee', MIN_TX_FEE)
       lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>')
       lblDefaultDescr = QRichLabel( \
                                  'Fees go to users that contribute computing power '
@@ -9058,7 +9088,7 @@ class DlgPreferences(ArmoryDialog):
 
       ###############################################################
       # Minimize on Close
-      moc = self.main.settings.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
+      moc = self.main.getSettingWithDefault('MinimizeOrClose', 'DontKnow')
       lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
       lblMoCDescr   = QRichLabel( 'When you click the "x" on the top window bar, '
                                  'Armory will stay open but run in the background.  '
@@ -9072,7 +9102,7 @@ class DlgPreferences(ArmoryDialog):
          self.chkMinOrClose.setChecked(True)
 
 
-      #doInclFee = self.main.settings.getSettingOrSetDefault('LedgDisplayFee', True)
+      #doInclFee = self.main.getSettingWithDefault('LedgDisplayFee', True)
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
                                 #'primary ledger</b>.<br>Unselect if you want to '
                                 #'see only the value received by the recipient.')
@@ -9088,10 +9118,10 @@ class DlgPreferences(ArmoryDialog):
       ###############################################################
       # Notifications
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn  = self.main.settings.getSettingOrSetDefault('NotifyBtcIn',  True)
-      notifyBtcOut = self.main.settings.getSettingOrSetDefault('NotifyBtcOut', True)
-      notifyDiscon = self.main.settings.getSettingOrSetDefault('NotifyDiscon', True)
-      notifyReconn = self.main.settings.getSettingOrSetDefault('NotifyReconn', True)
+      notifyBtcIn  = self.main.getSettingWithDefault('NotifyBtcIn',  True)
+      notifyBtcOut = self.main.getSettingWithDefault('NotifyBtcOut', True)
+      notifyDiscon = self.main.getSettingWithDefault('NotifyDiscon', True)
+      notifyReconn = self.main.getSettingWithDefault('NotifyReconn', True)
 
       self.chkBtcIn  = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
@@ -9288,7 +9318,7 @@ class DlgPreferences(ArmoryDialog):
       #
       #     [OptionType, SettingsName, DefaultValue, BoldText, NormalText, Tooltip]
       #
-      # SettingsName is the string used in self.main.settings.getSettingOrSetDefault()
+      # SettingsName is the string used in self.main.getSettingWithDefault()
       # OptionType can be one of:
       #     {'Checkbox', 'LineEdit', 'Combo|Opt1|Opt2|...', 'Separator', 'Header'} 
       #
@@ -9309,7 +9339,7 @@ class DlgPreferences(ArmoryDialog):
    def accept(self, *args):
       try:
          defaultFee = str2coin( str(self.edtDefaultFee.text()).replace(' ','') )
-         self.main.settings.set('Default_Fee', defaultFee)
+         self.main.writeSetting('Default_Fee', defaultFee)
       except:
          QMessageBox.warning(self, 'Invalid Amount', \
                   'The default fee specified could not be understood.  Please '
@@ -9330,15 +9360,15 @@ class DlgPreferences(ArmoryDialog):
             self.main.setUserMode(USERMODE.Expert)
 
       if self.chkMinOrClose.isChecked():
-         self.main.settings.set('MinimizeOrClose', 'Minimize')
+         self.main.writeSetting('MinimizeOrClose', 'Minimize')
       else:
-         self.main.settings.set('MinimizeOrClose', 'Close')
+         self.main.writeSetting('MinimizeOrClose', 'Close')
 
-      #self.main.settings.set('LedgDisplayFee', self.chkInclFee.isChecked())
-      self.main.settings.set('NotifyBtcIn',  self.chkBtcIn.isChecked())
-      self.main.settings.set('NotifyBtcOut', self.chkBtcOut.isChecked())
-      self.main.settings.set('NotifyDiscon', self.chkDiscon.isChecked())
-      self.main.settings.set('NotifyReconn', self.chkReconn.isChecked())
+      #self.main.writeSetting('LedgDisplayFee', self.chkInclFee.isChecked())
+      self.main.writeSetting('NotifyBtcIn',  self.chkBtcIn.isChecked())
+      self.main.writeSetting('NotifyBtcOut', self.chkBtcOut.isChecked())
+      self.main.writeSetting('NotifyDiscon', self.chkDiscon.isChecked())
+      self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
 
       self.main.createCombinedLedger()
       super(DlgPreferences, self).accept(*args)
@@ -9665,7 +9695,7 @@ class DlgRequestPayment(ArmoryDialog):
       # Link Text:
       self.edtLinkText = QLineEdit()
       defaultText = binary_to_hex('Click here to pay for your order!')
-      linkText = hex_to_binary(self.main.settings.getSettingOrSetDefault('DefaultLinkText',defaultText))
+      linkText = hex_to_binary(self.main.getSettingWithDefault('DefaultLinkText',defaultText))
       self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
 
@@ -9828,12 +9858,12 @@ class DlgRequestPayment(ArmoryDialog):
       linktext = str(self.edtLinkText.text()).strip()
       if len(linktext)>0:
          hexText = binary_to_hex(linktext)
-         self.main.settings.set('DefaultLinkText',hexText)
+         self.main.writeSetting('DefaultLinkText',hexText)
          
 
    #############################################################################
    def saveGeometrySettings(self):
-      self.main.settings.set('PayReqestGeometry', str(self.saveGeometry().toHex()))
+      self.main.writeSetting('PayReqestGeometry', str(self.saveGeometry().toHex()))
 
    #############################################################################
    def closeEvent(self, event):
@@ -10031,15 +10061,15 @@ class DlgVersionNotify(ArmoryDialog):
 
 
    def clickDNAA(self):
-      self.main.settings.set('CheckVersion', 'Never')
+      self.main.writeSetting('CheckVersion', 'Never')
       self.accept()
 
    def clickDelay(self):
-      self.main.settings.set('CheckVersion', 'v'+self.latestVer)
+      self.main.writeSetting('CheckVersion', 'v'+self.latestVer)
       self.accept()
 
    def clickOkay(self):
-      self.main.settings.set('CheckVersion', 'Always')
+      self.main.writeSetting('CheckVersion', 'Always')
       self.accept()
       
 
