@@ -113,9 +113,10 @@ if run_UniqueAddresses:
    
       header = TheBDM.getHeaderByHeight(h)
       txList = header.getTxRefPtrList()
-      for tx in txList:
+      for txref in txList:
+         tx = txref.getTxCopy()
          for nout in range(tx.getNumTxOut()):
-            txout = tx.getTxOutRef(nout)
+            txout = tx.getTxOut(nout)
             if txout.isStandard():
                allAddr.add(txout.getRecipientAddr())
                totalTxOutEver += 1
@@ -183,9 +184,9 @@ if run_SatoshiDice:
    def getTxFee(tx):
       btcIn, btcOut = 0,0
       for i in range(tx.getNumTxIn()):
-         btcIn += TheBDM.getSentValue(tx.getTxInRef(i))
+         btcIn += TheBDM.getSentValue(tx.getTxIn(i))
       for i in range(tx.getNumTxOut()):
-         btcOut += tx.getTxOutRef(i).getValue()
+         btcOut += tx.getTxOut(i).getValue()
       return (btcIn - btcOut)
 
       
@@ -241,7 +242,8 @@ if run_SatoshiDice:
          header = TheBDM.getHeaderByHeight(h)
          txList = header.getTxRefPtrList()
 
-         for tx in txList:
+         for txref in txList:
+            tx = txref.getTxCopy()
             # Check every TxOut in this transaction for SatoshiDice bets
             txHash = tx.getThisHash()
             if firstSDTxPassed:
@@ -251,7 +253,7 @@ if run_SatoshiDice:
             
             thisIsAWager = False
             for nout in range(tx.getNumTxOut()):
-               txout = tx.getTxOutRef(nout)
+               txout = tx.getTxOut(nout)
                if txout.isStandard():
                   if dicePctWinMap.has_key(txout.getRecipientAddr()):
                      # This is a SatoshiDice bet!
@@ -269,7 +271,7 @@ if run_SatoshiDice:
                      betWin = betAmt * diceWinMultMap[diceAddr]
                      betLos = betAmt * diceLoseMultMap[diceAddr]
 
-                     firstTxIn = tx.getTxInRef(0)
+                     firstTxIn = tx.getTxIn(0)
                      bettorAddr = TheBDM.getSenderAddr20(firstTxIn)
    
                      ## Create the serialized OutPoint, store the tx
@@ -286,15 +288,15 @@ if run_SatoshiDice:
 
 
             for nin in range(tx.getNumTxIn()):
-               txin = tx.getTxInRef(nin)
+               txin = tx.getTxIn(nin)
                op = txin.getOutPoint()
                opStr = op.getTxHash() + int_to_binary(op.getTxOutIndex(), widthBytes=4)
                returned = -1
                if betsIn.has_key(opStr):
                   betAmt, betWin, betLos, diceAddr, addr160 = betsIn[opStr]
                   for nout in range(tx.getNumTxOut()):
-                     if addr160 == tx.getTxOutRef(nout).getRecipientAddr():
-                        returned = tx.getTxOutRef(nout).getValue()
+                     if addr160 == tx.getTxOut(nout).getRecipientAddr():
+                        returned = tx.getTxOut(nout).getValue()
                         sdRtrnAmt += returned
                         sdFeePaid += getTxFee(tx)
    
