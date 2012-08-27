@@ -5,6 +5,7 @@
 
 CppBlockUtils.py
 _CppBlockUtils.*
+qrc_img_resources.py
 /cppForSwig/CppBlockUtils_wrap.cxx
 /cppForSwig/libcryptopp.a
 /cppForSwig/cryptopp/a.out
