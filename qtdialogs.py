@@ -9950,20 +9950,24 @@ class DlgVersionNotify(ArmoryDialog):
    def __init__(self, parent, main, changelog, wasRequested=False):
       super(DlgVersionNotify, self).__init__(parent, main)
 
-      self.myVersion = getVersionString(BTCARMORY_VERSION)
-      self.latestVer = changelog[0][0]
+      self.myVersion    = getVersionInt(BTCARMORY_VERSION)
+      self.latestVer    = getVersionInt(readVersionString(changelog[0][0]))
+      self.myVersionStr = getVersionString(BTCARMORY_VERSION)
+      self.latestVerStr = getVersionString(readVersionString(changelog[0][0]))
       lblDescr = QRichLabel('')
 
-      if self.myVersion==self.latestVer:
+      if self.myVersion >= self.latestVer:
          lblDescr = QRichLabel( \
-            'Your Armory installation is up-to-date!'
+            '<font size=4><u><b>Your Armory installation is up-to-date!</b>'
+            '</u></font>'
             '<br><br>'
             '<b>Installed Version</b>: %s'
             '<br><br>'
             'When they become available, you can find and download new '
             'versions of Armory from:<br><br> '
             '<a href="http://bitcoinarmory.com/index.php/get-armory">'
-            'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersion)
+            'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersionStr)
+            
       else:
          lblDescr = QRichLabel( \
             '<font size=4><u><b>There is a new version of Armory available!</b>'
@@ -9977,7 +9981,7 @@ class DlgVersionNotify(ArmoryDialog):
             'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
             'to get the most recent version. '
             'All your wallets and settings will remain untouched when you '
-            'reinstall Armory.' % (self.myVersion, self.latestVer))
+            'reinstall Armory.' % (self.myVersionStr, self.latestVerStr))
 
       lblDescr.setOpenExternalLinks(True)
       lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
@@ -9987,7 +9991,7 @@ class DlgVersionNotify(ArmoryDialog):
          lblChnglog = QRichLabel("<b>Changelog</b>:")
       else:
          lblChnglog = QRichLabel('New features added between version %s and %s:' % \
-                                                      (self.myVersion,self.latestVer))
+                                                (self.myVersionStr,self.latestVerStr))
 
 
       
@@ -10039,7 +10043,7 @@ class DlgVersionNotify(ArmoryDialog):
       self.accept()
 
    def clickDelay(self):
-      self.main.settings.set('CheckVersion', 'v'+self.latestVer)
+      self.main.settings.set('CheckVersion', 'v'+self.latestVerStr)
       self.accept()
 
    def clickOkay(self):

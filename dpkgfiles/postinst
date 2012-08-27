@@ -57,16 +57,7 @@ createDesktopFile('',            '',       [],         '/usr/share/applications'
 createDesktopFile('Offline',     'offline',['offline'],'/usr/share/applications')
 createDesktopFile('Test Network','testnet',['testnet'],'/usr/share/applications')
 
-print ''
-print '*** About to setup menu items.  If this does not succeed, it is '
-print '    probably due to a previous Armory installation.  Armory can '
-print '    be removed through Synaptic or by typing the following:'
-print ''
-print '      sudo dpkg -r armory'
-print ''
-print '    It is a good idea to remove previous Armory installation '
-print '    before installing a newer version (but not always necessary.)'
-print ''
+print '   Setting up menu items.'
 execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_64x64.png armoryicon')
 execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_64x64.png armoryofflineicon')
 execAndWait('xdg-icon-resource install --novendor --context apps --size 64 /usr/share/armory/img/armory_icon_green_64x64.png armorytestneticon')
@@ -74,6 +65,10 @@ execAndWait('xdg-desktop-menu  install --novendor /usr/share/applications/armory
 execAndWait('xdg-desktop-menu  install --novendor /usr/share/applications/armorytestnet.desktop')
 execAndWait('xdg-desktop-menu  install --novendor /usr/share/applications/armoryoffline.desktop')
 print ''
-print '!! Armory installed successfully !!'
+print '!!! Armory installed successfully !!!'
+print ''
+print '  Armory can be removed at any time, either through your package '
+print '  manager, or through the following command:'
+print '      sudo dpkg -r armory'
 
 

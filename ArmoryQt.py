@@ -348,6 +348,7 @@ class ArmoryMainWindow(QMainWindow):
          tstart = RightNow()
          self.loadBlockchain()
          LOGINFO('Loading blockchain took %0.1f seconds' % (RightNow()-tstart))
+         print 'Loading blockchain took %0.1f seconds' % (RightNow()-tstart)
       from twisted.internet import reactor
 
       ##########################################################################
@@ -804,7 +805,9 @@ class ArmoryMainWindow(QMainWindow):
             if not line.startswith('#') and len(line)>0:
                if line.startswith('VERSION'):
                   vstr = line.split(' ')[-1]
-                  if vstr==thisVerString and not wasRequested:
+                  myVersionInt = getVersionInt(readVersionString(thisVerString))
+                  latestVerInt = getVersionInt(readVersionString(vstr))
+                  if myVersionInt>=latestVerInt and not wasRequested:
                      break
                   changeLog.append([vstr, []])
                elif line.startswith('-'):
