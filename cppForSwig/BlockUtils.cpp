@@ -2226,9 +2226,13 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    // First make sure that the registered txList is up to date
    // startBlknum might have to be set to 0 if any addr need full rescan
    //
-   // TODO:  I am assuming this will be too slow, but I will test/time it
-   //        before making that conclusion:  perhaps pre-caching is enough
-   //        to avoid complicating this to the level of parseEntireBlockchain
+   // TODO:   I am assuming this will be too slow, but I will test/time it
+   //         before making that conclusion:  perhaps pre-caching is enough
+   //         to avoid complicating this to the level of parseEntireBlockchain
+   // UPDATE: (3 months later) It appears to be working fine.  A full rescan
+   //         using pre-caching as I have done seems to have no noticeable 
+   //         impact on performance.  That means this code block could 
+   //         probably be reused, and is fairly simple.
    TIMER_START("RescanTiming");
    for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
    {

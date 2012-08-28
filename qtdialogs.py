@@ -1022,7 +1022,17 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-      if not self.main.getSettingWithDefault('DNAA_ImportWarning', False):
+      if self.main.blkMode == BLOCKCHAINMODE.Rescanning:
+         QMessageBox.warning(self, 'Armory Not Ready',
+            'Armory is currently in the process of scanning the blockchain '
+            'for your existing wallets.  This operation must finish before '
+            'you can import or sweep private keys.  '
+            '<br><br>'
+            'Try again after your balances and transaction history appear '
+            'in the main window.', QMessageBox.Ok)
+         return
+
+      if not self.main.getSettingOrSetDefault('DNAA_ImportWarning', False):
          result = MsgBoxWithDNAA(MSGBOX.Warning, 'Import Address Warning', \
                        'Armory supports importing of external '
                        'addresses into your wallet, including encryption, '
@@ -1407,7 +1417,7 @@ def showWatchOnlyRecvWarningIfNecessary(wlt, main):
    notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
    offlineWallet = (wlttype==WLTTYPES.Offline)
    dnaaPropName = 'Wallet_%s_%s' % (wlt.uniqueIDB58, 'DNAA_RecvOther')
-   dnaaThisWallet = main.getSettingWithDefault(dnaaPropName, False)
+   dnaaThisWallet = main.getSettingOrSetDefault(dnaaPropName, False)
    if notMyWallet and not dnaaThisWallet:
       result = MsgBoxWithDNAA(MSGBOX.Warning, 'This is not your wallet!', \
             'You are getting an address for a wallet that '
@@ -2003,12 +2013,8 @@ class DlgImportAddress(ArmoryDialog):
                self.main.allowRescan = False
                return
 
-            self.main.WltsToScan
-            if TheBDM.isInitialized():
-               self.wlt.syncWithBlockchain(0)
-
          #######################################################################
-         if self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
             warnMsg = ( \
                'The address was imported successfully, but you are currently in '
                'the middle of a blockchain scan which cannot be interrupted. '
@@ -2393,327 +2399,331 @@ class DlgImportWallet(ArmoryDialog):
       self.accept()
 
 #############################################################################
-class DlgMigrateSatoshiWallet(ArmoryDialog):
-   def __init__(self, parent=None, main=None):
-      super(DlgMigrateSatoshiWallet, self).__init__(parent, main)
-
-
-      lblDescr = QRichLabel( \
-         'Specify the location of your regular Bitcoin wallet (wallet.dat) '
-         'to be migrated into an Armory wallet.  All private '
-         'keys will be imported, giving you full access to those addresses, as '
-         'if Armory had generated them natively.'
-         '<br><br>'
-         '<b>NOTE:</b> It is strongly recommended that all '
-         'Bitcoin addresses be used in only one program at a time.  If you '
-         'import your entire wallet.dat, it is recommended to stop using the '
-         'regular Bitcoin client, and only use Armory to send transactions.  '
-         'Armory developers will not be responsible for coins getting "locked" '
-         'or "stuck" due to multiple applications attempting to spend coins '
-         'from the same addresses.')
-
-      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (typically ' +
-                                 os.path.join(BTC_HOME_DIR, 'wallet.dat') + ')', doWrap=False)
-      ttipWlt = createToolTipObject(\
-         'This is the wallet file used by the standard Bitcoin client from '
-         'bitcoin.org.  It contains all the information needed for Armory to '
-         'know how to access the Bitcoins maintained by that program')
-      self.txtWalletPath = QLineEdit()
-
-
-
-      self.chkAllKeys = QCheckBox('Include Address Pool (unused keys)')
-      ttipAllKeys = createToolTipObject( \
-         'The wallet.dat file typically '
-         'holds a pool of 100 addresses beyond the ones you ever used. '
-         'These are the next 100 addresses to be used by the main Bitcoin '
-         'client for the next 100 transactions.  '
-         'If you are planning to switch to Armory exclusively, you will not '
-         'need these addresses')
-
-      self.chkAllKeys.setChecked(True)
-      if self.main.usermode in (USERMODE.Standard,):
-         self.chkAllKeys.setVisible(False)
-         self.ttipAllKeys.setVisible(False)
-
-      btnGetFilename = QPushButton('Find...')
-      self.connect(btnGetFilename, SIGNAL('clicked()'), self.getSatoshiFilename)
-
-      defaultWalletPath = os.path.join(BTC_HOME_DIR,'wallet.dat')
-      if os.path.exists(defaultWalletPath):
-         self.txtWalletPath.setText(defaultWalletPath)
-
-      buttonBox = QDialogButtonBox()
-      self.btnAccept = QPushButton("Import")
-      self.btnReject = QPushButton("Cancel")
-      self.connect(self.btnAccept, SIGNAL('clicked()'), self.execMigrate)
-      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
-      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
-      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
-
-
-      # Select the wallet into which you want to import
-      lblWltDest = QRichLabel('Migrate Addresses to which Wallet?', doWrap=False)
-      self.wltidlist = [''] 
-      self.lstWallets = QListWidget()
-      self.lstWallets.addItem(QListWidgetItem('New Wallet...'))
-      for wltID in self.main.walletIDList:
-         wlt = self.main.walletMap[wltID]
-         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
-         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
-            continue
-         self.lstWallets.addItem( \
-                QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
-         self.wltidlist.append(wltID)
-      self.lstWallets.setCurrentRow(0)
-      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.wltChange)
-
-
-      self.lblDescrNew = QRichLabel( '' )
-      self.lblDescrNew.setAlignment(Qt.AlignTop)
-      self.wltChange(0)
-      
-
-      dlgLayout = QVBoxLayout()
-      dlgLayout.addWidget(lblDescr)
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(makeHorizFrame([lblSatoshiWlt, ttipWlt, 'Stretch']))
-      dlgLayout.addWidget(makeHorizFrame([self.txtWalletPath, btnGetFilename]))
-      dlgLayout.addWidget(makeHorizFrame([self.chkAllKeys, ttipAllKeys, 'Stretch']))
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(makeHorizFrame([lblWltDest, 'Stretch']))
-      dlgLayout.addWidget(makeHorizFrame([self.lstWallets, self.lblDescrNew,'Stretch']))
-      dlgLayout.addWidget(HLINE())
-      dlgLayout.addWidget(buttonBox)
-
-      self.setLayout(dlgLayout)
-
-      self.setMinimumWidth(500)
-      self.setWindowTitle('Migrate Bitcoin-Qt Wallet')
-      self.setWindowIcon(QIcon( self.main.iconfile))
-
-
-   def getSatoshiFilename(self):
-      # Temporarily reset the "LastDir" to where the default wallet.dat is
-      prevLastDir = self.main.settings.get('LastDirectory')
-      self.main.writeSetting('LastDirectory', BTC_HOME_DIR)
-      satoshiWltFile = self.main.getFileLoad('Load Bitcoin Wallet File', \
-                                             ['Bitcoin Wallets (*.dat)'])
-      self.main.writeSetting('LastDirectory', prevLastDir)
-      if len(str(satoshiWltFile))>0:
-         self.txtWalletPath.setText(satoshiWltFile)
-      
-
-   def wltChange(self, row):
-      if row==0:
-         self.lblDescrNew.setText( \
-           'If your wallet.dat is encrypted, the new Armory wallet will also '
-           'be encrypted, and with the same passphrase.  If your wallet.dat '
-           'is not encrypted, neither will the new Armory wallet.  Encryption '
-           'can always be added, changed or removed on any wallet.')
-      else:
-         self.lblDescrNew.setText( '' )
-
-   def execMigrate(self):
-      satoshiWltFile = str(self.txtWalletPath.text())
-      if not os.path.exists(satoshiWltFile):
-         QMessageBox.critical(self, 'File does not exist!', \
-            'The specified file does not exist:\n\n' + satoshiWltFile,
-            QMessageBox.Ok)
-         return
-
-      selectedRow = self.lstWallets.currentRow()
-      toWalletID = None
-      if selectedRow>0:
-         toWalletID = self.wltidlist[selectedRow]
-         
-
-
-      # Critical to avoid wallet corruption!!
-      base,fn = os.path.split(satoshiWltFile)
-      nm,ext = os.path.splitext(fn)
-      satoshiWltFileCopy = os.path.join(ARMORY_HOME_DIR, nm+'_temp_copy'+ext)
-      shutil.copy(satoshiWltFile, satoshiWltFileCopy)
-      if not os.path.exists(satoshiWltFileCopy):
-         raise FileExistsError, 'There was an error creating a copy of wallet.dat'
-
-      # KeyList is [addrB58, privKey, usedYet, acctName]
-      # This block will not only decrypt the Satoshi wallet, but also catch
-      # if the user specified a wallet.dat for a different network!
-      keyList = []
-      satoshiPassphrase = None
-      satoshiWltIsEncrypted  = checkSatoshiEncrypted(satoshiWltFileCopy)
-
-      if not satoshiWltIsEncrypted:
-         try:
-            keyList = extractSatoshiKeys(satoshiWltFileCopy)
-         except NetworkIDError:
-            QMessageBox.critical(self, 'Wrong Network!', \
-               'The specified wallet.dat file is for a different network! '
-               '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
-               QMessageBox.Ok)
-            LOGERROR('Wallet is for the wrong network!')
-            return
-      else:
-         correctPassphrase = False
-         firstAsk = True
-         while not correctPassphrase:
-            # Loop until we get a valid passphrase
-            redText = ''
-            if not firstAsk:
-               redText = '<font color=%s>Incorrect passphrase.</font><br><br>' % htmlColor('TextRed')
-            firstAsk = False
-
-            dlg = DlgGenericGetPassword( \
-                redText + 'The wallet.dat file you specified is encrypted.  '
-                'Please provide the passphrase to decrypt it.', self, self.main)
-
-            if not dlg.exec_():
-               return
-            else:
-               satoshiPassphrase = SecureBinaryData(str(dlg.edtPasswd.text()))
-               try:
-                  keyList = extractSatoshiKeys(satoshiWltFileCopy, satoshiPassphrase)
-                  correctPassphrase = True
-               except EncryptionError:
-                  pass
-               except NetworkIDError:
-                  QMessageBox.critical(self, 'Wrong Network!', \
-                     'The specified wallet.dat file is for a different network! '
-                     '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
-                     QMessageBox.Ok)
-                  LOGERROR('Wallet is for the wrong network!')
-                  return
-
-      # We're done accessing the file, delete the
-      os.remove(satoshiWltFileCopy)
-      
-      if not self.chkAllKeys.isChecked():
-         keyList = filter(lambda x: x[2], keyList)
-
-
-      # Warn about addresses that would be duplicates.
-      # This filters the list down to addresses already in a wallet that isn't selected
-      # Addresses already in the selected wallet will simply be skipped, no need to 
-      # do anything about that
-      addr_to_wltID = lambda a: self.main.getWalletForAddr160(addrStr_to_hash160(a))
-      allWltList = [[addr_to_wltID(k[0]), k[0]] for k in keyList]
-      dupeWltList = filter(lambda a: (len(a[0])>0 and a[0]!=toWalletID), allWltList)
-
-      if len(dupeWltList)>0:
-         dlg = DlgDuplicateAddr([d[1].ljust(40)+d[0] for d in dupeWltList], self, self.main)
-         didAccept = dlg.exec_()
-         if not didAccept or dlg.doCancel:
-            return
-   
-         if dlg.newOnly:
-            dupeAddrList = [a[1] for a in dupeWltList]
-            keyList = filter(lambda x: (x[0] not in dupeAddrList), keyList)
-         elif dlg.takeAll:
-            pass # we already have duplicates in the list, leave them
-      
-
-      # Confirm import
-      addrList = [k[0].ljust(40)+k[3] for k in keyList]
-      dlg = DlgConfirmBulkImport(addrList, toWalletID, self, self.main)
-      if not dlg.exec_():
-         return
-         
-      # Okay, let's do it!  Get a wallet, unlock it if necessary, create if desired
-      wlt = None
-      if toWalletID==None:
-         lblShort = 'Migrated wallet.dat'
-         lblLong  = 'Wallet created to hold addresses from the regular Bitcoin wallet.dat.'
-
-         if not satoshiPassphrase:
-            wlt = PyBtcWallet().createNewWallet(    \
-                               withEncrypt=False,   \
-                               shortLabel=lblShort, \
-                               longLabel=lblLong)
-                                                     
-         else:
-            lblLong += ' (encrypted using same passphrase as the original wallet)'
-            wlt = PyBtcWallet().createNewWallet( \
-                               withEncrypt=True, \
-                               securePassphrase=satoshiPassphrase, \
-                               shortLabel=lblShort, \
-                               longLabel=lblLong)
-            wlt.unlock(securePassphrase=satoshiPassphrase)
-
-
-      else:
-         wlt = self.main.walletMap[toWalletID]
-         if wlt.useEncryption and wlt.isLocked:
-            # Target wallet is encrypted...
-            unlockdlg = DlgUnlockWallet(wlt, self, self.main, 'Unlock Wallet to Import')
-            if not unlockdlg.exec_():
-               QMessageBox.critical(self, 'Wallet is Locked', \
-                  'Cannot import private keys without unlocking wallet!', \
-                  QMessageBox.Ok)
-               return
-
-      
-      self.nImport = 0
-      self.nError  = 0
-      def finallyDoMigrate():
-         for i,key4 in enumerate(keyList):
-            addrB58, sbdKey, isUsed, addrName = key4[:]
-            try:
-               a160 = addrStr_to_hash160(addrB58)
-               wlt.importExternalAddressData(privKey=sbdKey)
-               cmt = 'Imported #%03d'%i
-               if len(addrName)>0:
-                  cmt += ': %s' % addrName
-               wlt.setComment(a160, cmt)
-               self.nImport += 1
-            except Exception,msg:
-               LOGERROR('Problem importing: %s: %s', addrB58, msg)
-               self.nError += 1
-
-
-      DlgExecLongProcess(finallyDoMigrate, "Migrating Bitcoin-Qt Wallet", self, self.main).exec_()
-
-
-      if self.nImport==0:
-         MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
-            'Please check the logfile (ArmoryQt.exe.log) or the console output '
-            'for information about why it failed (and email alan.reiner@gmail.com '
-            'for help fixing the problem).')
-      else:
-         if self.nError == 0:
-            MsgBoxCustom(MSGBOX.Good, 'Success!', \
-               'Success: %d private keys were imported into your wallet.' % self.nImport)
-         else:
-            MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
-               '%d private keys were imported into your wallet, but there was '
-               'also %d addresses that could not be imported (see console '
-               'or log file for more information).  It is safe to try this '
-               'operation again: all addresses previously imported will be '
-               'skipped. %s' % (self.nImport, self.nError, restartMsg))
-      
-      if self.main.blkMode==BLOCKCHAINMODE.ONLINE:
-         ##########################################################################
-         warnMsg = ( \
-            'Would you like to rescan the blockchain for all the addresses you '
-            'just migrated?  This operation can take between 5 seconds to 3 minutes '
-            'depending on your system.  If you skip this operation, it will be '
-            'performed the next time you restart Armory. Wallet balances may '
-            'be incorrect until then.')
-         waitMsg = 'Searching the global transaction history'
-         
-         if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
-            TheBDM.registerWallet(wlt.cppWallet)
-            wlt.syncWithBlockchain(0)
-         else:
-            self.main.isDirty = True
-         ##########################################################################
-
-      self.main.addWalletToApplication(wlt, walletIsNew=False)
-
-      self.main.walletListChanged()
-      self.accept()
-      
-         
+#### Migration no longer is supported -- not until the new wallet format
+#### is created that supports compressed public keys
+#
+#class DlgMigrateSatoshiWallet(ArmoryDialog):
+#   def __init__(self, parent=None, main=None):
+#      super(DlgMigrateSatoshiWallet, self).__init__(parent, main)
+#
+#
+#      lblDescr = QRichLabel( \
+#         'Specify the location of your regular Bitcoin wallet (wallet.dat) '
+#         'to be migrated into an Armory wallet.  All private '
+#         'keys will be imported, giving you full access to those addresses, as '
+#         'if Armory had generated them natively.'
+#         '<br><br>'
+#         '<b>NOTE:</b> It is strongly recommended that all '
+#         'Bitcoin addresses be used in only one program at a time.  If you '
+#         'import your entire wallet.dat, it is recommended to stop using the '
+#         'regular Bitcoin client, and only use Armory to send transactions.  '
+#         'Armory developers will not be responsible for coins getting "locked" '
+#         'or "stuck" due to multiple applications attempting to spend coins '
+#         'from the same addresses.')
+#
+#      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (typically ' +
+#                                 os.path.join(BTC_HOME_DIR, 'wallet.dat') + ')', doWrap=False)
+#      ttipWlt = createToolTipObject(\
+#         'This is the wallet file used by the standard Bitcoin client from '
+#         'bitcoin.org.  It contains all the information needed for Armory to '
+#         'know how to access the Bitcoins maintained by that program')
+#      self.txtWalletPath = QLineEdit()
+#
+#
+#
+#      self.chkAllKeys = QCheckBox('Include Address Pool (unused keys)')
+#      ttipAllKeys = createToolTipObject( \
+#         'The wallet.dat file typically '
+#         'holds a pool of 100 addresses beyond the ones you ever used. '
+#         'These are the next 100 addresses to be used by the main Bitcoin '
+#         'client for the next 100 transactions.  '
+#         'If you are planning to switch to Armory exclusively, you will not '
+#         'need these addresses')
+#
+#      self.chkAllKeys.setChecked(True)
+#      if self.main.usermode in (USERMODE.Standard,):
+#         self.chkAllKeys.setVisible(False)
+#         self.ttipAllKeys.setVisible(False)
+#
+#      btnGetFilename = QPushButton('Find...')
+#      self.connect(btnGetFilename, SIGNAL('clicked()'), self.getSatoshiFilename)
+#
+#      defaultWalletPath = os.path.join(BTC_HOME_DIR,'wallet.dat')
+#      if os.path.exists(defaultWalletPath):
+#         self.txtWalletPath.setText(defaultWalletPath)
+#
+#      buttonBox = QDialogButtonBox()
+#      self.btnAccept = QPushButton("Import")
+#      self.btnReject = QPushButton("Cancel")
+#      self.connect(self.btnAccept, SIGNAL('clicked()'), self.execMigrate)
+#      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+#      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+#      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+#
+#
+#      # Select the wallet into which you want to import
+#      lblWltDest = QRichLabel('Migrate Addresses to which Wallet?', doWrap=False)
+#      self.wltidlist = [''] 
+#      self.lstWallets = QListWidget()
+#      self.lstWallets.addItem(QListWidgetItem('New Wallet...'))
+#      for wltID in self.main.walletIDList:
+#         wlt = self.main.walletMap[wltID]
+#         wlttype = determineWalletType(self.main.walletMap[wltID], self.main)[0]
+#         if wlttype in (WLTTYPES.WatchOnly, WLTTYPES.Offline):
+#            continue
+#         self.lstWallets.addItem( \
+#                QListWidgetItem('%s (%s)' % (wlt.labelName, wltID) ))
+#         self.wltidlist.append(wltID)
+#      self.lstWallets.setCurrentRow(0)
+#      self.connect(self.lstWallets, SIGNAL('currentRowChanged(int)'), self.wltChange)
+#
+#
+#      self.lblDescrNew = QRichLabel( '' )
+#      self.lblDescrNew.setAlignment(Qt.AlignTop)
+#      self.wltChange(0)
+#      
+#
+#      dlgLayout = QVBoxLayout()
+#      dlgLayout.addWidget(lblDescr)
+#      dlgLayout.addWidget(HLINE())
+#      dlgLayout.addWidget(makeHorizFrame([lblSatoshiWlt, ttipWlt, 'Stretch']))
+#      dlgLayout.addWidget(makeHorizFrame([self.txtWalletPath, btnGetFilename]))
+#      dlgLayout.addWidget(makeHorizFrame([self.chkAllKeys, ttipAllKeys, 'Stretch']))
+#      dlgLayout.addWidget(HLINE())
+#      dlgLayout.addWidget(makeHorizFrame([lblWltDest, 'Stretch']))
+#      dlgLayout.addWidget(makeHorizFrame([self.lstWallets, self.lblDescrNew,'Stretch']))
+#      dlgLayout.addWidget(HLINE())
+#      dlgLayout.addWidget(buttonBox)
+#
+#      self.setLayout(dlgLayout)
+#
+#      self.setMinimumWidth(500)
+#      self.setWindowTitle('Migrate Bitcoin-Qt Wallet')
+#      self.setWindowIcon(QIcon( self.main.iconfile))
+#
+#
+#   def getSatoshiFilename(self):
+#      # Temporarily reset the "LastDir" to where the default wallet.dat is
+#      prevLastDir = self.main.settings.get('LastDirectory')
+#      self.main.writeSetting('LastDirectory', BTC_HOME_DIR)
+#      satoshiWltFile = self.main.getFileLoad('Load Bitcoin Wallet File', \
+#                                             ['Bitcoin Wallets (*.dat)'])
+#      self.main.writeSetting('LastDirectory', prevLastDir)
+#      if len(str(satoshiWltFile))>0:
+#         self.txtWalletPath.setText(satoshiWltFile)
+#      
+#
+#   def wltChange(self, row):
+#      if row==0:
+#         self.lblDescrNew.setText( \
+#           'If your wallet.dat is encrypted, the new Armory wallet will also '
+#           'be encrypted, and with the same passphrase.  If your wallet.dat '
+#           'is not encrypted, neither will the new Armory wallet.  Encryption '
+#           'can always be added, changed or removed on any wallet.')
+#      else:
+#         self.lblDescrNew.setText( '' )
+#
+#   def execMigrate(self):
+#      satoshiWltFile = str(self.txtWalletPath.text())
+#      if not os.path.exists(satoshiWltFile):
+#         QMessageBox.critical(self, 'File does not exist!', \
+#            'The specified file does not exist:\n\n' + satoshiWltFile,
+#            QMessageBox.Ok)
+#         return
+#
+#      selectedRow = self.lstWallets.currentRow()
+#      toWalletID = None
+#      if selectedRow>0:
+#         toWalletID = self.wltidlist[selectedRow]
+#         
+#
+#
+#      # Critical to avoid wallet corruption!!
+#      base,fn = os.path.split(satoshiWltFile)
+#      nm,ext = os.path.splitext(fn)
+#      satoshiWltFileCopy = os.path.join(ARMORY_HOME_DIR, nm+'_temp_copy'+ext)
+#      shutil.copy(satoshiWltFile, satoshiWltFileCopy)
+#      if not os.path.exists(satoshiWltFileCopy):
+#         raise FileExistsError, 'There was an error creating a copy of wallet.dat'
+#
+#      # KeyList is [addrB58, privKey, usedYet, acctName]
+#      # This block will not only decrypt the Satoshi wallet, but also catch
+#      # if the user specified a wallet.dat for a different network!
+#      keyList = []
+#      satoshiPassphrase = None
+#      satoshiWltIsEncrypted  = checkSatoshiEncrypted(satoshiWltFileCopy)
+#
+#      if not satoshiWltIsEncrypted:
+#         try:
+#            keyList = extractSatoshiKeys(satoshiWltFileCopy)
+#         except NetworkIDError:
+#            QMessageBox.critical(self, 'Wrong Network!', \
+#               'The specified wallet.dat file is for a different network! '
+#               '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
+#               QMessageBox.Ok)
+#            LOGERROR('Wallet is for the wrong network!')
+#            return
+#      else:
+#         correctPassphrase = False
+#         firstAsk = True
+#         while not correctPassphrase:
+#            # Loop until we get a valid passphrase
+#            redText = ''
+#            if not firstAsk:
+#               redText = '<font color=%s>Incorrect passphrase.</font><br><br>' % htmlColor('TextRed')
+#            firstAsk = False
+#
+#            dlg = DlgGenericGetPassword( \
+#                redText + 'The wallet.dat file you specified is encrypted.  '
+#                'Please provide the passphrase to decrypt it.', self, self.main)
+#
+#            if not dlg.exec_():
+#               return
+#            else:
+#               satoshiPassphrase = SecureBinaryData(str(dlg.edtPasswd.text()))
+#               try:
+#                  keyList = extractSatoshiKeys(satoshiWltFileCopy, satoshiPassphrase)
+#                  correctPassphrase = True
+#               except EncryptionError:
+#                  pass
+#               except NetworkIDError:
+#                  QMessageBox.critical(self, 'Wrong Network!', \
+#                     'The specified wallet.dat file is for a different network! '
+#                     '(you are on the ' + NETWORKS[ADDRBYTE] + ')', \
+#                     QMessageBox.Ok)
+#                  LOGERROR('Wallet is for the wrong network!')
+#                  return
+#
+#      # We're done accessing the file, delete the
+#      os.remove(satoshiWltFileCopy)
+#      
+#      if not self.chkAllKeys.isChecked():
+#         keyList = filter(lambda x: x[2], keyList)
+#
+#
+#      # Warn about addresses that would be duplicates.
+#      # This filters the list down to addresses already in a wallet that isn't selected
+#      # Addresses already in the selected wallet will simply be skipped, no need to 
+#      # do anything about that
+#      addr_to_wltID = lambda a: self.main.getWalletForAddr160(addrStr_to_hash160(a))
+#      allWltList = [[addr_to_wltID(k[0]), k[0]] for k in keyList]
+#      dupeWltList = filter(lambda a: (len(a[0])>0 and a[0]!=toWalletID), allWltList)
+#
+#      if len(dupeWltList)>0:
+#         dlg = DlgDuplicateAddr([d[1].ljust(40)+d[0] for d in dupeWltList], self, self.main)
+#         didAccept = dlg.exec_()
+#         if not didAccept or dlg.doCancel:
+#            return
+#   
+#         if dlg.newOnly:
+#            dupeAddrList = [a[1] for a in dupeWltList]
+#            keyList = filter(lambda x: (x[0] not in dupeAddrList), keyList)
+#         elif dlg.takeAll:
+#            pass # we already have duplicates in the list, leave them
+#      
+#
+#      # Confirm import
+#      addrList = [k[0].ljust(40)+k[3] for k in keyList]
+#      dlg = DlgConfirmBulkImport(addrList, toWalletID, self, self.main)
+#      if not dlg.exec_():
+#         return
+#         
+#      # Okay, let's do it!  Get a wallet, unlock it if necessary, create if desired
+#      wlt = None
+#      if toWalletID==None:
+#         lblShort = 'Migrated wallet.dat'
+#         lblLong  = 'Wallet created to hold addresses from the regular Bitcoin wallet.dat.'
+#
+#         if not satoshiPassphrase:
+#            wlt = PyBtcWallet().createNewWallet(    \
+#                               withEncrypt=False,   \
+#                               shortLabel=lblShort, \
+#                               longLabel=lblLong)
+#                                                     
+#         else:
+#            lblLong += ' (encrypted using same passphrase as the original wallet)'
+#            wlt = PyBtcWallet().createNewWallet( \
+#                               withEncrypt=True, \
+#                               securePassphrase=satoshiPassphrase, \
+#                               shortLabel=lblShort, \
+#                               longLabel=lblLong)
+#            wlt.unlock(securePassphrase=satoshiPassphrase)
+#
+#
+#      else:
+#         wlt = self.main.walletMap[toWalletID]
+#         if wlt.useEncryption and wlt.isLocked:
+#            # Target wallet is encrypted...
+#            unlockdlg = DlgUnlockWallet(wlt, self, self.main, 'Unlock Wallet to Import')
+#            if not unlockdlg.exec_():
+#               QMessageBox.critical(self, 'Wallet is Locked', \
+#                  'Cannot import private keys without unlocking wallet!', \
+#                  QMessageBox.Ok)
+#               return
+#
+#      
+#      self.nImport = 0
+#      self.nError  = 0
+#      def finallyDoMigrate():
+#         for i,key4 in enumerate(keyList):
+#            addrB58, sbdKey, isUsed, addrName = key4[:]
+#            try:
+#               a160 = addrStr_to_hash160(addrB58)
+#               wlt.importExternalAddressData(privKey=sbdKey)
+#               cmt = 'Imported #%03d'%i
+#               if len(addrName)>0:
+#                  cmt += ': %s' % addrName
+#               wlt.setComment(a160, cmt)
+#               self.nImport += 1
+#            except Exception,msg:
+#               LOGERROR('Problem importing: %s: %s', addrB58, msg)
+#               self.nError += 1
+#
+#
+#      DlgExecLongProcess(finallyDoMigrate, "Migrating Bitcoin-Qt Wallet", self, self.main).exec_()
+#
+#
+#      if self.nImport==0:
+#         MsgBoxCustom(MSGBOX.Error,'Error!', 'Failed:  No addresses could be imported. '
+#            'Please check the logfile (ArmoryQt.exe.log) or the console output '
+#            'for information about why it failed (and email alan.reiner@gmail.com '
+#            'for help fixing the problem).')
+#      else:
+#         if self.nError == 0:
+#            MsgBoxCustom(MSGBOX.Good, 'Success!', \
+#               'Success: %d private keys were imported into your wallet.' % self.nImport)
+#         else:
+#            MsgBoxCustom(MSGBOX.Warning, 'Partial Success!', \
+#               '%d private keys were imported into your wallet, but there was '
+#               'also %d addresses that could not be imported (see console '
+#               'or log file for more information).  It is safe to try this '
+#               'operation again: all addresses previously imported will be '
+#               'skipped. %s' % (self.nImport, self.nError, restartMsg))
+#      
+#      if self.main.blkMode==BLOCKCHAINMODE.Full:
+#         ##########################################################################
+#         warnMsg = ( \
+#            'Would you like to rescan the blockchain for all the addresses you '
+#            'just migrated?  This operation can take between 5 seconds to 3 minutes '
+#            'depending on your system.  If you skip this operation, it will be '
+#            'performed the next time you restart Armory. Wallet balances may '
+#            'be incorrect until then.')
+#         waitMsg = 'Searching the global transaction history'
+#         
+#         self.main.isDirty = True
+#         if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
+#            self.main.safeAddWallet(wlt.cppWallet)
+#            #TheBDM.registerWallet(wlt.cppWallet)
+#            #wlt.syncWithBlockchain(0)
+#         else:
+#         ##########################################################################
+#
+#      self.main.addWalletToApplication(wlt, walletIsNew=False)
+#
+#      self.main.walletListChanged()
+#      self.accept()
+#      
+#         
          
 
          
@@ -2721,8 +2731,8 @@ class DlgMigrateSatoshiWallet(ArmoryDialog):
          
 
 
-#############################################################################
-class DlgConfirmBulkImport(ArmoryDialog):
+##############################################################################
+#class DlgConfirmBulkImport(ArmoryDialog):
    def __init__(self, addrList, wltID, parent=None, main=None):
       super(DlgConfirmBulkImport, self).__init__(parent, main)
 
@@ -3153,7 +3163,7 @@ class DlgShowKeys(ArmoryDialog):
             'same as you protect your wallet.</font>' % htmlColor('TextWarn'))
       warnFrm = makeLayoutFrame('Horiz', [lblWarn])
 
-      endianness = self.main.getSettingWithDefault('PrefEndian', BIGENDIAN)
+      endianness = self.main.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
       estr = 'BE' if endianness==BIGENDIAN else 'LE'
       def formatBinData(binStr, endian=LITTLEENDIAN):
          binHex = binary_to_hex(binStr)
@@ -4473,7 +4483,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.wlt    = wlt  
       self.wltID  = wlt.uniqueIDB58
 
-      txFee = self.main.getSettingWithDefault('Default_Fee', MIN_TX_FEE)
+      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
 
       self.widgetTable = []
 
@@ -4744,10 +4754,10 @@ class DlgSendBitcoins(ArmoryDialog):
       self.setMinimumHeight(self.maxHeight*20)
 
       loadCount      = self.main.settings.get('Load_Count')
-      alreadyDonated = self.main.getSettingWithDefault('DonateAlready', False)
-      lastPestering  = self.main.getSettingWithDefault('DonateLastPester', 0)
-      donateFreq     = self.main.getSettingWithDefault('DonateFreq', 20)
-      dnaaDonate     = self.main.getSettingWithDefault('DonateDNAA', False)
+      alreadyDonated = self.main.getSettingOrSetDefault('DonateAlready', False)
+      lastPestering  = self.main.getSettingOrSetDefault('DonateLastPester', 0)
+      donateFreq     = self.main.getSettingOrSetDefault('DonateFreq', 20)
+      dnaaDonate     = self.main.getSettingOrSetDefault('DonateDNAA', False)
 
 
       if prefill:
@@ -5006,7 +5016,7 @@ class DlgSendBitcoins(ArmoryDialog):
       minFeeRec = calcMinSuggestedFees(utxoSelect, totalSend, fee)
       if fee<minFeeRec[1]:
 
-         overrideMin = self.main.getSettingWithDefault('OverrideMinFee', False)
+         overrideMin = self.main.getSettingOrSetDefault('OverrideMinFee', False)
          if totalSend+minFeeRec[1] > bal:
             # Need to adjust this based on overrideMin flag
             self.edtFeeAmt.setText(coin2str(minFeeRec[1], maxZeros=1).strip())
@@ -6434,7 +6444,7 @@ class DlgShowKeyList(ArmoryDialog):
       
    def saveToFile(self):
       if self.havePriv:
-         if not self.main.getSettingWithDefault('DNAA_WarnPrintKeys', False):
+         if not self.main.getSettingOrSetDefault('DNAA_WarnPrintKeys', False):
             result = MsgBoxWithDNAA(MSGBOX.Warning, title='Plaintext Private Keys', \
                   msg='<font color="red"><b>REMEMBER:</b></font> The data you '
                   'are about to save contains private keys.  Please make sure '
@@ -6754,7 +6764,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       # Show the transaction ID, with the user's preferred endianness
       # I hate BE, but block-explorer requires it so it's probably a better default
-      endianness = self.main.getSettingWithDefault('PrefEndian', BIGENDIAN)
+      endianness = self.main.getSettingOrSetDefault('PrefEndian', BIGENDIAN)
       estr = ''
       if self.mode in (USERMODE.Advanced, USERMODE.Expert):
          estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
@@ -9066,7 +9076,7 @@ class DlgPreferences(ArmoryDialog):
 
 
 
-      txFee = self.main.getSettingWithDefault('Default_Fee', MIN_TX_FEE)
+      txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
       lblDefaultFee = QRichLabel('<b>Default fee to include with transactions:</b><br>')
       lblDefaultDescr = QRichLabel( \
                                  'Fees go to users that contribute computing power '
@@ -9088,7 +9098,7 @@ class DlgPreferences(ArmoryDialog):
 
       ###############################################################
       # Minimize on Close
-      moc = self.main.getSettingWithDefault('MinimizeOrClose', 'DontKnow')
+      moc = self.main.getSettingOrSetDefault('MinimizeOrClose', 'DontKnow')
       lblMinOrClose = QRichLabel('<b>Minimize to system tray on close:</b>')
       lblMoCDescr   = QRichLabel( 'When you click the "x" on the top window bar, '
                                  'Armory will stay open but run in the background.  '
@@ -9102,7 +9112,7 @@ class DlgPreferences(ArmoryDialog):
          self.chkMinOrClose.setChecked(True)
 
 
-      #doInclFee = self.main.getSettingWithDefault('LedgDisplayFee', True)
+      #doInclFee = self.main.getSettingOrSetDefault('LedgDisplayFee', True)
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
                                 #'primary ledger</b>.<br>Unselect if you want to '
                                 #'see only the value received by the recipient.')
@@ -9118,10 +9128,10 @@ class DlgPreferences(ArmoryDialog):
       ###############################################################
       # Notifications
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn  = self.main.getSettingWithDefault('NotifyBtcIn',  True)
-      notifyBtcOut = self.main.getSettingWithDefault('NotifyBtcOut', True)
-      notifyDiscon = self.main.getSettingWithDefault('NotifyDiscon', True)
-      notifyReconn = self.main.getSettingWithDefault('NotifyReconn', True)
+      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  True)
+      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
+      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
+      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
 
       self.chkBtcIn  = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
@@ -9318,7 +9328,7 @@ class DlgPreferences(ArmoryDialog):
       #
       #     [OptionType, SettingsName, DefaultValue, BoldText, NormalText, Tooltip]
       #
-      # SettingsName is the string used in self.main.getSettingWithDefault()
+      # SettingsName is the string used in self.main.getSettingOrSetDefault()
       # OptionType can be one of:
       #     {'Checkbox', 'LineEdit', 'Combo|Opt1|Opt2|...', 'Separator', 'Header'} 
       #
@@ -9695,7 +9705,7 @@ class DlgRequestPayment(ArmoryDialog):
       # Link Text:
       self.edtLinkText = QLineEdit()
       defaultText = binary_to_hex('Click here to pay for your order!')
-      linkText = hex_to_binary(self.main.getSettingWithDefault('DefaultLinkText',defaultText))
+      linkText = hex_to_binary(self.main.getSettingOrSetDefault('DefaultLinkText',defaultText))
       self.edtLinkText.setText(linkText)
       self.edtLinkText.setCursorPosition(0)
 

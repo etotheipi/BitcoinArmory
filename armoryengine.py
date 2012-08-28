@@ -591,6 +591,7 @@ def str2coin(coinStr):
       return int(coinStr)*ONE_BTC
    else:
       lhs,rhs = coinStr.split('.')
+      rhs = rhs[:8]
       return int(lhs)*ONE_BTC + int(rhs.ljust(8,'0'))
 
 
@@ -9760,7 +9761,105 @@ class PyBackgroundThread(threading.Thread):
 
 
 
+################################################################################
+# Let's create a thread-wrapper for the blockchain utilities.  Enable the
+# ability for multi-threaded blockchain scanning -- have a main thread and 
+# a blockchain thread:  blockchain can scan, and main thread will check back
+# every now and then to see if it's done
 
+from queue import Queue
+
+BLOCKCHAINMODE  = enum('Offline', 'Full', 'Rescanning', 'FullPrune', 'Lite')
+
+class ThreadedBlockDataManager(threading.Thread):
+   """ 
+   Serves as a layer between the GUI and the Blockchain utilities.
+   If a request is made to mess with the BDM while it is in the 
+   middle of scanning, it will queue it for when it's done
+   """
+   #############################################################################
+   def __init__(self):
+      super(ThreadedBlockDataManager, self).__init__()
+
+      self.blkMode = BLOCKCHAINMODE.Offline
+
+      # These two are for communicating with the master (GUI) thread
+      self.ext_inputQueue = Queue()
+      self.ext_outputQueue = Queue()
+      self.addressesToRegister = []
+      self.doShutdown = False
+       
+
+   #############################################################################
+   def registerAddresses(self, addr160List, isFresh=False):
+      # Variable isFresh==True means the address was just [freshly] created,
+      # and we need to watch for transactions with it, but we don't need
+      # to rescan any blocks
+
+      if isinstance(addr160List, str):
+         # Not actually a list, just a single addr
+         self.addressesToRegister.put([addr160List, isFresh])
+      elif isinstance(addr160List, (list,tuple)):
+         self.addressesToRegister.extend([[a,isFresh] for a in addr160List])
+
+         
+               
+   
+   #############################################################################
+   def __registerWaitingAddressesNow(self):
+      if self.blkMode == BLOCKCHAINMODE.Rescanning:
+         LOGCRIT('Called __registerWaitingAddressesNow while rescanning!')
+         LOGCRIT('Don\'t ever do this!')
+         LOGCRIT('Aborting address registration.')
+         return
+
+      if len(self.addressesToRegister) == 0:
+         LOGWARN('Called __registerWaitingAddressesNow, but nothing to register')
+         return
+
+      needRescan = False
+      for a160,isFresh in addr160List:
+         if not isFresh:
+            needRescan = True
+
+         TheBDM.registerAddresses
+      
+      
+
+   #############################################################################
+   def startLoadBlockchain(self):
+      self.blkMode = BLOCKCHAINMODE.Rescanning
+      
+
+      
+   #############################################################################
+   def startRescanBlockchain(self):
+
+   #############################################################################
+   def startUpdateBlockchain(self):
+      if self.blkMode == BLOCKCHAINMODE.Rescanning:
+         pass
+
+      return TheBDM.readBlkFileUpdate() 
+      
+         
+
+   def run(self):
+      # Let's define input and output commands via the Queue
+      #    Input types:   ['RegisterAddress',  
+      while not self.doShutdown:
+         try:
+            cmd = self.ext_inputQueue.get()
+             
+
+         except Queue.Empty:
+            continue
+         except:
+            LOGERROR('Blockchain thread crashed!')
+            raise
+           
+         
+   def startInitialLoad(
 
 
 
