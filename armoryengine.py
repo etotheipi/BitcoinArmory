@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 82, 5, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 84, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -94,6 +94,9 @@ parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
 parser.add_option("--force-online", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
+                  help="Force use of the single-threaded (blocking) BlockDataManger.")
+
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
 
@@ -674,7 +677,9 @@ except:
 
 ################################################################################
 # Might as well create the BDM right here -- there will only ever be one, anyway
-TheBDM = Cpp.BlockDataManager().getBDM()
+# NOTE: Moved this to the end, after the BDMThreadManager class, so that if the 
+#       option is selected, TheBDM can reference the asynchronous version.
+#TheBDM = Cpp.BlockDataManager().getBDM()
 
 
 
@@ -9707,12 +9712,12 @@ class SettingsFile(object):
 
 
 class PyBackgroundThread(threading.Thread):
-   '''
+   """
    Define a thread object that will execute a preparatory function
    (blocking), and then a long processing thread followed by something
    to do when it's done (both non-blocking).  After the 3 methods and 
    their arguments are set, use obj.start() to kick it off.
-   '''
+   """
    
    def __init__(self, *args, **kwargs):
       threading.Thread.__init__(self)
@@ -9782,38 +9787,47 @@ class ThreadedBlockDataManager(threading.Thread):
       super(ThreadedBlockDataManager, self).__init__()
 
       self.blkMode = BLOCKCHAINMODE.Offline
+      self.bdm = Cpp.BlockDataManager().getBDM()
 
       # These two are for communicating with the master (GUI) thread
-      self.ext_inputQueue = Queue()
-      self.ext_outputQueue = Queue()
-      self.addressesToRegister = []
+      self.addrRegisterQueue = Queue()
+      self.responseQueue = Queue()
       self.doShutdown = False
        
 
    #############################################################################
    def registerAddresses(self, addr160List, isFresh=False):
-      # Variable isFresh==True means the address was just [freshly] created,
-      # and we need to watch for transactions with it, but we don't need
-      # to rescan any blocks
+      """
+      Variable isFresh==True means the address was just [freshly] created,
+      and we need to watch for transactions with it, but we don't need
+      to rescan any blocks
+      """
 
       if isinstance(addr160List, str):
          # Not actually a list, just a single addr
-         self.addressesToRegister.put([addr160List, isFresh])
+         self.addrRegisterQueue.put([addr160List, isFresh])
       elif isinstance(addr160List, (list,tuple)):
-         self.addressesToRegister.extend([[a,isFresh] for a in addr160List])
+         self.addrRegisterQueue.extend([[a,isFresh] for a in addr160List])
 
          
                
    
    #############################################################################
    def __registerWaitingAddressesNow(self):
+      """
+      Do the registration right now.  This should not be called directly
+      outside of this class.  When it's called, you are expected to check
+      whether the BDM is in the middle of a rescan, first.  Outside, call
+      the above method (registerAddresses) which will queue the addresses
+      to be added when the BDM is ready.
+      """
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          LOGCRIT('Called __registerWaitingAddressesNow while rescanning!')
          LOGCRIT('Don\'t ever do this!')
          LOGCRIT('Aborting address registration.')
          return
 
-      if len(self.addressesToRegister) == 0:
+      if self.addrRegisterQueue.qsize() == 0:
          LOGWARN('Called __registerWaitingAddressesNow, but nothing to register')
          return
 
@@ -9822,7 +9836,8 @@ class ThreadedBlockDataManager(threading.Thread):
          if not isFresh:
             needRescan = True
 
-         TheBDM.registerAddresses
+         TheBDM.registerAd
+
       
       
 
@@ -9840,7 +9855,7 @@ class ThreadedBlockDataManager(threading.Thread):
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          pass
 
-      return TheBDM.readBlkFileUpdate() 
+      return self.bdm.readBlkFileUpdate() 
       
          
 
@@ -9864,6 +9879,22 @@ class ThreadedBlockDataManager(threading.Thread):
 
 
 
+################################################################################
+# Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
+# running 
+
+if CLI_OPTIONS.noThreading:
+   LOGINFO('User specified single-threaded BDM.  All BDM calls will be ')
+   LOGINFO('blocking.  If used with the GUI, the GUI will be unresponsive ')
+   LOGINFO('during blockchain loading and rescanning.')
+   TheBDM = Cpp.BlockDataManager().getBDM()
+else:
+   LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
+   LOGINFO('Blockchain operations will happen in the background.  ')
+   LOGINFO('Devs: check TheBDM.blkMode before querying for any data.')
+   LOGINFO('Registering addresses during rescans will queue them for ')
+   LOGINFO('inclusing after the current scan is completed.')
+   TheBDM = ThreadedBlockDataManager()
 
 
 
