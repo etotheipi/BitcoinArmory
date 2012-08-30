@@ -9774,26 +9774,41 @@ class PyBackgroundThread(threading.Thread):
 
 from queue import Queue
 
-BLOCKCHAINMODE  = enum('Offline', 'Full', 'Rescanning', 'FullPrune', 'Lite')
+BLOCKCHAINMODE  = enum('Offline', 'Uninitialized', 'Full', \
+                       'Rescanning', 'FullPrune', 'Lite')
 
-class ThreadedBlockDataManager(threading.Thread):
+class BlockDataManager_Asynchronous(threading.Thread):
    """ 
    Serves as a layer between the GUI and the Blockchain utilities.
    If a request is made to mess with the BDM while it is in the 
    middle of scanning, it will queue it for when it's done
    """
    #############################################################################
-   def __init__(self):
-      super(ThreadedBlockDataManager, self).__init__()
+   def __init__(self, isOffline=False):
+      super(BlockDataManager_Asynchronous, self).__init__()
 
-      self.blkMode = BLOCKCHAINMODE.Offline
+      if isOffline:
+         self.blkMode = BLOCKCHAINMODE.Offline
+      else:
+         self.blkMode = BLOCKCHAINMODE.Uninitialized
+
       self.bdm = Cpp.BlockDataManager().getBDM()
 
       # These two are for communicating with the master (GUI) thread
       self.addrRegisterQueue = Queue()
-      self.responseQueue = Queue()
       self.doShutdown = False
+      self.isDirty = False
+      self.allowRescan = True
+
+      # The BlockDataManager is easier to use if you put all your addresses
+      # into a C++ BtcWallet object, and let it 
+      self.masterCppWallet = Cpp.BtcWallet()
        
+
+   #############################################################################
+   def setAllowRescan(self, trueOrFalse=True):
+      self.allowRescan = trueOrFalse
+      
 
    #############################################################################
    def registerAddresses(self, addr160List, isFresh=False):
@@ -9805,11 +9820,24 @@ class ThreadedBlockDataManager(threading.Thread):
 
       if isinstance(addr160List, str):
          # Not actually a list, just a single addr
-         self.addrRegisterQueue.put([addr160List, isFresh])
-      elif isinstance(addr160List, (list,tuple)):
-         self.addrRegisterQueue.extend([[a,isFresh] for a in addr160List])
+         addr160List = [addr160List]
+
+      for a160 in addr160List:
+         self.addrRegisterQueue.put([a160, isFresh])
 
          
+   #############################################################################
+   def registerWallet(self, wlt):
+      if isinstance(wlt, PyBtcWallet):
+         addrs = [a.getAddrStr() for a in wlt.getAddrList()]
+         addrs.remove('ROOT')
+         self.registerAddresses(addrs)
+      elif isinstance(wlt, Cpp.BtcWallet):
+         naddr = wlt.getNumAddr()
+         for a in range(naddr):
+            self.registerAddresses(wlt.getAddrByIndex(a).getAddrStr20())
+      else:
+         LOGERROR('Unrecognized object passed to registerWallet function')
                
    
    #############################################################################
@@ -9831,34 +9859,88 @@ class ThreadedBlockDataManager(threading.Thread):
          LOGWARN('Called __registerWaitingAddressesNow, but nothing to register')
          return
 
-      needRescan = False
+      self.isDirty = False
       for a160,isFresh in addr160List:
-         if not isFresh:
-            needRescan = True
-
-         TheBDM.registerAd
+         if isFresh:
+            # We claimed to have just created this address...(so no rescan needed)
+            self.masterCppWallet.addNewAddress(a160)
+         else:
+            # will need a rescan
+            self.isDirty = True
+            self.masterCppWallet.addAddress_1_(a160)
 
       
       
 
    #############################################################################
-   def startLoadBlockchain(self):
+   def startLoadBlockchain(self, blkdir==None):
+      if self.blkMode == BLOCKCHAINMODE.Rescanning:
+         LOGERROR('Blockchain is already scanning.  Was this called already?')         
+         return
+      elif self.blkMode == BLOCKCHAINMODE.Full:
+         LOGERROR('Blockchain has already been loaded -- maybe we '
+                  'should call startRescanBlockchain()...?')
+         return
+
+
+      if blkdir==None:
+         blkdir = BTC_HOME_DIR
+
+      if not os.path.exists(blkdir):
+         raise FileExistsError, ('Directory does not exist: %s' % blkdir)
+
+      blk0001file = os.path.join(blkdir,'blk0001.dat')
+      if not os.path.exists(blk0001file):
+         self.blkMode = BLOCKCHAINMODE.Offline
+         raise FileExistsError, ('Blockchain data not available: %s' % blk0001file)
+
+      # We have the data, we're ready to go
       self.blkMode = BLOCKCHAINMODE.Rescanning
-      
+      self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
+                                    GENESIS_TX_HASH,    \
+                                    MAGIC_BYTES)
+     
+      ### This is the part that takes forever
+      self.bdm.parseEntireBlockchain(blkdir)
 
+      # If the user registered new addresses/wallets since blockchain scanning
+      # started, then start a rescan...
+      if self.isDirty and self.allowRescan:
+         self.blkMode = BLOCKCHAINMODE.Full
+         self.__startRescanBlockchain()
+
+      self.blkMode = BLOCKCHAINMODE.Full
       
    #############################################################################
-   def startRescanBlockchain(self):
+   def __startRescanBlockchain(self):
+      if self.blkMode==BLOCKCHAINMODE.Rescanning:
+         LOGERROR('Blockchain is in the middle of rescanning, cannot rescan!')
+      elif self.blkMode==BLOCKCHAINMODE.Offline:
+         LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
+
+      self.blkMode = BLOCKCHAINMODE.Rescanning
+      while self.isDirty and self.allowRescan:
+         self.isDirty = False
+
+         TheBDM.
+
+         # If new addr registered during the last rescan, continue the while loop
+         if not self.isDirty:
+            break
+   
+
 
    #############################################################################
    def startUpdateBlockchain(self):
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          pass
-
-      return self.bdm.readBlkFileUpdate() 
-      
+      self.blkMode == BLOCKCHAINMODE.Rescanning
+      nblk = self.bdm.readBlkFileUpdate() 
+      self.blkMode == BLOCKCHAINMODE.Full
+      return nblk 
          
 
+   #############################################################################
    def run(self):
       # Let's define input and output commands via the Queue
       #    Input types:   ['RegisterAddress',  
@@ -9883,6 +9965,8 @@ class ThreadedBlockDataManager(threading.Thread):
 # Make TheBDM reference the asyncrhonous BlockDataManager wrapper if we are 
 # running 
 
+if CLI_OPTIONS.offline:
+   if
 if CLI_OPTIONS.noThreading:
    LOGINFO('User specified single-threaded BDM.  All BDM calls will be ')
    LOGINFO('blocking.  If used with the GUI, the GUI will be unresponsive ')
@@ -9894,7 +9978,7 @@ else:
    LOGINFO('Devs: check TheBDM.blkMode before querying for any data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
    LOGINFO('inclusing after the current scan is completed.')
-   TheBDM = ThreadedBlockDataManager()
+   TheBDM = BlockDataManager_Asynchronous()
 
 
 

@@ -2123,7 +2123,6 @@ uint32_t BlockDataManager_FileRefs::numBlocksToRescan( BtcWallet & wlt,
 
       RegisteredAddress & ra = registeredAddrMap_[addr.getAddrStr20()];
       maxAddrBehind = max(maxAddrBehind, endBlk-ra.alreadyScannedUpToBlk_);
-      cout << maxAddrBehind << " ";
    }
 
    // If we got here, then all addr are already registered and current
@@ -2222,10 +2221,28 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    uint32_t numRescan = numBlocksToRescan(myWallet, endBlknum);
 
 
+   // This is the part that might take a while...
+   rescanBlocks(allRegAddrScannedUpToBlk_, endBlknum);
+
+   allRegAddrScannedUpToBlk_ = endBlknum;
+   updateRegisteredAddresses(endBlknum);
+
+
    // *********************************************************************** //
-   // First make sure that the registered txList is up to date
-   // startBlknum might have to be set to 0 if any addr need full rescan
-   //
+   // Finally, walk through all the registered tx
+   scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
+
+   // We should clean up any dangling TxIOs in the wallet then rescan
+   if(zcEnabled_)
+      rescanWalletZeroConf(myWallet);
+
+   PDEBUG("Done scanning blockchain for tx");
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
+{
    // TODO:   I am assuming this will be too slow, but I will test/time it
    //         before making that conclusion:  perhaps pre-caching is enough
    //         to avoid complicating this to the level of parseEntireBlockchain
@@ -2233,8 +2250,11 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    //         using pre-caching as I have done seems to have no noticeable 
    //         impact on performance.  That means this code block could 
    //         probably be reused, and is fairly simple.
+
+   blk1 = min(blk1, getTopBlockHeight()+1);
+
    TIMER_START("RescanTiming");
-   for(uint32_t h=allRegAddrScannedUpToBlk_; h<endBlknum; h++)
+   for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
       vector<TxRef*> const & txlist = bhr.getTxRefPtrList();
@@ -2254,17 +2274,6 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
 
    allRegAddrScannedUpToBlk_ = endBlknum;
    updateRegisteredAddresses(endBlknum);
-
-
-   // *********************************************************************** //
-   // Finally, walk through all the registered tx
-   scanRegisteredTxForWallet(myWallet, startBlknum, endBlknum);
-
-   // We should clean up any dangling TxIOs in the wallet then rescan
-   if(zcEnabled_)
-      rescanWalletZeroConf(myWallet);
-
-   PDEBUG("Done scanning blockchain for tx");
 }
 
 

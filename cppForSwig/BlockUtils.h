@@ -858,6 +858,7 @@ public:
                             uint32_t startBlknum=0,
                             uint32_t endBlknum=UINT32_MAX);
 
+   void rescanBlocks(uint32_t blk0=0, uint32_t blk1=UINT32_MAX);
 
    // This will only be used by the above method, probably wouldn't be called
    // directly from any other code
