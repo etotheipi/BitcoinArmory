@@ -2127,7 +2127,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltIDList=wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', firstSelect=wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:
@@ -2237,7 +2237,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', wltIDList=wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', firstSelect=wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:
