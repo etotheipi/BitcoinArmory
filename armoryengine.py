@@ -1153,7 +1153,11 @@ def BDM_LoadBlockchainFile(blkdir=None, wltList=None):
    and then all blockchain data can be accessed through the BDM object. 
    Access to any information in the blockchain can be found via
    the bdm object.
+
+   NOTE:  DO NOT USE THIS for the multi-threaded BDM
    """
+
+   
    if blkdir==None:
       blkdir = BTC_HOME_DIR
 
@@ -7727,6 +7731,8 @@ class PyBtcWallet(object):
 
       self.cppWallet.addAddress_5_(newAddr160, \
                                    firstTime, firstBlk, lastTime, lastBlk)
+      TheBDM.registerImportedAddress(newAddr160, firstTime, firstBlk, \
+                                                 lastTime,  lastBlk)
 
 
       return newAddr160
@@ -9777,6 +9783,7 @@ from queue import Queue
 BLOCKCHAINMODE  = enum('Offline', 'Uninitialized', 'Full', \
                        'Rescanning', 'FullPrune', 'Lite')
 
+################################################################################
 class BlockDataManager_Asynchronous(threading.Thread):
    """ 
    Serves as a layer between the GUI and the Blockchain utilities.
@@ -9809,6 +9816,21 @@ class BlockDataManager_Asynchronous(threading.Thread):
        
 
    #############################################################################
+   def __getattr__(self, name):
+      '''
+      Anything that is not explicitly defined here should passthrough to the 
+      C++ BlockDataManager class
+      '''
+      if hasattr(self, name):
+         return getattr(self, name)
+      return self.bdm.__getattribute__(name)
+      
+
+   #############################################################################
+   def isInitialized(self):
+      return (self.blkMode==self.BLOCKCHAINMODE.Full)
+
+   #############################################################################
    def setAllowRescan(self, trueOrFalse=True):
       self.allowRescan = trueOrFalse
       
@@ -9819,13 +9841,12 @@ class BlockDataManager_Asynchronous(threading.Thread):
       self.startBDM    = doOffline
 
    #############################################################################
-   def registerAddresses(self, addr160List, isFresh=False):
+   def registerNewAddresses(self, addr160List):
       """
       Variable isFresh==True means the address was just [freshly] created,
       and we need to watch for transactions with it, but we don't need
       to rescan any blocks
       """
-
       if isinstance(addr160List, str):
          # Not actually a list, just a single addr
          addr160List = [addr160List]
@@ -9833,18 +9854,31 @@ class BlockDataManager_Asynchronous(threading.Thread):
       for a160 in addr160List:
          self.addrRegisterQueue.put([a160, isFresh])
 
+   #############################################################################
+   def registerImportedAddress(self, addr160, \
+                                     firstTime=UINT32_MAX, \
+                                     firstBlk=UINT32_MAX, \
+                                     lastTime=0, \
+                                     lastBlk=0)
+      """
+      TODO:  Need to clean up the first/last blk/time variables.  Rather,
+             I need to make sure they are maintained and applied intelligently
+             and consistently
+      """
+      self.addrRegisterQueue.put([a160, [firstTime, firstBlk, lastTime, lastBlk]])
+
          
    #############################################################################
-   def registerWallet(self, wlt):
+   def registerWallet(self, wlt, isFresh=False):
       if isinstance(wlt, PyBtcWallet):
          addrs = [a.getAddrStr() for a in wlt.getAddrList()]
          addrs.remove('ROOT')
-         self.registerAddresses(addrs)
+         self.registerAddresses(addrs, isFresh)
          self.pyWltList.append(wlt)
       elif isinstance(wlt, Cpp.BtcWallet):
          naddr = wlt.getNumAddr()
          for a in range(naddr):
-            self.registerAddresses(wlt.getAddrByIndex(a).getAddrStr20())
+            self.registerAddresses(wlt.getAddrByIndex(a).getAddrStr20(), isFresh)
          self.cppWltList.appen(wlt)
       else:
          LOGERROR('Unrecognized object passed to registerWallet function')
@@ -9876,14 +9910,23 @@ class BlockDataManager_Asynchronous(threading.Thread):
             # want the while loops spinning rapidly sucking up CPU cycles.
             # I know the threading modules are supposed to be good at 
             #  avoiding this...
-            a160,isFresh = self.addrRegisterQueue.get(True, 0.05)
-            if isFresh:
-               # We claimed to have just created this address...(so no rescan needed)
-               self.masterCppWallet.addNewAddress(a160)
+            a160,timeInfo = self.addrRegisterQueue.get(True, 0.05)
+            if isinstance(timeInfo, bool):
+               isFresh = timeInfo
+               if isFresh:
+                  # We claimed to have just created this address...(so no rescan needed)
+                  self.masterCppWallet.addNewAddress(a160)
+               else:
+                  self.masterCppWallet.addAddress_1_(a160)
             else:
-               # will need a rescan
                self.isDirty = True
-               self.masterCppWallet.addAddress_1_(a160)
+               if isinstance(timeInfo, (list,tuple)) and len(timeInfo)==4:
+                  self.masterCppWallet.addAddress_5_(a160, *timeInfo)
+               else:
+                  LOGWARN('Unrecognized time information in register method.')
+                  LOGWARN('   Data: %s', str(timeInfo))
+                  LOGWARN('Assuming imported key requiring rescan...')
+                  self.masterCppWallet.addAddress_1_(a160)
          except Queue.Empty:
             break
 
