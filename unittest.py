@@ -31,7 +31,9 @@ Test_SettingsFile     = False
 Test_WalletMigrate    = False
 Test_AddressBooks     = False
 Test_URIParse         = False
-Test_BkgdThread       = True
+
+Test_BkgdThread       = False
+Test_AsyncBDM         = True
 
 '''
 import optparse
@@ -1999,6 +2001,76 @@ if Test_BkgdThread:
    print 'Print statement right after thread.start()... waiting'
    print 'Run longFuncC again just for fun, while we wait...'
    longFuncC(0,0,0)
+
+
+
+
+if Test_AsyncBDM:
+
+   print '***********************************************************************'
+   print 'Testing asynchronous BlockDataManager'
+   print '***********************************************************************'
+
+   print 'Blockchain Mode: ', TheBDM.getBlkModeStr()
+
+   print '\n\nLoading Blockchain from:', BLK0001_PATH
+   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print 'Done!'
+
+
+   print '\n\nCurrent Top Block is:', TheBDM.getTopBlockHeader().getBlockHeight()
+   TheBDM.getTopBlockHeader().pprint()
+
+
+   #print '\n\nChecking integrity of blockchain:'
+   #result = TheBDM.verifyBlkFileIntegrity()
+   #print 'Done!',
+   #if result==True:
+      #print 'No errors detected in the blk0001.dat file'
+   #else:
+      #print 'Integrity check failed!  Something is wrong with your blk0001.dat file.'
+
+   cppWlt = Cpp.BtcWallet()
+
+   if not USE_TESTNET:
+      cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
+      cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
+      cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
+      cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
+      cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+   else:
+      # Test-network addresses
+      cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
+      cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
+      cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
+      cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
+      cppWlt.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
+      cppWlt.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
+      cppWlt.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
+      cppWlt.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
+
+   # We do the scan three times to make sure that there are no problems
+   # with rescanning the same tx's multiple times (it's bound to happen 
+   # so might as well make sure it's robust)
+   TheBDM.scanBlockchainForTx(cppWlt)
+   TheBDM.scanBlockchainForTx(cppWlt)
+   TheBDM.scanBlockchainForTx(cppWlt)
+
+   nAddr = cppWlt.getNumAddr()
+   print 'Address Balances:'
+   for i in range(nAddr):
+      cppAddr = cppWlt.getAddrByIndex(i)
+      bal = cppAddr.getBalance()
+      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+
+   leVect = cppWlt.getTxLedger()
+   print '\n\nLedger for all Addr:'
+   for le in leVect:
+      pprintLedgerEntry(le, ' '*3)
+   
+   
+
+
 
 
 
