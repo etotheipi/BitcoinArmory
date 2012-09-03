@@ -9791,6 +9791,8 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'HeaderRequested', \
                      'TxRequested', \
                      'BlockRequested', \
+                     'BlockAtHeightRequested', \
+                     'HeaderAtHeightRequested', \
                      'StartScanRequested', \
                      'RescanRequested', \
                      'UpdateWallets', \
@@ -9798,7 +9800,8 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'GoOnlineRequested', \
                      'GoOfflineRequested', \
                      'Passthrough', \
-                     'Reset')
+                     'Reset', \
+                     'Shutdown')
 
 ################################################################################
 class BlockDataManagerThread(threading.Thread):
@@ -9823,12 +9826,12 @@ class BlockDataManagerThread(threading.Thread):
       self.outputQueue = Queue.Queue()
 
       # Flags
-      self.doShutdown   = False
       self.isDirty      = False
       self.allowRescan  = True
       self.startBDM     = False
       self.blkdir       = BTC_HOME_DIR
       self.blocking     = blocking
+      self.doShutdown   = False
 
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
@@ -9860,7 +9863,7 @@ class BlockDataManagerThread(threading.Thread):
          raise
       else:
          def passthruFunc(*args, **kwargs):
-            self.inputQueue.put([BDMINPUTTYPE.Passthrough, name] + args)
+            self.inputQueue.put([BDMINPUTTYPE.Passthrough, name] + list(args))
             waitForReturn = True
             if len(kwargs)>0 and \
                kwargs.has_key('waitForReturn') and \
@@ -9878,13 +9881,9 @@ class BlockDataManagerThread(threading.Thread):
       
 
    #############################################################################
-   def Reset(self, waitForComplete=None):
-      self.inputQueue.put([BDMINPUTTYPE.Reset])
-
-      if waitForComplete==None:
-         waitForComplete = self.blocking
-      if waitForComplete:
-         self.inputQueue.join()
+   def Reset(self, doBlockUntilFinish=None):
+      self.inputQueue.put(BDMINPUTTYPE.Reset)
+      self.blockIfRequested(doBlockUntilFinish)
 
    #############################################################################
    def getBlkMode(self):
@@ -9907,10 +9906,19 @@ class BlockDataManagerThread(threading.Thread):
       else:
          return '<UNKNOWN: %d>' % self.blkMode
 
+
+   #############################################################################
+   def blockIfRequested(self, waitVar):
+      if waitVar==None:
+         waitVar = self.blocking
+      if waitVar:
+         self.inputQueue.join()
+      
       
    #############################################################################
-   def execCleanShutdown(self):
-      self.doShutdown = True
+   def execCleanShutdown(self, doBlockUntilFinish=None):
+      self.inputQueue.put(BDMINPUTTYPE.Shutdown)
+      self.blockIfRequested(doBlockUntilFinish)
 
    #############################################################################
    def setSatoshiDir(self, blkdir):
@@ -9947,25 +9955,17 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def loadBlockchain(self, waitForComplete=None):
-      self.inputQueue.put([BDMINPUTTYPE.StartScanRequested])
+   def loadBlockchain(self, doBlockUntilFinish=None):
+      self.inputQueue.put(BDMINPUTTYPE.StartScanRequested)
       print 'Initial blockchain load requested'
-
-      if waitForComplete==None:
-         waitForComplete = self.blocking
-      if waitForComplete:
-         self.inputQueue.join()
+      self.blockIfRequested(doBlockUntilFinish)
 
 
    #############################################################################
-   def rescanBlockchain(self, waitForComplete=None):
-      self.inputQueue.put([BDMINPUTTYPE.RescanRequested])
+   def rescanBlockchain(self, doBlockUntilFinish=None):
+      self.inputQueue.put(BDMINPUTTYPE.RescanRequested)
       print 'Blockchain rescan requested'
-
-      if waitForComplete==None:
-         waitForComplete = self.blocking
-      if waitForComplete:
-         self.inputQueue.join()
+      self.blockIfRequested(doBlockUntilFinish)
 
 
 
@@ -10047,13 +10047,10 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def addNewZeroConfTx(self, rawTx, waitForComplete=None):
+   def addNewZeroConfTx(self, rawTx, doBlockUntilFinish=None):
       self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rawTx])
+      self.blockIfRequested(doBlockUntilFinish)
       
-      if waitForComplete==None:
-         waitForComplete = self.blocking
-      if waitForComplete:
-         self.inputQueue.join()
  
    #############################################################################
    def registerNewAddresses(self, addr160List):
@@ -10265,9 +10262,37 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def __shutdown(self):
-      self.bdm.Reset()
+      self.__reset()
       self.blkMode = BLOCKCHAINMODE.Offline
-      self.startBDM = False
+      self.doShutdown = True
+
+   #############################################################################
+   def __reset(self):
+      expectOutput = False
+      self.bdm.Reset()
+      
+      if self.blkMode==BLOCKCHAINMODE.Full:
+         # Uninitialized means we want to be online, but haven't loaded yet
+         self.blkMode = BLOCKCHAINMODE.Uninitialized
+      elif not self.blkMode==BLOCKCHAINMODE.Offline:
+         LOGERROR('Somehow called __reset while busy.  Abort!')
+         return
+         
+
+      # Flags
+      self.isDirty      = False
+      self.allowRescan  = True
+      self.startBDM     = False
+      self.blkdir       = BTC_HOME_DIR
+
+      # Lists of wallets that should be checked after blockchain updates
+      self.pyWltList    = []   # these will be python refs
+      self.cppWltList   = []   # these will be python refs
+
+      # The BlockDataManager is easier to use if you put all your addresses
+      # into a C++ BtcWallet object, and let it 
+      self.masterCppWallet = Cpp.BtcWallet()
+
 
    #############################################################################
    def __getFullBlock(self, headerHash):
@@ -10298,7 +10323,8 @@ class BlockDataManagerThread(threading.Thread):
       while not self.doShutdown:
          try:
             # Each iteration blocks for 0.05s in a CPU-friendly way
-            inputTuple = self.inputQueue.get(True, 0.05)
+            inputTuple = self.inputQueue.get()
+            print 'Input received by BDM: ', str(inputTuple)
 
             if not isinstance(inputTuple, (list,tuple)):
                inputTuple = [inputTuple]
@@ -10346,7 +10372,27 @@ class BlockDataManagerThread(threading.Thread):
                   self.outputQueue.put(None)
                   LOGERROR('Requested header does not exist:\n%s', \
                                              binary_to_hex(headHash))
+
+            elif cmd == BDMINPUTTYPE.HeaderAtHeightRequested:
+               expectOutput = True
+               height = inputTuple[1] 
+               rawHeader = self.bdm.getHeaderByHeight(height)
+               if rawHeader:
+                  self.outputQueue.put(rawHeader)
+               else:
+                  self.outputQueue.put(None)
+                  LOGERROR('Requested header does not exist:\nHeight=%s', height)
          
+            elif cmd == BDMINPUTTYPE.BlockAtHeightRequested:
+               expectOutput = True
+               height = inputTuple[1] 
+               rawBlock = self.__getFullBlock(height)
+               if rawBlock:
+                  self.outputQueue.put(rawBlock)
+               else:
+                  self.outputQueue.put(None)
+                  LOGERROR('Requested header does not exist:\nHeight=%s', height)
+                                             
             elif cmd == BDMINPUTTYPE.UpdateWallets:
                expectOutput = False
                self.__updateWalletsAfterScan()
@@ -10372,28 +10418,11 @@ class BlockDataManagerThread(threading.Thread):
                result = getattr(self.bdm, funcName)(*funcArgs)
                self.outputQueue.put(result) # may be None
 
+            elif cmd == BDMINPUTTYPE.Shutdown:
+               self.__shutdown()
+
             elif cmd == BDMINPUTTYPE.Reset:
-               expectOutput = False
-               self.bdm.Reset()
-               
-               if isOffline:
-                  self.blkMode = BLOCKCHAINMODE.Offline
-               else:
-                  self.blkMode = BLOCKCHAINMODE.Uninitialized
-         
-               # Flags
-               self.isDirty      = False
-               self.allowRescan  = True
-               self.startBDM     = False
-               self.blkdir       = BTC_HOME_DIR
-         
-               # Lists of wallets that should be checked after blockchain updates
-               self.pyWltList    = []   # these will be python refs
-               self.cppWltList   = []   # these will be python refs
-         
-               # The BlockDataManager is easier to use if you put all your addresses
-               # into a C++ BtcWallet object, and let it 
-               self.masterCppWallet = Cpp.BtcWallet()
+               self.__reset()
                
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
                expectOutput = False
@@ -10419,9 +10448,7 @@ class BlockDataManagerThread(threading.Thread):
             self.inputQueue.task_done()
             continue
            
-      LOGINFO('Shutting down the BlockDataManager')
-      self.__shutdown()
-      LOGINFO('Complete.  Now in offline mode')
+      LOGINFO('BDM is shutdown.')
       
          
 

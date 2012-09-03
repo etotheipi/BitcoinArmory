@@ -2019,7 +2019,6 @@ if Test_AsyncBDM:
       print 'ScanAllow:', TheBDM.allowRescan
       print 'isDirty:  ', TheBDM.isDirty
       print 'NumAddr:  ', TheBDM.masterCppWallet.getNumAddr()
-      print 'ShutDown: ', TheBDM.doShutdown
       print 'NumWlts:  ', len(TheBDM.pyWltList) + len(TheBDM.cppWltList)
       print 'NumInputs:', TheBDM.inputQueue.qsize()
       print 'NumOutput:', TheBDM.outputQueue.qsize()
@@ -2029,24 +2028,36 @@ if Test_AsyncBDM:
 
    #print '\n\n(Blocking) Loading Blockchain from:', BTC_HOME_DIR
    #TheBDM.setSatoshiDir(BTC_HOME_DIR)
-   #TheBDM.loadBlockchain(waitForComplete=True)
+   #TheBDM.loadBlockchain(doBlockUntilFinish=True)
    #printBDMStuff()
    #print 'Done!'
 
    print '\n\n(Async) Resetting'
-   TheBDM.Reset(waitForComplete=True)
+   TheBDM.Reset(doBlockUntilFinish=True)
    print 'Done resetting BDM.'
    printBDMStuff()
 
    print '\n\n(Async) Loading Blockchain from:', BTC_HOME_DIR
    TheBDM.setSatoshiDir(BTC_HOME_DIR)
-   TheBDM.loadBlockchain(waitForComplete=False)
-   while True:
-      print TheBDM.getBlkModeStr()
+   TheBDM.loadBlockchain(doBlockUntilFinish=False)
+   print TheBDM.getBlkModeStr()
+   time.sleep(0.5)
+   print TheBDM.getBlkModeStr()
+   while TheBDM.getBlkModeStr() == 'Rescanning':
+      print 'Still waiting for scan to finish...'
       time.sleep(1)
    printBDMStuff()
    print 'Thread done!'
 
+   print '\n\nGetting top block information'
+   head = TheBDM.getTopBlockHeader()
+   head.pprint()
+
+   print '\n\nGetting genesis block information'
+   head = TheBDM.getHeaderByHeight(0)
+   head.pprint()
+
+   TheBDM.execCleanShutdown(True)
    exit(0)
 
    
