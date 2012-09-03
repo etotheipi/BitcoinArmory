@@ -306,7 +306,7 @@ def getCallerLine():
 # which line triggered the error
 def LOGDEBUG(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.debug(callerStr + logstr)
    except TypeError:
@@ -315,7 +315,7 @@ def LOGDEBUG(msg, *a):
 
 def LOGINFO(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.info(callerStr + logstr)
    except TypeError:
@@ -323,7 +323,7 @@ def LOGINFO(msg, *a):
       raise
 def LOGWARN(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.warn(callerStr + logstr)
    except TypeError:
@@ -331,7 +331,7 @@ def LOGWARN(msg, *a):
       raise
 def LOGERROR(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.error(callerStr + logstr)
    except TypeError:
@@ -339,7 +339,7 @@ def LOGERROR(msg, *a):
       raise
 def LOGCRIT(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.critical(callerStr + logstr)
    except TypeError:
@@ -347,7 +347,7 @@ def LOGCRIT(msg, *a):
       raise
 def LOGEXCEPT(msg, *a):
    try:
-      logstr = msg % a
+      logstr = msg if len(a)==0 else (msg%a)
       callerStr = getCallerLine() + ' - '
       logging.exception(callerStr + logstr)
    except TypeError:

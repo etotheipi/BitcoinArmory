@@ -929,7 +929,9 @@ class ArmoryMainWindow(QMainWindow):
             if not line.startswith('#') and len(line)>0:
                if line.startswith('VERSION'):
                   vstr = line.split(' ')[-1]
-                  if vstr==thisVerString and not wasRequested:
+                  myVersionInt = getVersionInt(readVersionString(thisVerString))
+                  latestVerInt = getVersionInt(readVersionString(vstr))
+                  if myVersionInt>=latestVerInt and not wasRequested:
                      break
                   changeLog.append([vstr, []])
                elif line.startswith('-'):
@@ -1091,7 +1093,7 @@ class ArmoryMainWindow(QMainWindow):
                                        func_loseConnect=showOfflineMsg, \
                                        func_madeConnect=showOnlineMsg, \
                                        func_newTx=self.newTxFunc)
-
+                                       #func_newTx=newTxFunc)
       reactor.callWhenRunning(reactor.connectTCP, '127.0.0.1', BITCOIN_PORT, \
                                                          self.NetworkingFactory)
 
@@ -2408,7 +2410,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', wltIDList=wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Send from Wallet...', firstSelect=wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:
@@ -2518,7 +2520,7 @@ class ArmoryMainWindow(QMainWindow):
          if len(wltSelect)>0:
             row = wltSelect[0].row()
             wltID = str(self.walletsView.model().index(row, WLTVIEWCOLS.ID).data().toString())
-         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', wltIDList=wltID, onlyMyWallets=False)
+         dlg = DlgWalletSelect(self, self, 'Receive coins with wallet...', '', firstSelect=wltID, onlyMyWallets=False)
          if dlg.exec_():
             wltID = dlg.selectedID 
          else:
