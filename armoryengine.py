@@ -9841,6 +9841,7 @@ class BlockDataManagerThread(threading.Thread):
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
       self.masterCppWallet = Cpp.BtcWallet()
+      self.bdm.registerWallet(self.masterCppWallet)
        
 
    #############################################################################
@@ -10079,14 +10080,17 @@ class BlockDataManagerThread(threading.Thread):
       self.blockIfRequested(doBlockUntilFinish)
       
    #############################################################################
-   def registerAddress(self, a160):
+   def registerAddress(self, a160, isFresh=False):
       """
       This is for a generic address:  treat it as imported (requires rescan)
       """
-      self.registerImportedAddress(a160)
+      if isFresh:
+         self.registerNewAddress(a160)
+      else:
+         self.registerImportedAddress(a160)
  
    #############################################################################
-   def registerNewAddress(self, addr160):
+   def registerNewAddress(self, a160):
       """
       Variable isFresh==True means the address was just [freshly] created,
       and we need to watch for transactions with it, but we don't need
@@ -10097,7 +10101,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def registerImportedAddress(self, addr160, \
+   def registerImportedAddress(self, a160, \
                                      firstTime=UINT32_MAX, \
                                      firstBlk=UINT32_MAX, \
                                      lastTime=0, \
@@ -10225,12 +10229,14 @@ class BlockDataManagerThread(threading.Thread):
                                     MAGIC_BYTES)
      
       ### This is the part that takes forever
+      self.isDirty = False
       self.bdm.parseEntireBlockchain(self.blkdir)
+      self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
       # If the user registered new addresses/wallets since blockchain scanning
       # started, then start a rescan...
       if self.isDirty and self.allowRescan:
-         self.__startRescanBlockchain(True)
+         self.__startRescanBlockchain()
 
       self.blkMode = BLOCKCHAINMODE.Full
 
@@ -10338,6 +10344,7 @@ class BlockDataManagerThread(threading.Thread):
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 
       self.masterCppWallet = Cpp.BtcWallet()
+      self.bdm.registerWallet(self.masterCppWallet)
 
 
    #############################################################################
@@ -10362,6 +10369,13 @@ class BlockDataManagerThread(threading.Thread):
       rawBlock += ''.join(rawTxList)
       return rawBlock
 
+   
+   #############################################################################
+   def getBDMInputName(self, i):
+      for name in dir(BDMINPUTTYPE):
+         if getattr(BDMINPUTTYPE, name)==i:
+            return name   
+
    #############################################################################
    def run(self):
       # Let's define input and output commands via the Queue
@@ -10370,10 +10384,12 @@ class BlockDataManagerThread(threading.Thread):
          try:
             # Each iteration blocks for 0.05s in a CPU-friendly way
             inputTuple = self.inputQueue.get()
-            print 'Input received by BDM: ', str(inputTuple)
 
             if not isinstance(inputTuple, (list,tuple)):
                inputTuple = [inputTuple]
+
+            print '************************************************'
+            print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
 
             expectOutput = False
             cmd = inputTuple[0]

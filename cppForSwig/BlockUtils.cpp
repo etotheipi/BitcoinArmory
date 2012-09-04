@@ -843,7 +843,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
       op.unserialize(txStartPtr + (*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
-         
+         cout << "FOUND!" << endl;
          insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txSize));
          break; // we only care if ANY txIns are ours, not which ones
       }
@@ -868,6 +868,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
+            cout << "FOUND!" << endl;
          }
       }
       else if(scriptLenFirstByte==67)
@@ -880,6 +881,7 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
+            cout << "FOUND!" << endl;
          }
       }
       else
@@ -2272,8 +2274,8 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
    }
    TIMER_STOP("RescanTiming");
 
-   allRegAddrScannedUpToBlk_ = endBlknum;
-   updateRegisteredAddresses(endBlknum);
+   allRegAddrScannedUpToBlk_ = blk1;
+   updateRegisteredAddresses(blk1);
 }
 
 
@@ -2439,6 +2441,8 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir, 
                                                            uint32_t cacheSize)
 {
+   cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
+
    // Initialize a global cache that will be used...
    FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
    globalCache.setCacheSize(cacheSize);

@@ -2019,7 +2019,8 @@ if Test_AsyncBDM:
       print 'ScanAllow: ', TheBDM.allowRescan
       print 'isDirty:   ', TheBDM.isDirty
       print 'NumAddr:   ', TheBDM.masterCppWallet.getNumAddr()
-      print 'NumWlts:   ', len(TheBDM.pyWltList) + len(TheBDM.cppWltList)
+      print 'NumPyWlt:  ', len(TheBDM.pyWltList) 
+      print 'NumCppWlt: ', len(TheBDM.cppWltList)
       print 'NumInputs: ', TheBDM.inputQueue.qsize()
       print 'NumOutput: ', TheBDM.outputQueue.qsize()
 
@@ -2117,26 +2118,40 @@ if Test_AsyncBDM:
       print '.',
    print (RightNow() - start), ' seconds'
 
+   #nAddr = cppWlt.getNumAddr()
+   #print 'Address Balances:'
+   #for i in range(nAddr):
+      #cppAddr = cppWlt.getAddrByIndex(i)
+      #bal = cppAddr.getSpendableBalance()
+      #print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+
+   printBDMStuff()
+   nAddr = TheBDM.masterCppWallet.getNumAddr()
+   print 'Address Balances:'
+   for i in range(nAddr):
+      cppAddr = TheBDM.masterCppWallet.getAddrByIndex(i)
+      bal = cppAddr.getSpendableBalance()
+      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+
+
+   TheBDM.masterCppWallet.pprintLedger()
+   TheBDM.cppWltList[0].pprintLedger()
+   TheBDM.cppWltList[1].pprintLedger()
+
    # We do the scan three times to make sure that there are no problems
    # with rescanning the same tx's multiple times (it's bound to happen 
    # so might as well make sure it's robust)
-   TheBDM.scanBlockchainForTx(cppWlt)
-   TheBDM.scanBlockchainForTx(cppWlt)
-   TheBDM.scanBlockchainForTx(cppWlt)
+   #TheBDM.scanBlockchainForTx(cppWlt)
+   #TheBDM.scanBlockchainForTx(cppWlt)
+   #TheBDM.scanBlockchainForTx(cppWlt)
 
-   nAddr = cppWlt.getNumAddr()
-   print 'Address Balances:'
-   for i in range(nAddr):
-      cppAddr = cppWlt.getAddrByIndex(i)
-      bal = cppAddr.getBalance()
-      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
-
-   leVect = cppWlt.getTxLedger()
-   print '\n\nLedger for all Addr:'
-   for le in leVect:
-      pprintLedgerEntry(le, ' '*3)
+   #leVect = cppWlt.getTxLedger()
+   #print '\n\nLedger for all Addr:'
+   #for le in leVect:
+      #pprintLedgerEntry(le, ' '*3)
    
    
+   TheBDM.execCleanShutdown()
 
 
 
