@@ -94,8 +94,8 @@ parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
 parser.add_option("--force-online", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
-                  help="Force use of the single-threaded (blocking) BlockDataManger.")
+#parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
+                  #help="Main thread will pause until BDM ops are done")
 
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
@@ -709,7 +709,7 @@ def isLikelyDataType(theStr, dtype=None):
 
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
-   if TheBDM.isInitialized():
+   if TheBDM.getBDMState()=='BlockchainReady':
       return (time0, TheBDM.getTopBlockHeader().getBlockHeight())
    else:
       return (time0, UINT32_MAX)
@@ -1699,7 +1699,7 @@ class PyBtcAddress(object):
          self.timeRange[0]=2**32-1
 
       if blkNum==None:
-         if TheBDM.isInitialized():
+         if TheBDM.getBDMState()=='BlockchainReady':
             topBlk = TheBDM.getTopBlockHeader().getBlockHeight()
             self.blkRange[0] = long(min(self.blkRange[0], topBlk))
             self.blkRange[1] = long(max(self.blkRange[1], topBlk))
@@ -1707,7 +1707,7 @@ class PyBtcAddress(object):
          self.blkRange[0]  = long(min(self.blkRange[0], blkNum))
          self.blkRange[1]  = long(max(self.blkRange[1], blkNum))
 
-         if unixTime==None and TheBDM.isInitialized():
+         if unixTime==None and TheBDM.getBDMState()=='BlockchainReady':
             unixTime = TheBDM.getHeaderByHeight(blkNum).getTimestamp()
 
       if unixTime==None:
@@ -2428,7 +2428,7 @@ class PyBtcAddress(object):
 
    #############################################################################
    def scanBlockchainForAddress(self):
-      if TheBDM.isInitialized():
+      if TheBDM.getBDMState()=='BlockchainReady':
          LOGDEBUG('Scanning blockchain for address')
          cppWlt = Cpp.BtcWallet()
          cppWlt.addAddress_1_(self.getAddr160())
@@ -4363,7 +4363,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1):
    NOTE:  At the moment, this only gets STANDARD TxOuts... non-std uses 
           a different BDM call
    """
-   if not TheBDM.isInitialized():
+   if not TheBDM.getBDMState()=='BlockchainReady':
       return []
    else:
       if not isinstance(addr160List, (list,tuple)):
@@ -5324,7 +5324,7 @@ class PyTxDistProposal(object):
       self.numSigsNeeded  = []
       self.relevantTxMap  = {}  # needed to support input values of each TxIn
 
-      if len(txMap)==0 and not TheBDM.isInitialized():
+      if len(txMap)==0 and not TheBDM.getBDMState()=='BlockchainReady':
          raise BlockchainUnavailableError, ('Must input supporting transactions '
                                             'or access to the blockchain, to '
                                             'create the TxDP')
@@ -5342,7 +5342,7 @@ class PyTxDistProposal(object):
                raise InvalidHashError, ('Could not find the referenced tx '
                                         'in supplied txMap')
             pyPrevTx = txMap[txhash].copy()
-         elif TheBDM.isInitialized():
+         elif TheBDM.getBDMState()=='BlockchainReady':
             cppPrevTx = TheBDM.getTxByHash(txhash)
             if not cppPrevTx:
                raise InvalidHashError, 'Could not find the referenced tx'
@@ -6019,8 +6019,13 @@ class PyBtcWallet(object):
 
    #############################################################################
    def syncWithBlockchain(self, startBlk=None):
+      """
+      Will block until getTopBlockHeader() returns, which could be a while.
+      If you don't want to wait, check TheBDM.getBDMState()=='BlockchainReady'
+      before calling this method.  If you expect the blockchain will have to
+      be rescanned, then call TheBDM.rescanBlockchain or TheBDM.loadBlockchain
+      """
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         assert(TheBDM.isInitialized())
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
          TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
@@ -6060,7 +6065,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getBalance(self, balType="Spendable"):
-      if not TheBDM.isInitialized():
+      if not TheBDM.getBDMState()=='BlockchainReady':
          return -1
       else:
          currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
@@ -6076,7 +6081,7 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
-      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+      if not TheBDM.getBDMState()=='BlockchainReady' or not self.hasAddr(addr160):
          return -1
       else:
          addr = self.cppWallet.getAddrByHash160(addr160)
@@ -6094,7 +6099,7 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if not TheBDM.isInitialized():
+      if not TheBDM.getBDMState()=='BlockchainReady':
          return []
       else:
          ledgBlkChain = self.cppWallet.getTxLedger()
@@ -6119,7 +6124,7 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if not TheBDM.isInitialized() or not self.hasAddr(addr160):
+      if not TheBDM.getBDMState()=='BlockchainReady' or not self.hasAddr(addr160):
          return []
       else:
          ledgBlkChain = self.cppWallet.getAddrByHash160(addr160).getTxLedger()
@@ -6140,7 +6145,8 @@ class PyBtcWallet(object):
    #############################################################################
    def getTxOutList(self, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
-      if TheBDM.isInitialized() and not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+      if TheBDM.getBDMState()=='BlockchainReady' and \
+         not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
@@ -6156,7 +6162,7 @@ class PyBtcWallet(object):
    #############################################################################
    def getAddrTxOutList(self, addr160, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
-      if TheBDM.isInitialized() and self.hasAddr(addr160) and \
+      if TheBDM.getBDMState()=='BlockchainReady' and self.hasAddr(addr160) and \
                         not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
          self.syncWithBlockchain()
@@ -6504,7 +6510,7 @@ class PyBtcWallet(object):
       which will actually extend the address pool as necessary to find the
       highest address used.      
       """
-      if not TheBDM.isInitialized():
+      if not TheBDM.getBDMState()=='BlockchainReady':
          LOGERROR('Cannot detect any usage information without the blockchain')
          return -1
 
@@ -7316,7 +7322,7 @@ class PyBtcWallet(object):
 
 
       if (skipBlockChainScan or \
-          not TheBDM.isInitialized() or \
+          not TheBDM.getBDMState()=='BlockchainReady' or \
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
          pass
       else:
@@ -7860,7 +7866,7 @@ class PyBtcWallet(object):
       Returns true is we have to go back to disk/mmap and rescan more than two
       weeks worth of blocks
       """
-      if TheBDM.isInitialized():
+      if TheBDM.getBDMState()=='BlockchainReady':
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
       else:
          return False
@@ -9122,7 +9128,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if TheBDM.isInitialized():
+      if TheBDM.getBDMState()=='BlockchainReady':
          txHash = pytx.getHash()
          TheBDM.addNewZeroConfTx(pytx.serialize(), RightNow(), True)    
       
@@ -9806,9 +9812,64 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
 ################################################################################
 class BlockDataManagerThread(threading.Thread):
    """ 
-   Serves as a layer between the GUI and the Blockchain utilities.
+   A note about this class: 
+
+      It was mainly created to allow for asynchronous blockchain scanning,
+      but the act of splitting the BDM into it's own thread meant that ALL
+      communication with the BDM requires thread-safe access.  So basically,
+      I had to wrap EVERYTHING.  And then make it flexible. 
+
+      For this reason, any calls not explicitly related to rescanning will
+      block by default, which could be a long time if the BDM is in the 
+      middle of rescanning.  For this reason, you are expected to either 
+      pass wait=False if you just want to queue the function call and move
+      on in the main thread, or check the BDM state first, to make sure 
+      it's not currently scanning and can expect immediate response.
+
+      This makes using the BDM much more complicated.  But comes with the 
+      benefit of all rescanning being able to happen in the background.  
+      If you want to run it like single-threaded, you can use 
+      TheBDM.setBlocking(True) and all calls will block.  Always (unless
+      you pass wait=False explicitly to one of those calls).
+
+      Any calls that retrieve data from the BDM should block, even if you
+      technically can specify wait=False.  This is because the class was 
+      not designed to maintain organization of output data asynchronously.  
+      So a call like TheBDM.getTopBlockHeader() will always block, and you
+      should check the BDM state if you want to make sure it returns 
+      immediately.  Since there is only one main thread, There is really no
+      way for a rescan to be started between the time you check the state
+      and the time you call the method (so if you want to access the BDM 
+      from multiple threads, this class will need some redesign).
+       
+
+   This serves as a layer between the GUI and the Blockchain utilities.
    If a request is made to mess with the BDM while it is in the 
    middle of scanning, it will queue it for when it's done
+
+   All private methods (those starting with two underscores, like __method),
+   are executed only by the BDM thread.  These should never be called
+   externally, and are only safe to run when the BDM is ready to execute 
+   them.  
+
+   You can use any non-private methods at any time, and if you set wait=True,
+   the main thread will block until that operation is complete.  If the BDM
+   is in the middle of a scan, the main thread could block for minutes until
+   the scanning is complete and then it processes your request.
+
+   Therefore, use setBlocking(True) to make sure you always wait/block after
+   every call, if you are interested in simplicity and don't mind waiting.
+
+   Use setBlocking(False) along with wait=False for the appropriate calls
+   to queue up your request and continue the main thread immediately.  You
+   can finish up something else, and then come back and check whether the
+   job is finished (usually using TheBDM.getBDMState()=='BlockchainReady')
+
+   Any methods not defined explicitly in this class will "passthrough" the
+   __getattr__() method, which will then call that exact method name on 
+   the BDM.  All calls block by default.  All such calls can also include
+   wait=False if you want to queue it and then continue asynchronously.
+
    """
    #############################################################################
    def __init__(self, isOffline=False, blocking=False):
@@ -9830,7 +9891,7 @@ class BlockDataManagerThread(threading.Thread):
       self.allowRescan   = True
       self.startBDM      = False
       self.blkdir        = BTC_HOME_DIR
-      self.blocking      = blocking
+      self.alwaysBlock   = blocking
       self.doShutdown    = False
       self.aboutToRescan = False
 
@@ -9857,7 +9918,9 @@ class BlockDataManagerThread(threading.Thread):
       in the process of being updated.
    
       Specifically, any passthrough call is expected to return output
-      unless you add 'waitForReturn=False' to the arg list
+      unless you add 'waitForReturn=False' to the arg list.  i.e. all
+      calls that "passthrough" will always block unless you explicitly
+      tell it not to.
       '''
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
@@ -9867,8 +9930,8 @@ class BlockDataManagerThread(threading.Thread):
             self.inputQueue.put([BDMINPUTTYPE.Passthrough, name] + list(args))
             waitForReturn = True
             if len(kwargs)>0 and \
-               kwargs.has_key('waitForReturn') and \
-               not kwargs['waitForReturn']:
+               kwargs.has_key('wait') and \
+               not kwargs['wait']:
                waitForReturn = False
 
             if waitForReturn:
@@ -9876,19 +9939,21 @@ class BlockDataManagerThread(threading.Thread):
                   return self.outputQueue.get(True, 1)
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')
+                  LOGERROR('Now blocking until something shows up...')
                   return self.outputQueue.get()
          return passthruFunc
 
       
    #############################################################################
    def setBlocking(self, doblock=True):
-      self.blocking = doblock
+      self.alwaysBlock = doblock
 
 
    #############################################################################
-   def Reset(self, doBlockUntilFinish=None):
+   def Reset(self, wait=None):
       self.inputQueue.put(BDMINPUTTYPE.Reset)
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
    #############################################################################
    def getBlkMode(self):
@@ -9899,7 +9964,7 @@ class BlockDataManagerThread(threading.Thread):
       if   self.blkMode == BLOCKCHAINMODE.Offline:
          return 'Offline'
       elif self.blkMode == BLOCKCHAINMODE.Full and not self.aboutToRescan:
-         return 'Ready'
+         return 'BlockchainReady'
       elif self.blkMode == BLOCKCHAINMODE.Rescanning or self.aboutToRescan:
          return 'Scanning'
       elif self.blkMode == BLOCKCHAINMODE.Uninitialized and not self.aboutToRescan:
@@ -9912,34 +9977,32 @@ class BlockDataManagerThread(threading.Thread):
          return '<UNKNOWN: %d>' % self.blkMode
 
 
-   #############################################################################
-   def blockIfRequested(self, waitVar):
-      if waitVar==None:
-         waitVar = self.blocking
-      if waitVar:
-         self.inputQueue.join()
-      
       
    #############################################################################
-   def execCleanShutdown(self, doBlockUntilFinish=None):
+   def execCleanShutdown(self, wait=True):
       self.inputQueue.put(BDMINPUTTYPE.Shutdown)
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
    #############################################################################
    def setSatoshiDir(self, blkdir):
       if not os.path.exists(blkdir):
          LOGERROR('setSatoshiDir: directory does not exist: %s', blkdir)
          return
+
+      if not self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Uninitialized):
+         LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
+         return
       self.blkdir = blkdir
 
    #############################################################################
-   def setOnlineMode(self, goOnline=True):
+   def setOnlineMode(self, goOnline=True, wait=None):
       if goOnline:
          self.inputQueue.put(BDMINPUTTYPE.GoOnlineRequested)
       else:
          self.inputQueue.put(BDMINPUTTYPE.GoOfflineRequested)
 
-      if self.blocking:
+      if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
    
    #############################################################################
@@ -9948,11 +10011,12 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def readBlkFileUpdate(self, doBlockUntilFinish=None):
+   def readBlkFileUpdate(self, wait=True):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.ReadBlkUpdate)
       print 'Blockchain rescan requested'
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
       
 
    #############################################################################
@@ -9969,7 +10033,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def loadBlockchain(self, doBlockUntilFinish=None):
+   def loadBlockchain(self, wait=None):
       # self.aboutToRescan is set by the calling thread to make sure that 
       # TheBDM.isScanning() doesn't return False immediately after the request
       # is made.  The problem is that the request is put in to do a scan,
@@ -9979,23 +10043,26 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.StartScanRequested)
       print 'Initial blockchain load requested'
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
 
    #############################################################################
-   def rescanBlockchain(self, doBlockUntilFinish=None):
+   def rescanBlockchain(self, wait=None):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.RescanRequested)
       print 'Blockchain rescan requested'
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
 
    #############################################################################
-   def updateWalletsAfterScan(self, doBlockUntilFinish=None):
+   def updateWalletsAfterScan(self, wait=True):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.UpdateWallets)
       print 'Wallet update requested'
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
    #############################################################################
    def __checkBDMReadyToServeData(self):
@@ -10020,6 +10087,10 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def getTxByHash(self, txHash):
+      """
+      All calls that retrieve blockchain data are blocking calls.  You have 
+      no choice in the matter!
+      """
       if not self.__checkBDMReadyToServeData():
          return None
 
@@ -10037,6 +10108,10 @@ class BlockDataManagerThread(threading.Thread):
 
    ############################################################################
    def getHeaderByHash(self, headHash):
+      """
+      All calls that retrieve blockchain data are blocking calls.  You have 
+      no choice in the matter!
+      """
       if not self.__checkBDMReadyToServeData():
          return None
 
@@ -10056,6 +10131,10 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def getBlockByHash(self,headHash):
+      """
+      All calls that retrieve blockchain data are blocking calls.  You have 
+      no choice in the matter!
+      """
       if not self.__checkBDMReadyToServeData():
          return None
 
@@ -10075,12 +10154,13 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def addNewZeroConfTx(self, rawTx, doBlockUntilFinish=None):
+   def addNewZeroConfTx(self, rawTx, wait=None):
       self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rawTx])
-      self.blockIfRequested(doBlockUntilFinish)
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
       
    #############################################################################
-   def registerAddress(self, a160, isFresh=False):
+   def registerAddress(self, a160, isFresh=False, wait=None):
       """
       This is for a generic address:  treat it as imported (requires rescan)
       """
@@ -10088,15 +10168,21 @@ class BlockDataManagerThread(threading.Thread):
          self.registerNewAddress(a160)
       else:
          self.registerImportedAddress(a160)
+
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
  
    #############################################################################
-   def registerNewAddress(self, a160):
+   def registerNewAddress(self, a160, wait=None):
       """
       Variable isFresh==True means the address was just [freshly] created,
       and we need to watch for transactions with it, but we don't need
       to rescan any blocks
       """
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, isFresh])
+
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
 
 
 
@@ -10105,7 +10191,7 @@ class BlockDataManagerThread(threading.Thread):
                                      firstTime=UINT32_MAX, \
                                      firstBlk=UINT32_MAX, \
                                      lastTime=0, \
-                                     lastBlk=0):
+                                     lastBlk=0, wait=None):
       """
       TODO:  Need to clean up the first/last blk/time variables.  Rather,
              I need to make sure they are maintained and applied intelligently
@@ -10114,9 +10200,12 @@ class BlockDataManagerThread(threading.Thread):
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, \
                                    [firstTime, firstBlk, lastTime, lastBlk]])
 
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
+
          
    #############################################################################
-   def registerWallet(self, wlt, isFresh=False):
+   def registerWallet(self, wlt, isFresh=False, wait=None):
       if isinstance(wlt, PyBtcWallet):
          addrs = [a.getAddr160() for a in wlt.getAddrList()]
          addrs.remove('ROOT')
@@ -10143,7 +10232,7 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Unrecognized object passed to registerWallet function')
                
 
-      if self.blocking:
+      if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
    
    #############################################################################
@@ -10384,7 +10473,9 @@ class BlockDataManagerThread(threading.Thread):
 
       while not self.doShutdown:
          try:
-            # Each iteration blocks for 0.05s in a CPU-friendly way
+            # This is the alt thread, which can block indefinitely
+            # The following line blocks in a CPU-friendly way until something
+            # is put on the queue.
             inputTuple = self.inputQueue.get()
 
             if not isinstance(inputTuple, (list,tuple)):
@@ -10525,7 +10616,7 @@ class BlockDataManagerThread(threading.Thread):
 if CLI_OPTIONS.offline:
    LOGINFO('Armory loaded in offline-mode.  Will not attempt to load ')
    LOGINFO('blockchain without explicit command to do so.')
-   TheBDM = BlockDataManagerThread(isOffline=True)
+   TheBDM = BlockDataManagerThread(isOffline=True, blocking=False)
    TheBDM.start()
 else:
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
@@ -10533,7 +10624,7 @@ else:
    LOGINFO('Devs: check TheBDM.blkMode before querying for any data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
    LOGINFO('inclusing after the current scan is completed.')
-   TheBDM = BlockDataManagerThread()
+   TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.start()
 
 
