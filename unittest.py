@@ -2024,137 +2024,153 @@ if Test_AsyncBDM:
       print 'NumInputs: ', TheBDM.inputQueue.qsize()
       print 'NumOutput: ', TheBDM.outputQueue.qsize()
 
-   print 'Starting AsyncBDM Test'
-   printBDMStuff()
-
-
-   print '\n\n(Async) Loading Blockchain from:', BTC_HOME_DIR
-   TheBDM.setSatoshiDir(BTC_HOME_DIR)
-
-   start = RightNow()
-   TheBDM.loadBlockchain(doBlockUntilFinish=False)
-   print RightNow()-start, 'seconds'
-
-   print TheBDM.getBDMState()
-   while TheBDM.isScanning():
-      print 'Still waiting for scan to finish...'
-      time.sleep(1)
-   printBDMStuff()
-   print 'Thread done!'
-
-   print '\n\nGetting top block information'
-   head = TheBDM.getTopBlockHeader()
-   head.pprint()
-
-   print '\n\nGetting genesis block information'
-   head = TheBDM.getHeaderByHeight(0)
-   head.pprint()
-
-   # Do the same thing, but with blocking
-   print '\n\n(Async) Resetting'
-   TheBDM.Reset(doBlockUntilFinish=True)
-   print 'Done resetting BDM.'
-   printBDMStuff()
-
-   print '\n\n(Blocking) Loading Blockchain from:', BTC_HOME_DIR
-   TheBDM.setBlocking(True)
-   TheBDM.setSatoshiDir(BTC_HOME_DIR)
-
-   start = RightNow()
-   TheBDM.loadBlockchain()
-   print RightNow()-start, 'seconds'
-
-   printBDMStuff()
-   print 'Done!'
-
-   
-
-   print 'Start testing blockchain with wallets, now'
-   print 'Resetting BDM'
-   TheBDM.Reset(doBlockUntilFinish=True)
-
-   print 'Setting blocking=False'
-   TheBDM.setBlocking(False)
-   TheBDM.setSatoshiDir(BTC_HOME_DIR)
-
-   cppWlt = Cpp.BtcWallet()
-
-   if not USE_TESTNET:
-      cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
-      cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
-      cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
-      cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
-      cppWlt.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
-   else:
-      # Test-network addresses
-      cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
-      cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
-      cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
-      cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
-      cppWlt.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
-      cppWlt.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
-      cppWlt.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
-      cppWlt.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
-
-   cppWltEmpty = Cpp.BtcWallet()
-
-   print 'Registering cppWallet:'
-   TheBDM.registerWallet(cppWlt)
-   TheBDM.registerWallet(cppWltEmpty)
-    
-   print 'Loading blockchain with wallet already registered',
-   start = RightNow()
-   TheBDM.loadBlockchain()
-   while TheBDM.getBDMState()=='Scanning':
-      time.sleep(0.1)
-      print '.',
-   print (RightNow() - start), ' seconds'
-
-   print '\n\nUpdating registered wallets with blockchain info'
-   start = RightNow()
-   TheBDM.updateWalletsAfterScan()
-   while TheBDM.getBDMState()=='Scanning':
-      time.sleep(0.1)
-      print '.',
-   print (RightNow() - start), ' seconds'
-
-   #nAddr = cppWlt.getNumAddr()
-   #print 'Address Balances:'
-   #for i in range(nAddr):
-      #cppAddr = cppWlt.getAddrByIndex(i)
-      #bal = cppAddr.getSpendableBalance()
-      #print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
-
-   printBDMStuff()
-   nAddr = TheBDM.masterCppWallet.getNumAddr()
-   print 'Address Balances:'
-   for i in range(nAddr):
-      cppAddr = TheBDM.masterCppWallet.getAddrByIndex(i)
-      bal = cppAddr.getSpendableBalance()
-      print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
-
-
-   TheBDM.masterCppWallet.pprintLedger()
-   TheBDM.cppWltList[0].pprintLedger()
-   TheBDM.cppWltList[1].pprintLedger()
-
-   # We do the scan three times to make sure that there are no problems
-   # with rescanning the same tx's multiple times (it's bound to happen 
-   # so might as well make sure it's robust)
-   #TheBDM.scanBlockchainForTx(cppWlt)
-   #TheBDM.scanBlockchainForTx(cppWlt)
-   #TheBDM.scanBlockchainForTx(cppWlt)
-
-   #leVect = cppWlt.getTxLedger()
-   #print '\n\nLedger for all Addr:'
-   #for le in leVect:
-      #pprintLedgerEntry(le, ' '*3)
+   try:
+      print 'Starting AsyncBDM Test'
+      printBDMStuff()
    
    
-   TheBDM.execCleanShutdown()
+      print '\n\n(Async) Loading Blockchain from:', BTC_HOME_DIR
+      TheBDM.setSatoshiDir(BTC_HOME_DIR)
+   
+      start = RightNow()
+      TheBDM.loadBlockchain(doBlockUntilFinish=False)
+      print RightNow()-start, 'seconds'
+   
+      print TheBDM.getBDMState()
+      while TheBDM.isScanning():
+         print 'Still waiting for scan to finish...'
+         time.sleep(1)
+      printBDMStuff()
+      print 'Thread done!'
+   
+      print '\n\nGetting top block information'
+      head = TheBDM.getTopBlockHeader()
+      head.pprint()
+   
+      print '\n\nGetting genesis block information'
+      head = TheBDM.getHeaderByHeight(0)
+      head.pprint()
+   
+      # Do the same thing, but with blocking
+      print '\n\n(Async) Resetting'
+      TheBDM.Reset(doBlockUntilFinish=True)
+      print 'Done resetting BDM.'
+      printBDMStuff()
+   
+      print '\n\n(Blocking) Loading Blockchain from:', BTC_HOME_DIR
+      TheBDM.setBlocking(True)
+      TheBDM.setSatoshiDir(BTC_HOME_DIR)
+   
+      start = RightNow()
+      TheBDM.loadBlockchain()
+      print RightNow()-start, 'seconds'
+   
+      printBDMStuff()
+      print 'Done!'
+   
+      
+   
+      print 'Start testing blockchain with wallets, now'
+      print 'Resetting BDM'
+      TheBDM.Reset(doBlockUntilFinish=True)
+   
+      print 'Setting blocking=False'
+      TheBDM.setBlocking(False)
+      TheBDM.setSatoshiDir(BTC_HOME_DIR)
+   
+      cppWlt = Cpp.BtcWallet()
+   
+      if not USE_TESTNET:
+         cppWlt.addAddress_1_(hex_to_binary("604875c897a079f4db88e5d71145be2093cae194"))
+         cppWlt.addAddress_1_(hex_to_binary("8996182392d6f05e732410de4fc3fa273bac7ee6"))
+         cppWlt.addAddress_1_(hex_to_binary("b5e2331304bc6c541ffe81a66ab664159979125b"))
+         cppWlt.addAddress_1_(hex_to_binary("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"))
+      else:
+         # Test-network addresses
+         cppWlt.addAddress_1_(hex_to_binary("5aa2b7e93537198ef969ad5fb63bea5e098ab0cc"))
+         cppWlt.addAddress_1_(hex_to_binary("28b2eb2dc53cd15ab3dc6abf6c8ea3978523f948"))
+         cppWlt.addAddress_1_(hex_to_binary("720fbde315f371f62c158b7353b3629e7fb071a8"))
+         cppWlt.addAddress_1_(hex_to_binary("0cc51a562976a075b984c7215968d41af43be98f"))
+   
+      cppWltEmpty = Cpp.BtcWallet()
+   
+      print 'Registering cppWallet:'
+      TheBDM.registerWallet(cppWlt)
+      TheBDM.registerWallet(cppWltEmpty)
+       
+      print 'Loading blockchain with wallet already registered',
+      start = RightNow()
+      TheBDM.loadBlockchain()
+      while TheBDM.getBDMState()=='Scanning':
+         time.sleep(0.1)
+         print '.',
+      print (RightNow() - start), ' seconds'
+   
+      print '\n\nUpdating registered wallets with blockchain info'
+      start = RightNow()
+      TheBDM.updateWalletsAfterScan()
+      while TheBDM.getBDMState()=='Scanning':
+         time.sleep(0.1)
+         print '.',
+      print (RightNow() - start), ' seconds'
+   
+      #nAddr = cppWlt.getNumAddr()
+      #print 'Address Balances:'
+      #for i in range(nAddr):
+         #cppAddr = cppWlt.getAddrByIndex(i)
+         #bal = cppAddr.getSpendableBalance()
+         #print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+   
+      printBDMStuff()
+      nAddr = cppWlt.getNumAddr()
+      print 'Address Balances:'
+      for i in range(nAddr):
+         cppAddr = cppWlt.getAddrByIndex(i)
+         bal = cppAddr.getSpendableBalance()
+         print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+   
+   
+      if not USE_TESTNET:
+         cppWltEmpty.addAddress_1_(hex_to_binary("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"))
+      else:
+         cppWltEmpty.addAddress_1_(hex_to_binary("57ac7bfb77b1f678043ac6ea0fa67b4686c271e5"))
+         cppWltEmpty.addAddress_1_(hex_to_binary("b11bdcd6371e5b567b439cd95d928e869d1f546a"))
+         cppWltEmpty.addAddress_1_(hex_to_binary("2bb0974f6d43e3baa03d82610aac2b6ed017967d"))
+         cppWltEmpty.addAddress_1_(hex_to_binary("61d62799e52bc8ee514976a19d67478f25df2bb1"))
+   
+      # In practice, we won't be adding the addresses directly to the C++ wallets
+      # We will add them to the python wallets, which will absorb them into the 
+      # python code AND register them with the BDM
+      # But working with the C++ wallets directly, need to re-register them
+      print 'Re-registering cppWallets:'
+      TheBDM.registerWallet(cppWlt)
+      TheBDM.registerWallet(cppWltEmpty)
+   
+      print 'Need to rescan %d blocks (Wlt1)' % TheBDM.numBlocksToRescan(cppWlt)
+      print 'Need to rescan %d blocks (Wlt2)' % TheBDM.numBlocksToRescan(cppWltEmpty)
+      TheBDM.rescanBlockchain()
+      start = RightNow()
+      TheBDM.updateWalletsAfterScan()
+      while TheBDM.getBDMState()=='Scanning':
+         time.sleep(0.1)
+         print '.',
+      print (RightNow() - start), ' seconds'
+      
+      printBDMStuff()
+      nAddr = cppWltEmpty.getNumAddr()
+      print 'Address Balances:'
+      for i in range(nAddr):
+         cppAddr = cppWltEmpty.getAddrByIndex(i)
+         bal = cppAddr.getSpendableBalance()
+         print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
 
-
-
-
-
-
+   except:
+      print 'CRASH' 
+      raise
+   finally: 
+      TheBDM.execCleanShutdown()
+   
+   
+   
+   
+   

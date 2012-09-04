@@ -9994,7 +9994,7 @@ class BlockDataManagerThread(threading.Thread):
    def updateWalletsAfterScan(self, doBlockUntilFinish=None):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.UpdateWallets)
-      print 'Blockchain rescan requested'
+      print 'Wallet update requested'
       self.blockIfRequested(doBlockUntilFinish)
 
    #############################################################################
@@ -10128,7 +10128,8 @@ class BlockDataManagerThread(threading.Thread):
             for a160 in range(addrs):
                self.registerImportedAddress(a160)
 
-         self.pyWltList.append(wlt)
+         if not wlt in self.pyWltList:
+            self.pyWltList.append(wlt)
 
       elif isinstance(wlt, Cpp.BtcWallet):
          naddr = wlt.getNumAddr()
@@ -10136,7 +10137,8 @@ class BlockDataManagerThread(threading.Thread):
          for a in range(naddr):
             self.registerAddress(wlt.getAddrByIndex(a).getAddrStr20(), isFresh)
 
-         self.cppWltList.append(wlt)
+         if not wlt in self.cppWltList:
+            self.cppWltList.append(wlt)
       else:
          LOGERROR('Unrecognized object passed to registerWallet function')
                

@@ -573,6 +573,9 @@ void BtcWallet::addAddress(HashString    addr,
                            uint32_t      lastBlockNum)
 {
 
+   if(addrMap_.find(addr) != addrMap_.end())
+      return;
+
    BtcAddress* addrPtr = &(addrMap_[addr]);
    *addrPtr = BtcAddress(addr, firstTimestamp, firstBlockNum,
                                 lastTimestamp,  lastBlockNum);
@@ -586,7 +589,9 @@ void BtcWallet::addAddress(HashString    addr,
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addNewAddress(HashString addr)
 {
-   // TODO: figure out how I might intelligently synchronize 
+   if(addrMap_.find(addr) != addrMap_.end())
+      return;
+
    BtcAddress* addrPtr = &(addrMap_[addr]);
    *addrPtr = BtcAddress(addr, 0,0, 0,0); 
    addrPtrVect_.push_back(addrPtr);
@@ -598,6 +603,9 @@ void BtcWallet::addNewAddress(HashString addr)
 /////////////////////////////////////////////////////////////////////////////
 void BtcWallet::addAddress(BtcAddress const & newAddr)
 {
+   if(addrMap_.find(newAddr.getAddrStr20()) != addrMap_.end())
+      return;
+
    if(newAddr.getAddrStr20().getSize() > 0)
    {            
       BtcAddress * addrPtr = &(addrMap_[newAddr.getAddrStr20()]);
@@ -843,7 +851,6 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
       op.unserialize(txStartPtr + (*txInOffsets)[iin]);
       if(registeredOutPoints_.count(op) > 0)
       {
-         cout << "FOUND!" << endl;
          insertRegisteredTxIfNew(BtcUtils::getHash256(txptr, txSize));
          break; // we only care if ANY txIns are ours, not which ones
       }
@@ -868,7 +875,6 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
-            cout << "FOUND!" << endl;
          }
       }
       else if(scriptLenFirstByte==67)
@@ -881,7 +887,6 @@ void BlockDataManager_FileRefs::registeredAddrScan( uint8_t const * txptr,
             HashString txHash = BtcUtils::getHash256(txptr, txSize);
             insertRegisteredTxIfNew(txHash);
             registeredOutPoints_.insert(OutPoint(txHash, iout));
-            cout << "FOUND!" << endl;
          }
       }
       else
