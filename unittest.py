@@ -2150,12 +2150,16 @@ if Test_AsyncBDM:
       print 'Need to rescan %d blocks (Wlt2)' % TheBDM.numBlocksToRescan(cppWltEmpty)
       TheBDM.rescanBlockchain()
       start = RightNow()
-      TheBDM.updateWalletsAfterScan()
       while TheBDM.getBDMState()=='Scanning':
          time.sleep(0.1)
          print '.',
       print (RightNow() - start), ' seconds'
       
+      start = RightNow()
+      print 'Update wallets after scan'
+      TheBDM.updateWalletsAfterScan()
+      print (RightNow() - start), ' seconds'
+
       printBDMStuff()
       nAddr = cppWltEmpty.getNumAddr()
       print 'Address Balances:'
@@ -2163,6 +2167,13 @@ if Test_AsyncBDM:
          cppAddr = cppWltEmpty.getAddrByIndex(i)
          bal = cppAddr.getSpendableBalance()
          print '   %s %s' % (hash160_to_addrStr(cppAddr.getAddrStr20())[:12], coin2str(bal))
+
+
+
+      # Test pybtcwallets:
+      # Include a test wallet with a tiny amount of BTC
+
+      pywlt = PyBtcWallet().readWalletFile('armory_2Adaa81b5_.watchonly.wallet')
 
    except:
       print 'CRASH' 
