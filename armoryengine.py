@@ -9206,8 +9206,7 @@ class ArmoryClientFactory(ReconnectingClientFactory):
 
    #############################################################################
    def addTxToMemoryPool(self, pytx):
-      if TheBDM.getBDMState()=='BlockchainReady':
-         txHash = pytx.getHash()
+      if not TheBDM.getBDMState()=='Offline':
          TheBDM.addNewZeroConfTx(pytx.serialize(), long(RightNow()), True)    
       
 
@@ -9948,6 +9947,43 @@ class BlockDataManagerThread(threading.Thread):
    the BDM.  All calls block by default.  All such calls can also include
    wait=False if you want to queue it and then continue asynchronously.
 
+
+   Implementation notes:
+      
+      Before the multi-threaded BDM, there was wallets, and there was the BDM.
+      We always gave the wallets to the BDM and said "please search the block-
+      chain for relevant transactions".  Now that this is asynchronous, the 
+      calling thread is going to queue the blockchain scan, and then run off 
+      and do other things: which may include address/wallet operations that 
+      would collide with the BDM updating it.
+
+      THEREFORE, the BDM now has a single, master wallet.  Any address you add
+      to any of your wallets, should be added to the master wallet, too.  The 
+      PyBtcWallet class does this for you, but if you are using raw BtcWallets
+      (the C++ equivalent), you need to do:
+   
+            cppWallet.addAddress_1_(newAddr)
+            TheBDM.registerAddress(newAddr, isFresh=?) 
+
+      This will add the address to the TheBDM.masterCppWallet.  Then when you 
+      queue up the TheBDM to do a rescan (if necessary), it will update only 
+      its own wallet.  Luckily, I designed the BDM so that data for addresses
+      in one wallet (the master), can be applied immediately to other/new 
+      wallets that have the same addresses.  
+
+      If you say isFresh=False, then the BDM will set isDirty=True.  This means
+      that a full rescan will have to be performed, and wallet information may
+      not be accurate until it is performed.  isFresh=True should be used for
+      addresses/wallets you just created, and thus there's no reason to rescan,
+      because there's no chance they could have any history in the blockchain.
+
+      Tying this all together:  if you add an address to a PYTHON wallet, you
+      just add it through an existing call.  If you add it with a C++ wallet,
+      you need to explicitly register it with TheBDM, too.  Then you need to 
+      tell the BDM to do a rescan (if isDirty==True), and then call the method 
+      updateWalletsAfterScan(
+      are ready, you can chec
+      
    """
    #############################################################################
    def __init__(self, isOffline=False, blocking=False):
@@ -10060,6 +10096,9 @@ class BlockDataManagerThread(threading.Thread):
    def setAllowRescan(self, allow=True):
       self.allowRescan = allow
 
+   #############################################################################
+   def getAllowRescan(self):
+      return self.allowRescan
       
    #############################################################################
    def execCleanShutdown(self, wait=True):
@@ -10270,7 +10309,7 @@ class BlockDataManagerThread(threading.Thread):
 
 
    #############################################################################
-   def addNewZeroConfTx(self, rawTx, timeRecv, wait=None):
+   def addNewZeroConfTx(self, rawTx, timeRecv, writeToFile, wait=None):
       self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rawTx, timeRecv])
       if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
@@ -10442,7 +10481,8 @@ class BlockDataManagerThread(threading.Thread):
 
       # If the user registered new addresses/wallets since blockchain scanning
       # started, then start a rescan...
-      while self.isDirty and self.allowRescan:
+      while self.isDirty:
+         LOGWARN('Rescanning again right after a rescan!')
          self.__startRescanBlockchain()
 
       self.blkMode = BLOCKCHAINMODE.Full
@@ -10478,6 +10518,7 @@ class BlockDataManagerThread(threading.Thread):
       # If the user registered new addresses/wallets since blockchain scanning
       # started, then start a rescan...
       while self.isDirty and self.allowRescan and level==0:
+         LOGWARN('Rescanning again right after a rescan!')
          self.__startRescanBlockchain(level=level+1)
 
       if level==0:
@@ -10509,19 +10550,20 @@ class BlockDataManagerThread(threading.Thread):
       """
       This will actually do a scan regardless of whether it is currently
       "after scan", but it will usually only be requested right after a
-      load, rescan or readblkupdate.
+      full rescan 
       """
 
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
 
       for pyWlt in self.pyWltList:
-         self.bdm.scanRegisteredTxForWallet(pyWlt.cppWallet)
+         pyWlt.syncWithBlockchain()
 
       for cppWlt in self.cppWltList:
-         self.bdm.scanRegisteredTxForWallet(cppWlt)
+         self.bdm.scanBlockchainForTx(cppWlt)
 
       self.blkMode = BLOCKCHAINMODE.Full
+
 
 
    #############################################################################
@@ -10702,10 +10744,14 @@ class BlockDataManagerThread(threading.Thread):
                self.__reset()
                
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
+               # This only sets the blkMode to what will later be
+               # recognized as online-requested, or offline
                expectOutput = False
                if self.bdm.isInitialized():
                   self.blkMode = BLOCKCHAINMODE.Full
-                  nBlkRead = self.__readBlockfileUpdates()
+               else:
+                  self.blkMode = BLOCKCHAINMODE.Uninitialized
+                  #nBlkRead = self.__readBlockfileUpdates()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                expectOutput = False
