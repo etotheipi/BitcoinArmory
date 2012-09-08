@@ -9879,6 +9879,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'StartScanRequested', \
                      'RescanRequested', \
                      'UpdateWallets', \
+                     'UpdateWalletsZCOnly', \
                      'ReadBlkUpdate', \
                      'GoOnlineRequested', \
                      'GoOfflineRequested', \
@@ -10120,9 +10121,11 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
       if goOnline:
-         self.inputQueue.put(BDMINPUTTYPE.GoOnlineRequested)
+         if TheBDM.getBDMState() in ('Offline','Uninitialized'):
+            self.inputQueue.put(BDMINPUTTYPE.GoOnlineRequested)
       else:
-         self.inputQueue.put(BDMINPUTTYPE.GoOfflineRequested)
+         if TheBDM.getBDMState() in ('Scanning','BlockchainReady'):
+            self.inputQueue.put(BDMINPUTTYPE.GoOfflineRequested)
 
       if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
@@ -10205,6 +10208,29 @@ class BlockDataManagerThread(threading.Thread):
       """
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.UpdateWallets)
+      print 'Wallet update requested'
+      if not wait==False and (self.alwaysBlock or self.wait==True):
+         self.inputQueue.join()
+
+   #############################################################################
+   def updateWalletsAfterZeroConfTx(self, wait=True):
+      """
+      Be careful with this method:  it is asking the BDM thread to update 
+      the wallets in the main thread.  If you do this with wait=False, you
+      need to avoid any wallet operations in the main thread until it's done.
+      However, this is usually very fast as long as you know the BDM is not
+      in the middle of a rescan, so you might as well set wait=True.  
+
+      In fact, I highly recommend you always use wait=True, in order to 
+      guarantee thread-safety.
+
+      NOTE:  If there are multiple wallet-threads, this might not work.  It 
+             might require specifying which wallets to update after a scan,
+             so that other threads don't collide with the BDM updating its
+             wallet when called from this thread.
+      """
+      self.aboutToRescan = True
+      self.inputQueue.put(BDMINPUTTYPE.UpdateWalletsZCOnly)
       print 'Wallet update requested'
       if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
@@ -10361,6 +10387,10 @@ class BlockDataManagerThread(threading.Thread):
          
    #############################################################################
    def registerWallet(self, wlt, isFresh=False, wait=None):
+      """
+      Will register a C++ wallet or Python wallet
+      """
+
       if isinstance(wlt, PyBtcWallet):
          addrs = [a.getAddr160() for a in wlt.getAddrList()]
          addrs.remove('ROOT')
@@ -10748,10 +10778,14 @@ class BlockDataManagerThread(threading.Thread):
                # recognized as online-requested, or offline
                expectOutput = False
                if self.bdm.isInitialized():
+                  # The BDM was started and stopped at one point, without
+                  # being reset.  It can safely pick up from where it 
+                  # left off
                   self.blkMode = BLOCKCHAINMODE.Full
+                  self.__readBlockfileUpdates()
                else:
                   self.blkMode = BLOCKCHAINMODE.Uninitialized
-                  #nBlkRead = self.__readBlockfileUpdates()
+                  self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                expectOutput = False
