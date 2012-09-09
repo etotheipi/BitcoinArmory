@@ -9078,7 +9078,7 @@ class ArmoryClient(Protocol):
                from twisted.internet import reactor
             if inv[0]==MSG_INV_TX:
                if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.getTxByHash(inv[1]) != None
+                  TheBDM.getTxByHash(inv[1]) != None:
                   continue
                else:
                   #print 'Requesting new tx data'
@@ -9879,7 +9879,6 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'StartScanRequested', \
                      'RescanRequested', \
                      'UpdateWallets', \
-                     'UpdateWalletsZCOnly', \
                      'ReadBlkUpdate', \
                      'GoOnlineRequested', \
                      'GoOfflineRequested', \
@@ -10212,28 +10211,6 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or self.wait==True):
          self.inputQueue.join()
 
-   #############################################################################
-   def updateWalletsAfterZeroConfTx(self, wait=True):
-      """
-      Be careful with this method:  it is asking the BDM thread to update 
-      the wallets in the main thread.  If you do this with wait=False, you
-      need to avoid any wallet operations in the main thread until it's done.
-      However, this is usually very fast as long as you know the BDM is not
-      in the middle of a rescan, so you might as well set wait=True.  
-
-      In fact, I highly recommend you always use wait=True, in order to 
-      guarantee thread-safety.
-
-      NOTE:  If there are multiple wallet-threads, this might not work.  It 
-             might require specifying which wallets to update after a scan,
-             so that other threads don't collide with the BDM updating its
-             wallet when called from this thread.
-      """
-      self.aboutToRescan = True
-      self.inputQueue.put(BDMINPUTTYPE.UpdateWalletsZCOnly)
-      print 'Wallet update requested'
-      if not wait==False and (self.alwaysBlock or self.wait==True):
-         self.inputQueue.join()
 
    #############################################################################
    def __checkBDMReadyToServeData(self):
