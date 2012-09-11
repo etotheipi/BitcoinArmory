@@ -1460,48 +1460,50 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def finishLoadBlockchain(self):
+
+
+      # Now that theb blockchain is loaded, let's populate the wallet info
+      if TheBDM.isInitialized():
          self.currBlockNum = TheBDM.getTopBlockHeight()
-   
-         # Now that theb blockchain is loaded, let's populate the wallet info
-         if TheBDM.isInitialized():
-            if self.getSettingOrSetDefault('NotifyBlkFinish',True):
-               reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
-                  'Blockchain Loaded!', 'Blockchain loading is complete.  '
-                  'Your balances and transaction history are now available '
-                  'under the "Transactions" tab.  You can also send and '
-                  'receive bitcoins.', yesStr='OK')
+         self.dashToOnlineMode()
+         if self.getSettingOrSetDefault('NotifyBlkFinish',True):
+            reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
+               'Blockchain Loaded!', 'Blockchain loading is complete.  '
+               'Your balances and transaction history are now available '
+               'under the "Transactions" tab.  You can also send and '
+               'receive bitcoins.', yesStr='OK')
                   
-               if remember==True:
-                  self.writeSetting('NotifyBlkFinish',False)
-                  
-            if not self.memPoolInit:
-               mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-               self.checkMemoryPoolCorruption(mempoolfile)
-               TheBDM.enableZeroConf(mempoolfile)
-               self.memPoolInit = True
-   
-            for wltID, wlt in self.walletMap.iteritems():
-               LOGINFO('Syncing wallet: %s', wltID)
-               self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-               self.walletMap[wltID].syncWithBlockchain()
-   
-            
-            self.createCombinedLedger()
-            self.ledgerSize = len(self.combinedLedger)
-            self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000) 
-            if self.netMode==NETWORKMODE.Full:
-               self.lblArmoryStatus.setText(\
-                  '<font color=%s>Connected (%s blocks)</font> ' % 
-                  (htmlColor('TextGreen'), self.currBlockNum))
-            self.blkReceived  = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
-         else:
-            self.statusBar().showMessage('! Blockchain loading failed !', 10000)
-   
+            if remember==True:
+               self.writeSetting('NotifyBlkFinish',False)
+               
+         if not self.memPoolInit:
+            mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+            self.checkMemoryPoolCorruption(mempoolfile)
+            TheBDM.enableZeroConf(mempoolfile)
+            self.memPoolInit = True
+
+         for wltID, wlt in self.walletMap.iteritems():
+            LOGINFO('Syncing wallet: %s', wltID)
+            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            self.walletMap[wltID].syncWithBlockchain()
+
          
+         self.createCombinedLedger()
+         self.ledgerSize = len(self.combinedLedger)
+         self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000) 
+         if self.netMode==NETWORKMODE.Full:
+            self.lblArmoryStatus.setText(\
+               '<font color=%s>Connected (%s blocks)</font> ' % 
+               (htmlColor('TextGreen'), self.currBlockNum))
+         self.blkReceived  = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+
+      else:
+         self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
-         # This will force the table to refresh with new data
-         self.walletModel.reset()
-         
+   
+      # This will force the table to refresh with new data
+      self.walletModel.reset()
+      
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
@@ -2789,39 +2791,61 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def pressModeSwitchButton(self):
       if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty:
-         self.switchDashToScanMode()
-         TheBDM.rescanBlockchain(wait=False)
-         self.needUpdateAfterScan = True
-      elif TheBDM.getBDMState() == 'Offline':
-         TheBDM.setOnlineMode(True, wait=False)
-         self.switchDashToScanMode()
-         TheBDM.loadBlockchain(wait=False)
-         self.needUpdateAfterScan = True
-      elif TheBDM.getBDMState() == 'Uninitialized':
-         TheBDM.setOnlineMode(True, wait=False)
-         self.switchDashToScanMode()
-         TheBDM.rescanBlockchain(wait=False)
-         self.needUpdateAfterScan = True
+         self.startRescan()
+      elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
+         self.startGoOnline()
+      else:
+         LOGERROR('ModeSwitch button pressed when it should be disabled')
          
          
-
    #############################################################################
-   def switchDashToOfflineMode(self):
+   def goOffline(self):
       TheBDM.setOnlineMode(False, wait=False)
       self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
       self.stkDashboard.setCurrentIndex(self.DASHMODES.Offline)
       self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
-    
-   #############################################################################
-   def switchDashToOnlineMode(self):
-      self.stkDashboard.setCurrentIndex(self.DASHMODES.Online)
-      self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+
 
    #############################################################################
-   def switchDashToScanMode(self):
+   def startGoOnline(self):
+      TheBDM.setOnlineMode(True, wait=False)
+      self.needUpdateAfterScan = True
       self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
       self.stkDashboard.setCurrentIndex(self.DASHMODES.Loading)
       self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+
+   
+   #############################################################################
+   def startRescan(self):
+      TheBDM.rescanBlockchain(wait=False)
+      self.needUpdateAfterScan = True
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+      self.stkDashboard.setCurrentIndex(self.DASHMODES.Loading)
+      self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+
+   #############################################################################
+   def dashToOnlineMode(self):
+      self.stkDashboard.setCurrentIndex(self.DASHMODES.Online)
+      self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+
+
+   ##############################################################################
+   #def switchDashToOfflineMode(self):
+      #TheBDM.setOnlineMode(False, wait=False)
+      #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+      #self.stkDashboard.setCurrentIndex(self.DASHMODES.Offline)
+      #self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+    
+   #############################################################################
+   #def switchDashToOnlineMode(self):
+      #self.stkDashboard.setCurrentIndex(self.DASHMODES.Online)
+      #self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+
+   #############################################################################
+   #def switchDashToScanMode(self):
+      #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+      #self.stkDashboard.setCurrentIndex(self.DASHMODES.Loading)
+      #self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
 
    #############################################################################
    def Heartbeat(self, nextBeatSec=2):

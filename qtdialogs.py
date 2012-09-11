@@ -1959,18 +1959,18 @@ class DlgImportAddress(ArmoryDialog):
                                  + addrStr + ' into wallet ' + self.wlt.uniqueIDB58, 10000)
 
          #######################################################################
-         self.main.isDirty = True
-         self.main.allowRescan = True
-         if self.main.blkMode==BLOCKCHAINMODE.Full:
-            warnMsg = ( \
-               'The address was imported successfully, but its balance will be '
-               'incorrect until the global transaction history is searched for '
-               'previous transactions.  Depending on your system, this operation '
-               'can take anywhere from 5 seconds to 3 minutes.  '
+         if TheBDM.getBDMState()=='BlockchainReady':
+            nblk = TheBDM.numBlocksToRescan(self.wlt, wait=True)
+            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+               'The address was imported successfully, but your wallet balance '
+               'will be incorrect until the global transaction history is '
+               'searched for previous transactions.  Armory must go into offline '
+               'mode for a several minutes while this scan is performed.'
                '<br><br>'
-               'If you click "Cancel", the address will still appear in your '
-               'wallet but its balanace will be incorrect until Armory '
-               'is restarted.')
+               'Would you like to do the scan now?   Pressing "No" will allow '
+               'you to stay in online mode, but your balances may be incorrect '
+               'until you press the rescan button on the dashboard, or restart '
+               'Armory')
             if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
                self.main.allowRescan = False
                return
@@ -2077,7 +2077,6 @@ class DlgImportAddress(ArmoryDialog):
             return
          
 
-
          # If we got here, let's go ahead and sweep!
          addrList = []
          for addr160,addrStr,SecurePriv in privKeyList:
@@ -2086,6 +2085,7 @@ class DlgImportAddress(ArmoryDialog):
 
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
          self.main.confirmSweepScan(addrList, targAddr160)
+
 
       else:
          ##### IMPORTING #####
