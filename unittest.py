@@ -2015,7 +2015,7 @@ if Test_AsyncBDM:
       print 'BlkMode:   ', TheBDM.getBDMState()
       print 'IsScanning:', TheBDM.isScanning()
       print 'IsInit:    ', TheBDM.isInitialized()
-      print 'doBlock:   ', TheBDM.blocking
+      print 'doBlock:   ', TheBDM.alwaysBlock
       print 'ScanAllow: ', TheBDM.allowRescan
       print 'isDirty:   ', TheBDM.isDirty
       print 'NumAddr:   ', TheBDM.masterCppWallet.getNumAddr()
@@ -2033,7 +2033,7 @@ if Test_AsyncBDM:
       TheBDM.setSatoshiDir(BTC_HOME_DIR)
    
       start = RightNow()
-      TheBDM.loadBlockchain(doBlockUntilFinish=False)
+      TheBDM.loadBlockchain(wait=False)
       print RightNow()-start, 'seconds'
    
       print TheBDM.getBDMState()
@@ -2053,7 +2053,7 @@ if Test_AsyncBDM:
    
       # Do the same thing, but with blocking
       print '\n\n(Async) Resetting'
-      TheBDM.Reset(doBlockUntilFinish=True)
+      TheBDM.Reset(wait=True)
       print 'Done resetting BDM.'
       printBDMStuff()
    
@@ -2072,7 +2072,7 @@ if Test_AsyncBDM:
    
       print 'Start testing blockchain with wallets, now'
       print 'Resetting BDM'
-      TheBDM.Reset(doBlockUntilFinish=True)
+      TheBDM.Reset(wait=True)
    
       print 'Setting blocking=False'
       TheBDM.setBlocking(False)
@@ -2173,7 +2173,20 @@ if Test_AsyncBDM:
       # Test pybtcwallets:
       # Include a test wallet with a tiny amount of BTC
 
-      pywlt = PyBtcWallet().readWalletFile('armory_2Adaa81b5_.watchonly.wallet')
+      # Since the BDM is already loaded, want to skip the scan until we're ready
+      if USE_TESTNET:
+         pywlt = PyBtcWallet().readWalletFile('armory.testnet.watchonly.wallet')
+      else:
+         pywlt = PyBtcWallet().readWalletFile('armory.mainnet.watchonly.wallet')
+
+      TheBDM.registerWallet(pywlt, isFresh=False, wait=True)
+      print 'NumToRescan: ', TheBDM.numBlocksToRescan(pywlt.cppWallet, wait=True)
+      TheBDM.rescanBlockchain(wait=False)
+      start = RightNow()
+      while TheBDM.getBDMState()=='Scanning':
+         time.sleep(0.1)
+         print '.',
+      print (RightNow() - start), ' seconds'
 
    except:
       print 'CRASH' 

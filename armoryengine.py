@@ -96,6 +96,8 @@ parser.add_option("--force-online", dest="forceOnline", action="store_true", def
                   help="Go into online mode, even if internet connection isn't detected")
 #parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
                   #help="Main thread will pause until BDM ops are done")
+parser.add_option("--keypool", dest="keypool", default=100, type="int",
+                  help="Default number of addresses to lookahead in Armory wallets")
 
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
@@ -6006,7 +6008,7 @@ class PyBtcWallet(object):
       if USE_TESTNET:
          self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
-         self.addrPoolSize = 100
+         self.addrPoolSize = CLI_OPTIONS.keypool
 
       # For file sync features
       self.walletPath = ''
@@ -7253,13 +7255,13 @@ class PyBtcWallet(object):
       # We now have both the magic bytes and network byte
       if not self.magicBytes == MAGIC_BYTES:
          LOGERROR('Requested wallet is for a different blockchain!')
-         LOGERROR('Wallet is for:   ', BLOCKCHAINS[self.magicBytes])
-         LOGERROR('ArmoryEngine:    ', BLOCKCHAINS[MAGIC_BYTES])
+         LOGERROR('Wallet is for:  %s ', BLOCKCHAINS[self.magicBytes])
+         LOGERROR('ArmoryEngine:   %s ', BLOCKCHAINS[MAGIC_BYTES])
          return
       if not self.uniqueIDBin[-1] == ADDRBYTE:
          LOGERROR('Requested wallet is for a different network!')
-         LOGERROR('Wallet is for:   ', NETWORKS[netByte])
-         LOGERROR('ArmoryEngine:    ', NETWORKS[ADDRBYTE])
+         LOGERROR('Wallet is for:  %s ', NETWORKS[netByte])
+         LOGERROR('ArmoryEngine:   %s ', NETWORKS[ADDRBYTE])
          return
 
       # User-supplied description/name for wallet
@@ -7335,7 +7337,7 @@ class PyBtcWallet(object):
       return (dtype, hashVal, binData)
 
    #############################################################################
-   def readWalletFile(self, wltpath, verifyIntegrity=True, skipBlockChainScan=False):
+   def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
 
       if not os.path.exists(wltpath):
          raise FileExistsError, "No wallet file:"+wltpath
@@ -7395,7 +7397,7 @@ class PyBtcWallet(object):
             pass
 
 
-      if (skipBlockChainScan or \
+      if (not doScanNow or \
           not TheBDM.getBDMState()=='BlockchainReady' or \
           self.doBlockchainSync==BLOCKCHAIN_DONOTUSE):
          pass
@@ -10069,7 +10071,7 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def Reset(self, wait=None):
       self.inputQueue.put(BDMINPUTTYPE.Reset)
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
    #############################################################################
@@ -10121,7 +10123,7 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def execCleanShutdown(self, wait=True):
       self.inputQueue.put(BDMINPUTTYPE.Shutdown)
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
    #############################################################################
@@ -10144,7 +10146,7 @@ class BlockDataManagerThread(threading.Thread):
          if TheBDM.getBDMState() in ('Scanning','BlockchainReady'):
             self.inputQueue.put(BDMINPUTTYPE.GoOfflineRequested)
 
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
    
    #############################################################################
@@ -10165,7 +10167,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.ReadBlkUpdate)
       print 'Blockchain rescan requested'
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
       
 
@@ -10193,7 +10195,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.StartScanRequested)
       print 'Initial blockchain load requested'
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
 
@@ -10202,7 +10204,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.RescanRequested)
       print 'Blockchain rescan requested'
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
 
@@ -10226,7 +10228,7 @@ class BlockDataManagerThread(threading.Thread):
       self.aboutToRescan = True
       self.inputQueue.put(BDMINPUTTYPE.UpdateWallets)
       print 'Wallet update requested'
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
 
@@ -10332,7 +10334,7 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def addNewZeroConfTx(self, rawTx, timeRecv, writeToFile, wait=None):
       self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rawTx, timeRecv])
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
       
    #############################################################################
@@ -10345,7 +10347,7 @@ class BlockDataManagerThread(threading.Thread):
       else:
          self.registerImportedAddress(a160)
 
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
  
    #############################################################################
@@ -10357,7 +10359,7 @@ class BlockDataManagerThread(threading.Thread):
       """
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, isFresh])
 
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
 
@@ -10376,7 +10378,7 @@ class BlockDataManagerThread(threading.Thread):
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, \
                                    [firstTime, firstBlk, lastTime, lastBlk]])
 
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
 
          
@@ -10388,13 +10390,12 @@ class BlockDataManagerThread(threading.Thread):
 
       if isinstance(wlt, PyBtcWallet):
          addrs = [a.getAddr160() for a in wlt.getAddrList()]
-         addrs.remove('ROOT')
 
          if isFresh:
-            for a160 in range(addrs):
+            for a160 in addrs:
                self.registerNewAddress(a160)
          else:
-            for a160 in range(addrs):
+            for a160 in addrs:
                self.registerImportedAddress(a160)
 
          if not wlt in self.pyWltList:
@@ -10412,7 +10413,7 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Unrecognized object passed to registerWallet function')
                
 
-      if not wait==False and (self.alwaysBlock or self.wait==True):
+      if not wait==False and (self.alwaysBlock or wait==True):
          self.inputQueue.join()
    
    #############################################################################
@@ -10573,6 +10574,7 @@ class BlockDataManagerThread(threading.Thread):
          self.blkMode = BLOCKCHAINMODE.Rescanning
 
       self.aboutToRescan = False
+
       for pyWlt in self.pyWltList:
          pyWlt.syncWithBlockchain()
 
@@ -10660,7 +10662,7 @@ class BlockDataManagerThread(threading.Thread):
                # is empty.  After that, then we block in a CPU-friendly way
                # until data shows up on the Queue
                if self.prefMode==BLOCKCHAINMODE.Full:
-                  if self.bdm.isInitialized()
+                  if self.bdm.isInitialized():
                      self.blkMode = BLOCKCHAINMODE.Full
                   else:
                      self.blkMode = BLOCKCHAINMODE.Uninitialized
@@ -10824,7 +10826,7 @@ else:
    LOGINFO('Blockchain operations will happen in the background.  ')
    LOGINFO('Devs: check TheBDM.blkMode before querying for any data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
-   LOGINFO('inclusing after the current scan is completed.')
+   LOGINFO('including after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.start()
 

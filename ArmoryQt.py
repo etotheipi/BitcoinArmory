@@ -2145,12 +2145,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def confirmSweepScan(self, pybtcaddrList, targAddr160):
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
-         LOGERROR('Somehow ended up at confirm-sweep while in offline mode')
-         QMessageBox.info(self, 'Armory is Offline', \
-            'Armory is currently in offline mode.  You must be in online '
-            'mode to initiate the sweep operation.')
-         return False
 
       if len(self.sweepAfterScanList) > 0:
          QMessageBox.critical(self, 'Already Sweeping',
@@ -2167,7 +2161,21 @@ class ArmoryMainWindow(QMainWindow):
          return False
 
 
-      msgConfirm = ( \
+      confirmed=False
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+         #LOGERROR('Somehow ended up at confirm-sweep while in offline mode')
+         #QMessageBox.info(self, 'Armory is Offline', \
+            #'Armory is currently in offline mode.  You must be in online '
+            #'mode to initiate the sweep operation.')
+         QMessageBox.info(self, 'Armory is Offline', \
+            'You have chosen to sweep %d addresses, but Armory is currently '
+            'in offline mode.  The sweep will be performed the next time you '
+            'go into online mode.  You can initiate online mode (if available) '
+            'from the dashboard in the main window.')
+         confirmed=True
+
+      else:
+         msgConfirm = ( \
             'Armory must scan the global transaction history in order to '
             'find any bitcoins associated with the addresses you supplied. '
             'Armory will go into offline mode temporarily while the scan '
@@ -2175,21 +2183,21 @@ class ArmoryMainWindow(QMainWindow):
             'able to create transactions.  The scan may take several minutes.'
             '<br><br>')
 
-      if TheBDM.getBDMState()=='Scanning':
+         if TheBDM.getBDMState()=='Scanning':
+            msgConfirm += ( \
+               'There is currently another scan operation being performed.  '
+               'Would you like to start the sweep operation after it completes? '
+         elif TheBDM.getBDMState()=='BlockchainReady':
+            msgConfirm += ( \
+               '<b>Would you like to start the scan operation right now?</b>'
+   
          msgConfirm += ( \
-            'There is currently another scan operation being performed.  '
-            'Would you like to start the sweep operation after it completes? '
-      elif TheBDM.getBDMState()=='BlockchainReady':
-         msgConfirm += ( \
-            '<b>Would you like to start the scan operation right now?</b>'
+               '<br><br>'
+               'Clicking "No" will abort the entire sweep operation and Armory '
+               'will go into online mode as soon as the current scan completes.')
 
-      msgConfirm += ( \
-            '<br><br>'
-            'Clicking "No" will abort the entire sweep operation and Armory '
-            'will go into online mode as soon as the current scan completes.')
-
-      confirmed = QMessageBox.question(self, 'Confirm Rescan', msgConfirm, \
-                                             QMessageBox.Yes | QMessageBox.No)
+         confirmed = QMessageBox.question(self, 'Confirm Rescan', msgConfirm, \
+                                                QMessageBox.Yes | QMessageBox.No)
 
       if confirmed==QMessageBox.Yes:
          for addr in pybtcaddrList:
@@ -2226,10 +2234,15 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.Ok)
          return
 
+      wltID = self.getWalletForAddr160(self.sweepAfterScanTarg)
+      wlt = self.walletMap[wltID]
       
       # Finally, if we got here, we're ready to broadcast!
       dispIn  = 'address <b>%s</b>' % sweepAddr.getAddrStr()
-      dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+      if gt1:
+         dispIn  = '<Multiple Addresses>' % sweepAddr.getAddrStr()
+          
+      dispOut = 'wallet <b>"%s"</b> (%s) ' % (wlt.labelName, wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.main.broadcastTransaction(finishedTx, dryRun=False)
 
@@ -2333,7 +2346,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False, \
-                                             skipBlockChainScan=True)
+                                             doScanNow=False)
       wltID = wlt.uniqueIDB58
 
       if self.walletMap.has_key(wltID):
