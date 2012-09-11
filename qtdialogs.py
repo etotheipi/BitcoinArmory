@@ -1905,59 +1905,21 @@ class DlgImportAddress(ArmoryDialog):
             if not result==QMessageBox.Yes:
                return
    
-         if not TheBDM.isInitialized():
-            reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
-            'You need access to the Bitcoin network and the blockchain in order '
-            'to find the balance of this address and sweep its funds. ', \
-            QMessageBox.Ok)
-            return
+         #if not TheBDM.getBDMState()=='BlockchainReady':
+            #reply = QMessageBox.critical(self, 'Cannot Sweep Address', \
+            #'You need access to the Bitcoin network and the blockchain in order '
+            #'to find the balance of this address and sweep its funds. ', \
+            #QMessageBox.Ok)
+            #return
 
          # Create the address object for the addr to be swept
-         oldAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
+         sweepAddr = PyBtcAddress().createFromPlainKeyData(SecureBinaryData(binKeyData))
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
 
-         #######################################################################
-         #  This is the part that may take a while.  Verify user will wait!
-         #  If they approve, do the blockchain rescan with a "Pls Wait" window.
-         #  The sync/confirm call guarantees that the next sync call will 
-         #  return instantaneously with the correct answer.  This only stops
-         #  being true when more addresses or wallets are imported.
-         if not self.main.BDM_SyncAddressList_Confirm(oldAddr):
-            return
-         
-         #######################################################################
-         # The createSweepTx method will return instantly because the blockchain
-         # has already been rescanned, as described above
-         finishedTx, outVal, fee = self.main.createSweepAddrTx(oldAddr, targAddr160)
-
-         if outVal<=fee:
-            QMessageBox.critical(self, 'Cannot sweep',\
-            'You cannot sweep the funds from this address, because the '
-            'transaction fee would be equal to or greater than the amount '
-            'swept.', QMessageBox.Ok)
-            return
-
-         if outVal==0:
-            QMessageBox.critical(self, 'Nothing to do', \
-            'The private key you have provided does not appear to contain '
-            'any funds.  There is nothing to sweep.', \
-            QMessageBox.Ok)
-            return
+         self.main.confirmSweepScan([sweepAddr], targAddr160)
+         # Regardless of the user confirmation, we're done here
 
 
-      
-         # Finally, if we got here, we're ready to broadcast!
-         dispIn  = 'address <b>%s</b>' % oldAddr.getAddrStr()
-         dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
-         if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-            self.main.broadcastTransaction(finishedTx, dryRun=False)
-
-         if TheBDM.isInitialized():
-            self.wlt.syncWithBlockchain(0)
-
-         self.main.walletListChanged()
-         self.accept()
-            
       elif self.radioImport.isChecked():
          if self.wlt.hasAddr(addr160):
             QMessageBox.critical(self, 'Duplicate Address', \
@@ -2122,33 +2084,8 @@ class DlgImportAddress(ArmoryDialog):
             pyAddr = PyBtcAddress().createFromPlainKeyData(SecurePriv)
             addrList.append(pyAddr)
 
-         #######################################################################
-         # The createSweepTx method will return instantly because the blockchain
-         # has already been rescanned, as described above
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
-         finishedTx, outVal, fee = self.main.createSweepAddrTx(addrList, targAddr160)
-
-         if outVal<=fee:
-            QMessageBox.critical(self, 'Cannot sweep',\
-            'You cannot sweep the funds from these addresses, because the '
-            'transaction fee would be equal to or greater than the amount '
-            'swept.', QMessageBox.Ok)
-            return
-
-         if outVal==0:
-            QMessageBox.critical(self, 'Nothing to do', \
-            'The private keys you have provided does not appear to contain '
-            'any funds.  There is nothing to sweep.', \
-            QMessageBox.Ok)
-            return
-
-
-      
-         # Finally, if we got here, we're ready to broadcast!
-         dispIn  = '<Multiple Addresses>' 
-         dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
-         if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-            self.main.broadcastTransaction(finishedTx, dryRun=False)
+         self.main.confirmSweepScan(addrList, targAddr160)
 
       else:
          ##### IMPORTING #####
@@ -3792,7 +3729,7 @@ class DlgRemoveWallet(ArmoryDialog):
       #        current wallets should already be registered and up-to-date.  
       #        But I should verify that this is actually the case.
       wltEmpty = True
-      if TheBDM.isInitialized():
+      if TheBDM.getBDMState()=='BlockchainReady':
          wlt.syncWithBlockchain()
          bal = wlt.getBalance('Full')
          lbls.append([])
@@ -4070,7 +4007,7 @@ class DlgRemoveAddress(ArmoryDialog):
       lbls[-1].append(QLabel('"%s" (%s)' % (wlt.labelName, wlt.uniqueIDB58)))
 
       addrEmpty = True
-      if TheBDM.isInitialized():
+      if TheBDM.getBDMState()=='BlockchainReady':
          wlt.syncWithBlockchain()
          bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
@@ -6538,7 +6475,7 @@ def extractTxInfo(pytx, rcvTime=None):
   
 
    txcpp = Tx()
-   if TheBDM.isInitialized(): 
+   if TheBDM.getBDMState()=='BlockchainReady': 
       txcpp = TheBDM.getTxByHash(txHash)
       if txcpp.isInitialized():
          headref = txcpp.getHeaderPtr()
@@ -6559,7 +6496,7 @@ def extractTxInfo(pytx, rcvTime=None):
             txIdx   = -1
    
    txinFromList = []
-   if TheBDM.isInitialized() and txcpp.isInitialized():
+   if TheBDM.getBDMState()=='BlockchainReady' and txcpp.isInitialized():
       # Use BDM to get all the info about the TxOut being spent
       # Recip, value, block-that-incl-tx, tx-that-incl-txout, txOut-index
       haveAllInput=True
@@ -6658,7 +6595,7 @@ class DlgDispTxInfo(ArmoryDialog):
       txHash = data[FIELDS.Hash]
 
       haveWallet = (wlt!=None)
-      haveBDM    = TheBDM.isInitialized()
+      haveBDM    = TheBDM.getBDMState()=='BlockchainReady'
 
       # Should try to identify what is change and what's not
       wltLE = None
@@ -6860,7 +6797,7 @@ class DlgDispTxInfo(ArmoryDialog):
                   'is produced approximately every 10 minutes.'))
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel( str(data[FIELDS.Blk]) + idxStr ))
-            if TheBDM.isInitialized():
+            if TheBDM.getBDMState()=='BlockchainReady':
                nConf = TheBDM.getTopBlockHeader().getBlockHeight() - data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(createToolTipObject( 

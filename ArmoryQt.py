@@ -87,6 +87,7 @@ class ArmoryMainWindow(QMainWindow):
       self.WltsToScan  = []
       self.prevTopBlock = -1
       self.needUpdateAfterScan = True
+      self.sweepAfterScanList = []
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -2036,6 +2037,9 @@ class ArmoryMainWindow(QMainWindow):
             attempt to sync with the blockchain
       """
 
+      if TheBDM.getBDMState()=='Offline':
+         LOGWARN('Requested sync-wallet confirmation dialog, in offline mode')
+
       # Method to execute while the "Please Wait..." message is displayed
       def updateBalance():
          pyWlt.syncWithBlockchain(startBlock)
@@ -2137,6 +2141,103 @@ class ArmoryMainWindow(QMainWindow):
 
       return self.BDM_SyncCppWallet_Confirm(cppWlt, warnMsg, waitMsg)
 
+
+
+   #############################################################################
+   def confirmSweepScan(self, pybtcaddrList, targAddr160):
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+         LOGERROR('Somehow ended up at confirm-sweep while in offline mode')
+         QMessageBox.info(self, 'Armory is Offline', \
+            'Armory is currently in offline mode.  You must be in online '
+            'mode to initiate the sweep operation.')
+         return False
+
+      if len(self.sweepAfterScanList) > 0:
+         QMessageBox.critical(self, 'Already Sweeping',
+            'You are already in the process of scanning the blockchain for '
+            'the purposes of sweeping other addresses.  You cannot initiate '
+            'sweeping new addresses until the current operation completes. '
+            '<br><br>'
+            'In the future, you may select "Multiple Keys" when entering '
+            'addresses to sweep.  There is no limit on the number that can be '
+            'specified, but they must all be entered at once.', QMessageBox.Ok)
+         # Destroy the private key data
+         for addr in pybtcaddrList:
+            addr.binPrivKey32_Plain.destroy()
+         return False
+
+
+      msgConfirm = ( \
+            'Armory must scan the global transaction history in order to '
+            'find any bitcoins associated with the addresses you supplied. '
+            'Armory will go into offline mode temporarily while the scan '
+            'is performed, and you will not have access to balances or be '
+            'able to create transactions.  The scan may take several minutes.'
+            '<br><br>')
+
+      if TheBDM.getBDMState()=='Scanning':
+         msgConfirm += ( \
+            'There is currently another scan operation being performed.  '
+            'Would you like to start the sweep operation after it completes? '
+      elif TheBDM.getBDMState()=='BlockchainReady':
+         msgConfirm += ( \
+            '<b>Would you like to start the scan operation right now?</b>'
+
+      msgConfirm += ( \
+            '<br><br>'
+            'Clicking "No" will abort the entire sweep operation and Armory '
+            'will go into online mode as soon as the current scan completes.')
+
+      confirmed = QMessageBox.question(self, 'Confirm Rescan', msgConfirm, \
+                                             QMessageBox.Yes | QMessageBox.No)
+
+      if confirmed==QMessageBox.Yes:
+         for addr in pybtcaddrList:
+            TheBDM.registerImportedAddress(addr.getAddr160())
+         self.sweepAfterScanList = pybtcaddrList
+         self.sweepAfterScanTarg = targAddr160
+         TheBDM.rescanBlockchain(wait=False)
+         return True
+
+
+   #############################################################################
+   def finishSweepScan(self):
+      sweepList, self.sweepAfterScanList = self.sweepAfterScanList,[]
+     
+      #######################################################################
+      # The createSweepTx method will return instantly because the blockchain
+      # has already been rescanned, as described above
+      finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, self.sweepAfterScanTarg)
+
+      gt1 = len(sweepList)>1
+
+      if outVal<=fee:
+         QMessageBox.critical(self, 'Cannot sweep',\
+         'You cannot sweep the funds from the address%s you specified, because '
+         'the transaction fee would be equal to or greater than the amount '
+         'swept.  The sweep operation will be canceled' % 'es' if gt1 else '',
+          QMessageBox.Ok)
+         return
+
+      if outVal==0:
+         QMessageBox.critical(self, 'Nothing to do', \
+         'The private key%s you have provided does not appear to contain '
+         'any funds.  There is nothing to sweep.' % 's' if gt1 else '', \
+         QMessageBox.Ok)
+         return
+
+      
+      # Finally, if we got here, we're ready to broadcast!
+      dispIn  = 'address <b>%s</b>' % sweepAddr.getAddrStr()
+      dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+      if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
+         self.main.broadcastTransaction(finishedTx, dryRun=False)
+
+      if TheBDM.getBDMState()=='BlockchainReady':
+         self.wlt.syncWithBlockchain(0)
+
+      self.main.walletListChanged()
+      self.accept()
 
    #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
@@ -2728,6 +2829,7 @@ class ArmoryMainWindow(QMainWindow):
          # mode, it needs to check periodically for the existence of Bitcoin-Qt
          # so that it can enable the "Go Online" button
          setModeSwitchButtonsAndLabels(self, 'Offline')
+         reactor.callLater(nextBeatSec, self.Heartbeat)
          return
 
       if TheBDM.getBDMState()=='BlockchainReady':
@@ -2740,6 +2842,12 @@ class ArmoryMainWindow(QMainWindow):
             self.setModeSwitchButtonsAndLabels('BlockchainReady')
             self.needUpdateAfterScan = False
             
+         if len(self.sweepAfterScanList)>0:
+            self.finishSweepScan()
+            for addr in self.sweepAfterScanList:
+               addr.binPrivKey32_Plain.destroy()
+            self.sweepAfterScanList = []
+
          if self.newZeroConfSinceLastUpdate:
             for wltID in self.walletMap.keys():
                TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet, wait=True)
@@ -3031,6 +3139,7 @@ if 1:
       print 'Resetting BlockDataMgr, freeing memory'
       LOGINFO('Resetting BlockDataMgr, freeing memory')
       TheBDM.Reset()
+      TheBDM.execCleanShutdown()
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       QAPP.quit()

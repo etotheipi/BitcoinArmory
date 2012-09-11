@@ -4463,7 +4463,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
 #        Additionally, this method both creates and signs the tx:  however
 #        PyBtcEngine employs TxDistProposals which require the construction
 #        and signing to be two separate steps.  This method is not suited
-#        for most of the PyBtcEngine CONOPS.
+#        for most of the armoryengine CONOPS.
 #
 #        On the other hand, this method DOES work, and there is no reason
 #        not to use it if you already have PyBtcAddress-w-PrivKeys avail
@@ -9866,6 +9866,7 @@ BLOCKCHAINMODE  = enum('Offline', \
                        'Uninitialized', \
                        'Full', \
                        'Rescanning', \
+                       'LiteScanning', \
                        'FullPrune', \
                        'Lite')
 
@@ -9990,9 +9991,11 @@ class BlockDataManagerThread(threading.Thread):
       super(BlockDataManagerThread, self).__init__()
 
       if isOffline:
-         self.blkMode = BLOCKCHAINMODE.Offline
+         self.blkMode  = BLOCKCHAINMODE.Offline
+         self.prefMode = BLOCKCHAINMODE.Offline
       else:
-         self.blkMode = BLOCKCHAINMODE.Uninitialized
+         self.blkMode  = BLOCKCHAINMODE.Uninitialized
+         self.prefMode = BLOCKCHAINMODE.Full
 
       self.bdm = Cpp.BlockDataManager().getBDM()
 
@@ -10075,17 +10078,32 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def getBDMState(self):
-      if   self.blkMode == BLOCKCHAINMODE.Offline:
+      if self.blkMode == BLOCKCHAINMODE.Offline:
+         # BDM will not be able to provide any blockchain data, or scan
          return 'Offline'
       elif self.blkMode == BLOCKCHAINMODE.Full and not self.aboutToRescan:
+         # The BDM is idle, waiting for things to do
+         return 'BlockchainReady'
+      elif self.blkMode == BLOCKCHAINMODE.LiteScanning and not self.aboutToRescan:
+         # The BDM is doing some processing but it is expected to be done within
+         # 0.1s.  For instance, readBlkFileUpdate requires processing, but can be
+         # performed 100/sec.  For the outside calling thread, this is not any
+         # different than BlockchainReady. 
          return 'BlockchainReady'
       elif self.blkMode == BLOCKCHAINMODE.Rescanning or self.aboutToRescan:
+         # BDM is doing a FULL scan of the blockchain, and expected to take
+         # several minutes to complete
          return 'Scanning'
       elif self.blkMode == BLOCKCHAINMODE.Uninitialized and not self.aboutToRescan:
+         # BDM wants to be online, but the calling thread never initiated the 
+         # loadBlockchain() call.  Usually setOnlineMode, registerWallets, then
+         # load the blockchain.
          return 'Uninitialized'
       elif self.blkMode == BLOCKCHAINMODE.FullPrune:
+         # NOT IMPLEMENTED
          return 'FullPrune'
       elif self.blkMode == BLOCKCHAINMODE.Lite:
+         # NOT IMPLEMENTED
          return 'Lite'
       else:
          return '<UNKNOWN: %d>' % self.blkMode
@@ -10428,16 +10446,6 @@ class BlockDataManagerThread(threading.Thread):
             LOGWARN('Assuming imported key requires full rescan...')
             self.masterCppWallet.addAddress_1_(a160)
 
-      
-   #############################################################################
-   def __switchFromOfflineToOnline(self):
-      if self.blkMode == BLOCKCHAINMODE.Offline:
-         if self.bdm.isInitialized():
-            self.blkMode = BLOCKCHAINMODE.Rescanning
-         else:
-            self.blkMode = BLOCKCHAINMODE.Uninitialized
-             
-         self.blkMode = BLOCKCHAINMODE.Uninitialized
 
 
    #############################################################################
@@ -10471,7 +10479,8 @@ class BlockDataManagerThread(threading.Thread):
       # ... and its blk000X.dat files
       blk0001file = os.path.join(self.blkdir,'blk0001.dat')
       if not os.path.exists(blk0001file):
-         self.blkMode = BLOCKCHAINMODE.Offline
+         LOGERROR('Blockchain data not available: %s', blk0001file)
+         self.prefMode = BLOCKCHAINMODE.Offline
          raise FileExistsError, ('Blockchain data not available: %s' % blk0001file)
 
       # We have the data, we're ready to go
@@ -10482,21 +10491,14 @@ class BlockDataManagerThread(threading.Thread):
                                     MAGIC_BYTES)
      
       ### This is the part that takes forever
-      self.isDirty = False
       self.bdm.parseEntireBlockchain(self.blkdir)
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
-      # If the user registered new addresses/wallets since blockchain scanning
-      # started, then start a rescan...
-      while self.isDirty:
-         LOGWARN('Rescanning again right after a rescan!')
-         self.__startRescanBlockchain()
-
-      self.blkMode = BLOCKCHAINMODE.Full
+      self.isDirty = False
 
       
    #############################################################################
-   def __startRescanBlockchain(self, level=0):
+   def __startRescanBlockchain(self):
       """
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  But we check for it, anyway.
@@ -10515,22 +10517,20 @@ class BlockDataManagerThread(threading.Thread):
       if not self.isDirty:
          LOGWARN('It does not look like we need a rescan... doing it anyway')
 
-      self.blkMode = BLOCKCHAINMODE.Rescanning
-      self.aboutToRescan = False
-      self.isDirty = False
 
+      if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
+         LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
+         self.blkMode = BLOCKCHAINMODE.LiteScanning
+      else:
+         LOGINFO('Rescan requested, and very large scan is necessary')
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+
+      self.aboutToRescan = False
+         
       # Blockchain will rescan as much as it needs.  
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
-      # If the user registered new addresses/wallets since blockchain scanning
-      # started, then start a rescan...
-      while self.isDirty and self.allowRescan and level==0:
-         LOGWARN('Rescanning again right after a rescan!')
-         self.__startRescanBlockchain(level=level+1)
-
-      if level==0:
-         self.isDirty = False
-         self.blkMode = BLOCKCHAINMODE.Full
+      self.isDirty = False
 
    
 
@@ -10545,10 +10545,8 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Can\'t update blockchain in %s mode!', self.getBlkModeStr())
          return
 
-      self.blkMode = BLOCKCHAINMODE.Rescanning
-      self.aboutToRescan = False
+      self.blkMode = BLOCKCHAINMODE.LiteScanning
       nblk = self.bdm.readBlkFileUpdate() 
-      self.blkMode = BLOCKCHAINMODE.Full
       return nblk
          
 
@@ -10560,16 +10558,27 @@ class BlockDataManagerThread(threading.Thread):
       full rescan 
       """
 
-      self.blkMode = BLOCKCHAINMODE.Rescanning
-      self.aboutToRescan = False
+      numToRescan = 0
+      for pyWlt in self.pyWltList:
+         thisNum = self.bdm.numBlocksToRescan(pyWlt.cppWallet)
+         numToRescan = max(numToRescan, thisNum)
 
+      for cppWlt in self.cppWltList:
+         thisNum = self.bdm.numBlocksToRescan(cppWlt)
+         numToRescan = max(numToRescan, thisNum)
+
+      if numToRescan<144:
+         self.blkMode = BLOCKCHAINMODE.LiteScanning
+      else:
+         self.blkMode = BLOCKCHAINMODE.Rescanning
+
+      self.aboutToRescan = False
       for pyWlt in self.pyWltList:
          pyWlt.syncWithBlockchain()
 
       for cppWlt in self.cppWltList:
          self.bdm.scanBlockchainForTx(cppWlt)
 
-      self.blkMode = BLOCKCHAINMODE.Full
 
 
 
@@ -10643,10 +10652,23 @@ class BlockDataManagerThread(threading.Thread):
 
       while not self.doShutdown:
          try:
-            # This is the alt thread, which can block indefinitely
-            # The following line blocks in a CPU-friendly way until something
-            # is put on the queue.
-            inputTuple = self.inputQueue.get()
+            try:
+               inputTuple = self.inputQueue.get_nowait()
+               # If we don't error out, we have stuff to process right now
+            except Queue.Empty:
+               # We only switch to offline/full/uninitialzed when the queue
+               # is empty.  After that, then we block in a CPU-friendly way
+               # until data shows up on the Queue
+               if self.prefMode==BLOCKCHAINMODE.Full:
+                  if self.bdm.isInitialized()
+                     self.blkMode = BLOCKCHAINMODE.Full
+                  else:
+                     self.blkMode = BLOCKCHAINMODE.Uninitialized
+               else:
+                  self.blkMode = BLOCKCHAINMODE.Offline
+
+               # Block until something shows up.
+               inputTuple = self.inputQueue.get()
 
             if not isinstance(inputTuple, (list,tuple)):
                inputTuple = [inputTuple]
@@ -10754,11 +10776,11 @@ class BlockDataManagerThread(threading.Thread):
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
                expectOutput = False
+               self.prefMode = BLOCKCHAINMODE.Full
                if self.bdm.isInitialized():
                   # The BDM was started and stopped at one point, without
                   # being reset.  It can safely pick up from where it 
                   # left off
-                  self.blkMode = BLOCKCHAINMODE.Full
                   self.__readBlockfileUpdates()
                else:
                   self.blkMode = BLOCKCHAINMODE.Uninitialized
@@ -10766,7 +10788,7 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
                expectOutput = False
-               self.blkMode = BLOCKCHAINMODE.Offline
+               self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
             self.inputQueue.task_done()
