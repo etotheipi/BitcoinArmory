@@ -1961,28 +1961,41 @@ class DlgImportAddress(ArmoryDialog):
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
             nblk = TheBDM.numBlocksToRescan(self.wlt, wait=True)
-            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-               'The address was imported successfully, but your wallet balance '
-               'will be incorrect until the global transaction history is '
-               'searched for previous transactions.  Armory must go into offline '
-               'mode for a several minutes while this scan is performed.'
-               '<br><br>'
-               'Would you like to do the scan now?   Pressing "No" will allow '
-               'you to stay in online mode, but your balances may be incorrect '
-               'until you press the rescan button on the dashboard, or restart '
-               'Armory')
-            if not self.main.BDM_SyncAddressList_Confirm(addr160, warnMsg):
-               self.main.allowRescan = False
-               return
+            if nblk<2016:
+               self.wlt.syncWithBlockchain(0)
+               QMessageBox.information(self, 'Import Successful', \
+                  'The address was imported into your wallet successfully, and '
+                  'all the information needed to acquire its balance was already '
+                  'available without rescanning the global transaction history. '
+                  'The address will appear in the address list of this wallet.', \
+                  QMessageBox.Ok)
 
+            else:
+               doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+                  'The address was imported successfully, but your wallet balance '
+                  'will be incorrect until the global transaction history is '
+                  'searched for previous transactions.  Armory must go into offline '
+                  'mode for a several minutes while this scan is performed.'
+                  '<br><br>'
+                  'Would you like to do the scan now?   Pressing "No" will allow '
+                  'you to stay in online mode, but your balances may be incorrect '
+                  'until you press the rescan button on the dashboard, or restart '
+                  'Armory', QMessageBox.Yes | QMessageBox.No)
+               if doRescanNow:
+                  self.main.startGoOnline()
+                  
          #######################################################################
          elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
             warnMsg = ( \
-               'The address was imported successfully, but you are currently in '
-               'the middle of a blockchain scan which cannot be interrupted. '
-               'The address will show up in your wallet, but its balance will '
-               'be incorrect until Armory is restarted.')
-            QMessageBox.warning(self, 'Operation Queued', warnMsg, QMessageBox.Ok)
+               'The address was imported successfully, but your wallet balance '
+               'will be incorrect until the global transaction history is '
+               'searched for previous transactions.  Armory is currently in the '
+               'middle of a blockchain scan, but it will start another scan as '
+               'soon as this one is complete.  Wallet and address balances will '
+               'not be available until these operations are completed.', \
+               QMessageBox.Ok)
+            self.main.startRescan()
+
 
          self.main.walletListChanged()
 
@@ -2177,21 +2190,44 @@ class DlgImportAddress(ArmoryDialog):
                   'operation again: all addresses previously imported will be '
                   'skipped. %s' % (nImport, nError, restartMsg))
    
-         ##########################################################################
-         warnMsg = ( \
-            'Would you like to rescan the blockchain for all the addresses you '
-            'just imported?  This operation can take from one to five minutes '
-            'depending on your system.  If you skip this operation, it will be '
-            'performed the next time you restart Armory. Wallet balances may '
-            'be incorrect until then.')
-         waitMsg = 'Searching the global transaction history'
-            
-         self.main.isDirty = True
-         if self.main.blkMode==BLOCKCHAINMODE.Full:
-            if self.main.BDM_SyncArmoryWallet_Confirm(self.wlt, 0, warnMsg):
+
+         #######################################################################
+         if TheBDM.getBDMState()=='BlockchainReady':
+            nblk = TheBDM.numBlocksToRescan(self.wlt, wait=True)
+            if nblk<2016:
                self.wlt.syncWithBlockchain(0)
+               QMessageBox.information(self, 'Import Successful', \
+                  'The addresses were imported into your wallet successfully, and '
+                  'all the information needed to acquire their balances were already '
+                  'available without executing a rescan.  '
+                  'The address will appear in the address list of this wallet.', \
+                  QMessageBox.Ok)
+
             else:
-         ##########################################################################
+               doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+                  'The addresses were imported successfully, but your wallet balance '
+                  'will be incorrect until the global transaction history is '
+                  'searched for previous transactions.  Armory must go into offline '
+                  'mode for a several minutes while this scan is performed.'
+                  '<br><br>'
+                  'Would you like to do the scan now?   Pressing "No" will allow '
+                  'you to stay in online mode, but your balances may be incorrect '
+                  'until you press the rescan button on the dashboard, or restart '
+                  'Armory', QMessageBox.Yes | QMessageBox.No)
+               if doRescanNow:
+                  self.main.startGoOnline()
+                  
+         #######################################################################
+         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+            warnMsg = ( \
+               'The addresses were imported successfully, but your wallet balance '
+               'will be incorrect until the global transaction history is '
+               'searched for previous transactions.  Armory is currently in the '
+               'middle of a blockchain scan, but it will start another scan as '
+               'soon as this one is complete.  Wallet and address balances will '
+               'not be available until these operations are completed.', \
+               QMessageBox.Ok)
+            self.main.startRescan()
    
 
       try:
@@ -3061,13 +3097,13 @@ class DlgAddressInfo(ArmoryDialog):
          return
 
       QMessageBox.information(self, 'Sweep Address Funds', \
-      '<i>Sweeping</i> an address will transfer all funds from the selected '
-      'address to another address in your wallet.  This action is not normally '
-      'necessary because it is rare for one address in a wallet to be compromised '
-      'but not the others.  \n\n'
-      'If you believe that your entire wallet has been compromised, '
-      'you should instead send all the funds from this wallet to another address '
-      'or wallet.', QMessageBox.Ok)
+         '<i>Sweeping</i> an address will transfer all funds from the selected '
+         'address to another address in your wallet.  This action is not normally '
+         'necessary because it is rare for one address in a wallet to be compromised '
+         'but not the others.  \n\n'
+         'If you believe that your entire wallet has been compromised, '
+         'you should instead send all the funds from this wallet to another address '
+         'or wallet.', QMessageBox.Ok)
       
       # Finally, if we got here, we're ready to broadcast!
       dispIn  = 'address <b>%s</b>' % addrToSweep.getAddrStr()

@@ -6102,7 +6102,7 @@ class PyBtcWallet(object):
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
          TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
-         self.lastSyncBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
+         self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')

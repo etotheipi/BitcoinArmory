@@ -1010,7 +1010,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Check general internet connection
       self.internetAvail = False
-      if not self.forceOnline:
+      if not CLI_OPTIONS.forceOnline:
          try:
             import urllib2
             response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
@@ -1431,7 +1431,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def writeSetting(self, settingName, val):
-      self.writeSetting(settingName, val)
+      self.settings.set(settingName, val)
 
 
    #############################################################################
@@ -1466,16 +1466,6 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.isInitialized():
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.dashToOnlineMode()
-         if self.getSettingOrSetDefault('NotifyBlkFinish',True):
-            reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
-               'Blockchain Loaded!', 'Blockchain loading is complete.  '
-               'Your balances and transaction history are now available '
-               'under the "Transactions" tab.  You can also send and '
-               'receive bitcoins.', yesStr='OK')
-                  
-            if remember==True:
-               self.writeSetting('NotifyBlkFinish',False)
-               
          if not self.memPoolInit:
             mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
             self.checkMemoryPoolCorruption(mempoolfile)
@@ -1497,6 +1487,17 @@ class ArmoryMainWindow(QMainWindow):
                (htmlColor('TextGreen'), self.currBlockNum))
          self.blkReceived  = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
 
+         if self.getSettingOrSetDefault('NotifyBlkFinish',True):
+            reply,remember = MsgBoxWithDNAA(MSGBOX.Info, \
+               'Blockchain Loaded!', 'Blockchain loading is complete.  '
+               'Your balances and transaction history are now available '
+               'under the "Transactions" tab.  You can also send and '
+               'receive bitcoins.', \
+               dnaaMsg='Do not show me this notification again ', yesStr='OK')
+                  
+            if remember==True:
+               self.writeSetting('NotifyBlkFinish',False)
+               
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -2188,10 +2189,10 @@ class ArmoryMainWindow(QMainWindow):
          if TheBDM.getBDMState()=='Scanning':
             msgConfirm += ( \
                'There is currently another scan operation being performed.  '
-               'Would you like to start the sweep operation after it completes? '
+               'Would you like to start the sweep operation after it completes? ')
          elif TheBDM.getBDMState()=='BlockchainReady':
             msgConfirm += ( \
-               '<b>Would you like to start the scan operation right now?</b>'
+               '<b>Would you like to start the scan operation right now?</b>')
    
          msgConfirm += ( \
                '<br><br>'
