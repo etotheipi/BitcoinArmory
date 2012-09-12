@@ -88,6 +88,7 @@ class ArmoryMainWindow(QMainWindow):
       self.prevTopBlock = -1
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
+      self.newZeroConfSinceLastUpdate = False
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -316,6 +317,7 @@ class ArmoryMainWindow(QMainWindow):
       scrollLoading = QScrollArea()
       scrollOffline = QScrollArea()
       scrollOnline  = QScrollArea()
+      scrollOnline.setContentsMargins(15,15,15,15)
       scrollLoading.setWidget(lblDescrLoading)
       scrollOffline.setWidget(lblDescrOffline)
       scrollOnline.setWidget(lblDescrOnline)

@@ -712,7 +712,7 @@ def isLikelyDataType(theStr, dtype=None):
 def getCurrTimeAndBlock():
    time0 = long(RightNowUTC())
    if TheBDM.getBDMState()=='BlockchainReady':
-      return (time0, TheBDM.getTopBlockHeader().getBlockHeight())
+      return (time0, TheBDM.getTopBlockHeight())
    else:
       return (time0, UINT32_MAX)
    
@@ -1702,7 +1702,7 @@ class PyBtcAddress(object):
 
       if blkNum==None:
          if TheBDM.getBDMState()=='BlockchainReady':
-            topBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+            topBlk = TheBDM.getTopBlockHeight()
             self.blkRange[0] = long(min(self.blkRange[0], topBlk))
             self.blkRange[1] = long(max(self.blkRange[1], topBlk))
       else:
@@ -4442,7 +4442,7 @@ def getUnspentTxOutsForAddrList(addr160List, utxoType='Sweep', startBlk=-1, \
             cppWlt.addAddress_1_(addr)
    
       TheBDM.registerWallet(cppWlt)
-      currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+      currBlk = TheBDM.getTopBlockHeight()
       TheBDM.scanBlockchainForTx(cppWlt, currBlk+1 if startBlk==-1 else startBlk)
 
       if utxoType.lower() in ('sweep','unspent','full','all','ultimate'):
@@ -6102,7 +6102,7 @@ class PyBtcWallet(object):
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
          TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
-         self.lastSyncBlockNum = TheBDM.getTopBlockHeight()
+         self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -6141,7 +6141,7 @@ class PyBtcWallet(object):
       if not TheBDM.getBDMState()=='BlockchainReady':
          return -1
       else:
-         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight()
          if balType.lower() in ('spendable','spend'):
             return self.cppWallet.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -6221,7 +6221,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
                not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight()
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutList(currBlk);
@@ -6239,7 +6239,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
             self.hasAddr(addr160) and \
             not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         currBlk = TheBDM.getTopBlockHeader().getBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight()
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
@@ -10046,16 +10046,21 @@ class BlockDataManagerThread(threading.Thread):
          raise
       else:
          def passthruFunc(*args, **kwargs):
-            self.inputQueue.put([BDMINPUTTYPE.Passthrough, name] + list(args))
             waitForReturn = True
             if len(kwargs)>0 and \
                kwargs.has_key('wait') and \
                not kwargs['wait']:
                waitForReturn = False
 
+            self.inputQueue.put([BDMINPUTTYPE.Passthrough, waitForReturn, name] + list(args))
+
+            print 'getattr name:', name, 'Wait:',waitForReturn
             if waitForReturn:
                try:
-                  return self.outputQueue.get(True, 1)
+                  self.inputQueue.join()
+                  out = self.outputQueue.get(True, 1)
+                  print 'getattr name:', name, 'Wait:',waitForReturn, out 
+                  return out
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')
                   LOGERROR('Now blocking until something shows up...')
@@ -10070,9 +10075,20 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def Reset(self, wait=None):
-      self.inputQueue.put(BDMINPUTTYPE.Reset)
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.inputQueue.put([BDMINPUTTYPE.Reset, expectOutput] )
+      if expectOutput:
+         # The get() command will block until the thread puts something there.
+         # In this case, we don't expect a return value, we just use
+         # it to replace inputQueue.join().  The reason for doing it is so 
+         # that we can guarantee that BDM thread knows whether we are waiting
+         # for output or not, and any additional requests put on the inputQueue
+         # won't extend our wait time for this request (and in some cases, 
+         # we do want return values)
+         self.outputQueue.get()
 
    #############################################################################
    def getBlkMode(self):
@@ -10122,9 +10138,13 @@ class BlockDataManagerThread(threading.Thread):
       
    #############################################################################
    def execCleanShutdown(self, wait=True):
-      self.inputQueue.put(BDMINPUTTYPE.Shutdown)
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.inputQueue.put([BDMINPUTTYPE.Shutdown, expectOutput])
+      if expectOutput:
+         self.outputQueue.get()
 
    #############################################################################
    def setSatoshiDir(self, blkdir):
@@ -10139,15 +10159,19 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
       if goOnline:
          if TheBDM.getBDMState() in ('Offline','Uninitialized'):
-            self.inputQueue.put(BDMINPUTTYPE.GoOnlineRequested)
+            self.inputQueue.put([BDMINPUTTYPE.GoOnlineRequested, expectOutput])
       else:
          if TheBDM.getBDMState() in ('Scanning','BlockchainReady'):
-            self.inputQueue.put(BDMINPUTTYPE.GoOfflineRequested)
+            self.inputQueue.put([BDMINPUTTYPE.GoOfflineRequested, expectOutput])
 
-      if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+      if expectOutput:
+         self.outputQueue.get()
    
    #############################################################################
    def isScanning(self):
@@ -10164,11 +10188,17 @@ class BlockDataManagerThread(threading.Thread):
       you'll want to call TheBDM.updateWalletsAfterScan() when this is 
       finished to make sure that 
       """
-      self.aboutToRescan = True
-      self.inputQueue.put(BDMINPUTTYPE.ReadBlkUpdate)
-      print 'Blockchain rescan requested'
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.aboutToRescan = True
+      self.inputQueue.put([BDMINPUTTYPE.ReadBlkUpdate, expectOutput])
+      print 'Blockchain rescan requested'
+      if expectOutput:
+         return self.outputQueue.get()
+      else:
+         return -1
       
 
    #############################################################################
@@ -10192,20 +10222,28 @@ class BlockDataManagerThread(threading.Thread):
       # and the calling thread checks TheBDM.isScanning() before this thread
       # has a chance to modify the blkMode variable.  Now isScanning() also
       # checks the aboutToRescan variable, too.
-      self.aboutToRescan = True
-      self.inputQueue.put(BDMINPUTTYPE.StartScanRequested)
-      print 'Initial blockchain load requested'
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.aboutToRescan = True
+      self.inputQueue.put([BDMINPUTTYPE.StartScanRequested, expectOutput])
+      print 'Initial blockchain load requested'
+      if expectoutput:
+         self.outputQueue.get()
 
 
    #############################################################################
    def rescanBlockchain(self, wait=None):
-      self.aboutToRescan = True
-      self.inputQueue.put(BDMINPUTTYPE.RescanRequested)
-      print 'Blockchain rescan requested'
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.aboutToRescan = True
+      self.inputQueue.put([BDMINPUTTYPE.RescanRequested, expectOutput])
+      print 'Blockchain rescan requested'
+      if expectoutput:
+         self.outputQueue.get()
 
 
    #############################################################################
@@ -10225,11 +10263,15 @@ class BlockDataManagerThread(threading.Thread):
              so that other threads don't collide with the BDM updating its
              wallet when called from this thread.
       """
-      self.aboutToRescan = True
-      self.inputQueue.put(BDMINPUTTYPE.UpdateWallets)
-      print 'Wallet update requested'
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.aboutToRescan = True
+      self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, expectOutput])
+      print 'Wallet update requested'
+      if expectoutput:
+         self.outputQueue.get()
 
 
    #############################################################################
@@ -10262,7 +10304,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      self.inputQueue.put([BDMINPUTTYPE.TxRequested, txHash])
+      self.inputQueue.put([BDMINPUTTYPE.TxRequested, True, txHash])
 
       try:
          result = self.outputQueue.get(True, 3)
@@ -10286,7 +10328,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      self.inputQueue.put([BDMINPUTTYPE.HeaderRequested, headHash])
+      self.inputQueue.put([BDMINPUTTYPE.HeaderRequested, True, headHash])
 
       try:
          result = self.outputQueue.get(True, 3)
@@ -10314,7 +10356,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      self.inputQueue.put([BDMINPUTTYPE.BlockRequested, headHash])
+      self.inputQueue.put([BDMINPUTTYPE.BlockRequested, True, headHash])
 
       try:
          result = self.outputQueue.get(True, 3)
@@ -10333,22 +10375,30 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def addNewZeroConfTx(self, rawTx, timeRecv, writeToFile, wait=None):
-      self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rawTx, timeRecv])
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, expectOutput, rawTx, timeRecv])
+      if expectoutput:
+         self.outputQueue.get()
       
    #############################################################################
    def registerAddress(self, a160, isFresh=False, wait=None):
       """
       This is for a generic address:  treat it as imported (requires rescan)
       """
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
       if isFresh:
          self.registerNewAddress(a160)
       else:
          self.registerImportedAddress(a160)
 
-      if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+      if expectoutput:
+         self.outputQueue.get()
  
    #############################################################################
    def registerNewAddress(self, a160, wait=None):
@@ -10357,10 +10407,14 @@ class BlockDataManagerThread(threading.Thread):
       and we need to watch for transactions with it, but we don't need
       to rescan any blocks
       """
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, isFresh])
-
+      expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+         expectOutput = True
+
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160, isFresh])
+
+      if expectoutput:
+         self.outputQueue.get()
 
 
 
@@ -10375,11 +10429,15 @@ class BlockDataManagerThread(threading.Thread):
              I need to make sure they are maintained and applied intelligently
              and consistently
       """
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, a160, \
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160, \
                                    [firstTime, firstBlk, lastTime, lastBlk]])
 
-      if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+      if expectoutput:
+         self.outputQueue.get()
 
          
    #############################################################################
@@ -10387,6 +10445,10 @@ class BlockDataManagerThread(threading.Thread):
       """
       Will register a C++ wallet or Python wallet
       """
+
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
 
       if isinstance(wlt, PyBtcWallet):
          addrs = [a.getAddr160() for a in wlt.getAddrList()]
@@ -10413,8 +10475,8 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Unrecognized object passed to registerWallet function')
                
 
-      if not wait==False and (self.alwaysBlock or wait==True):
-         self.inputQueue.join()
+      if expectoutput:
+         self.outputQueue.get()
    
    #############################################################################
    def __registerAddressNow(self, a160, timeInfo):
@@ -10672,31 +10734,30 @@ class BlockDataManagerThread(threading.Thread):
                # Block until something shows up.
                inputTuple = self.inputQueue.get()
 
-            if not isinstance(inputTuple, (list,tuple)):
-               inputTuple = [inputTuple]
 
-            print '************************************************'
-            print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
+            #print '************************************************'
+            #print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
 
-            expectOutput = False
-            cmd = inputTuple[0]
+            # The first list element is always the BDMINPUTTYPE (command)
+            # The second argument is whether the caller will be waiting 
+            # for the output:  which means even if it's None, we need to
+            # put something on the output queue.
+            cmd          = inputTuple[0]
+            expectOutput = inputTuple[1]
 
             if cmd == BDMINPUTTYPE.RegisterAddr:
-               expectOutput = False
-               a160,timeInfo = inputTuple[1:]
+               a160,timeInfo = inputTuple[2:]
                self.__registerAddressNow(a160, timeInfo)
 
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
-               expectOutput = False
-               rawTx  = inputTuple[1]
-               timeIn = inputTuple[2]
+               rawTx  = inputTuple[2]
+               timeIn = inputTuple[3]
                if isinstance(txObj, PyTx):
                   rawTx = txObj.serialize()
                self.bdm.addNewZeroConfTx(rawTx, timeIn, True)
                
             elif cmd == BDMINPUTTYPE.HeaderRequested:
-               expectOutput = True
-               headHash = inputTuple[1]
+               headHash = inputTuple[2]
                rawHeader = self.bdm.getHeaderByHash(headHash)
                if rawHeader:
                   self.outputQueue.put(rawHeader.serialize())
@@ -10704,8 +10765,7 @@ class BlockDataManagerThread(threading.Thread):
                   self.outputQueue.put(None)
 
             elif cmd == BDMINPUTTYPE.TxRequested:
-               expectOutput = True
-               txHash = inputTuple[1] 
+               txHash = inputTuple[2] 
                rawTx = self.bdm.getTxByHash(txHash)
                if rawTx:
                   self.outputQueue.put(rawTx.serialize()) 
@@ -10713,8 +10773,7 @@ class BlockDataManagerThread(threading.Thread):
                   self.outputQueue.put(None)
                   
             elif cmd == BDMINPUTTYPE.BlockRequested:
-               expectOutput = True
-               headHash = inputTuple[1] 
+               headHash = inputTuple[2] 
                rawBlock = self.__getFullBlock(headHash)
                if rawBlock:
                   self.outputQueue.put(rawBlock)
@@ -10724,8 +10783,7 @@ class BlockDataManagerThread(threading.Thread):
                                              binary_to_hex(headHash))
 
             elif cmd == BDMINPUTTYPE.HeaderAtHeightRequested:
-               expectOutput = True
-               height = inputTuple[1] 
+               height = inputTuple[2] 
                rawHeader = self.bdm.getHeaderByHeight(height)
                if rawHeader:
                   self.outputQueue.put(rawHeader)
@@ -10734,8 +10792,7 @@ class BlockDataManagerThread(threading.Thread):
                   LOGERROR('Requested header does not exist:\nHeight=%s', height)
          
             elif cmd == BDMINPUTTYPE.BlockAtHeightRequested:
-               expectOutput = True
-               height = inputTuple[1] 
+               height = inputTuple[2] 
                rawBlock = self.__getFullBlock(height)
                if rawBlock:
                   self.outputQueue.put(rawBlock)
@@ -10744,29 +10801,26 @@ class BlockDataManagerThread(threading.Thread):
                   LOGERROR('Requested header does not exist:\nHeight=%s', height)
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
-               expectOutput = False
                self.__updateWalletsAfterScan()
 
             elif cmd == BDMINPUTTYPE.StartScanRequested:
-               expectOutput = False
                self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
-               expectOutput = False
                self.allowRescan = True
                self.__startRescanBlockchain()
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
-               expectOutput = True
                nBlkRead = self.__readBlockfileUpdates()
                self.outputQueue.put(nBlkRead)
 
             elif cmd == BDMINPUTTYPE.Passthrough:
-               expectOutput = True
-               funcName = inputTuple[1]
-               funcArgs = inputTuple[2:]
+               # If the caller is waiting, then it is notified by output
+               funcName = inputTuple[2]
+               funcArgs = inputTuple[3:]
                result = getattr(self.bdm, funcName)(*funcArgs)
-               self.outputQueue.put(result) # may be None
+               if expectOutput:
+                  self.outputQueue.put(result) # may be None
 
             elif cmd == BDMINPUTTYPE.Shutdown:
                self.__shutdown()
@@ -10777,7 +10831,6 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
-               expectOutput = False
                self.prefMode = BLOCKCHAINMODE.Full
                if self.bdm.isInitialized():
                   # The BDM was started and stopped at one point, without
@@ -10789,7 +10842,6 @@ class BlockDataManagerThread(threading.Thread):
                   self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
-               expectOutput = False
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
@@ -10802,7 +10854,7 @@ class BlockDataManagerThread(threading.Thread):
             LOGERROR('Received inputTuple: ' + str(inputTuple))
             LOGEXCEPT('Exception raised, attempting to continue anyway')
             if expectOutput:
-               self.outputQueue.put(None)
+               self.outputQueue.put('BDM_REQUEST_ERROR')
             self.inputQueue.task_done()
             continue
            
