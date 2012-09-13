@@ -2074,24 +2074,6 @@ class DlgImportAddress(ArmoryDialog):
             cppWlt.addAddress_1_(addr160)
 
          
-         warnMsg = ( \
-            'The global tranasction history must be scanned in order to '
-            'accumulate the balance of these addresses.  You cannot sweep '
-            'the addresses until this operation finishes.  It can take '
-            'between 5 seconds and 3 minutes depending on your system.  '
-            '<br><br>'
-            'Would you like to continue?')
-         waitMsg = 'Searching the global transaction history'
-         if self.main.BDM_SyncCppWallet_Confirm(cppWlt, warnMsg, waitMsg):
-            TheBDM.registerWallet(cppWlt)
-            TheBDM.scanBlockchainForTx(cppWlt,0)
-         else:
-            QMessageBox.warning(self, 'Operation canceled!',
-               'Operation canceled!  No addresses were imported or swept', \
-               QMessageBox.Ok)
-            return
-         
-
          # If we got here, let's go ahead and sweep!
          addrList = []
          for addr160,addrStr,SecurePriv in privKeyList:

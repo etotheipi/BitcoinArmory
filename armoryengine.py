@@ -10013,6 +10013,7 @@ class BlockDataManagerThread(threading.Thread):
       self.alwaysBlock   = blocking
       self.doShutdown    = False
       self.aboutToRescan = False
+      self.errorOut      = 0
 
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
@@ -10041,6 +10042,9 @@ class BlockDataManagerThread(threading.Thread):
       calls that "passthrough" will always block unless you explicitly
       tell it not to.
       '''
+      if name.lower()=='additionalinfo':
+         return
+
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
          raise
@@ -10063,7 +10067,9 @@ class BlockDataManagerThread(threading.Thread):
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')
                   LOGERROR('Now blocking until something shows up...')
-                  return self.outputQueue.get()
+                  LOGEXCEPT('Traceback:')
+                  self.errorOut += 1
+                  #return self.outputQueue.get()
          return passthruFunc
 
 
@@ -10081,8 +10087,10 @@ class BlockDataManagerThread(threading.Thread):
             return self.outputQueue.get(True, 1)
          except Queue.Empty:
             LOGERROR('Waiting for BDM output that didn\'t come after 1s.')
-            LOGERROR('Now blocking until something shows up...')
-            raise
+            LOGERROR('BDM is currently: %s', self.getBDMState())
+            LOGEXCEPT('Traceback:')
+            self.errorOut += 1
+            #LOGERROR('Now blocking until something shows up...')
             #return self.outputQueue.get()
       else:
          return None
@@ -10204,7 +10212,6 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
       self.inputQueue.put([BDMINPUTTYPE.ReadBlkUpdate, expectOutput])
-      print 'Blockchain rescan requested'
       return self.waitForOutputIfNecessary(expectOutput)
       
 
@@ -10608,6 +10615,7 @@ class BlockDataManagerThread(threading.Thread):
          return
 
       self.blkMode = BLOCKCHAINMODE.LiteScanning
+      self.aboutToRescan = False
       nblk = self.bdm.readBlkFileUpdate() 
       return nblk
          
@@ -10710,9 +10718,27 @@ class BlockDataManagerThread(threading.Thread):
 
    #############################################################################
    def run(self):
-      # Let's define input and output commands via the Queue
+      """
+      This thread runs in an infinite loop, waiting for things to show up
+      on the self.inputQueue, and then processing those entries.  If there
+      are no requests to the BDM from the main thread, this thread will just
+      sit idle (in a CPU-friendly fashion) until something does.
+      """
 
       while not self.doShutdown:
+         # If there were any errors, we will have that many extra output
+         # entries on the outputQueue.  We clear them off so that this 
+         # thread can be re-sync'd with the main thread
+         try:
+            while self.errorOut>0:
+               self.outputQueue.get_nowait()
+               self.errorOut -= 1
+         except Queue.Empty:
+            LOGERROR('ErrorOut var over-represented number of errors!')
+            self.errorOut = 0
+               
+
+         # Now start the main 
          try:
             try:
                inputTuple = self.inputQueue.get_nowait()
@@ -10731,10 +10757,12 @@ class BlockDataManagerThread(threading.Thread):
 
                # Block until something shows up.
                inputTuple = self.inputQueue.get()
+            except:
+               LOGERROR('Unknown error in BDM thread')
 
 
-            print '************************************************'
-            print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
+            #print '************************************************'
+            #print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
 
             # The first list element is always the BDMINPUTTYPE (command)
             # The second argument is whether the caller will be waiting 
@@ -10767,7 +10795,7 @@ class BlockDataManagerThread(threading.Thread):
                txHash = inputTuple[2] 
                rawTx = self.bdm.getTxByHash(txHash)
                if rawTx:
-                  output = rawTx.serialize()
+                  output = rawTx
                else:
                   output = None
                   
@@ -10810,7 +10838,8 @@ class BlockDataManagerThread(threading.Thread):
                self.__startRescanBlockchain()
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
-               nBlkRead = self.__readBlockfileUpdates()
+               output = self.__readBlockfileUpdates()
+               
 
             elif cmd == BDMINPUTTYPE.Passthrough:
                # If the caller is waiting, then it is notified by output
@@ -10841,7 +10870,6 @@ class BlockDataManagerThread(threading.Thread):
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
-            print 'TaskDone!'
             self.inputQueue.task_done()
             if expectOutput:
                self.outputQueue.put(output)
