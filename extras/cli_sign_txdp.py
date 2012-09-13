@@ -1,4 +1,7 @@
 #! /usr/bin/python
+import sys
+sys.path.append('..')
+sys.path.append('.')
 
 from armoryengine import *
 import getpass
