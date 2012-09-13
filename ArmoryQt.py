@@ -231,7 +231,8 @@ class ArmoryMainWindow(QMainWindow):
       self.mainDisplayTabs = QTabWidget()
 
       # Put the labels into scroll areas just in case window size is small.
-      self.tabDashboardScroll = QScrollArea()
+      self.tabDashboard = QWidget()
+
 
       self.btnModeSwitch = QPushButton('')
       #btnW,btnH = relaxedSizeStr(self, 'Switch to online mode!')
@@ -239,19 +240,21 @@ class ArmoryMainWindow(QMainWindow):
       #self.btnModeSwitch.setMaximumHeight( btnH)
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), self.pressModeSwitchButton)
       self.lblDashMode = QRichLabel('',doWrap=False)
-      self.lblDashMode.setContentsMargins(50,15,50,15)
       self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.frmDashModeSub = makeHorizFrame([self.lblDashMode, self.btnModeSwitch], STYLE_SUNKEN)
       self.frmDashMode = makeHorizFrame(['Stretch', self.frmDashModeSub, 'Stretch'])
-
-      self.lblDashDescr = QRichLabel('')
+      self.lblDashDescr = QTextBrowser()
+      self.lblDashDescr.setStyleSheet('padding: 5px')
+      self.lblDashDescr.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+      qpal = self.lblDashDescr.palette()
+      qpal.setColor(QPalette.Base, Colors.Background)
+      self.lblDashDescr.setPalette(qpal)
       self.lblDashDescr.setOpenExternalLinks(True)
 
-      self.frmDashboard = makeVertFrame([self.frmDashMode, self.lblDashDescr])
       dashLayout = QVBoxLayout()
       dashLayout.addWidget(self.frmDashMode)
       dashLayout.addWidget(self.lblDashDescr)
-      self.tabDashboardScroll.setLayout(dashLayout)
+      self.tabDashboard.setLayout(dashLayout)
 
       
 
@@ -334,7 +337,7 @@ class ArmoryMainWindow(QMainWindow):
       self.DASHMODES = enum('Loading','Offline','Online')
       self.MAINTABS  = enum('Dashboard','Transactions')
 
-      self.mainDisplayTabs.addTab(self.tabDashboardScroll, 'Dashboard')
+      self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
       self.mainDisplayTabs.addTab(self.tabActivity,  'Transactions')
 
 
@@ -383,7 +386,7 @@ class ArmoryMainWindow(QMainWindow):
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
       #if self.usermode==USERMODE.Standard:
-      self.setMinimumSize(800,500)
+      self.setMinimumSize(750,500)
       #else:
          #self.setMinimumSize(1200,300)
 
@@ -1369,7 +1372,9 @@ class ArmoryMainWindow(QMainWindow):
          return
       elif TheBDM.getBDMState()=='Full':
          # Start it in the background
+         self.needUpdateAfterScan = True
          TheBDM.rescanBlockchain(wait=False)
+         self.setDashboardDetails()
 
 
 
@@ -1418,6 +1423,7 @@ class ArmoryMainWindow(QMainWindow):
    
    
       # This will force the table to refresh with new data
+      self.setDashboardDetails()
       self.walletModel.reset()
       
 
@@ -1794,30 +1800,6 @@ class ArmoryMainWindow(QMainWindow):
 
       ledger = []
       wlt = self.walletMap[newWltID]
-      #if not walletIsNew and TheBDM.getBDMState()=='BlockchainReady':
-         #numToRescan = TheBDM.numBlocksToRescan(wlt.cppWallet)
-         #if numToRescan>2016:
-            #LOGERROR('Expected blockchain scan to have already completed. '
-                     #'Armory will rescan %d blocks in the main thread, '
-                     #'causing the GUI to hang until it\'s done.' % numToRescan)
-            #QMessageBox.critical(self, 'Something went wrong', \
-                     #'Armory is experiencing an issue that will cause it '
-                     #'freeze while a rescan of the blockchain is performed. '
-                     #'Please wait, and do not attempt to interact with Armory '
-                     #'until it is finished.  This bug will be fixed, soon!',
-                     #QMessageBox.Ok)
-         # I know this is confusing:  the syncWithBlockchain call will
-         # do a full rescan if the wallet was previously not registered
-         # with TheBDM, THEN it will extract the wallet-relevant info
-         # from TheBDM.  Presumably, before you got here, the wallet 
-         # was registered and blockchain was scanned, so this sync 
-         # should finish almost instantaneously
-         #wlt.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         #wlt.syncWithBlockchain()
-
-         #for addr in wlt.getLinearAddrList():
-            #ledger = wlt.getAddrTxLedger(addr.getAddr160())
-
       self.walletListChanged()
 
       
@@ -2725,8 +2707,7 @@ class ArmoryMainWindow(QMainWindow):
                   htmlColor('TextGreen'))
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
             self.lblDashDescr.setText( \
-               '<br>'
-               '<b>You now have access to all the features Armory has to offer!</b><br>'
+               '<p><b>You now have access to all the features Armory has to offer!</b><br>'
                'To see your balances and transaction history, please click '
                'on the "Transactions" tab above this text.  '
                'Here\'s some things you can do with Armory Bitcoin Client:'
@@ -2760,7 +2741,7 @@ class ArmoryMainWindow(QMainWindow):
                'Armory-generated addresses will always be recoverable with '
                'a paper backup, any time in the future.  Use the "Backup '
                'Individual Keys" option fore each wallet to backup imported '
-               'keys.')
+               'keys.</p>')
                
       elif TheBDM.getBDMState() == 'Scanning':
          LOGINFO('Dashboard switched to "Scanning" mode')
@@ -2769,13 +2750,12 @@ class ArmoryMainWindow(QMainWindow):
                '<b>Armory is offline while scanning the blockchain</b>')
          self.btnModeSwitch.setVisible(False)
          self.lblDashDescr.setText(\
-               '<br>'
                'Armory is in offline mode until blockchain scanning is complete.  '
                'Please be patient, scanning may take several minutes!  '
-               '<br><br>'
+               '<br>'
                'While you wait, you may manage your Armory wallets.  The '
                'following functionality is available:'
-               '<br><br>'
+               '<br>'
                '<ul>'
                '<li>Create, import or recover wallets</li>'
                '<li>Generate new receiving addresses for your wallets</li>'
@@ -2783,13 +2763,15 @@ class ArmoryMainWindow(QMainWindow):
                '<li>Change wallet encryption settings</li>'
                '<li>Sign messages</li>'
                '</ul>'
-               '<br><br>'
+               '<br>'
                'The main window will update with your balances and '
                'transaction history as soon as Armory is finished '
                'scanning the blockchain')
       else:
          LOGERROR('What the hell blockchain mode are we in?  %s', TheBDM.getBDMState())
 
+      self.lblDashMode.setContentsMargins(50,5,50,5)
+      #self.scrollDashDescr.setWidget(self.lblDashDescr)
       
          
 
@@ -2802,91 +2784,97 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
-      print 'BDMState:', TheBDM.getBDMState()
-      for func in self.extraHeartbeatAlways:
-         func()
-
-      for idx,wltID in enumerate(self.walletIDList):
-         self.walletMap[wltID].checkWalletLockTimeout()
-
-      if TheBDM.getBDMState()=='Offline':
-         # This call seems out of place, but it's because if you are in offline
-         # mode, it needs to check periodically for the existence of Bitcoin-Qt
-         # so that it can enable the "Go Online" button
-         self.setDashboardDetails()
-         reactor.callLater(nextBeatSec, self.Heartbeat)
-         return
-
-      if TheBDM.getBDMState()=='BlockchainReady':
-         newBlocks = TheBDM.readBlkFileUpdate(wait=True)
-         self.currBlockNum = TheBDM.getTopBlockHeight()
-
-         if self.needUpdateAfterScan:
-            self.finishLoadBlockchain()
-            self.needUpdateAfterScan = False
-            
-         if len(self.sweepAfterScanList)>0:
-            self.finishSweepScan()
-            for addr in self.sweepAfterScanList:
-               addr.binPrivKey32_Plain.destroy()
-            self.sweepAfterScanList = []
+      try:
+         print 'BDMState:', TheBDM.getBDMState()
+         for func in self.extraHeartbeatAlways:
+            func()
+   
+         for idx,wltID in enumerate(self.walletIDList):
+            self.walletMap[wltID].checkWalletLockTimeout()
+   
+         if TheBDM.getBDMState()=='Offline':
+            # This call seems out of place, but it's because if you are in offline
+            # mode, it needs to check periodically for the existence of Bitcoin-Qt
+            # so that it can enable the "Go Online" button
             self.setDashboardDetails()
-
-         if self.newZeroConfSinceLastUpdate:
-            for wltID in self.walletMap.keys():
-               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet, wait=True)
-            self.newZeroConfSinceLastUpdate = False
-
-         if newBlocks>0 and not TheBDM.isDirty:
-
-            # This says "after scan", but works when new blocks appear, too
-            TheBDM.updateWalletsAfterScan(wait=True)
-            prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
-                                                for wltID in self.walletMap.keys()])
-            print prevLedgSize
-      
-            self.ledgerModel.reset()
-            LOGINFO('New Block! : %d', self.currBlockNum)
-            didAffectUs = False
-
-            for wltID in self.walletMap.keys():
-               self.walletMap[wltID].syncWithBlockchain()
-               TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-               newLedgerSize = len(self.walletMap[wltID].getTxLedger())
-               didAffectUs = (prevLedgSize[wltID] != newLedgerSize)
+            reactor.callLater(nextBeatSec, self.Heartbeat)
+            return
+   
+         if TheBDM.getBDMState()=='BlockchainReady':
+            newBlocks = TheBDM.readBlkFileUpdate(wait=True)
+            self.currBlockNum = TheBDM.getTopBlockHeight()
+   
+            if self.needUpdateAfterScan:
+               print 'Running finishLoadBlockchain'
+               self.finishLoadBlockchain()
+               self.needUpdateAfterScan = False
+               self.setDashboardDetails()
+               
+            if len(self.sweepAfterScanList)>0:
+               self.finishSweepScan()
+               for addr in self.sweepAfterScanList:
+                  addr.binPrivKey32_Plain.destroy()
+               self.sweepAfterScanList = []
+               self.setDashboardDetails()
+   
+            if self.newZeroConfSinceLastUpdate:
+               for wltID in self.walletMap.keys():
+                  TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet, wait=True)
+               self.newZeroConfSinceLastUpdate = False
+   
+            if newBlocks>0 and not TheBDM.isDirty:
+   
+               # This says "after scan", but works when new blocks appear, too
+               TheBDM.updateWalletsAfterScan(wait=True)
+               prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
+                                                   for wltID in self.walletMap.keys()])
+               print prevLedgSize
          
-            if didAffectUs:
-               LOGINFO('New Block contained a transaction relevant to us!')
-               self.walletListChanged()
-               self.notifyOnSurpriseTx(self.currBlockNum-newBlks, \
-                                       self.currBlockNum+1)
+               self.ledgerModel.reset()
+               LOGINFO('New Block! : %d', self.currBlockNum)
+               didAffectUs = False
    
-            self.createCombinedLedger()
-            self.blkReceived  = RightNow()
-            self.writeSetting('LastBlkRecvTime', self.blkReceived)
-         
-            if self.netMode==NETWORKMODE.Full:
-               self.lblArmoryStatus.setText(\
-                  '<font color=%s>Connected (%s blocks)</font> ' % \
-                  (htmlColor('TextGreen'), self.currBlockNum))
-   
-            # Update the wallet view to immediately reflect new balances
-            self.walletModel.reset()
-   
-            nowtime = RightNow()
-            blkRecvAgo  = nowtime - self.blkReceived
-            blkStampAgo = nowtime - self.topTimestamp
-            self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
-                                                   secondsToHumanTime(blkStampAgo))
+               for wltID in self.walletMap.keys():
+                  self.walletMap[wltID].syncWithBlockchain()
+                  TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
+                  newLedgerSize = len(self.walletMap[wltID].getTxLedger())
+                  didAffectUs = (prevLedgSize[wltID] != newLedgerSize)
             
-
-            for func in self.extraHeartbeatOnline:
-               func()
-
-            # Update the "prev" variables
-            self.prevTopBlock = TheBDM.getTopBlockHeader().getBlockHeight()
-
-      reactor.callLater(nextBeatSec, self.Heartbeat)
+               if didAffectUs:
+                  LOGINFO('New Block contained a transaction relevant to us!')
+                  self.walletListChanged()
+                  self.notifyOnSurpriseTx(self.currBlockNum-newBlks, \
+                                          self.currBlockNum+1)
+      
+               self.createCombinedLedger()
+               self.blkReceived  = RightNow()
+               self.writeSetting('LastBlkRecvTime', self.blkReceived)
+            
+               if self.netMode==NETWORKMODE.Full:
+                  self.lblArmoryStatus.setText(\
+                     '<font color=%s>Connected (%s blocks)</font> ' % \
+                     (htmlColor('TextGreen'), self.currBlockNum))
+      
+               # Update the wallet view to immediately reflect new balances
+               self.walletModel.reset()
+      
+               nowtime = RightNow()
+               blkRecvAgo  = nowtime - self.blkReceived
+               blkStampAgo = nowtime - self.getTopBlockHeader.getTimestamp()
+               self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
+                                                      secondsToHumanTime(blkStampAgo))
+               
+   
+               for func in self.extraHeartbeatOnline:
+                  func()
+   
+               # Update the "prev" variables
+               self.prevTopBlock = TheBDM.getTopBlockHeader().getBlockHeight()
+   
+      except:
+         LOGEXCEPT('Error in heartbeat function')
+      finally:
+         reactor.callLater(nextBeatSec, self.Heartbeat)
       
 
    #############################################################################

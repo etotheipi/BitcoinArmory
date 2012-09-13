@@ -92,7 +92,7 @@ parser.add_option("--nologging", dest="logDisable", action="store_true", default
                   #help="Log C++/SWIG console output by redirecting *all* stdout to log file")
 parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
-parser.add_option("--force-online", dest="forceOnline", action="store_true", default=False,
+parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
 #parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
                   #help="Main thread will pause until BDM ops are done")
@@ -6523,7 +6523,7 @@ class PyBtcWallet(object):
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
       self.cppWallet.addAddress_5_(new160, time0,blk0,time0,blk0)
-      TheBDM.registerNewAddress(new160, isFresh=True)
+      TheBDM.registerNewAddress(new160)
       return new160
       
 
@@ -10047,7 +10047,7 @@ class BlockDataManagerThread(threading.Thread):
 
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
-         raise
+         raise AttributeError
       else:
          def passthruFunc(*args, **kwargs):
             waitForReturn = True
@@ -10058,11 +10058,11 @@ class BlockDataManagerThread(threading.Thread):
 
             self.inputQueue.put([BDMINPUTTYPE.Passthrough, waitForReturn, name] + list(args))
 
-            print 'getattr name:', name, 'Wait:',waitForReturn
+            #print 'getattr name:', name, 'Wait:',waitForReturn
             if waitForReturn:
                try:
                   out = self.outputQueue.get(True, 1)
-                  print 'getattr name:', name, 'Wait:',waitForReturn, out 
+                  #print 'getattr name:', name, 'Wait:',waitForReturn, out 
                   return out
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')

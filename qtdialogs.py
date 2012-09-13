@@ -1962,7 +1962,7 @@ class DlgImportAddress(ArmoryDialog):
 
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
-            nblk = TheBDM.numBlocksToRescan(self.wlt, wait=True)
+            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk<2016:
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
@@ -1984,7 +1984,8 @@ class DlgImportAddress(ArmoryDialog):
                   'until you press the rescan button on the dashboard, or restart '
                   'Armory', QMessageBox.Yes | QMessageBox.No)
                if doRescanNow:
-                  self.main.startGoOnline()
+                  TheBDM.rescanBlockchain()
+                  self.main.setDashboardDetails()
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
@@ -1996,7 +1997,8 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.startRescan()
+            self.main.rescanBlockchain()
+            self.main.setDashboardDetails()
 
 
          self.main.walletListChanged()
@@ -2177,7 +2179,7 @@ class DlgImportAddress(ArmoryDialog):
 
          #######################################################################
          if TheBDM.getBDMState()=='BlockchainReady':
-            nblk = TheBDM.numBlocksToRescan(self.wlt, wait=True)
+            nblk = TheBDM.numBlocksToRescan(self.wlt.cppWallet, wait=True)
             if nblk<2016:
                self.wlt.syncWithBlockchain(0)
                QMessageBox.information(self, 'Import Successful', \
@@ -2211,7 +2213,8 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.startRescan()
+            self.main.rescanBlockchain()
+            self.main.setDashboardDetails()
    
 
       try:
