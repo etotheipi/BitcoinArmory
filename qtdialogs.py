@@ -738,7 +738,8 @@ class DlgWalletDetails(ArmoryDialog):
       lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
       lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
 
-      if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
+      #if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
+      if TheBDM.getBDMState() in ('Offline','Scanning'):
          totStr = '-'*12
          spdStr = '-'*12
          ucnStr = '-'*12
@@ -946,7 +947,8 @@ class DlgWalletDetails(ArmoryDialog):
        
 
    def execSendBtc(self):
-      if self.main.blkMode == BLOCKCHAINMODE.Offline:
+      #if self.main.blkMode == BLOCKCHAINMODE.Offline:
+      if TheBDM.getBDMState() == 'Offline':
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -956,7 +958,7 @@ class DlgWalletDetails(ArmoryDialog):
            'or initiate an "offline transaction" using a watching-only '
            'wallet on an online computer.', QMessageBox.Ok)
          return
-      if self.main.blkMode == BLOCKCHAINMODE.Rescanning:
+      if TheBDM.getBDMState() == 'Scanning':
          QMessageBox.warning(self, 'Armory Not Ready', \
            'Armory is currently scanning the blockchain to collect '
            'the information needed to create transactions.  This typically '
@@ -1022,7 +1024,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execImportAddress(self):
-      if self.main.blkMode == BLOCKCHAINMODE.Rescanning:
+      if TheBDM.getBDMState()=='Scanning':
          QMessageBox.warning(self, 'Armory Not Ready',
             'Armory is currently in the process of scanning the blockchain '
             'for your existing wallets.  This operation must finish before '
@@ -1745,17 +1747,17 @@ class DlgImportAddress(ArmoryDialog):
 
 
       ## Sweep option (only available when online)
-      if self.main.blkMode==BLOCKCHAINMODE.Full:
+      if TheBDM.getBDMState()=='BlockchainReady':
          self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
                                          'into your wallet\n'
                                          'Select this option if someone else gave you this key')
          self.radioSweep.setChecked(True)
       else:
-         if self.main.blkMode==BLOCKCHAINMODE.Offline:
+         if TheBDM.getBDMState()=='Offline':
             self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
                                             'into your wallet\n'
                                             '(Not available in offline mode)')
-         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+         elif TheBDM.getBDMState()=='Scanning':
             self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
                                             'into your wallet\n'
                                             '(Must wait for blockchain scanning to finish)')
@@ -1985,7 +1987,7 @@ class DlgImportAddress(ArmoryDialog):
                   self.main.startGoOnline()
                   
          #######################################################################
-         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+         elif TheBDM.getBDMState()=='Scanning':
             warnMsg = ( \
                'The address was imported successfully, but your wallet balance '
                'will be incorrect until the global transaction history is '
@@ -2218,7 +2220,7 @@ class DlgImportAddress(ArmoryDialog):
                   self.main.startGoOnline()
                   
          #######################################################################
-         elif self.main.blkMode==BLOCKCHAINMODE.Rescanning:
+         elif TheBDM.getBDMState()=='Scanning':
             warnMsg = ( \
                'The addresses were imported successfully, but your wallet balance '
                'will be incorrect until the global transaction history is '
@@ -4265,7 +4267,7 @@ class DlgWalletSelect(ArmoryDialog):
       self.dispDescr.setText(wlt.labelDescr)
       self.selectedID=wltID
       
-      if not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if not TheBDM.getBDMState()=='BlockchainReady':
          self.dispBal.setText('-'*12)
          return
       
@@ -4502,7 +4504,7 @@ class DlgSendBitcoins(ArmoryDialog):
       btnUnsigned = QRichLabel('')
       ttipUnsigned = QRichLabel('')
 
-      if not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if not TheBDM.getBDMState()=='BlockchainReady':
          lblNoSend.setText(
             '<font color=%s>'
             'You can sign this transaction, but you do not have '
@@ -4533,7 +4535,7 @@ class DlgSendBitcoins(ArmoryDialog):
                             'You cannot use it to send Bitcoins!')
          btnSend.setEnabled(False)
 
-      if not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+      if not TheBDM.getBDMState()=='BlockchainReady':
          btnSend.setToolTip('You are currently not connected to the Bitcoin network, '
                             'so you cannot initiate any transactions.')
          btnSend.setEnabled(False)
@@ -4772,7 +4774,7 @@ class DlgSendBitcoins(ArmoryDialog):
          self.restoreGeometry(geom)
             
 
-      if self.main.blkMode==BLOCKCHAINMODE.ONLINE and not wlt.watchingOnly:
+      if TheBDM.getBDMState()=='BlockchainReady' and not wlt.watchingOnly:
          btnSend.setDefault(True)
       else:
          btnUnsigned.setDefault(True)
@@ -5623,7 +5625,7 @@ class DlgOfflineSelect(ArmoryDialog):
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
       if not self.main.internetAvail or \
          not self.main.satoshiAvail  or \
-         not self.main.blkMode==BLOCKCHAINMODE.ONLINE:
+         not TheBDM.getBDMState()=='BlockchainReady':
          btnCreate.setEnabled(False)
          if len(self.main.walletMap)==0:
             btnReview = QPushButton('No wallets, no network connection')

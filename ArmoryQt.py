@@ -2873,9 +2873,8 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       if TheBDM.getBDMState()=='BlockchainReady':
-         TheBDM.readBlkFileUpdate(wait=True)
+         newBlocks = TheBDM.readBlkFileUpdate(wait=True)
          self.currBlockNum = TheBDM.getTopBlockHeight()
-         newBlocks = self.currBlockNum - self.prevTopBlock
 
          if self.needUpdateAfterScan:
             self.finishLoadBlockchain()
