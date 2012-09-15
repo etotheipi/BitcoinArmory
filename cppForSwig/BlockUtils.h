@@ -868,7 +868,6 @@ public:
 
 
  
-   // This is extremely slow and RAM-hungry, but may be useful on occasion
    uint32_t       readBlkFileUpdate(void);
    bool           verifyBlkFileIntegrity(void);
    //vector<TxRef*> findAllNonStdTx(void);

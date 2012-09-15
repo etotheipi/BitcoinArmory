@@ -194,6 +194,23 @@ class QRichLabel(QLabel):
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
 
+   def setText(self, text, color=None, size=None, bold=None, italic=None):
+      if color:
+         text = '<font color="%s">%s</font>' % (htmlColor(color), text)
+      if size:
+         if isinstance(size, int):
+            text = '<font size=%d>%s</font>' % (size, text)
+         else:
+            text = '<font size="%s">%s</font>' % (size, text)
+      if bold:
+         text = '<b>%s</b>' % text
+      if italic:
+         text = '<i>%s</i>' % text
+
+      QLabel.setText(self,text)
+
+
+
 class QMoneyLabel(QLabel):
    def __init__(self, nBtc, ndec=8, maxZeros=2, wColor=True, wBold=False):
       QLabel.__init__(self, coin2str(nBtc))

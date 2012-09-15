@@ -90,6 +90,8 @@ class ArmoryMainWindow(QMainWindow):
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
       self.newZeroConfSinceLastUpdate = False
+      self.callCount = 0
+      self.lastBDMState = ['Uninitialized', None]
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -115,7 +117,7 @@ class ArmoryMainWindow(QMainWindow):
       self.extraHeartbeatOnline = [self.doTheSystemTrayThing]
       self.extraHeartbeatAlways = []
 
-      self.lblArmoryStatus = QRichLabel('<font color=%s><i>Offline</i></font>' % \
+      self.lblArmoryStatus = QRichLabel('<font color=%s><i>Disconnected</i></font>' % \
                                            htmlColor('TextWarn'), doWrap=False)
       self.statusBar().insertPermanentWidget(0, self.lblArmoryStatus)
 
@@ -923,7 +925,7 @@ class ArmoryMainWindow(QMainWindow):
       
 
       # Check for Satoshi-client connection
-      self.satoshiAvail = self.bitcoindIsAvailable()
+      #self.satoshiAvail = self.bitcoindIsAvailable()
          
 
 
@@ -944,7 +946,7 @@ class ArmoryMainWindow(QMainWindow):
                self.internetAvail = False
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.satoshiAvail)
+      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable)
          
 
        
@@ -962,6 +964,10 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.setOnlineMode(False, wait=False)
           
 
+      #print 'InternetAvail = ', self.internetAvail
+      #print 'SatoshiAvail  = ', self.satoshiAvail
+      #print 'blkXXXX.dat   = ', self.haveBlkFile
+
 
 
 
@@ -969,7 +975,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def onlineModeIsPossible(self):
       return ((self.internetAvail or CLI_OPTIONS.forceOnline) and \
-               self.satoshiAvail and \
+               self.bitcoindIsAvailable() and \
                self.haveBlkFile)
 
    #############################################################################
@@ -986,6 +992,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def switchNetworkMode(self, newMode):
+      print 'Setting netmode:', newMode
+      self.netMode=newMode
       if newMode in (NETWORKMODE.Offline, NETWORKMODE.Disconnected):
          self.NetworkingFactory = FakeClientFactory()
          return
@@ -994,18 +1002,11 @@ class ArmoryMainWindow(QMainWindow):
          # Actually setup the networking, now
          from twisted.internet import reactor
 
-         def restartConnection(protoObj, failReason):
-            QMessageBox.critical(self, 'Lost Connection', \
-               'Connection to Bitcoin-Qt was interrupted.  Please make sure '
-               'bitcoin/bitcoind is running, and restart Armory', QMessageBox.Ok)
-            LOGWARN('! Trying to restart connection !')
-            reactor.connectTCP(protoObj.peer[0], protoObj.peer[1], self.NetworkingFactory)
-
-
          def showOfflineMsg():
             self.netMode = NETWORKMODE.Disconnected
+            self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
-               '<font color=%s><i>Offline</i></font>' % htmlColor('TextWarn'))
+               '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
             if not self.getSettingOrSetDefault('NotifyDiscon', True):
                return 
    
@@ -1021,6 +1022,7 @@ class ArmoryMainWindow(QMainWindow):
          self.connectCount = 0
          def showOnlineMsg():
             self.netMode = NETWORKMODE.Full
+            self.setDashboardDetails()
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' % 
                      (htmlColor('TextGreen'), self.currBlockNum))
@@ -1370,7 +1372,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getBDMState()=='Scanning':
          LOGINFO('Need to rescan again but previous rescan not finished')
          return
-      elif TheBDM.getBDMState()=='Full':
+      elif TheBDM.getBDMState()=='BlockchainReady':
          # Start it in the background
          self.needUpdateAfterScan = True
          TheBDM.rescanBlockchain(wait=False)
@@ -1418,6 +1420,7 @@ class ArmoryMainWindow(QMainWindow):
             if remember==True:
                self.writeSetting('NotifyBlkFinish',False)
                
+         self.netMode = NETWORKMODE.Full
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -2600,132 +2603,177 @@ class ArmoryMainWindow(QMainWindow):
          TheBDM.startRescan()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          TheBDM.setOnlineMode(True)
+         self.switchNetworkMode(NETWORKMODE.Full)
       else:
          LOGERROR('ModeSwitch button pressed when it should be disabled')
-      time.sleep(1)
+      time.sleep(0.3)
       self.setDashboardDetails()
          
 
    #############################################################################
    def setDashboardDetails(self):
-      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+      onlineAvail = self.onlineModeIsPossible()
+      print 'Last:',self.lastBDMState
+      print 'Curr:',onlineAvail
+      txtOfflineFunc = ( \
+         'In offline mode, The following functionality is available:'
+         '<ul>'
+         '<li>Create, import or recover wallets</li>'
+         '<li>Generate new receiving addresses for your wallets</li>'
+         '<li>Create backups of your wallets (printed or digital)</li>'
+         '<li>Import private keys to wallets</li>'
+         '<li><b>Sign transactions created from an online system</b></li>'
+         '<li>Change wallet encryption settings</li>'
+         '<li>Sign messages</li>'
+         '</ul>')
 
-         if self.onlineModeIsPossible():
+      txtOnlineFunc = ( \
+         '<ul>'
+         '<li>Create, import or recover Armory wallets</li>'
+         '<li>Generate new addresses to receive coins</li>'
+         '<li>Send Bitcoins to other people</li>'
+         '<li>Create one-time backups of your wallets (in printed or digital form)</li>'
+         '<li>Click on "bitcoin:" links in your web browser '
+            '(not supported on some operating systems)</li>'
+         '<li>Import private keys to wallets</li>'
+         '<li>Monitor payments to watching-only wallets and create '
+            'unsigned transactions</li>'
+         '<li>Sign messages</li>'
+         '<li><b>Create transactions for watching-only wallets, '
+            'to be signed by an offline wallet</b></li>'
+         '</ul>')
+
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+         if onlineAvail and not self.lastBDMState[1]==onlineAvail:
             LOGINFO('Dashboard switched to "Offline" mode, with online option')
-            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
-            self.btnModeSwitch.setVisible(True)
-            self.btnModeSwitch.setText('Go Online!')
-            self.lblDashMode.setText('<b>Armory is <u>OFFLINE</u></b>')
-            self.lblDashDescr.setText('You are currently in offline mode, but can '
-               'switch to online mode.  Switching will give you access '
-               'to more Armory functionality, including sending and receiving '
-               'transactions and viewing the transaction histories and '
-               'balances of each of your wallets'
-               '<br>'
-               'In offline mode, The following functionality is available:'
-               '<br>'
-               '<ul>'
-               '<li>Create, import or recover wallets</li>'
-               '<li>Generate new receiving addresses for your wallets</li>'
-               '<li>Create backups of your wallets (printed or digital)</li>'
-               '<li>Import private keys to wallets</li>'
-               '<li><b>Sign transactions created from an online system</b></li>'
-               '<li>Change wallet encryption settings</li>'
-               '<li>Sign messages</li>'
-               '</ul>'
-               '<br>'
-               'Press the button to go into online mode.  Note that you will '
-               'remain in offline mode until a blockchain scan is completed, '
-               'which may be several minutes.')
-         else:
-            LOGINFO('Dashboard switched to "Offline" mode, can\'t go online')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
             self.btnModeSwitch.setVisible(True)
+            self.btnModeSwitch.setEnabled(True)
+            self.btnModeSwitch.setText('Go Online!')
+            self.lblDashMode.setText('Armory is <u>offline</u>', size=4, bold=True)
+            self.lblDashDescr.setText('You are currently in offline mode, but can '
+               'switch to online mode by pressing the button above.  However, '
+               'it is not recommended that you switch until '
+               'Bitcoin-Qt/bitcoind is fully synchronized with the bitcoin network.  '
+               'You will see a green checkmark in the bottom-right corner of '
+               'the Bitcoin-Qt window when it is finished.'
+               '<br><br>'
+               'Switching to online mode will give you access '
+               'to more Armory functionality, including sending and receiving '
+               'bitcoins and viewing the balances and transaction histories '
+               'of each of your wallets.')
+         elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
+            LOGINFO('Dashboard switched to "Offline" mode, can\'t go online')
+            self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+            self.btnModeSwitch.setVisible(False)
             self.btnModeSwitch.setEnabled(False)
-            self.btnModeSwitch.setText('Online mode not available')
-            lblText = 'You are currently in offline mode because '
-            if not self.satoshiAvail:
-               LOGDEBUG('Satoshi client is not available')
-               lblText += 'Bitcoin-Qt/bitcoind is not available.  If you want '
-               lblText += 'to switch to online mode, please start BitcoinQt '
-               lblText += 'and let it synchronize with the network.  Once you '
-               lblText += 'see the green checkbox in the bottom right corner, '
-               lblText += 'of the BitcoinQt window, press the button above to '
-               lblText += 'switch to online mode.  (Note that the button will '
-               lblText += 'become enabled as soon as you open the BitcoinQt, but '
-               lblText += 'do not click it until you see the checkmark.)'
-               lblText += '<br>'
-               lblText += 'If you do not have BitcoinQt installed, you can '
-               lblText += 'download it from <a href="http://www.bitcoin.org">'
-               lblText += 'http://www.bitcoin.org</a>.'
+            self.lblDashMode.setText( 'Armory is in <u>offline</u> mode', \
+                                             size=4, color='TextWarn', bold=True)
+            if not self.bitcoindIsAvailable():
+               if self.internetAvail:
+                  LOGDEBUG('Satoshi client is not available')
+                  lblText  = 'You are currently in offline mode because '
+                  lblText += 'Bitcoin-Qt/bitcoind is not running.  If you want '
+                  lblText += 'to switch to online mode, please start Bitcoin-Qt '
+                  lblText += 'and let it synchronize with the bitcoin network.  Once '
+                  lblText += 'you see the green checkbox in the bottom-right corner '
+                  lblText += 'of the Bitcoin-Qt window, press the button above to '
+                  lblText += 'switch to online mode.  <i>Note: the button will '
+                  lblText += 'appear as soon as you open the Bitcoin-Qt, but '
+                  lblText += 'do not click it until you see the checkmark.</i>'
+                  lblText += '<br><br>'
+                  lblText += 'If you do not have Bitcoin-Qt installed, you can '
+                  lblText += 'download it from <a href="http://www.bitcoin.org">'
+                  lblText += 'http://www.bitcoin.org</a>.'
+               else:
+                  LOGDEBUG('Satoshi client and internet not available')
+                  lblText += 'No internet connection was detected, and neither '
+                  lblText += 'Bitcoin-Qt or bitcoind is running.  Most likely '
+                  lblText += 'you are here because this is a system dedicated '
+                  lblText += 'to manage offline wallets! '
+                  lblText += '<br><br>'
+                  lblText += '<b>If you expected Armory to be in online mode</b>, '
+                  lblText += 'please verify your internet connection is active, then '
+                  lblText += 'start Bitcoin-Qt and let it synchronize with the '
+                  lblText += 'network (a green checkbox will appear in the bottom '
+                  lblText += 'right corner of the Bitcoin-Qt window when it is '
+                  lblText += 'finished).  Then restart Armory.'
+                  lblText += '<br><br>'
+                  lblText += 'If you do not have Bitcoin-Qt installed, you can '
+                  lblText += 'download it from <a href="http://www.bitcoin.org">'
+                  lblText += 'http://www.bitcoin.org</a>.'
+            elif not self.internetAvail:
+               LOGDEBUG('Internet is not detected')
+               lblText  = 'You are currently in offline mode because '
+               lblText += 'Armory could not detect an internet connection.  '
+               lblText += 'If you think this is in error '
+               lblText += '(perhaps because you are using proxies), then '
+               lblText += 'restart Armory using the " --skip-online-check" option. '
+               lblText += '<br><br>'
+               lblText += 'If this is intended to be an offline computer, note '
+               lblText += 'that it is not necessary to have Bitcoin-Qt or bitcoind '
+               lblText += 'running.' 
             elif not self.haveBlkFile:
                LOGDEBUG('The blkXXXX.dat files are not accessible')
+               lblText  = 'You are currently in offline mode because '
                lblText += 'Armory could not find the blockchain files produced '
                lblText += 'by Bitcoin-Qt.  Do you run Bitcoin-Qt (or bitcoind) '
                lblText += 'from a non-standard directory?   Armory expects to '
-               lblText += 'find the blk000X.dat files in <br>%s<br> '
+               lblText += 'find the blkXXXX.dat files in <br><br>%s<br><br> '
                lblText += 'If you know where it is located, please restart '
                lblText += 'Armory using the " --satoshi-datadir=<FOLDERPATH> '
-               lblText += 'to notify Armory wehre to find it.'
-            elif not self.internetAvail:
-               LOGDEBUG('Internet is not detected')
-               lblText += 'Armory could not detect an internet connection,  '
-               lblText += 'and thus does not think you are connected to the '
-               lblText += 'bitcoin network.  If you think this is in error '
-               lblText += '(perhaps because you are using proxies), then '
-               lblText += 'restart Armory using the " --force-online" option. '
+               lblText += 'to notify Armory where to find them.'
+            lblText += '<br><br>' + txtOfflineFunc
             self.lblDashDescr.setText(lblText)
       elif TheBDM.getBDMState() == 'BlockchainReady':
          self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
-         if TheBDM.needsRescan():
+         if self.netMode == NETWORKMODE.Disconnected:
+            self.btnModeSwitch.setVisible(False)
+            self.lblDashMode.setText( 'Armory is disconnected', size=4, color='TextWarn', bold=True)
+            self.lblDashDescr.setText( \
+               'Armory was previously online, but the connection to Bitcoin-Qt/'
+               'bitcoind was interrupted.  You will not be able to send bitcoins or '
+               'confirm receipt of bitcoins until the connection is reestablished.  '
+               '<br><br>Please check that Bitcoin-Qt is open '
+               'and synchronized with the network.  Armory will <i>try to reconnect</i> '
+               'automatically when the connection is available again.  If Bitcoin-Qt is '
+               'available again, and reconnection does not happen, please restart Armory.')
+         elif TheBDM.needsRescan():
             self.btnModeSwitch.setVisible(True)
-            self.lblDashDescr.setText('<b>Armory is online, but needs to rescan the blockchain</b>')
+            self.btnModeSwitch.setText('Rescan Now')
+            self.lblDashMode.setText( 'Armory is online, but needs to rescan ' \
+                           'the blockchain</b>', size=4, color='TextWarn', bold=True)
             if len(self.sweepAfterScanList) > 0:
                self.lblDashDescr.setText( \
                   'Armory is currently online, but you have requested a sweep operation '
                   'on one or more private keys.  This requires searching the global '
                   'transaction history for the available balance of the keys to be '
                   'swept. '
-                  '<br>'
+                  '<br><br>'
                   'Press the button to start the blockchain scan, which '
                   'will also put Armory into offline mode for a few minutes '
                   'until the scan operation is complete')
             else:
                self.lblDashDescr.setText( \
-                  'Armory is currently online, but you have imported private keys '
-                  'without initiating a blockchain scan.  <b>Wallet balances may '
+                  '<b>Wallet balances may '
                   'be incorrect until the rescan operation is performed!</b>'
-                  '<br>'
-                  'Press the button to start the blockchain scan, which '
+                  '<br><br>'
+                  'Armory is currently online, but you have imported private keys '
+                  'without initiating a blockchain scan.  Press the button to start '
+                  'the blockchain scan, which '
                   'will also put Armory into offline mode for a few minutes '
                   'until the scan operation is complete.')
          else:
             # Fully online mode
             self.btnModeSwitch.setVisible(False)
-            self.lblDashMode.setText( \
-                  '<b><font size=4 color="%s">Armory is <u>online</u>!</font></b>' % \
-                  htmlColor('TextGreen'))
+            self.lblDashMode.setText( 'Armory is <u>online</u>!', color='TextGreen', size=4, bold=True)
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
             self.lblDashDescr.setText( \
                '<p><b>You now have access to all the features Armory has to offer!</b><br>'
                'To see your balances and transaction history, please click '
-               'on the "Transactions" tab above this text.  '
+               'on the "Transactions" tab above this text.  <br>'
                'Here\'s some things you can do with Armory Bitcoin Client:'
-               '<ul>'
-               '<li>Create, import or recover Armory wallets</li>'
-               '<li>Generate new addresses to receive coins</li>'
-               '<li>Send Bitcoins to other people</li>'
-               '<li>Create backups of your wallets (in printed or digital form)</li>'
-               '<li>Click on "bitcoin:" links in your web browser '
-                     '(not supported on some operating systems)</li>'
-               '<li>Import private keys to wallets</li>'
-               '<li>Monitor payments to watching-only wallets and create '
-                     'unsigned transactions</li>'
-               '<li>Sign messages</li>'
-               '<li><b>Create transactions for watching-only wallets, '
-                     'to be signed by an offline wallet</b></li>'
-               '</ul>'
-               '<br>'
+               '<br>' + txtOnlineFunc + '<br>'
                'If you experience any performance issues with Armory, '
                'please confirm that Bitcoin-Qt is running and <i>fully '
                'synchronized with the Bitcoin network</i>.  You will see '
@@ -2746,30 +2794,29 @@ class ArmoryMainWindow(QMainWindow):
       elif TheBDM.getBDMState() == 'Scanning':
          LOGINFO('Dashboard switched to "Scanning" mode')
          self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
-         self.lblDashMode.setText( \
-               '<b>Armory is offline while scanning the blockchain</b>')
+         self.lblDashMode.setText( 'Armory is offline while scanning the blockchain', \
+                                                                     size=4, bold=True)
          self.btnModeSwitch.setVisible(False)
-         self.lblDashDescr.setText(\
-               'Armory is in offline mode until blockchain scanning is complete.  '
-               'Please be patient, scanning may take several minutes!  '
-               '<br>'
-               'While you wait, you may manage your Armory wallets.  The '
-               'following functionality is available:'
-               '<br>'
-               '<ul>'
-               '<li>Create, import or recover wallets</li>'
-               '<li>Generate new receiving addresses for your wallets</li>'
-               '<li>Create backups of your wallets (in printed or digital form)</li>'
-               '<li>Change wallet encryption settings</li>'
-               '<li>Sign messages</li>'
-               '</ul>'
-               '<br>'
-               'The main window will update with your balances and '
-               'transaction history as soon as Armory is finished '
-               'scanning the blockchain')
+         lblText = '<b>Please be patient, scanning may take several minutes!</b><br><br>'
+         if len(self.walletMap)==0:
+            lblText += 'Armory will go into online mode automatically, as soon as '
+            lblText += 'the scan is complete.'
+         else:
+            lblText += 'Armory is scanning the global transaction history to retrieve '
+            lblText += 'information about your wallets.  The "Transactions" tab will '
+            lblText += 'update with your balances and transaction history as soon as '
+            lblText += 'the scan is complete.'
+
+         lblText += '<br><br>'
+         lblText += 'While you wait, you may manage your Armory wallets.'
+         lblText += '<br>'
+         lblText += txtOfflineFunc
+         lblText += '<br>'
+         self.lblDashDescr.setText(lblText)
       else:
          LOGERROR('What the hell blockchain mode are we in?  %s', TheBDM.getBDMState())
 
+      self.lastBDMState = [TheBDM.getBDMState(), onlineAvail]
       self.lblDashMode.setContentsMargins(50,5,50,5)
       #self.scrollDashDescr.setWidget(self.lblDashDescr)
       
@@ -2784,6 +2831,7 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
+      print 'Netmode:', self.netMode
       try:
          print 'BDMState:', TheBDM.getBDMState()
          for func in self.extraHeartbeatAlways:
@@ -2792,13 +2840,18 @@ class ArmoryMainWindow(QMainWindow):
          for idx,wltID in enumerate(self.walletIDList):
             self.walletMap[wltID].checkWalletLockTimeout()
    
+         self.callCount +=1
          if TheBDM.getBDMState()=='Offline':
             # This call seems out of place, but it's because if you are in offline
             # mode, it needs to check periodically for the existence of Bitcoin-Qt
             # so that it can enable the "Go Online" button
             self.setDashboardDetails()
-            reactor.callLater(nextBeatSec, self.Heartbeat)
             return
+
+
+         if self.netMode==NETWORKMODE.Disconnected:
+            if self.onlineModeIsPossible():
+               self.switchNetworkMode(NETWORKMODE.Full)
    
          if TheBDM.getBDMState()=='BlockchainReady':
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
@@ -2860,7 +2913,7 @@ class ArmoryMainWindow(QMainWindow):
       
                nowtime = RightNow()
                blkRecvAgo  = nowtime - self.blkReceived
-               blkStampAgo = nowtime - self.getTopBlockHeader.getTimestamp()
+               blkStampAgo = nowtime - TheBDM.getTopBlockHeader().getTimestamp()
                self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
                                                       secondsToHumanTime(blkStampAgo))
                

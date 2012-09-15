@@ -105,6 +105,7 @@ parser.add_option("--keypool", dest="keypool", default=100, type="int",
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
+USE_TESTNET = True
    
 
 # Set default port for inter-process communication
@@ -6118,6 +6119,11 @@ class PyBtcWallet(object):
       if len(comment)>0:
          return comment
 
+      # SWIG BUG! 
+      # http://sourceforge.net/tracker/?func=detail&atid=101645&aid=3403085&group_id=1645
+      # Apparently, using the -threads option when compiling the swig module
+      # causes the "for i in vector<...>:" mechanic to sometimes throw seg faults!
+      # For this reason, this method was replaced with the one below:
       for regTx in abe.getTxList():
          comment = self.getComment(regTx.getTxHash())
          if len(comment)>0:
@@ -6125,6 +6131,19 @@ class PyBtcWallet(object):
 
       return ''
       
+   #############################################################################
+   def getCommentForTxList(self, a160, txhashList):
+      comment = self.getComment(a160)
+      if len(comment)>0:
+         return comment
+
+      for txHash in txhashList:
+         comment = self.getComment(txHash)
+         if len(comment)>0:
+            return comment
+
+      return ''
+
    #############################################################################
    def printAddressBook(self):
       addrbook = self.cppWallet.createAddressBook()
@@ -9877,6 +9896,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'HeaderRequested', \
                      'TxRequested', \
                      'BlockRequested', \
+                     'AddrBookRequested', \
                      'BlockAtHeightRequested', \
                      'HeaderAtHeightRequested', \
                      'StartScanRequested', \
@@ -10383,6 +10403,26 @@ class BlockDataManagerThread(threading.Thread):
       return None
 
 
+   #############################################################################
+   def getAddressBook(self, wlt):
+      """
+      Address books are constructed from Blockchain data, which means this 
+      must be a blocking method.  
+      """
+      if isinstance(wlt, PyBtcWallet):
+         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, True, wlt.cppWallet])
+      elif isinstance(wlt, Cpp.BtcWallet):
+         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, True, wlt])
+
+      try:
+         result = self.outputQueue.get(True, 3)
+         return result
+      except Queue.Empty:
+         LOGERROR('Waited 3s for addrbook to be returned.  Abort')
+         LOGERROR('Going to block until we get something...')
+         return self.outputQueue.get(True)
+
+      return None
 
    #############################################################################
    def addNewZeroConfTx(self, rawTx, timeRecv, writeToFile, wait=None):
@@ -10420,7 +10460,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160, isFresh])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160])
 
       return self.waitForOutputIfNecessary(expectOutput)
 
@@ -10483,6 +10523,9 @@ class BlockDataManagerThread(threading.Thread):
                
 
       return self.waitForOutputIfNecessary(expectOutput)
+
+
+   
    
    #############################################################################
    def __registerAddressNow(self, a160, timeInfo):
@@ -10826,6 +10869,10 @@ class BlockDataManagerThread(threading.Thread):
                else:
                   output = None
                   LOGERROR('Requested header does not exist:\nHeight=%s', height)
+
+            elif cmd == BDMINPUTTYPE.AddrBookRequested:
+               cppWlt = inputTuple[2] 
+               output = cppWlt.createAddressBook()
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
                self.__updateWalletsAfterScan()

@@ -733,17 +733,26 @@ class SentToAddrBookModel(QAbstractTableModel):
       self.main  = main
       self.wlt   = self.main.walletMap[wltID]
 
-      # Get a vector of "AddressBookEntry" objects sorted by first-sent-to
-      self.addrBook = self.wlt.cppWallet.createAddressBook()
+      self.addrBook = []
 
-      # Delete entries that are our own addr in other wallets
-      otherAddr = []
-      for abe in self.addrBook:
-         if not self.main.getWalletForAddr160(abe.getAddr160()):
-            otherAddr.append(abe)
+      # SWIG BUG!  
+      # http://sourceforge.net/tracker/?func=detail&atid=101645&aid=3403085&group_id=1645
+      # Must use awkwardness to get around iterating a vector<RegisteredTx> in
+      # the python code... :(
+      for abe in TheBDM.getAddressBook(self.wlt.cppWallet):     
 
-      self.addrBook = otherAddr
-      
+         addr160 = abe.getAddr160()
+
+         # Only grab addresses that are not in any of your Armory wallets
+         if not self.main.getWalletForAddr160(addr160):
+            abeList = abe.getTxList()
+            ntx = len(abeList)
+            txhashlist = []
+            for i in range(ntx):
+               txhashlist.append( abeList[i].getTxHash() )
+            self.addrBook.append( [ addr160, txhashlist] )
+
+      print 'Done collecting addresses for addrbook'
 
    def rowCount(self, index=QModelIndex()):
       return len(self.addrBook)
@@ -753,13 +762,13 @@ class SentToAddrBookModel(QAbstractTableModel):
 
    def data(self, index, role=Qt.DisplayRole):
       COL = ADDRBOOKCOLS
-      row,col = index.row(), index.column()
-      abe     = self.addrBook[row]
-      addr160 = abe.getAddr160()
-      addrB58 = hash160_to_addrStr(addr160)
-      wltID   = self.main.getWalletForAddr160(addr160)
-      numSent =   len(abe.getTxList())
-      comment = self.wlt.getCommentForAddrBookEntry(abe)
+      row,col  = index.row(), index.column()
+      addr160  = self.addrBook[row][0]
+      addrB58  = hash160_to_addrStr(addr160)
+      wltID    = self.main.getWalletForAddr160(addr160)
+      txList   = self.addrBook[row][1]
+      numSent  = len(txList)
+      comment  = self.wlt.getCommentForTxList(addr160, txList)
       
       #ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
       if role==Qt.DisplayRole:

@@ -1983,9 +1983,9 @@ class DlgImportAddress(ArmoryDialog):
                   'you to stay in online mode, but your balances may be incorrect '
                   'until you press the rescan button on the dashboard, or restart '
                   'Armory', QMessageBox.Yes | QMessageBox.No)
-               if doRescanNow:
-                  TheBDM.rescanBlockchain()
-                  self.main.setDashboardDetails()
+               if doRescanNow == QMessageBox.Yes:
+                  self.main.startRescanBlockchain()
+               self.main.setDashboardDetails()
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
@@ -1997,7 +1997,7 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.rescanBlockchain()
+            self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
 
 
@@ -2213,7 +2213,7 @@ class DlgImportAddress(ArmoryDialog):
                'soon as this one is complete.  Wallet and address balances will '
                'not be available until these operations are completed.', \
                QMessageBox.Ok)
-            self.main.rescanBlockchain()
+            self.main.startRescanBlockchain()
             self.main.setDashboardDetails()
    
 
