@@ -450,7 +450,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    // addAddress when blockchain rescan req'd, addNewAddress for just-created
-   void addNewAddress(HashString addr);
+   void addNewAddress(BinaryData addr);
    void addAddress(BtcAddress const & newAddr);
    void addAddress(BinaryData    addr, 
                    uint32_t      firstTimestamp = 0,

@@ -1982,7 +1982,7 @@ class DlgImportAddress(ArmoryDialog):
                   'Would you like to do the scan now?   Pressing "No" will allow '
                   'you to stay in online mode, but your balances may be incorrect '
                   'until you press the rescan button on the dashboard, or restart '
-                  'Armory', QMessageBox.Yes | QMessageBox.No)
+                  'Armory.', QMessageBox.Yes | QMessageBox.No)
                if doRescanNow == QMessageBox.Yes:
                   self.main.startRescanBlockchain()
                self.main.setDashboardDetails()
@@ -5608,16 +5608,14 @@ class DlgOfflineSelect(ArmoryDialog):
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
-      if not self.main.internetAvail or \
-         not self.main.satoshiAvail  or \
-         not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getBDMState()=='BlockchainReady':
          btnCreate.setEnabled(False)
          if len(self.main.walletMap)==0:
-            btnReview = QPushButton('No wallets, no network connection')
+            btnReview = QPushButton('No wallets available!')
             btnReview.setEnabled(False)
          else:
             btnReview = QPushButton('Sign Offline Transaction')
-      elif len(self.main.walletMap)==0:
+      elif len(self.main.walletMap)==0 and self.main.netMode==NETWORKMODE.Full:
          btnReview = QPushButton('Broadcast Signed Transaction')
 
       btnCancel = QPushButton('<<< Go Back')

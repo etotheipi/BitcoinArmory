@@ -10460,7 +10460,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160])
+      self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, expectOutput, a160, True])
 
       return self.waitForOutputIfNecessary(expectOutput)
 
@@ -10822,8 +10822,8 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
                rawTx  = inputTuple[2]
                timeIn = inputTuple[3]
-               if isinstance(txObj, PyTx):
-                  rawTx = txObj.serialize()
+               if isinstance(rawTx, PyTx):
+                  rawTx = rawTx.serialize()
                self.bdm.addNewZeroConfTx(rawTx, timeIn, True)
                
             elif cmd == BDMINPUTTYPE.HeaderRequested:
@@ -10924,8 +10924,9 @@ class BlockDataManagerThread(threading.Thread):
          except Queue.Empty:
             continue
          except:
+            inputName = self.getBDMInputName(inputTuple[0])
             LOGERROR('Error processing BDM input')
-            LOGERROR('Received inputTuple: ' + str(inputTuple))
+            LOGERROR('Received inputTuple: ' + inputName + ' ' + str(inputTuple))
             LOGEXCEPT('Exception raised, attempting to continue anyway')
             if expectOutput:
                self.outputQueue.put('BDM_REQUEST_ERROR')

@@ -89,7 +89,7 @@ class ArmoryMainWindow(QMainWindow):
       self.prevTopBlock = -1
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
-      self.newZeroConfSinceLastUpdate = False
+      self.newZeroConfSinceLastUpdate = []
       self.callCount = 0
       self.lastBDMState = ['Uninitialized', None]
       
@@ -1073,7 +1073,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
-      self.newZeroConfSinceLastUpdate = True
+      self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
 
       #for wltID,wlt in self.walletMap.iteritems():
          ## Absorb the new tx into the BDM & wallets
@@ -2212,6 +2212,7 @@ class ArmoryMainWindow(QMainWindow):
                   'this failed transaction.' , \
                   QMessageBox.Ok)
                   
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Transactions)
          reactor.callLater(2, sendGetDataMsg)
          reactor.callLater(4, checkForTxInBDM)
 
@@ -2310,7 +2311,18 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execAddressBook(self):
-      DlgAddressBook(self, self, None, None, None).exec_()
+      if TheBDM.getBDMState()=='Scanning':
+         QMessageBox.warning(self, 'Blockchain Not Ready', \
+            'The address book is created from transaction data available in '
+            'the blockchain, which has not finished loading.  The address '
+            'book will become available when Armory is online.', QMessageBox.Ok)
+      elif TheBDM.getBDMState() in ('Uninitialized','Offline'):
+         QMessageBox.warning(self, 'Blockchain Not Ready', \
+            'The address book is created from transaction data available in '
+            'the blockchain, but Armory is currently offline.  The address '
+            'book will become available when Armory is online.', QMessageBox.Ok)
+      else:
+         DlgAddressBook(self, self, None, None, None).exec_()
 
 
    #############################################################################
@@ -2600,7 +2612,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def pressModeSwitchButton(self):
       if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty:
-         TheBDM.startRescan()
+         self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          TheBDM.setOnlineMode(True)
          self.switchNetworkMode(NETWORKMODE.Full)
@@ -2613,8 +2625,6 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setDashboardDetails(self):
       onlineAvail = self.onlineModeIsPossible()
-      print 'Last:',self.lastBDMState
-      print 'Curr:',onlineAvail
       txtOfflineFunc = ( \
          'In offline mode, The following functionality is available:'
          '<ul>'
@@ -2766,7 +2776,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             # Fully online mode
             self.btnModeSwitch.setVisible(False)
-            self.lblDashMode.setText( 'Armory is <u>online</u>!', color='TextGreen', size=4, bold=True)
+            self.lblDashMode.setText( 'Armory is online!', color='TextGreen', size=4, bold=True)
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
             self.lblDashDescr.setText( \
                '<p><b>You now have access to all the features Armory has to offer!</b><br>'
@@ -2790,6 +2800,7 @@ class ArmoryMainWindow(QMainWindow):
                'a paper backup, any time in the future.  Use the "Backup '
                'Individual Keys" option fore each wallet to backup imported '
                'keys.</p>')
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
                
       elif TheBDM.getBDMState() == 'Scanning':
          LOGINFO('Dashboard switched to "Scanning" mode')
@@ -2813,6 +2824,7 @@ class ArmoryMainWindow(QMainWindow):
          lblText += txtOfflineFunc
          lblText += '<br>'
          self.lblDashDescr.setText(lblText)
+         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
       else:
          LOGERROR('What the hell blockchain mode are we in?  %s', TheBDM.getBDMState())
 
@@ -2870,10 +2882,26 @@ class ArmoryMainWindow(QMainWindow):
                self.sweepAfterScanList = []
                self.setDashboardDetails()
    
-            if self.newZeroConfSinceLastUpdate:
+            # If we have new zero-conf transactions, scan them and update ledger
+            if len(self.newZeroConfSinceLastUpdate)>0:
+               self.newZeroConfSinceLastUpdate.reverse()
                for wltID in self.walletMap.keys():
-                  TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet, wait=True)
-               self.newZeroConfSinceLastUpdate = False
+                  wlt = self.walletMap[wltID]
+                  TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
+
+            while len(self.newZeroConfSinceLastUpdate)>0:
+               # For each new tx, check each wallet
+               rawTx = self.newZeroConfSinceLastUpdate.pop()
+               for wltID in self.walletMap.keys():
+                  wlt = self.walletMap[wltID]
+                  le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
+                  if not le.getTxHash()=='\x00'*32:
+                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
+                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
+                     if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
+                        self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
+                     self.createCombinedLedger()
+                     self.walletModel.reset()
    
             if newBlocks>0 and not TheBDM.isDirty:
    
@@ -2881,7 +2909,7 @@ class ArmoryMainWindow(QMainWindow):
                TheBDM.updateWalletsAfterScan(wait=True)
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
-               print prevLedgSize
+               print self.currBlockNum
          
                self.ledgerModel.reset()
                LOGINFO('New Block! : %d', self.currBlockNum)

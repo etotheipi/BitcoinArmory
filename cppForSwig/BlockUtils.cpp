@@ -587,7 +587,7 @@ void BtcWallet::addAddress(HashString    addr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void BtcWallet::addNewAddress(HashString addr)
+void BtcWallet::addNewAddress(BinaryData addr)
 {
    if(addrMap_.find(addr) != addrMap_.end())
       return;
