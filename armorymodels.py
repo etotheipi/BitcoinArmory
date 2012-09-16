@@ -212,7 +212,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
                                  'confirmations is usually acceptable.\n'
                                  'For larger transactions, you should\n'
                                  'wait for 6 confirmations before\n'
-                                 'trusting that the transaction valid.')
+                                 'trusting that the transaction is valid.')
                return QVariant(tooltipStr)
          if col==COL.TxDir:
             #toSelf = self.index(index.row(), COL.toSelf).data().toBool()

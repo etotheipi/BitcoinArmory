@@ -10230,7 +10230,6 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      self.aboutToRescan = True
       self.inputQueue.put([BDMINPUTTYPE.ReadBlkUpdate, expectOutput])
       return self.waitForOutputIfNecessary(expectOutput)
       
@@ -10299,7 +10298,6 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      self.aboutToRescan = True
       self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, expectOutput])
       print 'Wallet update requested'
       return self.waitForOutputIfNecessary(expectOutput)
@@ -10658,7 +10656,6 @@ class BlockDataManagerThread(threading.Thread):
          return
 
       self.blkMode = BLOCKCHAINMODE.LiteScanning
-      self.aboutToRescan = False
       nblk = self.bdm.readBlkFileUpdate() 
       return nblk
          
@@ -10685,7 +10682,6 @@ class BlockDataManagerThread(threading.Thread):
       else:
          self.blkMode = BLOCKCHAINMODE.Rescanning
 
-      self.aboutToRescan = False
 
       for pyWlt in self.pyWltList:
          pyWlt.syncWithBlockchain()

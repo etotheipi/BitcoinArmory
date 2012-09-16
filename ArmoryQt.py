@@ -1013,7 +1013,7 @@ class ArmoryMainWindow(QMainWindow):
             try:
                self.sysTray.showMessage('Disconnected', \
                      'Connection to Bitcoin-Qt client lost!  Armory cannot send \n'
-                     'or receive Bitcoins until connection is re-established.', \
+                     'or receive bitcoins until connection is re-established.', \
                      QSystemTrayIcon.Critical, 10000)
             except:
                LOGEXCEPT('Failed to show disconnect notification')
@@ -2400,7 +2400,7 @@ class ArmoryMainWindow(QMainWindow):
       selectionMade = True
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
-            'You cannot send any Bitcoins until you create a wallet and '
+            'You cannot send any bitcoins until you create a wallet and '
             'receive some coins.  Would you like to create a wallet?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
@@ -2445,7 +2445,7 @@ class ArmoryMainWindow(QMainWindow):
          newMsg = uriDict['label']
       
       descrStr = ''
-      descrStr = ('You just clicked on a "bitcoin:" link requesting Bitcoins ' 
+      descrStr = ('You just clicked on a "bitcoin:" link requesting bitcoins ' 
                 'to be sent to the following address:<br> ')
 
       descrStr += '<br>--<b>Address</b>:\t%s ' % uriDict['address']
@@ -2511,7 +2511,7 @@ class ArmoryMainWindow(QMainWindow):
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
             'You have not created any wallets which means there is nowhere to '
-            'store you Bitcoins!  Would you like to create a wallet now?', \
+            'store you bitcoins!  Would you like to create a wallet now?', \
             QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.createNewWallet(initLabel='Primary Wallet')
@@ -2641,7 +2641,7 @@ class ArmoryMainWindow(QMainWindow):
          '<ul>'
          '<li>Create, import or recover Armory wallets</li>'
          '<li>Generate new addresses to receive coins</li>'
-         '<li>Send Bitcoins to other people</li>'
+         '<li>Send bitcoins to other people</li>'
          '<li>Create one-time backups of your wallets (in printed or digital form)</li>'
          '<li>Click on "bitcoin:" links in your web browser '
             '(not supported on some operating systems)</li>'
@@ -2843,9 +2843,7 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
-      print 'Netmode:', self.netMode
       try:
-         print 'BDMState:', TheBDM.getBDMState()
          for func in self.extraHeartbeatAlways:
             func()
    
@@ -2903,13 +2901,16 @@ class ArmoryMainWindow(QMainWindow):
                      self.createCombinedLedger()
                      self.walletModel.reset()
    
+            # Trigger any notifications, if we have them...
+            self.doTheSystemTrayThing()
+
             if newBlocks>0 and not TheBDM.isDirty:
    
                # This says "after scan", but works when new blocks appear, too
                TheBDM.updateWalletsAfterScan(wait=True)
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
-               print self.currBlockNum
+               print 'New Block: ', self.currBlockNum
          
                self.ledgerModel.reset()
                LOGINFO('New Block! : %d', self.currBlockNum)
@@ -2985,7 +2986,8 @@ class ArmoryMainWindow(QMainWindow):
       received.  I will store them in self.notifyQueue, and this method will
       do nothing if it's empty.
       """
-      if not TheBDM.isInitialized() or RightNow()<self.notifyBlockedUntil:
+      if not TheBDM.getBDMState()=='BlockchainReady' or \
+         RightNow()<self.notifyBlockedUntil:
          return
 
       # Input is:  [WltID, LedgerEntry, NotifiedAlready] 
@@ -3007,7 +3009,7 @@ class ArmoryMainWindow(QMainWindow):
          self.notifyQueue[i][2] = True
          if le.isSentToSelf():
             amt = self.determineSentToSelfAmt(le, wlt)[0]
-            self.sysTray.showMessage('Your Bitcoins just did a lap!', \
+            self.sysTray.showMessage('Your bitcoins just did a lap!', \
                'Wallet "%s" (%s) just sent %s BTC to itself!' % \
                (wlt.labelName, wltID, coin2str(amt,maxZeros=1).strip()),
                QSystemTrayIcon.Information, 10000)

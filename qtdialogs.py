@@ -481,17 +481,17 @@ class DlgPasswd3(ArmoryDialog):
       lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
       lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       lblWarnTxt2 = QLabel( \
-         'Bitcoin Armory wallet encryption is designed to be extremely difficult to '
-         'crack, even with GPU-acceleration.  No one can help you recover your coins '
-         'if you forget your passphrase, not even the developers of this software. '
+         'Armory wallet encryption is designed to be extremely difficult to '
+         'crack, even with GPU-acceleration.  No one can help you recover your bitcoins '
+         'if you forget your passphrase. '
          'If you are inclined to forget your passphrase, please write it down '
-         'or print a paper backup of your wallet and keep it in a secure location. ')
+         'or print a paper backup of your wallet and keep it in a safe place. ')
       lblWarnTxt2.setTextFormat(Qt.RichText)
 
       lblWarnTxt3 = QLabel( \
-         'If you are sure you will remember it, you will have no problem '
-         'typing it a third time to acknowledge '
-         'you understand the consequences of losing your passphrase.')
+         'If you are sure you will remember it, please '
+         'type it a third time to acknowledge '
+         'you understand the consequences of losing your passphrase:')
       lblWarnTxt2.setWordWrap(True)
       lblWarnTxt3.setWordWrap(True)
       
@@ -644,18 +644,18 @@ class DlgWalletDetails(ArmoryDialog):
       self.connect(lbtnExport,  SIGNAL('clicked()'), self.saveWalletCopy)
       self.connect(lbtnForkWlt, SIGNAL('clicked()'), self.forkOnlineWallet)
 
-      lbtnSendBtc.setToolTip('Send Bitcoins to other users, or transfer '
+      lbtnSendBtc.setToolTip('Send bitcoins to other users, or transfer '
                              'between wallets')
       if self.wlt.watchingOnly:
          lbtnSendBtc.setToolTip('If you have a full-copy of this wallet '
                                 'on another computer, you can prepare a '
                                 'transaction, to be signed by that computer.')
       lbtnGenAddr.setToolTip('Get a new address from this wallet for receiving '
-                             'Bitcoins.  Right click on the address list below '
+                             'bitcoins.  Right click on the address list below '
                              'to copy an existing address.')
       lbtnImportA.setToolTip('Import or "Sweep" an address which is not part '
                              'of your wallet.  Useful for VanityGen addresses '
-                             'and redeeming Casascius physical Bitcoins.')
+                             'and redeeming Casascius physical bitcoins.')
       lbtnDeleteA.setToolTip('Permanently delete an imported address from '
                              'this wallet.  You cannot delete addresses that '
                              'were generated natively by this wallet.')
@@ -1465,7 +1465,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       offlineWallet = (wlttype==WLTTYPES.Offline)
 
       lblDescr = QLabel( \
-            'The following address can be used to to receive Bitcoins:')
+            'The following address can be used to to receive bitcoins:')
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
       self.edtNewAddr.setText(self.addr.getAddrStr())
@@ -1490,7 +1490,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       tooltip1 = createToolTipObject( \
             'You can securely use this address as many times as you want. '
             'However, all people to whom you give this address will '
-            'be able to see the number and amount of Bitcoins <b>ever</b> '
+            'be able to see the number and amount of bitcoins <b>ever</b> '
             'sent to it.  Therefore, using a new address for each transaction '
             'improves overall privacy, but there is no security issues '
             'with reusing any address.' )
@@ -1768,7 +1768,7 @@ class DlgImportAddress(ArmoryDialog):
       sweepTooltip = createToolTipObject( \
          'You should never add an untrusted key to your wallet.  By choosing this '
          'option, you are only moving the funds into your wallet, but not the key '
-         'itself.  You should use this option for Casascius physical Bitcoins.')
+         'itself.  You should use this option for Casascius physical bitcoins.')
 
       importTooltip = createToolTipObject( \
          'This option will make the key part of your wallet, meaning that it '
@@ -2062,7 +2062,7 @@ class DlgImportAddress(ArmoryDialog):
             reply = QMessageBox.critical(self, 'Duplicate Addresses!', \
                'You are attempting to sweep %d addresses, but %d of them '
                'are already part of existing wallets.  That means that some or '
-               'all of the Bitcoins you sweep may already be owned by you. '
+               'all of the bitcoins you sweep may already be owned by you. '
                '<br><br>'
                'Would you like to continue anyway?' % \
                (len(allWltList), len(dupeWltList)), \
@@ -2386,7 +2386,7 @@ class DlgImportWallet(ArmoryDialog):
 #      ttipWlt = createToolTipObject(\
 #         'This is the wallet file used by the standard Bitcoin client from '
 #         'bitcoin.org.  It contains all the information needed for Armory to '
-#         'know how to access the Bitcoins maintained by that program')
+#         'know how to access the bitcoins maintained by that program')
 #      self.txtWalletPath = QLineEdit()
 #
 #
@@ -3259,7 +3259,7 @@ class DlgEULA(ArmoryDialog):
          'Additionally, as a condition of receiving this software '
          'for free, you accept all risks associated with using it '
          'and the developers of Armory will not be held liable for any '
-         'loss of money or Bitcoins due to software defects.'
+         'loss of money or bitcoins due to software defects.'
          '<br><br>'
          '<b>Please read the full terms of the license and indicate your '
          'agreement with its terms.</b>')
@@ -3310,7 +3310,7 @@ class DlgIntroMessage(ArmoryDialog):
          '<b>You are about to use the most feature-packed, easiest-to-use '
          'Bitcoin client in existence</b>.  But please remember, this software '
          'is still <i>Beta</i> and Armory developers will not be held responsible '
-         'for loss of Bitcoins due to software defects.  By using Armory, you are '
+         'for loss of bitcoins due to software defects.  By using Armory, you are '
          'agreeing to the terms set forth in the LICENSE file included with this '
          'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
          'http://bitcoinarmory.com/index.php/software-licence</a>.')
@@ -4102,7 +4102,7 @@ class DlgRemoveAddress(ArmoryDialog):
            'Simply deleting an address does not prevent anyone '
            'from sending money to it.  If you have given this address '
            'to anyone in the past, make sure that they know not to '
-           'use it again, since any Bitcoins sent to it will be '
+           'use it again, since any bitcoins sent to it will be '
            'inaccessible.\n\n '
            'If you are maintaining an external copy of this address '
            'please ignore this warning\n\n'
@@ -4368,7 +4368,7 @@ class DlgConfirmSend(ArmoryDialog):
          recipLbls[-1].setFont(GETFONT('Fixed'))
 
       recipLbls.append(HLINE(QFrame.Sunken))
-      recipLbls.append(QLabel( 'Total Bitcoins : '.ljust(37)  +
+      recipLbls.append(QLabel( 'Total bitcoins : '.ljust(37)  +
                         coin2str(totalSend, rJust=True, maxZeros=4)))
       recipLbls[-1].setFont(GETFONT('Fixed'))
 
@@ -4501,7 +4501,7 @@ class DlgSendBitcoins(ArmoryDialog):
          lblNoSend = QRichLabel( \
             '<font color=%s>'
             'This is an "offline" wallet, which means that the '
-            'private keys needed to send Bitcoins are not on this computer. '
+            'private keys needed to send bitcoins are not on this computer. '
             'However, you can create the transaction you would like to '
             'spend, then Armory will provide you with a file that can be '
             'signed by the computer that <i>does</i> have the private '
@@ -4517,7 +4517,7 @@ class DlgSendBitcoins(ArmoryDialog):
             'After clicking this button, you will be given directions for '
             'completing this transaction.')
          btnSend.setToolTip('This is a watching-only wallet! '
-                            'You cannot use it to send Bitcoins!')
+                            'You cannot use it to send bitcoins!')
          btnSend.setEnabled(False)
 
       if not TheBDM.getBDMState()=='BlockchainReady':
@@ -5752,7 +5752,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       ###
       self.infoLbls.append([])
       self.infoLbls[-1].append( createToolTipObject( \
-            'This is wallet from which the offline transaction spends Bitcoins'))
+            'This is wallet from which the offline transaction spends bitcoins'))
       self.infoLbls[-1].append( QRichLabel('<b>Wallet:</b>'))
       self.infoLbls[-1].append( QRichLabel(''))
 
@@ -5886,7 +5886,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       if not self.enoughSigs or not self.sigsValid or not self.txdpReadable:
          self.btnBroadcast.setEnabled(False)
       else:
-         if self.main.internetAvail and self.main.satoshiAvail:
+         if self.netMode==NETWORKMODE.Full:
             self.btnBroadcast.setEnabled(True)
          else:
             self.btnBroadcast.setEnabled(False)
@@ -6091,11 +6091,18 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
 
    def broadTx(self):
-      if not self.main.internetAvail:
+      if self.netMode == NETWORKMODE.Disconnected:
+         QMessageBox.warning(self, 'No Internet!', \
+            'Armory lost its connection to Bitcoin-Qt, and cannot '
+            'broadcast any transactions until it is reconnected. '
+            'Please verify that Bitcoin-Qt (or bitcoind) is open '
+            'and synchronized with the network.', QMessageBox.Ok)
+         return
+      elif self.netMode == NETWORKMODE.Offline:
          QMessageBox.warning(self, 'No Internet!', \
             'You do not currently have a connection to the Bitcoin network. '
-            'If this does not seem correct, verify your internet connection '
-            'and restart Armory!', QMessageBox.Ok)
+            'If this does not seem correct, verify that Bitcoin-Qt is open '
+            'and synchronized with the network.', QMessageBox.Ok)
          return
 
 
@@ -6699,7 +6706,7 @@ class DlgDispTxInfo(ArmoryDialog):
          #QMessageBox.critical(self, 'Non-Standard Transaction', \
            #'This is a non-standard transaction, which cannot be '
            #'interpretted by this program.  DO NOT ASSUME that you '
-           #'own these Bitcoins, even if you see your address in '
+           #'own these bitcoins, even if you see your address in '
            #'any part of the transaction.  Only an expert can tell '
            #'you if and how these coins can be redeemed!  \n\n'
            #'If you would like more information, please copy the '
@@ -8624,7 +8631,7 @@ class DlgAddressBook(ArmoryDialog):
       if self.isBrowsingOnly or selectExistingOnly:
          lblDescr = QRichLabel('Browse all receiving addresses in '
                                'this wallet, and all addresses to which this '
-                               'wallet has sent Bitcoins.')
+                               'wallet has sent bitcoins.')
 
       lblToWlt  = QRichLabel('<b>Send to Wallet:</b>')
       lblToAddr = QRichLabel('<b>Send to Address:</b>')
@@ -9349,7 +9356,7 @@ class DlgPreferences(ArmoryDialog):
       if modestr.lower() == 'standard':
          strDescr += \
             ('"Standard" is for users that only need the core set of features '
-             'to send and receive Bitcoins.  This includes maintaining multiple '
+             'to send and receive bitcoins.  This includes maintaining multiple '
              'wallets, wallet encryption, and the ability to make backups '
              'of your wallets.')
       elif modestr.lower() == 'advanced':
@@ -9742,7 +9749,7 @@ class DlgRequestPayment(ArmoryDialog):
       ttipAmount = createToolTipObject( \
          'All amounts are specifed in BTC')
       ttipAddress = createToolTipObject( \
-         'The person clicking the link will be sending Bitcoins to this address')
+         'The person clicking the link will be sending bitcoins to this address')
       ttipMessage = createToolTipObject( \
          'This text will be pre-filled as the label/comment field '
          'after the user clicks on the link. They '
