@@ -83,7 +83,6 @@ class ArmoryMainWindow(QMainWindow):
 
       self.netMode     = NETWORKMODE.Offline
       self.abortLoad   = False
-      self.allowRescan = True
       self.memPoolInit = False
       self.WltsToScan  = []
       self.prevTopBlock = -1
@@ -402,10 +401,6 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getBDMState()=='Uninitialized':
          # 'Uninitialized' means it is currently offline but want to be online
          TheBDM.loadBlockchain(wait=False)
-         TheBDM.setAllowRescan(True)
-      elif TheBDM.getBDMState()=='Offline':
-         # 'Offline' means we are offline and want to stay offline
-         TheBDM.setAllowRescan(False)
 
       # Show the appropriate information on the dashboard
       self.setDashboardDetails()
@@ -946,7 +941,7 @@ class ArmoryMainWindow(QMainWindow):
                self.internetAvail = False
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
-      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable)
+      LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
          
 
        
@@ -1052,7 +1047,8 @@ class ArmoryMainWindow(QMainWindow):
    def updateWalletsOnNewBlockData(self):
       for wltID,wlt in self.walletMap.iteritems():
          # Absorb the new tx into the BDM & wallets
-         TheBDM.scanBlockchainForTx(self.walletMap[wltID].cppWallet, wait=True)
+         wlt.syncWithBlockchain()
+         #TheBDM.scanBlockchainForTx(self.walletMap[wltID].cppWallet, wait=True)
    
          # Above doesn't return anything, but we want to know what it is...
          le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
@@ -1364,10 +1360,6 @@ class ArmoryMainWindow(QMainWindow):
       if not TheBDM.isDirty:
          LOGWARNING('Rescan requested but there is no evidence it is needed')
          # no return, we will rescan anyway
-
-      if not TheBDM.getAllowRescan():
-         LOGWARNING('Rescan requested but allowRescan=False')
-         return 
 
       if TheBDM.getBDMState()=='Scanning':
          LOGINFO('Need to rescan again but previous rescan not finished')
@@ -1869,8 +1861,8 @@ class ArmoryMainWindow(QMainWindow):
                                            longLabel=descr)
 
 
-      TheBDM.registerWallet(newWallet, isFresh=True)
-      TheBDM.addWalletToApplication(newWallet, isFresh=True)
+      TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
+      self.addWalletToApplication(newWallet, walletIsNew=True)
 
 
       if dlg.chkPrintPaper.isChecked():
@@ -2049,6 +2041,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def confirmSweepScan(self, pybtcaddrList, targAddr160):
 
+      gt1 = len(self.sweepAfterScanList)>1
+
       if len(self.sweepAfterScanList) > 0:
          QMessageBox.critical(self, 'Already Sweeping',
             'You are already in the process of scanning the blockchain for '
@@ -2070,21 +2064,23 @@ class ArmoryMainWindow(QMainWindow):
          #QMessageBox.info(self, 'Armory is Offline', \
             #'Armory is currently in offline mode.  You must be in online '
             #'mode to initiate the sweep operation.')
+         nkey = len(self.sweepAfterScanList)
+         strPlur = 'addresses' if nkey>1 else 'address'
          QMessageBox.info(self, 'Armory is Offline', \
-            'You have chosen to sweep %d addresses, but Armory is currently '
+            'You have chosen to sweep %d %s, but Armory is currently '
             'in offline mode.  The sweep will be performed the next time you '
             'go into online mode.  You can initiate online mode (if available) '
-            'from the dashboard in the main window.')
+            'from the dashboard in the main window.' (nkey,strPlur), QMessageBox.Ok)
          confirmed=True
 
       else:
          msgConfirm = ( \
             'Armory must scan the global transaction history in order to '
-            'find any bitcoins associated with the addresses you supplied. '
+            'find any bitcoins associated with the %s you supplied. '
             'Armory will go into offline mode temporarily while the scan '
             'is performed, and you will not have access to balances or be '
             'able to create transactions.  The scan may take several minutes.'
-            '<br><br>')
+            '<br><br>' % ('keys' if gt1 else 'key'))
 
          if TheBDM.getBDMState()=='Scanning':
             msgConfirm += ( \
@@ -2094,10 +2090,7 @@ class ArmoryMainWindow(QMainWindow):
             msgConfirm += ( \
                '<b>Would you like to start the scan operation right now?</b>')
    
-         msgConfirm += ( \
-               '<br><br>'
-               'Clicking "No" will abort the entire sweep operation and Armory '
-               'will go into online mode as soon as the current scan completes.')
+         msgConfirm += ('<br><br>Clicking "No" will abort the sweep operation')
 
          confirmed = QMessageBox.question(self, 'Confirm Rescan', msgConfirm, \
                                                 QMessageBox.Yes | QMessageBox.No)
@@ -2124,35 +2117,36 @@ class ArmoryMainWindow(QMainWindow):
 
       if outVal<=fee:
          QMessageBox.critical(self, 'Cannot sweep',\
-         'You cannot sweep the funds from the address%s you specified, because '
-         'the transaction fee would be equal to or greater than the amount '
-         'swept.  The sweep operation will be canceled' % 'es' if gt1 else '',
-          QMessageBox.Ok)
+            'You cannot sweep the funds from the address you specified, because '
+            'the transaction fee would be equal to or greater than the amount '
+            'swept.  The sweep operation will be canceled' %  \
+            ('addresses' if gt1 else 'address'), QMessageBox.Ok)
          return
 
       if outVal==0:
          QMessageBox.critical(self, 'Nothing to do', \
-         'The private key%s you have provided does not appear to contain '
-         'any funds.  There is nothing to sweep.' % 's' if gt1 else '', \
-         QMessageBox.Ok)
+            'The private %s you have provided does not appear to contain '
+            'any funds.  There is nothing to sweep.' % ('keys' if gt1 else 'key'), \
+            QMessageBox.Ok)
          return
 
       wltID = self.getWalletForAddr160(self.sweepAfterScanTarg)
       wlt = self.walletMap[wltID]
       
       # Finally, if we got here, we're ready to broadcast!
-      dispIn  = 'address <b>%s</b>' % sweepAddr.getAddrStr()
       if gt1:
-         dispIn  = '<Multiple Addresses>' % sweepAddr.getAddrStr()
+         dispIn  = '<Multiple Addresses>'
+      else:
+         dispIn  = 'address <b>%s</b>' % sweepList[0].getAddrStr()
           
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (wlt.labelName, wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
-         self.main.broadcastTransaction(finishedTx, dryRun=False)
+         self.broadcastTransaction(finishedTx, dryRun=False)
 
       if TheBDM.getBDMState()=='BlockchainReady':
-         self.wlt.syncWithBlockchain(0)
+         wlt.syncWithBlockchain(0)
 
-      self.main.walletListChanged()
+      self.walletListChanged()
       self.accept()
 
    #############################################################################
@@ -2798,7 +2792,7 @@ class ArmoryMainWindow(QMainWindow):
                'Make a backup and keep it in a safe place!  All funds from '
                'Armory-generated addresses will always be recoverable with '
                'a paper backup, any time in the future.  Use the "Backup '
-               'Individual Keys" option fore each wallet to backup imported '
+               'Individual Keys" option for each wallet to backup imported '
                'keys.</p>')
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
                

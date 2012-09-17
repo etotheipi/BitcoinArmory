@@ -105,7 +105,6 @@ parser.add_option("--keypool", dest="keypool", default=100, type="int",
 
 # Use CLI args to determine testnet or not
 USE_TESTNET = CLI_OPTIONS.testnet
-USE_TESTNET = True
    
 
 # Set default port for inter-process communication
@@ -10027,7 +10026,6 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.isDirty       = False
-      self.allowRescan   = True
       self.startBDM      = False
       self.blkdir        = BTC_HOME_DIR
       self.alwaysBlock   = blocking
@@ -10086,10 +10084,8 @@ class BlockDataManagerThread(threading.Thread):
                   return out
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')
-                  LOGERROR('Now blocking until something shows up...')
                   LOGEXCEPT('Traceback:')
                   self.errorOut += 1
-                  #return self.outputQueue.get()
          return passthruFunc
 
 
@@ -10104,14 +10100,12 @@ class BlockDataManagerThread(threading.Thread):
       # won't extend our wait time for this request
       if expectOutput:
          try:
-            return self.outputQueue.get(True, 1)
+            return self.outputQueue.get(True, 3)
          except Queue.Empty:
             LOGERROR('Waiting for BDM output that didn\'t come after 1s.')
             LOGERROR('BDM is currently: %s', self.getBDMState())
             LOGEXCEPT('Traceback:')
             self.errorOut += 1
-            #LOGERROR('Now blocking until something shows up...')
-            #return self.outputQueue.get()
       else:
          return None
       
@@ -10168,13 +10162,6 @@ class BlockDataManagerThread(threading.Thread):
 
 
    
-   #############################################################################
-   def setAllowRescan(self, allow=True):
-      self.allowRescan = allow
-
-   #############################################################################
-   def getAllowRescan(self):
-      return self.allowRescan
       
    #############################################################################
    def execCleanShutdown(self, wait=True):
@@ -10532,11 +10519,11 @@ class BlockDataManagerThread(threading.Thread):
       outside of this class.  This is only called by the BDM thread when
       any previous scans have been completed
       """
-      if self.blkMode == BLOCKCHAINMODE.Rescanning:
-         LOGCRIT('Called __registerAddressNow while rescanning!')
-         LOGCRIT('This shouldn\'t happen...')
-         LOGCRIT('Aborting address registration.')
-         return
+      #if self.blkMode == BLOCKCHAINMODE.Rescanning:
+         #LOGCRIT('Called __registerAddressNow while rescanning!')
+         #LOGCRIT('This shouldn\'t happen...')
+         #LOGCRIT('Aborting address registration.')
+         #return
 
       if isinstance(timeInfo, bool):
          isFresh = timeInfo
@@ -10613,16 +10600,11 @@ class BlockDataManagerThread(threading.Thread):
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  But we check for it, anyway.
       """
-      if self.blkMode==BLOCKCHAINMODE.Rescanning:
-         LOGERROR('Blockchain is in the middle of rescanning, cannot rescan!')
-      elif self.blkMode==BLOCKCHAINMODE.Offline:
+      if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Blockchain is in offline mode.  How can we rescan?')
       elif self.blkMode==BLOCKCHAINMODE.Uninitialized:
          LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
 
-      if not self.allowRescan:
-         LOGERROR('Rescan requested but allowRescan=False.  Aborting')
-         return
 
       if not self.isDirty:
          LOGWARN('It does not look like we need a rescan... doing it anyway')
@@ -10651,7 +10633,7 @@ class BlockDataManagerThread(threading.Thread):
       because the block file updates are always fast.  But I have to assume 
       that it theoretically *could* take a while, and the caller might care.
       ''' 
-      if self.blkMode in (BLOCKCHAINMODE.Rescanning, BLOCKCHAINMODE.Offline):
+      if self.blkMode == BLOCKCHAINMODE.Offline:
          LOGERROR('Can\'t update blockchain in %s mode!', self.getBlkModeStr())
          return
 
@@ -10712,7 +10694,6 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.isDirty      = False
-      self.allowRescan  = True
       self.startBDM     = False
       self.blkdir       = BTC_HOME_DIR
 
@@ -10800,8 +10781,9 @@ class BlockDataManagerThread(threading.Thread):
                LOGERROR('Unknown error in BDM thread')
 
 
-            #print '************************************************'
-            #print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
+            print '************************************************'
+            print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
+            tstart = RightNow()
 
             # The first list element is always the BDMINPUTTYPE (command)
             # The second argument is whether the caller will be waiting 
@@ -10875,10 +10857,11 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.StartScanRequested:
                self.__startLoadBlockchain()
+               self.isDirty = False
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
-               self.allowRescan = True
                self.__startRescanBlockchain()
+               self.isDirty = False
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
                output = self.__readBlockfileUpdates()
@@ -10913,6 +10896,7 @@ class BlockDataManagerThread(threading.Thread):
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
+            print 'Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart))
             self.inputQueue.task_done()
             if expectOutput:
                self.outputQueue.put(output)

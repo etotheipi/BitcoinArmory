@@ -3078,9 +3078,10 @@ class DlgAddressInfo(ArmoryDialog):
          return
 
       if outVal==0:
+         print 'NO FUNDS'
          QMessageBox.critical(self, 'Nothing to do', \
-         'This address does not contain any funds.  There is nothing to sweep.', \
-         QMessageBox.Ok)
+            'This address does not contain any funds.  There is nothing to sweep.', \
+            QMessageBox.Ok)
          return
 
       QMessageBox.information(self, 'Sweep Address Funds', \
@@ -6826,7 +6827,7 @@ class DlgDispTxInfo(ArmoryDialog):
             lbls[-1].append(QLabel('Included in Block:'))
             lbls[-1].append(QRichLabel( str(data[FIELDS.Blk]) + idxStr ))
             if TheBDM.getBDMState()=='BlockchainReady':
-               nConf = TheBDM.getTopBlockHeader().getBlockHeight() - data[FIELDS.Blk] + 1
+               nConf = TheBDM.getTopBlockHeight() - data[FIELDS.Blk] + 1
                lbls.append([])
                lbls[-1].append(createToolTipObject( 
                      'The number of blocks that have been produced since '
