@@ -1919,7 +1919,9 @@ class DlgImportAddress(ArmoryDialog):
          targAddr160 = self.wlt.getNextUnusedAddress().getAddr160()
 
          self.main.confirmSweepScan([sweepAddr], targAddr160)
+
          # Regardless of the user confirmation, we're done here
+         self.accept()
 
 
       elif self.radioImport.isChecked():

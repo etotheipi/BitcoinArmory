@@ -86,6 +86,7 @@ class ArmoryMainWindow(QMainWindow):
       self.memPoolInit = False
       self.WltsToScan  = []
       self.prevTopBlock = -1
+      self.dirtyLastTime = False
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
       self.newZeroConfSinceLastUpdate = []
@@ -1043,24 +1044,6 @@ class ArmoryMainWindow(QMainWindow):
                                           BITCOIN_PORT, self.NetworkingFactory)
 
    
-   #############################################################################
-   def updateWalletsOnNewBlockData(self):
-      for wltID,wlt in self.walletMap.iteritems():
-         # Absorb the new tx into the BDM & wallets
-         wlt.syncWithBlockchain()
-         #TheBDM.scanBlockchainForTx(self.walletMap[wltID].cppWallet, wait=True)
-   
-         # Above doesn't return anything, but we want to know what it is...
-         le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
-
-         # If it is ours, let's add it to the notifier queue
-         if not le.getTxHash()=='\x00'*32:
-            notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-            notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
-            if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
-               self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-            self.createCombinedLedger()
-            self.walletModel.reset()
 
 
    #############################################################################
@@ -1357,7 +1340,7 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARNING('Rescan requested but Armory is in offline mode')
          return 
 
-      if not TheBDM.isDirty:
+      if not TheBDM.isDirty():
          LOGWARNING('Rescan requested but there is no evidence it is needed')
          # no return, we will rescan anyway
 
@@ -1915,128 +1898,6 @@ class ArmoryMainWindow(QMainWindow):
 
       
 
-   #############################################################################
-   def BDM_SyncArmoryWallet_Confirm(self, pyWlt, startBlock=None, \
-                                                   warnMsg=None, waitMsg=None):
-      """
-      We may want to retreive the the balance/UTXO list for a wallet, but doing
-      so might require doing a full blockchain scan -- which can take a long
-      time.  So we just do it if it's quick, or ask the user for confirmation
-      and return false if they cancel.
-     
-      NOTE: This method does not return the Balance/UTXO list, but it
-            guarantees that a call to retreive the Balance/UTXOs will
-            be nearly instantaneous after this method returns a TRUE.
-            The only way this doesn't work is if you import an address
-            between the time you call this method, and the next time
-            attempt to sync with the blockchain
-      """
-
-      if TheBDM.getBDMState()=='Offline':
-         LOGWARN('Requested sync-wallet confirmation dialog, in offline mode')
-
-      # Method to execute while the "Please Wait..." message is displayed
-      def updateBalance():
-         pyWlt.syncWithBlockchain(startBlock)
-
-
-      if not pyWlt.checkIfRescanRequired():
-         updateBalance()
-         return True
-      else:
-         if warnMsg==None:
-            warnMsg = ('In order to determine the new wallet balance, the entire, '
-                   '<i>global</i> transaction history must be scanned. '
-                   'This can take anywhere from 5 seconds to 3 minutes, '
-                   'depending on your system.  During this time you will '
-                   'not be able to use any other Armory features.'
-                   '<br><br>'
-                   'Do you wish to continue with this scan? '
-                   'If you click "Cancel", your wallet balances may '
-                   'appear incorrect until the next time Armory is '
-                   'restarted.')
-
-         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', warnMsg, \
-                QMessageBox.Ok | QMessageBox.Cancel);
-      
-         if doIt!=QMessageBox.Ok:
-            return False
-
-         if waitMsg==None:
-            waitMsg = 'Collecting balance of new addresses'
-         DlgExecLongProcess(updateBalance, waitMsg, self, self).exec_()
-         return True
-         
-      
-   #############################################################################
-   def BDM_SyncCppWallet_Confirm(self, cppWlt, warnMsg=None, waitMsg=None):
-      """
-      Very similar to above except that you are trying to collect blockchain 
-      information on a wallet that is not a persistent part of Armory -- for
-      instance, you only need to collect information on one address, so you 
-      create a temporary wallet just to scan it and then throw it away (since
-      BDM only operates on wallets, not addresses)
-
-      Same NOTE applies as the previous method:  discarding the wallet will
-      not "un-sync" the BDM -- the BDM has already added the wallet addresses
-      to it's registered list and will continue maintaining them even if there
-      are no active wallets containin them.
-      """
-
-      # TODO:  not sure how to handle the offline case
-      if not self.haveBlkFile:
-         return False
-
-      def scanBlockchain():
-         TheBDM.scanBlockchainForTx(cppWlt, 0)
-
-      if TheBDM.numBlocksToRescan(cppWlt)<2016:
-         scanBlockchain()
-         return True
-      else:
-         if warnMsg==None:
-            warnMsg = ('In order to determine the balance of new addresses, '
-                       'the entire <i>global transaction history</i> must be '
-                       'scanned.  This can take anywhere from 5 seconds to 3 '
-                       'minutes, depending on your system.  During this time '
-                       'you will not be able to use any other Armory features.'
-                       '<br><br>'
-                       'Do you wish to continue with this scan? '
-                       'If you click "Cancel", the scan will not be performed '
-                       'and the original operation will not continue. ')
-
-         doIt = QMessageBox.question(self, 'Blockchain Scan Needed', warnMsg, \
-                QMessageBox.Ok | QMessageBox.Cancel);
-      
-         if doIt!=QMessageBox.Ok:
-            return False
-
-         if waitMsg==None:
-            waitMsg = 'Collecting balance of new addresses'
-         DlgExecLongProcess(scanBlockchain, waitMsg, self, self).exec_()
-         return True
-
-
-   #############################################################################
-   def BDM_SyncAddressList_Confirm(self, addrList, warnMsg=None, waitMsg=None):
-      """
-      This method shortcuts the work needed to use the above method,
-      BDM_SyncCppWallet_Confirm, on an arbitrary list of addresses.
-      Because the BDM only operates on CppWallets, not individual addrs
-      """
-      if not isinstance(addrList, (list, tuple)):
-         addrList = [addrList]
-
-      cppWlt = Cpp.BtcWallet()
-      for addr in addrList:
-         if isinstance(addr, PyBtcAddress):
-            cppWlt.addAddress_1_(addr.getAddr160())
-         else:
-            cppWlt.addAddress_1_(addr)
-
-      return self.BDM_SyncCppWallet_Confirm(cppWlt, warnMsg, waitMsg)
-
-
 
    #############################################################################
    def confirmSweepScan(self, pybtcaddrList, targAddr160):
@@ -2101,6 +1962,7 @@ class ArmoryMainWindow(QMainWindow):
          self.sweepAfterScanList = pybtcaddrList
          self.sweepAfterScanTarg = targAddr160
          TheBDM.rescanBlockchain(wait=False)
+         self.setDashboardDetails()
          return True
 
 
@@ -2147,7 +2009,6 @@ class ArmoryMainWindow(QMainWindow):
          wlt.syncWithBlockchain(0)
 
       self.walletListChanged()
-      self.accept()
 
    #############################################################################
    def broadcastTransaction(self, pytx, dryRun=False):
@@ -2605,7 +2466,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def pressModeSwitchButton(self):
-      if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty:
+      if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          TheBDM.setOnlineMode(True)
@@ -2742,7 +2603,7 @@ class ArmoryMainWindow(QMainWindow):
                'and synchronized with the network.  Armory will <i>try to reconnect</i> '
                'automatically when the connection is available again.  If Bitcoin-Qt is '
                'available again, and reconnection does not happen, please restart Armory.')
-         elif TheBDM.needsRescan():
+         elif TheBDM.isDirty():
             self.btnModeSwitch.setVisible(True)
             self.btnModeSwitch.setText('Rescan Now')
             self.lblDashMode.setText( 'Armory is online, but needs to rescan ' \
@@ -2856,7 +2717,12 @@ class ArmoryMainWindow(QMainWindow):
          if self.netMode==NETWORKMODE.Disconnected:
             if self.onlineModeIsPossible():
                self.switchNetworkMode(NETWORKMODE.Full)
+
+         if not TheBDM.isDirty() and self.dirtyLastTime:
+            self.setDashboardDetails()
+         self.dirtyLastTime = TheBDM.isDirty()
    
+         print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
@@ -2898,7 +2764,7 @@ class ArmoryMainWindow(QMainWindow):
             # Trigger any notifications, if we have them...
             self.doTheSystemTrayThing()
 
-            if newBlocks>0 and not TheBDM.isDirty:
+            if newBlocks>0 and not TheBDM.isDirty():
    
                # This says "after scan", but works when new blocks appear, too
                TheBDM.updateWalletsAfterScan(wait=True)

@@ -10025,7 +10025,6 @@ class BlockDataManagerThread(threading.Thread):
       self.outputQueue = Queue.Queue()
 
       # Flags
-      self.isDirty       = False
       self.startBDM      = False
       self.blkdir        = BTC_HOME_DIR
       self.alwaysBlock   = blocking
@@ -10060,8 +10059,6 @@ class BlockDataManagerThread(threading.Thread):
       calls that "passthrough" will always block unless you explicitly
       tell it not to.
       '''
-      if name.lower()=='additionalinfo':
-         return
 
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
@@ -10225,14 +10222,11 @@ class BlockDataManagerThread(threading.Thread):
    def isInitialized(self):
       return self.blkMode==BLOCKCHAINMODE.Full and self.bdm.isInitialized()
 
+
    #############################################################################
-   def needsRescan(self):
-
-      if self.blkMode == BLOCKCHAINMODE.Offline:
-         LOGWARN('Asked if BDM needs rescan, but BDM is in offline mode')
-
-      return self.isDirty
-
+   def isDirty(self):
+      return self.bdm.isDirty()
+   
 
    #############################################################################
    def loadBlockchain(self, wait=None):
@@ -10531,10 +10525,8 @@ class BlockDataManagerThread(threading.Thread):
             # We claimed to have just created this address...(so no rescan needed)
             self.masterCppWallet.addNewAddress(a160)
          else:
-            self.isDirty = True
             self.masterCppWallet.addAddress_1_(a160)
       else:
-         self.isDirty = True
          if isinstance(timeInfo, (list,tuple)) and len(timeInfo)==4:
             self.masterCppWallet.addAddress_5_(a160, *timeInfo)
          else:
@@ -10591,7 +10583,6 @@ class BlockDataManagerThread(threading.Thread):
       self.bdm.parseEntireBlockchain(self.blkdir)
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
-      self.isDirty = False
 
       
    #############################################################################
@@ -10606,7 +10597,7 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
 
 
-      if not self.isDirty:
+      if not self.isDirty():
          LOGWARN('It does not look like we need a rescan... doing it anyway')
 
 
@@ -10622,7 +10613,6 @@ class BlockDataManagerThread(threading.Thread):
       # Blockchain will rescan as much as it needs.  
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
-      self.isDirty = False
 
    
 
@@ -10693,7 +10683,6 @@ class BlockDataManagerThread(threading.Thread):
          
 
       # Flags
-      self.isDirty      = False
       self.startBDM     = False
       self.blkdir       = BTC_HOME_DIR
 
@@ -10783,7 +10772,8 @@ class BlockDataManagerThread(threading.Thread):
 
             print '************************************************'
             print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
-            tstart = RightNow()
+            print self.isDirty()
+            #tstart = RightNow()
 
             # The first list element is always the BDMINPUTTYPE (command)
             # The second argument is whether the caller will be waiting 
@@ -10795,6 +10785,7 @@ class BlockDataManagerThread(threading.Thread):
 
             if cmd == BDMINPUTTYPE.RegisterAddr:
                a160,timeInfo = inputTuple[2:]
+               LOGINFO('Registered address with time info: %s', str(timeInfo))
                self.__registerAddressNow(a160, timeInfo)
 
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
@@ -10856,12 +10847,12 @@ class BlockDataManagerThread(threading.Thread):
                self.__updateWalletsAfterScan()
 
             elif cmd == BDMINPUTTYPE.StartScanRequested:
+               LOGINFO('Start Initial BDM Load Requested')
                self.__startLoadBlockchain()
-               self.isDirty = False
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
+               LOGINFO('Start Rescan Requested')
                self.__startRescanBlockchain()
-               self.isDirty = False
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
                output = self.__readBlockfileUpdates()
@@ -10874,12 +10865,15 @@ class BlockDataManagerThread(threading.Thread):
                output = getattr(self.bdm, funcName)(*funcArgs)
 
             elif cmd == BDMINPUTTYPE.Shutdown:
+               LOGINFO('Shutdown Requested')
                self.__shutdown()
 
             elif cmd == BDMINPUTTYPE.Reset:
+               LOGINFO('Reset Requested')
                self.__reset()
                
             elif cmd == BDMINPUTTYPE.GoOnlineRequested:
+               LOGINFO('Go online requested')
                # This only sets the blkMode to what will later be
                # recognized as online-requested, or offline
                self.prefMode = BLOCKCHAINMODE.Full
@@ -10893,10 +10887,11 @@ class BlockDataManagerThread(threading.Thread):
                   self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
+               LOGINFO('Go online requested')
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
-            print 'Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart))
+            #print 'Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart))
             self.inputQueue.task_done()
             if expectOutput:
                self.outputQueue.put(output)

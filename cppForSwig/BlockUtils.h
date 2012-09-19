@@ -696,6 +696,7 @@ private:
    deque<BlockHeader*>                headersByHeight_;
    BlockHeader*                       topBlockPtr_;
    BlockHeader*                       genBlockPtr_;
+   uint32_t                           lastTopBlock_;
 
    // Reorganization details
    bool                               lastBlockWasReorg_;
@@ -781,6 +782,7 @@ public:
 
    uint32_t getTopBlockHeight(void) {return getTopBlockHeader().getBlockHeight();}
 
+   bool isDirty(uint32_t numBlockToBeConsideredDirty=2016) const; 
 
    uint32_t getNumTx(void) { return txHintMap_.size(); }
    uint32_t getNumHeaders(void) { return headerMap_.size(); }

@@ -2101,6 +2101,26 @@ bool BlockDataManager_FileRefs::evalRescanIsRequired(void)
    return (allRegAddrScannedUpToBlk_ < getTopBlockHeight()+1);
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+// This method needs to be callable from another thread.  Therefore, I don't
+// seek an exact answer, instead just estimate it based on the last block, 
+// and the set of currently-registered addresses.  The method called
+// "evalRescanIsRequired()" answers a different question, and iterates 
+// through the list of registered addresses, which may be changing in 
+// another thread.  
+bool BlockDataManager_FileRefs::isDirty( 
+                              uint32_t numBlocksToBeConsideredDirty ) const
+{
+   if(!isInitialized_)
+      return false;
+   
+   uint32_t numBlocksBehind = lastTopBlock_-allRegAddrScannedUpToBlk_;
+   return (numBlocksBehind > numBlocksToBeConsideredDirty);
+  
+}
+
+
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FileRefs::numBlocksToRescan( BtcWallet & wlt,
                                                        uint32_t endBlk)
@@ -2571,9 +2591,9 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    organizeChain();
 
    // Update registered address list so we know what's already been scanned
-   uint32_t topBlk = getTopBlockHeight() + 1;
-   allRegAddrScannedUpToBlk_ = topBlk;
-   updateRegisteredAddresses(topBlk);
+   lastTopBlock_ = getTopBlockHeight() + 1;
+   allRegAddrScannedUpToBlk_ = lastTopBlock_;
+   updateRegisteredAddresses(lastTopBlock_);
    
    
    // Return the number of blocks read from blkfile (this includes invalids)
@@ -2709,6 +2729,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    }
    TIMER_STOP("getBlockfileUpdates");
    lastBlkFileBytes_ += currBlkBytesToRead;
+   lastTopBlock_ = getTopBlockHeight()+1;
 
    if(prevRegisteredUpToDate)
    {
