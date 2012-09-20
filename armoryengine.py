@@ -10521,11 +10521,6 @@ class BlockDataManagerThread(threading.Thread):
       outside of this class.  This is only called by the BDM thread when
       any previous scans have been completed
       """
-      #if self.blkMode == BLOCKCHAINMODE.Rescanning:
-         #LOGCRIT('Called __registerAddressNow while rescanning!')
-         #LOGCRIT('This shouldn\'t happen...')
-         #LOGCRIT('Aborting address registration.')
-         #return
 
       if isinstance(timeInfo, bool):
          isFresh = timeInfo

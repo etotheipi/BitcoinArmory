@@ -2129,15 +2129,26 @@ class ArmoryMainWindow(QMainWindow):
    def execRestorePaperBackup(self):
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
-         LOGINFO('Raw import successful.  Searching blockchain for tx data...')
+         TheBDM.registerWallet(dlgPaper.newWallet, isFresh=False, wait=False)
+         LOGINFO('Raw import successful.')
          
-         wlt = dlgPaper.newWallet
-         #DlgExecLongProcess(dlgPaper.newWallet.freshImportFindHighestIndex, \
-               #'Restoring wallet.  This may take many minutes. Delete and '
-               #'re-import wallet if this operation is interrupted.', \
-               #self, self).exec_()
-         #highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
-         self.safeAddWallet(wlt, walletIsNew=False)
+         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+            'The wallet was recovered successfully, but your wallet balance '
+            'will be incorrect until the global transaction history is '
+            'searched for previous transactions.  Armory may become unresponsive '
+            'for many minutes while the wallet history is reconstructed.'
+            '<br><br>'
+            'Would you like to do the scan now?   Pressing "No" will allow '
+            'you to stay in online mode, but your balances may be incorrect.', \
+             QMessageBox.Yes | QMessageBox.No)
+         if doRescanNow == QMessageBox.Yes:
+            LOGINFO('User requested rescan immediately after wallet restore')
+            highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+         else:
+            LOGINFO('User requested no rescan after restore.  Should be dirty.')
+         self.setDashboardDetails()
+
+         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
          LOGINFO('Import Complete!')
    
    #############################################################################
@@ -2611,6 +2622,7 @@ class ArmoryMainWindow(QMainWindow):
                'available again, and reconnection does not happen, please restart Armory.' 
                '<br><br>' + txtOfflineFunc)
          elif TheBDM.isDirty():
+            LOGINFO('Dashboard switched to online-but-dirty mode')
             self.btnModeSwitch.setVisible(True)
             self.btnModeSwitch.setText('Rescan Now')
             self.lblDashMode.setText( 'Armory is online, but needs to rescan ' \
@@ -2637,6 +2649,7 @@ class ArmoryMainWindow(QMainWindow):
                   'until the scan operation is complete.')
          else:
             # Fully online mode
+            LOGINFO('Dashboard switched to fully-online mode')
             self.btnModeSwitch.setVisible(False)
             self.lblDashMode.setText( 'Armory is online!', color='TextGreen', size=4, bold=True)
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)

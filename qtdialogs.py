@@ -1986,7 +1986,10 @@ class DlgImportAddress(ArmoryDialog):
                   'until you press the rescan button on the dashboard, or restart '
                   'Armory.', QMessageBox.Yes | QMessageBox.No)
                if doRescanNow == QMessageBox.Yes:
+                  LOGINFO('User requested rescan immediately after import')
                   self.main.startRescanBlockchain()
+               else:
+                  LOGINFO('User requested no rescan after import.  Should be dirty.')
                self.main.setDashboardDetails()
                   
          #######################################################################
@@ -2202,8 +2205,12 @@ class DlgImportAddress(ArmoryDialog):
                   'you to stay in online mode, but your balances may be incorrect '
                   'until you press the rescan button on the dashboard, or restart '
                   'Armory', QMessageBox.Yes | QMessageBox.No)
-               if doRescanNow:
-                  self.main.startGoOnline()
+               if doRescanNow==QMessageBox.Yes:
+                  LOGINFO('User requested rescan immediately after import')
+                  self.main.startRescanBlockchain()
+               else:
+                  LOGINFO('User requested no rescan after import.  Should be dirty.')
+               self.main.setDashboardDetails()
                   
          #######################################################################
          elif TheBDM.getBDMState()=='Scanning':
@@ -2694,7 +2701,7 @@ class DlgImportWallet(ArmoryDialog):
 
 
 ##############################################################################
-#class DlgConfirmBulkImport(ArmoryDialog):
+class DlgConfirmBulkImport(ArmoryDialog):
    def __init__(self, addrList, wltID, parent=None, main=None):
       super(DlgConfirmBulkImport, self).__init__(parent, main)
 
@@ -3538,9 +3545,9 @@ class DlgImportPaperWallet(ArmoryDialog):
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
-               newWltID + '\n\n!!!You already own this wallet!!!\n  '
+               newWltID + '\n\n!!! You already own this wallet !!!\n  '
                'Nothing to do...', QMessageBox.Ok)
-         self.accept()
+         self.reject()
          return
          
       
@@ -3923,6 +3930,10 @@ class DlgRemoveWallet(ArmoryDialog):
       if self.chkPrintBackup.isChecked():      
          dlg = DlgPaperBackup(wlt, self, self.main)
          if not dlg.exec_():
+            QMessageBox.warning(self, 'Operation Aborted', \
+              'You requested a paper backup before deleting the wallet, but '
+              'clicked "Cancel" on the backup printing window.  So, the delete '
+              'operation was canceled as well.',  QMessageBox.Ok)
             return
             
             
@@ -4034,7 +4045,7 @@ class DlgRemoveAddress(ArmoryDialog):
 
       addrEmpty = True
       if TheBDM.getBDMState()=='BlockchainReady':
-         wlt.syncWithBlockchain()
+         #wlt.syncWithBlockchain()
          bal = wlt.getAddrBalance(addr160, 'Full')
          lbls.append([])
          lbls[-1].append(QLabel('Address Balance (w/ unconfirmed):'))
@@ -7401,12 +7412,10 @@ class DlgPaperBackup(ArmoryDialog):
 
 
       btnPrint = QPushButton('&Print...')
+      btnPrint.setMinimumWidth( 3*tightSizeStr(btnPrint,'Print...')[0])
+      btnCancel = QPushButton('&Cancel')
       self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
-
-      bbox = QDialogButtonBox(QDialogButtonBox.Ok | \
-                              QDialogButtonBox.Cancel)
-      self.connect(bbox, SIGNAL('accepted()'), self.accept)
-      self.connect(bbox, SIGNAL('rejected()'), self.reject)
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
       lblWarn = QRichLabel( \
          'The data shown below '
@@ -7422,10 +7431,11 @@ class DlgPaperBackup(ArmoryDialog):
 
 
       layout = QGridLayout()
-      layout.addWidget(lblWarn,   0,0, 1,4)
-      layout.addWidget(self.view, 1,0, 3,4)
-      layout.addWidget(btnPrint,  4,0, 1,1)
-      layout.addWidget(bbox,      4,2, 1,2)
+      layout.addWidget(lblWarn,    0,0, 1,4)
+      layout.addWidget(self.view,  1,0, 3,4)
+      
+      frmButtons = makeHorizFrame([btnCancel, 'Stretch', btnPrint])
+      layout.addWidget(frmButtons, 4,0, 1,4)
 
       self.setLayout(layout)
 
@@ -7441,6 +7451,8 @@ class DlgPaperBackup(ArmoryDialog):
           painter = QPainter(self.printer)
           painter.setRenderHint(QPainter.TextAntialiasing)
           self.scene.render(painter)
+          self.accept()
+
 
 
 
