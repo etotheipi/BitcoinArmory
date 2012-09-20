@@ -399,7 +399,7 @@ class ArmoryMainWindow(QMainWindow):
 
       self.prevBlkLoadFinish = False
       self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
-      if TheBDM.getBDMState()=='Uninitialized':
+      if TheBDM.getBDMState()=='Uninitialized' and self.netMode==NETWORKMODE.Full:
          # 'Uninitialized' means it is currently offline but want to be online
          TheBDM.loadBlockchain(wait=False)
 
@@ -1053,6 +1053,7 @@ class ArmoryMainWindow(QMainWindow):
 
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
       self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
+      LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
       #for wltID,wlt in self.walletMap.iteritems():
          ## Absorb the new tx into the BDM & wallets
@@ -2490,7 +2491,12 @@ class ArmoryMainWindow(QMainWindow):
          '<li><b>Sign transactions created from an online system</b></li>'
          '<li>Change wallet encryption settings</li>'
          '<li>Sign messages</li>'
-         '</ul>')
+         '</ul>'
+         '<br><br><b>NOTE:</b>  The Bitcoin network can always process transactions '
+         'to your addresses, regardless of whether you are connected.  Even in offline '
+         'mode, you can create new addresses and use them to receive payments -- '
+         'you just won\'t be able to verify those payments until the next time '
+         'Armory is online.')
 
       txtOnlineFunc = ( \
          '<ul>'
@@ -2526,7 +2532,7 @@ class ArmoryMainWindow(QMainWindow):
                'Switching to online mode will give you access '
                'to more Armory functionality, including sending and receiving '
                'bitcoins and viewing the balances and transaction histories '
-               'of each of your wallets.')
+               'of each of your wallets.<br><br>' + txtOfflineFunc)
          elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
             LOGINFO('Dashboard switched to "Offline" mode, can\'t go online')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
@@ -2602,7 +2608,8 @@ class ArmoryMainWindow(QMainWindow):
                '<br><br>Please check that Bitcoin-Qt is open '
                'and synchronized with the network.  Armory will <i>try to reconnect</i> '
                'automatically when the connection is available again.  If Bitcoin-Qt is '
-               'available again, and reconnection does not happen, please restart Armory.')
+               'available again, and reconnection does not happen, please restart Armory.' 
+               '<br><br>' + txtOfflineFunc)
          elif TheBDM.isDirty():
             self.btnModeSwitch.setVisible(True)
             self.btnModeSwitch.setText('Rescan Now')
@@ -2706,7 +2713,7 @@ class ArmoryMainWindow(QMainWindow):
             self.walletMap[wltID].checkWalletLockTimeout()
    
          self.callCount +=1
-         if TheBDM.getBDMState()=='Offline':
+         if TheBDM.getBDMState() in ('Offline','Uninitialized'):
             # This call seems out of place, but it's because if you are in offline
             # mode, it needs to check periodically for the existence of Bitcoin-Qt
             # so that it can enable the "Go Online" button
@@ -2722,18 +2729,19 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
          self.dirtyLastTime = TheBDM.isDirty()
    
-         print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
+         #print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
    
             if self.needUpdateAfterScan:
-               print 'Running finishLoadBlockchain'
+               LOGDEBUG('Running finishLoadBlockchain')
                self.finishLoadBlockchain()
                self.needUpdateAfterScan = False
                self.setDashboardDetails()
                
             if len(self.sweepAfterScanList)>0:
+               LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
                self.finishSweepScan()
                for addr in self.sweepAfterScanList:
                   addr.binPrivKey32_Plain.destroy()
@@ -2754,6 +2762,7 @@ class ArmoryMainWindow(QMainWindow):
                   wlt = self.walletMap[wltID]
                   le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
                   if not le.getTxHash()=='\x00'*32:
+                     LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
                      notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
                      notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
                      if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
@@ -2770,8 +2779,9 @@ class ArmoryMainWindow(QMainWindow):
                TheBDM.updateWalletsAfterScan(wait=True)
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
+
                print 'New Block: ', self.currBlockNum
-         
+
                self.ledgerModel.reset()
                LOGINFO('New Block! : %d', self.currBlockNum)
                didAffectUs = False

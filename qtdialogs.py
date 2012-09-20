@@ -2672,7 +2672,7 @@ class DlgImportWallet(ArmoryDialog):
 #            'be incorrect until then.')
 #         waitMsg = 'Searching the global transaction history'
 #         
-#         self.main.isDirty = True
+#         self.main.isDirty() = True
 #         if self.main.BDM_SyncCppWallet_Confirm(wlt.cppWallet, warnMsg, waitMsg):
 #            self.main.safeAddWallet(wlt.cppWallet)
 #            #TheBDM.registerWallet(wlt.cppWallet)
@@ -5889,7 +5889,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       if not self.enoughSigs or not self.sigsValid or not self.txdpReadable:
          self.btnBroadcast.setEnabled(False)
       else:
-         if self.netMode==NETWORKMODE.Full:
+         if self.main.netMode==NETWORKMODE.Full:
             self.btnBroadcast.setEnabled(True)
          else:
             self.btnBroadcast.setEnabled(False)
@@ -6094,14 +6094,14 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
 
    def broadTx(self):
-      if self.netMode == NETWORKMODE.Disconnected:
+      if self.main.netMode == NETWORKMODE.Disconnected:
          QMessageBox.warning(self, 'No Internet!', \
             'Armory lost its connection to Bitcoin-Qt, and cannot '
             'broadcast any transactions until it is reconnected. '
             'Please verify that Bitcoin-Qt (or bitcoind) is open '
             'and synchronized with the network.', QMessageBox.Ok)
          return
-      elif self.netMode == NETWORKMODE.Offline:
+      elif self.main.netMode == NETWORKMODE.Offline:
          QMessageBox.warning(self, 'No Internet!', \
             'You do not currently have a connection to the Bitcoin network. '
             'If this does not seem correct, verify that Bitcoin-Qt is open '

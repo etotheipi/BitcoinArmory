@@ -163,7 +163,7 @@ OS_NAME          = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
-SUBDIR = 'testnet' if USE_TESTNET else ''
+SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
    USER_HOME_DIR   = os.getenv('APPDATA')
@@ -261,9 +261,9 @@ if not USE_TESTNET:
    ADDRBYTE = '\x00'
 else:
    BITCOIN_PORT = 18333
-   MAGIC_BYTES  = '\xfa\xbf\xb5\xda'
-   GENESIS_BLOCK_HASH_HEX  = '08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000'
-   GENESIS_BLOCK_HASH      = '\x08\xb0g\xb3\x1d\xc19\xee\x8ezv\xa4\xf2\xcf\xcc\xa4w\xc4\xc0n\x1e\xf8\x9fJ\xe3\x08\x95\x19\x07\x00\x00\x00'
+   MAGIC_BYTES  = '\x0b\x11\x09\x07'
+   GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
+   GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x6f'
@@ -277,7 +277,8 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
 
 BLOCKCHAINS = {}
 BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
-BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Test Network"
+BLOCKCHAINS['\xfa\xbf\xb5\xda'] = "Old Test Network"
+BLOCKCHAINS['\x0b\x11\x09\x07'] = "Test Network (testnet3)"
 
 NETWORKS = {}
 NETWORKS['\x00'] = "Main Network"
@@ -9055,10 +9056,19 @@ class ArmoryClient(Protocol):
       # Finally, we have some message to process, let's do it
       for msg in messages:
          cmd = msg.cmd
+
+         # Log the message if netlog option
          if CLI_OPTIONS.netlog:
             LOGDEBUG( 'DataReceived: %s', msg.payload.command)
-            if not msg.payload.command in ['tx','inv']:
-               LOGRAWDATA( msg.serialize() )
+            if msg.payload.command == 'tx':
+               LOGDEBUG('\t' + binary_to_hex(msg.payload.tx.thisHash))
+            elif msg.payload.command == 'block':
+               LOGDEBUG('\t' + msg.payload.header.getHashHex())
+            elif msg.payload.command == 'inv':
+               for inv in msg.payload.invList:
+                  LOGDEBUG(('\tBLOCK: ' if inv[0]==2 else '\tTX   : ') + \
+                                                      binary_to_hex(inv[1]))
+
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
@@ -9098,12 +9108,12 @@ class ArmoryClient(Protocol):
                from twisted.internet import reactor
             if inv[0]==MSG_INV_TX:
                if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.getTxByHash(inv[1]) != None:
+                  TheBDM.getTxByHash(inv[1]).isInitialized():
                   continue
                else:
                   #print 'Requesting new tx data'
                   getdataMsg.payload.invList.append(inv)
-         self.sendMessage(getdataMsg)
+               self.sendMessage(getdataMsg)
       if msg.cmd=='tx':
          #print 'Received tx message'
          pytx = msg.payload.tx
@@ -9137,8 +9147,7 @@ class ArmoryClient(Protocol):
          #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
          if CLI_OPTIONS.netlog:
             LOGDEBUG( 'SendMessage: %s', msg.payload.command)
-            if not msg.payload.command in ['tx','inv','getdata']:
-               LOGRAWDATA( msg.serialize() )
+            LOGRAWDATA( msg.serialize() )
          self.transport.write(msg.serialize())
       else:
          msg = PyMessage(payload=msg)
@@ -9146,8 +9155,7 @@ class ArmoryClient(Protocol):
          #pprintHex(binary_to_hex(msg.serialize()), indent='   ')
          if CLI_OPTIONS.netlog:
             LOGDEBUG( 'SendMessage: %s', msg.payload.command)
-            if not msg.payload.command in ['tx','inv','getdata']:
-               LOGRAWDATA( msg.serialize() )
+            LOGRAWDATA( msg.serialize() )
          self.transport.write(msg.serialize())
 
 
@@ -9860,14 +9868,14 @@ class PyBackgroundThread(threading.Thread):
 
 
    def run(self):
-      print 'Executing thread.run()...'
+      LOGINFO('Executing thread.run()...')
       self.func()
       self.postFunc()
 
    def start(self):
-      print 'Executing thread.start()...'
-      # This is blocking: we may want to guarantee that something critical 
-      #                   is in place before we start the thread
+      LOGINFO('Executing thread.start()...')
+      # The prefunc is blocking.  Probably preparing something
+      # that needs to be in place before we start the thread
       self.preFunc()
       super(PyBackgroundThread, self).start()
 
@@ -10242,7 +10250,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
       self.inputQueue.put([BDMINPUTTYPE.StartScanRequested, expectOutput])
-      print 'Initial blockchain load requested'
+      LOGINFO('Initial blockchain load requested')
       return self.waitForOutputIfNecessary(expectOutput)
 
 
@@ -10254,7 +10262,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
       self.inputQueue.put([BDMINPUTTYPE.RescanRequested, expectOutput])
-      print 'Blockchain rescan requested'
+      LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput)
 
 
@@ -10280,7 +10288,7 @@ class BlockDataManagerThread(threading.Thread):
          expectOutput = True
 
       self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, expectOutput])
-      print 'Wallet update requested'
+      LOGINFO('Wallet update requested')
       return self.waitForOutputIfNecessary(expectOutput)
 
 
@@ -10770,9 +10778,8 @@ class BlockDataManagerThread(threading.Thread):
                LOGERROR('Unknown error in BDM thread')
 
 
-            print '************************************************'
-            print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
-            print self.isDirty()
+            #print '************************************************'
+            #print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
             #tstart = RightNow()
 
             # The first list element is always the BDMINPUTTYPE (command)
@@ -10785,7 +10792,6 @@ class BlockDataManagerThread(threading.Thread):
 
             if cmd == BDMINPUTTYPE.RegisterAddr:
                a160,timeInfo = inputTuple[2:]
-               LOGINFO('Registered address with time info: %s', str(timeInfo))
                self.__registerAddressNow(a160, timeInfo)
 
             elif cmd == BDMINPUTTYPE.ZeroConfTxToInsert:
@@ -10926,7 +10932,7 @@ if CLI_OPTIONS.offline:
 else:
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
    LOGINFO('Blockchain operations will happen in the background.  ')
-   LOGINFO('Devs: check TheBDM.blkMode before querying for any data.')
+   LOGINFO('Devs: check TheBDM.getBDMState() before asking for data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
    LOGINFO('including after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
