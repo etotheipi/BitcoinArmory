@@ -89,6 +89,7 @@ class ArmoryMainWindow(QMainWindow):
       self.dirtyLastTime = False
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
+      self.walletRestoreList = []
       self.newZeroConfSinceLastUpdate = []
       self.callCount = 0
       self.lastBDMState = ['Uninitialized', None]
@@ -2133,22 +2134,30 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('Raw import successful.')
          
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was recovered successfully, but your wallet balance '
-            'will be incorrect until the global transaction history is '
-            'searched for previous transactions.  Armory may become unresponsive '
-            'for many minutes while the wallet history is reconstructed.'
+            'The wallet was recovered successfully, but cannot be displayed '
+            'until the global transaction history is '
+            'searched for previous transactions.  This scan will potentially '
+            'take much longer than a regular rescan, and the wallet cannot '
+            'be show on the main display until this rescan is complete.'
             '<br><br>'
-            'Would you like to do the scan now?   Pressing "No" will allow '
-            'you to stay in online mode, but your balances may be incorrect.', \
+            '<b>Would you like to go into offline mode to start this scan now?'
+            '</b>  If you click "No" the scan will be aborted, and the wallet '
+            'will not be added to Armory.'
              QMessageBox.Yes | QMessageBox.No)
          if doRescanNow == QMessageBox.Yes:
-            LOGINFO('User requested rescan immediately after wallet restore')
-            highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+            LOGINFO('User requested rescan after wallet restore')
+            TheBDM.startWalletRecoveryScan(dlgPaper.newWallet) 
+            #highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
+            self.setDashboardDetails()
          else:
-            LOGINFO('User requested no rescan after restore.  Should be dirty.')
-         self.setDashboardDetails()
+            LOGINFO('User aborted the wallet-recovery scan')
+            QMessageBox.warning(self, 'Import Failed', \
+               'The wallet was not restored.  To restore the wallet, reenter '
+               'the "Restore Wallet" dialog again when you are able to wait '
+               'for the rescan operation.  ', QMessageBox.Ok)
 
-         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         #self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         self.walletRestoreList = [dlgPaper.newWallet]
          LOGINFO('Import Complete!')
    
    #############################################################################

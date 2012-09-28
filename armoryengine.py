@@ -96,7 +96,7 @@ parser.add_option("--skip-online-check", dest="forceOnline", action="store_true"
                   help="Go into online mode, even if internet connection isn't detected")
 #parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
                   #help="Main thread will pause until BDM ops are done")
-parser.add_option("--keypool", dest="keypool", default=100, type="int",
+parser.add_option("--keypool", dest="keypool", default=500, type="int",
                   help="Default number of addresses to lookahead in Armory wallets")
 
 
@@ -6039,6 +6039,12 @@ class PyBtcWallet(object):
       self.pybtcaddrSize = len(PyBtcAddress().serialize())
 
 
+      # All BDM calls by default go on the multi-thread-queue.  But if the BDM
+      # is the one calling the PyBtcWallet methods, it will deadlock if it uses
+      # the queue.  Therefore, the BDM will set this flag before making any 
+      # calls, which will tell PyBtcWallet to use __direct methods.
+      self.useDirectBDM = False
+
       # Finally, a bunch of offsets that tell us where data is stored in the
       # file: this can be generated automatically on unpacking (meaning it
       # doesn't require manually updating offsets if I change the format), and
@@ -6094,6 +6100,10 @@ class PyBtcWallet(object):
       If you don't want to wait, check TheBDM.getBDMState()=='BlockchainReady'
       before calling this method.  If you expect the blockchain will have to
       be rescanned, then call TheBDM.rescanBlockchain or TheBDM.loadBlockchain
+
+      If this method is called from the BDM itself, useDirectBDM will signal
+      to use the BDM methods directly, not the queue.  This will deadlock 
+      otherwise.
       """
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          LOGWARN('Called syncWithBlockchain but BDM is %s', TheBDM.getBDMState())
@@ -6102,8 +6112,12 @@ class PyBtcWallet(object):
       if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
-         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
-         self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+
+         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk, \
+                                          calledFromBDM=self.useDirectBDM)
+
+         self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True, \
+                                          calledFromBDM=self.useDirectBDM)
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -6160,7 +6174,7 @@ class PyBtcWallet(object):
       if not TheBDM.getBDMState()=='BlockchainReady':
          return -1
       else:
-         currBlk = TheBDM.getTopBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
          if balType.lower() in ('spendable','spend'):
             return self.cppWallet.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -6240,7 +6254,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
                not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getTopBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutList(currBlk);
@@ -6258,7 +6272,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
             self.hasAddr(addr160) and \
             not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         currBlk = TheBDM.getTopBlockHeight()
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
@@ -6355,7 +6369,15 @@ class PyBtcWallet(object):
 
       We skip the atomic file operations since we don't even have
       a wallet file yet to safely update.
+
+      DO NOT CALL THIS FROM BDM METHOD.  IT MAY DEADLOCK.
       """
+
+      
+      if self.useDirectBDM:
+         LOGERROR('Called createNewWallet() from BDM method!')
+         LOGERROR('Don\'t do this!')
+         return None
 
       if securePassphrase:
          securePassphrase = SecureBinaryData(securePassphrase)
@@ -6455,6 +6477,8 @@ class PyBtcWallet(object):
       self.cppWallet = Cpp.BtcWallet()
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
       self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
+
+      # This line may deadlock if called from the BDM thread 
       TheBDM.registerWallet(self.cppWallet, isFresh=True) # new wallet
 
 
@@ -6542,7 +6566,18 @@ class PyBtcWallet(object):
       # In the future we will enable first/last seen, but not yet
       time0,blk0 = getCurrTimeAndBlock() if isActuallyNew else (0,0)
       self.cppWallet.addAddress_5_(new160, time0,blk0,time0,blk0)
-      TheBDM.registerNewAddress(new160)
+
+      # For recovery rescans, this method will be called directly by
+      # the BDM, which may cause a deadlock if we go through the 
+      # thread queue.  The useDirectBDM is "permission" to access the
+      # BDM private methods directly
+      if self.useDirectBDM:
+         TheBDM.__registerAddressNow(new160, timeInfo=isActuallyNew) 
+      else:
+         # This uses the thread queue, which means the address will be
+         # registered next time the BDM is not busy
+         TheBDM.registerNewAddress(new160)
+
       return new160
       
 
@@ -6550,6 +6585,13 @@ class PyBtcWallet(object):
 
    #############################################################################
    def fillAddressPool(self, numPool=None, isActuallyNew=True):
+      """
+      Usually, when we fill the address pool, we are generating addresses
+      for the first time, and thus there is no chance it's ever seen the
+      blockchain.  However, this method is also used for recovery/import 
+      of wallets, where the address pool has addresses that probably have
+      transactions already in the blockchain.  
+      """
       if not numPool:
          numPool = self.addrPoolSize
 
@@ -7731,7 +7773,14 @@ class PyBtcWallet(object):
       (alternatively, if you know it's first-seen time for some reason, you
       can supply it as an input, but this seems rare: we don't want to get it
       wrong or we could end up missing wallet-relevant transactions)
+
+      DO NOT CALL FROM A BDM THREAD FUNCTION.  IT MAY DEADLOCK.
       """
+
+      if self.useDirectBDM:
+         LOGERROR('Called importExternalAddressData() from BDM method!')
+         LOGERROR('Don\'t do this!')
+         return ''
 
       if not privKey and not self.watchingOnly:
          LOGERROR('')
@@ -7832,6 +7881,9 @@ class PyBtcWallet(object):
 
       self.cppWallet.addAddress_5_(newAddr160, \
                                    firstTime, firstBlk, lastTime, lastBlk)
+
+      # The following line MAY deadlock if this method is called from the BDM
+      # thread.  Do not write any BDM methods that calls this method!
       TheBDM.registerImportedAddress(newAddr160, firstTime, firstBlk, \
                                                  lastTime,  lastBlk)
 
@@ -7960,7 +8012,14 @@ class PyBtcWallet(object):
       """ 
       Returns true is we have to go back to disk/mmap and rescan more than two
       weeks worth of blocks
+
+      DO NOT CALL FROM A BDM METHOD.  Instead, call directly:
+         self.bdm.numBlocksToRescan(pywlt.cppWallet) > 2016
       """
+      if self.useDirectBDM:
+         LOGERROR('Called checkIfRescanRequired() from BDM method!')
+         LOGERROR('Don\'t do this!')
+
       if TheBDM.getBDMState()=='BlockchainReady':
          return (TheBDM.numBlocksToRescan(self.cppWallet) > 2016)
       else:
@@ -9908,6 +9967,7 @@ BDMINPUTTYPE  = enum('RegisterAddr', \
                      'HeaderAtHeightRequested', \
                      'StartScanRequested', \
                      'RescanRequested', \
+                     'WalletRecoveryScan', \
                      'UpdateWallets', \
                      'ReadBlkUpdate', \
                      'GoOnlineRequested', \
@@ -10078,6 +10138,13 @@ class BlockDataManagerThread(threading.Thread):
                kwargs.has_key('wait') and \
                not kwargs['wait']:
                waitForReturn = False
+
+            # If this was ultimately called from the BDM thread, don't go
+            # through the queue, just do it!
+            if len(kwargs)>0 and \
+               kwargs.has_key('calledFromBDM') and \
+               kwargs['calledFromBDM']:
+                  return getattr(self.bdm, name)(*args)
 
             self.inputQueue.put([BDMINPUTTYPE.Passthrough, waitForReturn, name] + list(args))
 
@@ -10290,6 +10357,31 @@ class BlockDataManagerThread(threading.Thread):
       self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, expectOutput])
       LOGINFO('Wallet update requested')
       return self.waitForOutputIfNecessary(expectOutput)
+
+
+   #############################################################################
+   def startWalletRecoveryScan(self, pywlt, wait=None):
+      """
+      A wallet recovery scan may require multiple, independent rescans.  This 
+      is because we don't know how many addresses to pre-calculate for the
+      initial scan.  So, we will calculate the first X addresses in the wallet,
+      do a scan, and then if any addresses have tx history beyond X/2, calculate
+      another X and rescan.  This will usually only have to be done once, but
+      may need to be repeated for super-active wallets.  
+      (In the future, I may add functionality to sample the gap between address
+      usage, so I can more-intelligently determine when we're at the end...)
+      """
+      
+      
+      expectOutput = False
+      if not wait==False and (self.alwaysBlock or wait==True):
+         expectOutput = True
+
+      self.aboutToRescan = True
+      self.inputQueue.put([BDMINPUTTYPE.WalletRecoveryScan, expectOutput, pywlt])
+      LOGINFO('Wallet recovery scan requested')
+      return self.waitForOutputIfNecessary(expectOutput)
+
 
 
    #############################################################################
@@ -10544,7 +10636,7 @@ class BlockDataManagerThread(threading.Thread):
    def __startLoadBlockchain(self):
       """
       This should only be called by the threaded BDM, and thus there should
-      never be a conflict.  But we check for it, anyway.
+      never be a conflict.  
       """
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          LOGERROR('Blockchain is already scanning.  Was this called already?')         
@@ -10592,7 +10684,7 @@ class BlockDataManagerThread(threading.Thread):
    def __startRescanBlockchain(self):
       """
       This should only be called by the threaded BDM, and thus there should
-      never be a conflict.  But we check for it, anyway.
+      never be a conflict.  
       """
       if self.blkMode==BLOCKCHAINMODE.Offline:
          LOGERROR('Blockchain is in offline mode.  How can we rescan?')
@@ -10616,6 +10708,37 @@ class BlockDataManagerThread(threading.Thread):
       # Blockchain will rescan as much as it needs.  
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
+   #############################################################################
+   def __startRecoveryRescan(self, pywlt):
+      """
+      This should only be called by the threaded BDM, and thus there should
+      never be a conflict.  
+
+      In order to work cleanly with the threaded BDM, the search code 
+      needed to be integrated directly here, instead of being called
+      from the PyBtcWallet method.  Because that method is normally called 
+      from outside the BDM thread, but this method is only called from 
+      _inside_ the BDM thread.  Those calls use the BDM stack which will
+      deadlock waiting for the itself before it can move on...
+
+      Unfortunately, because of this, we have to break a python-class 
+      privacy rules:  we are accessing the PyBtcWallet object as if this
+      were PyBtcWallet code (accessing properties directly).  
+      """
+      if not isinstance(pywlt, PyBtcWallet):
+         LOGERROR('Only python wallets can be passed for recovery scans')
+         return
+
+      if self.blkMode==BLOCKCHAINMODE.Offline:
+         LOGERROR('Blockchain is in offline mode.  How can we rescan?')
+      elif self.blkMode==BLOCKCHAINMODE.Uninitialized:
+         LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
+
+
+      self.aboutToRescan = False
+      pywlt.freshImportFindHighestIndex()
+
+      self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
    
 
@@ -10854,6 +10977,12 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.RescanRequested:
                LOGINFO('Start Rescan Requested')
                self.__startRescanBlockchain()
+
+            elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
+               LOGINFO('Wallet Recovery Scan Requested')
+               pywlt = inputTuple[2]
+               self.__startRecoveryRescan(pywlt)
+               
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
                output = self.__readBlockfileUpdates()
