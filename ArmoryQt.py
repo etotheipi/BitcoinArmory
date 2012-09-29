@@ -2142,7 +2142,7 @@ class ArmoryMainWindow(QMainWindow):
             '<br><br>'
             '<b>Would you like to go into offline mode to start this scan now?'
             '</b>  If you click "No" the scan will be aborted, and the wallet '
-            'will not be added to Armory.'
+            'will not be added to Armory.', \
              QMessageBox.Yes | QMessageBox.No)
          if doRescanNow == QMessageBox.Yes:
             LOGINFO('User requested rescan after wallet restore')
@@ -2155,6 +2155,14 @@ class ArmoryMainWindow(QMainWindow):
                'The wallet was not restored.  To restore the wallet, reenter '
                'the "Restore Wallet" dialog again when you are able to wait '
                'for the rescan operation.  ', QMessageBox.Ok)
+
+            # The wallet cannot exist without alos being on disk. 
+            # If the user aborted, we should remove the disk data.
+            thepath       = dlgPaper.newWallet.getWalletPath()
+            thepathBackup = dlgPaper.newWallet.getWalletPath('backup')
+            os.remove(thepath)
+            os.remove(thepathBackup)
+            return
 
          #self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
          self.walletRestoreList = [dlgPaper.newWallet]
@@ -2727,6 +2735,8 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
+      print 'Heartbeat:', TheBDM.getBDMState()
+
       try:
          for func in self.extraHeartbeatAlways:
             func()
@@ -2753,6 +2763,7 @@ class ArmoryMainWindow(QMainWindow):
    
          #print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
+            print 'Blockchain was ready'
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
    

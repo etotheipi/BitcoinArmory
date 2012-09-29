@@ -2325,18 +2325,11 @@ class DlgImportWallet(ArmoryDialog):
       #layout.addWidget(self.btnMigrate,     3,0, 1, 2); layout.addWidget(ttip3, 3,2,1,1)
 
       if self.main.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         lbl = QLabel('You can manually add wallets to armory by copying them '
-                      'into your application directory:  ' + ARMORY_HOME_DIR)
+         lbl = QRichLabel('You can manually add wallets to armory by copying them '
+                      'into your application directory then restarting Armory: '
+                      '\n\n%s' % ARMORY_HOME_DIR, doWrap=True)
          lbl.setWordWrap(True)
          layout.addWidget(lbl, 4,0, 1, 2); 
-         if self.main.usermode==USERMODE.Expert:
-            lbl = QLabel('Any files in the application data directory above are '
-                         'used in the application if the first 8 bytes of the file '
-                         'are "\\xbaWALLET\\x00".  Wallets in this directory can be '
-                         'ignored by adding an <i>Excluded_Wallets</i> option to the '
-                         'ArmorySettings.txt file.  Reference by full path or wallet ID.')
-            lbl.setWordWrap(True)
-            layout.addWidget(lbl, 5,0, 1, 2); 
 
       btnCancel = QPushButton('Cancel')
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
@@ -3545,7 +3538,7 @@ class DlgImportPaperWallet(ArmoryDialog):
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
-               newWltID + '\n\n!!! You already own this wallet !!!\n  '
+               newWltID + '\n\n<b>You already own this wallet</b> \n  '
                'Nothing to do...', QMessageBox.Ok)
          self.reject()
          return
@@ -3564,7 +3557,8 @@ class DlgImportPaperWallet(ArmoryDialog):
          self.newWallet = PyBtcWallet().createNewWallet(  \
                                  plainRootKey=SecureBinaryData(privKey), \
                                  chaincode=SecureBinaryData(chain), \
-                                 withEncrypt=False, isActuallyNew=False)
+                                 withEncrypt=False, isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
          self.newWallet.setWalletLabels('PaperBackup - '+newWltID)
          self.accept()
       

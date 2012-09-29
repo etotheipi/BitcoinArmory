@@ -6113,11 +6113,16 @@ class PyBtcWallet(object):
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
 
-         TheBDM.scanBlockchainForTx(self.cppWallet, startBlk, \
-                                          calledFromBDM=self.useDirectBDM)
-
-         self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True, \
-                                          calledFromBDM=self.useDirectBDM)
+         # useDirectBDM means that ultimately the BDM itself called this
+         # method and is blocking waiting for it.  So we can't use the 
+         # BDM-thread queue, must call its methods directly
+         if self.useDirectBDM:
+            TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
+            self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
+            print 'NonPriv Finished!'
+         else:
+            TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
+            self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
       else:
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
@@ -6346,7 +6351,8 @@ class PyBtcWallet(object):
                              withEncrypt=True, IV=None, securePassphrase=None, \
                              kdfTargSec=DEFAULT_COMPUTE_TIME_TARGET, \
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
-                             shortLabel='', longLabel='', isActuallyNew=True):
+                             shortLabel='', longLabel='', isActuallyNew=True, \
+                             doRegisterWithBDM=True):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -6478,8 +6484,9 @@ class PyBtcWallet(object):
       self.cppWallet.addAddress_5_(rootAddr.getAddr160(), time0,blk0,time0,blk0)
       self.cppWallet.addAddress_5_(first160,              time0,blk0,time0,blk0)
 
-      # This line may deadlock if called from the BDM thread 
-      TheBDM.registerWallet(self.cppWallet, isFresh=True) # new wallet
+      # We might be holding the wallet temporarily and not ready to register it
+      if doRegisterWithBDM:
+         TheBDM.registerWallet(self.cppWallet, isFresh=isActuallyNew) # new wallet
 
 
       newfile.write(fileData.getBinaryString())
@@ -6572,11 +6579,11 @@ class PyBtcWallet(object):
       # thread queue.  The useDirectBDM is "permission" to access the
       # BDM private methods directly
       if self.useDirectBDM:
-         TheBDM.__registerAddressNow(new160, timeInfo=isActuallyNew) 
+         TheBDM.registerAddress_bdm_direct(new160, timeInfo=isActuallyNew)
       else:
          # This uses the thread queue, which means the address will be
          # registered next time the BDM is not busy
-         TheBDM.registerNewAddress(new160)
+         TheBDM.registerAddress(new160, isFresh=isActuallyNew)
 
       return new160
       
@@ -6647,7 +6654,7 @@ class PyBtcWallet(object):
       which will actually extend the address pool as necessary to find the
       highest address used.      
       """
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getBDMState()=='BlockchainReady' and not self.useDirectBDM:
          LOGERROR('Cannot detect any usage information without the blockchain')
          return -1
 
@@ -10128,6 +10135,9 @@ class BlockDataManagerThread(threading.Thread):
       tell it not to.
       '''
 
+      
+      rnd = int(random.uniform(0,100000000))
+      print '__getattr__ name:', name, '(', rnd, ')'
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
          raise AttributeError
@@ -10139,6 +10149,9 @@ class BlockDataManagerThread(threading.Thread):
                not kwargs['wait']:
                waitForReturn = False
 
+            print '  getattr   name:', name, 'Wait:',waitForReturn,'(', rnd, ')'
+            traceback.print_stack()
+
             # If this was ultimately called from the BDM thread, don't go
             # through the queue, just do it!
             if len(kwargs)>0 and \
@@ -10147,8 +10160,8 @@ class BlockDataManagerThread(threading.Thread):
                   return getattr(self.bdm, name)(*args)
 
             self.inputQueue.put([BDMINPUTTYPE.Passthrough, waitForReturn, name] + list(args))
+            
 
-            #print 'getattr name:', name, 'Wait:',waitForReturn
             if waitForReturn:
                try:
                   out = self.outputQueue.get(True, 1)
@@ -10156,6 +10169,7 @@ class BlockDataManagerThread(threading.Thread):
                   return out
                except Queue.Empty:
                   LOGERROR('BDM was not ready for your request!  Waited 1 sec.')
+                  LOGERROR('  getattr   name: %s (%d)', name, rnd)
                   LOGEXCEPT('Traceback:')
                   self.errorOut += 1
          return passthruFunc
@@ -10607,6 +10621,47 @@ class BlockDataManagerThread(threading.Thread):
    
    
    #############################################################################
+   # These bdm_direct methods feel like a hack.  They probably are.  I need 
+   # find an elegant way to get the code normally run outside the BDM thread,
+   # to be able to run inside the BDM thread without using the BDM queue (since 
+   # the queue is specifically FOR non-BDM-thread calls).  For now, the best 
+   # I can do is create non-private versions of these methods that access BDM
+   # methods directly, but should not be used under any circumstances, unless
+   # we know for sure that the BDM ultimately called this method.
+   def registerAddress_bdm_direct(self, a160, timeInfo):
+      """ 
+      Something went awry calling __registerAddressNow from the PyBtcWallet
+      code (apparently I don't understand __methods).  Use this method to 
+      externally bypass the BDM thread queue and register the address 
+      immediately.  
+
+      THIS METHOD IS UNSAFE UNLESS CALLED FROM A METHOD RUNNING IN THE BDM THREAD
+      This method can be called from a non BDM class, but should only do so if 
+      that class method was called by the BDM (thus, no conflicts)
+      """
+      self.__registerAddressNow(a160, timeInfo)
+
+
+   #############################################################################
+   def scanBlockchainForTx_bdm_direct(self, cppWlt, startBlk=0, endBlk=UINT32_MAX):
+      """ 
+      THIS METHOD IS UNSAFE UNLESS CALLED FROM A METHOD RUNNING IN THE BDM THREAD
+      This method can be called from a non BDM class, but should only do so if 
+      that class method was called by the BDM (thus, no conflicts)
+      """
+      self.bdm.scanBlockchainForTx(cppWlt, startBlk, endBlk)
+   
+   #############################################################################
+   def getTopBlockHeight_bdm_direct(self):
+      """ 
+      THIS METHOD IS UNSAFE UNLESS CALLED FROM A METHOD RUNNING IN THE BDM THREAD
+      This method can be called from a non BDM class, but should only do so if 
+      that class method was called by the BDM (thus, no conflicts)
+      """
+      return self.bdm.getTopBlockHeight()
+
+
+   #############################################################################
    def __registerAddressNow(self, a160, timeInfo):
       """
       Do the registration right now.  This should not be called directly
@@ -10708,6 +10763,7 @@ class BlockDataManagerThread(threading.Thread):
       # Blockchain will rescan as much as it needs.  
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
+
    #############################################################################
    def __startRecoveryRescan(self, pywlt):
       """
@@ -10735,10 +10791,26 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
 
 
+      self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
-      pywlt.freshImportFindHighestIndex()
 
-      self.bdm.scanBlockchainForTx(self.masterCppWallet)
+      # We had to skip the BDM registration when the wallet was created,
+      # to avoid rescanning if the user canceled out of the restore operation.
+      # We need to register now.
+      for a160 in pywlt.addrMap.iterkeys():
+         isActuallyNew = False
+         self.__registerAddressNow(a160, timeInfo=isActuallyNew)
+         
+      
+
+      ###
+      prevUseDirect = pywlt.useDirectBDM
+      pywlt.useDirectBDM = True
+      pywlt.freshImportFindHighestIndex()
+      pywlt.useDirectBDM = prevUseDirect
+      ###
+
+      #self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
    
 
@@ -10896,9 +10968,9 @@ class BlockDataManagerThread(threading.Thread):
                LOGERROR('Unknown error in BDM thread')
 
 
-            #print '************************************************'
-            #print 'BDM Input: ', self.getBDMInputName(inputTuple[0]), str(inputTuple)
-            #tstart = RightNow()
+            LOGDEBUG('************************************************')
+            LOGDEBUG('BDM Input: %s: %s', self.getBDMInputName(inputTuple[0]), str(inputTuple))
+            tstart = RightNow()
 
             # The first list element is always the BDMINPUTTYPE (command)
             # The second argument is whether the caller will be waiting 
@@ -11021,7 +11093,7 @@ class BlockDataManagerThread(threading.Thread):
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
-            #print 'Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart))
+            LOGDEBUG('Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart)))
             self.inputQueue.task_done()
             if expectOutput:
                self.outputQueue.put(output)

@@ -59,6 +59,8 @@ class AllWalletsDispModel(QAbstractTableModel):
             wtype,typestr = determineWalletType(wlt, self.main)
             return QVariant(typestr)
          if col==COL.Bal: 
+            if not TheBDM.getBDMState()=='BlockchainReady':
+               return QVariant('(...)')
             bal = wlt.getBalance('Total')
             if bal==-1:
                return QVariant('(...)') 
@@ -420,6 +422,8 @@ class WalletAddrDispModel(QAbstractTableModel):
             else:
                return QVariant()
          if col==COL.Balance: 
+            if not TheBDM.getBDMState()=='BlockchainReady':
+               return QVariant('(...)')
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
@@ -431,6 +435,8 @@ class WalletAddrDispModel(QAbstractTableModel):
             return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
+            if not TheBDM.getBDMState()=='BlockchainReady':
+               return QVariant(Colors.Foreground)
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             val = cppAddr.getFullBalance()
             if   val>0: return QVariant(Colors.TextGreen)
@@ -453,6 +459,9 @@ class WalletAddrDispModel(QAbstractTableModel):
                             'receive change-back-to-self from an oversized '
                             'transaction.')
       elif role==Qt.BackgroundColorRole:
+         if not TheBDM.getBDMState()=='BlockchainReady':
+            return QVariant( Colors.TblWltOther )
+
          cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
          val = cppAddr.getFullBalance()
          if val>0:
