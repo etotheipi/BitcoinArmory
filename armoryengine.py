@@ -6043,7 +6043,7 @@ class PyBtcWallet(object):
       # is the one calling the PyBtcWallet methods, it will deadlock if it uses
       # the queue.  Therefore, the BDM will set this flag before making any 
       # calls, which will tell PyBtcWallet to use __direct methods.
-      self.useDirectBDM = False
+      self.calledFromBDM = False
 
       # Finally, a bunch of offsets that tell us where data is stored in the
       # file: this can be generated automatically on unpacking (meaning it
@@ -6101,7 +6101,7 @@ class PyBtcWallet(object):
       before calling this method.  If you expect the blockchain will have to
       be rescanned, then call TheBDM.rescanBlockchain or TheBDM.loadBlockchain
 
-      If this method is called from the BDM itself, useDirectBDM will signal
+      If this method is called from the BDM itself, calledFromBDM will signal
       to use the BDM methods directly, not the queue.  This will deadlock 
       otherwise.
       """
@@ -6113,10 +6113,10 @@ class PyBtcWallet(object):
          if startBlk==None:
             startBlk = self.lastSyncBlockNum + 1
 
-         # useDirectBDM means that ultimately the BDM itself called this
+         # calledFromBDM means that ultimately the BDM itself called this
          # method and is blocking waiting for it.  So we can't use the 
          # BDM-thread queue, must call its methods directly
-         if self.useDirectBDM:
+         if self.calledFromBDM:
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
          else:
@@ -6175,10 +6175,10 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getBalance(self, balType="Spendable"):
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          return -1
       else:
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          if balType.lower() in ('spendable','spend'):
             return self.cppWallet.getSpendableBalance(currBlk)
          elif balType.lower() in ('unconfirmed','unconf'):
@@ -6191,7 +6191,8 @@ class PyBtcWallet(object):
 
    #############################################################################
    def getAddrBalance(self, addr160, balType="Spendable", currBlk=UINT32_MAX):
-      if not TheBDM.getBDMState()=='BlockchainReady' or not self.hasAddr(addr160):
+      if (not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM) or \
+                                                               not self.hasAddr(addr160):
          return -1
       else:
          addr = self.cppWallet.getAddrByHash160(addr160)
@@ -6209,7 +6210,7 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if not TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          return []
       else:
          ledgBlkChain = self.cppWallet.getTxLedger()
@@ -6234,7 +6235,8 @@ class PyBtcWallet(object):
       """ 
       Gets the ledger entries for the entire wallet, from C++/SWIG data structs
       """
-      if not TheBDM.getBDMState()=='BlockchainReady' or not self.hasAddr(addr160):
+      if (not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM) or \
+                                                            not self.hasAddr(addr160):
          return []
       else:
          ledgBlkChain = self.cppWallet.getAddrByHash160(addr160).getTxLedger()
@@ -6258,7 +6260,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
                not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getSpendableTxOutList(currBlk);
@@ -6276,7 +6278,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
             self.hasAddr(addr160) and \
             not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
-         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.useDirectBDM)
+         currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
             return self.cppWallet.getAddrByHash160(addr160).getSpendableTxOutList(currBlk);
@@ -6379,7 +6381,7 @@ class PyBtcWallet(object):
       """
 
       
-      if self.useDirectBDM:
+      if self.calledFromBDM:
          LOGERROR('Called createNewWallet() from BDM method!')
          LOGERROR('Don\'t do this!')
          return None
@@ -6576,9 +6578,9 @@ class PyBtcWallet(object):
 
       # For recovery rescans, this method will be called directly by
       # the BDM, which may cause a deadlock if we go through the 
-      # thread queue.  The useDirectBDM is "permission" to access the
+      # thread queue.  The calledFromBDM is "permission" to access the
       # BDM private methods directly
-      if self.useDirectBDM:
+      if self.calledFromBDM:
          TheBDM.registerAddress_bdm_direct(new160, timeInfo=isActuallyNew)
       else:
          # This uses the thread queue, which means the address will be
@@ -6654,18 +6656,21 @@ class PyBtcWallet(object):
       which will actually extend the address pool as necessary to find the
       highest address used.      
       """
-      if not TheBDM.getBDMState()=='BlockchainReady' and not self.useDirectBDM:
+      if not TheBDM.getBDMState()=='BlockchainReady' and not self.calledFromBDM:
          LOGERROR('Cannot detect any usage information without the blockchain')
          return -1
 
+      print self.getBalance()
       oldSync = self.doBlockchainSync
       self.doBlockchainSync = BLOCKCHAIN_READONLY
       self.syncWithBlockchain(0)  # make sure we're always starting from blk 0
       self.doBlockchainSync = oldSync
+      print self.getBalance()
 
       highestIndex = 0
       for addr in self.getLinearAddrList(withAddrPool=True):
          a160 = addr.getAddr160()
+         print hash160_to_addrStr(a160)
          if len(self.getAddrTxLedger(a160)) > 0:
             highestIndex = max(highestIndex, addr.chainIndex)
 
@@ -6693,8 +6698,17 @@ class PyBtcWallet(object):
       last addressed used: one must make an assumption that the wallet 
       never calculated more than X addresses without receiving a payment...
       """
+      print 'Master Wallet'
+      naddr = TheBDM.masterCppWallet.getNumAddr()
+      for i in range(naddr):
+         a = TheBDM.masterCppWallet.getAddrByIndex(i)
+         print '\t', hash160_to_addrStr(a.getAddrStr20())
       if not stepSize:
          stepSize = self.addrPoolSize
+
+      print 'This Wallet'
+      for a160 in self.addrMap.iterkeys():
+         print '\t', hash160_to_addrStr(a160) 
 
       topCompute = 0
       topUsed    = 0
@@ -7784,7 +7798,7 @@ class PyBtcWallet(object):
       DO NOT CALL FROM A BDM THREAD FUNCTION.  IT MAY DEADLOCK.
       """
 
-      if self.useDirectBDM:
+      if self.calledFromBDM:
          LOGERROR('Called importExternalAddressData() from BDM method!')
          LOGERROR('Don\'t do this!')
          return ''
@@ -8023,7 +8037,7 @@ class PyBtcWallet(object):
       DO NOT CALL FROM A BDM METHOD.  Instead, call directly:
          self.bdm.numBlocksToRescan(pywlt.cppWallet) > 2016
       """
-      if self.useDirectBDM:
+      if self.calledFromBDM:
          LOGERROR('Called checkIfRescanRequired() from BDM method!')
          LOGERROR('Don\'t do this!')
 
@@ -10797,14 +10811,14 @@ class BlockDataManagerThread(threading.Thread):
       #####
 
       # Whenever calling PyBtcWallet methods from BDM, set flag
-      prevUseDirect = pywlt.useDirectBDM
-      pywlt.useDirectBDM = True
+      prevUseDirect = pywlt.calledFromBDM
+      pywlt.calledFromBDM = True
       
       # Do the scan...
       pywlt.freshImportFindHighestIndex()
 
       # Unset flag when done
-      pywlt.useDirectBDM = prevUseDirect
+      pywlt.calledFromBDM = prevUseDirect
 
       #####
 
