@@ -2128,10 +2128,13 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
+
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
-         TheBDM.registerWallet(dlgPaper.newWallet, isFresh=False, wait=False)
+
+         #TheBDM.registerWallet(dlgPaper.newWallet, isFresh=False, wait=False)
          LOGINFO('Raw import successful.')
+         print TheBDM.isDirty()
          
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2780,6 +2783,13 @@ class ArmoryMainWindow(QMainWindow):
                   addr.binPrivKey32_Plain.destroy()
                self.sweepAfterScanList = []
                self.setDashboardDetails()
+
+            if len(self.walletRestoreList)>0:
+               LOGDEBUG('Wallet restore completed.  Add to application.')
+               while len(self.walletRestoreList)>0:
+                  wlt = self.walletRestoreList.pop()
+                  self.addWalletToApplication(wlt, walletIsNew=False)
+         
    
             # If we have new zero-conf transactions, scan them and update ledger
             if len(self.newZeroConfSinceLastUpdate)>0:

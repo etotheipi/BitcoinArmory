@@ -6119,7 +6119,6 @@ class PyBtcWallet(object):
          if self.useDirectBDM:
             TheBDM.scanBlockchainForTx_bdm_direct(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
-            print 'NonPriv Finished!'
          else:
             TheBDM.scanBlockchainForTx(self.cppWallet, startBlk)
             self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
@@ -6497,7 +6496,8 @@ class PyBtcWallet(object):
 
       # Let's fill the address pool while we have the KDF key in memory.
       # It will get a lot more expensive if we do it on the next unlock
-      self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
+      if doRegisterWithBDM:
+         self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
 
       if self.useEncryption:
          self.unlock(secureKdfOutput=self.kdfKey)
@@ -10150,7 +10150,7 @@ class BlockDataManagerThread(threading.Thread):
                waitForReturn = False
 
             print '  getattr   name:', name, 'Wait:',waitForReturn,'(', rnd, ')'
-            traceback.print_stack()
+            #traceback.print_stack()
 
             # If this was ultimately called from the BDM thread, don't go
             # through the queue, just do it!
@@ -10794,21 +10794,19 @@ class BlockDataManagerThread(threading.Thread):
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
 
-      # We had to skip the BDM registration when the wallet was created,
-      # to avoid rescanning if the user canceled out of the restore operation.
-      # We need to register now.
-      for a160 in pywlt.addrMap.iterkeys():
-         isActuallyNew = False
-         self.__registerAddressNow(a160, timeInfo=isActuallyNew)
-         
-      
+      #####
 
-      ###
+      # Whenever calling PyBtcWallet methods from BDM, set flag
       prevUseDirect = pywlt.useDirectBDM
       pywlt.useDirectBDM = True
+      
+      # Do the scan...
       pywlt.freshImportFindHighestIndex()
+
+      # Unset flag when done
       pywlt.useDirectBDM = prevUseDirect
-      ###
+
+      #####
 
       #self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
