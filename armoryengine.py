@@ -10536,17 +10536,17 @@ class BlockDataManagerThread(threading.Thread):
       Address books are constructed from Blockchain data, which means this 
       must be a blocking method.  
       """
-      if isinstance(wlt, PyBtcWallet):
-         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, True, wlt.cppWallet])
-      elif isinstance(wlt, Cpp.BtcWallet):
-         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, True, wlt])
-
       rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      if isinstance(wlt, PyBtcWallet):
+         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, rndID, True, wlt.cppWallet])
+      elif isinstance(wlt, Cpp.BtcWallet):
+         self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, rndID, True, wlt])
+
       try:
-         result = self.outputQueue.get(True, 3)
+         result = self.outputQueue.get(True, MT_WAIT_TIME_SEC)
          return result
       except Queue.Empty:
-         LOGERROR('Waited 3s for addrbook to be returned.  Abort')
+         LOGERROR('Waited %ds for addrbook to be returned.  Abort' % MT_WAIT_TIME_SEC)
          LOGERROR('ID: getTxByHash (%d)', rndID)
          #LOGERROR('Going to block until we get something...')
          #return self.outputQueue.get(True)
@@ -11081,6 +11081,7 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.AddrBookRequested:
                cppWlt = inputTuple[3] 
                output = cppWlt.createAddressBook()
+               print 'Wallet:', output
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
                self.__updateWalletsAfterScan()

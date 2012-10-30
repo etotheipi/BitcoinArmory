@@ -2763,7 +2763,6 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
          self.dirtyLastTime = TheBDM.isDirty()
 
-         print TheBDM.currentActivity
    
          #print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
