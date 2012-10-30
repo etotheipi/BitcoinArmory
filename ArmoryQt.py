@@ -1363,6 +1363,11 @@ class ArmoryMainWindow(QMainWindow):
 
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
+         for wltID, wlt in self.walletMap.iteritems():
+            LOGINFO('Syncing wallet: %s', wltID)
+            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            self.walletMap[wltID].syncWithBlockchain()
+
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
          if not self.memPoolInit:
@@ -1371,10 +1376,6 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
 
-         for wltID, wlt in self.walletMap.iteritems():
-            LOGINFO('Syncing wallet: %s', wltID)
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain()
 
          
          self.createCombinedLedger()
@@ -2134,7 +2135,6 @@ class ArmoryMainWindow(QMainWindow):
 
          #TheBDM.registerWallet(dlgPaper.newWallet, isFresh=False, wait=False)
          LOGINFO('Raw import successful.')
-         print TheBDM.isDirty()
          
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2168,7 +2168,7 @@ class ArmoryMainWindow(QMainWindow):
             return
 
          #self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-         self.walletRestoreList = [dlgPaper.newWallet]
+         self.walletRestoreList.append(dlgPaper.newWallet)
          LOGINFO('Import Complete!')
    
    #############################################################################
@@ -2738,7 +2738,6 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
-      print 'Heartbeat:', TheBDM.getBDMState()
 
       try:
          for func in self.extraHeartbeatAlways:
@@ -2763,10 +2762,11 @@ class ArmoryMainWindow(QMainWindow):
          if not TheBDM.isDirty() and self.dirtyLastTime:
             self.setDashboardDetails()
          self.dirtyLastTime = TheBDM.isDirty()
+
+         print TheBDM.currentActivity
    
          #print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
-            print 'Blockchain was ready'
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
    
@@ -2776,6 +2776,7 @@ class ArmoryMainWindow(QMainWindow):
                self.needUpdateAfterScan = False
                self.setDashboardDetails()
                
+            # If we just rescanned to sweep an address, need to finish it
             if len(self.sweepAfterScanList)>0:
                LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
                self.finishSweepScan()
@@ -2784,11 +2785,14 @@ class ArmoryMainWindow(QMainWindow):
                self.sweepAfterScanList = []
                self.setDashboardDetails()
 
+            # If we had initiated any wallet restoration scans, we need to add
+            # Those wallets to the display
             if len(self.walletRestoreList)>0:
                LOGDEBUG('Wallet restore completed.  Add to application.')
                while len(self.walletRestoreList)>0:
                   wlt = self.walletRestoreList.pop()
                   self.addWalletToApplication(wlt, walletIsNew=False)
+               self.setDashboardDetails()
          
    
             # If we have new zero-conf transactions, scan them and update ledger
