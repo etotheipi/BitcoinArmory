@@ -10830,18 +10830,17 @@ class BlockDataManagerThread(threading.Thread):
       #####
 
       # Whenever calling PyBtcWallet methods from BDM, set flag
-      prevUseDirect = pywlt.calledFromBDM
+      prevCalledFromBDM = pywlt.calledFromBDM
       pywlt.calledFromBDM = True
       
       # Do the scan...
       pywlt.freshImportFindHighestIndex()
 
       # Unset flag when done
-      pywlt.calledFromBDM = prevUseDirect
+      pywlt.calledFromBDM = prevCalledFromBDM
 
       #####
 
-      time.sleep(30)
 
       #self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
@@ -11081,7 +11080,6 @@ class BlockDataManagerThread(threading.Thread):
             elif cmd == BDMINPUTTYPE.AddrBookRequested:
                cppWlt = inputTuple[3] 
                output = cppWlt.createAddressBook()
-               print 'Wallet:', output
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
                self.__updateWalletsAfterScan()
