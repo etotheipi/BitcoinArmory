@@ -1366,7 +1366,7 @@ class ArmoryMainWindow(QMainWindow):
          for wltID, wlt in self.walletMap.iteritems():
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain()
+            self.walletMap[wltID].syncWithBlockchain(0)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()

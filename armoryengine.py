@@ -7763,7 +7763,7 @@ class PyBtcWallet(object):
       #             if we just "forget" the current wallet state and re-read
       #             the wallet from file
       wltPath = self.walletPath
-      self.readWalletFile(wltPath)
+      self.readWalletFile(wltPath, doScanNow=True)
       
 
    #############################################################################
@@ -10143,7 +10143,7 @@ class BlockDataManagerThread(threading.Thread):
       '''
 
       
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       if not hasattr(self.bdm, name):
          LOGERROR('No BDM method: %s', name)
          raise AttributeError
@@ -10221,7 +10221,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.Reset, rndID, expectOutput] )
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -10270,7 +10270,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.Shutdown, rndID, expectOutput])
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
@@ -10291,7 +10291,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
 
       if goOnline:
          if TheBDM.getBDMState() in ('Offline','Uninitialized'):
@@ -10321,7 +10321,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.ReadBlkUpdate, rndID, expectOutput])
       return self.waitForOutputIfNecessary(expectOutput, rndID)
       
@@ -10350,7 +10350,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.StartScanRequested, rndID, expectOutput])
       LOGINFO('Initial blockchain load requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -10364,7 +10364,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.RescanRequested, rndID, expectOutput])
       LOGINFO('Blockchain rescan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -10391,7 +10391,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, rndID, expectOutput])
       LOGINFO('Wallet update requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -10417,7 +10417,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.aboutToRescan = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.WalletRecoveryScan, rndID, expectOutput, pywlt])
       LOGINFO('Wallet recovery scan requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -10454,7 +10454,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.TxRequested, rndID, True, txHash])
 
       try:
@@ -10481,7 +10481,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.HeaderRequested, rndID, True, headHash])
 
       try:
@@ -10512,7 +10512,7 @@ class BlockDataManagerThread(threading.Thread):
       #if not self.__checkBDMReadyToServeData():
          #return None
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.BlockRequested, rndID, True, headHash])
 
       try:
@@ -10536,7 +10536,7 @@ class BlockDataManagerThread(threading.Thread):
       Address books are constructed from Blockchain data, which means this 
       must be a blocking method.  
       """
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       if isinstance(wlt, PyBtcWallet):
          self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, rndID, True, wlt.cppWallet])
       elif isinstance(wlt, Cpp.BtcWallet):
@@ -10559,7 +10559,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.ZeroConfTxToInsert, rndID, expectOutput, rawTx, timeRecv])
       return self.waitForOutputIfNecessary(expectOutput, rndID)
       
@@ -10586,7 +10586,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, a160, True])
 
       return self.waitForOutputIfNecessary(expectOutput, rndID)
@@ -10608,7 +10608,7 @@ class BlockDataManagerThread(threading.Thread):
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
 
-      rndID = int(random.uniform(0,100000000)) if CLI_OPTIONS.mtdebug else 0
+      rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.RegisterAddr, rndID, expectOutput, a160, \
                                    [firstTime, firstBlk, lastTime, lastBlk]])
 

@@ -734,66 +734,53 @@ class DlgWalletDetails(ArmoryDialog):
       lblcolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('Foreground')
       goodColor= htmlColor('TextGreen')
 
-      lblTot  = QRichLabel('<b><font color="%s">Maximum Funds:</font></b>'%lblcolor, doWrap=False); 
-      lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
-      lblUcn  = QRichLabel('<b>Unconfirmed:</b>', doWrap=False); 
+      self.lblTot  = QRichLabel('', doWrap=False); 
+      self.lblSpd  = QRichLabel('', doWrap=False); 
+      self.lblUnc  = QRichLabel('', doWrap=False); 
 
-      #if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
-      if TheBDM.getBDMState() in ('Offline','Scanning'):
-         totStr = '-'*12
-         spdStr = '-'*12
-         ucnStr = '-'*12
-      else:
-         totStr = '<b><font color="%s">%s</font></b>' % (btccolor,  coin2str(totalFunds))
-         spdStr = '<b><font color="%s">%s</font></b>' % (goodColor, coin2str(spendFunds))
-         ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,   coin2str(unconfFunds))
+      self.lblTotalFunds  = QRichLabel('', doWrap=False)
+      self.lblSpendFunds  = QRichLabel('', doWrap=False)
+      self.lblUnconfFunds = QRichLabel('', doWrap=False)
+      self.lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblUnconfFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
-      lblTotalFunds  = QRichLabel(totStr, doWrap=False)
-      lblSpendFunds  = QRichLabel(spdStr, doWrap=False)
-      lblUnconfFunds = QRichLabel(ucnStr, doWrap=False)
-      lblTotalFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      lblSpendFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      lblUnconfFunds.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-      lblTot.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      lblSpd.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-      lblUcn.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblTot.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblSpd.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+      self.lblUnc.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
 
 
-      lblBTC1 = QRichLabel('<b><font color="%s">BTC</font></b>'%lblcolor, doWrap=False)
-      lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
-      lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
+      self.lblBTC1 = QRichLabel('', doWrap=False)
+      self.lblBTC2 = QRichLabel('', doWrap=False)
+      self.lblBTC3 = QRichLabel('', doWrap=False)
+
       ttipTot = createToolTipObject( \
             'Total funds if all current transactions are confirmed.  '
             'Value appears gray when it is the same as your spendable funds.')
       ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
       ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
 
+      self.setSummaryBalances()
+
 
       frmTotals = QFrame()
       frmTotals.setFrameStyle(STYLE_NONE)
       frmTotalsLayout = QGridLayout()
-      frmTotalsLayout.addWidget(lblTot, 0,0)
-      frmTotalsLayout.addWidget(lblSpd, 1,0)
-      frmTotalsLayout.addWidget(lblUcn, 2,0)
+      frmTotalsLayout.addWidget(self.lblTot, 0,0)
+      frmTotalsLayout.addWidget(self.lblSpd, 1,0)
+      frmTotalsLayout.addWidget(self.lblUnc, 2,0)
 
-      frmTotalsLayout.addWidget(lblTotalFunds,  0,1)
-      frmTotalsLayout.addWidget(lblSpendFunds,  1,1)
-      frmTotalsLayout.addWidget(lblUnconfFunds, 2,1)
+      frmTotalsLayout.addWidget(self.lblTotalFunds,  0,1)
+      frmTotalsLayout.addWidget(self.lblSpendFunds,  1,1)
+      frmTotalsLayout.addWidget(self.lblUnconfFunds, 2,1)
 
-      frmTotalsLayout.addWidget(lblBTC1, 0,2)
-      frmTotalsLayout.addWidget(lblBTC2, 1,2)
-      frmTotalsLayout.addWidget(lblBTC3, 2,2)
+      frmTotalsLayout.addWidget(self.lblBTC1, 0,2)
+      frmTotalsLayout.addWidget(self.lblBTC2, 1,2)
+      frmTotalsLayout.addWidget(self.lblBTC3, 2,2)
 
       frmTotalsLayout.addWidget(ttipTot, 0,3)
       frmTotalsLayout.addWidget(ttipSpd, 1,3)
       frmTotalsLayout.addWidget(ttipUcn, 2,3)
-
-      # Temp disable unconf display until calc is fixed
-      #lblUcn.setVisible(False)
-      #lblUnconfFunds.setVisible(False)
-      #lblBTC3.setVisible(False)
-      #ttipUcn.setVisible(False)
 
       frmTotals.setLayout(frmTotalsLayout)
 
@@ -825,6 +812,41 @@ class DlgWalletDetails(ArmoryDialog):
          self.restoreGeometry(geom)
       if len(tblgeom)>0:
          restoreTableView(self.wltAddrView, tblgeom)
+
+
+
+   #############################################################################
+   def setSummaryBalances(self):
+      totalFunds = self.wlt.getBalance('Total')
+      spendFunds = self.wlt.getBalance('Spendable')
+      unconfFunds= self.wlt.getBalance('Unconfirmed')
+      uncolor =  htmlColor('MoneyNeg')  if unconfFunds>0          else htmlColor('Foreground')
+      btccolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('MoneyPos')
+      lblcolor = htmlColor('DisableFG') if spendFunds==totalFunds else htmlColor('Foreground')
+      goodColor= htmlColor('TextGreen')
+
+      self.lblTot.setText('<b><font color="%s">Maximum Funds:</font></b>'%lblcolor)
+      self.lblSpd.setText('<b>Spendable Funds:</b>')
+      self.lblUnc.setText('<b>Unconfirmed:</b>')
+
+      #if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
+      if TheBDM.getBDMState() in ('Offline','Scanning'):
+         totStr = '-'*12
+         spdStr = '-'*12
+         ucnStr = '-'*12
+      else:
+         totStr = '<b><font color="%s">%s</font></b>' % (btccolor,  coin2str(totalFunds))
+         spdStr = '<b><font color="%s">%s</font></b>' % (goodColor, coin2str(spendFunds))
+         ucnStr = '<b><font color="%s">%s</font></b>' % (uncolor,   coin2str(unconfFunds))
+
+      self.lblTotalFunds.setText(totStr)
+      self.lblSpendFunds.setText(spdStr)
+      self.lblUnconfFunds.setText(ucnStr)
+
+      self.lblBTC1.setText('<b><font color="%s">BTC</font></b>'%lblcolor)
+      self.lblBTC2.setText('<b>BTC</b>')
+      self.lblBTC3.setText('<b>BTC</b>')
+
 
    #############################################################################
    def saveGeometrySettings(self):
@@ -1973,6 +1995,7 @@ class DlgImportAddress(ArmoryDialog):
                   'available without rescanning the global transaction history. '
                   'The address will appear in the address list of this wallet.', \
                   QMessageBox.Ok)
+               self.parent.setSummaryBalances()
 
             else:
                doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
@@ -4122,6 +4145,7 @@ class DlgRemoveAddress(ArmoryDialog):
          self.wlt.deleteImportedAddress(self.addr.getAddr160())
          try:
             self.parent.wltAddrModel.reset()
+            self.parent.setSummaryBalances()
          except AttributeError:
             pass
          self.accept()
