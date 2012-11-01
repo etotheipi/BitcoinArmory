@@ -5109,34 +5109,37 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    # First, we only consider doing this if the tx has <5 inputs already.
    # Also, we skip this process if the current tx doesn't have excessive
    # priority already -- we don't want to risk de-prioritizing a tx for
-   # this purpose.
+   # this purpose. Also we do not sacrifice the anonymity of a good
+   # anonymous transaction as we do not want to lose this property.
    #
    # Next we sort by LOWEST value, because we really benefit from this most
    # by clearing out tiny outputs.  Along those lines, we don't even do
    # unless it has low priority -- don't want to take a high-priority utxo
    # and convert it to one that will be low-priority to start.
-   #
-   # Finally, we shouldn't do this if a high score was assigned to output
-   # anonymity: this extra output may cause a tx with good output anonymity
-   # to no longer possess this property
    IDEAL_NUM_INPUTS = 5
-   if len(finalSelection)>=IDEAL_NUM_INPUTS or SCORES[IDX_PRIORITY]<0.5:
-      return finalSelection
-   else:
-      for sel in finalSelection:
-         addrAlreadyUsed = sel.getRecipientAddr()
-         for other in sorted(unspentTxOutInfo, key=(lambda a: a.getValue())):
-            # First 3 conditions make sure we're not picking txOut already selected
-            if(  addrAlreadyUsed == other.getRecipientAddr() and \
-                 sel.getValue() != other.getValue() and \
-                 sel.getNumConfirm() != other.getNumConfirm() and \
-                 other not in finalSelection and \
-                 other.getValue()*other.getNumConfirm() < 10*ONE_BTC*144./250. and \
-                 other.getNumConfirm() > 0 and \
-                 SCORES[IDX_OUTANONYM] == 0):
-               finalSelection.append(other)
-               if len(finalSelection)>=IDEAL_NUM_INPUTS:
-                  return finalSelection
+   if len(finalSelection)<IDEAL_NUM_INPUTS and \
+          SCORES[IDX_PRIORITY]>=0.5 and \
+          SCORES[IDX_OUTANONYM] == 0:
+
+      addrAlreadyUsed = set(sel.getRecipientAddr() for sel in finalSelection)
+      maxNumConfirm = min(6, max(sel.getNumConfirm() for sel in finalSelection))
+      for other in sorted(unspentTxOutInfo, key=(lambda a: a.getValue())):
+         # Skip txOut if it is already selected or if it uses a new address
+         if other in finalSelection or other.getRecipientAddr() not in addrAlreadyUsed:
+            continue
+
+         # Skip if it is less confirmed than original outputs
+         if other.getNumConfirm() < maxNumConfirm:
+            continue
+
+         # Skip big confirmed transactions
+         if other.getValue()*other.getNumConfirm() >= 10*ONE_BTC*144./250.:
+            continue
+
+         # Add new input, and stop there if we have enough inputs
+         finalSelection.append(other)
+         if len(finalSelection)>=IDEAL_NUM_INPUTS:
+            break
 
    return finalSelection
 
