@@ -93,6 +93,7 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.callCount = 0
       self.lastBDMState = ['Uninitialized', None]
+      self.doShutdown = False
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -1049,7 +1050,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def newTxFunc(self, pytxObj):
-      if TheBDM.getBDMState()=='Offline':
+      if TheBDM.getBDMState()=='Offline' or self.doShutdown:
          return
 
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
@@ -2141,7 +2142,7 @@ class ArmoryMainWindow(QMainWindow):
             'until the global transaction history is '
             'searched for previous transactions.  This scan will potentially '
             'take much longer than a regular rescan, and the wallet cannot '
-            'be show on the main display until this rescan is complete.'
+            'be shown on the main display until this rescan is complete.'
             '<br><br>'
             '<b>Would you like to go into offline mode to start this scan now?'
             '</b>  If you click "No" the scan will be aborted, and the wallet '
@@ -2150,7 +2151,6 @@ class ArmoryMainWindow(QMainWindow):
          if doRescanNow == QMessageBox.Yes:
             LOGINFO('User requested rescan after wallet restore')
             TheBDM.startWalletRecoveryScan(dlgPaper.newWallet) 
-            #highestIdx = dlgPaper.newWallet.freshImportFindHighestIndex()
             self.setDashboardDetails()
          else:
             LOGINFO('User aborted the wallet-recovery scan')
@@ -3002,7 +3002,8 @@ class ArmoryMainWindow(QMainWindow):
          if event:
             event.ignore()
       elif doClose or moc=='Close':
-         TheBDM.execCleanShutdown()
+         self.doShutdown = True
+         TheBDM.execCleanShutdown(wait=False)
          self.sysTray.hide()
          self.closeForReal(event)
       else:
@@ -3110,7 +3111,7 @@ if 1:
       print 'Resetting BlockDataMgr, freeing memory'
       LOGINFO('Resetting BlockDataMgr, freeing memory')
       TheBDM.Reset()
-      TheBDM.execCleanShutdown()
+      TheBDM.execCleanShutdown(wait=False)
       if reactor.threadpool is not None:
          reactor.threadpool.stop()
       QAPP.quit()
