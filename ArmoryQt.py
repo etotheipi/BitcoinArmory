@@ -1363,10 +1363,6 @@ class ArmoryMainWindow(QMainWindow):
 
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
-         for wltID, wlt in self.walletMap.iteritems():
-            LOGINFO('Syncing wallet: %s', wltID)
-            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain(0)
 
          self.currBlockNum = TheBDM.getTopBlockHeight()
          self.setDashboardDetails()
@@ -1376,6 +1372,10 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
 
+         for wltID, wlt in self.walletMap.iteritems():
+            LOGINFO('Syncing wallet: %s', wltID)
+            self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+            self.walletMap[wltID].syncWithBlockchain(0)
 
          
          self.createCombinedLedger()

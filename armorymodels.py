@@ -390,6 +390,24 @@ class WalletAddrDispModel(QAbstractTableModel):
       QAbstractTableModel.reset(self)
       
 
+   def filterAddrList(self, filt='None'):
+      if filt.lower() in ('all',):
+         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
+      elif filt.lower() in ('notempty', 'nonempty','hideempty'):
+         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList() \
+                                      if a.getBalance('Total')>0]
+      elif filt.lower() in ('hidechange','nochange'):
+         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList() \
+                     if self.wlt.commentsMap[a.getAddr160()] != CHANGE_ADDR_DESCR_STRING]
+      elif filt.lower() in ('hideunused','used'):
+         self.addr160List = []
+         for addr in self.wlt.getLinearAddrList():
+            a160 = addr.getAddr160()
+            if len(self.wlt.cppWallet.getAddrByHash160(a160).getTxLedger())>0:
+               self.addr160List.append(a160)
+         
+         
+
    def rowCount(self, index=QModelIndex()):
       return len(self.addr160List)
 
