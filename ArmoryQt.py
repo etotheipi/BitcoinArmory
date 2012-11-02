@@ -239,6 +239,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
       self.btnModeSwitch = QPushButton('')
+      self.qmov = QMovie(':/busy.gif')
+      self.lblBusy = QLabel('')
+      self.lblBusy.setMovie( self.qmov )
+      self.qmov.start()
       #btnW,btnH = relaxedSizeStr(self, 'Switch to online mode!')
       #self.btnModeSwitch.setMaximumWidth( btnW)
       #self.btnModeSwitch.setMaximumHeight( btnH)
@@ -246,7 +250,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashMode = QRichLabel('',doWrap=False)
       self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.frmDashModeSub = makeHorizFrame([self.lblDashMode, self.btnModeSwitch], STYLE_SUNKEN)
-      self.frmDashMode = makeHorizFrame(['Stretch', self.frmDashModeSub, 'Stretch'])
+      self.frmDashMode = makeHorizFrame(['Stretch', self.frmDashModeSub, self.lblBusy, 'Stretch'])
       self.lblDashDescr = QTextBrowser()
       self.lblDashDescr.setStyleSheet('padding: 5px')
       self.lblDashDescr.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
@@ -254,6 +258,8 @@ class ArmoryMainWindow(QMainWindow):
       qpal.setColor(QPalette.Base, Colors.Background)
       self.lblDashDescr.setPalette(qpal)
       self.lblDashDescr.setOpenExternalLinks(True)
+
+      
 
       dashLayout = QVBoxLayout()
       dashLayout.addWidget(self.frmDashMode)
@@ -477,7 +483,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Tools].addAction(actOpenTools)
 
 
-      actCreateNew      = self.createAction('&Create &New Wallet',        self.createNewWallet)
+      actCreateNew      = self.createAction('&Create New Wallet',        self.createNewWallet)
       actImportWlt      = self.createAction('&Import Armory Wallet',      self.execGetImportWltName)
       actRestorePaper   = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
       #actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
@@ -2523,9 +2529,9 @@ class ArmoryMainWindow(QMainWindow):
          '<li>Change wallet encryption settings</li>'
          '<li>Sign messages</li>'
          '</ul>'
-         '<br><br><b>NOTE:</b>  The Bitcoin network can always process transactions '
-         'to your addresses, regardless of whether you are connected.  Even in offline '
-         'mode, you can create new addresses and use them to receive payments -- '
+         '<br><br><b>NOTE:</b>  The Bitcoin network can process transactions '
+         'to your addresses, regardless of whether you are online.  It is perfectly '
+         'okay to create and distribute payment addresses while Armory is offline, '
          'you just won\'t be able to verify those payments until the next time '
          'Armory is online.')
 
@@ -2548,6 +2554,7 @@ class ArmoryMainWindow(QMainWindow):
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          if onlineAvail and not self.lastBDMState[1]==onlineAvail:
             LOGINFO('Dashboard switched to "Offline" mode, with online option')
+            self.lblBusy.setVisible(False)
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
             self.btnModeSwitch.setVisible(True)
             self.btnModeSwitch.setEnabled(True)
@@ -2567,6 +2574,7 @@ class ArmoryMainWindow(QMainWindow):
          elif not onlineAvail and not self.lastBDMState[1]==onlineAvail:
             LOGINFO('Dashboard switched to "Offline" mode, can\'t go online')
             self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
+            self.lblBusy.setVisible(False)
             self.btnModeSwitch.setVisible(False)
             self.btnModeSwitch.setEnabled(False)
             self.lblDashMode.setText( 'Armory is in <u>offline</u> mode', \
@@ -2629,6 +2637,7 @@ class ArmoryMainWindow(QMainWindow):
             self.lblDashDescr.setText(lblText)
       elif TheBDM.getBDMState() == 'BlockchainReady':
          self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, True)
+         self.lblBusy.setVisible(False)
          if self.netMode == NETWORKMODE.Disconnected:
             self.btnModeSwitch.setVisible(False)
             self.lblDashMode.setText( 'Armory is disconnected', size=4, color='TextWarn', bold=True)
@@ -2703,6 +2712,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashMode.setText( 'Armory is offline while scanning the blockchain', \
                                                                      size=4, bold=True)
          self.btnModeSwitch.setVisible(False)
+         self.lblBusy.setVisible(True)
          lblText = '<b>Please be patient, scanning may take several minutes!</b><br><br>'
          if len(self.walletMap)==0:
             lblText += 'Armory will go into online mode automatically, as soon as '
