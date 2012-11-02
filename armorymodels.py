@@ -383,29 +383,36 @@ class WalletAddrDispModel(QAbstractTableModel):
       super(WalletAddrDispModel, self).__init__()
       self.main = mainWindow
       self.wlt = wlt
-      self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
-      
-   def reset(self):
-      self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
-      QAbstractTableModel.reset(self)
+
+      self.noChange = False
+      self.usedOnly = False
+      self.notEmpty = False
+
+      self.filterAddrList()
       
 
-   def filterAddrList(self, filt='None'):
-      if filt.lower() in ('all',):
-         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList()]
-      elif filt.lower() in ('notempty', 'nonempty','hideempty'):
-         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList() \
-                                      if a.getBalance('Total')>0]
-      elif filt.lower() in ('hidechange','nochange'):
-         self.addr160List = [a.getAddr160() for a in self.wlt.getLinearAddrList() \
-                     if self.wlt.commentsMap[a.getAddr160()] != CHANGE_ADDR_DESCR_STRING]
-      elif filt.lower() in ('hideunused','used'):
-         self.addr160List = []
-         for addr in self.wlt.getLinearAddrList():
-            a160 = addr.getAddr160()
-            if len(self.wlt.cppWallet.getAddrByHash160(a160).getTxLedger())>0:
-               self.addr160List.append(a160)
+   def setFilter(self, filt1=False, filt2=False, filt3=False):
+      self.notEmpty = filt1
+      self.noChange = filt2
+      self.usedOnly = filt3
+      self.filterAddrList()
+
+
+   def filterAddrList(self):
+      addrList = self.wlt.getLinearAddrList()
+      if self.notEmpty:
+         hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
+         addrList = filter(hasBalance, addrList)
+
+      if self.noChange:
+         notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
+         addrList = filter(notChange, addrList)
+
+      if self.usedOnly:
+         isUsed = lambda a: (len(self.wlt.getAddrTxLedger(a.getAddr160(), 'Full')) > 0)
+         addrList = filter(isUsed, addrList)
          
+      self.addr160List = [a.getAddr160() for a in addrList]
          
 
    def rowCount(self, index=QModelIndex()):

@@ -209,6 +209,12 @@ class QRichLabel(QLabel):
 
       QLabel.setText(self,text)
 
+   def setBold(self):
+      self.setText('<b>' + self.text() + '</b>')
+      
+   def setItalic(self):
+      self.setText('<i>' + self.text() + '</i>')
+
 
 
 class QMoneyLabel(QLabel):
@@ -243,9 +249,10 @@ class QLabelButton(QLabel):
       self.plainText = txt
       self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-   def setText(self, txt):
-      colorStr = htmlColor('LBtnNormalFG')
-      QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
+   
+   #def setText(self, txt):
+      #colorStr = htmlColor('LBtnNormalFG')
+      #QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
   
    def sizeHint(self):
       w,h = relaxedSizeStr(self, self.plainText)

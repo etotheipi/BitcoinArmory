@@ -6829,11 +6829,10 @@ class PyBtcWallet(object):
       useful for when you transfer a wallet to a new computer that has
       different speed/memory characteristic.
       """
-      if self.testedComputeTime==None:
-         testPassphrase = SecureBinaryData('This is a simple passphrase')
-         start = RightNow()
-         self.kdf.DeriveKey(testPassphrase)
-         self.testedComputeTime = (RightNow()-start)
+      testPassphrase = SecureBinaryData('This is a simple passphrase')
+      start = RightNow()
+      self.kdf.DeriveKey(testPassphrase)
+      self.testedComputeTime = (RightNow()-start)
       return self.testedComputeTime
 
    #############################################################################

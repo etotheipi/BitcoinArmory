@@ -578,7 +578,6 @@ class DlgWalletDetails(ArmoryDialog):
       
 
       # Address view
-      lblAddrList = QLabel('Addresses in Wallet:')
       self.wltAddrModel = WalletAddrDispModel(wlt, self)
       self.wltAddrProxy = WalletAddrSortProxy(self)
       self.wltAddrProxy.setSourceModel(self.wltAddrModel)
@@ -786,10 +785,26 @@ class DlgWalletDetails(ArmoryDialog):
 
       bottomFrm = makeHorizFrame([btnGoBack, 'Stretch', frmTotals])
 
-      lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>')
+      lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>', doWrap=False)
+      self.chkHideEmpty  = QCheckBox('Hide Empty')
+      self.chkHideChange = QCheckBox('Hide Change')
+      self.chkHideUnused = QCheckBox('Hide Unused')
+      self.chkHideEmpty.setChecked(False)
+      self.chkHideChange.setChecked(False)
+      self.chkHideUnused.setChecked(False)
+
+      self.connect(self.chkHideEmpty,  SIGNAL('clicked()'), self.doFilterAddr)
+      self.connect(self.chkHideChange, SIGNAL('clicked()'), self.doFilterAddr)
+      self.connect(self.chkHideUnused, SIGNAL('clicked()'), self.doFilterAddr)
+
+      headerFrm = makeHorizFrame([ lblWltAddr, \
+                                   'Stretch', \
+                                   self.chkHideEmpty, \
+                                   self.chkHideChange, \
+                                   self.chkHideUnused] )
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0)
-      layout.addWidget(lblWltAddr,            1, 0)
+      layout.addWidget(headerFrm,            1, 0)
       layout.addWidget(self.wltAddrView,      2, 0)
       layout.addWidget(bottomFrm,             3, 0)
 
@@ -813,7 +828,12 @@ class DlgWalletDetails(ArmoryDialog):
       if len(tblgeom)>0:
          restoreTableView(self.wltAddrView, tblgeom)
 
-
+   #############################################################################
+   def doFilterAddr(self):
+      self.wltAddrModel.setFilter(self.chkHideEmpty.isChecked(), \
+                                  self.chkHideChange.isChecked(), \
+                                  self.chkHideUnused.isChecked())
+      self.wltAddrModel.reset()
 
    #############################################################################
    def setSummaryBalances(self):
@@ -1127,7 +1147,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltID = self.wlt.uniqueIDB58
 
       if dispCrypto:
-         kdftimestr = "%0.3f sec" % self.wlt.testKdfComputeTime()
+         #kdftimestr = "%0.3f sec" % self.wlt.testKdfComputeTime()
          mem = self.wlt.kdf.getMemoryReqtBytes()
          kdfmemstr = str(mem/1024)+' kB'
          if mem >= 1024*1024:
@@ -1258,9 +1278,9 @@ class DlgWalletDetails(ArmoryDialog):
    
       if dispCrypto:
          self.labelValues[WLTFIELDS.Crypto] = QLabel('AES256')
-         self.labelValues[WLTFIELDS.Time]   = QLabel(kdftimestr)
+         self.labelValues[WLTFIELDS.Time]   = QLabelButton('Click to Test')
          self.labelValues[WLTFIELDS.Mem]    = QLabel(kdfmemstr)
-   
+
       for ttip in tooltips:
          try:
             ttip.setAlignment(Qt.AlignRight | Qt.AlignTop)
@@ -1287,11 +1307,16 @@ class DlgWalletDetails(ArmoryDialog):
          try:
             lbl.setText( '<i>' + lbl.text() + '</i>')
             lbl.setContentsMargins(10, 0, 10, 0)
-            lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | \
-                                        Qt.TextSelectableByKeyboard)
+            #lbl.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                        #Qt.TextSelectableByKeyboard)
          except AttributeError:
             pass
    
+      # Not sure why this has to be connected downhere... it didn't work above it
+      if dispCrypto:
+         self.labelValues[WLTFIELDS.Time].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+         self.connect(self.labelValues[WLTFIELDS.Time], SIGNAL('clicked()'), self.testKdfTime)
+
       labelNames[WLTFIELDS.Descr].setAlignment(Qt.AlignLeft | Qt.AlignTop)
       self.labelValues[WLTFIELDS.Descr].setWordWrap(True)
       self.labelValues[WLTFIELDS.Descr].setAlignment(Qt.AlignLeft | Qt.AlignTop)
@@ -1349,6 +1374,11 @@ class DlgWalletDetails(ArmoryDialog):
       self.frm.setFrameStyle(STYLE_SUNKEN)
       self.frm.setLayout(layout)
       
+      
+
+   def testKdfTime(self):
+      kdftimestr = "%0.3f sec" % self.wlt.testKdfComputeTime()
+      self.labelValues[WLTFIELDS.Time].setText(kdftimestr)
       
 
    def execSetOwner(self):
@@ -1995,7 +2025,6 @@ class DlgImportAddress(ArmoryDialog):
                   'available without rescanning the global transaction history. '
                   'The address will appear in the address list of this wallet.', \
                   QMessageBox.Ok)
-               self.parent.setSummaryBalances()
 
             else:
                doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
