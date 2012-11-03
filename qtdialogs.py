@@ -719,9 +719,6 @@ class DlgWalletDetails(ArmoryDialog):
       optFrame.setLayout(optLayout)
 
 
-      btnGoBack = QPushButton('<<< Go Back')
-      self.connect(btnGoBack, SIGNAL('clicked()'), self.accept)
-
       self.frm = QFrame()
       self.setWltDetailsFrame()
 
@@ -783,8 +780,6 @@ class DlgWalletDetails(ArmoryDialog):
 
       frmTotals.setLayout(frmTotalsLayout)
 
-      bottomFrm = makeHorizFrame([btnGoBack, 'Stretch', frmTotals])
-
       lblWltAddr = QRichLabel('<b>Addresses in Wallet:</b>', doWrap=False)
       self.chkHideEmpty  = QCheckBox('Hide Empty')
       self.chkHideChange = QCheckBox('Hide Change')
@@ -802,6 +797,11 @@ class DlgWalletDetails(ArmoryDialog):
                                    self.chkHideEmpty, \
                                    self.chkHideChange, \
                                    self.chkHideUnused] )
+
+      btnGoBack = QPushButton('<<< Go Back')
+      self.connect(btnGoBack, SIGNAL('clicked()'), self.accept)
+      bottomFrm = makeHorizFrame([btnGoBack, 'Stretch', frmTotals])
+
       layout = QGridLayout()
       layout.addWidget(self.frm,              0, 0)
       layout.addWidget(headerFrm,            1, 0)
@@ -850,7 +850,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.lblUnc.setText('<b>Unconfirmed:</b>')
 
       #if self.main.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Rescanning):
-      if TheBDM.getBDMState() in ('Offline','Scanning'):
+      if TheBDM.getBDMState() in ('Uninitialized', 'Offline','Scanning'):
          totStr = '-'*12
          spdStr = '-'*12
          ucnStr = '-'*12
@@ -3495,9 +3495,9 @@ class DlgImportPaperWallet(ArmoryDialog):
       self.connect(buttonbox, SIGNAL('rejected()'), self.reject)
 
       self.labels = [QLabel() for i in range(4)]
-      self.labels[0].setText('Root Key')
+      self.labels[0].setText('Root Key:')
       self.labels[1].setText('')
-      self.labels[2].setText('Chain Code')
+      self.labels[2].setText('Chain Code:')
       self.labels[3].setText('')
 
       lblDescr1 = QLabel( 
@@ -3520,7 +3520,11 @@ class DlgImportPaperWallet(ArmoryDialog):
          layout.addWidget( self.labels[i],    i+2, 0)
          layout.addWidget( self.lineEdits[i], i+2, 1)
 
-      layout.addWidget(buttonbox,  6, 0, 1, 2)
+      self.chkEncrypt = QCheckBox('Encrypt Wallet')
+      self.chkEncrypt.setChecked(True)
+
+      bottomFrm = makeHorizFrame([self.chkEncrypt, buttonbox])
+      layout.addWidget(bottomFrm,  6, 0, 1, 2)
       layout.setVerticalSpacing(10)
       self.setLayout(layout)
       
@@ -3590,7 +3594,7 @@ class DlgImportPaperWallet(ArmoryDialog):
       if self.main.walletMap.has_key(newWltID):
          QMessageBox.question(self, 'Duplicate Wallet!', \
                'The data you entered is for a wallet with a ID: \n\n \t' +
-               newWltID + '\n\n<b>You already own this wallet</b> \n  '
+               newWltID + '\n\nYou already own this wallet! \n  '
                'Nothing to do...', QMessageBox.Ok)
          self.reject()
          return
@@ -3605,14 +3609,39 @@ class DlgImportPaperWallet(ArmoryDialog):
                QMessageBox.Yes | QMessageBox.No)
       if reply==QMessageBox.No:
          return
+
+      passwd = []
+      if self.chkEncrypt.isChecked():
+         dlgPasswd = DlgChangePassphrase(self, self.main)
+         if dlgPasswd.exec_():
+            passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
+         else:
+            QMessageBox.critical(self, 'Cannot Encrypt', \
+               'You requested your restored wallet be encrypted, but no '
+               'valid passphrase was supplied.  Aborting wallet recovery.', \
+               QMessageBox.Ok)
+            return
+
+      if passwd:
+          self.newWallet = PyBtcWallet().createNewWallet( \
+                                 plainRootKey=SecureBinaryData(privKey), \
+                                 chaincode=SecureBinaryData(chain), \
+                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 withEncrypt=True, \
+                                 securePassphrase=passwd, \
+                                 kdfTargSec=0.25, \
+                                 kdfMaxMem=32*1024*1024, \
+                                 isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
       else:
          self.newWallet = PyBtcWallet().createNewWallet(  \
                                  plainRootKey=SecureBinaryData(privKey), \
                                  chaincode=SecureBinaryData(chain), \
-                                 withEncrypt=False, isActuallyNew=False, \
+                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 withEncrypt=False,\
+                                 isActuallyNew=False, \
                                  doRegisterWithBDM=False)
-         self.newWallet.setWalletLabels('PaperBackup - '+newWltID)
-         self.accept()
+      self.accept()
       
 
 
@@ -6128,8 +6157,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
       if self.wlt.watchingOnly:
          QMessageBox.warning(self, 'No Private Keys!', \
             'This transaction refers one of your wallets, but that wallet '
-            'is only a watching-only wallet.  Therefore, you cannot sign '
-            'this transaction.', \
+            'is a watching-only wallet.  Therefore, private keys are '
+            'not available to sign this transaction.', \
              QMessageBox.Ok)
          return
 

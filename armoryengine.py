@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 84, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 84, 1, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -64,10 +64,6 @@ from sys import argv
 
 import optparse
 parser = optparse.OptionParser(usage="%prog [options]\n")
-#parser.add_option("--host", dest="host", default="127.0.0.1",
-                  #help="IP/hostname to connect to (default: %default)")
-#parser.add_option("--port", dest="port", default="8333", type="int",
-                  #help="port to connect to (default: %default)")
 parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="str",
                   help="load Armory with a specific settings file")
 parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
@@ -88,16 +84,12 @@ parser.add_option("--debug", dest="doDebug", action="store_true", default=False,
                   help="Increase amount of debugging output")
 parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
                   help="Disable all logging")
-#parser.add_option("--logcpp", dest="logcpp", action="store_true", default=False,
-                  #help="Log C++/SWIG console output by redirecting *all* stdout to log file")
 parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
 parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=False,
                   help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
-#parser.add_option("--no-threading", dest="noThreading", action="store_true", default=False,
-                  #help="Main thread will pause until BDM ops are done")
 parser.add_option("--keypool", dest="keypool", default=200, type="int",
                   help="Default number of addresses to lookahead in Armory wallets")
 

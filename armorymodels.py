@@ -73,7 +73,10 @@ class AllWalletsDispModel(QAbstractTableModel):
          elif col in (COL.Secure,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Bal,):
-            return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
+            if not TheBDM.getBDMState()=='BlockchainReady':
+               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            else:
+               return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
       elif role==Qt.BackgroundColorRole:
          t = determineWalletType(wlt, self.main)[0]
          if t==WLTTYPES.WatchOnly:
@@ -457,7 +460,10 @@ class WalletAddrDispModel(QAbstractTableModel):
          elif col in (COL.NumTx,COL.Imported):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
-            return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
+            if not TheBDM.getBDMState()=='BlockchainReady':
+               return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
+            else:
+               return QVariant(int(Qt.AlignRight | Qt.AlignVCenter))
       elif role==Qt.ForegroundRole:
          if col==COL.Balance:
             if not TheBDM.getBDMState()=='BlockchainReady':

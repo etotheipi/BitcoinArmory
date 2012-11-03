@@ -418,12 +418,13 @@ class ArmoryMainWindow(QMainWindow):
       ##########################################################################
       # Set up menu and actions
       #MENUS = enum('File', 'Wallet', 'User', "Tools", "Network")
-      MENUS = enum('File', 'User', 'Tools', 'Wallets', 'Help')
+      MENUS = enum('File', 'User', 'Tools', 'Addresses', 'Wallets', 'Help')
       self.menu = self.menuBar()
       self.menusList = []
       self.menusList.append( self.menu.addMenu('&File') )
       self.menusList.append( self.menu.addMenu('&User') )
       self.menusList.append( self.menu.addMenu('&Tools') )
+      self.menusList.append( self.menu.addMenu('&Addresses') )
       self.menusList.append( self.menu.addMenu('&Wallets') )
       self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
@@ -483,8 +484,18 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Tools].addAction(actOpenTools)
 
 
+      # Addresses
+      actAddrBook   = self.createAction('View &Address Book',          self.execAddressBook)
+      actSweepKey   = self.createAction('&Sweep Private Key/Address',  self.menuSelectSweepKey)
+      actImportKey  = self.createAction('&Import Private Key/Address', self.menuSelectImportKey)
+
+      self.menusList[MENUS.Addresses].addAction(actAddrBook)
+      if not currmode=='Standard':
+         self.menusList[MENUS.Addresses].addAction(actImportKey)
+         self.menusList[MENUS.Addresses].addAction(actSweepKey)
+
       actCreateNew      = self.createAction('&Create New Wallet',        self.createNewWallet)
-      actImportWlt      = self.createAction('&Import Armory Wallet',      self.execGetImportWltName)
+      actImportWlt      = self.createAction('&Import Armory Wallet File',      self.execGetImportWltName)
       actRestorePaper   = self.createAction('&Restore from Paper Backup', self.execRestorePaperBackup)
       #actMigrateSatoshi = self.createAction('&Migrate Bitcoin Wallet',    self.execMigrateSatoshi)
       actAddressBook    = self.createAction('View &Address Book',         self.execAddressBook)
@@ -494,7 +505,7 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList[MENUS.Wallets].addAction(actImportWlt)
       self.menusList[MENUS.Wallets].addAction(actRestorePaper)
       #self.menusList[MENUS.Wallets].addAction(actMigrateSatoshi)
-      self.menusList[MENUS.Wallets].addAction(actAddressBook)
+      #self.menusList[MENUS.Wallets].addAction(actAddressBook)
 
 
       execAbout   = lambda: DlgHelpAbout(self).exec_()
@@ -519,7 +530,6 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
-
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
 
@@ -529,6 +539,33 @@ class ArmoryMainWindow(QMainWindow):
          # Don't need to bother the user on the first load with updating
          reactor.callLater(0.2, self.checkForLatestVersion)
 
+
+
+
+   ####################################################
+   def menuSelectImportKey(self):
+      QMessageBox.information(self, 'Select Wallet', \
+         'You must import an address into a specific wallet.  If '
+         'you do not want to import the key into any available wallet, '
+         'it is recommeneded you make a new wallet for this purpose.'
+         '<br><br>'
+         'Double-click on the desired wallet from the main window, then '
+         'click on "Import/Sweep Private Keys" on the bottom-right '
+         'of the properties window.'
+         '<br><br>'
+         'Keys cannot be imported into watching-only wallets, only full '
+         'wallets.', QMessageBox.Ok)
+
+   ####################################################
+   def menuSelectSweepKey(self):
+      QMessageBox.information(self, 'Select Wallet', \
+         'You must select a wallet into which funds will be swept. '
+         'Double-click on the desired wallet from the main window, then '
+         'click on "Import/Sweep Private Keys" on the bottom-right '
+         'of the properties window to sweep to that wallet.'
+         '<br><br>'
+         'Keys cannot be swept into watching-only wallets, only full '
+         'wallets.', QMessageBox.Ok)
 
 
    ####################################################
@@ -2126,6 +2163,9 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
 
+      #TheBDM.registerWallet(wlt, isFresh=False, wait=False)
+      #if
+
       fname = self.getUniqueWalletFilename(fn)
       newpath = os.path.join(ARMORY_HOME_DIR, fname)
 
@@ -2165,7 +2205,7 @@ class ArmoryMainWindow(QMainWindow):
                'the "Restore Wallet" dialog again when you are able to wait '
                'for the rescan operation.  ', QMessageBox.Ok)
 
-            # The wallet cannot exist without alos being on disk. 
+            # The wallet cannot exist without also being on disk. 
             # If the user aborted, we should remove the disk data.
             thepath       = dlgPaper.newWallet.getWalletPath()
             thepathBackup = dlgPaper.newWallet.getWalletPath('backup')
@@ -2519,7 +2559,7 @@ class ArmoryMainWindow(QMainWindow):
    def setDashboardDetails(self):
       onlineAvail = self.onlineModeIsPossible()
       txtOfflineFunc = ( \
-         'In offline mode, The following functionality is available:'
+         'The following functionality is available in offline mode:'
          '<ul>'
          '<li>Create, import or recover wallets</li>'
          '<li>Generate new receiving addresses for your wallets</li>'
@@ -2720,12 +2760,11 @@ class ArmoryMainWindow(QMainWindow):
          else:
             lblText += 'Armory is scanning the global transaction history to retrieve '
             lblText += 'information about your wallets.  The "Transactions" tab will '
-            lblText += 'update with your balances and transaction history as soon as '
+            lblText += 'be updated with wallet balances and history as soon as '
             lblText += 'the scan is complete.'
 
          lblText += '<br><br>'
-         lblText += 'While you wait, you may manage your Armory wallets.'
-         lblText += '<br>'
+         lblText += 'While you wait, you may manage your Armory wallets.  '
          lblText += txtOfflineFunc
          lblText += '<br>'
          self.lblDashDescr.setText(lblText)

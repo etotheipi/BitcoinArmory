@@ -2761,6 +2761,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       blkFileList_.push_back(nextFilename);
    }
    return nBlkRead;
+
 }
 
 
