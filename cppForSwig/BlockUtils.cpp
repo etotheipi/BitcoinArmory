@@ -2281,6 +2281,7 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
       rescanWalletZeroConf(myWallet);
 
    PDEBUG("Done scanning blockchain for tx");
+   TIMER_STOP("scanBlockchainForTx");
 }
 
 

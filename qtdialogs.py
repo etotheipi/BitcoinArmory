@@ -3366,20 +3366,21 @@ class DlgIntroMessage(ArmoryDialog):
          'software available!</b>  But please remember, this software '
          'is still <i>Beta</i> - Armory developers will not be held responsible '
          'for loss of bitcoins resulting from the use of this software.'
-         '<br><br><br>'
+         '<br><br>'
          '<b>To use Armory online</b>, '
          'you must have Bitcoin-Qt (or bitcoind) open and synchronized '
          'with the Bitcoin network.  You can download Bitcoin-Qt from <a '
-         'href=http://www.bitcoin.org>www.bitcoin.org</a>.  If you are '
-         'downloading Bitcoin-Qt for the first time, you will need to wait '
-         'for it to download the global transaction history before Armory '
-         'will work.  This may take many hours, but only needs to be done '
-         'once.  Please be patient!'
-         '<br><br><br>'
-         'For more information about Bitcoin and the Armory software, '
-         'please visit the <a href="http://'
+         'href=http://www.bitcoin.org>www.bitcoin.org</a>.  If you have '
+         'never run Bitcoin-Qt before, you will need to wait '
+         'for it to finish synchronizing before Armory '
+         'will work.  <i>This may take many hours, but only needs to be done '
+         'once!</i>  A green checkmark will appear in the '
+         'bottom-right corner of the Bitcoin-Qt window when it is finished.'
+         '<br><br>'
+         'For more info about Armory, and Bitcoin itself, see '
+         '<a href="http://'
          'bitcoinarmory.com/index.php/frequently-asked-questions">frequently '
-         'asked questions</a> page.')
+         'asked questions</a>.')
       lblDescr.setOpenExternalLinks(True)
       
       lblContact = QRichLabel( \
@@ -3452,8 +3453,6 @@ class DlgIntroMessage(ArmoryDialog):
 
 
 
-
-#class DlgPesterDonate(ArmoryDialog):
   
 
 
@@ -4633,6 +4632,16 @@ class DlgSendBitcoins(ArmoryDialog):
          'You will have the ability to change the donation amount '
          'before finalizing the transaction.')
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
+
+
+      btnEnterURI = QPushButton('Enter raw "bitcoin:" URL')
+      ttipEnterURI = createToolTipObject( \
+         'Armory does not always succeed at registering itself to handle '
+         'URL links from webpages and email.  '
+         'Click this button to copy a link directly into Armory')
+      self.connect(btnEnterURI, SIGNAL("clicked()"), self.clickEnterURI)
+
+
       if USE_TESTNET:
          btnDonate.setVisible(False)
          ttipDonate.setVisible(False)
@@ -4755,6 +4764,7 @@ class DlgSendBitcoins(ArmoryDialog):
       #btnFrame = makeVertFrame([btnUnsigned, ttipUnsigned, btnDonate, ttipDonate])
       frmUnsigned = makeHorizFrame([btnUnsigned, ttipUnsigned])
       frmDonate   = makeHorizFrame([btnDonate,   ttipDonate])
+      frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
       #btnFrame = QFrame()
       #btnFrame.setFrameStyle(QFrame.NoFrame)
       #btnFrameLayout = QGridLayout()
@@ -4779,6 +4789,7 @@ class DlgSendBitcoins(ArmoryDialog):
       frmBottomLeft = makeVertFrame( [self.frmInfo, \
                                       frmUnsigned, \
                                       frmDonate, \
+                                      frmEnterURI, \
                                       'Stretch', \
                                       frmChangeAddr],  STYLE_SUNKEN )
 
@@ -5194,6 +5205,10 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable[-1][self.COLS.Comm].setText(\
             'Donation to Armory developers.  Thank you for your generosity!')
 
+   #############################################################################
+   def clickEnterURI(self):
+      dlg = DlgUriCopyAndPaste(self,self.main)
+      dlg.exec_()
 
    #############################################################################
    def addOneRecipient(self, addr160, amt, msg, label=''):
@@ -10146,6 +10161,81 @@ class DlgVersionNotify(ArmoryDialog):
 
 
 
+
+################################################################################
+class DlgUriCopyAndPaste(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgUriCopyAndPaste, self).__init__(parent, main)
+
+      lblDescr = QRichLabel('Copy and paste a raw bitcoin URL string here.  '
+                            'A valid string starts with "bitcoin:" followed '
+                            'by a bitcoin address.'
+                            '<br><br>'
+                            'You should use this feature if there is a "bitcoin:" '
+                            'link in a webpage or email that does not load Armory '
+                            'when you click on it.  Instead, right click on the '
+                            'link and select "Copy Link Address," then paste it '
+                            'into the box below. '  )
+
+      lblShowExample = QLabel()
+      lblShowExample.setPixmap(QPixmap(':/armory_rightclickcopy.png'))
+
+      self.txtUriString = QLineEdit()
+      self.txtUriString.setFont( GETFONT('Fixed', 8))
+
+      self.btnOkay   = QPushButton('Done')
+      self.btnCancel = QPushButton('Cancel')
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnOkay,   QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      self.connect(self.btnOkay, SIGNAL('clicked()'), self.parseURI)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+
+      frmImg = makeHorizFrame(['Stretch',lblShowExample,'Stretch'])
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmImg)
+      layout.addWidget(HLINE())
+      layout.addWidget(self.txtUriString)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+
+
+   def parseURI(self):
+      uriStr = str(self.txtUriString.text())
+      succeeded = self.main.uriLinkClicked(uriStr, 'enter')
+      if succeeded:
+         self.parent.accept()
+         self.accept()
+
+
+# STUB
+class dlgRawTx(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgVersionNotify, self).__init__(parent, main)
+
+      
+      lblRaw = QRichLabel('You may paste raw transaction data into the box below, '
+                          'and then click "Broadcast" to send it to the Bitcoin '
+                          'network.  If the transaction has been broadcast before, '
+                          'attempting to send it again is unlikely to do anything.')
+
+      self.txtRawTx = QTextEdit()
+      self.txtRawTx.setFont( GETFONT('Fixed',8) )
+      #self.txtRawTx.sizeHint = lambda: QSize(w,h)
+      self.txtRawTx.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+      self.connect(self.txtRawTx, SIGNAL('textChanged()'), self.processTx)
+      
+      self.btnBroadcast = QPushButton("Broadcast")
+      self.connect(self.btnBroadcast, SIGNAL('clicked()'), self.broadcastTx)
+
+   
+   #def __init__(self, pytx, wlt=None, parent=None, main=None, mode=None, \
+                             #precomputeIdxGray=None, precomputeAmt=None, txtime=None):
 
 
 

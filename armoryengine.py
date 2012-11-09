@@ -5202,12 +5202,15 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
 
       alreadyUsedAddr = set( [utxo.getRecipientAddr() for utxo in finalSelection] )
       getPriority = lambda a: a.getValue() * a.getNumConfirm()
+      getUtxoID = lambda a: a.getTxHash() + int_to_binary(a.getTxOutIndex())
       utxoSmallToLarge = sorted(unspentTxOutInfo, key=getPriority)
+      utxoSmToLgIDs = [getUtxoID(utxo) for utxo in utxoSmallToLarge]
+      finalSelectIDs = [getUtxoID(utxo) for utxo in finalSelection]
       
       for other in utxoSmallToLarge:
          
          # Skip it if it is already selected
-         if other in finalSelection:
+         if getUtxoID(other) in finalSelectIDs:
             continue
 
          # We only consider UTXOs that won't link any new addresses together
@@ -11172,6 +11175,27 @@ else:
    LOGINFO('including after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.start()
+
+
+
+
+
+
+
+################################################################################
+class TimerMap:
+   timers_ = {}
+   def __init__(self):
+      pass
+
+
+
+
+
+
+
+
+
 
 
 
