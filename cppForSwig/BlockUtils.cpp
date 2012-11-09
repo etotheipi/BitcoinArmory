@@ -1518,6 +1518,7 @@ void BtcWallet::pprintLedger(void)
 //        that I don't have to re-search for them later...
 vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 {
+   TIME_THIS_METHOD("createAddressBook");
    // Collect all data into a map -- later converted to vector and sort it
    map<HashString, AddressBookEntry> sentToMap;
    set<HashString> allTxList;
@@ -2139,7 +2140,7 @@ bool BlockDataManager_FileRefs::isDirty(
 uint32_t BlockDataManager_FileRefs::numBlocksToRescan( BtcWallet & wlt,
                                                        uint32_t endBlk)
 {
-
+   TIME_THIS_METHOD("numBlocksToRescan");
    // This method tells us whether we have to scan ANY blocks from disk
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
@@ -2249,6 +2250,8 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
                                                     uint32_t startBlknum,
                                                     uint32_t endBlknum)
 {
+   TIME_THIS_METHOD("scanBlockchainForTx_TOKEN");
+   TIMER_START("scanBlockchainForTx");
 
    // The BDM knows the highest block to which ALL CURRENT REGISTERED ADDRESSES
    // are up-to-date in the registeredTxList_ list.  
@@ -2294,7 +2297,7 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
-   TIMER_START("RescanTiming");
+   TIME_THIS_METHOD("rescanBlocks");
    for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
@@ -2311,7 +2314,6 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
          registeredAddrScan(thisTx);
       }
    }
-   TIMER_STOP("RescanTiming");
 
    allRegAddrScannedUpToBlk_ = blk1;
    updateRegisteredAddresses(blk1);
@@ -2345,6 +2347,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
                                                            uint32_t blkStart,
                                                            uint32_t blkEnd)
 {
+   TIME_THIS_METHOD("scanRegisteredTxForWallet");
    PDEBUG("Scanning relevant tx list for wallet");
 
    // Make sure RegisteredTx objects have correct data, then sort.
@@ -2480,6 +2483,7 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir, 
                                                            uint32_t cacheSize)
 {
+   TIME_THIS_METHOD("parseEntireBlockchain");
    cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
 
    // Initialize a global cache that will be used...
@@ -2565,7 +2569,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    
       bool alreadyRead8B = false;
       uint32_t nextBlkSize;
-      TIMER_START("ScanBlockchain");
+      TIMER_START("while(bsb.streamPull())");
       while(bsb.streamPull())
       {
          while(bsb.reader().getSizeRemaining() > 8)
@@ -2591,8 +2595,8 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
             bsb.reader().advance(nextBlkSize);
          }
       }
-      globalCache.openFile(fnum-1, blkfile);
-      TIMER_STOP("ScanBlockchain");
+      //globalCache.openFile(fnum-1, blkfile);
+      TIMER_STOP("while(bsb.streamPull())");
 
    }
 
@@ -2613,6 +2617,14 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
    purgeZeroConfPool();
+
+   TIMER_STOP("parseEntireBlockchain");
+
+   #ifdef _DEBUG
+      UniversalTimer::instance().printCSV(cout,true);
+      UniversalTimer::instance().printCSV(string("timings.csv"));
+   #endif
+
    return blocksReadSoFar_;
 }
 
@@ -2627,7 +2639,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
 //
 uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 {
-   TIMER_START("getBlockfileUpdates");
+   TIME_THIS_METHOD("readBlkFileUpdate");
 
    // Make sure the file exists and is readable
    string filename = blkFileList_[blkFileList_.size()-1];
@@ -2741,7 +2753,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
          keepGoing = false;
    }
-   TIMER_STOP("getBlockfileUpdates");
    lastBlkFileBytes_ += currBlkBytesToRead;
    lastTopBlock_ = getTopBlockHeight()+1;
 
@@ -2760,6 +2771,17 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       numBlkFiles_ += 1;
       blkFileList_.push_back(nextFilename);
    }
+
+   // We'll stop the timer here so it will stop before printing
+   // It will be stopped again when the TimerToken goes out of scope,
+   // but it does no harm to stop a timer multiple times.
+   TIMER_STOP("readBlkFileUpdate");
+
+   #ifdef _DEBUG
+      UniversalTimer::instance().printCSV(cout,true);
+      UniversalTimer::instance().printCSV(string("timings.csv"));
+   #endif
+
    return nBlkRead;
 
 }
@@ -2893,7 +2915,6 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    static vector<uint32_t> offsetsOut;
    static BinaryData hashResult(32);
 
-   TIMER_START("parseNewBlockData_Scan_Tx_List");
    for(uint32_t i=0; i<nTx; i++)
    {
       // We get a little funky here because I need to avoid ALL unnecessary
@@ -2927,7 +2948,6 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
       txOffset += txSize;
       brr.advance(txSize);
    }
-   TIMER_STOP("parseNewBlockData_Scan_Tx_List");
    return true;
 }
    
@@ -2948,6 +2968,7 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader & brrRaw
                                                         uint32_t thisHeaderOffset,
                                                         uint32_t blockSize)
 {
+   TIME_THIS_METHOD("addNewBlockData");
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
    HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
@@ -3445,6 +3466,7 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::purgeZeroConfPool(void)
 {
+   TIME_THIS_METHOD("purgeZeroConfPool");
    list< map<HashString, ZeroConfData>::iterator > mapRmList;
 
    // Find all zero-conf transactions that made it into the blockchain
@@ -3472,12 +3494,14 @@ void BlockDataManager_FileRefs::purgeZeroConfPool(void)
    // Rewrite the zero-conf pool file
    if(mapRmList.size() > 0)
       rewriteZeroConfFile();
+
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::rewriteZeroConfFile(void)
 {
+   TIME_THIS_METHOD("rewriteZeroConfFile");
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
    static HashString txHash(32);
@@ -3493,12 +3517,14 @@ void BlockDataManager_FileRefs::rewriteZeroConfFile(void)
    }
 
    zcFile.close();
+
 }
 
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::rescanWalletZeroConf(BtcWallet & wlt)
 {
+   TIME_THIS_METHOD("rescanWalletZeroConf");
    // Clear the whole list, rebuild
    wlt.clearZeroConfPool();
 

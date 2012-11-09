@@ -10755,7 +10755,13 @@ class BlockDataManagerThread(threading.Thread):
      
       ### This is the part that takes forever
       self.bdm.parseEntireBlockchain(self.blkdir)
+
+      #print 'TopBlock:', self.bdm.getTopBlockHeight()
+      #print 'SLEEPING FOR 10 min (DEBUGGING)'
+      #time.sleep(600) 
+
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
+
 
 
       
@@ -10845,7 +10851,7 @@ class BlockDataManagerThread(threading.Thread):
       that it theoretically *could* take a while, and the caller might care.
       ''' 
       if self.blkMode == BLOCKCHAINMODE.Offline:
-         LOGERROR('Can\'t update blockchain in %s mode!', self.getBlkModeStr())
+         LOGERROR('Can\'t update blockchain in %s mode!', self.getBDMState())
          return
 
       self.blkMode = BLOCKCHAINMODE.LiteScanning
@@ -10909,7 +10915,7 @@ class BlockDataManagerThread(threading.Thread):
 
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
-      self.cppWltList   = []   # these will be python refs
+      self.cppWltList   = []   # these will be C++ refs
 
       # The BlockDataManager is easier to use if you put all your addresses
       # into a C++ BtcWallet object, and let it 

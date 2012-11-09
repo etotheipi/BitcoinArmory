@@ -3362,23 +3362,26 @@ class DlgIntroMessage(ArmoryDialog):
       lblSlogan.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       lblDescr = QRichLabel( \
-         '<b>You are about to use the most feature-packed, easiest-to-use '
-         'Bitcoin client in existence</b>.  But please remember, this software '
-         'is still <i>Beta</i> and Armory developers will not be held responsible '
-         'for loss of bitcoins due to software defects.  By using Armory, you are '
-         'agreeing to the terms set forth in the LICENSE file included with this '
-         'program, or at <a href="http://bitcoinarmory.com/index.php/software-licence">'
-         'http://bitcoinarmory.com/index.php/software-licence</a>.')
+         '<b>You are about to use the most secure and feature-rich Bitcoin client '
+         'software available!</b>  But please remember, this software '
+         'is still <i>Beta</i> - Armory developers will not be held responsible '
+         'for loss of bitcoins resulting from the use of this software.'
+         '<br><br><br>'
+         '<b>To use Armory online</b>, '
+         'you must have Bitcoin-Qt (or bitcoind) open and synchronized '
+         'with the Bitcoin network.  You can download Bitcoin-Qt from <a '
+         'href=http://www.bitcoin.org>www.bitcoin.org</a>.  If you are '
+         'downloading Bitcoin-Qt for the first time, you will need to wait '
+         'for it to download the global transaction history before Armory '
+         'will work.  This may take many hours, but only needs to be done '
+         'once.  Please be patient!'
+         '<br><br><br>'
+         'For more information about Bitcoin and the Armory software, '
+         'please visit the <a href="http://'
+         'bitcoinarmory.com/index.php/frequently-asked-questions">frequently '
+         'asked questions</a> page.')
       lblDescr.setOpenExternalLinks(True)
       
-      lblMustDo = QRichLabel('<b>In order to use this software online:</b>')
-      strReqts = []
-      strReqts.append('Must have Bitcoin-Qt or bitcoind client (www.bitcoin.org) '
-                      'open and on the same network (Main-net or Testnet)')
-      strReqts.append('<b>Please</b> make sure the Bitcoin-Qt client is sync\'d '
-                      'with the network before loading Armory.')
-      lblReqts = QRichLabel( ''.join(['-- '+s+'<br>' for s in strReqts]))
-
       lblContact = QRichLabel( \
          '<b>If you find this software useful, please consider pressing '
          'the "Donate" button on your next transaction!</b>')
@@ -3388,8 +3391,6 @@ class DlgIntroMessage(ArmoryDialog):
 
       frmText = makeLayoutFrame('Vert', [lblWelcome,    spacer(), \
                                          lblDescr,      spacer(), \
-                                         lblMustDo,               \
-                                         lblReqts,      spacer(), \
                                          lblContact     ])
 
       

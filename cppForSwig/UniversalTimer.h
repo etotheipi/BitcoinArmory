@@ -70,6 +70,8 @@
 
 #define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
 
+#define TIME_THIS_METHOD(NAME) TimerToken TT(NAME)
+
 using namespace std;
 
 class UniversalTimer
@@ -122,6 +124,32 @@ private:
    map<string, string> call_group_;
    string most_recent_key_;
 };
+
+
+// Create a token at the beginning of a function, and it will stop the timer
+// when that token goes out of scope.
+class TimerToken
+{
+public:
+   TimerToken(string name) 
+   { 
+      timerName_ = name; 
+      UniversalTimer::instance().start(timerName_);
+   }
+
+
+   ~TimerToken(void)
+   { 
+      UniversalTimer::instance().stop(timerName_);
+   }
+
+private: 
+   string timerName_;
+};
+
+
+
+
 #endif
 
 

@@ -1,10 +1,9 @@
 COMPILER = g++ 
-#COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
-COMPILER_OPTS = -c -O2 -pipe -fPIC 
+COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
+#COMPILER_OPTS = -c -O2 -pipe -fPIC 
 
 #**************************************************************************
 LINKER = g++ 
-#OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a MemTrack.o
 OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a
 
 
@@ -47,9 +46,6 @@ BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
 #**************************************************************************
 libcryptopp.a: Makefile
 	cd cryptopp; make libcryptopp.a; mv libcryptopp.a ..
-
-#MemTrack.o: MemTrack.h MemTrack.cpp
-	#$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) MemTrack.cpp
 
 UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) UniversalTimer.cpp

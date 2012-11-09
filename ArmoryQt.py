@@ -93,7 +93,11 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate = []
       self.callCount = 0
       self.lastBDMState = ['Uninitialized', None]
+      self.detectNotSyncQ = [0,0,0,0,0]
+      self.noSyncWarnYet = True
+      self.doHardReset = False
       self.doShutdown = False
+
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -176,11 +180,9 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerProxy = LedgerDispSortProxy()
       self.ledgerProxy.setSourceModel(self.ledgerModel)
       self.ledgerProxy.setDynamicSortFilter(False)
-      #self.ledgerProxy.sort(LEDGERCOLS.NumConf, Qt.AscendingOrder)
 
       self.ledgerView  = QTableView()
       self.ledgerView.setModel(self.ledgerProxy)
-      #self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -201,14 +203,9 @@ class ArmoryMainWindow(QMainWindow):
 
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
-      #if self.usermode==USERMODE.Standard:
       cWidth = 20 # num-confirm icon width
       tWidth = 72 # date icon width
       initialColResize(self.ledgerView, [cWidth, 0, dateWidth, tWidth, 0.30, 0.40, 0.3])
-      #elif self.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         #initialColResize(self.ledgerView, [20, dateWidth, 72, 0.30, 0.45, 150, 0, 0.20, 0.10])
-         #self.ledgerView.setColumnHidden(LEDGERCOLS.WltID, False)
-         #self.ledgerView.setColumnHidden(LEDGERCOLS.TxHash, False)
       
       self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickLedger)
@@ -243,9 +240,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lblBusy = QLabel('')
       self.lblBusy.setMovie( self.qmov )
       self.qmov.start()
-      #btnW,btnH = relaxedSizeStr(self, 'Switch to online mode!')
-      #self.btnModeSwitch.setMaximumWidth( btnW)
-      #self.btnModeSwitch.setMaximumHeight( btnH)
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), self.pressModeSwitchButton)
       self.lblDashMode = QRichLabel('',doWrap=False)
       self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -395,22 +389,12 @@ class ArmoryMainWindow(QMainWindow):
       mainFrame = QFrame()
       mainFrame.setLayout(layout)
       self.setCentralWidget(mainFrame)
-      #if self.usermode==USERMODE.Standard:
       self.setMinimumSize(750,500)
-      #else:
-         #self.setMinimumSize(1200,300)
 
-      #self.statusBar().showMessage('Blockchain loading, please wait...')
-
+      # Start the user at the dashboard
+      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
 
       from twisted.internet import reactor
-
-      self.prevBlkLoadFinish = False
-      self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
-      if TheBDM.getBDMState()=='Uninitialized' and self.netMode==NETWORKMODE.Full:
-         # 'Uninitialized' means it is currently offline but want to be online
-         TheBDM.loadBlockchain(wait=False)
-
       # Show the appropriate information on the dashboard
       self.setDashboardDetails()
 
@@ -512,8 +496,10 @@ class ArmoryMainWindow(QMainWindow):
       execVersion = lambda: self.checkForLatestVersion(wasRequested=True)
       actAboutWindow  = self.createAction('About Armory', execAbout)
       actVersionCheck = self.createAction('Armory Version...', execVersion)
+      actFactoryReset = self.createAction('Revert All Settings', self.factoryReset)
       self.menusList[MENUS.Help].addAction(actAboutWindow)
       self.menusList[MENUS.Help].addAction(actVersionCheck)
+      self.menusList[MENUS.Help].addAction(actFactoryReset)
 
       # Restore any main-window geometry saved in the settings file
       hexgeom   = self.settings.get('MainGeometry')
@@ -540,7 +526,37 @@ class ArmoryMainWindow(QMainWindow):
          reactor.callLater(0.2, self.checkForLatestVersion)
 
 
+   ####################################################
+   def factoryReset(self):
+      reply = QMessageBox.information(self,'Revert all Settings?', \
+         'You are about to revert all Armory settings '
+         'to the state they were in when Armory was first installed.  '
+         '<br><br>'
+         'If you click "Yes, Armory will exit after settings are '
+         'reverted.  You will have to manually start Armory again.'
+         '<br><br>'
+         'Do you want to continue? ', \
+         QMessageBox.Yes | QMessageBox.No)
 
+      if reply==QMessageBox.Yes:
+         self.doHardReset = True
+         self.closeForReal()
+         
+
+   ####################################################
+   def loadFailedManyTimesFunc(self, nFail):
+      """
+      For now, if the user is having trouble loading the blockchain, all 
+      we do is delete mempool.bin (which is frequently corrupted but not 
+      detected as such.  However, we may expand this in the future, if 
+      it's determined that more-complicated things are necessary.
+      """
+      LOGERROR('%d attempts to load blockchain failed.  Remove mempool.bin.' % nFail)
+      mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+      if os.path.exists(mempoolfile): 
+         os.remove(mempoolfile)
+      else:
+         LOGERROR('File mempool.bin does not exist. Nothing deleted.')
 
    ####################################################
    def menuSelectImportKey(self):
@@ -998,8 +1014,17 @@ class ArmoryMainWindow(QMainWindow):
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
       elif self.onlineModeIsPossible():
+         # Track number of times we start loading the blockchain.
+         # We will decrement the number when loading finishes
+         # We can use this to detect problems with mempool or blkxxxx.dat
+         self.numTriesOpen = self.getSettingOrSetDefault('FailedLoadCount', 0)
+         if self.numTriesOpen>2:
+            self.loadFailedManyTimesFunc(self.numTriesOpen)
+         self.settings.set('FailedLoadCount', self.numTriesOpen+1)
+
          self.switchNetworkMode(NETWORKMODE.Full)
          TheBDM.setOnlineMode(True, wait=False)
+
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
@@ -1443,6 +1468,7 @@ class ArmoryMainWindow(QMainWindow):
                self.writeSetting('NotifyBlkFinish',False)
                
          self.netMode = NETWORKMODE.Full
+         self.settings.set('FailedLoadCount', 0)
       else:
          self.statusBar().showMessage('! Blockchain loading failed !', 10000)
    
@@ -2813,17 +2839,39 @@ class ArmoryMainWindow(QMainWindow):
          self.dirtyLastTime = TheBDM.isDirty()
 
    
-         #print '(BDM,Net,Dirty) = (%s,%s,%s)' % (TheBDM.getBDMState(), self.netMode, TheBDM.isDirty())
          if TheBDM.getBDMState()=='BlockchainReady':
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
+
+            #####
+            # If we are getting lots of blocks, very rapidly, issue a warning
+            # We look at a rolling sum of the last 5 heartbeat updates (5s)
+            self.detectNotSyncQ.insert(0, newBlocks)
+            self.detectNotSyncQ.pop()
+            blksInLast5sec = sum(self.detectNotSyncQ)
+            if( blksInLast5sec>10 ):
+               LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
+               LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
+               if self.noSyncWarnYet:
+                  self.noSyncWarnYet = False
+                  QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
+                     'Armory has detected that Bitcoin-Qt is not synchronized '
+                     'with the bitcoin network yet.  It is highly recommended '
+                     'that you close Armory and do not restart it until you see '
+                     'the green checkmark in the bottom-right corner of the Bitcoin-'
+                     'Qt window.', QMessageBox.Ok)
+               return
+            
    
+            #####
+            # Blockchain just finished loading.  Do lots of stuff...
             if self.needUpdateAfterScan:
                LOGDEBUG('Running finishLoadBlockchain')
                self.finishLoadBlockchain()
                self.needUpdateAfterScan = False
                self.setDashboardDetails()
                
+            #####
             # If we just rescanned to sweep an address, need to finish it
             if len(self.sweepAfterScanList)>0:
                LOGDEBUG('SweepAfterScanList is not empty -- exec finishSweepScan()')
@@ -2833,6 +2881,7 @@ class ArmoryMainWindow(QMainWindow):
                self.sweepAfterScanList = []
                self.setDashboardDetails()
 
+            #####
             # If we had initiated any wallet restoration scans, we need to add
             # Those wallets to the display
             if len(self.walletRestoreList)>0:
@@ -3071,9 +3120,23 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
          self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
          self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
+         # If user explicitly closed the window, don't count as a failed load
+         #nTries = max(1,self.getSettingOrSetDefault('FailedLoadCount', 1))
+         #self.writeSetting('FailedLoadCount', nTries-1)
       except:
          # Don't want a strange error here interrupt shutdown 
          pass
+
+
+      if self.doHardReset:
+         try:
+            os.remove(self.settingsPath) 
+         except:
+            LOGERROR('Could not remove settings path.')
+
+         mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
+         if os.path.exists(mempoolfile):
+            os.remove(mempoolfile)
 
       from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')
