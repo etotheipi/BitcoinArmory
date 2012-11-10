@@ -11287,25 +11287,32 @@ def ReadTimer(timerName):
 
 def PrintTimings():
    print 'Timings:  '.ljust(20), 
-   print 'nCall'.ljust(10)
-   print 'cumulTime '.ljust(10)
-   print 'avgTime'.ljust(10)
+   print 'nCall'.rjust(13),
+   print 'cumulTime'.rjust(13),
+   print 'avgTime'.rjust(13)
+   print '-'*70
    for tname,quad in TimerMap.iteritems():
-      print ('\t%s' % tname).rjust(20), 
-      print ('%0.6f' % quad[1]).rjust(10)
-      print ('%0.6f' % quad[0]).rjust(10)
+      print ('%s' % tname).ljust(20), 
+      print ('%d' % quad[1]).rjust(13),
+      print ('%0.6f' % quad[0]).rjust(13),
       avg = quad[0]/quad[1]
-      print ('%0.6f' % avg).rjust(10)
+      print ('%0.6f' % avg).rjust(13)
+   print '-'*70
       
 
-
-
-
-
-
-
-
-
+def SaveTimingsCSV(fname):
+   f = open(fname, 'w')
+   f.write( 'TimerName,')
+   f.write( 'nCall,')
+   f.write( 'cumulTime,')
+   f.write( 'avgTime\n')
+   for tname,quad in TimerMap.iteritems():
+      f.write('%s,' % tname)
+      f.write('%d,' % quad[1])
+      f.write('%0.6f,' % quad[0])
+      avg = quad[0]/quad[1]
+      f.write('%0.6f\n' % avg)
+   'Saved timings to file: %s' % fname
 
 
 

@@ -33,7 +33,8 @@ Test_AddressBooks     = False
 Test_URIParse         = False
 
 Test_BkgdThread       = False
-Test_AsyncBDM         = True
+Test_AsyncBDM         = False
+Test_Timers           = True
 
 '''
 import optparse
@@ -2195,6 +2196,43 @@ if Test_AsyncBDM:
       TheBDM.execCleanShutdown()
    
    
+
+if Test_Timers:
+   print '***********************************************************************'
+   print 'Testing Timer Objects'
+   print '***********************************************************************'
    
+   n=100000
+
+   TimerStart('Coin2Str10000x1')
+   for i in xrange(n):
+      j = coin2str(10002300000, maxZeros=2)
+   TimerStop('Coin2Str10000x1')
+
+
+   for i in xrange(n):
+      TimerStart('Coin2Str1x10000')
+      j = coin2str(10002300000, maxZeros=2)
+      TimerStop('Coin2Str1x10000')
+
+
+   TimerStart('LoopOnly')
+   for i in xrange(n):
+      pass
+   TimerStop('LoopOnly')
+
+   TimerStart('StartStopCycle')
+   for i in xrange(n):
+      TimerStart('MetaTimer')
+      TimerStop('MetaTimer')
+   TimerStop('StartStopCycle')
+
+   print ''
+   PrintTimings()
+   SaveTimingsCSV('testtimings.csv')
+   print ''
+
+
+
    
    
