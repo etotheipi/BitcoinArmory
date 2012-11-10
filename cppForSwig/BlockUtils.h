@@ -665,9 +665,6 @@ class BlockDataManager_FileRefs
 {
 private:
 
-   // All blkXXXX.dat files stored in this directory
-   string                             blkFileDir_;
-
    // Store the full BlockHeaders in this map.  Store TxRefs in another map
    map<HashString, BlockHeader>       headerMap_;
 
@@ -688,6 +685,9 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+   string                             blkFileDir_;
+   uint32_t                           blkFileDigits_;
+   uint32_t                           blkFileStart_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
    uint64_t                           lastBlkFileBytes_;
@@ -746,6 +746,10 @@ public:
 
    static BlockDataManager_FileRefs & GetInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
+
+   void SetBlkFileLocation(string   blkdir,
+                           uint32_t blkdigits,
+                           uint32_t blkstartidx);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
@@ -827,8 +831,7 @@ public:
 
 
    // Does a full scan!
-   uint32_t parseEntireBlockchain(string blkdir, 
-                                  uint32_t cacheSz=DEFAULT_CACHE_SIZE);
+   uint32_t parseEntireBlockchain(uint32_t cacheSz=DEFAULT_CACHE_SIZE);
 
    // When we add new block data, we will need to store/copy it to its
    // permanent memory location before parsing it.

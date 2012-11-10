@@ -700,10 +700,19 @@ public:
    }
 
 
-   static string getBlkFilename(string dir, uint32_t fblkNum)
+   // This got more complicated when Bitcoin-Qt 0.8 switched from
+   // blk0001.dat to blocks/blk00000.dat
+   static string getBlkFilename(string dir, uint32_t nDigit, uint32_t fblkNum)
    {
       char* fname = new char[256];
-      sprintf(fname, "%s/blk%04d.dat", dir.c_str(), fblkNum);
+      if(nDigit==3)
+         sprintf(fname, "%s/blk%03d.dat", dir.c_str(), fblkNum);
+      else if(nDigit==4)
+         sprintf(fname, "%s/blk%04d.dat", dir.c_str(), fblkNum);
+      else if(nDigit==5)
+         sprintf(fname, "%s/blk%05d.dat", dir.c_str(), fblkNum);
+      else if(nDigit==6)
+         sprintf(fname, "%s/blk%06d.dat", dir.c_str(), fblkNum);
       string strName(fname);
       delete[] fname;
       return strName;

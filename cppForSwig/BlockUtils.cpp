@@ -1634,6 +1634,26 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
    MagicBytes_.copyFrom(MagicBytes);
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Bitcoin-Qt/bitcoind 0.8+ changed the location and naming convention for 
+// the blkXXXX.dat files.  The first block file use to be:
+//
+//    ~/.bitcoin/blk0001.dat   
+//
+// Now it has been changed to:
+//
+//    ~/.bitcoin/blocks/blk00000.dat   
+//
+// In addition to base dir, also need the number of digits and start index
+//
+void BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
+                                                   uint32_t blkdigits,
+                                                   uint32_t blkstartidx)
+{
+   blkFileDir_    = blkdir; 
+   blkFileDigits_ = blkdigits; 
+   blkFileStart_  = blkstartidx; 
+}
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2480,9 +2500,9 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 */
 
 
+
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir, 
-                                                           uint32_t cacheSize)
+uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 {
    TIME_THIS_METHOD("parseEntireBlockchain");
    cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
@@ -2500,8 +2520,10 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
 
    while(numBlkFiles_ < UINT16_MAX)
    {
+      string path = BtcUtils::getBlkFilename(blkFileDir_,
+                                             blkFileDigits_, 
+                                             numBlkFiles_+blkFileStart_);
       numBlkFiles_++;
-      string path = BtcUtils::getBlkFilename(blkdir, numBlkFiles_);
       if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
          break;
 
@@ -2517,13 +2539,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain( string   blkdir,
    }
    cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
 
-
-   if(blkdir.compare(blkFileDir_)==0)
-   {
-      cout << "Call to load a blockchain that is already loaded!  Skipping..." << endl;
-      return 0;
-   }
-   blkFileDir_ = blkdir;
 
    if(GenesisHash_.getSize() == 0)
    {
@@ -2657,7 +2672,9 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 
    // Check to see if there was a blkfile split, and we have to switch
    // to tracking the new file..  this condition may trigger only once a year...
-   string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, numBlkFiles_+1);
+   string nextFilename = BtcUtils::getBlkFilename(blkFileDir_, 
+                                                  blkFileDigits_,
+                                                  numBlkFiles_+blkFileStart_);
    uint64_t nextBlkBytesToRead = BtcUtils::GetFileSize(nextFilename);
    if( nextBlkBytesToRead == FILE_DOES_NOT_EXIST )
       nextBlkBytesToRead = 0;

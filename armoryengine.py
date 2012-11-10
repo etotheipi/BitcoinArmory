@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 84, 1, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 84, 2, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -202,15 +202,87 @@ if CLI_OPTIONS.settingsPath.lower()=='default':
 SETTINGS_PATH = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE     = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 
+# If this is the first Armory has been run, create directories
+if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
+   os.makedirs(ARMORY_HOME_DIR)
+
+
+def findLatestBlkFiles(baseDir):
+   # Bitcoin-Qt 0.8+ uses new location.  User might also be specifying
+   # non-standard location.  Detect whatever the heck we can...
+   lastModTimeOld4 = 0
+   lastModTimeOld5 = 0
+   lastModTimeNew4 = 0
+   lastModTimeNew5 = 0
+   newDir = os.path.join(baseDir, 'blocks')
+   
+   newBlkPath4 = lambda x: os.path.join(newDir,  'blk%04d.dat'%x)
+   newBlkPath5 = lambda x: os.path.join(newDir,  'blk%05d.dat'%x)
+   oldBlkPath4 = lambda x: os.path.join(baseDir, 'blk%04d.dat'%x)
+   oldBlkPath5 = lambda x: os.path.join(baseDir, 'blk%05d.dat'%x)
+
+   # Check the last modification time of the top blocks/blk000X.dat
+   i = 1;
+   if os.path.exists(newDir) and os.path.exists(newBlkPath4(i)):
+      while( os.path.exists(newBlkPath4(i) ) ):
+         lastModTimeNew4 = os.path.getmtime(newBlkPath4(i))
+         i += 1
+   
+   # Check the last modification time of the top blocks/blk0000X.dat
+   i = 0;
+   if os.path.exists(newDir) and os.path.exists(newBlkPath5(i)):
+      while( os.path.exists(newBlkPath5(i) ) ):
+         lastModTimeNew5 = os.path.getmtime(newBlkPath5(i))
+         i += 1
+
+   # Check the last modification time of the top blk000X.dat
+   i = 1;
+   if os.path.exists(baseDir) and os.path.exists( oldBlkPath4(i)):
+      while( os.path.exists(oldBlkPath4(i) ) ):
+         lastModTimeOld4 = os.path.getmtime(oldBlkPath4(i))
+         i += 1
+
+   # Check the last modification time of the top blk0000X.dat
+   i = 0;
+   if os.path.exists(baseDir) and os.path.exists( oldBlkPath5(i)):
+      while( os.path.exists(oldBlkPath5(i) ) ):
+         lastModTimeOld5 = os.path.getmtime(oldBlkPath5(i))
+         i += 1
+
+   latestMod = max(lastModTimeNew4, lastModTimeNew5, lastModTimeOld4, lastModTimeOld5)
+   if latestMod==0:
+      print '\n*****ERROR:  No blkXXXXX.dat files found!\n'
+      
+
+   output = [newDir, 5, 0]
+   if(lastModTimeNew4 == latestMod):
+      output = [newDir, 4, 1]
+   elif(lastModTimeNew5 == latestMod):
+      output = [newDir, 5, 0]
+   elif(lastModTimeOld4 == latestMod):
+      output = [baseDir, 4, 1]
+   elif(lastModTimeOld5 == latestMod):
+      output = [baseDir, 5, 0]
+
+   # We didn't detect anything... will return default location for 0.8+
+   firstFile  = os.path.join(output[0], 'blk')
+   firstFile += ('%%0%dd.dat' % output[1]) % output[2]
+   output.append(firstFile)
+   return output
+
+
+BLKFILE_LOCATION = findLatestBlkFiles(BTC_HOME_DIR)
+BLKFILE_DIRECTORY  = BLKFILE_LOCATION[0]
+BLKFILE_NUMDIGITS  = BLKFILE_LOCATION[1]
+BLKFILE_STARTINDEX = BLKFILE_LOCATION[2]
+BLKFILE_FIRSTFILE  = BLKFILE_LOCATION[3]
 
 
 print 'Detected Operating system:', OS_NAME
 print '   User home-directory   :', USER_HOME_DIR
 print '   Satoshi BTC directory :', BTC_HOME_DIR
+print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
 print '   Armory home dir       :', ARMORY_HOME_DIR
-
-if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
-   os.makedirs(ARMORY_HOME_DIR)
 
 
 
@@ -1144,33 +1216,6 @@ def difficulty_to_binaryBits(i):
 
 
 
-################################################################################
-def BDM_LoadBlockchainFile(blkdir=None, wltList=None):
-   """
-   Looks for blkXXXX.dat files.  If they are found, it is indexed into RAM
-   and then all blockchain data can be accessed through the BDM object. 
-   Access to any information in the blockchain can be found via
-   the bdm object.
-
-   NOTE:  DO NOT USE THIS for the multi-threaded BDM
-
-   
-   if blkdir==None:
-      blkdir = BTC_HOME_DIR
-
-   if not os.path.exists(blkdir):
-      raise FileExistsError, ('Directory does not exist: %s' % blkdir)
-
-   TheBDM.SetBtcNetworkParams( GENESIS_BLOCK_HASH, GENESIS_TX_HASH, MAGIC_BYTES)
-
-   # Register wallets so that they can be included in the initial scan
-   if wltList:
-      for wlt in wltList:
-         TheBDM.registerWallet(wlt.cppWallet, False)  # isWltNew=False
-
-   return TheBDM.parseEntireBlockchain(blkdir)
-
-   """
 
 ################################################################################
 ################################################################################
@@ -10100,7 +10145,6 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.startBDM      = False
-      self.blkdir        = BTC_HOME_DIR
       self.alwaysBlock   = blocking
       self.doShutdown    = False
       self.aboutToRescan = False
@@ -10117,6 +10161,14 @@ class BlockDataManagerThread(threading.Thread):
       self.masterCppWallet = Cpp.BtcWallet()
       self.bdm.registerWallet(self.masterCppWallet)
        
+      self.blkdir = BLKFILE_DIRECTORY
+      self.blkdig = BLKFILE_NUMDIGITS
+      self.blkidx = BLKFILE_STARTINDEX
+      self.blk1st = BLKFILE_FIRSTFILE
+
+         
+      
+         
 
    #############################################################################
    def __getattr__(self, name):
@@ -10277,7 +10329,9 @@ class BlockDataManagerThread(threading.Thread):
       if not self.blkMode in (BLOCKCHAINMODE.Offline, BLOCKCHAINMODE.Uninitialized):
          LOGERROR('Cannot set blockchain/satoshi path after BDM is started')
          return
-      self.blkdir = blkdir
+
+      self.blkdir, self.blkdig, self.blkidx, self.blk1st = findLatestBlkFiles(blkdir)
+
 
    #############################################################################
    def setOnlineMode(self, goOnline=True, wait=None):
@@ -10734,30 +10788,27 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Continuing with the scan, anyway.')
          
 
-      # Use default home dir if nothing specified
-      if self.blkdir==None:
-         self.blkdir = BTC_HOME_DIR
-
       # Check for the existence of the Bitcoin-Qt directory
       if not os.path.exists(self.blkdir):
          raise FileExistsError, ('Directory does not exist: %s' % self.blkdir)
 
       # ... and its blk000X.dat files
-      blk0001file = os.path.join(self.blkdir,'blk0001.dat')
-      if not os.path.exists(blk0001file):
-         LOGERROR('Blockchain data not available: %s', blk0001file)
+      if not os.path.exists(self.blk1st):
+         LOGERROR('Blockchain data not available: %s', self.blk1st)
          self.prefMode = BLOCKCHAINMODE.Offline
-         raise FileExistsError, ('Blockchain data not available: %s' % blk0001file)
+         raise FileExistsError, ('Blockchain data not available: %s' % self.blk1st)
 
       # We have the data, we're ready to go
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
+
+      self.bdm.SetBlkFileLocation(self.blkdir, self.blkdig, self.blkidx)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
                                     MAGIC_BYTES)
-     
+
       ### This is the part that takes forever
-      self.bdm.parseEntireBlockchain(self.blkdir)
+      self.bdm.parseEntireBlockchain()
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
       #print 'SLEEPING FOR 10 min (DEBUGGING)'
