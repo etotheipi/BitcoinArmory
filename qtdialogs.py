@@ -10024,7 +10024,7 @@ class DlgRequestPayment(ArmoryDialog):
 
          errorIn = 'Inputs'
          # must have address, maybe have amount and/or message
-         self.rawURI = createBitcoinURI(self.recvAddr, amtStr, msgStr)
+         self.rawURI = createBitcoinURI(addr, amtStr, msgStr)
       except:
          self.lblWarn.setText('<font color="red">Invalid %s</font>' % lastTry)
          self.btnCopyRaw.setEnabled(False)
@@ -10043,7 +10043,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.dispText += '<br>'
       self.dispText += 'Use the following payment info if the link does not work on your system:'
       self.dispText += '<br>'
-      self.dispText += '<b>Pay to</b>:\t%s<br>' % self.recvAddr
+      self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
       if amtStr:
          self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
       if msgStr:
