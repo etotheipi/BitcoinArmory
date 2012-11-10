@@ -532,7 +532,7 @@ class ArmoryMainWindow(QMainWindow):
          'You are about to revert all Armory settings '
          'to the state they were in when Armory was first installed.  '
          '<br><br>'
-         'If you click "Yes, Armory will exit after settings are '
+         'If you click "Yes," Armory will exit after settings are '
          'reverted.  You will have to manually start Armory again.'
          '<br><br>'
          'Do you want to continue? ', \
