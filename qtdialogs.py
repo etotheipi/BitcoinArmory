@@ -786,7 +786,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.chkHideUnused = QCheckBox('Hide Unused')
       self.chkHideEmpty.setChecked(False)
       self.chkHideChange.setChecked(False)
-      self.chkHideUnused.setChecked(False)
+      self.chkHideUnused.setChecked(True)
 
       self.connect(self.chkHideEmpty,  SIGNAL('clicked()'), self.doFilterAddr)
       self.connect(self.chkHideChange, SIGNAL('clicked()'), self.doFilterAddr)
@@ -819,6 +819,8 @@ class DlgWalletDetails(ArmoryDialog):
       self.setLayout(layout)
 
       self.setWindowTitle('Wallet Properties')
+
+      self.doFilterAddr()
 
       hexgeom = self.main.settings.get('WltPropGeometry')
       tblgeom = self.main.settings.get('WltPropAddrCols')
@@ -4634,7 +4636,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
 
 
-      btnEnterURI = QPushButton('Enter raw "bitcoin:" URL')
+      btnEnterURI = QPushButton('Manually enter "bitcoin:" link')
       ttipEnterURI = createToolTipObject( \
          'Armory does not always succeed at registering itself to handle '
          'URL links from webpages and email.  '
@@ -4781,6 +4783,8 @@ class DlgSendBitcoins(ArmoryDialog):
          if self.main.usermode==USERMODE.Standard:
             btnUnsigned.setVisible(False)
             ttipUnsigned.setVisible(False)
+            btnEnterURI.setVisible(False)
+            ttipEnterURI.setVisible(False)
 
       #frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
                                                 #btnFrame, \
@@ -5209,6 +5213,36 @@ class DlgSendBitcoins(ArmoryDialog):
    def clickEnterURI(self):
       dlg = DlgUriCopyAndPaste(self,self.main)
       dlg.exec_()
+
+      if len(dlg.uriDict)>0:
+         COLS = self.COLS
+         lastIsEmpty = True
+         for col in (COLS.Addr, COLS.Btc, COLS.Comm):
+            if len(str(self.widgetTable[-1][col].text()))>0:
+               lastIsEmpty = False
+            
+         if not lastIsEmpty:
+            self.makeRecipFrame( len(self.widgetTable)+1 )
+   
+         self.widgetTable[-1][self.COLS.Addr].setText(dlg.uriDict['address'])
+         if dlg.uriDict.has_key('amount'):
+            amtStr = coin2str(dlg.uriDict['amount'], maxZeros=1).strip()
+            self.widgetTable[-1][self.COLS.Btc].setText( amtStr)
+
+         
+         haveLbl = dlg.uriDict.has_key('label')
+         haveMsg = dlg.uriDict.has_key('message')
+   
+         dispComment = '' 
+         if haveLbl and haveMsg:
+            dispComment = dlg.uriDict['label'] + ': ' + dlg.uriDict['message']
+         elif not haveLbl and haveMsg:
+            dispComment = dlg.uriDict['message']
+         elif haveLbl and not haveMsg:
+            dispComment = dlg.uriDict['label']
+
+         self.widgetTable[-1][self.COLS.Comm].setText(dispComment)
+               
 
    #############################################################################
    def addOneRecipient(self, addr160, amt, msg, label=''):
@@ -10167,14 +10201,15 @@ class DlgUriCopyAndPaste(ArmoryDialog):
    def __init__(self, parent, main):
       super(DlgUriCopyAndPaste, self).__init__(parent, main)
 
+      self.uriDict = {}
       lblDescr = QRichLabel('Copy and paste a raw bitcoin URL string here.  '
                             'A valid string starts with "bitcoin:" followed '
                             'by a bitcoin address.'
                             '<br><br>'
                             'You should use this feature if there is a "bitcoin:" '
                             'link in a webpage or email that does not load Armory '
-                            'when you click on it.  Instead, right click on the '
-                            'link and select "Copy Link Address," then paste it '
+                            'when you click on it.  Instead, right-click on the '
+                            'link and select "Copy Link Location" then paste it '
                             'into the box below. '  )
 
       lblShowExample = QLabel()
@@ -10189,7 +10224,7 @@ class DlgUriCopyAndPaste(ArmoryDialog):
       buttonBox.addButton(self.btnOkay,   QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
-      self.connect(self.btnOkay, SIGNAL('clicked()'), self.parseURI)
+      self.connect(self.btnOkay, SIGNAL('clicked()'), self.clickedOkay)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
 
       frmImg = makeHorizFrame(['Stretch',lblShowExample,'Stretch'])
@@ -10204,12 +10239,11 @@ class DlgUriCopyAndPaste(ArmoryDialog):
       self.setLayout(layout)
 
 
-   def parseURI(self):
+   def clickedOkay(self):
       uriStr = str(self.txtUriString.text())
-      succeeded = self.main.uriLinkClicked(uriStr, 'enter')
-      if succeeded:
-         self.parent.accept()
-         self.accept()
+      self.uriDict = self.main.parseUriLink(uriStr, 'enter') 
+      self.accept()
+      
 
 
 # STUB

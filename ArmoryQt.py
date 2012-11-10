@@ -1144,11 +1144,10 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def uriLinkClicked(self, uriStr, clickOrEnter='click', openSendDialog=True):
-
+   def parseUriLink(self, uriStr, clickOrEnter='click'):
       ClickOrEnter = clickOrEnter[0].upper() + clickOrEnter[1:]
       LOGINFO('URI link clicked!')
-      LOGINFO('The following string was passed through the socket')
+      LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
       uriDict = parseBitcoinURI(uriStr)
       if TheBDM.getBDMState()=='Offline':
@@ -1160,7 +1159,7 @@ class ArmoryMainWindow(QMainWindow):
             '%sing links will only work if Armory is connected '
             'to the Bitcoin network!' % (clickOrEnter, ClickOrEnter), \
              QMessageBox.Ok)
-         return False
+         return {}
          
       if len(uriDict)==0:
          warnMsg = ('It looks like you just %sed a "bitcoin:" link, but '
@@ -1172,14 +1171,14 @@ class ArmoryMainWindow(QMainWindow):
             warnMsg += 'The raw URI string is:<br><br>' + uriStr
          QMessageBox.warning(self, 'Invalid URI', warnMsg, QMessageBox.Ok)
          LOGERROR(warnMsg)
-         return False
+         return {}
 
       if not uriDict.has_key('address'):
          QMessageBox.warning(self, 'The "bitcoin:" link you just %sed '
             'does not even contain an address!  There is nothing that '
             'Armory can do with this link!' % clickOrEnter, QMessageBox.Ok)
          LOGERROR('No address in "bitcoin:" link!  Nothing to do!')
-         return False
+         return {}
 
       # Verify the URI is for the same network as this Armory instnance
       theAddrByte = checkAddrType(base58_to_binary(uriDict['address']))
@@ -1194,7 +1193,7 @@ class ArmoryMainWindow(QMainWindow):
             '<b>%s</b>!' % (clickOrEnter, NETWORKS[ADDRBYTE], net), \
             QMessageBox.Ok)
          LOGERROR('URI link is for the wrong network!')
-         return False
+         return {}
 
       # If the URI contains "req-" strings we don't recognize, throw error
       recognized = ['address','version','amount','label','message']
@@ -1207,10 +1206,19 @@ class ArmoryMainWindow(QMainWindow):
                '<br><br>The action cannot be completed.' % (clickOrEnter, clickOrEnter), \
                QMessageBox.Ok)
             LOGERROR('URI link contains unrecognized req- fields.')
-            return False
+            return {}
+
+      return uriDict
+
+
+
+   #############################################################################
+   def uriLinkClicked(self, uriStr):
+      uriDict = self.parseUriLink(uriStr, 'click')
          
-      self.bringArmoryToFront() 
-      return self.uriSendBitcoins(uriDict, clickOrEnter)
+      if len(uriDict)>0:
+         self.bringArmoryToFront() 
+         return self.uriSendBitcoins(uriDict)
       
 
    #############################################################################
@@ -2390,7 +2398,7 @@ class ArmoryMainWindow(QMainWindow):
    
 
    #############################################################################
-   def uriSendBitcoins(self, uriDict, clickOrEnter='click'):
+   def uriSendBitcoins(self, uriDict):
       # Because Bitcoin-Qt doesn't store the message= field we have to assume
       # that the label field holds the Tx-info.  So we concatenate them for 
       # the display message
@@ -2408,8 +2416,8 @@ class ArmoryMainWindow(QMainWindow):
          newMsg = uriDict['label']
       
       descrStr = ''
-      descrStr = ('You just %sed on a "bitcoin:" link requesting bitcoins ' 
-                'to be sent to the following address:<br> ' % clickOrEnter)
+      descrStr = ('You just clicked on a "bitcoin:" link requesting bitcoins ' 
+                'to be sent to the following address:<br> ')
 
       descrStr += '<br>--<b>Address</b>:\t%s ' % uriDict['address']
 
@@ -2446,9 +2454,9 @@ class ArmoryMainWindow(QMainWindow):
       selectedWalletID = None
       if len(self.walletMap)==0:
          reply = QMessageBox.information(self, 'No Wallets!', \
-            'You just %sed on a "bitcoin:" link to send money, but you '
+            'You just clicked on a "bitcoin:" link to send money, but you '
             'currently have no wallets!  Would you like to create a wallet '
-            'now?' % clickOrEnter, QMessageBox.Yes | QMessageBox.No)
+            'now?', QMessageBox.Yes | QMessageBox.No)
          if reply==QMessageBox.Yes:
             self.createNewWallet(initLabel='Primary Wallet')
          return False

@@ -11174,6 +11174,7 @@ else:
    LOGINFO('Registering addresses during rescans will queue them for ')
    LOGINFO('including after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
+   TheBDM.setDaemon(True)
    TheBDM.start()
 
 
@@ -11183,10 +11184,69 @@ else:
 
 
 ################################################################################
-class TimerMap:
-   timers_ = {}
-   def __init__(self):
-      pass
+#  
+#  Keep track of lots of different timers:
+#
+#     Key:    timerName  
+#     Value:  [cumulTime, numStart, lastStart, isRunning]
+#
+TimerMap = {}
+
+def TimerStart(timerName):
+   if not TimerMap.has_key(timerName):
+      TimerMap[timerName] = [0, 0, 0, False]
+
+   timerEntry = TimerMap[timerName]
+   timerEntry[1] += 1
+   timerEntry[2]  = RightNow()
+   timerEntry[3]  = True
+
+def TimerStop(timerName):
+   if not TimerMap.has_key(timerName):
+      LOGERROR('Requested stop timer that does not exist!')
+      return
+
+   if not TimerMap[timerName][3]:
+      LOGERROR('Requested stop timer that is not running!')
+      return
+
+   timerEntry = TimerMap[timerName]
+   timerEntry[0] += RightNow() - timerEntry[2]
+   timerEntry[2]  = 0
+   timerEntry[3]  = False
+
+
+
+def TimerReset(timerName):
+   if not TimerMap.has_key(timerName):
+      LOGERROR('Requested reset timer that does not exist!')
+
+   # Even if it didn't exist, it will be created now
+   TimerMap[timerName] = [0, 0, 0, False]
+
+
+def ReadTimer(timerName):
+   if not TimerMap.has_key(timerName):
+      LOGERROR('Requested read timer that does not exist!')
+      return
+
+   timerEntry = TimerMap[timerName]
+   return timerEntry[0] + (RightNow() - timerEntry[2])
+   
+
+def PrintTimings():
+   print 'Timings:  '.ljust(20), 
+   print 'nCall'.ljust(10)
+   print 'cumulTime '.ljust(10)
+   print 'avgTime'.ljust(10)
+   for tname,quad in TimerMap.iteritems():
+      print ('\t%s' % tname).rjust(20), 
+      print ('%0.6f' % quad[1]).rjust(10)
+      print ('%0.6f' % quad[0]).rjust(10)
+      avg = quad[0]/quad[1]
+      print ('%0.6f' % avg).rjust(10)
+      
+
 
 
 
