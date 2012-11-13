@@ -574,6 +574,25 @@ uint64_t Tx::getSumOfOutputs(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
+BinaryData Tx::getRecipientForTxOut(uint32_t txOutIndex) 
+{
+   TxOut txout = getTxOut(txOutIndex);
+   if(txout.getScriptType() == TXOUT_SCRIPT_STANDARD ||
+      txout.getScriptType() == TXOUT_SCRIPT_COINBASE)
+   {
+      return txout.getRecipientAddr();
+   }
+   else
+   {
+      // TODO:  We may actually want to have another branch for P2SH
+      //        and pass out the P2SH script hash
+      return BinaryData("");
+   }
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 // This is not a pointer to persistent object, this method actually CREATES
 // the TxIn.   But it's fast and doesn't hold a lot of post-construction
 // information, so it can probably just be computed on the fly

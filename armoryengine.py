@@ -2140,6 +2140,9 @@ class PyBtcAddress(object):
       If an encryption key IS provided, then we unlock the address just long
       enough to sign the message and then re-lock it
       """
+      
+      TimerStart('generateDERSignature')
+
       if not self.hasPrivKey():
          raise KeyDataError, 'Cannot sign for address without private key!'
 
@@ -2171,10 +2174,12 @@ class PyBtcAddress(object):
       finally:
          # Always re-lock/cleanup after unlocking, even after an exception.
          # If locking triggers an error too, we will just skip it.
+         TimerStop('generateDERSignature')
          try:
             if secureKdfOutput!=None:
                self.lock(secureKdfOutput)
          except:
+            LOGERROR('Error re-locking address')
             pass
 
 
@@ -2182,6 +2187,8 @@ class PyBtcAddress(object):
 
    #############################################################################
    def verifyDERSignature(self, binMsgVerify, derSig):
+
+      TimerStart('verifyDERSignature')
       if not self.hasPubKey():
          raise KeyDataError, 'No public key available for this address!'
 
@@ -2210,6 +2217,7 @@ class PyBtcAddress(object):
       secMsg    = SecureBinaryData(binMsgVerify)
       secSig    = SecureBinaryData(r[-32:] + s[-32:])
       secPubKey = SecureBinaryData(self.binPublicKey65)
+      TimerStop('verifyDERSignature')
       return CryptoECDSA().VerifyData(secMsg, secSig, secPubKey)
 
 
@@ -2269,6 +2277,7 @@ class PyBtcAddress(object):
       data they will need to create the key, to be applied on next unlock.
       """
       LOGDEBUG('Extending address chain')
+      TimerStart('extendAddressChain')
       if not self.chaincode.getSize() == 32:
          raise KeyDataError, 'No chaincode has been defined to extend chain'
 
@@ -2314,6 +2323,7 @@ class PyBtcAddress(object):
             if not wasLocked:
                newAddr.unlock(secureKdfOutput)
                self.unlock(secureKdfOutput)
+         TimerStop('extendAddressChain')
          return newAddr
       else:
          # We are extending the address based solely on its public key
@@ -2350,6 +2360,7 @@ class PyBtcAddress(object):
                newAddr.createPrivKeyNextUnlock_IVandKey[0] = self.binInitVect16.copy()
                newAddr.createPrivKeyNextUnlock_IVandKey[1] = self.binPrivKey32_Encr.copy()
                newAddr.createPrivKeyNextUnlock_ChainDepth  = 1
+         TimerStop('extendAddressChain')
          return newAddr
 
 
@@ -3917,6 +3928,7 @@ class PyScriptProcessor(object):
 
 
    def verifyTransactionValid(self, txOldData=None, txNew=None, txInIndex=-1):
+      TimerStart('psp.verifyTransactionValid')
       if txOldData and txNew and txInIndex != -1:
          self.setTxObjects(txOldData, txNew, txInIndex)
       else:
@@ -3939,6 +3951,7 @@ class PyScriptProcessor(object):
       if not exitCode2 == SCRIPT_NO_ERROR:
          raise VerifyScriptError, ('Second script failed!  Exit Code: ' + str(exitCode2))
 
+      TimerStop('psp.verifyTransactionValid')
       return self.stack[-1]==1
 
 
@@ -5183,6 +5196,9 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
    select coins based on the desired target output and the min tx fee.  Then
    ranks the various solutions and picks the best one
    """
+   
+   TimerStart('PySelectCoins')
+
    if sum([u.getValue() for u in unspentTxOutInfo]) < targetOutVal:
       return []
 
@@ -5273,6 +5289,8 @@ def PySelectCoins(unspentTxOutInfo, targetOutVal, minFee=0, numRand=10, margin=C
          finalSelection.append(other) 
          if len(finalSelection)>=IDEAL_NUM_INPUTS:
             break
+
+   TimerStop('PySelectCoins')
 
    return finalSelection
 
@@ -6148,6 +6166,9 @@ class PyBtcWallet(object):
       to use the BDM methods directly, not the queue.  This will deadlock 
       otherwise.
       """
+
+      TimerStart('syncWithBlockchain')
+
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          LOGWARN('Called syncWithBlockchain but BDM is %s', TheBDM.getBDMState())
          return
@@ -6169,6 +6190,8 @@ class PyBtcWallet(object):
          LOGERROR('Blockchain-sync requested, but current wallet')
          LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
 
+
+      TimerStop('syncWithBlockchain')
 
 
 
@@ -7451,6 +7474,8 @@ class PyBtcWallet(object):
    #############################################################################
    def readWalletFile(self, wltpath, verifyIntegrity=True, doScanNow=False):
 
+      TimerStart('readWalletFile')
+
       if not os.path.exists(wltpath):
          raise FileExistsError, "No wallet file:"+wltpath
 
@@ -7521,6 +7546,8 @@ class PyBtcWallet(object):
       if getVersionInt(self.version) < getVersionInt(PYBTCWALLET_VERSION):
          LOGERROR('Wallets older than version 1.35 no loger supported!')
          return
+
+      TimerStop('readWalletFile')
 
       return self
 
@@ -10774,6 +10801,9 @@ class BlockDataManagerThread(threading.Thread):
       This should only be called by the threaded BDM, and thus there should
       never be a conflict.  
       """
+
+      TimerStart('__startLoadBlockchain')
+
       if self.blkMode == BLOCKCHAINMODE.Rescanning:
          LOGERROR('Blockchain is already scanning.  Was this called already?')         
          return
@@ -10816,7 +10846,7 @@ class BlockDataManagerThread(threading.Thread):
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
-
+      TimerStop('__startLoadBlockchain')
 
       
    #############################################################################
@@ -11286,13 +11316,13 @@ def ReadTimer(timerName):
    
 
 def PrintTimings():
-   print 'Timings:  '.ljust(20), 
+   print 'Timings:  '.ljust(30), 
    print 'nCall'.rjust(13),
    print 'cumulTime'.rjust(13),
    print 'avgTime'.rjust(13)
    print '-'*70
    for tname,quad in TimerMap.iteritems():
-      print ('%s' % tname).ljust(20), 
+      print ('%s' % tname).ljust(30), 
       print ('%d' % quad[1]).rjust(13),
       print ('%0.6f' % quad[0]).rjust(13),
       avg = quad[0]/quad[1]
@@ -11305,14 +11335,17 @@ def SaveTimingsCSV(fname):
    f.write( 'TimerName,')
    f.write( 'nCall,')
    f.write( 'cumulTime,')
-   f.write( 'avgTime\n')
+   f.write( 'avgTime\n\n')
    for tname,quad in TimerMap.iteritems():
       f.write('%s,' % tname)
       f.write('%d,' % quad[1])
       f.write('%0.6f,' % quad[0])
       avg = quad[0]/quad[1]
       f.write('%0.6f\n' % avg)
-   'Saved timings to file: %s' % fname
+   f.write('\n\nNote: timings may be incorrect if errors '
+                      'were triggered in the timed functions')
+   print 'Saved timings to file: %s' % fname
+   
 
 
 

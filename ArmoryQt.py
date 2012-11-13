@@ -63,6 +63,7 @@ class ArmoryMainWindow(QMainWindow):
    def __init__(self, parent=None):
       super(ArmoryMainWindow, self).__init__(parent)
 
+      TimerStart('MainWindowInit')
 
       # SETUP THE WINDOWS DECORATIONS
       self.lblLogoIcon = QLabel()
@@ -120,7 +121,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
-      self.extraHeartbeatOnline = [self.doTheSystemTrayThing]
+      self.extraHeartbeatOnline = []
       self.extraHeartbeatAlways = []
 
       self.lblArmoryStatus = QRichLabel('<font color=%s><i>Disconnected</i></font>' % \
@@ -173,16 +174,25 @@ class ArmoryMainWindow(QMainWindow):
          viewHeight = 6.4*sectionSz
 
 
+      # Prepare for tableView slices (i.e. "Showing 1 to 100 of 382", etc)
+      self.numShowOpts = [100,250,500,1000,'All']
+      self.sortLedgOrder = Qt.AscendingOrder
+      self.sortLedgCol = 0
+      self.currLedgMin = 1
+      self.currLedgMax = 1000
+      self.currLedgWidth = 1000
+
       # Table to display ledger/activity
       self.ledgerTable = []
       self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
 
-      self.ledgerProxy = LedgerDispSortProxy()
-      self.ledgerProxy.setSourceModel(self.ledgerModel)
-      self.ledgerProxy.setDynamicSortFilter(False)
+      #self.ledgerProxy = LedgerDispSortProxy()
+      #self.ledgerProxy.setSourceModel(self.ledgerModel)
+      #self.ledgerProxy.setDynamicSortFilter(False)
 
       self.ledgerView  = QTableView()
-      self.ledgerView.setModel(self.ledgerProxy)
+
+      self.ledgerView.setModel(self.ledgerModel)
       self.ledgerView.setSortingEnabled(True)
       self.ledgerView.setItemDelegate(LedgerDispDelegate(self))
       self.ledgerView.setSelectionBehavior(QTableView.SelectRows)
@@ -264,11 +274,15 @@ class ArmoryMainWindow(QMainWindow):
 
 
       # Combo box to filter ledger display
-      self.comboWalletSelect = QComboBox()
+      self.comboWltSelect = QComboBox()
       self.populateLedgerComboBox()
+      self.connect(self.ledgerView.horizontalHeader(), \
+                   SIGNAL('sortIndicatorChanged(int,Qt::SortOrder)'), \
+                   self.changeLedgerSorting)
+
 
       ccl = lambda x: self.createCombinedLedger() # ignore the arg
-      self.connect(self.comboWalletSelect, SIGNAL('activated(int)'), ccl)
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), ccl)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -315,12 +329,59 @@ class ArmoryMainWindow(QMainWindow):
       frmTotalsLayout.addWidget(self.ttipSpd, 1,3)
       frmTotalsLayout.addWidget(self.ttipUcn, 2,3)
 
-
       frmTotals.setLayout(frmTotalsLayout)
-      frmLower = makeLayoutFrame('Horiz', [QLabel('Filter:'), \
-                                           self.comboWalletSelect, \
-                                           'Stretch', \
-                                           frmTotals])
+
+
+
+      # Will fill this in when ledgers are created & combined
+      self.lblLedgShowing = QRichLabel('Showing:', hAlign=Qt.AlignHCenter)
+      self.lblLedgRange   = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.lblLedgTotal   = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.comboNumShow = QComboBox()
+      for s in self.numShowOpts:
+         self.comboNumShow.addItem( str(s) )
+      self.comboNumShow.setCurrentIndex(3)
+      self.comboNumShow.setMaximumWidth( tightSizeStr(self, '_9999_')[0]+25 )
+
+
+      self.btnLedgUp = QLabelButton('')
+      self.btnLedgUp.setMaximumHeight(20)
+      self.btnLedgUp.setPixmap(QPixmap(':/scroll_up_18.png'))
+      self.btnLedgUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+      self.btnLedgUp.setContentsMargins(5,0,5,0)
+      self.btnLedgUp.setVisible(False)
+
+      self.btnLedgDn = QLabelButton('')
+      self.btnLedgDn.setMaximumHeight(20)
+      self.btnLedgDn.setPixmap(QPixmap(':/scroll_down_18.png'))
+      self.btnLedgDn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+      self.btnLedgDn.setContentsMargins(5,0,5,0)
+
+
+      self.connect(self.comboNumShow, SIGNAL('activated(int)'), self.changeNumShow)
+      self.connect(self.btnLedgUp,    SIGNAL('clicked()'),      self.clickLedgUp)
+      self.connect(self.btnLedgDn,    SIGNAL('clicked()'),      self.clickLedgDn)
+
+      frmFilter = makeVertFrame([QLabel('Filter:'), self.comboWltSelect, 'Stretch'])
+
+      self.frmLedgUpDown = QFrame()
+      layoutUpDown = QGridLayout()
+      layoutUpDown.addWidget(self.lblLedgShowing,0,0)
+      layoutUpDown.addWidget(self.lblLedgRange,  1,0)
+      layoutUpDown.addWidget(self.lblLedgTotal,  2,0)
+      layoutUpDown.addWidget(self.btnLedgUp,     0,1)
+      layoutUpDown.addWidget(self.comboNumShow,  1,1)
+      layoutUpDown.addWidget(self.btnLedgDn,     2,1)
+      layoutUpDown.setVerticalSpacing(2)
+      self.frmLedgUpDown.setLayout(layoutUpDown)
+      self.frmLedgUpDown.setFrameStyle(STYLE_SUNKEN)
+      
+
+      frmLower = makeHorizFrame([ frmFilter, \
+                                 'Stretch', \
+                                 self.frmLedgUpDown, \
+                                 'Stretch', \
+                                 frmTotals])
 
       # Now add the ledger to the bottom of the window
       ledgFrame = QFrame()
@@ -516,6 +577,8 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerView.setColumnWidth(LEDGERCOLS.TxDir,   72)
 
 
+      TimerStop('MainWindowInit')
+
       reactor.callLater(0.1,  self.execIntroDialog)
       reactor.callLater(1, self.Heartbeat)
 
@@ -582,6 +645,53 @@ class ArmoryMainWindow(QMainWindow):
          '<br><br>'
          'Keys cannot be swept into watching-only wallets, only full '
          'wallets.', QMessageBox.Ok)
+
+   ####################################################
+   def changeNumShow(self):
+      prefWidth = self.numShowOpts[self.comboNumShow.currentIndex()]
+      if prefWidth=='All':
+         self.currLedgMin = 1;
+         self.currLedgMax = self.ledgerSize
+         self.currLedgWidth = -1;
+      else:
+         self.currLedgMax = self.currLedgMin + prefWidth - 1
+         self.currLedgWidth = prefWidth
+      
+      self.applyLedgerRange()
+
+
+   ####################################################
+   def clickLedgUp(self):
+      self.currLedgMin -= self.currLedgWidth
+      self.currLedgMax -= self.currLedgWidth
+      self.applyLedgerRange()
+
+   ####################################################
+   def clickLedgDn(self):
+      self.currLedgMin += self.currLedgWidth
+      self.currLedgMax += self.currLedgWidth
+      self.applyLedgerRange()
+
+
+   ####################################################
+   def applyLedgerRange(self):
+      if self.currLedgMin < 1:
+         toAdd = 1 - self.currLedgMin
+         self.currLedgMin += toAdd
+         self.currLedgMax += toAdd
+
+      if self.currLedgMax > self.ledgerSize:
+         toSub = self.currLedgMax - self.ledgerSize
+         self.currLedgMin -= toSub
+         self.currLedgMax -= toSub
+
+      self.currLedgMin = max(self.currLedgMin, 1)
+
+      self.btnLedgUp.setVisible(self.currLedgMin!=1)
+      self.btnLedgDn.setVisible(self.currLedgMax!=self.ledgerSize)
+
+      self.createCombinedLedger()
+         
 
 
    ####################################################
@@ -953,6 +1063,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def setupNetworking(self):
 
+      TimerStart('setupNetworking')
+
       LOGINFO('Setting up networking...')
       self.internetAvail = False
       self.satoshiAvail  = False
@@ -1029,10 +1141,7 @@ class ArmoryMainWindow(QMainWindow):
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
           
-
-      #print 'InternetAvail = ', self.internetAvail
-      #print 'SatoshiAvail  = ', self.satoshiAvail
-      #print 'blkXXXX.dat   = ', self.haveBlkFile
+      TimerStop('setupNetworking')
 
 
 
@@ -1047,6 +1156,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def bitcoindIsAvailable(self):
       # Check for Satoshi-client connection
+      TimerStart('bitcoindIsAvail')
       s = socket.socket()
       try:
          s.connect(('127.0.0.1', BITCOIN_PORT))
@@ -1054,6 +1164,8 @@ class ArmoryMainWindow(QMainWindow):
          return True
       except:
          return False
+      finally:
+         TimerStop('bitcoindIsAvail')
 
 
    #############################################################################
@@ -1223,6 +1335,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def loadWalletsAndSettings(self):
+
+      TimerStart('loadWltSettings')
       self.settings = SettingsFile(self.settingsPath)
 
       self.getSettingOrSetDefault('First_Load',         True)
@@ -1334,6 +1448,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lastDirectory = savedDir
       self.writeSetting('LastDirectory', savedDir)
 
+      TimerStop('loadWltSettings')
 
    #############################################################################
    def getFileSave(self, title='Save Wallet File', \
@@ -1442,6 +1557,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def finishLoadBlockchain(self):
 
+      TimerStart('finishLoadBlockchain')
       # Now that the blockchain is loaded, let's populate the wallet info
       if TheBDM.isInitialized():
 
@@ -1478,6 +1594,9 @@ class ArmoryMainWindow(QMainWindow):
                   
             if remember==True:
                self.writeSetting('NotifyBlkFinish',False)
+         else:
+            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Transactions)
+
                
          self.netMode = NETWORKMODE.Full
          self.settings.set('FailedLoadCount', 0)
@@ -1489,6 +1608,8 @@ class ArmoryMainWindow(QMainWindow):
       self.setDashboardDetails()
       self.walletModel.reset()
       
+      TimerStop('finishLoadBlockchain')
+
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
@@ -1510,6 +1631,18 @@ class ArmoryMainWindow(QMainWindow):
       
 
    
+   #############################################################################
+   def changeLedgerSorting(self, col, order):
+      """
+      The direct sorting was implemented to avoid having to search for comment
+      information for every ledger entry.  Therefore, you can't sort by comments
+      without getting them first, which is the original problem to avoid.  
+      """
+      if col in (0,2,6):
+         self.sortLedgCol = col
+         self.sortLedgOrder = order
+      self.createCombinedLedger()
+
 
    #############################################################################
    def createCombinedLedger(self, wltIDList=None, withZeroConf=True):
@@ -1517,6 +1650,8 @@ class ArmoryMainWindow(QMainWindow):
       Create a ledger to display on the main screen, that consists of ledger
       entries of any SUBSET of available wallets.
       """
+   
+      TimerStart('createCombinedLedger')
 
       start = RightNow()
       if wltIDList==None:
@@ -1525,8 +1660,8 @@ class ArmoryMainWindow(QMainWindow):
                                                       for wid in self.walletIDList]
 
          # We need to figure out which wallets to combine here...
-         currIdx  = max(self.comboWalletSelect.currentIndex(), 0)
-         currText = str(self.comboWalletSelect.currentText()).lower()
+         currIdx  = max(self.comboWltSelect.currentIndex(), 0)
+         currText = str(self.comboWltSelect.currentText()).lower()
          if currIdx>=4:
             wltIDList = [self.walletIDList[currIdx-6]]
          else:
@@ -1550,6 +1685,7 @@ class ArmoryMainWindow(QMainWindow):
                
 
       if wltIDList==None:
+         TimerStop('createCombinedLedger')
          return
 
       self.combinedLedger = []
@@ -1569,8 +1705,19 @@ class ArmoryMainWindow(QMainWindow):
          unconfFunds += wlt.getBalance('Unconfirmed')
 
 
-      self.combinedLedger.sort(key=lambda x: x[LEDGERCOLS.UnixTime], reverse=True)
+      # Apply table sorting -- this is very fast
+      sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
+      if self.sortLedgCol in (0,2):
+         self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
+      if self.sortLedgCol == 6:
+         self.combinedLedger.sort(key=lambda x: abs(x[1].getValue()), reverse=sortDir)
+
       self.ledgerSize = len(self.combinedLedger)
+
+      # Hide the ledger slicer if our data set is smaller than the slice width
+      self.frmLedgUpDown.setVisible(self.ledgerSize>self.currLedgWidth)
+      self.lblLedgRange.setText('%d to %d' % (self.currLedgMin, self.currLedgMax))
+      self.lblLedgTotal.setText('(of %d)' % self.ledgerSize)
 
       # Many MainWindow objects haven't been created yet... 
       # let's try to update them and fail silently if they don't exist
@@ -1579,6 +1726,7 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTotalFunds.setText( '-'*12 )
             self.lblSpendFunds.setText( '-'*12 )
             self.lblUnconfFunds.setText('-'*12 )
+            TimerStop('createCombinedLedger')
             return
             
          uncolor =  htmlColor('MoneyNeg')  if unconfFunds>0          else htmlColor('Foreground')
@@ -1593,27 +1741,16 @@ class ArmoryMainWindow(QMainWindow):
                                              (uncolor, coin2str(unconfFunds)))
 
          # Finally, update the ledger table
-         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger)
+         rmin,rmax = self.currLedgMin-1, self.currLedgMax
+         self.ledgerTable = self.convertLedgerToTable(self.combinedLedger[rmin:rmax])
          self.ledgerModel.ledger = self.ledgerTable
          self.ledgerModel.reset()
-         self.ledgerProxy.reset()
-
-         #self.ledgerModel = LedgerDispModelSimple(self.ledgerTable, self, self)
-         #self.ledgerProxy = LedgerDispSortProxy()
-         ##self.ledgerProxy.setDynamicSortFilter(True)
-         #self.ledgerProxy.setSourceModel(self.ledgerModel)
-         #self.ledgerView.setModel(self.ledgerProxy)
-         #self.ledgerView.hideColumn(LEDGERCOLS.isOther)
-         #self.ledgerView.hideColumn(LEDGERCOLS.UnixTime)
-         #self.ledgerView.hideColumn(LEDGERCOLS.WltID)
-         #self.ledgerView.hideColumn(LEDGERCOLS.TxHash)
-         #self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
-         #self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
-         #self.ledgerView.setModel(self.ledgerModel)
 
       except AttributeError:
          raise
-      
+      finally: 
+         TimerStop('createCombinedLedger')
+
 
    #############################################################################
    def getFeeForTx(self, txHash):
@@ -1664,6 +1801,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def convertLedgerToTable(self, ledger):
+
+      TimerStart('convertLedgerTbl')
       
       table2D = []
       datefmt = self.getPreferredDateFormat()
@@ -1741,29 +1880,35 @@ class ArmoryMainWindow(QMainWindow):
          # Finally, attach the row to the table
          table2D.append(row)
 
+      TimerStop('convertLedgerTbl')
+
       return table2D
 
       
    #############################################################################
    def walletListChanged(self):
+      TimerStart('wltListChanged')
       self.walletModel.reset()
       self.populateLedgerComboBox()
       self.createCombinedLedger()
+      TimerStop('wltListChanged')
 
 
    #############################################################################
    def populateLedgerComboBox(self):
-      self.comboWalletSelect.clear()
-      self.comboWalletSelect.addItem( 'My Wallets'        )
-      self.comboWalletSelect.addItem( 'Offline Wallets'   )
-      self.comboWalletSelect.addItem( 'Other\'s wallets'  )
-      self.comboWalletSelect.addItem( 'All Wallets'       )
+      TimerStart('populateLedgerCombo')
+      self.comboWltSelect.clear()
+      self.comboWltSelect.addItem( 'My Wallets'        )
+      self.comboWltSelect.addItem( 'Offline Wallets'   )
+      self.comboWltSelect.addItem( 'Other\'s wallets'  )
+      self.comboWltSelect.addItem( 'All Wallets'       )
       for wltID in self.walletIDList:
-         self.comboWalletSelect.addItem( self.walletMap[wltID].labelName )
-      self.comboWalletSelect.insertSeparator(4)
-      self.comboWalletSelect.insertSeparator(4)
+         self.comboWltSelect.addItem( self.walletMap[wltID].labelName )
+      self.comboWltSelect.insertSeparator(4)
+      self.comboWltSelect.insertSeparator(4)
       comboIdx = self.getSettingOrSetDefault('LastFilterState', 0)
-      self.comboWalletSelect.setCurrentIndex(comboIdx)
+      self.comboWltSelect.setCurrentIndex(comboIdx)
+      TimerStop('populateLedgerCombo')
       
 
    #############################################################################
@@ -1809,6 +1954,7 @@ class ArmoryMainWindow(QMainWindow):
          self.walletMap[wltID].setComment(hex_to_binary(txHash), newComment)
          self.walletListChanged()
 
+
    #############################################################################
    def updateAddressCommentFromView(self, view, wlt):
       index = view.selectedIndexes()[0]
@@ -1825,27 +1971,31 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def getAddrCommentIfAvail(self, txHash):
+      TimerStart('getAddrCommentIfAvail')
       if not TheBDM.isInitialized():
+         TimerStop('getAddrCommentIfAvail')
          return ''
       else:
          tx = TheBDM.getTxByHash(txHash)
          if not tx.isInitialized():
+            TimerStop('getAddrCommentIfAvail')
             return ''
          else:
             addrComments = []
-            pytx = PyTx().unserialize(tx.serialize())
-            for txout in pytx.outputs: 
-               scrType = getTxOutScriptType(txout.binScript)
-               if not scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-                  continue
-               a160 = TxOutScriptExtractAddr160(txout.binScript) 
+            for i in range(tx.getNumTxOut()):
+               a160 = tx.getRecipientForTxOut(i)
                wltID = self.getWalletForAddr160(a160)
+
                if len(wltID)==0:
                   continue
+
                wlt = self.walletMap[wltID]
                if wlt.commentsMap.has_key(a160):
                   addrComments.append(wlt.commentsMap[a160])
+            TimerStop('getAddrCommentIfAvail')
             return '; '.join(addrComments)
+
+      TimerStop('getAddrCommentIfAvail')
       return ''
                   
 
@@ -2596,6 +2746,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setDashboardDetails(self):
+      TimerStart('setDashboardDetails')
       onlineAvail = self.onlineModeIsPossible()
       txtOfflineFunc = ( \
          'The following functionality is available in offline mode:'
@@ -2783,7 +2934,7 @@ class ArmoryMainWindow(QMainWindow):
                'a paper backup, any time in the future.  Use the "Backup '
                'Individual Keys" option for each wallet to backup imported '
                'keys.</p>')
-         self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
+         #self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
                
       elif TheBDM.getBDMState() == 'Scanning':
          LOGINFO('Dashboard switched to "Scanning" mode')
@@ -2815,6 +2966,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashMode.setContentsMargins(50,5,50,5)
       #self.scrollDashDescr.setWidget(self.lblDashDescr)
       
+      TimerStop('setDashboardDetails')
          
 
 
@@ -2913,6 +3065,7 @@ class ArmoryMainWindow(QMainWindow):
                   TheBDM.rescanWalletZeroConf(wlt.cppWallet, wait=True)
 
             while len(self.newZeroConfSinceLastUpdate)>0:
+               TimerStart('CheckNewZeroConf')
                # For each new tx, check each wallet
                rawTx = self.newZeroConfSinceLastUpdate.pop()
                for wltID in self.walletMap.keys():
@@ -2926,28 +3079,39 @@ class ArmoryMainWindow(QMainWindow):
                         self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
                      self.createCombinedLedger()
                      self.walletModel.reset()
+               TimerStop('CheckNewZeroConf')
    
             # Trigger any notifications, if we have them...
+            TimerStart('doSystemTrayThing')
             self.doTheSystemTrayThing()
+            TimerStop('doSystemTrayThing')
 
             if newBlocks>0 and not TheBDM.isDirty():
    
                # This says "after scan", but works when new blocks appear, too
+               TimerStart('updateWltsAfterScan')
                TheBDM.updateWalletsAfterScan(wait=True)
+               TimerStop('updateWltsAfterScan')
+
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
 
                print 'New Block: ', self.currBlockNum
 
+               TimerStart('ledgerModelReset')
                self.ledgerModel.reset()
+               TimerStop('ledgerModelReset')
+
                LOGINFO('New Block! : %d', self.currBlockNum)
                didAffectUs = False
    
+               TimerStart('newBlockSyncRescanZC')
                for wltID in self.walletMap.keys():
                   self.walletMap[wltID].syncWithBlockchain()
                   TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
                   newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                   didAffectUs = (prevLedgSize[wltID] != newLedgerSize)
+               TimerStop('newBlockSyncRescanZC')
             
                if didAffectUs:
                   LOGINFO('New Block contained a transaction relevant to us!')
@@ -2965,7 +3129,9 @@ class ArmoryMainWindow(QMainWindow):
                      (htmlColor('TextGreen'), self.currBlockNum))
       
                # Update the wallet view to immediately reflect new balances
+               TimerStart('walletModelReset')
                self.walletModel.reset()
+               TimerStop('walletModelReset')
       
                nowtime = RightNow()
                blkRecvAgo  = nowtime - self.blkReceived
@@ -3140,6 +3306,9 @@ class ArmoryMainWindow(QMainWindow):
          # Don't want a strange error here interrupt shutdown 
          pass
 
+      # Mostly for my own use, I'm curious how fast various things run
+      if CLI_OPTIONS.doDebug:
+         SaveTimingsCSV( os.path.join(ARMORY_HOME_DIR, 'timings.csv') )
 
       if self.doHardReset:
          try:

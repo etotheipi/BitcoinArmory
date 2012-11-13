@@ -93,6 +93,10 @@
       <file alias="preferences256.png">img/preferences256.png</file>
       <file alias="printer_icon.png">img/printer_icon.png</file>
       <file alias="process-stop-4.png">img/process-stop-4.png</file>
+      <file alias="scroll_up_24.png">img/scroll_up_24.png</file>
+      <file alias="scroll_down_24.png">img/scroll_down_24.png</file>
+      <file alias="scroll_up_18.png">img/scroll_up_18.png</file>
+      <file alias="scroll_down_18.png">img/scroll_down_18.png</file>
       <file alias="sent_to_self.png">img/sent_to_self.png</file>
       <file alias="splashlogo.png">img/splashlogo.png</file>
       <file alias="splashlogo_testnet.png">img/splashlogo_testnet.png</file>

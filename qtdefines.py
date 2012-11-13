@@ -166,7 +166,6 @@ def initialColResize(tblViewObj, sizeList):
    fixedCols, pctCols = [],[]
 
    nCols = tblViewObj.model().columnCount()
-   #totalWidth = sum([tblViewObj.horizontalHeader().sectionSize(c) for c in range(nCols)])
    
    for col,colVal in enumerate(sizeList):
       if colVal > 1:

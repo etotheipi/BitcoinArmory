@@ -390,6 +390,9 @@ public:
    uint32_t    getLockTime(void) const { return lockTime_; }
    uint64_t    getSumOfOutputs(void);
 
+
+   BinaryData getRecipientForTxOut(uint32_t txOutIndex);
+
    /////////////////////////////////////////////////////////////////////////////
    // These are not pointers to persistent object, these methods actually 
    // CREATES the TxIn/TxOut.  But the construction is fast, so it's
