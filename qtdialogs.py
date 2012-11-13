@@ -4384,17 +4384,18 @@ def getWalletInfoFrame(wlt):
    dispID = QLabel(wltID)
    dispName = QLabel(wlt.labelName)
    dispDescr = QLabel(wlt.labelDescr)
+   dispDescr.setWordWrap(True)
    dispBal = QRichLabel('')
 
    # Format balance if necessary
-   bal = wlt.getBalance('Spendable')
-   if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-   else:      dispBal.setText('<font color="green"><b>'+coin2str(bal, maxZeros=1)+'</font></b>')
+   if not TheBDM.getBDMState()=='BlockchainReady':
+      dispBal.setText('<font color="%s">(available when online)</font>' % htmlColor('DisableFG'))
+   else:
+      bal = wlt.getBalance('Spendable')
+      if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
+      else:      dispBal.setText('<font color="green"><b>'+coin2str(bal, maxZeros=1)+'</font></b>')
 
-   dispBal.setTextFormat(Qt.RichText)
-   dispDescr.setWordWrap(True)
       
-
    frm = QFrame()
    frm.setFrameStyle(STYLE_SUNKEN)
    frmLayout = QGridLayout()
@@ -4613,7 +4614,7 @@ class DlgSendBitcoins(ArmoryDialog):
          btnSend.setEnabled(False)
 
       if not TheBDM.getBDMState()=='BlockchainReady':
-         btnSend.setToolTip('You are currently not connected to the Bitcoin network, '
+         btnSend.setToolTip('<u></u>You are currently not connected to the Bitcoin network, '
                             'so you cannot initiate any transactions.')
          btnSend.setEnabled(False)
             
@@ -5314,7 +5315,7 @@ class DlgSendBitcoins(ArmoryDialog):
    def createSetMaxButton(self, targWidget):
       newBtn = QPushButton('MAX')
       newBtn.setMaximumWidth( relaxedSizeStr(self, 'MAX')[0])
-      newBtn.setToolTip( 'Fills in the maximum spendable amount minus '
+      newBtn.setToolTip( '<u></u>Fills in the maximum spendable amount minus '
                          'the amounts specified for other recipients '
                          'and the transaction fee ')
       funcSetMax = lambda:  self.setMaximum( targWidget )

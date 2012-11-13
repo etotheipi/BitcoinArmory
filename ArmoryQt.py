@@ -179,8 +179,8 @@ class ArmoryMainWindow(QMainWindow):
       self.sortLedgOrder = Qt.AscendingOrder
       self.sortLedgCol = 0
       self.currLedgMin = 1
-      self.currLedgMax = 1000
-      self.currLedgWidth = 1000
+      self.currLedgMax = 100
+      self.currLedgWidth = 100
 
       # Table to display ledger/activity
       self.ledgerTable = []
@@ -245,11 +245,27 @@ class ArmoryMainWindow(QMainWindow):
       self.tabDashboard = QWidget()
 
 
-      self.btnModeSwitch = QPushButton('')
-      self.qmov = QMovie(':/busy.gif')
       self.lblBusy = QLabel('')
-      self.lblBusy.setMovie( self.qmov )
-      self.qmov.start()
+      if OS_WINDOWS:
+         # Unfortunately, QMovie objects don't work in Windows with py2exe
+         # had to create my own little "Busy" icon and hook it up to the 
+         # heartbeat
+         self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
+         self.numHeartBeat = 0
+         def loadBarUpdate():
+            if TheBDM.getBDMState()=='Scanning':
+               self.numHeartBeat += 1
+               self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % (self.numHeartBeat%6)))
+         self.extraHeartbeatAlways.append(loadBarUpdate)
+      else:
+         self.qmov = QMovie(':/busy.gif')
+         self.lblBusy.setMovie( self.qmov )
+         self.qmov.start()
+
+      
+
+
+      self.btnModeSwitch = QPushButton('')
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), self.pressModeSwitchButton)
       self.lblDashMode = QRichLabel('',doWrap=False)
       self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -340,7 +356,7 @@ class ArmoryMainWindow(QMainWindow):
       self.comboNumShow = QComboBox()
       for s in self.numShowOpts:
          self.comboNumShow.addItem( str(s) )
-      self.comboNumShow.setCurrentIndex(3)
+      self.comboNumShow.setCurrentIndex(0)
       self.comboNumShow.setMaximumWidth( tightSizeStr(self, '_9999_')[0]+25 )
 
 
@@ -348,14 +364,12 @@ class ArmoryMainWindow(QMainWindow):
       self.btnLedgUp.setMaximumHeight(20)
       self.btnLedgUp.setPixmap(QPixmap(':/scroll_up_18.png'))
       self.btnLedgUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-      self.btnLedgUp.setContentsMargins(5,0,5,0)
       self.btnLedgUp.setVisible(False)
 
       self.btnLedgDn = QLabelButton('')
       self.btnLedgDn.setMaximumHeight(20)
       self.btnLedgDn.setPixmap(QPixmap(':/scroll_down_18.png'))
       self.btnLedgDn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-      self.btnLedgDn.setContentsMargins(5,0,5,0)
 
 
       self.connect(self.comboNumShow, SIGNAL('activated(int)'), self.changeNumShow)
@@ -2971,7 +2985,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def Heartbeat(self, nextBeatSec=2):
+   def Heartbeat(self, nextBeatSec=1):
       """
       This method is invoked when the app is initialized, and will
       run every 2 seconds, or whatever is specified in the nextBeatSec

@@ -80,6 +80,12 @@
       <file alias="folder-new-5.png">img/folder-new-5.png</file>
       <file alias="folder.png">img/folder.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>
+      <file alias="loadicon_0.png">img/loadicon_0.png</file>
+      <file alias="loadicon_1.png">img/loadicon_1.png</file>
+      <file alias="loadicon_2.png">img/loadicon_2.png</file>
+      <file alias="loadicon_3.png">img/loadicon_3.png</file>
+      <file alias="loadicon_4.png">img/loadicon_4.png</file>
+      <file alias="loadicon_5.png">img/loadicon_5.png</file>
       <file alias="logo_vert_black_text.png">img/logo_vert_black_text.png</file>
       <file alias="logo_vert_black_text_antialiased.png">img/logo_vert_black_text_antialiased.png</file>
       <file alias="logo_vert_black_text_green.png">img/logo_vert_black_text_green.png</file>
