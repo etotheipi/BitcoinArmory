@@ -3035,10 +3035,11 @@ class ArmoryMainWindow(QMainWindow):
                   self.noSyncWarnYet = False
                   QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
                      'Armory has detected that Bitcoin-Qt is not synchronized '
-                     'with the bitcoin network yet.  It is highly recommended '
-                     'that you close Armory and do not restart it until you see '
-                     'the green checkmark in the bottom-right corner of the Bitcoin-'
-                     'Qt window.', QMessageBox.Ok)
+                     'with the bitcoin network yet, meaning Armory may not work '
+                     'properly.  If you experience any unusual behavior, it is '
+                     'recommended that you close Armory and only restart it '
+                     'when you see the green checkmark in the bottom-right '
+                     'corner of the Bitcoin-Qt window.', QMessageBox.Ok)
                return
             
    
