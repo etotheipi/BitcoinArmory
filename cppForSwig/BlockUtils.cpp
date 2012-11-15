@@ -1518,7 +1518,7 @@ void BtcWallet::pprintLedger(void)
 //        that I don't have to re-search for them later...
 vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 {
-   TIME_THIS_METHOD("createAddressBook");
+   SCOPED_TIMER("createAddressBook");
    // Collect all data into a map -- later converted to vector and sort it
    map<HashString, AddressBookEntry> sentToMap;
    set<HashString> allTxList;
@@ -1629,6 +1629,7 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
                                     BinaryData const & GenTxHash,
                                     BinaryData const & MagicBytes)
 {
+   PDEBUG("SetBtcNetworkParams");
    GenesisHash_.copyFrom(GenHash);
    GenesisTxHash_.copyFrom(GenTxHash);
    MagicBytes_.copyFrom(MagicBytes);
@@ -1650,6 +1651,7 @@ void BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
                                                    uint32_t blkdigits,
                                                    uint32_t blkstartidx)
 {
+   PDEBUG("SetBlkFileLocation");
    blkFileDir_    = blkdir; 
    blkFileDigits_ = blkdigits; 
    blkFileStart_  = blkstartidx; 
@@ -1699,6 +1701,8 @@ BlockDataManager_FileRefs & BlockDataManager_FileRefs::GetInstance(void)
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::Reset(void)
 {
+   SCOPED_TIMER("BDM::Reset");
+
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
    headerMap_.clear();
@@ -1735,8 +1739,13 @@ void BlockDataManager_FileRefs::Reset(void)
 
    // Clear out any of the registered tx data we have collected so far.
    // Doesn't take any time to recollect if it we have to rescan, anyway.
+
+   registeredWallets_.clear();
+   registeredAddrMap_.clear();
+   registeredTxSet_.clear();
    registeredTxList_.clear(); 
    registeredOutPoints_.clear(); 
+   allRegAddrScannedUpToBlk_ = 0;
 }
 
 
@@ -1996,6 +2005,8 @@ vector<BinaryData> BlockDataManager_FileRefs::prefixSearchAddress(BinaryData con
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::registerWallet(BtcWallet* wltPtr, bool wltIsNew)
 {
+   SCOPED_TIMER("registerWallet");
+
    // Check if the wallet is already registered
    if(registeredWallets_.find(wltPtr) != registeredWallets_.end())
       return false;
@@ -2026,6 +2037,7 @@ bool BlockDataManager_FileRefs::registerAddress(HashString addr160,
                                                 bool addrIsNew,
                                                 uint32_t firstBlk)
 {
+   SCOPED_TIMER("registerAddress");
    if(registeredAddrMap_.find(addr160) != registeredAddrMap_.end())
    {
       // Address is already registered.  Don't think there's anything to do 
@@ -2044,6 +2056,7 @@ bool BlockDataManager_FileRefs::registerAddress(HashString addr160,
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::registerNewAddress(HashString addr160)
 {
+   SCOPED_TIMER("registerNewAddress");
    if(registeredAddrMap_.find(addr160) != registeredAddrMap_.end())
       return false;
 
@@ -2059,6 +2072,7 @@ bool BlockDataManager_FileRefs::registerNewAddress(HashString addr160)
 bool BlockDataManager_FileRefs::registerImportedAddress(HashString addr160,
                                                     uint32_t createBlk)
 {
+   SCOPED_TIMER("registerImportedAddress");
    if(registeredAddrMap_.find(addr160) != registeredAddrMap_.end())
       return false;
 
@@ -2075,6 +2089,7 @@ bool BlockDataManager_FileRefs::registerImportedAddress(HashString addr160,
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::unregisterAddress(HashString addr160)
 {
+   SCOPED_TIMER("unregisterAddress");
    if(registeredAddrMap_.find(addr160) == registeredAddrMap_.end())
       return false;
    
@@ -2095,6 +2110,8 @@ BtcWallet::~BtcWallet(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FileRefs::evalLowestBlockNextScan(void)
 {
+   SCOPED_TIMER("evalLowestBlockNextScan");
+
    uint32_t lowestBlk = UINT32_MAX;
    map<HashString, RegisteredAddress>::iterator raIter;
    for(raIter  = registeredAddrMap_.begin();
@@ -2112,6 +2129,8 @@ uint32_t BlockDataManager_FileRefs::evalLowestBlockNextScan(void)
 // This method isn't really used yet...
 uint32_t BlockDataManager_FileRefs::evalLowestAddressCreationBlock(void)
 {
+   SCOPED_TIMER("evalLowestAddressCreationBlock");
+
    uint32_t lowestBlk = UINT32_MAX;
    map<HashString, RegisteredAddress>::iterator raIter;
    for(raIter  = registeredAddrMap_.begin();
@@ -2160,7 +2179,7 @@ bool BlockDataManager_FileRefs::isDirty(
 uint32_t BlockDataManager_FileRefs::numBlocksToRescan( BtcWallet & wlt,
                                                        uint32_t endBlk)
 {
-   TIME_THIS_METHOD("numBlocksToRescan");
+   SCOPED_TIMER("numBlocksToRescan");
    // This method tells us whether we have to scan ANY blocks from disk
    // in order to produce accurate balances and TxOut lists.  If this
    // returns false, we can get away without any disk access at all, and
@@ -2208,6 +2227,8 @@ void BlockDataManager_FileRefs::updateRegisteredAddresses(uint32_t newTopBlk)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::resetRegisteredWallets(void)
 {
+   SCOPED_TIMER("resetRegisteredWallets");
+
    set<BtcWallet*>::iterator wltPtrIter;
    for(wltPtrIter  = registeredWallets_.begin();
        wltPtrIter != registeredWallets_.end();
@@ -2270,8 +2291,7 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
                                                     uint32_t startBlknum,
                                                     uint32_t endBlknum)
 {
-   TIME_THIS_METHOD("scanBlockchainForTx_TOKEN");
-   TIMER_START("scanBlockchainForTx");
+   SCOPED_TIMER("scanBlockchainForTx");
 
    // The BDM knows the highest block to which ALL CURRENT REGISTERED ADDRESSES
    // are up-to-date in the registeredTxList_ list.  
@@ -2300,8 +2320,6 @@ void BlockDataManager_FileRefs::scanBlockchainForTx(BtcWallet & myWallet,
    if(zcEnabled_)
       rescanWalletZeroConf(myWallet);
 
-   PDEBUG("Done scanning blockchain for tx");
-   TIMER_STOP("scanBlockchainForTx");
 }
 
 
@@ -2318,7 +2336,7 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
-   TIME_THIS_METHOD("rescanBlocks");
+   SCOPED_TIMER("rescanBlocks");
    for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
@@ -2368,7 +2386,7 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
                                                            uint32_t blkStart,
                                                            uint32_t blkEnd)
 {
-   TIME_THIS_METHOD("scanRegisteredTxForWallet");
+   SCOPED_TIMER("scanRegisteredTxForWallet");
    PDEBUG("Scanning relevant tx list for wallet");
 
    // Make sure RegisteredTx objects have correct data, then sort.
@@ -2504,7 +2522,7 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 {
-   TIME_THIS_METHOD("parseEntireBlockchain");
+   SCOPED_TIMER("parseEntireBlockchain");
    cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
 
    // Initialize a global cache that will be used...
@@ -2622,7 +2640,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    lastBlkFileBytes_     = globalCache.getLastFileSize();
 
    // We now have a map of all blocks, let's organize them into a chain.
-   organizeChain();
+   organizeChain(true);
 
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
@@ -2655,7 +2673,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 //
 uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 {
-   TIME_THIS_METHOD("readBlkFileUpdate");
+   SCOPED_TIMER("readBlkFileUpdate");
 
    // Make sure the file exists and is readable
    string filename = blkFileList_[blkFileList_.size()-1];
@@ -2811,6 +2829,8 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 // call indicated that a reorg happened
 void BlockDataManager_FileRefs::updateWalletAfterReorg(BtcWallet & wlt)
 {
+   SCOPED_TIMER("updateWalletAfterReorg");
+
    // Fix the wallet's ledger
    for(uint32_t i=0; i<wlt.getTxLedger().size(); i++)
    {
@@ -2857,7 +2877,9 @@ void BlockDataManager_FileRefs::updateWalletsAfterReorg(set<BtcWallet*> wltset)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_FileRefs::verifyBlkFileIntegrity(void)
 {
+   SCOPED_TIMER("updateWalletAfterReorg");
    PDEBUG("Verifying blk0001.dat integrity");
+
    bool isGood = true;
    map<HashString, BlockHeader>::iterator headIter;
    for(headIter  = headerMap_.begin();
@@ -2986,7 +3008,7 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader & brrRaw
                                                         uint32_t thisHeaderOffset,
                                                         uint32_t blockSize)
 {
-   TIME_THIS_METHOD("addNewBlockData");
+   SCOPED_TIMER("addNewBlockData");
    uint8_t const * startPtr = brrRawBlock.getCurrPtr();
    HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
@@ -3074,6 +3096,7 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeader* oldTopPtr,
                                                     BlockHeader* newTopPtr,
                                                     BlockHeader* branchPtr)
 {
+   SCOPED_TIMER("reassessAfterReorg");
    cout << "Reassessing Tx validity after (after reorg?)" << endl;
 
    // Walk down invalidated chain first, until we get to the branch point
@@ -3121,6 +3144,7 @@ void BlockDataManager_FileRefs::reassessAfterReorg( BlockHeader* oldTopPtr,
 ////////////////////////////////////////////////////////////////////////////////
 vector<BlockHeader*> BlockDataManager_FileRefs::getHeadersNotOnMainChain(void)
 {
+   SCOPED_TIMER("getHeadersNotOnMainChain");
    PDEBUG("Getting headers not on main chain");
    vector<BlockHeader*> out(0);
    map<HashString, BlockHeader>::iterator iter;
@@ -3143,6 +3167,7 @@ vector<BlockHeader*> BlockDataManager_FileRefs::getHeadersNotOnMainChain(void)
 //        blockchain containing two equal-length chains
 bool BlockDataManager_FileRefs::organizeChain(bool forceRebuild)
 {
+   SCOPED_TIMER("organizeChain");
    PDEBUG2("Organizing chain", (forceRebuild ? "w/ rebuild" : ""));
    // If rebuild, we zero out any original organization data and do a 
    // rebuild of the chain from scratch.  This will need to be done in
@@ -3403,6 +3428,7 @@ int64_t BlockDataManager_FileRefs::getSentValue(TxIn & txin)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::enableZeroConf(string zcFilename)
 {
+   SCOPED_TIMER("enableZeroConf");
    zcEnabled_  = true; 
    zcFilename_ = zcFilename;
 
@@ -3412,6 +3438,7 @@ void BlockDataManager_FileRefs::enableZeroConf(string zcFilename)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::readZeroConfFile(string zcFilename)
 {
+   SCOPED_TIMER("readZeroConfFile");
    uint64_t filesize = BtcUtils::GetFileSize(zcFilename);
    if(filesize<8 || filesize==FILE_DOES_NOT_EXIST)
       return;
@@ -3437,6 +3464,7 @@ void BlockDataManager_FileRefs::readZeroConfFile(string zcFilename)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::disableZeroConf(string zcFilename)
 {
+   SCOPED_TIMER("disableZeroConf");
    zcEnabled_  = false; 
 }
 
@@ -3446,6 +3474,7 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
                                                  uint64_t txtime,
                                                  bool writeToFile)
 {
+   SCOPED_TIMER("addNewZeroConfTx");
    // TODO:  We should do some kind of verification check on this tx
    //        to make sure it's potentially valid.  Right now, it doesn't 
    //        matter, because the Satoshi client is sitting between
@@ -3484,7 +3513,7 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::purgeZeroConfPool(void)
 {
-   TIME_THIS_METHOD("purgeZeroConfPool");
+   SCOPED_TIMER("purgeZeroConfPool");
    list< map<HashString, ZeroConfData>::iterator > mapRmList;
 
    // Find all zero-conf transactions that made it into the blockchain
@@ -3519,7 +3548,7 @@ void BlockDataManager_FileRefs::purgeZeroConfPool(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::rewriteZeroConfFile(void)
 {
-   TIME_THIS_METHOD("rewriteZeroConfFile");
+   SCOPED_TIMER("rewriteZeroConfFile");
    ofstream zcFile(zcFilename_.c_str(), ios::out | ios::binary);
 
    static HashString txHash(32);
@@ -3542,7 +3571,7 @@ void BlockDataManager_FileRefs::rewriteZeroConfFile(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::rescanWalletZeroConf(BtcWallet & wlt)
 {
-   TIME_THIS_METHOD("rescanWalletZeroConf");
+   SCOPED_TIMER("rescanWalletZeroConf");
    // Clear the whole list, rebuild
    wlt.clearZeroConfPool();
 
@@ -3595,6 +3624,7 @@ void BtcAddress::clearZeroConfPool(void)
 ////////////////////////////////////////////////////////////////////////////////
 void BtcWallet::clearZeroConfPool(void)
 {
+   SCOPED_TIMER("clearZeroConfPool");
    ledgerAllAddrZC_.clear();
    for(uint32_t i=0; i<addrMap_.size(); i++)
       addrPtrVect_[i]->clearZeroConfPool();
@@ -3628,6 +3658,8 @@ void BtcWallet::clearZeroConfPool(void)
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> BtcWallet::getTxLedger(HashString const * addr160)
 {
+   SCOPED_TIMER("BtcWallet::getTxLedger");
+
    // Make sure to rebuild the ZC ledgers before calling this method
    if(addr160==NULL)
       return ledgerAllAddr_;
@@ -3642,6 +3674,8 @@ vector<LedgerEntry> BtcWallet::getTxLedger(HashString const * addr160)
 ////////////////////////////////////////////////////////////////////////////////
 vector<LedgerEntry> BtcWallet::getZeroConfLedger(HashString const * addr160)
 {
+   SCOPED_TIMER("BtcWallet::getZeroConfLedger");
+
    // Make sure to rebuild the ZC ledgers before calling this method
    if(addr160==NULL)
       return ledgerAllAddrZC_;

@@ -403,7 +403,8 @@ class WalletAddrDispModel(QAbstractTableModel):
 
    def filterAddrList(self):
       addrList = self.wlt.getLinearAddrList()
-      if self.notEmpty:
+
+      if self.notEmpty and TheBDM.getBDMState()=='BlockchainReady':
          hasBalance = lambda a: (self.wlt.getAddrBalance(a.getAddr160(), 'Full')>0)
          addrList = filter(hasBalance, addrList)
 
@@ -411,7 +412,7 @@ class WalletAddrDispModel(QAbstractTableModel):
          notChange = lambda a: (self.wlt.getCommentForAddress(a.getAddr160()) != CHANGE_ADDR_DESCR_STRING)
          addrList = filter(notChange, addrList)
 
-      if self.usedOnly:
+      if self.usedOnly and TheBDM.getBDMState()=='BlockchainReady':
          isUsed = lambda a: (len(self.wlt.getAddrTxLedger(a.getAddr160(), 'Full')) > 0)
          addrList = filter(isUsed, addrList)
          

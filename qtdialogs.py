@@ -1741,7 +1741,7 @@ class DlgImportAddress(ArmoryDialog):
                      'has access to it.  Otherwise, sweep it to get '
                      'the funds out of it.  All standard private-key formats '
                      'are supported <i>except for private keys created by '
-                     'Bitcoin-Qt version 0.6.0 and later</i>.')
+                     'Bitcoin-Qt version 0.6.0 and later (compressed)</i>.')
 
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
@@ -1766,13 +1766,6 @@ class DlgImportAddress(ArmoryDialog):
                    'All standard private-key formats are supported.  ')
       lblPrivMany = QRichLabel('Private Key List')
       lblPrivMany.setAlignment(Qt.AlignTop)
-      #self.chkSwitchEnd = QCheckBox('Private Keys are Little Endian');
-      #if self.main.usermode != USERMODE.Expert:
-         #self.chkSwitchEnd.setVisible(False)
-      #ttipSwitchEnd = createToolTipObject( \
-         #'Most private keys are in Big-Endian, but in rare cases you may '
-         #'end up with keys in Little-Endian.  Please check that the addresses '
-         #'on the confirmation dialog match what you are expecting.')
       ttipPrivMany = createToolTipObject( \
                   'One private key per line, in any standard format. '
                   'Data may be copied directly from file the "Backup '
@@ -3643,6 +3636,8 @@ class DlgImportPaperWallet(ArmoryDialog):
                                  withEncrypt=False,\
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
+
+      self.newWallet.fillAddressPool()
       self.accept()
       
 

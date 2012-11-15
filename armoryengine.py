@@ -6746,6 +6746,22 @@ class PyBtcWallet(object):
       return highestIndex
 
 
+
+
+   #############################################################################
+   def syncWalletAndFillAddressPool(self):
+      """
+      Will sync the wallet as well as verify that addresses that have been
+      used are marked as such.  This is useful for wallets that were just 
+      imported/recovered recently, but the address pool hasn't been detected
+      yet (addresses are in the pool, but none appear used, yet)
+      """
+      addrMax = self.detectHighestUsedIndex(True)
+      for i in range(addrMax):
+         pass
+         
+
+
    #############################################################################
    def freshImportFindHighestIndex(self, stepSize=None):
       """ 
@@ -10272,7 +10288,7 @@ class BlockDataManagerThread(threading.Thread):
             stkOneUp = traceback.extract_stack()[-2]
             filename,method = stkOneUp[0], stkOneUp[1]
             LOGERROR('Waiting for BDM output that didn\'t come after %ds.' % MT_WAIT_TIME_SEC)
-            LOGERROR('BDM is currently: %s', self.getBDMState())
+            LOGERROR('BDM state is currently: %s', self.getBDMState())
             LOGERROR('Called from: %s:%d (%d)', os.path.basename(filename), method, rndID)
             LOGERROR('BDM currently doing: %s (%d)', self.currentActivity, self.currentID)
             LOGERROR('Direct traceback')
@@ -10842,7 +10858,7 @@ class BlockDataManagerThread(threading.Thread):
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
       #print 'SLEEPING FOR 10 min (DEBUGGING)'
-      #time.sleep(600) 
+      #time.sleep(15) 
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
@@ -10915,7 +10931,9 @@ class BlockDataManagerThread(threading.Thread):
       pywlt.calledFromBDM = True
       
       # Do the scan...
+      TimerStart('WalletRecoveryScan')
       pywlt.freshImportFindHighestIndex()
+      TimerStop('WalletRecoveryScan')
 
       # Unset flag when done
       pywlt.calledFromBDM = prevCalledFromBDM
@@ -10995,7 +11013,7 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.startBDM     = False
-      self.blkdir       = BTC_HOME_DIR
+      #self.blkdir       = BTC_HOME_DIR
 
       # Lists of wallets that should be checked after blockchain updates
       self.pyWltList    = []   # these will be python refs
@@ -11284,11 +11302,11 @@ def TimerStart(timerName):
 
 def TimerStop(timerName):
    if not TimerMap.has_key(timerName):
-      LOGERROR('Requested stop timer that does not exist!')
+      LOGERROR('Requested stop timer that does not exist! (%s)' % timerName)
       return
 
    if not TimerMap[timerName][3]:
-      LOGERROR('Requested stop timer that is not running!')
+      LOGERROR('Requested stop timer that is not running! (%s)' % timerName)
       return
 
    timerEntry = TimerMap[timerName]
@@ -11300,7 +11318,7 @@ def TimerStop(timerName):
 
 def TimerReset(timerName):
    if not TimerMap.has_key(timerName):
-      LOGERROR('Requested reset timer that does not exist!')
+      LOGERROR('Requested reset timer that does not exist! (%s)' % timerName)
 
    # Even if it didn't exist, it will be created now
    TimerMap[timerName] = [0, 0, 0, False]
@@ -11308,7 +11326,7 @@ def TimerReset(timerName):
 
 def ReadTimer(timerName):
    if not TimerMap.has_key(timerName):
-      LOGERROR('Requested read timer that does not exist!')
+      LOGERROR('Requested read timer that does not exist! (%s)' % timerName)
       return
 
    timerEntry = TimerMap[timerName]

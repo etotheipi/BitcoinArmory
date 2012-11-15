@@ -70,7 +70,8 @@
 
 #define TIMER_READ_SEC(NAME) UniversalTimer::instance().read(NAME)
 
-#define TIME_THIS_METHOD(NAME) TimerToken TT(NAME)
+// STARTS A TIMER THAT STOPS WHEN IT GOES OUT OF SCOPE
+#define SCOPED_TIMER(NAME) TimerToken TT(NAME)
 
 using namespace std;
 
@@ -135,12 +136,19 @@ public:
    { 
       timerName_ = name; 
       UniversalTimer::instance().start(timerName_);
+
+      #ifdef _DEBUG
+         cout << "Executing " << timerName_.c_str() << endl;
+      #endif
    }
 
 
    ~TimerToken(void)
    { 
       UniversalTimer::instance().stop(timerName_);
+      #ifdef _DEBUG
+         cout << "Finishing " << timerName_.c_str() << endl;
+      #endif
    }
 
 private: 

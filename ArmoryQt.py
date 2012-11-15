@@ -1583,10 +1583,13 @@ class ArmoryMainWindow(QMainWindow):
             TheBDM.enableZeroConf(mempoolfile)
             self.memPoolInit = True
 
+         TimerStart('initialWalletSync')
          for wltID, wlt in self.walletMap.iteritems():
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].syncWithBlockchain(0)
+            self.walletMap[wltID].detectHighestUsedIndex(True) # THIS CALLS syncWithBlockchain(0)
+            self.walletMap[wltID].fillAddressPool()
+         TimerStop('initialWalletSync')
 
          
          self.createCombinedLedger()
@@ -1740,7 +1743,6 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTotalFunds.setText( '-'*12 )
             self.lblSpendFunds.setText( '-'*12 )
             self.lblUnconfFunds.setText('-'*12 )
-            TimerStop('createCombinedLedger')
             return
             
          uncolor =  htmlColor('MoneyNeg')  if unconfFunds>0          else htmlColor('Foreground')
@@ -2349,6 +2351,20 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execGetImportWltName(self):
+      if TheBDM.getBDMState()=='Scanning':
+         extraMsg = ''
+         if not self.usermode==USERMODE.Standard:
+            extraMsg = ('<br><br>'
+                        'In the future, you may avoid scanning twice by '
+                        'starting Armory in offline mode (--offline), and '
+                        'perform the import before pressing the button '
+                        'to switch to online mode.')
+         QMessageBox.warning(self, 'Armory is Busy', \
+            'Wallets and addresses cannot be imported while Armory is in '
+            'the middle of an existing blockchain scan.  Please wait for '
+            'the scan to finish.  ' + extraMsg, QMessageBox.Ok)
+         return
+      
       fn = self.getFileLoad('Import Wallet File')
       if not os.path.exists(fn):
          return
@@ -2365,16 +2381,56 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.Ok)
          return
 
-      #TheBDM.registerWallet(wlt, isFresh=False, wait=False)
-      #if
-
       fname = self.getUniqueWalletFilename(fn)
       newpath = os.path.join(ARMORY_HOME_DIR, fname)
 
       LOGINFO('Copying imported wallet to: %s', newpath)
       shutil.copy(fn, newpath)
-      self.addWalletToApplication(PyBtcWallet().readWalletFile(newpath), \
-                                                         walletIsNew=False)
+      newWlt = PyBtcWallet().readWalletFile(newpath)
+      newWlt.fillAddressPool()
+      
+
+      #TheBDM.registerWallet(wlt, isFresh=False, wait=False)
+      #if
+      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         self.addWalletToApplication(newWlt, walletIsNew=False)
+         return
+         
+      doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+         'The wallet was recovered successfully, but cannot be displayed '
+         'until the global transaction history is '
+         'searched for previous transactions.  This scan will potentially '
+         'take much longer than a regular rescan, and the wallet cannot '
+         'be shown on the main display until this rescan is complete.'
+         '<br><br>'
+         '<b>Would you like to go into offline mode to start this scan now?'
+         '</b>  If you click "No" the scan will be aborted, and the wallet '
+         'will not be added to Armory.', \
+          QMessageBox.Yes | QMessageBox.No)
+      if doRescanNow == QMessageBox.Yes:
+         LOGINFO('User requested rescan after wallet restore')
+         self.resetBdmBeforeScan()
+         TheBDM.startWalletRecoveryScan(newWlt) 
+         self.setDashboardDetails()
+      else:
+         LOGINFO('User aborted the wallet-recovery scan')
+         QMessageBox.warning(self, 'Import Failed', \
+            'The wallet was not restored.  To restore the wallet, reenter '
+            'the "Restore Wallet" dialog again when you are able to wait '
+            'for the rescan operation.  ', QMessageBox.Ok)
+
+         # The wallet cannot exist without also being on disk. 
+         # If the user aborted, we should remove the disk data.
+         thepath       = newWlt.getWalletPath()
+         thepathBackup = newWlt.getWalletPath('backup')
+         os.remove(thepath)
+         os.remove(thepathBackup)
+         return
+
+      #self.addWalletToApplication(newWlt, walletIsNew=False)
+      self.walletRestoreList.append(newWlt)
+      LOGINFO('Import Complete!')
+
 
    #############################################################################
    def execRestorePaperBackup(self):
@@ -2382,8 +2438,13 @@ class ArmoryMainWindow(QMainWindow):
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
 
-         #TheBDM.registerWallet(dlgPaper.newWallet, isFresh=False, wait=False)
          LOGINFO('Raw import successful.')
+         
+         # If we are offline, then we can't assume there will ever be a 
+         # rescan.  Just add the wallet to the application
+         if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+            self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+            return
          
          doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
             'The wallet was recovered successfully, but cannot be displayed '
@@ -2748,14 +2809,31 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def pressModeSwitchButton(self):
       if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
+         self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
+         self.resetBdmBeforeScan()
          TheBDM.setOnlineMode(True)
          self.switchNetworkMode(NETWORKMODE.Full)
       else:
          LOGERROR('ModeSwitch button pressed when it should be disabled')
       time.sleep(0.3)
       self.setDashboardDetails()
+
+
+   
+   #############################################################################
+   def resetBdmBeforeScan(self):
+      """
+      I have spend hours trying to debug situations where starting a scan or 
+      rescan fails, and still not found the reason.  However, it always seems
+      to work after a reset and re-register of all addresses/wallets.  
+      """
+      TimerStart("resetBdmBeforeScan")
+      TheBDM.Reset(wait=False)
+      for wid,wlt in self.walletMap.iteritems():
+         TheBDM.registerWallet(wlt.cppWallet)
+      TimerStop("resetBdmBeforeScan")
          
 
    #############################################################################
@@ -3019,30 +3097,7 @@ class ArmoryMainWindow(QMainWindow):
 
    
          if TheBDM.getBDMState()=='BlockchainReady':
-            newBlocks = TheBDM.readBlkFileUpdate(wait=True)
-            self.currBlockNum = TheBDM.getTopBlockHeight()
 
-            #####
-            # If we are getting lots of blocks, very rapidly, issue a warning
-            # We look at a rolling sum of the last 5 heartbeat updates (5s)
-            self.detectNotSyncQ.insert(0, newBlocks)
-            self.detectNotSyncQ.pop()
-            blksInLast5sec = sum(self.detectNotSyncQ)
-            if( blksInLast5sec>10 ):
-               LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
-               LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
-               if self.noSyncWarnYet:
-                  self.noSyncWarnYet = False
-                  QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
-                     'Armory has detected that Bitcoin-Qt is not synchronized '
-                     'with the bitcoin network yet, meaning Armory may not work '
-                     'properly.  If you experience any unusual behavior, it is '
-                     'recommended that you close Armory and only restart it '
-                     'when you see the green checkmark in the bottom-right '
-                     'corner of the Bitcoin-Qt window.', QMessageBox.Ok)
-               return
-            
-   
             #####
             # Blockchain just finished loading.  Do lots of stuff...
             if self.needUpdateAfterScan:
@@ -3070,6 +3125,32 @@ class ArmoryMainWindow(QMainWindow):
                   wlt = self.walletRestoreList.pop()
                   self.addWalletToApplication(wlt, walletIsNew=False)
                self.setDashboardDetails()
+
+
+            # Now we start the normal array of heartbeat operations
+            newBlocks = TheBDM.readBlkFileUpdate(wait=True)
+            self.currBlockNum = TheBDM.getTopBlockHeight()
+
+            #####
+            # If we are getting lots of blocks, very rapidly, issue a warning
+            # We look at a rolling sum of the last 5 heartbeat updates (5s)
+            self.detectNotSyncQ.insert(0, newBlocks)
+            self.detectNotSyncQ.pop()
+            blksInLast5sec = sum(self.detectNotSyncQ)
+            if( blksInLast5sec>10 ):
+               LOGERROR('Detected Bitcoin-Qt/bitcoind not synchronized')
+               LOGERROR('New blocks added in last 5 sec: %d', blksInLast5sec)
+               if self.noSyncWarnYet:
+                  self.noSyncWarnYet = False
+                  QMessageBox.warning(self,'Bitcoin-Qt is not synchronized', \
+                     'Armory has detected that Bitcoin-Qt is not synchronized '
+                     'with the bitcoin network yet, and Armory <b>may</b> not '
+                     'work properly.  If you experience any unusual behavior, it is '
+                     'recommended that you close Armory and only restart it '
+                     'when you see the green checkmark in the bottom-right '
+                     'corner of the Bitcoin-Qt window.', QMessageBox.Ok)
+               return
+            
          
    
             # If we have new zero-conf transactions, scan them and update ledger
