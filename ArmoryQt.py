@@ -297,8 +297,14 @@ class ArmoryMainWindow(QMainWindow):
                    self.changeLedgerSorting)
 
 
-      ccl = lambda x: self.createCombinedLedger() # ignore the arg
-      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), ccl)
+      # Create the new ledger twice:  can't update the ledger up/down
+      # widgets until we know how many ledger entries there are from 
+      # the first call
+      def createLedg():
+         self.createCombinedLedger() 
+         if self.frmLedgUpDown.isVisible():
+            self.changeNumShow() 
+      self.connect(self.comboWltSelect, SIGNAL('activated(int)'), createLedg)
 
       self.lblTot  = QRichLabel('<b>Maximum Funds:</b>', doWrap=False); 
       self.lblSpd  = QRichLabel('<b>Spendable Funds:</b>', doWrap=False); 
@@ -2335,6 +2341,19 @@ class ArmoryMainWindow(QMainWindow):
 
    
       
+   #############################################################################
+   def warnNoImportWhileScan(self):
+      extraMsg = ''
+      if not self.usermode==USERMODE.Standard:
+         extraMsg = ('<br><br>'
+                     'In the future, you may avoid scanning twice by '
+                     'starting Armory in offline mode (--offline), and '
+                     'perform the import before switching to online mode.')
+      QMessageBox.warning(self, 'Armory is Busy', \
+         'Wallets and addresses cannot be imported while Armory is in '
+         'the middle of an existing blockchain scan.  Please wait for '
+         'the scan to finish.  ' + extraMsg, QMessageBox.Ok)
+      
             
             
    #############################################################################
@@ -2352,17 +2371,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def execGetImportWltName(self):
       if TheBDM.getBDMState()=='Scanning':
-         extraMsg = ''
-         if not self.usermode==USERMODE.Standard:
-            extraMsg = ('<br><br>'
-                        'In the future, you may avoid scanning twice by '
-                        'starting Armory in offline mode (--offline), and '
-                        'perform the import before pressing the button '
-                        'to switch to online mode.')
-         QMessageBox.warning(self, 'Armory is Busy', \
-            'Wallets and addresses cannot be imported while Armory is in '
-            'the middle of an existing blockchain scan.  Please wait for '
-            'the scan to finish.  ' + extraMsg, QMessageBox.Ok)
+         self.warnNoImportWhileScan()
          return
       
       fn = self.getFileLoad('Import Wallet File')
@@ -2372,6 +2381,7 @@ class ArmoryMainWindow(QMainWindow):
       wlt = PyBtcWallet().readWalletFile(fn, verifyIntegrity=False, \
                                              doScanNow=False)
       wltID = wlt.uniqueIDB58
+      wlt = None
 
       if self.walletMap.has_key(wltID):
          QMessageBox.warning(self, 'Duplicate Wallet!', \
@@ -2390,14 +2400,12 @@ class ArmoryMainWindow(QMainWindow):
       newWlt.fillAddressPool()
       
 
-      #TheBDM.registerWallet(wlt, isFresh=False, wait=False)
-      #if
       if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
          self.addWalletToApplication(newWlt, walletIsNew=False)
          return
          
       doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-         'The wallet was recovered successfully, but cannot be displayed '
+         'The wallet was imported successfully, but cannot be displayed '
          'until the global transaction history is '
          'searched for previous transactions.  This scan will potentially '
          'take much longer than a regular rescan, and the wallet cannot '
@@ -2408,16 +2416,13 @@ class ArmoryMainWindow(QMainWindow):
          'will not be added to Armory.', \
           QMessageBox.Yes | QMessageBox.No)
       if doRescanNow == QMessageBox.Yes:
-         LOGINFO('User requested rescan after wallet restore')
-         self.resetBdmBeforeScan()
+         LOGINFO('User requested rescan after wallet import')
          TheBDM.startWalletRecoveryScan(newWlt) 
          self.setDashboardDetails()
       else:
-         LOGINFO('User aborted the wallet-recovery scan')
+         LOGINFO('User aborted the wallet-import scan')
          QMessageBox.warning(self, 'Import Failed', \
-            'The wallet was not restored.  To restore the wallet, reenter '
-            'the "Restore Wallet" dialog again when you are able to wait '
-            'for the rescan operation.  ', QMessageBox.Ok)
+            'The wallet was not imported.', QMessageBox.Ok)
 
          # The wallet cannot exist without also being on disk. 
          # If the user aborted, we should remove the disk data.
@@ -2434,6 +2439,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
+      if TheBDM.getBDMState()=='Scanning':
+         self.warnNoImportWhileScan()
+         return
 
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
@@ -2840,6 +2848,21 @@ class ArmoryMainWindow(QMainWindow):
    def setDashboardDetails(self):
       TimerStart('setDashboardDetails')
       onlineAvail = self.onlineModeIsPossible()
+      txtScanFunc = ( \
+         'The following functionality is available while scanning in offline mode:'
+         '<ul>'
+         '<li>Create new wallets</li>'
+         '<li>Generate receiving addresses for your wallets</li>'
+         '<li>Create backups of your wallets (printed or digital)</li>'
+         '<li>Change wallet encryption settings</li>'
+         '<li>Sign transactions created from an online system</li>'
+         '<li>Sign messages</li>'
+         '</ul>'
+         '<br><br><b>NOTE:</b>  The Bitcoin network <u>will</u> process transactions '
+         'to your addresses, regardless of whether you are online.  It is perfectly '
+         'okay to create and distribute payment addresses while Armory is offline, '
+         'you just won\'t be able to verify those payments until the next time '
+         'Armory is online.')
       txtOfflineFunc = ( \
          'The following functionality is available in offline mode:'
          '<ul>'
@@ -2847,11 +2870,11 @@ class ArmoryMainWindow(QMainWindow):
          '<li>Generate new receiving addresses for your wallets</li>'
          '<li>Create backups of your wallets (printed or digital)</li>'
          '<li>Import private keys to wallets</li>'
-         '<li><b>Sign transactions created from an online system</b></li>'
          '<li>Change wallet encryption settings</li>'
          '<li>Sign messages</li>'
+         '<li><b>Sign transactions created from an online system</b></li>'
          '</ul>'
-         '<br><br><b>NOTE:</b>  The Bitcoin network can process transactions '
+         '<br><br><b>NOTE:</b>  The Bitcoin network <u>will</u> process transactions '
          'to your addresses, regardless of whether you are online.  It is perfectly '
          'okay to create and distribute payment addresses while Armory is offline, '
          'you just won\'t be able to verify those payments until the next time '
@@ -2869,8 +2892,8 @@ class ArmoryMainWindow(QMainWindow):
          '<li>Monitor payments to watching-only wallets and create '
             'unsigned transactions</li>'
          '<li>Sign messages</li>'
-         '<li><b>Create transactions for watching-only wallets, '
-            'to be signed by an offline wallet</b></li>'
+         '<li><b>Create transactions with watching-only wallets, '
+            'to be signed by an offline wallets</b></li>'
          '</ul>')
 
       if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
@@ -3043,11 +3066,10 @@ class ArmoryMainWindow(QMainWindow):
             lblText += 'Armory is scanning the global transaction history to retrieve '
             lblText += 'information about your wallets.  The "Transactions" tab will '
             lblText += 'be updated with wallet balances and history as soon as '
-            lblText += 'the scan is complete.'
+            lblText += 'the scan is complete.  You may manage your wallets while you wait.'
 
          lblText += '<br><br>'
-         lblText += 'While you wait, you may manage your Armory wallets.  '
-         lblText += txtOfflineFunc
+         lblText += txtScanFunc
          lblText += '<br>'
          self.lblDashDescr.setText(lblText)
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
