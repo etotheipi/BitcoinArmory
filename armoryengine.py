@@ -10484,7 +10484,6 @@ class BlockDataManagerThread(threading.Thread):
 
       rndID = int(random.uniform(0,100000000)) 
       self.inputQueue.put([BDMINPUTTYPE.UpdateWallets, rndID, expectOutput])
-      LOGINFO('Wallet update requested')
       return self.waitForOutputIfNecessary(expectOutput, rndID)
 
 

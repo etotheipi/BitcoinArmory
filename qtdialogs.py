@@ -981,7 +981,7 @@ class DlgWalletDetails(ArmoryDialog):
                kdfParams = self.wlt.computeSystemSpecificKdfParams(0.2)
                self.wlt.changeKdfParams(*kdfParams)
             self.wlt.changeWalletEncryption(securePassphrase=newPassphrase)
-            self.labelValues[WLTFIELDS.Secure].setText('Encrypted')
+            self.labelValues[WLTFIELDS.Secure].setText('Encrypted (AES256)')
             #self.accept()
       
 
@@ -1175,8 +1175,9 @@ class DlgWalletDetails(ArmoryDialog):
             'the name and description match.')
    
       tooltips[WLTFIELDS.NumAddr] = createToolTipObject(
-            'The number of addresses generated so far for this wallet.  '
-            'This includes addresses imported manually')
+            'This is the number of addresses *used* by this wallet so far. '
+            'If you recently restored this wallet and you do not see all the '
+            'funds you were expecting, click on this field to increase it.')
    
       if self.typestr=='Offline':
          tooltips[WLTFIELDS.Secure] = createToolTipObject(
@@ -1210,9 +1211,6 @@ class DlgWalletDetails(ArmoryDialog):
             '"This wallet is mine", it\'s balance will be included in your total '
             'Armory Balance in the main window' )
    
-      tooltips[WLTFIELDS.Crypto] = createToolTipObject(
-            'The encryption used to secure your wallet keys' )
-   
       tooltips[WLTFIELDS.Time] = createToolTipObject(
             'This is exactly how long it takes your computer to unlock your '
             'wallet after you have entered your passphrase.  If someone got '
@@ -1234,7 +1232,7 @@ class DlgWalletDetails(ArmoryDialog):
       labelNames[WLTFIELDS.Descr]   = QLabel('Description:')
    
       labelNames[WLTFIELDS.WltID]     = QLabel('Wallet ID:')
-      labelNames[WLTFIELDS.NumAddr]   = QLabel('#Addresses:')
+      labelNames[WLTFIELDS.NumAddr]   = QLabel('Addresses Used:')
       labelNames[WLTFIELDS.Secure]    = QLabel('Security:')
       labelNames[WLTFIELDS.Version]   = QLabel('Version:')
 
@@ -1244,7 +1242,6 @@ class DlgWalletDetails(ArmoryDialog):
       # TODO:  Add wallet path/location to this!
    
       if dispCrypto:
-         labelNames[WLTFIELDS.Crypto] = QLabel('Encryption:')
          labelNames[WLTFIELDS.Time]   = QLabel('Unlock Time:')
          labelNames[WLTFIELDS.Mem]    = QLabel('Unlock Memory:')
    
@@ -1253,10 +1250,16 @@ class DlgWalletDetails(ArmoryDialog):
       self.labelValues[WLTFIELDS.Descr]   = QLabel(self.wlt.labelDescr)
    
       self.labelValues[WLTFIELDS.WltID]     = QLabel(self.wlt.uniqueIDB58)
-      self.labelValues[WLTFIELDS.NumAddr]   = QLabel(str(len(self.wlt.getLinearAddrList())))
       self.labelValues[WLTFIELDS.Secure]    = QLabel(self.typestr)
       self.labelValues[WLTFIELDS.BelongsTo] = QLabel('')
       self.labelValues[WLTFIELDS.Version]   = QLabel(getVersionString(self.wlt.version))
+
+
+      topUsed    = self.wlt.highestUsedChainIndex
+      self.labelValues[WLTFIELDS.NumAddr] = QLabelButton('%d' % topUsed)
+      self.labelValues[WLTFIELDS.NumAddr].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+      opendlgkeypool = lambda: DlgKeypoolSettings(self.wlt,self,self.main).exec_()
+      self.connect(self.labelValues[WLTFIELDS.NumAddr], SIGNAL('clicked()'), opendlgkeypool) 
 
       # Set the owner appropriately
       if self.wlt.watchingOnly:
@@ -1279,7 +1282,6 @@ class DlgWalletDetails(ArmoryDialog):
    
    
       if dispCrypto:
-         self.labelValues[WLTFIELDS.Crypto] = QLabel('AES256')
          self.labelValues[WLTFIELDS.Time]   = QLabelButton('Click to Test')
          self.labelValues[WLTFIELDS.Mem]    = QLabel(kdfmemstr)
 
@@ -1343,13 +1345,13 @@ class DlgWalletDetails(ArmoryDialog):
       layout.addWidget(labelNames[WLTFIELDS.Version],        0, 4); 
       layout.addWidget(self.labelValues[WLTFIELDS.Version],  0, 5)
    
-      #layout.addWidget(tooltips[WLTFIELDS.NumAddr],          1, 3); 
-      #layout.addWidget(labelNames[WLTFIELDS.NumAddr],        1, 4); 
-      #layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  1, 5)
+      layout.addWidget(tooltips[WLTFIELDS.NumAddr],          1, 3) 
+      layout.addWidget(labelNames[WLTFIELDS.NumAddr],        1, 4) 
+      layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  1, 5)
    
-      layout.addWidget(tooltips[WLTFIELDS.Secure],           1, 3); 
-      layout.addWidget(labelNames[WLTFIELDS.Secure],         1, 4); 
-      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   1, 5)
+      layout.addWidget(tooltips[WLTFIELDS.Secure],           2, 3); 
+      layout.addWidget(labelNames[WLTFIELDS.Secure],         2, 4); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   2, 5)
    
 
       if self.wlt.watchingOnly:
@@ -1359,10 +1361,6 @@ class DlgWalletDetails(ArmoryDialog):
       
    
       if dispCrypto:
-         layout.addWidget(tooltips[WLTFIELDS.Crypto],         2, 3); 
-         layout.addWidget(labelNames[WLTFIELDS.Crypto],       2, 4); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Crypto], 2, 5)
-   
          layout.addWidget(tooltips[WLTFIELDS.Time],           3, 3); 
          layout.addWidget(labelNames[WLTFIELDS.Time],         3, 4); 
          layout.addWidget(self.labelValues[WLTFIELDS.Time],   3, 5)
@@ -1503,6 +1501,132 @@ def showWatchOnlyRecvWarningIfNecessary(wlt, main):
    return True
 
 
+
+################################################################################
+class DlgKeypoolSettings(ArmoryDialog):
+   """
+   Let the user manually adjust the keypool for this wallet
+   """
+   def __init__(self, wlt, parent=None, main=None):
+      super(DlgKeypoolSettings, self).__init__(parent, main)
+
+      self.wlt = wlt
+
+      self.addressesWereGenerated = False
+      
+      self.lblDescr = QRichLabel( \
+         'Armory pre-computes a pool of addresses beyond the last address '
+         'you have used, and keeps them in your wallet to "look-ahead."  One '
+         'reason it does this is in case you have restored this wallet from '
+         'a backup, and Armory does not know how many addresses you have actually '
+         'used. '
+         '<br><br>'
+         'If this wallet was restored from a backup and was very active after '
+         'it was backed up, then it is possible Armory did not pre-compute '
+         'enough addresses to find your entire balance.  <b>This condition is '
+         'rare</b>, but it can happen.  You may extend the keypool manually, '
+         'below.')
+
+      self.lblAddrUsed    = QRichLabel('Addresses used: ', doWrap=False)
+      self.lblAddrComp    = QRichLabel('Addresses computed: ', doWrap=False)
+      self.lblAddrUsedVal = QRichLabel('%d' % self.wlt.highestUsedChainIndex)
+      self.lblAddrCompVal = QRichLabel('%d' % self.wlt.lastComputedChainIndex)
+
+      self.lblNumAddr = QRichLabel('Compute this many more addresses: ')
+      self.edtNumAddr = QLineEdit()
+      self.edtNumAddr.setText('100')
+      self.edtNumAddr.setMaximumWidth( relaxedSizeStr(self,'9999999')[0])
+
+      self.lblWarnSpeed = QRichLabel(
+         'Address computation is very slow.  It may take up to one minute '
+         'to compute 200-1000 addresses (system-dependent).  Only generate '
+         'as many as you think you need.')
+
+
+      buttonBox = QDialogButtonBox()
+      self.btnAccept = QPushButton("Compute")
+      self.btnReject = QPushButton("Done")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.clickCompute)
+      self.connect(self.btnReject, SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnReject, QDialogButtonBox.RejectRole)
+
+
+      frmLbl  = makeVertFrame([self.lblAddrUsed,    self.lblAddrComp   ])
+      frmVal  = makeVertFrame([self.lblAddrUsedVal, self.lblAddrCompVal])
+      subFrm1 = makeHorizFrame(['Stretch', frmLbl, frmVal, 'Stretch'], STYLE_SUNKEN)
+      
+      subFrm2 = makeHorizFrame(['Stretch', \
+                                self.lblNumAddr, \
+                                self.edtNumAddr, \
+                                'Stretch'], STYLE_SUNKEN)
+
+      layout = QVBoxLayout()
+      layout.addWidget(self.lblDescr)
+      layout.addWidget(subFrm1)
+      layout.addWidget(self.lblWarnSpeed)
+      layout.addWidget(subFrm2)
+      layout.addWidget(buttonBox)
+
+      self.setLayout(layout)
+      self.setWindowTitle('Extend Address Pool')
+
+
+   #############################################################################
+   def reject(self):
+      if self.addressesWereGenerated:
+         QMessageBox.warning(self, 'Rescan Required', \
+            'New addresses have been generated for your wallet, but their '
+            'balances are not yet reflected on the main screen.  You must '
+            'initiate a blockchain rescan before this happens.  Press the '
+            'button on the dashboard to do a rescan, or simply restart Armory', \
+            QMessageBox.Ok)
+ 
+      super(DlgKeypoolSettings, self).reject()
+
+   #############################################################################
+   def clickCompute(self):
+      err = False
+      try:
+         naddr = int(self.edtNumAddr.text())
+      except:
+         err = True
+
+      if err or naddr<1:
+         QMessageBox.critical(self, 'Invalid input', \
+            'The value you entered is invalid.  Please enter a positive '
+            'number of addresses to generate.', QMessageBox.Ok)
+         return
+     
+      if naddr>=5000:
+         confirm = QMessageBox.warning(self, 'Are you sure?', \
+            'You have entered that you want to compute %d more addresses '
+            'for this wallet.  This operation will take a very long time, '
+            'and Armory will become unresponsive until the computation is '
+            'finished.  Armory estimates it will take about %d minutes. '
+            '<br><br>Do you want to continue?' % (naddr, int(naddr/750.)), \
+            QMessageBox.Yes | QMessageBox.No)
+         
+         if not confirm==QMessageBox.Yes:
+            return
+
+      cred = htmlColor('TextRed')
+      self.lblAddrCompVal.setText('<font color="%s">Calculating...</font>' % cred)
+   
+      def doit():
+         currPool = self.wlt.lastComputedChainIndex - self.wlt.highestUsedChainIndex
+         self.wlt.fillAddressPool(currPool+naddr, isActuallyNew=False)
+         self.lblAddrCompVal.setText('<font color="%s">%d</font>' % \
+                        (cred, self.wlt.lastComputedChainIndex))
+         self.addressesWereGenerated = True
+         self.main.forceNeedRescan = False
+
+      # We use callLater so that we can let the screen redraw with "Calculating..."
+      from twisted.internet import reactor
+      reactor.callLater(0.1, doit)
+
+
+################################################################################
 class DlgNewAddressDisp(ArmoryDialog):
    """
    We just generated a new address, let's show it to the user and let them

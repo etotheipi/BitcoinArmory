@@ -3016,7 +3016,7 @@ class ArmoryMainWindow(QMainWindow):
                   '<b>Wallet balances may '
                   'be incorrect until the rescan operation is performed!</b>'
                   '<br><br>'
-                  'Armory is currently online, but you have imported private keys '
+                  'Armory is currently online, but you have added private keys '
                   'without initiating a blockchain scan.  Press the button to start '
                   'the blockchain scan, which '
                   'will also put Armory into offline mode for a few minutes '
