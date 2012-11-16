@@ -1345,29 +1345,36 @@ class DlgWalletDetails(ArmoryDialog):
       layout.addWidget(labelNames[WLTFIELDS.Version],        0, 4); 
       layout.addWidget(self.labelValues[WLTFIELDS.Version],  0, 5)
    
-      layout.addWidget(tooltips[WLTFIELDS.NumAddr],          1, 3) 
-      layout.addWidget(labelNames[WLTFIELDS.NumAddr],        1, 4) 
-      layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  1, 5)
+      i=0
+      if self.main.usermode==USERMODE.Expert:
+         i+=1
+         layout.addWidget(tooltips[WLTFIELDS.NumAddr],          i, 3) 
+         layout.addWidget(labelNames[WLTFIELDS.NumAddr],        i, 4) 
+         layout.addWidget(self.labelValues[WLTFIELDS.NumAddr],  i, 5)
    
-      layout.addWidget(tooltips[WLTFIELDS.Secure],           2, 3); 
-      layout.addWidget(labelNames[WLTFIELDS.Secure],         2, 4); 
-      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   2, 5)
+      i+=1
+      layout.addWidget(tooltips[WLTFIELDS.Secure],           i, 3); 
+      layout.addWidget(labelNames[WLTFIELDS.Secure],         i, 4); 
+      layout.addWidget(self.labelValues[WLTFIELDS.Secure],   i, 5)
    
 
       if self.wlt.watchingOnly:
-         layout.addWidget(tooltips[WLTFIELDS.BelongsTo],           3, 3); 
-         layout.addWidget(labelNames[WLTFIELDS.BelongsTo],         3, 4); 
-         layout.addWidget(self.labelValues[WLTFIELDS.BelongsTo],   3, 5)
+         i+=1
+         layout.addWidget(tooltips[WLTFIELDS.BelongsTo],           i, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.BelongsTo],         i, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.BelongsTo],   i, 5)
       
    
       if dispCrypto:
-         layout.addWidget(tooltips[WLTFIELDS.Time],           3, 3); 
-         layout.addWidget(labelNames[WLTFIELDS.Time],         3, 4); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Time],   3, 5)
+         i+=1
+         layout.addWidget(tooltips[WLTFIELDS.Time],           i, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.Time],         i, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.Time],   i, 5)
    
-         layout.addWidget(tooltips[WLTFIELDS.Mem],            4, 3); 
-         layout.addWidget(labelNames[WLTFIELDS.Mem],          4, 4); 
-         layout.addWidget(self.labelValues[WLTFIELDS.Mem],    4, 5)
+         i+=1
+         layout.addWidget(tooltips[WLTFIELDS.Mem],            i, 3); 
+         layout.addWidget(labelNames[WLTFIELDS.Mem],          i, 4); 
+         layout.addWidget(self.labelValues[WLTFIELDS.Mem],    i, 5)
 
    
       self.frm = QFrame()

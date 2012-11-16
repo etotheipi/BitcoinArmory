@@ -2817,7 +2817,6 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def pressModeSwitchButton(self):
       if TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
-         self.resetBdmBeforeScan()
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
          self.resetBdmBeforeScan()
@@ -2999,6 +2998,7 @@ class ArmoryMainWindow(QMainWindow):
             LOGINFO('Dashboard switched to online-but-dirty mode')
             self.btnModeSwitch.setVisible(True)
             self.btnModeSwitch.setText('Rescan Now')
+            self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Dashboard)
             self.lblDashMode.setText( 'Armory is online, but needs to rescan ' \
                            'the blockchain</b>', size=4, color='TextWarn', bold=True)
             if len(self.sweepAfterScanList) > 0:
@@ -3113,7 +3113,7 @@ class ArmoryMainWindow(QMainWindow):
             if self.onlineModeIsPossible():
                self.switchNetworkMode(NETWORKMODE.Full)
 
-         if not TheBDM.isDirty() and self.dirtyLastTime:
+         if not TheBDM.isDirty() == self.dirtyLastTime:
             self.setDashboardDetails()
          self.dirtyLastTime = TheBDM.isDirty()
 
