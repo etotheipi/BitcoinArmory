@@ -159,7 +159,8 @@ void TestReadAndOrganizeChain(string blkdir)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
-   bdm.parseEntireBlockchain(blkdir);  
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
    TIMER_STOP("BDM_Load_and_Scan_BlkChain");
    cout << endl << endl;
 
@@ -194,7 +195,8 @@ void TestFindNonStdTx(string blkdir)
    /*
    // This is mostly just for debugging...
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkdir); 
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain(); 
    bdm.findAllNonStdTx();
    // At one point I had code to print out nonstd txinfo... not sure
    // what happened to it...
@@ -206,7 +208,8 @@ void TestFindNonStdTx(string blkdir)
 void TestScanForWalletTx(string blkdir)
 {
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkdir);
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();
    /////////////////////////////////////////////////////////////////////////////
    BinaryData myAddress;
    BtcWallet wlt;
@@ -355,7 +358,8 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.parseEntireBlockchain(blkdir);  
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -555,7 +559,8 @@ void TestBalanceConstruction(string blkdir)
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain... (with wallet scan)" << endl;
    TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
-   bdm.parseEntireBlockchain(blkdir);  
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
    TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
    cout << endl << endl;
 
@@ -611,7 +616,8 @@ void TestReadAndUpdateBlkFile(string tempBlkDir)
    // The newblk directory has a blk0003.dat file with one more block
    // and blk0004.dat file with 4 more blocks
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(tempBlkDir);  
+   bdm.SetBlkFileLocation(tempBlkDir, 4, 1);
+   bdm.parseEntireBlockchain();  
 
    // Test standard blkfile expansion
    copyFile(blk3b, blk3);
@@ -677,7 +683,8 @@ void TestReorgBlockchain(string blkdir)
    bdm.Reset();
    cout << "Done!" << endl;
    cout << "Reading in initial block chain (Blocks 0 through 4)..." ;
-   bdm.parseEntireBlockchain("reorgTest/blk_0_to_4.dat");
+   bdm.SetBlkFileLocation("reorgTest/blk_0_to_4.dat", 4, 1);
+   bdm.parseEntireBlockchain();
    bdm.organizeChain();
    cout << "Done" << endl;
 
@@ -803,7 +810,8 @@ void TestZeroConf(void)
    BtcWallet wlt;
    /*
    bdm.Reset();
-   bdm.parseEntireBlockchain("zctest/blk0001.dat");
+   bdm.SetBlkFileLocation("zctest/blk0001.dat", 4, 1);
+   bdm.parseEntireBlockchain();
 
    // More testnet addresses, with only a few transactions
    myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
@@ -875,7 +883,8 @@ void TestZeroConf(void)
    // Start testing balance/wlt update after a new block comes in
 
    bdm.Reset();
-   bdm.parseEntireBlockchain("zctest/blk0001.dat");
+   bdm.SetBlkFileLocation("zctest/blk0001.dat", 4, 1);
+   bdm.parseEntireBlockchain();
    // More testnet addresses, with only a few transactions
    wlt = BtcWallet();
    myAddress.createFromHex("4c98e1fb7aadce864b310b2e52b685c09bdfd5e7"); wlt.addAddress(myAddress);
@@ -1418,7 +1427,8 @@ void CreateMultiBlkFile(string blkdir)
    string targDir("multiblktest"); 
 
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkdir);  
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
 
    uint32_t topBlk = bdm.getTopBlockHeight();
    uint32_t onethird = topBlk/3;
@@ -1499,7 +1509,8 @@ void CreateMultiBlkFile(string blkdir)
 void TestMemoryUsage_UseSystemMonitor(string blkdir)
 {
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.parseEntireBlockchain(blkdir);  
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
 
    char a[256];
    cout << "About to clear txHintMap" << endl;
