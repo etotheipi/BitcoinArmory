@@ -9078,6 +9078,9 @@ class PayloadAlert(object):
       return bp.getBinaryString()
 
 
+   def pprint(self, nIndent=0):
+      print nIndent*'\t' + 'ALERT(...)'
+
 ################################################################################
 # Use this map to figure out which object to serialize/unserialize from a cmd
 PayloadMap = {
@@ -9178,7 +9181,7 @@ class ArmoryClient(Protocol):
 
       
       #print '\n\nData Received:',
-      #pprintHex(binary_to_hex(data))
+      #pprintHex(binary_to_hex(data), withAddr=False)
 
       # Put the current buffer into an unpacker, process until empty
       self.recvData += data
@@ -9188,7 +9191,11 @@ class ArmoryClient(Protocol):
       while True:
          try:
             # recvData is only modified if the unserialize succeeds
-            messages.append( PyMessage().unserialize(buf) )
+            # Had a serious issue with references, so I had to convert 
+            # messages to strings to guarantee that copies were being 
+            # made!  (yes, hacky...)
+            thisMsg = PyMessage().unserialize(buf)
+            messages.append( thisMsg.serialize() )
             self.recvData = buf.getRemainingString()
          except NetworkIDError:
             LOGERROR('Message for a different network!' )
@@ -9206,8 +9213,10 @@ class ArmoryClient(Protocol):
       if len(messages)==0:
          return
 
+
       # Finally, we have some message to process, let's do it
-      for msg in messages:
+      for msgStr in messages:
+         msg = PyMessage().unserialize(msgStr)
          cmd = msg.cmd
 
          # Log the message if netlog option
@@ -9251,7 +9260,6 @@ class ArmoryClient(Protocol):
       #        application.  For now, it's pretty static.
       #msg.payload.pprint(nIndent=2)
       if msg.cmd=='inv':
-         #print 'Received inv message'
          invobj = msg.payload
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
@@ -9266,9 +9274,12 @@ class ArmoryClient(Protocol):
                else:
                   #print 'Requesting new tx data'
                   getdataMsg.payload.invList.append(inv)
-               self.sendMessage(getdataMsg)
+
+         # Now send the full request
+         if not TheBDM.getBDMState()=='Scanning':
+            self.sendMessage(getdataMsg)
+
       if msg.cmd=='tx':
-         #print 'Received tx message'
          pytx = msg.payload.tx
          #newAlert = self.factory.checkForDoubleBroadcast(pytx)
          #if newAlert:
@@ -9282,7 +9293,6 @@ class ArmoryClient(Protocol):
       if msg.cmd=='block':
          # We don't care much about blocks right now --  We will find
          # out about them when the Satoshi client updates blk0001.dat
-         #print 'Received block message (ignoring)'
          pass
                   
 

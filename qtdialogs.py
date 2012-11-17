@@ -1581,7 +1581,7 @@ class DlgKeypoolSettings(ArmoryDialog):
 
    #############################################################################
    def reject(self):
-      if self.addressesWereGenerated:
+      if self.addressesWereGenerated and not TheBDM.getBDMState() in ('Offline','Uninitialized'):
          QMessageBox.warning(self, 'Rescan Required', \
             'New addresses have been generated for your wallet, but their '
             'balances are not yet reflected on the main screen.  You must '
@@ -1605,7 +1605,7 @@ class DlgKeypoolSettings(ArmoryDialog):
             'number of addresses to generate.', QMessageBox.Ok)
          return
      
-      if naddr>=5000:
+      if naddr>=1000:
          confirm = QMessageBox.warning(self, 'Are you sure?', \
             'You have entered that you want to compute %d more addresses '
             'for this wallet.  This operation will take a very long time, '
