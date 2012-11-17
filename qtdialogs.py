@@ -1593,6 +1593,14 @@ class DlgKeypoolSettings(ArmoryDialog):
 
    #############################################################################
    def clickCompute(self):
+      if TheBDM.getBDMState()=='Scanning':
+         QMessageBox.warning(self, 'Armory is Busy', \
+            'Armory is in the middle of a scan, and cannot add addresses to '
+            'any of its wallets until the scan is finished.  Please wait until '
+            'the dashboard says that Armory is "online."', QMessageBox.Ok)
+         return
+
+
       err = False
       try:
          naddr = int(self.edtNumAddr.text())
