@@ -2308,25 +2308,37 @@ class ArmoryMainWindow(QMainWindow):
                LOGRAWDATA(pytx.serialize(), logging.ERROR)
                LOGERROR('Transaction details')
                LOGPPRINT(pytx, logging.ERROR)
+               searchstr = binary_to_hex(newTxHash, BIGENDIAN)
                QMessageBox.warning(self, 'Invalid Transaction', \
                   'The transaction that you just executed, does not '
                   'appear to have been accepted by the Bitcoin network. '
-                  'This sometimes happens with legitimate transactions '
-                  'when a fee is not included but was required.  Sometimes it '
-                  'is caused by network issues.  '
-                  'Or it is due to a bug in the Armory software.  '
-                  '<br><br>Please consider reporting this error the the Armory '
-                  'developers.  If you do, please use '
-                  '"<b>File</b>"-->"<b>Export Log File</b>" '
-                  'from the main window to make a copy of your log file to send '
-                  'via email to alan.reiner@gmail.com.  Please also include any '
-                  'information you might consider relevant about the context of '
-                  'this failed transaction.' , \
+                  'This can happen for a variety of reasons, but it is '
+                  'usually due to a bug in the Armory software.  '
+                  '<br><br>On some occasions the transaction actually did succeed '
+                  'and this message is the bug itself!  To confirm whether the '
+                  'the transaction actually succeeded, you can try this direct link '
+                  'to blockchain.info:'
+                  '<br><br>'
+                  '<a href="http://blockchain.info/search/%s">'
+                  'http://blockchain.info/search/%s...</a>.  '
+                  '<br><br>'
+                  'If you do not see the '
+                  'transaction on that webpage within one minute, it failed and you '
+                  'should attempt to re-send it. '
+                  'If it <i>does</i> show up, then you do not need to do anything '
+                  'else -- it will show up in Armory as soon as it receives 1 '
+                  'confirmation. '
+                  '<br><br>If the transaction did fail, please consider '
+                  'reporting this error the the Armory '
+                  'developers.  From the main window, go to '
+                  '"<b>File</b>"-->"<b>Export Log File</b>" to make a copy of your '
+                  'log file to send via email to alan.reiner@gmail.com.  ' \
+                   % (searchstr,searchstr[:8]), \
                   QMessageBox.Ok)
                   
          self.mainDisplayTabs.setCurrentIndex(self.MAINTABS.Transactions)
-         reactor.callLater(2, sendGetDataMsg)
-         reactor.callLater(4, checkForTxInBDM)
+         reactor.callLater(4, sendGetDataMsg)
+         reactor.callLater(5, checkForTxInBDM)
 
          #QMessageBox.information(self, 'Broadcast Complete!', \
             #'The transaction has been broadcast to the Bitcoin network.  However '
@@ -2767,32 +2779,29 @@ class ArmoryMainWindow(QMainWindow):
       extraStr = ''
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          extraStr = ( \
-            '<br><br><b><u>Advanced tip:</u></b> The log file is maintained at '
+            '<br><br><b><u>Advanced tip:</u></b> This log file is maintained at '
             'the following location on your hard drive:'
             '<br><br>'
             '%s'
             '<br><br>'
-            'You can manually edit this file to remove information that '
-            'does not seem relevant for debugging purposes, or simply '
-            'copy the error messages inline to an email.' % ARMORY_LOG_FILE)
+            'Before sending the log file, you may edit it to remove information that '
+            'does not seem relevant for debugging purposes.  Or, extract the error '
+            'messages from the log file and copy only those into a bug report email ' % \
+            ARMORY_LOG_FILE)
             
       #reply = QMessageBox.warning(self, 'Export Log File', \
       reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', \
-         'The log file contains information about your interactions '
-         'with Armory and recent transactions.  This '
-         'includes error messages produced by Armory that the developers need '
-         'to help diagnose bugs.'
+         'The log file contains information that may be considered sensitive '
+         'by some users.  Log files should be protected the same '
+         'way you would protect a watcing-only wallet, though it '
+         'usually contains much less information than that. '
          '<br><br>'
-         'This information may be considered sensitive by some users.  '
-         'Log files should be protected the same '
-         'way you would protect a watcing-only wallet, even though it '
-         'typically will not even contain that much information.'
-         '<br><br>'
-         '<i>No private key data is ever written to the log file</i>, '
-         'and all other logged information is related only to your '
-         '<i>usage</i> of Armory.  There is no intention to record any '
-         'information about your addresses, wallets or balances, but fragments '
-         'of that information may be in this file.'
+         '<b>No private key data is ever written to the log file</b>. '
+         'All logged information is geared towards diagnosing '
+         'problems you may encounter while you use Armory.  '  
+         'Some information about your wallets or balances may appear '
+         'in the log file, but only enough to help the Armory developers '
+         'track down bugs in the software.'
          '<br><br>'
          'Please do not send the log file to the Armory developers if you are not '
          'comfortable with the privacy implications.' + extraStr, \
@@ -2927,7 +2936,7 @@ class ArmoryMainWindow(QMainWindow):
                if self.internetAvail:
                   LOGDEBUG('Satoshi client is not available')
                   lblText  = 'You are currently in offline mode because '
-                  lblText += 'Bitcoin-Qt (nor bitcoind) is not running.  To switch to online ' 
+                  lblText += 'Bitcoin-Qt is not running.  To switch to online ' 
                   lblText += 'mode, start Bitcoin-Qt and let it synchronize with the network '
                   lblText += '-- you will see a green checkmark in the bottom-right corner when '
                   lblText += 'it is complete.  '
