@@ -36,6 +36,7 @@ void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
 void TestMemoryUsage_UseSystemMonitor(string blkdir);
+void TestOutOfOrder(string blkdir);
 
 void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,8 +106,8 @@ int main(void)
    //printTestHeader("Read-and-Organize-Blockchain-With-Wallet");
    //TestReadAndOrganizeChainWithWallet(blkdir);
 
-   printTestHeader("Test-Balance-Construction");
-   TestBalanceConstruction(blkdir);
+   //printTestHeader("Test-Balance-Construction");
+   //TestBalanceConstruction(blkdir);
 
    //printTestHeader("Read-and-Update-Blockchain");
    //TestReadAndUpdateBlkFile(multitest);
@@ -116,6 +117,9 @@ int main(void)
 
    //printTestHeader("Test-Memory-Usage-With-System-Monitor");
    //TestMemoryUsage_UseSystemMonitor(blkdir);
+
+   printTestHeader("Test-out-of-order calls");
+   TestOutOfOrder(blkdir);
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -1538,9 +1542,50 @@ void TestMemoryUsage_UseSystemMonitor(string blkdir)
 
 
 
+void TestOutOfOrder(string blkdir)
+{
+   /////////////////////////////////////////////////////////////////////////////
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BinaryData myAddress;
+   BtcWallet wlt;
+   
+   // Main-network addresses
+   // I do not remember anymore what any of these addresses were for ...
+   // All I know is they probably have some tx history..
+   myAddress.createFromHex("604875c897a079f4db88e5d71145be2093cae194"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("8996182392d6f05e732410de4fc3fa273bac7ee6"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("b5e2331304bc6c541ffe81a66ab664159979125b"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("ebbfaaeedd97bc30df0d6887fd62021d768f5cb8"); wlt.addAddress(myAddress);
+
+   // P2Pool Address
+   //myAddress.createFromHex("4975703dc910107e2cc1321e632d136803e218e8"); wlt.addAddress(myAddress);
+
+   // Add some relevant testnet addresses
+   //myAddress.createFromHex("0c6b92101c7025643c346d9c3e23034a8a843e21"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("34c9f8dc91dfe1ae1c59e76cbe1aa39d0b7fc041"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("d77561813ca968270d5f63794ddb6aab3493605e"); wlt.addAddress(myAddress);
+   //myAddress.createFromHex("0e0aec36fe2545fb31a41164fb6954adcd96b342"); wlt.addAddress(myAddress);
+
+   // These two addresses were used at one point for testing unconfirmed balances
+   myAddress.createFromHex("8c61f6a7558af399e404d82beddcc4692db7b30f"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("14445409283ef413f5fb004338377bf042064922"); wlt.addAddress(myAddress);
+
+   bdm.registerWallet(&wlt);
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Reading data from blockchain... (with wallet scan)" << endl;
+   TIMER_START("BDM_Load_Scan_Blockchain_With_Wallet");
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+   bdm.parseEntireBlockchain();  
+   TIMER_STOP("BDM_Load_Scan_Blockchain_With_Wallet");
+   cout << endl << endl;
 
+   myAddress.createFromHex("11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31"); wlt.addAddress(myAddress);
+   myAddress.createFromHex("e826f4a4381453dcdcf9bfeedffe95de7c86ccbd"); wlt.addAddress(myAddress);
+
+   bdm.scanBlockchainForTx(wlt);
+}
 
 
 

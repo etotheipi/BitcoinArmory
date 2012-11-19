@@ -2113,7 +2113,8 @@ class ArmoryMainWindow(QMainWindow):
          newWallet.unlock(securePassphrase=passwd)
 
       # We always want to fill the address pool, right away.  
-      newWallet.fillAddressPool(doRegister=False)
+      fillpool = lambda: newWallet.fillAddressPool(doRegister=False)
+      DlgExecLongProcess(fillpool, 'Creating Wallet', self, self.main).exec_()
 
       # Reopening from file helps make sure everything is correct -- don't
       # let the user use a wallet that triggers errors on reading it
