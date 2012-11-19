@@ -973,7 +973,6 @@ class DlgWalletDetails(ArmoryDialog):
             self.wlt.changeWalletEncryption(None, None)
             #self.accept()
             self.labelValues[WLTFIELDS.Secure].setText('No Encryption')
-            self.labelValues[WLTFIELDS.Crypto].setText('None')
             self.labelValues[WLTFIELDS.Secure].setText('')
             self.labelValues[WLTFIELDS.Secure].setText('')
          else:
@@ -1255,7 +1254,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.labelValues[WLTFIELDS.Version]   = QLabel(getVersionString(self.wlt.version))
 
 
-      topUsed    = self.wlt.highestUsedChainIndex
+      topUsed    = max(self.wlt.highestUsedChainIndex,0)
       self.labelValues[WLTFIELDS.NumAddr] = QLabelButton('%d' % topUsed)
       self.labelValues[WLTFIELDS.NumAddr].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
       opendlgkeypool = lambda: DlgKeypoolSettings(self.wlt,self,self.main).exec_()
@@ -1536,7 +1535,7 @@ class DlgKeypoolSettings(ArmoryDialog):
 
       self.lblAddrUsed    = QRichLabel('Addresses used: ', doWrap=False)
       self.lblAddrComp    = QRichLabel('Addresses computed: ', doWrap=False)
-      self.lblAddrUsedVal = QRichLabel('%d' % self.wlt.highestUsedChainIndex)
+      self.lblAddrUsedVal = QRichLabel('%d' % max(0,self.wlt.highestUsedChainIndex))
       self.lblAddrCompVal = QRichLabel('%d' % self.wlt.lastComputedChainIndex)
 
       self.lblNumAddr = QRichLabel('Compute this many more addresses: ')

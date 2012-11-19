@@ -90,7 +90,7 @@ parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=Fals
                   help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--keypool", dest="keypool", default=200, type="int",
+parser.add_option("--keypool", dest="keypool", default=100, type="int",
                   help="Default number of addresses to lookahead in Armory wallets")
 
 
@@ -2076,6 +2076,11 @@ class PyBtcAddress(object):
          else:
             # We should usually check that keys match, but may choose to skip
             # if we have a lot of keys to load
+            # NOTE:  I run into this error if I fill the keypool without first
+            #        unlocking the wallet.  I'm not sure why it doesn't work 
+            #        when locked (it should), but this wallet format has been
+            #        working flawless for almost a year... and will be replaced
+            #        soon, so I won't sweat it.
             if not CryptoECDSA().CheckPubPrivKeyMatch(self.binPrivKey32_Plain, \
                                             self.binPublicKey65):
                raise KeyDataError, "Stored public key does not match priv key!"
@@ -6562,13 +6567,16 @@ class PyBtcWallet(object):
       walletFileBackup = self.getWalletPath('backup')
       shutil.copy(self.walletPath, walletFileBackup)
 
-      # Let's fill the address pool while we have the KDF key in memory.
+      # Lock/unlock to make sure encrypted keys are computed and written to file
+      if self.useEncryption:
+         self.unlock(secureKdfOutput=self.kdfKey)
+
+      # Let's fill the address pool while we are unlocked
       # It will get a lot more expensive if we do it on the next unlock
       if doRegisterWithBDM:
          self.fillAddressPool(self.addrPoolSize, isActuallyNew=isActuallyNew)
 
       if self.useEncryption:
-         self.unlock(secureKdfOutput=self.kdfKey)
          self.lock()
       return self
 
@@ -6612,7 +6620,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def computeNextAddress(self, addr160=None, isActuallyNew=True):
+   def computeNextAddress(self, addr160=None, isActuallyNew=True, doRegister=True):
       """
       Use this to extend the chain beyond the last-computed address.
 
@@ -6646,12 +6654,13 @@ class PyBtcWallet(object):
       # the BDM, which may cause a deadlock if we go through the 
       # thread queue.  The calledFromBDM is "permission" to access the
       # BDM private methods directly
-      if self.calledFromBDM:
-         TheBDM.registerAddress_bdm_direct(new160, timeInfo=isActuallyNew)
-      else:
-         # This uses the thread queue, which means the address will be
-         # registered next time the BDM is not busy
-         TheBDM.registerAddress(new160, isFresh=isActuallyNew)
+      if doRegister:
+         if self.calledFromBDM:
+            TheBDM.registerAddress_bdm_direct(new160, timeInfo=isActuallyNew)
+         else:
+            # This uses the thread queue, which means the address will be
+            # registered next time the BDM is not busy
+            TheBDM.registerAddress(new160, isFresh=isActuallyNew)
 
       return new160
       
@@ -6659,7 +6668,7 @@ class PyBtcWallet(object):
 
 
    #############################################################################
-   def fillAddressPool(self, numPool=None, isActuallyNew=True):
+   def fillAddressPool(self, numPool=None, isActuallyNew=True, doRegister=True):
       """
       Usually, when we fill the address pool, we are generating addresses
       for the first time, and thus there is no chance it's ever seen the
@@ -6673,7 +6682,7 @@ class PyBtcWallet(object):
       gap = self.lastComputedChainIndex - self.highestUsedChainIndex
       numToCreate = max(numPool - gap, 0)
       for i in range(numToCreate):
-         self.computeNextAddress(isActuallyNew=isActuallyNew)
+         self.computeNextAddress(isActuallyNew=isActuallyNew, doRegister=doRegister)
       return self.lastComputedChainIndex
 
    #############################################################################
@@ -6745,20 +6754,6 @@ class PyBtcWallet(object):
 
       return highestIndex
 
-
-
-
-   #############################################################################
-   def syncWalletAndFillAddressPool(self):
-      """
-      Will sync the wallet as well as verify that addresses that have been
-      used are marked as such.  This is useful for wallets that were just 
-      imported/recovered recently, but the address pool hasn't been detected
-      yet (addresses are in the pool, but none appear used, yet)
-      """
-      addrMax = self.detectHighestUsedIndex(True)
-      for i in range(addrMax):
-         pass
          
 
 
@@ -11016,7 +11011,6 @@ class BlockDataManagerThread(threading.Thread):
          # Uninitialized means we want to be online, but haven't loaded yet
          self.blkMode = BLOCKCHAINMODE.Uninitialized
       elif not self.blkMode==BLOCKCHAINMODE.Offline:
-         LOGERROR('Somehow called __reset while busy.  Abort!')
          return
          
 

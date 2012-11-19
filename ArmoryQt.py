@@ -85,12 +85,12 @@ class ArmoryMainWindow(QMainWindow):
       self.netMode     = NETWORKMODE.Offline
       self.abortLoad   = False
       self.memPoolInit = False
-      self.WltsToScan  = []
+      self.wltsToScan  = []
       self.prevTopBlock = -1
       self.dirtyLastTime = False
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
-      self.walletRestoreList = []
+      self.newWalletList = []
       self.newZeroConfSinceLastUpdate = []
       self.callCount = 0
       self.lastBDMState = ['Uninitialized', None]
@@ -115,6 +115,9 @@ class ArmoryMainWindow(QMainWindow):
       if self.abortLoad:
          LOGWARN('Armory startup was aborted.  Closing.')
          os._exit(0)
+
+      # If we're going into online mode, start loading blockchain
+      self.loadBlockchainIfNecessary()
 
       # Setup system tray and register "bitcoin:" URLs with the OS
       self.setupSystemTray()
@@ -1137,8 +1140,10 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
          
+      TimerStop('setupNetworking')
 
        
+   def loadBlockchainIfNecessary(self):
 
       if CLI_OPTIONS.offline:
          if CLI_OPTIONS.forceOnline:
@@ -1155,13 +1160,13 @@ class ArmoryMainWindow(QMainWindow):
          self.settings.set('FailedLoadCount', self.numTriesOpen+1)
 
          self.switchNetworkMode(NETWORKMODE.Full)
+         self.resetBdmBeforeScan()
          TheBDM.setOnlineMode(True, wait=False)
 
       else:
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
           
-      TimerStop('setupNetworking')
 
 
 
@@ -1590,7 +1595,7 @@ class ArmoryMainWindow(QMainWindow):
             self.memPoolInit = True
 
          TimerStart('initialWalletSync')
-         for wltID, wlt in self.walletMap.iteritems():
+         for wltID in self.wltsToScan:
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].detectHighestUsedIndex(True) # THIS CALLS syncWithBlockchain(0)
@@ -2093,21 +2098,43 @@ class ArmoryMainWindow(QMainWindow):
                                            kdfTargSec=kdfSec, \
                                            kdfMaxMem=kdfBytes, \
                                            shortLabel=name, \
-                                           longLabel=descr)
+                                           longLabel=descr, \
+                                           doRegisterWithBDM=False)
       else:
           newWallet = PyBtcWallet().createNewWallet( \
                                            withEncrypt=False, \
                                            shortLabel=name, \
-                                           longLabel=descr)
+                                           longLabel=descr, \
+                                           doRegisterWithBDM=False)
 
 
-      TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
+      # And we must unlock it before the first fillAddressPool call
+      if newWallet.useEncryption:
+         newWallet.unlock(securePassphrase=passwd)
+
+      # We always want to fill the address pool, right away.  
+      newWallet.fillAddressPool(doRegister=False)
+
+      # Reopening from file helps make sure everything is correct -- don't
+      # let the user use a wallet that triggers errors on reading it
+      wltpath = newWallet.walletPath
+      newWallet = None
+      newWallet = PyBtcWallet().readWalletFile(wltpath)
+      
+
       self.addWalletToApplication(newWallet, walletIsNew=True)
 
-
+      if TheBDM.getBDMState() in ('Uninitialized', 'Offline'):
+         TheBDM.registerWallet(newWallet, isFresh=True, wait=False)
+      else:
+         self.newWalletList.append([newWallet, True])
+      
+      # Prompt user to print paper backup if they requested it.
       if dlg.chkPrintPaper.isChecked():
          dlg = DlgPaperBackup(newWallet, self, self)
          dlg.exec_()
+
+
 
 
 
@@ -2445,7 +2472,7 @@ class ArmoryMainWindow(QMainWindow):
          return
 
       #self.addWalletToApplication(newWlt, walletIsNew=False)
-      self.walletRestoreList.append(newWlt)
+      self.newWalletList.append([newWlt, False])
       LOGINFO('Import Complete!')
 
 
@@ -2497,7 +2524,7 @@ class ArmoryMainWindow(QMainWindow):
             return
 
          #self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-         self.walletRestoreList.append(dlgPaper.newWallet)
+         self.newWalletList.append([dlgPaper.newWallet, False])
          LOGINFO('Import Complete!')
    
    #############################################################################
@@ -2847,8 +2874,10 @@ class ArmoryMainWindow(QMainWindow):
       """
       TimerStart("resetBdmBeforeScan")
       TheBDM.Reset(wait=False)
+      self.wltsToScan = []
       for wid,wlt in self.walletMap.iteritems():
          TheBDM.registerWallet(wlt.cppWallet)
+         self.wltsToScan.append(wid)
       TimerStop("resetBdmBeforeScan")
          
 
@@ -3154,11 +3183,12 @@ class ArmoryMainWindow(QMainWindow):
             #####
             # If we had initiated any wallet restoration scans, we need to add
             # Those wallets to the display
-            if len(self.walletRestoreList)>0:
+            if len(self.newWalletList)>0:
                LOGDEBUG('Wallet restore completed.  Add to application.')
-               while len(self.walletRestoreList)>0:
-                  wlt = self.walletRestoreList.pop()
-                  self.addWalletToApplication(wlt, walletIsNew=False)
+               while len(self.newWalletList)>0:
+                  wlt,isFresh = self.newWalletList.pop()
+                  TheBDM.registerWallet(wlt.cppWallet, isFresh)
+                  self.addWalletToApplication(wlt, walletIsNew=isFresh)
                self.setDashboardDetails()
 
 
