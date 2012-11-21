@@ -2387,7 +2387,6 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
                                                            uint32_t blkEnd)
 {
    SCOPED_TIMER("scanRegisteredTxForWallet");
-   PDEBUG("Scanning relevant tx list for wallet");
 
    // Make sure RegisteredTx objects have correct data, then sort.
    // TODO:  Why did I not need this with the MMAP blockchain?  Somehow
@@ -2445,7 +2444,6 @@ void BlockDataManager_FileRefs::scanRegisteredTxForWallet( BtcWallet & wlt,
    if(zcEnabled_)
       rescanWalletZeroConf(wlt);
 
-   PDEBUG("Done scanning blockchain for tx");
 }
 
 
@@ -2596,6 +2594,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
          return 0;
       }
 
+      cout << "Filesize(before) = " << filesize << endl;
 
       // Now have a bunch of blockchain data buffered
       BinaryStreamBuffer bsb;
@@ -2632,22 +2631,38 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
       //globalCache.openFile(fnum-1, blkfile);
       TIMER_STOP("while(bsb.streamPull())");
 
+      filesize = BtcUtils::GetFileSize(blkfile);
+      cout << "Filesize(after)  = " << filesize << endl;
+      cout << "Bytes read so far = " << bytesReadSoFar_ << endl;
    }
 
    
+   // We now have a map of all blocks, let's organize them into a chain.
+   organizeChain(true);
+
+
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
    lastBlkFileBytes_     = globalCache.getLastFileSize();
 
-   // We now have a map of all blocks, let's organize them into a chain.
-   organizeChain(true);
+   cout << "Total Blockchain bytes(0) = " << totalBlockchainBytes_ << endl;
+   cout << "Last blkfile bytes(0)     = " << lastBlkFileBytes_ << endl;
+
+
 
    // Update registered address list so we know what's already been scanned
    lastTopBlock_ = getTopBlockHeight() + 1;
    allRegAddrScannedUpToBlk_ = lastTopBlock_;
    updateRegisteredAddresses(lastTopBlock_);
    
+
+   // Since loading takes so long, there's a good chance that new block data
+   // came in... let's get it.
+   readBlkFileUpdate();
    
+   cout << "Total Blockchain bytes(1) = " << totalBlockchainBytes_ << endl;
+   cout << "Last blkfile bytes(1)     = " << lastBlkFileBytes_ << endl;
+
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
    purgeZeroConfPool();

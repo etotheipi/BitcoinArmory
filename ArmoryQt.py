@@ -1596,6 +1596,11 @@ class ArmoryMainWindow(QMainWindow):
 
          TimerStart('initialWalletSync')
          for wltID in self.wltsToScan:
+
+            if not self.walletMap.has_key(wltID):
+               LOGINFO('Wallet was removed: %s' % wltID)
+               continue 
+
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
             self.walletMap[wltID].detectHighestUsedIndex(True) # THIS CALLS syncWithBlockchain(0)
@@ -2114,7 +2119,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # We always want to fill the address pool, right away.  
       fillpool = lambda: newWallet.fillAddressPool(doRegister=False)
-      DlgExecLongProcess(fillpool, 'Creating Wallet', self, self.main).exec_()
+      DlgExecLongProcess(fillpool, 'Creating Wallet...', self, self).exec_()
 
       # Reopening from file helps make sure everything is correct -- don't
       # let the user use a wallet that triggers errors on reading it
@@ -3059,11 +3064,13 @@ class ArmoryMainWindow(QMainWindow):
                   '<b>Wallet balances may '
                   'be incorrect until the rescan operation is performed!</b>'
                   '<br><br>'
-                  'Armory is currently online, but you have added private keys '
-                  'without initiating a blockchain scan.  Press the button to start '
-                  'the blockchain scan, which '
-                  'will also put Armory into offline mode for a few minutes '
-                  'until the scan operation is complete.')
+                  'Armory is currently online, but addresses/keys have been added '
+                  'without rescanning the blockchain.  You may continue using '
+                  'Armory in online mode, but any transactions associated with the '
+                  'new addresses will not appear in the ledger. '
+                  '<br><br>'
+                  'Pressing the button above will put Armory into offline mode '
+                  'for a few minutes until the scan operation is complete.')
          else:
             # Fully online mode
             LOGINFO('Dashboard switched to fully-online mode')
@@ -3188,6 +3195,7 @@ class ArmoryMainWindow(QMainWindow):
                LOGDEBUG('Wallet restore completed.  Add to application.')
                while len(self.newWalletList)>0:
                   wlt,isFresh = self.newWalletList.pop()
+                  print 'Registering %s wallet' % ('NEW' if isFresh else 'IMPORTED')
                   TheBDM.registerWallet(wlt.cppWallet, isFresh)
                   self.addWalletToApplication(wlt, walletIsNew=isFresh)
                self.setDashboardDetails()
@@ -3269,7 +3277,7 @@ class ArmoryMainWindow(QMainWindow):
    
                TimerStart('newBlockSyncRescanZC')
                for wltID in self.walletMap.keys():
-                  self.walletMap[wltID].syncWithBlockchain()
+                  self.walletMap[wltID].syncWithBlockchainLite()
                   TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
                   newLedgerSize = len(self.walletMap[wltID].getTxLedger())
                   didAffectUs = (prevLedgSize[wltID] != newLedgerSize)

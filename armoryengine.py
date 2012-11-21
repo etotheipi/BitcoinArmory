@@ -2086,6 +2086,7 @@ class PyBtcAddress(object):
                raise KeyDataError, "Stored public key does not match priv key!"
 
 
+
    #############################################################################
    def changeEncryptionKey(self, secureOldKey, secureNewKey):
       """
@@ -6200,6 +6201,40 @@ class PyBtcWallet(object):
 
 
 
+   #############################################################################
+   def syncWithBlockchainLite(self, startBlk=None):
+      """
+      This is just like a regular sync, but it won't rescan the whole blockchain
+      if the wallet is dirty -- if addresses were imported recently, it will 
+      still only scan what the blockchain picked up on the last scan.  Use the
+      non-lite version to allow a full scan.
+      """
+
+      TimerStart('syncWithBlockchain')
+
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
+         LOGWARN('Called syncWithBlockchainLite but BDM is %s', TheBDM.getBDMState())
+         return
+
+      if not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         if startBlk==None:
+            startBlk = self.lastSyncBlockNum + 1
+
+         # calledFromBDM means that ultimately the BDM itself called this
+         # method and is blocking waiting for it.  So we can't use the 
+         # BDM-thread queue, must call its methods directly
+         if self.calledFromBDM:
+            TheBDM.scanRegisteredTxForWallet_bdm_direct(self.cppWallet, startBlk)
+            self.lastSyncBlockNum = TheBDM.getTopBlockHeight_bdm_direct()
+         else:
+            TheBDM.scanRegisteredTxForWallet(self.cppWallet, startBlk, wait=True)
+            self.lastSyncBlockNum = TheBDM.getTopBlockHeight(wait=True)
+      else:
+         LOGERROR('Blockchain-sync requested, but current wallet')
+         LOGERROR('is set to BLOCKCHAIN_DONOTUSE')
+
+
+      TimerStop('syncWithBlockchain')
 
 
    #############################################################################
@@ -6715,7 +6750,7 @@ class PyBtcWallet(object):
 
          
    #############################################################################
-   def detectHighestUsedIndex(self, writeResultToWallet=False):
+   def detectHighestUsedIndex(self, writeResultToWallet=False, fullscan=False):
       """
       This method is used to find the highestUsedChainIndex value of the 
       wallet WITHIN its address pool.  It will NOT extend its address pool
@@ -6737,7 +6772,12 @@ class PyBtcWallet(object):
 
       oldSync = self.doBlockchainSync
       self.doBlockchainSync = BLOCKCHAIN_READONLY
-      self.syncWithBlockchain(0)  # make sure we're always starting from blk 0
+      if fullscan:
+         # Will initiate rescan if wallet is dirty
+         self.syncWithBlockchain(0)  
+      else:
+         # Will only use data already scanned, even if wallet is dirty
+         self.syncWithBlockchainLite(0)  
       self.doBlockchainSync = oldSync
 
       highestIndex = 0
@@ -10780,6 +10820,15 @@ class BlockDataManagerThread(threading.Thread):
       self.bdm.scanBlockchainForTx(cppWlt, startBlk, endBlk)
    
    #############################################################################
+   def scanRegisteredTxForWallet_bdm_direct(self, cppWlt, startBlk=0, endBlk=UINT32_MAX):
+      """ 
+      THIS METHOD IS UNSAFE UNLESS CALLED FROM A METHOD RUNNING IN THE BDM THREAD
+      This method can be called from a non BDM class, but should only do so if 
+      that class method was called by the BDM (thus, no conflicts)
+      """
+      self.bdm.scanBlockchainForTx(cppWlt, startBlk, endBlk)
+
+   #############################################################################
    def getTopBlockHeight_bdm_direct(self):
       """ 
       THIS METHOD IS UNSAFE UNLESS CALLED FROM A METHOD RUNNING IN THE BDM THREAD
@@ -10858,6 +10907,7 @@ class BlockDataManagerThread(threading.Thread):
                                     MAGIC_BYTES)
 
       ### This is the part that takes forever
+      self.bdm.registerWallet(self.masterCppWallet)
       self.bdm.parseEntireBlockchain()
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()

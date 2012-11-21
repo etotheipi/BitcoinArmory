@@ -417,6 +417,12 @@ class WalletAddrDispModel(QAbstractTableModel):
          addrList = filter(isUsed, addrList)
          
       self.addr160List = [a.getAddr160() for a in addrList]
+
+
+   def reset(self):
+      self.filterAddrList()
+      super(WalletAddrDispModel, self).reset()
+      
          
 
    def rowCount(self, index=QModelIndex()):

@@ -129,6 +129,12 @@ private:
 
 // Create a token at the beginning of a function, and it will stop the timer
 // when that token goes out of scope.
+//
+// The UniversalTimer is very fast, but not as fast as something things you 
+// want to time.  It is recommended not to add a TimerToken to every method,
+// unless you anticipate it will take more than 1 ms.  I think it operates 
+// on the order of microsecs, so anything shorter than 1 ms may actually be
+// inflated by the timer call itself.
 class TimerToken
 {
 public:
@@ -146,13 +152,16 @@ public:
    ~TimerToken(void)
    { 
       UniversalTimer::instance().stop(timerName_);
+      lastTiming_ = UniversalTimer::instance().read(timerName_);
       #ifdef _DEBUG
-         cout << "Finishing " << timerName_.c_str() << endl;
+         cout << "Finishing " << timerName_.c_str()
+              << "(" << lastTiming_*1000.0 << " ms)" << endl;
       #endif
    }
 
 private: 
    string timerName_;
+   double lastTiming_;
 };
 
 
