@@ -85,7 +85,6 @@ class ArmoryMainWindow(QMainWindow):
       self.netMode     = NETWORKMODE.Offline
       self.abortLoad   = False
       self.memPoolInit = False
-      self.wltsToScan  = []
       self.prevTopBlock = -1
       self.dirtyLastTime = False
       self.needUpdateAfterScan = True
@@ -1592,15 +1591,11 @@ class ArmoryMainWindow(QMainWindow):
             self.memPoolInit = True
 
          TimerStart('initialWalletSync')
-         for wltID in self.wltsToScan:
-
-            if not self.walletMap.has_key(wltID):
-               LOGINFO('Wallet was removed: %s' % wltID)
-               continue 
-
+         for wltID in self.walletMap.iterkeys():
             LOGINFO('Syncing wallet: %s', wltID)
             self.walletMap[wltID].setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-            self.walletMap[wltID].detectHighestUsedIndex(True) # THIS CALLS syncWithBlockchain(0)
+            self.walletMap[wltID].syncWithBlockchainLite(0)
+            self.walletMap[wltID].detectHighestUsedIndex(True)  # expand wlt if necessary
             self.walletMap[wltID].fillAddressPool()
          TimerStop('initialWalletSync')
 
@@ -2496,17 +2491,31 @@ class ArmoryMainWindow(QMainWindow):
             self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
             return
          
-         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-            'The wallet was recovered successfully, but cannot be displayed '
-            'until the global transaction history is '
-            'searched for previous transactions.  This scan will potentially '
-            'take much longer than a regular rescan, and the wallet cannot '
-            'be shown on the main display until this rescan is complete.'
-            '<br><br>'
-            '<b>Would you like to go into offline mode to start this scan now?'
-            '</b>  If you click "No" the scan will be aborted, and the wallet '
-            'will not be added to Armory.', \
-             QMessageBox.Yes | QMessageBox.No)
+         elif TheBDM.getBDMState()=='BlockchainReady':
+            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+               'The wallet was recovered successfully, but cannot be displayed '
+               'until the global transaction history is '
+               'searched for previous transactions.  This scan will potentially '
+               'take much longer than a regular rescan, and the wallet cannot '
+               'be shown on the main display until this rescan is complete.'
+               '<br><br>'
+               '<b>Would you like to go into offline mode to start this scan now?'
+               '</b>  If you click "No" the scan will be aborted, and the wallet '
+               'will not be added to Armory.', \
+               QMessageBox.Yes | QMessageBox.No)
+         else:
+            doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+               'The wallet was recovered successfully, but cannot be displayed '
+               'until a special kind of rescan is performed to find previous '
+               'transactions.  However, Armory is currently in the middle of '
+               'a scan.  Would you like to start the recovery scan immediately '
+               'afterwards?'
+               '<br><br>'
+               '</b>  If you click "No" the scan will be aborted, and the wallet '
+               'will not be added to Armory.  Restore the wallet again when you '
+               'are able to wait for the recovery scan.', \
+               QMessageBox.Yes | QMessageBox.No)
+
          if doRescanNow == QMessageBox.Yes:
             LOGINFO('User requested rescan after wallet restore')
             TheBDM.startWalletRecoveryScan(dlgPaper.newWallet) 
@@ -2517,7 +2526,6 @@ class ArmoryMainWindow(QMainWindow):
                'The wallet was not restored.  To restore the wallet, reenter '
                'the "Restore Wallet" dialog again when you are able to wait '
                'for the rescan operation.  ', QMessageBox.Ok)
-
             # The wallet cannot exist without also being on disk. 
             # If the user aborted, we should remove the disk data.
             thepath       = dlgPaper.newWallet.getWalletPath()
@@ -2526,8 +2534,8 @@ class ArmoryMainWindow(QMainWindow):
             os.remove(thepathBackup)
             return
 
-         #self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
-         self.newWalletList.append([dlgPaper.newWallet, False])
+         self.addWalletToApplication(dlgPaper.newWallet, walletIsNew=False)
+         #self.newWalletList.append([dlgPaper.newWallet, False])
          LOGINFO('Import Complete!')
    
    #############################################################################
@@ -2877,10 +2885,8 @@ class ArmoryMainWindow(QMainWindow):
       """
       TimerStart("resetBdmBeforeScan")
       TheBDM.Reset(wait=False)
-      self.wltsToScan = []
       for wid,wlt in self.walletMap.iteritems():
          TheBDM.registerWallet(wlt.cppWallet)
-         self.wltsToScan.append(wid)
       TimerStop("resetBdmBeforeScan")
          
 
