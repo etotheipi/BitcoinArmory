@@ -1559,22 +1559,19 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def startRescanBlockchain(self):
-      if TheBDM.getBDMState()=='Offline':
+      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
          LOGWARNING('Rescan requested but Armory is in offline mode')
          return 
 
-      if not TheBDM.isDirty():
-         LOGWARNING('Rescan requested but there is no evidence it is needed')
-         # no return, we will rescan anyway
-
       if TheBDM.getBDMState()=='Scanning':
-         LOGINFO('Need to rescan again but previous rescan not finished')
-         return
-      elif TheBDM.getBDMState()=='BlockchainReady':
-         # Start it in the background
-         self.needUpdateAfterScan = True
-         TheBDM.rescanBlockchain(wait=False)
-         self.setDashboardDetails()
+         LOGINFO('Queueing rescan after current scan completes.')
+      else:
+         LOGINFO('Starting blockchain rescan...')
+
+      # Start it in the background
+      self.needUpdateAfterScan = True
+      TheBDM.rescanBlockchain(wait=False)
+      self.setDashboardDetails()
 
 
 
@@ -2484,9 +2481,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
-      if TheBDM.getBDMState()=='Scanning':
-         self.warnNoImportWhileScan()
-         return
+      #if TheBDM.getBDMState()=='Scanning':
+         #self.warnNoImportWhileScan()
+         #return
 
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():

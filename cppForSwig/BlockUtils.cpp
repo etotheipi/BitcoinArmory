@@ -2594,7 +2594,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
          return 0;
       }
 
-      cout << "Filesize(before) = " << filesize << endl;
 
       // Now have a bunch of blockchain data buffered
       BinaryStreamBuffer bsb;
@@ -2632,8 +2631,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
       TIMER_STOP("while(bsb.streamPull())");
 
       filesize = BtcUtils::GetFileSize(blkfile);
-      cout << "Filesize(after)  = " << filesize << endl;
-      cout << "Bytes read so far = " << bytesReadSoFar_ << endl;
    }
 
    
@@ -2644,9 +2641,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
    lastBlkFileBytes_     = globalCache.getLastFileSize();
-
-   cout << "Total Blockchain bytes(0) = " << totalBlockchainBytes_ << endl;
-   cout << "Last blkfile bytes(0)     = " << lastBlkFileBytes_ << endl;
 
 
 
@@ -2660,8 +2654,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    // came in... let's get it.
    readBlkFileUpdate();
    
-   cout << "Total Blockchain bytes(1) = " << totalBlockchainBytes_ << endl;
-   cout << "Last blkfile bytes(1)     = " << lastBlkFileBytes_ << endl;
 
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;

@@ -10911,8 +10911,9 @@ class BlockDataManagerThread(threading.Thread):
       self.bdm.parseEntireBlockchain()
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
-      #print 'SLEEPING FOR 10 min (DEBUGGING)'
-      #time.sleep(15) 
+      if USE_TESTNET:
+         print 'SLEEPING FOR 20 sec (DEBUGGING)'
+         time.sleep(20) 
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
