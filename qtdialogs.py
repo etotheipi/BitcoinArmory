@@ -4963,6 +4963,95 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
       if prefill:
+         get = lambda s: prefill[s] if prefill.has_key(s) else ''
+         addr160  = addrStr_to_hash160(get('address'))
+         amount   = get('amount')
+         message  = get('message')
+         label    = get('label')
+         self.addOneRecipient(addr160, amount, message, label)
+      
+      elif not self.main==None and loadCount%donateFreq==(donateFreq-1) and \
+         not loadCount==lastPestering and not dnaaDonate and \
+         wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
+         result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
+            '<i>Armory</i> is the result of over 1,000 hours of development '
+            'and dozens of late nights bug-hunting and testing.  Yet, this software '
+            'has been given to you for free to benefit the greater Bitcoin '
+            'community! '
+            '<br><br>However, continued development may not be possible without '
+            'donations.  If you are satisfied with this software, please consider '
+            'donating what you think this software would be worth as a commercial '
+            'application.'
+            '<br><br><b>Are you willing to donate to the Armory developers?</b> If you '
+            'select "Yes," a donation field will be added to your '
+            'next transaction.  You will have the opportunity to remove or change '
+            'the amount before sending the transaction.', None)
+         self.main.writeSetting('DonateLastPester', loadCount)
+
+         if result[0]==True:
+            self.addDonation()
+            self.makeRecipFrame(2)
+
+         if result[1]==True:
+            self.main.writeSetting('DonateDNAA', True)
+      
+      hexgeom = self.main.settings.get('SendBtcGeometry')
+      if len(hexgeom)>0:
+         geom = QByteArray.fromHex(hexgeom)
+         self.restoreGeometry(geom)
+            
+
+      if TheBDM.getBDMState()=='BlockchainReady' and not wlt.watchingOnly:
+         btnSend.setDefault(True)
+      else:
+         btnUnsigned.setDefault(True)
+         
+
+   #############################################################################
+   def saveGeometrySettings(self):
+      self.main.writeSetting('SendBtcGeometry', str(self.saveGeometry().toHex()))
+
+   #############################################################################
+   def closeEvent(self, event):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).closeEvent(event)
+
+   #############################################################################
+   def accept(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).accept(*args)
+
+   #############################################################################
+   def reject(self, *args):
+      self.saveGeometrySettings()
+      super(DlgSendBitcoins, self).reject(*args)
+
+   #############################################################################
+   def createOfflineTxDPAndDisplay(self):
+      self.txValues = []
+      self.origRVPairs = []
+      self.comments = []
+      txdp = self.validateInputsGetTxDP()
+      if not txdp:
+         return
+      
+      changePair = (self.change160, self.selectedBehavior)
+      dlg = DlgConfirmSend(self.wlt, self.origRVPairs, self.txValues[1], self, \
+                                                   self.main, False, changePair)
+      if dlg.exec_():
+         dlg = DlgOfflineTxCreated(self.wlt, txdp, self, self.main)
+         dlg.exec_()
+         self.accept()
+
+
+
+   #############################################################################
+   def createTxAndBroadcast(self):
+      self.txValues = []
+      self.origRVPairs = []
+      self.comments = []
+      txdp = self.validateInputsGetTxDP()
+      if not txdp:
          return
 
       if not self.txValues:
@@ -10275,3 +10364,48 @@ class DlgUriCopyAndPaste(ArmoryDialog):
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
 
       frmImg = makeHorizFrame(['Stretch',lblShowExample,'Stretch'])
+
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmImg)
+      layout.addWidget(HLINE())
+      layout.addWidget(self.txtUriString)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+
+
+   def clickedOkay(self):
+      uriStr = str(self.txtUriString.text())
+      self.uriDict = self.main.parseUriLink(uriStr, 'enter') 
+      self.accept()
+      
+
+
+# STUB
+class dlgRawTx(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgVersionNotify, self).__init__(parent, main)
+
+      
+      lblRaw = QRichLabel('You may paste raw transaction data into the box below, '
+                          'and then click "Broadcast" to send it to the Bitcoin '
+                          'network.  If the transaction has been broadcast before, '
+                          'attempting to send it again is unlikely to do anything.')
+
+      self.txtRawTx = QTextEdit()
+      self.txtRawTx.setFont( GETFONT('Fixed',8) )
+      #self.txtRawTx.sizeHint = lambda: QSize(w,h)
+      self.txtRawTx.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+
+      self.connect(self.txtRawTx, SIGNAL('textChanged()'), self.processTx)
+      
+      self.btnBroadcast = QPushButton("Broadcast")
+      self.connect(self.btnBroadcast, SIGNAL('clicked()'), self.broadcastTx)
+
+   
+
+
+
+
