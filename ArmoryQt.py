@@ -1182,6 +1182,7 @@ class ArmoryMainWindow(QMainWindow):
       # Check for Satoshi-client connection
       TimerStart('bitcoindIsAvail')
       s = socket.socket()
+      s.settimeout(0.01)   # blocking, so short timeout -- but localhost is FAST
       try:
          s.connect(('127.0.0.1', BITCOIN_PORT))
          s.close()

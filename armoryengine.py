@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 84, 3, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 84, 4, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10911,9 +10911,9 @@ class BlockDataManagerThread(threading.Thread):
       self.bdm.parseEntireBlockchain()
 
       #print 'TopBlock:', self.bdm.getTopBlockHeight()
-      if USE_TESTNET:
-         print 'SLEEPING FOR 20 sec (DEBUGGING)'
-         time.sleep(20) 
+      #if USE_TESTNET:
+         #print 'SLEEPING FOR 20 sec (DEBUGGING)'
+         #time.sleep(20) 
 
       self.bdm.scanBlockchainForTx(self.masterCppWallet)
 
