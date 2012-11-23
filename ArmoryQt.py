@@ -439,7 +439,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
 
-      verStr = 'Armory %s-beta / %s User' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory %s-alpha+ / %s User' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -496,9 +496,19 @@ class ArmoryMainWindow(QMainWindow):
       self.menusList.append( self.menu.addMenu('&Help') )
       #self.menusList.append( self.menu.addMenu('&Network') )
 
+      
+      def exportTx():
+         if not TheBDM.getBDMState()=='BlockchainReady':
+            QMessageBox.warning(self, 'Transactions Unavailable', \
+               'Transaction history cannot be collected until Armory is '
+               'in online mode.  Please try again when Armory is online. ',
+               QMessageBox.Ok)
+            return
+         else:
+            DlgExportTxHistory(self,self).exec_()
+            
 
-      exportFn = lambda: DlgExportTxHistory(self,self).exec_()
-      actExportTx    = self.createAction('&Export Transactions', exportFn)
+      actExportTx    = self.createAction('&Export Transactions', exportTx)
       actPreferences = self.createAction('&Preferences', self.openPrefDlg)
       actMinimApp    = self.createAction('&Minimize Armory', self.minimizeArmory)
       actExportLog   = self.createAction('Export &Log File', self.exportLogFile)
@@ -2408,9 +2418,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execGetImportWltName(self):
-      if TheBDM.getBDMState()=='Scanning':
-         self.warnNoImportWhileScan()
-         return
       
       fn = self.getFileLoad('Import Wallet File')
       if not os.path.exists(fn):
@@ -2442,17 +2449,33 @@ class ArmoryMainWindow(QMainWindow):
          self.addWalletToApplication(newWlt, walletIsNew=False)
          return
          
-      doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
-         'The wallet was imported successfully, but cannot be displayed '
-         'until the global transaction history is '
-         'searched for previous transactions.  This scan will potentially '
-         'take much longer than a regular rescan, and the wallet cannot '
-         'be shown on the main display until this rescan is complete.'
-         '<br><br>'
-         '<b>Would you like to go into offline mode to start this scan now?'
-         '</b>  If you click "No" the scan will be aborted, and the wallet '
-         'will not be added to Armory.', \
-          QMessageBox.Yes | QMessageBox.No)
+      if TheBDM.getBDMState()=='BlockchainReady':
+         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+            'The wallet was imported successfully, but cannot be displayed '
+            'until the global transaction history is '
+            'searched for previous transactions.  This scan will potentially '
+            'take much longer than a regular rescan, and the wallet cannot '
+            'be shown on the main display until this rescan is complete.'
+            '<br><br>'
+            '<b>Would you like to go into offline mode to start this scan now?'
+            '</b>  If you click "No" the scan will be aborted, and the wallet '
+            'will not be added to Armory.', \
+            QMessageBox.Yes | QMessageBox.No)
+      else:
+         doRescanNow = QMessageBox.question(self, 'Rescan Needed', \
+            'The wallet was imported successfully, but its balance cannot '
+            'be determined until Armory performs a "recovery scan" for the '
+            'wallet.  This scan potentially takes much longer than a regular '
+            'scan, and must be completed for all imported wallets. '  
+            '<br><br>'
+            'Armory is already in the middle of a scan and cannot be interrupted. '
+            'Would you like to start the recovery scan when it is done?'
+            '<br><br>'
+            '</b>  If you click "No," the wallet import will be aborted '
+            'and you must re-import the wallet when you ' 
+            'are able to wait for the recovery scan.', \
+            QMessageBox.Yes | QMessageBox.No)
+
       if doRescanNow == QMessageBox.Yes:
          LOGINFO('User requested rescan after wallet import')
          TheBDM.startWalletRecoveryScan(newWlt) 
@@ -2993,7 +3016,7 @@ class ArmoryMainWindow(QMainWindow):
                   lblText += '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.'
                else:
                   LOGDEBUG('Satoshi client and internet not available')
-                  lblText += 'No internet connection was detected, and neither '
+                  lblText  = 'No internet connection was detected, and neither '
                   lblText += 'Bitcoin-Qt or bitcoind is running.  Most likely '
                   lblText += 'you are here because this is a system dedicated '
                   lblText += 'to manage offline wallets! '
@@ -3212,6 +3235,8 @@ class ArmoryMainWindow(QMainWindow):
             #####
             # If we are getting lots of blocks, very rapidly, issue a warning
             # We look at a rolling sum of the last 5 heartbeat updates (5s)
+            if not newBlocks:
+               newBlocks = 0
             self.detectNotSyncQ.insert(0, newBlocks)
             self.detectNotSyncQ.pop()
             blksInLast5sec = sum(self.detectNotSyncQ)
@@ -3263,22 +3288,19 @@ class ArmoryMainWindow(QMainWindow):
             if newBlocks>0 and not TheBDM.isDirty():
    
                # This says "after scan", but works when new blocks appear, too
-               TimerStart('updateWltsAfterScan')
                TheBDM.updateWalletsAfterScan(wait=True)
-               TimerStop('updateWltsAfterScan')
 
                prevLedgSize = dict([(wltID, len(self.walletMap[wltID].getTxLedger())) \
                                                    for wltID in self.walletMap.keys()])
 
                print 'New Block: ', self.currBlockNum
 
-               TimerStart('ledgerModelReset')
                self.ledgerModel.reset()
-               TimerStop('ledgerModelReset')
 
                LOGINFO('New Block! : %d', self.currBlockNum)
                didAffectUs = False
    
+               # LITE sync means it won't rescan if addresses have been imported
                TimerStart('newBlockSyncRescanZC')
                for wltID in self.walletMap.keys():
                   self.walletMap[wltID].syncWithBlockchainLite()

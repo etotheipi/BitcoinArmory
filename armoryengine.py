@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 84, 4, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 84, 5, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -11232,27 +11232,41 @@ class BlockDataManagerThread(threading.Thread):
 
             elif cmd == BDMINPUTTYPE.AddrBookRequested:
                cppWlt = inputTuple[3] 
+               TimerStart('createAddressBook')
                output = cppWlt.createAddressBook()
+               TimerStop('createAddressBook')
                                              
             elif cmd == BDMINPUTTYPE.UpdateWallets:
+               TimerStart('updateWltsAfterScan')
                self.__updateWalletsAfterScan()
+               TimerStop('updateWltsAfterScan')
 
             elif cmd == BDMINPUTTYPE.StartScanRequested:
                LOGINFO('Start Initial BDM Load Requested')
+               
+               TimerStart('loadBlockchain')
                self.__startLoadBlockchain()
+               TimerStop('loadBlockchain')
 
             elif cmd == BDMINPUTTYPE.RescanRequested:
                LOGINFO('Start Rescan Requested')
+               TimerStart('rescanBlockchain')
                self.__startRescanBlockchain()
+               TimerStop('rescanBlockchain')
 
             elif cmd == BDMINPUTTYPE.WalletRecoveryScan:
                LOGINFO('Wallet Recovery Scan Requested')
                pywlt = inputTuple[3]
+               TimerStart('recoveryRescan')
                self.__startRecoveryRescan(pywlt)
+               TimerStop('recoveryRescan')
                
 
             elif cmd == BDMINPUTTYPE.ReadBlkUpdate:
+               
+               TimerStart('readBlkFileUpdate')
                output = self.__readBlockfileUpdates()
+               TimerStop('readBlkFileUpdate')
                
 
             elif cmd == BDMINPUTTYPE.Passthrough:

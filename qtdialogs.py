@@ -3777,8 +3777,12 @@ class DlgImportPaperWallet(ArmoryDialog):
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
 
-      self.newWallet.fillAddressPool()
-      self.accept()
+      def fillAddrPoolAndAccept():
+         self.newWallet.fillAddressPool()
+         self.accept()
+
+      # Will pop up a little "please wait..." window while filling addr pool
+      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
       
 
 
@@ -9840,9 +9844,9 @@ class DlgExportTxHistory(ArmoryDialog):
       elif 'oldest' in sortTxt:
          ledgerTable.sort(key=lambda x: x[LEDGERCOLS.UnixTime])
       elif 'ascend' in sortTxt:
-         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash])
+         ledgerTable.sort(key=lambda x: hex_switchEndian(x[LEDGERCOLS.TxHash]))
       elif 'descend' in sortTxt:
-         ledgerTable.sort(key=lambda x: x[LEDGERCOLS.TxHash], reverse=True)
+         ledgerTable.sort(key=lambda x: hex_switchEndian(x[LEDGERCOLS.TxHash]), reverse=True)
       else:
          LOGERROR('***ERROR: bad sort string!?')
          return
