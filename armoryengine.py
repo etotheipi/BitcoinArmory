@@ -2166,8 +2166,17 @@ class PyBtcAddress(object):
          # We add an extra 0 byte to the beginning of each value to guarantee
          # that they are interpretted as unsigned integers.  Not always necessary
          # but it doesn't hurt to always do it.
-         rBin   = '\x00' + sigstr[:32 ]
-         sBin   = '\x00' + sigstr[ 32:]
+         rBin   = sigstr[:32 ]
+         sBin   = sigstr[ 32:]
+
+         # Remove all leading zero-bytes
+         while rBin[0]=='\x00':
+            rBin = rBin[1:]
+         while sBin[0]=='\x00':
+            sBin = sBin[1:]
+
+         if binary_to_int(rBin[0])&128>0:  rBin = '\x00'+rBin
+         if binary_to_int(sBin[0])&128>0:  sBin = '\x00'+sBin
          rSize  = int_to_binary(len(rBin))
          sSize  = int_to_binary(len(sBin))
          rsSize = int_to_binary(len(rBin) + len(sBin) + 4)
