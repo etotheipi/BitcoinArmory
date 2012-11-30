@@ -439,7 +439,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
 
-      verStr = 'Armory %s-alpha+ / %s User' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory %s-beta / %s User' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))

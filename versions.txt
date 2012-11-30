@@ -6,6 +6,51 @@
 
 
 #-------------------------------------------------------------------------------
+VERSION 0.85
+
+   - Official Beta Release!
+        
+   - Multi-threaded, no-wait loading!
+        Armory now loads immediately and does all blockchain scanning and 
+        rescanning in the background.  All wallet management operations are
+        available while you wait!
+
+   - Manual "bitcoin:" URL entry.  
+        If clicking on "bitcoin:" links doesn't work on your OS, you can 
+        right-click and copy the address string.  There is now a button on 
+        the "Send Bitcoins" window that gives you a space to copy the URL 
+        and prefill the transaction for you.
+
+   - Preparation for Bitcoin-Qt 0.8+
+        Bitcoin-Qt 0.8+ will change up the datadir file organization that
+        Armory depends on.  Added code to auto-detect this condition and
+        switch to it automatically.
+
+   - Bugfix: No more missing zero-confirmation transactions
+        A network bug was interfering with the receipt of nearly 50% of all
+        incoming, zero-confirmation transactions.  They would only appear 
+        once they had made it into the blockchain.  Armory should now see
+        100% of such transactions.
+
+   - Restore Encrypted Backup
+        You can now restore paper backups directly to an encrypted wallet file. 
+
+   - Manual Keypool Extension (Expert mode only)
+        Wallet properties now tells you how many addresses have been generated
+        for your wallet, and lets you generate more, in case a wallet recovery
+        operation did not find all your coins.  Alternatively, there is a new
+        option, "--keypool=X", to specify how many addresses Armory should    
+        watch beyond your last used address in each wallet.
+
+   - *Broke OSX paper backup printing 
+        The new multi-threading code has highlighted some bugs in the PyQt 
+        implementation that ships with with homebrew on OSX.  So far, no 
+        workaround has been found, and users are encouraged to manually write
+        down information on your paper backup.
+      
+
+
+#-------------------------------------------------------------------------------
 VERSION 0.82.2
 
    - URL/Link Creator
