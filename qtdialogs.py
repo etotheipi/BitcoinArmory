@@ -4501,63 +4501,6 @@ class DlgWalletSelect(ArmoryDialog):
       self.accept()
 
 
-################################################################################
-def getWalletInfoFrame(wlt):
-   """
-   I *should* be using this method for the wallet-select, too, but I couldn't
-   figure out how to swap frames from the layout after a selection switch
-   """
-   wltID = wlt.uniqueIDB58
-   lbls = []
-   lbls.append( QLabel("Wallet ID:") )
-   lbls.append( QLabel("Name:"))
-   lbls.append( QLabel("Description:"))
-   lbls.append( QLabel("Spendable Balance:"))
-
-   for i in range(len(lbls)):
-      lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
-      lbls[i].setTextFormat(Qt.RichText)
-      lbls[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
-      lbls[i].setText('<b>'+str(lbls[i].text())+'</b>')
-
-   dispID = QLabel(wltID)
-   dispName = QLabel(wlt.labelName)
-   dispDescr = QLabel(wlt.labelDescr)
-   dispDescr.setWordWrap(True)
-   dispBal = QRichLabel('')
-
-   # Format balance if necessary
-   if not TheBDM.getBDMState()=='BlockchainReady':
-      dispBal.setText('<font color="%s">(available when online)</font>' % htmlColor('DisableFG'))
-   else:
-      bal = wlt.getBalance('Spendable')
-      if bal==0: dispBal.setText('<font color="red"><b>0.0000</b></font>')
-      else:      dispBal.setText('<font color="green"><b>'+coin2str(bal, maxZeros=1)+'</font></b>')
-
-      
-   frm = QFrame()
-   frm.setFrameStyle(STYLE_SUNKEN)
-   frmLayout = QGridLayout()
-   for i in range(len(lbls)):
-      frmLayout.addWidget(lbls[i], i, 0,  1, 1)
-
-   dispID.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   dispName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   dispDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   dispBal.setAlignment(Qt.AlignLeft | Qt.AlignTop)
-   dispDescr.setMinimumWidth( tightSizeNChar(dispDescr, 30)[0])
-   frmLayout.addWidget(dispID,    0, 2, 1, 1)
-   frmLayout.addWidget(dispName,  1, 2, 1, 1)
-   frmLayout.addWidget(dispDescr, 2, 2, 1, 1)
-   frmLayout.addWidget(dispBal,   3, 2, 1, 1)
-   #for i in range(len(displays)):
-      #displays[i].setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Minimum)
-      #frmLayout.addWidget(displays[i], i, 1, 1, 1)
-
-   frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
-   frm.setLayout(frmLayout)
-
-   return frm
 
 
 
@@ -4715,8 +4658,53 @@ class DlgSendBitcoins(ArmoryDialog):
 
       
 
+      # Create the wallet summary display
+      lbls = []
+      lbls.append( QRichLabel("Wallet ID:", doWrap=False) )
+      lbls.append( QRichLabel("Name:", doWrap=False))
+      lbls.append( QRichLabel("Description:", doWrap=False))
+      lbls.append( QRichLabel("Spendable BTC:", doWrap=False))
+
+      for i in range(len(lbls)):
+         lbls[i].setAlignment(Qt.AlignLeft | Qt.AlignTop)
+         lbls[i].setText('<b>'+str(lbls[i].text())+'</b>')
+
       
-      self.frmInfo = getWalletInfoFrame(wlt)
+      self.lblSummaryID    = QRichLabel('')
+      self.lblSummaryName  = QRichLabel('')
+      self.lblSummaryDescr = QRichLabel('')
+      self.lblSummaryDescr.setWordWrap(True)
+      self.lblSummaryBal   = QMoneyLabel(0)
+
+      # Format balance if necessary
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         self.lblSummaryBal.setText('<font color="%s">(available when online)</font>' % htmlColor('DisableFG'))
+      else:
+         bal = wlt.getBalance('Spendable')
+         if bal==0: 
+            self.lblSummaryBal.setValueText(0, wBold=True)
+         else:      
+            self.lblSummaryBal.setValueText(bal, maxZeros=1, wBold=True)
+
+         
+      self.frmWalletInfo = QFrame()
+      self.frmWalletInfo.setFrameStyle(STYLE_SUNKEN)
+      frmLayout = QGridLayout()
+      for i in range(len(lbls)):
+         frmLayout.addWidget(lbls[i], i, 0,  1, 1)
+
+      self.lblSummaryID.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.lblSummaryName.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.lblSummaryDescr.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+      self.lblSummaryDescr.setMinimumWidth( tightSizeNChar(self.lblSummaryDescr, 30)[0])
+      frmLayout.addWidget(self.lblSummaryID,    0, 2, 1, 1)
+      frmLayout.addWidget(self.lblSummaryName,  1, 2, 1, 1)
+      frmLayout.addWidget(self.lblSummaryDescr, 2, 2, 1, 1)
+      frmLayout.addWidget(self.lblSummaryBal,   3, 2, 1, 1)
+      frmLayout.addItem(QSpacerItem(20, 10, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
+      self.frmWalletInfo.setLayout(frmLayout)
+
+      
       lblNoSend = QRichLabel('')
       btnUnsigned = QRichLabel('')
       ttipUnsigned = QRichLabel('')
@@ -4916,18 +4904,9 @@ class DlgSendBitcoins(ArmoryDialog):
          
    
    
-      #btnFrame = makeVertFrame([btnUnsigned, ttipUnsigned, btnDonate, ttipDonate])
       frmUnsigned = makeHorizFrame([btnUnsigned, ttipUnsigned])
       frmDonate   = makeHorizFrame([btnDonate,   ttipDonate])
       frmEnterURI = makeHorizFrame([btnEnterURI, ttipEnterURI])
-      #btnFrame = QFrame()
-      #btnFrame.setFrameStyle(QFrame.NoFrame)
-      #btnFrameLayout = QGridLayout()
-      #btnFrameLayout.addWidget(btnUnsigned,  0,0, 1,1)
-      #btnFrameLayout.addWidget(ttipUnsigned, 0,1, 1,1)
-      #btnFrameLayout.addWidget(btnDonate,    1,0, 1,1)
-      #btnFrameLayout.addWidget(ttipDonate,   1,1, 1,1)
-      #btnFrame.setLayout(btnFrameLayout)
 
 
       frmNoSend     = makeLayoutFrame('Horiz', [lblNoSend], STYLE_SUNKEN)
@@ -4939,11 +4918,7 @@ class DlgSendBitcoins(ArmoryDialog):
             btnEnterURI.setVisible(False)
             ttipEnterURI.setVisible(False)
 
-      #frmBottomLeft = makeLayoutFrame('Vert',  [self.frmInfo, \
-                                                #btnFrame, \
-                                                #'Stretch', \
-                                                #frmNoSend], STYLE_SUNKEN)
-      frmBottomLeft = makeVertFrame( [self.frmInfo, \
+      frmBottomLeft = makeVertFrame( [self.frmWalletInfo, \
                                       frmUnsigned, \
                                       frmDonate, \
                                       frmEnterURI, \
@@ -5024,6 +4999,8 @@ class DlgSendBitcoins(ArmoryDialog):
       else:
          btnUnsigned.setDefault(True)
          
+      self.setWalletSummary()
+
 
    #############################################################################
    def saveGeometrySettings(self):
@@ -5591,10 +5568,10 @@ class DlgSendBitcoins(ArmoryDialog):
          self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
       
          nAddr = len(self.sourceAddrList)
-         print self.altBalance
-         print self.wlt.getBalance('Spendable')
          if self.altBalance == self.wlt.getBalance('Spendable'):
             self.lblCoinCtrl.setText('Source: All addresses')
+            self.sourceAddrList = None
+            self.altBalance = None
          elif nAddr==0:
             self.lblCoinCtrl.setText('Source: None selected')
          elif nAddr==1:
@@ -5603,6 +5580,26 @@ class DlgSendBitcoins(ArmoryDialog):
          elif nAddr>1:
             self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
 
+         self.setWalletSummary()
+
+
+   #############################################################################
+   def setWalletSummary(self):
+      useAllAddr = (self.altBalance==None)
+      fullBal = self.wlt.getBalance('Spendable')
+      if useAllAddr:
+         self.lblSummaryID.setText(self.wlt.uniqueIDB58)
+         self.lblSummaryName.setText(self.wlt.labelName)
+         self.lblSummaryDescr.setText(self.wlt.labelDescr)
+         self.lblSummaryBal.setValueText(fullBal, wBold=True)
+      else:
+         self.lblSummaryID.setText(self.wlt.uniqueIDB58 + '*')
+         self.lblSummaryName.setText(self.wlt.labelName + '*')
+         self.lblSummaryDescr.setText('*Coin Control Subset*', color='TextBlue', bold=True)
+         self.lblSummaryBal.setText(coin2str(self.altBalance, maxZeros=0), color='TextBlue')
+         rawValTxt = str(self.lblSummaryBal.text())
+         self.lblSummaryBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
+                                    (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
 
 class DlgOfflineTxCreated(ArmoryDialog):
@@ -10450,17 +10447,18 @@ class DlgCoinControl(ArmoryDialog):
       self.dispTable = []
       for i in range(len(addrToInclude)):
          a160,bal = addrToInclude[i]
-         self.dispTable.append([None, None, None, None])
-         self.dispTable[-1][0] = QCheckBox('')
-         self.dispTable[-1][1] = QRichLabel(hash160_to_addrStr(a160))
-         self.dispTable[-1][2] = QRichLabel(self.wlt.getCommentForAddress(160), doWrap=True)
-         self.dispTable[-1][3] = QMoneyLabel(bal)
+         self.dispTable.append([None, None, None])
+         self.dispTable[-1][0] = QCheckBox(hash160_to_addrStr(a160))
+         self.dispTable[-1][1] = QRichLabel(self.wlt.getCommentForAddress(160), doWrap=True)
+         self.dispTable[-1][2] = QMoneyLabel(bal)
          self.dispTable[-1][0].setChecked(currSelect==None or (a160 in currSelect))
+         cmt = self.wlt.getCommentForAddress(a160)
+         if len(cmt)>0:
+            self.dispTable[-1][0].setToolTip('<u></u>'+cmt)
          self.connect(self.dispTable[-1][0], SIGNAL('clicked()'), self.clickOne)
          frmTableLayout.addWidget(self.dispTable[-1][0], i,0)
          frmTableLayout.addWidget(self.dispTable[-1][1], i,1)
          frmTableLayout.addWidget(self.dispTable[-1][2], i,2)
-         frmTableLayout.addWidget(self.dispTable[-1][3], i,3)
       
       frmTable = QFrame()
       frmTable.setLayout(frmTableLayout)
@@ -10509,7 +10507,7 @@ class DlgCoinControl(ArmoryDialog):
       totalBal = 0
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            a160 = addrStr_to_hash160(str(dispList[1].text()))
+            a160 = addrStr_to_hash160(str(dispList[0].text()))
             totalBal += self.wlt.getAddrBalance(a160)
 
       self.lblSum.setValueText(totalBal)
@@ -10520,10 +10518,15 @@ class DlgCoinControl(ArmoryDialog):
       self.coinControlList = []
       for dispList in self.dispTable:
          if dispList[0].isChecked():
-            a160 = addrStr_to_hash160(str(dispList[1].text()))
-            print hash160_to_addrStr(a160)
+            a160 = addrStr_to_hash160(str(dispList[0].text()))
             bal = self.wlt.getAddrBalance(a160)
             self.coinControlList.append([a160, bal])
+
+      if len(self.coinControlList)==0:
+         QMessageBox.warning(self, 'Nothing Selected', \
+            'You must select at least one address to fund your '
+            'transaction.', QMessageBox.Ok)
+         return
 
       self.accept()
 

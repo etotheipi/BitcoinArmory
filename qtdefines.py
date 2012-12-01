@@ -216,7 +216,7 @@ class QRichLabel(QLabel):
 
 
 
-class QMoneyLabel(QLabel):
+class QMoneyLabel(QRichLabel):
    def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
       QLabel.__init__(self, coin2str(nSatoshi))
 
