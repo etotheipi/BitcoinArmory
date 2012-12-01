@@ -217,25 +217,48 @@ class QRichLabel(QLabel):
 
 
 class QMoneyLabel(QLabel):
-   def __init__(self, nBtc, ndec=8, maxZeros=2, wColor=True, wBold=False):
-      QLabel.__init__(self, coin2str(nBtc))
+   def __init__(self, nSatoshi, ndec=8, maxZeros=2, wColor=True, wBold=False):
+      QLabel.__init__(self, coin2str(nSatoshi))
+
+      self.setValueText(nSatoshi, ndec, maxZeros, wColor, wBold)
+
+
+   def setValueText(self, nSatoshi, ndec=None, maxZeros=None, wColor=None, wBold=None):
+      """
+      When we set the text of the QMoneyLabel, remember previous values unless
+      explicitly respecified
+      """
+      if not ndec==None:
+         self.ndec = ndec
+
+      if not maxZeros==None:
+         self.max0 = maxZeros
+
+      if not wColor==None:
+         self.colr = wColor
+
+      if not wBold==None:
+         self.bold = wBold
+         
 
       theFont = GETFONT("Fixed", 10)
-      if wBold:
+      if self.bold:
          theFont.setWeight(QFont.Bold)
 
       self.setFont(theFont)
       self.setWordWrap(False)
-      valStr = coin2str(nBtc, ndec=ndec, maxZeros=maxZeros)
+      valStr = coin2str(nSatoshi, ndec=self.ndec, maxZeros=self.max0)
       goodMoney = htmlColor('MoneyPos')
       badMoney  = htmlColor('MoneyNeg')
-      if nBtc < 0 and wColor:
+      if nSatoshi < 0 and self.colr:
          self.setText('<font color=%s>%s</font>' % (badMoney, valStr))
-      elif nBtc > 0 and wColor:
+      elif nSatoshi > 0 and self.colr:
          self.setText('<font color=%s>%s</font>' % (goodMoney, valStr))
       else:
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+
+   
 
 
 

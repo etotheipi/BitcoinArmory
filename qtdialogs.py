@@ -4790,6 +4790,19 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
       ########################################################################
+      # In Expert usermode, allow the user to modify source addresses
+      frmCoinControl = QFrame()
+      self.sourceAddrList = None
+      self.altBalance = None
+      if self.main.usermode == USERMODE.Expert:
+         self.lblCoinCtrl = QRichLabel('Source:  All addresses')
+         self.btnCoinCtrl = QPushButton('Coin Control')
+         self.connect(self.btnCoinCtrl, SIGNAL('clicked()'), self.doCoinCtrl)
+         frmCoinControl = makeHorizFrame([self.lblCoinCtrl, self.btnCoinCtrl])
+
+
+
+      ########################################################################
       # In Expert usermode, allow the user to modify the change address
       frmChangeAddr = QFrame()
       if self.main.usermode == USERMODE.Expert:
@@ -4935,6 +4948,7 @@ class DlgSendBitcoins(ArmoryDialog):
                                       frmDonate, \
                                       frmEnterURI, \
                                       'Stretch', \
+                                      frmCoinControl, \
                                       frmChangeAddr],  STYLE_SUNKEN )
 
       lblSend = QRichLabel('<b>Sending from Wallet:</b>')
@@ -5569,6 +5583,25 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
+   def doCoinCtrl(self):
+      
+      dlgcc = DlgCoinControl(self, self.main, self.wlt, self.sourceAddrList)
+      if dlgcc.exec_():
+         self.sourceAddrList = [x[0] for x in dlgcc.coinControlList]
+         self.altBalance = sum([x[1] for x in dlgcc.coinControlList])
+      
+         nAddr = len(self.sourceAddrList)
+         print self.altBalance
+         print self.wlt.getBalance('Spendable')
+         if self.altBalance == self.wlt.getBalance('Spendable'):
+            self.lblCoinCtrl.setText('Source: All addresses')
+         elif nAddr==0:
+            self.lblCoinCtrl.setText('Source: None selected')
+         elif nAddr==1:
+            aStr = hash160_to_addrStr(self.sourceAddrList[0])
+            self.lblCoinCtrl.setText('Source: %s...' % aStr[:12])
+         elif nAddr>1:
+            self.lblCoinCtrl.setText('Source: %d addresses' % nAddr)
 
 
 
@@ -10385,6 +10418,114 @@ class DlgUriCopyAndPaste(ArmoryDialog):
       self.uriDict = self.main.parseUriLink(uriStr, 'enter') 
       self.accept()
       
+
+
+
+
+class DlgCoinControl(ArmoryDialog):
+   def __init__(self, parent, main, wlt, currSelect=None):
+      super(DlgCoinControl, self).__init__(parent, main)
+
+      self.wlt = wlt
+
+      lblDescr = QRichLabel( \
+         'By default, combinations of any addresses in this wallet will '
+         'be used to construct new transactions.  If you want to restrict '
+         'the addresses that can be used as a source for this transaction, '
+         'then check only those addresses below.')
+
+      self.chkSelectAll = QCheckBox('Select All')
+      self.chkSelectAll.setChecked(True)
+      self.connect(self.chkSelectAll, SIGNAL('clicked()'), self.clickAll)
+
+      addrToInclude = []
+      totalBal = 0
+      for addr160 in wlt.addrMap.iterkeys():
+         bal = wlt.getAddrBalance(addr160)
+         if bal > 0:
+            addrToInclude.append([addr160,bal])
+            totalBal += bal
+         
+      frmTableLayout = QGridLayout()
+      self.dispTable = []
+      for i in range(len(addrToInclude)):
+         a160,bal = addrToInclude[i]
+         self.dispTable.append([None, None, None, None])
+         self.dispTable[-1][0] = QCheckBox('')
+         self.dispTable[-1][1] = QRichLabel(hash160_to_addrStr(a160))
+         self.dispTable[-1][2] = QRichLabel(self.wlt.getCommentForAddress(160), doWrap=True)
+         self.dispTable[-1][3] = QMoneyLabel(bal)
+         self.dispTable[-1][0].setChecked(currSelect==None or (a160 in currSelect))
+         self.connect(self.dispTable[-1][0], SIGNAL('clicked()'), self.clickOne)
+         frmTableLayout.addWidget(self.dispTable[-1][0], i,0)
+         frmTableLayout.addWidget(self.dispTable[-1][1], i,1)
+         frmTableLayout.addWidget(self.dispTable[-1][2], i,2)
+         frmTableLayout.addWidget(self.dispTable[-1][3], i,3)
+      
+      frmTable = QFrame()
+      frmTable.setLayout(frmTableLayout)
+      self.scrollAddrList = QScrollArea()
+      self.scrollAddrList.setWidget(frmTable)
+
+      lblDescrSum = QRichLabel('Balance of selected addresses:',  doWrap=False)
+      self.lblSum = QMoneyLabel(totalBal, wBold=True)
+      frmSum = makeHorizFrame(['Stretch', lblDescrSum, self.lblSum, 'Stretch'])
+
+      self.btnAccept = QPushButton("Accept")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.acceptSelection)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QGridLayout()
+      layout.addWidget(lblDescr,            0,0)
+      layout.addWidget(self.chkSelectAll,   1,0)
+      layout.addWidget(self.scrollAddrList, 2,0)
+      layout.addWidget(frmSum,              3,0)
+      layout.addWidget(buttonBox,           4,0)
+      layout.setRowStretch(0, 0)
+      layout.setRowStretch(1, 0)
+      layout.setRowStretch(2, 1)
+      layout.setRowStretch(3, 0)
+      layout.setRowStretch(4, 0)
+      self.setLayout(layout)
+
+      self.recalcBalance()
+      
+      self.setWindowTitle('Coin Control (Expert)')
+
+   def clickAll(self):
+      for dispList in self.dispTable:
+         dispList[0].setChecked( self.chkSelectAll.isChecked() )
+      self.recalcBalance()
+
+   def clickOne(self):
+      self.recalcBalance()
+
+
+   def recalcBalance(self):
+      totalBal = 0
+      for dispList in self.dispTable:
+         if dispList[0].isChecked():
+            a160 = addrStr_to_hash160(str(dispList[1].text()))
+            totalBal += self.wlt.getAddrBalance(a160)
+
+      self.lblSum.setValueText(totalBal)
+            
+      
+
+   def acceptSelection(self):
+      self.coinControlList = []
+      for dispList in self.dispTable:
+         if dispList[0].isChecked():
+            a160 = addrStr_to_hash160(str(dispList[1].text()))
+            print hash160_to_addrStr(a160)
+            bal = self.wlt.getAddrBalance(a160)
+            self.coinControlList.append([a160, bal])
+
+      self.accept()
 
 
 # STUB
