@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 85, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 86, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -6373,7 +6373,7 @@ class PyBtcWallet(object):
    def getTxOutList(self, txType='Spendable'):
       """ Returns UnspentTxOut/C++ objects """
       if TheBDM.getBDMState()=='BlockchainReady' and \
-               not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+         not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
 
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
@@ -6393,6 +6393,7 @@ class PyBtcWallet(object):
       if TheBDM.getBDMState()=='BlockchainReady' and \
             self.hasAddr(addr160) and \
             not self.doBlockchainSync==BLOCKCHAIN_DONOTUSE:
+
          currBlk = TheBDM.getTopBlockHeight(calledFromBDM=self.calledFromBDM)
          self.syncWithBlockchain()
          if txType.lower() in ('spend', 'spendable'):
