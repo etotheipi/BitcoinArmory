@@ -4678,7 +4678,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
       # Format balance if necessary
       if not TheBDM.getBDMState()=='BlockchainReady':
-         self.lblSummaryBal.setText('<font color="%s">(available when online)</font>' % htmlColor('DisableFG'))
+         self.lblSummaryBal.setText('(available when online)', color='DisableFG')
       else:
          bal = wlt.getBalance('Spendable')
          if bal==0: 
@@ -4920,8 +4920,8 @@ class DlgSendBitcoins(ArmoryDialog):
 
       frmBottomLeft = makeVertFrame( [self.frmWalletInfo, \
                                       frmUnsigned, \
-                                      frmDonate, \
                                       frmEnterURI, \
+                                      frmDonate, \
                                       'Stretch', \
                                       frmCoinControl, \
                                       frmChangeAddr],  STYLE_SUNKEN )
@@ -5187,18 +5187,23 @@ class DlgSendBitcoins(ArmoryDialog):
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
          
-      bal = self.wlt.getBalance('Spendable')
+      bal = self.getUsableBalance()
       if totalSend+fee > bal:
-         QMessageBox.critical(self, 'Insufficient Funds', 'You just tried to send '
-            '%s BTC, including fee, but you only have %s BTC (spendable) in this wallet!' % \
-               (coin2str(totalSend+fee, maxZeros=2).strip(), \
-                coin2str(bal, maxZeros=2).strip()), \
-            QMessageBox.Ok)
+         valTry = coin2str(totalSend+fee, maxZeros=2).strip()
+         valMax = coin2str(bal,           maxZeros=2).strip()
+         if self.altBalance==None:
+            QMessageBox.critical(self, 'Insufficient Funds', \
+            'You just tried to send %s BTC, including fee, but you only '
+            'have %s BTC (spendable) in this wallet!' % (valTry, valMax), QMessageBox.Ok)
+         else:
+            QMessageBox.critical(self, 'Insufficient Funds', \
+            'You just tried to send %s BTC, including fee, but you only '
+            'have %s BTC with this coin control selection!' % (valTry, valMax), QMessageBox.Ok)
          return False
       
 
       # Get unspent outs for this wallet:
-      utxoList = self.wlt.getTxOutList('Spendable')
+      utxoList = self.getUsableTxOutList()
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
 
 
@@ -5284,6 +5289,28 @@ class DlgSendBitcoins(ArmoryDialog):
       return txdp
 
       
+
+   #############################################################################
+   def getUsableBalance(self):
+      if self.altBalance==None:
+         return self.wlt.getBalance('Spendable')
+      else:
+         return self.altBalance
+
+         
+   #############################################################################
+   def getUsableTxOutList(self):
+      if self.altBalance==None:
+         return self.wlt.getTxOutList('Spendable')
+      else:
+         utxoList = []
+         for a160 in self.sourceAddrList:
+            # Trying to avoid a swig bug involving iteration over vector<> types
+            utxos = self.wlt.getAddrTxOutList(a160)
+            for i in range(len(utxos)):
+               utxoList.append(PyUnspentTxOut().createFromCppUtxo(utxos[i]))
+         return utxoList
+
 
    #############################################################################
    def determineChangeAddr(self, utxoList):
@@ -5408,7 +5435,7 @@ class DlgSendBitcoins(ArmoryDialog):
       totalOther = 0
       r=0  
       try:
-         bal = self.wlt.getBalance('Spendable')
+         bal = self.getUsableBalance()
          txFee = str2coin(str(self.edtFeeAmt.text()))
          while r<nRecip:
             # Use while loop so 'r' is still in scope in the except-clause
@@ -5560,6 +5587,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.scrollRecipArea.setWidget(frmRecip)
 
 
+   #############################################################################
    def doCoinCtrl(self):
       
       dlgcc = DlgCoinControl(self, self.main, self.wlt, self.sourceAddrList)
@@ -5591,7 +5619,10 @@ class DlgSendBitcoins(ArmoryDialog):
          self.lblSummaryID.setText(self.wlt.uniqueIDB58)
          self.lblSummaryName.setText(self.wlt.labelName)
          self.lblSummaryDescr.setText(self.wlt.labelDescr)
-         self.lblSummaryBal.setValueText(fullBal, wBold=True)
+         if fullBal==0:
+            self.lblSummaryBal.setText('0.0', color='TextRed', bold=True)
+         else:
+            self.lblSummaryBal.setValueText(fullBal, wBold=True)
       else:
          self.lblSummaryID.setText(self.wlt.uniqueIDB58 + '*')
          self.lblSummaryName.setText(self.wlt.labelName + '*')
@@ -5601,7 +5632,11 @@ class DlgSendBitcoins(ArmoryDialog):
          self.lblSummaryBal.setText(rawValTxt + ' <font color="%s">(of %s)</font>' % \
                                     (htmlColor('DisableFG'), coin2str(fullBal, maxZeros=0)))
 
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         self.lblSummaryBal.setText('(available when online)', color='DisableFG')
 
+
+################################################################################
 class DlgOfflineTxCreated(ArmoryDialog):
    def __init__(self, wlt, txdp, parent=None, main=None):
       super(DlgOfflineTxCreated, self).__init__(parent, main)
@@ -10509,6 +10544,8 @@ class DlgCoinControl(ArmoryDialog):
          if dispList[0].isChecked():
             a160 = addrStr_to_hash160(str(dispList[0].text()))
             totalBal += self.wlt.getAddrBalance(a160)
+         else:
+            self.chkSelectAll.setChecked(False)
 
       self.lblSum.setValueText(totalBal)
             
