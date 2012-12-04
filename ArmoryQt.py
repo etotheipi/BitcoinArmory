@@ -2650,7 +2650,7 @@ class ArmoryMainWindow(QMainWindow):
          row = index.row()
          txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
          wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txtime = str(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+         txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
          pytx = None
          txHashBin = hex_to_binary(txHash)
