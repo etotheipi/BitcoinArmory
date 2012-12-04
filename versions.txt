@@ -6,6 +6,18 @@
 
 
 #-------------------------------------------------------------------------------
+#VERSION 0.86
+
+   #- Added "Coin Control" (Expert Mode)
+        #Expert usermode now has the ability to control the specific input
+        #coins for each transaction, as well as redirect the change output
+        #to a custom address or return it to one of the inputs.  If you do 
+        #not need this feature -- most users don't -- then you can ignore 
+        #this update (click "No more reminders until next version").
+        
+        
+
+#-------------------------------------------------------------------------------
 VERSION 0.85
 
    - Official Beta Release!
