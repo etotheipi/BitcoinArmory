@@ -2054,6 +2054,10 @@ class ArmoryMainWindow(QMainWindow):
    def addWalletToApplication(self, newWallet, walletIsNew=True):
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
+
+      if self.walletMap.has_key(newWltID):
+         return
+      
       self.walletMap[newWltID] = newWallet
       self.walletIndices[newWltID] = len(self.walletMap)-1
 

@@ -6861,7 +6861,7 @@ def extractTxInfo(pytx, rcvTime=None):
                txTime  = 'Unknown'
             elif rcvTime==-1:
                txTime  = '[[Not broadcast yet]]'
-            elif isinstance(rcvTime, str):
+            elif isinstance(rcvTime, basestring):
                txTime  = rcvTime
             else:
                txTime  = unixTimeToFormatStr(rcvTime)
