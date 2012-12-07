@@ -6,15 +6,17 @@
 
 
 #-------------------------------------------------------------------------------
-#VERSION 0.86
+VERSION 0.86
 
-   #- Added "Coin Control" (Expert Mode)
-        #Expert usermode now has the ability to control the specific input
-        #coins for each transaction, as well as redirect the change output
-        #to a custom address or return it to one of the inputs.  If you do 
-        #not need this feature -- most users don't -- then you can ignore 
-        #this update (click "No more reminders until next version").
+   - Added "Coin Control" (Expert Mode Only)
+        Expert usermode now has the ability to control the specific input
+        coins for each transaction, as well as redirect the change output
+        to a custom address or return it to one of the inputs.
         
+   - Bugfix: Double-Transactions 
+        A bug was causing transactions to show up twice for wallets that 
+        were just created.  This was resolved by simply restarting Armory.
+        Restarting is no longer required.
         
 
 #-------------------------------------------------------------------------------
