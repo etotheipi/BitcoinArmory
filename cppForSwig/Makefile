@@ -4,13 +4,13 @@ COMPILER_OPTS = -c -O2 -pipe -fPIC
 
 #**************************************************************************
 LINKER = g++ 
-OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a
+OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUtils.o EncryptionUtils.o libcryptopp.a libleveldb.a
 
 
 DEPSDIR ?= /usr
 
-INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread 
+INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
+LIBRARY_OPTS += -lpthread -Lleveldb -lleveldb
 SWIG_OPTS    += -c++ -python -classic -threads
 PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
 
@@ -55,6 +55,9 @@ BlockUtilsTest.out : $(OBJS) BlockUtilsTest.cpp
 libcryptopp.a: Makefile
 	cd cryptopp; make libcryptopp.a; mv libcryptopp.a ..
 
+libleveldb.a: Makefile
+	cd leveldb; make libleveldb.a; mv libleveldb.a ..
+
 UniversalTimer.o: UniversalTimer.h UniversalTimer.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) UniversalTimer.cpp
 
@@ -90,7 +93,7 @@ CppBlockUtils_wrap.o: BlockUtils.h  BinaryData.h UniversalTimer.h CppBlockUtils_
 #************************************************************************
 clean:
 	touch CppBlockUtils.i
-	rm -f *.o *.out libcryptopp.a cryptopp/*.out
+	rm -f *.o *.out libleveldb.a libcryptopp.a cryptopp/*.out
 	cd cryptopp; make clean;
 	
 

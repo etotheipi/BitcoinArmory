@@ -8945,9 +8945,9 @@ class PayloadGetData(object):
 class PayloadGetHeaders(object):
    command = 'getheaders'
 
-   def __init__(self, startCt=-1, hashStartList=[], hashStop=''):
-      self.startCount = startCt
-      self.hashStart  = hashStartList
+   def __init__(self, hashStartList=[], hashStop=''):
+      self.version    = 1
+      self.hashList   = hashStartList
       self.hashStop   = hashStop
    
 
@@ -8957,17 +8957,20 @@ class PayloadGetHeaders(object):
       else:
          ghData = BinaryUnpacker( toUnpack )
 
-      self.startCount = ghData.get(VAR_INT)
-      for i in range(self.startCount):
-         self.hashStart.append(ghData.get(BINARY_CHUNK, 32))
+      self.version = gbData.get(UINT32)
+      nhash = ghData.get(VAR_INT)
+      for i in range(nhash):
+         self.hashList.append(ghData.get(BINARY_CHUNK, 32))
       self.hashStop = ghData.get(BINARY_CHUNK, 32)
       return self
 
    def serialize(self):
+      nhash = len(self.hashList)
       bp = BinaryPacker()
-      bp.put(VAR_INT, self.startCount)
-      for i in range(self.startCount):
-         bp.put(BINARY_CHUNK, self.hashStart[i], width=32)
+      bp.put(UINT32, self.version)
+      bp.put(VAR_INT, nhash)
+      for i in range(nhash):
+         bp.put(BINARY_CHUNK, self.hashList[i], width=32)
       bp.put(BINARY_CHUNK, self.hashStop, width=32)
       return bp.getBinaryString()
    
@@ -8975,9 +8978,9 @@ class PayloadGetHeaders(object):
       indstr = indent*nIndent
       print ''
       print indstr + 'Message(getheaders):'
-      print indstr + indent + 'HashStart(s) :' + binary_to_hex(self.hashStart[0])
-      for i in range(1,len(self.hashStart)):
-         print indstr + indent + '             :' + binary_to_hex(self.hashStart[i])
+      print indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0])
+      for i in range(1,len(self.hashList)):
+         print indstr + indent + '             :' + binary_to_hex(self.hashList[i])
       print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
          
 
@@ -8989,8 +8992,7 @@ class PayloadGetBlocks(object):
 
    def __init__(self, version=1, startCt=-1, hashStartList=[], hashStop=''):
       self.version    = 1
-      self.startCount = startCt
-      self.hashStart  = hashStartList
+      self.hashList  = hashStartList
       self.hashStop   = hashStop
    
 
@@ -9001,19 +9003,20 @@ class PayloadGetBlocks(object):
          gbData = BinaryUnpacker( toUnpack )
 
       self.version = gbData.get(UINT32)
-      self.startCount = gbData.get(VAR_INT)
-      for i in range(self.startCount):
-         self.hashStart.append(gbData.get(BINARY_CHUNK, 32))
+      nhash = gbData.get(VAR_INT)
+      for i in range(nhash):
+         self.hashList.append(gbData.get(BINARY_CHUNK, 32))
       self.hashStop = gbData.get(BINARY_CHUNK, 32)
       return self
 
    def serialize(self):
+      nhash = len(self.hashList)
       bp = BinaryPacker()
       bp.put(UINT32, self.version)
-      bp.put(VAR_INT, self.startCount)
-      for i in range(self.startCount):
-         bp.put(BINARY_CHUNK,  self.hashStart[i], width=32)
-      bp.put(BINARY_CHUNK, self.hashStart, width=32)
+      bp.put(VAR_INT, nhash)
+      for i in range(nhash):
+         bp.put(BINARY_CHUNK,  self.hashList[i], width=32)
+      bp.put(BINARY_CHUNK, self.hashList, width=32)
       return bp.getBinaryString()
 
    def pprint(self, nIndent=0):
@@ -9021,9 +9024,9 @@ class PayloadGetBlocks(object):
       print ''
       print indstr + 'Message(getheaders):'
       print indstr + indent + 'Version      :' + str(self.version)
-      print indstr + indent + 'HashStart(s) :' + binary_to_hex(self.hashStart[0])
-      for i in range(1,len(self.hashStart)):
-         print indstr + indent + '             :' + binary_to_hex(self.hashStart[i])
+      print indstr + indent + 'HashList(s) :' + binary_to_hex(self.hashList[0])
+      for i in range(1,len(self.hashList)):
+         print indstr + indent + '             :' + binary_to_hex(self.hashList[i])
       print indstr + indent + 'HashStop     :' + binary_to_hex(self.hashStop)
 
 
@@ -9048,6 +9051,47 @@ class PayloadTx(object):
       print indstr + 'Message(tx):'
       self.tx.pprint(nIndent+1)
 
+
+################################################################################
+################################################################################
+class PayloadHeaders(object):
+   command = 'headers'
+
+   def __init__(self, header=PyBlockHeader(), headerlist=[]):
+      self.header = header
+      self.headerList = headerlist
+   
+
+   def unserialize(self, toUnpack):
+      if isinstance(toUnpack, BinaryUnpacker):
+         headerData = toUnpack
+      else:
+         headerData = BinaryUnpacker( toUnpack )
+
+      self.headerList = []
+      self.header.unserialize(headerData)
+      numHeader = headerData.get(VAR_INT)
+      for i in range(numHeader):
+         self.headerList.append(PyBlockHeader().unserialize(headerData))
+      headerData.get(VAR_INT) # Not sure if this is even used, ever
+      return self
+
+   def serialize(self):
+      bp = BinaryPacker()
+      bp.put(BINARY_CHUNK, self.header.serialize())
+      bp.put(VAR_INT, len(self.headerList))
+      for header in self.headerList:
+         bp.put(BINARY_CHUNK, header.serialize())
+         bp.put(VAR_INT, 0)
+      return bp.getBinaryString()
+
+   def pprint(self, nIndent=0):
+      indstr = indent*nIndent
+      print ''
+      print indstr + 'Message(headers):'
+      self.header.pprint(nIndent+1)
+      for header in self.headerList:
+         print indstr + indent + 'Header:', header.getHash()
 
 
 ################################################################################
@@ -9139,6 +9183,7 @@ PayloadMap = {
    'getheaders':  PayloadGetHeaders,
    'getblocks':   PayloadGetBlocks,
    'block':       PayloadBlock,
+   'headers':     PayloadHeaders,
    'alert':       PayloadAlert }
 
 
@@ -9162,6 +9207,21 @@ def forceDeferred(callbk):
          d = Deferred()
          d.addCallback(callbk)
 
+
+################################################################################
+# It seems we need to do this frequently when downloading headers & blocks
+# This only returns a list of numbers, but one list-comprehension to get hashes
+def createBlockLocatorNumList(topblk):
+   blockNumList = []
+   n,step,niter = topblk,1,0
+   while n>0:
+      blockNumList.append(n)
+      if niter >= 10:
+         step *= 2
+      n -= step
+      niter += 1
+   blockNumList.append(0)
+   return blockNumList
 
 ################################################################################
 #
@@ -9188,6 +9248,7 @@ class ArmoryClient(Protocol):
    def __init__(self):
       self.recvData = ''
       self.handshakeFinished = False
+      self.sentHeadersReq = True
       self.peer = []
 
    ############################################################
@@ -9283,6 +9344,7 @@ class ArmoryClient(Protocol):
          elif cmd=='verack':
             self.handshakeFinished = True
             self.factory.handshakeFinished(self)
+            #self.startHeaderDL()
 
          ####################################################################
          # Don't process any other messages unless the handshake is finished
@@ -9340,6 +9402,27 @@ class ArmoryClient(Protocol):
          # out about them when the Satoshi client updates blk0001.dat
          pass
                   
+
+   ############################################################
+   def startHeaderDL(self):
+      numList = self.createBlockLocatorNumList(self.topBlk)
+      msg = PyMessage('getheaders')
+      msg.payload.version  = 1
+      msg.payload.hashList = [getHeaderByHeight(i).getHash() for i in numList]
+      msg.payload.hashStop = '\x00'*32
+   
+      self.sentHeadersReq = True
+
+
+      
+   ############################################################
+   def startBlockDL(self):
+      numList = self.createBlockLocatorNumList(self.topBlk)
+      msg = PyMessage('getblocks')
+      msg.payload.version  = 1
+      msg.payload.hashList = [getHeaderByHeight(i).getHash() for i in numList]
+      msg.payload.hashStop = '\x00'*32
+
 
    ############################################################
    def sendMessage(self, msg):

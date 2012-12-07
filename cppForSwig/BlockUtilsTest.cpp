@@ -17,6 +17,8 @@
 #include "EncryptionUtils.h"
 #include "FileDataPtr.h"
 
+#include "leveldb/db.h"
+
 
 using namespace std;
 
@@ -37,6 +39,8 @@ void TestPointCompression(void);
 void TestFileCache(void);
 void TestMemoryUsage_UseSystemMonitor(string blkdir);
 void TestOutOfOrder(string blkdir);
+void TestLevelDB(string testLDBDir, string blkfilepath="");
+void TestLDBScanBlockchain(string testdbpath);
 
 void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
@@ -118,8 +122,8 @@ int main(void)
    //printTestHeader("Test-Memory-Usage-With-System-Monitor");
    //TestMemoryUsage_UseSystemMonitor(blkdir);
 
-   printTestHeader("Test-out-of-order calls");
-   TestOutOfOrder(blkdir);
+   //printTestHeader("Test-out-of-order calls");
+   //TestOutOfOrder(blkdir);
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -136,6 +140,9 @@ int main(void)
    //printTestHeader("Testing file cache");
    //TestFileCache();
    
+   printTestHeader("Testing LevelDB");
+   //TestLevelDB("blk0001db", blkdir + string("/blk0001.dat"));
+   TestLDBScanBlockchain("blk0001db");
    
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
@@ -1539,9 +1546,6 @@ void TestMemoryUsage_UseSystemMonitor(string blkdir)
    cin >> a;
 }
 
-
-
-
 void TestOutOfOrder(string blkdir)
 {
    /////////////////////////////////////////////////////////////////////////////
@@ -1586,6 +1590,262 @@ void TestOutOfOrder(string blkdir)
 
    bdm.scanBlockchainForTx(wlt);
 }
+
+
+bool checkStatus(leveldb::Status stat)
+{
+   if( stat.ok() )
+      return true;
+
+   cout << "***LevelDB Error: " << stat.ToString() << endl;
+   return false;
+}
+
+
+void TestLevelDB(string testLDBDir, string blkfilepath)
+{
+   leveldb::DB* ldb;
+   leveldb::Options opts;   
+   
+   // Setup the optoins for this particular database
+   opts.create_if_missing = true;
+   //opts.filter_policy     = NewBloomFilter(10);
+   
+   /*
+   leveldb::Status stat = leveldb::DB::Open(opts, testLDBDir.c_str(), &ldb);
+   assert(checkStatus(stat));
+
+   for(uint32_t i=0; i<10; i++)
+   {
+      uint32_t ncharKey = 2*(i%6)+1;
+      uint32_t ncharVal = 3*(i%8)+1;
+      BinaryData insertKey(ncharKey);
+      BinaryData insertVal(ncharVal);
+      insertKey.fill( (uint8_t)i%255 );
+      insertVal.fill( (uint8_t)i%256 );
+      
+      cout << "Inserting: (" << insertKey.toHexStr() << "," 
+                             << insertVal.toHexStr() << ")" << endl;
+
+      stat = ldb->Put(leveldb::WriteOptions(), 
+                      insertKey.toBinStr(), 
+                      insertVal.toBinStr()); 
+      assert(checkStatus(stat));
+   }
+
+   leveldb::Iterator* it = ldb->NewIterator(leveldb::ReadOptions());
+   uint32_t idx = 1;
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      BinaryData key(it->key().ToString());
+      BinaryData val(it->value().ToString());
+      cout << idx++ << ": " << key.toHexStr() << ": " << val.toHexStr() << endl;
+   }
+
+   cout << "Keys in DB: " << idx-1 << endl;
+
+   string val2;
+   stat = ldb->Get(leveldb::ReadOptions(), "MyKey", &val2);
+   checkStatus(stat);
+   cout << "Plowed through the error..." << endl;
+
+   delete ldb;
+   //delete opts.filter_policy;
+   */
+   
+   // Start new blockchain read/write test....
+   opts.create_if_missing = true;
+   opts.compression       = leveldb::kNoCompression;
+   leveldb::Status stat = leveldb::DB::Open(opts, testLDBDir.c_str(), &ldb);
+   assert(checkStatus(stat));
+
+   ifstream is(blkfilepath.c_str(), ios::in | ios::binary);
+   assert(is.is_open());
+
+   uint64_t filesize = BtcUtils::GetFileSize(blkfilepath);
+   BinaryStreamBuffer bsb;
+   bsb.attachAsStreamBuffer(is, filesize);
+
+   bool alreadyRead8B = false;
+   uint32_t nextBlkSize;
+   uint64_t nBytesRead = 0;
+   uint32_t nBlkRead = 0;
+   TIMER_START("NaiveScan");
+   while(bsb.streamPull())
+   {
+      while(bsb.reader().getSizeRemaining() > 8)
+      {
+         if(!alreadyRead8B)
+         {
+            bsb.reader().advance(4);
+            nextBlkSize = bsb.reader().get_uint32_t();
+            nBytesRead += 8;
+         }
+
+         if(bsb.reader().getSizeRemaining() < nextBlkSize)
+         {
+            alreadyRead8B = true;
+            break;
+         }
+         alreadyRead8B = false;
+
+         BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
+
+         // Do something with the block just read
+         BinaryData headerHash(32);
+         BinaryData headerRaw(HEADER_SIZE);
+         brr.get_BinaryData(headerRaw, HEADER_SIZE);
+         BtcUtils::getHash256_NoSafetyCheck(headerRaw.getPtr(), HEADER_SIZE, headerHash);
+         
+         stat = ldb->Put(leveldb::WriteOptions(), 
+                         headerHash.toBinStr(),
+                         headerRaw.toBinStr()); 
+         assert(checkStatus(stat));
+         
+
+         uint32_t nTx = brr.get_var_int();
+         for(uint32_t itx=0; itx<nTx; itx++)
+         {
+            uint32_t txLen = BtcUtils::TxCalcLength(brr.getCurrPtr());
+            BinaryData txRaw(txLen);
+            brr.get_BinaryData(txRaw, txLen);
+            BinaryData txHash(32);
+            BtcUtils::getHash256_NoSafetyCheck(txRaw.getPtr(), txLen, txHash); 
+
+            stat = ldb->Put(leveldb::WriteOptions(), 
+                        txHash.toBinStr(),
+                        txRaw.toBinStr()); 
+            assert(checkStatus(stat));
+         }
+
+         nBlkRead++;
+         nBytesRead += nextBlkSize;
+         bsb.reader().advance(nextBlkSize);
+
+         if(nBlkRead % 5000 == 0)
+            cout << nBlkRead << " blocks read..." << endl;
+      }
+   }
+   TIMER_STOP("NaiveScan");
+      
+
+}
+
+
+void TestLDBScanBlockchain(string testdbpath)
+{
+   leveldb::Options opts;   
+   opts.create_if_missing = true;
+   opts.compression       = leveldb::kNoCompression;
+
+   leveldb::DB* ldb;
+   leveldb::Status stat = leveldb::DB::Open(opts, testdbpath.c_str(), &ldb);
+   assert(checkStatus(stat));
+
+
+   map<BinaryData, int> addrMap;
+   BinaryData addr;
+   // Main-network addresses
+   addr.createFromHex("47b8ad0b1d6803260ce428d9e09e2cd99fd3b359"); addrMap[addr] = 1;
+   addr.createFromHex("59b3d39fd92c9ee0d928e40c2603681d0badb847"); addrMap[addr] = 1;
+   addr.createFromHex("fe3959db250f247ad724f2af5439ca32e8be3db1"); addrMap[addr] = 1;
+   addr.createFromHex("b13dbee832ca3954aff224d77a240f25db5939fe"); addrMap[addr] = 1;
+
+   map<OutPoint, uint64_t> unspentOutPoints;
+
+   leveldb::Iterator* it = ldb->NewIterator(leveldb::ReadOptions());
+   uint32_t idx = 1;
+   vector<uint32_t> offsetsIn;
+   vector<uint32_t> offsetsOut;
+
+   TIMER_START("Rescan_from_LevelDB");
+   uint32_t nObj=0;
+   uint64_t allbtc=0;
+   cout << "Entry Lengths: ";
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      BinaryData val(it->value().ToString());
+      if(val.getSize()==80)  // need to add another condition
+         continue;
+
+      uint32_t txLen = BtcUtils::TxCalcLength(val.getPtr(), &offsetsIn, &offsetsOut);
+      
+      OutPoint op;
+
+      for(uint32_t iout=0; iout<offsetsOut.size()-1; iout++)
+      {
+         static uint8_t scriptLenFirstByte;
+         static HashString addr20(20);
+   
+         uint8_t const * ptr = (val.getPtr() + offsetsOut[iout] + 8);
+         scriptLenFirstByte = *(uint8_t*)ptr;
+         if(scriptLenFirstByte == 25)
+         {
+            // Std TxOut with 25-byte script
+            addr20.copyFrom(ptr+4, 20);
+            if( addrMap.find(addr20) != addrMap.end() )
+            {
+               uint64_t val = *(uint64_t*)(ptr-8);
+               cout << "   Received a TxOut! " << val/1e8 << endl;
+               allbtc += val;
+               op.setTxHash(it->key().ToString());
+               op.setTxOutIndex(iout);
+               unspentOutPoints[op] = val;
+            }
+         }
+         else if(scriptLenFirstByte==67)
+         {
+            // Std spend-coinbase TxOut script
+            static HashString addr20(20);
+            BtcUtils::getHash160_NoSafetyCheck(ptr+2, 65, addr20);
+            if( addrMap.find(addr20) != addrMap.end() )
+            {
+               uint64_t val = *(uint64_t*)(ptr-8);
+               cout << "   Received a TxOut!" << val/1e8 << endl;
+               allbtc += val;
+               op.setTxHash(it->key().ToString());
+               op.setTxOutIndex(iout);
+               unspentOutPoints[op] = val;
+            }
+         }
+         else
+         {
+            // Do nothing
+         }
+      }
+
+      if(++nObj % 50000 == 0)
+         cout << "Processed " << nObj << " tx " << endl;
+   }
+
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      BinaryData val(it->value().ToString());
+      if(val.getSize()==80)  // need to add another condition
+         continue;
+
+      uint32_t txLen = BtcUtils::TxCalcLength(val.getPtr(), &offsetsIn, &offsetsOut);
+      
+      OutPoint op;
+      map<OutPoint, uint64_t>::iterator iter;
+      for(uint32_t iin=0; iin<offsetsIn.size()-1; iin++)
+      {
+         op.unserialize(val.getPtr() + offsetsIn[iin]);
+         iter = unspentOutPoints.find(op); 
+         if(iter != unspentOutPoints.end())
+         {
+            cout << "   Spent a TxOut! " << endl;
+            allbtc -= iter->second;
+            unspentOutPoints.erase(iter);
+         }
+      }
+   }
+
+   TIMER_STOP("Rescan_from_LevelDB");
+   cout << "Total TxOuts: " << allbtc/1e8 << endl;
+
+}
+
 
 
 
