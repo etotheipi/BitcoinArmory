@@ -1600,8 +1600,13 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
       MagicBytes_(0),
       allRegAddrScannedUpToBlk_(0)
 {
-   headerMap_.clear();
-   txHintMap_.clear();
+   //headerMap_.clear();
+   //txHintMap_.clear();
+   headerDB_ = NULL;
+   txHintDB_ = NULL;
+   isNetParamsSet_ = false;
+   isBlkParamsSet_ = false;
+   isLevelDBSet_ = false;
 
    zeroConfRawTxList_.clear();
    zeroConfMap_.clear();
@@ -1635,6 +1640,35 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
    MagicBytes_.copyFrom(MagicBytes);
 }
 
+
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FileRefs::SetLevelDBPaths(string headerPath,
+                                                string txHintPath)
+{
+   SCOPED_TIMER("SetLevelDBPaths")
+   headerPath_ = headerPath;
+   txHintPath_ = txHintPath;
+
+   leveldb::Status stat;
+
+   // Header databse
+   leveldb::Options opts1;
+   opts1.create_if_missing = true;
+   stat = leveldb::DB::Open(opts1, headerPath_.c_str(), &headerDB_);
+   checkStatus(stat);
+
+   // TxRef database
+   leveldb::Options opts2;
+   opts2.create_if_missing = true;
+   stat = leveldb::DB::Open(opts2, txHintPath_.c_str(), &txHintDB_);
+   checkStatus(stat);
+
+   isLevelDBSet_ = true;
+}
+
+
+
 /////////////////////////////////////////////////////////////////////////////
 // Bitcoin-Qt/bitcoind 0.8+ changed the location and naming convention for 
 // the blkXXXX.dat files.  The first block file use to be:
@@ -1651,10 +1685,11 @@ void BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
                                                    uint32_t blkdigits,
                                                    uint32_t blkstartidx)
 {
-   PDEBUG("SetBlkFileLocation");
+   SCOPED_TIMER("SetBlkFileLocation")
    blkFileDir_    = blkdir; 
    blkFileDigits_ = blkdigits; 
    blkFileStart_  = blkstartidx; 
+   isBlkParamsSet_ = true;
 }
 
 
@@ -1680,7 +1715,119 @@ void BlockDataManager_FileRefs::SelectNetwork(string netName)
       cout << "ERROR: Unrecognized network name" << endl;
       cerr << "ERROR: Unrecognized network name" << endl;
    }
+
+   isNetParamsSet_ = true;
 }
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_FileRefs::checkLdbStatus(leveldb::Status stat)
+{
+   if( stat.ok() )
+      return true;
+
+   cerr << "***LevelDB Error: " << stat.ToString() << endl;
+   return false;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+uint32_t BlockDataManager_FileRefs::readHeadersDB(void)
+{
+   SCOPED_TIMER("readHeadersDB")
+   headerMap_.clear();
+
+   BinaryData headerHash(32);
+   BinaryData headerData(HEADER_SIZE);
+   BlockHeader thisHeader;
+   uint16_t fileIndex;
+   uint32_t startByte, numBytes, blkBytes;
+   uint32_t numBytes;
+   uint8_t const * keyPtr;
+   uint8_t const * dataPtr;
+
+   leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      // It's important to remember that:
+      //  (1) The fileDataPtr points to the magic bytes before the block on disk
+      //  (2) The blkBytes refers only to header+nTx+tx1+tx2+...+txn
+      headerHash.copyFrom((uint8_t const *)(it->key().data()), 32);
+      dataPtr = (uint8_t const *)(it->value().data());
+      fileIndex = *(uint16_t*)dataPtr+0 ;
+      startByte = *(uint32_t*)dataPtr+2 ;
+      numBytes  = *(uint32_t*)dataPtr+6 ;
+      blkBytes  = *(uint32_t*)dataPtr+10;
+      thisHeader.unserialize(dataPtr+14, HEADER_SIZE);
+
+      if(thisHeader.getThisHash() != headerHash)
+         cerr << "Header hash in DB does not match header data!" << endl;
+
+      thisHeader.setBlockFilePtr(FileDataPtr(fileIndex, startByte, numBytes));
+      headerMap_[thisHeader.getThisHash()] = thisHeader;
+      
+   }
+
+   // This will organize the headers into a tree and find the longest chain
+   organizeChain(true)
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_FileRefs::isSameBlockFiles(void)
+{
+   SCOPED_TIMER("readHeadersDB")
+
+   // Check every 1000th block header starting from the top, working down
+   uint32_t top = getTopBlockHeight()
+   for(int32_t h=top; h>0; h-=1000)
+   {
+      BinaryData & dbCopy   = getHeaderByHeight(h).serialize();
+      BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy()
+      if(dbCopy != diskCopy)
+         return false;
+   }
+
+   return true;
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+bool BlockDataManager_FileRefs::rebuildDatabases(void)
+{
+   SCOPED_TIMER("rebuildDatabases")
+   
+   if(!isBlkParamsSet_ || !isLevelDBSet_)
+   {
+      cerr << "Cannot rebuild databases until blockfile params and LevelDB"
+           << "paths are set. " << endl;
+      return false;
+   }
+
+   
+   delete headerDB_;  leveldb::DestroyDB(headerPath_);
+   delete txHintDB_;  leveldb::DestroyDB(txHintPath_);
+   isLevelDBSet_ = false;
+
+   SetLevelDBPaths(headerPath_, txHintPath_);
+   headerMap_.clear();
+
+
+   lastTopBlock_ = 0;
+   numBlkFiles_ = 0;
+   lastBlkFileBytes_ = 0;
+   totalBlockchainBytes_ = 0;
+   bytesReadSoFar_ = 0;
+   blocksReadSoFar_ = 0;
+   filesReadSoFar_ = 0;
+   
+   // Modified from RAM implementation to write scanned data directly to DB
+   parseEntireBlockchain();
+      
+}
+
+
 
 /////////////////////////////////////////////////////////////////////////////
 // The only way to "create" a BDM is with this method, which creates it

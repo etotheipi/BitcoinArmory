@@ -665,15 +665,32 @@ class BlockDataManager_FileRefs
 {
 private:
 
-   // Store the full BlockHeaders in this map.  Store TxRefs in another map
-   map<HashString, BlockHeader>       headerMap_;
+   // We used to store the header and TxRef data in map/multimap<> objects.
+   // However, due to the size of the blockchain, even storing just the 
+   // index information in RAM is becoming prohibitive.  
+   //
+   // Therefore, we will use LevelDB to store the index information, at least
+   // until we switch to maintaining the entire blockchain itself in LevelDB.
+   string headerPath_;
+   string txHintPath_;  // will store {merkle root --> tx hash} list, too
+   
+   leveldb::DB* headerDB_;
+   leveldb::DB* txHintDB_;
+   
+   bool checkLdbStatus(leveldb::Status stat);
 
-   // We index Tx in a multimap, indexed by first X bytes of the hash
-   // If we need to get a tx by hash, get list of all of the ones with the
-   // matching prefix, and then compute hashes to find it.
-   // Saves a ton of space relative at the expense of search time
-   multimap<HashString, TxRef>        txHintMap_;
-   map<HashString, Tx>                selectedTxMap_;
+   uint32_t readHeadersDB(void);
+
+   // The header data includes file pointers to where the blocks are located.
+   // If the blk files exist, but are different for some reason (moved Armory
+   // to a different system), then the databases need to be rebuilt
+   bool isSameBlockFiles(void)
+   bool rebuildDatabases(void);
+
+   map<HashString, BlockHeader> headerMap_;
+
+   //multimap<HashString, TxRef>        txHintMap_;
+
 
    
    // Need a separate memory pool just for zero-confirmation transactions
@@ -685,6 +702,9 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+   bool                               isNetParamsSet_;
+   bool                               isBlkParamsSet_;
+   bool                               isLevelDBSet_;
    string                             blkFileDir_;
    uint32_t                           blkFileDigits_;
    uint32_t                           blkFileStart_;
@@ -750,6 +770,8 @@ public:
    void SetBlkFileLocation(string   blkdir,
                            uint32_t blkdigits,
                            uint32_t blkstartidx);
+   void SetLevelDBPaths(string headerPath,
+                        string txHintPath);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
