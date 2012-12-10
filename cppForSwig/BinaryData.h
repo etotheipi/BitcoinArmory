@@ -114,7 +114,6 @@ public:
    
    /////////////////////////////////////////////////////////////////////////////
    // We allocate space as necesssary
-   // TODO:  Got a problem when copying an empty/uninitialized BD object...
    void copyFrom(uint8_t const * start, uint8_t const * end) 
                   { copyFrom( start, (end-start)); }  // [start, end)
    void copyFrom(string const & str)                         

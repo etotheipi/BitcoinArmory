@@ -66,6 +66,7 @@ public:
    uint32_t        getSize(void) const { assert(isInitialized_); return dataCopy_.getSize(); }
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const;
+   uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
    FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
    void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
 
@@ -116,6 +117,7 @@ private:
    bool           isOrphan_;
    bool           isFinishedCalc_;
    bool           isOnDiskYet_;
+   uint32_t       wholeBlockSize_;
    vector<TxRef*> txPtrList_;
 };
 

@@ -1600,10 +1600,10 @@ BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) :
       MagicBytes_(0),
       allRegAddrScannedUpToBlk_(0)
 {
-   //headerMap_.clear();
-   //txHintMap_.clear();
+   headerMap_.clear();
    headerDB_ = NULL;
    txHintDB_ = NULL;
+   transientDB_ = NULL;
    isNetParamsSet_ = false;
    isBlkParamsSet_ = false;
    isLevelDBSet_ = false;
@@ -1644,7 +1644,8 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::SetLevelDBPaths(string headerPath,
-                                                string txHintPath)
+                                                string txHintPath,
+                                                string transientPath)
 {
    SCOPED_TIMER("SetLevelDBPaths")
    headerPath_ = headerPath;
@@ -1664,6 +1665,13 @@ void BlockDataManager_FileRefs::SetLevelDBPaths(string headerPath,
    stat = leveldb::DB::Open(opts2, txHintPath_.c_str(), &txHintDB_);
    checkStatus(stat);
 
+   // Registered addr/tx database
+   leveldb::Options opts3;
+   opts3.create_if_missing = true;
+   stat = leveldb::DB::Open(opts3, transientPath_.c_str(), &transientDB_);
+   checkStatus(stat);
+
+
    isLevelDBSet_ = true;
 }
 
@@ -1681,15 +1689,49 @@ void BlockDataManager_FileRefs::SetLevelDBPaths(string headerPath,
 //
 // In addition to base dir, also need the number of digits and start index
 //
-void BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
+bool BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
                                                    uint32_t blkdigits,
-                                                   uint32_t blkstartidx)
+                                                   uint32_t blkstartidx,
+                                                   uint64_t cacheSize)
 {
    SCOPED_TIMER("SetBlkFileLocation")
    blkFileDir_    = blkdir; 
    blkFileDigits_ = blkdigits; 
    blkFileStart_  = blkstartidx; 
    isBlkParamsSet_ = true;
+
+
+   // Initialize a global cache that will be used...
+   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
+   globalCache.setCacheSize(cacheSize);
+
+   // Next thing we need to do is find all the blk000X.dat files.
+   // BtcUtils::GetFileSize uses only ifstreams, and thus should be
+   // able to determine if a file exists in an OS-independent way.
+   numBlkFiles_=0;
+   totalBlockchainBytes_ = 0;
+   blkFileList_.clear();
+
+   while(numBlkFiles_ < UINT16_MAX)
+   {
+      string path = BtcUtils::getBlkFilename(blkFileDir_,
+                                             blkFileDigits_, 
+                                             numBlkFiles_+blkFileStart_);
+      numBlkFiles_++;
+      if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
+         break;
+
+      blkFileList_.push_back(string(path));
+      totalBlockchainBytes_ += globalCache.openFile(numBlkFiles_-1, path);
+   }
+   numBlkFiles_--;
+
+   if(numBlkFiles_!=UINT16_MAX)
+      cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
+   else
+      cerr << "Error finding blockchain files (blkXXXX.dat)" << endl;
+
+   return (numBlkFiles_!=UINT16_MAX);
 }
 
 
@@ -1732,7 +1774,7 @@ bool BlockDataManager_FileRefs::checkLdbStatus(leveldb::Status stat)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-uint32_t BlockDataManager_FileRefs::readHeadersDB(void)
+bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
 {
    SCOPED_TIMER("readHeadersDB")
    headerMap_.clear();
@@ -1745,6 +1787,8 @@ uint32_t BlockDataManager_FileRefs::readHeadersDB(void)
    uint32_t numBytes;
    uint8_t const * keyPtr;
    uint8_t const * dataPtr;
+   uint8_t const * rawHeadPtr;
+
 
    leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
    for(it->SeekToFirst(); it->Valid(); it->Next())
@@ -1754,16 +1798,20 @@ uint32_t BlockDataManager_FileRefs::readHeadersDB(void)
       //  (2) The blkBytes refers only to header+nTx+tx1+tx2+...+txn
       headerHash.copyFrom((uint8_t const *)(it->key().data()), 32);
       dataPtr = (uint8_t const *)(it->value().data());
-      fileIndex = *(uint16_t*)dataPtr+0 ;
-      startByte = *(uint32_t*)dataPtr+2 ;
-      numBytes  = *(uint32_t*)dataPtr+6 ;
-      blkBytes  = *(uint32_t*)dataPtr+10;
-      thisHeader.unserialize(dataPtr+14, HEADER_SIZE);
+
+      fileIndex  = *(uint16_t*)(dataPtr +  0);
+      startByte  = *(uint32_t*)(dataPtr +  2);
+      blkBytes   = *(uint32_t*)(dataPtr +  6);
+      rawHeadPtr = *(uint32_t*)(dataPtr + 10);
+
+      // Create the header with this data
+      thisHeader.unserialize(rawHeadPtr, HEADER_SIZE);
+      thisHeader.setBlockSize(blkBytes);
 
       if(thisHeader.getThisHash() != headerHash)
          cerr << "Header hash in DB does not match header data!" << endl;
 
-      thisHeader.setBlockFilePtr(FileDataPtr(fileIndex, startByte, numBytes));
+      thisHeader.setBlockFilePtr(FileDataPtr(fileIndex, startByte, blkBytes));
       headerMap_[thisHeader.getThisHash()] = thisHeader;
       
    }
@@ -1771,30 +1819,126 @@ uint32_t BlockDataManager_FileRefs::readHeadersDB(void)
    // This will organize the headers into a tree and find the longest chain
    organizeChain(true)
 
+
+   // Now let's make sure the blk files are the same ones used 
+   uint32_t topBlockDB    = getTopBlockHeight();
+   uint32_t topBlockSyncd = ldbSyncHeightWithBlkFiles();
+   cout << "TopHeaderInDB: "           << topBlockDB << ", "
+        << "TopHeaderFoundInBlkFile: " << topBlockSyncd << endl;
+   
+   if(topBlockDB != topBlockSyncd)
+      rebuildDatabases();
+   else
+   {
+      // We don't need to rebuild -- but we do have to make sure our next
+      // readBlkFileUpdate starts at the correct place (one block past
+      // the current top block).
+      BlockHeader * bhptr = getTopBlockHeader();
+      uint32_t topBlkSize  = bhptr->getBlockSize();
+      uint32_t topBlkStart = bhptr->getBlockFilePtr()->getStartByte();
+      lastBlkFileBytes_ = topBlkStart + topBlkSize; // magic bytes & blk sz
+      lastTopBlock_ = topBlockDB;
+
+      readBlkFileUpdate();
+   }
+
+
+   // Finally, retrieve the registered address/tx state from the DB
+   leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
+   BinaryData entryType(4)
+   BinaryData entryKey;
+   BinaryData ADDR(string("ADDR"));
+   BinaryData RGTX(string("RGTX"));
+   BinaryData RGOP(string("RGOP"));
+   BinaryData LAST(string("LAST"));
+   BinaryData ZCTX(string("ZCTX"));
+   for(it->SeekToFirst(); it->Valid(); it->Next())
+   {
+      
+      keyPtr  = (uint8_t const *)(it->key().data());
+      dataPtr = (uint8_t const *)(it->value().data());
+   
+      uint32_t keySz  = (uint32_t)(it->key().size());
+      uint32_t dataSz = (uint32_t)(it->value().size());
+   
+      entryType.copyFrom(keyPtr + 0, 4);
+      if(keySz>4)
+         entryKey.copyFrom(keyPtr+4, keySz-4);
+
+      if(entryType==ADDR)
+      {
+         RegisteredAddress ra(entryKey, *(uint32_t*)(dataPtr+0));
+         ra.alreadyScannedUpToBlk_ = *(uint32_t*)(dataPtr+4);
+         registeredAddrMap_[entryKey] = ra;
+      }
+      else if(entryType==RGTX)
+      {
+      }
+      else if(entryType==RGOP)
+      {
+      }
+      else if(entryType==LAST)
+      {
+      }
+      else if(entryType==ZCTX)
+      {
+      }
+      
+   }
+   
+
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FileRefs::isSameBlockFiles(void)
+// In the event that the DB was created with different blk files (switched 
+// systems), then let's find out how high our 
+uint32_t BlockDataManager_FileRefs::ldbSyncHeightWithBlkFiles(syncStepSize)
 {
-   SCOPED_TIMER("readHeadersDB")
+   SCOPED_TIMER("ldbSyncHeightWithBlkFiles")
+
+   if(!isBlkParamsSet_ || !isLevelDBSet_)
+   {
+      cerr << "Cannot sync databases until blockfile params and LevelDB"
+           << "paths are set. " << endl;
+      return false;
+   }
 
    // Check every 1000th block header starting from the top, working down
    uint32_t top = getTopBlockHeight()
-   for(int32_t h=top; h>0; h-=1000)
+   uint32_t topSyncd = top;
+   bool prevIterSyncd = false;
+   for(int32_t h=top; h>=0; h-=syncStepSize)
    {
       BinaryData & dbCopy   = getHeaderByHeight(h).serialize();
       BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy()
-      if(dbCopy != diskCopy)
-         return false;
+      if(dbCopy == diskCopy)
+      {
+         if(prevIterSyncd)
+            topSyncd = h;
+         prevIterSyncd = true;
+      }
+      else if(prevIterSyncd)
+         prevIterSyncd = false;
    }
 
-   return true;
+
+   if(topSyncd <= syncStepSize)
+      return 0;
+   else
+      return topSyncd;
+
+
 }
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FileRefs::rebuildDatabases(void)
+// We may, at a later time try to optimize the amount of the blockchain 
+// being rescanned.  But for now, if the top DB header is not sync'd with
+// the blkfiles, we'll just rebuild everything (it's unlikely we'll save 
+// too much time in the rare cases this is needed, and the partial rebuild
+// will be much more reliable).  Nonetheless, we could theoretically 
+bool BlockDataManager_FileRefs::rebuildDatabases(uint32_t startAtBlk)
 {
    SCOPED_TIMER("rebuildDatabases")
    
@@ -1806,13 +1950,24 @@ bool BlockDataManager_FileRefs::rebuildDatabases(void)
    }
 
    
-   delete headerDB_;  leveldb::DestroyDB(headerPath_);
-   delete txHintDB_;  leveldb::DestroyDB(txHintPath_);
+   // For now, if we
+   if(startAtBlk!=0)
+   {
+      cerr << "RebuildDB: Partial rebuilds not supported yet.  "
+           << "Doing full rebuild" << endl;
+   }
+
+   delete headerDB_;  
+   delete txHintDB_;  
+
+   leveldb::DestroyDB(headerPath_);
+   leveldb::DestroyDB(txHintPath_);
    isLevelDBSet_ = false;
 
+   // The rebuilt DBs will go in the same place, but they'll be referencing
+   // the correct blkfiles this time.
    SetLevelDBPaths(headerPath_, txHintPath_);
    headerMap_.clear();
-
 
    lastTopBlock_ = 0;
    numBlkFiles_ = 0;
@@ -2664,43 +2819,14 @@ vector<TxRef*> BlockDataManager_FileRefs::findAllNonStdTx(void)
 
 
 
+
+
 /////////////////////////////////////////////////////////////////////////////
 uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 {
    SCOPED_TIMER("parseEntireBlockchain");
    cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
 
-   // Initialize a global cache that will be used...
-   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
-   globalCache.setCacheSize(cacheSize);
-
-   // Next thing we need to do is find all the blk000X.dat files.
-   // BtcUtils::GetFileSize uses only ifstreams, and thus should be
-   // able to determine if a file exists in an OS-independent way.
-   numBlkFiles_=0;
-   totalBlockchainBytes_ = 0;
-   blkFileList_.clear();
-
-   while(numBlkFiles_ < UINT16_MAX)
-   {
-      string path = BtcUtils::getBlkFilename(blkFileDir_,
-                                             blkFileDigits_, 
-                                             numBlkFiles_+blkFileStart_);
-      numBlkFiles_++;
-      if(BtcUtils::GetFileSize(path) == FILE_DOES_NOT_EXIST)
-         break;
-
-      blkFileList_.push_back(string(path));
-      totalBlockchainBytes_ += globalCache.openFile(numBlkFiles_-1, path);
-   }
-   numBlkFiles_--;
-
-   if(numBlkFiles_==UINT16_MAX)
-   {
-      cout << "Error finding blockchain files (blkXXXX.dat)" << endl;
-      return 0;
-   }
-   cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
 
 
    if(GenesisHash_.getSize() == 0)
@@ -2774,7 +2900,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
             bsb.reader().advance(nextBlkSize);
          }
       }
-      //globalCache.openFile(fnum-1, blkfile);
       TIMER_STOP("while(bsb.streamPull())");
 
       filesize = BtcUtils::GetFileSize(blkfile);
@@ -2786,6 +2911,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
 
    // We need to maintain the physical size of all blkXXXX.dat files together
+   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
    lastBlkFileBytes_     = globalCache.getLastFileSize();
 

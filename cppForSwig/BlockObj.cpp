@@ -35,6 +35,7 @@ void BlockHeader::unserialize(uint8_t const * ptr)
    isFinishedCalc_ = false;
    isOnDiskYet_ = false;
    txPtrList_ = vector<TxRef*>(0);
+   wholeBlockSize_ = UINT32_MAX;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,6 +51,8 @@ void BlockHeader::unserialize(BinaryRefReader & brr)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+/*  Removed when switched to LevelDB (not storing TxHashLists in headers)
+ *  This should be reimplemented at the BDM level,  I think...
 BinaryData BlockHeader::serializeWholeBlock(BinaryData const & magic, 
                                             bool withLead8Bytes) const
 {
@@ -72,6 +75,7 @@ BinaryData BlockHeader::serializeWholeBlock(BinaryData const & magic,
    return serializedBlock.getData();
    
 }
+*/
 
 
 
@@ -193,6 +197,9 @@ uint32_t BlockHeader::findNonce(void)
 // Returns the size of the header + numTx + tx[i], no leading bytes
 uint32_t BlockHeader::getBlockSize(void) const
 {
+   if(wholeBlockSize_ != UINT32_MAX)
+      return wholeBlockSize_;
+
    uint32_t nBytes = HEADER_SIZE; 
    uint32_t nTx = txPtrList_.size();
    for(uint32_t i=0; i<nTx; i++)

@@ -673,19 +673,21 @@ private:
    // until we switch to maintaining the entire blockchain itself in LevelDB.
    string headerPath_;
    string txHintPath_;  // will store {merkle root --> tx hash} list, too
+   string transientPath_;  // will store {merkle root --> tx hash} list, too
    
    leveldb::DB* headerDB_;
    leveldb::DB* txHintDB_;
+   leveldb::DB* transientDB_;
    
    bool checkLdbStatus(leveldb::Status stat);
 
-   uint32_t readHeadersDB(void);
+   bool initializeDBandBlkFiles(void);
 
    // The header data includes file pointers to where the blocks are located.
    // If the blk files exist, but are different for some reason (moved Armory
    // to a different system), then the databases need to be rebuilt
-   bool isSameBlockFiles(void)
-   bool rebuildDatabases(void);
+   uint32_t ldbSyncHeightWithBlkFiles(uint32_t syncStepSize=500)
+   bool     rebuildDatabases(uint32_t startAtBlk=0);
 
    map<HashString, BlockHeader> headerMap_;
 
@@ -769,9 +771,11 @@ public:
 
    void SetBlkFileLocation(string   blkdir,
                            uint32_t blkdigits,
-                           uint32_t blkstartidx);
+                           uint32_t blkstartidx,
+                           uint64_t cacheSize=DEFAULT_CACHE_SIZE);
    void SetLevelDBPaths(string headerPath,
-                        string txHintPath);
+                        string txHintPath,
+                        string transientPath);
    void SetBtcNetworkParams( BinaryData const & GenHash,
                              BinaryData const & GenTxHash,
                              BinaryData const & MagicBytes);
