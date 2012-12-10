@@ -6790,7 +6790,7 @@ class PyBtcWallet(object):
          self.syncWithBlockchainLite(0)  
       self.doBlockchainSync = oldSync
 
-      highestIndex = 0
+      highestIndex = self.highestUsedChainIndex
       for addr in self.getLinearAddrList(withAddrPool=True):
          a160 = addr.getAddr160()
          if len(self.getAddrTxLedger(a160)) > 0:
