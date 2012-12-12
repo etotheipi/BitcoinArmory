@@ -313,6 +313,23 @@ public:
       else
          return (txIndex_<rt2.txIndex_);
    }
+
+
+   void writeToLDB(leveldb::DB* db) const
+   {
+      BinaryWriter keyWriter(4+32);
+      keyWriter.put_BinaryData( string("RGTX").data(), 4);
+      keyWriter.put_BinaryData( txHash_ );
+      
+      BinaryWriter valWriter;
+      valWriter.put_uint32_t( blkNum_  );
+      valWriter.put_uint32_t( txIndex_ );
+
+      leveldb::Slice key(keyWriter.toString());
+      leveldb::Slice val(valWriter.toString());
+      leveldb::Status stat = db->Put(leveldb::WriteOptions(), key, val);
+   }
+
 };
 
 
@@ -601,6 +618,21 @@ public:
    bool operator==(RegisteredAddress const & ra2) const { return addr160_ == ra2.addr160_;}
    bool operator< (RegisteredAddress const & ra2) const { return addr160_ <  ra2.addr160_;}
    bool operator> (RegisteredAddress const & ra2) const { return addr160_ >  ra2.addr160_;}
+
+   void writeToLDB(leveldb::DB* db) const
+   {
+      BinaryWriter keyWriter(4+20);
+      keyWriter.put_BinaryData( string("ADDR").data(), 4);
+      keyWriter.put_BinaryData( addr160_ );
+      
+      BinaryWriter valWriter;
+      valWriter.put_uint32_t(blkCreated_);
+      valWriter.put_uint32_t(alreadyScannedUpToBlk_);
+
+      leveldb::Slice key(keyWriter.toString());
+      leveldb::Slice val(valWriter.toString());
+      leveldb::Status stat = db->Put(leveldb::WriteOptions(), key, val);
+   }
 };
 
 
@@ -686,7 +718,6 @@ private:
    // The header data includes file pointers to where the blocks are located.
    // If the blk files exist, but are different for some reason (moved Armory
    // to a different system), then the databases need to be rebuilt
-   uint32_t ldbSyncHeightWithBlkFiles(uint32_t syncStepSize=500)
    bool     rebuildDatabases(uint32_t startAtBlk=0);
 
    map<HashString, BlockHeader> headerMap_;

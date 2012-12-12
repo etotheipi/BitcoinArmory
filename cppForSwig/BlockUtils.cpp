@@ -803,6 +803,7 @@ void BlockDataManager_FileRefs::insertRegisteredTxIfNew(HashString txHash)
                          tx_ptr->getBlockHeight(),
                          tx_ptr->getBlockTxIndex());
       registeredTxList_.push_back(regTx);
+      regTx.writeToLDB(transientDB_);
    }
 }
 
@@ -1777,8 +1778,14 @@ bool BlockDataManager_FileRefs::checkLdbStatus(leveldb::Status stat)
 bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
 {
    SCOPED_TIMER("readHeadersDB")
-   headerMap_.clear();
+   if(!isBlkParamsSet_ || !isLevelDBSet_)
+   {
+      cerr << "Cannot sync databases until blockfile params and LevelDB"
+           << "paths are set. " << endl;
+      return false;
+   }
 
+   headerMap_.clear();
    BinaryData headerHash(32);
    BinaryData headerData(HEADER_SIZE);
    BlockHeader thisHeader;
@@ -1790,6 +1797,10 @@ bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
    uint8_t const * rawHeadPtr;
 
 
+   // (1) Read transient database
+   readTransientDB()
+
+   // (1) Read all headers and organize the chain
    leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
    for(it->SeekToFirst(); it->Valid(); it->Next())
    {
@@ -1820,38 +1831,88 @@ bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
    organizeChain(true)
 
 
-   // Now let's make sure the blk files are the same ones used 
+   // (2) Now let's make sure the blk files are the same ones used to construct
+   //     these databases, originally.
    uint32_t topBlockDB    = getTopBlockHeight();
    uint32_t topBlockSyncd = ldbSyncHeightWithBlkFiles();
+
+   TIMER_START("findHighestSyncBlock")
+   // Check every 1000th block header starting from the top, working down
+   uint32_t syncStepSize = 1000;
+   uint32_t top = getTopBlockHeight()
+   uint32_t topBlockSyncd = top;
+   bool prevIterSyncd = false;
+   for(int32_t h=top; h>=0; h-=syncStepSize)
+   {
+      BinaryData & dbCopy   = getHeaderByHeight(h).serialize();
+      BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy()
+      if(dbCopy == diskCopy)
+      {
+         if(prevIterSyncd)
+            topBlockSyncd = h;
+         prevIterSyncd = true;
+      }
+      else if(prevIterSyncd)
+         prevIterSyncd = false;
+   }
+
+   if(topBlockSyncd <= syncStepSize)
+      topBlockSyncd = 0;
+
+   TIMER_STOP("findHighestSyncBlock")
    cout << "TopHeaderInDB: "           << topBlockDB << ", "
         << "TopHeaderFoundInBlkFile: " << topBlockSyncd << endl;
-   
+  
    if(topBlockDB != topBlockSyncd)
+   {
+      // (3a) Rebuild databases from blockchain files
       rebuildDatabases();
+   }
    else
    {
-      // We don't need to rebuild -- but we do have to make sure our next
-      // readBlkFileUpdate starts at the correct place (one block past
-      // the current top block).
+      // (3b) Simply fetch all updates to the blockchain files since last exit
+      // We have to make sure our next readBlkFileUpdate starts at the correct 
+      // place (one block past the current top block).
       BlockHeader * bhptr = getTopBlockHeader();
       uint32_t topBlkSize  = bhptr->getBlockSize();
       uint32_t topBlkStart = bhptr->getBlockFilePtr()->getStartByte();
       lastBlkFileBytes_ = topBlkStart + topBlkSize; // magic bytes & blk sz
       lastTopBlock_ = topBlockDB;
 
-      readBlkFileUpdate();
    }
 
 
-   // Finally, retrieve the registered address/tx state from the DB
-   leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
+
+
+
+   updateRegisteredAddresses(topBlock - 12)
+   readBlkFileUpdate();
+}
+
+
+
+
+void readTransientDB(void)
+{
+   // All the transient data from the last time Armory was running:
+   //    Registered Adddresses (and to what block they've been sync'd)
+   //    Registered Tx's (all blockchain tx relevant to this wallet)
+   //    Registered OutPoints (basically, the UTXO set for these wallets)
+   //    Registered OutPoints (basically, the UTXO set for these wallets)
+   it = transientDB_->NewIterator(leveldb::ReadOptions());
    BinaryData entryType(4)
    BinaryData entryKey;
-   BinaryData ADDR(string("ADDR"));
-   BinaryData RGTX(string("RGTX"));
-   BinaryData RGOP(string("RGOP"));
-   BinaryData LAST(string("LAST"));
-   BinaryData ZCTX(string("ZCTX"));
+   BinaryData ADDR(string("ADDR"));  // Registered Addresses
+   BinaryData RGTX(string("RGTX"));  // Registered Transactions
+   BinaryData RGOP(string("RGOP"));  // Registered OutPoints
+   BinaryData LAST(string("LAST"));  // last top block sync'd
+   BinaryData ZCTX(string("ZCTX"));  // Zero-confirmation transactions
+
+   registeredAddrMap_.clear()
+   registeredTxList_.clear()
+   registeredTxSet_.clear()
+   registeredOutPoints_.clear()
+
    for(it->SeekToFirst(); it->Valid(); it->Next())
    {
       
@@ -1867,68 +1928,72 @@ bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
 
       if(entryType==ADDR)
       {
+         // REGISTERED ADDRESS   { "ADDR"|HASH160 --> BLKCREATED4|ALREADYSCANNED4 }
+         if( entryKey.getSize() != 20 )
+            continue;
+
+         // Will overwrite the blkCreated and alreadyScannedUpToBlk_ vars on
+         // addresses that were registered before this was called.
          RegisteredAddress ra(entryKey, *(uint32_t*)(dataPtr+0));
          ra.alreadyScannedUpToBlk_ = *(uint32_t*)(dataPtr+4);
          registeredAddrMap_[entryKey] = ra;
       }
       else if(entryType==RGTX)
       {
+         // REGISTERED TRANSACTION  { "RGTX"|TXHASH --> BLKNUM4|TXINDEX4 }
+         if( entryKey.getSize() != 32 )
+            continue;
+
+         if(registeredTxSet_.insert(entryKey).second == true)
+         {
+            RegisteredTx rtx(entryKey, *(uint32_t*)(dataPtr+0), *(uint32_t*)(dataPtr+4));
+            registeredTxList_.push_back(rtx);
+         }
+         
       }
       else if(entryType==RGOP)
       {
+         // REGISTERED OUTPOINT (list)  { "RGOP"|OUTPOINT36 --> "" }
+         registeredOutPoints_.insert(OutPoint(entryKey));
       }
       else if(entryType==LAST)
       {
+         // allRegAddrScannedUpToBlk_  { "LAST" --> LASTSYNC4 }
+         allRegAddrScannedUpToBlk_ = *(uint32_t*)dataPtr;
       }
       else if(entryType==ZCTX)
       {
+         // ZERO-CONF TRANSACTION   { "ZCTX"|TXHASH32 --> TXTIME8|RAWTX }
+         if( entryKey.getSize() != 32 )
+            continue;
+
+         uint64_t   txtime = *(uint64_t*)dataPtr+0;
+         BinaryData rawTx(dataPtr+8, dataSz-8);
+         if( BtcUtils::getHash256(rawTx) != entryKey)
+         {
+            cerr << "WARNING:  Zero-conf tx does not match its own hash!" << endl;
+            continue;
+         }
+
+         zeroConfMap_[entryKey] = ZeroConfData();
+         ZeroConfData & zc = zeroConfMap_[entryKey];
+
+         zc.iter_ = zeroConfRawTxList_.insert(zeroConfRawTxList_.end(), rawTx);
+         zc.txobj_.unserialize(*(zc.iter_));
+         zc.txtime_ = txtime;
       }
-      
-   }
-   
-
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-// In the event that the DB was created with different blk files (switched 
-// systems), then let's find out how high our 
-uint32_t BlockDataManager_FileRefs::ldbSyncHeightWithBlkFiles(syncStepSize)
-{
-   SCOPED_TIMER("ldbSyncHeightWithBlkFiles")
-
-   if(!isBlkParamsSet_ || !isLevelDBSet_)
-   {
-      cerr << "Cannot sync databases until blockfile params and LevelDB"
-           << "paths are set. " << endl;
-      return false;
    }
 
-   // Check every 1000th block header starting from the top, working down
-   uint32_t top = getTopBlockHeight()
-   uint32_t topSyncd = top;
-   bool prevIterSyncd = false;
-   for(int32_t h=top; h>=0; h-=syncStepSize)
-   {
-      BinaryData & dbCopy   = getHeaderByHeight(h).serialize();
-      BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy()
-      if(dbCopy == diskCopy)
-      {
-         if(prevIterSyncd)
-            topSyncd = h;
-         prevIterSyncd = true;
-      }
-      else if(prevIterSyncd)
-         prevIterSyncd = false;
-   }
-
-
-   if(topSyncd <= syncStepSize)
-      return 0;
-   else
-      return topSyncd;
-
-
+   // We assume that wallets have already been registered with the BDM.  If 
+   // all addresses in the wallet are the same as they were before the last 
+   // shutdown, then our minimum alreadyScannedUpToBlk should be the current
+   // top block.  Otherwise, we get zero and know we have to rescan
+   uint32_t alreadyBlk = UINT32_MAX;
+   map<HashString,RegisteredAddress>::iterator iter;
+   for(iter  = registeredAddrMap_.begin(); 
+       iter != registeredAddrMap_.end(); 
+       iter++)
+      alreadyBlk = min(alreadyBlk, iter->second.alreadyScannedUpToBlk_);
 }
 
 
@@ -1997,6 +2062,27 @@ BlockDataManager_FileRefs & BlockDataManager_FileRefs::GetInstance(void)
       bdmCreatedYet_ = true;
    }
    return (*theOnlyBDM_);
+}
+
+
+
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FileRefs::insertRegOutPoint(OutPoint& op) 
+{
+
+   BinaryWriter keyWriter(4+32);
+   keyWriter.put_BinaryData( string("RGOP").data(), 4);
+   keyWriter.put_BinaryData( op.serialize() );
+
+   leveldb::Slice key(keyWriter.ToString());
+   leveldb::Slice val(string(""));
+      
+   // Put it in the database
+   leveldb::Status stat = db->Put(leveldb::WriteOptions(), key, val);
+
+   // ...and then add it to the RAM map
+   registeredOutPoints_.insert(op);
 }
 
 
@@ -3780,10 +3866,18 @@ bool BlockDataManager_FileRefs::addNewZeroConfTx(BinaryData const & rawTx,
    // Record time.  Write to file
    if(writeToFile)
    {
-      ofstream zcFile(zcFilename_.c_str(), ios::app | ios::binary);
-      zcFile.write( (char*)(&zc.txtime_), sizeof(uint64_t) );
-      zcFile.write( (char*)zc.txobj_.getPtr(),  zc.txobj_.getSize());
-      zcFile.close();
+      // ZERO-CONF TRANSACTION   { "ZCTX"|TXHASH32 --> TXTIME8|RAWTX }
+      BinaryWriter keyWriter(4+32);
+      keyWriter.put_BinaryData( string("ZCTX").data(), 4);
+      keyWriter.put_BinaryData( txHash );
+      
+      BinaryWriter valWriter;
+      valWriter.put_uint64_t(txtime);
+      valWriter.put_BinaryData(rawTx);
+
+      leveldb::Slice key(keyWriter.toString());
+      leveldb::Slice val(valWriter.toString());
+      leveldb::Status stat = transientDB_->Put(leveldb::WriteOptions(), key, val);
    }
    return true;
 }

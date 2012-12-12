@@ -1133,6 +1133,18 @@ public:
       return theString_;
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   string toString(void)
+   {
+      return theString_.toBinStr();
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   string toHex(void)
+   {
+      return theString_.toHexStr();
+   }
+
 private:
    BinaryData theString_;
 
