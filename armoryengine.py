@@ -3399,6 +3399,7 @@ class PyTxIn(object):
       return PyTxIn().unserialize(self.serialize())
 
 
+
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
       print indstr + 'PyTxIn:'
@@ -3515,6 +3516,38 @@ class PyTx(object):
 
    def getHashHex(self, endianness=LITTLEENDIAN):
       return binary_to_hex(self.getHash(), endOut=endianness)
+
+   def makeRecipientsList(self):
+      """ 
+      Make a list of lists, each one containing information about 
+      an output in this tx.  Usually contains
+         [ScriptType, Value, Addr160]
+      May include more information if any of the scripts are multi-sig,
+      such as public keys and multi-sig type (M-of-N)
+      """
+      recipInfoList = []
+      for txout in self.outputs:
+         recipInfoList.append([])
+
+         scrType = getTxOutScriptType(txout.binScript)
+         recipInfoList[-1].append(scrType)
+         recipInfoList[-1].append(txout.value)
+         if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
+            recipInfoList[-1].append(TxOutScriptExtractAddr160(txout.binScript))
+         elif scrType in (TXOUT_SCRIPT_MULTISIG,):
+            mstype, addr160s, pubs = getTxOutMultiSigInfo(txout.binScript)
+            recipInfoList[-1].append(addr160s)
+            recipInfoList[-1].append(pubs)
+            recipInfoList[-1].append(mstype[0]) # this is M (from M-of-N)
+         elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
+            LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
+            recipInfoList[-1].append(txout.binScript)
+         elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
+            LOGERROR('Unknown TxOut type')
+            recipInfoList[-1].append(txout.binScript)
+         else:
+            LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
+      return recipInfoList
 
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):

@@ -6418,6 +6418,45 @@ class DlgReviewOfflineTx(ArmoryDialog):
          return
 
 
+      # We should provide the same confirmation dialog here, as we do when 
+      # sending a regular (online) transaction.  But the DlgConfirmSend was 
+      # not really designed 
+      #self.txValues = [totalSend, fee, totalChange]
+      #self.origRVPairs = list(recipValuePairs)
+      txdp = self.txdpObj
+      rvpairsOther = []
+      rvpairsMine = []
+      outInfo = txdp.pytxObj.makeRecipientsList()
+      theFee = sum(txdp.inputValues) - sum([info[1] for info in outInfo])
+      for info in outInfo:
+         if not info[0] in (TXOUT_SCRIPT_COINBASE, TXOUT_SCRIPT_STANDARD):
+            rvpairsOther.append( ['Non-Standard Output', info[1]])
+            continue
+
+         if self.wlt.hasAddr(info[2]):
+            rvpairsMine.append( [info[2], info[1]])
+         else:
+            rvpairsOther.append( [info[2], info[1]])
+
+
+      if len(rvpairsMine)==0 and len(rvpairsOther)>1:
+         QMessageBox.warning(self, 'Missing Change', \
+            'This transaction has %d recipients, and none of them '
+            'are addresses in this wallet (for receiving change).  '
+            'This can happen if you specified a custom change address '
+            'for this transaction, or sometimes happens solely by '
+            'chance with a multi-recipient transaction.  It could also '
+            'be the result of someone tampering with the transaction. '
+            '<br><br>'
+            'The transaction is valid and ready to be signed.  Please '
+            'verify the recipient addresses and amounts carefully, before '
+            'signing and broadcasting.', QMessageBox.Ok)
+      dlg = DlgConfirmSend(self.wlt, rvpairsOther, theFee, self, self.main)
+      if not dlg.exec_():
+         return
+      
+
+
       if self.wlt.useEncryption and self.wlt.isLocked:
          dlg = DlgUnlockWallet(self.wlt, self.parent, self.main, 'Sign Transaction')
          if not dlg.exec_():
@@ -6821,31 +6860,8 @@ def extractTxInfo(pytx, rcvTime=None):
    txHash = pytx.getHash()
    txOutToList, sumTxOut, txinFromList, sumTxIn, txTime, txBlk, txIdx = [None]*7
 
-   txOutToList = []
-   sumTxOut = 0
-   for txout in pytx.outputs:
-      txOutToList.append([])
-
-      scrType = getTxOutScriptType(txout.binScript)
-      txOutToList[-1].append(scrType)
-      txOutToList[-1].append(txout.value)
-      if scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-         txOutToList[-1].append(TxOutScriptExtractAddr160(txout.binScript))
-      elif scrType in (TXOUT_SCRIPT_MULTISIG,):
-         mstype, addr160s, pubs = getTxOutMultiSigInfo(txout.binScript)
-         txOutToList[-1].append(addr160s)
-         txOutToList[-1].append(pubs)
-         txOutToList[-1].append(mstype[0]) # this is M (from M-of-N)
-      elif scrType in (TXOUT_SCRIPT_OP_EVAL,):
-         LOGERROR('OP_EVAL doesn\'t exist anymore.  How did we get here?')
-         txOutToList[-1].append(txout.binScript)
-      elif scrType in (TXOUT_SCRIPT_UNKNOWN,):
-         LOGERROR('Unknown TxOut type')
-         txOutToList[-1].append(txout.binScript)
-      else:
-         LOGERROR('Unrecognized txout script that isn\'t TXOUT_SCRIPT_UNKNOWN...?')
-      sumTxOut += txout.value
-  
+   txOutToList = pytx.makeRecipientsList()
+   sumTxOut = sum([t[1] for t in txOutToList])
 
    txcpp = Tx()
    if TheBDM.getBDMState()=='BlockchainReady': 
