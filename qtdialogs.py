@@ -6447,10 +6447,10 @@ class DlgReviewOfflineTx(ArmoryDialog):
             'for this transaction, or sometimes happens solely by '
             'chance with a multi-recipient transaction.  It could also '
             'be the result of someone tampering with the transaction. '
-            '<br><br>'
-            'The transaction is valid and ready to be signed.  Please '
-            'verify the recipient addresses and amounts carefully, before '
-            'signing and broadcasting.', QMessageBox.Ok)
+            '<br><br>The transaction is valid and ready to be signed.  Please '
+            'verify the recipient addresses and amounts carefully before '
+            'confirming the transaction on the next screen.' % len(rvpairsOther), \
+            QMessageBox.Ok)
       dlg = DlgConfirmSend(self.wlt, rvpairsOther, theFee, self, self.main)
       if not dlg.exec_():
          return
