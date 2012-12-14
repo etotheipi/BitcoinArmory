@@ -1863,6 +1863,10 @@ bool BlockDataManager_FileRefs::initializeDBandBlkFiles(void)
    cout << "TopHeaderInDB: "           << topBlockDB << ", "
         << "TopHeaderFoundInBlkFile: " << topBlockSyncd << endl;
   
+
+   // I know I just found where the synchronization diverged... but really,
+   // it's fairly complicated to do partial rebuilds.  If there's ANY 
+   // divergence, I'll just do a full rebuild.
    if(topBlockDB != topBlockSyncd)
    {
       // (3a) Rebuild databases from blockchain files
@@ -1905,7 +1909,6 @@ void readTransientDB(void)
    BinaryData ADDR(string("ADDR"));  // Registered Addresses
    BinaryData RGTX(string("RGTX"));  // Registered Transactions
    BinaryData RGOP(string("RGOP"));  // Registered OutPoints
-   BinaryData LAST(string("LAST"));  // last top block sync'd
    BinaryData ZCTX(string("ZCTX"));  // Zero-confirmation transactions
 
    registeredAddrMap_.clear()
@@ -1956,11 +1959,6 @@ void readTransientDB(void)
          // REGISTERED OUTPOINT (list)  { "RGOP"|OUTPOINT36 --> "" }
          registeredOutPoints_.insert(OutPoint(entryKey));
       }
-      else if(entryType==LAST)
-      {
-         // allRegAddrScannedUpToBlk_  { "LAST" --> LASTSYNC4 }
-         allRegAddrScannedUpToBlk_ = *(uint32_t*)dataPtr;
-      }
       else if(entryType==ZCTX)
       {
          // ZERO-CONF TRANSACTION   { "ZCTX"|TXHASH32 --> TXTIME8|RAWTX }
@@ -1988,12 +1986,14 @@ void readTransientDB(void)
    // all addresses in the wallet are the same as they were before the last 
    // shutdown, then our minimum alreadyScannedUpToBlk should be the current
    // top block.  Otherwise, we get zero and know we have to rescan
-   uint32_t alreadyBlk = UINT32_MAX;
+   allRegAddrScannedUpToBlk_ = UINT32_MAX;
    map<HashString,RegisteredAddress>::iterator iter;
    for(iter  = registeredAddrMap_.begin(); 
        iter != registeredAddrMap_.end(); 
        iter++)
+   {
       alreadyBlk = min(alreadyBlk, iter->second.alreadyScannedUpToBlk_);
+   }
 }
 
 
