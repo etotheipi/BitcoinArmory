@@ -35,7 +35,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 86, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 86, 1, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10885,8 +10885,9 @@ class BlockDataManagerThread(threading.Thread):
    #############################################################################
    def getLoadProgress(self):
       """
-      This method does not actually work.  The load progress in bytes is not
-      updated properly w
+      This method does not actually work!  The load progress in bytes is not
+      updated properly while the BDM thread is scanning.  It might have to 
+      emit this information explicitly in order to be useful.
       """
       return (self.bdm.getLoadProgressBytes(), self.bdm.getTotalBlockchainBytes())
    

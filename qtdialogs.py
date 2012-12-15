@@ -6247,6 +6247,13 @@ class DlgReviewOfflineTx(ArmoryDialog):
          self.makeReviewFrame()
          return
       elif not self.enoughSigs:
+         if not self.main.getSettingOrSetDefault('DNAA_ReviewOfflineTx', False):
+            result = MsgBoxWithDNAA(MSGBOX.Warning, title='Offline Warning', \
+                  msg='<b>Please review your transaction carefully before '
+                  'signing and broadcasting it!</b>  The extra security of '
+                  'using offline wallets is lost if you do '
+                  'not confirm the transaction is correct!',  dnaaMsg=None)
+            self.main.writeSetting('DNAA_ReviewOfflineTx', result[1])
          self.lblStatus.setText('<b><font color="red">Unsigned</font></b>')
          self.btnSign.setEnabled(True)
          self.btnBroadcast.setEnabled(False)

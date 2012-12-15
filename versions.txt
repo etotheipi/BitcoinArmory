@@ -6,6 +6,29 @@
 
 
 #-------------------------------------------------------------------------------
+VERSION 0.86.1
+
+   - Right-click Ledger Options
+        Added right-click menu to ledger for quick access to transaction
+        and wallet information.
+
+   - Offline-Sign Confirmation & Warnings
+        Offline signing now displays appropriate warnings about what users 
+        should verify for before signing and broadcasting.
+
+   - Bugfix: Disappearing Addresses
+        Some startup operations were inadvertantly "rewinding" wallets with
+        unused addresses, causing those addresses to disappear from the 
+        address list, and then shown again when the user requested another
+        address.  Resolved.
+
+   - Bugfix: Ledger Sorting
+        All fields in the primary ledger are sortable.  Some fields become
+        unsortable as a side-effect of ledger optimizations in v0.85.
+
+        
+
+#-------------------------------------------------------------------------------
 VERSION 0.86
 
    - Added "Coin Control" (Expert Mode Only)

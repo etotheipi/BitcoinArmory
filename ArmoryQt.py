@@ -221,6 +221,7 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.hideColumn(LEDGERCOLS.toSelf)
       self.ledgerView.hideColumn(LEDGERCOLS.DoubleSpend)
 
+
       dateWidth    = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       nameWidth    = tightSizeStr(self.ledgerView, '9'*32)[0]
       cWidth = 20 # num-confirm icon width
@@ -230,6 +231,8 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.ledgerView, SIGNAL('doubleClicked(QModelIndex)'), \
                    self.dblClickLedger)
 
+      self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
+      self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
       btnAddWallet = QPushButton("Create New Wallet")
       btnImportWlt = QPushButton("Import Wallet")
@@ -981,9 +984,9 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('     To: %s', self.settings.get('User_Mode'))
 
       if not self.firstModeSwitch:
-         QMessageBox.information(self,'Restart Required', \
-         'You must restart Armory in order for the user-mode switching '
-         'to take effect.', QMessageBox.Ok)
+         QMessageBox.information(self,'Restart Armory', \
+         'You may have to restart Armory for all aspects of '
+         'the new usermode to go into effect.', QMessageBox.Ok)
 
       self.firstModeSwitch = False
       
@@ -2679,25 +2682,57 @@ class ArmoryMainWindow(QMainWindow):
       if index.column()==LEDGERCOLS.Comment:
          self.updateTxCommentFromView(self.ledgerView)
       else:
-         row = index.row()
-         txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
-         wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
-         txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
+         self.showLedgerTx()
 
-         pytx = None
-         txHashBin = hex_to_binary(txHash)
-         if TheBDM.isInitialized():
-            cppTx = TheBDM.getTxByHash(txHashBin)
-            if cppTx.isInitialized():
-               pytx = PyTx().unserialize(cppTx.serialize())
 
-         if pytx==None:
-            QMessageBox.critical(self, 'Invalid Tx:',
-            'The transaction ID requested to be displayed does not exist in '
-            'the blockchain or the zero-conf tx list...?', QMessageBox.Ok)
-            return
+   #############################################################################
+   def showLedgerTx(self):
+      row = self.ledgerView.selectedIndexes()[0].row()
+      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+      txtime = unicode(self.ledgerView.model().index(row, LEDGERCOLS.DateStr).data().toString())
 
-         DlgDispTxInfo( pytx, self.walletMap[wltID], self, self, txtime=txtime).exec_()
+      pytx = None
+      txHashBin = hex_to_binary(txHash)
+      if TheBDM.isInitialized():
+         cppTx = TheBDM.getTxByHash(txHashBin)
+         if cppTx.isInitialized():
+            pytx = PyTx().unserialize(cppTx.serialize())
+
+      if pytx==None:
+         QMessageBox.critical(self, 'Invalid Tx:',
+         'The transaction you requested be displayed does not exist in '
+         'in Armory\'s database.  This is unusual...', QMessageBox.Ok)
+         return
+
+      DlgDispTxInfo( pytx, self.walletMap[wltID], self, self, txtime=txtime).exec_()
+
+
+   #############################################################################
+   def showContextMenuLedger(self):
+      menu = QMenu(self.ledgerView)
+      
+      actViewTx     = menu.addAction("View Details")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      actComment    = menu.addAction("Change Comment")
+      actOpenWallet = menu.addAction("Open Relevant Wallet")
+      row = self.ledgerView.selectedIndexes()[0].row()
+      action = menu.exec_(QCursor.pos())
+
+      txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+
+      if action==actViewTx:
+         self.showLedgerTx()
+      elif action==actCopyTxID:
+         clipb = QApplication.clipboard()
+         clipb.clear()
+         clipb.setText(hex_switchEndian(txHash))
+      elif action==actComment:
+         self.updateTxCommentFromView(self.ledgerView)
+      elif action==actOpenWallet:
+         DlgWalletDetails(self.walletMap[wltID], self.usermode, self, self).exec_()
+
 
 
    #############################################################################
