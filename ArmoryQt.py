@@ -1697,7 +1697,8 @@ class ArmoryMainWindow(QMainWindow):
       information for every ledger entry.  Therefore, you can't sort by comments
       without getting them first, which is the original problem to avoid.  
       """
-      if col in (LEDGERCOLS.NumConf, LEDGERCOLS.DateStr, LEDGERCOLS.Comment, LEDGERCOLS.Amount):
+      if col in (LEDGERCOLS.NumConf, LEDGERCOLS.DateStr, \
+                 LEDGERCOLS.Comment, LEDGERCOLS.Amount, LEDGERCOLS.WltName):
          self.sortLedgCol = col
          self.sortLedgOrder = order
       self.createCombinedLedger()
@@ -1770,6 +1771,8 @@ class ArmoryMainWindow(QMainWindow):
          self.combinedLedger.sort(key=lambda x: currBlk-x[1].getBlockNum()+1, reverse=not sortDir)
       if self.sortLedgCol == LEDGERCOLS.DateStr:
          self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
+      if self.sortLedgCol == LEDGERCOLS.WltName:
+         self.combinedLedger.sort(key=lambda x: self.walletMap[x[0]].labelName, reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Comment:
          self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x[0],x[1]), reverse=sortDir)
       if self.sortLedgCol == LEDGERCOLS.Amount:
@@ -1909,14 +1912,7 @@ class ArmoryMainWindow(QMainWindow):
          row.append(self.walletMap[wltID].labelName)
          
          # Comment
-         if wlt.commentsMap.has_key(le.getTxHash()):
-            row.append(wlt.commentsMap[le.getTxHash()])
-         else:
-            # [[ COMMENTS ]] are not meant to be displayed on main ledger
-            comment = self.getAddrCommentIfAvail(le.getTxHash())
-            if comment.startswith('[[') and comment.endswith(']]'):
-               comment = ''
-            row.append(comment)
+         row.append(self.getCommentForLE(wltID, le))
 
          # Amount
          row.append(coin2str(amt, maxZeros=2))

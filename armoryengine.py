@@ -10881,6 +10881,16 @@ class BlockDataManagerThread(threading.Thread):
       return self.bdm.getTopBlockHeight()
 
 
+
+   #############################################################################
+   def getLoadProgress(self):
+      """
+      This method does not actually work.  The load progress in bytes is not
+      updated properly w
+      """
+      return (self.bdm.getLoadProgressBytes(), self.bdm.getTotalBlockchainBytes())
+   
+
    #############################################################################
    def __registerAddressNow(self, a160, timeInfo):
       """
