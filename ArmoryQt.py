@@ -98,6 +98,14 @@ class ArmoryMainWindow(QMainWindow):
       self.doHardReset = False
       self.doShutdown = False
 
+
+      # Because dynamically retrieving addresses for querying transaction 
+      # comments can be so slow, I use this txAddrMap to cache the mappings
+      # between tx's and addresses relevant to our wallets.  It really only 
+      # matters for massive tx with hundreds of outputs -- but such tx do 
+      # exist and this is needed to accommodate wallets with lots of them.
+      self.txAddrMap = {}
+
       
       self.settingsPath = CLI_OPTIONS.settingsPath
       self.loadWalletsAndSettings()
@@ -1689,7 +1697,7 @@ class ArmoryMainWindow(QMainWindow):
       information for every ledger entry.  Therefore, you can't sort by comments
       without getting them first, which is the original problem to avoid.  
       """
-      if col in (0,2,6):
+      if col in (LEDGERCOLS.NumConf, LEDGERCOLS.DateStr, LEDGERCOLS.Comment, LEDGERCOLS.Amount):
          self.sortLedgCol = col
          self.sortLedgOrder = order
       self.createCombinedLedger()
@@ -1758,9 +1766,13 @@ class ArmoryMainWindow(QMainWindow):
 
       # Apply table sorting -- this is very fast
       sortDir = (self.sortLedgOrder == Qt.AscendingOrder)
-      if self.sortLedgCol in (0,2):
+      if self.sortLedgCol == LEDGERCOLS.NumConf:
+         self.combinedLedger.sort(key=lambda x: currBlk-x[1].getBlockNum()+1, reverse=not sortDir)
+      if self.sortLedgCol == LEDGERCOLS.DateStr:
          self.combinedLedger.sort(key=lambda x: x[1].getTxTime(), reverse=sortDir)
-      if self.sortLedgCol == 6:
+      if self.sortLedgCol == LEDGERCOLS.Comment:
+         self.combinedLedger.sort(key=lambda x: self.getCommentForLE(x[0],x[1]), reverse=sortDir)
+      if self.sortLedgCol == LEDGERCOLS.Amount:
          self.combinedLedger.sort(key=lambda x: abs(x[1].getValue()), reverse=sortDir)
 
       self.ledgerSize = len(self.combinedLedger)
@@ -2019,6 +2031,7 @@ class ArmoryMainWindow(QMainWindow):
          wlt.setComment(addr160, newComment)
 
 
+
    #############################################################################
    def getAddrCommentIfAvail(self, txHash):
       TimerStart('getAddrCommentIfAvail')
@@ -2026,28 +2039,47 @@ class ArmoryMainWindow(QMainWindow):
          TimerStop('getAddrCommentIfAvail')
          return ''
       else:
-         tx = TheBDM.getTxByHash(txHash)
-         if not tx.isInitialized():
-            TimerStop('getAddrCommentIfAvail')
-            return ''
-         else:
-            addrComments = []
-            for i in range(tx.getNumTxOut()):
-               a160 = tx.getRecipientForTxOut(i)
-               wltID = self.getWalletForAddr160(a160)
+         
+         # If we haven't extracted relevant addresses for this tx, yet -- do it
+         if not self.txAddrMap.has_key(txHash):
+            self.txAddrMap[txHash] = []
+            tx = TheBDM.getTxByHash(txHash)
+            if tx.isInitialized():
+               for i in range(tx.getNumTxOut()):
+                  a160 = tx.getRecipientForTxOut(i)
+                  wltID = self.getWalletForAddr160(a160)
+      
+                  if not len(wltID)==0:
+                     self.txAddrMap[txHash].append([wltID, tx.getRecipientForTxOut(i)])
+            
 
-               if len(wltID)==0:
-                  continue
+         addrComments = []
+         for wltID,a160 in self.txAddrMap[txHash]:
+            wlt = self.walletMap[wltID]
+            if wlt.commentsMap.has_key(a160):
+               addrComments.append(wlt.commentsMap[a160])
 
-               wlt = self.walletMap[wltID]
-               if wlt.commentsMap.has_key(a160):
-                  addrComments.append(wlt.commentsMap[a160])
-            TimerStop('getAddrCommentIfAvail')
-            return '; '.join(addrComments)
+         TimerStop('getAddrCommentIfAvail')
+         return '; '.join(addrComments)
 
-      TimerStop('getAddrCommentIfAvail')
-      return ''
                   
+   #############################################################################
+   def getCommentForLE(self, wltID, le):
+      # Smart comments for LedgerEntry objects:  get any direct comments ... 
+      # if none, then grab the one for any associated addresses.
+      wlt = self.walletMap[wltID]
+      txHash = le.getTxHash()
+      if wlt.commentsMap.has_key(txHash):
+         comment = wlt.commentsMap[txHash]
+      else:
+         # [[ COMMENTS ]] are not meant to be displayed on main ledger
+         comment = self.getAddrCommentIfAvail(txHash)
+         if comment.startswith('[[') and comment.endswith(']]'):
+            comment = ''
+
+      return comment
+
+
 
 
    #############################################################################
