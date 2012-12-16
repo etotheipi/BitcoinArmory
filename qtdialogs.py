@@ -10484,10 +10484,10 @@ class DlgCoinControl(ArmoryDialog):
       self.wlt = wlt
 
       lblDescr = QRichLabel( \
-         'By default, combinations of any addresses in this wallet will '
-         'be used to construct new transactions.  If you want to restrict '
-         'the addresses that can be used as a source for this transaction, '
-         'then check only those addresses below.')
+         'By default, transactions are created using any available coins from '
+         'all addresses in this wallet.  You can control the source addresses '
+         'used for this transaction by selecting them below, and unchecking '
+         'all other addresses.')
 
       self.chkSelectAll = QCheckBox('Select All')
       self.chkSelectAll.setChecked(True)
@@ -10515,6 +10515,7 @@ class DlgCoinControl(ArmoryDialog):
          shortcmt = fullcmt
          if shortcmt==CHANGE_ADDR_DESCR_STRING:
             shortcmt = '<i>Change Address</i>'
+            fullcmt = '(This address was created only to receive change from another transaction)'
          elif len(shortcmt)>20:
             shortcmt = fullcmt[:20]+'...'
          self.dispTable.append([None, None, None])
@@ -10525,6 +10526,7 @@ class DlgCoinControl(ArmoryDialog):
          if len(shortcmt)>0:
             self.dispTable[-1][0].setToolTip('<u></u>'+fullcmt)
             self.dispTable[-1][1].setToolTip('<u></u>'+fullcmt)
+            self.dispTable[-1][2].setToolTip('<u></u>'+fullcmt)
          self.connect(self.dispTable[-1][0], SIGNAL('clicked()'), self.clickOne)
          frmTableLayout.addWidget(self.dispTable[-1][0], i+2,0)
          frmTableLayout.addWidget(VLINE(),               i+2,1)

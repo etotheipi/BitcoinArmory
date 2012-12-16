@@ -2713,21 +2713,35 @@ class ArmoryMainWindow(QMainWindow):
       menu = QMenu(self.ledgerView)
       
       actViewTx     = menu.addAction("View Details")
-      actCopyTxID   = menu.addAction("Copy Transaction ID")
+      actViewBlkChn = menu.addAction("View on www.blockchain.info")
       actComment    = menu.addAction("Change Comment")
+      actCopyTxID   = menu.addAction("Copy Transaction ID")
       actOpenWallet = menu.addAction("Open Relevant Wallet")
       row = self.ledgerView.selectedIndexes()[0].row()
       action = menu.exec_(QCursor.pos())
 
       txHash = str(self.ledgerView.model().index(row, LEDGERCOLS.TxHash).data().toString())
+      txHash = hex_switchEndian(txHash)
       wltID  = str(self.ledgerView.model().index(row, LEDGERCOLS.WltID).data().toString())
+
+      blkchnURL = 'http://blockchain.info/tx/%s' % txHash
 
       if action==actViewTx:
          self.showLedgerTx()
+      elif action==actViewBlkChn:
+         try:
+            import webbrowser
+            webbrowser.open(blkchnURL)
+         except: 
+            QMessageBox.critical(self, 'Could not open browser', \
+               'Armory encountered an error opening your web browser.  To view '
+               'this transaction on blockchain.info, please copy and paste '
+               'the following URL into your browser: '
+               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
       elif action==actCopyTxID:
          clipb = QApplication.clipboard()
          clipb.clear()
-         clipb.setText(hex_switchEndian(txHash))
+         clipb.setText(txHash)
       elif action==actComment:
          self.updateTxCommentFromView(self.ledgerView)
       elif action==actOpenWallet:
