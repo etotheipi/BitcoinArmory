@@ -898,6 +898,7 @@ class DlgWalletDetails(ArmoryDialog):
       dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
+      if True:  actionBlkChnInfo  = menu.addAction("View Address on www.blockchain.info")
       if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
@@ -905,15 +906,26 @@ class DlgWalletDetails(ArmoryDialog):
       idx = self.wltAddrView.selectedIndexes()[0]
       action = menu.exec_(QCursor.pos())
          
+      addr = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()).strip()
       if action==actionCopyAddr:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()
+      elif action==actionBlkChnInfo:
+         try:
+            import webbrowser
+            blkchnURL = 'http://blockchain.info/address/%s' % addr
+            webbrowser.open(blkchnURL)
+         except:
+            QMessageBox.critical(self, 'Could not open browser', \
+               'Armory encountered an error opening your web browser.  To view '
+               'this address on blockchain.info, please copy and paste '
+               'the following URL into your browser: '
+               '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+         return
       elif action==actionReqPayment:
-         addr = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString()).strip()
          DlgRequestPayment(self, self.main, addr).exec_() 
          return
       elif dev and action==actionCopyHash160:
-         s = str(self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Address).data().toString())
-         s = binary_to_hex(addrStr_to_hash160(s))
+         s = binary_to_hex(addrStr_to_hash160(addr))
       elif action==actionCopyComment:
          s = self.wltAddrView.model().index(idx.row(), ADDRESSCOLS.Comment).data().toString()
       elif action==actionCopyBalance:
