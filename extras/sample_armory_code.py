@@ -4,13 +4,15 @@ sys.path.append('.')
 
 from armoryengine import *
 from math import sqrt
+from time import sleep
 
-run_WalletCreate    = False
-run_LoadBlockchain  = True
-run_WalletRescan    = False
-run_DiffChangeList  = False
-run_UniqueAddresses = False
-run_SatoshiDice     = True
+run_WalletCreate          = True
+run_LoadBlockchain_Async  = False
+run_LoadBlockchain_Block  = True
+run_WalletRescan          = True
+run_DiffChangeList        = False
+run_UniqueAddresses       = False
+run_SatoshiDice           = False
 
 
 ################################################################################
@@ -21,9 +23,9 @@ if run_WalletCreate:
    
    print '\n\nCreating a new C++ wallet, add a few addresses...'
    cppWallet = Cpp.BtcWallet()
-   cppWallet.addAddress_1_( hex_to_binary('11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31') )  # hash160
+   cppWallet.addAddress_1_( hex_to_binary('11b366edfc0a8b66feebae5c2e25a7b6a5d1cf31') )  # hash160 (hex)
    cppWallet.addAddress_1_( addrStr_to_hash160('1EbAUHsitefy3rSECh8eK2fdAWTUbpVUDN') )   # addrStr
-   cppWallet.addAddress_1_('\x1b~\xa7*\x85\t\x12\xb7=\xd4G\xf3\xbd\xc1\x00\xf1\x00\x8b\xde\xb0') # binary
+   cppWallet.addAddress_1_('\x1b~\xa7*\x85\t\x12\xb7=\xd4G\xf3\xbd\xc1\x00\xf1\x00\x8b\xde\xb0') # hash160 (bin)
 
    print 'Addresses in this wallet:'
    for i in range(cppWallet.getNumAddr()):
@@ -34,11 +36,37 @@ if run_WalletCreate:
 
 
 ################################################################################
-if run_LoadBlockchain:
+if run_LoadBlockchain_Async:
+   """
+   By setting blocking=False, most calls to TheBDM will return immediately,
+   after queuing the BDM to execute the operation in the background.  You have
+   to check back later to see when it's done.  However, even when blocking is
+   false, any functions that return data must block so the data can be 
+   returned.  If you are in asynchronous mode, and don't want to ever wait 
+   for anything, always check TheBDM.getBDMState()=='BlockchainReady' before
+   requesting data that will force blocking.
+   """
    start = RightNow()
-   BDM_LoadBlockchainFile()  # optional argument to specify blk0001.dat location
+   TheBDM.setBlocking(False)
+   TheBDM.setOnlineMode(True)
+   print 'Waiting for blockchain loading to finish',
+   while not TheBDM.getBDMState()=='BlockchainReady':
+      print '.',
+      sys.stdout.flush()
+      sleep(2)
    print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
 
+   topBlock = TheBDM.getTopBlockHeight()
+   print '\n\nCurrent Top Block is:', topBlock
+   TheBDM.getTopBlockHeader().pprint()
+
+################################################################################
+if run_LoadBlockchain_Block:
+   start = RightNow()
+   TheBDM.setBlocking(True)
+   TheBDM.setOnlineMode(True)
+   # The setOnlineMode should block until blockchain loading is complete
+   print 'Loading blockchain took %0.1f sec' % (RightNow() - start)
 
    topBlock = TheBDM.getTopBlockHeight()
    print '\n\nCurrent Top Block is:', topBlock
@@ -47,7 +75,7 @@ if run_LoadBlockchain:
 
 ################################################################################
 if run_WalletRescan:
-   # Add new addresses -- will rescan (which will be super fast if you ahve a lot of RAM)
+   print 'Inducing a rescan by adding a new address and requesting...'
    cppWallet.addAddress_1_( hex_to_binary('0cdcd0f388a31b11ff11b1d8d7a9f978b37bc7af') )
    TheBDM.scanBlockchainForTx(cppWallet)
 
@@ -55,7 +83,7 @@ if run_WalletRescan:
    print 'Unspent outputs:'
    unspentTxOuts = cppWallet.getSpendableTxOutList(topBlock)
    for utxo in unspentTxOuts:
-      utxo.pprintOneLine()
+      utxo.pprintOneLine(topBlock)
 
    print '\n\nTransaction history of this wallet:'
    ledger = cppWallet.getTxLedger()

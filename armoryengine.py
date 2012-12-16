@@ -679,7 +679,7 @@ UNINITIALIZED = None
 UNKNOWN       = -2
 MIN_TX_FEE    = 50000
 MIN_RELAY_TX_FEE = 10000
-MT_WAIT_TIME_SEC = 10;
+MT_WAIT_TIMEOUT_SEC = 10;
 
 UINT8_MAX  = 2**8-1
 UINT16_MAX = 2**16-1
@@ -10276,10 +10276,11 @@ class BlockDataManagerThread(threading.Thread):
 
       # Flags
       self.startBDM      = False
-      self.alwaysBlock   = blocking
       self.doShutdown    = False
       self.aboutToRescan = False
       self.errorOut      = 0
+
+      self.setBlocking(blocking)
 
       self.currentActivity = 'None'
 
@@ -10346,10 +10347,10 @@ class BlockDataManagerThread(threading.Thread):
 
             if waitForReturn:
                try:
-                  out = self.outputQueue.get(True, MT_WAIT_TIME_SEC)
+                  out = self.outputQueue.get(True, self.mtWaitSec)
                   return out
                except Queue.Empty:
-                  LOGERROR('BDM was not ready for your request!  Waited %d sec.' % MT_WAIT_TIME_SEC)
+                  LOGERROR('BDM was not ready for your request!  Waited %d sec.' % self.mtWaitSec)
                   LOGERROR('  getattr   name: %s', name)
                   LOGERROR('BDM currently doing: %s (%d)', self.currentActivity,self.currentID )
                   LOGERROR('Waiting for completion: ID= %d', rndID)
@@ -10371,11 +10372,11 @@ class BlockDataManagerThread(threading.Thread):
       # won't extend our wait time for this request
       if expectOutput:
          try:
-            return self.outputQueue.get(True, MT_WAIT_TIME_SEC)
+            return self.outputQueue.get(True, self.mtWaitSec)
          except Queue.Empty:
             stkOneUp = traceback.extract_stack()[-2]
             filename,method = stkOneUp[0], stkOneUp[1]
-            LOGERROR('Waiting for BDM output that didn\'t come after %ds.' % MT_WAIT_TIME_SEC)
+            LOGERROR('Waiting for BDM output that didn\'t come after %ds.' % self.mtWaitSec)
             LOGERROR('BDM state is currently: %s', self.getBDMState())
             LOGERROR('Called from: %s:%d (%d)', os.path.basename(filename), method, rndID)
             LOGERROR('BDM currently doing: %s (%d)', self.currentActivity, self.currentID)
@@ -10388,8 +10389,21 @@ class BlockDataManagerThread(threading.Thread):
       
       
    #############################################################################
-   def setBlocking(self, doblock=True):
-      self.alwaysBlock = doblock
+   def setBlocking(self, doblock=True, newTimeout=MT_WAIT_TIMEOUT_SEC):
+      """
+      If we want TheBDM to behave as a single-threaded app, we need to disable
+      the timeouts so that long operations (such as reading the blockchain) do
+      not crash the process.
+
+      So setting wait=True is NOT identical to setBlocking(True), since using
+      wait=True with blocking=False will break when the timeout has been reached
+      """
+      if doblock:
+         self.alwaysBlock = True
+         self.mtWaitSec   = None
+      else:
+         self.alwaysBlock = False
+         self.mtWaitSec   = newTimeout
 
 
    #############################################################################
@@ -10721,10 +10735,10 @@ class BlockDataManagerThread(threading.Thread):
          self.inputQueue.put([BDMINPUTTYPE.AddrBookRequested, rndID, True, wlt])
 
       try:
-         result = self.outputQueue.get(True, MT_WAIT_TIME_SEC)
+         result = self.outputQueue.get(True, self.mtWaitSec)
          return result
       except Queue.Empty:
-         LOGERROR('Waited %ds for addrbook to be returned.  Abort' % MT_WAIT_TIME_SEC)
+         LOGERROR('Waited %ds for addrbook to be returned.  Abort' % self.mtWaitSec)
          LOGERROR('ID: getTxByHash (%d)', rndID)
          #LOGERROR('Going to block until we get something...')
          #return self.outputQueue.get(True)
