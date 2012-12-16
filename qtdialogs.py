@@ -10503,25 +10503,41 @@ class DlgCoinControl(ArmoryDialog):
          
       frmTableLayout = QGridLayout()
       self.dispTable = []
+      frmTableLayout.addWidget(QRichLabel('<b>Address</b>'), 0,0)
+      frmTableLayout.addWidget(VLINE(),   0,1)
+      frmTableLayout.addWidget(QRichLabel('<b>Balance</b>'), 0,2)
+      frmTableLayout.addWidget(VLINE(),   0,3)
+      frmTableLayout.addWidget(QRichLabel('<b>Comment</b>'), 0,4)
+      frmTableLayout.addWidget(HLINE(), 1,0, 1,5)
       for i in range(len(addrToInclude)):
          a160,bal = addrToInclude[i]
+         fullcmt = self.wlt.getCommentForAddress(a160)
+         shortcmt = fullcmt
+         if shortcmt==CHANGE_ADDR_DESCR_STRING:
+            shortcmt = '<i>Change Address</i>'
+         elif len(shortcmt)>20:
+            shortcmt = fullcmt[:20]+'...'
          self.dispTable.append([None, None, None])
          self.dispTable[-1][0] = QCheckBox(hash160_to_addrStr(a160))
-         self.dispTable[-1][1] = QRichLabel(self.wlt.getCommentForAddress(160), doWrap=True)
-         self.dispTable[-1][2] = QMoneyLabel(bal)
+         self.dispTable[-1][1] = QMoneyLabel(bal)
+         self.dispTable[-1][2] = QRichLabel(shortcmt, doWrap=False)
          self.dispTable[-1][0].setChecked(currSelect==None or (a160 in currSelect))
-         cmt = self.wlt.getCommentForAddress(a160)
-         if len(cmt)>0:
-            self.dispTable[-1][0].setToolTip('<u></u>'+cmt)
+         if len(shortcmt)>0:
+            self.dispTable[-1][0].setToolTip('<u></u>'+fullcmt)
+            self.dispTable[-1][1].setToolTip('<u></u>'+fullcmt)
          self.connect(self.dispTable[-1][0], SIGNAL('clicked()'), self.clickOne)
-         frmTableLayout.addWidget(self.dispTable[-1][0], i,0)
-         frmTableLayout.addWidget(self.dispTable[-1][1], i,1)
-         frmTableLayout.addWidget(self.dispTable[-1][2], i,2)
+         frmTableLayout.addWidget(self.dispTable[-1][0], i+2,0)
+         frmTableLayout.addWidget(VLINE(),               i+2,1)
+         frmTableLayout.addWidget(self.dispTable[-1][1], i+2,2)
+         frmTableLayout.addWidget(VLINE(),               i+2,3)
+         frmTableLayout.addWidget(self.dispTable[-1][2], i+2,4)
       
       frmTable = QFrame()
       frmTable.setLayout(frmTableLayout)
       self.scrollAddrList = QScrollArea()
       self.scrollAddrList.setWidget(frmTable)
+
+      self.sizeHint = lambda: QSize(frmTable.width()+40, 400)
 
       lblDescrSum = QRichLabel('Balance of selected addresses:',  doWrap=False)
       self.lblSum = QMoneyLabel(totalBal, wBold=True)
