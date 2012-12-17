@@ -6598,7 +6598,6 @@ class DlgShowKeyList(ArmoryDialog):
 
       self.wlt    = wlt
 
-
       self.havePriv = True
       if self.wlt.useEncryption and self.wlt.isLocked:
          self.havePriv = False
@@ -6686,11 +6685,17 @@ class DlgShowKeyList(ArmoryDialog):
 
       self.chkImportedOnly = QCheckBox('Imported Addresses Only')
       self.chkWithAddrPool = QCheckBox('Include Unused (Address Pool)')
-      self.chkHideRootKey  = QCheckBox('Hide Root Private Key')
+      self.chkDispRootKey  = QCheckBox('Include Paper Backup Root')
+      self.chkDispRootKey.setChecked(True)
       self.connect(self.chkImportedOnly, SIGNAL('toggled(bool)'), self.rewriteList)
       self.connect(self.chkWithAddrPool, SIGNAL('toggled(bool)'), self.rewriteList)
-      self.connect(self.chkHideRootKey,  SIGNAL('toggled(bool)'), self.rewriteList)
+      self.connect(self.chkDispRootKey,  SIGNAL('toggled(bool)'), self.rewriteList)
       #self.chkCSV = QCheckBox('Display in CSV format')
+
+      if not self.havePriv:
+         self.chkDispRootKey.setChecked(False)
+         self.chkDispRootKey.setEnabled(False)
+         
 
       std = (self.main.usermode==USERMODE.Standard)
       adv = (self.main.usermode==USERMODE.Advanced)
@@ -6712,7 +6717,7 @@ class DlgShowKeyList(ArmoryDialog):
       chkBoxList.append('Line')
       chkBoxList.append(self.chkImportedOnly)
       chkBoxList.append(self.chkWithAddrPool)
-      chkBoxList.append(self.chkHideRootKey)
+      chkBoxList.append(self.chkDispRootKey)
 
       frmChks = makeLayoutFrame('Vert', chkBoxList, STYLE_SUNKEN)
 
@@ -6744,6 +6749,9 @@ class DlgShowKeyList(ArmoryDialog):
       dlgLayout.addWidget(frmChks,     0,1, 1,1)
       dlgLayout.addWidget(self.txtBox, 1,0, 1,2)
       dlgLayout.addWidget(frmGoBack,   2,0, 1,2)
+      dlgLayout.setRowStretch(0, 0)
+      dlgLayout.setRowStretch(1, 1)
+      dlgLayout.setRowStretch(2, 0)
 
       self.setLayout(dlgLayout)
       self.rewriteList()
@@ -6767,7 +6775,7 @@ class DlgShowKeyList(ArmoryDialog):
       L.append('Wallet Name:   ' + self.wlt.labelName)
       L.append('')
 
-      if not self.chkHideRootKey.isChecked():
+      if self.chkDispRootKey.isChecked():
          binPriv0     = self.rootKeyCopy.binPrivKey32_Plain.toBinStr()[:16]
          binPriv1     = self.rootKeyCopy.binPrivKey32_Plain.toBinStr()[16:]
          binChain0    = self.rootKeyCopy.chaincode.toBinStr()[:16]
