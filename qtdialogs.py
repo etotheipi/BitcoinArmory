@@ -568,6 +568,8 @@ class DlgWalletDetails(ArmoryDialog):
       self.wlt = wlt
       self.usermode = usermode
       self.wlttype, self.typestr = determineWalletType(wlt, parent)
+      if self.typestr=='Encrypted':
+         self.typestr='Encrypted (AES256)'
 
       self.labels = [wlt.labelName, wlt.labelDescr]
       self.passphrase = ''
@@ -1211,7 +1213,7 @@ class DlgWalletDetails(ArmoryDialog):
             'else obtains a copy of this wallet, they can also spend your funds!  '
             '(You can click the "Change Encryption" button at the bottom of this '
             'window to enabled encryption)')
-      elif self.typestr=='Encrypted':
+      elif self.typestr=='Encrypted (AES256)':
          tooltips[WLTFIELDS.Secure] = createToolTipObject(
             'This wallet contains the private keys needed to spend this wallet\'s '
             'funds, but they are encrypted on your harddrive.  The wallet must be '
@@ -3166,13 +3168,13 @@ class DlgAddressInfo(ArmoryDialog):
       lbtnCopyAddr = QLabelButton('Copy Address to Clipboard')
       lbtnMkPaper  = QLabelButton('Make Paper Backup')
       lbtnViewKeys = QLabelButton('View Address Keys')
-      lbtnSweepA   = QLabelButton('Sweep Address')
+      #lbtnSweepA   = QLabelButton('Sweep Address')
       lbtnDelete   = QLabelButton('Delete Address')
 
       self.connect(lbtnCopyAddr, SIGNAL('clicked()'), self.copyAddr)
       self.connect(lbtnMkPaper,  SIGNAL('clicked()'), self.makePaper)
       self.connect(lbtnViewKeys, SIGNAL('clicked()'), self.viewKeys)
-      self.connect(lbtnSweepA,   SIGNAL('clicked()'), self.sweepAddr)
+      #self.connect(lbtnSweepA,   SIGNAL('clicked()'), self.sweepAddr)
       self.connect(lbtnDelete,   SIGNAL('clicked()'), self.deleteAddr)
 
       optFrame = QFrame()
@@ -3194,7 +3196,7 @@ class DlgAddressInfo(ArmoryDialog):
       if True:           optLayout.addWidget(lbtnCopyAddr)
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
-      if not watch:      optLayout.addWidget(lbtnSweepA)
+      #if not watch:      optLayout.addWidget(lbtnSweepA)
       #if adv:            optLayout.addWidget(lbtnDelete)
 
       if False:          optLayout.addWidget(lbtnMkPaper)  
@@ -3249,7 +3251,10 @@ class DlgAddressInfo(ArmoryDialog):
    
 
    def sweepAddr(self):
-      
+      # This is broken, and I don't feel like fixing it because it's not very
+      # useful.  Maybe some time in the future it will be resolved.
+      return
+      """ 
       if self.wlt.useEncryption and self.wlt.isLocked:
          unlockdlg = DlgUnlockWallet(self.wlt, self, self.main, 'Sweep Address')
          if not unlockdlg.exec_():
@@ -3299,6 +3304,7 @@ class DlgAddressInfo(ArmoryDialog):
       dispOut = 'wallet <b>"%s"</b> (%s) ' % (self.wlt.labelName, self.wlt.uniqueIDB58)
       if DlgVerifySweep(dispIn, dispOut, outVal, fee).exec_():
          self.main.broadcastTransaction(finishedTx, dryRun=False)
+      """ 
 
    def deleteAddr(self):
       pass
@@ -6600,32 +6606,36 @@ class DlgShowKeyList(ArmoryDialog):
          if dlg.exec_():
             self.havePriv = True
 
+      wltType = determineWalletType(self.wlt, self.main)[0]
+      if wltType in (WLTTYPES.Offline, WLTTYPES.WatchOnly):
+         self.havePriv = False
+
+
       # NOTE/WARNING:  We have to make copies (in RAM) of the unencrypted
       #                keys, or else we will have to type in our address
       #                every 10s if we want to modify the key list.  This
-      #                isn't likely a bit problem, but it's not ideal, 
+      #                isn't likely a big problem, but it's not ideal, 
       #                either.  Not much I can do about, though...
       #                (at least:  once this dialog is closed, all the 
       #                garbage should be collected...)
       self.addrCopies = []
-      for addr in self.wlt.getLinearAddrList():
+      for addr in self.wlt.getLinearAddrList(withAddrPool=True):
          self.addrCopies.append(addr.copy())
+      self.rootKeyCopy = self.wlt.addrMap['ROOT'].copy()
          
 
       self.strDescrReg = ( \
-         'Use the checkboxes on the right to control the amount of '
-         'information displayed below.  The resulting data can be '
-         'saved to file, or copied into another document.'
+         'The textbox below shows all keys that are part of this wallet, '
+         'which includes both permanent keys and imported keys.  If you '
+         'simply want to backup your wallet and you have no imported keys '
+         'then all data below is reproducible from a plain paper backup.'
          '<br><br>'
-         'The information here is for <i>all</i> keys in this wallet, '
-         'including imported keys.  However, since permanent keys are '
-         'generated as they are requested (via "Receive Bitcoins" button), '
-         'only permanent keys that you have used before now, will be '
-         'protected by backing up the list below.  If you want a permanent '
-         'backup of your base wallet (excluding imported keys), then please '
-         'print a regular paper backup.'
-         '<br><br>')
+         'If you have imported addresses to backup, and/or you '
+         'would like to export your private keys to another '
+         'wallet service or application, then you can save this data '
+         'to disk, or copy&paste it into the other application.')
       self.strDescrWarn = ( \
+         '<br><br>'
          '<font color="red">Warning:</font> The text box below contains '
          'the plaintext (unencrypted) private keys for each of '
          'the addresses in this wallet.  This information can be used '
@@ -6651,29 +6661,23 @@ class DlgShowKeyList(ArmoryDialog):
       # to put there
       self.chkList = {}
       self.chkList['AddrStr']   = QCheckBox('Address String')
-      self.chkList['PubKeyHash']= QCheckBox('Hash160 (LE)')
+      self.chkList['PubKeyHash']= QCheckBox('Hash160')
       self.chkList['PrivCrypt'] = QCheckBox('Private Key (Encrypted)')
-      self.chkList['PrivHexBE'] = QCheckBox('Private Key (Plain Hex, BE)')
-      self.chkList['PrivHexLE'] = QCheckBox('Private Key (Plain Hex, LE)')
+      self.chkList['PrivHexBE'] = QCheckBox('Private Key (Plain Hex)')
       self.chkList['PrivB58']   = QCheckBox('Private Key (Plain Base58)')
       self.chkList['PubKey']    = QCheckBox('Public Key (BE)')
-      self.chkList['InitVect']  = QCheckBox('Initialization Vect (if encrypted)')
       self.chkList['ChainIndex']= QCheckBox('Chain Index')
 
-      watchOnly = self.wlt.watchingOnly
       self.chkList['AddrStr'   ].setChecked(True )
       self.chkList['PubKeyHash'].setChecked(False)
-      self.chkList['PrivB58'   ].setChecked(not watchOnly)
+      self.chkList['PrivB58'   ].setChecked(self.havePriv)
       self.chkList['PrivCrypt' ].setChecked(False)
-      self.chkList['PrivHexBE' ].setChecked(not watchOnly)
-      self.chkList['PrivHexLE' ].setChecked(False)
-      self.chkList['PubKey'    ].setChecked(watchOnly)
-      self.chkList['InitVect'  ].setChecked(False)
+      self.chkList['PrivHexBE' ].setChecked(self.havePriv)
+      self.chkList['PubKey'    ].setChecked(not self.havePriv)
       self.chkList['ChainIndex'].setChecked(False)
 
       namelist = ['AddrStr','PubKeyHash','PrivB58','PrivCrypt', \
-                  'PrivHexBE', 'PrivHexLE','PubKey','InitVect', \
-                  'ChainIndex']
+                  'PrivHexBE', 'PubKey', 'ChainIndex']
 
       for name in self.chkList.keys():
          self.connect(self.chkList[name], SIGNAL('toggled(bool)'), \
@@ -6681,8 +6685,11 @@ class DlgShowKeyList(ArmoryDialog):
 
 
       self.chkImportedOnly = QCheckBox('Imported Addresses Only')
-      self.connect(self.chkImportedOnly, SIGNAL('toggled(bool)'), \
-                      self.rewriteList)
+      self.chkWithAddrPool = QCheckBox('Include Unused (Address Pool)')
+      self.chkHideRootKey  = QCheckBox('Hide Root Private Key')
+      self.connect(self.chkImportedOnly, SIGNAL('toggled(bool)'), self.rewriteList)
+      self.connect(self.chkWithAddrPool, SIGNAL('toggled(bool)'), self.rewriteList)
+      self.connect(self.chkHideRootKey,  SIGNAL('toggled(bool)'), self.rewriteList)
       #self.chkCSV = QCheckBox('Display in CSV format')
 
       std = (self.main.usermode==USERMODE.Standard)
@@ -6691,25 +6698,21 @@ class DlgShowKeyList(ArmoryDialog):
       if std:
          self.chkList['PubKeyHash'].setVisible(False)
          self.chkList['PrivCrypt' ].setVisible(False)
-         self.chkList['PrivHexLE' ].setVisible(False)
-         self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
       elif adv:
          self.chkList['PubKeyHash'].setVisible(False)
-         self.chkList['PrivHexLE' ].setVisible(False)
-         self.chkList['InitVect'  ].setVisible(False)
          self.chkList['ChainIndex'].setVisible(False)
 
       # We actually just want to remove these entirely
       # (either we need to display all data needed for decryption,
       # besides passphrase,  or we shouldn't show any of it)
       self.chkList['PrivCrypt' ].setVisible(False)
-      self.chkList['InitVect'  ].setVisible(False)
 
       chkBoxList = [self.chkList[n] for n in namelist] 
       chkBoxList.append('Line')
       chkBoxList.append(self.chkImportedOnly)
-      #chkBoxList.append(self.chkCSV)
+      chkBoxList.append(self.chkWithAddrPool)
+      chkBoxList.append(self.chkHideRootKey)
 
       frmChks = makeLayoutFrame('Vert', chkBoxList, STYLE_SUNKEN)
 
@@ -6733,8 +6736,6 @@ class DlgShowKeyList(ArmoryDialog):
       if not self.havePriv or (self.wlt.useEncryption and self.wlt.isLocked):
          self.chkList['PrivHexBE'].setEnabled(False)
          self.chkList['PrivHexBE'].setChecked(False)
-         self.chkList['PrivHexLE'].setEnabled(False)
-         self.chkList['PrivHexLE'].setChecked(False)
          self.chkList['PrivB58'  ].setEnabled(False)
          self.chkList['PrivB58'  ].setChecked(False)
 
@@ -6751,11 +6752,9 @@ class DlgShowKeyList(ArmoryDialog):
          
 
    def rewriteList(self, *args):
-      # Wallet Details:
-      #  Wlt Labels,
-      #  Chain Code:
-      #  Highest Chain index used
-      #  List of Addresses
+      """
+      Write out all the wallet data
+      """
       def fmtBin(s, nB=4, sw=False):
          h = binary_to_hex(s)
          if sw: 
@@ -6763,19 +6762,66 @@ class DlgShowKeyList(ArmoryDialog):
          return ' '.join([h[i:i+nB] for i in range(0, len(h), nB)])
 
       L = []
-      L.append('Wallet ID:    ' + self.wlt.uniqueIDB58)
-      L.append('Wallet Name:  ' + self.wlt.labelName)
-      if self.main.usermode==USERMODE.Expert:
-         L.append('Chain Code:   ' + fmtBin(self.wlt.addrMap['ROOT'].chaincode.toBinStr()))
-         L.append('Highest Used: ' + str(self.wlt.highestUsedChainIndex))
+      L.append('Created:       ' + unixTimeToFormatStr(RightNow(), self.main.getPreferredDateFormat()))
+      L.append('Wallet ID:     ' + self.wlt.uniqueIDB58)
+      L.append('Wallet Name:   ' + self.wlt.labelName)
       L.append('')
 
+      if not self.chkHideRootKey.isChecked():
+         binPriv0     = self.rootKeyCopy.binPrivKey32_Plain.toBinStr()[:16]
+         binPriv1     = self.rootKeyCopy.binPrivKey32_Plain.toBinStr()[16:]
+         binChain0    = self.rootKeyCopy.chaincode.toBinStr()[:16]
+         binChain1    = self.rootKeyCopy.chaincode.toBinStr()[16:]
+         binPriv0Chk  = computeChecksum(binPriv0, nBytes=2)
+         binPriv1Chk  = computeChecksum(binPriv1, nBytes=2)
+         binChain0Chk = computeChecksum(binChain0, nBytes=2)
+         binChain1Chk = computeChecksum(binChain1, nBytes=2)
+
+         binPriv0  = binary_to_easyType16(binPriv0 + binPriv0Chk)
+         binPriv1  = binary_to_easyType16(binPriv1 + binPriv1Chk)
+         binChain0 = binary_to_easyType16(binChain0 + binChain0Chk)
+         binChain1 = binary_to_easyType16(binChain1 + binChain1Chk)
+
+         L.append('-'*80)
+         L.append('The following is the same information contained on your paper backup.')
+         L.append('All NON-imported addresses in your wallet are backed up by this data.')
+         L.append('')
+         L.append('Root Key:     ' + ' '.join([binPriv0[i:i+4]  for i in range(0,36,4)]))
+         L.append('              ' + ' '.join([binPriv1[i:i+4]  for i in range(0,36,4)]))
+         L.append('Chain Code:   ' + ' '.join([binChain0[i:i+4] for i in range(0,36,4)]))
+         L.append('              ' + ' '.join([binChain1[i:i+4] for i in range(0,36,4)]))
+         L.append('-'*80)
+         L.append('')
+
+         # Cleanup all that sensitive data laying around in RAM
+         binPriv0, binPriv1 = None,None
+         binChain0, binChain1 = None,None 
+         binPriv0Chk, binPriv1Chk = None,None
+         binChain0Chk, binChain1Chk = None,None
+
+
       self.havePriv = False
+      topChain = self.wlt.highestUsedChainIndex
+      extraLbl = ''
       #c = ',' if self.chkCSV.isChecked() else '' 
       for addr in self.addrCopies:
-         if self.chkImportedOnly.isChecked() and not addr.chainIndex==-2:
-            continue
-         extraLbl = '   (Imported)' if addr.chainIndex==-2 else ''
+
+         # Address pool
+         if self.chkWithAddrPool.isChecked():
+            if addr.chainIndex > topChain:
+               extraLbl = '   (Unused/Address Pool)'
+         else:
+            if addr.chainIndex > topChain:
+               continue
+
+         # Imported Addresses
+         if self.chkImportedOnly.isChecked():
+            if not addr.chainIndex==-2:
+               continue
+         else:
+            if addr.chainIndex==-2:
+               extraLbl = '   (Imported)'
+
          if self.chkList['AddrStr'   ].isChecked():  
             L.append(                   addr.getAddrStr() + extraLbl)
          if self.chkList['PubKeyHash'].isChecked(): 
@@ -6792,14 +6838,9 @@ class DlgShowKeyList(ArmoryDialog):
          if self.chkList['PrivHexBE' ].isChecked():  
             L.append(                  '   PrivHexBE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr()))
             self.havePriv = True
-         if self.chkList['PrivHexLE' ].isChecked(): 
-            L.append(                  '   PrivHexLE : ' + fmtBin(addr.binPrivKey32_Plain.toBinStr(), sw=True))
-            self.havePriv = True
          if self.chkList['PubKey'    ].isChecked():  
             L.append(                  '   PublicX   : ' + fmtBin(addr.binPublicKey65.toBinStr()[1:33 ]))
             L.append(                  '   PublicY   : ' + fmtBin(addr.binPublicKey65.toBinStr()[  33:]))
-         if self.chkList['InitVect'  ].isChecked():  
-            L.append(                  '   InitVect  : ' + fmtBin(addr.binInitVect16.toBinStr()))
          if self.chkList['ChainIndex'].isChecked(): 
             L.append(                  '   ChainIndex: ' + str(addr.chainIndex))
 
@@ -6809,6 +6850,7 @@ class DlgShowKeyList(ArmoryDialog):
       else:
          self.lblDescr.setText(self.strDescrReg)
 
+      
       
    def saveToFile(self):
       if self.havePriv:
@@ -6841,6 +6883,20 @@ class DlgShowKeyList(ArmoryDialog):
       self.lblCopied.setText('<i>Copied!</i>')
                
 
+   def cleanup(self):
+      self.rootKeyCopy.binPrivKey32_Plain.destroy()
+      for addr in self.addrCopies:
+         addr.binPrivKey32_Plain.destroy()
+      self.rootKeyCopy = None
+      self.addrCopies = None
+
+   def accept(self):
+      self.cleanup()
+      super(DlgShowKeyList, self).accept()
+
+   def reject(self):
+      self.cleanup()
+      super(DlgShowKeyList, self).reject()
             
 
 
@@ -7819,7 +7875,21 @@ class DlgPaperBackup(ArmoryDialog):
           self.scene.render(painter)
           self.accept()
 
+   def cleanup(self):
+      self.binPriv.destroy()
+      self.binPriv     = None
+      self.binPriv0    = None
+      self.binPriv1    = None
+      self.binPriv0Chk = None
+      self.binPriv1Chk = None
 
+   def accept(self):
+      self.cleanup()
+      super(DlgPaperBackup, self).accept()
+
+   def reject(self):
+      self.cleanup()
+      super(DlgPaperBackup, self).reject()
 
 
 class DlgBadConnection(ArmoryDialog):

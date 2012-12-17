@@ -49,6 +49,7 @@ if run_LoadBlockchain_Async:
    start = RightNow()
    TheBDM.setBlocking(False)
    TheBDM.setOnlineMode(True)
+   sleep(2)
    print 'Waiting for blockchain loading to finish',
    while not TheBDM.getBDMState()=='BlockchainReady':
       print '.',
