@@ -41,6 +41,7 @@ void TestMemoryUsage_UseSystemMonitor(string blkdir);
 void TestOutOfOrder(string blkdir);
 void TestLevelDB(string testLDBDir, string blkfilepath="");
 void TestLDBScanBlockchain(string testdbpath);
+void TestLdbBlockchainUtils(string blkdir);
 
 void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
@@ -140,10 +141,15 @@ int main(void)
    //printTestHeader("Testing file cache");
    //TestFileCache();
    
-   printTestHeader("Testing LevelDB");
+   //printTestHeader("Testing LevelDB");
    //TestLevelDB("blk0001db", blkdir + string("/blk0001.dat"));
-   TestLDBScanBlockchain("blk0001db");
+   //TestLDBScanBlockchain("blk0001db");
    
+
+   printTestHeader("Testing LDB Blockchain utilities");
+   TestLdbBlockchainUtils(blkdir);
+
+
    /////////////////////////////////////////////////////////////////////////////
    // ***** Print out all timings to stdout and a csv file *****
    //       Any method, anywhere, that called UniversalTimer
@@ -1845,6 +1851,23 @@ void TestLDBScanBlockchain(string testdbpath)
    cout << "Total TxOuts: " << allbtc/1e8 << endl;
 
 }
+
+
+
+void TestLdbBlockchainUtils(string blkdir)
+{
+   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   bdm.SetBlkFileLocation(blkdir, 4, 1);
+
+   string pathH("testldb/ldbtestHeaders");
+   string pathT("testldb/ldbtestTx");
+   string pathR("testldb/ldbtestTransient");
+
+   bdm.setLevelDBPaths(pathH, pathT, pathR);
+
+   
+}
+
 
 
 

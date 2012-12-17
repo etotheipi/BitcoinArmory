@@ -35,6 +35,7 @@
 #include "cryptlib.h"
 #include "sha.h"
 #include "UniversalTimer.h"
+#include "leveldb/db.h"
 
 
 
@@ -318,7 +319,7 @@ public:
    void writeToLDB(leveldb::DB* db) const
    {
       BinaryWriter keyWriter(4+32);
-      keyWriter.put_BinaryData( string("RGTX").data(), 4);
+      keyWriter.put_BinaryData( (uint8_t const *)string("RGTX").data(), 4);
       keyWriter.put_BinaryData( txHash_ );
       
       BinaryWriter valWriter;
@@ -622,7 +623,7 @@ public:
    void writeToLDB(leveldb::DB* db) const
    {
       BinaryWriter keyWriter(4+20);
-      keyWriter.put_BinaryData( string("ADDR").data(), 4);
+      keyWriter.put_BinaryData( (uint8_t const *)string("ADDR").data(), 4);
       keyWriter.put_BinaryData( addr160_ );
       
       BinaryWriter valWriter;

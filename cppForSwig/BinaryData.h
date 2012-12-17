@@ -1121,7 +1121,7 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   void put_BinaryData(uint8_t* targPtr, uint32_t nBytes)
+   void put_BinaryData(uint8_t const * targPtr, uint32_t nBytes)
    {
       theString_.append(targPtr, nBytes);
    }
