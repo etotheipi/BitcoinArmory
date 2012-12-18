@@ -2094,7 +2094,7 @@ void BlockDataManager_FileRefs::Reset(void)
    // Clear out all the "real" data in the blkfile
    blkFileDir_ = "";
    headerMap_.clear();
-   txHintMap_.clear();
+   //txHintMap_.clear();
 
    // These are not used at the moment, but we should clear them anyway
    blkFileList_.clear();

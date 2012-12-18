@@ -846,7 +846,7 @@ public:
 
    bool isDirty(uint32_t numBlockToBeConsideredDirty=2016) const; 
 
-   uint32_t getNumTx(void) { return txHintMap_.size(); }
+   //uint32_t getNumTx(void) { return txHintMap_.size(); }
    uint32_t getNumHeaders(void) { return headerMap_.size(); }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -907,7 +907,7 @@ public:
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }
-   uint32_t getNumTx(void) const { return txHintMap_.size(); }
+   //uint32_t getNumTx(void) const { return txHintMap_.size(); }
 
    vector<BlockHeader*> getHeadersNotOnMainChain(void);
 
@@ -976,7 +976,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    // A couple random methods to expose internal data structures for testing.
    // These methods should not be used for nominal operation.
-   multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
+   //multimap<HashString, TxRef> &  getTxHintMapRef(void) { return txHintMap_; }
    map<HashString, BlockHeader> & getHeaderMapRef(void) { return headerMap_; }
    deque<BlockHeader*> &          getHeadersByHeightRef(void) { return headersByHeight_;}
 
