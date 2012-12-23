@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>
+# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
 # Distributed under the GNU Affero General Public License (AGPL v3)
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
@@ -8,34 +8,14 @@
 #
 # Project:    Armory
 # Author:     Alan Reiner
+# Website:    www.bitcoinarmory.com
 # Orig Date:  20 November, 2011
-# Descr:      This file serves as an engine for python-based Bitcoin software.
-#             I forked this from my own project -- PyBtcEngine -- because I
-#             I needed to start including/rewriting code to use CppBlockUtils
-#             but did not want to break the pure-python-ness of PyBtcEngine.
-#             If you are interested in in a pure-python set of bitcoin utils
-#             please go checkout the PyBtcEngine github project.
-#
-#             Of course, the biggest advatage here is that you have access to
-#             the blockchain through BlockObj/BlockObjRef/BlockUtils, as found
-#             in the CppForSWIG directory.  This is available in PyBtcEngine,
-#             but I had to split out the modules, and I didn't have a good way
-#             to maintain the pure-python module while also implementing all
-#             the great SWIG-imported C++ utilities I built.
-#
-#             This module replaces the ECDSA operations, with faster ones
-#             implemented in C++ from Crypto++.  This also enables the ability
-#             to use SecureBinaryData objects for moving around private keys,
-#             though I'm not entirely clear if python-based memory management
-#             is going to properly clean up after itself, even with a page-
-#             locked, self-destructing data container.
-#
 #
 ################################################################################
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 86, 2, 0)  # (Major, Minor, Minor++, even-more-minor)
+BTCARMORY_VERSION    = (0, 86, 3, 0)  # (Major, Minor, Minor++, even-more-minor)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Minor++, even-more-minor)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -6823,7 +6803,7 @@ class PyBtcWallet(object):
          self.syncWithBlockchainLite(0)  
       self.doBlockchainSync = oldSync
 
-      highestIndex = self.highestUsedChainIndex
+      highestIndex = max(self.highestUsedChainIndex, 0)
       for addr in self.getLinearAddrList(withAddrPool=True):
          a160 = addr.getAddr160()
          if len(self.getAddrTxLedger(a160)) > 0:

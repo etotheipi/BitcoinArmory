@@ -1,23 +1,15 @@
 ################################################################################
 #
-# Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>
+# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
 # Distributed under the GNU Affero General Public License (AGPL v3)
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
 ################################################################################
 #
-# Project:    Armory                (https://github.com/etotheipi/BitcoinArmory)
+# Project:    Armory              
 # Author:     Alan Reiner
+# Website:    www.bitcoinarmory.com
 # Orig Date:  20 November, 2011
-#
-# Descr:      This is the client/GUI for Armory.  Complete wallet management,
-#             encryption, offline private keys, watching-only wallets, and
-#             hopefully multi-signature transactions.
-#
-#             The features of the underlying library (armoryengine.py) make 
-#             this considerably simpler than it could've been, but my PyQt 
-#             skills leave much to be desired.
-#
 #
 ################################################################################
 

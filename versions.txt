@@ -6,7 +6,7 @@
 
 
 #-------------------------------------------------------------------------------
-VERSION 0.86.2
+VERSION 0.86.3
 
    - Right-click Ledger Options
         Added right-click menu to ledger for quick access to transaction
@@ -15,6 +15,10 @@ VERSION 0.86.2
    - Offline-Sign Confirmation & Warnings
         Offline signing now displays appropriate warnings about what users 
         should verify for before signing and broadcasting.
+
+   - Added Comments to Coin Control (Expert Mode)
+        Abbreviated comments are now show in the coin control selection
+        window, with full comments availble via mouse-over text.
 
    - Bugfix: Disappearing Addresses
         Some startup operations were inadvertantly "rewinding" wallets with
@@ -26,9 +30,6 @@ VERSION 0.86.2
         All fields in the primary ledger are sortable.  Some fields become
         unsortable as a side-effect of ledger optimizations in v0.85.
 
-   - Added Comments to Coin Control (Expert Mode)
-        Abbreviated comments are now show in the coin control selection
-        window, with full comments availble via mouse-over text.
         
 
 #-------------------------------------------------------------------------------
