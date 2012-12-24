@@ -1066,8 +1066,8 @@ void BtcWallet::scanTx(Tx & tx,
          TxOut txout = tx.getTxOut(iout);
          if( txout.getScriptType() == TXOUT_SCRIPT_UNKNOWN )
          {
-            if(txout.getScriptRef().find(addr20) > -1)
-               scanNonStdTx(blknum, txIndex, tx, iout, *thisAddrPtr);
+            //if(txout.getScriptRef().find(addr20) > -1)
+               //scanNonStdTx(blknum, txIndex, tx, iout, *thisAddrPtr);
             continue;
          }
 
