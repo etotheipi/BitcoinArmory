@@ -138,7 +138,7 @@ Colors.ToolTipQ         = Colors.LBtnNormalFG
 def htmlColor(name):
    """ 
    These are not official HTML colors:  this is simply a method
-   for taking one of the baove colors and converting to a hex string
+   for taking one of the above colors and converting to a hex string
    """
    try:
       qcolor = Colors.__dict__[name]
