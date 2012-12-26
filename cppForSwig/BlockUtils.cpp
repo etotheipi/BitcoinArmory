@@ -1590,7 +1590,7 @@ vector<AddressBookEntry> BtcWallet::createAddressBook(void)
 ////////////////////////////////////////////////////////////////////////////////
 BlockDataManager_FileRefs::BlockDataManager_FileRefs(void) : 
       totalBlockchainBytes_(0),
-      lastBlkFileBytes_(0),
+      endOfPrevLastBlock_(0),
       topBlockPtr_(NULL),
       genBlockPtr_(NULL),
       lastBlockWasReorg_(false),
@@ -1728,7 +1728,7 @@ void BlockDataManager_FileRefs::Reset(void)
    orphanChainStartBlocks_.clear();
    
    totalBlockchainBytes_ = 0;
-   lastBlkFileBytes_ = 0;
+   endOfPrevLastBlock_ = 0;
 
    isInitialized_ = false;
 
@@ -2646,7 +2646,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
-   lastBlkFileBytes_     = globalCache.getLastFileSize();
+   //endOfPrevLastBlock_     = globalCache.getLastFileSize();
 
 
 
@@ -2690,16 +2690,52 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 
    // Make sure the file exists and is readable
    string filename = blkFileList_[blkFileList_.size()-1];
-   uint64_t filesize = BtcUtils::GetFileSize(filename);
+
+   uint64_t filesize = FILE_DOES_NOT_EXIST;
+   ifstream is(filename.c_str(), ios::in|ios::binary);
+   if(is.is_open())
+   {
+      is.seekg(0, ios::end);
+      filesize = (size_t)is.tellg();
+   }
+      
+
    if( filesize == FILE_DOES_NOT_EXIST )
    {
       cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
       cerr << "***ERROR:  Cannot open " << filename.c_str() << endl;
       return 0;
    }
+   else if(filesize-endOfPrevLastBlock_ < 8)
+   {
+      // This condition triggers if we hit the end of the file -- will
+      // usually only be triggered by Bitcoin-Qt/bitcoind pre-0.8
+      currBlkBytesToRead = 0;
+   }
+   else
+   {
+      // For post-0.8, the filesize will almost always be larger (padded).
+      // Keep checking where we expect to see magic bytes, we know we're 
+      // at the end if we see zero-bytes instead.
+      uint64_t endOfNewLastBlock = endOfPrevLastBlock_;
+      BinaryData fourBytes(4);
+      while(filesize - endOfNewLastBlock >= 8)
+      {
+         is.seekg(endOfNewLastBlock, ios::beg);
+         is.read((char*)fourBytes.getPtr(), 4);
 
-   // We succeeded opening the file, check to see if there's new data
-   uint32_t currBlkBytesToRead = (uint32_t)(filesize - lastBlkFileBytes_);
+         if(fourBytes!=MagicBytes_)
+            break;
+         else
+         {
+            is.read((char*)fourBytes.getPtr(), 4);
+            endOfNewLastBlock += *(uint32_t*)(fourBytes.getPtr()) + 8;
+         }
+      }
+
+      currBlkBytesToRead = endOfNewLastBlock - endOfPrevLastBlock_;
+   }
+      
 
    // Check to see if there was a blkfile split, and we have to switch
    // to tracking the new file..  this condition may trigger only once a year...
@@ -2732,12 +2768,16 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    if(currBlkBytesToRead>0)
    {
       ifstream is(filename.c_str(), ios::in | ios::binary);
-      is.seekg(lastBlkFileBytes_, ios::beg);
+      is.seekg(endOfPrevLastBlock_, ios::beg);
       is.read((char*)newBlockDataRaw.getPtr(), currBlkBytesToRead);
       is.close();
    }
 
    // If a new block file exists, read that one too
+   // nextBlkBytesToRead will include up to 16 MB of padding if our gateway
+   // is a bitcoind/qt 0.8+ node.  Either way, it will be easy to detect when
+   // we've reached the end of the real data, as long as there is no gap 
+   // between the end of currBlk data and the start of newBlk data (there isn't)
    if(nextBlkBytesToRead>0)
    {
       uint8_t* ptrNextData = newBlockDataRaw.getPtr() + currBlkBytesToRead;
@@ -2746,9 +2786,11 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       is.close();
    }
 
+
    // Use the specialized "addNewBlockData()" methods to add the data
    // to the permanent memory pool and parse it into our header/tx maps
    BinaryRefReader brr(newBlockDataRaw);
+   BinaryData fourBytes(4);
    uint32_t nBlkRead = 0;
    vector<bool> blockAddResults;
    bool keepGoing = true;
@@ -2757,24 +2799,28 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t blockHeaderOffset = lastBlkFileBytes_ + brr.getPosition() + 8;
+      uint32_t blockHeaderOffset = endOfPrevLastBlock_ + brr.getPosition() + 8;
       if(brr.getPosition() >= currBlkBytesToRead)
       {
-         useFileIndex0Idx++;
+         useFileIndex0Idx = numBlkFiles_;
          blockHeaderOffset = brr.getPosition() - currBlkBytesToRead + 8;
       }
       
 
       ////////////
       // The reader should be at the start of magic bytes of the new block
-      brr.advance(4);
+      brr.get_BinaryData(fourBytes, 4);
+      if(fourBytes != MagicBytes_)
+         break;
+         
       uint32_t nextBlockSize = brr.get_uint32_t();
-      //BinaryDataRef nextRawBlockRef(brr.getCurrPtr(), nextBlockSize+8);
       blockAddResults = addNewBlockData( brr,
                                          useFileIndex0Idx,
                                          blockHeaderOffset,
                                          nextBlockSize);
+
       ////////////
+      endOfPrevLastBlock_ += blockHeaderOffset + nextBlockSize;
 
       bool blockAddSucceeded = blockAddResults[0];
       bool blockIsNewTop     = blockAddResults[1];
@@ -2802,8 +2848,8 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
          keepGoing = false;
    }
-   lastBlkFileBytes_ += currBlkBytesToRead;
    lastTopBlock_ = getTopBlockHeight()+1;
+
 
    if(prevRegisteredUpToDate)
    {
@@ -2815,7 +2861,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    cout << "Added new blocks to memory pool: " << nBlkRead << endl;
    if(nextBlkBytesToRead>0)
    {
-      lastBlkFileBytes_ = nextBlkBytesToRead;
       FileDataPtr::getGlobalCacheRef().openFile(numBlkFiles_, nextFilename);
       numBlkFiles_ += 1;
       blkFileList_.push_back(nextFilename);
@@ -2953,6 +2998,9 @@ bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
    // The pointer will be going out of scope, but keep the file location data
    FileDataPtr fdpThisBlock(fileIndex0Idx, thisHeaderOffset-8, blockSize+8); 
    bhptr->setBlockFilePtr(fdpThisBlock);
+
+   // Note where we will start looking for the next block, later
+   endOfPrevLastBlock_ = thisHeaderOffset + blockSize;
 
    // Read the #tx and fill in some header properties
    uint8_t viSize;
