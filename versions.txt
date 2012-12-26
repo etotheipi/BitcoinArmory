@@ -4,6 +4,10 @@
 # about the latest version.  This is a good way to document progress,
 # anyway...
 
+#-------------------------------------------------------------------------------
+VERSION 0.86.4
+   - Bugfix: P2Pool Transactions
+        Importing wallets with P2Pool transactions no long crash Armory
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.3

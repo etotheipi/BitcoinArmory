@@ -2601,14 +2601,20 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    
       bool alreadyRead8B = false;
       uint32_t nextBlkSize;
-      TIMER_START("while(bsb.streamPull())");
+      bool isEOF = false;
+      BinaryData firstFour(4);
       while(bsb.streamPull())
       {
          while(bsb.reader().getSizeRemaining() > 8)
          {
             if(!alreadyRead8B)
             {
-               bsb.reader().advance(4);
+               bsb.reader().get_BinaryData(firstFour, 4);
+               if(firstFour!=MagicBytes_)
+               {
+                  isEOF = true; 
+                  break;
+               }
                nextBlkSize = bsb.reader().get_uint32_t();
                bytesReadSoFar_ += 8;
             }
@@ -2626,10 +2632,10 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
             bytesReadSoFar_ += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
          }
+   
+         if(isEOF) 
+            break;
       }
-      //globalCache.openFile(fnum-1, blkfile);
-      TIMER_STOP("while(bsb.streamPull())");
-
       filesize = BtcUtils::GetFileSize(blkfile);
    }
 

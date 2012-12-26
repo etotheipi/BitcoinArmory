@@ -1451,7 +1451,7 @@ def parsePrivateKeyData(theStr):
       hexChars = '01234567890abcdef'
       b58Chars = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
 
-      hexCount = sum([1 if c in hexChars else 0 for c in theStr])
+      hexCount = sum([1 if c in hexChars else 0 for c in theStr.lower()])
       b58Count = sum([1 if c in b58Chars else 0 for c in theStr])
       canBeHex = hexCount==len(theStr)
       canBeB58 = b58Count==len(theStr)

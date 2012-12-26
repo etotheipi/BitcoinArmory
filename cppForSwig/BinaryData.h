@@ -1200,24 +1200,25 @@ public:
    // left in the stream
    bool streamPull(void)
    {
+      SCOPED_TIMER("StreamPull");
+
       uint32_t prevBufSizeRemain = binReader_.getSizeRemaining();
       if(fileBytesRemaining_ == 0)
          return false;
 
-      TIMER_START("Stream Pull");
       if( binReader_.getPosition() <= 0)
       {
          // No data to shuffle, just pull from the stream buffer
          if(fileBytesRemaining_ > binReader_.getSize())
          {
             // Enough left in the stream to fill the entire buffer
-            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)(binReader_.exposeDataPtr()), binReader_.getSize()));
+            streamPtr_->read((char*)(binReader_.exposeDataPtr()), binReader_.getSize());
             fileBytesRemaining_ -= binReader_.getSize();
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)(binReader_.exposeDataPtr()), fileBytesRemaining_));
+            streamPtr_->read((char*)(binReader_.exposeDataPtr()), fileBytesRemaining_);
             binReader_.resize(fileBytesRemaining_);
             fileBytesRemaining_ = 0;
          }
@@ -1233,18 +1234,17 @@ public:
          if(fileBytesRemaining_ > numBytes)
          {
             // Enough data left in the stream to fill the entire buffer
-            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)putNewDataPtr, numBytes));
+            streamPtr_->read((char*)putNewDataPtr, numBytes);
             fileBytesRemaining_ -= numBytes;
          }
          else
          {
             // The buffer is bigger than the remaining stream size
-            TIMER_WRAP_GROUP("StreamJustRead", streamPtr_->read((char*)putNewDataPtr, fileBytesRemaining_));
+            streamPtr_->read((char*)putNewDataPtr, fileBytesRemaining_);
             binReader_.resize(fileBytesRemaining_+ prevBufSizeRemain); 
             fileBytesRemaining_ = 0;
          }
       }
-      TIMER_STOP("Stream Pull");
 
       return true;
    }
