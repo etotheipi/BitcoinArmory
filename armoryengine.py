@@ -9324,7 +9324,7 @@ class ArmoryClient(Protocol):
             if inv[0]==MSG_INV_BLOCK:
                # We'll hear about the new block via blk0001.dat... and when
                # we do (within 5s), we should purge the zero-conf tx list
-               from twisted.internet import reactor
+               print '! New block broadcast received !'
             if inv[0]==MSG_INV_TX:
                if TheBDM.getBDMState()=='Scanning' or \
                   TheBDM.getTxByHash(inv[1]).isInitialized():

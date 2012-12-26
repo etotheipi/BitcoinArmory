@@ -1105,8 +1105,7 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiAvail  = False
 
       # Only need to check for the first blk file
-      blk0001filename = os.path.join(BTC_HOME_DIR, 'blk0001.dat')
-      self.haveBlkFile = os.path.exists(blk0001filename)
+      self.haveBlkFile = os.path.exists(BLKFILE_FIRSTFILE)
 
       # Prevent Armory from being opened twice
       from twisted.internet import reactor

@@ -2700,13 +2700,19 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    }
       
 
+   uint64_t currBlkBytesToRead;
+
+   cout << "filesize=" << filesize 
+        << " endOfPrevLastBlock_=" << endOfPrevLastBlock_ 
+        << endl;
+
    if( filesize == FILE_DOES_NOT_EXIST )
    {
       cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
       cerr << "***ERROR:  Cannot open " << filename.c_str() << endl;
       return 0;
    }
-   else if(filesize-endOfPrevLastBlock_ < 8)
+   else if((int64_t)filesize-(int64_t)endOfPrevLastBlock_ < 8)
    {
       // This condition triggers if we hit the end of the file -- will
       // usually only be triggered by Bitcoin-Qt/bitcoind pre-0.8
@@ -2719,7 +2725,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       // at the end if we see zero-bytes instead.
       uint64_t endOfNewLastBlock = endOfPrevLastBlock_;
       BinaryData fourBytes(4);
-      while(filesize - endOfNewLastBlock >= 8)
+      while((int64_t)filesize - (int64_t)endOfNewLastBlock >= 8)
       {
          is.seekg(endOfNewLastBlock, ios::beg);
          is.read((char*)fourBytes.getPtr(), 4);
@@ -2734,6 +2740,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       }
 
       currBlkBytesToRead = endOfNewLastBlock - endOfPrevLastBlock_;
+      cout << " currBlkBytesToRead=" << currBlkBytesToRead << endl;
    }
       
 
@@ -2747,6 +2754,8 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       nextBlkBytesToRead = 0;
    else
       cout << "New block file split! " << nextFilename << endl;
+
+   cout << " nextBlkBytesToRead=" << nextBlkBytesToRead << endl;
 
    // If there is no new data, no need to continue
    if(currBlkBytesToRead==0 && nextBlkBytesToRead==0)
@@ -2820,7 +2829,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
                                          nextBlockSize);
 
       ////////////
-      endOfPrevLastBlock_ += blockHeaderOffset + nextBlockSize;
+      endOfPrevLastBlock_ = blockHeaderOffset + nextBlockSize;
 
       bool blockAddSucceeded = blockAddResults[0];
       bool blockIsNewTop     = blockAddResults[1];

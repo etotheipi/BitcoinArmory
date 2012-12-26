@@ -690,7 +690,7 @@ private:
    uint32_t                           blkFileStart_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
-   uint64_t                           lastBlkFileBytes_;
+   uint64_t                           endOfPrevLastBlock_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
