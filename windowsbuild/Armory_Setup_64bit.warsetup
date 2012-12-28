@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="2371" projectName="Armory Bitcoin Client" projectUuid="896f6129-5b40-4365-8eb2-9bea65fea51a" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.85" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="armory_0.85-beta_win64" projectType="0" projectUserInterface="WixUI_InstallDir">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="2665" projectName="Armory Bitcoin Client" projectUuid="f2b8b714-5a5f-4fe0-8a5f-f80cea9caacf" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.86.5" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="armory_0.86.4-beta_win64" projectType="0" projectUserInterface="WixUI_InstallDir">
   <LicencePaths>
     <string>C:\Program Files (x86)\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
@@ -326,12 +326,6 @@
       <components componentId="ID1510" componentGuid="e767c37d-10b4-435c-8be7-a45685ca28e9">
         <componentFiles fileId="ID_e3bee3b6_3ee2_4c1f_bdb1_c164e92d9bb1" srcName="CppBlockUtils.py" srcDirectory=".." dstName="CppBlockUtils.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1509" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1512" componentGuid="90c91085-3640-4501-9539-6c406bd88094">
-        <componentFiles fileId="ID_6e6f3b25_988b_4941_93d9_fd92c14b58a5" srcName="createTxFromAddrList.py" srcDirectory=".." dstName="createTxFromAddrList.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="createTxFromAddrList" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1511" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>
