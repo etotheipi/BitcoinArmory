@@ -6,8 +6,14 @@
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.4
+   - Real support for Bitcoin-Qt/bitcoind 0.8+
+        Prior attempt at supporting 0.8 Satoshi client was broken due to 
+        incomplete information about the changes.  Support has finally 
+        been implemented and tested.
+
    - Bugfix: P2Pool Transactions
         Importing wallets with P2Pool transactions no long crash Armory
+
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.3
