@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 86, 4, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 86, 5, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -9322,12 +9322,12 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               # We'll hear about the new block via blk0001.dat... and when
-               # we do (within 5s), we should purge the zero-conf tx list
+               # We'll hear about the new block via blk0001.dat, but it 
+               # doesn't hurt to identify when a new block is broadcast.
                print '! New block broadcast received !'
             if inv[0]==MSG_INV_TX:
                if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.getTxByHash(inv[1]).isInitialized():
+                  TheBDM.hasTxWithHash(inv[1]):
                   continue
                else:
                   #print 'Requesting new tx data'

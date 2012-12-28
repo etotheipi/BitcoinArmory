@@ -343,24 +343,27 @@ public:
       
    }
 
+
+
    /////////////////////////////////////////////////////////////////////////////
    void pprintCacheState(void)
    {
       uint32_t nFile = fileSizes_.size();
       cout << "FileDataCache information:" << endl;
-      cout << "   Cache Size: " << cacheSize_/1024.0 << " KiB" << endl;
-      cout << "   Cache Used: " << cacheUsed_/1024.0 << " KiB" << endl;
-      cout << "   Files Repr: " << cumulSizes_[nFile-1]/1024.0 << " KiB" << endl;
+      cout << "   Cache Size: " << BtcUtils::numToStrWCommas(cacheSize_).c_str() << " bytes" << endl;
+      cout << "   Cache Used: " << BtcUtils::numToStrWCommas(cacheUsed_).c_str() << " bytes" << endl;
+      cout << "   Files Repr: " << BtcUtils::numToStrWCommas(cumulSizes_[nFile-1]).c_str() << " bytes" << endl;
       cout << "   Files" << endl;
       for(uint32_t i=0; i<nFile; i++)
       {
          cout << "      ";
          cout << fileNames_[i].c_str() << " : ";
-         cout << fileSizes_[i]/1024.0 << " KiB (sum: ";
-         cout << cumulSizes_[i]/1024.0 << " KiB)" << endl;
+         cout << BtcUtils::numToStrWCommas(fileSizes_[i]).c_str() << " (sum: ";
+         cout << BtcUtils::numToStrWCommas(cumulSizes_[i]).c_str() << ")" << endl;
       }
       cout << endl;
 
+      /*
       cout << "   Cached Data: " << cachedData_.size() << " cache chunks " << endl;
 
       map<FileDataPtr, list<CacheData>::iterator>::iterator mapIter;
@@ -374,6 +377,7 @@ public:
          cout << endl;
       }
       cout << endl;
+      */
    }
 
    uint32_t getFileSize(uint32_t i) {return fileSizes_[i]; }
@@ -401,80 +405,6 @@ private:
    uint64_t                                      cacheSize_;
 
 };
-
-
-
-/*
-class FileDataPtr
-{
-private:
-
-
-
-public:
-
-   FileDataPtr(void) : 
-      fileLoc_(UINT32_MAX, UINT32_MAX),
-      nBytes_(0),
-      theData_(0) {} 
-
-   FileDataPtr(uint32_t fileIdx, uint32_t start, uint32_t nByte) : 
-      fileIndex_(fileIdx),
-      startByte_(start),
-      nBytes_(nByte),
-      theData_(0) 
-   {
-      if(fileIdx >= openFiles_.size())
-         cout << "***ERROR: FileDataPtr fileIndex_ out of range!" << endl;
-   } 
-
-   ~FileDataPtr(void) { theData_.clear(); }
-
-   uint8_t* getPtr()
-   {
-      // If the data is already here, return it.  
-      if( nBytes_ == theData_.size() )
-         return theData_.getPtr();
-
-      //Otherwise, load from file.
-      if( nBytes_    == 0                 ||
-          fileIndex_ == UINT32_MAX        ||
-          fileIndex_ >= openFiles_.size() ||
-          ! openFiles_[fileIndex_].is_open())
-         return NULL;
-         
-      theData_.resize(nBytes_); 
-      uint32_t numRead = openFiles_[fileIndex_].read(theData_.getPtr(), nBytes_);
-      if( numRead != nBytes_ )
-      {
-         cout << "***ERROR:  EOF reached before FileDataPtr finished " << endl;
-         return NULL;
-      }
-   }
-
-
-   // Here's where we handle persistently-open files
-   static uint32_t     getNumOpenFiles(void) { return openFiles_.size(); }
-   static ifstream &   getOpenFileRef(uint32_t i) {return openFiles_[i]; }
-
-   // This method will figure out if there is already a cached 
-   static uint8_t*     refIsInCache(FileDataPtr fdref) 
-   {
-      return openFiles_[i]; 
-   }
-   
-
-
-private:
-   FileDataPtr  fileLoc_;
-   uint32_t nBytes_;
-
-
-};
-
-*/
-
-
 
 
 

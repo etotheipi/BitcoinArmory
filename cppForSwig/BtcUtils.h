@@ -320,6 +320,37 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   static string numToStrWCommas(int64_t fullNum)
+   {
+      uint64_t num = fullNum;
+      num *= (fullNum < 0 ? -1 : 1);
+      vector<uint32_t> triplets;
+      do
+      {
+         int bottom3 = (num % 1000);
+         triplets.push_back( bottom3 );
+         num = (num - bottom3) / 1000;
+      } while(num>=1);
+
+      
+      stringstream out;
+      out << (fullNum < 0 ? "-" : "");
+      uint32_t nt = triplets.size()-1;
+      char t[4];
+      for(uint32_t i=0; i<=nt; i++)
+      {
+         if(i==0) 
+            sprintf(t, "%d",   triplets[nt-i]); 
+         else     
+            sprintf(t, "%03d", triplets[nt-i]); 
+         out << string(t);
+         
+         if(i != nt)
+            out << ",";
+      }
+      return out.str();
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////

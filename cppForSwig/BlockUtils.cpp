@@ -1829,8 +1829,10 @@ TxRef* BlockDataManager_FileRefs::getTxRefPtrByHash(HashString const & txhash)
    {
       hintMapIter iter;
       for( iter = eqRange.first; iter != eqRange.second; iter++ )
+      {
          if(iter->second.getThisHash() == txhash)
             return &(iter->second);
+      }
 
       // If we got here, we have some matching prefixes, but no tx that
       // match the full requested tx-hash
@@ -1900,18 +1902,17 @@ Tx BlockDataManager_FileRefs::getTxByHash(HashString const & txhash)
 
 
 /////////////////////////////////////////////////////////////////////////////
-bool BlockDataManager_FileRefs::hasTxWithHash(HashString const & txhash,
-                                             bool includeZeroConf)
+int BlockDataManager_FileRefs::hasTxWithHash(BinaryData const & txhash)
 {
    if(getTxRefPtrByHash(txhash)==NULL)
    {
-      if(zeroConfMap_.find(txhash)==zeroConfMap_.end() || !includeZeroConf)
-         return false;
+      if(zeroConfMap_.find(txhash)==zeroConfMap_.end())
+         return 0;  // No tx at all
       else
-         return true;
+         return 1;  // Zero-conf tx
    }
    else
-      return true;
+      return 2;     // In the blockchain already
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -2534,6 +2535,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    totalBlockchainBytes_ = 0;
    blkFileList_.clear();
 
+
    while(numBlkFiles_ < UINT16_MAX)
    {
       string path = BtcUtils::getBlkFilename(blkFileDir_,
@@ -2556,6 +2558,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    cout << "Highest blkXXXX.dat file: " << numBlkFiles_ << endl;
 
 
+
    if(GenesisHash_.getSize() == 0)
    {
       cout << "***ERROR:  Must set network params before loading blockchain!" << endl;
@@ -2572,20 +2575,14 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    {
       string blkfile = blkFileList_[fnum-1];
       cout << "Attempting to read blockchain from file: " << blkfile.c_str() << endl;
-      uint64_t filesize = BtcUtils::GetFileSize(blkfile);
-      if( filesize == FILE_DOES_NOT_EXIST )
-      {
-         cout << "***ERROR:  Cannot open " << blkfile.c_str() << endl;
-         cerr << "***ERROR:  Cannot open " << blkfile.c_str() << endl;
-         return 0;
-      }
+      uint64_t filesize = globalCache.getFileSize(fnum-1);
 
       // Open the file, and check the magic bytes on the first block
       ifstream is(blkfile.c_str(), ios::in | ios::binary);
       BinaryData fileMagic(4);
       is.read((char*)(fileMagic.getPtr()), 4);
       is.seekg(0, ios::beg);
-      cout << blkfile.c_str() << " is " << filesize/(float)(1024*1024) << " MB" << endl;
+      cout << blkfile.c_str() << " is " << BtcUtils::numToStrWCommas(filesize).c_str() << " bytes" << endl;
 
       if( !(fileMagic == MagicBytes_ ) )
       {
@@ -2627,7 +2624,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
             alreadyRead8B = false;
    
             BinaryRefReader brr(bsb.reader().getCurrPtr(), nextBlkSize);
-            parseNewBlockData(brr, fnum-1, bsb.getFileByteLocation(), nextBlkSize);
+            parseNewBlock(brr, fnum-1, bsb.getFileByteLocation(), nextBlkSize);
             blocksReadSoFar_++;
             bytesReadSoFar_ += nextBlkSize;
             bsb.reader().advance(nextBlkSize);
@@ -2636,8 +2633,8 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
          if(isEOF) 
             break;
       }
-      filesize = BtcUtils::GetFileSize(blkfile);
    }
+
 
    
    // We now have a map of all blocks, let's organize them into a chain.
@@ -2646,7 +2643,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
    // We need to maintain the physical size of all blkXXXX.dat files together
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
-   //endOfPrevLastBlock_     = globalCache.getLastFileSize();
 
 
 
@@ -2659,7 +2655,6 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    // Since loading takes so long, there's a good chance that new block data
    // came in... let's get it.
    readBlkFileUpdate();
-   
 
    // Return the number of blocks read from blkfile (this includes invalids)
    isInitialized_ = true;
@@ -2702,10 +2697,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 
    uint64_t currBlkBytesToRead;
 
-   cout << "filesize=" << filesize 
-        << " endOfPrevLastBlock_=" << endOfPrevLastBlock_ 
-        << endl;
-
    if( filesize == FILE_DOES_NOT_EXIST )
    {
       cout << "***ERROR:  Cannot open " << filename.c_str() << endl;
@@ -2740,9 +2731,9 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       }
 
       currBlkBytesToRead = endOfNewLastBlock - endOfPrevLastBlock_;
-      cout << " currBlkBytesToRead=" << currBlkBytesToRead << endl;
    }
       
+
 
    // Check to see if there was a blkfile split, and we have to switch
    // to tracking the new file..  this condition may trigger only once a year...
@@ -2755,7 +2746,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
    else
       cout << "New block file split! " << nextFilename << endl;
 
-   cout << " nextBlkBytesToRead=" << nextBlkBytesToRead << endl;
 
    // If there is no new data, no need to continue
    if(currBlkBytesToRead==0 && nextBlkBytesToRead==0)
@@ -2828,8 +2818,6 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
                                          blockHeaderOffset,
                                          nextBlockSize);
 
-      ////////////
-      endOfPrevLastBlock_ = blockHeaderOffset + nextBlockSize;
 
       bool blockAddSucceeded = blockAddResults[0];
       bool blockIsNewTop     = blockAddResults[1];
@@ -2977,15 +2965,15 @@ bool BlockDataManager_FileRefs::verifyBlkFileIntegrity(void)
 /////////////////////////////////////////////////////////////////////////////
 // Pass in a BRR that starts at the beginning of the serialized block,
 // i.e. the first 80 bytes of this BRR is the blockheader
-bool BlockDataManager_FileRefs::parseNewBlockData(BinaryRefReader & brr,
-                                                  uint32_t fileIndex0Idx,
-                                                  uint32_t thisHeaderOffset,
-                                                  uint32_t blockSize)
+bool BlockDataManager_FileRefs::parseNewBlock(BinaryRefReader & brr,
+                                              uint32_t fileIndex0Idx,
+                                              uint32_t thisHeaderOffset,
+                                              uint32_t blockSize)
 {
    if(brr.getSizeRemaining() < blockSize || brr.isEndOfStream())
    {
-      cout << "***ERROR:  parseNewBlockData did not get enough data..." << endl;
-      cerr << "***ERROR:  parseNewBlockData did not get enough data..." << endl;
+      cout << "***ERROR:  parseNewBlock did not get enough data..." << endl;
+      cerr << "***ERROR:  parseNewBlock did not get enough data..." << endl;
       return false;
    }
 
@@ -3083,7 +3071,7 @@ vector<bool> BlockDataManager_FileRefs::addNewBlockData(BinaryRefReader & brrRaw
    HashString newHeadHash = BtcUtils::getHash256(startPtr, HEADER_SIZE);
 
    // Now parse the block data and record where it will be on disk
-   bool addDataSucceeded = parseNewBlockData(brrRawBlock, 
+   bool addDataSucceeded = parseNewBlock(brrRawBlock, 
                                              fileIndex0Idx,
                                              thisHeaderOffset,
                                              blockSize);

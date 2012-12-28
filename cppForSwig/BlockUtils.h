@@ -823,10 +823,10 @@ public:
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   bool     parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                              uint32_t fileIndex,
-                              uint32_t thisHeaderOffset,
-                              uint32_t blockSize);
+   bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
+                          uint32_t fileIndex,
+                          uint32_t thisHeaderOffset,
+                          uint32_t blockSize);
                      
 
 
@@ -845,7 +845,7 @@ public:
                                        BlockHeader* newTopPtr,
                                        BlockHeader* branchPtr );
 
-   bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true);
+   int  hasTxWithHash(BinaryData const & txhash);
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }

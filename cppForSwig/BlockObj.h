@@ -449,7 +449,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
-   //bool               isInitialized(void)  const { return blkFilePtr_!=NULL; }
    bool               isMainBranch(void)  const;
    uint32_t           getSize(void) const {  return blkFilePtr_.getNumBytes(); }
 
