@@ -6078,6 +6078,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       self.btnSave      = QPushButton('Save file...')
       self.btnLoad      = QPushButton('Load file...')
       self.btnCopy      = QPushButton('Copy Text')
+      self.btnCopyHex   = QPushButton('Copy Final Tx (Hex)')
       self.lblCopied    = QRichLabel('')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
@@ -6092,6 +6093,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       self.connect(self.btnSave,      SIGNAL('clicked()'), self.saveTx)
       self.connect(self.btnLoad,      SIGNAL('clicked()'), self.loadTx)
       self.connect(self.btnCopy,      SIGNAL('clicked()'), self.copyTx)
+      self.connect(self.btnCopyHex,   SIGNAL('clicked()'), self.copyTxHex)
 
       self.lblStatus = QRichLabel('')
       self.lblStatus.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -6162,11 +6164,13 @@ class DlgReviewOfflineTx(ArmoryDialog):
       frmMoreInfo = makeLayoutFrame('Horiz', [self.moreInfo], STYLE_SUNKEN)
       frmMoreInfo.setMinimumHeight( tightSizeStr(self.moreInfo, 'Any String')[1]*5)
 
+      expert = (self.main.usermode==USERMODE.Expert)
       frmBtn = makeLayoutFrame('Vert', [ self.btnSign, \
                                          self.btnBroadcast, \
                                          self.btnSave, \
                                          self.btnLoad, \
                                          self.btnCopy, \
+                                         self.btnCopyHex if expert else QRichLabel(''), \
                                          self.lblCopied, \
                                          HLINE(), \
                                          self.lblStatus, \
@@ -6588,6 +6592,13 @@ class DlgReviewOfflineTx(ArmoryDialog):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(str(self.txtTxDP.toPlainText()))
+      self.lblCopied.setText('<i>Copied!</i>')
+
+
+   def copyTxHex(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      clipb.setText(binary_to_hex(self.txdpObj.prepareFinalTx().serialize()))
       self.lblCopied.setText('<i>Copied!</i>')
 
 
@@ -7596,11 +7607,13 @@ class DlgDispTxInfo(ArmoryDialog):
          self.scriptArea.setWidget( makeLayoutFrame('Vert', [lblScript]))
          self.scriptArea.setMaximumWidth(200)
          
+
    def copyRawTx(self):
       clipb = QApplication.clipboard()
       clipb.clear()
       clipb.setText(binary_to_hex(self.pytx.serialize()))
       self.lblCopied.setText('<i>Copied to Clipboard!</i>')
+
       
    #############################################################################
    def showContextMenuTxIn(self, pos):

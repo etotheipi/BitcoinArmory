@@ -1105,6 +1105,7 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiAvail  = False
 
       # Only need to check for the first blk file
+      print BLKFILE_FIRSTFILE
       self.haveBlkFile = os.path.exists(BLKFILE_FIRSTFILE)
 
       # Prevent Armory from being opened twice
