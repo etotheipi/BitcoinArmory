@@ -10444,8 +10444,7 @@ class DlgVersionNotify(ArmoryDialog):
             'reinstall Armory.' % (self.myVersionStr, self.latestVerStr))
 
       lblDescr.setOpenExternalLinks(True)
-      lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
-                                       Qt.TextSelectableByKeyboard)
+      
       lblChnglog = QRichLabel('')
       if wasRequested:
          lblChnglog = QRichLabel("<b>Changelog</b>:")
