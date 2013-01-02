@@ -1105,7 +1105,6 @@ class ArmoryMainWindow(QMainWindow):
       self.satoshiAvail  = False
 
       # Only need to check for the first blk file
-      print BLKFILE_FIRSTFILE
       self.haveBlkFile = os.path.exists(BLKFILE_FIRSTFILE)
 
       # Prevent Armory from being opened twice
@@ -1268,7 +1267,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def newTxFunc(self, pytxObj):
-      if TheBDM.getBDMState()=='Offline' or self.doShutdown:
+      if TheBDM.getBDMState() in ('Offline','Uninitialized') or self.doShutdown:
          return
 
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
@@ -1300,7 +1299,7 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('The following URI string was parsed:')
       LOGINFO(uriStr.replace('%','%%'))
       uriDict = parseBitcoinURI(uriStr)
-      if TheBDM.getBDMState()=='Offline':
+      if TheBDM.getBDMState() in ('Offline','Uninitialized'):
          LOGERROR('%sed "bitcoin:" link in offline mode.' % ClickOrEnter)
          self.bringArmoryToFront() 
          QMessageBox.warning(self, 'Offline Mode',
@@ -2743,7 +2742,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def clickSendBitcoins(self):
-      if TheBDM.getBDMState()=='Offline':
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -3085,61 +3084,61 @@ class ArmoryMainWindow(QMainWindow):
             if not self.bitcoindIsAvailable():
                if self.internetAvail:
                   LOGDEBUG('Satoshi client is not available')
-                  lblText  = 'You are currently in offline mode because '
-                  lblText += 'Bitcoin-Qt is not running.  To switch to online ' 
-                  lblText += 'mode, start Bitcoin-Qt and let it synchronize with the network '
-                  lblText += '-- you will see a green checkmark in the bottom-right corner when '
-                  lblText += 'it is complete.  '
-                  lblText += '<br><br>'
-                  lblText += 'If you are new to Armory and/or Bitcoin-Qt, '
-                  lblText += 'please visit the Armory '
-                  lblText += 'webpage for more information.  Start at '
-                  lblText += '<a href="http://bitcoinarmory.com/index.php/armory-and-bitcoin-qt">'
-                  lblText += 'Why Armory needs Bitcoin-Qt</a> or go straight to our <a '
-                  lblText += 'href="http://bitcoinarmory.com/index.php/frequently-asked-questions">'
-                  lblText += 'frequently asked questions</a> page for more general information.'
-                  lblText += '<br><br>'
-                  lblText += 'If you already know what you\'re doing and simply need '
-                  lblText += 'to fetch the latest version of Bitcoin-Qt, you can download it from '
-                  lblText += '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.'
+                  lblText = ('You are currently in offline mode because '
+                             'Bitcoin-Qt is not running.  To switch to online ' 
+                             'mode, start Bitcoin-Qt and let it synchronize with the network '
+                             '-- you will see a green checkmark in the bottom-right corner when '
+                             'it is complete.  '
+                             '<br><br>'
+                             'If you are new to Armory and/or Bitcoin-Qt, '
+                             'please visit the Armory '
+                             'webpage for more information.  Start at '
+                             '<a href="http://bitcoinarmory.com/index.php/armory-and-bitcoin-qt">'
+                             'Why Armory needs Bitcoin-Qt</a> or go straight to our <a '
+                             'href="http://bitcoinarmory.com/index.php/frequently-asked-questions">'
+                             'frequently asked questions</a> page for more general information.'
+                             '<br><br>'
+                             'If you already know what you\'re doing and simply need '
+                             'to fetch the latest version of Bitcoin-Qt, you can download it from '
+                             '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.')
                else:
                   LOGDEBUG('Satoshi client and internet not available')
-                  lblText  = 'No internet connection was detected, and neither '
-                  lblText += 'Bitcoin-Qt or bitcoind is running.  Most likely '
-                  lblText += 'you are here because this is a system dedicated '
-                  lblText += 'to manage offline wallets! '
-                  lblText += '<br><br>'
-                  lblText += '<b>If you expected Armory to be in online mode</b>, '
-                  lblText += 'please verify your internet connection is active, then '
-                  lblText += 'start Bitcoin-Qt and let it synchronize with the '
-                  lblText += 'network (a green checkbox will appear in the bottom '
-                  lblText += 'right corner of the Bitcoin-Qt window when it is '
-                  lblText += 'finished).  Then restart Armory.'
-                  lblText += '<br><br>'
-                  lblText += 'If you do not have Bitcoin-Qt installed, you can '
-                  lblText += 'download it from <a href="http://www.bitcoin.org">'
-                  lblText += 'http://www.bitcoin.org</a>.'
+                  lblText = ('No internet connection was detected, and neither '
+                             'Bitcoin-Qt or bitcoind is running.  Most likely '
+                             'you are here because this is a system dedicated '
+                             'to manage offline wallets! '
+                             '<br><br>'
+                             '<b>If you expected Armory to be in online mode</b>, '
+                             'please verify your internet connection is active, then '
+                             'start Bitcoin-Qt and let it synchronize with the '
+                             'network (a green checkmark will appear in the bottom '
+                             'right corner of the Bitcoin-Qt window when it is '
+                             'finished).  Then restart Armory.'
+                             '<br><br>'
+                             'If you do not have Bitcoin-Qt installed, you can '
+                             'download it from <a href="http://www.bitcoin.org">'
+                             'http://www.bitcoin.org</a>.')
             elif not self.internetAvail:
                LOGDEBUG('Internet is not detected')
-               lblText  = 'You are currently in offline mode because '
-               lblText += 'Armory could not detect an internet connection.  '
-               lblText += 'If you think this is in error '
-               lblText += '(perhaps because you are using proxies), then '
-               lblText += 'restart Armory using the " --skip-online-check" option. '
-               lblText += '<br><br>'
-               lblText += 'If this is intended to be an offline computer, note '
-               lblText += 'that it is not necessary to have Bitcoin-Qt or bitcoind '
-               lblText += 'running.' 
+               lblText = ('You are currently in offline mode because '
+                          'Armory could not detect an internet connection.  '
+                          'If you think this is in error '
+                          '(perhaps because you are using proxies), then '
+                          'restart Armory using the " --skip-online-check" option. '
+                          '<br><br>'
+                          'If this is intended to be an offline computer, note '
+                          'that it is not necessary to have Bitcoin-Qt or bitcoind '
+                          'running.' )
             elif not self.haveBlkFile:
                LOGDEBUG('The blkXXXX.dat files are not accessible')
-               lblText  = 'You are currently in offline mode because '
-               lblText += 'Armory could not find the blockchain files produced '
-               lblText += 'by Bitcoin-Qt.  Do you run Bitcoin-Qt (or bitcoind) '
-               lblText += 'from a non-standard directory?   Armory expects to '
-               lblText += 'find the blkXXXX.dat files in <br><br>%s<br><br> '
-               lblText += 'If you know where it is located, please restart '
-               lblText += 'Armory using the " --satoshi-datadir=<FOLDERPATH> '
-               lblText += 'to notify Armory where to find them.'
+               lblText = ('You are currently in offline mode because '
+                          'Armory could not find the blockchain files produced '
+                          'by Bitcoin-Qt.  Do you run Bitcoin-Qt (or bitcoind) '
+                          'from a non-standard directory?   Armory expects to '
+                          'find the blkXXXX.dat files in <br><br>%s<br><br> '
+                          'If you know where they are located, please restart '
+                          'Armory using the " --satoshi-datadir=[path]" '
+                          'to notify Armory where to find them.') % BLKFILE_DIRECTORY
             lblText += '<br><br>' + txtOfflineFunc
             self.lblDashDescr.setText(lblText)
       elif TheBDM.getBDMState() == 'BlockchainReady':
@@ -3225,13 +3224,13 @@ class ArmoryMainWindow(QMainWindow):
          self.lblBusy.setVisible(True)
          lblText = '<b>Please be patient, scanning may take several minutes!</b><br><br>'
          if len(self.walletMap)==0:
-            lblText += 'Armory will go into online mode automatically, as soon as '
-            lblText += 'the scan is complete.'
+            lblText += ('Armory will go into online mode automatically, as soon as '
+                       'the scan is complete.')
          else:
-            lblText += 'Armory is scanning the global transaction history to retrieve '
-            lblText += 'information about your wallets.  The "Transactions" tab will '
-            lblText += 'be updated with wallet balances and history as soon as '
-            lblText += 'the scan is complete.  You may manage your wallets while you wait.'
+            lblText += ('Armory is scanning the global transaction history to retrieve '
+                        'information about your wallets.  The "Transactions" tab will '
+                        'be updated with wallet balances and history as soon as '
+                        'the scan is complete.  You may manage your wallets while you wait.')
 
          lblText += '<br><br>'
          lblText += txtScanFunc

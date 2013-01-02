@@ -159,7 +159,8 @@ class DlgNewWallet(ArmoryDialog):
       timeDescrTip = createToolTipObject(
                                'This is the amount of time it will take for your computer '
                                'to unlock your wallet after you enter your passphrase. '
-                               '(the actual time will be between T/2 and T).  ')
+                               '(the actual time used will be less than the specified '
+                               'time, but more than one half of it).  ')
       
       
       # Set maximum compute time
@@ -323,15 +324,27 @@ class DlgNewWallet(ArmoryDialog):
          elif kdfUnit.lower() in ('s', 'sec', 'seconds'):
             self.kdfSec = float(kdfT)
 
+         if not (self.kdfSec <= 20.0):
+            QMessageBox.critical(self, 'Invalid KDF Parameters', \
+               'Please specify a compute time no more than 20 seconds.  '
+               'Values above one second are usually unnecessary.')
+            return False
+
          kdfM, kdfUnit = str(self.edtComputeMem.text()).split(' ')
          if kdfUnit.lower()=='mb':
             self.kdfBytes = round(float(kdfM)*(1024.0**2) )
          if kdfUnit.lower()=='kb':
             self.kdfBytes = round(float(kdfM)*(1024.0))
 
+         if not (2**15 <= self.kdfBytes <= 2**31):
+            QMessageBox.critical(self, 'Invalid KDF Parameters', \
+               'Please specify a maximum memory usage between 32 kB '
+               'and 2048 MB.')
+            return False
+
          LOGINFO('KDF takes %0.2f seconds and %d bytes', self.kdfSec, self.kdfBytes)
       except:
-         QMessageBox.critical(self, 'Invalid KDF Parameters', \
+         QMessageBox.critical(self, 'Invalid Input', \
             'Please specify time with units, such as '
             '"250 ms" or "2.1 s".  Specify memory as kB or MB, such as '
             '"32 MB" or "256 kB". ', QMessageBox.Ok)
@@ -1006,7 +1019,7 @@ class DlgWalletDetails(ArmoryDialog):
 
    def execSendBtc(self):
       #if self.main.blkMode == BLOCKCHAINMODE.Offline:
-      if TheBDM.getBDMState() == 'Offline':
+      if TheBDM.getBDMState() in ('Offline', 'Uninitialized'):
          QMessageBox.warning(self, 'Offline Mode', \
            'Armory is currently running in offline mode, and has no '
            'ability to determine balances or create transactions. '
@@ -1164,7 +1177,6 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltID = self.wlt.uniqueIDB58
 
       if dispCrypto:
-         #kdftimestr = "%0.3f sec" % self.wlt.testKdfComputeTime()
          mem = self.wlt.kdf.getMemoryReqtBytes()
          kdfmemstr = str(mem/1024)+' kB'
          if mem >= 1024*1024:
@@ -1954,7 +1966,7 @@ class DlgImportAddress(ArmoryDialog):
                                          'Select this option if someone else gave you this key')
          self.radioSweep.setChecked(True)
       else:
-         if TheBDM.getBDMState()=='Offline':
+         if TheBDM.getBDMState() in ('Offline','Uninitialized'):
             self.radioSweep  = QRadioButton('Sweep any funds owned by this address '
                                             'into your wallet\n'
                                             '(Not available in offline mode)')
@@ -4645,6 +4657,7 @@ class DlgSendBitcoins(ArmoryDialog):
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
          
+      self.freeOfErrors = True
 
       feetip = createToolTipObject( \
             'Transaction fees go to users who contribute computing power to '
@@ -4758,13 +4771,16 @@ class DlgSendBitcoins(ArmoryDialog):
                             'You cannot use it to send bitcoins!')
          btnSend.setEnabled(False)
 
+
+      btnUnsigned = QPushButton('Create Unsigned Transaction')
+      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createOfflineTxDPAndDisplay)
+
       if not TheBDM.getBDMState()=='BlockchainReady':
          btnSend.setToolTip('<u></u>You are currently not connected to the Bitcoin network, '
                             'so you cannot initiate any transactions.')
          btnSend.setEnabled(False)
+         btnUnsigned.setEnabled(False)
             
-      btnUnsigned = QPushButton('Create Unsigned Transaction')
-      self.connect(btnUnsigned, SIGNAL('clicked()'), self.createOfflineTxDPAndDisplay)
 
 
       def addDonation():
@@ -4782,7 +4798,7 @@ class DlgSendBitcoins(ArmoryDialog):
       self.connect(btnDonate, SIGNAL("clicked()"), self.addDonation)
 
 
-      btnEnterURI = QPushButton('Manually enter "bitcoin:" link')
+      btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
       ttipEnterURI = createToolTipObject( \
          'Armory does not always succeed at registering itself to handle '
          'URL links from webpages and email.  '
@@ -5113,11 +5129,18 @@ class DlgSendBitcoins(ArmoryDialog):
             raise
 
 
+   #############################################################################
+   def changeWidgetTableColor(self, idx, col, color):
+      palette = QPalette()
+      palette.setColor( QPalette.Base, color)
+      self.widgetTable[idx][col].setPalette( palette );
+      self.widgetTable[idx][col].setAutoFillBackground( True );
+
 
    #############################################################################
    def validateInputsGetTxDP(self):
       COLS = self.COLS
-      okayToSend = True
+      self.freeOfErrors = True
       addrBytes = []
       for i in range(len(self.widgetTable)):
          # Verify validity of address strings
@@ -5132,18 +5155,12 @@ class DlgSendBitcoins(ArmoryDialog):
 
  
          if not addrIsValid:
-            okayToSend = False
-            palette = QPalette()
-            palette.setColor( QPalette.Base, Colors.SlightRed )
-            boldFont = self.widgetTable[i][COLS.Addr].font()
-            boldFont.setWeight(QFont.Bold)
-            self.widgetTable[i][COLS.Addr].setFont(boldFont)
-            self.widgetTable[i][COLS.Addr].setPalette( palette );
-            self.widgetTable[i][COLS.Addr].setAutoFillBackground( True );
+            self.freeOfErrors = False
+            self.changeWidgetTableColor(i, COLS.Addr, Colors.SlightRed)
 
 
       numChkFail  = sum([1 if b==-1 or b!=ADDRBYTE else 0 for b in addrBytes])
-      if not okayToSend:
+      if not self.freeOfErrors:
          QMessageBox.critical(self, 'Invalid Address', \
            'You have entered %d invalid addresses.  The errors have been '
            'highlighted on the entry screen.' % (numChkFail), \
@@ -5166,9 +5183,9 @@ class DlgSendBitcoins(ArmoryDialog):
       totalSend = 0
       for i in range(len(self.widgetTable)):
          try:
-            recipStr = str(self.widgetTable[i][COLS.Addr].text())
-            valueStr = str(self.widgetTable[i][COLS.Btc].text())
-            feeStr   = str(self.edtFeeAmt.text())
+            recipStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
+            valueStr = str(self.widgetTable[i][COLS.Btc].text()).strip()
+            feeStr   = str(self.edtFeeAmt.text()).strip()
 
             if '.' in valueStr and len(valueStr.split('.')[-1])>8:
                QMessageBox.critical(self, 'Too much precision', \
@@ -5185,9 +5202,13 @@ class DlgSendBitcoins(ArmoryDialog):
             if value==0:
                continue
          except ValueError:
-            QMessageBox.critical(self, 'Invalid Value String', \
-                'The amount you specified '
-                'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
+            if len(valueStr)==0:
+               QMessageBox.critical(self, 'Missing recipient amount', \
+                  'You did not specify an amount to send!', QMessageBox.Ok)
+            else:
+               QMessageBox.critical(self, 'Invalid Value String', \
+                  'The amount you specified '
+                  'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
             LOGERROR('Invalid amount specified: %s', valueStr)
             return False
 
@@ -5526,6 +5547,31 @@ class DlgSendBitcoins(ArmoryDialog):
          self.widgetTable[r][-1].setMinimumWidth(relaxedSizeNChar(GETFONT('var'), 38)[0])
          self.widgetTable[r][-1].setMaximumHeight(self.maxHeight)
          self.widgetTable[r][-1].setFont(GETFONT('var',9))
+
+         # This is the hack of all hacks -- but I have no other way to make this work. 
+         # For some reason, the references on variable r are carrying over between loops
+         # and all widgets are getting connected to the last one.  The only way I could 
+         # work around this was just ultra explicit garbage.  I'll pay 0.1 BTC to anyone
+         # who figures out why my original code was failing...
+         #idx = r+0
+         #chgColor = lambda x: self.changeWidgetTableColor(idx, COLS.Addr, QColor(255,255,255))
+         #self.connect(self.widgetTable[idx][-1], SIGNAL('textChanged(QString)'), chgColor)
+         if r==0:
+            chgColor = lambda x: self.changeWidgetTableColor(0, COLS.Addr, QColor(255,255,255))
+            self.connect(self.widgetTable[0][-1], SIGNAL('textChanged(QString)'), chgColor)
+         elif r==1:
+            chgColor = lambda x: self.changeWidgetTableColor(1, COLS.Addr, QColor(255,255,255))
+            self.connect(self.widgetTable[1][-1], SIGNAL('textChanged(QString)'), chgColor)
+         elif r==2:
+            chgColor = lambda x: self.changeWidgetTableColor(2, COLS.Addr, QColor(255,255,255))
+            self.connect(self.widgetTable[2][-1], SIGNAL('textChanged(QString)'), chgColor)
+         elif r==3:
+            chgColor = lambda x: self.changeWidgetTableColor(3, COLS.Addr, QColor(255,255,255))
+            self.connect(self.widgetTable[3][-1], SIGNAL('textChanged(QString)'), chgColor)
+         elif r==4:
+            chgColor = lambda x: self.changeWidgetTableColor(4, COLS.Addr, QColor(255,255,255))
+            self.connect(self.widgetTable[4][-1], SIGNAL('textChanged(QString)'), chgColor)
+
 
          addrEntryBox = self.widgetTable[r][-1]
          self.widgetTable[r].append( createAddrBookButton(self, addrEntryBox, \
@@ -5957,17 +6003,18 @@ class DlgOfflineSelect(ArmoryDialog):
       lblDescr = QRichLabel( \
          'In order to execute an offline transaction, three steps must '
          'be followed: <br><br>'
-         '\t(1) <u>On</u>line:  Create the unsigned transaction<br>'
-         '\t(2) <u>Off</u>line: Get the transaction signed<br>'
-         '\t(3) <u>On</u>line:  Broadcast the signed transaction<br><br>'
-         'Transactions can only be created by online computers, but watching-only '
-         'wallets cannot sign them.  The easiest way to execute all three steps '
+         '\t(1) <u>On</u>line Computer:  Create the unsigned transaction<br>'
+         '\t(2) <u>Off</u>line Computer: Get the transaction signed<br>'
+         '\t(3) <u>On</u>line Computer:  Broadcast the signed transaction<br><br>'
+         'You must create the transaction using a watch-only wallet on an online '
+         'system, but watch-only wallets cannot sign it.  Only the offline system '
+         'can create a valid signature.  The easiest way to execute all three steps '
          'is to use a USB key to move the data between computers.<br><br>'
-         'All the data produced during all three steps are completely '
-         'safe and do not reveal any private information that would benefit an '
-         'attacker.  It is acceptable to send transaction data over email or '
-         'copy it to a borrowed USB key.  Also, steps 1 and 3 do <u>not</u> '
-         'have to be performed on the same computer.')
+         'All the data saved to the removable medium during all three steps are '
+         'completely safe and do not reveal any private information that would benefit an '
+         'attacker trying to steal your funds.  However, this transaction data does '
+         'reveal some addresses in your wallet, and may represent a breach of '
+         '<i>privacy</i> if not protected.')
 
       btnCreate = QPushButton('Create New Offline Transaction')
       btnReview = QPushButton('Sign and/or Broadcast Transaction')
@@ -6063,7 +6110,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
          'If the transaction is unsigned and you have the correct wallet, '
          'you will have the opportunity to sign it.  If it is already signed '
          'you will have the opportunity to broadcast it to '
-         'the Bitcoin Network to make it final.')
+         'the Bitcoin network to make it final.')
 
 
 
@@ -6259,6 +6306,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
             self.btnBroadcast.setEnabled(False)
             self.btnBroadcast.setToolTip('No connection to Bitcoin network!')
 
+      self.btnSave.setEnabled(True)
+      self.btnCopyHex.setEnabled(False)
       if not self.txdpReadable:
          if len(txdpStr)>0:
             self.lblStatus.setText('<b><font color="red">Unrecognized!</font></b>')
@@ -6266,6 +6315,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
             self.lblStatus.setText('')
          self.btnSign.setEnabled(False)
          self.btnBroadcast.setEnabled(False)
+         self.btnSave.setEnabled(False)
          self.makeReviewFrame()
          return
       elif not self.enoughSigs:
@@ -6286,6 +6336,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       else:
          self.lblStatus.setText('<b><font color="green">All Signatures Valid!</font></b>')
          self.btnSign.setEnabled(False)
+         self.btnCopyHex.setEnabled(True)
       
 
       # NOTE:  We assume this is an OUTGOING transaction.  When I pull in the
@@ -6410,8 +6461,8 @@ class DlgReviewOfflineTx(ArmoryDialog):
          self.processTxDP()
 
       if not self.txdpObj:
-         QMessageBox.warning(self, 'No Transaction Info', \
-            'There is no transaction information to display!', QMessageBox.Ok)
+         QMessageBox.warning(self, 'Invalid Transaction', \
+            'Transaction data is invalid and cannot be shown!', QMessageBox.Ok)
          return
 
       dlgTxInfo = DlgDispTxInfo(self.txdpObj, self.wlt, self.parent, self.main, \
@@ -6534,12 +6585,31 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
       if reply==QMessageBox.Yes:
          self.main.broadcastTransaction(finalTx)
-         QMessageBox.warning(self, 'Done!', 'The transaction has been broadcast!', QMessageBox.Ok)
+         if self.fileLoaded:
+            reply = QMessageBox.warning(self, 'Done!', \
+               'The transaction has been broadcast!'
+               '<br><br>'
+               'Now that the transaction is final, the transaction file is no '
+               'longer needed.  Would you like to delete it?  '
+               '<br><br>'
+               'Delete %s?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
+            if reply==QMessageBox.Yes:
+               try:
+                  os.remove(self.fileLoaded)
+               except:
+                  QMessageBox.critical(self, 'File Remove Error', \
+                     'The file could not be deleted.  If you want to delete '
+                     'it, please do so manually.  The file was loaded from: '
+                     '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
+               
          self.accept()
 
 
 
    def saveTx(self):
+      if not self.txdpReadable:
+         reply = QMessageBox.warning
+
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
          reply = QMessageBox.question(self,'Overwrite?', \
          'This transaction was loaded from the following file:'
@@ -10457,8 +10527,7 @@ class DlgVersionNotify(ArmoryDialog):
             'reinstall Armory.' % (self.myVersionStr, self.latestVerStr))
 
       lblDescr.setOpenExternalLinks(True)
-      lblDescr.setTextInteractionFlags(Qt.TextSelectableByMouse | \
-                                       Qt.TextSelectableByKeyboard)
+
       lblChnglog = QRichLabel('')
       if wasRequested:
          lblChnglog = QRichLabel("<b>Changelog</b>:")

@@ -24,6 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
+Test_PyBkgdThread     = True
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -393,6 +394,9 @@ if Test_SimpleAddress:
    printpassorfail( sp.verifyTransactionValid() )
    print ''
 
+
+      
+      
 
 
 ################################################################################
@@ -2197,6 +2201,8 @@ if Test_AsyncBDM:
    
    
 
+################################################################################
+################################################################################
 if Test_Timers:
    print '***********************************************************************'
    print 'Testing Timer Objects'
@@ -2235,4 +2241,45 @@ if Test_Timers:
 
 
    
+################################################################################
+################################################################################
+if Test_PyBkgdThread:
+   print '***********************************************************************'
+   print 'Testing Background Threading'
+   print '***********************************************************************'
+   from random import uniform
+ 
+   # Will run the ComputePublicKey function a bunch of times in the background
+   def compute(N, threadID):
+      s = RightNow()
+      for i in range(N):
+         key = int_to_binary(long(uniform(0,2**32)), widthBytes=32)
+         k = CryptoECDSA().ComputePublicKey(SecureBinaryData(key))
+      ns = (RightNow() - s)
+      #print 'Thread %d: %d keys in %0.2f sec,  %0.2f key/sec' % (threadID, N, ns, N/ns)
+ 
+ 
+   # Figure out how many aggregate keys/sec we get with threading
+   def test_N_threads(NThr):
+      NPer = 1000
+
+      # Test All
+      thr = []
+      for i in range(NThr):
+         thr.append( PyBackgroundThread(compute, NPer, i))
    
+      startTime = RightNow()
+      for i in range(NThr):
+         thr[i].start()
+      
+      for i in range(NThr):
+         thr[i].join()
+      
+      total = (RightNow() - startTime)
+      NC = NThr*NPer
+      return NC, total
+
+   for i in range(1,10):
+      n,s = test_N_threads(i)
+      print 'NThreads: %02d,  %0.2f keys/sec' % (i, n/s)
+
