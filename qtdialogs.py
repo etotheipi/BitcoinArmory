@@ -567,6 +567,14 @@ class DlgChangeLabels(ArmoryDialog):
    
       self.setWindowTitle('Wallet Descriptions')
 
+
+   def accept(self, *args):
+      if len(str(self.edtName.text()).strip())==0:
+         QMessageBox.critical(self, 'Empty Name', \
+            'All wallets must have a name. ', QMessageBox.Ok)
+         return
+      super(DlgChangeLabels, self).accept(*args)
+
       
 ################################################################################
 class DlgWalletDetails(ArmoryDialog):
@@ -606,14 +614,15 @@ class DlgWalletDetails(ArmoryDialog):
       self.wltAddrView.verticalHeader().setDefaultSectionSize(20)
       self.wltAddrView.setMinimumWidth(550)
       self.wltAddrView.setMinimumHeight(150)
-      iWidth = tightSizeStr(self.wltAddrView, 'Imported')[0]
-      initialColResize(self.wltAddrView, [0.35, 0.4, 64, iWidth*1.3, 0.2])
+      iWidth = tightSizeStr(self.wltAddrView, 'Imp')[0]
+      initialColResize(self.wltAddrView, [iWidth*1.5, 0.35, 0.4, 64, 0.2])
 
       self.wltAddrView.sizeHint = lambda: QSize(700, 225)
       self.wltAddrView.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
 
       self.wltAddrView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.wltAddrView.customContextMenuRequested.connect(self.showContextMenu)
+      self.wltAddrProxy.sort(ADDRESSCOLS.ChainIdx, Qt.AscendingOrder)
    
       uacfv = lambda x: self.main.updateAddressCommentFromView(self.wltAddrView, self.wlt)
                    
@@ -973,7 +982,6 @@ class DlgWalletDetails(ArmoryDialog):
          newDescr = str(dlgLabels.edtDescr.toPlainText())[:256]
          self.wlt.setWalletLabels(newName, newDescr)
 
-         #self.setWltDetailsFrame()
          self.labelValues[WLTFIELDS.Name].setText(newName)
          self.labelValues[WLTFIELDS.Descr].setText(newDescr)
 
@@ -10267,16 +10275,19 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblWarn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
 
       self.btnOtherOpt = QPushButton('Other Options >>>')
+      self.btnCopyRich = QPushButton('Copy to Clipboard')
       self.btnCopyHtml = QPushButton('Copy Raw HTML')
       self.btnCopyRaw  = QPushButton('Copy Raw URL')
       self.btnCopyAll  = QPushButton('Copy All Text')
 
       # I never actally got this button working right...
+      self.btnCopyRich.setVisible(True)
       self.btnOtherOpt.setCheckable(True)
       self.btnCopyAll.setVisible(False)
       self.btnCopyHtml.setVisible(False)
       self.btnCopyRaw.setVisible(False)
       frmCopyBtnStrip = makeHorizFrame([ \
+                                        self.btnCopyRich, \
                                         self.btnOtherOpt, \
                                         self.btnCopyHtml, \
                                         self.btnCopyRaw, \
@@ -10284,10 +10295,11 @@ class DlgRequestPayment(ArmoryDialog):
                                         self.lblWarn])
                                         #self.btnCopyAll, \
 
+      self.connect(self.btnCopyRich, SIGNAL('clicked()'),     self.clickCopyRich)
       self.connect(self.btnOtherOpt, SIGNAL('toggled(bool)'), self.clickOtherOpt)
-      self.connect(self.btnCopyRaw,  SIGNAL('clicked()'), self.clickCopyRaw )
-      self.connect(self.btnCopyHtml, SIGNAL('clicked()'), self.clickCopyHtml)
-      self.connect(self.btnCopyAll,  SIGNAL('clicked()'), self.clickCopyAll)
+      self.connect(self.btnCopyRaw,  SIGNAL('clicked()'),     self.clickCopyRaw )
+      self.connect(self.btnCopyHtml, SIGNAL('clicked()'),     self.clickCopyHtml)
+      self.connect(self.btnCopyAll,  SIGNAL('clicked()'),     self.clickCopyAll)
 
       lblDescr = QRichLabel( \
          'Create a clickable link that you can copy into email or webpage to '
@@ -10475,6 +10487,35 @@ class DlgRequestPayment(ArmoryDialog):
       self.btnCopyHtml.setEnabled(True)
       self.btnCopyAll.setEnabled(True)
 
+      self.plainText  = 'Please use the following payment information:\n'
+      self.plainText += 'Pay to:  %s' % addr
+      if amtStr:
+         self.plainText += '\nAmount:  %s BTC' % coin2str(amtStr,maxZeros=0).strip()
+      if msgStr:
+         self.plainText += '\nMessage: %s' % msgStr
+      self.plainText += '\n'
+
+
+   def clickCopyRich(self):
+      clipb = QApplication.clipboard()
+      clipb.clear()
+      qmd = QMimeData()
+      pref = '<meta http-equiv="content-type" content="text/html; charset=utf-8">'
+      qmd.setText(self.plainText)
+      qmd.setHtml(pref + self.dispText)
+      clipb.setMimeData(qmd)
+      self.lblWarn.setText('<i>Copied!</i>')
+      
+
+
+   def clickOtherOpt(self, boolState):
+      self.btnCopyHtml.setVisible(boolState)
+      self.btnCopyRaw.setVisible(boolState)
+
+      if boolState:
+         self.btnOtherOpt.setText('Hide Buttons <<<')
+      else:
+         self.btnOtherOpt.setText('Other Options >>>')
 
    def clickCopyRaw(self):
       clipb = QApplication.clipboard()
@@ -10496,14 +10537,6 @@ class DlgRequestPayment(ArmoryDialog):
       clipb.setMimeData(qmd)
       self.lblWarn.setText('<i>Copied!</i>')
 
-   def clickOtherOpt(self, boolState):
-      self.btnCopyHtml.setVisible(boolState)
-      self.btnCopyRaw.setVisible(boolState)
-
-      if boolState:
-         self.btnOtherOpt.setText('Hide Buttons <<<')
-      else:
-         self.btnOtherOpt.setText('Other Options >>>')
 
 
 

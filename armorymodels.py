@@ -23,7 +23,7 @@ from armorycolors import Colors, htmlColor
 WLTVIEWCOLS = enum('ID', 'Name', 'Secure', 'Bal')
 LEDGERCOLS  = enum('NumConf', 'UnixTime', 'DateStr', 'TxDir', 'WltName', 'Comment', \
                    'Amount', 'isOther', 'WltID', 'TxHash', 'isCoinbase', 'toSelf', 'DoubleSpend')
-ADDRESSCOLS  = enum('Address', 'Comment', 'NumTx', 'Imported', 'Balance')
+ADDRESSCOLS  = enum('ChainIdx', 'Address', 'Comment', 'NumTx', 'Balance')
 ADDRBOOKCOLS = enum('Address', 'WltID', 'NumSent', 'Comment')
 
 TXINCOLS  = enum('WltID', 'Sender', 'Btc', 'OutPt', 'OutIdx', 'FromBlk', \
@@ -229,7 +229,7 @@ class LedgerDispModelSimple(QAbstractTableModel):
                txdir = rowData[COL.TxDir]
                if rowData[COL.isCoinbase]:
                   return QVariant('You mined these Bitcoins!')
-               if txdir[0].startswith('-'):
+               if float(txdir.strip())<0:
                   return QVariant('Bitcoins sent')
                else:
                   return QVariant('Bitcoins received')
@@ -439,6 +439,7 @@ class WalletAddrDispModel(QAbstractTableModel):
       addr = self.wlt.addrMap[self.addr160List[row]]
       addr160 = addr.getAddr160()
       addrB58 = addr.getAddrStr()
+      chainIdx = addr.chainIndex+1  # user must get 1-indexed
       if role==Qt.DisplayRole:
          if col==COL.Address: 
             return QVariant( addrB58 )
@@ -451,20 +452,20 @@ class WalletAddrDispModel(QAbstractTableModel):
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( len(cppAddr.getTxLedger()) + \
                              len(cppAddr.getZeroConfLedger()))
-         if col==COL.Imported:
+         if col==COL.ChainIdx:
             if self.wlt.addrMap[addr160].chainIndex==-2:
                return QVariant('Imported')
             else:
-               return QVariant()
+               return QVariant(chainIdx)
          if col==COL.Balance: 
             if not TheBDM.getBDMState()=='BlockchainReady':
                return QVariant('(...)')
             cppAddr = self.wlt.cppWallet.getAddrByHash160(addr160)
             return QVariant( coin2str(cppAddr.getFullBalance(), maxZeros=2) )
       elif role==Qt.TextAlignmentRole:
-         if col in (COL.Address, COL.Comment):
+         if col in (COL.Address, COL.Comment, COL.ChainIdx):
             return QVariant(int(Qt.AlignLeft | Qt.AlignVCenter))
-         elif col in (COL.NumTx,COL.Imported):
+         elif col in (COL.NumTx,):
             return QVariant(int(Qt.AlignHCenter | Qt.AlignVCenter))
          elif col in (COL.Balance,):
             if not TheBDM.getBDMState()=='BlockchainReady':
@@ -486,11 +487,23 @@ class WalletAddrDispModel(QAbstractTableModel):
 
          if col==COL.Balance:
             return GETFONT('Fixed',bold=hasTx)
+         if col==COL.ChainIdx:
+            return GETFONT('Var')
          else:
             doBold   = hasTx and not isChange
             doItalic = isChange
             return GETFONT('Var',bold=doBold, italic=doItalic)
       elif role==Qt.ToolTipRole:
+         if col==COL.ChainIdx:
+            cmt = str(self.index(index.row(),COL.ChainIdx).data().toString())
+            if cmt.strip().lower().startswith('imp'):
+               return QVariant('<u></u>This is an imported address. Imported '
+                               'addresses are not protected by regular paper '
+                               'backups.  You must use the "Backup Individual '
+                               'Keys" option to protect it.')
+            else:
+               return QVariant('<u></u>The order that this address was '
+                               'generated in this wallet')
          cmt = str(self.index(index.row(),COL.Comment).data().toString())
          if cmt==CHANGE_ADDR_DESCR_STRING:
             return QVariant('This address was created by Armory to '
@@ -513,10 +526,10 @@ class WalletAddrDispModel(QAbstractTableModel):
       COL = ADDRESSCOLS
       if role==Qt.DisplayRole:
          if orientation==Qt.Horizontal:
+            if section==COL.ChainIdx: return QVariant( '#'        )
             if section==COL.Address:  return QVariant( 'Address' )
             if section==COL.Comment:  return QVariant( 'Comment' )
             if section==COL.NumTx:    return QVariant( '#Tx'     )
-            if section==COL.Imported: return QVariant( ''        )
             if section==COL.Balance:  return QVariant( 'Balance' )
          elif role==Qt.TextAlignmentRole:
             if section in (COL.Address, COL.Comment):
@@ -546,6 +559,10 @@ class WalletAddrSortProxy(QSortFilterProxyModel):
          return (strLeft < strRight)
       elif thisCol==COL.Balance:
          return (float(strLeft.strip()) < float(strRight.strip()))
+      elif thisCol==COL.ChainIdx:
+         left = -2 if strLeft =='Imported' else int(strLeft)
+         rght = -2 if strRight=='Imported' else int(strRight)
+         return (left<rght)
       else:
          return super(WalletAddrSortProxy, self).lessThan(idxLeft, idxRight)
          

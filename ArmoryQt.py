@@ -1081,7 +1081,7 @@ class ArmoryMainWindow(QMainWindow):
 
          if len(changeLog)==0 and not wasRequested:
             LOGINFO('You are running the latest version!')
-         elif optChkVer[1:]==changeLog[0][0]:
+         elif optChkVer[1:]==changeLog[0][0] and not wasRequested:
             LOGINFO('Latest version is %s -- Notify user on next version.', optChkVer)
             return
          else:
@@ -1348,6 +1348,14 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def uriLinkClicked(self, uriStr):
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         QMessageBox.warning(self, 'Offline', \
+            'You just clicked on a "bitcoin:" link, but Armory is offline ' 
+            'and cannot send transactions.  Please click the link '
+            'again when Armory is online.', \
+            QMessageBox.Ok)
+         return
+
       uriDict = self.parseUriLink(uriStr, 'click')
          
       if len(uriDict)>0:
