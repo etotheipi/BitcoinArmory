@@ -1274,21 +1274,6 @@ class ArmoryMainWindow(QMainWindow):
       self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
       LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
-      #for wltID,wlt in self.walletMap.iteritems():
-         ## Absorb the new tx into the BDM & wallets
-         #TheBDM.rescanWalletZeroConf(self.walletMap[wltID].cppWallet)
-   
-         # Above doesn't return anything, but we want to know what it is...
-         #le = wlt.cppWallet.calcLedgerEntryForTxStr(pytxObj.serialize())
-
-         # If it is ours, let's add it to the notifier queue
-         #if not le.getTxHash()=='\x00'*32:
-            #notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-            #notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
-            #if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
-               #self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
-            #self.createCombinedLedger()
-            #self.walletModel.reset()
 
 
 

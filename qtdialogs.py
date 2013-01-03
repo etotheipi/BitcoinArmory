@@ -1039,6 +1039,7 @@ class DlgWalletDetails(ArmoryDialog):
          return
       dlgSend = DlgSendBitcoins(self.wlt, self, self.main)
       dlgSend.exec_()
+      self.wltAddrModel.reset()
    
 
 
@@ -1069,6 +1070,21 @@ class DlgWalletDetails(ArmoryDialog):
          pass # not sure that I don't handle everything in the dialog itself
 
    def execKeyList(self):
+      if self.wlt.useEncryption and self.wlt.isLocked:
+         dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
+         if not dlg.exec_():
+            if self.main.usermode==USERMODE.Expert:
+               QMessageBox.warning(self, 'Unlock Failed', \
+                  'Wallet was not be unlocked.  The public keys and addresses '
+                  'will still be shown, but private keys will not be available '
+                  'unless you reopen the dialog with the correct passphrase', \
+                  QMessageBox.Ok)
+            else:
+               QMessageBox.warning(self, 'Unlock Failed', \
+                  'Wallet could not be unlocked to display individual keys.', \
+                  QMessageBox.Ok)
+               return
+               
       dlg = DlgShowKeyList(self.wlt, self, self.main)
       dlg.exec_()
 
@@ -4068,7 +4084,8 @@ class DlgRemoveWallet(ArmoryDialog):
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.radioExclude)
       btngrp.addButton(self.radioDelete)
-      btngrp.addButton(self.radioWatch)
+      if not self.main.usermode==USERMODE.Standard:
+         btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
       ttipExclude = createToolTipObject( \
@@ -4211,12 +4228,19 @@ class DlgRemoveWallet(ArmoryDialog):
             reply = QMessageBox.warning(self, 'Confirm Delete', \
             'You are about to delete a watching-only wallet.  Are you sure '
             'you want to do this?', QMessageBox.Yes | QMessageBox.Cancel)
-         else:
+         elif self.radioDelete.isChecked():
             reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
             'Are you absolutely sure you want to permanently delete '
             'this wallet?  Unless this wallet is saved on another device '
             'you will permanently lose access to all the addresses in this '
             'wallet.', QMessageBox.Yes | QMessageBox.Cancel)
+         elif self.radioWatch.isChecked():
+            reply = QMessageBox.warning(self, 'Are you absolutely sure?!?', \
+            '<i>This will permanently delete the information you need to spend '
+            'funds from this wallet!</i>  You will only be able to receive '
+            'coins, but not spend them.  Only do this if you have another copy '
+            'of this wallet elsewhere, such as a paper backup or on an offline '
+            'computer with the full wallet. ', QMessageBox.Yes | QMessageBox.Cancel)
 
          if reply==QMessageBox.Yes:
 
@@ -6679,12 +6703,7 @@ class DlgShowKeyList(ArmoryDialog):
 
       self.wlt    = wlt
 
-      self.havePriv = True
-      if self.wlt.useEncryption and self.wlt.isLocked:
-         self.havePriv = False
-         dlg = DlgUnlockWallet(wlt, parent, main, 'Unlock Private Keys')
-         if dlg.exec_():
-            self.havePriv = True
+      self.havePriv = ((not self.wlt.useEncryption) or not (self.wlt.isLocked))
 
       wltType = determineWalletType(self.wlt, self.main)[0]
       if wltType in (WLTTYPES.Offline, WLTTYPES.WatchOnly):
