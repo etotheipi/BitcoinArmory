@@ -10,6 +10,7 @@ from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
 from qrcodenative import QRCode, QRErrorCorrectLevel
+from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
@@ -625,17 +626,26 @@ class QtBackgroundThread(QThread):
 
 class QRCodeWidget(QWidget):
 
-   def __init__(self, asciiToEncode, prefSize=160, errLevel=QRErrorCorrectLevel.L):
+   def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L):
       super(QRCodeWidget, self).__init__()
 
       self.qrmtrx = None
+      self.setAsciiData(asciiToEncode, prefSize, errLevel, repaint=False)
       
+
+   def setAsciiData(self, newAscii, prefSize=160, errLevel=QRErrorCorrectLevel.L, repaint=True):
+      if len(newAscii)==0:
+         self.qrmtrx = [[0]]
+         self.modCt  = 1
+         self.pxScale= 1
+         return
+
       sz=3
       success=False
       while sz<20:
          try:
             self.qr = QRCode(sz, errLevel)
-            self.qr.addData(asciiToEncode)
+            self.qr.addData(newAscii)
             self.qr.make()
             success=True
             break
@@ -643,6 +653,7 @@ class QRCodeWidget(QWidget):
             sz += 1
 
       if not success:
+         LOGERROR('Unsuccessful attempt to create QR code')
          self.qrmtrx = [[0]]
          return
 
@@ -654,15 +665,12 @@ class QRCodeWidget(QWidget):
             tempList[c] = 1 if self.qr.isDark(r,c) else 0
          self.qrmtrx.append(tempList)
 
-
-      #for r in range(self.modCt):
-         #print ''.join(['#' if a else ' ' for a in self.qrmtrx[r]])
-
       self.setPreferredSize(prefSize)
-      #print 'Module count: ', self.modCt
-      #print 'Module scale: ', self.pxScale
-      #print 'Pixel size:   ', self.modCt*self.pxScale
 
+      #if repaint:
+         #self.paintEvent(None)
+
+      
             
    def getModuleCount1D(self):
       return self.modCt
@@ -698,6 +706,7 @@ class QRCodeWidget(QWidget):
       qp.end()
 
 
+
    def drawWidget(self, qp):
       # In case this is not a white background, draw the white boxes
       qp.setPen(QColor(255,255,255))
@@ -717,5 +726,107 @@ class QRCodeWidget(QWidget):
 
 
 
+
+# Pure-python BMP creator taken from:
+#
+#     http://pseentertainmentcorp.com/smf/index.php?topic=2034.0
+#
+# This will take a 2D array of ones-and-zeros and convert it to a binary
+# bitmap image, which will be stored in a temporary file.  This temporary
+# file can be used for display and copy-and-paste into email.
+
+def bmp_binary(header, pixels):
+   '''It takes a header (based on default_bmp_header), 
+   the pixel data (from structs, as produced by get_color and row_padding),
+   and writes it to filename'''
+   header_str = ""
+   header_str += struct.pack('<B', header['mn1'])
+   header_str += struct.pack('<B', header['mn2'])
+   header_str += struct.pack('<L', header['filesize'])
+   header_str += struct.pack('<H', header['undef1'])
+   header_str += struct.pack('<H', header['undef2'])
+   header_str += struct.pack('<L', header['offset'])
+   header_str += struct.pack('<L', header['headerlength'])
+   header_str += struct.pack('<L', header['width'])
+   header_str += struct.pack('<L', header['height'])
+   header_str += struct.pack('<H', header['colorplanes'])
+   header_str += struct.pack('<H', header['colordepth'])
+   header_str += struct.pack('<L', header['compression'])
+   header_str += struct.pack('<L', header['imagesize'])
+   header_str += struct.pack('<L', header['res_hor'])
+   header_str += struct.pack('<L', header['res_vert'])
+   header_str += struct.pack('<L', header['palette'])
+   header_str += struct.pack('<L', header['importantcolors'])
+   return header_str + pixels
+
+def bmp_write(header, pixels, filename):
+   out = open(filename, 'wb')
+   out.write(bmp_binary(header, pixels))
+   out.close()
+
+def bmp_row_padding(width, colordepth):
+   '''returns any necessary row padding'''
+   byte_length = width*colordepth/8
+   # how many bytes are needed to make byte_length evenly divisible by 4?
+   padding = (4-byte_length)%4 
+   padbytes = ''
+   for i in range(padding):
+      x = struct.pack('<B',0)
+      padbytes += x
+   return padbytes
+
+def bmp_pack_color(red, green, blue):
+   '''accepts values from 0-255 for each value, returns a packed string'''
+   return struct.pack('<BBB',blue,green,red)
+
+
+###################################   
+BMP_TEMPFILE = -1
+def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
+   try:
+      h,w = len(imgMtrx2D), len(imgMtrx2D[0])
+   except:
+      LOGERROR('Error creating BMP object')
+      raise
+
+   header = {'mn1':66,
+             'mn2':77,
+             'filesize':0,
+             'undef1':0,
+             'undef2':0,
+             'offset':54,
+             'headerlength':40,
+             'width':w,
+             'height':h,
+             'colorplanes':0,
+             'colordepth':24,
+             'compression':0,
+             'imagesize':0,
+             'res_hor':0,
+             'res_vert':0,
+             'palette':0,
+             'importantcolors':0}
+
+   pixels = ''
+   black = bmp_pack_color(  0,  0,  0)
+   white = bmp_pack_color(255,255,255)
+   for row in range(header['height']-1,-1,-1):# (BMPs are L to R from the bottom L row)
+      for col in range(header['width']):
+         pixels += black if imgMtrx2D[row][col] else white
+      pixels += bmp_row_padding(header['width'], header['colordepth'])
+      
+   if returnBinary:
+      return bmp_binary(header,pixels)
+   elif writeToFile==BMP_TEMPFILE:
+      handle,temppath = mkstemp(suffix='.bmp')
+      bmp_write(header, pixels, temppath)
+      return temppath
+   else:
+      try:
+         bmp_write(header, pixels, writeToFile)
+         return True
+      except:
+         return False
+      
 
 

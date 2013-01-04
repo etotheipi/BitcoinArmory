@@ -10261,6 +10261,11 @@ class DlgRequestPayment(ArmoryDialog):
       self.connect(self.edtAmount,   SIGNAL('textChanged(QString)'), self.setLabels)
       self.connect(self.edtLinkText, SIGNAL('textChanged(QString)'), self.setLabels)
 
+      self.connect(self.edtMessage,  SIGNAL('editingFinished()'), self.updateQRCode)
+      self.connect(self.edtAddress,  SIGNAL('editingFinished()'), self.updateQRCode)
+      self.connect(self.edtAmount,   SIGNAL('editingFinished()'), self.updateQRCode)
+      self.connect(self.edtLinkText, SIGNAL('editingFinished()'), self.updateQRCode)
+
 
       # This is the "output"
       self.lblLink = QRichLabel('')
@@ -10370,18 +10375,23 @@ class DlgRequestPayment(ArmoryDialog):
       frmOutput.layout().setStretch(2, 0)
       frmClose = makeHorizFrame(['Stretch', btnClose])
 
+
+      self.qrURI = QRCodeWidget('')
+      lblQRDescr = QRichLabel('The QR code contains all '
+                              'information in the payment request '
+                              'shown to the left.')
+      frmQR = makeVertFrame([self.qrURI, lblQRDescr], STYLE_SUNKEN)
+
+
       dlgLayout = QGridLayout()
 
-      i=0
-      dlgLayout.addWidget(frmDescr,   i,0,  1,2)
-      i+=1
-      dlgLayout.addWidget(frmEntry,   i,0,  1,2)
-      i+=1
-      dlgLayout.addWidget(frmOutput,  i,0,  1,2)
-      i+=1
-      dlgLayout.addWidget(HLINE(),    i,0,  1,2)
-      i+=1
-      dlgLayout.addWidget(frmClose,   i,0,  1,2)
+      dlgLayout.addWidget(frmDescr,   0,0,  1,2)
+      dlgLayout.addWidget(frmEntry,   1,0,  1,1)
+      dlgLayout.addWidget(frmOutput,  2,0,  1,1)
+      dlgLayout.addWidget(HLINE(),    3,0,  1,2)
+      dlgLayout.addWidget(frmClose,   4,0,  1,2)
+
+      dlgLayout.addWidget(frmQR,  1,1,  2,1)
 
       dlgLayout.setRowStretch(0, 0)
       dlgLayout.setRowStretch(1, 0)
@@ -10391,10 +10401,15 @@ class DlgRequestPayment(ArmoryDialog):
       
 
       self.setLabels()
+      self.prevURI = ''
+      self.closed = False  # kind of a hack to end the update loop
+      self.updateQRCode()
       self.setMinimumWidth(600)
       self.setLayout(dlgLayout)
       self.setWindowTitle('Create Payment Request Link')
 
+      from twisted.internet import reactor
+      reactor.callLater(1, self.periodicUpdate)
 
       hexgeom = str(self.main.settings.get('PayReqestGeometry'))
       if len(hexgeom)>0:
@@ -10473,7 +10488,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.lblWarn.setText('')
       self.dispText = self.rawHtml[:]
       self.dispText += '<br>'
-      self.dispText += 'Use the following payment info if the link does not work on your system:'
+      self.dispText += 'If clicking on the line above does not work, use this payment info:'
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
       if amtStr:
@@ -10487,7 +10502,8 @@ class DlgRequestPayment(ArmoryDialog):
       self.btnCopyHtml.setEnabled(True)
       self.btnCopyAll.setEnabled(True)
 
-      self.plainText  = 'Please use the following payment information:\n'
+      self.plainText  = str(self.edtLinkText.text()) + '\n'
+      self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
       if amtStr:
          self.plainText += '\nAmount:  %s BTC' % coin2str(amtStr,maxZeros=0).strip()
@@ -10495,6 +10511,28 @@ class DlgRequestPayment(ArmoryDialog):
          self.plainText += '\nMessage: %s' % msgStr
       self.plainText += '\n'
 
+   def periodicUpdate(self, nsec=1):
+      if not self.closed:
+         from twisted.internet import reactor
+         self.updateQRCode()
+         reactor.callLater(nsec, self.periodicUpdate)
+
+
+   def accept(self, *args):
+      # Kind of a hacky way to get the loop to end, but it seems to work
+      self.closed = True
+      super(DlgRequestPayment, self).accept(*args)
+
+   def reject(self, *args):
+      # Kind of a hacky way to get the loop to end, but it seems to work
+      self.closed = True
+      super(DlgRequestPayment, self).reject(*args)
+
+   def updateQRCode(self,e=None):
+      if not self.prevURI==self.rawURI:
+         self.qrURI.setAsciiData(self.rawURI)
+         self.repaint()
+      self.prevURI = self.rawURI
 
    def clickCopyRich(self):
       clipb = QApplication.clipboard()

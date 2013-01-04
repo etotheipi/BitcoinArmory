@@ -3249,6 +3249,14 @@ class ArmoryMainWindow(QMainWindow):
       argument.
       """
 
+      # This worked nicely to be able to examine how the clipboard stores things
+      # from other programs that already know how to use MimeData
+      #clipb = QApplication.clipboard()
+      #qmd = clipb.mimeData()
+      #for fmt in qmd.formats():
+         #print str(fmt), '\t:\t', qmd.data(fmt)
+      #print '-'*80
+         
 
       try:
          for func in self.extraHeartbeatAlways:
