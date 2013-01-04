@@ -1703,6 +1703,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       self.wlt  = wlt
       self.addr = wlt.getNextUnusedAddress()
+      addrStr = self.addr.getAddrStr()
 
       wlttype = determineWalletType( self.wlt, self.main)[0]
       notMyWallet   = (wlttype==WLTTYPES.WatchOnly)
@@ -1712,7 +1713,7 @@ class DlgNewAddressDisp(ArmoryDialog):
             'The following address can be used to to receive bitcoins:')
       self.edtNewAddr = QLineEdit()
       self.edtNewAddr.setReadOnly(True)
-      self.edtNewAddr.setText(self.addr.getAddrStr())
+      self.edtNewAddr.setText(addrStr)
       self.edtNewAddr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       btnClipboard = QPushButton('Copy to Clipboard')
       #lbtnClipboard.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -1723,8 +1724,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       def openPaymentRequest():
          msgTxt = str(self.edtComm.toPlainText())
          msgTxt = msgTxt.split('\n')[0][:128]
-         dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr(), msg=msgTxt)
-         #dlg = DlgRequestPayment(self, self.main, self.addr.getAddrStr())
+         dlg = DlgRequestPayment(self, self.main, addrStr, msg=msgTxt)
          dlg.exec_()
 
       btnLink = QPushButton('Create Clickable Link')
@@ -1770,9 +1770,9 @@ class DlgNewAddressDisp(ArmoryDialog):
    
 
       lblCommDescr = QLabel( \
-            '(Optional) You can specify a comment to be stored with '
-            'this address.  The comment can be changed '
-            'at a later time in the wallet properties dialog.')
+            '(Optional) Add a label to this address, which will '
+            'be shown with any relevant transactions in the '
+            '"Transactions" tab.')
       lblCommDescr.setWordWrap(True)
       self.edtComm = QTextEdit()
       tightHeight = tightSizeNChar(self.edtComm, 1)[1]
@@ -1786,8 +1786,8 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmComment.setLayout(frmCommentLayout)
 
       
-      lblRecvWlt = QRichLabel( 'Money sent to this address will '
-            'appear in the following wallet:', doWrap=False)
+      lblRecvWlt = QRichLabel( 'Bitcoins sent to this address will '
+            'appear in the wallet:', doWrap=False)
       
       lblRecvWlt.setWordWrap(True)
       lblRecvWlt.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
@@ -1801,30 +1801,34 @@ class DlgNewAddressDisp(ArmoryDialog):
    
       buttonBox = QDialogButtonBox()
       self.btnDone   = QPushButton("Done")
-      #self.btnCancel = QPushButton("Cancel")
       self.connect(self.btnDone,   SIGNAL('clicked()'), self.acceptNewAddr)
-      #self.connect(self.btnCancel, SIGNAL('clicked()'), self.rejectNewAddr)
       buttonBox.addButton(self.btnDone,   QDialogButtonBox.AcceptRole)
-      #buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
 
 
 
       frmWlt = QFrame()
       frmWlt.setFrameShape(STYLE_RAISED)
-      frmWltLayout = QVBoxLayout()
+      frmWltLayout = QGridLayout()
       frmWltLayout.addWidget(lblRecvWlt)
       frmWltLayout.addWidget(lblRecvWltID)
       frmWlt.setLayout(frmWltLayout)
 
 
+      qrdescr = QRichLabel('<b>Scan QR code with smartphone or other barcode reader:</b>')
+      qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      qrcode = QRCodeWidget(addrStr)
+      smLabel = QRichLabel('<font size=2>%s</font>' % addrStr)
+      frmQRsub2 = makeHorizFrame( ['Stretch', qrcode, 'Stretch' ])
+      frmQRsub3 = makeHorizFrame( ['Stretch', smLabel, 'Stretch' ])
+      frmQR = makeVertFrame( ['Stretch', qrdescr, frmQRsub2, frmQRsub3, 'Stretch' ], STYLE_SUNKEN) 
 
       layout=QGridLayout()
-      layout.addWidget(frmNewAddr,         0, 0, 1, 2)
-      #layout.addWidget(frmCopy,            1, 0, 1, 2)
-      layout.addWidget(frmComment,         2, 0, 1, 2)
-      layout.addWidget(frmWlt,             3, 0, 1, 2)
+      layout.addWidget(frmNewAddr,         0, 0, 1, 1)
+      layout.addWidget(frmComment,         2, 0, 1, 1)
+      layout.addWidget(frmWlt,             3, 0, 1, 1)
       layout.addWidget(buttonBox,          4, 0, 1, 2)
+      layout.addWidget(frmQR,              0, 1, 4, 1)
 
       self.setLayout(layout) 
       self.setWindowTitle('New Receiving Address')
@@ -10331,10 +10335,6 @@ class DlgRequestPayment(ArmoryDialog):
          'purchase info as a convenience to them.')
 
 
-      lblLinkBoxDescr = QRichLabel( \
-         'When all the information is correct, select everything in the '
-         'box with your mouse (triple-click), then copy & paste to the desired window.')
-      lblLinkBoxDescr.setContentsMargins(10,0,10,0)
       btnClose = QPushButton('Close')
       self.connect(btnClose, SIGNAL('clicked()'), self.accept)
 
@@ -10364,7 +10364,7 @@ class DlgRequestPayment(ArmoryDialog):
       
 
 
-      frmOutput = makeVertFrame([lblLinkBoxDescr, frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
+      frmOutput = makeVertFrame([frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
       frmOutput.layout().setStretch(0, 0)
       frmOutput.layout().setStretch(1, 1)
       frmOutput.layout().setStretch(2, 0)

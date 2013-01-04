@@ -9,6 +9,7 @@ from armoryengine import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
+from qrcodenative import QRCode, QRErrorCorrectLevel
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
@@ -619,6 +620,100 @@ class QtBackgroundThread(QThread):
       super(QtBackgroundThread, self).start()
 
 
+
+
+
+class QRCodeWidget(QWidget):
+
+   def __init__(self, asciiToEncode, prefSize=160, errLevel=QRErrorCorrectLevel.L):
+      super(QRCodeWidget, self).__init__()
+
+      self.qrmtrx = None
+      
+      sz=3
+      success=False
+      while sz<20:
+         try:
+            self.qr = QRCode(sz, errLevel)
+            self.qr.addData(asciiToEncode)
+            self.qr.make()
+            success=True
+            break
+         except TypeError:
+            sz += 1
+
+      if not success:
+         self.qrmtrx = [[0]]
+         return
+
+      self.qrmtrx = []
+      self.modCt = self.qr.getModuleCount()
+      for r in range(self.modCt):
+         tempList = [0]*self.modCt
+         for c in range(self.modCt):
+            tempList[c] = 1 if self.qr.isDark(r,c) else 0
+         self.qrmtrx.append(tempList)
+
+
+      #for r in range(self.modCt):
+         #print ''.join(['#' if a else ' ' for a in self.qrmtrx[r]])
+
+      self.setPreferredSize(prefSize)
+      #print 'Module count: ', self.modCt
+      #print 'Module scale: ', self.pxScale
+      #print 'Pixel size:   ', self.modCt*self.pxScale
+
+            
+   def getModuleCount1D(self):
+      return self.modCt
+
+
+   def setPreferredSize(self, px, policy='Approx'):
+      self.pxScale,rem = divmod(int(px), int(self.modCt))
+
+      if policy.lower().startswith('approx'):
+         if rem>self.modCt/2.0:
+            self.pxScale += 1
+      elif policy.lower().startswith('atleast'):
+         if rem>0:
+            self.pxScale += 1
+      elif policy.lower().startswith('max'):
+         pass
+      else:
+         LOGERROR('Bad size policy in set qr size')
+         return self.pxScale*self.modCt
+
+      return
+      
+       
+   def sizeHint(self):
+      sz1d = self.pxScale*self.modCt
+      return QSize(sz1d, sz1d)
+
+
+   def paintEvent(self, e):
+      qp = QPainter()
+      qp.begin(self)
+      self.drawWidget(qp)
+      qp.end()
+
+
+   def drawWidget(self, qp):
+      # In case this is not a white background, draw the white boxes
+      qp.setPen(QColor(255,255,255))
+      qp.setBrush(QColor(255,255,255))
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if not self.qrmtrx[c][r]:
+               qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
+
+      # Draw the black tiles
+      qp.setPen(QColor(0,0,0))
+      qp.setBrush(QColor(0,0,0))
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if self.qrmtrx[c][r]:
+               qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
 
 
 
