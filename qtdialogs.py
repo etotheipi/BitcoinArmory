@@ -10368,8 +10368,8 @@ class DlgRequestPayment(ArmoryDialog):
       frmEntry.setLayout(layoutEntry)
       
 
-
-      frmOutput = makeVertFrame([frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
+      lblOut = QRichLabel('Copy and paste the following text into email or other document:')
+      frmOutput = makeVertFrame([lblOut, frmOut, frmCopyBtnStrip], STYLE_SUNKEN)
       frmOutput.layout().setStretch(0, 0)
       frmOutput.layout().setStretch(1, 1)
       frmOutput.layout().setStretch(2, 0)
@@ -10377,10 +10377,12 @@ class DlgRequestPayment(ArmoryDialog):
 
 
       self.qrURI = QRCodeWidget('')
-      lblQRDescr = QRichLabel('The QR code contains all '
-                              'information in the payment request '
-                              'shown to the left.')
-      frmQR = makeVertFrame([self.qrURI, lblQRDescr], STYLE_SUNKEN)
+      lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
+                              'other payment information shown to the left.')
+      frmQR = makeVertFrame([self.qrURI, lblQRDescr,'Stretch'], STYLE_SUNKEN)
+      frmQR.layout().setStretch(0, 1)
+      frmQR.layout().setStretch(1, 0)
+      frmQR.layout().setStretch(2, 0)
 
 
       dlgLayout = QGridLayout()
@@ -10404,7 +10406,6 @@ class DlgRequestPayment(ArmoryDialog):
       self.prevURI = ''
       self.closed = False  # kind of a hack to end the update loop
       self.updateQRCode()
-      self.setMinimumWidth(600)
       self.setLayout(dlgLayout)
       self.setWindowTitle('Create Payment Request Link')
 

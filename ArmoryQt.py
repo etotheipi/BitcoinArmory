@@ -1012,6 +1012,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def checkForLatestVersion(self, wasRequested=False):
       # Download latest versions.txt file, accumulate changelog
+      if CLI_OPTIONS.skipVerCheck:
+         return
 
       optChkVer = self.getSettingOrSetDefault('CheckVersion', 'Always')
       if optChkVer.lower()=='never' and not wasRequested:
