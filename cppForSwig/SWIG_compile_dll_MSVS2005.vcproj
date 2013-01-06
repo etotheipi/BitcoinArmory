@@ -188,7 +188,7 @@
 			>
 			<Tool
 				Name="VCPreBuildEventTool"
-				CommandLine="swigwin-2.0.4\swig.exe -c++ -python -classic -outdir ../ -v CppBlockUtils.i"
+				CommandLine="swigwin-2.0.4\swig.exe -c++ -python -threads -classic -outdir ../ -v CppBlockUtils.i"
 			/>
 			<Tool
 				Name="VCCustomBuildTool"
