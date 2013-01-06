@@ -3078,7 +3078,6 @@ class DlgAddressInfo(ArmoryDialog):
       addrStr = self.addr.getAddrStr()
 
 
-
       lblDescr = QLabel('Information for address:  ' + addrStr)
       
       frmInfo = QFrame()
@@ -3152,8 +3151,6 @@ class DlgAddressInfo(ArmoryDialog):
       lbls[-1].append( QRichLabel('<b>Transaction Count:</b>') )
       lbls[-1].append( QLabel(str(len(txHashes))))
       
-            
-
 
 
       for i in range(len(lbls)):
@@ -3161,8 +3158,12 @@ class DlgAddressInfo(ArmoryDialog):
             lbls[i][j].setTextInteractionFlags( Qt.TextSelectableByMouse | \
                                                 Qt.TextSelectableByKeyboard)
          for j in range(3):
-            frmInfoLayout.addWidget(lbls[i][j], i,j, 1,1)
+            if (i,j)==(0,2):
+               frmInfoLayout.addWidget(lbls[i][j], i,j, 1,2)
+            else:
+               frmInfoLayout.addWidget(lbls[i][j], i,j, 1,1)
 
+      frmInfoLayout.addWidget(QRCodeWidget(addrStr, 80),  1,3, len(lbls)-1,1)
       frmInfo.setLayout(frmInfoLayout)
       dlgLayout.addWidget(frmInfo, 0,0, 1,1)
 
@@ -3219,20 +3220,24 @@ class DlgAddressInfo(ArmoryDialog):
 
       optFrame = QFrame()
       optFrame.setFrameStyle(STYLE_SUNKEN)
-      optLayout = QVBoxLayout()
 
       hasPriv = self.addr.hasPrivKey()
       adv = (self.main.usermode in (USERMODE.Advanced, USERMODE.Expert))
       watch = self.wlt.watchingOnly
 
-      #def createVBoxSeparator():
-         #frm = QFrame()
-         #frm.setFrameStyle(QFrame.HLine | QFrame.Plain)
-         #return frm
-      #if hasPriv and adv:  optLayout.addWidget(createVBoxSeparator())
 
       self.lblCopied = QRichLabel('')
       self.lblCopied.setMinimumHeight(tightSizeNChar(self.lblCopied, 1)[1])
+
+      self.lblLedgerWarning = QRichLabel( \
+         'NOTE:  The ledger shows each transaction <i><b>input</b></i> and '
+         '<i><b>output</b></i> for this address.  There are typically many '
+         'inputs and outputs for each transaction, therefore the entries '
+         'represent only partial transactions.  Do not worry if these entries '
+         'do not look familiar.')
+
+
+      optLayout = QVBoxLayout()
       if True:           optLayout.addWidget(lbtnCopyAddr)
       if adv:            optLayout.addWidget(lbtnViewKeys)
 
@@ -3243,13 +3248,6 @@ class DlgAddressInfo(ArmoryDialog):
       if True:           optLayout.addStretch()
       if True:           optLayout.addWidget(self.lblCopied)
 
-      self.lblLedgerWarning = QRichLabel( \
-         'NOTE:  The ledger on the left is for a <i>single address</i>, '
-         'which shows each transaction <i><b>input</b></i> and '
-         '<i><b>output</b></i> separately. A single transaction usually '
-         'consists of many inputs and outputs '
-         'spread across multiple addresses, which <i>together</i> '
-         'add up to the transaction value you would recognize.  ')
       optLayout.addWidget(self.lblLedgerWarning)
 
       optLayout.addStretch()
