@@ -10379,10 +10379,11 @@ class DlgRequestPayment(ArmoryDialog):
       self.qrURI = QRCodeWidget('')
       lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
                               'other payment information shown to the left.')
+      lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
       frmQR = makeVertFrame([self.qrURI, lblQRDescr,'Stretch'], STYLE_SUNKEN)
-      frmQR.layout().setStretch(0, 1)
+      frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
-      frmQR.layout().setStretch(2, 0)
+      frmQR.layout().setStretch(2, 1)
 
 
       dlgLayout = QGridLayout()
@@ -10416,6 +10417,7 @@ class DlgRequestPayment(ArmoryDialog):
       if len(hexgeom)>0:
          geom = QByteArray.fromHex(hexgeom)
          self.restoreGeometry(geom)
+      self.setMinimumSize(750,500)
 
 
    def saveLinkText(self):
