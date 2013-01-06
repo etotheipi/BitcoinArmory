@@ -10461,9 +10461,9 @@ class DlgRequestPayment(ArmoryDialog):
          lastTry = 'Amount'
          amtStr = str(self.edtAmount.text()).strip()
          if len(amtStr)==0:
-            amtStr = None
+            amt = None
          else:
-            amtStr = str2coin(amtStr)
+            amt = str2coin(amtStr)
    
          lastTry = 'Message'
          msgStr = str(self.edtMessage.text()).strip()
@@ -10477,7 +10477,7 @@ class DlgRequestPayment(ArmoryDialog):
 
          errorIn = 'Inputs'
          # must have address, maybe have amount and/or message
-         self.rawURI = createBitcoinURI(addr, amtStr, msgStr)
+         self.rawURI = createBitcoinURI(addr, amt, msgStr)
       except:
          self.lblWarn.setText('<font color="red">Invalid %s</font>' % lastTry)
          self.btnCopyRaw.setEnabled(False)
@@ -10490,6 +10490,7 @@ class DlgRequestPayment(ArmoryDialog):
       
       self.lblLink.setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                            Qt.TextSelectableByKeyboard)
+
       self.rawHtml = '<a href="%s">%s</a>' % (self.rawURI, str(self.edtLinkText.text()))
       self.lblWarn.setText('')
       self.dispText = self.rawHtml[:]
@@ -10498,7 +10499,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
       if amtStr:
-         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
+         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amt,maxZeros=0).strip()
       if msgStr:
          self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
       self.lblLink.setText(self.dispText)
@@ -10508,14 +10509,39 @@ class DlgRequestPayment(ArmoryDialog):
       self.btnCopyHtml.setEnabled(True)
       self.btnCopyAll.setEnabled(True)
 
+      # Plain text to copy to clipboard as "text/plain"
       self.plainText  = str(self.edtLinkText.text()) + '\n'
       self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
       if amtStr:
-         self.plainText += '\nAmount:  %s BTC' % coin2str(amtStr,maxZeros=0).strip()
+         self.plainText += '\nAmount:  %s BTC' % coin2str(amt,maxZeros=0).strip()
       if msgStr:
          self.plainText += '\nMessage: %s' % msgStr
       self.plainText += '\n'
+
+      # The rich-text to copy to the clipboard, as "text/html"
+      self.clipText = ( \
+            '<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0//EN" '
+            '"http://www.w3.org/TR/REC-html40/strict.dtd"> '
+            '<html><head><meta name="qrichtext" content="1" />'
+            '<meta http-equiv="Content-Type" content="text/html; '
+            'charset=utf-8" /><style type="text/css"> p, li '
+            '{ white-space: pre-wrap; } </style></head><body>'
+            '<p style=" margin-top:0px; margin-bottom:0px; margin-left:0px; '
+            'margin-right:0px; -qt-block-indent:0; text-indent:0px;">'
+            '<!--StartFragment--><a href="%s">'
+            '<span style=" text-decoration: underline; color:#0000ff;">'
+            '%s</span></a><br />'
+            'If clicking on the line above does not work, use this payment info:'
+            '<br /><span style=" font-weight:600;">Pay to</span>: %s') % \
+            (self.rawURI, str(self.edtLinkText.text()), addr)
+      if amt:
+         self.clipText += ('<br /><span style=" font-weight:600;">Amount'
+                           '</span>: %s' % coin2str(amt,maxZeros=0))
+      if msgStr:
+         self.clipText += ('<br /><span style=" font-weight:600;">Message'
+                           '</span>: %s' % msgStr)
+      self.clipText += '<!--EndFragment--></p></body></html>'
 
    def periodicUpdate(self, nsec=1):
       if not self.closed:
@@ -10544,9 +10570,13 @@ class DlgRequestPayment(ArmoryDialog):
       clipb = QApplication.clipboard()
       clipb.clear()
       qmd = QMimeData()
-      pref = '<meta http-equiv="content-type" content="text/html; charset=utf-8">'
-      qmd.setText(self.plainText)
-      qmd.setHtml(pref + self.dispText)
+      if OS_WINDOWS:
+         qmd.setText(self.plainText)
+         qmd.setHtml(self.clipText)
+      else:
+         prefix = '<meta http-equiv="content-type" content="text/html; charset=utf-8">'
+         qmd.setText(self.plainText)
+         qmd.setHtml(prefix + self.dispText)
       clipb.setMimeData(qmd)
       self.lblWarn.setText('<i>Copied!</i>')
       
