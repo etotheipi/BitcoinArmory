@@ -10496,7 +10496,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.dispText += '<br>'
       self.dispText += '<b>Pay to</b>:\t%s<br>' % addr
       if amtStr:
-         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amtStr,maxZeros=0).strip()
+         self.dispText += '<b>Amount</b>:\t%s BTC<br>' % coin2str(amt,maxZeros=0).strip()
       if msgStr:
          self.dispText += '<b>Message</b>:\t%s<br>' % msgStr
       self.lblLink.setText(self.dispText)
@@ -10511,7 +10511,7 @@ class DlgRequestPayment(ArmoryDialog):
       self.plainText += 'If clicking on the line above does not work, use this payment info:\n'
       self.plainText += 'Pay to:  %s' % addr
       if amtStr:
-         self.plainText += '\nAmount:  %s BTC' % coin2str(amtStr,maxZeros=0).strip()
+         self.plainText += '\nAmount:  %s BTC' % coin2str(amt,maxZeros=0).strip()
       if msgStr:
          self.plainText += '\nMessage: %s' % msgStr
       self.plainText += '\n'
