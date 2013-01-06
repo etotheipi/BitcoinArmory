@@ -1012,6 +1012,8 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def checkForLatestVersion(self, wasRequested=False):
       # Download latest versions.txt file, accumulate changelog
+      if CLI_OPTIONS.skipVerCheck:
+         return
 
       optChkVer = self.getSettingOrSetDefault('CheckVersion', 'Always')
       if optChkVer.lower()=='never' and not wasRequested:
@@ -3511,8 +3513,6 @@ class ArmoryMainWindow(QMainWindow):
                if len(mine)==1:
                   dispLines.append('Address:\t%s' % hash160_to_addrStr(mine[0][0]))
                   addrComment = wlt.getComment(mine[0][0])
-                  #if addrComment:
-                     #dispLines.append('%s...' % addrComment[:24])
                else:
                   dispLines.append('<Received with Multiple Addresses>')
                dispLines.append(   'Wallet:\t"%s" (%s)' % (wlt.labelName, wltID))
@@ -3524,8 +3524,6 @@ class ArmoryMainWindow(QMainWindow):
                if len(other)==1:
                   dispLines.append('Sent To:\t%s' % hash160_to_addrStr(other[0][0]))
                   addrComment = wlt.getComment(other[0][0])
-                  #if addrComment:
-                     #dispLines.append('%s...' % addrComment[:24])
                else:
                   dispLines.append('<Sent to Multiple Addresses>')
                dispLines.append('From:\tWallet "%s" (%s)' % (wlt.labelName, wltID))
@@ -3534,6 +3532,8 @@ class ArmoryMainWindow(QMainWindow):
                                      '\n'.join(dispLines),  \
                                      QSystemTrayIcon.Information, \
                                      10000)
+            #qsnd = QSound('drip.wav')
+            #qsnd.play()
 
          self.notifyBlockedUntil = RightNow() + 5
          return

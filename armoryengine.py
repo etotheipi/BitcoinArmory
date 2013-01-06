@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 86, 6, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 86, 7, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -70,6 +70,8 @@ parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=Fals
                   help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
                   help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--skip-version-check", dest="skipVerCheck", action="store_true", default=False,
+                  help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool", dest="keypool", default=100, type="int",
                   help="Default number of addresses to lookahead in Armory wallets")
 
