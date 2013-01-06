@@ -922,8 +922,8 @@ class DlgWalletDetails(ArmoryDialog):
       dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
-      if True:  actionBlkChnInfo  = menu.addAction("View Address on www.blockchain.info")
       if True:  actionShowQRCode  = menu.addAction("Display QR Code")
+      if True:  actionBlkChnInfo  = menu.addAction("View Address on www.blockchain.info")
       if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
