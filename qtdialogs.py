@@ -809,7 +809,7 @@ class DlgWalletDetails(ArmoryDialog):
       self.chkHideChange = QCheckBox('Hide Change')
       self.chkHideUnused = QCheckBox('Hide Unused')
       self.chkHideEmpty.setChecked(False)
-      self.chkHideChange.setChecked(False)
+      self.chkHideChange.setChecked(self.main.usermode==USERMODE.Standard)
       self.chkHideUnused.setChecked(self.wlt.highestUsedChainIndex>25)
 
       self.connect(self.chkHideEmpty,  SIGNAL('clicked()'), self.doFilterAddr)
@@ -923,6 +923,7 @@ class DlgWalletDetails(ArmoryDialog):
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
       if True:  actionBlkChnInfo  = menu.addAction("View Address on www.blockchain.info")
+      if True:  actionShowQRCode  = menu.addAction("Display QR Code")
       if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
       if True:  actionCopyComment = menu.addAction("Copy Comment")
@@ -944,6 +945,10 @@ class DlgWalletDetails(ArmoryDialog):
                'this address on blockchain.info, please copy and paste '
                'the following URL into your browser: '
                '<br><br>%s' % blkchnURL, QMessageBox.Ok)
+         return
+      elif action==actionShowQRCode:
+         wltstr = 'Wallet: %s (%s)' % (self.wlt.labelName, self.wlt.uniqueIDB58)
+         DlgQRCodeDisplay(self, self.main, addr, addr, wltstr ).exec_()
          return
       elif action==actionReqPayment:
          DlgRequestPayment(self, self.main, addr).exec_() 
@@ -10895,6 +10900,36 @@ class dlgRawTx(ArmoryDialog):
 
    
 
+################################################################################
+class DlgQRCodeDisplay(ArmoryDialog):
+   def __init__(self, parent, main, dataToQR, descrUp='', descrDown=''):
+      super(DlgQRCodeDisplay, self).__init__(parent, main)
 
+
+      btnDone = QPushButton('Close')
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      frmBtn = makeHorizFrame(['Stretch', btnDone, 'Stretch'])
+
+      frmQR = makeHorizFrame(['Stretch', QRCodeWidget(dataToQR), 'Stretch'])
+
+      lblUp = QRichLabel(descrUp)
+      lblUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+      lblDn = QRichLabel(descrDown)
+      lblDn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+
+
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblUp)
+      layout.addWidget(frmQR)
+      layout.addWidget(lblDn)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmBtn)
+
+      self.setLayout(layout)
+
+      w1,h1 = relaxedSizeStr(lblUp, descrUp)
+      w2,h2 = relaxedSizeStr(lblDn, descrDown)
+      self.setMinimumWidth( 1.2*max(w1,w2) )
 
 
