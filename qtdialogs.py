@@ -2081,9 +2081,21 @@ class DlgImportAddress(ArmoryDialog):
    def processUserString(self):
       theStr = str(self.edtPrivData.text()).strip().replace(' ','')
       binKeyData, addr160, addrStr = '','',''
-
+      
       try:
          binKeyData, keyType = parsePrivateKeyData(theStr)
+         if binary_to_int(binKeyData, BIGENDIAN) >= SECP256K1_ORDER:
+            QMessageBox.critical(self, 'Invalid Private Key', \
+               'The private key you have entered is actually not valid '
+               'for the elliptic curve used by Bitcoin (secp256k1).  '
+               'Almost any 64-character hex is a valid private key '
+               '<b>except</b> for those greater than: '
+               '<br><br>'
+               'fffffffffffffffffffffffffffffffebaaedce6af48a03bbfd25e8cd0364141'
+               '<br><br>'
+               'Please try a different private key.', QMessageBox.Ok)
+            LOGERROR('User attempted import of invalid private key!')
+            return
          addr160 = convertKeyDataToAddress(privKey=binKeyData)
          addrStr = hash160_to_addrStr(addr160)
       except InvalidHashError, e:
@@ -2179,20 +2191,28 @@ class DlgImportAddress(ArmoryDialog):
 
          wltID = self.main.getWalletForAddr160(addr160)
          if not wltID=='':
-            reply = QMessageBox.critical(self, 'Duplicate Addresses', \
-               'The key you entered is already part of another wallet '
-               'another wallet you own:\n\n'
-               'Address: ' + addrStr + '\n'
-               'Wallet ID: ' + wltID + '\n'
-               'Wallet Name: ' + self.main.walletMap[wltID].labelName + '\n\n'
-               'If you continue, any funds in this '
-               'address will be double-counted, causing your total balance '
-               'to appear artificially high, and any transactions involving '
-               'this address will confusingly appear in multiple wallets.'
-               '\n\nWould you like to import this address anyway?', \
-               QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
-            if not reply==QMessageBox.Yes:
-               return
+            addr = self.main.walletMap[wltID].addrMap[addr160]
+            typ = 'Imported' if addr.chainIndex==-2 else 'Permanent'
+            msg = ('The key you entered is already part of another wallet you own:'
+                   '<br><br>'
+                   '<b>Address</b>: ' + addrStr + '<br>'
+                   '<b>Wallet ID</b>: ' + wltID + '<br>'
+                   '<b>Wallet Name</b>: ' + self.main.walletMap[wltID].labelName + '<br>'
+                   '<b>Address Type</b>: ' + typ + 
+                   '<br><br>'
+                   'Armory cannot properly display balances or create transactions '
+                   'when the same address is in multiple wallets at once.  ')
+            if typ=='Imported':
+               QMessageBox.critical(self, 'Duplicate Addresses', \
+                  msg + 'To import this address to this wallet, please remove it from the '
+                  'other wallet, then try the import operation again.', QMessageBox.Ok)
+            else:
+               QMessageBox.critical(self, 'Duplicate Addresses', \
+                  msg + 'Additionally, this address is mathematically linked '
+                  'to its wallet (permanently) and cannot be deleted or '
+                  'imported to any other wallet.  The import operation cannot '
+                  'continue.', QMessageBox.Ok)
+            return
    
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')

@@ -2306,12 +2306,14 @@ class ArmoryMainWindow(QMainWindow):
 
       gt1 = len(sweepList)>1
 
-      if outVal<=fee:
+      if outVal<=0:
          QMessageBox.critical(self, 'Cannot sweep',\
-            'You cannot sweep the funds from the address you specified, because '
+            'You cannot sweep the funds from the %s you specified, because '
             'the transaction fee would be equal to or greater than the amount '
             'swept.  The sweep operation will be canceled' %  \
             ('addresses' if gt1 else 'address'), QMessageBox.Ok)
+         LOGERROR('Sweep amount (%s) is less than fee needed for sweeping (%s)', \
+                     coin2str(outVal, maxZeros=0), coin2str(fee, maxZeros=0))
          return
 
       if outVal==0:
