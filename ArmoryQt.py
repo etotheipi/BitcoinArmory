@@ -2636,6 +2636,10 @@ class ArmoryMainWindow(QMainWindow):
             'the blockchain, but Armory is currently offline.  The address '
             'book will become available when Armory is online.', QMessageBox.Ok)
       else:
+         if len(self.walletMap)==0:
+            QMessageBox.warning(self, 'No wallets!', 'You have no wallets so '
+               'there is no address book to display.', QMessageBox.Ok)
+            return
          DlgAddressBook(self, self, None, None, None).exec_()
 
 
@@ -2697,6 +2701,9 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def showContextMenuLedger(self):
       menu = QMenu(self.ledgerView)
+   
+      if len(self.ledgerView.selectedIndexes())==0:
+         return
       
       actViewTx     = menu.addAction("View Details")
       actViewBlkChn = menu.addAction("View on www.blockchain.info")

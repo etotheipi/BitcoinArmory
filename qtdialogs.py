@@ -9399,8 +9399,8 @@ class DlgAddressBook(ArmoryDialog):
       self.addrBookRxView.setSelectionMode(QTableView.SingleSelection)
       self.addrBookRxView.horizontalHeader().setStretchLastSection(True)
       self.addrBookRxView.verticalHeader().setDefaultSectionSize(20)
-      iWidth = tightSizeStr(self.addrBookRxView, 'Imported')[0]
-      initialColResize(self.addrBookRxView, [0.3, 0.35, 64, iWidth*1.3, 0.3])
+      iWidth = tightSizeStr(self.addrBookRxView, 'Imp')[0]
+      initialColResize(self.addrBookRxView, [iWidth*1.3, 0.3, 0.35, 64, 0.3])
       self.connect(self.addrBookRxView.selectionModel(), \
                    SIGNAL('currentChanged(const QModelIndex &, const QModelIndex &)'), \
                    self.addrTableRxClicked)
@@ -9501,9 +9501,10 @@ class DlgAddressBook(ArmoryDialog):
 
    #############################################################################
    def acceptAddrSelection(self):
-      self.target.setText(self.selectedAddr)
-      self.target.setCursorPosition(0)
-      self.accept()
+      if self.target:
+         self.target.setText(self.selectedAddr)
+         self.target.setCursorPosition(0)
+         self.accept()
 
    #############################################################################
    def showContextMenuTx(self, pos):
@@ -9567,6 +9568,10 @@ def createAddrBookButton(parent, targWidget, defaultWlt, actionStr="Select", sel
    ico = QIcon(QPixmap(':/addr_book_icon.png'))
    btn.setIcon(ico)
    def execAddrBook():
+      if len(parent.main.walletMap) == 0:
+         QMessageBox.warning(parent, 'No wallets!', 'You have no wallets so '
+            'there is no address book to display.', QMessageBox.Ok)
+         return
       dlg = DlgAddressBook(parent, parent.main, targWidget,  defaultWlt, actionStr, selectExistingOnly)
       dlg.exec_()
 
