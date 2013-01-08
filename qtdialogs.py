@@ -19,23 +19,6 @@ import qrc_img_resources
 MIN_PASSWD_WIDTH = lambda obj: tightSizeStr(obj, '*'*16)[0]
 
 
-################################################################################
-class ArmoryDialog(QDialog):
-   def __init__(self, parent=None, main=None):
-      super(ArmoryDialog, self).__init__(parent)
-
-      self.parent = parent
-      self.main   = main
-
-      self.setFont(GETFONT('var'))
-
-      if USE_TESTNET:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
-         self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
-      else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
-         self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
-
 
 
 
@@ -1822,7 +1805,7 @@ class DlgNewAddressDisp(ArmoryDialog):
 
       qrdescr = QRichLabel('<b>Scan QR code with smartphone or other barcode reader:</b>')
       qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      qrcode = QRCodeWidget(addrStr)
+      qrcode = QRCodeWidget(addrStr, parent=self)
       smLabel = QRichLabel('<font size=2>%s</font>' % addrStr)
       frmQRsub2 = makeHorizFrame( ['Stretch', qrcode, 'Stretch' ])
       frmQRsub3 = makeHorizFrame( ['Stretch', smLabel, 'Stretch' ])
@@ -2370,14 +2353,11 @@ class DlgImportAddress(ArmoryDialog):
          if len(dupeWltList)>0:
             dupeAddrStrList = [d[1] for d in dupeWltList]
             dlg = DlgDuplicateAddr(dupeAddrStrList, self, self.main)
-            didAccept = dlg.exec_()
-            if not didAccept or dlg.doCancel:
+
+            if not dlg.exec_():
                return
    
-            if dlg.newOnly:
-               privKeyList = filter(lambda x: (x[1] not in dupeAddrStrList), privKeyList)
-            elif dlg.takeAll:
-               pass # we already have duplicates in the list, leave them
+            privKeyList = filter(lambda x: (x[1] not in dupeAddrStrList), privKeyList)
       
 
          # Confirm import
@@ -3015,7 +2995,6 @@ class DlgDuplicateAddr(ArmoryDialog):
 
       self.wlt    = wlt 
       self.doCancel = True
-      self.takeAll  = False
       self.newOnly  = False
 
       if len(addrList)==0:
@@ -3037,42 +3016,28 @@ class DlgDuplicateAddr(ArmoryDialog):
       txtDispAddr.setText( '\n'.join(addrList) )
 
       lblWarn = QRichLabel( \
-         'If you continue, any funds in this '
-         'address will be double-counted, causing your total balance '
-         'to appear artificially high, and any transactions involving '
-         'this address will confusingly appear in multiple wallets.'
-         '\n\nWould you like to import these addresses anyway?')
+         'Duplicate addresses cannot be imported.  If you continue, '
+         'the addresses above will be ignored, and only new addresses '
+         'will be imported to this wallet.')
 
       buttonBox = QDialogButtonBox()
-      self.btnTakeAll = QPushButton("Import With Duplicates")
-      self.btnNewOnly = QPushButton("Import New Addresses Only")
-      self.btnCancel  = QPushButton("Cancel")
-      self.connect(self.btnTakeAll, SIGNAL('clicked()'), self.doTakeAll)
-      self.connect(self.btnNewOnly, SIGNAL('clicked()'), self.doNewOnly)
-      self.connect(self.btnCancel,  SIGNAL('clicked()'), self.reject)
-      buttonBox.addButton(self.btnTakeAll, QDialogButtonBox.AcceptRole)
-      buttonBox.addButton(self.btnNewOnly, QDialogButtonBox.AcceptRole)
+      self.btnContinue = QPushButton("Continue")
+      self.btnCancel   = QPushButton("Cancel")
+      self.connect(self.btnContinue, SIGNAL('clicked()'), self.accept)
+      self.connect(self.btnCancel,   SIGNAL('clicked()'), self.reject)
+      buttonBox.addButton(self.btnContinue, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel,  QDialogButtonBox.RejectRole)
 
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(lblDescr)
       dlgLayout.addWidget(txtDispAddr)
+      dlgLayout.addWidget(lblWarn)
       dlgLayout.addWidget(buttonBox)
       self.setLayout(dlgLayout)
 
       self.setWindowTitle('Duplicate Addresses')
 
-   def doTakeAll(self):
-      self.doCancel = False
-      self.takeAll  = True
-      self.newOnly  = False
-      self.accept()
 
-   def doNewOnly(self):
-      self.doCancel = False
-      self.takeAll  = False
-      self.newOnly  = True
-      self.accept()
 
 
 #############################################################################
@@ -3188,7 +3153,7 @@ class DlgAddressInfo(ArmoryDialog):
             else:
                frmInfoLayout.addWidget(lbls[i][j], i,j, 1,1)
 
-      frmInfoLayout.addWidget(QRCodeWidget(addrStr, 80),  1,3, len(lbls)-1,1)
+      frmInfoLayout.addWidget(QRCodeWidget(addrStr, 80, parent=self),  1,3, len(lbls)-1,1)
       frmInfo.setLayout(frmInfoLayout)
       dlgLayout.addWidget(frmInfo, 0,0, 1,1)
 
@@ -10404,7 +10369,7 @@ class DlgRequestPayment(ArmoryDialog):
       frmClose = makeHorizFrame(['Stretch', btnClose])
 
 
-      self.qrURI = QRCodeWidget('')
+      self.qrURI = QRCodeWidget('', parent=self)
       lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
                               'other payment information shown to the left.')
       lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
@@ -10955,17 +10920,20 @@ class dlgRawTx(ArmoryDialog):
 
    
 
+      
+   
+
 ################################################################################
 class DlgQRCodeDisplay(ArmoryDialog):
    def __init__(self, parent, main, dataToQR, descrUp='', descrDown=''):
       super(DlgQRCodeDisplay, self).__init__(parent, main)
 
-
       btnDone = QPushButton('Close')
       self.connect(btnDone, SIGNAL('clicked()'), self.accept)
       frmBtn = makeHorizFrame(['Stretch', btnDone, 'Stretch'])
 
-      frmQR = makeHorizFrame(['Stretch', QRCodeWidget(dataToQR), 'Stretch'])
+      qrDisp = QRCodeWidget(dataToQR, parent=self)
+      frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
 
       lblUp = QRichLabel(descrUp)
       lblUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)

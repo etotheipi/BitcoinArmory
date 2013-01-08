@@ -623,12 +623,32 @@ class QtBackgroundThread(QThread):
 
 
 
+################################################################################
+class ArmoryDialog(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(ArmoryDialog, self).__init__(parent)
+
+      self.parent = parent
+      self.main   = main
+
+      self.setFont(GETFONT('var'))
+
+      if USE_TESTNET:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
+      else:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
+         self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
+
+
+
 
 class QRCodeWidget(QWidget):
 
-   def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L):
+   def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L, parent=None):
       super(QRCodeWidget, self).__init__()
 
+      self.parent = parent
       self.qrmtrx = None
       self.setAsciiData(asciiToEncode, prefSize, errLevel, repaint=False)
       
@@ -640,12 +660,13 @@ class QRCodeWidget(QWidget):
          self.pxScale= 1
          return
 
+      self.theData = newAscii
       sz=3
       success=False
       while sz<20:
          try:
             self.qr = QRCode(sz, errLevel)
-            self.qr.addData(newAscii)
+            self.qr.addData(self.theData)
             self.qr.make()
             success=True
             break
@@ -723,6 +744,40 @@ class QRCodeWidget(QWidget):
          for c in range(self.modCt):
             if self.qrmtrx[c][r]:
                qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
+
+
+   def mouseDoubleClickEvent(self, *args):
+      DlgInflatedQR(self.parent, self.theData).exec_()
+            
+            
+# Create a very simple dialog and execute it
+class DlgInflatedQR(ArmoryDialog):
+   def __init__(self, parent, dataToQR):
+      super(DlgInflatedQR, self).__init__(parent)
+
+      sz = QApplication.desktop().size()
+      w,h = sz.width(), sz.height()
+      qrSize = int(min(w,h)*0.8)
+      qrDisp = QRCodeWidget(dataToQR, prefSize=qrSize)
+
+      def closeDlg(*args): 
+         self.accept()
+      qrDisp.mouseDoubleClickEvent = closeDlg
+      self.mouseDoubleClickEvent = closeDlg
+
+      lbl = QRichLabel('<b>Double-click to close</b>')
+      lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
+      frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
+      frmFull = makeVertFrame(['Stretch',frmQR, lbl, 'Stretch'])
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmFull)
+
+      self.setLayout(layout)
+      self.showFullScreen()
+      
+
 
 
 
