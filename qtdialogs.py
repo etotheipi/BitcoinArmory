@@ -905,7 +905,7 @@ class DlgWalletDetails(ArmoryDialog):
       dev = (self.main.usermode==USERMODE.Expert)
       
       if True:  actionCopyAddr    = menu.addAction("Copy Address")
-      if True:  actionShowQRCode  = menu.addAction("Display QR Code")
+      if True:  actionShowQRCode  = menu.addAction("Display Address QR Code")
       if True:  actionBlkChnInfo  = menu.addAction("View Address on www.blockchain.info")
       if True:  actionReqPayment  = menu.addAction("Request Payment to this Address")
       if dev:   actionCopyHash160 = menu.addAction("Copy Hash160 (hex)")
@@ -1803,10 +1803,12 @@ class DlgNewAddressDisp(ArmoryDialog):
       frmWlt.setLayout(frmWltLayout)
 
 
-      qrdescr = QRichLabel('<b>Scan QR code with smartphone or other barcode reader:</b>')
+      qrdescr = QRichLabel('<b>Scan QR code with phone or other barcode reader</b>'
+                           '<br><br><font size=2>(Double-click to expand)</font>')
       qrdescr.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       qrcode = QRCodeWidget(addrStr, parent=self)
       smLabel = QRichLabel('<font size=2>%s</font>' % addrStr)
+      smLabel.setAlignment(Qt.AlignHCenter | Qt.AlignTop)
       frmQRsub2 = makeHorizFrame( ['Stretch', qrcode, 'Stretch' ])
       frmQRsub3 = makeHorizFrame( ['Stretch', smLabel, 'Stretch' ])
       frmQR = makeVertFrame( ['Stretch', qrdescr, frmQRsub2, frmQRsub3, 'Stretch' ], STYLE_SUNKEN) 
@@ -3153,7 +3155,11 @@ class DlgAddressInfo(ArmoryDialog):
             else:
                frmInfoLayout.addWidget(lbls[i][j], i,j, 1,1)
 
-      frmInfoLayout.addWidget(QRCodeWidget(addrStr, 80, parent=self),  1,3, len(lbls)-1,1)
+      qrcode = QRCodeWidget(addrStr, 80, parent=self)
+      qrlbl = QRichLabel('<font size=2>Double-click to inflate</font>')
+      frmqr = makeVertFrame([qrcode, qrlbl])
+
+      frmInfoLayout.addWidget(frmqr,  0,4, len(lbls),1)
       frmInfo.setLayout(frmInfoLayout)
       dlgLayout.addWidget(frmInfo, 0,0, 1,1)
 
@@ -10372,11 +10378,13 @@ class DlgRequestPayment(ArmoryDialog):
       self.qrURI = QRCodeWidget('', parent=self)
       lblQRDescr = QRichLabel('This QR code contains address <b>and</b> the '
                               'other payment information shown to the left.')
+
       lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
       frmQR = makeVertFrame([self.qrURI, lblQRDescr,'Stretch'], STYLE_SUNKEN)
       frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
       frmQR.layout().setStretch(2, 1)
+      frmQR.setMinimumWidth(1.1*QRCodeWidget('a'*200).getSize())
 
 
       dlgLayout = QGridLayout()

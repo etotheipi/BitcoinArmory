@@ -688,8 +688,6 @@ class QRCodeWidget(QWidget):
 
       self.setPreferredSize(prefSize)
 
-      #if repaint:
-         #self.paintEvent(None)
 
       
             
@@ -714,6 +712,10 @@ class QRCodeWidget(QWidget):
 
       return
       
+
+   def getSize(self):
+      return self.pxScale*self.modCt
+
        
    def sizeHint(self):
       sz1d = self.pxScale*self.modCt
