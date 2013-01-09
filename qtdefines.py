@@ -767,7 +767,7 @@ class DlgInflatedQR(ArmoryDialog):
       qrDisp.mouseDoubleClickEvent = closeDlg
       self.mouseDoubleClickEvent = closeDlg
 
-      lbl = QRichLabel('<b>Double-click to close</b>')
+      lbl = QRichLabel('<b>Double-click or press ESC to close</b>')
       lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
 
       frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])

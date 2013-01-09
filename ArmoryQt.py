@@ -77,7 +77,6 @@ class ArmoryMainWindow(QMainWindow):
       self.netMode     = NETWORKMODE.Offline
       self.abortLoad   = False
       self.memPoolInit = False
-      self.prevTopBlock = -1
       self.dirtyLastTime = False
       self.needUpdateAfterScan = True
       self.sweepAfterScanList = []
@@ -3428,18 +3427,15 @@ class ArmoryMainWindow(QMainWindow):
                self.walletModel.reset()
                TimerStop('walletModelReset')
       
-               nowtime = RightNow()
-               blkRecvAgo  = nowtime - self.blkReceived
-               blkStampAgo = nowtime - TheBDM.getTopBlockHeader().getTimestamp()
-               self.lblArmoryStatus.setToolTip('Last block timestamp is %s ago' % \
-                                                      secondsToHumanTime(blkStampAgo))
+            blkRecvAgo  = RightNow() - self.blkReceived
+            #blkStampAgo = RightNow() - TheBDM.getTopBlockHeader().getTimestamp()
+            self.lblArmoryStatus.setToolTip('Last block received is %s ago' % \
+                                                secondsToHumanTime(blkRecvAgo))
                
    
-               for func in self.extraHeartbeatOnline:
-                  func()
+            for func in self.extraHeartbeatOnline:
+               func()
    
-               # Update the "prev" variables
-               self.prevTopBlock = TheBDM.getTopBlockHeader().getBlockHeight()
    
       except:
          LOGEXCEPT('Error in heartbeat function')

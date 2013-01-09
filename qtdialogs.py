@@ -269,7 +269,7 @@ class DlgNewWallet(ArmoryDialog):
       self.connect(self.chkUseCrypto, SIGNAL("clicked()"), \
                    self.cryptoFrame,  SLOT("setEnabled(bool)"))
 
-      self.setWindowTitle('Create/Import Armory wallet')
+      self.setWindowTitle('Create Armory wallet')
       self.setWindowIcon(QIcon( self.main.iconfile))
 
 
@@ -3403,8 +3403,7 @@ class DlgShowKeys(ArmoryDialog):
                'This is a more compact form of the private key, and includes '
                'a checksum for error detection.'))
          lbls[-1].append(QRichLabel('Private Key (Base58):'))
-         b58Key = '\x80' + binKey
-         b58Key = binary_to_base58(b58Key + computeChecksum(b58Key))
+         b58Key = encodePrivKeyBase58(binKey)
          lbls[-1].append( QLabel(' '.join([b58Key[i:i+6] for i in range(0, len(b58Key), 6)])))
          
       
@@ -6941,9 +6940,7 @@ class DlgShowKeyList(ArmoryDialog):
          if self.chkList['PubKeyHash'].isChecked(): 
             L.append(                  '   Hash160   : ' + fmtBin(addr.getAddr160()))
          if self.chkList['PrivB58'   ].isChecked(): 
-            pBin = '\x80' + addr.binPrivKey32_Plain.toBinStr()
-            pChk = computeChecksum(pBin, nBytes=4)
-            pB58 = binary_to_base58(pBin + pChk)
+            pB58 = encodePrivKeyBase58(addr.binPrivKey32_Plain.toBinStr())
             pB58Stretch = ' '.join([pB58[i:i+6] for i in range(0, len(pB58), 6)])
             L.append(                  '   PrivBase58: ' + pB58Stretch)
             self.havePriv = True
@@ -8710,8 +8707,7 @@ class DlgECDSACalc(ArmoryDialog):
             return
       elif len(privBin)>0:
          try:
-            priv37  = '\x80' + privBin + computeChecksum('\x80' + privBin)
-            privB58 = binary_to_base58(priv37)
+            privB58 = encodePrivKeyBase58(privBin)
             typestr = parsePrivateKeyData(privB58)[1]
             self.txtPrvR.setText(privB58)
             self.lblPrivType.setText('<font color="green">' + typestr + '</font>')
@@ -10384,7 +10380,7 @@ class DlgRequestPayment(ArmoryDialog):
       frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
       frmQR.layout().setStretch(2, 1)
-      frmQR.setMinimumWidth(1.1*QRCodeWidget('a'*200).getSize())
+      frmQR.setMinimumWidth(1.25*QRCodeWidget('a'*200).getSize())
 
 
       dlgLayout = QGridLayout()

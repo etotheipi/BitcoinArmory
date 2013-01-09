@@ -307,6 +307,7 @@ if not USE_TESTNET:
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x00'
+   PRIVKEYBYTE = '\x80'
 else:
    BITCOIN_PORT = 18333
    MAGIC_BYTES  = '\x0b\x11\x09\x07'
@@ -315,6 +316,7 @@ else:
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x6f'
+   PRIVKEYBYTE = '\xef'
 
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    try:
@@ -1482,7 +1484,7 @@ def parsePrivateKeyData(theStr):
          raise BadInputError, 'Unrecognized key data'
 
 
-      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]=='\x80'):
+      if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==PRIVKEYBYTE):
          if len(binEntry)==36:
             keydata = binEntry[:32 ]
             chk     = binEntry[ 32:]
@@ -1504,6 +1506,13 @@ def parsePrivateKeyData(theStr):
          raise CompressedKeyError, 'Compressed Public keys not supported!'
       return binEntry, keyType
    
+
+
+################################################################################
+def encodePrivKeyBase58(privKeyBin):
+   bin33 = PRIVKEYBYTE + privKeyBin
+   chk = computeChecksum(bin33)
+   return binary_to_base58(bin33 + chk)
 
 
 
@@ -9231,6 +9240,7 @@ class ArmoryClient(Protocol):
       msgVersion.height0  = -1
       self.sendMessage( msgVersion )
       self.factory.func_madeConnect()
+
       
    ############################################################
    def dataReceived(self, data):
@@ -9407,11 +9417,6 @@ class ArmoryClientFactory(ReconnectingClientFactory):
    objects (ArmoryClients) can share information through this factory.
    However, at the moment, this class is designed to only create a single 
    connection -- to localhost.
-
-   Note that I am implementing a special security feature:  besides collecting
-   tx's not in the blockchain yet, I also monitor for double-broadcast events
-   which are due to two transactions being sent at the same time with different
-   recipients but the same inputs.  
    """
    protocol = ArmoryClient
    lastAlert = 0
@@ -9498,6 +9503,8 @@ class ArmoryClientFactory(ReconnectingClientFactory):
          self.proto.sendMessage(msgObj)
       else:
          raise ConnectionError, 'Connection to localhost DNE.'
+
+
 
 
 class FakeClientFactory(ReconnectingClientFactory):
