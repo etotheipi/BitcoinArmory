@@ -66,6 +66,8 @@ parser.add_option("--nologging", dest="logDisable", action="store_true", default
                   help="Disable all logging")
 parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
                   help="Log networking messages sent and received by Armory")
+parser.add_option("--logfile", dest="logFile", default='DEFAULT', type='str', 
+                  help="Specify a non-default location to send logging information")
 parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=False,
                   help="Log multi-threaded call sequences")
 parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
@@ -179,10 +181,13 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
+# Change the settings file to use
+if CLI_OPTIONS.logFile.lower()=='default':
+   CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 
+SETTINGS_PATH   = CLI_OPTIONS.settingsPath
+ARMORY_LOG_FILE = CLI_OPTIONS.logFile
 
-SETTINGS_PATH = CLI_OPTIONS.settingsPath
-ARMORY_LOG_FILE     = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
 
 # If this is the first Armory has been run, create directories
 if ARMORY_HOME_DIR and not os.path.exists(ARMORY_HOME_DIR):
@@ -265,6 +270,8 @@ print '   User home-directory   :', USER_HOME_DIR
 print '   Satoshi BTC directory :', BTC_HOME_DIR
 print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
 print '   Armory home dir       :', ARMORY_HOME_DIR
+print '   Armory settings file  :', SETTINGS_PATH
+print '   Armory log file       :', ARMORY_LOG_FILE
 
 
 

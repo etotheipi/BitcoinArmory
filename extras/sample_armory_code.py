@@ -12,6 +12,7 @@ run_LoadBlockchain_Block  = True
 run_WalletRescan          = True
 run_DiffChangeList        = False
 run_UniqueAddresses       = False
+run_TrafficCamera         = False
 run_SatoshiDice           = False
 
 
@@ -154,6 +155,13 @@ if run_UniqueAddresses:
    print 'Took %0.1f seconds to count all addresses' % (RightNow()-start)
    print 'There are %d unique addresses in the blockchain!' % len(allAddr)
    print 'There are %d standard TxOuts in all blocks' % totalTxOutEver
+
+
+
+################################################################################
+if run_TrafficCamera:
+   # will fill this in later
+   pass
 
 
 ################################################################################
