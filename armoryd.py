@@ -1,11 +1,35 @@
 ################################################################################
 #
-# Copyright (C) 2012, Ian Coleman
+# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
 # Distributed under the GNU Affero General Public License (AGPL v3)
-# See http://www.gnu.org/licenses/agpl.html
+# See LICENSE or http://www.gnu.org/licenses/agpl.html
+#
+# Original copyright transferred from from Ian Coleman (2012)
+# Special thanks to Ian Coleman who created the original incarnation of
+# this file and then transferred the rights to me so I could integrate it
+# into the Armory project.  And even more thanks to him for his advice
+# on upgrading its security features and other capabilities.
 #
 ################################################################################
 
+
+      #####
+   #####
+#####
+#
+# As OF 10 Jan, 2013, this code does not work reliably.  Please do not use this
+# until this message disappears from a future release.
+# (To be fair, getting new addresses and balances APPEAR to work, but 
+#  listtransactions
+#
+#####
+   #####
+      #####
+
+
+#####
+# ORIGINAL comments from Ian Coleman:
+#
 # This is a json-rpc interface to armory - http://bitcoinarmory.com/
 #
 # Where possible this follows conventions established by the Satoshi client.
@@ -19,12 +43,13 @@
 # This is relatively untested, please use caution. There should be no chance for
 # irreversible damage to be done by this software, but it is still in the early
 # development stage so treat it with the appropriate level of skepticism.
-
+#
 # Many thanks must go to etotheipi who started the armory client, and who has
 # provided immense amounts of help with this. This app is mostly chunks
 # of code taken from armory and refurbished into an rpc client.
 # See the bitcontalk thread for more details about this software:
 # https://bitcointalk.org/index.php?topic=92496.0
+#####
 
 from twisted.web import server
 from twisted.internet import reactor
@@ -34,6 +59,38 @@ import datetime
 import decimal
 import os
 import sys
+
+
+################################################################################
+################################################################################
+# Copied from http://twistedmatrix.com/documents/current/web/examples/webguard.py
+from twisted.web import server, resource, guard
+from twisted.cred.portal import IRealm, Portal
+from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
+class GuardedResource(resource.Resource):
+    """
+    A resource which is protected by Guard and requires authentication to access.
+    """
+    def getChild(self, path, request):
+        return self
+
+
+    def render(self, request):
+        return "Authorized!"
+
+class SimpleRealm(object):
+    """
+    A realm which gives out L{GuardedResource} instances for authenticated users.
+    """
+    implements(IRealm)
+
+    def requestAvatar(self, avatarId, mind, *interfaces):
+        if resource.IResource in interfaces:
+            return resource.IResource, GuardedResource(), lambda: None
+        raise NotImplementedError()
+################################################################################
+################################################################################
+
 
 RPC_PORT = 7070
 STANDARD_FEE = 0.0005 # BTC
@@ -68,6 +125,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          raise ValueError('Cannot create transactions when offline')
       return self.create_unsigned_transaction(bitcoinaddress, amount)
 
+   """
    def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
       #TODO this needs more work
       # - populate the rest of the values in tx_info
@@ -120,6 +178,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if len(final_tx_list) >= tx_count:
             break
       return final_tx_list
+   """
 
       
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
