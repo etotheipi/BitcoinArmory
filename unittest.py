@@ -13,7 +13,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = False
+Test_BasicUtils       = True
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -24,7 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
-Test_PyBkgdThread     = True
+Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -35,7 +35,7 @@ Test_URIParse         = False
 
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
-Test_Timers           = True
+Test_Timers           = False
 
 '''
 import optparse
@@ -183,6 +183,7 @@ if Test_BasicUtils:
       print coin2str(c,8, maxZeros=6).rjust(16),
       print coin2str(c,8, maxZeros=2).rjust(16),
       print coin2str(c,6, maxZeros=4).rjust(16),
+      print coin2str(c,6, maxZeros=4, rJust=False),
       print coin2str_approx(c,3)
    printC2S(0)
    printC2S(1)
@@ -205,7 +206,29 @@ if Test_BasicUtils:
    printC2S(-10000990000)
    printC2S(-10009090001)
    printC2S(-10001090000)
+   printC2S(100000001090000)
    
+
+   print ''
+   print 'Testing str2coin method'
+   def printS2C(s):
+      print ('"'+s+'"').ljust(18) , str2coin(s)
+          
+   printS2C('0.00000000')
+   printS2C('0.0000')
+   printS2C('0.0')
+   printS2C('-0')
+   printS2C('0.00000001')
+   printS2C('0.0001')
+   printS2C('.0001')
+   printS2C('-.0001')
+   printS2C('-0.2')
+   printS2C('-1')
+   printS2C('-1.0  ')
+   printS2C(' -1.0  ')
+   printS2C('-1.')
+   printS2C('10000000')
+   printS2C('100000.00000001')
 
 
 # Unserialize an reserialize

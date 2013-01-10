@@ -289,10 +289,10 @@ class WalletExistsError(Exception): pass
 class ConnectionError(Exception): pass
 class BlockchainUnavailableError(Exception): pass
 class InvalidHashError(Exception): pass
-class BadInputError(Exception): pass
 class BadURIError(Exception): pass
 class CompressedKeyError(Exception): pass
-
+class TooMuchPrecisionError(Exception): pass
+class NegativeValueError(Exception): pass
 
 
 
@@ -582,7 +582,7 @@ LOGINFO('************************************************************')
 
 
 
-def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
+def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
    """
    Converts a raw value (1e-8 BTC) into a formatted string for display
    
@@ -594,19 +594,8 @@ def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
    """
 
    nBtc = float(nSatoshi) / float(ONE_BTC)
-   s = '0.0'
-   if   ndec==8:  s = '%0.8f' % (nBtc,)
-   elif ndec==7:  s = '%0.7f' % (nBtc,)
-   elif ndec==6:  s = '%0.6f' % (nBtc,)
-   elif ndec==5:  s = '%0.5f' % (nBtc,)
-   elif ndec==4:  s = '%0.4f' % (nBtc,)
-   elif ndec==3:  s = '%0.3f' % (nBtc,)
-   elif ndec==2:  s = '%0.2f' % (nBtc,)
-   elif ndec==1:  s = '%0.1f' % (nBtc,)
-   elif ndec==0:  s = '%0.0f' % (nBtc,)
-
+   s = ('%%0.%df' % ndec) % nBtc
    s = s.rjust(18, ' ')
-
 
    if maxZeros < ndec:
       maxChop = ndec - maxZeros
@@ -614,10 +603,13 @@ def coin2str(nSatoshi, ndec=8, rJust=False, maxZeros=8):
       if nChop>0:
          s  = s[:-nChop] + nChop*' '
 
-   if not rJust:
-      s.strip(' ')
+   if nSatoshi < 10000*ONE_BTC:
+      s.lstrip()
 
-   s = s.replace('. ','  ')
+   if not rJust:
+      s = s.strip(' ')
+
+   s = s.replace('. ', '')
 
    return s
     
@@ -635,20 +627,35 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
+def str2coin(theStr, negAllowed=True, maxDec=8):
+   coinStr = str(theStr)
+   if len(coinStr.strip())==0:
+      raise ValueError
+         
+   isNeg = ('-' in coinStr)
+   coinStrPos = coinStr.replace('-','') 
+   if not '.' in coinStrPos:
+      if not negAllowed and isNeg:
+         raise NegativeValueError
+      return (int(coinStrPos)*ONE_BTC)*(-1 if isNeg else 1)
+   else:
+      lhs,rhs = coinStrPos.strip().split('.')
+      if len(lhs.strip('-'))==0:
+         lhs=0
+      if len(rhs)>maxDec:
+         raise TooMuchPrecisionError
+      if not negAllowed and isNeg:
+         raise NegativeValueError
+      rhs = rhs[:8] 
+      return (int(lhs)*ONE_BTC + int(rhs.ljust(8,'0')))*(-1 if isNeg else 1)
+
+
 # This is a sweet trick for create enum-like dictionaries. 
 # Either automatically numbers (*args), or name-val pairs (**kwargs)
 #http://stackoverflow.com/questions/36932/whats-the-best-way-to-implement-an-enum-in-python
 def enum(*sequential, **named):
     enums = dict(zip(sequential, range(len(sequential))), **named)
     return type('Enum', (), enums)
-
-def str2coin(coinStr):
-   if not '.' in coinStr:
-      return int(coinStr)*ONE_BTC
-   else:
-      lhs,rhs = coinStr.split('.')
-      rhs = rhs[:8]
-      return int(lhs)*ONE_BTC + int(rhs.ljust(8,'0'))
 
 
 # Some useful constants to be used throughout everything

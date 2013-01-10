@@ -5214,46 +5214,60 @@ class DlgSendBitcoins(ArmoryDialog):
          try:
             recipStr = str(self.widgetTable[i][COLS.Addr].text()).strip()
             valueStr = str(self.widgetTable[i][COLS.Btc].text()).strip()
-            feeStr   = str(self.edtFeeAmt.text()).strip()
-
-            if '.' in valueStr and len(valueStr.split('.')[-1])>8:
-               QMessageBox.critical(self, 'Too much precision', \
-                   'Bitcoins can only be '
-                   'specified down to 8 decimal places:  the smallest value '
-                   'that can be sent is  0.0000 0001 BTC', QMessageBox.Ok)
-               return False
-         except:
-            # TODO: figure out the types of errors we need to deal with, here
-            raise
-
-         try:
-            value = int(float(valueStr) * ONE_BTC + 0.5)
+            value    = str2coin(valueStr, negAllowed=False)
             if value==0:
-               continue
+               QMessageBox.critical(self, 'Zero Amount', \
+                  'You cannot send 0 BTC to any recipients.  <br>Please enter '
+                  'a positive amount for recipient %d.' % (i+1), QMessageBox.Ok)
+               return False
+
+         except NegativeValueError:
+            QMessageBox.critical(self, 'Negative Value', \
+               'You have specified a negative amount for recipient %d. <br>Only '
+               'positive values are allowed!.' % (i+1), QMessageBox.Ok)
+            return False
+         except TooMuchPrecisionError:
+            QMessageBox.critical(self, 'Too much precision', \
+               'Bitcoins can only be specified down to 8 decimal places. '
+               'The smallest value that can be sent is  0.0000 0001 BTC. '
+               'Please enter a new amount for recipient %d.' % (i+1), QMessageBox.Ok)
+            return False
          except ValueError:
-            if len(valueStr)==0:
-               QMessageBox.critical(self, 'Missing recipient amount', \
-                  'You did not specify an amount to send!', QMessageBox.Ok)
-            else:
-               QMessageBox.critical(self, 'Invalid Value String', \
-                  'The amount you specified '
-                  'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
-            LOGERROR('Invalid amount specified: %s', valueStr)
+            QMessageBox.critical(self, 'Missing recipient amount', \
+               'You did not specify an amount to send!', QMessageBox.Ok)
+            return False
+         except:
+            QMessageBox.critical(self, 'Invalid Value String', \
+               'The amount you specified '
+               'to send to address %d is invalid (%s).' % (i+1,valueStr), QMessageBox.Ok)
+            LOGERROR('Invalid amount specified: "%s"', valueStr)
             return False
 
-         try:
-            fee = round(float(feeStr) * ONE_BTC)
-         except ValueError:
-            QMessageBox.critical(self, 'Invalid Fee String', 'The fee you specified '
-                'is invalid.', QMessageBox.Ok)
-            LOGERROR('Invalid fee specified: %s', valueStr)
-            return False
-            
          totalSend += value
          recip160 = addrStr_to_hash160(recipStr)
          recipValuePairs.append( (recip160, value) )
          self.comments.append(str(self.widgetTable[i][COLS.Comm].text()))
 
+      try:
+         feeStr = str(self.edtFeeAmt.text())
+         fee = str2coin(feeStr, negAllowed=False)
+      except NegativeValueError:
+         QMessageBox.critical(self, 'Negative Value', \
+            'You must enter a positive value for the fee.', QMessageBox.Ok)
+         return False
+      except TooMuchPrecisionError:
+         QMessageBox.critical(self, 'Too much precision', \
+            'Bitcoins can only be specified down to 8 decimal places. '
+            'The smallest meaning Bitcoin amount is 0.0000 0001 BTC. '
+            'Please enter a fee of at least 0.0000 0001', QMessageBox.Ok)
+         return False
+      except:
+         QMessageBox.critical(self, 'Invalid Fee String', \
+            'The fee you specified is invalid.  A standard fee is 0.0005 BTC, '
+            'though some transactions may succeed with zero fee.', QMessageBox.Ok)
+         LOGERROR('Invalid fee specified: "%s"', feeStr)
+         return False
+            
          
       bal = self.getUsableBalance()
       if totalSend+fee > bal:

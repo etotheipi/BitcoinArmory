@@ -38,6 +38,7 @@ import sys
 RPC_PORT = 7070
 STANDARD_FEE = 0.0005 # BTC
       
+"""
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    def __init__(self, wallet):
@@ -167,7 +168,9 @@ class Armory_Daemon():
          self.loadBlockchain()
 
       sys.stdout.write("\nInitialising server")
-      reactor.listenTCP(RPC_PORT, server.Site(Wallet_Json_Rpc_Server(self.wallet)))
+      reactor.listenTCP(RPC_PORT, \
+                        server.Site(Armory_Json_Rpc_Server(self.wallet)), \
+                        interface="127.0.0.1")
 
       if(use_blockchain):
          self.NetworkingFactory = ArmoryClientFactory( \
@@ -214,7 +217,9 @@ class Armory_Daemon():
       raise ValueError('Unable to locate a watch-only wallet in %s' % os.getcwd())
 
    def loadBlockchain(self):
-      TheBDM.loadBlockchain()
+      TheBDM.setBlocking(True)
+      TheBDM.setOnlineMode(True)
+
       # Thanks to unclescrooge for inclusions - https://bitcointalk.org/index.php?topic=92496.msg1282975#msg1282975
       self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
 
@@ -248,11 +253,6 @@ class Armory_Daemon():
          #LOGWARN('Memory pool file was corrupt.  Deleted. (no further action is needed)')
 
    def Heartbeat(self, nextBeatSec=2):
-      """
-      This method is invoked when the app is initialized, and will
-      run every 2 seconds, or whatever is specified in the nextBeatSec
-      argument.
-      """
       # Check for new blocks in the blk000X.dat file
       if TheBDM.isInitialized():
          sys.stdout.write(".")
@@ -274,3 +274,4 @@ class Armory_Daemon():
 if __name__ == "__main__":
    from armoryengine import *
    rpc_server = Armory_Daemon()
+"""
