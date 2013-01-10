@@ -2199,8 +2199,10 @@ class ArmoryMainWindow(QMainWindow):
       getAddr = lambda addr160: addrToSweepList[addr160List.index(addr160)]
 
       utxoList = getUnspentTxOutsForAddrList(addr160List, 'Sweep', 0)
-      outValue = sumTxOutList(utxoList)
+      if len(utxoList)==0:
+         return [None, 0, 0]
       
+      outValue = sumTxOutList(utxoList)
 
       inputSide = []
       for utxo in utxoList:
@@ -2217,6 +2219,10 @@ class ArmoryMainWindow(QMainWindow):
          not self.getSettingOrSetDefault('OverrideMinFee', False):
          LOGDEBUG( 'Subtracting fee from Sweep-output')
          outValue -= minFee
+
+      if outValue<=0:
+         return [None, outValue, minFee]
+
       outputSide = []
       outputSide.append( [PyBtcAddress().createFromPublicKeyHash160(sweepTo160), outValue] )
 
@@ -2302,25 +2308,31 @@ class ArmoryMainWindow(QMainWindow):
       # The createSweepTx method will return instantly because the blockchain
       # has already been rescanned, as described above
       finishedTx, outVal, fee = self.createSweepAddrTx(sweepList, self.sweepAfterScanTarg)
-
+ 
       gt1 = len(sweepList)>1
 
-      if outVal<=0:
-         QMessageBox.critical(self, 'Cannot sweep',\
-            'You cannot sweep the funds from the %s you specified, because '
-            'the transaction fee would be equal to or greater than the amount '
-            'swept.  The sweep operation will be canceled' %  \
-            ('addresses' if gt1 else 'address'), QMessageBox.Ok)
-         LOGERROR('Sweep amount (%s) is less than fee needed for sweeping (%s)', \
-                     coin2str(outVal, maxZeros=0), coin2str(fee, maxZeros=0))
-         return
-
-      if outVal==0:
-         QMessageBox.critical(self, 'Nothing to do', \
-            'The private %s you have provided does not appear to contain '
-            'any funds.  There is nothing to sweep.' % ('keys' if gt1 else 'key'), \
-            QMessageBox.Ok)
-         return
+      if finishedTx==None:
+         if (outVal,fee)==(0,0):
+            QMessageBox.critical(self, 'Nothing to do', \
+               'The private %s you have provided does not appear to contain '
+               'any funds.  There is nothing to sweep.' % ('keys' if gt1 else 'key'), \
+               QMessageBox.Ok)
+            return
+         else:
+            pladdr = ('addresses' if gt1 else 'address')
+            QMessageBox.critical(self, 'Cannot sweep',\
+               'You cannot sweep the funds from the %s you specified, because '
+               'the transaction fee would be equal to or greater than the amount '
+               'swept.'
+               '<br><br>'
+               '<b>Balance of %s:</b> %s<br>'
+               '<b>Fee to sweep %s:</b> %s'
+               '<br><br>The sweep operation has been canceled.' % (pladdr, pladdr, \
+               coin2str(outVal+fee,maxZeros=0), pladdr, coin2str(fee,maxZeros=0)), \
+               QMessageBox.Ok)
+            LOGERROR('Sweep amount (%s) is less than fee needed for sweeping (%s)', \
+                     coin2str(outVal+fee, maxZeros=0), coin2str(fee, maxZeros=0))
+            return
 
       wltID = self.getWalletForAddr160(self.sweepAfterScanTarg)
       wlt = self.walletMap[wltID]

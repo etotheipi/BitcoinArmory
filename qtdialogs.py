@@ -2149,6 +2149,28 @@ class DlgImportAddress(ArmoryDialog):
             QMessageBox.Yes | QMessageBox.Cancel)
             if not result==QMessageBox.Yes:
                return
+
+         else:
+            wltID = self.main.getWalletForAddr160(addr160)
+            if not wltID=='':
+               addr = self.main.walletMap[wltID].addrMap[addr160]
+               typ = 'Imported' if addr.chainIndex==-2 else 'Permanent'
+               msg = ('The key you entered is already part of another wallet you '
+                      'are maintaining:'
+                     '<br><br>'
+                     '<b>Address</b>: ' + addrStr + '<br>'
+                     '<b>Wallet ID</b>: ' + wltID + '<br>'
+                     '<b>Wallet Name</b>: ' + self.main.walletMap[wltID].labelName + '<br>'
+                     '<b>Address Type</b>: ' + typ + 
+                     '<br><br>'
+                     'The sweep operation will simply move bitcoins out of the wallet '
+                     'above into this wallet.  If the network charges a fee for this '
+                     'transaction, you balance will be reduced by that much.')
+               result = QMessageBox.warning(self, 'Duplicate Address', msg, \
+                     QMessageBox.Ok | QMessageBox.Cancel)
+               if not result==QMessageBox.Ok:
+                  return
+
    
          #if not TheBDM.getBDMState()=='BlockchainReady':
             #reply = QMessageBox.critical(self, 'Cannot Sweep Address', \

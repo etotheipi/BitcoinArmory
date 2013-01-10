@@ -19,7 +19,7 @@
 #
 # As OF 10 Jan, 2013, this code does not work reliably.  Please do not use this
 # until this message disappears from a future release.
-# (To be fair, getting new addresses and balances APPEAR to work, but 
+# (To be fair, getting new addresses and balances APPEAR to work, but
 #  listtransactions
 #
 #####
@@ -78,12 +78,11 @@ class GuardedResource(resource.Resource):
     def render(self, request):
         return "Authorized!"
 
-class SimpleRealm(object):
+class SimpleRealm(IRealm):
     """
     A realm which gives out L{GuardedResource} instances for authenticated users.
     """
-    implements(IRealm)
-
+    #implements(IRealm)
     def requestAvatar(self, avatarId, mind, *interfaces):
         if resource.IResource in interfaces:
             return resource.IResource, GuardedResource(), lambda: None
@@ -94,7 +93,7 @@ class SimpleRealm(object):
 
 RPC_PORT = 7070
 STANDARD_FEE = 0.0005 # BTC
-      
+
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
    def __init__(self, wallet):
@@ -125,7 +124,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          raise ValueError('Cannot create transactions when offline')
       return self.create_unsigned_transaction(bitcoinaddress, amount)
 
-   """
+
    def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
       #TODO this needs more work
       # - populate the rest of the values in tx_info
@@ -135,10 +134,15 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       # Thanks to unclescrooge for inclusions - https://bitcointalk.org/index.php?topic=92496.msg1282975#msg1282975
       # NOTE that this does not use 'account' like in the Satoshi client
       final_tx_list = []
-      txs = self.wallet.getTxLedger('blk')
-      for tx in txs[from_tx:]:
+      ledgerEntries = self.wallet.getTxLedger('blk')
+      if from_tx >= len(ledgerEntries):
+         return []
+         
+      
+      for le in ledgerEntries[from_tx:]:
+         tx.pprint()
          account = ''
-         txHashBin = tx.getTxHash()#hex_to_binary(tx.getTxHash())
+         txHashBin = tx.getTxHash()
          cppTx = TheBDM.getTxByHash(txHashBin)
          pytx = PyTx().unserialize(cppTx.serialize())
          for txout in pytx.outputs:
@@ -178,9 +182,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          if len(final_tx_list) >= tx_count:
             break
       return final_tx_list
-   """
 
-      
+
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
    def create_unsigned_transaction(self, bitcoinaddress_str, amount_to_send_btc):
       # Get unspent TxOutList and select the coins
@@ -333,7 +336,7 @@ class Armory_Daemon():
 
       reactor.callLater(nextBeatSec, self.Heartbeat)
 
-            
+
 if __name__ == "__main__":
    from armoryengine import *
    rpc_server = Armory_Daemon()
