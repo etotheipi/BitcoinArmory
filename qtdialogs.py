@@ -10412,11 +10412,14 @@ class DlgRequestPayment(ArmoryDialog):
                               'other payment information shown to the left.')
 
       lblQRDescr.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
-      frmQR = makeVertFrame([self.qrURI, lblQRDescr,'Stretch'], STYLE_SUNKEN)
+      frmQR = makeVertFrame([self.qrURI, 'Stretch', lblQRDescr,'Stretch'], STYLE_SUNKEN)
       frmQR.layout().setStretch(0, 0)
       frmQR.layout().setStretch(1, 0)
       frmQR.layout().setStretch(2, 1)
-      frmQR.setMinimumWidth(1.25*QRCodeWidget('a'*200).getSize())
+
+      self.maxQRSize = int(1.25*QRCodeWidget('a'*200).getSize())
+      frmQR.setMinimumWidth(self.maxQRSize)
+      self.qrURI.setMinimumHeight(self.maxQRSize)
 
 
       dlgLayout = QGridLayout()
@@ -10593,6 +10596,7 @@ class DlgRequestPayment(ArmoryDialog):
    def updateQRCode(self,e=None):
       if not self.prevURI==self.rawURI:
          self.qrURI.setAsciiData(self.rawURI)
+         self.qrURI.setPreferredSize(self.maxQRSize-10, 'max')
          self.repaint()
       self.prevURI = self.rawURI
 

@@ -54,6 +54,7 @@
 from twisted.web import server
 from twisted.internet import reactor
 from txjsonrpc.web import jsonrpc
+from armoryengine import *
 
 import datetime
 import decimal
@@ -61,12 +62,20 @@ import os
 import sys
 
 
+#
+RPC_PORT = 7070
+
+
 ################################################################################
 ################################################################################
 # Copied from http://twistedmatrix.com/documents/current/web/examples/webguard.py
-from twisted.web import server, resource, guard
-from twisted.cred.portal import IRealm, Portal
-from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse
+from zope.interface import implements
+from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
+from twisted.web.guard import resource
+from twisted.cred.portal import Portal
+from twisted.cred.checkers import FilePasswordDB
+
+#####
 class GuardedResource(resource.Resource):
     """
     A resource which is protected by Guard and requires authentication to access.
@@ -74,25 +83,32 @@ class GuardedResource(resource.Resource):
     def getChild(self, path, request):
         return self
 
-
     def render(self, request):
         return "Authorized!"
 
+
+#####
 class SimpleRealm(IRealm):
     """
     A realm which gives out L{GuardedResource} instances for authenticated users.
     """
-    #implements(IRealm)
+    def __init__(self, *args)):
+      super(SimpleRealm, self).__
+    implements(IRealm)
     def requestAvatar(self, avatarId, mind, *interfaces):
         if resource.IResource in interfaces:
             return resource.IResource, GuardedResource(), lambda: None
         raise NotImplementedError()
+
+
+#####
+portal      = Portal(SimpleRealm(), [FilePasswordDB('passwd.txt','=',0,1)])
+credFactory = DigestCredentialFactory('sha256', 'localhost:7070')
+wrapper     = HTTPAuthSessionWrapper( portal, [credFactory] )
+
 ################################################################################
 ################################################################################
 
-
-RPC_PORT = 7070
-STANDARD_FEE = 0.0005 # BTC
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
@@ -140,9 +156,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          
       
       for le in ledgerEntries[from_tx:]:
-         tx.pprint()
+         le.pprint()
          account = ''
-         txHashBin = tx.getTxHash()
+         txHashBin = le.getTxHash()
          cppTx = TheBDM.getTxByHash(txHashBin)
          pytx = PyTx().unserialize(cppTx.serialize())
          for txout in pytx.outputs:
@@ -154,16 +170,16 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
               continue
             else:
                break
-         if tx.getValue() < 0:
+         if le.getValue() < 0:
             category = 'send'
          else:
             category = 'receive'
-         amount = float(decimal.Decimal(tx.getValue()) / decimal.Decimal(ONE_BTC))
-         confirmations = TheBDM.getTopBlockHeader().getBlockHeight() - tx.getBlockNum()+1
+         amount = float(decimal.Decimal(le.getValue()) / decimal.Decimal(ONE_BTC))
+         confirmations = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum()+1
          blockhash = 'TODO'
-         blockindex = 'TODO'#tx.getBlockNum()
-         txid = str(binary_to_hex(tx.getTxHash()))
-         time = 'TODO'#tx.getTxTime()
+         blockindex = 'TODO'#le.getBlockNum()
+         txid = str(binary_to_hex(le.getTxHash()))
+         time = 'TODO'#le.getTxTime()
          tx_info = {
             'account':account,
             'address':address,
