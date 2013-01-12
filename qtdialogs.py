@@ -7256,7 +7256,7 @@ class DlgDispTxInfo(ArmoryDialog):
                      triplet = data[FIELDS.OutList][0]
                      rvPairDisp.append([triplet[2], triplet[1]])
                   else:
-                     txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
+                     txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
                      for i,triplet in enumerate(data[FIELDS.OutList]):
                         if not i==changeIndex:
                            rvPairDisp.append([triplet[2], triplet[1]])
@@ -10217,7 +10217,7 @@ class DlgExportTxHistory(ArmoryDialog):
             vals.append( self.main.walletMap[row[COL.WltID]].labelName.replace(',',';'))
 
             wltEffect = row[COL.Amount]
-            txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
+            txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
             if float(wltEffect) > 0:
                vals.append( wltEffect.strip() )
                vals.append( ' ' )

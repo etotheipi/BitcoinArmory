@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -44,38 +44,23 @@ from sys import argv
 
 import optparse
 parser = optparse.OptionParser(usage="%prog [options]\n")
-parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="str",
-                  help="load Armory with a specific settings file")
-parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
-                  help="Change the directory that Armory calls home")
-parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str', 
-                  help="The Bitcoin-Qt/bitcoind home directory")
-parser.add_option("--satoshi-port", dest="satoshiPort", default='DEFAULT', type="str",
-                  help="For Bitcoin-Qt instances operating on a non-standard port")
-parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
-                  help="Use the testnet protocol")
-parser.add_option("--offline", dest="offline", action="store_true", default=False,
-                  help="Force Armory to run in offline mode")
-parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
-                  help="Timeout for detecting internet connection at startup")
-parser.add_option("--interport", dest="interport", default=-1, type="int",
-                  help="Port for inter-process communication between Armory instances")
-parser.add_option("--debug", dest="doDebug", action="store_true", default=False, 
-                  help="Increase amount of debugging output")
-parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
-                  help="Disable all logging")
-parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
-                  help="Log networking messages sent and received by Armory")
-parser.add_option("--logfile", dest="logFile", default='DEFAULT', type='str', 
-                  help="Specify a non-default location to send logging information")
-parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=False,
-                  help="Log multi-threaded call sequences")
-parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
-                  help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-version-check", dest="skipVerCheck", action="store_true", default=False,
-                  help="Do not contact bitcoinarmory.com to check for new versions")
-parser.add_option("--keypool", dest="keypool", default=100, type="int",
-                  help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
+parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
+parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
+parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
+parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
+parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
+parser.add_option("--nettimeout",      dest="nettimeout",  default=2,         type="int",          help="Timeout for detecting internet connection at startup")
+parser.add_option("--interport",       dest="interport",   default=-1,        type="int",          help="Port for inter-process communication between Armory instances")
+parser.add_option("--debug",           dest="doDebug",     default=False,     action="store_true", help="Increase amount of debugging output")
+parser.add_option("--nologging",       dest="logDisable",  default=False,     action="store_true", help="Disable all logging")
+parser.add_option("--netlog",          dest="netlog",      default=False,     action="store_true", help="Log networking messages sent and received by Armory")
+parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', type='str',          help="Specify a non-default location to send logging information")
+parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
+parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
+parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
@@ -3847,6 +3832,52 @@ class PyBlock(object):
       self.blockData.pprint(nIndent+1, endian=endian)
 
 
+#############################################################################
+def getFeeForTx(txHash):
+   if TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.hasTxWithHash(txHash)
+         LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
+                                             binary_to_hex(txHash,BIGENDIAN))
+         return 0
+      txref = TheBDM.getTxByHash(txHash)
+      valIn, valOut = 0,0
+      for i in range(txref.getNumTxIn()):
+         valIn += TheBDM.getSentValue(txref.getTxIn(i))
+      for i in range(txref.getNumTxOut()):
+         valOut += txref.getTxOut(i).getValue()
+      return valIn - valOut
+      
+
+#############################################################################
+def determineSentToSelfAmt(le, wlt):
+   """
+   NOTE:  this method works ONLY because we always generate a new address
+          whenever creating a change-output, which means it must have a
+          higher chainIndex than all other addresses.  If you did something 
+          creative with this tx, this may not actually work.
+   """
+   amt = 0
+   if TheBDM.isInitialized() and le.isSentToSelf():
+      txref = TheBDM.getTxByHash(le.getTxHash())
+      if not txref.isInitialized():
+         return (0, 0)
+      if txref.getNumTxOut()==1:
+         return (txref.getTxOut(0).getValue(), -1)
+      maxChainIndex = -5
+      txOutChangeVal = 0
+      txOutIndex = -1
+      valSum = 0
+      for i in range(txref.getNumTxOut()):
+         valSum += txref.getTxOut(i).getValue()
+         addr160 = txref.getTxOut(i).getRecipientAddr()
+         addr    = wlt.getAddrByHash160(addr160)
+         if addr and addr.chainIndex > maxChainIndex:
+            maxChainIndex = addr.chainIndex
+            txOutChangeVal = txref.getTxOut(i).getValue()
+            txOutIndex = i
+                  
+      amt = valSum - txOutChangeVal
+   return (amt, txOutIndex)
 
 
 

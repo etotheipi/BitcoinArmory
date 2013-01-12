@@ -1805,51 +1805,6 @@ class ArmoryMainWindow(QMainWindow):
          TimerStop('createCombinedLedger')
 
 
-   #############################################################################
-   def getFeeForTx(self, txHash):
-      if TheBDM.isInitialized():
-         txref = TheBDM.getTxByHash(txHash)
-         if not txref.isInitialized():
-            LOGERROR('Why no txref?  %s', binary_to_hex(txHash))
-            return 0
-         valIn, valOut = 0,0
-         for i in range(txref.getNumTxIn()):
-            valIn += TheBDM.getSentValue(txref.getTxIn(i))
-         for i in range(txref.getNumTxOut()):
-            valOut += txref.getTxOut(i).getValue()
-         return valIn - valOut
-      
-
-   #############################################################################
-   def determineSentToSelfAmt(self, le, wlt):
-      """
-      NOTE:  this method works ONLY because we always generate a new address
-             whenever creating a change-output, which means it must have a
-             higher chainIndex than all other addresses.  If you did something 
-             creative with this tx, this may not actually work.
-      """
-      amt = 0
-      if TheBDM.isInitialized() and le.isSentToSelf():
-         txref = TheBDM.getTxByHash(le.getTxHash())
-         if not txref.isInitialized():
-            return (0, 0)
-         if txref.getNumTxOut()==1:
-            return (txref.getTxOut(0).getValue(), -1)
-         maxChainIndex = -5
-         txOutChangeVal = 0
-         txOutIndex = -1
-         valSum = 0
-         for i in range(txref.getNumTxOut()):
-            valSum += txref.getTxOut(i).getValue()
-            addr160 = txref.getTxOut(i).getRecipientAddr()
-            addr    = wlt.getAddrByHash160(addr160)
-            if addr and addr.chainIndex > maxChainIndex:
-               maxChainIndex = addr.chainIndex
-               txOutChangeVal = txref.getTxOut(i).getValue()
-               txOutIndex = i
-                  
-         amt = valSum - txOutChangeVal
-      return (amt, txOutIndex)
       
 
    #############################################################################
@@ -1880,7 +1835,7 @@ class ArmoryMainWindow(QMainWindow):
          # for change , which means the change address MUST have a higher 
          # chain index
          if le.isSentToSelf():
-            amt = self.determineSentToSelfAmt(le, wlt)[0]
+            amt = determineSentToSelfAmt(le, wlt)[0]
             
 
          if le.getBlockNum() >= 0xffffffff: nConf = 0
@@ -3504,7 +3459,7 @@ class ArmoryMainWindow(QMainWindow):
          
          self.notifyQueue[i][2] = True
          if le.isSentToSelf():
-            amt = self.determineSentToSelfAmt(le, wlt)[0]
+            amt = determineSentToSelfAmt(le, wlt)[0]
             self.sysTray.showMessage('Your bitcoins just did a lap!', \
                'Wallet "%s" (%s) just sent %s BTC to itself!' % \
                (wlt.labelName, wltID, coin2str(amt,maxZeros=1).strip()),
