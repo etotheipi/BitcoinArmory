@@ -5,15 +5,48 @@
 # anyway...
 
 #-------------------------------------------------------------------------------
-VERSION 0.86.4
+VERSION 0.87
+   - Inflatable QR Codes Everywhere!
+        QR codes added to multiple areas where addresses are displayed,
+        including the "Create Clickable Link" window which displays the
+        full payment request in the QR code.  Double-click on any QR 
+        code to inflate it to full screen.
+        
+   - Added Paper Backup info to "Backup Individual Keys"
+        If you have a lot of imported keys, you can now backup 
+        everything using the "Backup Individual Keys" dialog.  It 
+        displays the same four lines as on your paper backup, at the
+        top of the key list.  Also added option to include the address
+        pool to the backup.
+
+   - New Right-Click Menu Options
+        The "Transactions" ledger and address lists have new options,
+        including links to view the data on blockchain.info.  
+
    - Real support for Bitcoin-Qt/bitcoind 0.8+
         Prior attempt at supporting 0.8 Satoshi client was broken due to 
         incomplete information about the changes.  Support has finally 
         been implemented and tested.
 
-   - Bugfix: P2Pool Transactions
-        Importing wallets with P2Pool transactions no long crash Armory
+   - Bugfix: Copying Payment Requests
+        The "Copy to Clipboard" button on the payment request dialog 
+        never worked reliably.  It now copies actually-clickable links 
+        that should paste correctly into other applications, such as 
+        email apps (Outlook, Thunderbird), and message composition forms
+        in webbrowser email sessions.
 
+   - Bugfix: P2Pool Transactions
+        Importing wallets with P2Pool transactions no longer crashes Armory
+
+   - Bugfix: Sweeping and Importing Addresses
+        Some problems with sweeping have been resolved.  Importing addresses
+        already contained in other wallets is prohibited now.  It used to 
+        just produce weird answers, now it appears to produce crashes.
+
+   - Billions of Little Bug Fixes
+        Special thanks to forum user "subSTRATA" who identified about 
+        many DOZEN minor bugs and suboptimal features.  Most of them
+        have been fixed/upgraded, to create a smoother experience, overall.
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.3

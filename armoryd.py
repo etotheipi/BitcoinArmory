@@ -51,7 +51,6 @@
 # https://bitcointalk.org/index.php?topic=92496.0
 #####
 
-from twisted.web import server
 from twisted.internet import reactor
 from txjsonrpc.web import jsonrpc
 from armoryengine import *
@@ -70,9 +69,9 @@ RPC_PORT = 7070
 ################################################################################
 # Copied from http://twistedmatrix.com/documents/current/web/examples/webguard.py
 from zope.interface import implements
+from twisted.web import server, resource
 from twisted.web.guard import HTTPAuthSessionWrapper, DigestCredentialFactory
-from twisted.web.guard import resource
-from twisted.cred.portal import Portal
+from twisted.cred.portal import Portal, IRealm
 from twisted.cred.checkers import FilePasswordDB
 
 #####
@@ -88,13 +87,13 @@ class GuardedResource(resource.Resource):
 
 
 #####
-class SimpleRealm(IRealm):
+class SimpleRealm(object):
     """
     A realm which gives out L{GuardedResource} instances for authenticated users.
     """
-    def __init__(self, *args)):
-      super(SimpleRealm, self).__
+
     implements(IRealm)
+
     def requestAvatar(self, avatarId, mind, *interfaces):
         if resource.IResource in interfaces:
             return resource.IResource, GuardedResource(), lambda: None
@@ -102,7 +101,7 @@ class SimpleRealm(IRealm):
 
 
 #####
-portal      = Portal(SimpleRealm(), [FilePasswordDB('passwd.txt','=',0,1)])
+portal      = Portal(SimpleRealm(), [FilePasswordDB('passwd.txt','=')])
 credFactory = DigestCredentialFactory('sha256', 'localhost:7070')
 wrapper     = HTTPAuthSessionWrapper( portal, [credFactory] )
 
@@ -204,7 +203,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def create_unsigned_transaction(self, bitcoinaddress_str, amount_to_send_btc):
       # Get unspent TxOutList and select the coins
       addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
-      totalSend, fee = long(amount_to_send_btc * ONE_BTC), (STANDARD_FEE * ONE_BTC)
+      totalSend, fee = long(amount_to_send_btc * ONE_BTC), 0
       spendBal = self.wallet.getBalance('Spendable')
       utxoList = self.wallet.getTxOutList('Spendable')
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
@@ -259,7 +258,8 @@ class Armory_Daemon():
       self.start()
 
    def start(self):
-      sys.stdout.write("\nServer started")
+      print 'Wallet balance: ', coin2str(self.wallet.getBalance('Spendable'), maxZeros=0)
+      print 'Server started...'
       reactor.run()
 
    def handleIncomingTxFunc(self, pytxObj):
@@ -282,16 +282,17 @@ class Armory_Daemon():
       sys.stdout.write("\n%s Online - tracking blockchain" % datetime.now().isoformat())
 
    def find_wallet(self):
-      fnames = os.listdir(os.getcwd())
-      for fname in fnames:
-         is_wallet = fname[-7:] == ".wallet"
-         is_watchonly = fname.find("watchonly") > -1
-         is_backup = fname.find("backup") > -1
-         if(is_wallet and is_watchonly and not is_backup):
-            wallet = PyBtcWallet().readWalletFile(fname)
-            sys.stdout.write("\nUsing wallet file %s" % fname)
-            return wallet
-      raise ValueError('Unable to locate a watch-only wallet in %s' % os.getcwd())
+      return PyBtcWallet().readWalletFile('armory.testnet.watchonly.wallet')
+      #fnames = os.listdir(os.getcwd())
+      #for fname in fnames:
+         #is_wallet = fname[-7:] == ".wallet"
+         #is_watchonly = fname.find("watchonly") > -1
+         #is_backup = fname.find("backup") > -1
+         #if(is_wallet and is_watchonly and not is_backup):
+            #wallet = PyBtcWallet().readWalletFile(fname)
+            #sys.stdout.write("\nUsing wallet file %s" % fname)
+            #return wallet
+      #raise ValueError('Unable to locate a watch-only wallet in %s' % os.getcwd())
 
    def loadBlockchain(self):
       TheBDM.setBlocking(True)

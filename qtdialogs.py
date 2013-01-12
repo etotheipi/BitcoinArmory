@@ -6687,6 +6687,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
             f.close()
             if not newSaveFile==self.fileLoaded:
                os.remove(self.fileLoaded)
+            self.fileLoaded = newSaveFile
             QMessageBox.information(self, 'Transaction Saved!',\
                'Your transaction has been saved to the following location:'
                '\n\n%s\n\nIt can now be broadcast from any computer with '
