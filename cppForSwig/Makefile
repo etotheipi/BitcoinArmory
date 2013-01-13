@@ -1,6 +1,6 @@
 COMPILER = g++ 
-#COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
-COMPILER_OPTS = -c -O2 -pipe -fPIC 
+COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
+#COMPILER_OPTS = -c -O2 -pipe -fPIC 
 
 #**************************************************************************
 LINKER = g++ 

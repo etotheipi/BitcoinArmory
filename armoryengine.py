@@ -67,7 +67,8 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 
 
 # Use CLI args to determine testnet or not
-USE_TESTNET = CLI_OPTIONS.testnet
+#USE_TESTNET = CLI_OPTIONS.testnet
+USE_TESTNET = True
    
 
 # Set default port for inter-process communication

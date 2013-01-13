@@ -123,17 +123,28 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       #     - timereceived
       # Thanks to unclescrooge for inclusions - https://bitcointalk.org/index.php?topic=92496.msg1282975#msg1282975
       # NOTE that this does not use 'account' like in the Satoshi client
+
       final_tx_list = []
       ledgerEntries = self.wallet.getTxLedger('blk')
-      if from_tx >= len(ledgerEntries):
-         return []
          
-      
-      for le in ledgerEntries[from_tx:]:
-         le.pprint()
-         account = ''
+      sz = len(ledgerEntries)
+      lower = min(sz, from_tx)
+      upper = min(sz, from_tx+tx_count)
+
+      for i in range(lower, upper):
+
+         le = ledgerEntries[i]
          txHashBin = le.getTxHash()
+
          cppTx = TheBDM.getTxByHash(txHashBin)
+         if not cppTx.isInitialized():
+            LOGERROR('LE tx hash not recognized by TheBDM')
+
+         cppHead = cppTx.getHeaderPtr()
+         if not cppHead.isInitialized:
+            LOGERROR('LE tx hash not recognized by TheBDM')
+
+         blockIndex = cppHead.getBlockHeight()
          pytx = PyTx().unserialize(cppTx.serialize())
          for txout in pytx.outputs:
             scrType = getTxOutScriptType(txout.binScript)
@@ -144,30 +155,33 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
               continue
             else:
                break
-         if le.getValue() < 0:
+
+         amount = float(coin2str(le.getValue()))
+         if amount < 0:
             category = 'send'
+            amount = -1*amount
          else:
             category = 'receive'
-         amount = float(decimal.Decimal(le.getValue()) / decimal.Decimal(ONE_BTC))
-         confirmations = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum()+1
-         blockhash = 'TODO'
-         blockindex = 'TODO'#le.getBlockNum()
-         txid = str(binary_to_hex(le.getTxHash()))
-         time = 'TODO'#le.getTxTime()
+
+         confirmations = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+         blockhash = binary_to_hex(cppHead.getThisHash(), BIGENDIAN)
+         txhash    = binary_to_hex(cppTx.getThisHash(), BIGENDIAN)
+         blockindex = cppTx.getBlockTxIndex()
+         blktime = le.getTxTime()
+
+         fee = getFeeForTx(txHashBin)
          tx_info = {
-            'account':account,
+            'account': '',
             'address':address,
             'category':category,
-            'amount':amount,
-            #'fee': -0,
+            'amount': amount,
+            'fee': fee,
             'confirmations':confirmations,
             'blockhash':blockhash,
             'blockindex':blockindex,
-            #'blocktime': blocktime,
-            'txid':txid,
-            'time:':time,
-            #'timereceived': timereceived
-            }
+            'txid': txhash,
+            'time:':blktime,
+            'timereceived': blktime }
          final_tx_list.append(tx_info)
          if len(final_tx_list) >= tx_count:
             break
@@ -224,6 +238,7 @@ class Armory_Daemon(object):
       self.heartbeatFunctions = []
 
       # The only argument that armoryd.py takes is the wallet to serve
+      CLI_ARGS = ['armory.testnet.watchonly.wallet']
       if len(CLI_ARGS)==0:
          LOGERROR('Please supply the wallet for this server to serve')
          LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
@@ -270,7 +285,7 @@ class Armory_Daemon(object):
             time.sleep(2)
 
          self.latestBlockNum = TheBDM.getTopBlockHeight()
-         TheBDM.getTopBlockHeader().pprint()
+         LOGINFO('Blockchain loading finished.  Top block is %d', TheBDM.getTopBlockHeight())
 
          mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
          self.checkMemoryPoolCorruption(mempoolfile)
@@ -303,18 +318,16 @@ class Armory_Daemon(object):
          # we hit the except clause, and continue happily starting the server.
          # If armoryd is already running, the rest of this try-clause will exec.
          LOGINFO('Another instance of armoryd.py is already runnning!')
-         #LOGINFO('Bailing out...')
-         #LOGINFO('')
-         #os._exit(1)
-
-         # TODO: Rather than exiting, I should send it the CLI args...
          with open(ARMORYD_CONF_FILE, 'r') as f:
             usr,pas = f.readline().strip().split(':')
          
          if CLI_ARGS:
             proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pas,RPC_PORT))
             extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
-            print proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
+            print json.dumps(proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs), \
+                             indent=4, \
+                             sort_keys=True, \
+                             cls=UniversalEncoder)
          sock.close()
          os._exit(0)
       except socket.error:
@@ -446,7 +459,8 @@ newaddress = access.getnewaddress()
 
 
 
-if __name__ == "__main__":
+#if __name__ == "__main__":
+if True:
 
    rpc_server = Armory_Daemon()
    rpc_server.start()
