@@ -44,9 +44,9 @@ VERSION 0.87
         just produce weird answers, now it appears to produce crashes.
 
    - Billions of Little Bug Fixes
-        Special thanks to forum user "subSTRATA" who identified about 
-        many DOZEN minor bugs and suboptimal features.  Most of them
-        have been fixed/upgraded, to create a smoother experience, overall.
+        Special thanks to forum user "subSTRATA" who identified many DOZEN 
+        minor bugs and suboptimal features.  Most of them have been fixed
+        or upgraded, to create a smoother experience, overall.
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.3
