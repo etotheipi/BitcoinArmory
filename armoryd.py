@@ -52,6 +52,7 @@
 #####
 
 from twisted.internet import reactor
+from twisted.web import server
 from txjsonrpc.web import jsonrpc
 from txjsonrpc.auth import wrapResource
 from twisted.cred.checkers import FilePasswordDB
@@ -62,10 +63,19 @@ import datetime
 import decimal
 import os
 import sys
+import time
+import socket
 
+# Some non-twisted json imports from jgarzik's code and his UniversalEncoder
+import json
+from   jsonrpc import ServiceProxy
+class UniversalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
 
-#
-RPC_PORT = 7070
+ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 
 ################################################################################
@@ -196,31 +206,6 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
       return txdp.serializeAscii()
 
-#####
-class GuardedResource(resource.Resource):
-    """
-    A resource which is protected by Guard and requires authentication to access.
-    """
-    def getChild(self, path, request):
-        return self
-
-    def render(self, request):
-        return "Authorized!"
-
-
-#####
-class SimpleRealm(object):
-    """
-    A realm which gives out L{GuardedResource} instances for authenticated users.
-    """
-
-    implements(IRealm)
-
-    def requestAvatar(self, avatarId, mind, *interfaces):
-        if resource.IResource in interfaces:
-            return resource.IResource, GuardedResource(), lambda: None
-        raise NotImplementedError()
-
 
 ################################################################################
 ################################################################################
@@ -228,36 +213,31 @@ class Armory_Daemon(object):
 
 
    #############################################################################
-   def __init__(self):
+   def __init__(self, wltpath):
 
+      # Check if armoryd is already running, bail if it is
+      self.checkForAlreadyRunning()
+
+      # ...otherwise, setup the server
       self.newTxFunctions = []
       self.newBlockFunctions = []
       self.heartbeatFunctions = []
 
-      sys.stdout.write("\nReading wallet file")
-      self.wallet = self.find_wallet()
+      if not os.path.exists(wltpath):
+         LOGERROR('Wallet does not exist!  (%s)', wltpath)
+         return
 
-      use_blockchain = not CLI_OPTIONS.offline
-      if(use_blockchain):
-         sys.stdout.write("\nLoading blockchain")
-         self.loadBlockchain()
+      self.wallet = PyBtcWallet().readWalletFile(wltpath)
 
-      sys.stdout.write("\nInitialising server")
+      LOGINFO("Initialising RPC server on port %d", RPC_PORT)
       resource = Armory_Json_Rpc_Server(self.wallet)
       secured_resource = self.set_auth(resource)
 
       # This is LISTEN call for armory RPC server
-      reactor.listenTCP(CLI_OPTIONS.rpcport, \
+      reactor.listenTCP(RPC_PORT, \
                         server.Site(secured_resource), \
                         interface="127.0.0.1")
 
-      # This is CONNECT call for armoryd to talk to bitcoind
-      self.NetworkingFactory = ArmoryClientFactory( \
-                       func_loseConnect = self.showOfflineMsg, \
-                       func_madeConnect = self.showOnlineMsg, \
-                       func_newTx       = self.execOnNewTx, \
-                       func_newBlock    = self.execOnNewBlock, \
-      reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
 
       # Setup the heartbeat function to run every 
       reactor.callLater(3, self.Heartbeat)
@@ -265,7 +245,7 @@ class Armory_Daemon(object):
 
    #############################################################################
    def set_auth(self, resource):
-      passwordfile = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
+      passwordfile = ARMORYD_CONF_FILE
       checker = FilePasswordDB(passwordfile)
       realmName = "Armory JSON-RPC App"
       wrapper = wrapResource(resource, [checker], realmName=realmName)
@@ -273,9 +253,70 @@ class Armory_Daemon(object):
 
    #############################################################################
    def start(self):
-      print 'Wallet balance: ', coin2str(self.wallet.getBalance('Spendable'), maxZeros=0)
-      print 'Server started...'
+      LOGINFO('Server started...')
+      if(not TheBDM.getBDMState()=='Offline'):
+         TheBDM.registerWallet(self.wallet)
+         TheBDM.setBlocking(False)
+         TheBDM.setOnlineMode(True)
+
+         LOGINFO('Blockchain loading')
+         while not TheBDM.getBDMState()=='BlockchainReady':
+            time.sleep(2)
+
+         self.latestBlockNum = TheBDM.getTopBlockHeight()
+         TheBDM.getTopBlockHeader().pprint()
+
+         mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
+         self.checkMemoryPoolCorruption(mempoolfile)
+         TheBDM.enableZeroConf(mempoolfile)
+         LOGINFO('Syncing wallet: %s' % self.wallet.uniqueIDB58)
+         self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
+         self.wallet.syncWithBlockchain()
+         LOGINFO('Blockchain load and wallet sync finished')
+         LOGINFO('Wallet balance: %s' % coin2str(self.wallet.getBalance('Spendable')))
+
+         # This is CONNECT call for armoryd to talk to bitcoind
+         LOGINFO('Set up connection to bitcoind')
+         self.NetworkingFactory = ArmoryClientFactory( \
+                        func_loseConnect = self.showOfflineMsg, \
+                        func_madeConnect = self.showOnlineMsg, \
+                        func_newTx       = self.execOnNewTx, \
+                        func_newBlock    = self.execOnNewBlock)
+         reactor.connectTCP('127.0.0.1', BITCOIN_PORT, self.NetworkingFactory)
+
       reactor.run()
+
+
+   #############################################################################
+   def checkForAlreadyRunning(self):
+      try:
+         # If create doesn't throw an error, there's another Armory open already!
+         sock = socket.create_connection(('127.0.0.1',RPC_PORT), 0.1);
+   
+         # If this is the first instance of armoryd.py, connection will fail,
+         # we hit the except clause, and continue happily starting the server.
+         # If armoryd is already running, the rest of this try-clause will exec.
+         LOGINFO('Another instance of armoryd.py is already runnning!')
+         #LOGINFO('Bailing out...')
+         #LOGINFO('')
+         #os._exit(1)
+
+         # TODO: Rather than exiting, I should send it the CLI args...
+         with open(ARMORYD_CONF_FILE, 'r') as f:
+            usr,pas = f.readline().strip().split(':')
+         
+         print usr,pas
+         if CLI_ARGS:
+            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pas,RPC_PORT))
+            print 'proxy created'
+            print CLI_ARGS
+            extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
+            print proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
+         sock.close()
+         os._exit(0)
+      except socket.error:
+         LOGINFO('No other armoryd.py instance is running.  We\'re the first.')
+         pass
 
    #############################################################################
    def execOnNewTx(self, pytxObj):
@@ -296,7 +337,7 @@ class Armory_Daemon(object):
       # THE NEW HEADER AND TXLIST WITHOUT TheBDM.
 
       # Any functions that you want to execute on new blocks should go in 
-      # the "if newBlocks>0: ..." clause in the Heartbeat function
+      # the "if newBlocks>0: ... " clause in the Heartbeat function, below
 
       # Armory executes newBlock functions in the readBlkFileUpdate()
       # which occurs in the heartbeat function.  execOnNewBlock() may be 
@@ -305,50 +346,18 @@ class Armory_Daemon(object):
       # this design decision, I can enumerate them for you in an email...)
       
       # Therefore, if you put anything here, it should operate on the header
-      # or tx data, in a vacuum (without any reliance on TheBDM)
+      # or tx data in a vacuum (without any reliance on TheBDM)
       pass
 
    #############################################################################
    def showOfflineMsg(self):
-      sys.stdout.write("\n%s Offline - not tracking blockchain" % datetime.now().isoformat())
+      LOGINFO('Offline - not tracking blockchain')
 
    #############################################################################
    def showOnlineMsg(self):
-      sys.stdout.write("\n%s Online - tracking blockchain" % datetime.now().isoformat())
+      LOGINFO('Online - tracking blockchain')
 
-   #############################################################################
-   def find_wallet(self):
-      return PyBtcWallet().readWalletFile('armory.testnet.watchonly.wallet')
-      #fnames = os.listdir(os.getcwd())
-      #for fname in fnames:
-         #is_wallet = fname[-7:] == ".wallet"
-         #is_watchonly = fname.find("watchonly") > -1
-         #is_backup = fname.find("backup") > -1
-         #if(is_wallet and is_watchonly and not is_backup):
-            #wallet = PyBtcWallet().readWalletFile(fname)
-            #sys.stdout.write("\nUsing wallet file %s" % fname)
-            #return wallet
-      #raise ValueError('Unable to locate a watch-only wallet in %s' % os.getcwd())
 
-   #############################################################################
-   def loadBlockchain(self):
-      TheBDM.setBlocking(True)
-      TheBDM.setOnlineMode(True)
-
-      # Thanks to unclescrooge for inclusions - https://bitcointalk.org/index.php?topic=92496.msg1282975#msg1282975
-      self.latestBlockNum = TheBDM.getTopBlockHeader().getBlockHeight()
-
-      # Now that theb blockchain is loaded, let's populate the wallet info
-      if TheBDM.isInitialized():
-         mempoolfile = os.path.join(ARMORY_HOME_DIR,'mempool.bin')
-         self.checkMemoryPoolCorruption(mempoolfile)
-         TheBDM.enableZeroConf(mempoolfile)
-
-         # self.statusBar().showMessage('Syncing wallets with blockchain...')
-         sys.stdout.write("\nSyncing wallets with blockchain")
-         sys.stdout.write("\nSyncing wallet: %s" % self.wallet.uniqueIDB58)
-         self.wallet.setBlockchainSyncFlag(BLOCKCHAIN_READONLY)
-         self.wallet.syncWithBlockchain()
 
    #############################################################################
    def checkMemoryPoolCorruption(self, mempoolname):
@@ -392,33 +401,59 @@ class Armory_Daemon(object):
             newLedgerSize = len(self.wallet.getTxLedger())
 
             # If there are no functions to run, just skip all this
-            if len(self.newBlockFunctions)==0:
-               continue 
+            if not len(self.newBlockFunctions)==0:
 
-            # Here's where we actually execute the new-block calls, because
-            # this code is guaranteed to execute AFTER the TheBDM has processed
-            # the new block data.
-            # We walk through headers by block height in case the new block 
-            # didn't extend the main chain (this won't run), or there was a 
-            # reorg with multiple blocks and we only want to process the new
-            # blocks on the main chain, not the invalid ones
-            for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
-               cppHeader = TheBDM.getHeaderByHeight(blknum)
-               txHashToPy = lambda h: PyTx().unserialize(TheBDM.getTxByHash(h).serialize())
-
-               pyHeader = PyBlockHeader().unserialize(header.serialize())
-               pyTxList = [txHashToPy(hsh) for hsh in header.getTxHashList()]
-               for blockFunc in self.newBlockFunctions:
-                  blockFunc(pyHeader, pyTxList)
+               # Here's where we actually execute the new-block calls, because
+               # this code is guaranteed to execute AFTER the TheBDM has processed
+               # the new block data.
+               # We walk through headers by block height in case the new block 
+               # didn't extend the main chain (this won't run), or there was a 
+               # reorg with multiple blocks and we only want to process the new
+               # blocks on the main chain, not the invalid ones
+               for blknum in range(prevTopBlock+1, self.latestBlockNum+1):
+                  cppHeader = TheBDM.getHeaderByHeight(blknum)
+                  txHashToPy = lambda h: PyTx().unserialize(TheBDM.getTxByHash(h).serialize())
+                  pyHeader = PyBlockHeader().unserialize(header.serialize())
+                  pyTxList = [txHashToPy(hsh) for hsh in header.getTxHashList()]
+                  for blockFunc in self.newBlockFunctions:
+                     blockFunc(pyHeader, pyTxList)
 
       self.wallet.checkWalletLockTimeout()
-
       reactor.callLater(nextBeatSec, self.Heartbeat)
 
 
 
+"""
+# This is from jgarzik's python-bitcoinrpc tester
+import decimal
+import json
+from jsonrpc import ServiceProxy
+
+class UniversalEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, decimal.Decimal):
+            return float(obj)
+        return json.JSONEncoder.default(self, obj)
+
+access = ServiceProxy("http://alan:ak3lfd98031knmzwks1ke@127.0.0.1:7070")
+
+# TODO use asserts on this, for now manual inspection will do
+newaddress = access.getnewaddress()
+"""
 
 
-#if __name__ == "__main__":
-   #from armoryengine import *
-   #rpc_server = Armory_Daemon()
+
+if __name__ == "__main__":
+
+   wltpath = CLI_ARGS[0]
+   if not os.path.exists(wltpath):
+      print 'ERROR:  wallet does not exist: ', wltpath
+
+   rpc_server = Armory_Daemon(wltpath)
+   rpc_server.start()
+
+
+
+
+
+

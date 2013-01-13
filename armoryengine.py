@@ -166,9 +166,12 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
-# Change the settings file to use
+# Change the log file to use
 if CLI_OPTIONS.logFile.lower()=='default':
-   CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   if sys.argv[0]=='ArmoryQt.py':
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   else:
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % sys.argv[0])
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
@@ -293,6 +296,7 @@ class NegativeValueError(Exception): pass
 if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
+   BITCOIN_PORT = 8225
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
    GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
@@ -302,6 +306,7 @@ if not USE_TESTNET:
    PRIVKEYBYTE = '\x80'
 else:
    BITCOIN_PORT = 18333
+   RPC_PORT     = 18225
    MAGIC_BYTES  = '\x0b\x11\x09\x07'
    GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
    GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
@@ -316,6 +321,12 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
    except:
       raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
 
+
+if not CLI_OPTIONS.rpcport == 'DEFAULT':
+   try:
+      RPC_PORT = int(CLI_OPTIONS.rpcport)
+   except:
+      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(RPC_PORT)
 
 BLOCKCHAINS = {}
 BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
@@ -3835,7 +3846,7 @@ class PyBlock(object):
 #############################################################################
 def getFeeForTx(txHash):
    if TheBDM.getBDMState()=='BlockchainReady':
-      if not TheBDM.hasTxWithHash(txHash)
+      if not TheBDM.hasTxWithHash(txHash):
          LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
                                              binary_to_hex(txHash,BIGENDIAN))
          return 0
@@ -5407,6 +5418,9 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    numBytes +=  35 * (1 if change==0 else 2)
    numKb = int(numBytes / 1000)
 
+   if numKb>10:
+      return [(1+numKb)*MIN_RELAY_TX_FEE, (1+numKb)*MIN_TX_FEE]
+
    # Compute raw priority of tx
    prioritySum = 0
    for utxo in selectCoinsResult:
@@ -5418,7 +5432,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
 
    if((not haveDustOutputs) and \
       prioritySum >= ONE_BTC * 144 / 250. and \
-      numBytes <= 3600):
+      numBytes < 10000):
       return [0,0]
 
    # This cannot be a free transaction.
