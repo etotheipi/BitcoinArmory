@@ -213,7 +213,7 @@ class Armory_Daemon(object):
 
 
    #############################################################################
-   def __init__(self, wltpath):
+   def __init__(self):
 
       # Check if armoryd is already running, bail if it is
       self.checkForAlreadyRunning()
@@ -223,6 +223,12 @@ class Armory_Daemon(object):
       self.newBlockFunctions = []
       self.heartbeatFunctions = []
 
+      # The only argument that armoryd.py takes is the wallet to serve
+      if len(CLI_ARGS)==0:
+         LOGERROR('Please supply the wallet for this server to serve')
+         LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
+         os._exit(1)
+      wltpath = CLI_ARGS[0]
       if not os.path.exists(wltpath):
          LOGERROR('Wallet does not exist!  (%s)', wltpath)
          return
@@ -305,11 +311,8 @@ class Armory_Daemon(object):
          with open(ARMORYD_CONF_FILE, 'r') as f:
             usr,pas = f.readline().strip().split(':')
          
-         print usr,pas
          if CLI_ARGS:
             proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pas,RPC_PORT))
-            print 'proxy created'
-            print CLI_ARGS
             extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
             print proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
          sock.close()
@@ -445,11 +448,7 @@ newaddress = access.getnewaddress()
 
 if __name__ == "__main__":
 
-   wltpath = CLI_ARGS[0]
-   if not os.path.exists(wltpath):
-      print 'ERROR:  wallet does not exist: ', wltpath
-
-   rpc_server = Armory_Daemon(wltpath)
+   rpc_server = Armory_Daemon()
    rpc_server.start()
 
 

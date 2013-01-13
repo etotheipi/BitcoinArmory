@@ -109,11 +109,6 @@ def readVersionInt(verInt):
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
 
-print '********************************************************************************'
-print 'Loading Armory Engine:'
-print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
-print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
-
 # Get the host operating system
 import platform
 opsys = platform.system()
@@ -253,13 +248,18 @@ BLKFILE_STARTINDEX = BLKFILE_LOCATION[2]
 BLKFILE_FIRSTFILE  = BLKFILE_LOCATION[3]
 
 
-print 'Detected Operating system:', OS_NAME
-print '   User home-directory   :', USER_HOME_DIR
-print '   Satoshi BTC directory :', BTC_HOME_DIR
-print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
-print '   Armory home dir       :', ARMORY_HOME_DIR
-print '   Armory settings file  :', SETTINGS_PATH
-print '   Armory log file       :', ARMORY_LOG_FILE
+if sys.argv[0]=='ArmoryQt.py':
+   print '********************************************************************************'
+   print 'Loading Armory Engine:'
+   print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+   print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
+   print 'Detected Operating system:', OS_NAME
+   print '   User home-directory   :', USER_HOME_DIR
+   print '   Satoshi BTC directory :', BTC_HOME_DIR
+   print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
+   print '   Armory home dir       :', ARMORY_HOME_DIR
+   print '   Armory settings file  :', SETTINGS_PATH
+   print '   Armory log file       :', ARMORY_LOG_FILE
 
 
 
@@ -327,6 +327,7 @@ if not CLI_OPTIONS.rpcport == 'DEFAULT':
       RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
       raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(RPC_PORT)
+
 
 BLOCKCHAINS = {}
 BLOCKCHAINS['\xf9\xbe\xb4\xd9'] = "Main Network"
