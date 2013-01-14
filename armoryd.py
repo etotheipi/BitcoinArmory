@@ -96,10 +96,13 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return addr.getAddrStr()
 
    #############################################################################
-   def jsonrpc_getbalance(self):
-      int_balance = self.wallet.getBalance()
-      decimal_balance = decimal.Decimal(int_balance) / decimal.Decimal(ONE_BTC)
-      return float(decimal_balance)
+   def jsonrpc_getbalance(self, baltype='spendable'):
+      if not baltype in ['spendable','spend', 'unconf', 'unconfirmed', \
+                          'total', 'ultimate','unspent', 'full']:
+         LOGERROR('Unrecognized getbalance string: "%s"', baltype)
+         return -1
+         
+      return float(coin2str(self.wallet.getBalance(baltype)))
 
    #############################################################################
    def jsonrpc_getreceivedbyaddress(self, address):
@@ -109,15 +112,27 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addr160 = addrStr_to_hash160(address)
       txs = self.wallet.getAddrTxLedger(addr160)
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
-      decimal_balance = decimal.Decimal(balance) / decimal.Decimal(ONE_BTC)
-      float_balance = float(decimal_balance)
-      return float_balance
+      return float(coin2str(balance))
 
    #############################################################################
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
-      return self.create_unsigned_transaction(bitcoinaddress, amount)
+      addr160 = addrStr_to_hash160(bitcoinaddress)
+      amtCoin = str2coin(amount)
+      return self.create_unsigned_transaction([[addr160, amtCoin]])
+
+   #############################################################################
+   def jsonrpc_sendmany(self, *args):
+      if CLI_OPTIONS.offline:
+         raise ValueError('Cannot create transactions when offline')
+
+      recipvalpairs = []
+      for a in args:
+         r,v = a.split(':')
+         recipvalpairs.append([addrStr_to_hash160(r), str2coin(v)])
+
+      return self.create_unsigned_transaction(recipvalpairs)
 
 
    #############################################################################
@@ -405,19 +420,41 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
             final_tx_list.append(tx_info)
 
-      # For now, I'm collecting all tx and only returning the ones requested
-      # Seems inefficient but there's problems trying to do it any other way.
-      #if not tx_count==None or not from_tx==None:
-         #LOGWARN('Arguments to listtransactions not supported.  All or nothing.')
       return final_tx_list
+
+
+
+
+   
+   #############################################################################
+   def jsonrpc_getinfo(self):
+      isReady = TheBDM.getBDMState() == 'BlockchainReady'
+      info = { \
+               'version':           getVersionInt(BTCARMORY_VERSION),
+               'protocolversion':   0,  
+               'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
+               'bdmstate':          TheBDM.getBDMState(),
+               'balance':           float(coin2str(self.wallet.getBalance())) if isReady else -1,
+               'blocks':            TheBDM.getTopBlockHeight(),
+               'connections':       (0 if isReady else 1),
+               'proxy':             '',
+               'difficulty':        TheBDM.getTopBlockHeader().getDifficulty() if isReady else -1,
+               'testnet':           USE_TESTNET,
+               'keypoolsize':       self.wallet.addrPoolSize
+            }
+      return info
+
 
 
    #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
-   def create_unsigned_transaction(self, bitcoinaddress_str, amount_to_send_btc):
+   def create_unsigned_transaction(self, recipValPairs):
       # Get unspent TxOutList and select the coins
-      addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
-      totalSend, fee = long(amount_to_send_btc * ONE_BTC), 0
+      #addr160_recipient = addrStr_to_hash160(bitcoinaddress_str)
+
+      totalSend = long( sum([rv[1] for rv in recipValPairs]) )
+      fee = 0
+
       spendBal = self.wallet.getBalance('Spendable')
       utxoList = self.wallet.getTxOutList('Spendable')
       utxoSelect = PySelectCoins(utxoList, totalSend, fee)
@@ -435,8 +472,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       totalSelected = sum([u.getValue() for u in utxoSelect])
       totalChange = totalSelected - (totalSend  + fee)
 
-      outputPairs = []
-      outputPairs.append( [addr160_recipient, totalSend] )
+      outputPairs = recipValPairs
       if totalChange > 0:
          outputPairs.append( [self.wallet.getNextUnusedAddress().getAddr160(), totalChange] )
 
