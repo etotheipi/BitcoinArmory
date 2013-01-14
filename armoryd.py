@@ -78,6 +78,13 @@ class UniversalEncoder(json.JSONEncoder):
 ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 
+
+# From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
+def JSONtoAmount(value):
+    return long(round(value * 1e8))
+def AmountToJSON(amount):
+    return float(amount / 1e8)
+
 ################################################################################
 
 ################################################################################
@@ -102,7 +109,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          LOGERROR('Unrecognized getbalance string: "%s"', baltype)
          return -1
          
-      return float(coin2str(self.wallet.getBalance(baltype)))
+      return AmountToJSON(self.wallet.getBalance(baltype))
 
    #############################################################################
    def jsonrpc_getreceivedbyaddress(self, address):
@@ -112,14 +119,14 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       addr160 = addrStr_to_hash160(address)
       txs = self.wallet.getAddrTxLedger(addr160)
       balance = sum([x.getValue() for x in txs if x.getValue() > 0])
-      return float(coin2str(balance))
+      return AmountToJSON(balance)
 
    #############################################################################
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
       addr160 = addrStr_to_hash160(bitcoinaddress)
-      amtCoin = str2coin(amount)
+      amtCoin = JSONtoAmount(amount)
       return self.create_unsigned_transaction([[addr160, amtCoin]])
 
    #############################################################################
@@ -130,7 +137,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       recipvalpairs = []
       for a in args:
          r,v = a.split(':')
-         recipvalpairs.append([addrStr_to_hash160(r), str2coin(v)])
+         recipvalpairs.append([addrStr_to_hash160(r), JSONtoAmount(v)])
 
       return self.create_unsigned_transaction(recipvalpairs)
 
@@ -207,7 +214,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          # amtCoins: amt of BTC transacted, always positive (how big are outputs minus change?)
          # netCoins: net effect on wallet (positive or negative)
-         # feeCoins: how much fee was paid by this wallet (always negative)
+         # feeCoins: how much fee was paid for this tx 
 
          if netCoins < -feeCoins:
             txDir = 'sent'
@@ -228,7 +235,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             val    = TheBDM.getSentValue(cppTx.getTxIn(iin))
             addTo  = (myinputs if self.wallet.hasAddr(sender) else otherinputs)
             addTo.append( {'address': hash160_to_addrStr(sender), \
-                           'amount':  float(coin2str(val))} )
+                           'amount':  AmountToJSON(val)} )
             
 
          myoutputs, otheroutputs = [], []
@@ -237,17 +244,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             val   = cppTx.getTxOut(iout).getValue();
             addTo = (myoutputs if self.wallet.hasAddr(recip) else otheroutputs)
             addTo.append( {'address': hash160_to_addrStr(recip), \
-                           'amount':  float(coin2str(val))} )
+                           'amount':  AmountToJSON(val)} )
 
          
          tx_info = {
                      'direction' :  txDir,
-                     'amount' :     float(coin2str(amtCoins)),
-                     'netdiff' :    float(coin2str(netCoins)),
-                     'fee' :        float(coin2str(feeCoins)),
+                     'amount' :     AmountToJSON(amtCoins),
+                     'netdiff' :    AmountToJSON(netCoins),
+                     'fee' :        AmountToJSON(feeCoins),
                      'txid' :       txHashHex,
                      'blockhash' :  headHashHex,
                      'txtime' :     le.getTxTime(),
+                     'txsize' :     len(cppTx.serialize()),
                      'blocktime' :  headtime,
                      'comment' :    self.wallet.getComment(txHashBin),
                      'firstrecip':  firstAddr,
@@ -351,8 +359,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # We always add one entry for the total balance diff on outgoing tx
          if totalBalDiff<-feeCoin:
             category = 'send'
-            amt =  float(coin2str(le.getValue()+feeCoin))
-            fee = -float(coin2str(feeCoin))
+            amt =  AmountToJSON(le.getValue()+feeCoin)
+            fee = -AmountToJSON(feeCoin)
             tx_info = {
                         "account" :        "",
                         "address" :        hash160_to_addrStr(targAddr160),
@@ -385,8 +393,8 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
             
             if not self.wallet.hasAddr(a160):
                category = 'send'
-               amt = -float(coin2str(val))
-               fee = -float(coin2str(feeCoin))
+               amt = -AmountToJSON(val)
+               fee = -AmountToJSON(feeCoin)
                tx_info = {
                            "account" :        "",
                            "address" :        address,
@@ -403,7 +411,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                         }
             else:
                category = 'receive'
-               amt = float(coin2str(val))
+               amt = AmountToJSON(val)
                tx_info = {
                            "account" : "",
                            "address" : address,
@@ -434,7 +442,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                'protocolversion':   0,  
                'walletversion':     getVersionInt(PYBTCWALLET_VERSION),
                'bdmstate':          TheBDM.getBDMState(),
-               'balance':           float(coin2str(self.wallet.getBalance())) if isReady else -1,
+               'balance':           AmountToJSON(self.wallet.getBalance()) if isReady else -1,
                'blocks':            TheBDM.getTopBlockHeight(),
                'connections':       (0 if isReady else 1),
                'proxy':             '',
