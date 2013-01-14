@@ -97,6 +97,8 @@ public:
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
 
+   void unserialize_swigsafe_(BinaryData const & rawHead) { unserialize(rawHead); }
+
    void clearDataCopy() {dataCopy_.resize(0);}
 
 private:
@@ -154,6 +156,8 @@ public:
    void        unserialize(BinaryRefReader & brr);
    void        unserialize(BinaryData const & bd);
    void        unserialize(BinaryDataRef const & bdRef);
+
+   void unserialize_swigsafe_(BinaryData const & rawOP) { unserialize(rawOP); }
 
 private:
    BinaryData txHash_;
@@ -224,6 +228,8 @@ public:
                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+
+   void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
    /////////////////////////////////////////////////////////////////////////////
    // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
@@ -312,6 +318,8 @@ public:
    void unserialize(BinaryRefReader & brr, 
                          uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
 
+   void unserialize_swigsafe_(BinaryData const & rawOut) { unserialize(rawOut); }
+
    void  pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
 
 private:
@@ -386,6 +394,8 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryRefReader & brr);
+   void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
+
 
    uint32_t    getLockTime(void) const { return lockTime_; }
    uint64_t    getSumOfOutputs(void);

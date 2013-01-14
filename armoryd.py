@@ -86,18 +86,22 @@ ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
+   #############################################################################
    def __init__(self, wallet):
       self.wallet = wallet
 
+   #############################################################################
    def jsonrpc_getnewaddress(self):
       addr = self.wallet.getNextUnusedAddress()
       return addr.getAddrStr()
 
+   #############################################################################
    def jsonrpc_getbalance(self):
       int_balance = self.wallet.getBalance()
       decimal_balance = decimal.Decimal(int_balance) / decimal.Decimal(ONE_BTC)
       return float(decimal_balance)
 
+   #############################################################################
    def jsonrpc_getreceivedbyaddress(self, address):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot get received amount when offline')
@@ -109,20 +113,149 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       float_balance = float(decimal_balance)
       return float_balance
 
+   #############################################################################
    def jsonrpc_sendtoaddress(self, bitcoinaddress, amount):
       if CLI_OPTIONS.offline:
          raise ValueError('Cannot create transactions when offline')
       return self.create_unsigned_transaction(bitcoinaddress, amount)
 
 
+   #############################################################################
+   def jsonrpc_getledgersimple(self, tx_count=10, from_tx=0):
+      return self.jsonrpc_getledger(tx_count, from_tx, simple=True)
+
+   #############################################################################
+   def jsonrpc_getledger(self, tx_count=10, from_tx=0, simple=False):
+      final_le_list = []
+      ledgerEntries = self.wallet.getTxLedger('blk')
+         
+      sz = len(ledgerEntries)
+      lower = min(sz, from_tx)
+      upper = min(sz, from_tx+tx_count)
+
+      txSet = set([])
+
+      for i in range(lower,upper):
+         le = ledgerEntries[i]
+         txHashBin = le.getTxHash()
+         txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
+
+         cppTx = TheBDM.getTxByHash(txHashBin)
+         if not cppTx.isInitialized():
+            LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
+
+         cppHead = cppTx.getHeaderPtr()
+         if not cppHead.isInitialized:
+            LOGERROR('Header pointer is not available!')
+            headHashBin = ''
+            headHashHex = ''
+            headtime    = 0
+         else:
+            headHashBin = cppHead.getThisHash()
+            headHashHex = binary_to_hex(headHashBin, BIGENDIAN)
+            headtime    = cppHead.getTimestamp()
+
+         isToSelf = le.isSentToSelf()
+         netCoins = le.getValue()
+         feeCoins = getFeeForTx(txHashBin)
+      
+         allRecips = [cppTx.getTxOut(i).getRecipientAddr() for i in range(cppTx.getNumTxOut())]
+         first160 = ''
+         if cppTx.getNumTxOut()==1:
+            first160 = allRecips[0]
+            change160 = ''
+         elif isToSelf:
+            # Sent-to-Self tx
+            amtCoins,changeIdx = determineSentToSelfAmt(le, self.wallet)
+            change160 = allRecips[changeIdx]
+            for iout,recip160 in enumerate(allRecips):
+               if not iout==changeIdx:
+                  first160 = recip160
+                  break
+         elif netCoins<0:
+            # Outgoing transaction (process in reverse order so get first)
+            amtCoins = -1*(netCoins+feeCoins)
+            for recip160 in allRecips[::-1]:
+               if self.wallet.hasAddr(recip160):
+                  change160 = recip160
+               else:
+                  first160 = recip160
+         else:
+            # Incoming transaction
+            amtCoins = netCoins
+            for recip160 in allRecips[::-1]:
+               if self.wallet.hasAddr(recip160):
+                  first160 = recip160
+               else:
+                  change160 = recip160
+
+
+         # amtCoins: amt of BTC transacted, always positive (how big are outputs minus change?)
+         # netCoins: net effect on wallet (positive or negative)
+         # feeCoins: how much fee was paid by this wallet (always negative)
+
+         if netCoins < -feeCoins:
+            txDir = 'sent'
+         elif netCoins > -feeCoins:
+            txDir = 'received'
+         else:
+            txDir = 'toself'
+
+         # Convert to address strings
+         firstAddr = hash160_to_addrStr(first160)
+         changeAddr = '' if len(change160)==0 else hash160_to_addrStr(change160)
+
+
+
+         myinputs,  otherinputs = [],[]
+         for iin in range(cppTx.getNumTxIn()):
+            sender = TheBDM.getSenderAddr20(cppTx.getTxIn(iin))
+            val    = TheBDM.getSentValue(cppTx.getTxIn(iin))
+            addTo  = (myinputs if self.wallet.hasAddr(sender) else otherinputs)
+            addTo.append( {'address': hash160_to_addrStr(sender), \
+                           'amount':  float(coin2str(val))} )
+            
+
+         myoutputs, otheroutputs = [], []
+         for iout in range(cppTx.getNumTxOut()):
+            recip = cppTx.getTxOut(iout).getRecipientAddr();
+            val   = cppTx.getTxOut(iout).getValue();
+            addTo = (myoutputs if self.wallet.hasAddr(recip) else otheroutputs)
+            addTo.append( {'address': hash160_to_addrStr(recip), \
+                           'amount':  float(coin2str(val))} )
+
+         
+         tx_info = {
+                     'direction' :  txDir,
+                     'amount' :     float(coin2str(amtCoins)),
+                     'netdiff' :    float(coin2str(netCoins)),
+                     'fee' :        float(coin2str(feeCoins)),
+                     'txid' :       txHashHex,
+                     'blockhash' :  headHashHex,
+                     'txtime' :     le.getTxTime(),
+                     'blocktime' :  headtime,
+                     'comment' :    self.wallet.getComment(txHashBin),
+                     'firstrecip':  firstAddr,
+                     'changerecip': changeAddr
+                  }
+
+         if not simple:
+            tx_info['senderme']     = myinputs
+            tx_info['senderother']  = otherinputs
+            tx_info['recipme']      = myoutputs
+            tx_info['recipother']   = otheroutputs
+         
+         final_le_list.append(tx_info)
+
+      return final_le_list
+      
+
+
+
+
+   #############################################################################
    def jsonrpc_listtransactions(self, tx_count=10, from_tx=0):
-      #TODO this needs more work
-      # - populate the rest of the values in tx_info
-      #     - fee
-      #     - blocktime
-      #     - timereceived
-      # Thanks to unclescrooge for inclusions - https://bitcointalk.org/index.php?topic=92496.msg1282975#msg1282975
-      # NOTE that this does not use 'account' like in the Satoshi client
+      # This does not use 'account's like in the Satoshi client
 
       final_tx_list = []
       ledgerEntries = self.wallet.getTxLedger('blk')
@@ -131,63 +264,155 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       lower = min(sz, from_tx)
       upper = min(sz, from_tx+tx_count)
 
-      for i in range(lower, upper):
+      txSet = set([])
+
+      for i in range(sz):
 
          le = ledgerEntries[i]
          txHashBin = le.getTxHash()
+         if txHashBin in txSet:
+            continue
+
+         txSet.add(txHashBin)
+         txHashHex = binary_to_hex(txHashBin, BIGENDIAN)
 
          cppTx = TheBDM.getTxByHash(txHashBin)
          if not cppTx.isInitialized():
-            LOGERROR('LE tx hash not recognized by TheBDM')
+            LOGERROR('Tx hash not recognized by TheBDM: %s' % txHashHex)
 
          cppHead = cppTx.getHeaderPtr()
          if not cppHead.isInitialized:
-            LOGERROR('LE tx hash not recognized by TheBDM')
+            LOGERROR('Header pointer is not available!')
 
-         blockIndex = cppHead.getBlockHeight()
-         pytx = PyTx().unserialize(cppTx.serialize())
-         for txout in pytx.outputs:
-            scrType = getTxOutScriptType(txout.binScript)
-            if not scrType in (TXOUT_SCRIPT_STANDARD, TXOUT_SCRIPT_COINBASE):
-              continue
-            address = hash160_to_addrStr(TxOutScriptExtractAddr160(txout.binScript))
-            if self.wallet.hasAddr(address) == False:
-              continue
+         blockIndex = cppTx.getBlockTxIndex()
+         blockHash  = binary_to_hex(cppHead.getThisHash(), BIGENDIAN)
+         blockTime  = le.getTxTime()
+         isToSelf   = le.isSentToSelf()
+         feeCoin   = getFeeForTx(txHashBin)
+         totalBalDiff = le.getValue()
+         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
+
+
+         # We have potentially change outputs on any outgoing transactions.
+         # If sent-to-self, assume 1 change address (max chain idx), all others
+         # are receives
+         recipVals = []
+         for iout in range(cppTx.getNumTxOut()):
+            recip = cppTx.getTxOut(iout).getRecipientAddr()
+            val   = cppTx.getTxOut(iout).getValue()
+            recipVals.append([recip,val])
+            
+
+
+         if cppTx.getNumTxOut()==1:
+            changeAddr160 = ""
+            targAddr160 = cppTx.getTxOut(0).getRecipientAddr()
+         elif isToSelf:
+            selfamt,changeIdx = determineSentToSelfAmt(le, self.wallet)
+            if changeIdx==-1:
+               changeAddr160 = ""
             else:
-               break
-
-         amount = float(coin2str(le.getValue()))
-         if amount < 0:
-            category = 'send'
-            amount = -1*amount
+               changeAddr160 = recipVals[changeIdx]
+               del recipVals[changeIdx]
+            targAddr160 = recipVals[0][0]
+         elif totalBalDiff < 0:
+            # This was ultimately an outgoing transaction
+            for iout,rv in enumerate(recipVals):
+               if self.wallet.hasAddr(rv[0]):
+                  changeAddr160 = rv[0]
+                  del recipVals[iout]
+                  break
+            targAddr160 = recipVals[0][0]
          else:
-            category = 'receive'
+            # Receiving transaction
+            for recip,val in recipVals:
+               if self.wallet.hasAddr(recip):
+                  targAddr160 = recip
+                  break
+            targAddr160 = recipVals[0][0]
+            changeAddr160 = ''
+            
 
-         confirmations = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
-         blockhash = binary_to_hex(cppHead.getThisHash(), BIGENDIAN)
-         txhash    = binary_to_hex(cppTx.getThisHash(), BIGENDIAN)
-         blockindex = cppTx.getBlockTxIndex()
-         blktime = le.getTxTime()
+         # We always add one entry for the total balance diff on outgoing tx
+         if totalBalDiff<-feeCoin:
+            category = 'send'
+            amt =  float(coin2str(le.getValue()+feeCoin))
+            fee = -float(coin2str(feeCoin))
+            tx_info = {
+                        "account" :        "",
+                        "address" :        hash160_to_addrStr(targAddr160),
+                        "category" :       category,
+                        "amount" :         amt,
+                        "fee" :            fee,
+                        "confirmations" :  nconf,
+                        "blockhash" :      blockHash,
+                        "blockindex" :     blockIndex,
+                        "blocktime" :      blockTime,
+                        "txid" :           txHashHex,
+                        "time" :           blockTime,
+                        "timereceived" :   blockTime 
+                     }
+            final_tx_list.append(tx_info)
 
-         fee = getFeeForTx(txHashBin)
-         tx_info = {
-            'account': '',
-            'address':address,
-            'category':category,
-            'amount': amount,
-            'fee': fee,
-            'confirmations':confirmations,
-            'blockhash':blockhash,
-            'blockindex':blockindex,
-            'txid': txhash,
-            'time:':blktime,
-            'timereceived': blktime }
-         final_tx_list.append(tx_info)
-         if len(final_tx_list) >= tx_count:
-            break
+
+
+
+         for a160,val in recipVals:
+            # Change outputs have already been removed
+            if totalBalDiff>0 and not self.wallet.hasAddr(a160):
+               # This is a receiving tx and this is other addr sending to other addr
+               continue
+
+            if a160=='\x00'*20:
+               address = '<Non-Standard Script>'
+            else:
+               address = hash160_to_addrStr(a160)
+            
+            if not self.wallet.hasAddr(a160):
+               category = 'send'
+               amt = -float(coin2str(val))
+               fee = -float(coin2str(feeCoin))
+               tx_info = {
+                           "account" :        "",
+                           "address" :        address,
+                           "category" :       category,
+                           "amount" :         amt,
+                           "fee" :            fee,
+                           "confirmations" :  nconf,
+                           "blockhash" :      blockHash,
+                           "blockindex" :     blockIndex,
+                           "blocktime" :      blockTime,
+                           "txid" :           txHashHex,
+                           "time" :           blockTime,
+                           "timereceived" :   blockTime 
+                        }
+            else:
+               category = 'receive'
+               amt = float(coin2str(val))
+               tx_info = {
+                           "account" : "",
+                           "address" : address,
+                           "category" : category,
+                           "amount" : amt,
+                           "confirmations" : nconf,
+                           "blockhash" : blockHash,
+                           "blockindex" : blockIndex,
+                           "blocktime" : blockTime,
+                           "txid" : txHashHex,
+                           "time" : blockTime,
+                           "timereceived" : blockTime
+                        }
+
+            final_tx_list.append(tx_info)
+
+      # For now, I'm collecting all tx and only returning the ones requested
+      # Seems inefficient but there's problems trying to do it any other way.
+      #if not tx_count==None or not from_tx==None:
+         #LOGWARN('Arguments to listtransactions not supported.  All or nothing.')
       return final_tx_list
 
 
+   #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
    def create_unsigned_transaction(self, bitcoinaddress_str, amount_to_send_btc):
       # Get unspent TxOutList and select the coins

@@ -1972,13 +1972,22 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getAddrCommentIfAvail(self, txHash):
+   def getAddrCommentIfAvailAll(self, txHash):
       TimerStart('getAddrCommentIfAvail')
       if not TheBDM.isInitialized():
          TimerStop('getAddrCommentIfAvail')
          return ''
       else:
          
+         appendedComments = []
+         for wltID,wlt in self.walletMap.iteritems():
+            cmt = wlt.getAddrCommentIfAvail(txHash)
+            if len(cmt)>0:
+               appendedComments.append(cmt)
+   
+         return '; '.join(appendedComments)
+
+         """
          # If we haven't extracted relevant addresses for this tx, yet -- do it
          if not self.txAddrMap.has_key(txHash):
             self.txAddrMap[txHash] = []
@@ -2000,13 +2009,16 @@ class ArmoryMainWindow(QMainWindow):
 
          TimerStop('getAddrCommentIfAvail')
          return '; '.join(addrComments)
+         """
 
                   
    #############################################################################
    def getCommentForLE(self, wltID, le):
       # Smart comments for LedgerEntry objects:  get any direct comments ... 
       # if none, then grab the one for any associated addresses.
-      wlt = self.walletMap[wltID]
+       
+      return self.walletMap[wltID].getCommentForLE(le)
+      """
       txHash = le.getTxHash()
       if wlt.commentsMap.has_key(txHash):
          comment = wlt.commentsMap[txHash]
@@ -2017,6 +2029,7 @@ class ArmoryMainWindow(QMainWindow):
             comment = ''
 
       return comment
+      """
 
 
 

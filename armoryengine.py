@@ -67,8 +67,7 @@ parser.add_option("--keypool",         dest="keypool",     default=100, type="in
 
 
 # Use CLI args to determine testnet or not
-#USE_TESTNET = CLI_OPTIONS.testnet
-USE_TESTNET = True
+USE_TESTNET = CLI_OPTIONS.testnet
    
 
 # Set default port for inter-process communication
@@ -632,7 +631,7 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
-def str2coin(theStr, negAllowed=True, maxDec=8):
+def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=False):
    coinStr = str(theStr)
    if len(coinStr.strip())==0:
       raise ValueError
@@ -647,7 +646,7 @@ def str2coin(theStr, negAllowed=True, maxDec=8):
       lhs,rhs = coinStrPos.strip().split('.')
       if len(lhs.strip('-'))==0:
          lhs=0
-      if len(rhs)>maxDec:
+      if len(rhs)>maxDec and not roundHighPrec:
          raise TooMuchPrecisionError
       if not negAllowed and isNeg:
          raise NegativeValueError
@@ -3254,7 +3253,7 @@ def TxOutScriptExtractAddrStr(binScript):
 def TxOutScriptExtractAddr160(binScript):
    txoutType = getTxOutScriptType(binScript)
    if txoutType == TXOUT_SCRIPT_UNKNOWN:
-      return '<Non-standard TxOut script>'
+      return '\x00'*20
 
    if txoutType == TXOUT_SCRIPT_COINBASE:
       return convertKeyDataToAddress(pubKey=binScript[1:66])
@@ -3366,6 +3365,15 @@ class PyOutPoint(object):
       print indstr + indent + 'TxOutIndex:', self.txOutIndex
 
 
+   def fromCpp(self, cppOP):
+      return self.unserialize(cppOP.serialize())
+
+   def createCpp(self):
+      """ Convert a raw OutPoint with no context, to a C++ OutPoint """
+      cppop = Cpp.OutPoint()
+      cppop.unserialize_swigsafe_(self.serialize())
+      return cppop
+
 #####
 class PyTxIn(object):
    def __init__(self):
@@ -3402,6 +3410,14 @@ class PyTxIn(object):
       return PyTxIn().unserialize(self.serialize())
 
 
+   def fromCpp(self, cppTxIn):
+      return self.unserialize(cppTxIn.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTxIn with no context, to a C++ TxIn """
+      cppin = Cpp.TxIn()
+      cppin.unserialize_swigsafe_(self.serialize())
+      return cppin
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3452,6 +3468,15 @@ class PyTxOut(object):
 
    def copy(self):
       return PyTxOut().unserialize(self.serialize())
+
+   def fromCpp(self, cppTxOut):
+      return self.unserialize(cppTxOut.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTxOut with no context, to a C++ TxOut """
+      cppout = Cpp.TxOut()
+      cppout.unserialize_swigsafe_(self.serialize())
+      return cppout
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3575,6 +3600,19 @@ class PyTx(object):
       #print '\nTransaction: %s' % self.getHashHex()
 
 
+   def fromCpp(self, cppTx):
+      return self.unserialize(cppTx.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTx with no context, to a C++ Tx """
+      cpptx = Cpp.Tx()
+      cpptx.unserialize_swigsafe_(self.serialize())
+      return cpptx
+
+   def fetchCpp(self):
+      """ Use the info in this PyTx to get the C++ version from TheBDM """
+      return TheBDM.getTxByHash(self.getHash())
+
    def pprintHex(self, nIndent=0):
       bu = BinaryUnpacker(self.serialize())
       theSer = self.serialize()
@@ -3677,6 +3715,20 @@ class PyBlockHeader(object):
          raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
+
+   def fromCpp(self, cppHead):
+      return self.unserialize(cppHead.serialize())
+
+   def createCpp(self):
+      """ Convert a raw blockheader with no context, to a C++ BlockHeader """
+      cppbh = Cpp.BlockHeader()
+      cppbh.unserialize_swigsafe_(self.serialize())
+      return cppbh
+
+   def fetchCpp(self):
+      """ Convert a raw blockheader with no context, to a C++ BlockHeader """
+      return TheBDM.getHeaderByHash(self.getHash())
+      
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3878,7 +3930,7 @@ def determineSentToSelfAmt(le, wlt):
          return (txref.getTxOut(0).getValue(), -1)
       maxChainIndex = -5
       txOutChangeVal = 0
-      txOutIndex = -1
+      changeIndex = -1
       valSum = 0
       for i in range(txref.getNumTxOut()):
          valSum += txref.getTxOut(i).getValue()
@@ -3887,10 +3939,10 @@ def determineSentToSelfAmt(le, wlt):
          if addr and addr.chainIndex > maxChainIndex:
             maxChainIndex = addr.chainIndex
             txOutChangeVal = txref.getTxOut(i).getValue()
-            txOutIndex = i
+            changeIndex = i
                   
       amt = valSum - txOutChangeVal
-   return (amt, txOutIndex)
+   return (amt, changeIndex)
 
 
 
@@ -6167,6 +6219,7 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
+      self.txAddrMap = {}    # cache for getting tx-labels based on addr search
       if USE_TESTNET:
          self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
@@ -7411,6 +7464,51 @@ class PyBtcWallet(object):
 
       # If there was a wallet overwrite, it's location is the first element
       self.commentLocs[hashVal] = newCommentLoc[-1]
+
+
+
+   #############################################################################
+   def getAddrCommentIfAvail(self, txHash):
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         return self.getComment(txHash)
+         
+      # If we haven't extracted relevant addresses for this tx, yet -- do it
+      if not self.txAddrMap.has_key(txHash):
+         self.txAddrMap[txHash] = []
+         tx = TheBDM.getTxByHash(txHash)
+         if tx.isInitialized():
+            for i in range(tx.getNumTxOut()):
+               a160 = tx.getRecipientForTxOut(i)
+     
+               if self.hasAddr(a160):
+                  self.txAddrMap[txHash].append(a160)
+            
+
+      addrComments = []
+      for a160 in self.txAddrMap[txHash]:
+         if self.commentsMap.has_key(a160):
+            addrComments.append(self.commentsMap[a160])
+
+      return '; '.join(addrComments)
+
+                  
+   #############################################################################
+   def getCommentForLE(self, le):
+      # Smart comments for LedgerEntry objects:  get any direct comments ... 
+      # if none, then grab the one for any associated addresses.
+      txHash = le.getTxHash()
+      if self.commentsMap.has_key(txHash):
+         comment = self.commentsMap[txHash]
+      else:
+         # [[ COMMENTS ]] are not meant to be displayed on main ledger
+         comment = self.getAddrCommentIfAvail(txHash)
+         if comment.startswith('[[') and comment.endswith(']]'):
+            comment = ''
+
+      return comment
+
+
+
 
    
    #############################################################################
