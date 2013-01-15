@@ -81,7 +81,7 @@ ARMORYD_CONF_FILE = os.path.join(ARMORY_HOME_DIR, 'armoryd.conf')
 
 # From https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)
 def JSONtoAmount(value):
-    return long(round(value * 1e8))
+    return long(round(float(value) * 1e8))
 def AmountToJSON(amount):
     return float(amount / 1e8)
 
@@ -227,6 +227,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          firstAddr = hash160_to_addrStr(first160)
          changeAddr = '' if len(change160)==0 else hash160_to_addrStr(change160)
 
+         nconf = TheBDM.getTopBlockHeader().getBlockHeight() - le.getBlockNum() + 1
 
 
          myinputs,  otherinputs = [],[]
@@ -248,18 +249,19 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
 
          
          tx_info = {
-                     'direction' :  txDir,
-                     'amount' :     AmountToJSON(amtCoins),
-                     'netdiff' :    AmountToJSON(netCoins),
-                     'fee' :        AmountToJSON(feeCoins),
-                     'txid' :       txHashHex,
-                     'blockhash' :  headHashHex,
-                     'txtime' :     le.getTxTime(),
-                     'txsize' :     len(cppTx.serialize()),
-                     'blocktime' :  headtime,
-                     'comment' :    self.wallet.getComment(txHashBin),
-                     'firstrecip':  firstAddr,
-                     'changerecip': changeAddr
+                     'direction' :    txDir,
+                     'amount' :       AmountToJSON(amtCoins),
+                     'netdiff' :      AmountToJSON(netCoins),
+                     'fee' :          AmountToJSON(feeCoins),
+                     'txid' :         txHashHex,
+                     'blockhash' :    headHashHex,
+                     'confirmations': nconf,
+                     'txtime' :       le.getTxTime(),
+                     'txsize' :       len(cppTx.serialize()),
+                     'blocktime' :    headtime,
+                     'comment' :      self.wallet.getComment(txHashBin),
+                     'firstrecip':    firstAddr,
+                     'changerecip':   changeAddr
                   }
 
          if not simple:
