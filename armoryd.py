@@ -507,7 +507,6 @@ class Armory_Daemon(object):
       self.heartbeatFunctions = []
 
       # The only argument that armoryd.py takes is the wallet to serve
-      CLI_ARGS = ['armory.testnet.watchonly.wallet']
       if len(CLI_ARGS)==0:
          LOGERROR('Please supply the wallet for this server to serve')
          LOGERROR('USAGE:  %s [--testnet] [--whatever] file.wallet' % sys.argv[0])
@@ -588,10 +587,10 @@ class Armory_Daemon(object):
          # If armoryd is already running, the rest of this try-clause will exec.
          LOGINFO('Another instance of armoryd.py is already runnning!')
          with open(ARMORYD_CONF_FILE, 'r') as f:
-            usr,pas = f.readline().strip().split(':')
+            usr,pwd = f.readline().strip().split(':')
          
          if CLI_ARGS:
-            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pas,RPC_PORT))
+            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,RPC_PORT))
             extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
             print json.dumps(proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs), \
                              indent=4, \

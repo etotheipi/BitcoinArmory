@@ -297,7 +297,7 @@ class NegativeValueError(Exception): pass
 if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
-   BITCOIN_PORT = 8225
+   RPC_PORT = 8225
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
    GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
@@ -619,6 +619,14 @@ def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
    return s
     
 
+def coin2strNZ(nSatoshi):
+   """ Right-justified, minimum zeros, but with padding for alignment"""
+   return coin2str(nSatoshi, 8, True, 0)
+
+def coin2strNZS(nSatoshi):
+   """ Right-justified, minimum zeros, stripped """
+   return coin2str(nSatoshi, 8, True, 0).strip()
+
 def coin2str_approx(nSatoshi, sigfig=3):
    posVal = nSatoshi
    isNeg = False
@@ -632,7 +640,7 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
-def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=False):
+def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
    coinStr = str(theStr)
    if len(coinStr.strip())==0:
       raise ValueError
