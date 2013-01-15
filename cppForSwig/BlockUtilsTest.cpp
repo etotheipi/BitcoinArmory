@@ -35,10 +35,10 @@ void TestCrypto(void);
 void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
-void TestMemoryUsage_UseSystemMonitor(string blkdir);
+void TestReadBlkFileUpdate(string testblockdir, string blkdir);
+
 void TestOutOfOrder(string blkdir);
 
-void CreateMultiBlkFile(string blkdir);
 ////////////////////////////////////////////////////////////////////////////////
 
 void printTestHeader(string TestName)
@@ -81,18 +81,15 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
    
 
-   string blkdir("/home/alan/.bitcoin");
+   //string blkdir("/home/alan/.bitcoin");
    //string blkdir("/home/alan/.bitcoin/testnet/");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin");
    //string blkdir("C:/Users/VBox/AppData/Roaming/Bitcoin/testnet");
    //string multitest("./multiblktest");
    
-   // ONLY USE THIS TO CREATE THE TEST BLOCKCHAIN -- then comment it out
-   //CreateMultiBlkFile(blkdir); return 0;
-
 
    //printTestHeader("Read-and-Organize-Blockchain");
    //TestReadAndOrganizeChain(blkdir);
@@ -115,11 +112,11 @@ int main(void)
    //printTestHeader("Blockchain-Reorg-Unit-Test");
    //TestReorgBlockchain(blkdir);
 
-   //printTestHeader("Test-Memory-Usage-With-System-Monitor");
-   //TestMemoryUsage_UseSystemMonitor(blkdir);
+   //printTestHeader("Test-out-of-order calls");
+   //TestOutOfOrder(blkdir);
 
-   printTestHeader("Test-out-of-order calls");
-   TestOutOfOrder(blkdir);
+   printTestHeader("Testing readBlkFileUpdate calls");
+   TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -1416,129 +1413,73 @@ void TestFileCache(void)
    fdrefs.push_back(FileDataPtr(   2,   129,    16  ));
    for(uint32_t i=0; i<fdrefs.size(); i++)
       cout << fdrefs[i].getDataCopy().toHexStr() << endl;
-
-
-      
-
-
-}
-
-
-// This is not ever needed for anything, except to take an existing blk000X.dat
-// file and split it into multiple pieces.  I need this for testing purposes...
-void CreateMultiBlkFile(string blkdir)
-{
-   string targDir("multiblktest"); 
-
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.SetBlkFileLocation(blkdir, 4, 1);
-   bdm.parseEntireBlockchain();  
-
-   uint32_t topBlk = bdm.getTopBlockHeight();
-   uint32_t onethird = topBlk/3;
-   uint32_t twothird = 2*topBlk/3;
-
-   string fname;
-   BinaryData magic = bdm.getMagicBytes();
-   ofstream os;
-
-   fname = pathJoin(targDir, "blk0001.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=0; i<onethird; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-
-
-   fname = pathJoin(targDir, "blk0002.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=onethird; i<twothird; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-
-   fname = pathJoin(targDir, "blk0003sm.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=twothird; i<topBlk-8; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-
-   fname = pathJoin(targDir, "blk0003big.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=twothird; i<topBlk-6; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-
-   fname = pathJoin(targDir, "blk0003bigger.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=twothird; i<topBlk-4; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-   
-   fname = pathJoin(targDir, "blk0004sm.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=topBlk-4; i<topBlk-2; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
-
-   fname = pathJoin(targDir, "blk0005sm.dat");
-   os.open(fname.c_str(), ios::out | ios::binary);
-   for(uint32_t i=topBlk-2; i<topBlk; i++)
-   {
-      BlockHeader * bhp = bdm.getHeaderByHeight(i);
-      os.write( bhp->serializeWholeBlock(magic, true).toBinStr().c_str(), bhp->getBlockSize()+8);
-   }
-   os.close();
 }
 
 
 
 
-void TestMemoryUsage_UseSystemMonitor(string blkdir)
+void TestReadBlkFileUpdate(string testblockdir, string blkdir)
 {
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
-   bdm.SetBlkFileLocation(blkdir, 4, 1);
-   bdm.parseEntireBlockchain();  
-
-   char a[256];
-   cout << "About to clear txHintMap" << endl;
-   cin >> a;
+    
+   // Setup the files that will be copied -- sources and destinations
+   vector<string> srcs(7);
+   srcs[0] = testblockdir + string("/blk00000.dat");
+   srcs[1] = testblockdir + string("/blk00000_test1.dat");
+   srcs[2] = testblockdir + string("/blk00000_test2.dat");
+   srcs[3] = testblockdir + string("/blk00001_test3.dat");
+   srcs[4] = testblockdir + string("/blk00002_test4.dat");
+   srcs[5] = testblockdir + string("/blk00002_test5.dat");
+   srcs[6] = testblockdir + string("/blk00003_test5.dat");
    
-   bdm.getTxHintMapRef().clear();
+   vector<string> dsts(7);
+   dsts[0] = blkdir + string("/blk00000.dat");
+   dsts[1] = blkdir + string("/blk00000.dat");
+   dsts[2] = blkdir + string("/blk00000.dat");
+   dsts[3] = blkdir + string("/blk00001.dat");
+   dsts[4] = blkdir + string("/blk00002.dat");
+   dsts[5] = blkdir + string("/blk00002.dat");
+   dsts[6] = blkdir + string("/blk00003.dat");
 
-   cin >> a;
-   cout << "About to clear txPtrs in headers" << endl;
-   cin >> a;
+   for(uint32_t i=0; i<7; i++)
+      if( BtcUtils::GetFileSize(dsts[i]) != FILE_DOES_NOT_EXIST )
+         remove(dsts[i].c_str()); 
 
-   for(uint32_t i=0; i<bdm.getTopBlockHeight(); i++)
-      bdm.getHeadersByHeightRef()[i]->getTxRefPtrList().clear();
-      
-   cin >> a;
-   cout << "About to clear Headers datacopy" << endl;
-   cin >> a;
 
-   for(uint32_t i=0; i<bdm.getTopBlockHeight(); i++)
-      bdm.getHeadersByHeightRef()[i]->clearDataCopy();
+   copyFile(srcs[0], dsts[0]);
+   bdm.SetBlkFileLocation(blkdir, 5, 0);
+   bdm.parseEntireBlockchain();  
+   cout << "Top Block: " << bdm.getTopBlockHeight() << endl;
+   
+   uint32_t t = 1;
 
-   cin >> a;
+   // TEST 1 -- Add one block
+   copyFile(srcs[1], dsts[1]);
+   bdm.readBlkFileUpdate();
+   cout << "Read block update " << t++ << ": " << bdm.getTopBlockHeight() << endl;
+
+   // TEST 2 -- Add 3 blocks
+   copyFile(srcs[2], dsts[2]);
+   bdm.readBlkFileUpdate();
+   cout << "Read block update " << t++ << ": " << bdm.getTopBlockHeight() << endl;
+
+   // TEST 3 -- Blkfile split with 1 block
+   copyFile(srcs[3], dsts[3]);
+   bdm.readBlkFileUpdate();
+   cout << "Read block update " << t++ << ": " << bdm.getTopBlockHeight() << endl;
+
+   // TEST 4 -- Blkfile split with 3 blocks
+   copyFile(srcs[4], dsts[4]);
+   bdm.readBlkFileUpdate();
+   cout << "Read block update " << t++ << ": " << bdm.getTopBlockHeight() << endl;
+
+   // TEST 5 -- Add blocks and split
+   copyFile(srcs[5], dsts[5]);
+   copyFile(srcs[6], dsts[6]);
+   bdm.readBlkFileUpdate();
+   cout << "Read block update " << t++ << ": " << bdm.getTopBlockHeight() << endl;
+
 }
-
 
 
 

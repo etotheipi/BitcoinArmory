@@ -2798,7 +2798,7 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
       // We concatenated all data together, even if across two files
       // Check which file data belongs to and set FileDataPtr appropriately
       uint32_t useFileIndex0Idx = numBlkFiles_-1;
-      uint32_t blockHeaderOffset = endOfPrevLastBlock_ + brr.getPosition() + 8;
+      uint32_t blockHeaderOffset = endOfPrevLastBlock_ + 8;
       if(brr.getPosition() >= currBlkBytesToRead)
       {
          useFileIndex0Idx = numBlkFiles_;
