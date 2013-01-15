@@ -1,5 +1,5 @@
 # Copyright (c) 2001-2011 Twisted Matrix Laboratories.
-# See LICENSE for details.
+# See LICENSE_qt4reactor for details.
 
 
 """

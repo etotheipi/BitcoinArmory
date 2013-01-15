@@ -212,7 +212,7 @@ if Test_BasicUtils:
    print ''
    print 'Testing str2coin method'
    def printS2C(s):
-      print ('"'+s+'"').ljust(18) , str2coin(s)
+      print ('"'+s+'"').ljust(18) , str2coin(s, roundHighPrec=True)
           
    printS2C('0.00000000')
    printS2C('0.0000')
@@ -229,6 +229,14 @@ if Test_BasicUtils:
    printS2C('-1.')
    printS2C('10000000')
    printS2C('100000.00000001')
+   printS2C('0.00000001')
+   printS2C('0.000000014')
+   printS2C('0.000000015')
+   printS2C('0.000000019')
+   printS2C('0.000000019')
+   printS2C('0.9999')
+   printS2C('0.99999999')
+   printS2C('0.999999999')
 
 
 # Unserialize an reserialize
