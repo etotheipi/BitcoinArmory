@@ -86,7 +86,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serializeWholeBlock(BinaryData const & magic, 
-                                     bool withLead8Bytes=true) const;
+                                     bool withLead8Bytes) const;
 
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
    uint32_t      findNonce(void);

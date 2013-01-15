@@ -1,5 +1,8 @@
+from sys import argv, path
+path.append('..')
+path.append('.')
+
 from armoryengine import *
-from sys import argv
 
 with open(argv[1], 'rb') as f:
    f.seek(long(argv[2]))

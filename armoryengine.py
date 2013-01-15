@@ -166,7 +166,8 @@ if CLI_OPTIONS.logFile.lower()=='default':
    if sys.argv[0]=='ArmoryQt.py':
       CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
    else:
-      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % sys.argv[0])
+      basename = os.path.basename(sys.argv[0])
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
@@ -645,13 +646,13 @@ def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=False):
    else:
       lhs,rhs = coinStrPos.strip().split('.')
       if len(lhs.strip('-'))==0:
-         lhs=0
+         lhs='0'
       if len(rhs)>maxDec and not roundHighPrec:
          raise TooMuchPrecisionError
       if not negAllowed and isNeg:
          raise NegativeValueError
-      rhs = rhs[:8] 
-      return (int(lhs)*ONE_BTC + int(rhs.ljust(8,'0')))*(-1 if isNeg else 1)
+      fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
+      return fullInt*(-1 if isNeg else 1)
 
 
 # This is a sweet trick for create enum-like dictionaries. 
