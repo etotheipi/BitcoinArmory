@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -11369,7 +11369,7 @@ class BlockDataManagerThread(threading.Thread):
                headHash = inputTuple[3]
                rawHeader = self.bdm.getHeaderByHash(headHash)
                if rawHeader:
-                  output = rawHeader.serialize()
+                  output = rawHeader
                else:
                   output = None
 

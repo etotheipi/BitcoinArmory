@@ -217,9 +217,9 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          # feeCoins: how much fee was paid for this tx 
 
          if netCoins < -feeCoins:
-            txDir = 'sent'
+            txDir = 'send'
          elif netCoins > -feeCoins:
-            txDir = 'received'
+            txDir = 'receive'
          else:
             txDir = 'toself'
 
@@ -455,6 +455,125 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
       return info
 
 
+   #############################################################################
+   def jsonrpc_getblock(self, blkhash):
+      if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
+         return {'error': 'armoryd is offline'}
+
+      head = TheBDM.getHeaderByHash(hex_to_binary(blkhash, BIGENDIAN))
+
+      if not head:
+         return {'error': 'header not found'}
+      
+      out = {}
+      out['hash'] = blkhash
+      out['confirmations'] = TheBDM.getTopBlockHeight()-head.getBlockHeight()+1
+      out['size'] = head.getBlockSize()
+      out['height'] = head.getBlockHeight()
+      out['time'] = head.getTimestamp()
+      out['nonce'] = head.getNonce()
+      out['difficulty'] = head.getDifficulty()
+      out['difficultysum'] = head.getDifficultySum()
+      out['mainbranch'] = head.isMainBranch()
+      out['bits'] = binary_to_hex(head.getDiffBits())
+      out['merkleroot'] = binary_to_hex(head.getMerkleRoot(), BIGENDIAN)
+      out['version'] = head.getVersion()
+      out['rawheader'] = binary_to_hex(head.serialize())
+      
+      txlist = head.getTxRefPtrList() 
+      ntx = len(txlist)
+      out['tx'] = ['']*ntx
+      for i in range(ntx):
+         out['tx'][i] = binary_to_hex(txlist[i].getThisHash(), BIGENDIAN)
+   
+      return out
+      
+
+   #############################################################################
+   def jsonrpc_gettransaction(self, txHash):
+      if TheBDM.getBDMState() in ['Uninitialized', 'Offline']:
+         return {'error': 'armoryd is offline'}
+
+      binhash = hex_to_binary(txHash, BIGENDIAN)
+      tx = TheBDM.getTxByHash(binhash)
+      if not tx.isInitialized():
+         return {'error': 'transaction not found'}
+      
+      out = {}
+      out['txid'] = txHash
+      out['mainbranch'] = tx.isMainBranch()
+      out['numtxin'] = tx.getNumTxIn()
+      out['numtxout'] = tx.getNumTxOut()
+
+      haveAllInputs = True
+      txindata = []
+      inputvalues = []
+      outputvalues = []
+      for i in range(tx.getNumTxIn()): 
+         op = tx.getTxIn(i).getOutPoint()
+         prevtx = TheBDM.getTxByHash(op.getTxHash())
+         if not prevtx.isInitialized():
+            haveAllInputs = False
+            txindata.append( { 'address': '00'*32, 
+                               'value':   '-1',
+                               'ismine':   False,
+                               'fromtxid': binary_to_hex(op.getTxHash(), BIGENDIAN),
+                               'fromtxindex': op.getTxOutIndex()})
+                               
+         else:
+            txout = prevtx.getTxOut(op.getTxOutIndex())
+            inputvalues.append(txout.getValue())
+            recip160 = txout.getRecipientAddr()
+            txindata.append( { 'address': hash160_to_addrStr(recip160),
+                               'value':   AmountToJSON(txout.getValue()),
+                               'ismine':   self.wallet.hasAddr(recip160),
+                               'fromtxid': binary_to_hex(op.getTxHash(), BIGENDIAN),
+                               'fromtxindex': op.getTxOutIndex()})
+
+      txoutdata = []
+      for i in range(tx.getNumTxOut()): 
+         txout = tx.getTxOut(i)
+         txoutdata.append( { 'value': AmountToJSON(txout.getValue()),
+                             'ismine':   self.wallet.hasAddr(txout.getRecipientAddr()),
+                             'address': hash160_to_addrStr(txout.getRecipientAddr())})
+         outputvalues.append(txout.getValue())
+
+      fee = sum(inputvalues)-sum(outputvalues)
+      out['fee'] = AmountToJSON(fee)
+
+      out['infomissing'] = not haveAllInputs
+      out['inputs'] = txindata
+      out['outputs'] = txoutdata
+
+      if not tx.isMainBranch():
+         return out
+
+      # The tx is in a block, fill in the rest of the data
+      out['confirmations'] = TheBDM.getTopBlockHeight() - tx.getBlockHeight() + 1
+      out['time'] = tx.getBlockTimestamp()
+      out['orderinblock'] = tx.getBlockTxIndex()
+
+      le = self.wallet.cppWallet.calcLedgerEntryForTx(tx)
+      amt = le.getValue()
+      out['netdiff']     = AmountToJSON(amt)
+      out['totalinputs'] = AmountToJSON(sum(inputvalues))
+   
+      if le.getTxHash()=='\x00'*32:
+         out['category']  = 'unrelated'
+         out['direction'] = 'unrelated'
+      elif le.isSentToSelf():
+         out['category']  = 'toself'
+         out['direction'] = 'toself'
+      elif amt<-fee:
+         out['category']  = 'send'
+         out['direction'] = 'send'
+      else:
+         out['category']  = 'receive'
+         out['direction'] = 'receive'
+         
+
+   
+      return out
 
    #############################################################################
    # https://bitcointalk.org/index.php?topic=92496.msg1126310#msg1126310
