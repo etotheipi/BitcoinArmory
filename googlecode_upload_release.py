@@ -243,8 +243,10 @@ def main():
    print '-'*80
    print 'Executing upload script for bitcoinarmory.googlecode.com...'
    parser = optparse.OptionParser(usage='googlecode-upload.py [--dryrun] dirFilesToUpload')
-   parser.add_option("--dryrun", dest="dryrun",  default='False', action="store_true", \
+   parser.add_option("--dryrun", dest="dryrun",  default=False, action="store_true", \
                      help="Detect and parse files to upload without actually executing the upload")
+   parser.add_option("--testver", dest="testver",  default=False, action="store_true", \
+                     help="Uploading a testing version; Only windows installers")
    options, args = parser.parse_args()
 
    if len(args)==0:
@@ -272,6 +274,9 @@ def main():
 
 
    verstr = '%s-beta' % latestVerStr
+   if options.testver:
+      verstr = '%s-testing' % latestVerStr
+
    print 'Latest version detected: ', verstr
    print '-'*80
    print ''
@@ -288,6 +293,13 @@ def main():
    for suf,summ,lbls in suffix:
       basename = prefix + verstr + suf
       fullpath = os.path.join(theDir, basename)
+
+      if options.testver:
+         if '.deb' in basename:
+            continue
+         else:
+            summ = 'Testing v' + summ[1:]
+         
       summary = summ % verstr
 
       if not os.path.exists(fullpath):
@@ -296,8 +308,7 @@ def main():
 
       if not options.dryrun: 
          # Disabled for testing, just in case I forget --dryrun
-         #status, reason, url = upload_find_auth( fullpath, 'bitcoinarmory', summ, lbls, 'etotheipi', password)
-         pass
+         status, reason, url = upload_find_auth( fullpath, 'bitcoinarmory', summary, lbls, 'etotheipi', password)
       else:
          print 'Dryun requested, no actual upload performed'
          url = 'http://bitcoinarmory.googlecode.com/files/%s' % basename
