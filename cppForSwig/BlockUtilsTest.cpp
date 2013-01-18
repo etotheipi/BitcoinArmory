@@ -109,14 +109,14 @@ int main(void)
    //printTestHeader("Read-and-Update-Blockchain");
    //TestReadAndUpdateBlkFile(multitest);
 
-   //printTestHeader("Blockchain-Reorg-Unit-Test");
-   //TestReorgBlockchain(blkdir);
+   printTestHeader("Blockchain-Reorg-Unit-Test");
+   TestReorgBlockchain("");
 
    //printTestHeader("Test-out-of-order calls");
    //TestOutOfOrder(blkdir);
 
-   printTestHeader("Testing readBlkFileUpdate calls");
-   TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
+   //printTestHeader("Testing readBlkFileUpdate calls");
+   //TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -645,7 +645,6 @@ void TestReorgBlockchain(string blkdir)
    //              to FileDataPtrs, and now I don't have a good way to force 
    //              different blk files (because I auto-detect blkfiles...)
    //              Will revive this when I figure it out...
-   /*
    BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    //
@@ -684,7 +683,9 @@ void TestReorgBlockchain(string blkdir)
    bdm.Reset();
    cout << "Done!" << endl;
    cout << "Reading in initial block chain (Blocks 0 through 4)..." ;
-   bdm.SetBlkFileLocation("reorgTest/blk_0_to_4.dat", 4, 1);
+
+   copyFile(blk04, "reorgTest/blk00000.dat");
+   bdm.SetBlkFileLocation("reorgTest", 5, 0);
    bdm.parseEntireBlockchain();
    bdm.organizeChain();
    cout << "Done" << endl;
@@ -733,24 +734,22 @@ void TestReorgBlockchain(string blkdir)
    }
 
    // prepare the other block to be read in
-   ifstream is;
-   BinaryData blk3a, blk4a, blk5a;
-   assert(blk3a.readBinaryFile("reorgTest/blk_3A.dat") != -1);
-   assert(blk4a.readBinaryFile("reorgTest/blk_4A.dat") != -1);
-   assert(blk5a.readBinaryFile("reorgTest/blk_5A.dat") != -1);
    vector<bool> result;
 
    /////
    cout << "Pushing Block 3A into the BDM:" << endl;
-   result = bdm.addNewBlockData(blk3a);
+   copyFile(blk3A, "blk00000.dat");
+   bdm.readBlkFileUpdate();
 
    /////
    cout << "Pushing Block 4A into the BDM:" << endl;
-   result = bdm.addNewBlockData(blk4a);
+   copyFile(blk4A, "blk00000.dat");
+   bdm.readBlkFileUpdate();
 
    /////
    cout << "Pushing Block 5A into the BDM:" << endl;
-   result = bdm.addNewBlockData(blk5a);
+   copyFile(blk5A, "blk00000.dat");
+   bdm.readBlkFileUpdate();
    if(result[ADD_BLOCK_CAUSED_REORG] == true)
    {
       cout << "Reorg happened after pushing block 5A" << endl;
@@ -797,7 +796,6 @@ void TestReorgBlockchain(string blkdir)
    // END BLOCKCHAIN REORG UNIT-TEST
    //
    /////////////////////////////////////////////////////////////////////////////
-   */
   
 
 }
