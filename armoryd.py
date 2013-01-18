@@ -622,6 +622,22 @@ class Armory_Daemon(object):
       # Check if armoryd is already running, bail if it is
       self.checkForAlreadyRunning()
 
+      print ''
+      print '*'*80
+      print '* '
+      print '* WARNING!  WALLET FILE ACCESS IS NOT THREAD-SAFE!'
+      print '*           DO NOT run armoryd at the same time as ArmoryQt if '
+      print '*           they are managing the same wallet file.  If you want '
+      print '*           to manage the same wallet with both applications '
+      print '*           you must make a digital copy/backup of the wallet file '
+      print '*           into another directory and point armoryd at that one.  '
+      print '*           '
+      print '*           As long as the two processes do not share the same '
+      print '*           actual file, there is no risk of '
+      print '* '
+      print '*'*80
+      print ''
+
       # ...otherwise, setup the server
       self.newTxFunctions = []
       self.newBlockFunctions = []

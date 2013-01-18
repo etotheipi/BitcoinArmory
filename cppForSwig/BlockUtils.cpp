@@ -15,6 +15,7 @@
 
 
 BlockDataManager_FileRefs* BlockDataManager_FileRefs::theOnlyBDM_ = NULL;
+vector<LedgerEntry> BtcWallet::EmptyLedger_(0);
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -3724,7 +3725,7 @@ vector<LedgerEntry> & BtcWallet::getTxLedger(HashString const * addr160)
    else
    {
       if(addrMap_.find(*addr160) == addrMap_.end())
-         return vector<LedgerEntry>(0);
+         return getEmptyLedger();
       else
          return addrMap_[*addr160].getTxLedger();
    }
@@ -3740,7 +3741,7 @@ vector<LedgerEntry> & BtcWallet::getZeroConfLedger(HashString const * addr160)
    else
    {
       if(addrMap_.find(*addr160) == addrMap_.end())
-         return vector<LedgerEntry>(0);
+         return getEmptyLedger();
       else
          return addrMap_[*addr160].getZeroConfLedger();
    }

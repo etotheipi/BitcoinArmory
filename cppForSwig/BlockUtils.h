@@ -432,6 +432,7 @@ private:
    vector<TxIOPair*>     relevantTxIOPtrsZC_;
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
+
 };
 
 
@@ -541,6 +542,8 @@ public:
    
    vector<AddressBookEntry> createAddressBook(void);
 
+   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
+
 private:
    vector<BtcAddress*>          addrPtrVect_;
    map<HashString, BtcAddress>  addrMap_;
@@ -555,6 +558,7 @@ private:
    set<OutPoint>                nonStdUnspentOutPoints_;
 
    BlockDataManager_FileRefs*       bdmPtr_;
+   static vector<LedgerEntry> EmptyLedger_;
 };
 
 
