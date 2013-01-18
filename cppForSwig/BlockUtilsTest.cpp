@@ -81,7 +81,7 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
    
 
    //string blkdir("/home/alan/.bitcoin");
@@ -670,11 +670,11 @@ void TestReorgBlockchain(string blkdir)
    string blk4A("reorgTest/blk_4A.dat");
    string blk5A("reorgTest/blk_5A.dat");
 
-   BtcWallet wlt2;
-   wlt2.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
-   wlt2.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
-   wlt2.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
-   wlt2.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
+   BtcWallet wlt;
+   wlt.addAddress(BinaryData::CreateFromHex("62e907b15cbf27d5425399ebf6f0fb50ebb88f18"));
+   wlt.addAddress(BinaryData::CreateFromHex("ee26c56fc1d942be8d7a24b2a1001dd894693980"));
+   wlt.addAddress(BinaryData::CreateFromHex("cb2abde8bccacc32e893df3a054b9ef7f227a4ce"));
+   wlt.addAddress(BinaryData::CreateFromHex("c522664fb0e55cdc5c0cea73b4aad97ec8343232"));
 
                    
    cout << endl << endl;
@@ -699,8 +699,8 @@ void TestReorgBlockchain(string blkdir)
    //       to figure out what happened to this money they thought
    //       they had.
    cout << "Constructing address ledger for the to-be-invalidated chain:" << endl;
-   bdm.scanBlockchainForTx(wlt2);
-   vector<LedgerEntry> const & ledgerAll2 = wlt2.getTxLedger();
+   bdm.scanBlockchainForTx(wlt);
+   vector<LedgerEntry> const & ledgerAll2 = wlt.getTxLedger();
    for(uint32_t j=0; j<ledgerAll2.size(); j++)
    {  
       cout << "    Tx: " 
@@ -712,14 +712,14 @@ void TestReorgBlockchain(string blkdir)
       if( ledgerAll2[j].isChangeBack()) cout << " (RETURNED CHANGE) ";
       cout << endl;
    }
-   cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
-   cout << "                          Balance: " << wlt2.getFullBalance()/1e8 << endl;
-   for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   cout << "                          Balance: " << wlt.getFullBalance()/1e8 << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getFullBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getFullBalance() << endl;
-      vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getFullBalance()/1e8 << ","
+                         << wlt.getAddrByHash160(addr20).getFullBalance() << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "    Tx: " 
@@ -738,27 +738,30 @@ void TestReorgBlockchain(string blkdir)
 
    /////
    cout << "Pushing Block 3A into the BDM:" << endl;
-   copyFile(blk3A, "blk00000.dat");
+   copyFile(blk3A, "reorgTest/blk00000.dat");
    bdm.readBlkFileUpdate();
+   cout << "Is last block reorg? " << (bdm.isLastBlockReorg() ? 1 : 0) << endl;
 
    /////
    cout << "Pushing Block 4A into the BDM:" << endl;
-   copyFile(blk4A, "blk00000.dat");
+   copyFile(blk4A, "reorgTest/blk00000.dat");
    bdm.readBlkFileUpdate();
+   cout << "Is last block reorg? " << (bdm.isLastBlockReorg() ? 1 : 0) << endl;
 
    /////
    cout << "Pushing Block 5A into the BDM:" << endl;
-   copyFile(blk5A, "blk00000.dat");
+   copyFile(blk5A, "reorgTest/blk00000.dat");
    bdm.readBlkFileUpdate();
-   if(result[ADD_BLOCK_CAUSED_REORG] == true)
+   cout << "Is last block reorg? " << (bdm.isLastBlockReorg() ? 1 : 0) << endl;
+   if(bdm.isLastBlockReorg())
    {
       cout << "Reorg happened after pushing block 5A" << endl;
-      bdm.scanBlockchainForTx(wlt2);
-      bdm.updateWalletAfterReorg(wlt2);
+      bdm.scanBlockchainForTx(wlt);
+      bdm.updateWalletAfterReorg(wlt);
    }
 
-   cout << "Checking balance of entire wallet: " << wlt2.getFullBalance()/1e8 << endl;
-   vector<LedgerEntry> const & ledgerAll3 = wlt2.getTxLedger();
+   cout << "Checking balance of entire wallet: " << wlt.getFullBalance()/1e8 << endl;
+   vector<LedgerEntry> const & ledgerAll3 = wlt.getTxLedger();
    for(uint32_t j=0; j<ledgerAll3.size(); j++)
    {  
       cout << "    Tx: " 
@@ -771,13 +774,13 @@ void TestReorgBlockchain(string blkdir)
       cout << endl;
    }
 
-   cout << "Checking balance of all addresses: " << wlt2.getNumAddr() << "addrs" << endl;
-   for(uint32_t i=0; i<wlt2.getNumAddr(); i++)
+   cout << "Checking balance of all addresses: " << wlt.getNumAddr() << "addrs" << endl;
+   for(uint32_t i=0; i<wlt.getNumAddr(); i++)
    {
-      BinaryData addr20 = wlt2.getAddrByIndex(i).getAddrStr20();
-      cout << "  Addr: " << wlt2.getAddrByIndex(i).getFullBalance()/1e8 << ","
-                         << wlt2.getAddrByHash160(addr20).getFullBalance()/1e8 << endl;
-      vector<LedgerEntry> const & ledger = wlt2.getAddrByIndex(i).getTxLedger();
+      BinaryData addr20 = wlt.getAddrByIndex(i).getAddrStr20();
+      cout << "  Addr: " << wlt.getAddrByIndex(i).getFullBalance()/1e8 << ","
+                         << wlt.getAddrByHash160(addr20).getFullBalance()/1e8 << endl;
+      vector<LedgerEntry> const & ledger = wlt.getAddrByIndex(i).getTxLedger();
       for(uint32_t j=0; j<ledger.size(); j++)
       {  
          cout << "    Tx: " 

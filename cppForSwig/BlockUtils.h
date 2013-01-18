@@ -526,8 +526,8 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry>       getZeroConfLedger(BinaryData const * addr160=NULL);
-   vector<LedgerEntry>       getTxLedger(BinaryData const * addr160=NULL); 
+   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * addr160=NULL);
+   vector<LedgerEntry> &     getTxLedger(BinaryData const * addr160=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 

@@ -217,7 +217,7 @@ bool TxIOPair::isSpent(void)
 //////////////////////////////////////////////////////////////////////////////
 bool TxIOPair::isUnspent(void)
 { 
-   return ( (hasTxOut() || hasTxOutZC()) && !isSpent());
+   return ( (hasTxOutInMain() || hasTxOutZC()) && !isSpent());
 
 }
 
@@ -2825,21 +2825,19 @@ uint32_t BlockDataManager_FileRefs::readBlkFileUpdate(void)
 
       if(blockAddSucceeded)
          nBlkRead++;
-      else
+
+      if(!blockIsNewTop)
       {
-         if(!blockIsNewTop)
-         {
-            cout << "Block data did not extend the main chain!" << endl;
-            // TODO:  add anything extra to do here (is there anything?)
-         }
-   
-         if(blockchainReorg)
-         {
-            // Update all the registered wallets...
-            cout << "This block forced a reorg!" << endl;
-            updateWalletsAfterReorg(registeredWallets_);
-            // TODO:  Any other processing to do on reorg?
-         }
+         cout << "Block data did not extend the main chain!" << endl;
+         // TODO:  add anything extra to do here (is there anything?)
+      }
+
+      if(blockchainReorg)
+      {
+         // Update all the registered wallets...
+         cout << "This block forced a reorg!" << endl;
+         updateWalletsAfterReorg(registeredWallets_);
+         // TODO:  Any other processing to do on reorg?
       }
       
       if(brr.isEndOfStream() || brr.getSizeRemaining() < 8)
@@ -2887,28 +2885,30 @@ void BlockDataManager_FileRefs::updateWalletAfterReorg(BtcWallet & wlt)
    SCOPED_TIMER("updateWalletAfterReorg");
 
    // Fix the wallet's ledger
-   for(uint32_t i=0; i<wlt.getTxLedger().size(); i++)
+   vector<LedgerEntry> & ledg = wlt.getTxLedger();
+   for(uint32_t i=0; i<ledg.size(); i++)
    {
-      HashString const & txHash = wlt.getTxLedger()[i].getTxHash();
+      HashString const & txHash = ledg[i].getTxHash();
       if(txJustInvalidated_.count(txHash) > 0)
-         wlt.getTxLedger()[i].setValid(false);
+         ledg[i].setValid(false);
 
       if(txJustAffected_.count(txHash) > 0)
-         wlt.getTxLedger()[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
+         ledg[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
    }
 
    // Now fix the individual address ledgers
    for(uint32_t a=0; a<wlt.getNumAddr(); a++)
    {
       BtcAddress & addr = wlt.getAddrByIndex(a);
-      for(uint32_t i=0; i<addr.getTxLedger().size(); i++)
+	  vector<LedgerEntry> & addrLedg = addr.getTxLedger();
+      for(uint32_t i=0; i<addrLedg.size(); i++)
       {
-         HashString const & txHash = addr.getTxLedger()[i].getTxHash();
+         HashString const & txHash = addrLedg[i].getTxHash();
          if(txJustInvalidated_.count(txHash) > 0)
-            addr.getTxLedger()[i].setValid(false);
+            addrLedg[i].setValid(false);
    
          if(txJustAffected_.count(txHash) > 0) 
-            addr.getTxLedger()[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
+            addrLedg[i].changeBlkNum(getTxRefPtrByHash(txHash)->getBlockHeight());
       }
    }
 }
@@ -3714,7 +3714,7 @@ void BtcWallet::clearZeroConfPool(void)
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> BtcWallet::getTxLedger(HashString const * addr160)
+vector<LedgerEntry> & BtcWallet::getTxLedger(HashString const * addr160)
 {
    SCOPED_TIMER("BtcWallet::getTxLedger");
 
@@ -3730,7 +3730,7 @@ vector<LedgerEntry> BtcWallet::getTxLedger(HashString const * addr160)
    }
 }
 ////////////////////////////////////////////////////////////////////////////////
-vector<LedgerEntry> BtcWallet::getZeroConfLedger(HashString const * addr160)
+vector<LedgerEntry> & BtcWallet::getZeroConfLedger(HashString const * addr160)
 {
    SCOPED_TIMER("BtcWallet::getZeroConfLedger");
 
