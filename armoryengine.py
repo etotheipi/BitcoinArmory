@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -44,38 +44,23 @@ from sys import argv
 
 import optparse
 parser = optparse.OptionParser(usage="%prog [options]\n")
-parser.add_option("--settings", dest="settingsPath", default='DEFAULT', type="str",
-                  help="load Armory with a specific settings file")
-parser.add_option("--datadir", dest="datadir", default='DEFAULT', type="str",
-                  help="Change the directory that Armory calls home")
-parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str', 
-                  help="The Bitcoin-Qt/bitcoind home directory")
-parser.add_option("--satoshi-port", dest="satoshiPort", default='DEFAULT', type="str",
-                  help="For Bitcoin-Qt instances operating on a non-standard port")
-parser.add_option("--testnet", dest="testnet", action="store_true", default=False,
-                  help="Use the testnet protocol")
-parser.add_option("--offline", dest="offline", action="store_true", default=False,
-                  help="Force Armory to run in offline mode")
-parser.add_option("--nettimeout", dest="nettimeout", default=2, type="int",
-                  help="Timeout for detecting internet connection at startup")
-parser.add_option("--interport", dest="interport", default=-1, type="int",
-                  help="Port for inter-process communication between Armory instances")
-parser.add_option("--debug", dest="doDebug", action="store_true", default=False, 
-                  help="Increase amount of debugging output")
-parser.add_option("--nologging", dest="logDisable", action="store_true", default=False,
-                  help="Disable all logging")
-parser.add_option("--netlog", dest="netlog", action="store_true", default=False,
-                  help="Log networking messages sent and received by Armory")
-parser.add_option("--logfile", dest="logFile", default='DEFAULT', type='str', 
-                  help="Specify a non-default location to send logging information")
-parser.add_option("--mtdebug", dest="mtdebug", action="store_true", default=False,
-                  help="Log multi-threaded call sequences")
-parser.add_option("--skip-online-check", dest="forceOnline", action="store_true", default=False,
-                  help="Go into online mode, even if internet connection isn't detected")
-parser.add_option("--skip-version-check", dest="skipVerCheck", action="store_true", default=False,
-                  help="Do not contact bitcoinarmory.com to check for new versions")
-parser.add_option("--keypool", dest="keypool", default=100, type="int",
-                  help="Default number of addresses to lookahead in Armory wallets")
+parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', type="str",          help="load Armory with a specific settings file")
+parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
+parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
+parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
+parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
+parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
+parser.add_option("--nettimeout",      dest="nettimeout",  default=2,         type="int",          help="Timeout for detecting internet connection at startup")
+parser.add_option("--interport",       dest="interport",   default=-1,        type="int",          help="Port for inter-process communication between Armory instances")
+parser.add_option("--debug",           dest="doDebug",     default=False,     action="store_true", help="Increase amount of debugging output")
+parser.add_option("--nologging",       dest="logDisable",  default=False,     action="store_true", help="Disable all logging")
+parser.add_option("--netlog",          dest="netlog",      default=False,     action="store_true", help="Log networking messages sent and received by Armory")
+parser.add_option("--logfile",         dest="logFile",     default='DEFAULT', type='str',          help="Specify a non-default location to send logging information")
+parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     action="store_true", help="Log multi-threaded call sequences")
+parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
+parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
+parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
 
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
@@ -123,11 +108,6 @@ def readVersionInt(verInt):
    verList.append( int(verStr[ -7:-5    ]) )
    verList.append( int(verStr[:-7       ]) )
    return tuple(verList[::-1])
-
-print '********************************************************************************'
-print 'Loading Armory Engine:'
-print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
-print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
 
 # Get the host operating system
 import platform
@@ -181,9 +161,13 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 if CLI_OPTIONS.settingsPath.lower()=='default':
    CLI_OPTIONS.settingsPath = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 
-# Change the settings file to use
+# Change the log file to use
 if CLI_OPTIONS.logFile.lower()=='default':
-   CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   if sys.argv[0]=='ArmoryQt.py':
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, 'armorylog.txt')
+   else:
+      basename = os.path.basename(sys.argv[0])
+      CLI_OPTIONS.logFile = os.path.join(ARMORY_HOME_DIR, '%s.log.txt' % basename)
 
 SETTINGS_PATH   = CLI_OPTIONS.settingsPath
 ARMORY_LOG_FILE = CLI_OPTIONS.logFile
@@ -265,13 +249,18 @@ BLKFILE_STARTINDEX = BLKFILE_LOCATION[2]
 BLKFILE_FIRSTFILE  = BLKFILE_LOCATION[3]
 
 
-print 'Detected Operating system:', OS_NAME
-print '   User home-directory   :', USER_HOME_DIR
-print '   Satoshi BTC directory :', BTC_HOME_DIR
-print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
-print '   Armory home dir       :', ARMORY_HOME_DIR
-print '   Armory settings file  :', SETTINGS_PATH
-print '   Armory log file       :', ARMORY_LOG_FILE
+if sys.argv[0]=='ArmoryQt.py':
+   print '********************************************************************************'
+   print 'Loading Armory Engine:'
+   print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
+   print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
+   print 'Detected Operating system:', OS_NAME
+   print '   User home-directory   :', USER_HOME_DIR
+   print '   Satoshi BTC directory :', BTC_HOME_DIR
+   print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
+   print '   Armory home dir       :', ARMORY_HOME_DIR
+   print '   Armory settings file  :', SETTINGS_PATH
+   print '   Armory log file       :', ARMORY_LOG_FILE
 
 
 
@@ -300,6 +289,7 @@ class BadURIError(Exception): pass
 class CompressedKeyError(Exception): pass
 class TooMuchPrecisionError(Exception): pass
 class NegativeValueError(Exception): pass
+class FiniteFieldError(Exception): pass
 
 
 
@@ -308,6 +298,7 @@ class NegativeValueError(Exception): pass
 if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
+   RPC_PORT = 8225
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
    GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
@@ -317,6 +308,7 @@ if not USE_TESTNET:
    PRIVKEYBYTE = '\x80'
 else:
    BITCOIN_PORT = 18333
+   RPC_PORT     = 18225
    MAGIC_BYTES  = '\x0b\x11\x09\x07'
    GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
    GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
@@ -330,6 +322,13 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
       BITCOIN_PORT = int(CLI_OPTIONS.satoshiPort)
    except:
       raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(BITCOIN_PORT)
+
+
+if not CLI_OPTIONS.rpcport == 'DEFAULT':
+   try:
+      RPC_PORT = int(CLI_OPTIONS.rpcport)
+   except:
+      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(RPC_PORT)
 
 
 BLOCKCHAINS = {}
@@ -621,6 +620,14 @@ def coin2str(nSatoshi, ndec=8, rJust=True, maxZeros=8):
    return s
     
 
+def coin2strNZ(nSatoshi):
+   """ Right-justified, minimum zeros, but with padding for alignment"""
+   return coin2str(nSatoshi, 8, True, 0)
+
+def coin2strNZS(nSatoshi):
+   """ Right-justified, minimum zeros, stripped """
+   return coin2str(nSatoshi, 8, True, 0).strip()
+
 def coin2str_approx(nSatoshi, sigfig=3):
    posVal = nSatoshi
    isNeg = False
@@ -634,7 +641,7 @@ def coin2str_approx(nSatoshi, sigfig=3):
    return coin2str( (-1 if isNeg else 1)*approxVal,  maxZeros=0)
 
 
-def str2coin(theStr, negAllowed=True, maxDec=8):
+def str2coin(theStr, negAllowed=True, maxDec=8, roundHighPrec=True):
    coinStr = str(theStr)
    if len(coinStr.strip())==0:
       raise ValueError
@@ -648,13 +655,13 @@ def str2coin(theStr, negAllowed=True, maxDec=8):
    else:
       lhs,rhs = coinStrPos.strip().split('.')
       if len(lhs.strip('-'))==0:
-         lhs=0
-      if len(rhs)>maxDec:
+         lhs='0'
+      if len(rhs)>maxDec and not roundHighPrec:
          raise TooMuchPrecisionError
       if not negAllowed and isNeg:
          raise NegativeValueError
-      rhs = rhs[:8] 
-      return (int(lhs)*ONE_BTC + int(rhs.ljust(8,'0')))*(-1 if isNeg else 1)
+      fullInt = (int(lhs + rhs[:9].ljust(9,'0')) + 5) / 10
+      return fullInt*(-1 if isNeg else 1)
 
 
 # This is a sweet trick for create enum-like dictionaries. 
@@ -806,6 +813,17 @@ def hash160(s):
    """ RIPEMD160( SHA256( binaryStr ) ) """
    return Cpp.BtcUtils().getHash160_SWIG(s)
 
+
+def HMAC(key, msg, hashfunc=sha512):
+   """ This is intended to be simple, not fast.  For speed, use HDWalletCrypto() """
+   key = (sha512(key) if len(key)>64 else key)
+   key = key + ('\x00'*(64-len(key)) if len(key)<64 else '')
+   okey = ''.join([chr(ord('\x5c')^ord(c)) for c in key])
+   ikey = ''.join([chr(ord('\x36')^ord(c)) for c in key])
+   return hashfunc( okey + hashfunc(ikey + msg) )
+
+HMAC256 = lambda key,msg: HMAC(key,msg,sha256)
+HMAC512 = lambda key,msg: HMAC(key,msg,sha512)
 
 
 ################################################################################
@@ -1400,6 +1418,225 @@ SECP256K1_GX    = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F8
 SECP256K1_GY    = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
 
 
+
+
+
+################################################################################
+################################################################################
+# START FINITE FIELD OPERATIONS
+
+
+class FiniteField(object):
+
+   PRIMES = {   8:  251,  # mainly for testing
+              128:  2**128-797,
+              160:  2**160-543,
+              192:  2**192-333,
+              256:  2**256-357,
+              384:  2**384-317  }
+
+   def __init__(self, nbits):
+      if not self.PRIMES.has_key(nbits): 
+         LOGERROR('No primes available for nbits=%d', nbits)
+         self.prime = None
+         raise FiniteFieldError
+      self.prime = self.PRIMES[nbits]
+
+
+   def add(self,a,b):
+      return (a+b) % self.prime
+   
+   def subtract(self,a,b):
+      return (a-b) % self.prime
+   
+   def mult(self,a,b):
+      return (a*b) % self.prime
+   
+   def power(self,a,b):
+      result = 1
+      while(b>0):
+         b,x = divmod(b,2)
+         result = (result * (a if x else 1)) % self.prime
+         a = a*a % self.prime
+      return result
+   
+   def powinv(self,a):
+      """ USE ONLY PRIME MODULUS """
+      return self.power(a,self.prime-2)
+   
+   def divide(self,a,b):
+      """ USE ONLY PRIME MODULUS """
+      baddinv = self.powinv(b)
+      return self.mult(a,baddinv)
+   
+   
+   def mtrxrmrowcol(self,mtrx,r,c):
+      if not len(mtrx) == len(mtrx[0]):
+         LOGERROR('Must be a square matrix!')
+         return []
+   
+      sz = len(mtrx)
+      return [[mtrx[i][j] for j in range(sz) if not j==c] for i in range(sz) if not i==r]
+      
+   
+   ################################################################################
+   def mtrxdet(self,mtrx):
+      if len(mtrx)==1:
+         return mtrx[0][0]
+   
+      if not len(mtrx) == len(mtrx[0]):
+         LOGERROR('Must be a square matrix!')
+         return -1
+   
+      result = 0;
+      for i in range(len(mtrx)):
+         mult     = mtrx[0][i] * (-1 if i%2==1 else 1)
+         subdet   = self.mtrxdet(self.mtrxrmrowcol(mtrx,0,i))
+         fullterm = self.mult(mult,subdet)
+         result   = self.add(result,fullterm)
+      return result
+     
+   ################################################################################
+   def mtrxmultvect(self,mtrx, vect):
+      M,N = len(mtrx), len(mtrx[0])
+      if not len(mtrx[0])==len(vect):
+         LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx1', M, N, len(vect))
+      return [ sum([self.mult(mtrx[i][j],vect[j]) for j in range(N)])%self.prime for i in range(M) ]
+   
+   ################################################################################
+   def mtrxmult(self,m1, m2):
+      M1,N1 = len(m1), len(m1[0])
+      M2,N2 = len(m2), len(m2[0])
+      if not N1==M2:
+         LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx%d', M1,N1, M2,N2)
+      inner = lambda i,j: sum([self.mult(m1[i][k],m2[k][j]) for k in range(N1)])
+      return [ [inner(i,j)%self.prime for j in range(N1)] for i in range(M1) ]
+   
+   ################################################################################
+   def mtrxadjoint(self,mtrx):
+      sz = len(mtrx)
+      inner = lambda i,j: self.mtrxdet(self.mtrxrmrowcol(mtrx,i,j))
+      return [[((-1 if (i+j)%2==1 else 1)*inner(j,i))%self.prime for j in range(sz)] for i in range(sz)]
+      
+   ################################################################################
+   def mtrxinv(self,mtrx):
+      det = self.mtrxdet(mtrx)
+      adj = self.mtrxadjoint(mtrx)
+      sz = len(mtrx)
+      return [[self.divide(adj[i][j],det) for j in range(sz)] for i in range(sz)]
+
+
+################################################################################
+def SplitSecret(secret, needed, pieces):
+   """
+   We are going make the secret the a-value of a polynomial, and pick
+   a bunch of points on it.  For instance, if we want 2-of-3, we will
+   create a line:
+   
+      y = ax + b
+
+   Then emit 3 points on that line.  The values of b and x1,x2,x3 are 
+   not important, but we choose them deterministically here so that 
+   the same answer is always produced 
+
+   For 3-of-N we can use a parabola:
+      
+      y = ax^2 + bx + c
+
+   Again, b and c don't matter.  Only that you need three points on
+   the parabola in order to determine a.
+
+   We can go up as far as the finite-field matrix operations will let
+   us go -- which is implemented using very slow python operations.
+   It wasn't intended to go beyond needed=3 (such as 3-of-5 or 3-of-7).
+   But it *should* work for any value if you have the compute power
+
+
+   """
+
+   nbytes = len(secret)
+   nbits  = nbytes * 8
+   ff = FiniteField(nbits)
+
+   a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
+   if not a<ff.prime:
+      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
+      LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
+      raise FiniteFieldError
+
+   if not pieces>=needed:
+      LOGERROR('You must create more pieces than needed to reconstruct!')
+      raise FiniteFieldError
+
+
+   if needed==1 or needed>5:
+      LOGERROR('Can only split secrets into parts requiring 2-5 pieces')
+      return out
+
+
+   lasthmac = secret[:]
+   othernum = []
+   for i in range(pieces+needed-1):
+      lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
+      othernum.append(lasthmac)
+
+   othernum = [binary_to_int(n) for n in othernum]
+   print othernum
+   out = []
+   if needed==2:
+      """
+      The secret is stored as the slope of a line.  Any two points recover
+      the secret
+      """
+      b = othernum[0]
+      poly = lambda x:  ff.add(ff.mult(a,x), b)
+      for i in range(pieces):
+         x = othernum[i+1]
+         out.append( [x, poly(x)] )
+      
+
+   if needed==3:
+      x2 = ff.mult(x,x)
+      b = othernum[0]
+      c = othernum[1]
+      ax2 = ff.mult(a,x2)
+      bx = ff.mult(b,x2)
+      
+      poly = lambda x:  ff.add(ff.add(ax2, bx), c)
+      for i in range(pieces):
+         x = othernum[i+2]
+         out.append( [x, poly(x)] )
+
+
+   a = None
+   return out
+
+
+
+def ReconstructSecret(xypairs, needed, nbits):
+
+   print xypairs
+   if needed==2:
+      x1,y1 = xypairs[0]
+      x2,y2 = xypairs[1]
+
+      ff = FiniteField(nbits)
+
+      m = [[x1,1],[x2,1]]
+      v = [y1,y2]
+
+      minv = ff.mtrxinv(m)
+      a,b = ff.mtrxmultvect(minv,v)
+      print a,b
+      return a
+   
+
+
+# END FINITE FIELD OPERATIONS
+################################################################################
+################################################################################
+
+
 # We can identify an address string by its first byte upon conversion
 # back to binary.  Return -1 if checksum doesn't match
 def checkAddrType(addrBin):
@@ -1483,19 +1720,19 @@ def parsePrivateKeyData(theStr):
             try:
                binEntry = decodeMiniPrivateKey(theStr)
             except KeyDataError:
-               raise BadInputError, 'Invalid mini-private key string'
+               raise BadAddressError, 'Invalid mini-private key string'
             keyType = 'Mini Private Key Format'
             isMini = True
          elif len(theStr) in range(48,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
          else:
-            raise BadInputError, 'Unrecognized key data'
+            raise BadAddressError, 'Unrecognized key data'
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
          keyType = 'Plain Hex'
       else:
-         raise BadInputError, 'Unrecognized key data'
+         raise BadAddressError, 'Unrecognized key data'
 
 
       if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==PRIVKEYBYTE):
@@ -3256,7 +3493,7 @@ def TxOutScriptExtractAddrStr(binScript):
 def TxOutScriptExtractAddr160(binScript):
    txoutType = getTxOutScriptType(binScript)
    if txoutType == TXOUT_SCRIPT_UNKNOWN:
-      return '<Non-standard TxOut script>'
+      return '\x00'*20
 
    if txoutType == TXOUT_SCRIPT_COINBASE:
       return convertKeyDataToAddress(pubKey=binScript[1:66])
@@ -3368,6 +3605,15 @@ class PyOutPoint(object):
       print indstr + indent + 'TxOutIndex:', self.txOutIndex
 
 
+   def fromCpp(self, cppOP):
+      return self.unserialize(cppOP.serialize())
+
+   def createCpp(self):
+      """ Convert a raw OutPoint with no context, to a C++ OutPoint """
+      cppop = Cpp.OutPoint()
+      cppop.unserialize_swigsafe_(self.serialize())
+      return cppop
+
 #####
 class PyTxIn(object):
    def __init__(self):
@@ -3404,6 +3650,14 @@ class PyTxIn(object):
       return PyTxIn().unserialize(self.serialize())
 
 
+   def fromCpp(self, cppTxIn):
+      return self.unserialize(cppTxIn.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTxIn with no context, to a C++ TxIn """
+      cppin = Cpp.TxIn()
+      cppin.unserialize_swigsafe_(self.serialize())
+      return cppin
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3454,6 +3708,15 @@ class PyTxOut(object):
 
    def copy(self):
       return PyTxOut().unserialize(self.serialize())
+
+   def fromCpp(self, cppTxOut):
+      return self.unserialize(cppTxOut.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTxOut with no context, to a C++ TxOut """
+      cppout = Cpp.TxOut()
+      cppout.unserialize_swigsafe_(self.serialize())
+      return cppout
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3577,6 +3840,19 @@ class PyTx(object):
       #print '\nTransaction: %s' % self.getHashHex()
 
 
+   def fromCpp(self, cppTx):
+      return self.unserialize(cppTx.serialize())
+
+   def createCpp(self):
+      """ Convert a raw PyTx with no context, to a C++ Tx """
+      cpptx = Cpp.Tx()
+      cpptx.unserialize_swigsafe_(self.serialize())
+      return cpptx
+
+   def fetchCpp(self):
+      """ Use the info in this PyTx to get the C++ version from TheBDM """
+      return TheBDM.getTxByHash(self.getHash())
+
    def pprintHex(self, nIndent=0):
       bu = BinaryUnpacker(self.serialize())
       theSer = self.serialize()
@@ -3679,6 +3955,20 @@ class PyBlockHeader(object):
          raise UnitializedBlockDataError, 'PyBlockHeader object not initialized!'
       self.intDifficult = binaryBits_to_difficulty(self.diffBits)
       return self.intDifficult
+
+   def fromCpp(self, cppHead):
+      return self.unserialize(cppHead.serialize())
+
+   def createCpp(self):
+      """ Convert a raw blockheader with no context, to a C++ BlockHeader """
+      cppbh = Cpp.BlockHeader()
+      cppbh.unserialize_swigsafe_(self.serialize())
+      return cppbh
+
+   def fetchCpp(self):
+      """ Convert a raw blockheader with no context, to a C++ BlockHeader """
+      return TheBDM.getHeaderByHash(self.getHash())
+      
 
    def pprint(self, nIndent=0, endian=BIGENDIAN):
       indstr = indent*nIndent
@@ -3847,6 +4137,52 @@ class PyBlock(object):
       self.blockData.pprint(nIndent+1, endian=endian)
 
 
+#############################################################################
+def getFeeForTx(txHash):
+   if TheBDM.getBDMState()=='BlockchainReady':
+      if not TheBDM.hasTxWithHash(txHash):
+         LOGERROR('Attempted to get fee for tx we don\'t have...?  %s', \
+                                             binary_to_hex(txHash,BIGENDIAN))
+         return 0
+      txref = TheBDM.getTxByHash(txHash)
+      valIn, valOut = 0,0
+      for i in range(txref.getNumTxIn()):
+         valIn += TheBDM.getSentValue(txref.getTxIn(i))
+      for i in range(txref.getNumTxOut()):
+         valOut += txref.getTxOut(i).getValue()
+      return valIn - valOut
+      
+
+#############################################################################
+def determineSentToSelfAmt(le, wlt):
+   """
+   NOTE:  this method works ONLY because we always generate a new address
+          whenever creating a change-output, which means it must have a
+          higher chainIndex than all other addresses.  If you did something 
+          creative with this tx, this may not actually work.
+   """
+   amt = 0
+   if TheBDM.isInitialized() and le.isSentToSelf():
+      txref = TheBDM.getTxByHash(le.getTxHash())
+      if not txref.isInitialized():
+         return (0, 0)
+      if txref.getNumTxOut()==1:
+         return (txref.getTxOut(0).getValue(), -1)
+      maxChainIndex = -5
+      txOutChangeVal = 0
+      changeIndex = -1
+      valSum = 0
+      for i in range(txref.getNumTxOut()):
+         valSum += txref.getTxOut(i).getValue()
+         addr160 = txref.getTxOut(i).getRecipientAddr()
+         addr    = wlt.getAddrByHash160(addr160)
+         if addr and addr.chainIndex > maxChainIndex:
+            maxChainIndex = addr.chainIndex
+            txOutChangeVal = txref.getTxOut(i).getValue()
+            changeIndex = i
+                  
+      amt = valSum - txOutChangeVal
+   return (amt, changeIndex)
 
 
 
@@ -5376,6 +5712,9 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
    numBytes +=  35 * (1 if change==0 else 2)
    numKb = int(numBytes / 1000)
 
+   if numKb>10:
+      return [(1+numKb)*MIN_RELAY_TX_FEE, (1+numKb)*MIN_TX_FEE]
+
    # Compute raw priority of tx
    prioritySum = 0
    for utxo in selectCoinsResult:
@@ -5387,7 +5726,7 @@ def calcMinSuggestedFees(selectCoinsResult, targetOutVal, preSelectedFee):
 
    if((not haveDustOutputs) and \
       prioritySum >= ONE_BTC * 144 / 250. and \
-      numBytes <= 3600):
+      numBytes < 10000):
       return [0,0]
 
    # This cannot be a free transaction.
@@ -6120,6 +6459,7 @@ class PyBtcWallet(object):
       self.labelDescr  = ''
       self.linearAddr160List = []
       self.chainIndexMap = {}
+      self.txAddrMap = {}    # cache for getting tx-labels based on addr search
       if USE_TESTNET:
          self.addrPoolSize = 10  # this makes debugging so much easier!
       else:
@@ -7364,6 +7704,51 @@ class PyBtcWallet(object):
 
       # If there was a wallet overwrite, it's location is the first element
       self.commentLocs[hashVal] = newCommentLoc[-1]
+
+
+
+   #############################################################################
+   def getAddrCommentIfAvail(self, txHash):
+      if not TheBDM.getBDMState()=='BlockchainReady':
+         return self.getComment(txHash)
+         
+      # If we haven't extracted relevant addresses for this tx, yet -- do it
+      if not self.txAddrMap.has_key(txHash):
+         self.txAddrMap[txHash] = []
+         tx = TheBDM.getTxByHash(txHash)
+         if tx.isInitialized():
+            for i in range(tx.getNumTxOut()):
+               a160 = tx.getRecipientForTxOut(i)
+     
+               if self.hasAddr(a160):
+                  self.txAddrMap[txHash].append(a160)
+            
+
+      addrComments = []
+      for a160 in self.txAddrMap[txHash]:
+         if self.commentsMap.has_key(a160):
+            addrComments.append(self.commentsMap[a160])
+
+      return '; '.join(addrComments)
+
+                  
+   #############################################################################
+   def getCommentForLE(self, le):
+      # Smart comments for LedgerEntry objects:  get any direct comments ... 
+      # if none, then grab the one for any associated addresses.
+      txHash = le.getTxHash()
+      if self.commentsMap.has_key(txHash):
+         comment = self.commentsMap[txHash]
+      else:
+         # [[ COMMENTS ]] are not meant to be displayed on main ledger
+         comment = self.getAddrCommentIfAvail(txHash)
+         if comment.startswith('[[') and comment.endswith(']]'):
+            comment = ''
+
+      return comment
+
+
+
 
    
    #############################################################################
@@ -11215,7 +11600,7 @@ class BlockDataManagerThread(threading.Thread):
                headHash = inputTuple[3]
                rawHeader = self.bdm.getHeaderByHash(headHash)
                if rawHeader:
-                  output = rawHeader.serialize()
+                  output = rawHeader
                else:
                   output = None
 

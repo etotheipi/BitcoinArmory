@@ -432,6 +432,7 @@ private:
    vector<TxIOPair*>     relevantTxIOPtrsZC_;
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
+
 };
 
 
@@ -526,8 +527,8 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry>       getZeroConfLedger(BinaryData const * addr160=NULL);
-   vector<LedgerEntry>       getTxLedger(BinaryData const * addr160=NULL); 
+   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * addr160=NULL);
+   vector<LedgerEntry> &     getTxLedger(BinaryData const * addr160=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -540,6 +541,8 @@ public:
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
+
+   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
@@ -555,6 +558,7 @@ private:
    set<OutPoint>                nonStdUnspentOutPoints_;
 
    BlockDataManager_FileRefs*       bdmPtr_;
+   static vector<LedgerEntry> EmptyLedger_;
 };
 
 
