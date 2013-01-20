@@ -13,7 +13,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
+Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -24,6 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
+Test_FiniteField      = True
 Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
@@ -2270,7 +2271,32 @@ if Test_Timers:
    print ''
 
 
+if Test_FiniteField:
+   print '***********************************************************************'
+   print 'Testing Finite Field'
+   print '***********************************************************************'
+   from random import uniform
 
+   print '\nTesting finite-field matrix operations'
+   ff = FiniteField(8)
+   m = [[-3,2,-5],[-1,0,-2],[3,-4,1]]
+   v = [1,5,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
+
+
+   print '\nTesting splitting a secret in 2-of-3'
+   secret = 122
+   out = SplitSecret(chr(122), 2, 3)
+   print out
+
+   print ReconstructSecret(out, 2, 8)
    
 ################################################################################
 ################################################################################

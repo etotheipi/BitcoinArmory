@@ -289,6 +289,7 @@ class BadURIError(Exception): pass
 class CompressedKeyError(Exception): pass
 class TooMuchPrecisionError(Exception): pass
 class NegativeValueError(Exception): pass
+class FiniteFieldError(Exception): pass
 
 
 
@@ -1427,7 +1428,8 @@ SECP256K1_GY    = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10
 
 class FiniteField(object):
 
-   PRIMES = { 128:  2**128-797,
+   PRIMES = {   8:  251,  # mainly for testing
+              128:  2**128-797,
               160:  2**160-543,
               192:  2**192-333,
               256:  2**256-357,
@@ -1437,20 +1439,20 @@ class FiniteField(object):
       if not self.PRIMES.has_key(nbits): 
          LOGERROR('No primes available for nbits=%d', nbits)
          self.prime = None
-         raise BadInputError
+         raise FiniteFieldError
       self.prime = self.PRIMES[nbits]
 
 
-   def add(a,b):
+   def add(self,a,b):
       return (a+b) % self.prime
    
-   def subtract(a,b):
+   def subtract(self,a,b):
       return (a-b) % self.prime
    
-   def mult(a,b):
+   def mult(self,a,b):
       return (a*b) % self.prime
    
-   def power(a,b):
+   def power(self,a,b):
       result = 1
       while(b>0):
          b,x = divmod(b,2)
@@ -1458,17 +1460,17 @@ class FiniteField(object):
          a = a*a % self.prime
       return result
    
-   def powinv(a):
+   def powinv(self,a):
       """ USE ONLY PRIME MODULUS """
-      return power(a,self.prime-2,self.prime)
+      return self.power(a,self.prime-2)
    
-   def divide(a,b):
+   def divide(self,a,b):
       """ USE ONLY PRIME MODULUS """
-      baddinv = powinv(b, self.prime)
-      return mult(a,baddinv,self.prime)
+      baddinv = self.powinv(b)
+      return self.mult(a,baddinv)
    
    
-   def mtrxrmrowcol(mtrx,r,c):
+   def mtrxrmrowcol(self,mtrx,r,c):
       if not len(mtrx) == len(mtrx[0]):
          LOGERROR('Must be a square matrix!')
          return []
@@ -1478,7 +1480,7 @@ class FiniteField(object):
       
    
    ################################################################################
-   def mtrxdet(mtrx):
+   def mtrxdet(self,mtrx):
       if len(mtrx)==1:
          return mtrx[0][0]
    
@@ -1489,43 +1491,43 @@ class FiniteField(object):
       result = 0;
       for i in range(len(mtrx)):
          mult     = mtrx[0][i] * (-1 if i%2==1 else 1)
-         subdet   = mtrxdet(mtrxrmrowcol(mtrx,0,i), self.prime)
-         fullterm = mult(mult,subdet,self.prime)
-         result   = add(result,fullterm,self.prime)
+         subdet   = self.mtrxdet(self.mtrxrmrowcol(mtrx,0,i))
+         fullterm = self.mult(mult,subdet)
+         result   = self.add(result,fullterm)
       return result
      
    ################################################################################
-   def mtrxmultvect(mtrx, vect):
+   def mtrxmultvect(self,mtrx, vect):
       M,N = len(mtrx), len(mtrx[0])
       if not len(mtrx[0])==len(vect):
          LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx1', M, N, len(vect))
-      return [ sum([mult(mtrx[i][j],vect[j],self.prime) for j in range(N)]) for i in range(M) ]
+      return [ sum([self.mult(mtrx[i][j],vect[j]) for j in range(N)])%self.prime for i in range(M) ]
    
    ################################################################################
-   def mtrxmult(m1, m2):
+   def mtrxmult(self,m1, m2):
       M1,N1 = len(m1), len(m1[0])
       M2,N2 = len(m2), len(m2[0])
       if not N1==M2:
          LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx%d', M1,N1, M2,N2)
-      inner = lambda i,j: sum([mult(m1[i][k],m2[k][j],self.prime) for k in range(N1)]) % self.prime
-      return [ [inner(i,j) for j in range(N1)] for i in range(M1) ]
+      inner = lambda i,j: sum([self.mult(m1[i][k],m2[k][j]) for k in range(N1)])
+      return [ [inner(i,j)%self.prime for j in range(N1)] for i in range(M1) ]
    
    ################################################################################
-   def mtrxadjoint(mtrx):
+   def mtrxadjoint(self,mtrx):
       sz = len(mtrx)
-      inner = lambda i,j: mtrxdet(mtrxrmrowcol(mtrx,i,j),self.prime)
+      inner = lambda i,j: self.mtrxdet(self.mtrxrmrowcol(mtrx,i,j))
       return [[((-1 if (i+j)%2==1 else 1)*inner(j,i))%self.prime for j in range(sz)] for i in range(sz)]
       
    ################################################################################
-   def mtrxinv(mtrx):
-      det = mtrxdet(mtrx,self.prime)
-      adj = mtrxadjoint(mtrx,self.prime)
+   def mtrxinv(self,mtrx):
+      det = self.mtrxdet(mtrx)
+      adj = self.mtrxadjoint(mtrx)
       sz = len(mtrx)
-      return [[divide(adj[i][j],det,self.prime) for j in range(sz)] for i in range(sz)]
+      return [[self.divide(adj[i][j],det) for j in range(sz)] for i in range(sz)]
 
 
 ################################################################################
-def SplitSecret(secret, pieces, needed):
+def SplitSecret(secret, needed, pieces):
    """
    We are going make the secret the a-value of a polynomial, and pick
    a bunch of points on it.  For instance, if we want 2-of-3, we will
@@ -1560,11 +1562,11 @@ def SplitSecret(secret, pieces, needed):
    if not a<ff.prime:
       LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
       LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
-      raise BadInputError
+      raise FiniteFieldError
 
    if not pieces>=needed:
       LOGERROR('You must create more pieces than needed to reconstruct!')
-      raise BadInputError
+      raise FiniteFieldError
 
 
    if needed==1 or needed>5:
@@ -1575,9 +1577,11 @@ def SplitSecret(secret, pieces, needed):
    lasthmac = secret[:]
    othernum = []
    for i in range(pieces+needed-1):
-      othernum.append(HMAC512(lasthmac, 'splitsecrets'))
+      lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
+      othernum.append(lasthmac)
 
    othernum = [binary_to_int(n) for n in othernum]
+   print othernum
    out = []
    if needed==2:
       """
@@ -1607,7 +1611,25 @@ def SplitSecret(secret, pieces, needed):
    a = None
    return out
 
-#def CombineSecrets(pieces, needed):
+
+
+def ReconstructSecret(xypairs, needed, nbits):
+
+   print xypairs
+   if needed==2:
+      x1,y1 = xypairs[0]
+      x2,y2 = xypairs[1]
+
+      ff = FiniteField(nbits)
+
+      m = [[x1,1],[x2,1]]
+      v = [y1,y2]
+
+      minv = ff.mtrxinv(m)
+      a,b = ff.mtrxmultvect(minv,v)
+      print a,b
+      return a
+   
 
 
 # END FINITE FIELD OPERATIONS
@@ -1698,19 +1720,19 @@ def parsePrivateKeyData(theStr):
             try:
                binEntry = decodeMiniPrivateKey(theStr)
             except KeyDataError:
-               raise BadInputError, 'Invalid mini-private key string'
+               raise BadAddressError, 'Invalid mini-private key string'
             keyType = 'Mini Private Key Format'
             isMini = True
          elif len(theStr) in range(48,53):
             binEntry = base58_to_binary(theStr)
             keyType = 'Plain Base58'
          else:
-            raise BadInputError, 'Unrecognized key data'
+            raise BadAddressError, 'Unrecognized key data'
       elif canBeHex:  
          binEntry = hex_to_binary(theStr)
          keyType = 'Plain Hex'
       else:
-         raise BadInputError, 'Unrecognized key data'
+         raise BadAddressError, 'Unrecognized key data'
 
 
       if len(binEntry)==36 or (len(binEntry)==37 and binEntry[0]==PRIVKEYBYTE):
