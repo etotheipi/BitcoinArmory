@@ -813,6 +813,17 @@ def hash160(s):
    return Cpp.BtcUtils().getHash160_SWIG(s)
 
 
+def HMAC(key, msg, hashfunc=sha512):
+   """ This is intended to be simple, not fast.  For speed, use HDWalletCrypto() """
+   key = (sha512(key) if len(key)>64 else key)
+   key = key + ('\x00'*(64-len(key)) if len(key)<64 else '')
+   okey = ''.join([chr(ord('\x5c')^ord(c)) for c in key])
+   ikey = ''.join([chr(ord('\x36')^ord(c)) for c in key])
+   return hashfunc( okey + hashfunc(ikey + msg) )
+
+HMAC256 = lambda key,msg: HMAC(key,msg,sha256)
+HMAC512 = lambda key,msg: HMAC(key,msg,sha512)
+
 
 ################################################################################
 def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
@@ -1404,6 +1415,204 @@ SECP256K1_B     = 0x000000000000000000000000000000000000000000000000000000000000
 SECP256K1_A     = 0x0000000000000000000000000000000000000000000000000000000000000000L
 SECP256K1_GX    = 0x79BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798L
 SECP256K1_GY    = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10d4b8L
+
+
+
+
+
+################################################################################
+################################################################################
+# START FINITE FIELD OPERATIONS
+
+
+class FiniteField(object):
+
+   PRIMES = { 128:  2**128-797,
+              160:  2**160-543,
+              192:  2**192-333,
+              256:  2**256-357,
+              384:  2**384-317  }
+
+   def __init__(self, nbits):
+      if not self.PRIMES.has_key(nbits): 
+         LOGERROR('No primes available for nbits=%d', nbits)
+         self.prime = None
+         raise BadInputError
+      self.prime = self.PRIMES[nbits]
+
+
+   def add(a,b):
+      return (a+b) % self.prime
+   
+   def subtract(a,b):
+      return (a-b) % self.prime
+   
+   def mult(a,b):
+      return (a*b) % self.prime
+   
+   def power(a,b):
+      result = 1
+      while(b>0):
+         b,x = divmod(b,2)
+         result = (result * (a if x else 1)) % self.prime
+         a = a*a % self.prime
+      return result
+   
+   def powinv(a):
+      """ USE ONLY PRIME MODULUS """
+      return power(a,self.prime-2,self.prime)
+   
+   def divide(a,b):
+      """ USE ONLY PRIME MODULUS """
+      baddinv = powinv(b, self.prime)
+      return mult(a,baddinv,self.prime)
+   
+   
+   def mtrxrmrowcol(mtrx,r,c):
+      if not len(mtrx) == len(mtrx[0]):
+         LOGERROR('Must be a square matrix!')
+         return []
+   
+      sz = len(mtrx)
+      return [[mtrx[i][j] for j in range(sz) if not j==c] for i in range(sz) if not i==r]
+      
+   
+   ################################################################################
+   def mtrxdet(mtrx):
+      if len(mtrx)==1:
+         return mtrx[0][0]
+   
+      if not len(mtrx) == len(mtrx[0]):
+         LOGERROR('Must be a square matrix!')
+         return -1
+   
+      result = 0;
+      for i in range(len(mtrx)):
+         mult     = mtrx[0][i] * (-1 if i%2==1 else 1)
+         subdet   = mtrxdet(mtrxrmrowcol(mtrx,0,i), self.prime)
+         fullterm = mult(mult,subdet,self.prime)
+         result   = add(result,fullterm,self.prime)
+      return result
+     
+   ################################################################################
+   def mtrxmultvect(mtrx, vect):
+      M,N = len(mtrx), len(mtrx[0])
+      if not len(mtrx[0])==len(vect):
+         LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx1', M, N, len(vect))
+      return [ sum([mult(mtrx[i][j],vect[j],self.prime) for j in range(N)]) for i in range(M) ]
+   
+   ################################################################################
+   def mtrxmult(m1, m2):
+      M1,N1 = len(m1), len(m1[0])
+      M2,N2 = len(m2), len(m2[0])
+      if not N1==M2:
+         LOGERROR('Mtrx and vect are incompatible: %dx%d, %dx%d', M1,N1, M2,N2)
+      inner = lambda i,j: sum([mult(m1[i][k],m2[k][j],self.prime) for k in range(N1)]) % self.prime
+      return [ [inner(i,j) for j in range(N1)] for i in range(M1) ]
+   
+   ################################################################################
+   def mtrxadjoint(mtrx):
+      sz = len(mtrx)
+      inner = lambda i,j: mtrxdet(mtrxrmrowcol(mtrx,i,j),self.prime)
+      return [[((-1 if (i+j)%2==1 else 1)*inner(j,i))%self.prime for j in range(sz)] for i in range(sz)]
+      
+   ################################################################################
+   def mtrxinv(mtrx):
+      det = mtrxdet(mtrx,self.prime)
+      adj = mtrxadjoint(mtrx,self.prime)
+      sz = len(mtrx)
+      return [[divide(adj[i][j],det,self.prime) for j in range(sz)] for i in range(sz)]
+
+
+################################################################################
+def SplitSecret(secret, pieces, needed):
+   """
+   We are going make the secret the a-value of a polynomial, and pick
+   a bunch of points on it.  For instance, if we want 2-of-3, we will
+   create a line:
+   
+      y = ax + b
+
+   Then emit 3 points on that line.  The values of b and x1,x2,x3 are 
+   not important, but we choose them deterministically here so that 
+   the same answer is always produced 
+
+   For 3-of-N we can use a parabola:
+      
+      y = ax^2 + bx + c
+
+   Again, b and c don't matter.  Only that you need three points on
+   the parabola in order to determine a.
+
+   We can go up as far as the finite-field matrix operations will let
+   us go -- which is implemented using very slow python operations.
+   It wasn't intended to go beyond needed=3 (such as 3-of-5 or 3-of-7).
+   But it *should* work for any value if you have the compute power
+
+
+   """
+
+   nbytes = len(secret)
+   nbits  = nbytes * 8
+   ff = FiniteField(nbits)
+
+   a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
+   if not a<ff.prime:
+      LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
+      LOGERROR('             You entered %s', int_to_hex(a,BIGENDIAN))
+      raise BadInputError
+
+   if not pieces>=needed:
+      LOGERROR('You must create more pieces than needed to reconstruct!')
+      raise BadInputError
+
+
+   if needed==1 or needed>5:
+      LOGERROR('Can only split secrets into parts requiring 2-5 pieces')
+      return out
+
+
+   lasthmac = secret[:]
+   othernum = []
+   for i in range(pieces+needed-1):
+      othernum.append(HMAC512(lasthmac, 'splitsecrets'))
+
+   othernum = [binary_to_int(n) for n in othernum]
+   out = []
+   if needed==2:
+      """
+      The secret is stored as the slope of a line.  Any two points recover
+      the secret
+      """
+      b = othernum[0]
+      poly = lambda x:  ff.add(ff.mult(a,x), b)
+      for i in range(pieces):
+         x = othernum[i+1]
+         out.append( [x, poly(x)] )
+      
+
+   if needed==3:
+      x2 = ff.mult(x,x)
+      b = othernum[0]
+      c = othernum[1]
+      ax2 = ff.mult(a,x2)
+      bx = ff.mult(b,x2)
+      
+      poly = lambda x:  ff.add(ff.add(ax2, bx), c)
+      for i in range(pieces):
+         x = othernum[i+2]
+         out.append( [x, poly(x)] )
+
+
+   a = None
+   return out
+
+#def CombineSecrets(pieces, needed):
+
+
+# END FINITE FIELD OPERATIONS
+################################################################################
+################################################################################
 
 
 # We can identify an address string by its first byte upon conversion

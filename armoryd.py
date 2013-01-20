@@ -85,6 +85,11 @@ def JSONtoAmount(value):
 def AmountToJSON(amount):
     return float(amount / 1e8)
 
+
+# Define some specific errors that can be thrown and caught
+class UnrecognizedCommand(Exception): pass
+
+
 ################################################################################
 
 ################################################################################
@@ -101,6 +106,18 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
    def jsonrpc_getnewaddress(self):
       addr = self.wallet.getNextUnusedAddress()
       return addr.getAddrStr()
+
+   #############################################################################
+   def jsonrpc_getwalletinfo(self):
+      wltInfo = { \
+                  'name':  self.wallet.labelName,
+                  'description':  self.wallet.labelDescr,
+                  'balance':  AmountToJSON(self.wallet.getBalance('Spend')),
+                  'keypoolsize':  self.wallet.addrPoolSize,
+                  'numaddrgen': len(self.wallet.addrMap),
+                  'highestusedindex': self.wallet.highestUsedChainIndex
+               }
+
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
@@ -633,7 +650,10 @@ class Armory_Daemon(object):
       print '*           into another directory and point armoryd at that one.  '
       print '*           '
       print '*           As long as the two processes do not share the same '
-      print '*           actual file, there is no risk of '
+      print '*           actual file, there is no risk of wallet corruption. '
+      print '*           Just be aware that addresses may end up being reused '
+      print '*           if you execute transactions at approximately the same '
+      print '*           time with both apps. '
       print '* '
       print '*'*80
       print ''
@@ -729,10 +749,29 @@ class Armory_Daemon(object):
          if CLI_ARGS:
             proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,RPC_PORT))
             extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
-            print json.dumps(proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs), \
-                             indent=4, \
-                             sort_keys=True, \
-                             cls=UniversalEncoder)
+            try:
+               #if not proxyobj.__hasattr__(CLI_ARGS[0]):
+                  #raise UnrecognizedCommand, 'No json command %s'%CLI_ARGS[0]
+
+               result = proxyobj.__getattr__(CLI_ARGS[0])(*extraArgs)
+               print json.dumps(result,
+                                indent=4, \
+                                sort_keys=True, \
+                                cls=UniversalEncoder)
+            except Exception as e:
+               errtype = str(type(e))
+               errtype = errtype.replace("<class '",'')
+               errtype = errtype.replace("<type '",'')
+               errtype = errtype.replace("'>",'')
+               errordict = { 'error': {
+                                       'errortype': errtype,
+                                       'jsoncommand': CLI_ARGS[0],
+                                       'jsoncommandargs': ([] if len(CLI_ARGS)==1 else CLI_ARGS[1:]),
+                                       'extrainfo': str(e) if len(e.args)<2 else e.args}}
+                              
+               print json.dumps( errordict, indent=4, sort_keys=True, cls=UniversalEncoder)
+               
+                
          sock.close()
          os._exit(0)
       except socket.error:
@@ -813,7 +852,6 @@ class Armory_Daemon(object):
             self.latestBlockNum = TheBDM.getTopBlockHeight()
             self.topTimestamp   = TheBDM.getTopBlockHeader().getTimestamp()
 
-
             prevLedgerSize = len(self.wallet.getTxLedger())
 
             self.wallet.syncWithBlockchain()
@@ -823,7 +861,6 @@ class Armory_Daemon(object):
 
             # If there are no functions to run, just skip all this
             if not len(self.newBlockFunctions)==0:
-
                # Here's where we actually execute the new-block calls, because
                # this code is guaranteed to execute AFTER the TheBDM has processed
                # the new block data.
