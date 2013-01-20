@@ -2307,33 +2307,42 @@ if Test_FiniteField:
 
    from random import shuffle
 
-   def testSecret(secretInt, M, N):
+   def testSecret(secretHex, M, N, nbytes=1):
       
-      print '\nSplitting secret into %d-of-%d: secret=%d' % (M,N,secretInt)
+      secret = hex_to_binary(secretHex)
+      print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
       tstart = RightNow() 
-      out = SplitSecret(int_to_binary(secretInt), M, N)
+      out = SplitSecret(secret, M, N)
       tsplit = RightNow() - tstart
 
+      print 'Fragments:'
+      for i in range(len(out)):
+         x = binary_to_hex(out[i][0])
+         y = binary_to_hex(out[i][1])
+         print '   Fragment %d: [%s, %s]' % (i+1,x,y)
+
       trecon = 0
+      print 'Reconstructing secret from various subsets of fragments...'
       for i in range(10):
          shuffle(out)
          tstart = RightNow()
-         reconstruct = ReconstructSecret(out, M, 8)
+         reconstruct = ReconstructSecret(out, M, nbytes)
          trecon += RightNow() - tstart
          
-         print 'The reconstructed secret is:', binary_to_int(reconstruct)
+         print '   The reconstructed secret is:', binary_to_hex(reconstruct)
 
       print 'Splitting secret took: %0.5f sec' % tsplit
       print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
 
 
-   testSecret(201, 2,3)
-   testSecret(201, 3,5)
-   testSecret(201, 4,7)
-   testSecret(201, 5,9)
-   testSecret(201, 6,7)
-   testSecret(201, 7,7)
-   testSecret(201, 8,10)
+   testSecret('9f', 2,3)
+   testSecret('9f', 3,5)
+   testSecret('9f', 4,7)
+   testSecret('9f', 5,9)
+   testSecret('9f', 6,7)
+
+   testSecret('9f'*16, 3,5, 16)
+   testSecret('9f'*16, 7,10, 16)
 
 
    

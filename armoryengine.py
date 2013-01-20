@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -1428,19 +1428,23 @@ SECP256K1_GY    = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10
 
 class FiniteField(object):
 
-   PRIMES = {   8:  251,  # mainly for testing
-              128:  2**128-797,
-              160:  2**160-543,
-              192:  2**192-333,
-              256:  2**256-357,
-              384:  2**384-317  }
+   # bytes: primeclosetomaxval
+   PRIMES = {   1:  2**8-5,  # mainly for testing
+                2:  2**16-39,
+                4:  2**32-5,
+                8:  2**64-59,
+               16:  2**128-797,
+               20:  2**160-543,
+               24:  2**192-333,
+               32:  2**256-357,
+               48:  2**384-317  }
 
-   def __init__(self, nbits):
-      if not self.PRIMES.has_key(nbits): 
-         LOGERROR('No primes available for nbits=%d', nbits)
+   def __init__(self, nbytes):
+      if not self.PRIMES.has_key(nbytes): 
+         LOGERROR('No primes available for size=%d bytes', nbytes)
          self.prime = None
          raise FiniteFieldError
-      self.prime = self.PRIMES[nbits]
+      self.prime = self.PRIMES[nbytes]
 
 
    def add(self,a,b):
@@ -1492,8 +1496,7 @@ class FiniteField(object):
       for i in range(len(mtrx)):
          mult     = mtrx[0][i] * (-1 if i%2==1 else 1)
          subdet   = self.mtrxdet(self.mtrxrmrowcol(mtrx,0,i))
-         fullterm = self.mult(mult,subdet)
-         result   = self.add(result,fullterm)
+         result   = self.add(result, self.mult(mult,subdet))
       return result
      
    ################################################################################
@@ -1527,7 +1530,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces):
+def SplitSecret(secret, needed, pieces, nbytes=None):
    """
    We are going make the secret the a-value of a polynomial, and pick
    a bunch of points on it.  For instance, if we want 2-of-3, we will
@@ -1554,9 +1557,11 @@ def SplitSecret(secret, needed, pieces):
 
    """
 
-   nbytes = len(secret)
-   nbits  = nbytes * 8
-   ff = FiniteField(nbits)
+   if nbytes==None:
+      nbytes = len(secret)
+
+   ff = FiniteField(nbytes)
+   fragments = []
 
    a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
    if not a<ff.prime:
@@ -1571,7 +1576,7 @@ def SplitSecret(secret, needed, pieces):
 
    if needed==1 or needed>10:
       LOGERROR('Can only split secrets into parts requiring 2-10 pieces')
-      return out
+      return fragments
 
 
    lasthmac = secret[:]
@@ -1581,13 +1586,12 @@ def SplitSecret(secret, needed, pieces):
       othernum.append(lasthmac)
 
    othernum = [binary_to_int(n) for n in othernum]
-   out = []
    if needed==2:
       b = othernum[0]
       poly = lambda x:  ff.add(ff.mult(a,x), b)
       for i in range(pieces):
          x = othernum[i+1]
-         out.append( [x, poly(x)] )
+         fragments.append( [x, poly(x)] )
 
    elif needed==3:
       def poly(x):
@@ -1600,7 +1604,7 @@ def SplitSecret(secret, needed, pieces):
 
       for i in range(pieces):
          x = othernum[i+2]
-         out.append( [x, poly(x)] )
+         fragments.append( [x, poly(x)] )
 
    else:
       def poly(x):
@@ -1612,32 +1616,33 @@ def SplitSecret(secret, needed, pieces):
          
       for i in range(pieces):
          x = othernum[i+2]
-         out.append( [x, poly(x)] )
+         fragments.append( [x, poly(x)] )
 
 
    a = None
-   return out
+   fragments = [ [int_to_binary(p, nbytes, BIGENDIAN) for p in frag] for frag in fragments]
+   return fragments
 
 
+################################################################################
+def ReconstructSecret(fragments, needed, nbytes):
 
-def ReconstructSecret(xypairs, needed, nbits):
-
-   ff = FiniteField(nbits)
+   ff = FiniteField(nbytes)
    if needed==2:
-      x1,y1 = xypairs[0]
-      x2,y2 = xypairs[1]
+      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
+      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
 
       m = [[x1,1],[x2,1]]
       v = [y1,y2]
 
       minv = ff.mtrxinv(m)
       a,b = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, endOut=BIGENDIAN)
+      return int_to_binary(a, nbytes, BIGENDIAN)
    
    elif needed==3:
-      x1,y1 = xypairs[0]
-      x2,y2 = xypairs[1]
-      x3,y3 = xypairs[2]
+      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
+      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
+      x3,y3 = [binary_to_int(f, BIGENDIAN) for f in fragments[2]]
 
       sq = lambda x: ff.power(x,2)
       m = [  [sq(x1), x1 ,1], \
@@ -1647,20 +1652,22 @@ def ReconstructSecret(xypairs, needed, nbits):
 
       minv = ff.mtrxinv(m)
       a,b,c = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, endOut=BIGENDIAN)
+      return int_to_binary(a, nbytes, BIGENDIAN)
    else:
-      pairs = xypairs[:needed]
+      pairs = fragments[:needed]
       m = []
+      v = []
       for x,y in pairs:
+         x = binary_to_int(x, BIGENDIAN)
+         y = binary_to_int(y, BIGENDIAN)
          m.append([])
          for i,e in enumerate(range(needed-1,-1,-1)):
             m[-1].append( ff.power(x,e) )
+         v.append(y)
 
-      v = [p[1] for p in pairs]
-      
       minv = ff.mtrxinv(m)
       outvect = ff.mtrxmultvect(minv,v)
-      return int_to_binary(outvect[0], endOut=BIGENDIAN)
+      return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
    
 

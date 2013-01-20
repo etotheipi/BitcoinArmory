@@ -117,6 +117,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   'numaddrgen': len(self.wallet.addrMap),
                   'highestusedindex': self.wallet.highestUsedChainIndex
                }
+      return wltInfo
 
 
    #############################################################################
