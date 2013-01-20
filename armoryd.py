@@ -118,6 +118,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
                   'highestusedindex': self.wallet.highestUsedChainIndex
                }
 
+      return wltInfo
 
    #############################################################################
    def jsonrpc_getbalance(self, baltype='spendable'):
