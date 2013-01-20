@@ -2291,12 +2291,51 @@ if Test_FiniteField:
    print 'm*minv:', ff.mtrxmult(m, minv)
 
 
-   print '\nTesting splitting a secret in 2-of-3'
-   secret = 122
-   out = SplitSecret(chr(122), 2, 3)
-   print out
+   ff = FiniteField(8)
+   m = [[1,-3,2,-5],[-1,1,0,-2],[3,-4,1,1],[3,6,-2,-2]]
+   v = [1,5,3,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
 
-   print ReconstructSecret(out, 2, 8)
+
+
+   from random import shuffle
+
+   def testSecret(secretInt, M, N):
+      
+      print '\nSplitting secret into %d-of-%d: secret=%d' % (M,N,secretInt)
+      tstart = RightNow() 
+      out = SplitSecret(int_to_binary(secretInt), M, N)
+      tsplit = RightNow() - tstart
+
+      trecon = 0
+      for i in range(10):
+         shuffle(out)
+         tstart = RightNow()
+         reconstruct = ReconstructSecret(out, M, 8)
+         trecon += RightNow() - tstart
+         
+         print 'The reconstructed secret is:', binary_to_int(reconstruct)
+
+      print 'Splitting secret took: %0.5f sec' % tsplit
+      print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
+
+
+   testSecret(201, 2,3)
+   testSecret(201, 3,5)
+   testSecret(201, 4,7)
+   testSecret(201, 5,9)
+   testSecret(201, 6,7)
+   testSecret(201, 7,7)
+   testSecret(201, 8,10)
+
+
    
 ################################################################################
 ################################################################################

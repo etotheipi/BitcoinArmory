@@ -1569,8 +1569,8 @@ def SplitSecret(secret, needed, pieces):
       raise FiniteFieldError
 
 
-   if needed==1 or needed>5:
-      LOGERROR('Can only split secrets into parts requiring 2-5 pieces')
+   if needed==1 or needed>10:
+      LOGERROR('Can only split secrets into parts requiring 2-10 pieces')
       return out
 
 
@@ -1581,28 +1581,35 @@ def SplitSecret(secret, needed, pieces):
       othernum.append(lasthmac)
 
    othernum = [binary_to_int(n) for n in othernum]
-   print othernum
    out = []
    if needed==2:
-      """
-      The secret is stored as the slope of a line.  Any two points recover
-      the secret
-      """
       b = othernum[0]
       poly = lambda x:  ff.add(ff.mult(a,x), b)
       for i in range(pieces):
          x = othernum[i+1]
          out.append( [x, poly(x)] )
-      
 
-   if needed==3:
-      x2 = ff.mult(x,x)
-      b = othernum[0]
-      c = othernum[1]
-      ax2 = ff.mult(a,x2)
-      bx = ff.mult(b,x2)
-      
-      poly = lambda x:  ff.add(ff.add(ax2, bx), c)
+   elif needed==3:
+      def poly(x):
+         b = othernum[0]
+         c = othernum[1]
+         x2  = ff.power(x,2)
+         ax2 = ff.mult(a,x2)
+         bx  = ff.mult(b,x)
+         return ff.add(ff.add(ax2,bx),c) 
+
+      for i in range(pieces):
+         x = othernum[i+2]
+         out.append( [x, poly(x)] )
+
+   else:
+      def poly(x):
+         polyout = ff.mult(a, ff.power(x,needed-1))
+         for i,e in enumerate(range(needed-2,-1,-1)):
+            term = ff.mult(othernum[i], ff.power(x,e))
+            polyout = ff.add(polyout, term)
+         return polyout
+         
       for i in range(pieces):
          x = othernum[i+2]
          out.append( [x, poly(x)] )
@@ -1615,20 +1622,46 @@ def SplitSecret(secret, needed, pieces):
 
 def ReconstructSecret(xypairs, needed, nbits):
 
-   print xypairs
+   ff = FiniteField(nbits)
    if needed==2:
       x1,y1 = xypairs[0]
       x2,y2 = xypairs[1]
-
-      ff = FiniteField(nbits)
 
       m = [[x1,1],[x2,1]]
       v = [y1,y2]
 
       minv = ff.mtrxinv(m)
       a,b = ff.mtrxmultvect(minv,v)
-      print a,b
-      return a
+      return int_to_binary(a, endOut=BIGENDIAN)
+   
+   elif needed==3:
+      x1,y1 = xypairs[0]
+      x2,y2 = xypairs[1]
+      x3,y3 = xypairs[2]
+
+      sq = lambda x: ff.power(x,2)
+      m = [  [sq(x1), x1 ,1], \
+             [sq(x2), x2, 1], \
+             [sq(x3), x3, 1] ]
+      v = [y1,y2,y3]
+
+      minv = ff.mtrxinv(m)
+      a,b,c = ff.mtrxmultvect(minv,v)
+      return int_to_binary(a, endOut=BIGENDIAN)
+   else:
+      pairs = xypairs[:needed]
+      m = []
+      for x,y in pairs:
+         m.append([])
+         for i,e in enumerate(range(needed-1,-1,-1)):
+            m[-1].append( ff.power(x,e) )
+
+      v = [p[1] for p in pairs]
+      
+      minv = ff.mtrxinv(m)
+      outvect = ff.mtrxmultvect(minv,v)
+      return int_to_binary(outvect[0], endOut=BIGENDIAN)
+         
    
 
 
