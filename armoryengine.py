@@ -298,6 +298,7 @@ class FiniteFieldError(Exception): pass
 if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
+   BITCOIN_RPC_PORT = 8332
    RPC_PORT = 8225
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
@@ -309,6 +310,7 @@ if not USE_TESTNET:
    PRIVKEYBYTE = '\x80'
 else:
    BITCOIN_PORT = 18333
+   BITCOIN_RPC_PORT = 18332
    RPC_PORT     = 18225
    MAGIC_BYTES  = '\x0b\x11\x09\x07'
    GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
@@ -9949,6 +9951,94 @@ class FakeClientFactory(ReconnectingClientFactory):
    def clientConnectionLost(self, connector, reason): pass
    def connectionFailed(self, protoObj, reason): pass
    def sendTx(self, pytxObj): pass
+
+
+
+
+
+
+################################################################################
+################################################################################
+class SatoshiDaemonManager(object):
+   """
+   Use an existing implementation of bitcoind 
+   """
+
+   #############################################################################
+   def __init__(self, pathToBitcoindExe=None, satoshiHome=None):
+
+      if pathToBitcoindExe==None:
+         pathToBitcoindExe = self.findBitcoind()
+
+      if not os.path.exists(pathToBitcoindExe):
+         raise FileExistsError, 'Could not find bitcoind'
+      self.executable = pathToBitcoindExe
+
+      if satoshiHome==None:
+         satoshiHome = BTC_HOME_DIR
+
+      self.satoshiHome = satoshiHome
+      self.bitconf = None
+      self.proxy = None
+
+      
+   #############################################################################
+   def findBitcoind(self):
+      found = []
+      if OS_LINUX:
+         possDir = ['/usr/bin/', '/usr/lib/bitcoin/']
+         for p in possDir:
+            testPath = os.path.join(p, 'bitcoind.exe')
+            if os.path.exists(testPath)
+               found.append(testPath)
+      if OS_WINDOWS:
+         possDir = [os.getenv('PROGRAMFILES'), \
+                    os.getenv('PROGRAMFILES(X86)')]
+         possDir = [os.path.join(p, 'Bitcoin', 'daemon') for p in possDir]
+
+         for p in possDir:
+            testPath = os.path.join(p, 'bitcoind.exe')
+            if os.path.exists(testPath)
+               found.append(testPath)
+                         
+      return found
+
+   
+   #############################################################################
+   def readBitcoinConf(self, makeIfDNE=False):
+      bitconf = os.path.exists( self.satoshiHome, 'bitcoin.conf' )
+      if not os.path.exists(bitconf):
+         if not makeIfDNE:
+            raise FileExistsError, 'Could not find bitcoin.conf'
+         else:
+            raise FileExistsError, 'Cannot create bitcoin.conf!'
+            
+      with open(bitconf,'r') as f:
+         allconf = [l[:l.find('#')].strip().split('=') for l in f.readlines()]
+         self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
+         if not self.bitconf.has_key('rpcport'):
+            self.bitconf['rpcport'] = BITCOIN_RPC_PORT
+         self.bitconf['host'] = '127.0.0.1'
+      
+
+   #############################################################################
+   def checkBitcoindOpen(self):
+      s = socket.socket()
+      s.settimeout(0.01)   # blocking, so short timeout -- but localhost is FAST
+      try:
+         s.connect(('127.0.0.1', self.bitconf['rpcport']))
+         s.close()
+         return True
+      except:
+         return False
+
+
+   #############################################################################
+   def openServiceProxy(self):
+      from jsonrpc import ServiceProxy
+      self.proxy = ServiceProxy(
+        'http://%(rpcuser)s:%(rpcpassword)s@%(host)s:%(rpcport)d' % self.bitconf)
+      
 
 
 ################################################################################
