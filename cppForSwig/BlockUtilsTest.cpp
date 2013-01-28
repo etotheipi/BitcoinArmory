@@ -81,7 +81,7 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Main");
+   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
    
 
    //string blkdir("/home/alan/.bitcoin");
@@ -109,14 +109,15 @@ int main(void)
    //printTestHeader("Read-and-Update-Blockchain");
    //TestReadAndUpdateBlkFile(multitest);
 
-   printTestHeader("Blockchain-Reorg-Unit-Test");
-   TestReorgBlockchain("");
+   //printTestHeader("Blockchain-Reorg-Unit-Test");
+   //TestReorgBlockchain("");
 
    //printTestHeader("Test-out-of-order calls");
    //TestOutOfOrder(blkdir);
 
-   //printTestHeader("Testing readBlkFileUpdate calls");
-   //TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
+   // Make sure to create testblkdir directory, or else this fails
+   printTestHeader("Testing readBlkFileUpdate calls");
+   TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();

@@ -305,6 +305,7 @@ if not USE_TESTNET:
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x00'
+   P2SHBYTE = '\x05'
    PRIVKEYBYTE = '\x80'
 else:
    BITCOIN_PORT = 18333
@@ -315,6 +316,7 @@ else:
    GENESIS_TX_HASH_HEX     = '3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a'
    GENESIS_TX_HASH         = ';\xa3\xed\xfdz{\x12\xb2z\xc7,>gv\x8fa\x7f\xc8\x1b\xc3\x88\x8aQ2:\x9f\xb8\xaaK\x1e^J'
    ADDRBYTE = '\x6f'
+   P2SHBYTE = '\xc4'
    PRIVKEYBYTE = '\xef'
 
 if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
@@ -451,8 +453,8 @@ def chopLogFile(filename, size):
 
 
 
-# Cut down the log file to just the most recent 100 kB
-chopLogFile(ARMORY_LOG_FILE, 100*1024)
+# Cut down the log file to just the most recent 1 MB
+chopLogFile(ARMORY_LOG_FILE, 1024*1024)
 
 
 # Now set loglevels
@@ -1053,18 +1055,25 @@ def base58_to_binary(addr):
 
 
 ################################################################################
-def hash160_to_addrStr(binStr):
+def hash160_to_addrStr(binStr, isP2SH=False):
    """
    Converts the 20-byte pubKeyHash to 25-byte binary Bitcoin address
    which includes the network byte (prefix) and 4-byte checksum (suffix)
    """
-   addr21 = ADDRBYTE + binStr
+   addr21 = (P2SHBYTE if isP2SH else ADDRBYTE) + binStr
    addr25 = addr21 + hash256(addr21)[:4]
    return binary_to_base58(addr25);
 
 ################################################################################
-def addrStr_to_hash160(binStr):
-   return base58_to_binary(binStr)[1:-4]
+def addrStr_is_p2sh(b58Str):
+   binStr = base58_to_binary(b58Str)
+   if not len(binStr)==25:
+      return False
+   return (binStr[0] == P2SHBYTE)
+
+################################################################################
+def addrStr_to_hash160(b58Str):
+   return base58_to_binary(b58Str)[1:-4]
 
 
 
@@ -1531,38 +1540,13 @@ class FiniteField(object):
 
 ################################################################################
 def SplitSecret(secret, needed, pieces, nbytes=None):
-   """
-   We are going make the secret the a-value of a polynomial, and pick
-   a bunch of points on it.  For instance, if we want 2-of-3, we will
-   create a line:
-   
-      y = ax + b
-
-   Then emit 3 points on that line.  The values of b and x1,x2,x3 are 
-   not important, but we choose them deterministically here so that 
-   the same answer is always produced 
-
-   For 3-of-N we can use a parabola:
-      
-      y = ax^2 + bx + c
-
-   Again, b and c don't matter.  Only that you need three points on
-   the parabola in order to determine a.
-
-   We can go up as far as the finite-field matrix operations will let
-   us go -- which is implemented using very slow python operations.
-   It wasn't intended to go beyond needed=3 (such as 3-of-5 or 3-of-7).
-   But it *should* work for any value if you have the compute power
-
-
-   """
-
    if nbytes==None:
       nbytes = len(secret)
 
    ff = FiniteField(nbytes)
    fragments = []
 
+   # Convert secret to an integer
    a = binary_to_int(SecureBinaryData(secret).toBinStr(),BIGENDIAN)
    if not a<ff.prime:
       LOGERROR('Secret must be less than %s', int_to_hex(ff.prime,BIGENDIAN))
@@ -1574,8 +1558,9 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
       raise FiniteFieldError
 
 
-   if needed==1 or needed>10:
-      LOGERROR('Can only split secrets into parts requiring 2-10 pieces')
+   if needed==1 or needed>8:
+      LOGERROR('Can split secrets into parts *requiring* at most 8 fragments')
+      LOGERROR('You can break it into as many optional fragments as you want')
       return fragments
 
 
@@ -9773,11 +9758,11 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
+               LOGINFO('New block broadcast received')
                if TheBDM.getBDMState()=='Scanning' or \
-                  TheBDM.getTxByHash(inv[1]).isInitialized():
+                  TheBDM.hasHeaderWithHash(inv[1]):
                   continue
                getdataMsg.payload.invList.append(inv)
-               LOGINFO('New block broadcast received')
             if inv[0]==MSG_INV_TX:
                if TheBDM.getBDMState()=='Scanning' or \
                   TheBDM.hasTxWithHash(inv[1]):

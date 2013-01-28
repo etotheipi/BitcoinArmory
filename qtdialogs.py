@@ -9619,7 +9619,7 @@ class DlgHelpAbout(ArmoryDialog):
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
       lblWebpage = QRichLabel('<a href="http://www.bitcoinarmory.com">http://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel('Copyright \xa9 2011-2012 Alan C. Reiner')
+      lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Alan C. Reiner')
       lblLicense = QRichLabel('Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)')

@@ -268,6 +268,7 @@ class Armory_Json_Rpc_Server(jsonrpc.JSONRPC):
          
          tx_info = {
                      'direction' :    txDir,
+                     'wallet' :       self.wallet.uniqueIDB58,
                      'amount' :       AmountToJSON(amtCoins),
                      'netdiff' :      AmountToJSON(netCoins),
                      'fee' :          AmountToJSON(feeCoins),

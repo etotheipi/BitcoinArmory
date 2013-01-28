@@ -2925,7 +2925,7 @@ class ArmoryMainWindow(QMainWindow):
       reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', \
          'The log file contains information that may be considered sensitive '
          'by some users.  Log files should be protected the same '
-         'way you would protect a watcing-only wallet, though it '
+         'way you would protect a watching-only wallet, though it '
          'usually contains much less information than that. '
          '<br><br>'
          '<b>No private key data is ever written to the log file</b>. '
