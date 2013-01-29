@@ -290,6 +290,7 @@ class CompressedKeyError(Exception): pass
 class TooMuchPrecisionError(Exception): pass
 class NegativeValueError(Exception): pass
 class FiniteFieldError(Exception): pass
+class BitcoindError(Exception): pass
 
 
 
@@ -9956,22 +9957,45 @@ class FakeClientFactory(ReconnectingClientFactory):
 
 
 
+#############################################################################
+import socket
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_RPC_PORT, timeout=0.01):
+   s = socket.socket()
+   s.settimeout(timeout)   # Most of the time checking localhost -- FAST
+   try:
+      s.connect((host, port)
+      s.close()
+      return True
+   except:
+      return False
+
 
 ################################################################################
 ################################################################################
+# jgarzik's jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
+from jsonrpc import ServiceProxy
 class SatoshiDaemonManager(object):
    """
    Use an existing implementation of bitcoind 
    """
+
+   class BitcoindError(Exception): pass
+   class BitcoinDotConfError(Exception): pass
+   class SatoshiHomeDirDNE(Exception): pass
+   class ConfUserDNE(Exception): pass
+   class ConfPasswordDNE(Exception): pass
 
    #############################################################################
    def __init__(self, pathToBitcoindExe=None, satoshiHome=None):
 
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind()
+         if len(pathToBitcoindExe)==0:
+            raise self.BitcoindError, 'Could not find bitcoind'
+         pathToBitcoindExe = pathToBitcoindExe[0]
 
       if not os.path.exists(pathToBitcoindExe):
-         raise FileExistsError, 'Could not find bitcoind'
+         raise self.BitcoindError, 'Could not find bitcoind'
       self.executable = pathToBitcoindExe
 
       if satoshiHome==None:
@@ -9980,6 +10004,9 @@ class SatoshiDaemonManager(object):
       self.satoshiHome = satoshiHome
       self.bitconf = None
       self.proxy = None
+      self.bitcoind = None  # this will be a Popen object
+      self.lastTopBlockInfo = [None, None, None, 'Uninitialized']
+      self.isMidQuery = False
 
       
    #############################################################################
@@ -10009,36 +10036,180 @@ class SatoshiDaemonManager(object):
       bitconf = os.path.exists( self.satoshiHome, 'bitcoin.conf' )
       if not os.path.exists(bitconf):
          if not makeIfDNE:
-            raise FileExistsError, 'Could not find bitcoin.conf'
+            raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
          else:
-            raise FileExistsError, 'Cannot create bitcoin.conf!'
+            if OS_WINDOWS:
+               # Still not sure yet how to set the permissions properly in Win
+               LOGINFO('Cannot create bitcoin.conf (yet) on Windows')
+               raise BitcoinDotConfError, '***Cannot create bitcoin.conf!'
+            else:
+               LOGINFO('No bitcoin.conf available.  Creating it...')
+               randBase58 = SecureBinaryData().GenerateRandom(16).toBinStr()
+               randBase58 = binary_to_base58(randBase58)
+               with open(bitconf, 'w') as f:
+                  f.write('rpcuser=generated_by_armory\n')
+                  f.write('rpcpassword=%s' % randBase58)
+               os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
+               
             
       with open(bitconf,'r') as f:
          allconf = [l[:l.find('#')].strip().split('=') for l in f.readlines()]
          self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
          if not self.bitconf.has_key('rpcport'):
             self.bitconf['rpcport'] = BITCOIN_RPC_PORT
+
+         if not self.bitconf.has_key('rpcuser'):
+            raise self.ConfUserDNE, 'bitcoin.conf does not have rpcuser'
+         if not self.bitconf.has_key('rpcpassword'):
+            raise self.ConfPasswordDNE, 'bitcoin.conf does not have rpcpassword'
+
          self.bitconf['host'] = '127.0.0.1'
       
 
+
    #############################################################################
-   def checkBitcoindOpen(self):
-      s = socket.socket()
-      s.settimeout(0.01)   # blocking, so short timeout -- but localhost is FAST
-      try:
-         s.connect(('127.0.0.1', self.bitconf['rpcport']))
-         s.close()
-         return True
-      except:
+   def startBitcoind(self):
+      LOGINFO('Called startBitcoind')
+      if self.bitcoindIsRunning()
+         raise self.BitcoindError, 'Looks like we have already started bitcoind'
+
+      from subprocess import Popen
+      if not os.path.exists(self.executable):
+         raise self.BitcoindError, 'Could not find bitcoind'
+   
+      if self.satoshiIsAvailable():
+         raise self.BitcoindError, 'Bitcoin instance is already open'
+
+      cmdstr = '%s -datadir=%s' % (self.executable, self.satoshiHome)
+      LOGINFO('Executing command: %s' % cmdstr)
+      self.bitcoind = Popen(cmdstr, shell=True)
+
+
+   #############################################################################
+   def bitcoindIsRunning(self):
+      """ 
+      armoryengine satoshiIsAvailable() only tells us whether there's a 
+      running bitcoind that is actively responding on its port.  But it 
+      won't be responding immediately after we've started it (still doing
+      startup operations).  If bitcoind was started and still running, 
+      then poll() will return None.  Any othe poll() return value means 
+      that the process terminated
+      """
+      if self.bitcoind==None:
          return False
+      else:
+         if self.bitcoind.poll()==None:
+            # Returns None meaning no return value yet -- still running
+            return True
+         else:
+            # bitcoind terminated for some reason
+            self.bitcoind = None
+            return False
+      
+
+   #############################################################################
+   def bitcoindIsResponsive(self):
+      return satoshiIsAvailable(self.bitconf['host'], self.bitconf['port'])
+   
+   #############################################################################
+   def getSDMState(self):
+      if not bitcoindIsRunning():
+         # Not running at all:  either never started, or process terminated
+         return 'BitcoindNotAvailable'
+      elif not satoshiIsAvailable(self.bitconf['host'], self.bitconf['port']):
+         # Running but not responsive... must still be initializing
+         return 'BitcoindInitializing'
+      else:
+         # If it's responsive, get the top block and check
+         numblks,blkhash,toptime,error = self.queryTopBlockAsync()
+      
+         return 'BitcoindSyncing'
+         return 'BitcoindSynchronized'
+         
+
+        
+   #############################################################################
+   def stopBitcoind(self):
+      LOGINFO('Called stopBitcoind')
+      if self.bitcoind==None:
+         LOGINFO('...but bitcoind is not running, to be able to stop')
+         return
+
+      self.bitcoind.terminate()
+      self.bitcoind = None
+      
+
+   #############################################################################
+   def createProxy(self, forceNew=False):
+      if self.proxy==None or forceNew:
+         pstr = 'http://%(rpcuser)s:%(rpcpassword)s@%(host)s:%(rpcport)d' % self.bitconf
+         print pstr
+         LOGINFO('Creating proxy in SDM: host=%(host)s, port=%(port)s', self.bitconf)
+         self.proxy = ServiceProxy(proxystr)
 
 
    #############################################################################
-   def openServiceProxy(self):
-      from jsonrpc import ServiceProxy
-      self.proxy = ServiceProxy(
-        'http://%(rpcuser)s:%(rpcpassword)s@%(host)s:%(rpcport)d' % self.bitconf)
+   def queryTopBlockAsync(self):
+      """
+      We want to get the top block information, but if bitcoind is rigorously
+      downloading and verifying the blockchain, it can sometimes take 10s to
+      to respond to JSON-RPC calls!  We must do it in the background...
+
+      If it's already querying, no need to kick off another background request,
+      just return the last value, which may be "stale" but we don't really 
+      care for this particular use-case
+      """
+      self.createProxy()
+      if self.isMidQuery:
+         return self.lastTopBlockInfo
       
+      def backgroundRequestTopBlock():
+         self.createProxy()
+         self.isMidQuery = True
+         tstart = RightNow()
+         try:
+            TimerStart('QueryingTopBlock')
+            numblks = self.proxy.getinfo()['blocks']
+            blkhash = self.proxy.getblockhash(numblks) 
+            toptime = self.proxy.getblock(blkhash)['time']
+            # Only overwrite once all outputs are retrieved
+            self.lastTopBlockInfo[0] = numblks
+            self.lastTopBlockInfo[1] = blkhash
+            self.lastTopBlockInfo[2] = toptime
+            self.lastTopBlockInfo[3] = None    # Holds error info
+         except ValueError:
+            # I believe this happens when you used the wrong password
+            self.lastTopBlockInfo[3] = 'ValueError'
+            raise
+         except jsonrpc.authproxy.JSONRPCException:
+            # This seems to happen when bitcoind is overwhelmed... not quite ready 
+            self.lastTopBlockInfo[3] = 'JsonRpcException'
+            raise
+         except socket.error:
+            # Connection isn't available... is bitcoind not running anymore?
+            self.lastTopBlockInfo[3] = 'SocketError'
+            raise
+         except:
+            self.lastTopBlockInfo[3] = 'UnknownError'
+            raise
+         finally:
+            self.isMidQuery = False
+            TimerStop('QueryingTopBlock')
+            print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
+
+      PyBackgroundThread(backgroundRequestTopBlock).start()
+      return self.lastTopBlockInfo
+      
+
+   #############################################################################
+   def getTopBlockInfo(self):
+      out4 = self.queryTopBlockAsync()
+      if not out4[3]==None:
+         print out4
+      return out4
+
+   #############################################################################
+   def approximateBlocksToSync(self):
 
 
 ################################################################################

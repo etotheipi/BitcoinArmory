@@ -66,7 +66,7 @@ class ArmoryMainWindow(QMainWindow):
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_green_h56.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
+         self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.iconfile = ':/armory_icon_32x32.png'
          self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
          if Colors.isDarkBkgd:
@@ -1103,7 +1103,6 @@ class ArmoryMainWindow(QMainWindow):
 
       LOGINFO('Setting up networking...')
       self.internetAvail = False
-      self.satoshiAvail  = False
 
       # Only need to check for the first blk file
       self.haveBlkFile = os.path.exists(BLKFILE_FIRSTFILE)
@@ -1128,10 +1127,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARN('*** Listening port is disabled.  URI-handling will not work')
       
 
-      # Check for Satoshi-client connection
-      #self.satoshiAvail = self.bitcoindIsAvailable()
-         
-
 
       # Check general internet connection
       self.internetAvail = False
@@ -1151,10 +1146,18 @@ class ArmoryMainWindow(QMainWindow):
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
-         
+
+
+      if self.getSettingOrSetDefault('ManageSatoshi', True):
+         try:
+            self.sdm = SatoshiDaemonManager()
+         except:
+            
+
       TimerStop('setupNetworking')
 
        
+   ############################################################################
    def loadBlockchainIfNecessary(self):
 
       if CLI_OPTIONS.offline:
@@ -1190,20 +1193,10 @@ class ArmoryMainWindow(QMainWindow):
                self.bitcoindIsAvailable() and \
                self.haveBlkFile)
 
+
    #############################################################################
    def bitcoindIsAvailable(self):
-      # Check for Satoshi-client connection
-      TimerStart('bitcoindIsAvail')
-      s = socket.socket()
-      s.settimeout(0.01)   # blocking, so short timeout -- but localhost is FAST
-      try:
-         s.connect(('127.0.0.1', BITCOIN_PORT))
-         s.close()
-         return True
-      except:
-         return False
-      finally:
-         TimerStop('bitcoindIsAvail')
+      return satoshiIsAvailable('127.0.0.1', BITCOIN_PORT)
 
 
    #############################################################################

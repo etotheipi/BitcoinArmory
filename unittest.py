@@ -24,7 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
-Test_FiniteField      = True
+Test_FiniteField      = False
 Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
@@ -37,6 +37,8 @@ Test_URIParse         = False
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
 Test_Timers           = False
+
+Test_SatoshiManager   = True
 
 '''
 import optparse
