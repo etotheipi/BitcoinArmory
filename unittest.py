@@ -2408,6 +2408,8 @@ if Test_SatoshiManager:
 
    if not os.path.exists('sdmtest'):
       os.mkdir('sdmtest')
+
+   if not os.path.exists('sdmtest/bitcoind'):
       shutil.copy('/usr/lib/bitcoin/bitcoind','sdmtest')
 
    print 'Creating SatoshiDaemonManager...'
@@ -2415,36 +2417,42 @@ if Test_SatoshiManager:
    sdm.printSDMInfo()
 
    print 'Reading bitcoin.conf file... (should create it if DNE)'
-   sdm.readBitcoinConf()
+   sdm.readBitcoinConf(makeIfDNE=True)
    sdm.printSDMInfo()
    
-   print 'Starting bitcoind...'
-   sdm.startBitcoind()
-   sdm.startBitcoind()
-
-   for i in range(600):
-      if i%30==0:
-         sdm.printSDMInfo()
-      print 'Current SDM state:', sdm.getSDMState(),
-      time.sleep(1)
-
-      if sdm.getSDMState() in ('BitcoindReady', 'BitcoindSynchronizing'):
-         info = sdm.getTopBlockInfo()
-         print ': TopBlock: %d (%s)' % (info['numblks'], unixTimeToFormatStr(info['toptime']))
-      else:
-         print ''
+   try:
+      print 'Starting bitcoind...'
+      sdm.startBitcoind()
    
+      for i in range(600):
+         if i%30==0:
+            sdm.printSDMInfo()
+         state = sdm.getSDMState()
+         print 'Current SDM state:', state,
+         time.sleep(1)
+   
+         if state in ('BitcoindReady', 'BitcoindSynchronizing'):
+            info = sdm.getTopBlockInfo()
+            print ': TopBlock: %d (%s)' % (info['numblks'], unixTimeToFormatStr(info['toptime']))
+         else:
+            print ''
+      
+   
+      print 'Done with 10 minutes of monitoring bitcoind.  Shutting down...'
+      sdm.stopBitcoind()
+      t = 0
+      while(sdm.bitcoindIsRunning()):
+         sleep(0.1)
+         t+=0.1
+         print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t
+   
+      print 'Stopping again, just for fun'
+      sdm.stopBitcoind()
+   finally:
+      # Gotta shutdown bitcoind no matter what
+      print 'Attempting to shutdown, no matter what!'
+      sdm.stopBitcoind()
 
-   print 'Done with 10 minutes of monitoring bitcoind.  Shutting down...'
-   sdm.stopBitcoind()
-   t = 0
-   while(sdm.bitcoindIsRunning()):
-      sleep(0.1)
-      t+=0.1
-      print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t
-
-   print 'Stopping again, just for fun'
-   sdm.stopBitcoind()
 
 
 

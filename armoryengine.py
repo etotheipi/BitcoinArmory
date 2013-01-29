@@ -29,6 +29,7 @@ import time
 import os
 import string
 import sys
+import stat
 import shutil
 import math
 import logging
@@ -9963,7 +9964,7 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_RPC_PORT, timeout=0.01):
    s = socket.socket()
    s.settimeout(timeout)   # Most of the time checking localhost -- FAST
    try:
-      s.connect((host, port)
+      s.connect((host, port))
       s.close()
       return True
    except:
@@ -9973,7 +9974,7 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_RPC_PORT, timeout=0.01):
 ################################################################################
 ################################################################################
 # jgarzik's jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
-from jsonrpc import ServiceProxy
+from jsonrpc import ServiceProxy, authproxy
 class SatoshiDaemonManager(object):
    """
    Use an existing implementation of bitcoind 
@@ -9993,7 +9994,11 @@ class SatoshiDaemonManager(object):
          pathToBitcoindExe = self.findBitcoind()
          if len(pathToBitcoindExe)==0:
             raise self.BitcoindError, 'Could not find bitcoind'
+         LOGINFO('Found bitcoind in the following places:')
+         for p in pathToBitcoindExe:
+            LOGINFO('\t%s', p)
          pathToBitcoindExe = pathToBitcoindExe[0]
+         LOGINFO('Using: %s', pathToBitcoindExe)
 
       if not os.path.exists(pathToBitcoindExe):
          raise self.BitcoindError, 'Could not find bitcoind'
@@ -10003,7 +10008,7 @@ class SatoshiDaemonManager(object):
          satoshiHome = BTC_HOME_DIR
 
       self.satoshiHome = satoshiHome
-      self.bitconf = None
+      self.bitconf = {}
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object
       self.isMidQuery = False
@@ -10013,7 +10018,7 @@ class SatoshiDaemonManager(object):
                                  'numblks':    -1,
                                  'tophash':    '',
                                  'toptime':    -1,
-                                 'errormsg':   'Uninitialized',
+                                 'error':      'Uninitialized',
                                  'blkspersec': -1     }
 
       
@@ -10023,17 +10028,19 @@ class SatoshiDaemonManager(object):
       if OS_LINUX:
          possDir = ['/usr/bin/', '/usr/lib/bitcoin/']
          for p in possDir:
-            testPath = os.path.join(p, 'bitcoind.exe')
-            if os.path.exists(testPath)
+            testPath = os.path.join(p, 'bitcoind')
+            if os.path.exists(testPath):
                found.append(testPath)
       if OS_WINDOWS:
-         possDir = [os.getenv('PROGRAMFILES'), \
-                    os.getenv('PROGRAMFILES(X86)')]
-         possDir = [os.path.join(p, 'Bitcoin', 'daemon') for p in possDir]
+         possBaseDir = [os.getenv('PROGRAMFILES'), \
+                        os.getenv('PROGRAMFILES(X86)')]
+         possDir = []
+         possDir.extend([os.path.join(p, 'Bitcoin') for p in possBaseDir])
+         possDir.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
 
          for p in possDir:
             testPath = os.path.join(p, 'bitcoind.exe')
-            if os.path.exists(testPath)
+            if os.path.exists(testPath):
                found.append(testPath)
                          
       return found
@@ -10041,7 +10048,7 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
-      bitconf = os.path.exists( self.satoshiHome, 'bitcoin.conf' )
+      bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
       if not os.path.exists(bitconf):
          if not makeIfDNE:
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
@@ -10061,8 +10068,9 @@ class SatoshiDaemonManager(object):
                
             
       with open(bitconf,'r') as f:
-         allconf = [l[:l.find('#')].strip().split('=') for l in f.readlines()]
+         allconf = [l[:(l.find('#') if l.find('#')>1 else len(l))].strip().split('=') for l in f.readlines()]
          self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
+         print self.bitconf
          if not self.bitconf.has_key('rpcport'):
             self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
@@ -10078,24 +10086,23 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def startBitcoind(self):
       LOGINFO('Called startBitcoind')
-      if self.bitcoindIsRunning()
+      if self.bitcoindIsRunning():
          raise self.BitcoindError, 'Looks like we have already started bitcoind'
 
       from subprocess import Popen
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      if self.satoshiIsAvailable():
-         raise self.BitcoindError, 'Bitcoin instance is already open'
-
       cmdstr = '%s -datadir=%s' % (self.executable, self.satoshiHome)
+      if USE_TESTNET:
+         cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
       self.bitcoind = Popen(cmdstr, shell=True)
 
    #############################################################################
    def stopBitcoind(self):
       LOGINFO('Called stopBitcoind')
-      if self.bitcoind==None:
+      if not self.bitcoindIsRunning():
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
@@ -10132,10 +10139,10 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getSDMState(self):
       latestInfo = self.getTopBlockInfo()
-      if not bitcoindIsRunning():
+      if not self.bitcoindIsRunning():
          # Not running at all:  either never started, or process terminated
          return 'BitcoindNotAvailable'
-      elif not satoshiIsAvailable(self.bitconf['host'], self.bitconf['port']):
+      elif not satoshiIsAvailable(self.bitconf['host'], self.bitconf['rpcport']):
          # Running but not responsive... must still be initializing
          return 'BitcoindInitializing'
       else:
@@ -10150,9 +10157,9 @@ class SatoshiDaemonManager(object):
             return 'BitcoindNotAvailable'
 
          # If we get here, bitcoind is gave us a response.
-         secSinceLastBlk = RightNow() - toptime
+         secSinceLastBlk = RightNow() - latestInfo['toptime']
          blkspersec = latestInfo['blkspersec']
-         print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
+         #print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
          if secSinceLastBlk > 4*HOUR or blkspersec==-1:
             return 'BitcoindSynchronizing'
          else:
@@ -10161,22 +10168,21 @@ class SatoshiDaemonManager(object):
             else:
                return 'BitcoindReady'
             
-            
-         
 
         
 
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
-         pstr = 'http://%(rpcuser)s:%(rpcpassword)s@%(host)s:%(rpcport)d' % self.bitconf
+         u,p,h,r = [self.bitconf[k] for k in ['rpcuser','rpcpassword','host', 'rpcport']]
+         pstr = 'http://%s:%s@%s:%d' % (u,p,h,r)
          print pstr
-         LOGINFO('Creating proxy in SDM: host=%(host)s, port=%(port)s', self.bitconf)
-         self.proxy = ServiceProxy(proxystr)
+         LOGINFO('Creating proxy in SDM: host=%s, port=%s', h,r)
+         self.proxy = ServiceProxy(pstr)
 
 
    #############################################################################
-   def __backgroundRequestTopBlock():
+   def __backgroundRequestTopBlock(self):
       self.createProxy()
       self.isMidQuery = True
       tstart = RightNow()
@@ -10188,10 +10194,11 @@ class SatoshiDaemonManager(object):
          # Only overwrite once all outputs are retrieved
          self.lastTopBlockInfo['numblks'] = numblks
          self.lastTopBlockInfo['tophash'] = blkhash
-         self.lastTopBlockInfo['tophash'] = toptime
-         self.lastTopBlockInfo['errormsg'] = None    # Holds error info
+         self.lastTopBlockInfo['toptime'] = toptime
+         self.lastTopBlockInfo['error']   = None    # Holds error info
 
-         if (RightNow() - self.last20queries[-1][0] > 0.99)
+         if len(self.last20queries)==0 or \
+               (RightNow()-self.last20queries[-1][0]) > 0.99:
             # This conditional guarantees last 20 queries spans at least 20s
             self.last20queries.append([RightNow(), numblks])
             self.last20queries = self.last20queries[-20:]
@@ -10207,22 +10214,19 @@ class SatoshiDaemonManager(object):
       except ValueError:
          # I believe this happens when you used the wrong password
          self.lastTopBlockInfo['error'] = 'ValueError'
-         raise
-      except jsonrpc.authproxy.JSONRPCException:
+      except authproxy.JSONRPCException:
          # This seems to happen when bitcoind is overwhelmed... not quite ready 
          self.lastTopBlockInfo['error'] = 'JsonRpcException'
-         raise
       except socket.error:
          # Connection isn't available... is bitcoind not running anymore?
          self.lastTopBlockInfo['error'] = 'SocketError'
-         raise
       except:
          self.lastTopBlockInfo['error'] = 'UnknownError'
          raise
       finally:
          self.isMidQuery = False
          TimerStop('QueryingTopBlock')
-         print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
+         #print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
 
    #############################################################################
    def updateTopBlockInfo(self):
@@ -10818,12 +10822,12 @@ class PyBackgroundThread(threading.Thread):
 
 
    def run(self):
-      LOGINFO('Executing thread.run()...')
+      LOGDEBUG('Executing thread.run()...')
       self.func()
       self.postFunc()
 
    def start(self):
-      LOGINFO('Executing thread.start()...')
+      LOGDEBUG('Executing thread.start()...')
       # The prefunc is blocking.  Probably preparing something
       # that needs to be in place before we start the thread
       self.preFunc()
