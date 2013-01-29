@@ -9980,10 +9980,11 @@ class SatoshiDaemonManager(object):
    """
 
    class BitcoindError(Exception): pass
+   class BitcoindNotAvailableError(Exception): pass
    class BitcoinDotConfError(Exception): pass
    class SatoshiHomeDirDNE(Exception): pass
-   class ConfUserDNE(Exception): pass
-   class ConfPasswordDNE(Exception): pass
+   class ConfigFileUserDNE(Exception): pass
+   class ConfigFilePwdDNE(Exception): pass
 
    #############################################################################
    def __init__(self, pathToBitcoindExe=None, satoshiHome=None):
@@ -10005,8 +10006,15 @@ class SatoshiDaemonManager(object):
       self.bitconf = None
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object
-      self.lastTopBlockInfo = [None, None, None, 'Uninitialized']
       self.isMidQuery = False
+      self.last20queries = []
+      self.blkspersec = -1;
+      self.lastTopBlockInfo = { \
+                                 'numblks':    -1,
+                                 'tophash':    '',
+                                 'toptime':    -1,
+                                 'errormsg':   'Uninitialized',
+                                 'blkspersec': -1     }
 
       
    #############################################################################
@@ -10059,9 +10067,9 @@ class SatoshiDaemonManager(object):
             self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
          if not self.bitconf.has_key('rpcuser'):
-            raise self.ConfUserDNE, 'bitcoin.conf does not have rpcuser'
+            raise self.ConfigFileUserDNE, 'bitcoin.conf does not have rpcuser'
          if not self.bitconf.has_key('rpcpassword'):
-            raise self.ConfPasswordDNE, 'bitcoin.conf does not have rpcpassword'
+            raise self.ConfigFilePwdDNE, 'bitcoin.conf does not have rpcpassword'
 
          self.bitconf['host'] = '127.0.0.1'
       
@@ -10084,6 +10092,16 @@ class SatoshiDaemonManager(object):
       LOGINFO('Executing command: %s' % cmdstr)
       self.bitcoind = Popen(cmdstr, shell=True)
 
+   #############################################################################
+   def stopBitcoind(self):
+      LOGINFO('Called stopBitcoind')
+      if self.bitcoind==None:
+         LOGINFO('...but bitcoind is not running, to be able to stop')
+         return
+
+      self.bitcoind.terminate()
+      self.bitcoind = None
+      
 
    #############################################################################
    def bitcoindIsRunning(self):
@@ -10113,6 +10131,7 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def getSDMState(self):
+      latestInfo = self.getTopBlockInfo()
       if not bitcoindIsRunning():
          # Not running at all:  either never started, or process terminated
          return 'BitcoindNotAvailable'
@@ -10121,23 +10140,31 @@ class SatoshiDaemonManager(object):
          return 'BitcoindInitializing'
       else:
          # If it's responsive, get the top block and check
-         numblks,blkhash,toptime,error = self.queryTopBlockAsync()
-      
-         return 'BitcoindSyncing'
-         return 'BitcoindSynchronized'
+         # TODO: These conditionals are based on experimental results.  May 
+         #       not be accurate what the specific errors mean...
+         if latestInfo['error']=='ValueError':
+            return 'BitcoindWrongPassword'
+         elif latestInfo['error']=='JsonRpcException':
+            return 'BitcoindInitializing'
+         elif latestInfo['error']=='SocketError':
+            return 'BitcoindNotAvailable'
+
+         # If we get here, bitcoind is gave us a response.
+         secSinceLastBlk = RightNow() - toptime
+         blkspersec = latestInfo['blkspersec']
+         print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
+         if secSinceLastBlk > 4*HOUR or blkspersec==-1:
+            return 'BitcoindSynchronizing'
+         else:
+            if blkspersec*20 > 4:
+               return 'BitcoindSynchronizing'
+            else:
+               return 'BitcoindReady'
+            
+            
          
 
         
-   #############################################################################
-   def stopBitcoind(self):
-      LOGINFO('Called stopBitcoind')
-      if self.bitcoind==None:
-         LOGINFO('...but bitcoind is not running, to be able to stop')
-         return
-
-      self.bitcoind.terminate()
-      self.bitcoind = None
-      
 
    #############################################################################
    def createProxy(self, forceNew=False):
@@ -10149,7 +10176,56 @@ class SatoshiDaemonManager(object):
 
 
    #############################################################################
-   def queryTopBlockAsync(self):
+   def __backgroundRequestTopBlock():
+      self.createProxy()
+      self.isMidQuery = True
+      tstart = RightNow()
+      try:
+         TimerStart('QueryingTopBlock')
+         numblks = self.proxy.getinfo()['blocks']
+         blkhash = self.proxy.getblockhash(numblks) 
+         toptime = self.proxy.getblock(blkhash)['time']
+         # Only overwrite once all outputs are retrieved
+         self.lastTopBlockInfo['numblks'] = numblks
+         self.lastTopBlockInfo['tophash'] = blkhash
+         self.lastTopBlockInfo['tophash'] = toptime
+         self.lastTopBlockInfo['errormsg'] = None    # Holds error info
+
+         if (RightNow() - self.last20queries[-1][0] > 0.99)
+            # This conditional guarantees last 20 queries spans at least 20s
+            self.last20queries.append([RightNow(), numblks])
+            self.last20queries = self.last20queries[-20:]
+            t0,b0 = self.last20queries[0]
+            t1,b1 = self.last20queries[-1]
+
+            # Need at least 10s of data to give meaning answer
+            if (t1-t0)<10:
+               self.lastTopBlockInfo['blkspersec'] = -1
+            else:
+               self.lastTopBlockInfo['blkspersec'] = float(b1-b0)/float(t1-t0)
+
+      except ValueError:
+         # I believe this happens when you used the wrong password
+         self.lastTopBlockInfo['error'] = 'ValueError'
+         raise
+      except jsonrpc.authproxy.JSONRPCException:
+         # This seems to happen when bitcoind is overwhelmed... not quite ready 
+         self.lastTopBlockInfo['error'] = 'JsonRpcException'
+         raise
+      except socket.error:
+         # Connection isn't available... is bitcoind not running anymore?
+         self.lastTopBlockInfo['error'] = 'SocketError'
+         raise
+      except:
+         self.lastTopBlockInfo['error'] = 'UnknownError'
+         raise
+      finally:
+         self.isMidQuery = False
+         TimerStop('QueryingTopBlock')
+         print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
+
+   #############################################################################
+   def updateTopBlockInfo(self):
       """
       We want to get the top block information, but if bitcoind is rigorously
       downloading and verifying the blockchain, it can sometimes take 10s to
@@ -10159,57 +10235,62 @@ class SatoshiDaemonManager(object):
       just return the last value, which may be "stale" but we don't really 
       care for this particular use-case
       """
-      self.createProxy()
-      if self.isMidQuery:
-         return self.lastTopBlockInfo
-      
-      def backgroundRequestTopBlock():
-         self.createProxy()
-         self.isMidQuery = True
-         tstart = RightNow()
-         try:
-            TimerStart('QueryingTopBlock')
-            numblks = self.proxy.getinfo()['blocks']
-            blkhash = self.proxy.getblockhash(numblks) 
-            toptime = self.proxy.getblock(blkhash)['time']
-            # Only overwrite once all outputs are retrieved
-            self.lastTopBlockInfo[0] = numblks
-            self.lastTopBlockInfo[1] = blkhash
-            self.lastTopBlockInfo[2] = toptime
-            self.lastTopBlockInfo[3] = None    # Holds error info
-         except ValueError:
-            # I believe this happens when you used the wrong password
-            self.lastTopBlockInfo[3] = 'ValueError'
-            raise
-         except jsonrpc.authproxy.JSONRPCException:
-            # This seems to happen when bitcoind is overwhelmed... not quite ready 
-            self.lastTopBlockInfo[3] = 'JsonRpcException'
-            raise
-         except socket.error:
-            # Connection isn't available... is bitcoind not running anymore?
-            self.lastTopBlockInfo[3] = 'SocketError'
-            raise
-         except:
-            self.lastTopBlockInfo[3] = 'UnknownError'
-            raise
-         finally:
-            self.isMidQuery = False
-            TimerStop('QueryingTopBlock')
-            print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
+      if not self.bitcoindIsRunning():
+         return   
 
-      PyBackgroundThread(backgroundRequestTopBlock).start()
-      return self.lastTopBlockInfo
+      if self.isMidQuery:
+         return 
+
+      self.createProxy()
+      self.queryThread = PyBackgroundThread(self.__backgroundRequestTopBlock)
+      self.queryThread.start()
       
 
    #############################################################################
    def getTopBlockInfo(self):
-      out4 = self.queryTopBlockAsync()
-      if not out4[3]==None:
-         print out4
-      return out4
+      if self.bitcoindIsRunning():
+         self.updateTopBlockInfo()
+         self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
+         # We return a copy so that the data is not changing as we use it
+
+      return self.lastTopBlockInfo.copy()
+
 
    #############################################################################
-   def approximateBlocksToSync(self):
+   def callJSON(self, func, *args):
+      state = self.getSDMState()
+      if not state in ('BitcoindReady', 'BitcoindSynchronizing'):
+         LOGERROR('Called callJSON(%s, %s)', func, str(args))
+         LOGERROR('Current SDM state: %s', state)
+         raise self.BitcoindError, 'callJSON while %s'%state
+
+      return self.proxy.__getattr__(func)(*args)
+   
+
+   #############################################################################
+   def returnSDMInfo(self):
+      sdminfo = {}
+      for key,val in self.bitconf.iteritems():
+         sdminfo['bitconf_%s'%key] = val
+
+      for key,val in self.lastTopBlockInfo.iteritems():
+         sdminfo['topblk_%s'%key] = val
+
+      sdminfo['executable'] = self.executable
+      sdminfo['isrunning']  = self.bitcoindIsRunning()
+      sdminfo['homedir']    = self.satoshiHome
+      sdminfo['proxyinit']  = (not self.proxy==None)
+      sdminfo['ismidquery'] = self.isMidQuery
+      sdminfo['querycount'] = len(self.last20queries)
+
+      return sdminfo
+
+   #############################################################################
+   def printSDMInfo(self):
+      print '\nCurrent SDM State:'
+      for key,value in self.returnSDMInfo().iteritems():
+         print '\t', str(key).ljust(20), ':', str(value)
+         
 
 
 ################################################################################
