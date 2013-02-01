@@ -49,6 +49,7 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
+parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -157,6 +158,12 @@ if not CLI_OPTIONS.datadir.lower()=='default':
       print 'Directory "%s" does not exist!  Using default!' % CLI_OPTIONS.datadir
    else:
       ARMORY_HOME_DIR = CLI_OPTIONS.datadir
+
+
+# Change the settings file to use
+BITCOIND_PATH = None
+if not CLI_OPTIONS.bitcoindPath.lower()=='default':
+   BITCOIND_PATH = CLI_OPTIONS.bitcoindPath
 
 # Change the settings file to use
 if CLI_OPTIONS.settingsPath.lower()=='default':
@@ -9960,15 +9967,19 @@ class FakeClientFactory(ReconnectingClientFactory):
 
 #############################################################################
 import socket
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_RPC_PORT, timeout=0.01):
-   s = socket.socket()
-   s.settimeout(timeout)   # Most of the time checking localhost -- FAST
-   try:
-      s.connect((host, port))
-      s.close()
-      return True
-   except:
-      return False
+def satoshiIsAvailable(host='127.0.0.1', port=None, timeout=0.01):
+
+   for port in [BITCOIN_PORT, BITCOIN_RPC_PORT]:
+      s = socket.socket()
+      s.settimeout(timeout)   # Most of the time checking localhost -- FAST
+      try:
+         s.connect((host, port))
+         s.close()
+         return port
+      except:
+         pass
+
+   return 0
 
 
 ################################################################################
@@ -9988,7 +9999,7 @@ class SatoshiDaemonManager(object):
    class ConfigFilePwdDNE(Exception): pass
 
    #############################################################################
-   def __init__(self, pathToBitcoindExe=None, satoshiHome=None):
+   def __init__(self, pathToBitcoindExe=BITCOIND_PATH, satoshiHome=BTC_HOME_DIR):
 
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind()
@@ -10003,9 +10014,6 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(pathToBitcoindExe):
          raise self.BitcoindError, 'Could not find bitcoind'
       self.executable = pathToBitcoindExe
-
-      if satoshiHome==None:
-         satoshiHome = BTC_HOME_DIR
 
       self.satoshiHome = satoshiHome
       self.bitconf = {}
@@ -10097,7 +10105,12 @@ class SatoshiDaemonManager(object):
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
-      self.bitcoind = Popen(cmdstr, shell=True)
+
+      import shlex
+      self.bitcoind = Popen(shlex.split(cmdstr))
+      print 'PID of process:',  self.bitcoind.pid
+      with open(os.path.join(ARMORY_HOME_DIR,'pid.txt'), 'w') as f:
+         f.write(str(self.bitcoind.pid))
 
    #############################################################################
    def stopBitcoind(self):
@@ -10139,6 +10152,10 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getSDMState(self):
       latestInfo = self.getTopBlockInfo()
+
+      if self.bitcoind==None and latestInfo['error']=='Uninitialized':
+         return 'BitcoindNeverStarted'
+   
       if not self.bitcoindIsRunning():
          # Not running at all:  either never started, or process terminated
          return 'BitcoindNotAvailable'
@@ -10187,7 +10204,6 @@ class SatoshiDaemonManager(object):
       self.isMidQuery = True
       tstart = RightNow()
       try:
-         TimerStart('QueryingTopBlock')
          numblks = self.proxy.getinfo()['blocks']
          blkhash = self.proxy.getblockhash(numblks) 
          toptime = self.proxy.getblock(blkhash)['time']
@@ -10225,8 +10241,7 @@ class SatoshiDaemonManager(object):
          raise
       finally:
          self.isMidQuery = False
-         TimerStop('QueryingTopBlock')
-         #print 'bkgdReqTopBlk took %0.3f seconds' % (RightNow() - tstart)
+
 
    #############################################################################
    def updateTopBlockInfo(self):
@@ -10292,6 +10307,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def printSDMInfo(self):
       print '\nCurrent SDM State:'
+      print '\t', 'SDM State Str'.ljust(20), ':', self.getSDMState()
       for key,value in self.returnSDMInfo().iteritems():
          print '\t', str(key).ljust(20), ':', str(value)
          
@@ -12151,11 +12167,11 @@ def TimerStart(timerName):
 
 def TimerStop(timerName):
    if not TimerMap.has_key(timerName):
-      LOGERROR('Requested stop timer that does not exist! (%s)' % timerName)
+      LOGWARN('Requested stop timer that does not exist! (%s)' % timerName)
       return
 
    if not TimerMap[timerName][3]:
-      LOGERROR('Requested stop timer that is not running! (%s)' % timerName)
+      LOGWARN('Requested stop timer that is not running! (%s)' % timerName)
       return
 
    timerEntry = TimerMap[timerName]
