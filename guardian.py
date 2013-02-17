@@ -1,6 +1,12 @@
 import sys
 import psutil
 import time
+import platform
+import os
+import signal
+
+opsys = platform.system()
+OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 
 try:
    pid_armory   = int(sys.argv[1])
@@ -10,16 +16,40 @@ except:
    exit(0)
 
 
-def check_pid(pid, name):
+def check_pid(pid, name=''):
    try:
       proc = psutil.Process(pid)
-      for arg in proc.cmdline:
-         if name.lower() in arg.lower():
-            return True
+      if name=='':
+         return True
+      else:
+         for arg in proc.cmdline:
+            if name.lower() in arg.lower():
+               return True
    except psutil.error.NoSuchProcess:
       pass
 
    return False
+
+
+def kill(pid):
+   if OS_WINDOWS:
+      #import ctypes
+      #k32 = ctypes.windll.kernel32
+      #handle = k32.OpenProcess(1,0,pid)
+      #return (0 != k32.TerminateProcess(handle,0))
+      os.kill(pid, signal.CTRL_C_EVENT)
+   else:
+      os.kill(pid, signal.SIGTERM)
+      for i in range(3):
+         if not check_pid(pid)
+            print 'Regular TERMINATE succeeded'
+            break
+         else:
+            print 'Regular TERMINATE failedi; try again in 1 sec...'
+            time.sleep(1)
+         print 'Killing process ...'
+         os.kill(pid, signal.SIGKILL)
+      
 
 
 # Verify the two PIDs are valid
@@ -35,4 +65,4 @@ while True:
    
 
 if check_pid(pid_bitcoind, 'bitcoind'):
-   psutil.kill(pid_bitcoind)
+   kill(pid_bitcoind)

@@ -295,9 +295,11 @@ def main():
       fullpath = os.path.join(theDir, basename)
 
       if options.testver:
+         # Only Windows pkgs uploaded for testing ver.  Linux can compile.
          if '.deb' in basename:
             continue
          else:
+            # Change "Version..." to "Testing version..."
             summ = 'Testing v' + summ[1:]
          
       summary = summ % verstr
