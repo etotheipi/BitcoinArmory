@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python2
 from os import path
 import sys
 from optparse import OptionParser

@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python2
 
 #
 #  IMPORTANT:  This script extracts *EVERY KEY & ADDR* out of your wallet.dat 
