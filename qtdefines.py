@@ -14,6 +14,7 @@ from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
+SATOSHIMODE     = enum('Auto', 'User')
 NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
 WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
@@ -885,5 +886,4 @@ def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
       except:
          return False
       
-
 

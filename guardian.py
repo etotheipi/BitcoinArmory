@@ -19,16 +19,13 @@ except:
 def check_pid(pid, name=''):
    try:
       proc = psutil.Process(pid)
+      procstr = ' '.join(proc.cmdline)
       if name=='':
-         return True
+         return procstr
       else:
-         for arg in proc.cmdline:
-            if name.lower() in arg.lower():
-               return True
+         return procstr if procstr==name else False
    except psutil.error.NoSuchProcess:
-      pass
-
-   return False
+      return False
 
 
 def kill(pid):
@@ -40,12 +37,13 @@ def kill(pid):
       os.kill(pid, signal.CTRL_C_EVENT)
    else:
       os.kill(pid, signal.SIGTERM)
+      time.sleep(3)
       for i in range(3):
-         if not check_pid(pid)
+         if not check_pid(pid):
             print 'Regular TERMINATE succeeded'
             break
          else:
-            print 'Regular TERMINATE failedi; try again in 1 sec...'
+            print 'Regular TERMINATE failed; try again in 1 sec...'
             time.sleep(1)
          print 'Killing process ...'
          os.kill(pid, signal.SIGKILL)
@@ -53,16 +51,35 @@ def kill(pid):
 
 
 # Verify the two PIDs are valid
-print 'ArmoryQt is running:', check_pid(pid_armory,   'armoryqt')
-print 'bitcoind is running:', check_pid(pid_bitcoind, 'bitcoind')
+proc_name_armory   = check_pid(pid_armory)
+proc_name_bitcoind = check_pid(pid_bitcoind)
+
+if proc_name_armory:
+   print 'ArmoryQt is running in pid=%d (%s)' % (pid_armory, proc_name_armory)
+else:
+   print 'ArmoryQt IS NOT RUNNING!'
+
+
+if proc_name_bitcoind:
+   print 'bitcoind is running in pid=%d (%s)' % (pid_bitcoind, proc_name_bitcoind)
+else:
+   print 'bitcoind IS NOT RUNNING!'
 
 
 while True:
    time.sleep(3)
-   if not check_pid(pid_armory, 'armoryqt'):
+
+   if not check_pid(pid_armory, proc_name_armory):
       print 'ArmoryQt died!'
       break
+
+   if not check_pid(pid_bitcoind, proc_name_bitcoind):
+      print 'bitcoind disappeared -- guardian exiting'
+      exit(0)
    
 
-if check_pid(pid_bitcoind, 'bitcoind'):
+if check_pid(pid_bitcoind, proc_name_bitcoind):
    kill(pid_bitcoind)
+
+
+

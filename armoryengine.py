@@ -308,7 +308,7 @@ if not USE_TESTNET:
    # TODO:  The testnet genesis tx hash can't be the same...?
    BITCOIN_PORT = 8333
    BITCOIN_RPC_PORT = 8332
-   RPC_PORT = 8225
+   ARMORY_RPC_PORT = 8225
    MAGIC_BYTES = '\xf9\xbe\xb4\xd9'
    GENESIS_BLOCK_HASH_HEX  = '6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000'
    GENESIS_BLOCK_HASH      = 'o\xe2\x8c\n\xb6\xf1\xb3r\xc1\xa6\xa2F\xaec\xf7O\x93\x1e\x83e\xe1Z\x08\x9ch\xd6\x19\x00\x00\x00\x00\x00'
@@ -320,7 +320,7 @@ if not USE_TESTNET:
 else:
    BITCOIN_PORT = 18333
    BITCOIN_RPC_PORT = 18332
-   RPC_PORT     = 18225
+   ARMORY_RPC_PORT     = 18225
    MAGIC_BYTES  = '\x0b\x11\x09\x07'
    GENESIS_BLOCK_HASH_HEX  = '43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000'
    GENESIS_BLOCK_HASH      = 'CI\x7f\xd7\xf8&\x95q\x08\xf4\xa3\x0f\xd9\xce\xc3\xae\xbay\x97 \x84\xe9\x0e\xad\x01\xea3\t\x00\x00\x00\x00'
@@ -339,9 +339,9 @@ if not CLI_OPTIONS.satoshiPort == 'DEFAULT':
 
 if not CLI_OPTIONS.rpcport == 'DEFAULT':
    try:
-      RPC_PORT = int(CLI_OPTIONS.rpcport)
+      ARMORY_RPC_PORT = int(CLI_OPTIONS.rpcport)
    except:
-      raise TypeError, 'Invalid port for Bitcoin-Qt, using ' + str(RPC_PORT)
+      raise TypeError, 'Invalid RPC port for armoryd ' + str(ARMORY_RPC_PORT)
 
 
 BLOCKCHAINS = {}
@@ -763,11 +763,6 @@ except:
    raise
 
 
-################################################################################
-# Might as well create the BDM right here -- there will only ever be one, anyway
-# NOTE: Moved this to the end, after the BDMThreadManager class, so that if the 
-#       option is selected, TheBDM can reference the asynchronous version.
-#TheBDM = Cpp.BlockDataManager().getBDM()
 
 
 
@@ -9984,7 +9979,7 @@ def satoshiIsAvailable(host='127.0.0.1', port=None, timeout=0.01):
 
 ################################################################################
 ################################################################################
-# jgarzik's jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
+# jgarzik'sjj jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
 from jsonrpc import ServiceProxy, authproxy
 class SatoshiDaemonManager(object):
    """
@@ -9998,13 +9993,30 @@ class SatoshiDaemonManager(object):
    class ConfigFileUserDNE(Exception): pass
    class ConfigFilePwdDNE(Exception): pass
 
-   #############################################################################
-   def __init__(self, pathToBitcoindExe=BITCOIND_PATH, satoshiHome=BTC_HOME_DIR):
 
+   #############################################################################
+   def __init__(self):
+      self.executable = None
+      self.satoshiHome = None
+      self.bitconf = {}
+      self.proxy = None
+      self.bitcoind = None  
+      self.isMidQuery = False
+      self.last20queries = []
+      self.blkspersec = -1;
+      self.lastTopBlockInfo = {}
+      self.disabled = True
+      self.failedFindExe  = True
+      self.failedFindHome = True
+
+
+
+   #############################################################################
+   def setupSDM(pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR):
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind()
          if len(pathToBitcoindExe)==0:
-            raise self.BitcoindError, 'Could not find bitcoind'
+            self.failedFindExe = True
          LOGINFO('Found bitcoind in the following places:')
          for p in pathToBitcoindExe:
             LOGINFO('\t%s', p)
@@ -10012,10 +10024,19 @@ class SatoshiDaemonManager(object):
          LOGINFO('Using: %s', pathToBitcoindExe)
 
       if not os.path.exists(pathToBitcoindExe):
-         raise self.BitcoindError, 'Could not find bitcoind'
+         self.failedFindExe = True
       self.executable = pathToBitcoindExe
 
+      if not os.path.exists(satoshiHome):
+         self.failedFindHome = True
+
+      if self.failedFindHome: raise self.BitcoindError, 'homedir not found'
+      if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
+
       self.satoshiHome = satoshiHome
+      self.disabled = False
+      self.failedFindHome = False
+      self.failedFindExe = False
       self.bitconf = {}
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object
@@ -10029,20 +10050,43 @@ class SatoshiDaemonManager(object):
                                  'error':      'Uninitialized',
                                  'blkspersec': -1     }
 
+   #############################################################################
+   def setDisabled(self, newBool=True):
+      s = self.getSDMState()
+
+      if newBool==True:
+         if s in ('BitcoindInitializing', 'BitcoindSynchronizing', 'BitcoindReady'):
+            self.stopBitcoind()
+
+      self.disabled = newBool
+            
+
       
    #############################################################################
    def findBitcoind(self):
       found = []
-      if OS_LINUX:
-         possDir = ['/usr/bin/', '/usr/lib/bitcoin/']
-         for p in possDir:
-            testPath = os.path.join(p, 'bitcoind')
-            if os.path.exists(testPath):
-               found.append(testPath)
+
       if OS_WINDOWS:
-         possBaseDir = [os.getenv('PROGRAMFILES'), \
-                        os.getenv('PROGRAMFILES(X86)')]
+         # First check desktop for links
+         possBaseDir = []
+         home      = os.path.expanduser('~')
+         desktop   = os.path.join(home, 'Desktop') 
+         dtopfiles = os.listdir(desktop)
+         for path in [os.path.join(desktop, fn) for fn in dtopfiles]:
+            if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
+               import win32com.client
+               shell = win32com.client.Dispatch('WScript.Shell')
+               targ = shell.CreateShortCut(lnkFile).Targetpath
+               possBaseDir.append( os.path.dirname(targ) )
+         
+         # Also look in default place in ProgramFiles dirs
+         possBaseDir.append(os.getenv('PROGRAMFILES'))
+         possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+
+         # Now look at a few subdirs of the 
          possDir = []
+         possDir.extend(possBaseDir)
+         possDir.extend([os.path.join(p, 'daemon') for p in possBaseDir])
          possDir.extend([os.path.join(p, 'Bitcoin') for p in possBaseDir])
          possDir.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
 
@@ -10050,9 +10094,36 @@ class SatoshiDaemonManager(object):
             testPath = os.path.join(p, 'bitcoind.exe')
             if os.path.exists(testPath):
                found.append(testPath)
+
+      else:
+         possDir = ['/usr/bin/', '/usr/lib/bitcoin/']
+         for p in possDir:
+            testPath = os.path.join(p, 'bitcoind')
+            if os.path.exists(testPath):
+               found.append(testPath)
                          
       return found
 
+   #############################################################################
+   def getGuardianPath(self):
+      if OS_WINDOWS:
+         import inspect
+         theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
+         # This should return a zip file because of py2exe
+         armoryInstall = os.path.dirname(theDir)
+         gpath = os.path.join(armoryInstall, 'guardian.exe')
+      else:
+         import inspect
+         theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
+         gpath = os.path.join(theDir, 'guardian.py')
+
+      if not os.path.exists(gpath):
+         LOGERROR('Could not find guardian script: %s', gpath)
+         raise FileExistsError
+      return gpath
+
+         
+                         
    
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
@@ -10067,7 +10138,7 @@ class SatoshiDaemonManager(object):
                raise BitcoinDotConfError, '***Cannot create bitcoin.conf!'
             else:
                LOGINFO('No bitcoin.conf available.  Creating it...')
-               randBase58 = SecureBinaryData().GenerateRandom(16).toBinStr()
+               randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
                randBase58 = binary_to_base58(randBase58)
                with open(bitconf, 'w') as f:
                   f.write('rpcuser=generated_by_armory\n')
@@ -10076,12 +10147,21 @@ class SatoshiDaemonManager(object):
                
             
       with open(bitconf,'r') as f:
-         allconf = [l[:(l.find('#') if l.find('#')>1 else len(l))].strip().split('=') for l in f.readlines()]
+         # Find the last character of the each line:  either a newline or '#'
+         endchr = lambda line: line.find('#') if line.find('#')>1 else len(line)
+
+         # Reduce each line to a list of key,value pairs separated with '='
+         allconf = [l[:endchr(l)].strip().split('=') for l in f.readlines()]
+
+         # Push all pairs (len==2) into a dictionary for lookup
          self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
          print self.bitconf
+
+         # Look for rpcport, use defulat if not there
          if not self.bitconf.has_key('rpcport'):
             self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
+         # We must have a username and password or else we bail
          if not self.bitconf.has_key('rpcuser'):
             raise self.ConfigFileUserDNE, 'bitcoin.conf does not have rpcuser'
          if not self.bitconf.has_key('rpcpassword'):
@@ -10093,11 +10173,17 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def startBitcoind(self):
+      if self.disabled:
+         LOGERROR('SDM was disabled, must be re-enabled before starting')
+         return
+
       LOGINFO('Called startBitcoind')
+      import shlex
+      from subprocess import Popen
+
       if self.bitcoindIsRunning():
          raise self.BitcoindError, 'Looks like we have already started bitcoind'
 
-      from subprocess import Popen
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
@@ -10106,11 +10192,24 @@ class SatoshiDaemonManager(object):
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
 
-      import shlex
+      # Startup bitcoind and get its process ID (along with our own)
       self.bitcoind = Popen(shlex.split(cmdstr))
-      print 'PID of process:',  self.bitcoind.pid
-      with open(os.path.join(ARMORY_HOME_DIR,'pid.txt'), 'w') as f:
-         f.write(str(self.bitcoind.pid))
+      self.btcdpid  = self.bitcoind.pid
+      self.selfpid  = os.getpid()
+
+      LOGINFO('PID of bitcoind: %d',  self.btcdpid)
+      LOGINFO('PID of armory:   %d',  self.selfpid)
+
+      # Startup guardian process -- it will watch Armory's PID
+      gpath = self.getGuardianPath()
+      LOGINFO('Guardian script: %s', gpath)
+      if OS_WINDOWS:
+         # In windows, we'll get a .exe file
+         cmdstr = "%s %d %d" % (gpath, self.selfpid, self.btcdpid)
+         Popen(shlex.split(cmdstr))
+      else:
+         cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
+         Popen(shlex.split(cmdstr))
 
    #############################################################################
    def stopBitcoind(self):
@@ -10151,6 +10250,16 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def getSDMState(self):
+
+      if self.disabled:
+         return 'BitcoindMgmtDisabled'
+
+      if self.failedFindExe:
+         return 'BitcoindExeMissing'
+
+      if self.failedFindHome:
+         return 'BitcoindHomeMissing'
+
       latestInfo = self.getTopBlockInfo()
 
       if self.bitcoind==None and latestInfo['error']=='Uninitialized':
@@ -10191,10 +10300,9 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
-         u,p,h,r = [self.bitconf[k] for k in ['rpcuser','rpcpassword','host', 'rpcport']]
-         pstr = 'http://%s:%s@%s:%d' % (u,p,h,r)
-         print pstr
-         LOGINFO('Creating proxy in SDM: host=%s, port=%s', h,r)
+         usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword','host', 'rpcport']]
+         pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
+         LOGINFO('Creating proxy in SDM: host=%s, port=%s', hst,prt)
          self.proxy = ServiceProxy(pstr)
 
 
@@ -12131,6 +12239,11 @@ if CLI_OPTIONS.offline:
    LOGINFO('blockchain without explicit command to do so.')
    TheBDM = BlockDataManagerThread(isOffline=True, blocking=False)
    TheBDM.start()
+
+   # Also create the might-be-needed SatoshiDaemonManager
+   TheSDM = SatoshiDaemonManager()
+   TheSDM.setDisabled(True)
+
 else:
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
    LOGINFO('Blockchain operations will happen in the background.  ')
@@ -12140,6 +12253,9 @@ else:
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.setDaemon(True)
    TheBDM.start()
+
+   # Also load the might-be-needed SatoshiDaemonManager
+   TheSDM = SatoshiDaemonManager()
 
 
 

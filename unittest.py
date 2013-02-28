@@ -2404,13 +2404,15 @@ if Test_SatoshiManager:
    # needs to update.
 
 
+   
+
+
    alreadyPort = satoshiIsAvailable()
    if alreadyPort>0:
       print 'Bitcoind is open already on port %d!  ' % alreadyPort
       print 'Please close it and try again.'
       exit(0)
 
-   sdm = SatoshiDaemonManager()
 
    if not os.path.exists('sdmtest'):
       os.mkdir('sdmtest')
@@ -2421,6 +2423,7 @@ if Test_SatoshiManager:
    print 'Creating SatoshiDaemonManager...'
    #sdm = SatoshiDaemonManager(pathToBitcoindExe='sdmtest/bitcoind', satoshiHome='sdmtest')
    sdm = SatoshiDaemonManager()
+   sdm.setupSDM()
 
    print 'Reading bitcoin.conf file... (should create it if DNE)'
    sdm.readBitcoinConf(makeIfDNE=True)
@@ -2432,12 +2435,12 @@ if Test_SatoshiManager:
       print 'Starting bitcoind...'
       sdm.startBitcoind()
    
-      for i in range(600):
+      for i in range(1000000):
          if i%30==0:
             sdm.printSDMInfo()
          state = sdm.getSDMState()
          print 'Current SDM state:', state,
-         time.sleep(1)
+         time.sleep(5)
    
          if state in ('BitcoindReady', 'BitcoindSynchronizing'):
             info = sdm.getTopBlockInfo()
@@ -2447,19 +2450,19 @@ if Test_SatoshiManager:
       
    
       print 'Done with 10 minutes of monitoring bitcoind.  Shutting down...'
-      #sdm.stopBitcoind()
+      sdm.stopBitcoind()
       t = 0
       while(sdm.bitcoindIsRunning()):
-         sleep(0.1)
+         time.sleep(0.1)
          t+=0.1
          print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t
    
       print 'Stopping again, just for fun'
-      #sdm.stopBitcoind()
+      sdm.stopBitcoind()
    finally:
       # Gotta shutdown bitcoind no matter what
       print 'Attempting to shutdown, no matter what!'
-      #sdm.stopBitcoind()
+      sdm.stopBitcoind()
 
 
 

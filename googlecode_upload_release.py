@@ -311,9 +311,13 @@ def main():
       if not options.dryrun: 
          # Disabled for testing, just in case I forget --dryrun
          status, reason, url = upload_find_auth( fullpath, 'bitcoinarmory', summary, lbls, 'etotheipi', password)
+         if url.startswith('http') and not url.startswith('https:'):
+            print 'Original URL:', url
+            url = 'https' + url[4:]
+            print 'New URL:     ', url
       else:
          print 'Dryun requested, no actual upload performed'
-         url = 'http://bitcoinarmory.googlecode.com/files/%s' % basename
+         url = 'https://bitcoinarmory.googlecode.com/files/%s' % basename
 
       urlSummList.append([url, summary])
       if not url:

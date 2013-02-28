@@ -75,6 +75,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lblLogoIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
       self.netMode     = NETWORKMODE.Offline
+      self.satMode     = self.getSettingOrSetDefault('SatoshiMode', SATOSHIMODE.Auto)
       self.abortLoad   = False
       self.memPoolInit = False
       self.dirtyLastTime = False
@@ -283,8 +284,6 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashDescr.setPalette(qpal)
       self.lblDashDescr.setOpenExternalLinks(True)
 
-      
-
       dashLayout = QVBoxLayout()
       dashLayout.addWidget(self.frmDashMode)
       dashLayout.addWidget(self.lblDashDescr)
@@ -423,7 +422,6 @@ class ArmoryMainWindow(QMainWindow):
       self.tabActivity.setLayout(ledgLayout)
 
       # Add the available tabs to the main tab widget
-      self.DASHMODES = enum('Loading','Offline','Online')
       self.MAINTABS  = enum('Dashboard','Transactions')
 
       self.mainDisplayTabs.addTab(self.tabDashboard, 'Dashboard')
@@ -1147,11 +1145,24 @@ class ArmoryMainWindow(QMainWindow):
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
 
+      if CLI_OPTIONS.forceOnline or self.internetAvail:
+         if self.getSettingOrSetDefault('ManageSatoshi', True):
 
-      if self.getSettingOrSetDefault('ManageSatoshi', True):
-         try:
-            self.sdm = SatoshiDaemonManager()
-         except:
+            # We skip the getSettingOrSetDefault call, because we don't want to set
+            # it if it doesn't exist
+            satexe  = BITCOIND_PATH
+            if self.settings.hasSetting('SatoshiExe'):
+               satexe  = self.settings.get('SatoshiExe')
+   
+            sathome = BTC_HOME_DIR
+            if self.settings.hasSetting('SatoshiHome'):
+               sathome = self.getSettingOrSetDefault('SatoshiHome', BTC_HOME_DIR)
+   
+            TheSDM.setDisabled(False)
+            try:
+               TheSDM.setupSDM(satexe, sathome)
+            except:
+               pass
             
 
       TimerStop('setupNetworking')
@@ -1528,6 +1539,8 @@ class ArmoryMainWindow(QMainWindow):
    
    ##############################################################################
    def getWltSetting(self, wltID, propName):
+      # Sometimes we need to settings specific to individual wallets -- we will
+      # prefix the settings name with the wltID.
       wltPropName = 'Wallet_%s_%s' % (wltID, propName)
       try:
          return self.settings.get(wltPropName)
@@ -2962,6 +2975,47 @@ class ArmoryMainWindow(QMainWindow):
       self.setDashboardDetails()
 
 
+   #############################################################################
+   def tryToGoOnline(self):
+      if TheBDM.getBDMState() == 'BlockchainReady':
+         return True
+
+      if not (self.internetAvail or CLI_OPTIONS.forceOnline):
+         return False
+
+      manageMode = self.getSettingOrSetDefault('SatoshiMode', SATOSHIMODE.Auto)
+
+      if manageMode == SATOSHIMODE.Auto:
+
+         # it if it doesn't exist
+         satexe  = BITCOIND_PATH
+         if self.settings.hasSetting('SatoshiExe'):
+            satexe  = self.settings.get('SatoshiExe')
+   
+         sathome = BTC_HOME_DIR
+         if self.settings.hasSetting('SatoshiHome'):
+            sathome = self.getSettingOrSetDefault('SatoshiHome', BTC_HOME_DIR)
+   
+         self.sdm = SatoshiDaemonManager()
+         try:
+            self.sdm.setupSDM(satexe, sathome)
+         except:
+            pass
+            
+
+            if not self.bitcoindIsAvailable():
+               if self.internetAvail:
+
+      elif manageMode == SATOSHIMODE.User:
+         if 
+         self.resetBdmBeforeScan()
+         TheBDM.setOnlineMode(True)
+         self.switchNetworkMode(NETWORKMODE.Full)
+         return True
+      else:  # manageMode == Offline
+         LOGERROR('tryToGoOnline failed because SatoshiMode is set to Offline')
+         return False
+      
    
    #############################################################################
    def resetBdmBeforeScan(self):
@@ -2975,10 +3029,37 @@ class ArmoryMainWindow(QMainWindow):
       for wid,wlt in self.walletMap.iteritems():
          TheBDM.registerWallet(wlt.cppWallet)
       TimerStop("resetBdmBeforeScan")
+
+
+
+   #############################################################################
+   def setDashboardLayout(self):
+      
+      self.btnModeSwitch = QPushButton('')
+      self.connect(self.btnModeSwitch, SIGNAL('clicked()'), self.pressModeSwitchButton)
+      self.lblDashMode = QRichLabel('',doWrap=False)
+      self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      self.frmDashModeSub = makeHorizFrame([self.lblDashMode, self.btnModeSwitch], STYLE_SUNKEN)
+      self.frmDashMode = makeHorizFrame(['Stretch', self.frmDashModeSub, self.lblBusy, 'Stretch'])
+      self.lblDashDescr = QTextBrowser()
+      self.lblDashDescr.setStyleSheet('padding: 5px')
+      self.lblDashDescr.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
+      qpal = self.lblDashDescr.palette()
+      qpal.setColor(QPalette.Base, Colors.Background)
+      self.lblDashDescr.setPalette(qpal)
+      self.lblDashDescr.setOpenExternalLinks(True)
+
+      dashLayout = QVBoxLayout()
+      dashLayout.addWidget(self.frmDashMode)
+      dashLayout.addWidget(self.lblDashDescr)
+      self.tabDashboard.setLayout(dashLayout)
          
 
    #############################################################################
    def setDashboardDetails(self):
+
+
+      if 
       TimerStart('setDashboardDetails')
       onlineAvail = self.onlineModeIsPossible()
       txtScanFunc = ( \

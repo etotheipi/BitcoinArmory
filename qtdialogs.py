@@ -10684,8 +10684,8 @@ class DlgVersionNotify(ArmoryDialog):
             '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
             'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
             'to get the most recent version. '
-            'All your wallets and settings will remain untouched when you '
-            'reinstall Armory.' % (self.myVersionStr, self.latestVerStr))
+            '<b>All your wallets and settings will remain untouched when you '
+            'reinstall Armory.</b>' % (self.myVersionStr, self.latestVerStr))
 
       lblDescr.setOpenExternalLinks(True)
 
@@ -10999,5 +10999,68 @@ class DlgQRCodeDisplay(ArmoryDialog):
       w1,h1 = relaxedSizeStr(lblUp, descrUp)
       w2,h2 = relaxedSizeStr(lblDn, descrDown)
       self.setMinimumWidth( 1.2*max(w1,w2) )
+
+
+
+
+
+
+################################################################################
+# STUB
+class ArmoryPref(object):
+   """
+   Create a class that will handle arbitrary preferences for Armory.  This 
+   means that I can just create maps/lists of preferences, and auto-include 
+   them in the preferences dialog, and know how to set/get them.  This will
+   be subclassed for each unique/custom preference type that is needed.
+   """
+   def __init__(self, prefName, dispStr, setType, defaultVal, validRange, descr, ttip, usermodes=None):
+      self.preference  = prefName
+      self.displayStr  = dispStr
+      self.preferType  = setType
+      self.defaultVal  = defaultVal
+      self.validRange  = validRange
+      self.description = descr
+      self.ttip        = ttip
+
+      # Some options may only be displayed for certain usermodes
+      self.users = usermodes
+      if usermodes==None:
+         self.users = set([USERMODE.Standard, USERMODE.Advanced, USERMODE.Expert])
+
+      if self.preferType == 'str':
+         self.entryObj = QLineEdit()      
+      elif self.preferType == 'num':
+         self.entryObj = QLineEdit()      
+      elif self.preferType == 'file':
+         self.entryObj = QLineEdit()      
+      elif self.preferType == 'bool':
+         self.entryObj = QCheckBox()      
+      elif self.preferType == 'combo':
+         self.entryObj = QComboBox()      
+
+
+   def setEntryVal(self):
+      pass
+
+   def readEntryVal(self):
+      pass
+
+
+   def setWidthChars(self, nChar):
+      self.entryObj.setMinimumWidth( relaxedSizeNChar(self.entryObj, nChar)[0] )
+
+   def render(self):
+      """
+      Return a map of qt objects to insert into the frame
+      """
+      toDraw = []
+      row = 0
+      if len(self.description) > 0:
+         toDraw.append( [QRichLabel(self.description), row, 0, 1, 4] )
+         row += 1
+      
+      
+      
 
 
