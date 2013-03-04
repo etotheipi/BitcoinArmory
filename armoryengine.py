@@ -355,6 +355,10 @@ NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
 
+SATOSHI_PUBLIC_KEY = ( '04'
+      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
+      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
+
 
 #########  INITIALIZE LOGGING UTILITIES  ##########
 #
@@ -9962,15 +9966,18 @@ class FakeClientFactory(ReconnectingClientFactory):
 
 #############################################################################
 import socket
-def satoshiIsAvailable(host='127.0.0.1', port=None, timeout=0.01):
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.001):
 
-   for port in [BITCOIN_PORT, BITCOIN_RPC_PORT]:
+   if not isinstance(port, (list,tuple)):
+      port = [port]
+
+   for p in port:
       s = socket.socket()
       s.settimeout(timeout)   # Most of the time checking localhost -- FAST
       try:
-         s.connect((host, port))
+         s.connect((host, p))
          s.close()
-         return port
+         return p
       except:
          pass
 

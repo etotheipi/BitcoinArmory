@@ -11005,8 +11005,11 @@ class DlgQRCodeDisplay(ArmoryDialog):
 
 
 
+
+
+
 ################################################################################
-# STUB
+# STUB STUB STUB STUB STUB
 class ArmoryPref(object):
    """
    Create a class that will handle arbitrary preferences for Armory.  This 
@@ -11063,4 +11066,38 @@ class ArmoryPref(object):
       
       
 
+################################################################################
+class DlgInstallLinux(ArmoryDialog):
+   def __init__(self, parent, main, linuxDistro, linuxVer):
+      super(DlgInstallUbuntu, self).__init__(parent, main)
+
+      self.distro  = linuxDistro
+      self.version = linuxVer
+
+      btnDone = QPushButton('Close')
+      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
+      frmBtn = makeHorizFrame(['Stretch', btnDone, 'Stretch'])
+
+      qrDisp = QRCodeWidget(dataToQR, parent=self)
+      frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
+
+      lblUp = QRichLabel(descrUp)
+      lblUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+      lblDn = QRichLabel(descrDown)
+      lblDn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
+
+
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblUp)
+      layout.addWidget(frmQR)
+      layout.addWidget(lblDn)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmBtn)
+
+      self.setLayout(layout)
+
+      w1,h1 = relaxedSizeStr(lblUp, descrUp)
+      w2,h2 = relaxedSizeStr(lblDn, descrDown)
+      self.setMinimumWidth( 1.2*max(w1,w2) )
 
