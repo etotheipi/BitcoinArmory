@@ -1076,6 +1076,28 @@ def addrStr_to_hash160(b58Str):
    return base58_to_binary(b58Str)[1:-4]
 
 
+###### Typing-friendly Base16 #####
+#  Implements "hexadecimal" encoding but using only easy-to-type
+#  characters in the alphabet.  Hex usually includes the digits 0-9
+#  which can be slow to type, even for good typists.  On the other
+#  hand, by changing the alphabet to common, easily distinguishable,
+#  lowercase characters, typing such strings will become dramatically
+#  faster.  Additionally, some default encodings of QRCodes do not
+#  preserve the capitalization of the letters, meaning that Base58
+#  is not a feasible options
+NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
+EASY16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
+hex_to_base16_map = {}
+base16_to_hex_map = {}
+for n,b in zip(NORMALCHARS,EASY16CHARS):
+   hex_to_base16_map[n] = b
+   base16_to_hex_map[b] = n
+
+def binary_to_easyType16(binstr):
+   return ''.join([hex_to_base16_map[c] for c in binary_to_hex(binstr)])
+
+def easyType16_to_binary(b16str):
+   return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
 
 
 
@@ -1436,6 +1458,18 @@ SECP256K1_GY    = 0x483ada7726a3c4655da4fbfc0e1108a8fd17b448a68554199c47d08ffb10
 
 
 class FiniteField(object):
+   """
+   Create a simple, prime-order FiniteField.  Because this is used only
+   to encode data of fixed width, I enforce prime-order by hardcoding 
+   primes, and you just pick the data width (in bytes).  If your desired
+   data width is not here,  simply find a prime number very close to 2^N,
+   and add it to the PRIMES map below.
+
+   This will be used for Shamir's Secret Sharing scheme.  Encode your 
+   data as the coeffient of finite-field polynomial, and store points
+   on that polynomial.  The order of the polynomial determines how
+   many points are needed to recover the original secret.
+   """
 
    # bytes: primeclosetomaxval
    PRIMES = {   1:  2**8-5,  # mainly for testing
@@ -1446,7 +1480,12 @@ class FiniteField(object):
                20:  2**160-543,
                24:  2**192-333,
                32:  2**256-357,
-               48:  2**384-317  }
+               48:  2**384-317,
+               64:  2**512-569,
+               96:  2**768-825,
+              128:  2**1024-105,
+              192:  2**1536-3453,
+              256:  2**2048-1157  }
 
    def __init__(self, nbytes):
       if not self.PRIMES.has_key(nbytes): 
