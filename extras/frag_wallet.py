@@ -77,7 +77,7 @@ if wlt.watchingOnly:
 
 
 # This function breaks strings/lines into pieces separated by s (usually space)
-sp = lambda x,n,s: s.join([x[i*n:i*n+n] for i in range((len(x)-1)/n+1)])
+sp = lambda x,n,s: s.join([x[i*n:(i+1)*n] for i in range((len(x)-1)/n+1)])
 
 root = wlt.addrMap['ROOT']
 binPriv  = root.binPrivKey32_Plain.toBinStr()
@@ -137,7 +137,7 @@ for f in range(N):
       fout.write('\n')
 
       eightpcs = ''.join(pieces[f])
-      eightpcs = [eightpcs[i*16:i*16+16] for i in range(8)]
+      eightpcs = [eightpcs[i*16:(i+1)*16] for i in range(8)]
       firstLine = int_to_hex(M) + binary_to_hex(wlt.uniqueIDBin)
       fout.write('ID: %s\n' % firstLine)
       print 'Fragment %d: ' % (f+1)
