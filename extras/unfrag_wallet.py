@@ -233,3 +233,6 @@ else:
 
 print 'Please wait while the address pool is being populated....'
 newWallet.fillAddressPool(doRegister=False)
+print ''
+print 'Successfully restored wallet!',  filename
+print ''
