@@ -9,6 +9,12 @@ if '--testnet' in argv:
    i = argv.index('--testnet')
    del argv[i]
 
+testRecon = False
+if '--test' in argv:
+   testRecon = True
+   i = argv.index('--test')
+   del argv[i]
+
 if len(argv)<2:
    print ''
    print 'USAGE: %s <file.wallet> <m> <n> ' % argv[0]
@@ -119,38 +125,42 @@ for i,fragMap in enumerate(frags):
 
 M = mList[0][1]
 testFrags = len(fragMtrx)>M
+wltID = wltIdList[0][1]
    
 
 sp = lambda x,n,s: s.join([x[i*n:i*n+n] for i in range((len(x)-1)/n+1)])
 recon = ReconstructSecret(fragMtrx, M, 64)
 
-print 'Recovered paper backup:\n'
+print 'Recovered paper backup: %s\n' % wltID
 pcs = [recon[i*16:(i+1)*16] for i in range(4)]
 for pc in pcs:
    print '   ', makeSixteenBytesEasy(pc)
 
-if len(argv[1:])>M:
+if not testRecon and len(argv[1:])>M:
    print ''
-   print 'You have supplied more pieces (%d) than needed (%d).' % (len(argv[1:]), M)
-   print 'Instead of recovering the wallet, would you like to test reconstructing '
-   print 'from various subsets of the fragments? [Y/n]',
+   print 'You have supplied more pieces (%d) than needed for reconstruction (%d).' % (len(argv[1:]), M)
+   print 'Are you trying to run the reconstruction test instead of actually '
+   print 'recovering the wallet?  If so, wallet recovery will be skipped.  [Y/n]',
    response = raw_input('')
    if not response.lower().startswith('n'):
-      import random
-      print ''
-      print 'Testing reconstruction on 10 subsets: '
-      dec = [(i,z[0],z[1]) for i,z in enumerate(fragMtrx)]
-      for test in range(10):
-         indices,xys = [0]*M, [[0,0] for i in range(M)]
-         random.shuffle(dec)
-         for j in range(M):
-            indices[j], xys[j][0], xys[j][1]= dec[j]
-         print (('   Using fragments (%s)' % ','.join(['%d']*M)) % tuple(sorted(indices))),
-         sec = ReconstructSecret(xys, M, 64)
-         print ' Reconstructed (first line of paper backup): %s' % makeSixteenBytesEasy(sec[:16])
-      exit(0)
-   else:
-      print 'Proceeding with wallet recovery...\n'
+      testRecon = True
+
+if testRecon:
+   import random
+   print ''
+   print 'Testing reconstruction on 20 subsets: '
+   dec = [(i,z[0],z[1]) for i,z in enumerate(fragMtrx)]
+   for test in range(20):
+      indices,xys = [0]*M, [[0,0] for i in range(M)]
+      random.shuffle(dec)
+      for j in range(M):
+         indices[j], xys[j][0], xys[j][1]= dec[j]
+      print (('   Using fragments (%s)' % ','.join(['%d']*M)) % tuple(sorted(indices))),
+      sec = ReconstructSecret(xys, M, 64)
+      print ' Reconstructed (first line of paper backup): %s' % makeSixteenBytesEasy(sec[:16])
+   exit(0)
+else:
+   print '\nProceeding with wallet recovery...'
 
 print ''
 doEncr = raw_input('Would you like to encrypt the recovered wallet? [Y/n]: ')
@@ -200,6 +210,8 @@ if doEncr.lower().startswith('y'):
    print 'Creating new wallet...'
    newWallet = PyBtcWallet().createNewWallet( \
                                      newWalletFilePath=filename, \
+                                     plainRootKey=recon[:32], \
+                                     chaincode=recon[32:], \
                                      withEncrypt=True, \
                                      securePassphrase=passwd, \
                                      kdfTargSec=kdfSec, \
@@ -212,6 +224,8 @@ if doEncr.lower().startswith('y'):
 else:
    newWallet = PyBtcWallet().createNewWallet( \
                                      newWalletFilePath=filename, \
+                                     plainRootKey=recon[:32], \
+                                     chaincode=recon[32:], \
                                      withEncrypt=False, \
                                      shortLabel=name, \
                                      longLabel=descr, \

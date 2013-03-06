@@ -14,7 +14,7 @@ try:
    from subprocess import Popen, PIPE
    proc = Popen('git rev-parse HEAD', shell=True, stdout=PIPE)
    commitHash = proc.stdout.read().strip()
-   print 'Found hash of current commit:', commitHash
+   print 'Found hash of current git commit:', commitHash
 except:
    commitHash = None
    
@@ -23,9 +23,9 @@ if '--testnet' in argv:
    i = argv.index('--testnet')
    del argv[i]
 
-if len(argv)<3:
+if len(argv)<2:
    print ''
-   print 'USAGE: %s <file.wallet> <m> <n> ' % argv[0]
+   print 'USAGE: %s file.wallet [M] [N] ' % argv[0]
    print ''
    print 'Will produce N files, of which any subset of M of them is '
    print 'sufficient to reproduce your wallet.'
@@ -92,14 +92,15 @@ sp = lambda x,n,s: s.join([x[i*n:(i+1)*n] for i in range((len(x)-1)/n+1)])
 root = wlt.addrMap['ROOT']
 binPriv  = root.binPrivKey32_Plain.toBinStr()
 binChain = root.chaincode.toBinStr()
-print 'Please confirm that the following paper backup information is correct:'
+print 'Here is the paper backup information for this wallet.'
 print ''
 print '   Root Key:  ', makeSixteenBytesEasy(binPriv[:16 ])
 print '              ', makeSixteenBytesEasy(binPriv[ 16:])
 print '   Chaincode: ', makeSixteenBytesEasy(binChain[:16 ])
 print '              ', makeSixteenBytesEasy(binChain[ 16:])
 print ''
-conf = raw_input('Is this correct? [Y/n]: ')
+print 'Will create %d-of-%d fragmentation of your paper backup.' % (M,N)
+conf = raw_input('Continue? [Y/n]: ')
 if conf.lower().startswith('n'):
    print 'Aborting...'
    exit(0)
@@ -139,11 +140,13 @@ for f in range(N):
       fout.write('Fragments Created:  %d (more fragments may have been created later)\n' % N)
       fout.write('\n\n')
 
+      
       fout.write('The following is a single fragment of your wallet.  Execute \n')
       fout.write('the reconstruction script with any %d of these fragment files \n' % M)
       fout.write('in the execution directory to recover your original wallet.\n')
-      fout.write('The files can be reconstructed by hand, and only need to contain\n')
-      fout.write('the following 9 lines with the correct prefixes.\n')
+      fout.write('Each file can be reconstructed by manually typing the data \n')
+      fout.write('into a text editor.  Only the following 9 lines (with prefixes)\n')
+      fout.write('are necessary in each file.  All other data can be omitted.\n')
       fout.write('\n')
 
       eightpcs = ''.join(pieces[f])
