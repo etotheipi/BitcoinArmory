@@ -27,8 +27,13 @@ import hashlib
 LITTLEENDIAN  = '<';
 BIGENDIAN     = '>';
 
+def sha256(bits):
+   return hashlib.new('sha256', bits).digest()
 def sha512(bits):
    return hashlib.new('sha512', bits).digest()
+def hash256(s):
+   """ Double-SHA256 """
+   return sha256(sha256(s))
 def HMAC(key, msg, hashfunc=sha512):
    """ This is intended to be simple, not fast.  For speed, use HDWalletCrypto() """
    key = (sha512(key) if len(key)>64 else key)
@@ -134,6 +139,69 @@ def binary_to_easyType16(binstr):
 
 def easyType16_to_binary(b16str):
    return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
+
+
+def makeSixteenBytesEasy(b16):
+   if not len(b16)==16:
+      raise ValueError, 'Must supply 16-byte input'
+   chk2 = computeChecksum(b16, nBytes=2)
+   et18 = binary_to_easyType16(b16 + chk2) 
+   return ' '.join([et18[i*4:(i+1)*4] for i in range(9)])
+
+def readSixteenEasyBytes(et18):
+   b18 = easyType16_to_binary(et18.strip().replace(' ',''))
+   b16 = b18[:16]
+   chk = b18[ 16:]
+   b16new = verifyChecksum(b16, chk)
+   if len(b16new)==0:
+      return ('','Error_2+')
+   elif not b16new==b16:
+      return (b16new,'Fixed_1')
+   else:
+      return (b16new,None)
+
+def computeChecksum(binaryStr, nBytes=4, hashFunc=hash256):
+   return hashFunc(binaryStr)[:nBytes]
+
+def verifyChecksum(binaryStr, chksum, hashFunc=hash256, fixIfNecessary=True, \
+                                                              beQuiet=False):
+   bin1 = str(binaryStr)
+   bin2 = binary_switchEndian(binaryStr)
+
+
+   if hashFunc(bin1).startswith(chksum):
+      return bin1
+   elif hashFunc(bin2).startswith(chksum):
+      if not beQuiet: LOGWARN( '***Checksum valid for input with reversed endianness')
+      if fixIfNecessary:
+         return bin2
+   elif fixIfNecessary:
+      if not beQuiet: LOGWARN('***Checksum error!  Attempting to fix...'),
+      fixStr = fixChecksumError(bin1, chksum, hashFunc)
+      if len(fixStr)>0:
+         if not beQuiet: LOGWARN('fixed!')
+         return fixStr
+      else:
+         # ONE LAST CHECK SPECIFIC TO MY SERIALIZATION SCHEME:
+         # If the string was originally all zeros, chksum is hash256('')
+         # ...which is a known value, and frequently used in my files
+         if chksum==hex_to_binary('5df6e0e2'):
+            if not beQuiet: LOGWARN('fixed!')
+            return ''
+
+   # ID a checksum byte error...
+   origHash = hashFunc(bin1)
+   for i in range(len(chksum)):
+      chkArray = [chksum[j] for j in range(len(chksum))]
+      for ch in range(256):
+         chkArray[i] = chr(ch)
+         if origHash.startswith(''.join(chkArray)):
+            LOGWARN('***Checksum error!  Incorrect byte in checksum!')
+            return bin1
+
+   LOGWARN('Checksum fix failed')
+   return ''
+
 
 
 # START FINITE FIELD OPERATIONS
@@ -367,6 +435,7 @@ if __name__=="__main__":
    pcs = SplitSecret(secbin, need, 10);  # Create 10 pieces, any 4 needed (4-of-10)
 
    print 'Original Secret: %s' % secret
+   print 'Fragmenting into 4-of-10 pieces'
    print 'Printing fragments:'
    for i,xy in enumerate(pcs):
       x,y = [binary_to_hex(z) for z in xy]
