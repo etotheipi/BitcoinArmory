@@ -38,17 +38,21 @@ try:
    N = int(N)
 except:
    print 'ERROR: Must specify integers for M and N'
+   exit(0)
 
 if M>N:
    print 'ERROR: You must specify and M that is equal to or less than N'
    print '       You specified (M,N)=(%d,%d)' % (M,N)
+   exit(0)
 
 if not 1<M<=8:
    print 'ERROR: You must select an M value between 2 and 8.'
    print '       Any value of N, greater than M, is valid.'
+   exit(0)
 
 if not os.path.exists(wltfile):
    print 'Wallet file was not found: %s' % wltfile
+   exit(0)
 
 # Read the wallet file
 wlt  = PyBtcWallet().readWalletFile(wltfile)
