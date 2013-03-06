@@ -221,9 +221,8 @@ def findLatestBlkFiles(baseDir):
          i += 1
 
    latestMod = max(lastModTimeNew4, lastModTimeNew5, lastModTimeOld4, lastModTimeOld5)
-   if latestMod==0:
-      print '\n*****ERROR:  No blkXXXXX.dat files found!\n'
-      
+   #if latestMod==0:
+      #print '\n*****ERROR:  No blkXXXXX.dat files found!\n'
 
    output = [newDir, 5, 0]
    if(lastModTimeNew4 == latestMod):
@@ -1100,6 +1099,24 @@ def easyType16_to_binary(b16str):
    return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
 
 
+def makeSixteenBytesEasy(b16):
+   if not len(b16)==16:
+      raise ValueError, 'Must supply 16-byte input'
+   chk2 = computeChecksum(b16, nBytes=2)
+   et18 = binary_to_easyType16(b16 + chk2) 
+   return ' '.join([et18[i*4:(i+1)*4] for i in range(9)])
+
+def readSixteenEasyBytes(et18):
+   b18 = easyType16_to_binary(et18.strip().replace(' ',''))
+   b16 = b18[:16]
+   chk = b18[ 16:]
+   b16new = verifyChecksum(b16, chk)
+   if len(b16new)==0:
+      return ('','Error_2+')
+   elif not b16new==b16:
+      return (b16new,'Fixed_1')
+   else:
+      return (b16new,None)
 
 ##### FLOAT/BTC #####
 # https://en.bitcoin.it/wiki/Proper_Money_Handling_(JSON-RPC)

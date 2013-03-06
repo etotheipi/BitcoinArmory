@@ -4,6 +4,12 @@ path.append('..')
 from armoryengine import *
 import getpass
 
+print ''
+print '*'*80
+print '* Executing wallet-fragmenting script.  Split your Armory wallet '
+print '* into N pieces, requiring any M to recover the wallet.'
+print '*'*80
+print ''
 try:
    from subprocess import Popen, PIPE
    proc = Popen('git rev-parse HEAD', shell=True, stdout=PIPE)
@@ -12,6 +18,10 @@ try:
 except:
    commitHash = None
    
+
+if '--testnet' in argv:
+   i = argv.index('--testnet')
+   del argv[i]
 
 if len(argv)<3:
    print ''
@@ -83,12 +93,11 @@ root = wlt.addrMap['ROOT']
 binPriv  = root.binPrivKey32_Plain.toBinStr()
 binChain = root.chaincode.toBinStr()
 print 'Please confirm that the following paper backup information is correct:'
-print '(note, the right-most 4 characters on each line has been removed)'
 print ''
-print '   Root Key:  ', sp(binary_to_easyType16(binPriv[:16 ]), 4, ' ')
-print '              ', sp(binary_to_easyType16(binPriv[ 16:]), 4, ' ')
-print '   Chaincode: ', sp(binary_to_easyType16(binChain[:16 ]), 4, ' ')
-print '              ', sp(binary_to_easyType16(binChain[ 16:]), 4, ' ')
+print '   Root Key:  ', makeSixteenBytesEasy(binPriv[:16 ])
+print '              ', makeSixteenBytesEasy(binPriv[ 16:])
+print '   Chaincode: ', makeSixteenBytesEasy(binChain[:16 ])
+print '              ', makeSixteenBytesEasy(binChain[ 16:])
 print ''
 conf = raw_input('Is this correct? [Y/n]: ')
 if conf.lower().startswith('n'):
@@ -117,7 +126,8 @@ pieces = SplitSecret(dataOut, M, N)
 for f in range(N):
    wltID = wlt.uniqueIDB58
    dateStr = unixTimeToFormatStr(RightNow())
-   with open('wallet_%s_frag%d_need_%d.txt' % (wltID, f+1, M), 'w') as fout:
+   fname = 'wallet_%s_frag%d_need_%d.txt' % (wltID, f+1, M)
+   with open(fname, 'w') as fout:
       fout.write('Wallet ID:   %s\n' % wltID)
       fout.write('Create Date: %s\n' % dateStr)
       if commitHash:
@@ -138,15 +148,13 @@ for f in range(N):
 
       eightpcs = ''.join(pieces[f])
       eightpcs = [eightpcs[i*16:(i+1)*16] for i in range(8)]
-      firstLine = int_to_hex(M) + binary_to_hex(wlt.uniqueIDBin)
-      fout.write('ID: %s\n' % firstLine)
-      print 'Fragment %d: ' % (f+1)
-      print '    ID:', firstLine
+      firstLine = int_to_hex(M) + int_to_hex(f+1) + binary_to_hex(wlt.uniqueIDBin)
+      fout.write('ID: %s\n' % sp(firstLine,4,' '))
+      print 'Fragment %d: %s' % (f+1, fname)
+      print '    ID:', sp(firstLine, 4, ' ')
       for i in range(8):
-         chk2 = computeChecksum(eightpcs[i], nBytes=2)
-         disp = binary_to_easyType16(eightpcs[i]+chk2)
          prefix = ('x' if i<4 else 'y') + str(i+1 if i<4 else i-3)
-         toWrite = '%s: %s' % (prefix, sp(disp,4,' '))
+         toWrite = '%s: %s' % (prefix, makeSixteenBytesEasy(eightpcs[i]))
          fout.write(toWrite + '\n')
          print '   ', toWrite
       print ''
