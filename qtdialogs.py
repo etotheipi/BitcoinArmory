@@ -3903,28 +3903,6 @@ PAPER_A4_WIDTH  =  8.5*PAPER_DPI
 PAPER_A4_HEIGHT = 11.0*PAPER_DPI
 
 
-###### Typing-friendly Base16 #####
-#  Implements "hexadecimal" encoding but using only easy-to-type
-#  characters in the alphabet.  Hex usually includes the digits 0-9
-#  which can be slow to type, even for good typists.  On the other
-#  hand, by changing the alphabet to common, easily distinguishable,
-#  lowercase characters, typing such strings will become dramatically
-#  faster.  Additionally, some default encodings of QRCodes do not
-#  preserve the capitalization of the letters, meaning that Base58
-#  is not a feasible options
-NORMALCHARS  = '0123 4567 89ab cdef'.replace(' ','')
-EASY16CHARS  = 'asdf ghjk wert uion'.replace(' ','')
-hex_to_base16_map = {}
-base16_to_hex_map = {}
-for n,b in zip(NORMALCHARS,EASY16CHARS):
-   hex_to_base16_map[n] = b
-   base16_to_hex_map[b] = n
-
-def binary_to_easyType16(binstr):
-   return ''.join([hex_to_base16_map[c] for c in binary_to_hex(binstr)])
-
-def easyType16_to_binary(b16str):
-   return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
 
 
 
@@ -7256,7 +7234,7 @@ class DlgDispTxInfo(ArmoryDialog):
                      triplet = data[FIELDS.OutList][0]
                      rvPairDisp.append([triplet[2], triplet[1]])
                   else:
-                     txAmt, changeIndex = self.main.determineSentToSelfAmt(le, wlt)
+                     txAmt, changeIndex = determineSentToSelfAmt(le, wlt)
                      for i,triplet in enumerate(data[FIELDS.OutList]):
                         if not i==changeIndex:
                            rvPairDisp.append([triplet[2], triplet[1]])
@@ -9619,7 +9597,7 @@ class DlgHelpAbout(ArmoryDialog):
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
       lblWebpage = QRichLabel('<a href="http://www.bitcoinarmory.com">http://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
-      lblCopyright = QRichLabel('Copyright \xa9 2011-2012 Alan C. Reiner')
+      lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Alan C. Reiner')
       lblLicense = QRichLabel('Licensed under the '
                               '<a href="http://www.gnu.org/licenses/agpl-3.0.html">'
                               'Affero General Public License, Version 3</a> (AGPLv3)')
@@ -10217,7 +10195,7 @@ class DlgExportTxHistory(ArmoryDialog):
             vals.append( self.main.walletMap[row[COL.WltID]].labelName.replace(',',';'))
 
             wltEffect = row[COL.Amount]
-            txFee = self.main.getFeeForTx(hex_to_binary(row[COL.TxHash]))
+            txFee = getFeeForTx(hex_to_binary(row[COL.TxHash]))
             if float(wltEffect) > 0:
                vals.append( wltEffect.strip() )
                vals.append( ' ' )

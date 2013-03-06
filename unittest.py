@@ -13,7 +13,7 @@ LE = LITTLEENDIAN
 BE = BIGENDIAN
 
 
-Test_BasicUtils       = True
+Test_BasicUtils       = False
 Test_PyBlockUtils     = False
 Test_CppBlockUtils    = False
 Test_SimpleAddress    = False
@@ -24,6 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
+Test_FiniteField      = True
 Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
@@ -212,7 +213,7 @@ if Test_BasicUtils:
    print ''
    print 'Testing str2coin method'
    def printS2C(s):
-      print ('"'+s+'"').ljust(18) , str2coin(s)
+      print ('"'+s+'"').ljust(18) , str2coin(s, roundHighPrec=True)
           
    printS2C('0.00000000')
    printS2C('0.0000')
@@ -229,6 +230,14 @@ if Test_BasicUtils:
    printS2C('-1.')
    printS2C('10000000')
    printS2C('100000.00000001')
+   printS2C('0.00000001')
+   printS2C('0.000000014')
+   printS2C('0.000000015')
+   printS2C('0.000000019')
+   printS2C('0.000000019')
+   printS2C('0.9999')
+   printS2C('0.99999999')
+   printS2C('0.999999999')
 
 
 # Unserialize an reserialize
@@ -2261,6 +2270,79 @@ if Test_Timers:
    SaveTimingsCSV('testtimings.csv')
    print ''
 
+
+if Test_FiniteField:
+   print '***********************************************************************'
+   print 'Testing Finite Field'
+   print '***********************************************************************'
+   from random import uniform
+
+   print '\nTesting finite-field matrix operations'
+   ff = FiniteField(8)
+   m = [[-3,2,-5],[-1,0,-2],[3,-4,1]]
+   v = [1,5,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
+
+
+   ff = FiniteField(8)
+   m = [[1,-3,2,-5],[-1,1,0,-2],[3,-4,1,1],[3,6,-2,-2]]
+   v = [1,5,3,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
+
+
+
+   from random import shuffle
+
+   def testSecret(secretHex, M, N, nbytes=1):
+      
+      secret = hex_to_binary(secretHex)
+      print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
+      tstart = RightNow() 
+      out = SplitSecret(secret, M, N)
+      tsplit = RightNow() - tstart
+
+      print 'Fragments:'
+      for i in range(len(out)):
+         x = binary_to_hex(out[i][0])
+         y = binary_to_hex(out[i][1])
+         print '   Fragment %d: [%s, %s]' % (i+1,x,y)
+
+      trecon = 0
+      print 'Reconstructing secret from various subsets of fragments...'
+      for i in range(10):
+         shuffle(out)
+         tstart = RightNow()
+         reconstruct = ReconstructSecret(out, M, nbytes)
+         trecon += RightNow() - tstart
+         
+         print '   The reconstructed secret is:', binary_to_hex(reconstruct)
+
+      print 'Splitting secret took: %0.5f sec' % tsplit
+      print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
+
+
+   testSecret('9f', 2,3)
+   testSecret('9f', 3,5)
+   testSecret('9f', 4,7)
+   testSecret('9f', 5,9)
+   testSecret('9f', 6,7)
+
+   testSecret('9f'*16, 3,5, 16)
+   testSecret('9f'*16, 7,10, 16)
 
 
    

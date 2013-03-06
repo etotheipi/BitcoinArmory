@@ -1805,51 +1805,6 @@ class ArmoryMainWindow(QMainWindow):
          TimerStop('createCombinedLedger')
 
 
-   #############################################################################
-   def getFeeForTx(self, txHash):
-      if TheBDM.isInitialized():
-         txref = TheBDM.getTxByHash(txHash)
-         if not txref.isInitialized():
-            LOGERROR('Why no txref?  %s', binary_to_hex(txHash))
-            return 0
-         valIn, valOut = 0,0
-         for i in range(txref.getNumTxIn()):
-            valIn += TheBDM.getSentValue(txref.getTxIn(i))
-         for i in range(txref.getNumTxOut()):
-            valOut += txref.getTxOut(i).getValue()
-         return valIn - valOut
-      
-
-   #############################################################################
-   def determineSentToSelfAmt(self, le, wlt):
-      """
-      NOTE:  this method works ONLY because we always generate a new address
-             whenever creating a change-output, which means it must have a
-             higher chainIndex than all other addresses.  If you did something 
-             creative with this tx, this may not actually work.
-      """
-      amt = 0
-      if TheBDM.isInitialized() and le.isSentToSelf():
-         txref = TheBDM.getTxByHash(le.getTxHash())
-         if not txref.isInitialized():
-            return (0, 0)
-         if txref.getNumTxOut()==1:
-            return (txref.getTxOut(0).getValue(), -1)
-         maxChainIndex = -5
-         txOutChangeVal = 0
-         txOutIndex = -1
-         valSum = 0
-         for i in range(txref.getNumTxOut()):
-            valSum += txref.getTxOut(i).getValue()
-            addr160 = txref.getTxOut(i).getRecipientAddr()
-            addr    = wlt.getAddrByHash160(addr160)
-            if addr and addr.chainIndex > maxChainIndex:
-               maxChainIndex = addr.chainIndex
-               txOutChangeVal = txref.getTxOut(i).getValue()
-               txOutIndex = i
-                  
-         amt = valSum - txOutChangeVal
-      return (amt, txOutIndex)
       
 
    #############################################################################
@@ -1880,7 +1835,7 @@ class ArmoryMainWindow(QMainWindow):
          # for change , which means the change address MUST have a higher 
          # chain index
          if le.isSentToSelf():
-            amt = self.determineSentToSelfAmt(le, wlt)[0]
+            amt = determineSentToSelfAmt(le, wlt)[0]
             
 
          if le.getBlockNum() >= 0xffffffff: nConf = 0
@@ -2017,13 +1972,22 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getAddrCommentIfAvail(self, txHash):
+   def getAddrCommentIfAvailAll(self, txHash):
       TimerStart('getAddrCommentIfAvail')
       if not TheBDM.isInitialized():
          TimerStop('getAddrCommentIfAvail')
          return ''
       else:
          
+         appendedComments = []
+         for wltID,wlt in self.walletMap.iteritems():
+            cmt = wlt.getAddrCommentIfAvail(txHash)
+            if len(cmt)>0:
+               appendedComments.append(cmt)
+   
+         return '; '.join(appendedComments)
+
+         """
          # If we haven't extracted relevant addresses for this tx, yet -- do it
          if not self.txAddrMap.has_key(txHash):
             self.txAddrMap[txHash] = []
@@ -2045,13 +2009,16 @@ class ArmoryMainWindow(QMainWindow):
 
          TimerStop('getAddrCommentIfAvail')
          return '; '.join(addrComments)
+         """
 
                   
    #############################################################################
    def getCommentForLE(self, wltID, le):
       # Smart comments for LedgerEntry objects:  get any direct comments ... 
       # if none, then grab the one for any associated addresses.
-      wlt = self.walletMap[wltID]
+       
+      return self.walletMap[wltID].getCommentForLE(le)
+      """
       txHash = le.getTxHash()
       if wlt.commentsMap.has_key(txHash):
          comment = wlt.commentsMap[txHash]
@@ -2062,6 +2029,7 @@ class ArmoryMainWindow(QMainWindow):
             comment = ''
 
       return comment
+      """
 
 
 
@@ -2957,7 +2925,7 @@ class ArmoryMainWindow(QMainWindow):
       reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', \
          'The log file contains information that may be considered sensitive '
          'by some users.  Log files should be protected the same '
-         'way you would protect a watcing-only wallet, though it '
+         'way you would protect a watching-only wallet, though it '
          'usually contains much less information than that. '
          '<br><br>'
          '<b>No private key data is ever written to the log file</b>. '
@@ -3504,7 +3472,7 @@ class ArmoryMainWindow(QMainWindow):
          
          self.notifyQueue[i][2] = True
          if le.isSentToSelf():
-            amt = self.determineSentToSelfAmt(le, wlt)[0]
+            amt = determineSentToSelfAmt(le, wlt)[0]
             self.sysTray.showMessage('Your bitcoins just did a lap!', \
                'Wallet "%s" (%s) just sent %s BTC to itself!' % \
                (wlt.labelName, wltID, coin2str(amt,maxZeros=1).strip()),
