@@ -11068,36 +11068,25 @@ class ArmoryPref(object):
 
 ################################################################################
 class DlgInstallLinux(ArmoryDialog):
-   def __init__(self, parent, main, linuxDistro, linuxVer):
+   def __init__(self, parent, main):
       super(DlgInstallUbuntu, self).__init__(parent, main)
 
-      self.distro  = linuxDistro
-      self.version = linuxVer
 
-      btnDone = QPushButton('Close')
-      self.connect(btnDone, SIGNAL('clicked()'), self.accept)
-      frmBtn = makeHorizFrame(['Stretch', btnDone, 'Stretch'])
+      import platform
+      self.distro, self.dver, self.dname = platform.linux_distribution()
 
-      qrDisp = QRCodeWidget(dataToQR, parent=self)
-      frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
-
-      lblUp = QRichLabel(descrUp)
-      lblUp.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-      lblDn = QRichLabel(descrDown)
-      lblDn.setAlignment(Qt.AlignVCenter | Qt.AlignHCenter)
-
+      lblDescr1 = QRichLabel('<b>Installing Bitcoin-Qt/bitcoind in %s %s</b>')
+      lblDescr1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      lblDescr2 = QRichLabel( \
+            'In order to run Armory in online-mode, it must have access to '
+            'the Bitcoin software available at <a href="http://bitcoin.org"> '
+            'bitcoin.org</a>.  Automated installation is available only for '
+            'Ubuntu and Debian-based distributions.  For others, please visit '
+            'the bitcoin.org website a')
+      lblDescr.setOpenExternalLinks(True)
 
 
-      layout = QVBoxLayout()
-      layout.addWidget(lblUp)
-      layout.addWidget(frmQR)
-      layout.addWidget(lblDn)
-      layout.addWidget(HLINE())
-      layout.addWidget(frmBtn)
 
-      self.setLayout(layout)
-
-      w1,h1 = relaxedSizeStr(lblUp, descrUp)
-      w2,h2 = relaxedSizeStr(lblDn, descrDown)
-      self.setMinimumWidth( 1.2*max(w1,w2) )
+   def loadGpgKeyring(self):
+      pubDir = os.GetExecDir
 

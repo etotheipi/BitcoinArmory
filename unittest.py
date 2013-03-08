@@ -2452,7 +2452,7 @@ if Test_SatoshiManager:
       print 'Done with 10 minutes of monitoring bitcoind.  Shutting down...'
       sdm.stopBitcoind()
       t = 0
-      while(sdm.bitcoindIsRunning()):
+      while(sdm.isRunningBitcoind()):
          time.sleep(0.1)
          t+=0.1
          print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t

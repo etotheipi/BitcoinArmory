@@ -37,6 +37,7 @@ import logging.handlers
 import ast
 import traceback
 import threading
+import inspect
 from struct import pack, unpack
 from datetime import datetime
 
@@ -577,6 +578,7 @@ def logexcept_override(type, value, tback):
 sys.excepthook = logexcept_override
 
 
+
 LOGINFO('')
 LOGINFO('')
 LOGINFO('')
@@ -602,6 +604,16 @@ for val in CLI_ARGS:
 LOGINFO('************************************************************')
 
 
+def GetExecDir():
+   """
+   Return the path from where armoryengine was imported.  Inspect method
+   expects a function or module name, it can actually inspect its own
+   name...
+   """
+   srcfile = inspect.getsourcefile(GetExecDir)
+   srcpath = os.path.dirname(srcfile)
+   srcpath = os.path.abspath(srcpath)
+   return srcpath
 
 
 
@@ -10114,13 +10126,11 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getGuardianPath(self):
       if OS_WINDOWS:
-         import inspect
          theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
          # This should return a zip file because of py2exe
          armoryInstall = os.path.dirname(theDir)
          gpath = os.path.join(armoryInstall, 'guardian.exe')
       else:
-         import inspect
          theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
          gpath = os.path.join(theDir, 'guardian.py')
 
@@ -10188,7 +10198,7 @@ class SatoshiDaemonManager(object):
       import shlex
       from subprocess import Popen
 
-      if self.bitcoindIsRunning():
+      if self.isRunningBitcoind():
          raise self.BitcoindError, 'Looks like we have already started bitcoind'
 
       if not os.path.exists(self.executable):
@@ -10221,7 +10231,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def stopBitcoind(self):
       LOGINFO('Called stopBitcoind')
-      if not self.bitcoindIsRunning():
+      if not self.isRunningBitcoind():
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
@@ -10230,7 +10240,7 @@ class SatoshiDaemonManager(object):
       
 
    #############################################################################
-   def bitcoindIsRunning(self):
+   def isRunningBitcoind(self):
       """ 
       armoryengine satoshiIsAvailable() only tells us whether there's a 
       running bitcoind that is actively responding on its port.  But it 
@@ -10272,7 +10282,7 @@ class SatoshiDaemonManager(object):
       if self.bitcoind==None and latestInfo['error']=='Uninitialized':
          return 'BitcoindNeverStarted'
    
-      if not self.bitcoindIsRunning():
+      if not self.isRunningBitcoind():
          # Not running at all:  either never started, or process terminated
          return 'BitcoindNotAvailable'
       elif not satoshiIsAvailable(self.bitconf['host'], self.bitconf['rpcport']):
@@ -10369,7 +10379,7 @@ class SatoshiDaemonManager(object):
       just return the last value, which may be "stale" but we don't really 
       care for this particular use-case
       """
-      if not self.bitcoindIsRunning():
+      if not self.isRunningBitcoind():
          return   
 
       if self.isMidQuery:
@@ -10382,7 +10392,7 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def getTopBlockInfo(self):
-      if self.bitcoindIsRunning():
+      if self.isRunningBitcoind():
          self.updateTopBlockInfo()
          self.queryThread.join(0.001)  # In most cases, result should come in 1 ms
          # We return a copy so that the data is not changing as we use it
@@ -10411,7 +10421,7 @@ class SatoshiDaemonManager(object):
          sdminfo['topblk_%s'%key] = val
 
       sdminfo['executable'] = self.executable
-      sdminfo['isrunning']  = self.bitcoindIsRunning()
+      sdminfo['isrunning']  = self.isRunningBitcoind()
       sdminfo['homedir']    = self.satoshiHome
       sdminfo['proxyinit']  = (not self.proxy==None)
       sdminfo['ismidquery'] = self.isMidQuery
