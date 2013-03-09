@@ -5383,7 +5383,7 @@ class DlgSendBitcoins(ArmoryDialog):
    #############################################################################
    def getUsableTxOutList(self):
       if self.altBalance==None:
-         return self.wlt.getTxOutList('Spendable')
+         return list(self.wlt.getTxOutList('Spendable'))
       else:
          utxoList = []
          for a160 in self.sourceAddrList:
