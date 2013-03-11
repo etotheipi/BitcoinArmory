@@ -305,6 +305,11 @@ class QLabelButton(QLabel):
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
+   """
+   The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
+   text even if no HTML tags are used.  This appears to be necessary for Qt 
+   to wrap the tooltip text
+   """
    fgColor = htmlColor('ToolTipQ')
    lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
    lbl.setToolTip('<u></u>' + tiptext)

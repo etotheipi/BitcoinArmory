@@ -262,30 +262,9 @@ class ArmoryMainWindow(QMainWindow):
       # Put the labels into scroll areas just in case window size is small.
       self.tabDashboard = QWidget()
 
-
-      self.lblBusy = QLabel('')
-      if OS_WINDOWS:
-         # Unfortunately, QMovie objects don't work in Windows with py2exe
-         # had to create my own little "Busy" icon and hook it up to the 
-         # heartbeat
-         self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
-         self.numHeartBeat = 0
-         def loadBarUpdate():
-            if TheBDM.getBDMState()=='Scanning':
-               self.numHeartBeat += 1
-               self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % (self.numHeartBeat%6)))
-         self.extraHeartbeatAlways.append(loadBarUpdate)
-      else:
-         self.qmov = QMovie(':/busy.gif')
-         self.lblBusy.setMovie( self.qmov )
-         self.qmov.start()
-
       
 
-
       self.SetupDashboard()
-
-
       
 
 
@@ -3059,13 +3038,40 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def SetupDashboard(self):
-      
+
+      self.lblBusy = QLabel('')
+      if OS_WINDOWS:
+         # Unfortunately, QMovie objects don't work in Windows with py2exe
+         # had to create my own little "Busy" icon and hook it up to the 
+         # heartbeat
+         self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
+         self.numHeartBeat = 0
+         def loadBarUpdate():
+            if TheBDM.getBDMState()=='Scanning':
+               self.numHeartBeat += 1
+               self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % (self.numHeartBeat%6)))
+         self.extraHeartbeatAlways.append(loadBarUpdate)
+      else:
+         self.qmov = QMovie(':/busy.gif')
+         self.lblBusy.setMovie( self.qmov )
+         self.qmov.start()
+
+      self.lblPercent  = QRichLabel('')
+      self.lblTimeLeft = QRichLabel('')
+      self.lblPercent.setVisible(False)
+      self.lblTimeLeft.setVisible(False)
+
       self.btnModeSwitch = QPushButton('')
       self.connect(self.btnModeSwitch, SIGNAL('clicked()'), self.pressModeSwitchButton)
       self.lblDashMode = QRichLabel('',doWrap=False)
       self.lblDashMode.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
       self.frmDashModeSub = makeHorizFrame([self.lblDashMode, self.btnModeSwitch], STYLE_SUNKEN)
-      self.frmDashMode = makeHorizFrame(['Stretch', self.frmDashModeSub, self.lblBusy, 'Stretch'])
+      self.frmDashMode = makeHorizFrame(['Stretch', \
+                                         self.frmDashModeSub, \
+                                         self.lblBusy, \
+                                         self.lblPercent, \
+                                         self.lblTimeLeft, \
+                                         'Stretch'])
       
       self.lblDashDescr1 = QTextBrowser()
       self.lblDashDescr2 = QTextBrowser()
@@ -3078,42 +3084,46 @@ class ArmoryMainWindow(QMainWindow):
          lbl.setPalette(qpal)
          lbl.setOpenExternalLinks(True)
 
-      self.btnDashInstallForMe = QPushButton('Install Bitcoin Software')
-      self.btnDashOpenLink     = QPushButton('Open www.bitcoin.org')
-      self.btnDashInstInstruct = QPushButton('Installation Instructions')
-      self.btnDashSetSettings  = QPushButton('Change Settings')
-      self.btnDashCloseBitcoin = QPushButton('Close Bitcoin Process')
+      # Set up an array of buttons in the middle of the dashboard, to be used 
+      # to help the user install bitcoind.
+      BTN,LBL,TTIP = range(3)
+      self.dashBtns = [[None]*3 for i in range(5)]
+      self.dashBtns[DASHBTNS.Install ][BTN]  = QPushButton('Install Bitcoin Software')
+      self.dashBtns[DASHBTNS.Browse  ][BTN]   = QPushButton('Open www.bitcoin.org')
+      self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
+      self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
+      self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
 
-      self.lblDashOpenLink     = QRichLabel( \
+      self.dashBtns[DASHBTNS.Browse][LBL]     = QRichLabel( \
            'Open browser to Bitcoin webpage to manually download and install Bitcoin software')
-      self.lblDashInstInstruct = QRichLabel( \
+      self.dashBtns[DASHBTNS.Instruct][LBL] = QRichLabel( \
            'Show instructions for getting and installing Bitcoin software')
-      self.lblDashSetSettings  = QRichLabel( \
+      self.dashBtns[DASHBTNS.Settings][LBL]  = QRichLabel( \
            'Open Armory settings window to change Bitcoin software management'  
-      self.lblDashCloseBitcoin = QRichLabel( \
+      self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
            'Stop existing Bitcoin processes so that Armory can open its own')
 
 
-      self.tipDashOpenLink = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Browse][TTIP] = createToolTipObject( \
            'Will open your default browser to http://www.bitcoin.org where you can '
            'download the latest version of Bitcoin-Qt, and get other information '
            'and links about Bitcoin, in general.')
-      self.tipDashSetSettings = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Instruct][TTIP] = createToolTipObject( \
            'Instructions are specific to your operating system and include '
            'information to help you verify you are installing the correct software')
-      self.tipDashSetSettings = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Settings][TTIP] = createToolTipObject( \
            'Change Bitcoin-Qt/bitcoind management settings or point Armory to '
            'a non-standard Bitcoin installation')
-      self.tipDashCloseBitcoin = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Close][TTIP] = createToolTipObject( \
            'Armory has detected a running Bitcoin-Qt or bitcoind instance and '
            'will force it to exit')
 
       if OS_WINDOWS:
-         self.btnDashInstallForMe.setEnabled(False)
-         self.lblDashInstallForMe = QRichLabel('')
-         self.lblDashInstallForMe.setText( 'This option is not yet available for Windows', \
-                                                             color=Colors.DisableFG)
-         self.tipDashInstallForMe = QRichLabel('') # disabled
+         self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
+         self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
+         self.dashBtns[DASHBTNS.Install][LBL].setText( \
+             'This option is not yet available for Windows', color=Colors.DisableFG)
+         self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
 
          #self.lblDashInstallForMe = QRichLabel( \
            #'Armory will download, verify, and start the Bitcoin installer for you')
@@ -3122,33 +3132,35 @@ class ArmoryMainWindow(QMainWindow):
            #'for Windows and verify its digital signatures.  You will have to '
            #'click through the installation options.<u></u>')
       elif OS_LINUX:
-         self.lblDashInstallForMe = QRichLabel( \
-           'Show options for automated installation in Linux')
-         self.ttipInstallForMe = createToolTipObject( \
-           'Pick from multiple options to get the Bitcoin software installed '
-           'on your system.')
+         self.dashBtns[DASHBTNS.Install][BTN] = QRichLabel( \
+                     'Show options for automated installation in Linux')
+         self.dashBtns[DASHBTNS.Install][BTN] = createToolTipObject( \
+           'See options to get the Bitcoin engine installed on your system.')
    
 
       self.frmDashMgmtButtons = QFrame()
       self.frmDashMgmtButtons.setFrameStyle(STYLE_SUNKEN)
       layoutButtons = QGridLayout()
-      layoutButtons.addWidget( self.btnDashInstallForMe,  0,0)
-      layoutButtons.addWidget( self.btnDashOpenLink,      1,0)
-      layoutButtons.addWidget( self.btnDashInstInstruct,  2,0)
-      layoutButtons.addWidget( self.btnDashSetSettings,   3,0)
-      layoutButtons.addWidget( self.btnDashCloseBitcoin,  4,0)
+      for r in range(5):
+         for c in range(3):
+            layoutButtons.addWidget(self.dashBtns[r][c],  r,c)
+      #layoutButtons.addWidget( self.btnDashInstallForMe,  0,0)
+      #layoutButtons.addWidget( self.btnDashOpenLink,      1,0)
+      #layoutButtons.addWidget( self.btnDashInstInstruct,  2,0)
+      #layoutButtons.addWidget( self.btnDashSetSettings,   3,0)
+      #layoutButtons.addWidget( self.btnDashCloseBitcoin,  4,0)
 
-      layoutButtons.addWidget( self.lblDashInstallForMe,  0,1)
-      layoutButtons.addWidget( self.lblDashOpenLink,      1,1)
-      layoutButtons.addWidget( self.lblDashInstInstruct,  2,1)
-      layoutButtons.addWidget( self.lblDashSetSettings,   3,1)
-      layoutButtons.addWidget( self.lblDashCloseBitcoin,  4,1)
+      #layoutButtons.addWidget( self.lblDashInstallForMe,  0,1)
+      #layoutButtons.addWidget( self.lblDashOpenLink,      1,1)
+      #layoutButtons.addWidget( self.lblDashInstInstruct,  2,1)
+      #layoutButtons.addWidget( self.lblDashSetSettings,   3,1)
+      #layoutButtons.addWidget( self.lblDashCloseBitcoin,  4,1)
 
-      layoutButtons.addWidget( self.tipDashInstallForMe,  0,2)
-      layoutButtons.addWidget( self.tipDashOpenLink,      1,2)
-      layoutButtons.addWidget( self.tipDashInstInstruct,  2,2)
-      layoutButtons.addWidget( self.tipDashSetSettings,   3,2)
-      layoutButtons.addWidget( self.tipDashCloseBitcoin,  4,2)
+      #layoutButtons.addWidget( self.tipDashInstallForMe,  0,2)
+      #layoutButtons.addWidget( self.tipDashOpenLink,      1,2)
+      #layoutButtons.addWidget( self.tipDashInstInstruct,  2,2)
+      #layoutButtons.addWidget( self.tipDashSetSettings,   3,2)
+      #layoutButtons.addWidget( self.tipDashCloseBitcoin,  4,2)
       self.frmDashMgmtButtons.setLayout(layoutButtons)
       self.frmDashMidButtons  = makeHorizFrame(['Stretch', \
                                               self.frmDashMgmtButtons, 
@@ -3161,6 +3173,67 @@ class ArmoryMainWindow(QMainWindow):
       dashLayout.addWidget(self.lblDashDescr2)
       self.tabDashboard.setLayout(dashLayout)
 
+   #############################################################################
+   def getPercentageFinished(self, maxblk, lastblk):
+      # The X^8 relationship is surprisingly accurate
+      return (float(lastblk)/float(maxblk))**8
+      #raise NotImplementedError 
+      #from blkdensitytable import blkDensTable
+      #sz = len(blkDensTable)
+      #if not self.blockTimeHist:
+
+   #############################################################################
+   def updateSyncProgress(self):
+      ssdm = TheSDM.getSDMState() 
+      lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
+      lastBlkTime = self.getSettingOrSetDefault('LastBlkRecvTime', 0)
+
+      # Get data from SDM if it has it
+      info = TheSDM.getTopBlockInfo()
+      if len(info['tophash'])>0:
+         lastBlkNum  = info['numblks']
+         lastBlkTime = info['toptime']
+
+      # Use a reference point if we are starting from scratch
+      refBlock = max(225108,      lastBlkNum)
+      refTime  = max(1362885755,  lastBlkTime)
+
+      # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
+      approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
+      approxBlkLeft  = approxMaxBlock - lastBlkNum
+      approxPctSoFar = self.getPercentageFinished(approxMaxBlock, lastBlkNum)
+
+
+      if ssdm == 'BitcoindReady':
+         return (0,0,0.99)  # because it's probably not completely done...
+         self.lblTimeLeft.setText('Almost Done...')
+         self.lblPercent.setText('99%')
+
+      if ssdm == 'BitcoindSynchronizing':
+         if info['blkspersec'] > 0:
+            if approxBlkLeft < 10000:
+               timeleft = int(approxBlkLeft/info['blkspersec'])
+               self.lblTimeLeft.setText(secondsToHumanTime(timeleft))
+               ratioDone = 1 - float(approxBlkLeft)/float(approxMaxBlock)
+               self.lblPercent.setText('%d' % int(99.99*ratioDone) + '%')
+            else:
+               # If we're way behind (like initial sync)
+               self.lblPercent.setText(approxPctSoFar)
+               self.lblTimeLeft.setText('Calculating...')
+         else:
+            self.lblPercent.setText(approxPctSoFar)
+            self.lblTimeLeft.setText('Calculating...')
+
+      if ssdm == 'BitcoindInitializing':
+         if (RightNow()-lastBlkTime) < 2*DAY:
+            self.lblPercent.setText(approxPctSoFar)
+            self.lblTimeLeft.setText('Calculating...')
+         else:
+            self.lblPercent.setText('Starting Engine...')
+            self.lblTimeLeft.setText('')
+      else:
+         LOGERROR('Should not predict sync info in non init/sync SDM state')
+         return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
 
 
    #############################################################################
@@ -3228,6 +3301,96 @@ class ArmoryMainWindow(QMainWindow):
       logic paths in the setDashboardDetails function
       """
       LOGINFO('Switching Armory state text to Mgmt:%s, State:%s', mgmtMode, state)
+
+      # A few states don't care which mgmtMode you are in...
+      if state == 'NewUserInfo':
+         return = ( \
+         'For more information about Armory, and even Bitcoin itself, you '
+         'should visit the <a href="http://bitcoinarmory.com/index.php/fr'
+         'equently-asked-questions">frequently asked questions page</a>.'
+         '<br><br>'
+         '<b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper '
+         'backups protect you <i>forever</i> against forgotten passwords, '
+         'hard-drive failure, and make it easy for your family to recover '
+         'your funds if something terrible happens to you.  <i>Each wallet '
+         'only needs to be backed up once, ever!  Without it, you are at '
+         'risk of losing all of your Bitcoins!  For more information, '
+         'visit the <a href="http://bitcoinarmory.com/">Armory Backups'
+         '</a> page.'
+         '<br><br>'
+         'To learn about improving your security through the use of offline '
+         'wallets, visit the <a href="http://bitcoinarmory.com/armory-quick-'
+         'start-guide/">Armory Quick Start Guide</a>, and the <a href="http:'
+         '//bitcoinarmory.com/using-offline-wallets-in-armory/">Offline '
+         'Wallet Tutorial</a>.<br><br>')
+      elif state == 'OnlineFull1':
+         return = ( \
+         '<p><b>You now have access to all the features Armory has to offer!</b><br>'
+         'To see your balances and transaction history, please click '
+         'on the "Transactions" tab above this text.  <br>'
+         'Here\'s some things you can do with Armory Bitcoin Client:'
+         '<br><br>')
+      elif state == 'OnlineFull2':
+         return = ( \
+         'If you experience any performance issues with Armory, '
+         'please confirm that Bitcoin-Qt is running and <i>fully '
+         'synchronized with the Bitcoin network</i>.  You will see '
+         'a green checkmark in the bottom right corner of the '
+         'Bitcoin-Qt window if it is synchronized.  If not, it is '
+         'recommended you close Armory and restart it only when you '
+         'see that checkmark.'
+         '<br><br>'
+         '<b>Please backup your wallets!</b>  Armory wallets are '
+         '"deterministic", meaning they only need to be backed up '
+         'one time (unless you have imported external addresses/keys). '
+         'Make a backup and keep it in a safe place!  All funds from '
+         'Armory-generated addresses will always be recoverable with '
+         'a paper backup, any time in the future.  Use the "Backup '
+         'Individual Keys" option for each wallet to backup imported '
+         'keys.</p>')
+      elif state == 'OnlineNeedSweep':
+         return = ( \
+         'Armory is currently online, but you have requested a sweep operation '
+         'on one or more private keys.  This requires searching the global '
+         'transaction history for the available balance of the keys to be '
+         'swept. '
+         '<br><br>'
+         'Press the button to start the blockchain scan, which '
+         'will also put Armory into offline mode for a few minutes '
+         'until the scan operation is complete')
+      elif state == 'OnlineDirty':
+         return = ( \
+         '<b>Wallet balances may '
+         'be incorrect until the rescan operation is performed!</b>'
+         '<br><br>'
+         'Armory is currently online, but addresses/keys have been added '
+         'without rescanning the blockchain.  You may continue using '
+         'Armory in online mode, but any transactions associated with the '
+         'new addresses will not appear in the ledger. '
+         '<br><br>'
+         'Pressing the button above will put Armory into offline mode '
+         'for a few minutes until the scan operation is complete.')
+      elif state == 'OfflineNoSatoshiNoInternet':
+         return = ( \
+         'No internet connection was detected, and neither '
+         'Bitcoin-Qt or bitcoind is running.  Most likely '
+         'you are here because this is a system dedicated '
+         'to manage offline wallets! '
+         '<br><br>'
+         '<b>If you expected Armory to be in online mode</b>, '
+         'please verify your internet connection is active, '
+         'Then restart Armory.  If you think the lack of internet '
+         'connection is in error, then you can restart Armory with '
+         'the "--skip-online-check" option.'
+         '<br><br>'
+         'If you do not have Bitcoin-Qt installed, you can '
+         'download it from <a href="http://www.bitcoin.org">'
+         'http://www.bitcoin.org</a>.')
+
+      # Branch the available display text based on which Satoshi-Management
+      # mode Armory is using.  It probably wasn't necessary to branch the 
+      # the code like this, but it helped me organize the seemingly-endless
+      # number of dashboard screens I need
       if mgmtMode.lower()=='user':
          if state == 'OfflineButOnlinePossible':
             return = ( \
@@ -3261,23 +3424,6 @@ class ArmoryMainWindow(QMainWindow):
             'If you already know what you\'re doing and simply need '
             'to fetch the latest version of Bitcoin-Qt, you can download it from '
             '<a href="http://www.bitcoin.org">http://www.bitcoin.org</a>.')
-         elif state == 'OfflineNoSatoshiNoInternet':
-            return = ( \
-            'No internet connection was detected, and neither '
-            'Bitcoin-Qt or bitcoind is running.  Most likely '
-            'you are here because this is a system dedicated '
-            'to manage offline wallets! '
-            '<br><br>'
-            '<b>If you expected Armory to be in online mode</b>, '
-            'please verify your internet connection is active, then '
-            'start Bitcoin-Qt and let it synchronize with the '
-            'network (a green checkmark will appear in the bottom '
-            'right corner of the Bitcoin-Qt window when it is '
-            'finished).  Then restart Armory.'
-            '<br><br>'
-            'If you do not have Bitcoin-Qt installed, you can '
-            'download it from <a href="http://www.bitcoin.org">'
-            'http://www.bitcoin.org</a>.')
          elif state == 'OfflineNoInternet':
             return = ( \
             'You are currently in offline mode because '
@@ -3302,61 +3448,13 @@ class ArmoryMainWindow(QMainWindow):
          elif state == 'Disconnected':
             return = ( \
             'Armory was previously online, but the connection to Bitcoin-Qt/'
-            'bitcoind was interrupted.  You will not be able to send bitcoins or '
-            'confirm receipt of bitcoins until the connection is reestablished.  '
-            '<br><br>Please check that Bitcoin-Qt is open '
-            'and synchronized with the network.  Armory will <i>try to reconnect</i> '
-            'automatically when the connection is available again.  If Bitcoin-Qt is '
-            'available again, and reconnection does not happen, please restart Armory.' 
-            '<br><br>')
-         elif state == 'OnlineNeedSweep':
-            return = ( \
-            'Armory is currently online, but you have requested a sweep operation '
-            'on one or more private keys.  This requires searching the global '
-            'transaction history for the available balance of the keys to be '
-            'swept. '
-            '<br><br>'
-            'Press the button to start the blockchain scan, which '
-            'will also put Armory into offline mode for a few minutes '
-            'until the scan operation is complete')
-         elif state == 'OnlineDirty':
-            return = ( \
-            '<b>Wallet balances may '
-            'be incorrect until the rescan operation is performed!</b>'
-            '<br><br>'
-            'Armory is currently online, but addresses/keys have been added '
-            'without rescanning the blockchain.  You may continue using '
-            'Armory in online mode, but any transactions associated with the '
-            'new addresses will not appear in the ledger. '
-            '<br><br>'
-            'Pressing the button above will put Armory into offline mode '
-            'for a few minutes until the scan operation is complete.')
-         elif state == 'OnlineFull1':
-            return = ( \
-            '<p><b>You now have access to all the features Armory has to offer!</b><br>'
-            'To see your balances and transaction history, please click '
-            'on the "Transactions" tab above this text.  <br>'
-            'Here\'s some things you can do with Armory Bitcoin Client:'
-            '<br><br>')
-         elif state == 'OnlineFull2':
-            return = ( \
-            'If you experience any performance issues with Armory, '
-            'please confirm that Bitcoin-Qt is running and <i>fully '
-            'synchronized with the Bitcoin network</i>.  You will see '
-            'a green checkmark in the bottom right corner of the '
-            'Bitcoin-Qt window if it is synchronized.  If not, it is '
-            'recommended you close Armory and restart it only when you '
-            'see that checkmark.'
-            '<br><br>'
-            '<b>Please backup your wallets!</b>  Armory wallets are '
-            '"deterministic", meaning they only need to be backed up '
-            'one time (unless you have imported external addresses/keys). '
-            'Make a backup and keep it in a safe place!  All funds from '
-            'Armory-generated addresses will always be recoverable with '
-            'a paper backup, any time in the future.  Use the "Backup '
-            'Individual Keys" option for each wallet to backup imported '
-            'keys.</p>')
-
+            'bitcoind was interrupted.  You will not be able to send bitcoins '
+            'or confirm receipt of bitcoins until the connection is '
+            'reestablished.  br><br>Please check that Bitcoin-Qt is open '
+            'and synchronized with the network.  Armory will <i>try to '
+            'reconnect</i> automatically when the connection is available '
+            'again.  If Bitcoin-Qt is available again, and reconnection does '
+            'not happen, please restart Armory.<br><br>')
          elif state == 'ScanNoWallets':
             return = ( \
             '<b>Please be patient, scanning may take several minutes!</b><br><br>'
@@ -3364,19 +3462,94 @@ class ArmoryMainWindow(QMainWindow):
             'the scan is complete.')
          elif state == 'ScanWithWallets':
             return = ( \
-            '<b>Please be patient, scanning may take several minutes!</b><br><br>'
+            '<b>Please be patient, scanning may take several minutes!</b>'
+            '<br><br>'
             'Armory is scanning the global transaction history to retrieve '
             'information about your wallets.  The "Transactions" tab will '
-            'be updated with wallet balances and history as soon as the scan is '
+            'be updated with wallet balance and history as soon as the scan is '
             'complete.  You may manage your wallets while you wait.<br><br>')
          else:
-            LOGERROR('Unrecognized dashboard state request: Mgmt:%s, State:%s', \
-                                                                  mgmtMode, state)
+            LOGERROR('Unrecognized dashboard state: Mgmt:%s, State:%s', \
+                                                          mgmtMode, state)
             return ''
       elif mgmtMode.lower()=='auto':
          if state == 'OfflineBitcoindRunning':
             return = ( \
-            
+            'It appears you are already running the Bitcoin software. '
+            'Unlike previous versions of Armory, you should <u>not</u> run '
+            'the Bitcoin software before starting Armory.   Armory '
+            'will run it in the background for you.  If you prefer to '
+            'manage it yourself, please adjust your Armory preferences.')
+         if state == 'OfflineNeedBitcoinInst':
+            return = ( \
+            '<b>Only one more step to getting online with Armory!</b>   You '
+            'must install the Bitcoin software from www.bitcoin.org in order '
+            'for Armory to communicate with the Bitcoin network.  If the '
+            'Bitcoin software is already installed but in a non-standard '
+            'location, please specify that location in the Armory preferences.' 
+            '<br><br>'
+            'Unlike previous versions of Armory, you should <u>not</u> run '
+            'the Bitcoin software yourself.  Once it is installed, Armory '
+            'will run it in the background for you.  If you prefer to '
+            'manage it yourself, please adjust your Armory preferences.')
+         if state == 'InitializingLongTime':
+            return = ( \
+            'The software is downloading the global transaction history '
+            ', which takes a few hours the first time it is done.  Armory '
+            'does this to maximize your security.  Once this initialization '
+            'is complete, loading Armory again in the future should only '
+            'take a couple minutes.'  
+            '<br><br>'
+            'While you wait, you can manage your wallets.  Make digital or '
+            'paper backups, create Bitcoin addresses to receive payments, '
+            'sign messages, and/or import private keys.  You will always '
+            'receive Bitcoin payments regardless of whether you are online, '
+            'but you will have to verify that payment through another service '
+            'until Armory is finished this initialization.')
+         if state == 'InitializingDoneSoon':
+            return = ( \
+            'The software is downloading and processing the latest activity '
+            'on the network related to your wallet%s.  This should take only '
+            'a few minutes.  While you wait, you can manage your wallets.  '
+            '<br><br>'
+            'Now would be a good time to make paper (or digital) backups of '
+            'your wallet%s if you have not done so already!  You are protected '
+            '<i>forever</i> from hard-drive loss, or forgetting you password. '
+            'If you do not have a backup, you could lose all of your '
+            'Bitcoins forever!  See the <a href="http://bitcoinarmory.com/">'
+            'Armory Backups page</a> for more info.' % \
+            ('' if len(self.walletMap)==1 else 's')*2)
+         if state == 'OnlineDisconnected':
+            return = ( \
+            'Armory\'s communication with the Bitcoin network was interrupted. '
+            'This usually does not happen unless you closed the process that '
+            'Armory was using to communicate with the network. Armory requires '
+            '%s to be running in the background, and this error pops up if it '
+            'disappears.'
+            '<br><br>You may continue in offline mode, or you can close '
+            'all Bitcoin processes and restart Armory.' \
+            % os.path.basename(TheSDM.executable))
+         if state == 'OfflineBadConnection':
+            return = ( \
+            'Armory has experienced an issue trying to communicate with the '
+            'Bitcoin software.  The software is running in the background, '
+            'but Armory cannot communicate with it through RPC as it expects '
+            'to be able to.  If you changed any settings in the Bitcoin home '
+            'directory, please make sure that RPC is enabled and that it is '
+            'accepting connections from localhost.  '
+            '<br><br>'
+            'If you have not changed anything, please export the log file '
+            '(from the "File" menu) and send it to alan.reiner@gmail.com.')
+         if state == 'OfflineSatoshiAvail':
+            return = ( \
+            'Armory does not detect internet access, but it does detect '
+            'running Bitcoin software.  Armory is in offline-mode. <br><br>'
+            'If you are intending to run an offline system, you will not '
+            'need to have the Bitcoin software installed on the offline '
+            'computer.  It is only needed for the online computer. '
+            'If you expected to be online and '
+            'the absence of internet is an error, please restart Armory '
+            'using the "--skip-online-check" option.  ')
          
 
    #############################################################################
@@ -3389,15 +3562,79 @@ class ArmoryMainWindow(QMainWindow):
       TimerStart('setDashboardDetails')
       onlineAvail = self.onlineModeIsPossible()
 
+      # Methods for showing/hiding button-rows on the dashboard
+      def setRowVisible(r, visBool):
+         for c in range(3):
+            self.dashBtns[r][c].setVisible(visBool)
+      hideRow = lambda r: setRowVisible(r, False)
+      showRow = lambda r: setRowVisible(r, True)
+
       if self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX):
          # User is letting Armory manage the Satoshi client for them.
-         if not TheSDM.isRunningBitcoind():
+
+
+         # There's a whole bunch of stuff that has to be hidden/shown 
+         # depending on the state... set some reasonable defaults here
+         self.lblPercent.setVisible(False)
+         self.lblTimeLeft.setVisible(False)
+         self.lblBusy.setVisible(False)
+         hideRow(DASHBTNS.Install)
+         showRow(DASHBTNS.Browse)
+         hideRow(DASHBTNS.Instruct)
+         showRow(DASHBTNS.Settings)
+         hideRow(DASHBTNS.Close)
+
+         if not (CLI_OPTIONS.forceOnline or self.internetAvail):
+            if satoshiIsAvailable():
+               self.frmDashMidButtons.setVisible(False)
+               descr1  = self.GetDashStateText('Auto', 'OfflineSatoshiAvail')
+               descr2  = self.GetDashFunctionalityText('Offline'))
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
+            else:
+               descr1 = self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
+               descr2 = self.GetDashFunctionalityText('Offline'))
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
+         elif not TheSDM.isRunningBitcoind():
             # Bitcoind is not being managed, but we want it to be
             if satoshiIsAvailable():
                # But bitcoind/-qt is already running
-               self.btnDashCloseBitcoin.setVisible(True)
-               self.lblDashCloseBitcoin.setVisible(True)
-               self.tipDashCloseBitcoin.setVisible(True)
+               self.frmDashMidButtons.setVisible(True)
+               showRow(DASHBTNS.Close)
+               descr1  = self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
+               descr2  = self.GetDashFunctionalityText('NewUserInfo')
+               descr2 += self.GetDashFunctionalityText('Offline'))
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
+               self.psutil_detect_bitcoin_exe_path()
+            elif TheSDM.getSDMState() in ['BitcoindExeMissing', 'BitcoindHomeMissing']:
+               self.frmDashMidButtons.setVisible(True)
+               self.btnModeSwitch.setVisible(True) # check again after settings adjusted
+               descr1  = self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
+               descr2  = self.GetDashFunctionalityText('NewUserInfo'))
+               descr2 += self.GetDashFunctionalityText('Offline'))
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
+                
+            elif TheSDM.getSDMState() in ['BitcoindNeverStarted','BitcoindNotAvailable']:
+               raise ShouldNotGetHereError, ''
+         else:  # online detected/forced, and TheSDM has already been started
+            if TheSDM.getSDMState() in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
+               descr1  = self.GetDashStateText('Auto', 'OfflineBadConnection')
+               descr2 += self.GetDashFunctionalityText('Offline'))
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
+            elif TheSDM.getSDMState() in ['BitcoindInitializing', 'BitcoindSynchronizing']:
+               self.lblPercent.setVisible(True)
+               self.lblTimeLeft.setVisible(True)
+               self.lblBusy.setVisible(True)
+
+               self.updateSyncProgress()
+               self.lblDashMode.setText( \
+                  'Synchronizing with the Bitcoin Network... (offline)', size=4, bold=True)
+               
+                
       else:
          # User is managing satoshi client themself
          self.frmDashMidButtons.setVisible(False)
@@ -3653,6 +3890,7 @@ class ArmoryMainWindow(QMainWindow):
                self.createCombinedLedger()
                self.blkReceived  = RightNow()
                self.writeSetting('LastBlkRecvTime', self.blkReceived)
+               self.writeSetting('LastBlkRecv',     self.currBlockNum)
             
                if self.netMode==NETWORKMODE.Full:
                   self.lblArmoryStatus.setText(\

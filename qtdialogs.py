@@ -5052,7 +5052,7 @@ class DlgSendBitcoins(ArmoryDialog):
          not loadCount==lastPestering and not dnaaDonate and \
          wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
-            '<i>Armory</i> is the result of over 1,000 hours of development '
+            '<i>Armory</i> is the result of over 2,000 hours of development '
             'and dozens of late nights bug-hunting and testing.  Yet, this software '
             'has been given to you for free to benefit the greater Bitcoin '
             'community! '
@@ -5405,7 +5405,7 @@ class DlgSendBitcoins(ArmoryDialog):
    #############################################################################
    def getUsableTxOutList(self):
       if self.altBalance==None:
-         return self.wlt.getTxOutList('Spendable')
+         return list(self.wlt.getTxOutList('Spendable'))
       else:
          utxoList = []
          for a160 in self.sourceAddrList:
@@ -11088,5 +11088,8 @@ class DlgInstallLinux(ArmoryDialog):
 
 
    def loadGpgKeyring(self):
-      pubDir = os.GetExecDir
+      pubDirLocal = os.path.join(ARMORY_HOME_DIR, 'tempKeyring')
+      if os.path.exists(pubDirLocal):
+          
+      pubDirInst  = os.path.join(GetExecDir(),    'PublicKeys')
 

@@ -300,6 +300,7 @@ class TooMuchPrecisionError(Exception): pass
 class NegativeValueError(Exception): pass
 class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
+class ShouldNotGetHereError(Exception): pass
 
 
 
@@ -10022,16 +10023,15 @@ class SatoshiDaemonManager(object):
       self.bitcoind = None  
       self.isMidQuery = False
       self.last20queries = []
-      self.blkspersec = -1;
       self.lastTopBlockInfo = {}
       self.disabled = True
-      self.failedFindExe  = True
-      self.failedFindHome = True
+      self.failedFindExe  = False
+      self.failedFindHome = False
 
 
 
    #############################################################################
-   def setupSDM(pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR):
+   def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR):
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind()
          if len(pathToBitcoindExe)==0:
@@ -10061,7 +10061,6 @@ class SatoshiDaemonManager(object):
       self.bitcoind = None  # this will be a Popen object
       self.isMidQuery = False
       self.last20queries = []
-      self.blkspersec = -1;
       self.lastTopBlockInfo = { \
                                  'numblks':    -1,
                                  'tophash':    '',
@@ -10263,7 +10262,7 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def bitcoindIsResponsive(self):
-      return satoshiIsAvailable(self.bitconf['host'], self.bitconf['port'])
+      return satoshiIsAvailable(self.bitconf['host'], self.bitconf['rpcport'])
    
    #############################################################################
    def getSDMState(self):
@@ -10285,7 +10284,7 @@ class SatoshiDaemonManager(object):
       if not self.isRunningBitcoind():
          # Not running at all:  either never started, or process terminated
          return 'BitcoindNotAvailable'
-      elif not satoshiIsAvailable(self.bitconf['host'], self.bitconf['rpcport']):
+      elif not self.bitcoindIsResponsive():
          # Running but not responsive... must still be initializing
          return 'BitcoindInitializing'
       else:

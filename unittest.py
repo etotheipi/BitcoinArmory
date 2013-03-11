@@ -2421,16 +2421,18 @@ if Test_SatoshiManager:
       shutil.copy('/usr/lib/bitcoin/bitcoind','sdmtest')
 
    print 'Creating SatoshiDaemonManager...'
-   #sdm = SatoshiDaemonManager(pathToBitcoindExe='sdmtest/bitcoind', satoshiHome='sdmtest')
    sdm = SatoshiDaemonManager()
-   sdm.setupSDM()
+   sdm.setupSDM(satoshiHome='sdmtest')
 
    print 'Reading bitcoin.conf file... (should create it if DNE)'
    sdm.readBitcoinConf(makeIfDNE=True)
    sdm.printSDMInfo()
 
    var = raw_input("Continue?  [Y/n]: ")
+
+   fout = open('record_dl_times.txt','w')
    
+   startTime = RightNow()
    try:
       print 'Starting bitcoind...'
       sdm.startBitcoind()
@@ -2445,13 +2447,14 @@ if Test_SatoshiManager:
          if state in ('BitcoindReady', 'BitcoindSynchronizing'):
             info = sdm.getTopBlockInfo()
             print ': TopBlock: %d (%s)' % (info['numblks'], unixTimeToFormatStr(info['toptime']))
+            nb = int(info['numblks'])
+            dt = int(RightNow() - startTime)
+            fout.write('%d %d\n' % (nb,dt))
          else:
             print ''
       
    
-      print 'Done with 10 minutes of monitoring bitcoind.  Shutting down...'
       sdm.stopBitcoind()
-      t = 0
       while(sdm.isRunningBitcoind()):
          time.sleep(0.1)
          t+=0.1
