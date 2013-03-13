@@ -11008,12 +11008,12 @@ class PyBackgroundThread(threading.Thread):
 
 
    def run(self):
-      LOGDEBUG('Executing thread.run()...')
+      #LOGDEBUG('Executing thread.run()...')
       self.func()
       self.postFunc()
 
    def start(self):
-      LOGDEBUG('Executing thread.start()...')
+      #LOGDEBUG('Executing thread.start()...')
       # The prefunc is blocking.  Probably preparing something
       # that needs to be in place before we start the thread
       self.preFunc()

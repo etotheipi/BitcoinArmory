@@ -3072,12 +3072,11 @@ class ArmoryMainWindow(QMainWindow):
                                          self.lblTimeLeft, \
                                          'Stretch'])
       
-      self.lblDashDescr1 = QTextBrowser()
-      self.lblDashDescr2 = QTextBrowser()
+      self.lblDashDescr1 = QRichLabel('')
+      self.lblDashDescr2 = QRichLabel('')
       for lbl in [self.lblDashDescr1, self.lblDashDescr2]:
          # One textbox above buttons, one below
          lbl.setStyleSheet('padding: 5px')
-         lbl.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
          qpal = lbl.palette()
          qpal.setColor(QPalette.Base, Colors.Background)
          lbl.setPalette(qpal)
@@ -3176,12 +3175,20 @@ class ArmoryMainWindow(QMainWindow):
       dashLayout.addWidget(self.lblDashDescr1)
       dashLayout.addWidget(self.frmDashMidButtons )
       dashLayout.addWidget(self.lblDashDescr2)
-      self.tabDashboard.setLayout(dashLayout)
+      frmInner = QFrame()
+      frmInner.setLayout(dashLayout)
+
+      scrl = QScrollArea()
+      scrl.setWidgetResizable(True)
+      scrl.setWidget(frmInner)
+      scrollLayout = QVBoxLayout()
+      scrollLayout.addWidget(scrl)
+      self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
    def getPercentageFinished(self, maxblk, lastblk):
       # The X^8 relationship is surprisingly accurate
-      return (float(lastblk)/float(maxblk))**8
+      return min((float(lastblk)/float(maxblk))**8, 0.99)
       #raise NotImplementedError 
       #from blkdensitytable import blkDensTable
       #sz = len(blkDensTable)
@@ -3209,6 +3216,7 @@ class ArmoryMainWindow(QMainWindow):
       approxBlkLeft  = approxMaxBlock - lastBlkNum
       approxPctSoFar = self.getPercentageFinished(approxMaxBlock, lastBlkNum)
 
+      strPct = '%0.0f%%' % (100*approxPctSoFar)
 
       if ssdm == 'BitcoindReady':
          return (0,0,0.99)  # because it's probably not completely done...
@@ -3223,14 +3231,14 @@ class ArmoryMainWindow(QMainWindow):
                self.lblPercent.setText('%d' % int(99.99*ratioDone) + '%')
             else:
                # If we're way behind (like initial sync)
-               self.lblPercent.setText(approxPctSoFar)
+               self.lblPercent.setText(strPct)
                self.lblTimeLeft.setText('Calculating...')
          else:
-            self.lblPercent.setText(approxPctSoFar)
+            self.lblPercent.setText(strPct)
             self.lblTimeLeft.setText('Calculating...')
       elif ssdm == 'BitcoindInitializing':
          if (RightNow()-lastBlkTime) < 2*DAY:
-            self.lblPercent.setText(approxPctSoFar)
+            self.lblPercent.setText('')
             self.lblTimeLeft.setText('Calculating...')
          else:
             self.lblPercent.setText('Starting Engine...')
@@ -3522,7 +3530,7 @@ class ArmoryMainWindow(QMainWindow):
             'If you do not have a backup, you could lose all of your '
             'Bitcoins forever!  See the <a href="http://bitcoinarmory.com/">'
             'Armory Backups page</a> for more info.' % \
-            ('' if len(self.walletMap)==1 else 's')*2)
+            (('' if len(self.walletMap)==1 else 's',)*2))
          if state == 'OnlineDisconnected':
             return ( \
             'Armory\'s communication with the Bitcoin network was interrupted. '
@@ -3576,7 +3584,6 @@ class ArmoryMainWindow(QMainWindow):
       if self.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX):
          # User is letting Armory manage the Satoshi client for them.
 
-
          # There's a whole bunch of stuff that has to be hidden/shown 
          # depending on the state... set some reasonable defaults here
          self.lblPercent.setVisible(False)
@@ -3614,7 +3621,7 @@ class ArmoryMainWindow(QMainWindow):
                self.psutil_detect_bitcoin_exe_path()
             elif TheSDM.getSDMState() in ['BitcoindExeMissing', 'BitcoindHomeMissing']:
                self.frmDashMidButtons.setVisible(True)
-               self.btnModeSwitch.setVisible(True) # check again after settings adjusted
+               self.btnModeSwitch.setVisible(False) # check again after settings adjusted
                descr1  = self.GetDashStateText('Auto', 'OfflineNeedBitcoinInst')
                descr2  = self.GetDashFunctionalityText('NewUserInfo')
                descr2 += self.GetDashFunctionalityText('Offline')
@@ -3637,6 +3644,12 @@ class ArmoryMainWindow(QMainWindow):
                self.updateSyncProgress()
                self.lblDashMode.setText( \
                   'Synchronizing with the Bitcoin Network... (offline)', size=4, bold=True)
+
+               descr1  = self.GetDashStateText('Auto', 'InitializingDoneSoon')
+               descr2  = self.GetDashFunctionalityText('Offline')
+               #descr2  = self.GetDashFunctionalityText('NewUserInfo')
+               self.lblDashDescr1.setText(descr1)
+               self.lblDashDescr2.setText(descr2)
                
                 
       else:
