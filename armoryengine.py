@@ -10027,11 +10027,16 @@ class SatoshiDaemonManager(object):
       self.disabled = True
       self.failedFindExe  = False
       self.failedFindHome = False
+      self.foundExe = []
+      self.circBufferState = []
+      self.circBufferTime = []
 
 
 
    #############################################################################
-   def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR):
+   def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
+                      extraExeSearch=[]):
+      # If we are supplied a path, then ignore the extra exe search paths
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind()
          if len(pathToBitcoindExe)==0:
@@ -10056,7 +10061,6 @@ class SatoshiDaemonManager(object):
       self.disabled = False
       self.failedFindHome = False
       self.failedFindExe = False
-      self.bitconf = {}
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object
       self.isMidQuery = False
@@ -10067,6 +10071,12 @@ class SatoshiDaemonManager(object):
                                  'toptime':    -1,
                                  'error':      'Uninitialized',
                                  'blkspersec': -1     }
+
+      self.readBitcoinConf(makeIfDNE=True)
+
+
+   
+
 
    #############################################################################
    def setDisabled(self, newBool=True):
@@ -10079,10 +10089,15 @@ class SatoshiDaemonManager(object):
       self.disabled = newBool
             
 
+   #############################################################################
+   def getAllFoundExe(self):
+      return list(self.foundExe)
+      
       
    #############################################################################
-   def findBitcoind(self):
-      found = []
+   def findBitcoind(self, extraSearchPaths=[]):
+      self.foundExe = []
+      searchPaths = list(extraSearchPaths)  # create a copy
 
       if OS_WINDOWS:
          # First check desktop for links
@@ -10102,25 +10117,24 @@ class SatoshiDaemonManager(object):
          possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
 
          # Now look at a few subdirs of the 
-         possDir = []
-         possDir.extend(possBaseDir)
-         possDir.extend([os.path.join(p, 'daemon') for p in possBaseDir])
-         possDir.extend([os.path.join(p, 'Bitcoin') for p in possBaseDir])
-         possDir.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
+         searchPaths.extend(possBaseDir)
+         searchPaths.extend([os.path.join(p, 'daemon') for p in possBaseDir])
+         searchPaths.extend([os.path.join(p, 'Bitcoin') for p in possBaseDir])
+         searchPaths.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
 
-         for p in possDir:
+         for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind.exe')
             if os.path.exists(testPath):
-               found.append(testPath)
+               self.foundExe.append(testPath)
 
       else:
-         possDir = ['/usr/bin/', '/usr/lib/bitcoin/']
-         for p in possDir:
+         searchPaths = ['/usr/bin/', '/usr/lib/bitcoin/']
+         for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')
             if os.path.exists(testPath):
-               found.append(testPath)
+               self.foundExe.append(testPath)
                          
-      return found
+      return self.foundExe
 
    #############################################################################
    def getGuardianPath(self):
@@ -10171,7 +10185,6 @@ class SatoshiDaemonManager(object):
 
          # Push all pairs (len==2) into a dictionary for lookup
          self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
-         print self.bitconf
 
          # Look for rpcport, use defulat if not there
          if not self.bitconf.has_key('rpcport'):
@@ -10251,14 +10264,18 @@ class SatoshiDaemonManager(object):
       if self.bitcoind==None:
          return False
       else:
-         if self.bitcoind.poll()==None:
-            # Returns None meaning no return value yet -- still running
-            return True
-         else:
-            # bitcoind terminated for some reason
-            self.bitcoind = None
-            return False
+         return self.bitcoind.poll()==None
+         #if self.bitcoind.poll()==None:
+            ## Returns None meaning no return value yet -- still running
+            #return True
+         #else:
+            ## bitcoind terminated for some reason
+            #self.bitcoind = None
+            #return False
       
+   #############################################################################
+   def wasRunningBitcoind(self):
+      return (not self.bitcoind==None)
 
    #############################################################################
    def bitcoindIsResponsive(self):
@@ -10266,6 +10283,30 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def getSDMState(self):
+      """ 
+      I did this to avoid changing [what is now] getSDMStateLogic, to not
+      use return statements.  The logic worked, but I can't maintain a 
+      history of what is returned inside the same function returning it.
+      So that's why I'm wrapping it with a historical/circular buffer, here.
+
+      As for why I'm doing this:  it turns out that between "initializing"
+      and "synchronizing", bitcoind temporarily stops responding entirely,
+      which causes "not-available" to be the state.  I need to smooth that
+      out because it wreaks havoc on the GUI which will switch to erro
+      """
+         
+      state = self.getSDMStateLogic()
+      self.circBufferState.append(state)
+      self.circBufferTime.append(RightNow())
+      if len(self.circBufferTime)>2 and \
+         (self.circBufferTime[-1] - self.circBufferTime[1]) > 5:
+         # Only remove the first element if we have at least 5s history
+         self.circBufferState = self.circBufferState[1:]
+      return state
+      
+
+   #############################################################################
+   def getSDMStateLogic(self):
 
       if self.disabled:
          return 'BitcoindMgmtDisabled'
@@ -10296,7 +10337,10 @@ class SatoshiDaemonManager(object):
          elif latestInfo['error']=='JsonRpcException':
             return 'BitcoindInitializing'
          elif latestInfo['error']=='SocketError':
-            return 'BitcoindNotAvailable'
+            if 'BitcoindInitializing' in self.circBufferState:
+               return 'BitcoindInitializing'
+            else:
+               return 'BitcoindNotAvailable'
 
          # If we get here, bitcoind is gave us a response.
          secSinceLastBlk = RightNow() - latestInfo['toptime']
@@ -10316,7 +10360,9 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
-         usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword','host', 'rpcport']]
+         print self.bitconf
+         usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
+                                                      'host', 'rpcport']]
          pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
          LOGINFO('Creating proxy in SDM: host=%s, port=%s', hst,prt)
          self.proxy = ServiceProxy(pstr)

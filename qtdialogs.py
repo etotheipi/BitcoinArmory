@@ -11089,7 +11089,7 @@ class DlgInstallLinux(ArmoryDialog):
 
    def loadGpgKeyring(self):
       pubDirLocal = os.path.join(ARMORY_HOME_DIR, 'tempKeyring')
-      if os.path.exists(pubDirLocal):
+      #if os.path.exists(pubDirLocal):
           
-      pubDirInst  = os.path.join(GetExecDir(),    'PublicKeys')
+      pubDirInst  = os.path.join(GetExecDir(), 'PublicKeys')
 

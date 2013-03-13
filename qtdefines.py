@@ -20,6 +20,8 @@ WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+DASHBTNS        = enum('Install','Browse', 'Instruct', 'Settings', 'Close')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
@@ -191,12 +193,13 @@ def initialColResize(tblViewObj, sizeList):
 
 class QRichLabel(QLabel):
    def __init__(self, txt, doWrap=True, hAlign=Qt.AlignLeft, vAlign=Qt.AlignVCenter):
-      QLabel.__init__(self, txt)
+      super(QRichLabel, self).__init__(txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
+      text = str(text)
       if color:
          text = '<font color="%s">%s</font>' % (htmlColor(color), text)
       if size:
@@ -209,7 +212,7 @@ class QRichLabel(QLabel):
       if italic:
          text = '<i>%s</i>' % text
 
-      QLabel.setText(self,text)
+      super(QRichLabel, self).setText(text)
 
    def setBold(self):
       self.setText('<b>' + self.text() + '</b>')
