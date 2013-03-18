@@ -6179,11 +6179,11 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
 
 
-      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*85)[0], int(12*8.2)
+      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*90)[0], int(12*8.2)
       self.txtTxDP = QTextEdit()
       self.txtTxDP.setFont( GETFONT('Fixed',8) )
       self.txtTxDP.sizeHint = lambda: QSize(w,h)
-      self.txtTxDP.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Expanding)
+      self.txtTxDP.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
 
       self.btnSign      = QPushButton('Sign')
       self.btnBroadcast = QPushButton('Broadcast')

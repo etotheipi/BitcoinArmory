@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 3, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -593,6 +593,7 @@ LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
+LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
@@ -9683,7 +9684,7 @@ class ArmoryClient(Protocol):
       msgVersion.addrRecv = PyNetAddress(0, services, addrTo,   portTo  )
       msgVersion.addrFrom = PyNetAddress(0, services, addrFrom, portFrom)
       msgVersion.nonce    = random.randint(2**60, 2**64-1)
-      msgVersion.subver   = ''
+      msgVersion.subver   = 'Armory:%s' % getVersionString(BTCARMORY_VERSION)
       msgVersion.height0  = -1
       self.sendMessage( msgVersion )
       self.factory.func_madeConnect()
@@ -9751,6 +9752,11 @@ class ArmoryClient(Protocol):
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
+            LOGINFO('Received version message from peer:')
+            LOGINFO('   Version:     %s', str(msg.payload.version))
+            LOGINFO('   SubVersion:  %s', str(msg.payload.subver))
+            LOGINFO('   TimeStamp:   %s', str(msg.payload.time))
+            LOGINFO('   StartHeight: %s', str(msg.payload.height0))
             self.sendMessage( PayloadVerack() )
          elif cmd=='verack':
             self.handshakeFinished = True
@@ -10035,24 +10041,28 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
-                      extraExeSearch=[]):
+                      extraExeSearch=[], createHomeIfDNE=False):
       # If we are supplied a path, then ignore the extra exe search paths
       if pathToBitcoindExe==None:
-         pathToBitcoindExe = self.findBitcoind()
+         pathToBitcoindExe = self.findBitcoind(extraExeSearch)
          if len(pathToBitcoindExe)==0:
             self.failedFindExe = True
-         LOGINFO('Found bitcoind in the following places:')
-         for p in pathToBitcoindExe:
-            LOGINFO('\t%s', p)
-         pathToBitcoindExe = pathToBitcoindExe[0]
-         LOGINFO('Using: %s', pathToBitcoindExe)
+         else:
+            LOGINFO('Found bitcoind in the following places:')
+            for p in pathToBitcoindExe:
+               LOGINFO('\t%s', p)
+            pathToBitcoindExe = pathToBitcoindExe[0]
+            LOGINFO('Using: %s', pathToBitcoindExe)
 
       if not os.path.exists(pathToBitcoindExe):
          self.failedFindExe = True
       self.executable = pathToBitcoindExe
 
       if not os.path.exists(satoshiHome):
-         self.failedFindHome = True
+         if createHomeIfDNE:
+            os.makedirs(satoshiHome)
+         else:
+            self.failedFindHome = True
 
       if self.failedFindHome: raise self.BitcoindError, 'homedir not found'
       if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
@@ -10341,6 +10351,10 @@ class SatoshiDaemonManager(object):
                return 'BitcoindInitializing'
             else:
                return 'BitcoindNotAvailable'
+
+         if 'BitcoindReady' in self.circBufferState:
+            # If ready, always ready
+            return 'BitcoindReady'
 
          # If we get here, bitcoind is gave us a response.
          secSinceLastBlk = RightNow() - latestInfo['toptime']
@@ -11197,7 +11211,6 @@ class BlockDataManagerThread(threading.Thread):
       self.blkidx = BLKFILE_STARTINDEX
       self.blk1st = BLKFILE_FIRSTFILE
 
-         
       
          
 
@@ -11226,7 +11239,7 @@ class BlockDataManagerThread(threading.Thread):
          raise AttributeError
       else:
          def passthruFunc(*args, **kwargs):
-            LOGDEBUG('External thread requesting: %s (%d)', name, rndID)
+            #LOGDEBUG('External thread requesting: %s (%d)', name, rndID)
             waitForReturn = True
             if len(kwargs)>0 and \
                kwargs.has_key('wait') and \
@@ -11335,7 +11348,7 @@ class BlockDataManagerThread(threading.Thread):
          return 'BlockchainReady'
       elif self.blkMode == BLOCKCHAINMODE.Rescanning or self.aboutToRescan:
          # BDM is doing a FULL scan of the blockchain, and expected to take
-         # several minutes to complete
+         
          return 'Scanning'
       elif self.blkMode == BLOCKCHAINMODE.Uninitialized and not self.aboutToRescan:
          # BDM wants to be online, but the calling thread never initiated the 
@@ -11351,6 +11364,31 @@ class BlockDataManagerThread(threading.Thread):
       else:
          return '<UNKNOWN: %d>' % self.blkMode
 
+
+   #############################################################################
+   def predictLoadTime(self):
+      # Apparently we can't read the C++ state while it's scanning, 
+      # specifically getLoadProgress* methods.  Thus we have to resort
+      # to communicating via files... bleh 
+      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
+      if not os.path.exists(bfile):
+         return [-1,-1,-1]
+
+      try:
+         with open(bfile,'r') as f:
+            tmtrx = [ line.split() for line in f.readlines() ] 
+            pct0 = float(tmtrx[0][0])  / float(tmtrx[0][1])
+            pct1 = float(tmtrx[-1][0]) / float(tmtrx[-1][1])
+            t0 = float(tmtrx[0][2])
+            t1 = float(tmtrx[-1][2])
+            if not t1>t0:
+               return [-1,-1,-1]
+            rate = (pct1-pct0) / (t1-t0) 
+            tleft = (1-pct1)/rate
+            return [pct1,rate,tleft]
+      except:
+         return [-1,-1,-1]
+            
 
    
       
@@ -11436,6 +11474,7 @@ class BlockDataManagerThread(threading.Thread):
       # and the calling thread checks TheBDM.isScanning() before this thread
       # has a chance to modify the blkMode variable.  Now isScanning() also
       # checks the aboutToRescan variable, too.
+
       expectOutput = False
       if not wait==False and (self.alwaysBlock or wait==True):
          expectOutput = True
@@ -11854,6 +11893,11 @@ class BlockDataManagerThread(threading.Thread):
          LOGERROR('Continuing with the scan, anyway.')
          
 
+      # Remove "blkfiles.txt" to make sure we get accurate TGO
+      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
+      if os.path.exists(bfile):
+         os.remove(bfile)
+
       # Check for the existence of the Bitcoin-Qt directory
       if not os.path.exists(self.blkdir):
          raise FileExistsError, ('Directory does not exist: %s' % self.blkdir)
@@ -11868,6 +11912,7 @@ class BlockDataManagerThread(threading.Thread):
       self.blkMode = BLOCKCHAINMODE.Rescanning
       self.aboutToRescan = False
 
+      self.bdm.SetHomeDirLocation(ARMORY_HOME_DIR)
       self.bdm.SetBlkFileLocation(self.blkdir, self.blkdig, self.blkidx)
       self.bdm.SetBtcNetworkParams( GENESIS_BLOCK_HASH, \
                                     GENESIS_TX_HASH,    \
@@ -11898,10 +11943,13 @@ class BlockDataManagerThread(threading.Thread):
       elif self.blkMode==BLOCKCHAINMODE.Uninitialized:
          LOGERROR('Blockchain was never loaded.  Why did we request rescan?')
 
+      # Remove "blkfiles.txt" to make sure we get accurate TGO
+      bfile = os.path.join(ARMORY_HOME_DIR,'blkfiles.txt')
+      if os.path.exists(bfile):
+         os.remove(bfile)
 
       if not self.isDirty():
          LOGWARN('It does not look like we need a rescan... doing it anyway')
-
 
       if self.bdm.numBlocksToRescan(self.masterCppWallet) < 144:
          LOGINFO('Rescan requested, but <1 day\'s worth of block to rescan')
@@ -11909,6 +11957,7 @@ class BlockDataManagerThread(threading.Thread):
       else:
          LOGINFO('Rescan requested, and very large scan is necessary')
          self.blkMode = BLOCKCHAINMODE.Rescanning
+
 
       self.aboutToRescan = False
          
@@ -12138,7 +12187,7 @@ class BlockDataManagerThread(threading.Thread):
             self.currentID = rndID
 
             if CLI_OPTIONS.mtdebug:
-               LOGDEBUG('BDM Start Exec: %s (%d): %s', self.getBDMInputName(inputTuple[0]), rndID, str(inputTuple))
+               #LOGDEBUG('BDM Start Exec: %s (%d): %s', self.getBDMInputName(inputTuple[0]), rndID, str(inputTuple))
                tstart = RightNow()
 
 
