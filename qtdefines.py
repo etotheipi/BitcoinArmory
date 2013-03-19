@@ -192,11 +192,15 @@ def initialColResize(tblViewObj, sizeList):
 
 
 class QRichLabel(QLabel):
-   def __init__(self, txt, doWrap=True, hAlign=Qt.AlignLeft, vAlign=Qt.AlignVCenter):
+   def __init__(self, txt, doWrap=True, \
+                           hAlign=Qt.AlignLeft, \
+                           vAlign=Qt.AlignVCenter, \
+                           **kwargs):
       super(QRichLabel, self).__init__(txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
+      self.setText(txt, **kwargs)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
       text = str(text)
@@ -573,62 +577,6 @@ def saveTableView(qtbl):
 
 
 
-class QtBackgroundThread(QThread):
-   '''
-   Define a thread object that will execute a preparatory function
-   (blocking), and then a long processing thread followed by something
-   to do when it's done (both non-blocking).  After the 3 methods and 
-   their arguments are set, use obj.start() to kick it off.
-
-   NOTE: This is basically just a copy of PyBackgroundThread in
-         armoryengine.py, but I needed a version that can access
-         Qt elements.  Using vanilla python threads with calls 
-         to Qt signals/slots/methods/etc, throws all sorts of errors.
-   '''
-
-   def __init__(self, parent, *args, **kwargs):
-      QThread.__init__(self, parent)
-
-      self.preFunc  = lambda: ()
-      self.postFunc = lambda: ()
-
-      if len(args)==0:
-         self.func  = lambda: ()
-      else:
-         if not hasattr(args[0], '__call__'):
-            raise TypeError, ('QtBkgdThread constructor first arg '
-                              '(if any) must be a function')
-         else:
-            self.setThreadFunction(args[0], *args[1:], **kwargs)
-
-   def setPreThreadFunction(self, prefunc, *args, **kwargs):
-      def preFuncPartial():
-         prefunc(*args, **kwargs)
-      self.preFunc = preFuncPartial
-
-   def setThreadFunction(self, thefunc, *args, **kwargs):
-      def funcPartial():
-         thefunc(*args, **kwargs)
-      self.func = funcPartial
-
-   def setPostThreadFunction(self, postfunc, *args, **kwargs):
-      def postFuncPartial():
-         postfunc(*args, **kwargs)
-      self.postFunc = postFuncPartial
-
-
-   def run(self):
-      print 'Executing QThread.run()...'
-      self.func()
-      self.postFunc()
-
-   def start(self):
-      print 'Executing QThread.start()...'
-      # This is blocking: we may want to guarantee that something critical 
-      #                   is in place before we start the thread
-      self.preFunc()
-      super(QtBackgroundThread, self).start()
-
 
 
 
@@ -652,6 +600,7 @@ class ArmoryDialog(QDialog):
 
 
 
+################################################################################
 class QRCodeWidget(QWidget):
 
    def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L, parent=None):
@@ -895,3 +844,42 @@ def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
          return False
       
 
+
+def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
+                           ffilter=[]):
+
+   types = list(ffilter)
+   types.append('All files (*)')
+   typesStr = ';; '.join(types)
+   if not OS_MACOSX:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr))
+   else:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
+
+   if fullPath:
+      qObj.setText( fullPath)
+   
+
+    
+
+def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
+
+   btn = QPushButton('')
+   ico = QIcon(QPixmap(':/folder24.png')) 
+   btn.setIcon(ico)
+   
+   def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
+      if not OS_MACOSX:
+         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, ARMORY_HOME_DIR))
+      else:
+         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, ARMORY_HOME_DIR, \
+                                          options=QFileDialog.DontUseNativeDialog))
+      if fullPath:
+         qObj.setText( fullPath)
+
+
+   fn = lambda: selectDirectoryForQLineEdit(parent, targetWidget, title)
+   parent.connect(btn, SIGNAL('clicked()'), fn)
+   return btn

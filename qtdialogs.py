@@ -9816,9 +9816,78 @@ class DlgPreferences(ArmoryDialog):
       self.connect(self.cmbUsermode, SIGNAL('activated(int)'), self.setUsermodeDescr)
 
 
+
+      ##########################################################################
+      # bitcoind-management settings
+      self.chkManageSatoshi   = QCheckBox('Armory will manage Bitcoin-Qt/bitcoind')
+      self.edtSatoshiExePath  = QLineEdit()
+      self.edtSatoshiHomePath = QLineEdit()
+      self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed',10), 40)[0])
+      self.connect(self.chkManageSatoshi, SIGNAL('clicked()'), self.clickChkManage)
+      if self.main.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX):
+         self.chkManageSatoshi.setChecked(True)
+      if OS_MACOSX:
+         self.chkManageSatoshi.setEnabled(False)
+         lblManageSatoshi = QRichLabel( \
+            'Bitcoin-Qt/bitcoind management is not available on Mac/OSX')
+      else:
+         if self.main.settings.hasSetting('SatoshiExe'):
+            satexe  = self.main.settings.get('SatoshiExe')
+   
+         sathome = BTC_HOME_DIR
+         if self.main.settings.hasSetting('SatoshiHome'):
+            sathome = self.main.settings.get('SatoshiHome')
+         
+         lblManageSatoshi = QRichLabel( \
+            '<b>Bitcoin Software Management</b>'
+            '<br><br>'
+            'By default, Armory will manage the Bitcoin engine/software in the '
+            'background.  You can choose to manage it yourself, or tell Armory '
+            'about non-standard installation configuration.')
+
+      lblDescrExe    = QRichLabel('Bitcoin Install Dir:')
+      lblDescrHome   = QRichLabel('Bitcoin Home Dir:')
+      lblDefaultExe  = QRichLabel('Leave blank to have Armory search default '
+                                  'locations for your OS', size=2)
+      lblDefaultHome = QRichLabel('Leave blank to use default datadir '
+                                  '(%s)' % BTC_HOME_DIR, size=2)
+
+      self.btnSetExe  = createDirectorySelectButton(self, self.edtSatoshiExePath)
+      self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
+
+      layoutMgmt = QGridLayout()
+      layoutMgmt.addWidget(lblManageSatoshi,       0,0, 1,3)
+      layoutMgmt.addWidget(self.chkManageSatoshi,  1,0, 1,3)
+
+      layoutMgmt.addWidget(lblDescrExe,            2,0)
+      layoutMgmt.addWidget(self.edtSatoshiExePath, 2,1)
+      layoutMgmt.addWidget(self.btnSetExe,         2,2)
+      layoutMgmt.addWidget(lblDefaultExe,          3,1, 1,2)
+      
+      layoutMgmt.addWidget(lblDescrHome,           4,0)
+      layoutMgmt.addWidget(self.edtSatoshiHomePath,4,1)
+      layoutMgmt.addWidget(self.btnSetHome,        4,2)
+      layoutMgmt.addWidget(lblDefaultHome,         5,1, 1,2)
+      frmMgmt = QFrame()
+      frmMgmt.setLayout(layoutMgmt)
+
+      self.clickChkManage()
+      # bitcoind-management settings
+      ##########################################################################
+
+
       frmLayout = QGridLayout()
 
       i=0
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+      
+      i+=1
+      frmLayout.addWidget(frmMgmt,                i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
       frmLayout.addWidget( lblDefaultFee,         i,0 )
       frmLayout.addWidget( ttipDefaultFee,        i,1 )
       frmLayout.addWidget( self.edtDefaultFee,    i,2 )
@@ -9988,6 +10057,13 @@ class DlgPreferences(ArmoryDialog):
       except:
          self.lblDateExample.setText('Sample: [[invalid date format]]')
          self.isValidFormat = False
+
+   #############################################################################
+   def clickChkManage(self):
+      self.edtSatoshiExePath.setEnabled(self.chkManageSatoshi.isChecked())
+      self.edtSatoshiHomePath.setEnabled(self.chkManageSatoshi.isChecked())
+      self.btnSetExe.setEnabled(self.chkManageSatoshi.isChecked())
+      self.btnSetHome.setEnabled(self.chkManageSatoshi.isChecked())
 
 
 ################################################################################

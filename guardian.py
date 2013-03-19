@@ -40,12 +40,12 @@ def kill(pid):
       time.sleep(3)
       for i in range(3):
          if not check_pid(pid):
-            print 'Regular TERMINATE succeeded'
+            #print 'Regular TERMINATE succeeded'
             break
          else:
-            print 'Regular TERMINATE failed; try again in 1 sec...'
+            print 'Regular TERMINATE of bitcoind failed; try again in 1 sec...'
             time.sleep(1)
-         print 'Killing process ...'
+         print 'Killing bitcoind (hard) ...'
          os.kill(pid, signal.SIGKILL)
       
 
@@ -70,11 +70,11 @@ while True:
    time.sleep(3)
 
    if not check_pid(pid_armory, proc_name_armory):
-      print 'ArmoryQt died!'
+      #print 'ArmoryQt died!'
       break
 
    if not check_pid(pid_bitcoind, proc_name_bitcoind):
-      print 'bitcoind disappeared -- guardian exiting'
+      #print 'bitcoind disappeared -- guardian exiting'
       exit(0)
    
 
