@@ -10050,7 +10050,7 @@ class SatoshiDaemonManager(object):
          else:
             LOGINFO('Found bitcoind in the following places:')
             for p in pathToBitcoindExe:
-               LOGINFO('\t%s', p)
+               LOGINFO('   %s', p)
             pathToBitcoindExe = pathToBitcoindExe[0]
             LOGINFO('Using: %s', pathToBitcoindExe)
 
@@ -10138,7 +10138,7 @@ class SatoshiDaemonManager(object):
                self.foundExe.append(testPath)
 
       else:
-         searchPaths = ['/usr/bin/', '/usr/lib/bitcoin/']
+         searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')
             if os.path.exists(testPath):
@@ -10374,7 +10374,6 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
-         print self.bitconf
          usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
                                                       'host', 'rpcport']]
          pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)

@@ -869,12 +869,19 @@ def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
    btn = QPushButton('')
    ico = QIcon(QPixmap(':/folder24.png')) 
    btn.setIcon(ico)
+
    
    def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
+      initPath = ARMORY_HOME_DIR
+      currText = unicode(qObj.text()).strip()
+      if len(currText)>0:
+         if os.path.exists(currText):
+            initPath = currText
+       
       if not OS_MACOSX:
-         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, ARMORY_HOME_DIR))
+         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath))
       else:
-         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, ARMORY_HOME_DIR, \
+         fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath, \
                                           options=QFileDialog.DontUseNativeDialog))
       if fullPath:
          qObj.setText( fullPath)
@@ -883,3 +890,6 @@ def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
    fn = lambda: selectDirectoryForQLineEdit(parent, targetWidget, title)
    parent.connect(btn, SIGNAL('clicked()'), fn)
    return btn
+
+
+

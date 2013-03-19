@@ -1146,19 +1146,24 @@ class ArmoryMainWindow(QMainWindow):
       # it if it doesn't exist
       satexe = None
       if self.settings.hasSetting('SatoshiExe'):
-         satexe  = self.settings.get('SatoshiExe')
+         satexe = [self.settings.get('SatoshiExe')]
+      else:
+         satexe = []
    
       sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiHome'):
-         sathome = self.settings.get('SatoshiHome')
+      if self.settings.hasSetting('SatoshiDatadir'):
+         sathome = self.settings.get('SatoshiDatadir')
   
       TheSDM.setDisabled(False)
       try:
-         TheSDM.setupSDM(satexe, sathome)
+         # "satexe" is actually just the install directory, not the direct
+         # path the executable.  That dir tree will be searched for bitcoind
+         TheSDM.setupSDM(None, sathome, extraExeSearch=satexe)
          TheSDM.startBitcoind()
          return True
       except:
          LOGERROR('Failed to setup SDM')
+         self.switchNetworkMode(NETWORKMODE.Offline)
          raise
       
        
@@ -1215,8 +1220,8 @@ class ArmoryMainWindow(QMainWindow):
          satexe  = self.settings.get('SatoshiExe')
    
       sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiHome'):
-         sathome = self.getSettingOrSetDefault('SatoshiHome', BTC_HOME_DIR)
+      if self.settings.hasSetting('SatoshiDatadir'):
+         sathome = self.getSettingOrSetDefault('SatoshiDatadir', BTC_HOME_DIR)
    
       try:
          TheSDM.setupSDM(satexe, sathome)
@@ -2989,37 +2994,6 @@ class ArmoryMainWindow(QMainWindow):
       self.setDashboardDetails()
 
 
-   #############################################################################
-   def tryToGoOnline(self):
-      if TheBDM.getBDMState() == 'BlockchainReady':
-         return True
-
-      if not (self.internetAvail or CLI_OPTIONS.forceOnline):
-         LOGERROR('TryToGoOline but no internet avail & not forced')
-         return False
-
-
-      if self.doManageSatoshi:
-
-         # it if it doesn't exist
-         satexe  = BITCOIND_PATH
-         if self.settings.hasSetting('SatoshiExe'):
-            satexe  = self.settings.get('SatoshiExe')
-   
-         sathome = BTC_HOME_DIR
-         if self.settings.hasSetting('SatoshiHome'):
-            sathome = self.settings.get('SatoshiHome')
-   
-         try:
-            TheSDM.setupSDM(satexe, sathome)
-         except:
-            LOGERROR('Failed to setup SatoshiDaemonMgr')
-            pass
-      else:
-         self.resetBdmBeforeScan()
-         TheBDM.setOnlineMode(True)
-         self.switchNetworkMode(NETWORKMODE.Full)
-         return True
       
    
    #############################################################################
@@ -3567,7 +3541,7 @@ class ArmoryMainWindow(QMainWindow):
       elif mgmtMode.lower()=='auto':
          if state == 'OfflineBitcoindRunning':
             return ( \
-            'It appears you are already running the Bitcoin software '
+            'It appears you are already running Bitcoin software '
             '(Bitcoin-Qt or bitcoind). '
             'Unlike previous versions of Armory, you should <u>not</u> run '
             'this software yourself --  Armory '
@@ -3812,7 +3786,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
       else:
-         # User is managing satoshi client themself
+         # User is managing satoshi client, or bitcoind is already sync'd
          self.frmDashMidButtons.setVisible(False)
          if bdmState in ('Offline', 'Uninitialized'):
             if onlineAvail and not self.lastBDMState[1]==onlineAvail:
@@ -3889,6 +3863,7 @@ class ArmoryMainWindow(QMainWindow):
             self.barProgressScan.setVisible(True)
             self.lblTimeLeftScan.setVisible(True)
             self.lblBusy.setVisible(True)
+            self.btnModeSwitch.setVisible(False)
 
             if TheSDM.getSDMState() == 'BitcoindReady':
                self.barProgressSync.setVisible(True)

@@ -9819,7 +9819,7 @@ class DlgPreferences(ArmoryDialog):
 
       ##########################################################################
       # bitcoind-management settings
-      self.chkManageSatoshi   = QCheckBox('Armory will manage Bitcoin-Qt/bitcoind')
+      self.chkManageSatoshi   = QCheckBox('Let Armory run Bitcoin-Qt/bitcoind in the background')
       self.edtSatoshiExePath  = QLineEdit()
       self.edtSatoshiHomePath = QLineEdit()
       self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed',10), 40)[0])
@@ -9835,8 +9835,8 @@ class DlgPreferences(ArmoryDialog):
             satexe  = self.main.settings.get('SatoshiExe')
    
          sathome = BTC_HOME_DIR
-         if self.main.settings.hasSetting('SatoshiHome'):
-            sathome = self.main.settings.get('SatoshiHome')
+         if self.main.settings.hasSetting('SatoshiDatadir'):
+            sathome = self.main.settings.get('SatoshiDatadir')
          
          lblManageSatoshi = QRichLabel( \
             '<b>Bitcoin Software Management</b>'
@@ -9844,6 +9844,12 @@ class DlgPreferences(ArmoryDialog):
             'By default, Armory will manage the Bitcoin engine/software in the '
             'background.  You can choose to manage it yourself, or tell Armory '
             'about non-standard installation configuration.')
+      if self.main.settings.hasSetting('SatoshiExe'):
+         self.edtSatoshiExePath.setText(self.main.settings.get('SatoshiExe'))
+         self.edtSatoshiExePath.home(False)
+      if self.main.settings.hasSetting('SatoshiDatadir'):
+         self.edtSatoshiHomePath.setText(self.main.settings.get('SatoshiDatadir'))
+         self.edtSatoshiHomePath.home(False)
 
       lblDescrExe    = QRichLabel('Bitcoin Install Dir:')
       lblDescrHome   = QRichLabel('Bitcoin Home Dir:')
@@ -9984,16 +9990,58 @@ class DlgPreferences(ArmoryDialog):
                            #'regardless of your preferences -- in such cases '
                            #'you will be prompted to include the correct '
                            #'value or abort the transaction'])
+
           
+   #############################################################################
    def accept(self, *args):
+
+      if self.chkManageSatoshi.isChecked():
+         # Check valid path is supplied for bitcoin installation
+         pathExe  = unicode(self.edtSatoshiExePath.text()).strip()
+         if len(pathExe)>0:
+            if not os.path.exists(pathExe):
+               exeName = 'bitcoin-qt.exe' if OS_WINDOWS else 'bitcoin-qt'
+               QMessageBox.warning(self, 'Invalid Path', \
+                  'The path you specified for the Bitcoin software installation '
+                  'does not exist.  Please select the directory that contains %s '
+                  'or leave it blank to have Armory search the default location '
+                  'for your operating system' % exeName, QMessageBox.Ok)
+               return
+            if os.path.isfile(pathExe):
+               pathExe = os.path.dirname(pathExe)
+            self.main.writeSetting('SatoshiExe', pathExe)
+         else:
+            self.main.settings.delete('SatoshiExe')
+   
+         # Check valid path is supplied for bitcoind home directory
+         pathHome = unicode(self.edtSatoshiHomePath.text()).strip()
+         if len(pathHome)>0:
+            if not os.path.exists(pathHome):
+               exeName = 'bitcoin-qt.exe' if OS_WINDOWS else 'bitcoin-qt'
+               QMessageBox.warning(self, 'Invalid Path', \
+                  'The path you specified for the Bitcoin software home directory '
+                  'does not exist.  Only specify this directory if you use a '
+                  'non-standard "-datadir=" option when running Bitcoin-Qt or '
+                  'bitcoind.  If you leave this field blank, the following ' 
+                  'path will be used: <br><br> %s' % BTC_HOME_DIR, QMessageBox.Ok)
+               return
+            self.main.writeSetting('SatoshiDatadir', pathHome)
+         else:
+            self.main.settings.delete('SatoshiDatadir')
+   
+      self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
+          
+              
+
+
       try:
          defaultFee = str2coin( str(self.edtDefaultFee.text()).replace(' ','') )
          self.main.writeSetting('Default_Fee', defaultFee)
       except:
          QMessageBox.warning(self, 'Invalid Amount', \
-                  'The default fee specified could not be understood.  Please '
-                  'specify in BTC with no more than 8 decimal places.', \
-                  QMessageBox.Ok)
+            'The default fee specified could not be understood.  Please '
+            'specify in BTC with no more than 8 decimal places.', \
+            QMessageBox.Ok)
          return
 
       if not self.main.setPreferredDateFormat(str(self.edtDateFormat.text())):
