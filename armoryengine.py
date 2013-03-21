@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 5, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -582,7 +582,7 @@ sys.excepthook = logexcept_override
 
 
 ################################################################################
-def check_output(*popenargs, **kwargs):
+def subprocess_check_output(*popenargs, **kwargs):
    """
    Run command with arguments and return its output as a byte string.
    Backported from Python 2.7, because it's stupid useful, short, and
@@ -600,6 +600,34 @@ def check_output(*popenargs, **kwargs):
        raise error
    return output
 
+
+################################################################################
+# Similar to subprocess_check_output, but used for long-running commands
+def execAndWait(cli_str, timeout=0):
+   """ 
+   There may actually still be references to this function where check_output
+   would've been more appropriate.  But I didn't know about check_output at 
+   the time...
+   """
+
+   from subprocess import Popen, PIPE
+   import signal
+   process = Popen(cli_str, shell=True, stdout=PIPE, stderr=PIPE)
+   pid = process.pid
+   start = RightNow()
+   while process.poll() == None:
+      time.sleep(0.1)
+      if timeout>0 and (RightNow() - start)>timeout:
+         print 'Process exceeded timeout, killing it'
+         if OS_WINDOWS:
+            os.kill(pid, signal.CTRL_C_EVENT)
+         else:
+            os.kill(pid, signal.SIGKILL)
+   out,err = process.communicate()
+   return [out,err]
+
+
+
 ################################################################################
 # Get system details for logging purposes
 class DumbStruct(object): pass
@@ -612,12 +640,12 @@ def GetSystemDetails():
    sysParam = [None,None,None,None]
    if OS_LINUX:
       # Get total RAM
-      freeStr = check_output('free -m', shell=True)
+      freeStr = subprocess_check_output('free -m', shell=True)
       totalMemory = freeStr.split('\n')[1].split()[1]
       out.Memory = int(totalMemory) * 1024
 
       # Get CPU name
-      cpuinfo = check_output(['cat','/proc/cpuinfo'])
+      cpuinfo = subprocess_check_output(['cat','/proc/cpuinfo'])
       for line in cpuinfo.split('\n'):
          if line.strip().lower().startswith('model name'):
             out.CpuStr = line.split(':')[1].strip()
@@ -10232,6 +10260,13 @@ class SatoshiDaemonManager(object):
 
       else:
          searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
+
+         # In case this was a downloaded copy, make sure we traverse to bin/64 dir
+         if SystemDetails.IsX64:
+            searchPaths.extend([os.path.join(p, 'bin/64') for p in extraSearchPaths])
+         else:
+            searchPaths.extend([os.path.join(p, 'bin/32') for p in extraSearchPaths])
+
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')
             if os.path.exists(testPath):
@@ -10319,7 +10354,7 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      cmdstr = '%s -datadir=%s' % (self.executable, self.satoshiHome)
+      cmdstr = '"%s" -datadir="%s"' % (self.executable, self.satoshiHome)
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)

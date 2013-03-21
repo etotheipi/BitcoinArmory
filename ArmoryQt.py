@@ -3099,8 +3099,8 @@ class ArmoryMainWindow(QMainWindow):
          QMessageBox.information(self, 'Install Only', \
             'When you are done installing the Bitcoin software <b>'
             'do not</b> run it.  It will be started in the background '
-            'after Armory is restarted.', QMessageBox.Ok)
-         webbrowser.open('http://www.bitcoin.org')
+            'when you click "Check Again."', QMessageBox.Ok)
+         webbrowser.open('http://www.bitcoin.org/en/download')
 
       def openInstruct():
          import webbrowser
@@ -3393,7 +3393,7 @@ class ArmoryMainWindow(QMainWindow):
          'backups protect you <i>forever</i> against forgotten passwords, '
          'hard-drive failure, and make it easy for your family to recover '
          'your funds if something terrible happens to you.  <i>Each wallet '
-         'only needs to be backed up once, ever!  Without it, you are at '
+         'only needs to be backed up once, ever!</i>  Without it, you are at '
          'risk of losing all of your Bitcoins!  For more information, '
          'visit the <a href="https://bitcoinarmory.com/">Armory Backups'
          '</a> page.'
@@ -3574,10 +3574,10 @@ class ArmoryMainWindow(QMainWindow):
          if state == 'InitializingLongTime':
             return ( \
             'You are offline while the Bitcoin engine is downloading the '
-            'global transaction history.  This takes a few hours the first '
-            'time, but is required to maximize your security.  Once this '
-            'initialization is complete, loading Armory again in the future '
-            'should only take a few minutes.'  
+            'global transaction history in order to maximize your '
+            'security.  <b>This takes a few hours the first time, but '
+            'should only take a few minutes on subsequent loads.</b>  '
+            'Please be patient!'
             '<br><br>'
             'While you wait, you can manage your wallets.  Make new wallets, '
             'make digital or paper backups, create Bitcoin addresses to receive '
@@ -4352,16 +4352,6 @@ def checkForAlreadyOpen():
    except:
       pass
 
-      
-
-############################################
-def execAndWait(cli_str):
-   from subprocess import Popen, PIPE
-   process = Popen(cli_str, shell=True, stdout=PIPE, stderr=PIPE)
-   while process.poll() == None:
-      time.sleep(0.1)
-   out,err = process.communicate()
-   return [out,err]
 
 
 
