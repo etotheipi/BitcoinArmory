@@ -3586,7 +3586,7 @@ class DlgIntroMessage(ArmoryDialog):
          'bottom-right corner of the Bitcoin-Qt window when it is finished.'
          '<br><br>'
          'For more info about Armory, and Bitcoin itself, see '
-         '<a href="http://'
+         '<a href="https://'
          'bitcoinarmory.com/index.php/frequently-asked-questions">frequently '
          'asked questions</a>.')
       lblDescr.setOpenExternalLinks(True)
@@ -9617,7 +9617,7 @@ class DlgHelpAbout(ArmoryDialog):
 
       lblHead = QRichLabel('Armory Bitcoin Client : Version %s-beta' % \
                                     getVersionString(BTCARMORY_VERSION), doWrap=False)
-      lblWebpage = QRichLabel('<a href="http://www.bitcoinarmory.com">http://www.bitcoinarmory.com</a>')
+      lblWebpage = QRichLabel('<a href="https://www.bitcoinarmory.com">https://www.bitcoinarmory.com</a>')
       lblWebpage.setOpenExternalLinks(True)
       lblCopyright = QRichLabel('Copyright \xa9 2011-2013 Alan C. Reiner')
       lblLicense = QRichLabel('Licensed under the '
@@ -9640,9 +9640,82 @@ class DlgHelpAbout(ArmoryDialog):
 
 
 ################################################################################
-class DlgPreferences(ArmoryDialog):
+class DlgSettings(ArmoryDialog):
    def __init__(self, parent=None, main=None):
-      super(DlgPreferences, self).__init__(parent, main)
+      super(DlgSettings, self).__init__(parent, main)
+
+
+
+      ##########################################################################
+      # bitcoind-management settings
+      self.chkManageSatoshi   = QCheckBox('Let Armory run Bitcoin-Qt/bitcoind in the background')
+      self.edtSatoshiExePath  = QLineEdit()
+      self.edtSatoshiHomePath = QLineEdit()
+      self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed',10), 40)[0])
+      self.connect(self.chkManageSatoshi, SIGNAL('clicked()'), self.clickChkManage)
+      self.startChk = self.main.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX)
+      if self.startChk:
+         self.chkManageSatoshi.setChecked(True)
+      if OS_MACOSX:
+         self.chkManageSatoshi.setEnabled(False)
+         lblManageSatoshi = QRichLabel( \
+            'Bitcoin-Qt/bitcoind management is not available on Mac/OSX')
+      else:
+         if self.main.settings.hasSetting('SatoshiExe'):
+            satexe  = self.main.settings.get('SatoshiExe')
+   
+         sathome = BTC_HOME_DIR
+         if self.main.settings.hasSetting('SatoshiDatadir'):
+            sathome = self.main.settings.get('SatoshiDatadir')
+         
+         lblManageSatoshi = QRichLabel( \
+            '<b>Bitcoin Software Management</b>'
+            '<br><br>'
+            'By default, Armory will manage the Bitcoin engine/software in the '
+            'background.  You can choose to manage it yourself, or tell Armory '
+            'about non-standard installation configuration.')
+      if self.main.settings.hasSetting('SatoshiExe'):
+         self.edtSatoshiExePath.setText(self.main.settings.get('SatoshiExe'))
+         self.edtSatoshiExePath.home(False)
+      if self.main.settings.hasSetting('SatoshiDatadir'):
+         self.edtSatoshiHomePath.setText(self.main.settings.get('SatoshiDatadir'))
+         self.edtSatoshiHomePath.home(False)
+
+      lblDescrExe    = QRichLabel('Bitcoin Install Dir:')
+      lblDescrHome   = QRichLabel('Bitcoin Home Dir:')
+      lblDefaultExe  = QRichLabel('Leave blank to have Armory search default '
+                                  'locations for your OS', size=2)
+      lblDefaultHome = QRichLabel('Leave blank to use default datadir '
+                                  '(%s)' % BTC_HOME_DIR, size=2)
+
+      self.btnSetExe  = createDirectorySelectButton(self, self.edtSatoshiExePath)
+      self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
+
+      layoutMgmt = QGridLayout()
+      layoutMgmt.addWidget(lblManageSatoshi,       0,0, 1,3)
+      layoutMgmt.addWidget(self.chkManageSatoshi,  1,0, 1,3)
+
+      layoutMgmt.addWidget(lblDescrExe,            2,0)
+      layoutMgmt.addWidget(self.edtSatoshiExePath, 2,1)
+      layoutMgmt.addWidget(self.btnSetExe,         2,2)
+      layoutMgmt.addWidget(lblDefaultExe,          3,1, 1,2)
+      
+      layoutMgmt.addWidget(lblDescrHome,           4,0)
+      layoutMgmt.addWidget(self.edtSatoshiHomePath,4,1)
+      layoutMgmt.addWidget(self.btnSetHome,        4,2)
+      layoutMgmt.addWidget(lblDefaultHome,         5,1, 1,2)
+      frmMgmt = QFrame()
+      frmMgmt.setLayout(layoutMgmt)
+
+      self.clickChkManage()
+      # bitcoind-management settings
+      ##########################################################################
+
+      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup (force '
+         'online-mode unless --offline is specified)')
+      settingSkipCheck = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
+      self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
+
 
 
 
@@ -9656,7 +9729,7 @@ class DlgPreferences(ArmoryDialog):
                                  coin2str(MIN_TX_FEE, maxZeros=0).strip())
       ttipDefaultFee = createToolTipObject( \
                                  'NOTE: some transactions will require a certain fee '
-                                 'regardless of your preferences -- in such cases '
+                                 'regardless of your settings -- in such cases '
                                  'you will be prompted to include the correct '
                                  'value or cancel the transaction')
       self.edtDefaultFee = QLineEdit()
@@ -9817,70 +9890,6 @@ class DlgPreferences(ArmoryDialog):
 
 
 
-      ##########################################################################
-      # bitcoind-management settings
-      self.chkManageSatoshi   = QCheckBox('Let Armory run Bitcoin-Qt/bitcoind in the background')
-      self.edtSatoshiExePath  = QLineEdit()
-      self.edtSatoshiHomePath = QLineEdit()
-      self.edtSatoshiExePath.setMinimumWidth(tightSizeNChar(GETFONT('Fixed',10), 40)[0])
-      self.connect(self.chkManageSatoshi, SIGNAL('clicked()'), self.clickChkManage)
-      if self.main.getSettingOrSetDefault('ManageSatoshi', not OS_MACOSX):
-         self.chkManageSatoshi.setChecked(True)
-      if OS_MACOSX:
-         self.chkManageSatoshi.setEnabled(False)
-         lblManageSatoshi = QRichLabel( \
-            'Bitcoin-Qt/bitcoind management is not available on Mac/OSX')
-      else:
-         if self.main.settings.hasSetting('SatoshiExe'):
-            satexe  = self.main.settings.get('SatoshiExe')
-   
-         sathome = BTC_HOME_DIR
-         if self.main.settings.hasSetting('SatoshiDatadir'):
-            sathome = self.main.settings.get('SatoshiDatadir')
-         
-         lblManageSatoshi = QRichLabel( \
-            '<b>Bitcoin Software Management</b>'
-            '<br><br>'
-            'By default, Armory will manage the Bitcoin engine/software in the '
-            'background.  You can choose to manage it yourself, or tell Armory '
-            'about non-standard installation configuration.')
-      if self.main.settings.hasSetting('SatoshiExe'):
-         self.edtSatoshiExePath.setText(self.main.settings.get('SatoshiExe'))
-         self.edtSatoshiExePath.home(False)
-      if self.main.settings.hasSetting('SatoshiDatadir'):
-         self.edtSatoshiHomePath.setText(self.main.settings.get('SatoshiDatadir'))
-         self.edtSatoshiHomePath.home(False)
-
-      lblDescrExe    = QRichLabel('Bitcoin Install Dir:')
-      lblDescrHome   = QRichLabel('Bitcoin Home Dir:')
-      lblDefaultExe  = QRichLabel('Leave blank to have Armory search default '
-                                  'locations for your OS', size=2)
-      lblDefaultHome = QRichLabel('Leave blank to use default datadir '
-                                  '(%s)' % BTC_HOME_DIR, size=2)
-
-      self.btnSetExe  = createDirectorySelectButton(self, self.edtSatoshiExePath)
-      self.btnSetHome = createDirectorySelectButton(self, self.edtSatoshiHomePath)
-
-      layoutMgmt = QGridLayout()
-      layoutMgmt.addWidget(lblManageSatoshi,       0,0, 1,3)
-      layoutMgmt.addWidget(self.chkManageSatoshi,  1,0, 1,3)
-
-      layoutMgmt.addWidget(lblDescrExe,            2,0)
-      layoutMgmt.addWidget(self.edtSatoshiExePath, 2,1)
-      layoutMgmt.addWidget(self.btnSetExe,         2,2)
-      layoutMgmt.addWidget(lblDefaultExe,          3,1, 1,2)
-      
-      layoutMgmt.addWidget(lblDescrHome,           4,0)
-      layoutMgmt.addWidget(self.edtSatoshiHomePath,4,1)
-      layoutMgmt.addWidget(self.btnSetHome,        4,2)
-      layoutMgmt.addWidget(lblDefaultHome,         5,1, 1,2)
-      frmMgmt = QFrame()
-      frmMgmt.setLayout(layoutMgmt)
-
-      self.clickChkManage()
-      # bitcoind-management settings
-      ##########################################################################
-
 
       frmLayout = QGridLayout()
 
@@ -9889,6 +9898,9 @@ class DlgPreferences(ArmoryDialog):
       
       i+=1
       frmLayout.addWidget(frmMgmt,                i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget(self.chkSkipOnlineCheck,i,0, 1,3)
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -9963,7 +9975,7 @@ class DlgPreferences(ArmoryDialog):
       self.setLayout(dlgLayout)
       
       self.setMinimumWidth(650)
-      self.setWindowTitle('Armory Preferences')
+      self.setWindowTitle('Armory Settings')
 
       # NOTE:  This was getting complicated for a variety of reasons, so switched
       #        to manually constructing the options window.  May come back to this
@@ -10031,6 +10043,8 @@ class DlgPreferences(ArmoryDialog):
    
       self.main.writeSetting('ManageSatoshi', self.chkManageSatoshi.isChecked())
           
+      
+      self.main.writeSetting('SkipOnlineCheck', self.chkSkipOnlineCheck.isChecked())
               
 
 
@@ -10068,7 +10082,7 @@ class DlgPreferences(ArmoryDialog):
       self.main.writeSetting('NotifyReconn', self.chkReconn.isChecked())
 
       self.main.createCombinedLedger()
-      super(DlgPreferences, self).accept(*args)
+      super(DlgSettings, self).accept(*args)
       
 
    #############################################################################
@@ -10793,8 +10807,8 @@ class DlgVersionNotify(ArmoryDialog):
             '<br><br>'
             'When they become available, you can find and download new '
             'versions of Armory from:<br><br> '
-            '<a href="http://bitcoinarmory.com/index.php/get-armory">'
-            'http://bitcoinarmory.com/index.php/get-armory</a> ' % self.myVersionStr)
+            '<a href="https://bitcoinarmory.com/index.php/get-armory">'
+            'https://bitcoinarmory.com/get-armory</a> ' % self.myVersionStr)
             
       else:
          lblDescr = QRichLabel( \
@@ -10805,8 +10819,8 @@ class DlgVersionNotify(ArmoryDialog):
             '<b>Lastest Version</b>: %s'
             '<br><br>'
             'Please visit the '
-            '<a href="http://bitcoinarmory.com/index.php/get-armory">Armory '
-            'download page</a> (http://bitcoinarmory.com/index.php/get-armory) '
+            '<a href="https://bitcoinarmory.com/get-armory">Armory '
+            'download page</a> (https://bitcoinarmory.com/get-armory) '
             'to get the most recent version. '
             '<b>All your wallets and settings will remain untouched when you '
             'reinstall Armory.</b>' % (self.myVersionStr, self.latestVerStr))
@@ -11193,8 +11207,7 @@ class ArmoryPref(object):
 ################################################################################
 class DlgInstallLinux(ArmoryDialog):
    def __init__(self, parent, main):
-      super(DlgInstallUbuntu, self).__init__(parent, main)
-
+      super(DlgInstallLinux, self).__init__(parent, main)
 
       import platform
       self.distro, self.dver, self.dname = platform.linux_distribution()
@@ -11207,8 +11220,60 @@ class DlgInstallLinux(ArmoryDialog):
             'bitcoin.org</a>.  Automated installation is available only for '
             'Ubuntu and Debian-based distributions.  For others, please visit '
             'the bitcoin.org website a')
-      lblDescr.setOpenExternalLinks(True)
+      lblDescr1.setOpenExternalLinks(True)
 
+
+      lblInstallPPATitle = QRichLabel( '<b>Install using the bitcoin.org '
+         'PPA (Ubuntu/Debian only)</b>', doWrap=False)
+   
+      lblInstallPPADescr = QRichLabel( \
+         'This will install the Bitcoin software using your system\'s package '
+         'manager.   You will be notified of updates along with '
+         'other software on your system, but updates will not be received '
+         'until a few days after the new releases (including critical security '
+         'updates).')
+
+      lblInstallPPA = QRichLabel( \
+         'To use the Ubuntu PPA, open a terminal window and copy the following '
+         'three commands, one-by-one.  You can open a terminal by hitting '
+         'Alt-F2 and typing "terminal" (without quotes), or through '
+         'the "Applications" menu, in "Accessories":' )
+         
+      lblInstallPPACmds = QRichLabel( \
+         'sudo add-apt-repository ppa:bitcoin/bitcoin' 
+         '<br>'
+         'sudo apt-get update' 
+         '<br>'
+         'sudo apt-get install bitcoin-qt bitcoind')
+      lblInstallPPACmds.setFont(GETFONT('Courier',10))
+      lblInstallPPACmds.setTextInteractionFlags(Qt.TextSelectableByMouse | \
+                                                Qt.TextSelectableByKeyboard)
+
+      lblInstallPPAMidClick = QRichLabel( \
+         'You can select the text with your mouse '
+         'and middle-click in the terminal window to paste (this works with all '
+         'applications in Linux).  Since this modifies your system, you will '
+         'be required to type in your password.')
+
+      
+      frmCmds = makeHorizFrame([lblInstallPPACmds], STYLE_SUNKEN)
+      frmPPA = makeVertFrame([lblInstallPPATitle, \
+                              lblInstallPPADescr, \
+                              lblInstallPPA,      \
+                              frmCmds,            \
+                              lblInstallPPAMidClick])
+
+      btnOkay = QPushButton("OK")
+      self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
+   
+      layout = QGridLayout()
+      layout.addWidget(frmPPA, 0,0)
+      layout.addWidget(makeHorizFrame(['Stretch',btnOkay]), 1,0)
+      self.setLayout(layout)
+      self.setMinimumWidth(300)
+   
+      
+      
 
 
    def loadGpgKeyring(self):
@@ -11216,4 +11281,13 @@ class DlgInstallLinux(ArmoryDialog):
       #if os.path.exists(pubDirLocal):
           
       pubDirInst  = os.path.join(GetExecDir(), 'PublicKeys')
+
+      gpgCmdList = ['gpg']
+      cmdImportKey = ('gpg '
+                      '--keyring ~/.armory/testkeyring.gpg '
+                      '--no-default-keyring '
+                      '--import %s/AndresenCodeSign.asc')
+      cmdVerifyFile= ('gpg '
+                      '--keyring ~/.armory/testkeyring.gpg '
+                      '--verify bitcoin.0.8.1.tar.gz')
 

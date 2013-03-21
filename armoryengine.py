@@ -38,6 +38,8 @@ import ast
 import traceback
 import threading
 import inspect
+import multiprocessing
+import subprocess
 from struct import pack, unpack
 from datetime import datetime
 
@@ -579,6 +581,91 @@ def logexcept_override(type, value, tback):
 sys.excepthook = logexcept_override
 
 
+################################################################################
+def check_output(*popenargs, **kwargs):
+   """
+   Run command with arguments and return its output as a byte string.
+   Backported from Python 2.7, because it's stupid useful, short, and
+   won't exist on systems using Python 2.6 or earlier
+   """
+   process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+   output, unused_err = process.communicate()
+   retcode = process.poll()
+   if retcode:
+       cmd = kwargs.get("args")
+       if cmd is None:
+           cmd = popenargs[0]
+       error = subprocess.CalledProcessError(retcode, cmd)
+       error.output = output
+       raise error
+   return output
+
+################################################################################
+# Get system details for logging purposes
+class DumbStruct(object): pass
+def GetSystemDetails():
+   """Checks memory of a given system"""
+ 
+   out = DumbStruct()
+
+   CPU,COR,X64,MEM = range(4)
+   sysParam = [None,None,None,None]
+   if OS_LINUX:
+      # Get total RAM
+      freeStr = check_output('free -m', shell=True)
+      totalMemory = freeStr.split('\n')[1].split()[1]
+      out.Memory = int(totalMemory) * 1024
+
+      # Get CPU name
+      cpuinfo = check_output(['cat','/proc/cpuinfo'])
+      for line in cpuinfo.split('\n'):
+         if line.strip().lower().startswith('model name'):
+            out.CpuStr = line.split(':')[1].strip()
+            break
+
+   elif OS_WINDOWS:
+      import ctypes
+      class MEMORYSTATUSEX(ctypes.Structure):
+         _fields_ = [
+            ("dwLength", ctypes.c_ulong),
+            ("dwMemoryLoad", ctypes.c_ulong),
+            ("ullTotalPhys", ctypes.c_ulonglong),
+            ("ullAvailPhys", ctypes.c_ulonglong),
+            ("ullTotalPageFile", ctypes.c_ulonglong),
+            ("ullAvailPageFile", ctypes.c_ulonglong),
+            ("ullTotalVirtual", ctypes.c_ulonglong),
+            ("ullAvailVirtual", ctypes.c_ulonglong),
+            ("sullAvailExtendedVirtual", ctypes.c_ulonglong),
+         ]
+         def __init__(self):
+            # have to initialize this to the size of MEMORYSTATUSEX
+            self.dwLength = ctypes.sizeof(self)
+            super(MEMORYSTATUSEX, self).__init__()
+      
+      stat = MEMORYSTATUSEX()
+      ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
+      out.Memory = stat.ullTotalPhys
+      out.CpuStr = platform.processor()
+   else:
+      print "I only work with Win or Linux :P"
+
+   out.NumCores = multiprocessing.cpu_count()
+   out.IsX64 = platform.architecture()[0].startswith('64')
+   out.Memory = out.Memory / (1024*1024.)
+   return out
+
+try:
+   SystemDetails = GetSystemDetails()
+except:
+   print 'Error getting system details:'
+   print sys.exc_info()
+   print 'Skipping.'
+   SystemDetails = DumbStruct()
+   SystemDetails.Memory   = 'Unknown'
+   SystemDetails.CpuStr   = 'Unknown'
+   SystemDetails.NumCores = 'Unknown'
+   SystemDetails.IsX64    = 'Unknown'
+   
 
 LOGINFO('')
 LOGINFO('')
@@ -594,6 +681,11 @@ LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
 LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
+LOGINFO('Details of Running System: ')
+LOGINFO('   Total Available RAM   : %0.2f GB', SystemDetails.Memory)
+LOGINFO('   CPU ID string         : ' + SystemDetails.CpuStr)
+LOGINFO('   Number of CPU cores   : %d cores', SystemDetails.NumCores)
+LOGINFO('   System is 64-bit      : ' + str(SystemDetails.IsX64))
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
@@ -10029,19 +10121,26 @@ class SatoshiDaemonManager(object):
       self.bitcoind = None  
       self.isMidQuery = False
       self.last20queries = []
-      self.lastTopBlockInfo = {}
-      self.disabled = True
+      self.disabled = False
       self.failedFindExe  = False
       self.failedFindHome = False
       self.foundExe = []
       self.circBufferState = []
       self.circBufferTime = []
+      self.lastTopBlockInfo = { \
+                                 'numblks':    -1,
+                                 'tophash':    '',
+                                 'toptime':    -1,
+                                 'error':      'Uninitialized',
+                                 'blkspersec': -1     }
 
 
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
                       extraExeSearch=[], createHomeIfDNE=False):
+      self.failedFindExe = False
+      self.failedFindHome = False
       # If we are supplied a path, then ignore the extra exe search paths
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind(extraExeSearch)
@@ -10054,8 +10153,9 @@ class SatoshiDaemonManager(object):
             pathToBitcoindExe = pathToBitcoindExe[0]
             LOGINFO('Using: %s', pathToBitcoindExe)
 
-      if not os.path.exists(pathToBitcoindExe):
-         self.failedFindExe = True
+            if not os.path.exists(pathToBitcoindExe):
+               self.failedFindExe = True
+
       self.executable = pathToBitcoindExe
 
       if not os.path.exists(satoshiHome):
@@ -10064,23 +10164,15 @@ class SatoshiDaemonManager(object):
          else:
             self.failedFindHome = True
 
-      if self.failedFindHome: raise self.BitcoindError, 'homedir not found'
       if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
+      if self.failedFindHome: raise self.BitcoindError, 'homedir not found'
 
       self.satoshiHome = satoshiHome
       self.disabled = False
-      self.failedFindHome = False
-      self.failedFindExe = False
       self.proxy = None
       self.bitcoind = None  # this will be a Popen object
       self.isMidQuery = False
       self.last20queries = []
-      self.lastTopBlockInfo = { \
-                                 'numblks':    -1,
-                                 'tophash':    '',
-                                 'toptime':    -1,
-                                 'error':      'Uninitialized',
-                                 'blkspersec': -1     }
 
       self.readBitcoinConf(makeIfDNE=True)
 
@@ -10107,6 +10199,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def findBitcoind(self, extraSearchPaths=[]):
       self.foundExe = []
+
       searchPaths = list(extraSearchPaths)  # create a copy
 
       if OS_WINDOWS:
@@ -12352,7 +12445,6 @@ if CLI_OPTIONS.offline:
 
    # Also create the might-be-needed SatoshiDaemonManager
    TheSDM = SatoshiDaemonManager()
-   TheSDM.setDisabled(True)
 
 else:
    LOGINFO('Using the asynchronous/multi-threaded BlockDataManager.')
