@@ -10259,13 +10259,13 @@ class SatoshiDaemonManager(object):
                self.foundExe.append(testPath)
 
       else:
-         searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
-
          # In case this was a downloaded copy, make sure we traverse to bin/64 dir
          if SystemDetails.IsX64:
             searchPaths.extend([os.path.join(p, 'bin/64') for p in extraSearchPaths])
          else:
             searchPaths.extend([os.path.join(p, 'bin/32') for p in extraSearchPaths])
+
+         searchPaths.extend(['/usr/bin/', '/usr/lib/bitcoin/'])
 
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind')

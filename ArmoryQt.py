@@ -135,10 +135,8 @@ class ArmoryMainWindow(QMainWindow):
 
       # If we're going into online mode, start loading blockchain
       if self.doManageSatoshi:
-         self.initBitcoind = True
          self.startBitcoindIfNecessary()
       else:
-         self.initBitcoind = False
          self.loadBlockchainIfNecessary()
 
       # Setup system tray and register "bitcoin:" URLs with the OS
@@ -1108,10 +1106,14 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARN('*** Listening port is disabled.  URI-handling will not work')
       
 
+      settingSkipCheck = self.getSettingOrSetDefault('SkipOnlineCheck', False)
+      self.forceOnline = CLI_OPTIONS.forceOnline or settingSkipCheck
+      if self.forceOnline:
+         LOGINFO('Forced online mode: True')
 
       # Check general internet connection
       self.internetAvail = False
-      if not CLI_OPTIONS.forceOnline:
+      if not self.forceOnline:
          try:
             import urllib2
             response=urllib2.urlopen('http://google.com', timeout=CLI_OPTIONS.nettimeout)
@@ -1133,7 +1135,7 @@ class ArmoryMainWindow(QMainWindow):
 
    ############################################################################
    def startBitcoindIfNecessary(self):
-      if not (CLI_OPTIONS.forceOnline or self.internetAvail):
+      if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
          LOGWARN('Not online, will not start bitcoind')
          return False
 
@@ -1170,7 +1172,7 @@ class ArmoryMainWindow(QMainWindow):
    def loadBlockchainIfNecessary(self):
 
       if CLI_OPTIONS.offline:
-         if CLI_OPTIONS.forceOnline:
+         if self.forceOnline:
             LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
          self.switchNetworkMode(NETWORKMODE.Offline)
          TheBDM.setOnlineMode(False, wait=False)
@@ -1201,7 +1203,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def onlineModeIsPossible(self):
-      return ((self.internetAvail or CLI_OPTIONS.forceOnline) and \
+      return ((self.internetAvail or self.forceOnline) and \
                self.bitcoindIsAvailable() and \
                self.checkHaveBlockfiles())
 
@@ -3452,16 +3454,17 @@ class ArmoryMainWindow(QMainWindow):
          'for a few minutes until the scan operation is complete.')
       elif state == 'OfflineNoSatoshiNoInternet':
          return ( \
-         'No internet connection was detected, and neither '
-         'Bitcoin-Qt or bitcoind is running.  Most likely '
+         'There is no connection to the internet, and there is no other '
+         'Bitcoin software running.  Most likely '
          'you are here because this is a system dedicated '
          'to manage offline wallets! '
          '<br><br>'
          '<b>If you expected Armory to be in online mode</b>, '
          'please verify your internet connection is active, '
-         'Then restart Armory.  If you think the lack of internet '
-         'connection is in error, then you can restart Armory with '
-         'the "--skip-online-check" option.'
+         'then restart Armory.  If you think the lack of internet '
+         'connection is in error (such as if you are using Tor), '
+         'then you can restart Armory with the "--skip-online-check" '
+         'option, or change it in the Armory settings.'
          '<br><br>'
          'If you do not have Bitcoin-Qt installed, you can '
          'download it from <a href="http://www.bitcoin.org">'
@@ -3491,7 +3494,7 @@ class ArmoryMainWindow(QMainWindow):
             'Bitcoin-Qt is not running.  To switch to online ' 
             'mode, start Bitcoin-Qt and let it synchronize with the network '
             '-- you will see a green checkmark in the bottom-right corner when '
-            'it is complete.  '
+            'it is complete.'
             '<br><br>'
             'If you are new to Armory and/or Bitcoin-Qt, '
             'please visit the Armory '
@@ -3507,9 +3510,9 @@ class ArmoryMainWindow(QMainWindow):
             return ( \
             'You are currently in offline mode because '
             'Armory could not detect an internet connection.  '
-            'If you think this is in error '
-            '(perhaps because you are using proxies), then '
-            'restart Armory using the " --skip-online-check" option. '
+            'If you think this is in error, then '
+            'restart Armory using the " --skip-online-check" option, '
+            'or adjust the Armory settings.  Then restart Armory.'
             '<br><br>'
             'If this is intended to be an offline computer, note '
             'that it is not necessary to have Bitcoin-Qt or bitcoind '
@@ -3683,7 +3686,6 @@ class ArmoryMainWindow(QMainWindow):
          self.lblDashBtnDescr.setVisible(len(descr)>0)
          self.lblDashBtnDescr.setText(descr)
 
-      LOGINFO('Dashboard switched to ...')
       if self.doManageSatoshi and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
          
@@ -3701,8 +3703,7 @@ class ArmoryMainWindow(QMainWindow):
             showRow(DASHBTNS.Settings)
             hideRow(DASHBTNS.Close)
    
-            if not (CLI_OPTIONS.forceOnline or self.internetAvail) or \
-                     CLI_OPTIONS.offline:
+            if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
                setOnlyDashModeVisible()
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -3798,7 +3799,6 @@ class ArmoryMainWindow(QMainWindow):
                                               size=4, bold=True, color='Foreground')
                   self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                               size=4, bold=True, color='DisableFG')
-                  print self.approxBlkLeft
                   if self.approxBlkLeft > 1440: # more than 10 days
                      descr1 += self.GetDashStateText('Auto', 'InitializingLongTime')
                      descr2 += self.GetDashStateText('Auto', 'NewUserInfo')

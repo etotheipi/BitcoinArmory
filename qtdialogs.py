@@ -213,6 +213,7 @@ class DlgNewWallet(ArmoryDialog):
 
       # For a new wallet, the user may want to print out a paper backup
       self.chkPrintPaper = QCheckBox("Print a paper-backup of this wallet")
+      self.chkPrintPaper.setChecked(True)
       paperBackupTooltip = createToolTipObject(
                   'A paper-backup allows you to recover your wallet/funds even '
                   'if you lose your original wallet file, any time in the future. '
@@ -7983,8 +7984,8 @@ class DlgPaperBackup(ArmoryDialog):
          'The data shown below '
          'protects all keys that are ever <u>generated</u> by your wallet. '
          'The QR code holds the exact same data as the four data '
-         'lines, but may be easier to use than typing if you have a '
-         'QR code scanner.'
+         'lines, and provided for convenience.  If you do not have a '
+         'working printer, you can copy the four lines by hand.'
          '<br><br>'
          '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
          'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
@@ -11387,7 +11388,7 @@ class DlgInstallLinux(ArmoryDialog):
          print '***** Printing output'
          print out
          print '***** Printing errors'
-         print '"'+err+'"'
+         print err
          if len(err.strip())>0:
             QMessageBox.warning(self, 'Unknown Error', \
                'An error was reported while trying to install the Bitcoin '
