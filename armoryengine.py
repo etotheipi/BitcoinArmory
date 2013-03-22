@@ -10212,7 +10212,7 @@ class SatoshiDaemonManager(object):
             if 'bitcoin' in path.lower() and path.lower().endswith('.lnk'):
                import win32com.client
                shell = win32com.client.Dispatch('WScript.Shell')
-               targ = shell.CreateShortCut(lnkFile).Targetpath
+               targ = shell.CreateShortCut(path).Targetpath
                possBaseDir.append( os.path.dirname(targ) )
          
          # Also look in default place in ProgramFiles dirs
@@ -10265,18 +10265,33 @@ class SatoshiDaemonManager(object):
          if not makeIfDNE:
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
          else:
-            if OS_WINDOWS:
-               # Still not sure yet how to set the permissions properly in Win
-               LOGINFO('Cannot create bitcoin.conf (yet) on Windows')
-               raise BitcoinDotConfError, '***Cannot create bitcoin.conf!'
-            else:
-               LOGINFO('No bitcoin.conf available.  Creating it...')
-               randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
-               randBase58 = binary_to_base58(randBase58)
-               with open(bitconf, 'w') as f:
-                  f.write('rpcuser=generated_by_armory\n')
-                  f.write('rpcpassword=%s' % randBase58)
-               os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
+            LOGINFO('No bitcoin.conf available.  Creating it...')
+            randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
+            randBase58 = binary_to_base58(randBase58)
+            with open(bitconf, 'w') as f:
+               f.write('rpcuser=generated_by_armory\n')
+               f.write('rpcpassword=%s' % randBase58)
+
+      # Guarantee that bitcoin.conf file has very strict permissions
+      if OS_WINDOWS:
+         winver = platform.win32_ver()[0]
+         if winver.lower()=='xp':
+            LOGERROR('Cannot set permissions correctly in XP!')
+            LOGERROR('Please confirm permissions on the following file '
+            LOGERROR('are set to exclusive access only for your user '
+            LOGERROR('(it usually is, but Armory cannot guarantee it '
+            LOGERROR('on XP systems):')
+            LOGERROR('    %s', bitconf)
+         else: 
+            import win32api
+            username = win32api.GetUserName()
+            cmd_icacls = 'icacls %s /inheritance:r /grant:r %s:F' % \
+                                                   (bitconf, username)
+            icacls_out = check_output(cmd_icacls, shell=True)
+            print cmd_icacls,
+            print 'returned', icacls_out
+      else:
+         os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
                
             
       with open(bitconf,'r') as f:
@@ -10319,13 +10334,14 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      cmdstr = '%s -datadir=%s' % (self.executable, self.satoshiHome)
+      cmdstr = '"%s" -datadir="%s"' % (self.executable, self.satoshiHome)
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
 
       # Startup bitcoind and get its process ID (along with our own)
-      self.bitcoind = Popen(shlex.split(cmdstr))
+      #self.bitcoind = Popen(shlex.split(cmdstr))
+      self.bitcoind = Popen(cmdstr, shell=True)
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
 
@@ -10333,12 +10349,14 @@ class SatoshiDaemonManager(object):
       LOGINFO('PID of armory:   %d',  self.selfpid)
 
       # Startup guardian process -- it will watch Armory's PID
-      gpath = self.getGuardianPath()
+      #gpath = self.getGuardianPath()
+      gpath = 'C:/Users/vbox/ArmoryCheckout/BitcoinArmory/ArmoryGuardian/guardian.exe'
       LOGINFO('Guardian script: %s', gpath)
+      print os.path.exists(gpath)
       if OS_WINDOWS:
          # In windows, we'll get a .exe file
-         cmdstr = "%s %d %d" % (gpath, self.selfpid, self.btcdpid)
-         Popen(shlex.split(cmdstr))
+         cmdstr = '"%s" %d %d' % (gpath, self.selfpid, self.btcdpid)
+         Popen(cmdstr, shell=True)
       else:
          cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
          Popen(shlex.split(cmdstr))

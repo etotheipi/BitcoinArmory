@@ -5,6 +5,7 @@ import platform
 import os
 import signal
 
+# Note:  this ended up not being used for Windows!  Check out guardian.exe
 opsys = platform.system()
 OS_WINDOWS = 'win32'  in opsys.lower() or 'windows' in opsys.lower()
 
@@ -12,7 +13,7 @@ try:
    pid_armory   = int(sys.argv[1])
    pid_bitcoind = int(sys.argv[2])
 except:
-   print 'USAGE: %d armorypid bitcoindpid' % argv[0]
+   print 'USAGE: %d armorypid bitcoindpid' % sys.argv[0]
    exit(0)
 
 
