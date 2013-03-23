@@ -1164,6 +1164,7 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGERROR('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
+         raise
       
        
    ############################################################################
@@ -4295,6 +4296,11 @@ class ArmoryMainWindow(QMainWindow):
       except:
          # Don't want a strange error here interrupt shutdown 
          pass
+
+      
+      # This does nothing if bitcoind was never started
+      TheSDM.stopBitcoind()
+         
 
       # Mostly for my own use, I'm curious how fast various things run
       if CLI_OPTIONS.doDebug:

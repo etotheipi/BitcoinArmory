@@ -79,6 +79,7 @@ Global
 		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|Win32.ActiveCfg = Release|Win32
 		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|Win32.Build.0 = Release|Win32
 		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|x64.ActiveCfg = Release|Win32
+		{D35F732D-55D7-4037-9C6D-E141F740F802}.Release|x64.Build.0 = Release|Win32
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

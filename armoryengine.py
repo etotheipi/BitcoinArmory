@@ -10127,6 +10127,8 @@ class SatoshiDaemonManager(object):
       self.foundExe = []
       self.circBufferState = []
       self.circBufferTime = []
+      self.btcOut = None
+      self.btcErr = None
       self.lastTopBlockInfo = { \
                                  'numblks':    -1,
                                  'tophash':    '',
@@ -10242,9 +10244,10 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getGuardianPath(self):
       if OS_WINDOWS:
-         theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
+         armoryInstall = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
          # This should return a zip file because of py2exe
-         armoryInstall = os.path.dirname(theDir)
+         if armoryInstall.endswith('.zip'):
+            armoryInstall = os.path.dirname(armoryInstall)
          gpath = os.path.join(armoryInstall, 'guardian.exe')
       else:
          theDir = os.path.dirname(inspect.getsourcefile(SatoshiDaemonManager))
@@ -10277,9 +10280,9 @@ class SatoshiDaemonManager(object):
          winver = platform.win32_ver()[0]
          if winver.lower()=='xp':
             LOGERROR('Cannot set permissions correctly in XP!')
-            LOGERROR('Please confirm permissions on the following file '
-            LOGERROR('are set to exclusive access only for your user '
-            LOGERROR('(it usually is, but Armory cannot guarantee it '
+            LOGERROR('Please confirm permissions on the following file ')
+            LOGERROR('are set to exclusive access only for your user ')
+            LOGERROR('(it usually is, but Armory cannot guarantee it ')
             LOGERROR('on XP systems):')
             LOGERROR('    %s', bitconf)
          else: 
@@ -10334,14 +10337,18 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      cmdstr = '"%s" -datadir="%s"' % (self.executable, self.satoshiHome)
+      cmdstr = '"%s"' % self.executable
+      if not self.satoshiHome==BTC_HOME_DIR: 
+         cmdstr += '-datadir=%s' % self.satoshiHome
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
 
       # Startup bitcoind and get its process ID (along with our own)
       #self.bitcoind = Popen(shlex.split(cmdstr))
-      self.bitcoind = Popen(cmdstr, shell=True)
+      print 'executing:', cmdstr
+      self.bitcoind = Popen(cmdstr, shell=True, \
+                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
 
@@ -10349,17 +10356,19 @@ class SatoshiDaemonManager(object):
       LOGINFO('PID of armory:   %d',  self.selfpid)
 
       # Startup guardian process -- it will watch Armory's PID
-      #gpath = self.getGuardianPath()
-      gpath = 'C:/Users/vbox/ArmoryCheckout/BitcoinArmory/ArmoryGuardian/guardian.exe'
+      gpath = self.getGuardianPath()
       LOGINFO('Guardian script: %s', gpath)
       print os.path.exists(gpath)
       if OS_WINDOWS:
          # In windows, we'll get a .exe file
          cmdstr = '"%s" %d %d' % (gpath, self.selfpid, self.btcdpid)
+         print 'executing:', cmdstr
          Popen(cmdstr, shell=True)
       else:
          cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
+         print 'executing:', cmdstr
          Popen(shlex.split(cmdstr))
+      self.btcOut, self.btcErr = None,None
 
    #############################################################################
    def stopBitcoind(self):
@@ -10385,6 +10394,15 @@ class SatoshiDaemonManager(object):
       if self.bitcoind==None:
          return False
       else:
+         if not self.bitcoind.poll()==None:
+            if self.btcOut==None:
+               self.btcOut, self.btcErr = self.bitcoind.communicate()
+               LOGWARN('bitcoind exited, bitcoind STDOUT:')
+               for line in self.btcOut.split('\n'):
+                  LOGWARN(line)
+               LOGWARN('bitcoind exited, bitcoind STDERR:')
+               for line in self.btcErr.split('\n'):
+                  LOGWARN(line)
          return self.bitcoind.poll()==None
          #if self.bitcoind.poll()==None:
             ## Returns None meaning no return value yet -- still running
