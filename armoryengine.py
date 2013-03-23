@@ -9872,11 +9872,16 @@ class ArmoryClient(Protocol):
 
          # We process version and verackk regardless of handshakeFinished
          if cmd=='version' and not self.handshakeFinished:
+            self.peerInfo = {}
+            self.peerInfo['version'] = msg.payload.version
+            self.peerInfo['subver']  = msg.payload.subver
+            self.peerInfo['time']    = msg.payload.time
+            self.peerInfo['height']  = msg.payload.height0
             LOGINFO('Received version message from peer:')
-            LOGINFO('   Version:     %s', str(msg.payload.version))
-            LOGINFO('   SubVersion:  %s', str(msg.payload.subver))
-            LOGINFO('   TimeStamp:   %s', str(msg.payload.time))
-            LOGINFO('   StartHeight: %s', str(msg.payload.height0))
+            LOGINFO('   Version:     %s', str(self.peerInfo['version']))
+            LOGINFO('   SubVersion:  %s', str(self.peerInfo['subver']))
+            LOGINFO('   TimeStamp:   %s', str(self.peerInfo['time']))
+            LOGINFO('   StartHeight: %s', str(self.peerInfo['height']))
             self.sendMessage( PayloadVerack() )
          elif cmd=='verack':
             self.handshakeFinished = True
