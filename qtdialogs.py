@@ -213,6 +213,7 @@ class DlgNewWallet(ArmoryDialog):
 
       # For a new wallet, the user may want to print out a paper backup
       self.chkPrintPaper = QCheckBox("Print a paper-backup of this wallet")
+      self.chkPrintPaper.setChecked(True)
       paperBackupTooltip = createToolTipObject(
                   'A paper-backup allows you to recover your wallet/funds even '
                   'if you lose your original wallet file, any time in the future. '
@@ -3573,17 +3574,7 @@ class DlgIntroMessage(ArmoryDialog):
          '<b>You are about to use the most secure and feature-rich Bitcoin client '
          'software available!</b>  But please remember, this software '
          'is still <i>Beta</i> - Armory developers will not be held responsible '
-         'for loss of bitcoins resulting from the use of this software.'
-         '<br><br>'
-         '<b>To use Armory online</b>, '
-         'you must have Bitcoin-Qt (or bitcoind) open and synchronized '
-         'with the Bitcoin network.  You can download Bitcoin-Qt from <a '
-         'href=http://www.bitcoin.org>www.bitcoin.org</a>.  If you have '
-         'never run Bitcoin-Qt before, you will need to wait '
-         'for it to finish synchronizing before Armory '
-         'will work.  <i>This may take many hours, but only needs to be done '
-         'once!</i>  A green checkmark will appear in the '
-         'bottom-right corner of the Bitcoin-Qt window when it is finished.'
+         'for loss of bitcoins resulting from the use of this software!'
          '<br><br>'
          'For more info about Armory, and Bitcoin itself, see '
          '<a href="https://'
@@ -7989,17 +7980,26 @@ class DlgPaperBackup(ArmoryDialog):
       self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
-      lblWarn = QRichLabel( \
+      warnSecurityStr = ( \
          'The data shown below '
          'protects all keys that are ever <u>generated</u> by your wallet. '
          'The QR code holds the exact same data as the four data '
-         'lines, but may be easier to use than typing if you have a '
-         'QR code scanner.'
-         '<br><br>'
-         '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
-         'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
-         'Use the "Backup Individual Keys" buttton in the wallet '
-         'properties to access imported private keys.</font>')
+         'lines, and provided for convenience.  If you do not have a '
+         'working printer, you can copy the four lines by hand.')
+         
+      haveImportedAddr = False
+      for a160,aobj in wlt.addrMap.iteritems():
+         if aobj.chainIndex==-2:
+            haveImportedAddr = True
+            break
+      if haveImportedAddr:
+         warnSecurityStr += ( \
+            '<br><br>'
+            '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
+            'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
+            'Use the "Backup Individual Keys" buttton in the wallet '
+            'properties to access imported private keys.</font>')
+      lblWarn = QRichLabel( warnSecurityStr)
 
 
       layout = QGridLayout()
@@ -11212,17 +11212,29 @@ class DlgInstallLinux(ArmoryDialog):
       import platform
       self.distro, self.dver, self.dname = platform.linux_distribution()
 
-      lblDescr1 = QRichLabel('<b>Installing Bitcoin-Qt/bitcoind in %s %s</b>')
-      lblDescr1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lblDescr2 = QRichLabel( \
-            'In order to run Armory in online-mode, it must have access to '
-            'the Bitcoin software available at <a href="http://bitcoin.org"> '
-            'bitcoin.org</a>.  Automated installation is available only for '
-            'Ubuntu and Debian-based distributions.  For others, please visit '
-            'the bitcoin.org website a')
-      lblDescr1.setOpenExternalLinks(True)
+
+      self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Recommended)')
+      self.radioDlBinaries  = QRadioButton('Download binaries manually')
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.radioDlBinaries)
+      btngrp.addButton(self.radioUbuntuPPA)
+      btngrp.setExclusive(True)
+      self.connect(self.radioDlBinaries, SIGNAL('clicked()'), self.clickInstallOpt)
+      self.connect(self.radioUbuntuPPA,  SIGNAL('clicked()'), self.clickInstallOpt)
+
+      #lblDescr1 = QRichLabel('<b>Installing Bitcoin-Qt/bitcoind in %s %s</b>')
+      #lblDescr1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      #lblDescr2 = QRichLabel( \
+            #'In order to run Armory in online-mode, it must have access to '
+            #'the Bitcoin software available at <a href="http://bitcoin.org"> '
+            #'bitcoin.org</a>.  Automated installation is available only for '
+            #'Ubuntu and Debian-based distributions.  For others, please visit '
+            #'the bitcoin.org website a')
+      #lblDescr1.setOpenExternalLinks(True)
 
 
+      ##########################################################################
+      # Install via PPA
       lblInstallPPATitle = QRichLabel( '<b>Install using the bitcoin.org '
          'PPA (Ubuntu/Debian only)</b>', doWrap=False)
    
@@ -11231,7 +11243,7 @@ class DlgInstallLinux(ArmoryDialog):
          'manager.   You will be notified of updates along with '
          'other software on your system, but updates will not be received '
          'until a few days after the new releases (including critical security '
-         'updates).')
+         'updates).<br>')
 
       lblInstallPPA = QRichLabel( \
          'To use the Ubuntu PPA, open a terminal window and copy the following '
@@ -11252,29 +11264,111 @@ class DlgInstallLinux(ArmoryDialog):
       lblInstallPPAMidClick = QRichLabel( \
          'You can select the text with your mouse '
          'and middle-click in the terminal window to paste (this works with all '
-         'applications in Linux).  Since this modifies your system, you will '
+         'Linux applications).  Since this modifies your system, you will '
          'be required to type in your password.')
 
+
+      lblExperimentTitle = QRichLabel('<b>Do this for me! (Experimental):</b>')
+      lblExperiment = QRichLabel( \
+         'Armory can attempt to do this for you!  After you click '
+         'the button, you will prompted for your password.  Armory may '
+         'appear to be frozen, but will come back to life in after a '
+         'minute or two.')
+      self.btnDoItForMePPA = QPushButton('Do this for me!')
+      self.connect(self.btnDoItForMePPA, SIGNAL('clicked()'), self.doPPA)
+      self.btnDoItForMePPA.setToolTip( \
+         'Click to have Armory execute these steps for you.')
+
+      frmDoItForMeBtn = makeHorizFrame(['Stretch', \
+                                        self.btnDoItForMePPA, \
+                                        'Stretch'])
       
       frmCmds = makeHorizFrame([lblInstallPPACmds], STYLE_SUNKEN)
-      frmPPA = makeVertFrame([lblInstallPPATitle, \
-                              lblInstallPPADescr, \
-                              lblInstallPPA,      \
-                              frmCmds,            \
-                              lblInstallPPAMidClick])
+      self.frmPPA = makeVertFrame([ lblInstallPPATitle, \
+                                    lblInstallPPADescr, \
+                                    lblInstallPPA,      \
+                                    frmCmds,            \
+                                    lblInstallPPAMidClick, \
+                                    HLINE(), \
+                                    lblExperimentTitle, \
+                                    lblExperiment, \
+                                    frmDoItForMeBtn],  STYLE_SUNKEN)
+      # Install via PPA
+      ##########################################################################
+
+      ##########################################################################
+      # Install via Manual Download
+      lblList = []
+      lblInstallManualWarn = QRichLabel( \
+         '<b>Manually download and install Bitcoin</b><br><br>'
+         'Generally, you should only install manually if you are an advanced '
+         'user, or you do not run an Ubuntu/Debian Linux distribution. ' 
+         'If you install manually, you will also be required to upgrade '
+         'manually when new versions are released at www.bitcoin.org.<br><br>')
+
+      lblInstallManualDescr = QRichLabel( \
+         '<u>Directions for manual installation of the Bitcoin software:</u><br>'
+         '<ol>'
+         '<li>Go to <a href="http://www.bitcoin.org/en/download">'
+         'http://www.bitcoin.org/en/download</a></li>'
+         '<li>Click on the link that says "Download for Linux (tgz, 32/64-bit)" </li>'
+         '<li>Open a file browser and navigate to the download directory, '
+         'right-click on the downloaded file, and select "Extract Here"</li>'
+         '</ol>'
+         '<br>'
+         'Once the downloaded archive is unpacked, then click the button below '
+         'to open the Armory settings and change the "Bitcoin Installation Path" '
+         'to point to the new directory.  Then you should be able to go to the '
+         'dashboard and click on "Check Again" to start going.')
+      lblInstallManualDescr.setOpenExternalLinks(True)
+
+      btnInstallSettings = QPushButton('Change Settings')
+      self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
+      frmChngSettings = makeHorizFrame(['Stretch', \
+                                        btnInstallSettings, \
+                                        'Stretch'], \
+                                        STYLE_SUNKEN)
+
+      self.frmManual = makeVertFrame([lblInstallManualWarn, \
+                                      lblInstallManualDescr, \
+                                      frmChngSettings, \
+                                      'Stretch'])
+         
+      
+      # Install via Manual Download
+      ##########################################################################
+
+      self.stkInstruct = QStackedWidget()
+      self.stkInstruct.addWidget(self.frmPPA)
+      self.stkInstruct.addWidget(self.frmManual)
+      
 
       btnOkay = QPushButton("OK")
       self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
    
-      layout = QGridLayout()
-      layout.addWidget(frmPPA, 0,0)
-      layout.addWidget(makeHorizFrame(['Stretch',btnOkay]), 1,0)
+      layout = QVBoxLayout()
+      layout.addWidget(self.radioUbuntuPPA)
+      layout.addWidget(self.radioDlBinaries)
+      layout.addWidget(HLINE())
+      layout.addWidget(self.stkInstruct)
+      layout.addWidget(makeHorizFrame(['Stretch',btnOkay]))
       self.setLayout(layout)
-      self.setMinimumWidth(300)
+      self.setMinimumWidth(600)
    
+      self.radioUbuntuPPA.setChecked(True)
+      self.clickInstallOpt()
+      self.setWindowTitle('Install Bitcoin in Linux')
+
       
       
 
+   def clickInstallOpt(self):
+      if self.radioUbuntuPPA.isChecked():
+         self.stkInstruct.setCurrentIndex(0)
+      elif self.radioDlBinaries.isChecked():
+         self.stkInstruct.setCurrentIndex(1)
+      else:
+         LOGERROR('How is neither instruction option checked!?')
 
    def loadGpgKeyring(self):
       pubDirLocal = os.path.join(ARMORY_HOME_DIR, 'tempKeyring')
@@ -11290,4 +11384,36 @@ class DlgInstallLinux(ArmoryDialog):
       cmdVerifyFile= ('gpg '
                       '--keyring ~/.armory/testkeyring.gpg '
                       '--verify bitcoin.0.8.1.tar.gz')
+
+
+   def doPPA(self):
+      def doit():
+         print '\n'
+         print '***** Testing doPPA'
+         out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
+                              'gksudo apt-get update; '
+                              'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
+                              timeout=120)
+         print '***** Printing output'
+         print out
+         print '***** Printing errors'
+         print err
+         if len(err.strip())>0:
+            QMessageBox.warning(self, 'Unknown Error', \
+               'An error was reported while trying to install the Bitcoin '
+               'software.  The following information is given:<br><br>%s' % err, \
+               QMessageBox.Ok)
+         else:
+            QMessageBox.warning(self, 'Success!', \
+               'The installation appears to have succeeded!')
+            
+            from twisted.internet import reactor
+            reactor.callLater(0.1, self.main.pressModeSwitchButton)
+            self.accept()
+      DlgExecLongProcess(doit, 'Installing Bitcoin Software...', self, self).exec_()
+
+
+
+
+
 
