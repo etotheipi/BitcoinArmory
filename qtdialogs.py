@@ -7980,17 +7980,26 @@ class DlgPaperBackup(ArmoryDialog):
       self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
-      lblWarn = QRichLabel( \
+      warnSecurityStr = ( \
          'The data shown below '
          'protects all keys that are ever <u>generated</u> by your wallet. '
          'The QR code holds the exact same data as the four data '
          'lines, and provided for convenience.  If you do not have a '
-         'working printer, you can copy the four lines by hand.'
-         '<br><br>'
-         '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
-         'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
-         'Use the "Backup Individual Keys" buttton in the wallet '
-         'properties to access imported private keys.</font>')
+         'working printer, you can copy the four lines by hand.')
+         
+      haveImportedAddr = False
+      for a160,aobj in wlt.addrMap.iteritems():
+         if aobj.chainIndex==-2:
+            haveImportedAddr = True
+            break
+      if haveImportedAddr:
+         warnSecurityStr += ( \
+            '<br><br>'
+            '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
+            'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
+            'Use the "Backup Individual Keys" buttton in the wallet '
+            'properties to access imported private keys.</font>')
+      lblWarn = QRichLabel( warnSecurityStr)
 
 
       layout = QGridLayout()
