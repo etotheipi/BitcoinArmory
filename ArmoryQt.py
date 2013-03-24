@@ -1166,6 +1166,7 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGERROR('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
+         raise
       
        
    ############################################################################
