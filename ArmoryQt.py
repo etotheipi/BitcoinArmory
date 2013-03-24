@@ -1298,7 +1298,7 @@ class ArmoryMainWindow(QMainWindow):
 
       TheBDM.addNewZeroConfTx(pytxObj.serialize(), long(RightNow()), True, wait=False)
       self.newZeroConfSinceLastUpdate.append(pytxObj.serialize())
-      LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
+      #LOGDEBUG('Added zero-conf tx to pool: ' + binary_to_hex(pytxObj.thisHash))
 
 
 
@@ -2980,10 +2980,40 @@ class ArmoryMainWindow(QMainWindow):
       self.activateWindow()
       
 
+   #############################################################################
+   def lookForBitcoind(self):
+      if satoshiIsAvailable():
+         return 'Running'
+      
+      satexe = None
+      if self.settings.hasSetting('SatoshiExe'):
+         satexe = [self.settings.get('SatoshiExe')]
+      else:
+         satexe = []
+
+      try:
+         TheSDM.setupSDM(extraExeSearch=satexe)
+      except:
+         pass
+
+      if TheSDM.failedFindExe:
+         return 'StillMissing'
+
+      return 'AllGood'
 
    #############################################################################
    def pressModeSwitchButton(self):
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
+         result = self.lookForBitcoind()
+         if result=='Running':
+            QMessageBox.warning(self, 'Already running!', \
+               'The Bitcoin software appears to be installed now, but you '
+               'must close it in order for Armory to work.', QMessageBox.Ok)
+         elif result=='StillMissing':
+            QMessageBox.warning(self, 'Still Missing', \
+               'The Bitcoin software still appears to be missing.  If you '
+               'just installed it, then please adjust your settings to point '
+               'to the installation directory.', QMessageBox.Ok)
          self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
          self.startRescanBlockchain()
@@ -3737,7 +3767,7 @@ class ArmoryMainWindow(QMainWindow):
                if satoshiIsAvailable():
                   # But bitcoind/-qt is already running
                   LOGINFO('Dashboard switched to auto-butSatoshiRunning')
-                  self.lblDashModeSync.setText(' Please Close Other Bitcoin Software', \
+                  self.lblDashModeSync.setText(' Please close Bitcoin-Qt then restart Armory', \
                                                          size=4, bold=True)
                   setBtnFrameVisible(True, '')
                   #showRow(DASHBTNS.Close)
@@ -3778,7 +3808,6 @@ class ArmoryMainWindow(QMainWindow):
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
-                  raise BitcoindError, 'Not available... corrupt blockfiles?'
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
@@ -4295,6 +4324,9 @@ class ArmoryMainWindow(QMainWindow):
       except:
          # Don't want a strange error here interrupt shutdown 
          pass
+
+      # This will do nothing if bitcoind isn't running
+      TheSDM.stopBitcoind()
 
       # Mostly for my own use, I'm curious how fast various things run
       if CLI_OPTIONS.doDebug:

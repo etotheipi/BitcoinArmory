@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 5, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 6, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -37,9 +37,11 @@ import logging.handlers
 import ast
 import traceback
 import threading
+import signal
 import inspect
 import multiprocessing
 import subprocess
+import psutil
 from struct import pack, unpack
 from datetime import datetime
 
@@ -611,7 +613,6 @@ def execAndWait(cli_str, timeout=0):
    """
 
    from subprocess import Popen, PIPE
-   import signal
    process = Popen(cli_str, shell=True, stdout=PIPE, stderr=PIPE)
    pid = process.pid
    start = RightNow()
@@ -707,9 +708,9 @@ LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
-LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
 LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
-LOGINFO('Details of Running System: ')
+LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
+LOGINFO('Detected System Specs    : ')
 LOGINFO('   Total Available RAM   : %0.2f GB', SystemDetails.Memory)
 LOGINFO('   CPU ID string         : ' + SystemDetails.CpuStr)
 LOGINFO('   Number of CPU cores   : %d cores', SystemDetails.NumCores)
@@ -10416,7 +10417,10 @@ class SatoshiDaemonManager(object):
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
-      self.bitcoind.terminate()
+      for child in psutil.Process(self.bitcoind.pid).get_children():
+         os.kill(child.pid, signal.SIGKILL)
+      os.kill(self.bitcoind.pid, signal.SIGKILL)
+      time.sleep(3)
       self.bitcoind = None
       
 
@@ -12526,7 +12530,7 @@ else:
    LOGINFO('Blockchain operations will happen in the background.  ')
    LOGINFO('Devs: check TheBDM.getBDMState() before asking for data.')
    LOGINFO('Registering addresses during rescans will queue them for ')
-   LOGINFO('including after the current scan is completed.')
+   LOGINFO('inclusion after the current scan is completed.')
    TheBDM = BlockDataManagerThread(isOffline=False, blocking=False)
    TheBDM.setDaemon(True)
    TheBDM.start()

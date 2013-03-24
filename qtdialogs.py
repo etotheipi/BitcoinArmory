@@ -712,8 +712,8 @@ class DlgWalletDetails(ArmoryDialog):
       if True:              optLayout.addWidget(createVBoxSeparator())
 
       if hasPriv:           optLayout.addWidget(lbtnMkPaper)
-      if True:              optLayout.addWidget(lbtnVwKeys)
       if True:              optLayout.addWidget(lbtnExport)
+      if True:              optLayout.addWidget(lbtnVwKeys)
       if hasPriv and adv:   optLayout.addWidget(lbtnForkWlt)
       if True:              optLayout.addWidget(lbtnRemove)
 
@@ -837,6 +837,39 @@ class DlgWalletDetails(ArmoryDialog):
          self.restoreGeometry(geom)
       if len(tblgeom)>0:
          restoreTableView(self.wltAddrView, tblgeom)
+
+      def remindBackup():
+         result = MsgBoxWithDNAA(MSGBOX.Warning, 'Wallet Backup', \
+            '<b><font color="red" size=4>Please backup your wallet!</font></b> '
+            '<br><br>'
+            'Making a paper backup will guarantee you can recover your '
+            'coins at <a>any time in the future</a>, even if your '
+            'hard drive dies or you forget your passphrase.  Without it, '
+            'you could permanently lose your coins!  '
+            'The backup buttons are to the right of the address list.'
+            '<br><br>'
+            'A paper backup is recommended, '
+            'and it can be copied by hand if you do not have a working printer. '
+            'A digital backup only works if you remember the passphrase '
+            'used at the time it was created.  If you have ever forgotten a '
+            'password before, only rely on a digital backup if you store '
+            'the password with it!'
+            '<br><br>'
+            '<a href="https://bitcointalk.org/index.php?topic=152151.0">'
+            'Read more about Armory backups</a>', None, yesStr='Ok')
+         self.main.setWltSetting(wlt.uniqueIDB58, 'DNAA_RemindBackup', result[1])
+            
+            
+
+      wltType = determineWalletType(wlt, main)[0]
+      chkLoad = (self.main.getSettingOrSetDefault('Load_Count', 1) % 5 == 0)
+      chkType = not wltType in (WLTTYPES.Offline, WLTTYPES.WatchOnly) 
+      chkDNAA = not self.main.getWltSetting(wlt.uniqueIDB58, 'DNAA_RemindBackup')
+      chkDont = not self.main.getSettingOrSetDefault('DNAA_AllBackupWarn', False)
+      if chkLoad and chkType and chkDNAA and chkDont:
+            print '*********RUNNING!'
+            from twisted.internet import reactor
+            reactor.callLater(2,remindBackup)
 
    #############################################################################
    def doFilterAddr(self):
@@ -4719,14 +4752,6 @@ class DlgSendBitcoins(ArmoryDialog):
       spacer = QSpacerItem(20, 1)
 
 
-      btnSend = QPushButton('Send!')
-      self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
-
-      txFrm = makeLayoutFrame('Horiz', [QLabel('Transaction Fee:'), \
-                                       self.edtFeeAmt, \
-                                       feetip, \
-                                       'stretch', \
-                                       btnSend])
 
 
       
@@ -4800,18 +4825,29 @@ class DlgSendBitcoins(ArmoryDialog):
             'signed by the computer that <i>does</i> have the private '
             'keys.</font>' % htmlColor('TextWarn'))
 
+      btnSend = QPushButton('Send!')
+
+      txFrm = makeLayoutFrame('Horiz', [QLabel('Transaction Fee:'), \
+                                       self.edtFeeAmt, \
+                                       feetip, \
+                                       'stretch', \
+                                       btnSend])
 
       if not wlt.watchingOnly:
          ttipUnsigned = createToolTipObject( \
             'If you would like to create the transaction but not sign it yet, '
             'you can click this button to save it to a file.')
+         self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
       else:
          ttipUnsigned = createToolTipObject( \
             'After clicking this button, you will be given directions for '
             'completing this transaction.')
          btnSend.setToolTip('This is a watching-only wallet! '
                             'You cannot use it to send bitcoins!')
-         btnSend.setEnabled(False)
+         #btnSend.setEnabled(False)
+         btnSend.setEnabled(True)
+         btnSend.setText("Create Unsigned Transaction")
+         self.connect(btnSend, SIGNAL('clicked()'), self.createOfflineTxDPAndDisplay)
 
 
       btnUnsigned = QPushButton('Create Unsigned Transaction')
@@ -5838,7 +5874,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
 
       lblInstruct = QRichLabel('<b>Instructions for completing this transaction:</b>')
       lblUTX = QRichLabel('<b>Transaction Data</b> \t (Unsigned ID: %s)' % txdp.uniqueB58)
-      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*85)[0], int(12*8.2)
+      w,h = tightSizeStr(GETFONT('Fixed',8),'0'*90)[0], int(12*8.2)
 
       frmUTX = makeLayoutFrame('Horiz', [ttipDataIsSafe, lblUTX])
       frmUpper = makeLayoutFrame('Horiz', [lblDescr], STYLE_SUNKEN)
@@ -5849,7 +5885,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
       self.txtTxDP.setFont( GETFONT('Fixed',8) )
       self.txtTxDP.setMinimumWidth(w)
       self.txtTxDP.setMinimumHeight(h)
-      self.txtTxDP.setMaximumWidth(w)
+      #self.txtTxDP.setMaximumWidth(w)
       self.txtTxDP.setMaximumHeight(h)
       self.txtTxDP.setText(txdp.serializeAscii())
       self.txtTxDP.setReadOnly(True)
@@ -5885,6 +5921,10 @@ class DlgOfflineTxCreated(ArmoryDialog):
       frmLowerLayout.addWidget(btnCopy,       2,1,  1,1)
       frmLowerLayout.addWidget(ttipCopy,      2,2,  1,1)
       frmLowerLayout.addWidget(self.lblCopied,3,1,  1,2)
+      frmLowerLayout.setColumnStretch(0, 1)
+      frmLowerLayout.setColumnStretch(1, 0)
+      frmLowerLayout.setColumnStretch(2, 0)
+      frmLowerLayout.setColumnStretch(3, 0)
 
       frmLowerLayout.addWidget(nextStepStrip, 4,0,  1,3)
       frmLower.setLayout(frmLowerLayout)
@@ -7893,9 +7933,13 @@ class DlgPaperBackup(ArmoryDialog):
 
       #moveNewLine(GlobalPos, 20)
       GlobalPos = QPointF(leftEdge, GlobalPos.y()+50)
-      warnMsg = ('WARNING: This page displays unprotected private-key data needed '
-                 'to reconstruct your wallet and spend your funds.  Please keep '
-                 'this page in a safe place where only trusted persons can access it.')
+      warnMsg = ('WARNING: The data shown here gives anyone unrestricted '
+                 'access to all the bitcoins in this wallet.  '
+                 'Please store this page in a secure place!  '
+                 'The QR code is '
+                 'included only for convenience, and is not needed to '
+                 'restore your wallet.')
+                 
 
       wrapWidth = 0.9*(PAPER_A4_WIDTH - 2*paperMargin)
       txt = GfxItemText(warnMsg, GlobalPos, self.scene, FontVar, lineWidth=wrapWidth)
@@ -11389,22 +11433,22 @@ class DlgInstallLinux(ArmoryDialog):
    def doPPA(self):
       def doit():
          print '\n'
-         print '***** Testing doPPA'
+         print '***** Executing auto-install in linux...'
          out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
                               'gksudo apt-get update; '
                               'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
                               timeout=120)
-         print '***** Printing output'
-         print out
-         print '***** Printing errors'
-         print err
+         if len(out)>0:
+            print '***** Printing output\n', out
+         if len(err)>0:
+            print '***** Printing errors\n', err
          if len(err.strip())>0:
             QMessageBox.warning(self, 'Unknown Error', \
                'An error was reported while trying to install the Bitcoin '
                'software.  The following information is given:<br><br>%s' % err, \
                QMessageBox.Ok)
          else:
-            QMessageBox.warning(self, 'Success!', \
+            QMessageBox.information(self, 'Success!', \
                'The installation appears to have succeeded!')
             
             from twisted.internet import reactor

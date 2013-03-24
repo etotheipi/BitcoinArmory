@@ -39,14 +39,12 @@ def kill(pid):
    else:
       os.kill(pid, signal.SIGTERM)
       time.sleep(3)
-      for i in range(3):
-         if not check_pid(pid):
-            break
-         else:
-            print 'Regular TERMINATE of process failed; try again in 1 sec...'
-            time.sleep(1)
-         print 'Killing process (hard) ...'
-         os.kill(pid, signal.SIGKILL)
+      if not check_pid(pid):
+         return
+
+      print 'Regular TERMINATE of bitcoind failed; issuing SIGKILL (hard)'
+      time.sleep(1)
+      os.kill(pid, signal.SIGKILL)
 
 
 
@@ -68,6 +66,10 @@ if proc_name_bitcoind:
 else:
    print 'bitcoind IS NOT RUNNING!'
 
+child_pids = [p.pid for p in psutil.Process(pid_bitcoind).get_children()]
+for ch in child_pids:
+   print 'bitcoind pid has child pid=%d (%s)' % (ch, check_pid(ch))
+
 
 while True:
    time.sleep(3)
@@ -86,11 +88,9 @@ if check_pid(pid_bitcoind, proc_name_bitcoind):
    # Depending on how popen was called, bitcoind may be a child of 
    # pid_bitcoind.  But psutil makes it easy to find those child procs
    # and kill them.
-   for pid_child in [p.pid for p in psutil.Process(pid_bitcoind).get_children()]:
-      print 'killing child', pid_child
-      kill(pid_child)
+   for pid in child_pids:
+      kill(pid)
 
-   print 'killing parent', pid_bitcoind
    kill(pid_bitcoind)
 
 

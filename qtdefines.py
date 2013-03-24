@@ -443,6 +443,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          w,h = tightSizeNChar(lblMsg, 50)
          lblMsg.setMinimumSize( w, 3.2*h )
+         lblMsg.setOpenExternalLinks(True)
 
          buttonbox = QDialogButtonBox()
 
