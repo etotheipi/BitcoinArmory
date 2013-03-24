@@ -341,7 +341,7 @@
 			<Tool
 				Name="VCPostBuildEventTool"
 				Description="Combine compiled libraries and PyQt gui into .exe"
-				CommandLine="copy x64\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd&#x0D;&#x0A;C:\Python27\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\qrc_img_resources.py ..\imgList.xml&#x0D;&#x0A;python ../setup.py py2exe --includes sip,hashlib -d ../ArmoryStandalone&#x0D;&#x0A;&#x0D;&#x0A;&#x0D;&#x0A;"
+				CommandLine="copy x64\Release\SWIG_compile_dll_MSVS2005.dll ..\_CppBlockUtils.pyd&#x0D;&#x0A;C:\Python27\Lib\site-packages\PyQt4\pyrcc4.exe -o ..\qrc_img_resources.py ..\imgList.xml&#x0D;&#x0A;python ../setup.py py2exe --includes sip,hashlib,json -d ../ArmoryStandalone&#x0D;&#x0A;&#x0D;&#x0A;&#x0D;&#x0A;"
 			/>
 		</Configuration>
 	</Configurations>

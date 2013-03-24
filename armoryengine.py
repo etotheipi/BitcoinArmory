@@ -40,11 +40,13 @@ import threading
 import signal
 import inspect
 import multiprocessing
-import subprocess
 import psutil
 from struct import pack, unpack
 from datetime import datetime
 
+# In Windows with py2exe, we have a problem unless we PIPE all streams
+from subprocess import Popen, PIPE
+ALLPIPE = {'stdin': PIPE, 'stdout': PIPE, 'stderr': PIPE}
 
 from sys import argv
 
@@ -590,14 +592,15 @@ def subprocess_check_output(*popenargs, **kwargs):
    Backported from Python 2.7, because it's stupid useful, short, and
    won't exist on systems using Python 2.6 or earlier
    """
-   process = subprocess.Popen(stdout=subprocess.PIPE, *popenargs, **kwargs)
+   from subprocess import Popen, PIPE, CalledProcessError
+   process = Popen(stdin=PIPE, stdout=PIPE, stderr=PIPE, *popenargs, **kwargs)
    output, unused_err = process.communicate()
    retcode = process.poll()
    if retcode:
        cmd = kwargs.get("args")
        if cmd is None:
            cmd = popenargs[0]
-       error = subprocess.CalledProcessError(retcode, cmd)
+       error = CalledProcessError(retcode, cmd)
        error.output = output
        raise error
    return output
@@ -612,8 +615,7 @@ def execAndWait(cli_str, timeout=0):
    the time...
    """
 
-   from subprocess import Popen, PIPE
-   process = Popen(cli_str, shell=True, stdout=PIPE, stderr=PIPE)
+   process = Popen(cli_str, shell=True, **ALLPIPE)
    pid = process.pid
    start = RightNow()
    while process.poll() == None:
@@ -10331,8 +10333,8 @@ class SatoshiDaemonManager(object):
             username = win32api.GetUserName()
             cmd_icacls = 'icacls %s /inheritance:r /grant:r %s:F' % \
                                                    (bitconf, username)
-            icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             print cmd_icacls,
+            icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             print 'returned', icacls_out
       else:
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
@@ -10370,7 +10372,6 @@ class SatoshiDaemonManager(object):
 
       LOGINFO('Called startBitcoind')
       import shlex
-      from subprocess import Popen
 
       if self.isRunningBitcoind():
          raise self.BitcoindError, 'Looks like we have already started bitcoind'
@@ -10388,8 +10389,8 @@ class SatoshiDaemonManager(object):
       # Startup bitcoind and get its process ID (along with our own)
       #self.bitcoind = Popen(shlex.split(cmdstr))
       print 'executing:', cmdstr
-      self.bitcoind = Popen(cmdstr, shell=True, \
-                            stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+      self.bitcoind = Popen(cmdstr, shell=True, **ALLPIPE)
+                                       
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
 
@@ -10403,7 +10404,7 @@ class SatoshiDaemonManager(object):
          # In windows, we'll get a .exe file
          cmdstr = '"%s" %d %d' % (gpath, self.selfpid, self.btcdpid)
          print 'executing:', cmdstr
-         Popen(cmdstr, shell=True)
+         Popen(cmdstr, shell=True, **ALLPIPE)
       else:
          cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
          print 'executing:', cmdstr
@@ -10417,9 +10418,15 @@ class SatoshiDaemonManager(object):
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
+      
+      if OS_WINDOWS:
+         sig = signal.CTRL_C_EVENT
+      else:
+         sig = signal.SIGKILL
+      
       for child in psutil.Process(self.bitcoind.pid).get_children():
-         os.kill(child.pid, signal.SIGKILL)
-      os.kill(self.bitcoind.pid, signal.SIGKILL)
+         os.kill(child.pid, sig)
+      os.kill(self.bitcoind.pid, sig)
       time.sleep(3)
       self.bitcoind = None
       
