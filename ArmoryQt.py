@@ -3734,6 +3734,7 @@ class ArmoryMainWindow(QMainWindow):
             hideRow(DASHBTNS.Close)
    
             if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                setOnlyDashModeVisible()
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -3761,6 +3762,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
             elif not TheSDM.isRunningBitcoind():
                setOnlyDashModeVisible()
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                # Bitcoind is not being managed, but we want it to be
@@ -3811,6 +3813,7 @@ class ArmoryMainWindow(QMainWindow):
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -3820,6 +3823,7 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindInitializing', 'BitcoindSynchronizing']:
                   LOGINFO('Dashboard switched to auto-InitSync')
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                   self.updateSyncProgress()
                   setSyncRowVisible(True)
                   setScanRowVisible(True)

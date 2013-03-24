@@ -9755,8 +9755,8 @@ class DlgSettings(ArmoryDialog):
       # bitcoind-management settings
       ##########################################################################
 
-      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup (force '
-         'online-mode unless --offline is specified)')
+      self.chkSkipOnlineCheck = QCheckBox('Skip online check on startup (assume '
+         'internet is available, do not check)')
       settingSkipCheck = self.main.getSettingOrSetDefault('SkipOnlineCheck', False)
       self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
 
@@ -11316,7 +11316,7 @@ class DlgInstallLinux(ArmoryDialog):
       lblExperiment = QRichLabel( \
          'Armory can attempt to do this for you!  After you click '
          'the button, you will prompted for your password.  Armory may '
-         'appear to be frozen, but will come back to life in after a '
+         'appear to be frozen, but will come back to life after a '
          'minute or two.')
       self.btnDoItForMePPA = QPushButton('Do this for me!')
       self.connect(self.btnDoItForMePPA, SIGNAL('clicked()'), self.doPPA)
