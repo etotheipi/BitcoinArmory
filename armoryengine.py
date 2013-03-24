@@ -11789,7 +11789,7 @@ class BlockDataManagerThread(threading.Thread):
                   self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
-               LOGINFO('Go online requested')
+               LOGINFO('Go offline requested')
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
