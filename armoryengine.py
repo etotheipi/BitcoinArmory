@@ -10176,7 +10176,7 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
-                      extraExeSearch=[], createHomeIfDNE=False):
+                      extraExeSearch=[], createHomeIfDNE=True):
       self.failedFindExe = False
       self.failedFindHome = False
       # If we are supplied a path, then ignore the extra exe search paths
@@ -10381,7 +10381,7 @@ class SatoshiDaemonManager(object):
    
       cmdstr = '"%s"' % self.executable
       if not self.satoshiHome==BTC_HOME_DIR: 
-         cmdstr += '-datadir=%s' % self.satoshiHome
+         cmdstr += ' -datadir=%s' % self.satoshiHome
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)

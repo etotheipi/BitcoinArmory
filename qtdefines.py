@@ -21,7 +21,7 @@ WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
-DASHBTNS        = enum('Install','Browse', 'Instruct', 'Settings', 'Close')
+DASHBTNS        = enum('Browse', 'Install', 'Instruct', 'Settings', 'Close')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised

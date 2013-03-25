@@ -11431,30 +11431,37 @@ class DlgInstallLinux(ArmoryDialog):
 
 
    def doPPA(self):
-      def doit():
-         print '\n'
-         print '***** Executing auto-install in linux...'
-         out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
-                              'gksudo apt-get update; '
-                              'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
-                              timeout=120)
-         if len(out)>0:
-            print '***** Printing output\n', out
-         if len(err)>0:
-            print '***** Printing errors\n', err
-         if len(err.strip())>0:
-            QMessageBox.warning(self, 'Unknown Error', \
-               'An error was reported while trying to install the Bitcoin '
-               'software.  The following information is given:<br><br>%s' % err, \
-               QMessageBox.Ok)
-         else:
-            QMessageBox.information(self, 'Success!', \
-               'The installation appears to have succeeded!')
+      tryInstallUbuntu(self.main)
+      self.accept()
+
+
+
+def tryInstallUbuntu(main):
+   def doit():
+      print '\n'
+      print '***** Executing auto-install in linux...'
+      out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
+                             'gksudo apt-get update; '
+                             'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
+                             timeout=120)
+      try:
+         TheSDM.setupSDM()
+         from twisted.internet import reactor
+         reactor.callLater(0.1, main.pressModeSwitchButton)
+         QMessageBox.information(main, 'Success!', \
+            'The installation appears to have succeeded!')
+      except:
+         LOGINFO('***** Printing output\n' + out)
+         LOGINFO('***** End print output\n')
+         LOGINFO('***** Printing errors\n' + err)
+         LOGINFO('***** End print errors\n')
+         QMessageBox.warning(main, 'Unknown Error', \
+            'An error was reported while trying to install the Bitcoin '
+            'software.  The following information is given:<br><br>%s' % err, \
+            QMessageBox.Ok)
+         raise
             
-            from twisted.internet import reactor
-            reactor.callLater(0.1, self.main.pressModeSwitchButton)
-            self.accept()
-      DlgExecLongProcess(doit, 'Installing Bitcoin Software...', self, self).exec_()
+   DlgExecLongProcess(doit, 'Installing Bitcoin Software...', main, main).exec_()
 
 
 
