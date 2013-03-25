@@ -1153,7 +1153,10 @@ class ArmoryMainWindow(QMainWindow):
          satexe = []
    
       sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiDatadir'):
+      if self.settings.hasSetting('SatoshiDatadir') and \
+         CLI_OPTIONS.satoshiHome=='DEFAULT':
+         # Setting override BTC_HOME_DIR only if it wasn't explicitly
+         # set as the command line.  
          sathome = self.settings.get('SatoshiDatadir')
   
       TheSDM.setDisabled(False)
@@ -3236,10 +3239,10 @@ class ArmoryMainWindow(QMainWindow):
          if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
             self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
             self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
-                        'Show options for automated installation in Linux')
-            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
                'Attempt automatic installation for Ubuntu/Debian')
-            self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
+            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+               'Debian-based Linux distributions can use the PPA to '
+               'install and maintain the core Bitcoin-Qt software')
       elif OS_MACOSX:
          pass
       else:
@@ -3792,6 +3795,14 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashDescr2.setText(descr2)
                else:
                   LOGINFO('Dashboard switched to auto-OfflineNoSatoshiNoInternet')
+                  setBtnFrameVisible(True, \
+                     'In case you actually do have internet access, use can use '
+                     'the following links to get Armory installed.  Or change '
+                     'your settings.')
+                  showRow(DASHBTNS.Browse)
+                  showRow(DASHBTNS.Install)
+                  showRow(DASHBTNS.Instruct)
+                  showRow(DASHBTNS.Settings)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -3886,7 +3897,7 @@ class ArmoryMainWindow(QMainWindow):
                   showRow(DASHBTNS.Settings)
                   setBtnFrameVisible(True, \
                      'Since version 0.88, Armory runs bitcoind in the '
-                     'background, by default.  You can switch back to '
+                     'background.  You can switch back to '
                      'the old way in the Settings dialog. ')
    
                   descr2 += self.GetDashFunctionalityText('Offline')

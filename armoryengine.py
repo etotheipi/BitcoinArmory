@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 6, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 7, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -127,22 +127,27 @@ OS_MACOSX  = 'darwin' in opsys.lower() or 'osx'     in opsys.lower()
 
 # Figure out the default directories for Satoshi client, and BicoinArmory
 OS_NAME          = ''
+OS_VARIANT       = ''
 USER_HOME_DIR    = ''
 BTC_HOME_DIR     = ''
 ARMORY_HOME_DIR  = ''
 SUBDIR = 'testnet3' if USE_TESTNET else ''
 if OS_WINDOWS:
    OS_NAME         = 'Windows'
+   OS_VARIANT      = platform.win32_ver()
    USER_HOME_DIR   = os.getenv('APPDATA')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
 elif OS_LINUX:
    OS_NAME         = 'Linux'
+   OS_VARIANT      = platform.linux_distribution()
    USER_HOME_DIR   = os.getenv('HOME')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, '.bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, '.armory', SUBDIR)
 elif OS_MACOSX:
-   OS_NAME         = 'Mac/OSX'
+   platform.mac_ver()
+   OS_NAME         = 'MacOSX'
+   OS_VARIANT      = platform.mac_ver()
    USER_HOME_DIR   = os.path.expanduser('~/Library/Application Support')
    BTC_HOME_DIR    = os.path.join(USER_HOME_DIR, 'Bitcoin', SUBDIR)
    ARMORY_HOME_DIR = os.path.join(USER_HOME_DIR, 'Armory', SUBDIR)
@@ -270,6 +275,7 @@ if sys.argv[0]=='ArmoryQt.py':
    print '   Armory Version:      ', getVersionString(BTCARMORY_VERSION)
    print '   PyBtcWallet  Version:', getVersionString(PYBTCWALLET_VERSION)
    print 'Detected Operating system:', OS_NAME
+   print '   OS Variant            :', OS_VARIANT
    print '   User home-directory   :', USER_HOME_DIR
    print '   Satoshi BTC directory :', BTC_HOME_DIR
    print '   First blkX.dat file   :', BLKFILE_FIRSTFILE
@@ -708,6 +714,7 @@ LOGINFO('Loading Armory Engine:')
 LOGINFO('   Armory Version        : ' + getVersionString(BTCARMORY_VERSION))
 LOGINFO('   PyBtcWallet  Version  : ' + getVersionString(PYBTCWALLET_VERSION))
 LOGINFO('Detected Operating system: ' + OS_NAME)
+LOGINFO('   OS Variant            : ' + (str(OS_VARIANT) if OS_MACOSX else '-'.join(OS_VARIANT)))
 LOGINFO('   User home-directory   : ' + USER_HOME_DIR)
 LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
@@ -10320,8 +10327,7 @@ class SatoshiDaemonManager(object):
 
       # Guarantee that bitcoin.conf file has very strict permissions
       if OS_WINDOWS:
-         winver = platform.win32_ver()[0]
-         if winver.lower()=='xp':
+         if OS_VARIANT[0].lower()=='xp':
             LOGERROR('Cannot set permissions correctly in XP!')
             LOGERROR('Please confirm permissions on the following file ')
             LOGERROR('are set to exclusive access only for your user ')
@@ -10379,9 +10385,8 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      cmdstr = '"%s"' % self.executable
-      if not self.satoshiHome==BTC_HOME_DIR: 
-         cmdstr += ' -datadir=%s' % self.satoshiHome
+      cmdstr  = '"%s"' % self.executable
+      cmdstr += ' -datadir="%s"' % self.satoshiHome
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)

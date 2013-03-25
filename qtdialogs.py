@@ -11356,14 +11356,13 @@ class DlgInstallLinux(ArmoryDialog):
          '<li>Go to <a href="http://www.bitcoin.org/en/download">'
          'http://www.bitcoin.org/en/download</a></li>'
          '<li>Click on the link that says "Download for Linux (tgz, 32/64-bit)" </li>'
-         '<li>Open a file browser and navigate to the download directory, '
-         'right-click on the downloaded file, and select "Extract Here"</li>'
+         '<li>Open a file browser and navigate to the download directory</li>'
+         '<li>Right-click on the downloaded file, and select "Extract Here"</li>'
          '</ol>'
          '<br>'
          'Once the downloaded archive is unpacked, then click the button below '
          'to open the Armory settings and change the "Bitcoin Installation Path" '
-         'to point to the new directory.  Then you should be able to go to the '
-         'dashboard and click on "Check Again" to start going.')
+         'to point to the new directory.  Then restart Armory')
       lblInstallManualDescr.setOpenExternalLinks(True)
 
       btnInstallSettings = QPushButton('Change Settings')
