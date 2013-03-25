@@ -1153,7 +1153,10 @@ class ArmoryMainWindow(QMainWindow):
          satexe = []
    
       sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiDatadir'):
+      if self.settings.hasSetting('SatoshiDatadir') and \
+         CLI_OPTIONS.satoshiHome=='DEFAULT':
+         # Setting override BTC_HOME_DIR only if it wasn't explicitly
+         # set as the command line.  
          sathome = self.settings.get('SatoshiDatadir')
   
       TheSDM.setDisabled(False)
@@ -3003,6 +3006,10 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def pressModeSwitchButton(self):
+
+      print self.doManageSatoshi
+      print not TheSDM.isRunningBitcoind()
+      print satoshiIsAvailable()
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
          result = self.lookForBitcoind()
          if result=='Running':
@@ -3015,6 +3022,13 @@ class ArmoryMainWindow(QMainWindow):
                'just installed it, then please adjust your settings to point '
                'to the installation directory.', QMessageBox.Ok)
          self.startBitcoindIfNecessary() 
+      elif self.doManageSatoshi and not TheSDM.isRunningBitcoind():
+         if satoshiIsAvailable():
+            QMessageBox.warning(self, 'Still Running', \
+               'Bitcoin-Qt is still running.  Armory cannot start until '
+               'it is closed.', QMessageBox.Ok)
+         else:
+            self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
          self.startRescanBlockchain()
       elif TheBDM.getBDMState() in ('Offline','Uninitialized'):
@@ -3119,8 +3133,8 @@ class ArmoryMainWindow(QMainWindow):
       self.lblDashBtnDescr = QRichLabel('')
       BTN,LBL,TTIP = range(3)
       self.dashBtns = [[None]*3 for i in range(5)]
-      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Install Bitcoin Software')
       self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton('Open www.bitcoin.org')
+      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Install Bitcoin Software')
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
@@ -3128,10 +3142,10 @@ class ArmoryMainWindow(QMainWindow):
 
       def openBitcoinOrg(): 
          import webbrowser
-         QMessageBox.information(self, 'Install Only', \
-            'When you are done installing the Bitcoin software <b>'
-            'do not</b> run it.  It will be started in the background '
-            'when you click "Check Again."', QMessageBox.Ok)
+         #QMessageBox.information(self, 'Install Only', \
+            #'When you are done installing the Bitcoin software <b>'
+            #'do not</b> run it.  It will be started in the background '
+            #'when you click "Check Again."', QMessageBox.Ok)
          webbrowser.open('http://www.bitcoin.org/en/download')
 
       def openInstruct():
@@ -3143,10 +3157,33 @@ class ArmoryMainWindow(QMainWindow):
          elif OS_OSX:
             webbrowser.open('https://www.bitcoinarmory.com/install-macosx/')
 
-      #self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                               #openBitcoinOrg)
+
+      def installUbuntu():
+         result = QMessageBox.information(self, 'Install Bitcoin', \
+            'This automatic Bitcoin installation only works on default Ubuntu '
+            '(using Unity or Gnome) and probably other Debian-based distros. '
+            'If this operation fails, please use the '
+            'manual installation instructions and restart Armory.<br><br>'
+            'Armory may appear unresponsive for a minute while installing. '
+            'Would you like to continue?', \
+            QMessageBox.Yes, QMessageBox.No)
+         if result==QMessageBox.Yes:
+            tryInstallUbuntu(self)
+
+      def installForMe():
+         if OS_WINDOWS:
+            installWindows()
+         elif OS_LINUX:
+            installUbuntu()
+         elif OS_OSX:
+            installMacOSX()
+            
+            
+
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
                                                                openBitcoinOrg)
+      self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
+                                                               installForMe)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
                                                              self.openSettings)
       self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
@@ -3197,13 +3234,15 @@ class ArmoryMainWindow(QMainWindow):
            #'for Windows and verify its digital signatures.  You will have to '
            #'click through the installation options.<u></u>')
       elif OS_LINUX:
-         pass
-         #self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
-         #self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
-                     #'Show options for automated installation in Linux')
-         #self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
-           #'See options to get the Bitcoin engine installed on your system.')
-         #self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
+         # Only display the install button if using a debian-based distro
+         dist = platform.linux_distribution()
+         if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
+            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
+            self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
+               'Attempt automatic installation for Ubuntu/Debian')
+            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+               'Debian-based Linux distributions can use the PPA to '
+               'install and maintain the core Bitcoin-Qt software')
       elif OS_MACOSX:
          pass
       else:
@@ -3340,7 +3379,7 @@ class ArmoryMainWindow(QMainWindow):
                self.barProgressSync.setValue(int(100*self.approxPctSoFar))
                #self.lblTimeLeftSync.setText('Calculating time...')
          elif ssdm == 'BitcoindInitializing':
-            pass
+            self.barProgressSync.setValue(0)
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
@@ -3524,7 +3563,11 @@ class ArmoryMainWindow(QMainWindow):
             'Bitcoin-Qt is not running.  To switch to online ' 
             'mode, start Bitcoin-Qt and let it synchronize with the network '
             '-- you will see a green checkmark in the bottom-right corner when '
-            'it is complete.'
+            'it is complete.  '
+            '<br><br>'
+            '<b>If you prefer to have Armory do this for you</b>, '
+            'then please check "Let Armory run '
+            'Bitcoin-Qt in the background" under "File"->"Settings."'
             '<br><br>'
             'If you are new to Armory and/or Bitcoin-Qt, '
             'please visit the Armory '
@@ -3590,20 +3633,16 @@ class ArmoryMainWindow(QMainWindow):
             'Unlike previous versions of Armory, you should <u>not</u> run '
             'this software yourself --  Armory '
             'will run it in the background for you.  Either close the '
-            'Bitcoin application or adjust your settings, then restart '
-            'Armory')
+            'Bitcoin application or adjust your settings.  If you change '
+            'your settings, then please restart Armory.')
          if state == 'OfflineNeedBitcoinInst':
             return ( \
             '<b>Only one more step to getting online with Armory!</b>   You '
             'must install the Bitcoin software from www.bitcoin.org in order '
             'for Armory to communicate with the Bitcoin network.  If the '
-            'Bitcoin software is already installed but in a non-standard '
-            'location, please specify that location in the Armory settings.' 
-            '<br><br>'
-            'Unlike previous versions of Armory, you should <u>not</u> run '
-            'the Bitcoin software yourself.  Once it is installed, Armory '
-            'will run it in the background for you.  If you prefer to '
-            'manage it yourself, please adjust your Armory settings.')
+            'Bitcoin software is already installed and/or you would prefer '
+            'to manage it yourself, please adjust your settings and '
+            'restart Armory.')
          if state == 'InitializingLongTime':
             return ( \
             'You are offline while the Bitcoin engine is downloading the '
@@ -3734,6 +3773,7 @@ class ArmoryMainWindow(QMainWindow):
             hideRow(DASHBTNS.Close)
    
             if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                setOnlyDashModeVisible()
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -3755,21 +3795,32 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashDescr2.setText(descr2)
                else:
                   LOGINFO('Dashboard switched to auto-OfflineNoSatoshiNoInternet')
+                  setBtnFrameVisible(True, \
+                     'In case you actually do have internet access, use can use '
+                     'the following links to get Armory installed.  Or change '
+                     'your settings.')
+                  showRow(DASHBTNS.Browse)
+                  showRow(DASHBTNS.Install)
+                  showRow(DASHBTNS.Instruct)
+                  showRow(DASHBTNS.Settings)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
             elif not TheSDM.isRunningBitcoind():
                setOnlyDashModeVisible()
+               self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                # Bitcoind is not being managed, but we want it to be
                if satoshiIsAvailable():
                   # But bitcoind/-qt is already running
                   LOGINFO('Dashboard switched to auto-butSatoshiRunning')
-                  self.lblDashModeSync.setText(' Please close Bitcoin-Qt then restart Armory', \
+                  self.lblDashModeSync.setText(' Please close Bitcoin-Qt', \
                                                          size=4, bold=True)
                   setBtnFrameVisible(True, '')
+                  self.btnModeSwitch.setVisible(True)
+                  self.btnModeSwitch.setText('Check Again')
                   #showRow(DASHBTNS.Close)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
@@ -3785,6 +3836,7 @@ class ArmoryMainWindow(QMainWindow):
                   else:
                      self.lblDashModeSync.setText('Cannot find Bitcoin Home Directory', \
                                                          size=4, bold=True)
+                  showRow(DASHBTNS.Install)
                   showRow(DASHBTNS.Browse)
                   if not OS_WINDOWS:
                      showRow(DASHBTNS.Instruct)
@@ -3812,6 +3864,7 @@ class ArmoryMainWindow(QMainWindow):
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                   LOGINFO('Dashboard switched to auto-BadConnection')
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
@@ -3821,12 +3874,19 @@ class ArmoryMainWindow(QMainWindow):
                   self.lblDashDescr2.setText(descr2)
                elif sdmState in ['BitcoindInitializing', 'BitcoindSynchronizing']:
                   LOGINFO('Dashboard switched to auto-InitSync')
+                  self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
                   self.updateSyncProgress()
                   setSyncRowVisible(True)
                   setScanRowVisible(True)
                   self.lblBusy.setVisible(True)
-                  self.lblDashModeSync.setText( 'Synchronizing with Network', \
+
+                  if sdmState=='BitcoindInitializing':
+                     self.lblDashModeSync.setText( 'Initializing Bitcoin Engine', \
                                               size=4, bold=True, color='Foreground')
+                  else:
+                     self.lblDashModeSync.setText( 'Synchronizing with Network', \
+                                              size=4, bold=True, color='Foreground')
+
                   self.lblDashModeScan.setText( 'Scanning Transaction History', \
                                               size=4, bold=True, color='DisableFG')
                   if self.approxBlkLeft > 1440: # more than 10 days
@@ -3838,7 +3898,7 @@ class ArmoryMainWindow(QMainWindow):
                   showRow(DASHBTNS.Settings)
                   setBtnFrameVisible(True, \
                      'Since version 0.88, Armory runs bitcoind in the '
-                     'background, by default.  You can switch back to '
+                     'background.  You can switch back to '
                      'the old way in the Settings dialog. ')
    
                   descr2 += self.GetDashFunctionalityText('Offline')
