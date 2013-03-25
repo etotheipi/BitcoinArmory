@@ -10424,9 +10424,23 @@ class SatoshiDaemonManager(object):
       else:
          sig = signal.SIGKILL
       
-      for child in psutil.Process(self.bitcoind.pid).get_children():
-         os.kill(child.pid, sig)
-      os.kill(self.bitcoind.pid, sig)
+      if OS_WINDOWS:
+         LOGWARN('Bitcoind cannot be stopped in Windows unless you ')
+         LOGWARN('are running it as a python script (not a .exe created ')
+         LOGWARN('by py2exe).  You must close this application in order ')
+         LOGWARN('to stop bitcoind')
+      else:
+         # TODO:  This fails in windows+py2exe for the same reason 
+         #        that I had to start defining pipes for all my 
+         #        subprocess.Popen objects.  But I'm not sure how 
+         #        to fix it in Windows.  For now I've just disabled
+         #        it in Windows and the guardian take care of it
+         #        This is not currently an issue because we don't 
+         #        we don't arbitrarily start and stop bitcoind, just 
+         #        stop it once when Armory is closed
+         for child in psutil.Process(self.bitcoind.pid).get_children():
+            os.kill(child.pid, sig)
+         os.kill(self.bitcoind.pid, sig)
       time.sleep(3)
       self.bitcoind = None
       

@@ -1166,7 +1166,6 @@ class ArmoryMainWindow(QMainWindow):
       except:
          LOGERROR('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
-         raise
       
        
    ############################################################################
@@ -3056,7 +3055,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
          self.numHeartBeat = 0
          def loadBarUpdate():
-            if TheBDM.getBDMState()=='Scanning':
+            if self.lblBusy.isVisible():
                self.numHeartBeat += 1
                self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
                                                 (self.numHeartBeat%6)))
@@ -3787,7 +3786,8 @@ class ArmoryMainWindow(QMainWindow):
                      self.lblDashModeSync.setText('Cannot find Bitcoin Home Directory', \
                                                          size=4, bold=True)
                   showRow(DASHBTNS.Browse)
-                  showRow(DASHBTNS.Instruct)
+                  if not OS_WINDOWS:
+                     showRow(DASHBTNS.Instruct)
                   showRow(DASHBTNS.Settings)
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
