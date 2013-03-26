@@ -19,6 +19,17 @@ BTCARMORY_VERSION    = (0, 87, 7, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
+ARMORY_DONATION_PUBKEY = ( '04' 
+      '11d14f8498d11c33d08b0cd7b312fb2e6fc9aebd479f8e9ab62b5333b2c395c5'
+      'f7437cab5633b5894c4a5c2132716bc36b7571cbe492a7222442b75df75b9a84')
+ARMORY_INFO_SIGN_ADDR = '1NWvhByxfTXPYNT4zMBmEY3VL8QJQtQoei'
+ARMORY_INFO_SIGN_PUBLICKEY = ('04'
+      'af4abc4b24ef57547dd13a1110e331645f2ad2b99dfe1189abb40a5b24e4ebd8'
+      'de0c1c372cc46bbee0ce3d1d49312e416a1fa9c7bb3e32a7eb3867d1c6d1f715')
+SATOSHI_PUBLIC_KEY = ( '04'
+      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
+      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
+
 
    
 
@@ -368,10 +379,6 @@ NETWORKS['\x00'] = "Main Network"
 NETWORKS['\x6f'] = "Test Network"
 NETWORKS['\x34'] = "Namecoin Network"
 
-
-SATOSHI_PUBLIC_KEY = ( '04'
-      'fc9702847840aaf195de8442ebecedf5b095cdbb9bc716bda9110971b28a49e0'
-      'ead8564ff0db22209e0374782c093bb899692d524e9d6a6956e7c5ecbcd68284')
 
 
 #########  INITIALIZE LOGGING UTILITIES  ##########
@@ -1277,6 +1284,24 @@ def secondsToHumanTime(nSec):
    else:
       return '%d %ss' % (int(strPieces[0]+0.5), strPieces[1])
       
+def bytesToHumanSize(nBytes):
+   kB = 1024.0
+   MB = 1024*kB
+   GB = 1024*MB
+   TB = 1024*GB
+   PB = 1024*TB
+   if nBytes<kB:
+      return '%d bytes' % nBytes
+   elif nBytes<MB:
+      return '%0.1f kB' % (nBytes/kB)
+   elif nBytes<GB:
+      return '%0.1f MB' % (nBytes/MB)
+   elif nBytes<TB:
+      return '%0.1f GB' % (nBytes/GB)
+   elif nBytes<PB:
+      return '%0.1f TB' % (nBytes/TB)
+   else:
+      return '%0.1f PB' % (nBytes/PB)
 
 ##### HEXSTR/VARINT #####
 def packVarInt(n):
@@ -10139,6 +10164,28 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.001):
 
 
 ################################################################################
+def parseSatoshiVersionList(allComments):
+   """
+   This method returns a triplet: a dictionary to lookup hyperlink by OS,
+   a formatted string that is sorted by OS, the hex string of the signature
+   of that formatted string, and a string with the latest version number
+   (latest version of Satoshi client, not Armory).
+   """
+   DLDICT,DLLIST = {},[]
+   for line in allComments.split('\n'):
+      pcs = line.strip().strip('#').split()
+      if len(pcs)==3 and pcs[1].startswith('http'):
+         DLDICT[pcs[0]] = pcs[1:]
+         DLLIST.append(pcs)
+      if 'ARMORY-SIGNATURE' in line:
+         sigHex = line.strip().split()[-1]
+      if 'CURRENT-SATOSHI-VERSION' in line:
+         verStr = line.strip().split()[-1]
+
+   DLLIST.sort(key=lambda x: x[0])
+   return DLDICT, ('\n'.join([' '.join(trip) for trip in DLLIST])), sigHex, verStr
+
+
 ################################################################################
 # jgarzik'sjj jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
 from jsonrpc import ServiceProxy, authproxy

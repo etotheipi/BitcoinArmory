@@ -92,6 +92,8 @@ class ArmoryMainWindow(QMainWindow):
       self.noSyncWarnYet = True
       self.doHardReset = False
       self.doShutdown = False
+      self.downloadDict = {}
+      self.satoshiLatestVer = None
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -463,7 +465,7 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       # Show the appropriate information on the dashboard
-      self.setDashboardDetails()
+      #self.setDashboardDetails()
 
 
       ##########################################################################
@@ -1046,6 +1048,7 @@ class ArmoryMainWindow(QMainWindow):
          vernum = ''
 
          line = popNextLine(currLineIdx)
+         comments = ''
          while line != None:
             if not line.startswith('#') and len(line)>0:
                if line.startswith('VERSION'):
@@ -1060,7 +1063,26 @@ class ArmoryMainWindow(QMainWindow):
                   changeLog[-1][1].append([featureTitle, []])
                else:
                   changeLog[-1][1][-1][1].append(line)
+            if line.startswith('#'):
+               comments += line+'\n'
             line = popNextLine(currLineIdx)
+
+         # We also store the list of latest
+         try:
+            dldict,strfmt,sighex,verstr = parseSatoshiVersionList(comments)
+            pub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+            msg = SecureBinaryData(strfmt)
+            sig = SecureBinaryData(hex_to_binary(sighex))
+            if CryptoECDSA().VerifyData(msg, sig, pub):
+               LOGINFO('Satoshi client download list signature is GOOD')
+               self.downloadDict = dldict.copy()
+               self.satoshiLatestVer = verstr 
+            else:
+               raise ECDSA_Error, 'Could not verify'
+         except:
+            print sys.exc_info()
+            
+            
 
          if len(changeLog)==0 and not wasRequested:
             LOGINFO('You are running the latest version!')
@@ -3170,6 +3192,25 @@ class ArmoryMainWindow(QMainWindow):
          if result==QMessageBox.Yes:
             tryInstallUbuntu(self)
 
+      def installWindows():
+         if not 'Windows' in self.downloadDict:
+            QMessageBox.warning(self, 'Verification Unavaiable', \
+               'Armory cannot verify the authenticity of any downloaded '
+               'files.  You will need t download it yourself from '
+               'bitcoin.org', QMessageBox.Ok)
+            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
+            self.dashBtns[DASHBTNS.Install][LBL].setText( \
+               'This option is currently unavailable.  Please visit bitcoin.org '
+               'to download and install the software.', color='DisableFG')
+            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+               'Armory has an internet connection but no way to verify '
+               'the authenticity of the downloaded files.  You should '
+               'download the installer yourself.')
+            return
+            
+         print self.downloadDict['Windows']
+         DlgDownloadFile(self, self, *self.downloadDict['Windows']).exec_()
+
       def installForMe():
          if OS_WINDOWS:
             installWindows()
@@ -3219,13 +3260,16 @@ class ArmoryMainWindow(QMainWindow):
           'This option is not yet available yet!', color='DisableFG')
       self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
 
+      #if OS_LINUX:
       if OS_WINDOWS:
-         pass
-         #self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-         #self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
-         #self.dashBtns[DASHBTNS.Install][LBL].setText( \
-             #'This option is not yet available for Windows', color=Colors.DisableFG)
-         #self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
+         self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
+         self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
+         self.dashBtns[DASHBTNS.Install][LBL].setText( \
+            'Securely download Bitcoin software for Windows %s' % OS_VARIANT[0])
+         self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+            'The downloaded files are cryptographically verified.  '
+            'Using this option will start the installer, you will '
+            'have to click through it to complete installation.')
 
          #self.lblDashInstallForMe = QRichLabel( \
            #'Armory will download, verify, and start the Bitcoin installer for you')
@@ -3380,6 +3424,7 @@ class ArmoryMainWindow(QMainWindow):
                #self.lblTimeLeftSync.setText('Calculating time...')
          elif ssdm == 'BitcoindInitializing':
             self.barProgressSync.setValue(0)
+            self.barProgressSync.setFormat('')
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')

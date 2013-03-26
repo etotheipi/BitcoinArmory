@@ -3,7 +3,14 @@
 # Maintain this file in the repo so that Armory can always find info
 # about the latest version.  This is a good way to document progress,
 # anyway...
-
+# 
+# LATEST-SATOSHI-CLIENT-DOWNLOADS
+#    Linux   http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-linux.tar.gz     6d7f023a9df1a436c51de83f7cd751f162be9b4fb1c06da05545f9fba7cb2a98
+#    MacOSX http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-macosx.dmg       dddc563af906e766900868970fd2146a1cad792fd7089f034d46ad0e838ce99f
+#    Windows  http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-win32-setup.exe  2d447daad6cba12a4dd29de4ffbbd00c5634f45818d39cc12ce27ad964c905a6
+# ARMORY-SIGNATURE f10106846e0342604c7500b37be1485590a454dcdd3702f6ca7631f4530bbe8a954b103b27d21fcbf1a9e3026a7cd069d1dc398ca90138c396363448f075f9e1
+# 
+#     
 #-------------------------------------------------------------------------------
 VERSION 0.87
    - Inflatable QR Codes Everywhere!

@@ -11434,7 +11434,7 @@ class DlgInstallLinux(ArmoryDialog):
       self.accept()
 
 
-
+################################################################################
 def tryInstallUbuntu(main):
    def doit():
       print '\n'
@@ -11463,7 +11463,96 @@ def tryInstallUbuntu(main):
    DlgExecLongProcess(doit, 'Installing Bitcoin Software...', main, main).exec_()
 
 
+################################################################################
+class DlgInstallWindows(ArmoryDialog):
+   def __init__(self, parent, main, dataToQR, descrUp='', descrDown=''):
+      super(DlgInstallWindows, self).__init__(parent, main)
+
+
+################################################################################
+class DlgDownloadFile(ArmoryDialog):
+   def __init__(self, parent, main, dlfile, expectHash=None):
+      super(DlgDownloadFile, self).__init__(parent, main)
+
+
+      keepTrying = True
+      while keepTrying:
+         try:
+            import urllib2
+            httpObj = urllib2.urlopen(dlfile, timeout=20)
+            dispError = False
+            break
+         except urllib2.HTTPError:
+            LOGERROR('urllib2 failed to urlopen the download link')
+            LOGERROR('Link:  %s', dlfile)
+            dispError = True
+         except socket.timeout:
+            LOGERROR('timed out once')
+            keepTrying = False
+            
+   
+
+      fileSize = 0
+      for line in httpObj.info().headers:
+         if line.startswith('Content-Length'):
+            try:
+               fileSize = int(line.split()[-1])
+            except:
+               raise
+   
+      barWorking = QProgressBar()
+      barWorking.setRange(0,0)
+      if fileSize==0:
+         barWorking.setRange(0,100)
+   
+      fn = os.path.basename(dlfile)
+      site = '/'.join(dlfile.split('/')[:3])
+
+      print 'Downloading: ', fn
+      print 'From site:   ', site
+      print 'File size:   ', bytesToHumanSize(fileSize)
+   
+   
+      def startDL(sharedData):
+         print 'starting download'
+         bufSize = 32768
+         bufferData = 1
+         fileSz = sharedData[2]
+         hashToMatch = sharedData[3]
+         while bufferData:
+            bufferData = httpObj.read(bufSize)
+            print len(bufferData)
+            sharedData[0] += bufferData
+            sharedData[1] += bufSize
+            print sharedData[1], 'of', fileSz
+            if fileSz>0:
+               ratio = min(float(sharedData[1])/float(fileSz), 0.999)
+               print '%0.1f%%' % (100.0*ratio)
+
+         hexHash = binary_to_hex(sha256(sharedData[0]))
+         print 'Final size of downloaded file:', sharedData[1]
+         print 'Expect size of download      :', fileSz
+         print 'SHA256 of downloaded file    :', hexHash
+         if hashToMatch:
+            if not hashToMatch==hexHash:
+               LOGERROR('Downloaded file does not authenticate!')
+               LOGERROR('Aborting download')
+            else:
+               LOGINFO('Downloaded file is cryptographically verified!')
+            
+         
+            
+      # Could use a Queue.Queue here, but this is too simple...      
+      interThreadData = ['', 0, fileSize, expectHash]
+
+      print 'Starting download in 1s...'
+      from twisted.internet import reactor
+      reactor.callLater(1, startDL, interThreadData)
+          
+      
 
 
 
+
+      
 
