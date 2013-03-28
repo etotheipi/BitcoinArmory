@@ -11475,84 +11475,206 @@ class DlgDownloadFile(ArmoryDialog):
       super(DlgDownloadFile, self).__init__(parent, main)
 
 
+
+      self.dlFullPath   = dlfile
+      self.dlFileName   = os.path.basename(self.dlFullPath)
+      self.dlSiteName   = '/'.join(self.dlFullPath.split('/')[:3])
+      self.dlFileSize   = 0
+      self.dlFileData   = ''
+      self.dlDownBytes  = 0
+      self.dlExpectHash = expectHash
+      self.dlStartTime  = RightNow()
+   
+
+         
+      self.StopDownloadFlag = False
+      self.lblDownloaded = QRichLabel('')
+      self.barWorking = QProgressBar()
+      self.barWorking.setRange(0,100)
+      self.barWorking.setValue(0)
+      self.barWorking.setFormat('')
+            
+
+      
+      lblDescr = QRichLabel( \
+         '<font size=4 color="%s"><b>Please wait while file is downloading'
+         '<b></font>' % htmlColor('TextBlue'), hAlign=Qt.AlignHCenter)
+
+      frmInfo = QFrame()
+      layoutFileInfo = QGridLayout()
+      layoutFileInfo.addWidget(QRichLabel('File name:', bold=True),  0,0)
+      layoutFileInfo.addWidget(QRichLabel(self.dlFileName),          0,2)
+      layoutFileInfo.addWidget(QRichLabel('From site:', bold=True),  1,0)
+      layoutFileInfo.addWidget(QRichLabel(self.dlSiteName),          1,2)
+      layoutFileInfo.addWidget(QRichLabel('Progress:', bold=True),   2,0)
+      layoutFileInfo.addWidget(self.lblDownloaded,                   2,2)
+      layoutFileInfo.addItem(QSpacerItem(30, 1, QSizePolicy.Fixed, QSizePolicy.Expanding), 0, 1, 3, 1)
+      layoutFileInfo.setColumnStretch(0,0)
+      layoutFileInfo.setColumnStretch(1,0)
+      layoutFileInfo.setColumnStretch(2,1)
+      frmInfo.setLayout(layoutFileInfo)
+
+   
+      self.STEPS = enum('Query','Download','Verify','Count')
+      self.dispSteps = ['Getting file information', \
+                        'Downloading', \
+                        'Verifying authenticity']
+      self.lblSteps = []
+      print 'NSTEPS:', self.STEPS.Count
+      for i in range(self.STEPS.Count):
+         self.lblSteps.append([QRichLabel('',doWrap=False), QRichLabel('')])
+
+      layoutSteps = QGridLayout()
+      for i in range(self.STEPS.Count):
+         layoutSteps.addWidget(self.lblSteps[i][0], i,0)
+         layoutSteps.addWidget(self.lblSteps[i][1], i,1)
+      frmSteps = QFrame()
+      frmSteps.setLayout(layoutSteps)
+      frmSteps.setFrameStyle(STYLE_SUNKEN)
+      self.dlInstallStatus = self.STEPS.Query
+      self.updateProgressLabels()
+      
+      
+
+      btnCancel = QPushButton("Cancel")
+      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
+      frmCancel = makeHorizFrame(['Stretch',btnCancel,'Stretch'])
+
+      frm = makeVertFrame([lblDescr, HLINE(), frmInfo, \
+                           self.barWorking, frmSteps, frmCancel])
+      layout = QVBoxLayout()
+      layout.addWidget(frm)
+      self.setLayout(layout)
+      self.setMinimumWidth(400)
+
+            
+         
+      def startBackgroundDownload(dlg):
+         thr = PyBackgroundThread(dlg.startDL)
+         thr.start()
+      print 'Starting download in 1s...'
+      from twisted.internet import reactor
+      reactor.callLater(1, startBackgroundDownload, self)
+      self.main.extraHeartbeatSpecial.append(self.checkDownloadProgress)
+      self.setWindowTitle('Downloading File...')
+      
+          
+   def reject(self):
+      self.StopDownloadFlag = True
+      super(DlgDownloadFile, self).reject()
+      
+      
+   def startDL(self):
+      self.dlInstallStatus = self.STEPS.Query
       keepTrying = True
+      self.dispError = False
       while keepTrying:
          try:
             import urllib2
-            httpObj = urllib2.urlopen(dlfile, timeout=20)
-            dispError = False
+            self.httpObj = urllib2.urlopen(self.dlFullPath, timeout=5)
+            self.dispError = False
             break
          except urllib2.HTTPError:
             LOGERROR('urllib2 failed to urlopen the download link')
-            LOGERROR('Link:  %s', dlfile)
-            dispError = True
+            LOGERROR('Link:  %s', self.dlFullPath)
+            self.dispError = True
          except socket.timeout:
             LOGERROR('timed out once')
             keepTrying = False
-            
-   
 
-      fileSize = 0
-      for line in httpObj.info().headers:
+      if self.dispError:
+         return
+
+      self.dlFileSize = 0
+      for line in self.httpObj.info().headers:
          if line.startswith('Content-Length'):
             try:
-               fileSize = int(line.split()[-1])
+               self.dlFileSize = int(line.split()[-1])
             except:
                raise
    
-      barWorking = QProgressBar()
-      barWorking.setRange(0,0)
-      if fileSize==0:
-         barWorking.setRange(0,100)
-   
-      fn = os.path.basename(dlfile)
-      site = '/'.join(dlfile.split('/')[:3])
 
-      print 'Downloading: ', fn
-      print 'From site:   ', site
-      print 'File size:   ', bytesToHumanSize(fileSize)
-   
-   
-      def startDL(sharedData):
-         print 'starting download'
-         bufSize = 32768
-         bufferData = 1
-         fileSz = sharedData[2]
-         hashToMatch = sharedData[3]
-         while bufferData:
-            bufferData = httpObj.read(bufSize)
-            print len(bufferData)
-            sharedData[0] += bufferData
-            sharedData[1] += bufSize
-            print sharedData[1], 'of', fileSz
-            if fileSz>0:
-               ratio = min(float(sharedData[1])/float(fileSz), 0.999)
-               print '%0.1f%%' % (100.0*ratio)
+      print 'starting download'
+      self.dlInstallStatus = self.STEPS.Download
+      bufSize = 32768
+      bufferData = 1
+      while bufferData:
+         if self.StopDownloadFlag:
+            return
+         bufferData = self.httpObj.read(bufSize)
+         self.dlFileData  += bufferData
+         self.dlDownBytes += bufSize
 
-         hexHash = binary_to_hex(sha256(sharedData[0]))
-         print 'Final size of downloaded file:', sharedData[1]
-         print 'Expect size of download      :', fileSz
-         print 'SHA256 of downloaded file    :', hexHash
-         if hashToMatch:
-            if not hashToMatch==hexHash:
-               LOGERROR('Downloaded file does not authenticate!')
-               LOGERROR('Aborting download')
-            else:
-               LOGINFO('Downloaded file is cryptographically verified!')
-            
-         
-            
-      # Could use a Queue.Queue here, but this is too simple...      
-      interThreadData = ['', 0, fileSize, expectHash]
+      print 'Download finished, downloaded bytes:', len(self.dlFileData)
+      print 'Download finished, downloaded bytes:',     self.dlDownBytes
+      self.dlInstallStatus = self.STEPS.Verify
+      hexHash = binary_to_hex(sha256(self.dlFileData))
+      LOGINFO('Hash of downloaded file: ')
+      LOGINFO(hexHash)
+      if self.dlExpectHash:
+         if not self.dlExpectHash==hexHash:
+            LOGERROR('Downloaded file does not authenticate!')
+            LOGERROR('Aborting download')
+         else:
+            LOGINFO('Downloaded file is cryptographically verified!')
 
-      print 'Starting download in 1s...'
-      from twisted.internet import reactor
-      reactor.callLater(1, startDL, interThreadData)
-          
+      self.dlInstallStatus = self.STEPS.Count # one past end
+      
       
 
+   def checkDownloadProgress(self):
+      if self.StopDownloadFlag:
+         return -1
 
+      print 'SIZE:', self.dlFileSize
+      print 'BYTE:', self.dlDownBytes
+      if self.dlFileSize==0:
+         return 0.1
 
+      self.updateProgressLabels()
+
+      try:
+         if self.dlInstallStatus >= self.STEPS.Download:
+            self.barWorking.setVisible(True)
+
+         trueRatio = float(self.dlDownBytes)/float(self.dlFileSize)
+         dispRatio = min(trueRatio, 0.999)
+         if self.dlFileSize>0:
+            self.barWorking.setValue(100*dispRatio)
+            self.barWorking.setFormat('%p%')
+
+         dlSizeHuman = bytesToHumanSize(self.dlDownBytes)
+         totalSizeHuman = bytesToHumanSize(self.dlFileSize)
+         self.lblDownloaded.setText('%s of %s' % (dlSizeHuman, totalSizeHuman))
+
+      
+         print dlSizeHuman, totalSizeHuman
+         if self.dlInstallStatus > self.STEPS.Verify:
+            return -1
+         else:
+            return 0.1
+      except:
+         LOGERROR(str(sys.exc_info()))
+         return -1
+         
+
+   def updateProgressLabels(self):
+      # Highlight the correct labels and show checkmarks
+      print self.dlInstallStatus
+      for i in range(self.STEPS.Count):
+         if i == self.dlInstallStatus:
+            self.lblSteps[i][0].setText(self.dispSteps[i], bold=True, color='Foreground')
+            self.lblSteps[i][1].setText('...', bold=True)
+         elif i < self.dlInstallStatus:
+            self.lblSteps[i][0].setText(self.dispSteps[i], color='Foreground')
+            self.lblSteps[i][1].setPixmap(QPixmap(':/checkmark32.png').scaled(20,20))
+         else:
+            self.lblSteps[i][0].setText(self.dispSteps[i], \
+                                          bold=False, color='DisableFG')
+
+            
+         
+         
 
       
 

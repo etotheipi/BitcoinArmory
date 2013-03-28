@@ -10211,7 +10211,7 @@ def parseLinkList(theData):
    for line in theData.split('\n'): 
       pcs = line[1:].split()
       if line.startswith('# SECTION-') and 'INSTALLERS' in line:
-         sectStr = pcs[0].split('-')[-1].lower()
+         sectStr = pcs[0].split('-')[-1]
          if not sectStr in DLDICT:
             DLDICT[sectStr] = {}
             VERDICT[sectStr] = ''

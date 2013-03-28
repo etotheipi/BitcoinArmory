@@ -147,6 +147,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
+      self.extraHeartbeatSpecial = []
       self.extraHeartbeatOnline = []
       self.extraHeartbeatAlways = []
 
@@ -3191,7 +3192,7 @@ class ArmoryMainWindow(QMainWindow):
             tryInstallUbuntu(self)
 
       def installWindows():
-         if not 'Windows' in self.downloadDict:
+         if not 'Windows' in self.downloadDict['SATOSHI']:
             QMessageBox.warning(self, 'Verification Unavaiable', \
                'Armory cannot verify the authenticity of any downloaded '
                'files.  You will need t download it yourself from '
@@ -3206,8 +3207,8 @@ class ArmoryMainWindow(QMainWindow):
                'download the installer yourself.')
             return
             
-         print self.downloadDict['Windows']
-         DlgDownloadFile(self, self, *self.downloadDict['Windows']).exec_()
+         print self.downloadDict['SATOSHI']['Windows']
+         DlgDownloadFile(self, self, *self.downloadDict['SATOSHI']['Windows']).exec_()
 
       def installForMe():
          if OS_WINDOWS:
@@ -4094,6 +4095,33 @@ class ArmoryMainWindow(QMainWindow):
       print "BDM       : ", bdmState.rjust(20)
       #print "BDM (last): ", self.lastBDMState[0].rjust(20)
 
+
+      # Special heartbeat functions are for special windows that may need
+      # to update every, say, every 0.1s 
+      # is all that matters at that moment, like a download progress window.
+      # This is "special" because you are putting all other processing on
+      # hold while this special window is active
+      # IMPORTANT: Make sure that the special heartbeat function returns
+      #            a value below zero when it's done OR if it errors out!
+      #            Otherwise, it should return the next heartbeat delay, 
+      #            which would probably be something like 0.1 for a rapidly
+      #            updating progress counter
+      for fn in self.extraHeartbeatSpecial:
+         try:
+            nextBeat = fn()
+            if nextBeat>0:
+               reactor.callLater(nextBeat, self.Heartbeat)
+            else:
+               self.extraHeartbeatSpecial = []
+               reactor.callLater(1, self.Heartbeat)
+         except:
+            LOGERROR('Error in special heartbeat function')
+            self.extraHeartbeatSpecial = []
+            reactor.callLater(1, self.Heartbeat)
+         return
+            
+            
+
       try:
          for func in self.extraHeartbeatAlways:
             func()
@@ -4283,6 +4311,7 @@ class ArmoryMainWindow(QMainWindow):
    
       except:
          LOGEXCEPT('Error in heartbeat function')
+         print sys.exc_info()
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
       
