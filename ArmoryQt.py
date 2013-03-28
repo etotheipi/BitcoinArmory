@@ -93,7 +93,8 @@ class ArmoryMainWindow(QMainWindow):
       self.doHardReset = False
       self.doShutdown = False
       self.downloadDict = {}
-      self.satoshiLatestVer = None
+      self.latestVerSatoshi = None
+      self.latestVerArmory = None
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -465,7 +466,7 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       # Show the appropriate information on the dashboard
-      #self.setDashboardDetails()
+      self.setDashboardDetails(INIT=True)
 
 
       ##########################################################################
@@ -1069,14 +1070,11 @@ class ArmoryMainWindow(QMainWindow):
 
          # We also store the list of latest
          try:
-            dldict,strfmt,sighex,verstr = parseSatoshiVersionList(comments)
-            pub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
-            msg = SecureBinaryData(strfmt)
-            sig = SecureBinaryData(hex_to_binary(sighex))
-            if CryptoECDSA().VerifyData(msg, sig, pub):
-               LOGINFO('Satoshi client download list signature is GOOD')
+            msg = extractSignedDataFromVersionsDotTxt(comments)
+            if len(msg)>0:
+               dldict,verstrs = parseLinkList(msg)
                self.downloadDict = dldict.copy()
-               self.satoshiLatestVer = verstr 
+               self.latestVer = verstrs.copy()
             else:
                raise ECDSA_Error, 'Could not verify'
          except:
@@ -3757,7 +3755,7 @@ class ArmoryMainWindow(QMainWindow):
          
 
    #############################################################################
-   def setDashboardDetails(self):
+   def setDashboardDetails(self, INIT=False):
       """
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
@@ -3799,6 +3797,17 @@ class ArmoryMainWindow(QMainWindow):
          self.frmDashMidButtons.setVisible(b)
          self.lblDashBtnDescr.setVisible(len(descr)>0)
          self.lblDashBtnDescr.setText(descr)
+
+
+      if INIT:
+         setBtnFrameVisible(False)
+         hideRow(DASHBTNS.Install)
+         hideRow(DASHBTNS.Browse)
+         hideRow(DASHBTNS.Instruct)
+         hideRow(DASHBTNS.Settings)
+         hideRow(DASHBTNS.Close)
+         setOnlyDashModeVisible()
+         self.btnModeSwitch.setVisible(False)
 
       if self.doManageSatoshi and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.

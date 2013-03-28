@@ -1303,6 +1303,7 @@ def bytesToHumanSize(nBytes):
    else:
       return '%0.1f PB' % (nBytes/PB)
 
+
 ##### HEXSTR/VARINT #####
 def packVarInt(n):
    """ Writes 1,3,5 or 9 bytes depending on the size of n """
@@ -10164,26 +10165,66 @@ def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.001):
 
 
 ################################################################################
-def parseSatoshiVersionList(allComments):
+def extractSignedDataFromVersionsDotTxt(wholeFile, doVerify=True):
    """
-   This method returns a triplet: a dictionary to lookup hyperlink by OS,
-   a formatted string that is sorted by OS, the hex string of the signature
-   of that formatted string, and a string with the latest version number
-   (latest version of Satoshi client, not Armory).
+   This method returns a pair: a dictionary to lookup link by OS, and 
+   a formatted string that is sorted by OS, and re-formatted list that 
+   will hash the same regardless of original format or ordering
    """
-   DLDICT,DLLIST = {},[]
-   for line in allComments.split('\n'):
-      pcs = line.strip().strip('#').split()
-      if len(pcs)==3 and pcs[1].startswith('http'):
-         DLDICT[pcs[0]] = pcs[1:]
-         DLLIST.append(pcs)
-      if 'ARMORY-SIGNATURE' in line:
-         sigHex = line.strip().split()[-1]
-      if 'CURRENT-SATOSHI-VERSION' in line:
-         verStr = line.strip().split()[-1]
 
-   DLLIST.sort(key=lambda x: x[0])
-   return DLDICT, ('\n'.join([' '.join(trip) for trip in DLLIST])), sigHex, verStr
+   msgBegin = wholeFile.find('# -----BEGIN-SIGNED-DATA-')
+   msgBegin = wholeFile.find('\n', msgBegin+1) + 1
+   msgEnd   = wholeFile.find('# -----SIGNATURE---------')
+   sigBegin = wholeFile.find('\n', msgEnd+1) + 3
+   sigEnd   = wholeFile.find('# -----END-SIGNED-DATA---')
+
+   MSGRAW = wholeFile[msgBegin:msgEnd]
+   SIGHEX = wholeFile[sigBegin:sigEnd].strip()
+
+   if -1 in [msgBegin,msgEnd,sigBegin,sigEnd]:
+      LOGERROR('No signed data block found')
+      return ''
+
+   
+   if doVerify:
+      Pub = SecureBinaryData(hex_to_binary(ARMORY_INFO_SIGN_PUBLICKEY))
+      Msg = SecureBinaryData(MSGRAW)
+      Sig = SecureBinaryData(hex_to_binary(SIGHEX))
+      isVerified = CryptoECDSA().VerifyData(Msg, Sig, Pub)
+   
+      if not isVerified:
+         LOGERROR('Signed data block failed verification!')
+         return ''
+      else:
+         LOGINFO('Signature on signed data block is GOOD!')
+
+   return MSGRAW
+
+
+################################################################################
+def parseLinkList(theData):
+   """ 
+   Plug the verified data into here...
+   """
+   DLDICT,VERDICT = {},{}
+   sectStr = None
+   for line in theData.split('\n'): 
+      pcs = line[1:].split()
+      if line.startswith('# SECTION-') and 'INSTALLERS' in line:
+         sectStr = pcs[0].split('-')[-1].lower()
+         if not sectStr in DLDICT:
+            DLDICT[sectStr] = {}
+            VERDICT[sectStr] = ''
+         if len(pcs)>1:
+            VERDICT[sectStr] = pcs[-1]
+         continue
+      
+      if len(pcs)==3 and pcs[1].startswith('http'):
+         DLDICT[sectStr][pcs[0]] = pcs[1:]
+
+   return DLDICT,VERDICT
+
+
 
 
 ################################################################################
