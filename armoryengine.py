@@ -10386,7 +10386,15 @@ class SatoshiDaemonManager(object):
          raise self.BitcoindError, 'Could not find bitcoind'
    
       cmdstr  = '"%s"' % self.executable
-      cmdstr += ' -datadir="%s"' % self.satoshiHome
+
+      # For some reason, Windows bitcoind doesn't like the quotes.  But 
+      # I've seen it needed for linux paths with spaces.  I guess, 
+      # windows' paths won't get to use spaces...?
+      if OS_WINDOWS:
+         cmdstr += ' -datadir=%s' % self.satoshiHome
+      else:
+         cmdstr += ' -datadir="%s"' % self.satoshiHome
+
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
@@ -10429,10 +10437,10 @@ class SatoshiDaemonManager(object):
          sig = signal.SIGKILL
       
       if OS_WINDOWS:
-         LOGWARN('Bitcoind cannot be stopped in Windows unless you ')
-         LOGWARN('are running it as a python script (not a .exe created ')
-         LOGWARN('by py2exe).  You must close this application in order ')
-         LOGWARN('to stop bitcoind')
+         LOGWARN('Bitcoind cannot be stopped in Windows unless')
+         LOGWARN('you are running it as a python script (not a ')
+         LOGWARN('.exe created by py2exe).  You must close ')
+         LOGWARN('this application in order to stop bitcoind')
       else:
          # TODO:  This fails in windows+py2exe for the same reason 
          #        that I had to start defining pipes for all my 
