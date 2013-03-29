@@ -24,6 +24,7 @@ import threading
 import platform
 import traceback
 import socket
+import subprocess
 from datetime import datetime
 
 # PyQt4 Imports
@@ -92,6 +93,9 @@ class ArmoryMainWindow(QMainWindow):
       self.noSyncWarnYet = True
       self.doHardReset = False
       self.doShutdown = False
+      self.downloadDict = {}
+      self.latestVerSatoshi = None
+      self.latestVerArmory = None
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -144,6 +148,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setupUriRegistration()
 
 
+      self.extraHeartbeatSpecial = []
       self.extraHeartbeatOnline = []
       self.extraHeartbeatAlways = []
 
@@ -463,7 +468,7 @@ class ArmoryMainWindow(QMainWindow):
 
       from twisted.internet import reactor
       # Show the appropriate information on the dashboard
-      self.setDashboardDetails()
+      self.setDashboardDetails(INIT=True)
 
 
       ##########################################################################
@@ -1046,6 +1051,7 @@ class ArmoryMainWindow(QMainWindow):
          vernum = ''
 
          line = popNextLine(currLineIdx)
+         comments = ''
          while line != None:
             if not line.startswith('#') and len(line)>0:
                if line.startswith('VERSION'):
@@ -1060,7 +1066,23 @@ class ArmoryMainWindow(QMainWindow):
                   changeLog[-1][1].append([featureTitle, []])
                else:
                   changeLog[-1][1][-1][1].append(line)
+            if line.startswith('#'):
+               comments += line+'\n'
             line = popNextLine(currLineIdx)
+
+         # We also store the list of latest
+         try:
+            msg = extractSignedDataFromVersionsDotTxt(comments)
+            if len(msg)>0:
+               dldict,verstrs = parseLinkList(msg)
+               self.downloadDict = dldict.copy()
+               self.latestVer = verstrs.copy()
+            else:
+               raise ECDSA_Error, 'Could not verify'
+         except:
+            print sys.exc_info()
+            
+            
 
          if len(changeLog)==0 and not wasRequested:
             LOGINFO('You are running the latest version!')
@@ -3140,24 +3162,24 @@ class ArmoryMainWindow(QMainWindow):
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
 
 
+      #####
       def openBitcoinOrg(): 
          import webbrowser
-         #QMessageBox.information(self, 'Install Only', \
-            #'When you are done installing the Bitcoin software <b>'
-            #'do not</b> run it.  It will be started in the background '
-            #'when you click "Check Again."', QMessageBox.Ok)
          webbrowser.open('http://www.bitcoin.org/en/download')
 
+
+      #####
       def openInstruct():
          import webbrowser
          if OS_WINDOWS:
             webbrowser.open('https://www.bitcoinarmory.com/install-windows/')
          elif OS_LINUX:
             webbrowser.open('https://www.bitcoinarmory.com/install-linux/')
-         elif OS_OSX:
+         elif OS_MACOSX:
             webbrowser.open('https://www.bitcoinarmory.com/install-macosx/')
 
 
+      #####
       def installUbuntu():
          result = QMessageBox.information(self, 'Install Bitcoin', \
             'This automatic Bitcoin installation only works on default Ubuntu '
@@ -3170,14 +3192,51 @@ class ArmoryMainWindow(QMainWindow):
          if result==QMessageBox.Yes:
             tryInstallUbuntu(self)
 
-      def installForMe():
-         if OS_WINDOWS:
-            installWindows()
-         elif OS_LINUX:
-            installUbuntu()
-         elif OS_OSX:
-            installMacOSX()
+      #####
+      def installWindows():
+         if not 'SATOSHI' in self.downloadDict or \
+            not 'Windows' in self.downloadDict['SATOSHI']:
+            QMessageBox.warning(self, 'Verification Unavaiable', \
+               'Armory cannot verify the authenticity of any downloaded '
+               'files.  You will need t download it yourself from '
+               'bitcoin.org', QMessageBox.Ok)
+            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
+            self.dashBtns[DASHBTNS.Install][LBL].setText( \
+               'This option is currently unavailable.  Please visit bitcoin.org '
+               'to download and install the software.', color='DisableFG')
+            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+               'Armory has an internet connection but no way to verify '
+               'the authenticity of the downloaded files.  You should '
+               'download the installer yourself.')
+            openBitcoinOrg()
+            return
             
+         print self.downloadDict['SATOSHI']['Windows']
+         theLink = self.downloadDict['SATOSHI']['Windows'][0]
+         theHash = self.downloadDict['SATOSHI']['Windows'][1]
+         dlg = DlgDownloadFile(self, self, theLink, theHash)
+         dlg.exec_()
+         fileData = dlg.dlFileData
+         if len(fileData)==0 or dlg.dlVerifyFailed:
+            QMessageBox.critical(self, 'Download Failed', \
+               'The download failed.  Please visit www.bitcoin.org '
+               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
+            openBitcoinOrg()
+            return
+         
+         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
+         LOGINFO('Installer path: %s', installerPath)
+         instFile = open(installerPath, 'wb')
+         instFile.write(fileData)
+         instFile.close()
+         subprocess.Popen('"'+installerPath+'"', shell=True)
+
+
+      #####
+      def installForMe():
+         if   OS_WINDOWS: installWindows()
+         elif OS_LINUX:   installUbuntu()
+         elif OS_MACOSX:  installMacOSX()
             
 
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
@@ -3219,13 +3278,16 @@ class ArmoryMainWindow(QMainWindow):
           'This option is not yet available yet!', color='DisableFG')
       self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
 
+      #if OS_LINUX:
       if OS_WINDOWS:
-         pass
-         #self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-         #self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
-         #self.dashBtns[DASHBTNS.Install][LBL].setText( \
-             #'This option is not yet available for Windows', color=Colors.DisableFG)
-         #self.dashBtns[DASHBTNS.Install][TTIP] = QRichLabel('') # disabled
+         self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
+         self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
+         self.dashBtns[DASHBTNS.Install][LBL].setText( \
+            'Securely download Bitcoin software for Windows %s' % OS_VARIANT[0])
+         self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+            'The downloaded files are cryptographically verified.  '
+            'Using this option will start the installer, you will '
+            'have to click through it to complete installation.')
 
          #self.lblDashInstallForMe = QRichLabel( \
            #'Armory will download, verify, and start the Bitcoin installer for you')
@@ -3260,23 +3322,6 @@ class ArmoryMainWindow(QMainWindow):
                self.dashBtns[r][c].setMinimumWidth(wMin)
             layoutButtons.addWidget(self.dashBtns[r][c],  r+1,c)
             
-      #layoutButtons.addWidget( self.btnDashInstallForMe,  0,0)
-      #layoutButtons.addWidget( self.btnDashOpenLink,      1,0)
-      #layoutButtons.addWidget( self.btnDashInstInstruct,  2,0)
-      #layoutButtons.addWidget( self.btnDashSetSettings,   3,0)
-      #layoutButtons.addWidget( self.btnDashCloseBitcoin,  4,0)
-
-      #layoutButtons.addWidget( self.lblDashInstallForMe,  0,1)
-      #layoutButtons.addWidget( self.lblDashOpenLink,      1,1)
-      #layoutButtons.addWidget( self.lblDashInstInstruct,  2,1)
-      #layoutButtons.addWidget( self.lblDashSetSettings,   3,1)
-      #layoutButtons.addWidget( self.lblDashCloseBitcoin,  4,1)
-
-      #layoutButtons.addWidget( self.tipDashInstallForMe,  0,2)
-      #layoutButtons.addWidget( self.tipDashOpenLink,      1,2)
-      #layoutButtons.addWidget( self.tipDashInstInstruct,  2,2)
-      #layoutButtons.addWidget( self.tipDashSetSettings,   3,2)
-      #layoutButtons.addWidget( self.tipDashCloseBitcoin,  4,2)
       self.frmDashMgmtButtons.setLayout(layoutButtons)
       self.frmDashMidButtons  = makeHorizFrame(['Stretch', \
                                               self.frmDashMgmtButtons, 
@@ -3290,11 +3335,11 @@ class ArmoryMainWindow(QMainWindow):
       frmInner = QFrame()
       frmInner.setLayout(dashLayout)
 
-      scrl = QScrollArea()
-      scrl.setWidgetResizable(True)
-      scrl.setWidget(frmInner)
+      self.scrl = QScrollArea()
+      self.scrl.setWidgetResizable(True)
+      self.scrl.setWidget(frmInner)
       scrollLayout = QVBoxLayout()
-      scrollLayout.addWidget(scrl)
+      scrollLayout.addWidget(self.scrl)
       self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
@@ -3380,6 +3425,7 @@ class ArmoryMainWindow(QMainWindow):
                #self.lblTimeLeftSync.setText('Calculating time...')
          elif ssdm == 'BitcoindInitializing':
             self.barProgressSync.setValue(0)
+            self.barProgressSync.setFormat('')
          else:
             LOGERROR('Should not predict sync info in non init/sync SDM state')
             return ('UNKNOWN','UNKNOWN', 'UNKNOWN')
@@ -3712,7 +3758,7 @@ class ArmoryMainWindow(QMainWindow):
          
 
    #############################################################################
-   def setDashboardDetails(self):
+   def setDashboardDetails(self, INIT=False):
       """
       We've dumped all the dashboard text into the above 2 methods in order
       to declutter this method.
@@ -3754,6 +3800,17 @@ class ArmoryMainWindow(QMainWindow):
          self.frmDashMidButtons.setVisible(b)
          self.lblDashBtnDescr.setVisible(len(descr)>0)
          self.lblDashBtnDescr.setText(descr)
+
+
+      if INIT:
+         setBtnFrameVisible(False)
+         hideRow(DASHBTNS.Install)
+         hideRow(DASHBTNS.Browse)
+         hideRow(DASHBTNS.Instruct)
+         hideRow(DASHBTNS.Settings)
+         hideRow(DASHBTNS.Close)
+         setOnlyDashModeVisible()
+         self.btnModeSwitch.setVisible(False)
 
       if self.doManageSatoshi and not sdmState=='BitcoindReady':
          # User is letting Armory manage the Satoshi client for them.
@@ -3801,8 +3858,9 @@ class ArmoryMainWindow(QMainWindow):
                      'your settings.')
                   showRow(DASHBTNS.Browse)
                   showRow(DASHBTNS.Install)
-                  showRow(DASHBTNS.Instruct)
                   showRow(DASHBTNS.Settings)
+                  if not OS_WINDOWS:
+                     showRow(DASHBTNS.Instruct) 
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -3838,9 +3896,9 @@ class ArmoryMainWindow(QMainWindow):
                                                          size=4, bold=True)
                   showRow(DASHBTNS.Install)
                   showRow(DASHBTNS.Browse)
-                  if not OS_WINDOWS:
-                     showRow(DASHBTNS.Instruct)
                   showRow(DASHBTNS.Settings)
+                  if not OS_WINDOWS:
+                     showRow(DASHBTNS.Instruct) 
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
                   setBtnFrameVisible(True)
@@ -4021,6 +4079,8 @@ class ArmoryMainWindow(QMainWindow):
       self.lastSDMState =  sdmState
       self.lblDashModeSync.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
+      vbar = self.scrl.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
          
       TimerStop('setDashboardDetails')
             
@@ -4040,6 +4100,33 @@ class ArmoryMainWindow(QMainWindow):
       #print "SDM (last): ", self.lastSDMState.rjust(20)
       print "BDM       : ", bdmState.rjust(20)
       #print "BDM (last): ", self.lastBDMState[0].rjust(20)
+
+
+      # Special heartbeat functions are for special windows that may need
+      # to update every, say, every 0.1s 
+      # is all that matters at that moment, like a download progress window.
+      # This is "special" because you are putting all other processing on
+      # hold while this special window is active
+      # IMPORTANT: Make sure that the special heartbeat function returns
+      #            a value below zero when it's done OR if it errors out!
+      #            Otherwise, it should return the next heartbeat delay, 
+      #            which would probably be something like 0.1 for a rapidly
+      #            updating progress counter
+      for fn in self.extraHeartbeatSpecial:
+         try:
+            nextBeat = fn()
+            if nextBeat>0:
+               reactor.callLater(nextBeat, self.Heartbeat)
+            else:
+               self.extraHeartbeatSpecial = []
+               reactor.callLater(1, self.Heartbeat)
+         except:
+            LOGERROR('Error in special heartbeat function')
+            self.extraHeartbeatSpecial = []
+            reactor.callLater(1, self.Heartbeat)
+         return
+            
+            
 
       try:
          for func in self.extraHeartbeatAlways:
@@ -4230,6 +4317,7 @@ class ArmoryMainWindow(QMainWindow):
    
       except:
          LOGEXCEPT('Error in heartbeat function')
+         print sys.exc_info()
       finally:
          reactor.callLater(nextBeatSec, self.Heartbeat)
       

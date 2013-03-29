@@ -2343,10 +2343,18 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
    //         using pre-caching as I have done seems to have no noticeable 
    //         impact on performance.  That means this code block could 
    //         probably be reused, and is fairly simple.
+   SCOPED_TIMER("rescanBlocks");
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
-   SCOPED_TIMER("rescanBlocks");
+   // Using the same file-writing hack to communicate progress to python
+   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   if(blk1-blk0 > 10000 &&
+      BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+      remove(bfile.c_str());
+
+   TIMER_START("LoadProgress");
+   bytesReadSoFar_ = 0;
    for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
@@ -2356,13 +2364,29 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
       // all the subsequent TxRef dereferences will be super fast.
       bhr.getBlockFilePtr().preCacheThisChunk();
 
+      bytesReadSoFar_ += bhr.getBlockSize();
+
       ///// LOOP OVER ALL TX FOR THIS HEADER/////
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
          Tx thisTx = txlist[itx]->getTxCopy();
          registeredAddrScan(thisTx);
       }
+
+         
+      if( (h<120000 && h%10000==0) || (h>=120000 && h%1000==0) )
+      {
+         if(armoryHomeDir_.size() > 0)
+         {
+            ofstream topblks(bfile.c_str(), ios::app);
+            double t = TIMER_READ_SEC("LoadProgress");
+            topblks << bytesReadSoFar_ << " " 
+                    << totalBlockchainBytes_ << " " 
+                    << t << endl;
+         }
+      }
    }
+   TIMER_STOP("LoadProgress");
 
    allRegAddrScannedUpToBlk_ = blk1;
    updateRegisteredAddresses(blk1);
@@ -2615,10 +2639,9 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
       // We'll watch for this file from the python code...
       if(armoryHomeDir_.size() > 0)
       {
-         string fn = armoryHomeDir_ + string("/blkfiles.txt");
-         ofstream topblkos(fn.c_str(), ios::app);
+         ofstream topblks(bfile.c_str(), ios::app);
          double t = TIMER_READ_SEC("LoadProgress");
-         topblkos << fnum-1 << " " << numBlkFiles_ << " " << t << endl;
+         topblks << fnum-1 << " " << numBlkFiles_ << " " << t << endl;
       }
 
       // Now have a bunch of blockchain data buffered
@@ -2666,6 +2689,7 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
 
    }
+   TIMER_STOP("LoadProgress");
 
 
    
