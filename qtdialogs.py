@@ -11484,6 +11484,7 @@ class DlgDownloadFile(ArmoryDialog):
       self.dlDownBytes  = 0
       self.dlExpectHash = expectHash
       self.dlStartTime  = RightNow()
+      self.dlVerifyFailed = False
    
 
          
@@ -11499,6 +11500,8 @@ class DlgDownloadFile(ArmoryDialog):
       lblDescr = QRichLabel( \
          '<font size=4 color="%s"><b>Please wait while file is downloading'
          '<b></font>' % htmlColor('TextBlue'), hAlign=Qt.AlignHCenter)
+      frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
+   
 
       frmInfo = QFrame()
       layoutFileInfo = QGridLayout()
@@ -11540,7 +11543,7 @@ class DlgDownloadFile(ArmoryDialog):
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       frmCancel = makeHorizFrame(['Stretch',btnCancel,'Stretch'])
 
-      frm = makeVertFrame([lblDescr, HLINE(), frmInfo, \
+      frm = makeVertFrame([frmDescr, frmInfo, \
                            self.barWorking, frmSteps, frmCancel])
       layout = QVBoxLayout()
       layout.addWidget(frm)
@@ -11561,28 +11564,38 @@ class DlgDownloadFile(ArmoryDialog):
           
    def reject(self):
       self.StopDownloadFlag = True
+      self.dlFileData = ''
       super(DlgDownloadFile, self).reject()
       
+   def accept(self):
+      self.StopDownloadFlag = True
+      super(DlgDownloadFile, self).accept()
       
    def startDL(self):
       self.dlInstallStatus = self.STEPS.Query
       keepTrying = True
-      self.dispError = False
+      nTries=0
+      self.httpObj = None
       while keepTrying:
+         nTries+=1
          try:
             import urllib2
             self.httpObj = urllib2.urlopen(self.dlFullPath, timeout=5)
-            self.dispError = False
             break
          except urllib2.HTTPError:
             LOGERROR('urllib2 failed to urlopen the download link')
             LOGERROR('Link:  %s', self.dlFullPath)
-            self.dispError = True
+            break
          except socket.timeout:
             LOGERROR('timed out once')
-            keepTrying = False
+            if nTries > 2:
+               keepTrying=False
+         except:
+            print sys.exc_info()
+            break
 
-      if self.dispError:
+      if self.httpObj==None:
+         self.StopDownloadFlag = True
          return
 
       self.dlFileSize = 0
@@ -11594,7 +11607,7 @@ class DlgDownloadFile(ArmoryDialog):
                raise
    
 
-      print 'starting download'
+      LOGINFO('Starting download')
       self.dlInstallStatus = self.STEPS.Download
       bufSize = 32768
       bufferData = 1
@@ -11605,8 +11618,6 @@ class DlgDownloadFile(ArmoryDialog):
          self.dlFileData  += bufferData
          self.dlDownBytes += bufSize
 
-      print 'Download finished, downloaded bytes:', len(self.dlFileData)
-      print 'Download finished, downloaded bytes:',     self.dlDownBytes
       self.dlInstallStatus = self.STEPS.Verify
       hexHash = binary_to_hex(sha256(self.dlFileData))
       LOGINFO('Hash of downloaded file: ')
@@ -11615,8 +11626,11 @@ class DlgDownloadFile(ArmoryDialog):
          if not self.dlExpectHash==hexHash:
             LOGERROR('Downloaded file does not authenticate!')
             LOGERROR('Aborting download')
+            self.dlFileData = ''
+            self.dlVerifyFailed = True
          else:
             LOGINFO('Downloaded file is cryptographically verified!')
+            self.dlVerifyFailed = False
 
       self.dlInstallStatus = self.STEPS.Count # one past end
       
@@ -11624,10 +11638,11 @@ class DlgDownloadFile(ArmoryDialog):
 
    def checkDownloadProgress(self):
       if self.StopDownloadFlag:
+         from twisted.internet import reactor
+         reactor.callLater(1, self.reject)
+         
          return -1
 
-      print 'SIZE:', self.dlFileSize
-      print 'BYTE:', self.dlDownBytes
       if self.dlFileSize==0:
          return 0.1
 
@@ -11648,8 +11663,9 @@ class DlgDownloadFile(ArmoryDialog):
          self.lblDownloaded.setText('%s of %s' % (dlSizeHuman, totalSizeHuman))
 
       
-         print dlSizeHuman, totalSizeHuman
          if self.dlInstallStatus > self.STEPS.Verify:
+            from twisted.internet import reactor
+            reactor.callLater(2, self.accept)
             return -1
          else:
             return 0.1
@@ -11660,7 +11676,6 @@ class DlgDownloadFile(ArmoryDialog):
 
    def updateProgressLabels(self):
       # Highlight the correct labels and show checkmarks
-      print self.dlInstallStatus
       for i in range(self.STEPS.Count):
          if i == self.dlInstallStatus:
             self.lblSteps[i][0].setText(self.dispSteps[i], bold=True, color='Foreground')
@@ -11671,6 +11686,12 @@ class DlgDownloadFile(ArmoryDialog):
          else:
             self.lblSteps[i][0].setText(self.dispSteps[i], \
                                           bold=False, color='DisableFG')
+
+      if self.dlInstallStatus >= self.STEPS.Verify:
+         self.barWorking.setValue(100)
+         if self.dlVerifyFailed:
+            self.lblSteps[self.STEPS.Verify][1].setPixmap(QPixmap(':/MsgBox_error32.png').scaled(20,20))
+         
 
             
          

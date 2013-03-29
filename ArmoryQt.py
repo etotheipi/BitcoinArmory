@@ -24,6 +24,7 @@ import threading
 import platform
 import traceback
 import socket
+import subprocess
 from datetime import datetime
 
 # PyQt4 Imports
@@ -3161,24 +3162,24 @@ class ArmoryMainWindow(QMainWindow):
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
 
 
+      #####
       def openBitcoinOrg(): 
          import webbrowser
-         #QMessageBox.information(self, 'Install Only', \
-            #'When you are done installing the Bitcoin software <b>'
-            #'do not</b> run it.  It will be started in the background '
-            #'when you click "Check Again."', QMessageBox.Ok)
          webbrowser.open('http://www.bitcoin.org/en/download')
 
+
+      #####
       def openInstruct():
          import webbrowser
          if OS_WINDOWS:
             webbrowser.open('https://www.bitcoinarmory.com/install-windows/')
          elif OS_LINUX:
             webbrowser.open('https://www.bitcoinarmory.com/install-linux/')
-         elif OS_OSX:
+         elif OS_MACOSX:
             webbrowser.open('https://www.bitcoinarmory.com/install-macosx/')
 
 
+      #####
       def installUbuntu():
          result = QMessageBox.information(self, 'Install Bitcoin', \
             'This automatic Bitcoin installation only works on default Ubuntu '
@@ -3191,8 +3192,10 @@ class ArmoryMainWindow(QMainWindow):
          if result==QMessageBox.Yes:
             tryInstallUbuntu(self)
 
+      #####
       def installWindows():
-         if not 'Windows' in self.downloadDict['SATOSHI']:
+         if not 'SATOSHI' in self.downloadDict or \
+            not 'Windows' in self.downloadDict['SATOSHI']:
             QMessageBox.warning(self, 'Verification Unavaiable', \
                'Armory cannot verify the authenticity of any downloaded '
                'files.  You will need t download it yourself from '
@@ -3205,19 +3208,34 @@ class ArmoryMainWindow(QMainWindow):
                'Armory has an internet connection but no way to verify '
                'the authenticity of the downloaded files.  You should '
                'download the installer yourself.')
+            openBitcoinOrg()
             return
             
          print self.downloadDict['SATOSHI']['Windows']
-         DlgDownloadFile(self, self, *self.downloadDict['SATOSHI']['Windows']).exec_()
+         theLink = self.downloadDict['SATOSHI']['Windows'][0]
+         theHash = self.downloadDict['SATOSHI']['Windows'][1]
+         dlg = DlgDownloadFile(self, self, theLink, theHash)
+         dlg.exec_()
+         fileData = dlg.dlFileData
+         if len(fileData)==0 or dlg.dlVerifyFailed:
+            QMessageBox.critical(self, 'Download Failed', \
+               'The download failed.  Please visit www.bitcoin.org '
+               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
+            openBitcoinOrg()
+            return
+         
+         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
+         LOGINFO('Installer path: %s', installerPath)
+         instFile = open(installerPath, 'wb')
+         instFile.write(fileData)
+         subprocess.Popen([instFile])
 
+
+      #####
       def installForMe():
-         if OS_WINDOWS:
-            installWindows()
-         elif OS_LINUX:
-            installUbuntu()
-         elif OS_OSX:
-            installMacOSX()
-            
+         if   OS_WINDOWS: installWindows()
+         elif OS_LINUX:   installUbuntu()
+         elif OS_MACOSX:  installMacOSX()
             
 
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
@@ -3303,23 +3321,6 @@ class ArmoryMainWindow(QMainWindow):
                self.dashBtns[r][c].setMinimumWidth(wMin)
             layoutButtons.addWidget(self.dashBtns[r][c],  r+1,c)
             
-      #layoutButtons.addWidget( self.btnDashInstallForMe,  0,0)
-      #layoutButtons.addWidget( self.btnDashOpenLink,      1,0)
-      #layoutButtons.addWidget( self.btnDashInstInstruct,  2,0)
-      #layoutButtons.addWidget( self.btnDashSetSettings,   3,0)
-      #layoutButtons.addWidget( self.btnDashCloseBitcoin,  4,0)
-
-      #layoutButtons.addWidget( self.lblDashInstallForMe,  0,1)
-      #layoutButtons.addWidget( self.lblDashOpenLink,      1,1)
-      #layoutButtons.addWidget( self.lblDashInstInstruct,  2,1)
-      #layoutButtons.addWidget( self.lblDashSetSettings,   3,1)
-      #layoutButtons.addWidget( self.lblDashCloseBitcoin,  4,1)
-
-      #layoutButtons.addWidget( self.tipDashInstallForMe,  0,2)
-      #layoutButtons.addWidget( self.tipDashOpenLink,      1,2)
-      #layoutButtons.addWidget( self.tipDashInstInstruct,  2,2)
-      #layoutButtons.addWidget( self.tipDashSetSettings,   3,2)
-      #layoutButtons.addWidget( self.tipDashCloseBitcoin,  4,2)
       self.frmDashMgmtButtons.setLayout(layoutButtons)
       self.frmDashMidButtons  = makeHorizFrame(['Stretch', \
                                               self.frmDashMgmtButtons, 
@@ -3333,11 +3334,11 @@ class ArmoryMainWindow(QMainWindow):
       frmInner = QFrame()
       frmInner.setLayout(dashLayout)
 
-      scrl = QScrollArea()
-      scrl.setWidgetResizable(True)
-      scrl.setWidget(frmInner)
+      self.scrl = QScrollArea()
+      self.scrl.setWidgetResizable(True)
+      self.scrl.setWidget(frmInner)
       scrollLayout = QVBoxLayout()
-      scrollLayout.addWidget(scrl)
+      scrollLayout.addWidget(self.scrl)
       self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
@@ -3856,8 +3857,9 @@ class ArmoryMainWindow(QMainWindow):
                      'your settings.')
                   showRow(DASHBTNS.Browse)
                   showRow(DASHBTNS.Install)
-                  showRow(DASHBTNS.Instruct)
                   showRow(DASHBTNS.Settings)
+                  if not OS_WINDOWS:
+                     showRow(DASHBTNS.Instruct) 
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -3893,8 +3895,9 @@ class ArmoryMainWindow(QMainWindow):
                                                          size=4, bold=True)
                   showRow(DASHBTNS.Install)
                   showRow(DASHBTNS.Browse)
-                  showRow(DASHBTNS.Instruct)
                   showRow(DASHBTNS.Settings)
+                  if not OS_WINDOWS:
+                     showRow(DASHBTNS.Instruct) 
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
                   setBtnFrameVisible(True)
@@ -4075,6 +4078,8 @@ class ArmoryMainWindow(QMainWindow):
       self.lastSDMState =  sdmState
       self.lblDashModeSync.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
+      vbar = self.scrl.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
          
       TimerStop('setDashboardDetails')
             
