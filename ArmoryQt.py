@@ -3091,7 +3091,7 @@ class ArmoryMainWindow(QMainWindow):
          self.lblBusy.setPixmap(QPixmap(':/loadicon_0.png'))
          self.numHeartBeat = 0
          def loadBarUpdate():
-            if TheBDM.getBDMState()=='Scanning':
+            if self.lblBusy.isVisible():
                self.numHeartBeat += 1
                self.lblBusy.setPixmap(QPixmap(':/loadicon_%d.png' % \
                                                 (self.numHeartBeat%6)))
@@ -3228,7 +3228,8 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('Installer path: %s', installerPath)
          instFile = open(installerPath, 'wb')
          instFile.write(fileData)
-         subprocess.Popen([instFile])
+         instFile.close()
+         subprocess.Popen('"'+installerPath+'"', shell=True)
 
 
       #####

@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 7, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 8, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10346,7 +10346,9 @@ class SatoshiDaemonManager(object):
                import win32com.client
                shell = win32com.client.Dispatch('WScript.Shell')
                targ = shell.CreateShortCut(path).Targetpath
-               possBaseDir.append( os.path.dirname(targ) )
+               targDir = os.path.dirname(targ)
+               LOGINFO('Found Bitcoin-Qt link on desktop: %s', targDir)
+               possBaseDir.append( targDir )
          
          # Also look in default place in ProgramFiles dirs
          possBaseDir.append(os.getenv('PROGRAMFILES'))
@@ -10474,7 +10476,15 @@ class SatoshiDaemonManager(object):
          raise self.BitcoindError, 'Could not find bitcoind'
    
       cmdstr  = '"%s"' % self.executable
-      cmdstr += ' -datadir="%s"' % self.satoshiHome
+
+      # For some reason, Windows bitcoind doesn't like the quotes.  But 
+      # I've seen it needed for linux paths with spaces.  I guess, 
+      # windows' paths won't get to use spaces...?
+      if OS_WINDOWS:
+         cmdstr += ' -datadir=%s' % self.satoshiHome
+      else:
+         cmdstr += ' -datadir="%s"' % self.satoshiHome
+
       if USE_TESTNET:
          cmdstr += ' -testnet'
       LOGINFO('Executing command: %s' % cmdstr)
@@ -10516,9 +10526,23 @@ class SatoshiDaemonManager(object):
       else:
          sig = signal.SIGKILL
       
-      for child in psutil.Process(self.bitcoind.pid).get_children():
-         os.kill(child.pid, sig)
-      os.kill(self.bitcoind.pid, sig)
+      if OS_WINDOWS:
+         LOGWARN('Bitcoind cannot be stopped in Windows unless')
+         LOGWARN('you are running it as a python script (not a ')
+         LOGWARN('.exe created by py2exe).  You must close ')
+         LOGWARN('this application in order to stop bitcoind')
+      else:
+         # TODO:  This fails in windows+py2exe for the same reason 
+         #        that I had to start defining pipes for all my 
+         #        subprocess.Popen objects.  But I'm not sure how 
+         #        to fix it in Windows.  For now I've just disabled
+         #        it in Windows and the guardian take care of it
+         #        This is not currently an issue because we don't 
+         #        we don't arbitrarily start and stop bitcoind, just 
+         #        stop it once when Armory is closed
+         for child in psutil.Process(self.bitcoind.pid).get_children():
+            os.kill(child.pid, sig)
+         os.kill(self.bitcoind.pid, sig)
       time.sleep(3)
       self.bitcoind = None
       
