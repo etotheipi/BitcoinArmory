@@ -37,8 +37,9 @@ Test_URIParse         = False
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
 Test_Timers           = False
+Test_EstBlockchain    = True
 
-Test_SatoshiManager   = True
+Test_SatoshiManager   = False
 
 '''
 import optparse
@@ -2391,6 +2392,14 @@ if Test_PyBkgdThread:
       print 'NThreads: %02d,  %0.2f keys/sec' % (i, n/s)
 
 
+
+if Test_EstBlockchain:
+   print '***********************************************************************'
+   print 'Testing blockchain size estimation algorithm'
+   print '***********************************************************************'
+   for blk in [0,1000,1001,1002, 10000, 125000, 175000, 225000, 230000, 231000, 250000,275000, 300000, 1000000]:
+      sz = EstimateCumulativeBlockchainSize(blk)
+      print blk, bytesToHumanSize(sz), '(%d)'%sz
 
 
 if Test_SatoshiManager:

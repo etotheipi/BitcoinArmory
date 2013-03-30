@@ -10582,15 +10582,11 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getSDMState(self):
       """ 
-      I did this to avoid changing [what is now] getSDMStateLogic, to not
-      use return statements.  The logic worked, but I can't maintain a 
-      history of what is returned inside the same function returning it.
-      So that's why I'm wrapping it with a historical/circular buffer, here.
-
       As for why I'm doing this:  it turns out that between "initializing"
       and "synchronizing", bitcoind temporarily stops responding entirely,
       which causes "not-available" to be the state.  I need to smooth that
-      out because it wreaks havoc on the GUI which will switch to erro
+      out because it wreaks havoc on the GUI which will switch to showing 
+      a nasty error.
       """
          
       state = self.getSDMStateLogic()
@@ -10600,6 +10596,16 @@ class SatoshiDaemonManager(object):
          (self.circBufferTime[-1] - self.circBufferTime[1]) > 5:
          # Only remove the first element if we have at least 5s history
          self.circBufferState = self.circBufferState[1:]
+         self.circBufferTime  = self.circBufferTime[1:]
+
+      # Here's where we modify the output to smooth out the gap between
+      # "initializing" and "synchronizing" (which is a couple seconds 
+      # of "not available").   "NotAvail" keeps getting added to the 
+      # buffer, but if it was "initializing" in the last 5 seconds, 
+      # we will keep "initializing"
+      if state=='BitcoindNotAvailable':
+         if 'BitcoindInitializing' in self.circBufferState:
+            return 'BitcoindInitializing'
       return state
       
 
@@ -10647,22 +10653,14 @@ class SatoshiDaemonManager(object):
          elif latestInfo['error']=='JsonRpcException':
             return 'BitcoindInitializing'
          elif latestInfo['error']=='SocketError':
-            # Normally would return unavailable, but we need to smooth out
-            # the transaction between Init and Sync (which is socket-error)
-            sz = len(self.circBufferState)
-            alreadyInit = 'BitcoindInitializing' in self.circBufferState
-            initCount = self.circBufferState.count('BitcoindInitializing')
-            if alreadyInit and not initCount==sz:
-               return 'BitcoindInitializing'
-            else:
-               return 'BitcoindNotAvailable'
+            return 'BitcoindNotAvailable'
 
          if 'BitcoindReady' in self.circBufferState:
             # If ready, always ready
             return 'BitcoindReady'
 
          # If we get here, bitcoind is gave us a response.
-         secSinceLastBlk = RightNow() - latestInfo['toptime']
+         secSinceLastBlk = RightNowUTC() - latestInfo['toptime']
          blkspersec = latestInfo['blkspersec']
          #print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
          if secSinceLastBlk > 4*HOUR or blkspersec==-1:
@@ -12760,10 +12758,14 @@ def SaveTimingsCSV(fname):
    print 'Saved timings to file: %s' % fname
    
 
-BLK_SIZE_LIST = []
-def CumulativeBlockSizeFunction(blkNum):
-   if len(BLK_SIZE_LIST)==0:
-      blksizefile = """
+def EstimateCumulativeBlockchainSize(blkNum):
+   # I tried to make a "static" variable here so that 
+   # the string wouldn't be parsed on every call, but 
+   # I botched that, somehow.  
+   #
+   # It doesn't *have to* be fast, but why not?  
+   # Oh well..
+   blksizefile = """
          0 285
          20160 4496226
          40320 9329049
@@ -12821,26 +12823,26 @@ def CumulativeBlockSizeFunction(blkNum):
          227808 6652067986
          228534 6778529822
       """
-      strList = [line.strip().split() for line in blksizefile.split('\n')]
-      BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
+   strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
+   BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
 
    if blkNum < BLK_SIZE_LIST[-1][0]:
       # Interpolate
       bprev,bcurr = None, None
       for i,blkpair in enumerate(BLK_SIZE_LIST):
-         if blknum > blkpair[0]:
-            b0,d0 = blkpair
-            b1,d1 = BLK_SIZE_LIST[i+1]
-            ratio = float(b1-b0)/float(b1-blknum)
-            return ratio*d1 + (1-ratio)*d0
-
+         if blkNum < blkpair[0]:
+            b0,d0 = BLK_SIZE_LIST[i-1]
+            b1,d1 = blkpair
+            ratio = float(blkNum-b0)/float(b1-b0)
+            return int(ratio*d1 + (1-ratio)*d0)
       raise ValueError, 'Interpolation failed for %d' % blkNum
         
    else:
-      bend,  dend = BLK_SIZE_LIST[-1]
+      bend,  dend  = BLK_SIZE_LIST[-1]
       bend2, dend2 = BLK_SIZE_LIST[-3]
-      rate = float(dend - dend2) / float(bend - bend2)
-      print 'Rate:', rate
+      rate = float(dend - dend2) / float(bend - bend2)  # bytes per block
+      extraOnTop = (blkNum - bend) * rate
+      return dend+extraOnTop
       
          
          

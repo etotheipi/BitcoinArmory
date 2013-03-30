@@ -101,6 +101,7 @@ class ArmoryMainWindow(QMainWindow):
       self.notAvailErrorCount = 0
       self.satoshiHomePath = None
       self.satoshiExeSearchPath = None
+      self.initSyncCircBuff = []
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -3012,6 +3013,7 @@ class ArmoryMainWindow(QMainWindow):
       try:
          TheSDM.setupSDM(extraExeSearch=self.SatoshiExeSearchPath)
       except:
+         LOGEXCEPT('Error setting up SDM')
          pass
 
       if TheSDM.failedFindExe:
@@ -3367,12 +3369,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def getPercentageFinished(self, maxblk, lastblk):
-      # The X^8 relationship is surprisingly accurate
-      return min((float(lastblk)/float(maxblk))**7, 0.99)
-      #raise NotImplementedError 
-      #from blkdensitytable import blkDensTable
-      #sz = len(blkDensTable)
-      #if not self.blockTimeHist:
+      curr = EstimateCumulativeBlockchainSize(lastblk)
+      maxb = EstimateCumulativeBlockchainSize(maxblk)
+      return float(curr)/float(maxb)
 
    #############################################################################
    def updateSyncProgress(self):
@@ -3389,6 +3388,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.lblTimeLeftScan.setText(secondsToHumanTime(tleft15))
             self.barProgressScan.setValue(pct*100)
+
       elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
          ssdm = TheSDM.getSDMState() 
          lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
@@ -3401,16 +3401,42 @@ class ArmoryMainWindow(QMainWindow):
             lastBlkTime = info['toptime']
    
          # Use a reference point if we are starting from scratch
-         refBlock = max(226609,      lastBlkNum)
-         refTime  = max(1363636591,  lastBlkTime)
-   
+         refBlock = max(228798,      lastBlkNum)
+         refTime  = max(1364668926,  lastBlkTime)
+  
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
          self.approxBlkLeft  = self.approxMaxBlock - lastBlkNum
          self.approxPctSoFar = self.getPercentageFinished(self.approxMaxBlock, \
                                                                   lastBlkNum)
 
-         
+         self.initSyncCircBuff.append([RightNow(), self.approxPctSoFar])
+         if len(self.initSyncCircBuff)>30:
+            # There's always a couple wacky measurements up front, start at 10
+            t0,p0 = self.initSyncCircBuff[10]
+            t1,p1 = self.initSyncCircBuff[-1]
+            print t0,t1, p0,p1
+            dt,dp = t1-t0, p1-p0
+            if dt>600:
+               self.initSyncCircBuff = self.initSyncCircBuff[1:]
+
+            if dp>0 and dt>0:
+               dpPerSec = dp / dt
+               if lastBlkNum < 200000:
+                  dpPerSec = dpPerSec / 2
+               timeRemain = (1 - self.approxPctSoFar) / dpPerSec
+               #timeRemain = min(timeRemain, 8*HOUR)
+            else:
+               timeRemain = None
+         else:
+            timeRemain = None
+
+        
+
+         f = open('fullsync_timehist.txt', 'a')
+         f.write('%d %d \n' % (lastBlkNum, RightNow()))
+         f.close()
+   
          intPct = int(100*self.approxPctSoFar)
          strPct = '%d%%' % intPct
    
@@ -3420,23 +3446,27 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftSync.setText('Almost Done...')
             self.barProgressSync.setValue(99)
          elif ssdm == 'BitcoindSynchronizing':
-            if info['blkspersec'] > 0:
-               if self.approxBlkLeft < 10000:
+            self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
+            if self.approxBlkLeft < 10000:
+               # If we're within 10k blocks, estimate based on blkspersec
+               if info['blkspersec'] > 0:
                   timeleft = int(self.approxBlkLeft/info['blkspersec'])
                   if timeleft < 2*MINUTE:
                      self.lblTimeLeftSync.setText('1-2 minutes')
                   else:
                      self.lblTimeLeftSync.setText('')
-                     #self.lblTimeLeftSync.setText(secondsToHumanTime(timeleft))
-                  #ratioDone = 1 - float(self.approxBlkLeft)/float(self.approxMaxBlock)
-                  self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
                else:
-                  # If we're way behind (like initial sync)
-                  self.barProgressSync.setValue(int(100*self.approxPctSoFar))
-                  #self.lblTimeLeftSync.setText('Calculating time...')
+                  pass
+                  #self.lblTimeLeftSync.setText('')
             else:
-               self.barProgressSync.setValue(int(100*self.approxPctSoFar))
-               #self.lblTimeLeftSync.setText('Calculating time...')
+               # If we're more than 10k blocks behind...
+               if timeRemain:
+                  if timeRemain>8*HOUR:
+                     self.lblTimeLeftSync.setText("8+ hours...")
+                  else:
+                     self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
+               else:
+                  self.lblTimeLeftSync.setText('')
          elif ssdm == 'BitcoindInitializing':
             self.barProgressSync.setValue(0)
             self.barProgressSync.setFormat('')
@@ -3705,11 +3735,10 @@ class ArmoryMainWindow(QMainWindow):
             'restart Armory.')
          if state == 'InitializingLongTime':
             return ( \
-            'You are offline while the Bitcoin engine is downloading the '
-            'global transaction history in order to maximize your '
-            'security.  <b>This takes a few hours the first time, but '
-            'should only take a few minutes on subsequent loads.</b>  '
-            'Please be patient!'
+            '<b>To maximize your security, the Bitcoin engine is downloading '
+            'and verifying the global transaction ledger.  <u>This will take many '
+            'hours, but only needs to be done once</u>!</b>  Subsequent loads '
+            'will only take a few minutes.  Please be patient!'
             '<br><br>'
             'While you wait, you can manage your wallets.  Make new wallets, '
             'make digital or paper backups, create Bitcoin addresses to receive '
