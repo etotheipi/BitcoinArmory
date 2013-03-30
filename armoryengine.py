@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 8, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 81, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10429,9 +10429,9 @@ class SatoshiDaemonManager(object):
             username = win32api.GetUserName()
             cmd_icacls = 'icacls %s /inheritance:r /grant:r %s:F' % \
                                                    (bitconf, username)
-            print cmd_icacls,
+            LOGINFO(cmd_icacls)
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
-            print 'returned', icacls_out
+            LOGINFO('icacls returned: %s', icacls_out)
       else:
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
                
@@ -10462,6 +10462,7 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def startBitcoind(self):
+      self.btcOut, self.btcErr = None,None
       if self.disabled:
          LOGERROR('SDM was disabled, must be re-enabled before starting')
          return
@@ -10511,7 +10512,6 @@ class SatoshiDaemonManager(object):
          cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
          print 'executing:', cmdstr
          Popen(shlex.split(cmdstr))
-      self.btcOut, self.btcErr = None,None
 
    #############################################################################
    def stopBitcoind(self):
@@ -10582,15 +10582,11 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def getSDMState(self):
       """ 
-      I did this to avoid changing [what is now] getSDMStateLogic, to not
-      use return statements.  The logic worked, but I can't maintain a 
-      history of what is returned inside the same function returning it.
-      So that's why I'm wrapping it with a historical/circular buffer, here.
-
       As for why I'm doing this:  it turns out that between "initializing"
       and "synchronizing", bitcoind temporarily stops responding entirely,
       which causes "not-available" to be the state.  I need to smooth that
-      out because it wreaks havoc on the GUI which will switch to erro
+      out because it wreaks havoc on the GUI which will switch to showing 
+      a nasty error.
       """
          
       state = self.getSDMStateLogic()
@@ -10600,6 +10596,16 @@ class SatoshiDaemonManager(object):
          (self.circBufferTime[-1] - self.circBufferTime[1]) > 5:
          # Only remove the first element if we have at least 5s history
          self.circBufferState = self.circBufferState[1:]
+         self.circBufferTime  = self.circBufferTime[1:]
+
+      # Here's where we modify the output to smooth out the gap between
+      # "initializing" and "synchronizing" (which is a couple seconds 
+      # of "not available").   "NotAvail" keeps getting added to the 
+      # buffer, but if it was "initializing" in the last 5 seconds, 
+      # we will keep "initializing"
+      if state=='BitcoindNotAvailable':
+         if 'BitcoindInitializing' in self.circBufferState:
+            return 'BitcoindInitializing'
       return state
       
 
@@ -10622,7 +10628,19 @@ class SatoshiDaemonManager(object):
    
       if not self.isRunningBitcoind():
          # Not running at all:  either never started, or process terminated
-         return 'BitcoindNotAvailable'
+         if not self.btcErr==None and len(self.btcErr)>0:
+            errstr = self.btcErr.replace(',',' ').replace('.',' ').replace('!',' ')
+            errPcs = set([a.lower() for a in errstr.split()])
+            runPcs = set(['cannot','obtain','lock','already','running'])
+            dbePcs = set(['database', 'recover','backup','except','wallet','dat'])
+            if len(errPcs.intersection(runPcs))>=(len(runPcs)-1):
+               return 'BitcoindAlreadyRunning'
+            elif len(errPcs.intersection(dbePcs))>=(len(dbePcs)-1):
+               return 'BitcoindDatabaseEnvError'
+            else:
+               return 'BitcoindUnknownCrash'
+         else:
+            return 'BitcoindNotAvailable'
       elif not self.bitcoindIsResponsive():
          # Running but not responsive... must still be initializing
          return 'BitcoindInitializing'
@@ -10635,17 +10653,14 @@ class SatoshiDaemonManager(object):
          elif latestInfo['error']=='JsonRpcException':
             return 'BitcoindInitializing'
          elif latestInfo['error']=='SocketError':
-            if 'BitcoindInitializing' in self.circBufferState:
-               return 'BitcoindInitializing'
-            else:
-               return 'BitcoindNotAvailable'
+            return 'BitcoindNotAvailable'
 
          if 'BitcoindReady' in self.circBufferState:
             # If ready, always ready
             return 'BitcoindReady'
 
          # If we get here, bitcoind is gave us a response.
-         secSinceLastBlk = RightNow() - latestInfo['toptime']
+         secSinceLastBlk = RightNowUTC() - latestInfo['toptime']
          blkspersec = latestInfo['blkspersec']
          #print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
          if secSinceLastBlk > 4*HOUR or blkspersec==-1:
@@ -12743,12 +12758,97 @@ def SaveTimingsCSV(fname):
    print 'Saved timings to file: %s' % fname
    
 
+def EstimateCumulativeBlockchainSize(blkNum):
+   # I tried to make a "static" variable here so that 
+   # the string wouldn't be parsed on every call, but 
+   # I botched that, somehow.  
+   #
+   # It doesn't *have to* be fast, but why not?  
+   # Oh well..
+   blksizefile = """
+         0 285
+         20160 4496226
+         40320 9329049
+         60480 16637208
+         80640 31572990
+         82656 33260320
+         84672 35330575
+         86688 36815335
+         88704 38386205
+         100800 60605119
+         102816 64795352
+         104832 68697265
+         108864 79339447
+         112896 92608525
+         116928 116560952
+         120960 140607929
+         124992 170059586
+         129024 217718109
+         133056 303977266
+         137088 405836779
+         141120 500934468
+         145152 593217668
+         149184 673064617
+         153216 745173386
+         157248 816675650
+         161280 886105443
+         165312 970660768
+         169344 1058290613
+         173376 1140721593
+         177408 1240616018
+         179424 1306862029
+         181440 1463634913
+         183456 1639027360
+         185472 1868851317
+         187488 2019397056
+         189504 2173291204
+         191520 2352873908
+         193536 2530862533
+         195552 2744361593
+         197568 2936684028
+         199584 3115432617
+         201600 3282437367
+         203616 3490737816
+         205632 3669806064
+         207648 3848901149
+         209664 4064972247
+         211680 4278148686
+         213696 4557787597
+         215712 4786120879
+         217728 5111707340
+         219744 5419128115
+         221760 5733907456
+         223776 6053668460
+         225792 6407870776
+         227808 6652067986
+         228534 6778529822
+      """
+   strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
+   BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
 
-
-
-
-
-
-
-
+   if blkNum < BLK_SIZE_LIST[-1][0]:
+      # Interpolate
+      bprev,bcurr = None, None
+      for i,blkpair in enumerate(BLK_SIZE_LIST):
+         if blkNum < blkpair[0]:
+            b0,d0 = BLK_SIZE_LIST[i-1]
+            b1,d1 = blkpair
+            ratio = float(blkNum-b0)/float(b1-b0)
+            return int(ratio*d1 + (1-ratio)*d0)
+      raise ValueError, 'Interpolation failed for %d' % blkNum
+        
+   else:
+      bend,  dend  = BLK_SIZE_LIST[-1]
+      bend2, dend2 = BLK_SIZE_LIST[-3]
+      rate = float(dend - dend2) / float(bend - bend2)  # bytes per block
+      extraOnTop = (blkNum - bend) * rate
+      return dend+extraOnTop
+      
+         
+         
+         
+         
+         
+         
+         
 

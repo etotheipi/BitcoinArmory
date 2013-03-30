@@ -143,7 +143,7 @@ if run_CumulativeSize:
    
       header = TheBDM.getHeaderByHeight(h)
       cumul += header.getBlockSize()
-      if h%5000 == 0:
+      if (h%2016==0) or h+1>=topBlock:
          f.write('%d %d\n' % (h,cumul))
 
    f.close()

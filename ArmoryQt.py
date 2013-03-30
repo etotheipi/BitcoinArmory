@@ -25,6 +25,8 @@ import platform
 import traceback
 import socket
 import subprocess
+import psutil
+import signal
 from datetime import datetime
 
 # PyQt4 Imports
@@ -96,6 +98,10 @@ class ArmoryMainWindow(QMainWindow):
       self.downloadDict = {}
       self.latestVerSatoshi = None
       self.latestVerArmory = None
+      self.notAvailErrorCount = 0
+      self.satoshiHomePath = None
+      self.satoshiExeSearchPath = None
+      self.initSyncCircBuff = []
 
 
       # We want to determine whether the user just upgraded to a new version
@@ -1165,33 +1171,41 @@ class ArmoryMainWindow(QMainWindow):
          LOGWARN('Tried to start bitcoind, but ManageSatoshi==False')
          return False
 
+      if satoshiIsAvailable():
+         LOGWARN('Tried to start bitcoind, but satoshi already running')
+         return False
       
-      # We skip the getSettingOrSetDefault call, because we don't want to set
-      # it if it doesn't exist
-      satexe = None
-      if self.settings.hasSetting('SatoshiExe'):
-         satexe = [self.settings.get('SatoshiExe')]
-      else:
-         satexe = []
-   
-      sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiDatadir') and \
-         CLI_OPTIONS.satoshiHome=='DEFAULT':
-         # Setting override BTC_HOME_DIR only if it wasn't explicitly
-         # set as the command line.  
-         sathome = self.settings.get('SatoshiDatadir')
-  
+      self.setSatoshiPaths()
+
       TheSDM.setDisabled(False)
       try:
          # "satexe" is actually just the install directory, not the direct
          # path the executable.  That dir tree will be searched for bitcoind
-         TheSDM.setupSDM(None, sathome, extraExeSearch=satexe)
+         TheSDM.setupSDM(None, self.satoshiHomePath, \
+                         extraExeSearch=self.satoshiExeSearchPath)
          TheSDM.startBitcoind()
          return True
       except:
          LOGERROR('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
       
+
+   ############################################################################
+   def setSatoshiPaths(self):
+      # We skip the getSettingOrSetDefault call, because we don't want to set
+      # it if it doesn't exist
+      if self.settings.hasSetting('SatoshiExe'):
+         self.satoshiExeSearchPath = [self.settings.get('SatoshiExe')]
+      else:
+         self.satoshiExeSearchPath = []
+   
+      self.satoshiHomePath = BTC_HOME_DIR
+      if self.settings.hasSetting('SatoshiDatadir') and \
+         CLI_OPTIONS.satoshiHome=='DEFAULT':
+         # Setting override BTC_HOME_DIR only if it wasn't explicitly
+         # set as the command line.  
+         self.satoshiHomePath = self.settings.get('SatoshiDatadir')
+  
        
    ############################################################################
    def loadBlockchainIfNecessary(self):
@@ -1237,23 +1251,6 @@ class ArmoryMainWindow(QMainWindow):
    def bitcoindIsAvailable(self):
       return satoshiIsAvailable('127.0.0.1', BITCOIN_PORT)
 
-   #############################################################################
-   def checkForInstalledBitcoind(self):
-      
-      # it if it doesn't exist
-      satexe  = BITCOIND_PATH
-      if self.settings.hasSetting('SatoshiExe'):
-         satexe  = self.settings.get('SatoshiExe')
-   
-      sathome = BTC_HOME_DIR
-      if self.settings.hasSetting('SatoshiDatadir'):
-         sathome = self.getSettingOrSetDefault('SatoshiDatadir', BTC_HOME_DIR)
-   
-      try:
-         TheSDM.setupSDM(satexe, sathome)
-      except self.BitcoindError:
-         LOGINFO('SetupSDM failed (FailedExe: %s, FailedHome: %s)', \
-                     TheSDM.failedFindExe, TheSDM.failedFindHome)
                   
 
    #############################################################################
@@ -3010,15 +3007,13 @@ class ArmoryMainWindow(QMainWindow):
       if satoshiIsAvailable():
          return 'Running'
       
-      satexe = None
-      if self.settings.hasSetting('SatoshiExe'):
-         satexe = [self.settings.get('SatoshiExe')]
-      else:
-         satexe = []
+      
+      self.setSatoshiPaths()
 
       try:
-         TheSDM.setupSDM(extraExeSearch=satexe)
+         TheSDM.setupSDM(extraExeSearch=self.SatoshiExeSearchPath)
       except:
+         LOGEXCEPT('Error setting up SDM')
          pass
 
       if TheSDM.failedFindExe:
@@ -3028,10 +3023,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def pressModeSwitchButton(self):
-
-      print self.doManageSatoshi
-      print not TheSDM.isRunningBitcoind()
-      print satoshiIsAvailable()
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
          result = self.lookForBitcoind()
          if result=='Running':
@@ -3153,13 +3144,14 @@ class ArmoryMainWindow(QMainWindow):
       # Set up an array of buttons in the middle of the dashboard, to be used 
       # to help the user install bitcoind.
       self.lblDashBtnDescr = QRichLabel('')
+      self.lblDashBtnDescr.setOpenExternalLinks(True)
       BTN,LBL,TTIP = range(3)
       self.dashBtns = [[None]*3 for i in range(5)]
+      self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
       self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton('Open www.bitcoin.org')
-      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Install Bitcoin Software')
+      self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Auto-Install Bitcoin')
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
-      self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
 
 
       #####
@@ -3190,7 +3182,9 @@ class ArmoryMainWindow(QMainWindow):
             'Would you like to continue?', \
             QMessageBox.Yes, QMessageBox.No)
          if result==QMessageBox.Yes:
-            tryInstallUbuntu(self)
+            out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
+            from twisted.internet import reactor
+            reactor.callLater(0.5, lambda: tryInstallUbuntu(self))
 
       #####
       def installWindows():
@@ -3237,25 +3231,47 @@ class ArmoryMainWindow(QMainWindow):
          if   OS_WINDOWS: installWindows()
          elif OS_LINUX:   installUbuntu()
          elif OS_MACOSX:  installMacOSX()
+
+      #####
+      def closeExistingBitcoin():
+         if OS_WINDOWS:
+            for proc in psutil.process_iter():
+               if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe']:
+                  os.kill(proc.pid, signal.CTRL_C_EVENT)
+                  time.sleep(2)
+                  return
+         else:
+            for proc in psutil.process_iter():
+               if proc.name.lower() in ['bitcoind','bitcoin-qt']:
+                  os.kill(proc.pid, signal.SIGKILL)
+                  time.sleep(2)
+                  return
+
+         # If got here, never found it
+         QMessageBox.warning(self, 'Not Found', \
+            'Attempted to kill the running Bitcoin-Qt/bitcoind instance, '
+            'but it was not found.  ', QMessageBox.Ok)
             
 
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
-                                                               openBitcoinOrg)
+                                                             openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                               installForMe)
+                                                                installForMe)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
-                                                             self.openSettings)
+                                                           self.openSettings)
       self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
-                                                      self.openInstructWindow) 
+                                                     self.openInstructWindow) 
+      self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
+                                                        closeExistingBitcoin) 
 
+      self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
+           'Stop existing Bitcoin processes so that Armory can open its own')
       self.dashBtns[DASHBTNS.Browse][LBL]     = QRichLabel( \
            'Open browser to Bitcoin webpage to download and install Bitcoin software')
       self.dashBtns[DASHBTNS.Instruct][LBL] = QRichLabel( \
-           'Show installation instructions for your operating system')
+           'Instructions for manually installing Bitcoin for operating system')
       self.dashBtns[DASHBTNS.Settings][LBL]  = QRichLabel( \
            'Open Armory settings window to change Bitcoin software management')
-      self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
-           'Stop existing Bitcoin processes so that Armory can open its own')
 
 
       self.dashBtns[DASHBTNS.Browse][TTIP] = createToolTipObject( \
@@ -3353,12 +3369,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def getPercentageFinished(self, maxblk, lastblk):
-      # The X^8 relationship is surprisingly accurate
-      return min((float(lastblk)/float(maxblk))**7, 0.99)
-      #raise NotImplementedError 
-      #from blkdensitytable import blkDensTable
-      #sz = len(blkDensTable)
-      #if not self.blockTimeHist:
+      curr = EstimateCumulativeBlockchainSize(lastblk)
+      maxb = EstimateCumulativeBlockchainSize(maxblk)
+      return float(curr)/float(maxb)
 
    #############################################################################
    def updateSyncProgress(self):
@@ -3375,6 +3388,7 @@ class ArmoryMainWindow(QMainWindow):
          else:
             self.lblTimeLeftScan.setText(secondsToHumanTime(tleft15))
             self.barProgressScan.setValue(pct*100)
+
       elif TheSDM.getSDMState() in ['BitcoindInitializing','BitcoindSynchronizing']:
          ssdm = TheSDM.getSDMState() 
          lastBlkNum  = self.getSettingOrSetDefault('LastBlkRecv',     0)
@@ -3387,16 +3401,42 @@ class ArmoryMainWindow(QMainWindow):
             lastBlkTime = info['toptime']
    
          # Use a reference point if we are starting from scratch
-         refBlock = max(226609,      lastBlkNum)
-         refTime  = max(1363636591,  lastBlkTime)
-   
+         refBlock = max(228798,      lastBlkNum)
+         refTime  = max(1364668926,  lastBlkTime)
+  
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
          self.approxBlkLeft  = self.approxMaxBlock - lastBlkNum
          self.approxPctSoFar = self.getPercentageFinished(self.approxMaxBlock, \
                                                                   lastBlkNum)
 
-         
+         self.initSyncCircBuff.append([RightNow(), self.approxPctSoFar])
+         if len(self.initSyncCircBuff)>30:
+            # There's always a couple wacky measurements up front, start at 10
+            t0,p0 = self.initSyncCircBuff[10]
+            t1,p1 = self.initSyncCircBuff[-1]
+            print t0,t1, p0,p1
+            dt,dp = t1-t0, p1-p0
+            if dt>600:
+               self.initSyncCircBuff = self.initSyncCircBuff[1:]
+
+            if dp>0 and dt>0:
+               dpPerSec = dp / dt
+               if lastBlkNum < 200000:
+                  dpPerSec = dpPerSec / 2
+               timeRemain = (1 - self.approxPctSoFar) / dpPerSec
+               #timeRemain = min(timeRemain, 8*HOUR)
+            else:
+               timeRemain = None
+         else:
+            timeRemain = None
+
+        
+
+         f = open('fullsync_timehist.txt', 'a')
+         f.write('%d %d \n' % (lastBlkNum, RightNow()))
+         f.close()
+   
          intPct = int(100*self.approxPctSoFar)
          strPct = '%d%%' % intPct
    
@@ -3406,23 +3446,27 @@ class ArmoryMainWindow(QMainWindow):
             self.lblTimeLeftSync.setText('Almost Done...')
             self.barProgressSync.setValue(99)
          elif ssdm == 'BitcoindSynchronizing':
-            if info['blkspersec'] > 0:
-               if self.approxBlkLeft < 10000:
+            self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
+            if self.approxBlkLeft < 10000:
+               # If we're within 10k blocks, estimate based on blkspersec
+               if info['blkspersec'] > 0:
                   timeleft = int(self.approxBlkLeft/info['blkspersec'])
                   if timeleft < 2*MINUTE:
                      self.lblTimeLeftSync.setText('1-2 minutes')
                   else:
                      self.lblTimeLeftSync.setText('')
-                     #self.lblTimeLeftSync.setText(secondsToHumanTime(timeleft))
-                  #ratioDone = 1 - float(self.approxBlkLeft)/float(self.approxMaxBlock)
-                  self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
                else:
-                  # If we're way behind (like initial sync)
-                  self.barProgressSync.setValue(int(100*self.approxPctSoFar))
-                  #self.lblTimeLeftSync.setText('Calculating time...')
+                  pass
+                  #self.lblTimeLeftSync.setText('')
             else:
-               self.barProgressSync.setValue(int(100*self.approxPctSoFar))
-               #self.lblTimeLeftSync.setText('Calculating time...')
+               # If we're more than 10k blocks behind...
+               if timeRemain:
+                  if timeRemain>8*HOUR:
+                     self.lblTimeLeftSync.setText("8+ hours...")
+                  else:
+                     self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
+               else:
+                  self.lblTimeLeftSync.setText('')
          elif ssdm == 'BitcoindInitializing':
             self.barProgressSync.setValue(0)
             self.barProgressSync.setFormat('')
@@ -3691,11 +3735,10 @@ class ArmoryMainWindow(QMainWindow):
             'restart Armory.')
          if state == 'InitializingLongTime':
             return ( \
-            'You are offline while the Bitcoin engine is downloading the '
-            'global transaction history in order to maximize your '
-            'security.  <b>This takes a few hours the first time, but '
-            'should only take a few minutes on subsequent loads.</b>  '
-            'Please be patient!'
+            '<b>To maximize your security, the Bitcoin engine is downloading '
+            'and verifying the global transaction ledger.  <u>This will take many '
+            'hours, but only needs to be done once</u>!</b>  Subsequent loads '
+            'will only take a few minutes.  Please be patient!'
             '<br><br>'
             'While you wait, you can manage your wallets.  Make new wallets, '
             'make digital or paper backups, create Bitcoin addresses to receive '
@@ -3755,6 +3798,53 @@ class ArmoryMainWindow(QMainWindow):
             'offline system, you will <u>not</u> need to have the Bitcoin '
             'software installed or running on the offline '
             'computer.  It is only required for being online. ')
+         if state == 'OfflineBadDBEnv':
+            return ( \
+            'The Bitcoin software indicates there '
+            'is a problem with its databases.  This can occur when '
+            'Bitcoin-Qt/bitcoind is upgraded or downgraded, or sometimes '
+            'just by chance after an unclean shutdown.'
+            '<br><br>'
+            'You can either revert your installed Bitcoin software to the '
+            'last known working version (but not earlier than version 0.8.1) '
+            'or delete everything but "wallet.dat" from the your Bitcoin '
+            'home directory:<br><br>'
+            '<font face="courier"><b>%s</b></font>'
+            '<br><br>'
+            'If you choose to delete the contents of the Bitcoin home '
+            'directory, you will have to do a fresh download of the blockchain '
+            'again, which will require a few hours the first '
+            'time.' % self.satoshiHomePath)
+         if state == 'OfflineBtcdCrashed':
+            sout = '' if TheSDM.btcOut==None else str(TheSDM.btcOut)
+            serr = '' if TheSDM.btcErr==None else str(TheSDM.btcErr)
+            soutHtml = '<br><br>' + '<br>'.join(sout.strip().split('\n'))
+            serrHtml = '<br><br>' + '<br>'.join(serr.strip().split('\n'))
+            soutDisp = '<b><font face="courier">StdOut: %s</font></b>' % soutHtml
+            serrDisp = '<b><font face="courier">StdErr: %s</font></b>' % serrHtml
+            if len(sout)>0 or len(serr)>0:
+               return ( \
+               'There was an error starting the underlying Bitcoin engine.  '
+               'This should not normally happen.  Usually it occurs when you '
+               'have been using Bitcoin-Qt prior to using Armory, especially '
+               'if you have upgraded or downgraded Bitcoin-Qt recently (manually, '
+               'or through the Armory automatic installation).  Output from '
+               'bitcoind:<br>' +
+               (soutDisp if len(sout)>0 else '') +
+               (serrDisp if len(serr)>0 else '') )
+            else:
+               return ( \
+               'There was an error starting the underlying Bitcoin engine.  '
+               'This should not normally happen.  Usually it occurs when you '
+               'have been using Bitcoin-Qt prior to using Armory, especially '
+               'if you have upgraded or downgraded Bitcoin-Qt recently (manually, '
+               'or through the Armory automatic installation).  '
+               '<br><br>'
+               'Unfortunately, this error is so strange, Armory does not '
+               'recognize it.  Please go to "Export Log File" from the "File" '
+               'menu and email at as an attachment to <a href="mailto:'
+               'alan.reiner@gmail.com?Subject=Bitcoind%20Crash">alan.reiner@'
+               'gmail.com</a>.  We apologize for the inconvenience!')
          
 
    #############################################################################
@@ -3776,8 +3866,6 @@ class ArmoryMainWindow(QMainWindow):
       def setBtnRowVisible(r, visBool):
          for c in range(3):
             self.dashBtns[r][c].setVisible(visBool)
-      hideRow = lambda r: setBtnRowVisible(r, False)
-      showRow = lambda r: setBtnRowVisible(r, True)
 
       def setSyncRowVisible(b):
          self.lblDashModeSync.setVisible(b)
@@ -3804,11 +3892,11 @@ class ArmoryMainWindow(QMainWindow):
 
       if INIT:
          setBtnFrameVisible(False)
-         hideRow(DASHBTNS.Install)
-         hideRow(DASHBTNS.Browse)
-         hideRow(DASHBTNS.Instruct)
-         hideRow(DASHBTNS.Settings)
-         hideRow(DASHBTNS.Close)
+         setBtnRowVisible(DASHBTNS.Install, False)
+         setBtnRowVisible(DASHBTNS.Browse, False)
+         setBtnRowVisible(DASHBTNS.Instruct, False)
+         setBtnRowVisible(DASHBTNS.Settings, False)
+         setBtnRowVisible(DASHBTNS.Close, False)
          setOnlyDashModeVisible()
          self.btnModeSwitch.setVisible(False)
 
@@ -3823,11 +3911,11 @@ class ArmoryMainWindow(QMainWindow):
             # There's a whole bunch of stuff that has to be hidden/shown 
             # depending on the state... set some reasonable defaults here
             setBtnFrameVisible(False)
-            hideRow(DASHBTNS.Install)
-            hideRow(DASHBTNS.Browse)
-            hideRow(DASHBTNS.Instruct)
-            showRow(DASHBTNS.Settings)
-            hideRow(DASHBTNS.Close)
+            setBtnRowVisible(DASHBTNS.Install, False)
+            setBtnRowVisible(DASHBTNS.Browse, False)
+            setBtnRowVisible(DASHBTNS.Instruct, False)
+            setBtnRowVisible(DASHBTNS.Settings, True)
+            setBtnRowVisible(DASHBTNS.Close, False)
    
             if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
                self.mainDisplayTabs.setTabEnabled(self.MAINTABS.Transactions, False)
@@ -3835,17 +3923,17 @@ class ArmoryMainWindow(QMainWindow):
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                if satoshiIsAvailable():
+                  self.frmDashMidButtons.setVisible(True)
+                  setBtnRowVisible(DASHBTNS.Close, True)
                   if CLI_OPTIONS.offline:
                      # Forced offline but bitcoind is running
                      LOGINFO('Dashboard switched to auto-OfflineForcedButSatoshiAvail')
-                     self.frmDashMidButtons.setVisible(False)
                      descr1 += self.GetDashStateText('Auto', 'OfflineForcedButSatoshiAvail')
                      descr2 += self.GetDashFunctionalityText('Offline')
                      self.lblDashDescr1.setText(descr1)
                      self.lblDashDescr2.setText(descr2)
                   else:
                      LOGINFO('Dashboard switched to auto-OfflineSatoshiAvail')
-                     self.frmDashMidButtons.setVisible(False)
                      descr1 += self.GetDashStateText('Auto', 'OfflineSatoshiAvail')
                      descr2 += self.GetDashFunctionalityText('Offline')
                      self.lblDashDescr1.setText(descr1)
@@ -3856,11 +3944,10 @@ class ArmoryMainWindow(QMainWindow):
                      'In case you actually do have internet access, use can use '
                      'the following links to get Armory installed.  Or change '
                      'your settings.')
-                  showRow(DASHBTNS.Browse)
-                  showRow(DASHBTNS.Install)
-                  showRow(DASHBTNS.Settings)
-                  if not OS_WINDOWS:
-                     showRow(DASHBTNS.Instruct) 
+                  setBtnRowVisible(DASHBTNS.Browse, True)
+                  setBtnRowVisible(DASHBTNS.Install, True)
+                  setBtnRowVisible(DASHBTNS.Settings, True)
+                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -3871,15 +3958,16 @@ class ArmoryMainWindow(QMainWindow):
                self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
                # Bitcoind is not being managed, but we want it to be
-               if satoshiIsAvailable():
+               if satoshiIsAvailable() or sdmState=='BitcoindAlreadyRunning':
                   # But bitcoind/-qt is already running
                   LOGINFO('Dashboard switched to auto-butSatoshiRunning')
                   self.lblDashModeSync.setText(' Please close Bitcoin-Qt', \
                                                          size=4, bold=True)
                   setBtnFrameVisible(True, '')
+                  setBtnRowVisible(DASHBTNS.Close, True)
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
-                  #showRow(DASHBTNS.Close)
+                  #setBtnRowVisible(DASHBTNS.Close, True)
                   descr1 += self.GetDashStateText('Auto', 'OfflineBitcoindRunning')
                   descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
                   descr2 += self.GetDashFunctionalityText('Offline')
@@ -3894,11 +3982,10 @@ class ArmoryMainWindow(QMainWindow):
                   else:
                      self.lblDashModeSync.setText('Cannot find Bitcoin Home Directory', \
                                                          size=4, bold=True)
-                  showRow(DASHBTNS.Install)
-                  showRow(DASHBTNS.Browse)
-                  showRow(DASHBTNS.Settings)
-                  if not OS_WINDOWS:
-                     showRow(DASHBTNS.Instruct) 
+                  setBtnRowVisible(DASHBTNS.Install, True)
+                  setBtnRowVisible(DASHBTNS.Browse, True)
+                  setBtnRowVisible(DASHBTNS.Settings, True)
+                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
                   setBtnFrameVisible(True)
@@ -3907,18 +3994,46 @@ class ArmoryMainWindow(QMainWindow):
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
-                   
-               elif sdmState in ['BitcoindNeverStarted']:
-                  raise ShouldNotGetHereError, 'Bitcoind Never started...?'
-               elif sdmState in ['BitcoindNotAvailable']:
+               elif sdmState in ['BitcoindDatabaseEnvError']:
+                  LOGINFO('Dashboard switched to auto-BadDBEnv')
                   setOnlyDashModeVisible()
-                  LOGINFO('Dashboard switched to auto-BadConnection')
+                  setBtnRowVisible(DASHBTNS.Install, True)
+                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
+                  setBtnRowVisible(DASHBTNS.Settings, True)
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
-                  descr1 += self.GetDashStateText('Auto', 'OfflineBadConnection')
+                  descr1 += self.GetDashStateText('Auto', 'OfflineBadDBEnv')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
                   self.lblDashDescr2.setText(descr2)
+                  setBtnFrameVisible(True, '')
+               elif sdmState in ['BitcoindUnknownCrash']:
+                  LOGERROR('Should not usually get here')
+                  setOnlyDashModeVisible()
+                  setBtnFrameVisible(True, \
+                     'Try reinstalling the Bitcoin '
+                     'software then restart Armory.  If you continue to have '
+                     'problems, please contact Armory\'s core developer at '
+                     '<a href="mailto:alan.reiner@gmail.com?Subject=Bitcoind%20Crash"'
+                     '>alan.reiner@gmail.com</a>.')
+                  setBtnRowVisible(DASHBTNS.Settings, True)
+                  setBtnRowVisible(DASHBTNS.Install, True)
+                  LOGINFO('Dashboard switched to auto-BtcdCrashed')
+                  self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
+                                            size=4, color='TextWarn', bold=True)
+                  descr1 += self.GetDashStateText('Auto', 'OfflineBtcdCrashed')
+                  descr2 += self.GetDashFunctionalityText('Offline')
+                  self.lblDashDescr1.setText(descr1)
+                  self.lblDashDescr2.setText(descr2)
+                  self.lblDashDescr1.setTextInteractionFlags( \
+                                          Qt.TextSelectableByMouse | \
+                                          Qt.TextSelectableByKeyboard)
+               elif sdmState in ['BitcoindNotAvailable']:
+                  LOGERROR('BitcoindNotAvailable: should not happen...')
+                  self.notAvailErrorCount += 1
+                  if self.notAvailErrorCount < 5:
+                     LOGERROR('Auto-mode-switch')
+                     self.pressModeSwitchButton()
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
@@ -3953,7 +4068,7 @@ class ArmoryMainWindow(QMainWindow):
                   else:
                      descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
 
-                  showRow(DASHBTNS.Settings)
+                  setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnFrameVisible(True, \
                      'Since version 0.88, Armory runs bitcoind in the '
                      'background.  You can switch back to '
@@ -3990,7 +4105,7 @@ class ArmoryMainWindow(QMainWindow):
                if not self.bitcoindIsAvailable():
                   if self.internetAvail:
                      descr = self.GetDashStateText('User','OfflineNoSatoshi')
-                     showRow(DASHBTNS.Settings)
+                     setBtnRowVisible(DASHBTNS.Settings, True)
                      setBtnFrameVisible(True, \
                         'If you would like Armory to manage the Bitcoin software '
                         'for you (Bitcoin-Qt or bitcoind), then adjust your '

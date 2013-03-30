@@ -7,6 +7,7 @@
 ################################################################################
 import sys
 import time
+import shutil
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qtdefines import *
@@ -6681,22 +6682,24 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
       if reply==QMessageBox.Yes:
          self.main.broadcastTransaction(finalTx)
-         if self.fileLoaded:
-            reply = QMessageBox.warning(self, 'Done!', \
-               'The transaction has been broadcast!'
-               '<br><br>'
-               'Now that the transaction is final, the transaction file is no '
-               'longer needed.  Would you like to delete it?  '
-               '<br><br>'
-               'Delete %s?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
-            if reply==QMessageBox.Yes:
-               try:
-                  os.remove(self.fileLoaded)
-               except:
-                  QMessageBox.critical(self, 'File Remove Error', \
-                     'The file could not be deleted.  If you want to delete '
-                     'it, please do so manually.  The file was loaded from: '
-                     '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
+         if self.fileLoaded and os.path.exists(self.fileLoaded):
+            #reply = QMessageBox.warning(self, 'Done!', \
+               #'The transaction has been broadcast!'
+               #'<br><br>'
+               #'Now that the transaction is final, the transaction file is no '
+               #'longer needed.  Would you like to delete it?  '
+               #'<br><br>'
+               #'Delete %s?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
+            #if reply==QMessageBox.Yes:
+            try:
+               pcs = self.fileLoaded.split('.')
+               newFileName = '.'.join(pcs[:-2]) + '.DONE.' + '.'.join(pcs[-2:])
+               shutil.move(self.fileLoaded, newFileName)
+            except:
+               QMessageBox.critical(self, 'File Remove Error', \
+                  'The file could not be deleted.  If you want to delete '
+                  'it, please do so manually.  The file was loaded from: '
+                  '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
                
          self.accept()
 
@@ -11430,7 +11433,9 @@ class DlgInstallLinux(ArmoryDialog):
 
 
    def doPPA(self):
-      tryInstallUbuntu(self.main)
+      out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
+      from twisted.internet import reactor
+      reactor.callLater(0.5, lambda: tryInstallUbuntu(self.main))
       self.accept()
 
 
@@ -11439,7 +11444,8 @@ def tryInstallUbuntu(main):
    def doit():
       print '\n'
       print '***** Executing auto-install in linux...'
-      out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
+      out,err = execAndWait(('gksudo "apt-get remove -y bitcoin-qt bitcoind"; ' 
+                             'gksudo apt-get-repository ppa:bitcoin/bitcoin; '
                              'gksudo apt-get update; '
                              'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
                              timeout=120)
