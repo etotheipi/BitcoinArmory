@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 8, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 81, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10429,9 +10429,9 @@ class SatoshiDaemonManager(object):
             username = win32api.GetUserName()
             cmd_icacls = 'icacls %s /inheritance:r /grant:r %s:F' % \
                                                    (bitconf, username)
-            print cmd_icacls,
+            LOGINFO(cmd_icacls)
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
-            print 'returned', icacls_out
+            LOGINFO('icacls returned: %s', icacls_out)
       else:
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
                
@@ -10462,6 +10462,7 @@ class SatoshiDaemonManager(object):
 
    #############################################################################
    def startBitcoind(self):
+      self.btcOut, self.btcErr = None,None
       if self.disabled:
          LOGERROR('SDM was disabled, must be re-enabled before starting')
          return
@@ -10511,7 +10512,6 @@ class SatoshiDaemonManager(object):
          cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
          print 'executing:', cmdstr
          Popen(shlex.split(cmdstr))
-      self.btcOut, self.btcErr = None,None
 
    #############################################################################
    def stopBitcoind(self):
@@ -10622,7 +10622,19 @@ class SatoshiDaemonManager(object):
    
       if not self.isRunningBitcoind():
          # Not running at all:  either never started, or process terminated
-         return 'BitcoindNotAvailable'
+         if not self.btcErr==None and len(self.btcErr)>0:
+            errstr = self.btcErr.replace(',',' ').replace('.',' ').replace('!',' ')
+            errPcs = set([a.lower() for a in errstr.split()])
+            runPcs = set(['cannot','obtain','lock','already','running'])
+            dbePcs = set(['database', 'recover','backup','except','wallet','dat'])
+            if len(errPcs.intersection(runPcs))>=(len(runPcs)-1):
+               return 'BitcoindAlreadyRunning'
+            elif len(errPcs.intersection(dbePcs))>=(len(dbePcs)-1):
+               return 'BitcoindDatabaseEnvError'
+            else:
+               return 'BitcoindUnknownCrash'
+         else:
+            return 'BitcoindNotAvailable'
       elif not self.bitcoindIsResponsive():
          # Running but not responsive... must still be initializing
          return 'BitcoindInitializing'
@@ -10635,7 +10647,12 @@ class SatoshiDaemonManager(object):
          elif latestInfo['error']=='JsonRpcException':
             return 'BitcoindInitializing'
          elif latestInfo['error']=='SocketError':
-            if 'BitcoindInitializing' in self.circBufferState:
+            # Normally would return unavailable, but we need to smooth out
+            # the transaction between Init and Sync (which is socket-error)
+            sz = len(self.circBufferState)
+            alreadyInit = 'BitcoindInitializing' in self.circBufferState
+            initCount = self.circBufferState.count('BitcoindInitializing')
+            if alreadyInit and not initCount==sz:
                return 'BitcoindInitializing'
             else:
                return 'BitcoindNotAvailable'
@@ -12748,93 +12765,34 @@ def CumulativeBlockSizeFunction(blkNum):
    if len(BLK_SIZE_LIST)==0:
       blksizefile = """
          0 285
-         2016 451143
-         4032 905077
-         6048 1353909
-         8064 1806450
-         10080 2255840
-         12096 2708435
-         14112 3155559
-         16128 3600670
-         18144 4045739
          20160 4496226
-         22176 4952779
-         24192 5416703
-         26208 5899366
-         28224 6359359
-         30240 6875269
-         32256 7311428
-         34272 7756263
-         36288 8226074
-         38304 8694249
          40320 9329049
-         42336 9846616
-         44352 10409125
-         46368 10936499
-         48384 11461392
-         50400 12057972
-         52416 13583153
-         54432 14203290
-         56448 15248847
-         58464 15924686
          60480 16637208
-         62496 17383378
-         64512 18322789
-         66528 19460115
-         68544 22087921
-         70560 24392542
-         72576 26398995
-         74592 27711837
-         76608 29134217
-         78624 30318666
          80640 31572990
          82656 33260320
          84672 35330575
          86688 36815335
          88704 38386205
-         90720 39565612
-         92736 44291988
-         94752 55018138
-         96768 56325220
-         98784 58436543
          100800 60605119
          102816 64795352
          104832 68697265
-         106848 73383729
          108864 79339447
-         110880 85072817
          112896 92608525
-         114912 107011209
          116928 116560952
-         118944 126842022
          120960 140607929
-         122976 154033802
          124992 170059586
-         127008 187818373
          129024 217718109
-         131040 262519615
          133056 303977266
-         135072 356436910
          137088 405836779
-         139104 450548919
          141120 500934468
-         143136 547540889
          145152 593217668
-         147168 634131386
          149184 673064617
-         151200 711123248
          153216 745173386
-         155232 780908598
          157248 816675650
-         159264 849860306
          161280 886105443
-         163296 930043096
          165312 970660768
-         167328 1018736805
          169344 1058290613
-         171360 1101947891
          173376 1140721593
-         175392 1186892658
          177408 1240616018
          179424 1306862029
          181440 1463634913
@@ -12863,20 +12821,27 @@ def CumulativeBlockSizeFunction(blkNum):
          227808 6652067986
          228534 6778529822
       """
-      strList = [line.strip().split() for line in blksizefile.split(\n)])
+      strList = [line.strip().split() for line in blksizefile.split('\n')]
       BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]
 
    if blkNum < BLK_SIZE_LIST[-1][0]:
       # Interpolate
       bprev,bcurr = None, None
       for i,blkpair in enumerate(BLK_SIZE_LIST):
-         bprev = bcurr[:]
-         bcurr = blkpair[:]
-         if b
+         if blknum > blkpair[0]:
+            b0,d0 = blkpair
+            b1,d1 = BLK_SIZE_LIST[i+1]
+            ratio = float(b1-b0)/float(b1-blknum)
+            return ratio*d1 + (1-ratio)*d0
+
+      raise ValueError, 'Interpolation failed for %d' % blkNum
         
-         if blk>
    else:
-      # Extrapolate
+      bend,  dend = BLK_SIZE_LIST[-1]
+      bend2, dend2 = BLK_SIZE_LIST[-3]
+      rate = float(dend - dend2) / float(bend - bend2)
+      print 'Rate:', rate
+      
          
          
          
