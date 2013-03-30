@@ -10356,9 +10356,9 @@ class SatoshiDaemonManager(object):
 
          # Now look at a few subdirs of the 
          searchPaths.extend(possBaseDir)
+         searchPaths.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
          searchPaths.extend([os.path.join(p, 'daemon') for p in possBaseDir])
          searchPaths.extend([os.path.join(p, 'Bitcoin') for p in possBaseDir])
-         searchPaths.extend([os.path.join(p, 'Bitcoin', 'daemon') for p in possBaseDir])
 
          for p in searchPaths:
             testPath = os.path.join(p, 'bitcoind.exe')

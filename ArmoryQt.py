@@ -3229,7 +3229,7 @@ class ArmoryMainWindow(QMainWindow):
          instFile = open(installerPath, 'wb')
          instFile.write(fileData)
          instFile.close()
-         subprocess.Popen('"'+installerPath+'"', shell=True)
+         subprocess.Popen('"'+installerPath+'"', shell=True, **ALLPIPE)
 
 
       #####
