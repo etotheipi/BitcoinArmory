@@ -635,10 +635,7 @@ def execAndWait(cli_str, timeout=0):
       time.sleep(0.1)
       if timeout>0 and (RightNow() - start)>timeout:
          print 'Process exceeded timeout, killing it'
-         if OS_WINDOWS:
-            os.kill(pid, signal.CTRL_C_EVENT)
-         else:
-            os.kill(pid, signal.SIGKILL)
+         killProcess(pid)
    out,err = process.communicate()
    return [out,err]
 
@@ -10225,6 +10222,29 @@ def parseLinkList(theData):
    return DLDICT,VERDICT
 
 
+################################################################################
+def killProcess(pid, sig='default'):
+   # I had to do this, because killing a process in Windows has issues 
+   # when using py2exe (yes, os.kill does not work, for the same reason 
+   # I had to pass **ALLPIPE to every popen call...
+   LOGWARN('Killing process pid=%d', pid)
+   if OS_WINDOWS:
+      if not sig=='default':
+         LOGWARN('signals are ignored when killing processes in Windows')
+      import sys, os.path, ctypes, ctypes.wintypes
+
+      k32 = ctypes.WinDLL('kernel32.dll')
+      k32.OpenProcess.restype = ctypes.wintypes.HANDLE
+      k32.TerminateProcess.restype = ctypes.wintypes.BOOL
+      hProcess = k32.OpenProcess(1, False, pid)
+      k32.TerminateProcess(hProcess, 1)
+      k32.CloseHandle(hProcess)
+         
+   else:
+      if sig=='default':
+         sig = signal.SIGKILL    
+      os.kill(pid, sig)
+           
 
 
 ################################################################################
@@ -10446,7 +10466,7 @@ class SatoshiDaemonManager(object):
          # Push all pairs (len==2) into a dictionary for lookup
          self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
 
-         # Look for rpcport, use defulat if not there
+         # Look for rpcport, use default if not there
          if not self.bitconf.has_key('rpcport'):
             self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
@@ -10520,30 +10540,10 @@ class SatoshiDaemonManager(object):
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
-      
-      if OS_WINDOWS:
-         sig = signal.CTRL_C_EVENT
-      else:
-         sig = signal.SIGKILL
-      
-      if OS_WINDOWS:
-         LOGWARN('Bitcoind cannot be stopped in Windows unless')
-         LOGWARN('you are running it as a python script (not a ')
-         LOGWARN('.exe created by py2exe).  You must close ')
-         LOGWARN('this application in order to stop bitcoind')
-      else:
-         # TODO:  This fails in windows+py2exe for the same reason 
-         #        that I had to start defining pipes for all my 
-         #        subprocess.Popen objects.  But I'm not sure how 
-         #        to fix it in Windows.  For now I've just disabled
-         #        it in Windows and the guardian take care of it
-         #        This is not currently an issue because we don't 
-         #        we don't arbitrarily start and stop bitcoind, just 
-         #        stop it once when Armory is closed
-         for child in psutil.Process(self.bitcoind.pid).get_children():
-            os.kill(child.pid, sig)
-         os.kill(self.bitcoind.pid, sig)
-      time.sleep(3)
+      for child in psutil.Process(self.bitcoind.pid).get_children():
+         killProcess(child.pid)
+      killProcess(self.bitcoind.pid)
+      time.sleep(1)
       self.bitcoind = None
       
 
@@ -10606,8 +10606,8 @@ class SatoshiDaemonManager(object):
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
             return 'BitcoindInitializing'
-      return state
       
+      return state
 
    #############################################################################
    def getSDMStateLogic(self):
@@ -10660,13 +10660,13 @@ class SatoshiDaemonManager(object):
             return 'BitcoindReady'
 
          # If we get here, bitcoind is gave us a response.
-         secSinceLastBlk = RightNowUTC() - latestInfo['toptime']
+         secSinceLastBlk = RightNow() - latestInfo['toptime']
          blkspersec = latestInfo['blkspersec']
          #print 'Blocks per 10 sec:', ('UNKNOWN' if blkspersec==-1 else blkspersec*10)
          if secSinceLastBlk > 4*HOUR or blkspersec==-1:
             return 'BitcoindSynchronizing'
          else:
-            if blkspersec*20 > 4:
+            if blkspersec*20 > 2 and not 'BitcoindReady' in self.circBufferState:
                return 'BitcoindSynchronizing'
             else:
                return 'BitcoindReady'

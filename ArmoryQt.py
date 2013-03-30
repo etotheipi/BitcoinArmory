@@ -3011,7 +3011,7 @@ class ArmoryMainWindow(QMainWindow):
       self.setSatoshiPaths()
 
       try:
-         TheSDM.setupSDM(extraExeSearch=self.SatoshiExeSearchPath)
+         TheSDM.setupSDM(extraExeSearch=self.satoshiExeSearchPath)
       except:
          LOGEXCEPT('Error setting up SDM')
          pass
@@ -3234,18 +3234,12 @@ class ArmoryMainWindow(QMainWindow):
 
       #####
       def closeExistingBitcoin():
-         if OS_WINDOWS:
-            for proc in psutil.process_iter():
-               if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe']:
-                  os.kill(proc.pid, signal.CTRL_C_EVENT)
-                  time.sleep(2)
-                  return
-         else:
-            for proc in psutil.process_iter():
-               if proc.name.lower() in ['bitcoind','bitcoin-qt']:
-                  os.kill(proc.pid, signal.SIGKILL)
-                  time.sleep(2)
-                  return
+         for proc in psutil.process_iter():
+            if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
+                                     'bitcoind','bitcoin-qt']:
+               killProcess(proc.pid)
+               time.sleep(2)
+               return
 
          # If got here, never found it
          QMessageBox.warning(self, 'Not Found', \
@@ -3403,6 +3397,7 @@ class ArmoryMainWindow(QMainWindow):
          # Use a reference point if we are starting from scratch
          refBlock = max(228798,      lastBlkNum)
          refTime  = max(1364668926,  lastBlkTime)
+
   
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)
          self.approxMaxBlock = refBlock + int((RightNow() - refTime) / (10*MINUTE))
@@ -3415,7 +3410,6 @@ class ArmoryMainWindow(QMainWindow):
             # There's always a couple wacky measurements up front, start at 10
             t0,p0 = self.initSyncCircBuff[10]
             t1,p1 = self.initSyncCircBuff[-1]
-            print t0,t1, p0,p1
             dt,dp = t1-t0, p1-p0
             if dt>600:
                self.initSyncCircBuff = self.initSyncCircBuff[1:]
@@ -3448,16 +3442,13 @@ class ArmoryMainWindow(QMainWindow):
          elif ssdm == 'BitcoindSynchronizing':
             self.barProgressSync.setValue(int(99.9*self.approxPctSoFar))
             if self.approxBlkLeft < 10000:
-               # If we're within 10k blocks, estimate based on blkspersec
-               if info['blkspersec'] > 0:
-                  timeleft = int(self.approxBlkLeft/info['blkspersec'])
-                  if timeleft < 2*MINUTE:
-                     self.lblTimeLeftSync.setText('1-2 minutes')
-                  else:
-                     self.lblTimeLeftSync.setText('')
-               else:
-                  pass
-                  #self.lblTimeLeftSync.setText('')
+               if self.approxBlkLeft < 200:
+                  self.lblTimeLeftSync.setText('%d blocks' % self.approxBlkLeft)
+               else: 
+                  # If we're within 10k blocks, estimate based on blkspersec
+                  if info['blkspersec'] > 0:
+                     timeleft = int(self.approxBlkLeft/info['blkspersec'])
+                     self.lblTimeLeftSync.setText(secondsToHumanTime(timeleft))
             else:
                # If we're more than 10k blocks behind...
                if timeRemain:
@@ -4639,17 +4630,44 @@ def checkForAlreadyOpen():
    import socket
    LOGDEBUG('Checking for already open socket...')
    try:
-      # If create doesn't throw an error, there's another Armory open already!
       sock = socket.create_connection(('127.0.0.1',CLI_OPTIONS.interport), 0.1);
+
+      # If we got here, there's already another Armory open!
+      checkForAlreadyOpenError()
+
+      LOGERROR('Socket already in use.  Sending CLI args to existing proc.')
       if CLI_ARGS:
          sock.send(CLI_ARGS[0])
       sock.close()
+      LOGERROR('Exiting...')
       os._exit(0)
    except:
       pass
 
 
 
+############################################
+def checkForAlreadyOpenError():
+   import psutil
+   import signal
+   armoryExists = []
+   bitcoindExists = []
+   bexe = 'bitcoind.exe' if OS_WINDOWS else 'bitcoind'
+   for proc in psutil.process_iter():
+      if sys.argv[0].split('.')[0] in proc.name:
+         armoryExists.append(proc.pid)
+      if bexe in proc.name:
+         bitcoindExists.append(proc.pid)
+
+   if len(armoryExists)>0:
+      return 
+   elif len(bitcoindExists)>0:
+      # Strange condition where bitcoind doesn't get killed by Armory/guardian
+      # (I've only seen this happen on windows, though)
+      for pid in bitcoindExists:
+         killProcess(pid)
+      raise
+   
 
 ############################################
 if 1:
