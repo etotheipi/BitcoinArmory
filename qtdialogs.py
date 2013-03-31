@@ -11477,7 +11477,7 @@ class DlgInstallWindows(ArmoryDialog):
 
 ################################################################################
 class DlgDownloadFile(ArmoryDialog):
-   def __init__(self, parent, main, dlfile, expectHash=None):
+   def __init__(self, parent, main, dlfile, expectHash=None, msg=None):
       super(DlgDownloadFile, self).__init__(parent, main)
 
 
@@ -11543,14 +11543,23 @@ class DlgDownloadFile(ArmoryDialog):
       self.dlInstallStatus = self.STEPS.Query
       self.updateProgressLabels()
       
+
+      lblExtraMsg = QRichLabel( \
+         'The Bitcoin installer will start when the download is finished '
+         'and digital signatures are verified.  Please finish the installation '
+         'when it appears.')
       
 
       btnCancel = QPushButton("Cancel")
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
       frmCancel = makeHorizFrame(['Stretch',btnCancel,'Stretch'])
 
-      frm = makeVertFrame([frmDescr, frmInfo, \
-                           self.barWorking, frmSteps, frmCancel])
+      frm = makeVertFrame([frmDescr, \
+                           frmInfo, \
+                           self.barWorking, \
+                           frmSteps, \
+                           lblExtraMsg, \
+                           frmCancel])
       layout = QVBoxLayout()
       layout.addWidget(frm)
       self.setLayout(layout)

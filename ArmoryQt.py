@@ -171,11 +171,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletModel = AllWalletsDispModel(self)
       self.walletsView  = QTableView()
 
-      # For some reason, I can't get an acceptable value that works for both
-      if OS_WINDOWS:
-         w,h = tightSizeNChar(self.walletsView, 80)
-      else:
-         w,h = tightSizeNChar(self.walletsView, 55)
+      w,h = tightSizeNChar(self.walletsView, 55)
       viewWidth  = 1.2*w
       sectionSz  = 1.5*h
       viewHeight = 4.4*sectionSz
@@ -184,7 +180,7 @@ class ArmoryMainWindow(QMainWindow):
       self.walletsView.setSelectionBehavior(QTableView.SelectRows)
       self.walletsView.setSelectionMode(QTableView.SingleSelection)
       self.walletsView.verticalHeader().setDefaultSectionSize(sectionSz)
-      self.walletsView.setMinimumSize(viewWidth, 4.4*sectionSz)
+      self.walletsView.setMinimumSize(viewWidth, viewHeight)
 
 
       if self.usermode == USERMODE.Standard:
@@ -199,13 +195,6 @@ class ArmoryMainWindow(QMainWindow):
                   
 
       w,h = tightSizeNChar(GETFONT('var'), 100)
-      viewWidth = 1.2*w
-      if OS_WINDOWS:
-         sectionSz = 1.3*h
-         viewHeight = 6.0*sectionSz
-      else:
-         sectionSz = 1.3*h
-         viewHeight = 6.4*sectionSz
 
 
       # Prepare for tableView slices (i.e. "Showing 1 to 100 of 382", etc)
@@ -723,11 +712,13 @@ class ArmoryMainWindow(QMainWindow):
 
    ####################################################
    def openSettings(self):
+      LOGDEBUG('openSettings')
       dlgSettings = DlgSettings(self, self)
       dlgSettings.exec_()
 
    ####################################################
    def setupSystemTray(self):
+      LOGDEBUG('setupSystemTray')
       # Creating a QSystemTray
       self.sysTray = QSystemTrayIcon(self)
       self.sysTray.setIcon( QIcon(self.iconfile) )
@@ -766,6 +757,7 @@ class ArmoryMainWindow(QMainWindow):
       """
       Setup Armory as the default application for handling bitcoin: links
       """
+      LOGDEBUG('setupUriRegistration')
       # Don't bother the user on the first load with it if verification is 
       # needed.  They have enough to worry about with this weird new program.
       isFirstLoad = self.getSettingOrSetDefault('First_Load', True)
@@ -1003,6 +995,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkForLatestVersion(self, wasRequested=False):
+      LOGDEBUG('checkForLatestVersion')
       # Download latest versions.txt file, accumulate changelog
       if CLI_OPTIONS.skipVerCheck:
          return
@@ -1108,10 +1101,8 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def setupNetworking(self):
-
-      TimerStart('setupNetworking')
-
       LOGINFO('Setting up networking...')
+      TimerStart('setupNetworking')
       self.internetAvail = False
 
       # Prevent Armory from being opened twice
@@ -1163,6 +1154,7 @@ class ArmoryMainWindow(QMainWindow):
 
    ############################################################################
    def startBitcoindIfNecessary(self):
+      LOGINFO('startBitcoindIfNecessary')
       if not (self.forceOnline or self.internetAvail) or CLI_OPTIONS.offline:
          LOGWARN('Not online, will not start bitcoind')
          return False
@@ -1192,6 +1184,8 @@ class ArmoryMainWindow(QMainWindow):
 
    ############################################################################
    def setSatoshiPaths(self):
+      LOGINFO('setSatoshiPaths')
+
       # We skip the getSettingOrSetDefault call, because we don't want to set
       # it if it doesn't exist
       if self.settings.hasSetting('SatoshiExe'):
@@ -1206,10 +1200,11 @@ class ArmoryMainWindow(QMainWindow):
          # set as the command line.  
          self.satoshiHomePath = self.settings.get('SatoshiDatadir')
   
+      TheBDM.setSatoshiDir(self.satoshiHomePath)
        
    ############################################################################
    def loadBlockchainIfNecessary(self):
-
+      LOGINFO('loadBlockchainIfNecessary')
       if CLI_OPTIONS.offline:
          if self.forceOnline:
             LOGERROR('Cannot mix --force-online and --offline options!  Using offline mode.')
@@ -1255,7 +1250,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def switchNetworkMode(self, newMode):
-      print 'Setting netmode:', newMode
+      LOGINFO('Setting netmode: %s', newMode)
       self.netMode=newMode
       if newMode in (NETWORKMODE.Offline, NETWORKMODE.Disconnected):
          self.NetworkingFactory = FakeClientFactory()
@@ -1396,6 +1391,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def uriLinkClicked(self, uriStr):
+      LOGINFO('uriLinkClicked')
       if not TheBDM.getBDMState()=='BlockchainReady':
          QMessageBox.warning(self, 'Offline', \
             'You just clicked on a "bitcoin:" link, but Armory is offline ' 
@@ -1413,7 +1409,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def loadWalletsAndSettings(self):
-
+      LOGINFO('loadWalletsAndSettings')
       TimerStart('loadWltSettings')
 
       self.getSettingOrSetDefault('First_Load',         True)
@@ -1531,6 +1527,7 @@ class ArmoryMainWindow(QMainWindow):
    def getFileSave(self, title='Save Wallet File', \
                          ffilter=['Wallet files (*.wallet)'], \
                          defaultFilename=None):
+      LOGDEBUG('getFileSave')
       startPath = self.settings.get('LastDirectory')
       if len(startPath)==0 or not os.path.exists(startPath):
          startPath = ARMORY_HOME_DIR
@@ -1560,6 +1557,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def getFileLoad(self, title='Load Wallet File', ffilter=['Wallet files (*.wallet)']):
+      LOGDEBUG('getFileLoad')
       lastDir = self.settings.get('LastDirectory')
       if len(lastDir)==0 or not os.path.exists(lastDir):
          lastDir = ARMORY_HOME_DIR
@@ -2035,29 +2033,6 @@ class ArmoryMainWindow(QMainWindow):
    
          return '; '.join(appendedComments)
 
-         """
-         # If we haven't extracted relevant addresses for this tx, yet -- do it
-         if not self.txAddrMap.has_key(txHash):
-            self.txAddrMap[txHash] = []
-            tx = TheBDM.getTxByHash(txHash)
-            if tx.isInitialized():
-               for i in range(tx.getNumTxOut()):
-                  a160 = tx.getRecipientForTxOut(i)
-                  wltID = self.getWalletForAddr160(a160)
-      
-                  if not len(wltID)==0:
-                     self.txAddrMap[txHash].append([wltID, tx.getRecipientForTxOut(i)])
-            
-
-         addrComments = []
-         for wltID,a160 in self.txAddrMap[txHash]:
-            wlt = self.walletMap[wltID]
-            if wlt.commentsMap.has_key(a160):
-               addrComments.append(wlt.commentsMap[a160])
-
-         TimerStop('getAddrCommentIfAvail')
-         return '; '.join(addrComments)
-         """
 
                   
    #############################################################################
@@ -2084,6 +2059,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def addWalletToApplication(self, newWallet, walletIsNew=True):
+      LOGINFO('addWalletToApplication')
       # Update the maps/dictionaries
       newWltID = newWallet.uniqueIDB58
 
@@ -2104,7 +2080,7 @@ class ArmoryMainWindow(QMainWindow):
       
    #############################################################################
    def removeWalletFromApplication(self, wltID):
-
+      LOGINFO('removeWalletFromApplication')
       idx = -1
       try:
          idx = self.walletIndices[wltID]
@@ -2126,6 +2102,7 @@ class ArmoryMainWindow(QMainWindow):
    
    #############################################################################
    def createNewWallet(self, initLabel=''):
+      LOGINFO('createNewWallet')
       dlg = DlgNewWallet(self, self, initLabel=initLabel)
       if dlg.exec_():
 
@@ -2209,6 +2186,7 @@ class ArmoryMainWindow(QMainWindow):
       PyTx object that the user can confirm.  TxFee is automatically calc'd
       and deducted from the output value, if necessary.
       """
+      LOGINFO('createSweepAddrTx')
       if not isinstance(addrToSweepList, (list, tuple)):
          addrToSweepList = [addrToSweepList]
       addr160List = [a.getAddr160() for a in addrToSweepList]
@@ -2251,7 +2229,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def confirmSweepScan(self, pybtcaddrList, targAddr160):
-
+      LOGINFO('confirmSweepScan')
       gt1 = len(self.sweepAfterScanList)>1
 
       if len(self.sweepAfterScanList) > 0:
@@ -2318,6 +2296,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def finishSweepScan(self):
+      LOGINFO('finishSweepScan')
       sweepList, self.sweepAfterScanList = self.sweepAfterScanList,[]
      
       #######################################################################
@@ -2380,16 +2359,6 @@ class ArmoryMainWindow(QMainWindow):
          LOGINFO('Sending Tx, %s', binary_to_hex(newTxHash))
          self.NetworkingFactory.sendTx(pytx)
          LOGINFO('Transaction sent to Satoshi client...!')
-
-         # Wait one sec, then send an inv to the Satoshi
-         # client asking for the same tx back.  This has two great benefits:
-         #   (1)  The tx was accepted by the network (it'd be dropped if it 
-         #        was invalid)
-         #   (2)  The memory-pool operations will be handled through existing 
-         #        NetworkingFactory code.  Don't need to duplicate anything 
-         #        here.
-         #time.sleep(1)
-         #self.checkForTxInNetwork(pytx.getHash())
       
    
          def sendGetDataMsg():
@@ -2483,7 +2452,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execGetImportWltName(self):
-      
       fn = self.getFileLoad('Import Wallet File')
       if not os.path.exists(fn):
          return
@@ -2565,10 +2533,6 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def execRestorePaperBackup(self):
-      #if TheBDM.getBDMState()=='Scanning':
-         #self.warnNoImportWhileScan()
-         #return
-
       dlgPaper = DlgImportPaperWallet(self, self)
       if dlgPaper.exec_():
 
@@ -2956,6 +2920,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def exportLogFile(self):
+      LOGDEBUG('exportLogFile')
       extraStr = ''
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
          extraStr = ( \
@@ -3004,9 +2969,9 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def lookForBitcoind(self):
+      LOGDEBUG('lookForBitcoind')
       if satoshiIsAvailable():
          return 'Running'
-      
       
       self.setSatoshiPaths()
 
@@ -3023,6 +2988,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def pressModeSwitchButton(self):
+      LOGDEBUG('pressModeSwitchButton')
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
          result = self.lookForBitcoind()
          if result=='Running':
@@ -3073,7 +3039,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def SetupDashboard(self):
-
+      LOGDEBUG('SetupDashboard')
       self.lblBusy = QLabel('')
       if OS_WINDOWS:
          # Unfortunately, QMovie objects don't work in Windows with py2exe
@@ -3425,11 +3391,6 @@ class ArmoryMainWindow(QMainWindow):
          else:
             timeRemain = None
 
-        
-
-         f = open('fullsync_timehist.txt', 'a')
-         f.write('%d %d \n' % (lastBlkNum, RightNow()))
-         f.close()
    
          intPct = int(100*self.approxPctSoFar)
          strPct = '%d%%' % intPct
@@ -4203,9 +4164,7 @@ class ArmoryMainWindow(QMainWindow):
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
       print "SDM       : ", sdmState.rjust(20),
-      #print "SDM (last): ", self.lastSDMState.rjust(20)
       print "BDM       : ", bdmState.rjust(20)
-      #print "BDM (last): ", self.lastBDMState[0].rjust(20)
 
 
       # Special heartbeat functions are for special windows that may need
@@ -4642,12 +4601,15 @@ def checkForAlreadyOpen():
       LOGERROR('Exiting...')
       os._exit(0)
    except:
+      # This is actually the normal condition:  we expect this to be the
+      # first/only instance of Armory and opening the socket will err out
       pass
 
 
 
 ############################################
 def checkForAlreadyOpenError():
+   # Sometimes in Windows, Armory actually isn't open
    import psutil
    import signal
    armoryExists = []
@@ -4664,8 +4626,10 @@ def checkForAlreadyOpenError():
    elif len(bitcoindExists)>0:
       # Strange condition where bitcoind doesn't get killed by Armory/guardian
       # (I've only seen this happen on windows, though)
+      LOGERROR('Found zombie bitcoind process...killing it')
       for pid in bitcoindExists:
          killProcess(pid)
+      time.sleep(0.5)
       raise
    
 
