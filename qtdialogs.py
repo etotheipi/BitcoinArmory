@@ -5996,7 +5996,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
       dpid = self.txdp.uniqueB58
-      suffix = ('' if OS_WINDOWS else '.unsigned.txt')
+      suffix = ('' if OS_WINDOWS else '.unsigned.tx')
       toSave = self.main.getFileSave( \
                       'Save Unsigned Transaction', \
                       ['Armory Transactions (*.unsigned.tx)'], \
@@ -6016,7 +6016,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
    def doSaveFileS(self):
       """ Save the Signed-Tx block of data """
       dpid = self.txdp.uniqueB58
-      suffix = ('' if OS_WINDOWS else '.signed.txt')
+      suffix = ('' if OS_WINDOWS else '.signed.tx')
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
                                       'armory_%s_' % (dpid,suffix))
@@ -6794,11 +6794,11 @@ class DlgReviewOfflineTx(ArmoryDialog):
                              [ffilt], \
                              defaultFilename)
 
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.txt') 
-      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.txt') 
-      filename = filename.replace('signed.tx.signed.tx', 'signed.txt') 
-      filename = filename.replace('signed.tx.signed.tx', 'signed.txt') 
-      filename = filename.replace('unsigned.tx.signed.tx', 'signed.txt') 
+      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx') 
+      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.tx') 
+      filename = filename.replace('signed.tx.signed.tx', 'signed.tx') 
+      filename = filename.replace('signed.tx.signed.tx', 'signed.tx') 
+      filename = filename.replace('unsigned.tx.signed.tx', 'signed.tx') 
       if len(str(filename))>0:
          LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')
