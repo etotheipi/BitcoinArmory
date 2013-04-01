@@ -5996,9 +5996,14 @@ class DlgOfflineTxCreated(ArmoryDialog):
    def doSaveFile(self):
       """ Save the Unsigned-Tx block of data """
       dpid = self.txdp.uniqueB58
-      toSave = self.main.getFileSave( 'Save Unsigned Transaction', \
-                                      ['Armory Transactions (*.unsigned.tx)'], \
-                                      'armory_%s_.unsigned.tx' % dpid)
+      suffix = ('' if OS_WINDOWS else '.unsigned.txt')
+      toSave = self.main.getFileSave( \
+                      'Save Unsigned Transaction', \
+                      ['Armory Transactions (*.unsigned.tx)'], \
+                      'armory_%s_%s' % (dpid, suffix))
+      # In windows, we get all these superfluous file suffixes
+      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
+      toSave = toSave.replace('unsigned.tx.unsigned.tx', 'unsigned.tx')
       LOGINFO('Saving unsigned tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
@@ -6011,9 +6016,13 @@ class DlgOfflineTxCreated(ArmoryDialog):
    def doSaveFileS(self):
       """ Save the Signed-Tx block of data """
       dpid = self.txdp.uniqueB58
+      suffix = ('' if OS_WINDOWS else '.signed.txt')
       toSave = self.main.getFileSave( 'Save Signed Transaction', \
                                       ['Armory Transactions (*.signed.tx)'], \
-                                      'armory_%s_.signed.tx' % dpid)
+                                      'armory_%s_' % (dpid,suffix))
+      # In windows, we get all these superfluous file suffixes
+      toSave = toSave.replace('signed.tx.signed.tx', 'signed.tx')
+      toSave = toSave.replace('signed.tx.signed.tx', 'signed.tx')
       LOGINFO('Saving signed tx file: %s', toSave)
       try:
          theFile = open(toSave, 'w')
@@ -6747,6 +6756,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
          newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
+         print newSaveFile
          f = open(newSaveFile, 'w')
          f.write(str(self.txtTxDP.toPlainText()))
          f.close()
@@ -6767,19 +6777,30 @@ class DlgReviewOfflineTx(ArmoryDialog):
          return
                  
 
+      # The strange windows branching is because PyQt in Windows automatically
+      # adds the ffilter suffix to the default filename, where as it needs to 
+      # be explicitly added in PyQt in Linux.  Not sure why this behavior exists.
       defaultFilename = ''
       if not self.txdpObj==None:
          if self.enoughSigs and self.sigsValid:
-            defaultFilename = 'armory_%s_.signed.tx' % self.txdpObj.uniqueB58
+            suffix = '' if OS_WINDOWS else '.signed.tx'
+            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            ffilt = 'Transactions (*.signed.tx *.unsigned.tx)'
          else:
-            defaultFilename = 'armory_%s_.unsigned.tx' % self.txdpObj.uniqueB58
-            print defaultFilename
+            suffix = '' if OS_WINDOWS else '.unsigned.tx'
+            defaultFilename = 'armory_%s_%s' % (self.txdpObj.uniqueB58, suffix)
+            ffilt = 'Transactions (*.unsigned.tx *.signed.tx)'
       filename = self.main.getFileSave('Save Transaction', \
-                             ['Transactions (*.signed.tx *.unsigned.tx)'], \
+                             [ffilt], \
                              defaultFilename)
-      LOGINFO('Saved transaction file: %s', filename)
 
+      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.txt') 
+      filename = filename.replace('unsigned.tx.unsigned.tx', 'unsigned.txt') 
+      filename = filename.replace('signed.tx.signed.tx', 'signed.txt') 
+      filename = filename.replace('signed.tx.signed.tx', 'signed.txt') 
+      filename = filename.replace('unsigned.tx.signed.tx', 'signed.txt') 
       if len(str(filename))>0:
+         LOGINFO('Saving transaction file: %s', filename)
          f = open(filename, 'w')
          f.write(str(self.txtTxDP.toPlainText()))
          f.close()
@@ -6791,10 +6812,12 @@ class DlgReviewOfflineTx(ArmoryDialog):
       
       if len(str(filename))>0:
          LOGINFO('Selected transaction file to load: %s', filename)
+         print filename
          f = open(filename, 'r')
          self.txtTxDP.setText(f.read())
          f.close()
          self.fileLoaded = filename
+         print self.fileLoaded
 
 
    def copyTx(self):
