@@ -496,25 +496,27 @@ class DlgPasswd3(ArmoryDialog):
       super(DlgPasswd3, self).__init__(parent, main)
 
 
-      lblWarnImg = QLabel()
-      lblWarnImg.setPixmap(QPixmap(':/MsgBox_warning48.png'))
-      lblWarnImg.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lblWarnTxt1 = QLabel( '<b>!!!  DO NOT FORGET YOUR PASSPHRASE  !!!</b>')
-      lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      lblWarnTxt2 = QLabel( \
-         'Armory wallet encryption is designed to be extremely difficult to '
-         'crack, even with GPU-acceleration.  No one can help you recover your bitcoins '
-         'if you forget your passphrase. '
-         'If you are inclined to forget your passphrase, please write it down '
-         'or print a paper backup of your wallet and keep it in a safe place. ')
-      lblWarnTxt2.setTextFormat(Qt.RichText)
+      lblWarnImgL = QLabel()
+      lblWarnImgL.setPixmap(QPixmap(':/MsgBox_warning48.png'))
+      lblWarnImgL.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      lblWarnTxt3 = QLabel( \
-         'If you are sure you will remember it, please '
-         'type it a third time to acknowledge '
-         'you understand the consequences of losing your passphrase:')
-      lblWarnTxt2.setWordWrap(True)
-      lblWarnTxt3.setWordWrap(True)
+      lblWarnTxt1 = QRichLabel( \
+         '<font color="red"><b>!!! DO NOT FORGET YOUR PASSPHRASE !!!</b></font>', size=4)
+      lblWarnTxt1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+      lblWarnTxt2 = QRichLabel( \
+         '<b>No one can help you recover you bitcoins if you forget the '
+         'passphrase and don\'t have a paper backup!</b> Your wallet and '
+         'any <u>digital</u> backups are useless if you forget it.  '
+         '<br><br>'
+         'A <u>paper</u> backup protects your wallet forever, against '
+         'hard-drive loss and losing your passphrase.  It also protects you '
+         'from theft, if the wallet was encrypted and the paper backup '
+         'was not stolen with it.  Please make a paper backup and keep it in '
+         'a safe place.'
+         '<br><br>'
+         'Please enter your passphrase a third time to indicate that you '
+         'are aware of the risks of losing your passphrase!</b>', doWrap=True)
+
       
       self.edtPasswd3 = QLineEdit()
       self.edtPasswd3.setEchoMode(QLineEdit.Password)
@@ -528,10 +530,9 @@ class DlgPasswd3(ArmoryDialog):
       bbox.addButton(btnOk, QDialogButtonBox.AcceptRole)
       bbox.addButton(btnNo, QDialogButtonBox.RejectRole)
       layout = QGridLayout()
-      layout.addWidget(lblWarnImg,       0, 0, 4, 1)
+      layout.addWidget(lblWarnImgL,      0, 0, 4, 1)
       layout.addWidget(lblWarnTxt1,      0, 1, 1, 1)
       layout.addWidget(lblWarnTxt2,      2, 1, 1, 1)
-      layout.addWidget(lblWarnTxt3,      4, 1, 1, 1)
       layout.addWidget(self.edtPasswd3,  5, 1, 1, 1)
       layout.addWidget(bbox,             6, 1, 1, 2)
       self.setLayout(layout)
@@ -1315,7 +1316,7 @@ class DlgWalletDetails(ArmoryDialog):
    
       tooltips[WLTFIELDS.Mem] = self.main.createToolTipWidget(
             'This is the amount of memory required to unlock your wallet. '
-            'Memory values above 2 MB pretty much guarantee that GPU-acceleration '
+            'Memory values above 64 kB pretty much guarantee that GPU-acceleration '
             'will be useless for guessing your passphrase')
    
       tooltips[WLTFIELDS.Version] = self.main.createToolTipWidget(

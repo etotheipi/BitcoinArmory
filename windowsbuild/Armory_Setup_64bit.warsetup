@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="2941" projectName="Armory Bitcoin Client" projectUuid="9c7c422f-d9c2-4aad-b46c-36f409d33197" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.87.8" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="armory_0.87.8-testing_win64" projectType="0" projectUserInterface="WixUI_InstallDir">
+<WarSetup-Project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:xsd="http://www.w3.org/2001/XMLSchema" projectRunAfterInstall="true" mainTargetApp="ID_0296d6b2_c234_47b5_8862_3f2c4d4ee0d3" nextUniqueId="3339" projectName="Armory Bitcoin Client" projectUuid="b0505832-60ad-41a9-9baf-6f64cec732e9" projectUpgradeUuid="9ebec1be-cbb6-4d98-90b4-acbb074d3212" projectVersion="0.87.9" projectOrganization="Armory" projectMustBeAdministratorToInstall="false" project64BitTarget="false" projectTargetDirectory="\\VBOXSVR\winlinshare\Armory_Build\Win64" projectTargetName="armory_0.87.9-testing_win64" projectType="0" projectUserInterface="WixUI_InstallDir">
   <LicencePaths>
     <string>C:\Program Files (x86)\Jgaa's Internet\War Setup\Licenses</string>
   </LicencePaths>
@@ -409,11 +409,6 @@
         <addToCreateFolder>false</addToCreateFolder>
       </components>
       <defaultInstallMode>0</defaultInstallMode>
-      <directories dirId="ID2697" srcPath="..\ArmoryStandalone" dstPath="ArmoryStandalone" patterns=".*" excludePatterns="" recurse="false" preventEmptyDirectories="false" addToPath="false" ideHeaderFiles="false" ideExecutables="false" ideLibrary="false" ideMicrosoftVisualStudio2003="false" ideMicrosoftVisualStudio2005="false">
-        <pathComponent componentId="ID2696" componentGuid="7088e90a-eb02-441d-ac6e-6b9d09e1ca2f">
-          <addToCreateFolder>false</addToCreateFolder>
-        </pathComponent>
-      </directories>
       <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Offline)" workingDir="" commandArguments="--offline" description="Use Armory for cold storage or quick wallet management" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1697" />
       <shortcuts srcPath="[APPLICATIONFOLDER]\Armory.exe" dstPath="[APPLICATIONFOLDER]\Armory (Testnet)" workingDir="" commandArguments="--testnet" description="Use Armory on the Test Network" showOnProgramMenu="true" showOnQuickLaunchBar="false" showOnDesktop="false" shortcutId="ID1698" />
     </childFeatures>
@@ -421,12 +416,6 @@
       <components componentId="ID1510" componentGuid="e767c37d-10b4-435c-8be7-a45685ca28e9">
         <componentFiles fileId="ID_e3bee3b6_3ee2_4c1f_bdb1_c164e92d9bb1" srcName="CppBlockUtils.py" srcDirectory=".." dstName="CppBlockUtils.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="CppBlockUtils" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
           <service StartWhenInstalled="true" Remove="both" id="ID1509" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
-        </componentFiles>
-        <addToCreateFolder>false</addToCreateFolder>
-      </components>
-      <components componentId="ID1514" componentGuid="cb32a6c4-0cf2-4d75-9ee0-f84eb1a314d5">
-        <componentFiles fileId="ID_963f58cb_8b61_4117_afca_5b56f4ed8fbf" srcName="qrc_img_resources.py" srcDirectory=".." dstName="qrc_img_resources.py" dstPath="" isTrueTypeFont="false" isComModule="false" typelibGuid="" menuName="qrc_img_resources" shortcutInProgramFilesMenu="false" shortcutOnDesktop="false" shortcutInQuickLaunch="false" shortcutInStartupFolder="false" shortcutWorkingDirectory="" shortcutCommandArguments="" shortcutDescription="">
-          <service StartWhenInstalled="true" Remove="both" id="ID1513" isService="false" userAccount="" userPassword="" cmdLineArguments="" errorControl="normal" interactive="false" loadOrderGroup="" serviceName="" startMode="auto" vital="true" />
         </componentFiles>
         <addToCreateFolder>false</addToCreateFolder>
       </components>

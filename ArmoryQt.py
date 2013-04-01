@@ -1107,6 +1107,7 @@ class ArmoryMainWindow(QMainWindow):
 
       # Prevent Armory from being opened twice
       from twisted.internet import reactor
+      import twisted
       def uriClick_partial(a):
          self.uriLinkClicked(a)
 
@@ -3033,7 +3034,7 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def resetBdmBeforeScan(self):
       """
-      I have spend hours trying to debug situations where starting a scan or 
+      I have spent hours trying to debug situations where starting a scan or 
       rescan fails, and still not found the reason.  However, it always seems
       to work after a reset and re-register of all addresses/wallets.  
       """
@@ -3697,9 +3698,10 @@ class ArmoryMainWindow(QMainWindow):
          if state == 'InitializingLongTime':
             return ( \
             '<b>To maximize your security, the Bitcoin engine is downloading '
-            'and verifying the global transaction ledger.  <u>This will take many '
-            'hours, but only needs to be done once</u>!</b>  Subsequent loads '
-            'will only take a few minutes.  Please be patient!'
+            'and verifying the global transaction ledger.  <u>This will take '
+            'several hours, but only needs to be done once</u>!</b>  It is usually '
+            'best to leave it running over night for this initialization process.  '
+            'Subsequent loads will only take a few minutes.'
             '<br><br>'
             'While you wait, you can manage your wallets.  Make new wallets, '
             'make digital or paper backups, create Bitcoin addresses to receive '

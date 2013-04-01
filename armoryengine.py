@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 91, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -696,16 +696,16 @@ def GetSystemDetails():
    return out
 
 try:
-   SystemDetails = GetSystemDetails()
+   SystemSpecs = GetSystemDetails()
 except:
    print 'Error getting system details:'
    print sys.exc_info()
    print 'Skipping.'
-   SystemDetails = DumbStruct()
-   SystemDetails.Memory   = 'Unknown'
-   SystemDetails.CpuStr   = 'Unknown'
-   SystemDetails.NumCores = 'Unknown'
-   SystemDetails.IsX64    = 'Unknown'
+   SystemSpecs = DumbStruct()
+   SystemSpecs.Memory   = 'Unknown'
+   SystemSpecs.CpuStr   = 'Unknown'
+   SystemSpecs.NumCores = 'Unknown'
+   SystemSpecs.IsX64    = 'Unknown'
    
 
 LOGINFO('')
@@ -724,10 +724,10 @@ LOGINFO('   Satoshi BTC directory : ' + BTC_HOME_DIR)
 LOGINFO('   First blk*.dat file   : ' + BLKFILE_FIRSTFILE)
 LOGINFO('   Armory home dir       : ' + ARMORY_HOME_DIR)
 LOGINFO('Detected System Specs    : ')
-LOGINFO('   Total Available RAM   : %0.2f GB', SystemDetails.Memory)
-LOGINFO('   CPU ID string         : ' + SystemDetails.CpuStr)
-LOGINFO('   Number of CPU cores   : %d cores', SystemDetails.NumCores)
-LOGINFO('   System is 64-bit      : ' + str(SystemDetails.IsX64))
+LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
+LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
+LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
+LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
@@ -10373,7 +10373,9 @@ class SatoshiDaemonManager(object):
          
          # Also look in default place in ProgramFiles dirs
          possBaseDir.append(os.getenv('PROGRAMFILES'))
-         possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+         if SystemSpecs.IsX64:
+            possBaseDir.append(os.getenv('PROGRAMFILES(X86)'))
+         
 
          # Now look at a few subdirs of the 
          searchPaths.extend(possBaseDir)
@@ -10388,7 +10390,7 @@ class SatoshiDaemonManager(object):
 
       else:
          # In case this was a downloaded copy, make sure we traverse to bin/64 dir
-         if SystemDetails.IsX64:
+         if SystemSpecs.IsX64:
             searchPaths.extend([os.path.join(p, 'bin/64') for p in extraSearchPaths])
          else:
             searchPaths.extend([os.path.join(p, 'bin/32') for p in extraSearchPaths])
@@ -10497,23 +10499,14 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      cmdstr  = '"%s"' % self.executable
-
-      # For some reason, Windows bitcoind doesn't like the quotes.  But 
-      # I've seen it needed for linux paths with spaces.  I guess, 
-      # windows' paths won't get to use spaces...?
-      if OS_WINDOWS:
-         cmdstr += ' -datadir=%s' % self.satoshiHome
-      else:
-         cmdstr += ' -datadir="%s"' % self.satoshiHome
-
+      pargs = [self.executable]
+      pargs.append('-datadir=%s' % self.satoshiHome)
       if USE_TESTNET:
-         cmdstr += ' -testnet'
-      LOGINFO('Executing command: %s' % cmdstr)
+         pargs.append('-testnet')
 
       # Startup bitcoind and get its process ID (along with our own)
-      print 'executing:', cmdstr
-      self.bitcoind = Popen(cmdstr, shell=True, **ALLPIPE)
+      LOGINFO('Executing popen: %s', str(pargs))
+      self.bitcoind = Popen(pargs, **ALLPIPE)
                                        
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
@@ -10523,16 +10516,11 @@ class SatoshiDaemonManager(object):
 
       # Startup guardian process -- it will watch Armory's PID
       gpath = self.getGuardianPath()
-      LOGINFO('Guardian script: %s', gpath)
-      if OS_WINDOWS:
-         # In windows, we'll get a .exe file
-         cmdstr = '"%s" %d %d' % (gpath, self.selfpid, self.btcdpid)
-         print 'executing:', cmdstr
-         Popen(cmdstr, shell=True, **ALLPIPE)
-      else:
-         cmdstr = "python %s %d %d" % (gpath, self.selfpid, self.btcdpid)
-         print 'executing:', cmdstr
-         Popen(shlex.split(cmdstr))
+      pargs = [gpath, str(self.selfpid), str(self.btcdpid)] 
+      LOGINFO('Executing: %s', str(pargs))
+      Popen(pargs, **ALLPIPE)
+
+
 
    #############################################################################
    def stopBitcoind(self):
