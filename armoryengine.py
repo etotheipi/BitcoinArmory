@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 81, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 9, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10241,6 +10241,7 @@ def killProcess(pid, sig='default'):
       k32.CloseHandle(hProcess)
          
    else:
+      import os
       if sig=='default':
          sig = signal.SIGKILL    
       os.kill(pid, sig)

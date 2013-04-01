@@ -3993,9 +3993,9 @@ class ArmoryMainWindow(QMainWindow):
                elif sdmState in ['BitcoindNotAvailable']:
                   LOGERROR('BitcoindNotAvailable: should not happen...')
                   self.notAvailErrorCount += 1
-                  if self.notAvailErrorCount < 5:
-                     LOGERROR('Auto-mode-switch')
-                     self.pressModeSwitchButton()
+                  #if self.notAvailErrorCount < 5:
+                     #LOGERROR('Auto-mode-switch')
+                     #self.pressModeSwitchButton()
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()

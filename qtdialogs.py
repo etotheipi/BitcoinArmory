@@ -93,7 +93,7 @@ class DlgTooltip(ArmoryDialog):
       lblText.setContentsMargins(3,3,3,3)
 
       self.setMinimumWidth(150)
-      self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
+      self.setWindowFlags(Qt.SplashScreen)
 
    def mouseReleaseEvent(self, ev):
       self.accept()
@@ -653,8 +653,6 @@ class DlgWalletDetails(ArmoryDialog):
          self.connect(lbtnChangeCrypto, SIGNAL('clicked()'), self.changeEncryption)
 
       lbtnSendBtc = QLabelButton('Send Bitcoins')
-      if self.wlt.watchingOnly:
-         lbtnSendBtc = QLabelButton('Prepare Offline Transaction')
       lbtnGenAddr = QLabelButton('Receive Bitcoins')
       lbtnImportA = QLabelButton('Import/Sweep Private Keys')
       lbtnDeleteA = QLabelButton('Remove Imported Address')
@@ -893,9 +891,8 @@ class DlgWalletDetails(ArmoryDialog):
       chkDNAA = not self.main.getWltSetting(wlt.uniqueIDB58, 'DNAA_RemindBackup')
       chkDont = not self.main.getSettingOrSetDefault('DNAA_AllBackupWarn', False)
       if chkLoad and chkType and chkDNAA and chkDont:
-            print '*********RUNNING!'
-            from twisted.internet import reactor
-            reactor.callLater(2,remindBackup)
+         from twisted.internet import reactor
+         reactor.callLater(2,remindBackup)
 
    #############################################################################
    def doFilterAddr(self):
@@ -6688,7 +6685,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
       self.txdpObj = newTxdp
 
       if not self.fileLoaded==None:
-         self.saveTx()
+         self.saveTxAuto()
 
 
    def broadTx(self):
@@ -6740,8 +6737,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
          self.accept()
 
 
-
-   def saveTx(self):
+   def saveTxAuto(self):
       if not self.txdpReadable:
          QMessageBox.warning(self, 'Formatting Error', \
             'The transaction data was not in a format recognized by '
@@ -6762,7 +6758,14 @@ class DlgReviewOfflineTx(ArmoryDialog):
             '\n\n%s\n\nIt can now be broadcast from any computer running '
             'Armory in online mode.' % newSaveFile, QMessageBox.Ok)
          return
-               
+
+   def saveTx(self):
+      if not self.txdpReadable:
+         QMessageBox.warning(self, 'Formatting Error', \
+            'The transaction data was not in a format recognized by '
+            'Armory.')
+         return
+                 
 
       defaultFilename = ''
       if not self.txdpObj==None:
@@ -8068,7 +8071,7 @@ class DlgPaperBackup(ArmoryDialog):
          'protects all keys that are ever <u>generated</u> by your wallet. '
          'The QR code holds the exact same data as the four data '
          'lines, and provided for convenience.  If you do not have a '
-         'working printer, you can copy the four lines by hand.')
+         'working printer, <b>you can copy the four lines by hand</b>.')
          
       haveImportedAddr = False
       for a160,aobj in wlt.addrMap.iteritems():
