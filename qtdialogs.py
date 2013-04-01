@@ -68,7 +68,41 @@ class DlgUnlockWallet(ArmoryDialog):
          self.edtPasswd.setText('')
          return
 
+################################################################################
+class DlgTooltip(ArmoryDialog):
+   def __init__(self, parentDlg=None, parentLbl=None, tiptext=''):
+      super(DlgTooltip, self).__init__(parentDlg, main=None)
+
+      if not parentDlg or not tiptext:
+         self.accept()
+
+      qc = QCursor.pos()
+      qp = QPoint(qc.x()-20, qc.y()-20)
+      self.move(qp)
+
+      lblText = QRichLabel(tiptext, doWrap=True)
+      lblText.mousePressEvent = lambda ev: self.accept()
+      lblText.mouseReleaseEvent = lambda ev: self.accept()
+      layout = QVBoxLayout()
+      layout.addWidget( makeHorizFrame([lblText], STYLE_RAISED) )
+      layout.setContentsMargins(0,0,0,0)
+      self.setLayout(layout)
+
+      self.setStyleSheet('QDialog { background-color : %s }' % htmlColor('Foreground'))
+      lblText.setStyleSheet('QLabel { background-color : %s }' % htmlColor('SlightBkgdDark'))
+      lblText.setContentsMargins(3,3,3,3)
+
+      self.setMinimumWidth(150)
+      self.setWindowFlags(Qt.Tool | Qt.FramelessWindowHint)
+
+   def mouseReleaseEvent(self, ev):
+      self.accept()
       
+   def mousePressEvent(self, ev):
+      self.accept()
+
+
+
 ################################################################################
 class DlgGenericGetPassword(ArmoryDialog):
    def __init__(self, descriptionStr, parent=None, main=None):
@@ -134,17 +168,18 @@ class DlgNewWallet(ArmoryDialog):
 
       
       # Advanced Encryption Options
-      lblComputeDescr = QLabel('Armory will test your system\'s speed to determine the most '
-                               'challenging encryption settings that can be performed '
-                               'in a given amount of time.  High settings make it much harder '
-                               'for someone to guess your passphrase.  This is used for all '
-                               'encrypted wallets, but the default parameters can be changed below.\n')
+      lblComputeDescr = QLabel( \
+                  'Armory will test your system\'s speed to determine the most '
+                  'challenging encryption settings that can be performed '
+                  'in a given amount of time.  High settings make it much harder '
+                  'for someone to guess your passphrase.  This is used for all '
+                  'encrypted wallets, but the default parameters can be changed below.\n')
       lblComputeDescr.setWordWrap(True)
-      timeDescrTip = createToolTipObject(
-                               'This is the amount of time it will take for your computer '
-                               'to unlock your wallet after you enter your passphrase. '
-                               '(the actual time used will be less than the specified '
-                               'time, but more than one half of it).  ')
+      timeDescrTip = self.main.createToolTipWidget( \
+                  'This is the amount of time it will take for your computer '
+                  'to unlock your wallet after you enter your passphrase. '
+                  '(the actual time used will be less than the specified '
+                  'time, but more than one half of it).  ')
       
       
       # Set maximum compute time
@@ -152,14 +187,14 @@ class DlgNewWallet(ArmoryDialog):
       self.edtComputeTime.setText('250 ms')
       self.edtComputeTime.setMaxLength(12)
       lblComputeTime = QLabel('Target compute &time (s, ms):')
-      memDescrTip = createToolTipObject(
-                               'This is the <b>maximum</b> memory that will be '
-                               'used as part of the encryption process.  The actual value used '
-                               'may be lower, depending on your system\'s speed.  If a '
-                               'low value is chosen, Armory will compensate by chaining '
-                               'together more calculations to meet the target time.  High '
-                               'memory target will make GPU-acceleration useless for '
-                               'guessing your passphrase.')
+      memDescrTip = self.main.createToolTipWidget( \
+                  'This is the <b>maximum</b> memory that will be '
+                  'used as part of the encryption process.  The actual value used '
+                  'may be lower, depending on your system\'s speed.  If a '
+                  'low value is chosen, Armory will compensate by chaining '
+                  'together more calculations to meet the target time.  High '
+                  'memory target will make GPU-acceleration useless for '
+                  'guessing your passphrase.')
       lblComputeTime.setBuddy(self.edtComputeTime)
 
 
@@ -173,17 +208,7 @@ class DlgNewWallet(ArmoryDialog):
       self.edtComputeTime.setMaximumWidth( tightSizeNChar(self, 20)[0] )
       self.edtComputeMem.setMaximumWidth( tightSizeNChar(self, 20)[0] )
 
-      #self.chkForkOnline = QCheckBox('Create an "&online" copy of this wallet')
-
-      #onlineToolTip = createToolTipObject(
-                             #'An "online" wallet is a copy of your primary wallet, but '
-                             #'without any sensitive data that would allow an attacker to '
-                             #'obtain access to your funds.  An "online" wallet can '
-                             #'generate new addresses and verify incoming payments '
-                             #'but cannot be used to spend any of the funds.')
       # Fork watching-only wallet
-
-
       cryptoLayout = QGridLayout()
       cryptoLayout.addWidget(lblComputeDescr,     0, 0,  1, 3)
 
@@ -194,8 +219,6 @@ class DlgNewWallet(ArmoryDialog):
       cryptoLayout.addWidget(memDescrTip,         2, 0,  1, 1)
       cryptoLayout.addWidget(lblComputeMem,       2, 1,  1, 1)
       cryptoLayout.addWidget(self.edtComputeMem,  2, 2,  1, 1)
-      #cryptoLayout.addWidget(self.chkForkOnline,  3, 0, 1, 1)
-      #cryptoLayout.addWidget(onlineToolTip,       3, 1, 1, 1)
 
       self.cryptoFrame = QFrame()
       self.cryptoFrame.setFrameStyle(STYLE_SUNKEN)
@@ -204,18 +227,18 @@ class DlgNewWallet(ArmoryDialog):
 
       self.chkUseCrypto  = QCheckBox("Use wallet &encryption")
       self.chkUseCrypto.setChecked(True)
-      usecryptoTooltip = createToolTipObject(
-                                 'Encryption prevents anyone who accesses your computer '
-                                 'or wallet file from being able to spend your money, as  '
-                                 'long as they do not have the passphrase.'
-                                 'You can choose to encrypt your wallet at a later time '
-                                 'through the wallet properties dialog by double clicking '
-                                 'the wallet on the dashboard.')
+      usecryptoTooltip = self.main.createToolTipWidget(
+                  'Encryption prevents anyone who accesses your computer '
+                  'or wallet file from being able to spend your money, as  '
+                  'long as they do not have the passphrase.'
+                  'You can choose to encrypt your wallet at a later time '
+                  'through the wallet properties dialog by double clicking '
+                  'the wallet on the dashboard.')
 
       # For a new wallet, the user may want to print out a paper backup
       self.chkPrintPaper = QCheckBox("Print a paper-backup of this wallet")
       self.chkPrintPaper.setChecked(True)
-      paperBackupTooltip = createToolTipObject(
+      paperBackupTooltip = self.main.createToolTipWidget(
                   'A paper-backup allows you to recover your wallet/funds even '
                   'if you lose your original wallet file, any time in the future. '
                   'Because Armory uses "deterministic wallets," '
@@ -759,11 +782,13 @@ class DlgWalletDetails(ArmoryDialog):
       self.lblBTC2 = QRichLabel('', doWrap=False)
       self.lblBTC3 = QRichLabel('', doWrap=False)
 
-      ttipTot = createToolTipObject( \
+      ttipTot = self.main.createToolTipWidget( \
             'Total funds if all current transactions are confirmed.  '
             'Value appears gray when it is the same as your spendable funds.')
-      ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
-      ttipUcn = createToolTipObject( 'Funds that have less than 6 confirmations' )
+      ttipSpd = self.main.createToolTipWidget( \
+            'Funds that can be spent <i>right now</i>')
+      ttipUcn = self.main.createToolTipWidget( \
+            'Funds that have less than 6 confirmations' )
 
       self.setSummaryBalances()
 
@@ -1232,29 +1257,29 @@ class DlgWalletDetails(ArmoryDialog):
    
       tooltips = [[]]*10
    
-      tooltips[WLTFIELDS.Name] = createToolTipObject(
+      tooltips[WLTFIELDS.Name] = self.main.createToolTipWidget(
             'This is the name stored with the wallet file.  Click on the '
             '"Change Labels" button at the bottom of this '
             'window to change this field' )
    
-      tooltips[WLTFIELDS.Descr] = createToolTipObject(
+      tooltips[WLTFIELDS.Descr] = self.main.createToolTipWidget(
             'This is the description of the wallet stored in the wallet file.  '
             'Press the "Change Labels" button at the bottom of this '
             'window to change this field' )
    
-      tooltips[WLTFIELDS.WltID] = createToolTipObject(
+      tooltips[WLTFIELDS.WltID] = self.main.createToolTipWidget(
             'This is a unique identifier for this wallet, based on the root key.  '
             'No other wallet can have the same ID '
             'unless it is a copy of this one, regardless of whether '
             'the name and description match.')
    
-      tooltips[WLTFIELDS.NumAddr] = createToolTipObject(
+      tooltips[WLTFIELDS.NumAddr] = self.main.createToolTipWidget(
             'This is the number of addresses *used* by this wallet so far. '
             'If you recently restored this wallet and you do not see all the '
             'funds you were expecting, click on this field to increase it.')
    
       if self.typestr=='Offline':
-         tooltips[WLTFIELDS.Secure] = createToolTipObject(
+         tooltips[WLTFIELDS.Secure] = self.main.createToolTipWidget(
             'Offline:  This is a "Watching-Only" wallet that you have identified '
             'belongs to you, but you cannot spend any of the wallet funds '
             'using this wallet.  This kind of wallet '
@@ -1262,41 +1287,41 @@ class DlgWalletDetails(ArmoryDialog):
             'incoming transactions, but the private keys needed '
             'to spend the money are stored on an offline computer.')
       elif self.typestr=='Watching-Only':
-         tooltips[WLTFIELDS.Secure] = createToolTipObject(
+         tooltips[WLTFIELDS.Secure] = self.main.createToolTipWidget(
             'Watching-Only:  You can only watch addresses in this wallet '
             'but cannot spend any of the funds.')
       elif self.typestr=='No Encryption':
-         tooltips[WLTFIELDS.Secure] = createToolTipObject(
+         tooltips[WLTFIELDS.Secure] = self.main.createToolTipWidget(
             'No Encryption: This wallet contains private keys, and does not require '
             'a passphrase to spend funds available to this wallet.  If someone '
             'else obtains a copy of this wallet, they can also spend your funds!  '
             '(You can click the "Change Encryption" button at the bottom of this '
             'window to enabled encryption)')
       elif self.typestr=='Encrypted (AES256)':
-         tooltips[WLTFIELDS.Secure] = createToolTipObject(
+         tooltips[WLTFIELDS.Secure] = self.main.createToolTipWidget(
             'This wallet contains the private keys needed to spend this wallet\'s '
             'funds, but they are encrypted on your harddrive.  The wallet must be '
             '"unlocked" with the correct passphrase before you can spend any of the '
             'funds.  You can still generate new addresses and monitor incoming '
             'transactions, even with a locked wallet.')
 
-      tooltips[WLTFIELDS.BelongsTo] = createToolTipObject(
+      tooltips[WLTFIELDS.BelongsTo] = self.main.createToolTipWidget(
             'Declare who owns this wallet.  If you click on the field and select '
             '"This wallet is mine", it\'s balance will be included in your total '
             'Armory Balance in the main window' )
    
-      tooltips[WLTFIELDS.Time] = createToolTipObject(
+      tooltips[WLTFIELDS.Time] = self.main.createToolTipWidget(
             'This is exactly how long it takes your computer to unlock your '
             'wallet after you have entered your passphrase.  If someone got '
             'ahold of your wallet, this is approximately how long it would take '
             'them to for each guess of your passphrase.')
    
-      tooltips[WLTFIELDS.Mem] = createToolTipObject(
+      tooltips[WLTFIELDS.Mem] = self.main.createToolTipWidget(
             'This is the amount of memory required to unlock your wallet. '
             'Memory values above 2 MB pretty much guarantee that GPU-acceleration '
             'will be useless for guessing your passphrase')
    
-      tooltips[WLTFIELDS.Version] = createToolTipObject(
+      tooltips[WLTFIELDS.Version] = self.main.createToolTipWidget(
             'Wallets created with different versions of Armory, may have '
             'different wallet versions.  Not all functionality may be '
             'available with all wallet versions.  Creating a new wallet will '
@@ -1524,7 +1549,7 @@ class DlgWalletDetails(ArmoryDialog):
             layout.addWidget(lblDescr,          0, 0, 1, 2)
             layout.addWidget(self.chkIsMine,    1, 0)
 
-            ttip = createToolTipObject(
+            ttip = self.main.createToolTipWidget(
                'You might choose this option if you keep a full '
                'wallet on a non-internet-connected computer, and use this '
                'watching-only wallet on this computer to generate addresses '
@@ -1754,7 +1779,7 @@ class DlgNewAddressDisp(ArmoryDialog):
       self.connect(btnLink, SIGNAL('clicked()'), openPaymentRequest)
 
       
-      tooltip1 = createToolTipObject( \
+      tooltip1 = self.main.createToolTipWidget( \
             'You can securely use this address as many times as you want. '
             'However, all people to whom you give this address will '
             'be able to see the number and amount of bitcoins <b>ever</b> '
@@ -1965,7 +1990,7 @@ class DlgImportAddress(ArmoryDialog):
       lblPrivOne = QRichLabel('Private Key')
       self.edtPrivData = QLineEdit()
       self.edtPrivData.setMinimumWidth( tightSizeStr(self.edtPrivData, 'X'*80)[0])
-      privTooltip = createToolTipObject( \
+      privTooltip = self.main.createToolTipWidget( \
                        'Supported formats are any hexadecimal or Base58 '
                        'representation of a 32-byte private key (with or '
                        'without checksums), and mini-private-key format '
@@ -1985,7 +2010,7 @@ class DlgImportAddress(ArmoryDialog):
                    'All standard private-key formats are supported.  ')
       lblPrivMany = QRichLabel('Private Key List')
       lblPrivMany.setAlignment(Qt.AlignTop)
-      ttipPrivMany = createToolTipObject( \
+      ttipPrivMany = self.main.createToolTipWidget( \
                   'One private key per line, in any standard format. '
                   'Data may be copied directly from file the "Backup '
                   'Individual Keys" dialog (all text on a line preceding '
@@ -2031,12 +2056,12 @@ class DlgImportAddress(ArmoryDialog):
          self.radioSweep.setEnabled(False)
 
 
-      sweepTooltip = createToolTipObject( \
+      sweepTooltip = self.main.createToolTipWidget( \
          'You should never add an untrusted key to your wallet.  By choosing this '
          'option, you are only moving the funds into your wallet, but not the key '
          'itself.  You should use this option for Casascius physical bitcoins.')
 
-      importTooltip = createToolTipObject( \
+      importTooltip = self.main.createToolTipWidget( \
          'This option will make the key part of your wallet, meaning that it '
          'can be used to securely receive future payments.  <b>Never</b> select this '
          'option for private keys that other people may have access to.')
@@ -2604,18 +2629,21 @@ class DlgImportWallet(ArmoryDialog):
       self.connect( self.btnImportPaper, SIGNAL('clicked()'), self.acceptPaper)
       self.connect( self.btnMigrate,     SIGNAL('clicked()'), self.acceptMigrate)
 
-      ttip1 = createToolTipObject('Import an existing Armory wallet, usually with a '
-                                  '*.wallet extension.  Any wallet that you import will ' 
-                                  'be copied into your settings directory, and maintained '
-                                  'there.  The original wallet file will not be touched.')
+      ttip1 = self.main.createToolTipWidget( \
+                  'Import an existing Armory wallet, usually with a '
+                  '*.wallet extension.  Any wallet that you import will ' 
+                  'be copied into your settings directory, and maintained '
+                  'there.  The original wallet file will not be touched.')
 
-      ttip2 = createToolTipObject('If you have previously made a paper backup of '
-                                  'a wallet, you can manually enter the wallet '
-                                  'data into Armory to recover the wallet.')
+      ttip2 = self.main.createToolTipWidget( \
+                  'If you have previously made a paper backup of '
+                  'a wallet, you can manually enter the wallet '
+                  'data into Armory to recover the wallet.')
 
-      ttip3 = createToolTipObject('Migrate all your wallet.dat addresses '
-                                  'from the regular Bitcoin client to an Armory '
-                                  'wallet.')
+      ttip3 = self.main.createToolTipWidget( \
+                  'Migrate all your wallet.dat addresses '
+                  'from the regular Bitcoin client to an Armory '
+                  'wallet.')
 
       w,h = relaxedSizeStr(ttip1, '(?)') 
       for ttip in (ttip1, ttip2):
@@ -2690,7 +2718,7 @@ class DlgImportWallet(ArmoryDialog):
 #
 #      lblSatoshiWlt = QRichLabel('Wallet File to be Migrated (typically ' +
 #                                 os.path.join(BTC_HOME_DIR, 'wallet.dat') + ')', doWrap=False)
-#      ttipWlt = createToolTipObject(\
+#      ttipWlt = self.main.createToolTipWidget(\
 #         'This is the wallet file used by the standard Bitcoin client from '
 #         'bitcoin.org.  It contains all the information needed for Armory to '
 #         'know how to access the bitcoins maintained by that program')
@@ -2699,7 +2727,7 @@ class DlgImportWallet(ArmoryDialog):
 #
 #
 #      self.chkAllKeys = QCheckBox('Include Address Pool (unused keys)')
-#      ttipAllKeys = createToolTipObject( \
+#      ttipAllKeys = self.main.createToolTipWidget( \
 #         'The wallet.dat file typically '
 #         'holds a pool of 100 addresses beyond the ones you ever used. '
 #         'These are the next 100 addresses to be used by the main Bitcoin '
@@ -3139,7 +3167,8 @@ class DlgAddressInfo(ArmoryDialog):
       if mode in (USERMODE.Advanced, USERMODE.Expert):
          bin25   = base58_to_binary(addrStr)
          lbls.append([])
-         lbls[-1].append( createToolTipObject( 'This is the computer-readable form of the address'))
+         lbls[-1].append( self.main.createToolTipWidget( \
+                    'This is the computer-readable form of the address'))
          lbls[-1].append( QRichLabel('<b>Public Key Hash</b>') )
          h160Str = binary_to_hex(bin25[1:-4])
          if mode==USERMODE.Expert:
@@ -3158,7 +3187,7 @@ class DlgAddressInfo(ArmoryDialog):
 
 
       lbls.append([])
-      lbls[-1].append( createToolTipObject( 
+      lbls[-1].append( self.main.createToolTipWidget( 
          'Address type is either <i>Imported</i> or <i>Permanent</i>.  '
          '<i>Permanent</i> '  
          'addresses are part of base wallet, and are protected by printed '
@@ -3176,7 +3205,7 @@ class DlgAddressInfo(ArmoryDialog):
 
       # Current Balance of address
       lbls.append([])
-      lbls[-1].append( createToolTipObject( 
+      lbls[-1].append( self.main.createToolTipWidget( 
             'This is the current <i>spendable</i> balance of this address, '
             'not including zero-confirmation transactions from others.'))
       lbls[-1].append( QRichLabel('<b>Current Balance</b>') )
@@ -3195,7 +3224,7 @@ class DlgAddressInfo(ArmoryDialog):
          txHashes.add(le.getTxHash())
          
       lbls.append([])
-      lbls[-1].append( createToolTipObject( 
+      lbls[-1].append( self.main.createToolTipWidget( 
             'The total number of transactions in which this address was involved'))
       lbls[-1].append( QRichLabel('<b>Transaction Count:</b>') )
       lbls[-1].append( QLabel(str(len(txHashes))))
@@ -3245,7 +3274,7 @@ class DlgAddressInfo(ArmoryDialog):
       dateWidth = tightSizeStr(self.ledgerView, '_9999-Dec-99 99:99pm__')[0]
       initialColResize(self.ledgerView, [20, 0, dateWidth, 72, 0, 0.45, 0.3])
 
-      ttipLedger = createToolTipObject( \
+      ttipLedger = self.main.createToolTipWidget( \
             'Unlike the wallet-level ledger, this table shows every '
             'transaction <i>input</i> and <i>output</i> as a separate entry.  '
             'Therefore, there may be multiple entries for a single transaction, '
@@ -3443,7 +3472,7 @@ class DlgShowKeys(ArmoryDialog):
 
       lbls.append([])
       binKey = self.addr.binPrivKey32_Plain.toBinStr()
-      lbls[-1].append(createToolTipObject( \
+      lbls[-1].append(self.main.createToolTipWidget( \
             'The raw form of the private key for this address.  It is '
             '32-bytes of randomly generated data'))
       lbls[-1].append(QRichLabel('Private Key (hex,%s):' % estr))
@@ -3456,7 +3485,7 @@ class DlgShowKeys(ArmoryDialog):
 
       if plainPriv:
          lbls.append([])
-         lbls[-1].append(createToolTipObject( \
+         lbls[-1].append(self.main.createToolTipWidget( \
                'This is a more compact form of the private key, and includes '
                'a checksum for error detection.'))
          lbls[-1].append(QRichLabel('Private Key (Base58):'))
@@ -3466,7 +3495,7 @@ class DlgShowKeys(ArmoryDialog):
       
 
       lbls.append([])
-      lbls[-1].append(createToolTipObject( \
+      lbls[-1].append(self.main.createToolTipWidget( \
                'The raw public key data.  This is the X-coordinate of '
                'the Elliptic-curve public key point.'))
       lbls[-1].append(QRichLabel('Public Key X (%s):' % estr))
@@ -3474,7 +3503,7 @@ class DlgShowKeys(ArmoryDialog):
       
 
       lbls.append([])
-      lbls[-1].append(createToolTipObject( \
+      lbls[-1].append(self.main.createToolTipWidget( \
                'The raw public key data.  This is the Y-coordinate of '
                'the Elliptic-curve public key point.'))
       lbls[-1].append(QRichLabel('Public Key Y (%s):' % estr))
@@ -3488,7 +3517,7 @@ class DlgShowKeys(ArmoryDialog):
       h160Str = '%s (Network: %s / Checksum: %s)' % (hash160, network, addrChk)
 
       lbls.append([])
-      lbls[-1].append(createToolTipObject( \
+      lbls[-1].append(self.main.createToolTipWidget( \
                'This is the hexadecimal version if the address string'))
       lbls[-1].append(QRichLabel('Public Key Hash:'))
       lbls[-1].append(QLabel(h160Str))
@@ -4140,7 +4169,7 @@ class DlgRemoveWallet(ArmoryDialog):
          btngrp.addButton(self.radioWatch)
       btngrp.setExclusive(True)
 
-      ttipExclude = createToolTipObject( \
+      ttipExclude = self.main.createToolTipWidget( \
                               '[DISABLED] This will not delete any files, but will add this '
                               'wallet to the "ignore list."  This means that Armory '
                               'will no longer show this wallet in the main screen '
@@ -4148,13 +4177,13 @@ class DlgRemoveWallet(ArmoryDialog):
                               'You can re-include this wallet in Armory at a later '
                               'time by selecting the "Excluded Wallets..." option '
                               'in the "Wallets" menu.')
-      ttipDelete = createToolTipObject( \
+      ttipDelete = self.main.createToolTipWidget( \
                               'This will delete the wallet file, removing '
                               'all its private keys from your settings directory.  '
                               'If you intend to keep using addresses from this '
                               'wallet, do not select this option unless the wallet '
                               'is backed up elsewhere.')
-      ttipWatch = createToolTipObject( \
+      ttipWatch = self.main.createToolTipWidget( \
                               'This will delete the private keys from your wallet, '
                               'leaving you with a watching-only wallet, which can be '
                               'used to generate addresses and monitor incoming '
@@ -4167,10 +4196,10 @@ class DlgRemoveWallet(ArmoryDialog):
       self.chkPrintBackup = QCheckBox('Print a paper backup of this wallet before deleting')
 
       if wlt.watchingOnly:
-         ttipDelete = createToolTipObject('This will delete the wallet file from your system.  '
+         ttipDelete = self.main.createToolTipWidget('This will delete the wallet file from your system.  '
                                  'Since this is a watching-only wallet, no private keys '
                                  'will be deleted.')
-         ttipWatch = createToolTipObject('This wallet is already a watching-only wallet '
+         ttipWatch = self.main.createToolTipWidget('This wallet is already a watching-only wallet '
                                  'so this option is pointless')
          self.radioWatch.setEnabled(False)
          self.chkPrintBackup.setEnabled(False)
@@ -4209,7 +4238,7 @@ class DlgRemoveWallet(ArmoryDialog):
          self.frm[-1].setVisible(False)
          
    
-      printTtip = createToolTipObject( \
+      printTtip = self.main.createToolTipWidget( \
          'If this box is checked, you will have the ability to print off an '
          'unencrypted version of your wallet before it is deleted.  <b>If '
          'printing is unsuccessful, please press *CANCEL* on the print dialog '
@@ -4735,7 +4764,7 @@ class DlgSendBitcoins(ArmoryDialog):
          
       self.freeOfErrors = True
 
-      feetip = createToolTipObject( \
+      feetip = self.main.createToolTipWidget( \
             'Transaction fees go to users who contribute computing power to '
             'keep the Bitcoin network secure, and in return they get your transaction '
             'included in the blockchain faster.  <b>Most transactions '
@@ -4835,12 +4864,12 @@ class DlgSendBitcoins(ArmoryDialog):
                                        btnSend])
 
       if not wlt.watchingOnly:
-         ttipUnsigned = createToolTipObject( \
+         ttipUnsigned = self.main.createToolTipWidget( \
             'If you would like to create the transaction but not sign it yet, '
             'you can click this button to save it to a file.')
          self.connect(btnSend, SIGNAL('clicked()'), self.createTxAndBroadcast)
       else:
-         ttipUnsigned = createToolTipObject( \
+         ttipUnsigned = self.main.createToolTipWidget( \
             'After clicking this button, you will be given directions for '
             'completing this transaction.')
          btnSend.setToolTip('This is a watching-only wallet! '
@@ -4869,7 +4898,7 @@ class DlgSendBitcoins(ArmoryDialog):
          
          
       btnDonate = QPushButton("Donate to Armory Developers!")
-      ttipDonate = createToolTipObject( \
+      ttipDonate = self.main.createToolTipWidget( \
          'Making this software was a lot of work.  You can give back '
          'by adding a small donation to go to the Armory developers.  '
          'You will have the ability to change the donation amount '
@@ -4878,7 +4907,7 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
       btnEnterURI = QPushButton('Manually Enter "bitcoin:" Link')
-      ttipEnterURI = createToolTipObject( \
+      ttipEnterURI = self.main.createToolTipWidget( \
          'Armory does not always succeed at registering itself to handle '
          'URL links from webpages and email.  '
          'Click this button to copy a link directly into Armory')
@@ -4917,16 +4946,16 @@ class DlgSendBitcoins(ArmoryDialog):
          self.chkRememberChng = QCheckBox('Remember for future transactions')
          self.vertLine = VLINE()
 
-         self.ttipSendChange = createToolTipObject( \
+         self.ttipSendChange = self.main.createToolTipWidget( \
                'Most transactions end up with oversized inputs and Armory will send '
                'the change to the next address in this wallet.  You may change this '
                'behavior by checking this box.')
-         self.ttipFeedback = createToolTipObject( \
+         self.ttipFeedback = self.main.createToolTipWidget( \
                'Guarantees that no new addresses will be created to receive '
                'change. This reduces anonymity, but is useful if you '
                'created this wallet solely for managing imported addresses, '
                'and want to keep all funds within existing addresses.')
-         self.ttipSpecify = createToolTipObject( \
+         self.ttipSpecify = self.main.createToolTipWidget( \
                'You can specify any valid Bitcoin address for the change.  '
                '<b>NOTE:</b> If the address you specify is not in this wallet, '
                'Armory will not be able to distinguish the outputs when it shows '
@@ -5842,7 +5871,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
             'the transaction without broadcasting it.')
 
 
-      ttipBip0010 = createToolTipObject( \
+      ttipBip0010 = self.main.createToolTipWidget( \
          'The serialization used in this block of data is based on BIP 0010, '
          'which is a standard proposed by the core Armory Developer (Alan Reiner) '
          'for simple execution of offline transactions and multi-signature '
@@ -5853,14 +5882,14 @@ class DlgOfflineTxCreated(ArmoryDialog):
          'https://en.bitcoin.it/wiki/BIP_0010')
 
 
-      ttipDataIsSafe = createToolTipObject( \
+      ttipDataIsSafe = self.main.createToolTipWidget( \
          'There is no security-sensitive information in this data below, so '
          'it is perfectly safe to copy-and-paste it into an '
          'email message, or save it to a borrowed USB key.')
       
       btnSave = QPushButton('Save as file...')
       self.connect(btnSave, SIGNAL('clicked()'), self.doSaveFile)
-      ttipSave = createToolTipObject( \
+      ttipSave = self.main.createToolTipWidget( \
          'Save this data to a USB key or other device, to be transferred to '
          'a computer that contains the private keys for this wallet.')
 
@@ -5869,7 +5898,7 @@ class DlgOfflineTxCreated(ArmoryDialog):
       self.lblCopied = QRichLabel('  ')
       self.lblCopied.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-      ttipCopy = createToolTipObject( \
+      ttipCopy = self.main.createToolTipWidget( \
          'Copy the transaction data to the clipboard, so that it can be '
          'pasted into an email or a text document.')
 
@@ -5926,6 +5955,10 @@ class DlgOfflineTxCreated(ArmoryDialog):
       frmLowerLayout.setColumnStretch(1, 0)
       frmLowerLayout.setColumnStretch(2, 0)
       frmLowerLayout.setColumnStretch(3, 0)
+      frmLowerLayout.setRowStretch(0, 0)
+      frmLowerLayout.setRowStretch(1, 0)
+      frmLowerLayout.setRowStretch(2, 0)
+      frmLowerLayout.setRowStretch(3, 0)
 
       frmLowerLayout.addWidget(nextStepStrip, 4,0,  1,3)
       frmLower.setLayout(frmLowerLayout)
@@ -5937,6 +5970,12 @@ class DlgOfflineTxCreated(ArmoryDialog):
                                         frmLower, \
                                         nextStepStrip,\
                                         bottomStrip])
+      frmAll.layout().setStretch(0, 0)
+      frmAll.layout().setStretch(1, 0)
+      frmAll.layout().setStretch(2, 0)
+      frmAll.layout().setStretch(3, 2)
+      frmAll.layout().setStretch(4, 1)
+      frmAll.layout().setStretch(5, 0)
 
       dlgLayout = QGridLayout()
       dlgLayout.addWidget(frmAll)
@@ -6260,20 +6299,20 @@ class DlgReviewOfflineTx(ArmoryDialog):
       
       ###
       self.infoLbls.append([])
-      self.infoLbls[-1].append( createToolTipObject( \
+      self.infoLbls[-1].append( self.main.createToolTipWidget( \
             'This is wallet from which the offline transaction spends bitcoins'))
       self.infoLbls[-1].append( QRichLabel('<b>Wallet:</b>'))
       self.infoLbls[-1].append( QRichLabel(''))
 
       ###
       self.infoLbls.append([])
-      self.infoLbls[-1].append( createToolTipObject('The name of the wallet'))
+      self.infoLbls[-1].append( self.main.createToolTipWidget('The name of the wallet'))
       self.infoLbls[-1].append( QRichLabel('<b>Wallet Label:</b>'))
       self.infoLbls[-1].append( QRichLabel(''))
       
       ###
       self.infoLbls.append([])
-      self.infoLbls[-1].append( createToolTipObject( \
+      self.infoLbls[-1].append( self.main.createToolTipWidget( \
          'A unique string that identifies an <i>unsigned</i> transaction.  '
          'This is different than the ID that the transaction will have when '
          'it is finally broadcast, because the broadcast ID cannot be '
@@ -6283,21 +6322,22 @@ class DlgReviewOfflineTx(ArmoryDialog):
 
       ###
       self.infoLbls.append([])
-      self.infoLbls[-1].append( createToolTipObject('Net effect on this wallet\'s balance'))
+      self.infoLbls[-1].append( self.main.createToolTipWidget( \
+                               'Net effect on this wallet\'s balance'))
       self.infoLbls[-1].append( QRichLabel('<b>Transaction Amount:</b>'))
       self.infoLbls[-1].append( QRichLabel(''))
 
 
       ###
       #self.infoLbls.append([])
-      #self.infoLbls[-1].append( createToolTipObject( \
+      #self.infoLbls[-1].append( self.main.createToolTipWidget( \
             #'Total number of transaction recipients, excluding change transactions.'))
       #self.infoLbls[-1].append( QRichLabel('<b># Recipients:</b>'))
       #self.infoLbls[-1].append( QRichLabel(''))
 
       ###
       #self.infoLbls.append([])
-      #self.infoLbls[-1].append( createToolTipObject( \
+      #self.infoLbls[-1].append( self.main.createToolTipWidget( \
             #'Click for more details about this transaction'))
       #self.infoLbls[-1].append( QRichLabel('<b>More Info:</b>'))
       #self.infoLbls[-1].append( QLabelButton('Click Here') )
@@ -6683,50 +6723,45 @@ class DlgReviewOfflineTx(ArmoryDialog):
       if reply==QMessageBox.Yes:
          self.main.broadcastTransaction(finalTx)
          if self.fileLoaded and os.path.exists(self.fileLoaded):
-            #reply = QMessageBox.warning(self, 'Done!', \
-               #'The transaction has been broadcast!'
-               #'<br><br>'
-               #'Now that the transaction is final, the transaction file is no '
-               #'longer needed.  Would you like to delete it?  '
-               #'<br><br>'
-               #'Delete %s?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
-            #if reply==QMessageBox.Yes:
             try:
-               pcs = self.fileLoaded.split('.')
-               newFileName = '.'.join(pcs[:-2]) + '.DONE.' + '.'.join(pcs[-2:])
-               shutil.move(self.fileLoaded, newFileName)
+               #pcs = self.fileLoaded.split('.')
+               #newFileName = '.'.join(pcs[:-2]) + '.DONE.' + '.'.join(pcs[-2:])
+               shutil.move(self.fileLoaded, self.fileLoaded.replace('signed','SENT'))
             except:
                QMessageBox.critical(self, 'File Remove Error', \
                   'The file could not be deleted.  If you want to delete '
                   'it, please do so manually.  The file was loaded from: '
                   '<br><br>%s: ' % self.fileLoaded, QMessageBox.Ok)
                
+         try:
+            self.parent.accept()
+         except:
+            pass
          self.accept()
 
 
 
    def saveTx(self):
       if not self.txdpReadable:
-         reply = QMessageBox.warning
+         QMessageBox.warning(self, 'Formatting Error', \
+            'The transaction data was not in a format recognized by '
+            'Armory.')
+         return
+                 
 
       if not self.fileLoaded==None and self.enoughSigs and self.sigsValid:
-         reply = QMessageBox.question(self,'Overwrite?', \
-         'This transaction was loaded from the following file:'
-         '\n\n%s\n\nWould you like to overwrite it with this signed '
-         'transaction?' % self.fileLoaded, QMessageBox.Yes | QMessageBox.No)
-         if reply==QMessageBox.Yes:
-            newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
-            f = open(newSaveFile, 'w')
-            f.write(str(self.txtTxDP.toPlainText()))
-            f.close()
-            if not newSaveFile==self.fileLoaded:
-               os.remove(self.fileLoaded)
-            self.fileLoaded = newSaveFile
-            QMessageBox.information(self, 'Transaction Saved!',\
-               'Your transaction has been saved to the following location:'
-               '\n\n%s\n\nIt can now be broadcast from any computer with '
-               'a connection to the Bitcoin network.' % newSaveFile, QMessageBox.Ok)
-            return
+         newSaveFile = self.fileLoaded.replace('unsigned', 'signed')
+         f = open(newSaveFile, 'w')
+         f.write(str(self.txtTxDP.toPlainText()))
+         f.close()
+         if not newSaveFile==self.fileLoaded:
+            os.remove(self.fileLoaded)
+         self.fileLoaded = newSaveFile
+         QMessageBox.information(self, 'Transaction Saved!',\
+            'Your transaction has been saved to the following location:'
+            '\n\n%s\n\nIt can now be broadcast from any computer running '
+            'Armory in online mode.' % newSaveFile, QMessageBox.Ok)
+         return
                
 
       defaultFilename = ''
@@ -6735,6 +6770,7 @@ class DlgReviewOfflineTx(ArmoryDialog):
             defaultFilename = 'armory_%s_.signed.tx' % self.txdpObj.uniqueB58
          else:
             defaultFilename = 'armory_%s_.unsigned.tx' % self.txdpObj.uniqueB58
+            print defaultFilename
       filename = self.main.getFileSave('Save Transaction', \
                              ['Transactions (*.signed.tx *.unsigned.tx)'], \
                              defaultFilename)
@@ -7353,7 +7389,7 @@ class DlgDispTxInfo(ArmoryDialog):
          estr = ' (BE)' if endianness==BIGENDIAN else ' (LE)'
    
       lbls.append([])
-      lbls[-1].append(createToolTipObject('Unique identifier for this transaction'))
+      lbls[-1].append(self.main.createToolTipWidget('Unique identifier for this transaction'))
       lbls[-1].append(QLabel('Transaction ID' + estr + ':'))
       
 
@@ -7384,12 +7420,12 @@ class DlgDispTxInfo(ArmoryDialog):
       if self.mode in (USERMODE.Expert,):
          # Add protocol version and locktime to the display
          lbls.append([])
-         lbls[-1].append(createToolTipObject('Bitcoin Protocol Version Number'))
+         lbls[-1].append(self.main.createToolTipWidget('Bitcoin Protocol Version Number'))
          lbls[-1].append(QLabel('Tx Version:'))
          lbls[-1].append(QLabel( str(self.pytx.version)))
 
          lbls.append([])
-         lbls[-1].append(createToolTipObject(
+         lbls[-1].append(self.main.createToolTipWidget(
             'The time at which this transaction becomes valid.'))
          lbls[-1].append(QLabel('Lock-Time:'))
          if self.pytx.lockTime==0: 
@@ -7402,7 +7438,7 @@ class DlgDispTxInfo(ArmoryDialog):
 
       
       lbls.append([])
-      lbls[-1].append(createToolTipObject('Comment stored for this transaction in this wallet'))
+      lbls[-1].append(self.main.createToolTipWidget('Comment stored for this transaction in this wallet'))
       lbls[-1].append(QLabel('User Comment:'))
       if wlt.getComment(txHash):
          lbls[-1].append(QRichLabel(wlt.getComment(txHash)))
@@ -7413,10 +7449,10 @@ class DlgDispTxInfo(ArmoryDialog):
       if not data[FIELDS.Time]==None:
          lbls.append([])
          if data[FIELDS.Blk]>=2**32-1:
-            lbls[-1].append(createToolTipObject( 
+            lbls[-1].append(self.main.createToolTipWidget( 
                   'The time that you computer first saw this transaction'))
          else:
-            lbls[-1].append(createToolTipObject( 
+            lbls[-1].append(self.main.createToolTipWidget( 
                   'All transactions are eventually included in a "block."  The '
                   'time shown here is the time that the block entered the "blockchain."'))
          lbls[-1].append(QLabel('Transaction Time:'))
@@ -7426,7 +7462,7 @@ class DlgDispTxInfo(ArmoryDialog):
          nConf = 0
          if data[FIELDS.Blk]>=2**32-1:
             lbls.append([])
-            lbls[-1].append(createToolTipObject(
+            lbls[-1].append(self.main.createToolTipWidget(
                   'This transaction has not yet been included in a block.  '
                   'It usually takes 5-20 minutes for a transaction to get '
                   'included in a block after the user hits the "Send" button.'))
@@ -7437,7 +7473,7 @@ class DlgDispTxInfo(ArmoryDialog):
             if not data[FIELDS.Idx]==None and self.mode==USERMODE.Expert:
                idxStr = '  (Tx #%d)'%data[FIELDS.Idx]
             lbls.append([])
-            lbls[-1].append(createToolTipObject( 
+            lbls[-1].append(self.main.createToolTipWidget( 
                   'Every transaction is eventually included in a "block" which '
                   'is where the transaction is permanently recorded.  A new block '
                   'is produced approximately every 10 minutes.'))
@@ -7446,7 +7482,7 @@ class DlgDispTxInfo(ArmoryDialog):
             if TheBDM.getBDMState()=='BlockchainReady':
                nConf = TheBDM.getTopBlockHeight() - data[FIELDS.Blk] + 1
                lbls.append([])
-               lbls[-1].append(createToolTipObject( 
+               lbls[-1].append(self.main.createToolTipWidget( 
                      'The number of blocks that have been produced since '
                      'this transaction entered the blockchain.  A transaciton '
                      'with 6 more confirmations is nearly impossible to reverse.'))
@@ -7459,7 +7495,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if rvPairDisp==None and precomputeAmt==None:
          # Couldn't determine recip/change outputs
          lbls.append([])
-         lbls[-1].append(createToolTipObject(
+         lbls[-1].append(self.main.createToolTipWidget(
                'Most transactions have at least a recipient output and a '
                'returned-change output.  You do not have enough enough information '
                'to determine which is which, and so this fields shows the sum '
@@ -7468,13 +7504,13 @@ class DlgDispTxInfo(ArmoryDialog):
          lbls[-1].append(QLabel( coin2str(txAmt, maxZeros=1).strip() + '  BTC' ))
       else:
          lbls.append([])
-         lbls[-1].append(createToolTipObject(
+         lbls[-1].append(self.main.createToolTipWidget(
                'Bitcoins were either sent or received, or sent-to-self'))
          lbls[-1].append(QLabel('Transaction Direction:'))
          lbls[-1].append(QRichLabel( txdir ))
 
          lbls.append([])
-         lbls[-1].append(createToolTipObject(
+         lbls[-1].append(self.main.createToolTipWidget(
                'The value shown here is the net effect on your '
                'wallet, including transaction fee.'))
          lbls[-1].append(QLabel('Transaction Amount:'))
@@ -7488,7 +7524,7 @@ class DlgDispTxInfo(ArmoryDialog):
       if not data[FIELDS.SumIn]==None:
          fee = data[FIELDS.SumIn]-data[FIELDS.SumOut]
          lbls.append([])
-         lbls[-1].append(createToolTipObject( 
+         lbls[-1].append(self.main.createToolTipWidget( 
             'Transaction fees go to users supplying the Bitcoin network with '
             'computing power for processing transactions and maintaining security.'))
          lbls[-1].append(QLabel('Tx Fee Paid:'))
@@ -7520,7 +7556,7 @@ class DlgDispTxInfo(ArmoryDialog):
          for i,rv in enumerate(rvPairDisp):
             rlbls.append([])
             if i==0:
-               rlbls[-1].append(createToolTipObject( 
+               rlbls[-1].append(self.main.createToolTipWidget( 
                   'All outputs of the transaction <b>excluding</b> change-'
                   'back-to-sender outputs.  If this list does not look '
                   'correct, it is possible that the change-output was '
@@ -7660,10 +7696,10 @@ class DlgDispTxInfo(ArmoryDialog):
          ttipText+=  ('Each input is like an $X bill.  Usually there are more inputs '
                       'than necessary for the transaction, and there will be an extra '
                       'output returning change to the sender')
-      ttipInputs = createToolTipObject(ttipText)
+      ttipInputs = self.main.createToolTipWidget(ttipText)
 
       lblOutputs = QLabel('Transaction Outputs (Receiving addresses):')
-      ttipOutputs = createToolTipObject(
+      ttipOutputs = self.main.createToolTipWidget(
                   'Shows <b>all</b> outputs, including other recipients '
                   'of the same transaction, and change-back-to-sender outputs '
                   '(change outputs are displayed in light gray).')
@@ -8391,24 +8427,24 @@ class DlgECDSACalc(ArmoryDialog):
       self.connect(btnSwitchEnd, SIGNAL('clicked()'), self.privSwitch)
 
 
-      ttipPrvR = createToolTipObject( \
+      ttipPrvR = self.main.createToolTipWidget( \
          'Any standard encoding of a private key:  raw hex, base58, with or '
          'without checksums, and mini-private-key format. '
          'This includes VanityGen addresses and Casascius physical Bitcoin '
          'private keys.')
-      ttipPriv = createToolTipObject( \
+      ttipPriv = self.main.createToolTipWidget( \
          'The raw hexadecimal private key.  This is exactly 32 bytes, which '
          'is 64 hex characters.  Any other forms of private key should be '
          'entered in the "Encoded Private Key" box.')
-      ttipPubF = createToolTipObject( \
+      ttipPubF = self.main.createToolTipWidget( \
          'The full 65-byte public key in hexadecimal.  It consists '
          'of a "04" byte, followed by the 32-byte X-value, then the 32-byte '
          'Y-value.')
-      ttipPubXY = createToolTipObject( \
+      ttipPubXY = self.main.createToolTipWidget( \
          'X- and Y-coordinates of the public key.  Each value is 32 bytes (64 hex chars).')
-      ttipHash = createToolTipObject( \
+      ttipHash = self.main.createToolTipWidget( \
          'Raw hash160 of the [65-byte] public key.  It is 20 bytes (40 hex chars).')
-      ttipAddr = createToolTipObject( \
+      ttipAddr = self.main.createToolTipWidget( \
          'Standard Bitcoin address expressed in Base58')
 
 
@@ -8500,10 +8536,10 @@ class DlgECDSACalc(ArmoryDialog):
       self.connect(self.btnMakeBlk,   SIGNAL('clicked()'), self.makeBlk)
       self.connect(self.btnReadBlk,   SIGNAL('clicked()'), self.readBlk)
 
-      ttipMsg = createToolTipObject( \
+      ttipMsg = self.main.createToolTipWidget( \
          'A message to be signed or verified by the key data above. '
          'Or create a random "nonce" to give to someone to sign.')
-      ttipSig = createToolTipObject( \
+      ttipSig = self.main.createToolTipWidget( \
          'The output of signing the message above will be put here, or you '
          'can copy in a signature of the above message, and check that it '
          'is valid against the public key on the left (if present).')
@@ -9335,9 +9371,9 @@ class DlgAddressBook(ArmoryDialog):
       
 
 
-      ttipSendWlt = createToolTipObject( \
+      ttipSendWlt = self.main.createToolTipWidget( \
          'The next unused address in that wallet will be calculated and selected. ')
-      ttipSendAddr = createToolTipObject( \
+      ttipSendAddr = self.main.createToolTipWidget( \
          'Addresses that are in other wallets you own are <b>not showns</b>.')
 
 
@@ -9774,7 +9810,7 @@ class DlgSettings(ArmoryDialog):
                                  'the priority of your transactions on the network '
                                  '(%s BTC is standard).' % \
                                  coin2str(MIN_TX_FEE, maxZeros=0).strip())
-      ttipDefaultFee = createToolTipObject( \
+      ttipDefaultFee = self.main.createToolTipWidget( \
                                  'NOTE: some transactions will require a certain fee '
                                  'regardless of your settings -- in such cases '
                                  'you will be prompted to include the correct '
@@ -9794,7 +9830,7 @@ class DlgSettings(ArmoryDialog):
                                  'Armory will stay open but run in the background.  '
                                  'You will still receive notifications, and '
                                  'can access it through the system tray.')
-      ttipMinOrClose = createToolTipObject( \
+      ttipMinOrClose = self.main.createToolTipWidget( \
          'If this is checked, you can still close Armory through the right-click menu '
          'on the system tray icon, or by "File"->"Quit Armory" on the main window')
       self.chkMinOrClose = QCheckBox('')
@@ -9806,7 +9842,7 @@ class DlgSettings(ArmoryDialog):
       #lblLedgerFee = QRichLabel('<b>Include fee in transaction value on the '
                                 #'primary ledger</b>.<br>Unselect if you want to '
                                 #'see only the value received by the recipient.')
-      #ttipLedgerFee = createToolTipObject( \
+      #ttipLedgerFee = self.main.createToolTipWidget( \
                                 #'If you send someone 1.0 '
                                 #'BTC with a 0.001 fee, the ledger will display '
                                 #'"1.001" in the "Amount" column if this option '
@@ -9859,7 +9895,7 @@ class DlgSettings(ArmoryDialog):
 
       self.edtDateFormat = QLineEdit()
       self.edtDateFormat.setText(fmt)
-      self.ttipFormatDescr = createToolTipObject( ttipStr )
+      self.ttipFormatDescr = self.main.createToolTipWidget( ttipStr )
 
       self.lblDateExample = QRichLabel( '', doWrap=False)
       self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.doExampleDate)
@@ -10215,7 +10251,7 @@ class DlgExportTxHistory(ArmoryDialog):
 
       self.edtDateFormat = QLineEdit()
       self.edtDateFormat.setText(fmt)
-      self.ttipFormatDescr = createToolTipObject( ttipStr )
+      self.ttipFormatDescr = self.main.createToolTipWidget( ttipStr )
                                                  
       self.lblDateExample = QRichLabel( '', doWrap=False)
       self.connect(self.edtDateFormat, SIGNAL('textEdited(QString)'), self.doExampleDate)
@@ -10537,19 +10573,19 @@ class DlgRequestPayment(ArmoryDialog):
       frmDescr = makeHorizFrame([lblDescr], STYLE_SUNKEN)
 
 
-      ttipPreview = createToolTipObject( \
+      ttipPreview = self.main.createToolTipWidget( \
          'The following Bitcoin desktop applications <i>try</i> to '
          'register themselves with your computer to handle "bitcoin:" '
          'links: Armory, Multibit, Electrum')
-      ttipLinkText = createToolTipObject( \
+      ttipLinkText = self.main.createToolTipWidget( \
          'This is the text to be shown as the clickable link.  It should '
          'usually begin with "Click here..." to reaffirm to the user it is '
          'is clickable.')
-      ttipAmount = createToolTipObject( \
+      ttipAmount = self.main.createToolTipWidget( \
          'All amounts are specifed in BTC')
-      ttipAddress = createToolTipObject( \
+      ttipAddress = self.main.createToolTipWidget( \
          'The person clicking the link will be sending bitcoins to this address')
-      ttipMessage = createToolTipObject( \
+      ttipMessage = self.main.createToolTipWidget( \
          'This text will be pre-filled as the label/comment field '
          'after the user clicks on the link. They '
          'can modify it to meet their own needs, but you can '
@@ -11527,7 +11563,7 @@ class DlgDownloadFile(ArmoryDialog):
       self.STEPS = enum('Query','Download','Verify','Count')
       self.dispSteps = ['Getting file information', \
                         'Downloading', \
-                        'Verifying authenticity']
+                        'Verifying signatures']
       self.lblSteps = []
       print 'NSTEPS:', self.STEPS.Count
       for i in range(self.STEPS.Count):
@@ -11655,7 +11691,6 @@ class DlgDownloadFile(ArmoryDialog):
       if self.StopDownloadFlag:
          from twisted.internet import reactor
          reactor.callLater(1, self.reject)
-         
          return -1
 
       if self.dlFileSize==0:
@@ -11668,7 +11703,7 @@ class DlgDownloadFile(ArmoryDialog):
             self.barWorking.setVisible(True)
 
          trueRatio = float(self.dlDownBytes)/float(self.dlFileSize)
-         dispRatio = min(trueRatio, 0.999)
+         dispRatio = min(trueRatio, 1)
          if self.dlFileSize>0:
             self.barWorking.setValue(100*dispRatio)
             self.barWorking.setFormat('%p%')

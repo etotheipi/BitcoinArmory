@@ -270,8 +270,7 @@ class QMoneyLabel(QRichLabel):
 
    
 
-
-
+################################################################################
 class QLabelButton(QLabel):
    mousePressOn = set()
 
@@ -281,10 +280,6 @@ class QLabelButton(QLabel):
       self.plainText = txt
       self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-   
-   #def setText(self, txt):
-      #colorStr = htmlColor('LBtnNormalFG')
-      #QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
   
    def sizeHint(self):
       w,h = relaxedSizeStr(self, self.plainText)
@@ -321,6 +316,7 @@ def createToolTipObject(tiptext, iconSz=2):
    lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
    lbl.setToolTip('<u></u>' + tiptext)
    lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
+   lbl.connect(lbl, SIGNAL('clicked()'), lambda: printlbl)
    return lbl
 
    

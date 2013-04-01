@@ -173,7 +173,7 @@ class ArmoryMainWindow(QMainWindow):
 
       w,h = tightSizeNChar(self.walletsView, 55)
       viewWidth  = 1.2*w
-      sectionSz  = 1.5*h
+      sectionSz  = 1.3*h
       viewHeight = 4.4*sectionSz
       
       self.walletsView.setModel(self.walletModel)
@@ -311,11 +311,11 @@ class ArmoryMainWindow(QMainWindow):
       self.lblBTC1 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC2 = QRichLabel('<b>BTC</b>', doWrap=False)
       self.lblBTC3 = QRichLabel('<b>BTC</b>', doWrap=False)
-      self.ttipTot = createToolTipObject( \
+      self.ttipTot = self.createToolTipWidget( \
             'Funds if all current transactions are confirmed.  '
             'Value appears gray when it is the same as your spendable funds.')
-      self.ttipSpd = createToolTipObject( 'Funds that can be spent <i>right now</i>')
-      self.ttipUcn = createToolTipObject( \
+      self.ttipSpd = self.createToolTipWidget( 'Funds that can be spent <i>right now</i>')
+      self.ttipUcn = self.createToolTipWidget( \
             'Funds that have less than 6 confirmations, and thus should not '
             'be considered <i>yours</i>, yet.')
 
@@ -2990,12 +2990,16 @@ class ArmoryMainWindow(QMainWindow):
    def pressModeSwitchButton(self):
       LOGDEBUG('pressModeSwitchButton')
       if TheSDM.getSDMState() == 'BitcoindExeMissing':
-         result = self.lookForBitcoind()
-         if result=='Running':
-            QMessageBox.warning(self, 'Already running!', \
-               'The Bitcoin software appears to be installed now, but you '
-               'must close it in order for Armory to work.', QMessageBox.Ok)
-         elif result=='StillMissing':
+         bitcoindStat = self.lookForBitcoind()
+         if bitcoindStat=='Running':
+            result = QMessageBox.warning(self, 'Already running!', \
+               'The Bitcoin software appears to be installed now, but it '
+               'needs to be closed for Armory to work.  Would you like Armory '
+               'to close it for you?', QMessageBox.Yes | QMessageBox.No)
+            if result==QMessageBox.Yes:
+               self.closeExistingBitcoin()
+               self.startBitcoindIfNecessary() 
+         elif bitcoindStat=='StillMissing':
             QMessageBox.warning(self, 'Still Missing', \
                'The Bitcoin software still appears to be missing.  If you '
                'just installed it, then please adjust your settings to point '
@@ -3003,9 +3007,13 @@ class ArmoryMainWindow(QMainWindow):
          self.startBitcoindIfNecessary() 
       elif self.doManageSatoshi and not TheSDM.isRunningBitcoind():
          if satoshiIsAvailable():
-            QMessageBox.warning(self, 'Still Running', \
+            result = QMessageBox.warning(self, 'Still Running', \
                'Bitcoin-Qt is still running.  Armory cannot start until '
-               'it is closed.', QMessageBox.Ok)
+               'it is closed.  Do you want Armory to close it for you?', \
+               QMessageBox.Yes | QMessageBox.No)
+            if result==QMessageBox.Yes:
+               self.closeExistingBitcoin()
+               self.startBitcoindIfNecessary() 
          else:
             self.startBitcoindIfNecessary() 
       elif TheBDM.getBDMState() == 'BlockchainReady' and TheBDM.isDirty():
@@ -3164,7 +3172,7 @@ class ArmoryMainWindow(QMainWindow):
             self.dashBtns[DASHBTNS.Install][LBL].setText( \
                'This option is currently unavailable.  Please visit bitcoin.org '
                'to download and install the software.', color='DisableFG')
-            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
                'Armory has an internet connection but no way to verify '
                'the authenticity of the downloaded files.  You should '
                'download the installer yourself.')
@@ -3198,19 +3206,6 @@ class ArmoryMainWindow(QMainWindow):
          elif OS_LINUX:   installUbuntu()
          elif OS_MACOSX:  installMacOSX()
 
-      #####
-      def closeExistingBitcoin():
-         for proc in psutil.process_iter():
-            if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
-                                     'bitcoind','bitcoin-qt']:
-               killProcess(proc.pid)
-               time.sleep(2)
-               return
-
-         # If got here, never found it
-         QMessageBox.warning(self, 'Not Found', \
-            'Attempted to kill the running Bitcoin-Qt/bitcoind instance, '
-            'but it was not found.  ', QMessageBox.Ok)
             
 
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
@@ -3222,7 +3217,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
                                                      self.openInstructWindow) 
       self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
-                                                        closeExistingBitcoin) 
+                                                   self.closeExistingBitcoin) 
 
       self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
            'Stop existing Bitcoin processes so that Armory can open its own')
@@ -3234,17 +3229,17 @@ class ArmoryMainWindow(QMainWindow):
            'Open Armory settings window to change Bitcoin software management')
 
 
-      self.dashBtns[DASHBTNS.Browse][TTIP] = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Browse][TTIP] = self.createToolTipWidget( \
            'Will open your default browser to http://www.bitcoin.org where you can '
            'download the latest version of Bitcoin-Qt, and get other information '
            'and links about Bitcoin, in general.')
-      self.dashBtns[DASHBTNS.Instruct][TTIP] = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Instruct][TTIP] = self.createToolTipWidget( \
            'Instructions are specific to your operating system and include '
            'information to help you verify you are installing the correct software')
-      self.dashBtns[DASHBTNS.Settings][TTIP] = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Settings][TTIP] = self.createToolTipWidget(
            'Change Bitcoin-Qt/bitcoind management settings or point Armory to '
            'a non-standard Bitcoin installation')
-      self.dashBtns[DASHBTNS.Close][TTIP] = createToolTipObject( \
+      self.dashBtns[DASHBTNS.Close][TTIP] = self.createToolTipWidget( \
            'Armory has detected a running Bitcoin-Qt or bitcoind instance and '
            'will force it to exit')
 
@@ -3260,14 +3255,14 @@ class ArmoryMainWindow(QMainWindow):
          self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel('')
          self.dashBtns[DASHBTNS.Install][LBL].setText( \
             'Securely download Bitcoin software for Windows %s' % OS_VARIANT[0])
-         self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+         self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
             'The downloaded files are cryptographically verified.  '
             'Using this option will start the installer, you will '
             'have to click through it to complete installation.')
 
          #self.lblDashInstallForMe = QRichLabel( \
            #'Armory will download, verify, and start the Bitcoin installer for you')
-         #self.ttipInstallForMe = createToolTipObject( \
+         #self.ttipInstallForMe = self.createToolTipWidget( \
            #'Armory will download the latest version of the Bitcoin software '
            #'for Windows and verify its digital signatures.  You will have to '
            #'click through the installation options.<u></u>')
@@ -3278,7 +3273,7 @@ class ArmoryMainWindow(QMainWindow):
             self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
             self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
                'Attempt automatic installation for Ubuntu/Debian')
-            self.dashBtns[DASHBTNS.Install][TTIP] = createToolTipObject( \
+            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
                'Debian-based Linux distributions can use the PPA to '
                'install and maintain the core Bitcoin-Qt software')
       elif OS_MACOSX:
@@ -3326,6 +3321,20 @@ class ArmoryMainWindow(QMainWindow):
          DlgInstallLinux(self,self).exec_()
       elif OS_MACOSX:
          DlgInstallMacOSX(self,self).exec_()
+
+   #############################################################################
+   def closeExistingBitcoin(self):
+      for proc in psutil.process_iter():
+         if proc.name.lower() in ['bitcoind.exe','bitcoin-qt.exe',\
+                                     'bitcoind','bitcoin-qt']:
+            killProcess(proc.pid)
+            time.sleep(2)
+            return
+
+      # If got here, never found it
+      QMessageBox.warning(self, 'Not Found', \
+         'Attempted to kill the running Bitcoin-Qt/bitcoind instance, '
+         'but it was not found.  ', QMessageBox.Ok)
 
    #############################################################################
    def getPercentageFinished(self, maxblk, lastblk):
@@ -3934,6 +3943,7 @@ class ArmoryMainWindow(QMainWindow):
                   else:
                      self.lblDashModeSync.setText('Cannot find Bitcoin Home Directory', \
                                                          size=4, bold=True)
+                  setBtnRowVisible(DASHBTNS.Close, satoshiIsAvailable())
                   setBtnRowVisible(DASHBTNS.Install, True)
                   setBtnRowVisible(DASHBTNS.Browse, True)
                   setBtnRowVisible(DASHBTNS.Settings, True)
@@ -4152,6 +4162,22 @@ class ArmoryMainWindow(QMainWindow):
       TimerStop('setDashboardDetails')
             
    
+   #############################################################################
+   def createToolTipWidget(self, tiptext, iconSz=2):
+      """
+      The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
+      text even if no HTML tags are used.  This appears to be necessary for Qt 
+      to wrap the tooltip text
+      """
+      fgColor = htmlColor('ToolTipQ')
+      lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
+      lbl.setToolTip('<u></u>' + tiptext)
+      lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
+      def pressEv(ev):
+         DlgTooltip(self, lbl, tiptext).exec_()
+      lbl.mousePressEvent = pressEv
+      return lbl
+
    
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
