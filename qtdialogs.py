@@ -11658,7 +11658,7 @@ class DlgDownloadFile(ArmoryDialog):
          nTries+=1
          try:
             import urllib2
-            self.httpObj = urllib2.urlopen(self.dlFullPath, timeout=5)
+            self.httpObj = urllib2.urlopen(self.dlFullPath, timeout=10)
             break
          except urllib2.HTTPError:
             LOGERROR('urllib2 failed to urlopen the download link')

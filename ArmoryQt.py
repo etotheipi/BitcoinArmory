@@ -3198,7 +3198,7 @@ class ArmoryMainWindow(QMainWindow):
          instFile = open(installerPath, 'wb')
          instFile.write(fileData)
          instFile.close()
-         subprocess.Popen('"'+installerPath+'"', shell=True, **ALLPIPE)
+         launchProcess('"'+installerPath+'"', shell=True, useStartInfo=False)
 
 
       #####
@@ -3610,12 +3610,17 @@ class ArmoryMainWindow(QMainWindow):
             'bitcoins and viewing the balances and transaction histories '
             'of each of your wallets.<br><br>')
          elif state == 'OfflineNoSatoshi':
+            bitconf = os.path.join(BTC_HOME_DIR, 'bitcoin.conf')
             return ( \
             'You are currently in offline mode because '
             'Bitcoin-Qt is not running.  To switch to online ' 
             'mode, start Bitcoin-Qt and let it synchronize with the network '
             '-- you will see a green checkmark in the bottom-right corner when '
-            'it is complete.  '
+            'it is complete.  If Bitcoin-Qt is already running and you believe '
+            'the lack of connection is an error (especially if using proxies), '
+            'please see <a href="'
+            'https://bitcointalk.org/index.php?topic=155717.msg1719077#msg1719077">'
+            'this link</a> for options.'
             '<br><br>'
             '<b>If you prefer to have Armory do this for you</b>, '
             'then please check "Let Armory run '

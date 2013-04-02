@@ -57,7 +57,6 @@ from datetime import datetime
 
 # In Windows with py2exe, we have a problem unless we PIPE all streams
 from subprocess import Popen, PIPE
-ALLPIPE = {'stdin': PIPE, 'stdout': PIPE, 'stderr': PIPE}
 
 from sys import argv
 
@@ -599,6 +598,55 @@ sys.excepthook = logexcept_override
 
 
 ################################################################################
+def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
+   from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
+   if not OS_WINDOWS:
+      return Popen(cmd, *args, **kwargs)
+   else:
+      # As usual, need lots of complicated stuff to accommodate quirks with
+      # Windows
+      if useStartInfo:
+         startinfo = STARTUPINFO()
+         startinfo.dwFlags |= STARTF_USESHOWWINDOW
+         return Popen(cmd, \
+                     *args, \
+                     stdin=PIPE, \
+                     stdout=PIPE, \
+                     stderr=PIPE, \
+                     startupinfo=startinfo, \
+                     **kwargs)
+      else:
+         return Popen(cmd, \
+                     *args, \
+                     stdin=PIPE, \
+                     stdout=PIPE, \
+                     stderr=PIPE, \
+                     **kwargs)
+
+
+################################################################################
+def killProcess(pid, sig='default'):
+   # I had to do this, because killing a process in Windows has issues 
+   # when using py2exe (yes, os.kill does not work, for the same reason 
+   # I had to pass stdin/stdout/stderr everywhere...
+   LOGWARN('Killing process pid=%d', pid)
+   if not OS_WINDOWS:
+      import os
+      sig = signal.SIGKILL if sig=='default' else sig
+      os.kill(pid, sig)
+   else:
+      import sys, os.path, ctypes, ctypes.wintypes
+      k32 = ctypes.WinDLL('kernel32.dll')
+      k32.OpenProcess.restype = ctypes.wintypes.HANDLE
+      k32.TerminateProcess.restype = ctypes.wintypes.BOOL
+      hProcess = k32.OpenProcess(1, False, pid)
+      k32.TerminateProcess(hProcess, 1)
+      k32.CloseHandle(hProcess)
+         
+           
+
+
+################################################################################
 def subprocess_check_output(*popenargs, **kwargs):
    """
    Run command with arguments and return its output as a byte string.
@@ -606,7 +654,7 @@ def subprocess_check_output(*popenargs, **kwargs):
    won't exist on systems using Python 2.6 or earlier
    """
    from subprocess import Popen, PIPE, CalledProcessError
-   process = Popen(stdin=PIPE, stdout=PIPE, stderr=PIPE, *popenargs, **kwargs)
+   process = launchProcess(*popenargs, **kwargs)
    output, unused_err = process.communicate()
    retcode = process.poll()
    if retcode:
@@ -628,7 +676,7 @@ def execAndWait(cli_str, timeout=0):
    the time...
    """
 
-   process = Popen(cli_str, shell=True, **ALLPIPE)
+   process = launchProcess(cli_str, shell=True)
    pid = process.pid
    start = RightNow()
    while process.poll() == None:
@@ -10222,31 +10270,8 @@ def parseLinkList(theData):
    return DLDICT,VERDICT
 
 
-################################################################################
-def killProcess(pid, sig='default'):
-   # I had to do this, because killing a process in Windows has issues 
-   # when using py2exe (yes, os.kill does not work, for the same reason 
-   # I had to pass **ALLPIPE to every popen call...
-   LOGWARN('Killing process pid=%d', pid)
-   if OS_WINDOWS:
-      if not sig=='default':
-         LOGWARN('signals are ignored when killing processes in Windows')
-      import sys, os.path, ctypes, ctypes.wintypes
 
-      k32 = ctypes.WinDLL('kernel32.dll')
-      k32.OpenProcess.restype = ctypes.wintypes.HANDLE
-      k32.TerminateProcess.restype = ctypes.wintypes.BOOL
-      hProcess = k32.OpenProcess(1, False, pid)
-      k32.TerminateProcess(hProcess, 1)
-      k32.CloseHandle(hProcess)
-         
-   else:
-      import os
-      if sig=='default':
-         sig = signal.SIGKILL    
-      os.kill(pid, sig)
-           
-
+   
 
 ################################################################################
 # jgarzik'sjj jsonrpc-bitcoin code -- stupid-easy to talk to bitcoind
@@ -10491,7 +10516,7 @@ class SatoshiDaemonManager(object):
          return
 
       LOGINFO('Called startBitcoind')
-      import shlex
+      import subprocess
 
       if self.isRunningBitcoind():
          raise self.BitcoindError, 'Looks like we have already started bitcoind'
@@ -10499,6 +10524,9 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
+      startinfo = subprocess.STARTUPINFO()
+      startinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+
       pargs = [self.executable]
       pargs.append('-datadir=%s' % self.satoshiHome)
       if USE_TESTNET:
@@ -10506,7 +10534,7 @@ class SatoshiDaemonManager(object):
 
       # Startup bitcoind and get its process ID (along with our own)
       LOGINFO('Executing popen: %s', str(pargs))
-      self.bitcoind = Popen(pargs, **ALLPIPE)
+      self.bitcoind = launchProcess(pargs)
                                        
       self.btcdpid  = self.bitcoind.pid
       self.selfpid  = os.getpid()
@@ -10518,7 +10546,7 @@ class SatoshiDaemonManager(object):
       gpath = self.getGuardianPath()
       pargs = [gpath, str(self.selfpid), str(self.btcdpid)] 
       LOGINFO('Executing: %s', str(pargs))
-      Popen(pargs, **ALLPIPE)
+      launchProcess(pargs)
 
 
 
