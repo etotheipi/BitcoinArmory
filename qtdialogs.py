@@ -11431,17 +11431,33 @@ class DlgInstallLinux(ArmoryDialog):
          'to point to the new directory.  Then restart Armory')
       lblInstallManualDescr.setOpenExternalLinks(True)
 
+      lblManualExperiment = QRichLabel( \
+         '<b>Download and set it up for me!  (Experimental):</b>'
+         '<br><br>'
+         'Armory will attempt to download and digitally verify the package '
+         'from the bitcoin.org website, and put it in a directory of your '
+         'choosing.  Your Armory settings will automatically be adjusted '
+         'to point to that as the installation directory.')
+      btnManualExperiment = QPushButton('Try it')
+      self.connect(btnManualExperiment, SIGNAL('clicked()'), self.tryManualInstall)
+
       btnInstallSettings = QPushButton('Change Settings')
       self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
-      frmChngSettings = makeHorizFrame(['Stretch', \
-                                        btnInstallSettings, \
-                                        'Stretch'], \
-                                        STYLE_SUNKEN)
+      frmChngSettings = makeHorizFrame([ 
+                     'Stretch', \
+                     btnInstallSettings, \
+                     'Stretch'], \
+                     STYLE_SUNKEN)
 
-      self.frmManual = makeVertFrame([lblInstallManualWarn, \
-                                      lblInstallManualDescr, \
-                                      frmChngSettings, \
-                                      'Stretch'])
+      frmManualExper = makeHorizFrame(['Stretch',btnManualExperiment,'Stretch']) 
+      self.frmManual = makeVertFrame([ \
+                     lblInstallManualWarn, \
+                     lblInstallManualDescr, \
+                     frmChngSettings, \
+                     HLINE(), \
+                     lblManualExperiment, \
+                     frmManualExper, \
+                     'Stretch'])
          
       
       # Install via Manual Download
@@ -11468,9 +11484,65 @@ class DlgInstallLinux(ArmoryDialog):
       self.clickInstallOpt()
       self.setWindowTitle('Install Bitcoin in Linux')
 
+   #############################################################################
+   def tryManualInstall(self):
+      dlDict = self.main.downloadDict.copy()
+      if not 'SATOSHI' in dlDict or not 'Linux' in dlDict['SATOSHI']:
+         QMessageBox.warning(self, 'Not available', \
+            'Armory does not actually have the information needed to execute '
+            'this process securely.  Please visit the bitcoin.org and download '
+            'the Linux version of the Bitcoin software, then modify your '
+            'settings to point to where it was unpacked. ', QMessageBox.Ok)
+         return
+      
+      title = 'Download Bitcoin software to...'
+      initPath = self.main.settings.get('LastDirectory')
+      if not OS_MACOSX:
+         installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath))
+      else:
+         installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath, \
+                                          options=QFileDialog.DontUseNativeDialog))
+
+      if not os.path.exists(installPath):
+         QMessageBox.warning(self, 'Invalid Directory', \
+            'The directory you chose does not exist.  How did you do that?', \
+            QMessageBox.Ok)
+         return
+
+      print dlDict['SATOSHI']['Linux']
+      theLink = dlDict['SATOSHI']['Linux'][0]
+      theHash = dlDict['SATOSHI']['Linux'][1]
+      dlg = DlgDownloadFile(self, self.main, theLink, theHash)
+      dlg.exec_()
+      fileData = dlg.dlFileData
+      if len(fileData)==0 or dlg.dlVerifyFailed:
+         QMessageBox.critical(self, 'Download Failed', \
+            'The download failed.  Please visit www.bitcoin.org '
+            'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
+         self.main.openBitcoinOrg()
+         return
+         
+      fullPath = os.path.join(installPath, dlg.dlFileName)
+      LOGINFO('Installer path: %s', fullPath)
+      instFile = open(fullPath, 'wb')
+      instFile.write(fileData)
+      instFile.close()
+
+      newDir = fullPath[:-7] 
+      os.makedirs(newDir)
+      launchProcess(['tar', '-zxf', fullPath, '-C', installPath])
+      self.main.writeSetting('SatoshiExe', newDir)
+
+      QMessageBox.information(self, 'Succeeded', \
+         'The download succeeded!', QMessageBox.Ok)
+      from twisted.internet import reactor
+      reactor.callLater(2, self.main.pressModeSwitchButton)
       
       
 
+      
+
+   #############################################################################
    def clickInstallOpt(self):
       if self.radioUbuntuPPA.isChecked():
          self.stkInstruct.setCurrentIndex(0)
@@ -11479,6 +11551,7 @@ class DlgInstallLinux(ArmoryDialog):
       else:
          LOGERROR('How is neither instruction option checked!?')
 
+   #############################################################################
    def loadGpgKeyring(self):
       pubDirLocal = os.path.join(ARMORY_HOME_DIR, 'tempKeyring')
       #if os.path.exists(pubDirLocal):
@@ -11495,6 +11568,7 @@ class DlgInstallLinux(ArmoryDialog):
                       '--verify bitcoin.0.8.1.tar.gz')
 
 
+   #############################################################################
    def doPPA(self):
       out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
       from twisted.internet import reactor

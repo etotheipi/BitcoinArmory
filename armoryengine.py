@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 92, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 93, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10493,8 +10493,11 @@ class SatoshiDaemonManager(object):
          # Reduce each line to a list of key,value pairs separated with '='
          allconf = [l[:endchr(l)].strip().split('=') for l in f.readlines()]
 
-         # Push all pairs (len==2) into a dictionary for lookup
-         self.bitconf = dict(filter(lambda x: len(x)==2, allconf))
+         # Need to convert to (x[0],x[1:]) in case the password has '=' in it
+         allconfPairs = [[x[0], '='.join(x[1:])] for x in allconf if len(x)>1]
+
+         # Convert the list of pairs to a dictionary
+         self.bitconf = dict(allconfPairs)
 
          # Look for rpcport, use default if not there
          if not self.bitconf.has_key('rpcport'):

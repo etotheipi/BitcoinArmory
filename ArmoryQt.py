@@ -3212,7 +3212,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
                                                              openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                                installForMe)
+                                                     self.openInstructWindow)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
                                                            self.openSettings)
       self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
@@ -3915,7 +3915,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnRowVisible(DASHBTNS.Browse, True)
                   setBtnRowVisible(DASHBTNS.Install, True)
                   setBtnRowVisible(DASHBTNS.Settings, True)
-                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
+                  #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   descr1 += self.GetDashStateText('Auto','OfflineNoSatoshiNoInternet')
                   descr2 += self.GetDashFunctionalityText('Offline')
                   self.lblDashDescr1.setText(descr1)
@@ -3954,7 +3954,7 @@ class ArmoryMainWindow(QMainWindow):
                   setBtnRowVisible(DASHBTNS.Install, True)
                   setBtnRowVisible(DASHBTNS.Browse, True)
                   setBtnRowVisible(DASHBTNS.Settings, True)
-                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
+                  #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   self.btnModeSwitch.setVisible(True)
                   self.btnModeSwitch.setText('Check Again')
                   setBtnFrameVisible(True)
@@ -3967,7 +3967,7 @@ class ArmoryMainWindow(QMainWindow):
                   LOGINFO('Dashboard switched to auto-BadDBEnv')
                   setOnlyDashModeVisible()
                   setBtnRowVisible(DASHBTNS.Install, True)
-                  setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
+                  #setBtnRowVisible(DASHBTNS.Instruct, not OS_WINDOWS)
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   self.lblDashModeSync.setText( 'Armory is <u>offline</u>', \
                                             size=4, color='TextWarn', bold=True)
