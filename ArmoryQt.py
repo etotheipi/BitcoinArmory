@@ -3123,8 +3123,8 @@ class ArmoryMainWindow(QMainWindow):
       BTN,LBL,TTIP = range(3)
       self.dashBtns = [[None]*3 for i in range(5)]
       self.dashBtns[DASHBTNS.Close   ][BTN] = QPushButton('Close Bitcoin Process')
-      self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton('Open www.bitcoin.org')
       self.dashBtns[DASHBTNS.Install ][BTN] = QPushButton('Auto-Install Bitcoin')
+      self.dashBtns[DASHBTNS.Browse  ][BTN] = QPushButton('Open www.bitcoin.org')
       self.dashBtns[DASHBTNS.Instruct][BTN] = QPushButton('Installation Instructions')
       self.dashBtns[DASHBTNS.Settings][BTN] = QPushButton('Change Settings')
 
@@ -3209,16 +3209,16 @@ class ArmoryMainWindow(QMainWindow):
 
             
 
-      self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
-                                                             openBitcoinOrg)
+      self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
+                                                   self.closeExistingBitcoin) 
       self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
                                                      self.openInstructWindow)
+      self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
+                                                             openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
                                                            self.openSettings)
       self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
                                                      self.openInstructWindow) 
-      self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
-                                                   self.closeExistingBitcoin) 
 
       self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
            'Stop existing Bitcoin processes so that Armory can open its own')
@@ -3273,10 +3273,9 @@ class ArmoryMainWindow(QMainWindow):
          if dist[0] in ['Ubuntu','LinuxMint'] or 'debian' in dist:
             self.dashBtns[DASHBTNS.Install][BTN].setEnabled(True)
             self.dashBtns[DASHBTNS.Install][LBL] = QRichLabel( \
-               'Attempt automatic installation for Ubuntu/Debian')
+               'Automatic installation for Ubuntu/Debian')
             self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
-               'Debian-based Linux distributions can use the PPA to '
-               'install and maintain the core Bitcoin-Qt software')
+               'Will download and install Bitcoin from trusted sources.')
       elif OS_MACOSX:
          pass
       else:
@@ -3775,7 +3774,7 @@ class ArmoryMainWindow(QMainWindow):
             '<br><br>'
             'You can either revert your installed Bitcoin software to the '
             'last known working version (but not earlier than version 0.8.1) '
-            'or delete everything but "wallet.dat" from the your Bitcoin '
+            'or delete everything <b>except</b> "wallet.dat" from the your Bitcoin '
             'home directory:<br><br>'
             '<font face="courier"><b>%s</b></font>'
             '<br><br>'

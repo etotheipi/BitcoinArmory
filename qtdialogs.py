@@ -11323,8 +11323,8 @@ class DlgInstallLinux(ArmoryDialog):
       self.distro, self.dver, self.dname = platform.linux_distribution()
 
 
-      self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Recommended)')
-      self.radioDlBinaries  = QRadioButton('Download binaries manually')
+      self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Ubuntu)')
+      self.radioDlBinaries  = QRadioButton('Download and unpack binaries (Other Linux)')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.radioDlBinaries)
       btngrp.addButton(self.radioUbuntuPPA)
@@ -11345,19 +11345,27 @@ class DlgInstallLinux(ArmoryDialog):
 
       ##########################################################################
       # Install via PPA
-      lblInstallPPATitle = QRichLabel( '<b>Install using the bitcoin.org '
-         'PPA (Ubuntu/Debian only)</b>', doWrap=False)
-   
-      lblInstallPPADescr = QRichLabel( \
-         'This will install the Bitcoin software using your system\'s package '
-         'manager.   You will be notified of updates along with '
-         'other software on your system, but updates will not be received '
-         'until a few days after the new releases (including critical security '
-         'updates).<br>')
+      lblAutoPPATitle = QRichLabel('<b>Install PPA for me (Ubuntu only):</b>')
+      lblAutoPPA = QRichLabel( \
+         'Have Armory install the PPA for you.  The process is described '
+         'below in case you would like to do it manually.  '
+         'Using the PPA will install the Bitcoin software using your '
+         'system\'s package manager, and you will be notified of updates along with '
+         'other software on your system.   <br>')
+      self.btnAutoPPA = QPushButton('Install Bitcoin PPA')
+      self.connect(self.btnAutoPPA, SIGNAL('clicked()'), self.doPPA)
+      self.btnAutoPPA.setToolTip( \
+         'Click to install the Bitcoin PPA for Ubuntu')
 
+      frmDoItForMeBtn = makeHorizFrame(['Stretch', \
+                                        self.btnAutoPPA, \
+                                        'Stretch'])
+
+      lblInstallPPATitle = QRichLabel( '<b>Manual PPA Installation:', doWrap=False)
       lblInstallPPA = QRichLabel( \
-         'To use the Ubuntu PPA, open a terminal window and copy the following '
-         'three commands, one-by-one.  You can open a terminal by hitting '
+         'You can setup the PPA manually using the Linux terminal.  Open a '
+         'terminal window and copy the following '
+         'three commands one-by-one.  You can open a terminal by hitting '
          'Alt-F2 and typing "terminal" (without quotes), or through '
          'the "Applications" menu, in "Accessories":' )
          
@@ -11378,37 +11386,42 @@ class DlgInstallLinux(ArmoryDialog):
          'be required to type in your password.')
 
 
-      lblExperimentTitle = QRichLabel('<b>Do this for me! (Experimental):</b>')
-      lblExperiment = QRichLabel( \
-         'Armory can attempt to do this for you!  After you click '
-         'the button, you will prompted for your password.  Armory may '
-         'appear to be frozen, but will come back to life after a '
-         'minute or two.')
-      self.btnDoItForMePPA = QPushButton('Do this for me!')
-      self.connect(self.btnDoItForMePPA, SIGNAL('clicked()'), self.doPPA)
-      self.btnDoItForMePPA.setToolTip( \
-         'Click to have Armory execute these steps for you.')
-
-      frmDoItForMeBtn = makeHorizFrame(['Stretch', \
-                                        self.btnDoItForMePPA, \
-                                        'Stretch'])
       
       frmCmds = makeHorizFrame([lblInstallPPACmds], STYLE_SUNKEN)
-      self.frmPPA = makeVertFrame([ lblInstallPPATitle, \
-                                    lblInstallPPADescr, \
+      self.frmPPA = makeVertFrame([ \
+                                    lblAutoPPATitle, \
+                                    lblAutoPPA, \
+                                    frmDoItForMeBtn, \
+                                    HLINE(), \
+                                    lblInstallPPATitle, \
                                     lblInstallPPA,      \
                                     frmCmds,            \
-                                    lblInstallPPAMidClick, \
-                                    HLINE(), \
-                                    lblExperimentTitle, \
-                                    lblExperiment, \
-                                    frmDoItForMeBtn],  STYLE_SUNKEN)
+                                    lblInstallPPAMidClick], STYLE_SUNKEN)
       # Install via PPA
       ##########################################################################
 
       ##########################################################################
       # Install via Manual Download
-      lblList = []
+
+      lblManualExperiment = QRichLabel( \
+         '<b>Download and set it up for me!  (All Linux):</b>'
+         '<br><br>'
+         'Armory will download and verify the package from the www.bitcoin.org '
+         'and unpack it into a directory in your home folder (pick your downloads '
+         'directory if you are unsure where to put it).  Your Armory settings '
+         'will automatically be adjusted to point to that as the installation '
+         'directory.')
+      btnManualExperiment = QPushButton('Do this for me!')
+      self.connect(btnManualExperiment, SIGNAL('clicked()'), self.tryManualInstall)
+
+      btnInstallSettings = QPushButton('Change Settings')
+      self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
+      frmChngSettings = makeHorizFrame([ 
+                     'Stretch', \
+                     btnInstallSettings, \
+                     'Stretch'], \
+                     STYLE_SUNKEN)
+
       lblInstallManualWarn = QRichLabel( \
          '<b>Manually download and install Bitcoin</b><br><br>'
          'Generally, you should only install manually if you are an advanced '
@@ -11431,32 +11444,14 @@ class DlgInstallLinux(ArmoryDialog):
          'to point to the new directory.  Then restart Armory')
       lblInstallManualDescr.setOpenExternalLinks(True)
 
-      lblManualExperiment = QRichLabel( \
-         '<b>Download and set it up for me!  (Experimental):</b>'
-         '<br><br>'
-         'Armory will attempt to download and digitally verify the package '
-         'from the bitcoin.org website, and put it in a directory of your '
-         'choosing.  Your Armory settings will automatically be adjusted '
-         'to point to that as the installation directory.')
-      btnManualExperiment = QPushButton('Try it')
-      self.connect(btnManualExperiment, SIGNAL('clicked()'), self.tryManualInstall)
-
-      btnInstallSettings = QPushButton('Change Settings')
-      self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
-      frmChngSettings = makeHorizFrame([ 
-                     'Stretch', \
-                     btnInstallSettings, \
-                     'Stretch'], \
-                     STYLE_SUNKEN)
-
       frmManualExper = makeHorizFrame(['Stretch',btnManualExperiment,'Stretch']) 
       self.frmManual = makeVertFrame([ \
+                     lblManualExperiment, \
+                     frmManualExper, \
+                     HLINE(), \
                      lblInstallManualWarn, \
                      lblInstallManualDescr, \
                      frmChngSettings, \
-                     HLINE(), \
-                     lblManualExperiment, \
-                     frmManualExper, \
                      'Stretch'])
          
       
@@ -11536,7 +11531,8 @@ class DlgInstallLinux(ArmoryDialog):
       QMessageBox.information(self, 'Succeeded', \
          'The download succeeded!', QMessageBox.Ok)
       from twisted.internet import reactor
-      reactor.callLater(2, self.main.pressModeSwitchButton)
+      reactor.callLater(0.5, self.main.pressModeSwitchButton)
+      self.accept()
       
       
 
