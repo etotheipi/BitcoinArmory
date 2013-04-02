@@ -1179,7 +1179,7 @@ class ArmoryMainWindow(QMainWindow):
          TheSDM.startBitcoind()
          return True
       except:
-         LOGERROR('Failed to setup SDM')
+         LOGEXCEPT('Failed to setup SDM')
          self.switchNetworkMode(NETWORKMODE.Offline)
       
 

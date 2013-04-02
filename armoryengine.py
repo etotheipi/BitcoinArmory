@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 91, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 92, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -599,10 +599,12 @@ sys.excepthook = logexcept_override
 
 ################################################################################
 def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
-   from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
+   LOGINFO('Executing popen: %s', str(cmd))
    if not OS_WINDOWS:
-      return Popen(cmd, *args, **kwargs)
+      from subprocess import Popen, PIPE
+      return Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, *args, **kwargs)
    else:
+      from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
       # As usual, need lots of complicated stuff to accommodate quirks with
       # Windows
       if useStartInfo:
@@ -750,9 +752,9 @@ except:
    print sys.exc_info()
    print 'Skipping.'
    SystemSpecs = DumbStruct()
-   SystemSpecs.Memory   = 'Unknown'
+   SystemSpecs.Memory   = -1
    SystemSpecs.CpuStr   = 'Unknown'
-   SystemSpecs.NumCores = 'Unknown'
+   SystemSpecs.NumCores = -1
    SystemSpecs.IsX64    = 'Unknown'
    
 
@@ -10524,8 +10526,6 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-      startinfo = subprocess.STARTUPINFO()
-      startinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
 
       pargs = [self.executable]
       pargs.append('-datadir=%s' % self.satoshiHome)
@@ -10533,7 +10533,6 @@ class SatoshiDaemonManager(object):
          pargs.append('-testnet')
 
       # Startup bitcoind and get its process ID (along with our own)
-      LOGINFO('Executing popen: %s', str(pargs))
       self.bitcoind = launchProcess(pargs)
                                        
       self.btcdpid  = self.bitcoind.pid
@@ -10545,7 +10544,8 @@ class SatoshiDaemonManager(object):
       # Startup guardian process -- it will watch Armory's PID
       gpath = self.getGuardianPath()
       pargs = [gpath, str(self.selfpid), str(self.btcdpid)] 
-      LOGINFO('Executing: %s', str(pargs))
+      if not OS_WINDOWS:
+         pargs.insert(0, 'python')
       launchProcess(pargs)
 
 
