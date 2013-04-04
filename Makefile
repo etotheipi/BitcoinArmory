@@ -13,3 +13,7 @@ install :
 	cp img/* $(DESTDIR)/usr/share/armory/img
 	mkdir -p $(DESTDIR)/usr/share/applications
 	cp dpkgfiles/armory*.desktop $(DESTDIR)/usr/share/applications/
+
+osx :
+	chmod +x osxbuild/deploy.sh
+	cd osxbuild; ./deploy.sh
