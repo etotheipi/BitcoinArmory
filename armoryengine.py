@@ -1095,8 +1095,10 @@ for n,b in zip(NORMALCHARS,EASY16CHARS):
 def binary_to_easyType16(binstr):
    return ''.join([hex_to_base16_map[c] for c in binary_to_hex(binstr)])
 
+# Treat unrecognized characters as 0, to facilitate possibly later recovery of
+# their correct values from the checksum.
 def easyType16_to_binary(b16str):
-   return hex_to_binary(''.join([base16_to_hex_map[c] for c in b16str]))
+   return hex_to_binary(''.join([base16_to_hex_map.get(c, '0') for c in b16str]))
 
 
 def makeSixteenBytesEasy(b16):
@@ -1110,6 +1112,9 @@ def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
    b16 = b18[:16]
    chk = b18[ 16:]
+   if chk=='':
+      LOGWARN('Missing checksum when reading EasyType')
+      return (b16, 'No_Checksum')
    b16new = verifyChecksum(b16, chk)
    if len(b16new)==0:
       return ('','Error_2+')
