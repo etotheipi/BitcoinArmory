@@ -1486,7 +1486,7 @@ class DlgWalletDetails(ArmoryDialog):
       
 
    def execSetOwner(self):
-      dlg = self.dlgChangeOwner(self.wltID, self) 
+      dlg = self.dlgChangeOwner(self.wltID, self, self.main)
       if dlg.exec_():
          if dlg.chkIsMine.isChecked():
             self.main.setWltSetting(self.wltID, 'IsMine', True)
