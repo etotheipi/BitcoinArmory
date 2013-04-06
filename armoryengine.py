@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 93, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 87, 94, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -66,7 +66,7 @@ parser.add_option("--settings",        dest="settingsPath",default='DEFAULT', ty
 parser.add_option("--datadir",         dest="datadir",     default='DEFAULT', type="str",          help="Change the directory that Armory calls home")
 parser.add_option("--satoshi-datadir", dest="satoshiHome", default='DEFAULT', type='str',          help="The Bitcoin-Qt/bitcoind home directory")
 parser.add_option("--satoshi-port",    dest="satoshiPort", default='DEFAULT', type="str",          help="For Bitcoin-Qt instances operating on a non-standard port")
-parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
+#parser.add_option("--bitcoind-path",   dest="bitcoindPath",default='DEFAULT', type="str",          help="Path to the location of bitcoind on your system")
 parser.add_option("--rpcport",         dest="rpcport",     default='DEFAULT', type="str",          help="RPC port for running armoryd.py")
 parser.add_option("--testnet",         dest="testnet",     default=False,     action="store_true", help="Use the testnet protocol")
 parser.add_option("--offline",         dest="offline",     default=False,     action="store_true", help="Force Armory to run in offline mode")
@@ -183,9 +183,9 @@ if not CLI_OPTIONS.datadir.lower()=='default':
 
 
 # Change the settings file to use
-BITCOIND_PATH = None
-if not CLI_OPTIONS.bitcoindPath.lower()=='default':
-   BITCOIND_PATH = CLI_OPTIONS.bitcoindPath
+#BITCOIND_PATH = None
+#if not CLI_OPTIONS.bitcoindPath.lower()=='default':
+   #BITCOIND_PATH = CLI_OPTIONS.bitcoindPath
 
 # Change the settings file to use
 if CLI_OPTIONS.settingsPath.lower()=='default':
@@ -671,14 +671,14 @@ def subprocess_check_output(*popenargs, **kwargs):
 
 ################################################################################
 # Similar to subprocess_check_output, but used for long-running commands
-def execAndWait(cli_str, timeout=0):
+def execAndWait(cli_str, timeout=0, useStartInfo=True):
    """ 
    There may actually still be references to this function where check_output
    would've been more appropriate.  But I didn't know about check_output at 
    the time...
    """
 
-   process = launchProcess(cli_str, shell=True)
+   process = launchProcess(cli_str, shell=True, useStartInfo=useStartInfo)
    pid = process.pid
    start = RightNow()
    while process.poll() == None:
@@ -12396,7 +12396,7 @@ class BlockDataManagerThread(threading.Thread):
    def __reset(self):
       self.bdm.Reset()
       
-      if self.blkMode==BLOCKCHAINMODE.Full:
+      if self.blkMode in (BLOCKCHAINMODE.Full, BLOCKCHAINMODE.Rescanning):
          # Uninitialized means we want to be online, but haven't loaded yet
          self.blkMode = BLOCKCHAINMODE.Uninitialized
       elif not self.blkMode==BLOCKCHAINMODE.Offline:

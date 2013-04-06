@@ -1486,7 +1486,7 @@ class DlgWalletDetails(ArmoryDialog):
       
 
    def execSetOwner(self):
-      dlg = self.dlgChangeOwner(self.wltID, self) 
+      dlg = self.dlgChangeOwner(self.wltID, self, self.main) 
       if dlg.exec_():
          if dlg.chkIsMine.isChecked():
             self.main.setWltSetting(self.wltID, 'IsMine', True)
@@ -11514,7 +11514,8 @@ class DlgInstallLinux(ArmoryDialog):
          QMessageBox.critical(self, 'Download Failed', \
             'The download failed.  Please visit www.bitcoin.org '
             'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-         self.main.openBitcoinOrg()
+         import webbrowser
+         webbrowser.open('http://www.bitcoin.org/en/download')
          return
          
       fullPath = os.path.join(installPath, dlg.dlFileName)
@@ -11524,6 +11525,8 @@ class DlgInstallLinux(ArmoryDialog):
       instFile.close()
 
       newDir = fullPath[:-7] 
+      if os.path.exists(newDir):
+         shutil.rmtree(newDir)
       os.makedirs(newDir)
       launchProcess(['tar', '-zxf', fullPath, '-C', installPath])
       self.main.writeSetting('SatoshiExe', newDir)
@@ -11568,12 +11571,13 @@ class DlgInstallLinux(ArmoryDialog):
    def doPPA(self):
       out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
       from twisted.internet import reactor
-      reactor.callLater(0.5, lambda: tryInstallUbuntu(self.main))
+      #reactor.callLater(0.5, lambda: tryInstallLinux(self.main))
+      tryInstallLinux(self.main)
       self.accept()
 
 
 ################################################################################
-def tryInstallUbuntu(main):
+def tryInstallLinux(main):
    def doit():
       print '\n'
       print '***** Executing auto-install in linux...'
@@ -11662,7 +11666,6 @@ class DlgDownloadFile(ArmoryDialog):
                         'Downloading', \
                         'Verifying signatures']
       self.lblSteps = []
-      print 'NSTEPS:', self.STEPS.Count
       for i in range(self.STEPS.Count):
          self.lblSteps.append([QRichLabel('',doWrap=False), QRichLabel('')])
 

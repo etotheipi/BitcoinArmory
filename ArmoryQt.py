@@ -96,9 +96,9 @@ class ArmoryMainWindow(QMainWindow):
       self.doHardReset = False
       self.doShutdown = False
       self.downloadDict = {}
-      self.latestVerSatoshi = None
-      self.latestVerArmory = None
       self.notAvailErrorCount = 0
+      self.satoshiVerWarnAlready = False
+      self.satoshiLatestVer = None
       self.satoshiHomePath = None
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
@@ -1033,6 +1033,13 @@ class ArmoryMainWindow(QMainWindow):
          LOGERROR('Tried: %s', HTTP_VERSION_FILE)
          return
       
+
+      skipVerify = False
+      #LOGERROR('**********************************TESTING CODE: REMOVE ME')
+      #versionLines = open('versions.txt','r').readlines()
+      #skipVerify = True
+      #LOGERROR('**********************************TESTING CODE: REMOVE ME')
+
       try:
          currLineIdx = [0]
 
@@ -1070,16 +1077,21 @@ class ArmoryMainWindow(QMainWindow):
             line = popNextLine(currLineIdx)
 
          # We also store the list of latest
+         self.latestVer = {}
+         self.downloadDict = {}
          try:
-            msg = extractSignedDataFromVersionsDotTxt(comments)
+            msg = extractSignedDataFromVersionsDotTxt(comments, doVerify=(not skipVerify))
             if len(msg)>0:
                dldict,verstrs = parseLinkList(msg)
                self.downloadDict = dldict.copy()
                self.latestVer = verstrs.copy()
+               LOGINFO('Latest versions:')
+               LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
+               LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
             else:
                raise ECDSA_Error, 'Could not verify'
          except:
-            print sys.exc_info()
+            LOGEXCEPT('Version check error, ignoring downloaded version info')
             
             
 
@@ -2720,6 +2732,7 @@ class ArmoryMainWindow(QMainWindow):
             import webbrowser
             webbrowser.open(blkchnURL)
          except: 
+            LOGEXCEPT('Failed to open webbrowser')
             QMessageBox.critical(self, 'Could not open browser', \
                'Armory encountered an error opening your web browser.  To view '
                'this transaction on blockchain.info, please copy and paste '
@@ -3038,6 +3051,9 @@ class ArmoryMainWindow(QMainWindow):
       rescan fails, and still not found the reason.  However, it always seems
       to work after a reset and re-register of all addresses/wallets.  
       """
+      if TheBDM.getBDMState()=='Scanning': 
+         LOGINFO('Aborting load')
+         touchFile(os.path.join(ARMORY_HOME_DIR,'abortload.txt'))
       TimerStart("resetBdmBeforeScan")
       TheBDM.Reset(wait=False)
       for wid,wlt in self.walletMap.iteritems():
@@ -3146,79 +3162,20 @@ class ArmoryMainWindow(QMainWindow):
             webbrowser.open('https://www.bitcoinarmory.com/install-macosx/')
 
 
-      #####
-      def installUbuntu():
-         result = QMessageBox.information(self, 'Install Bitcoin', \
-            'This automatic Bitcoin installation only works on default Ubuntu '
-            '(using Unity or Gnome) and probably other Debian-based distros. '
-            'If this operation fails, please use the '
-            'manual installation instructions and restart Armory.<br><br>'
-            'Armory may appear unresponsive for a minute while installing. '
-            'Would you like to continue?', \
-            QMessageBox.Yes, QMessageBox.No)
-         if result==QMessageBox.Yes:
-            out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
-            from twisted.internet import reactor
-            reactor.callLater(0.5, lambda: tryInstallUbuntu(self))
 
-      #####
-      def installWindows():
-         if not 'SATOSHI' in self.downloadDict or \
-            not 'Windows' in self.downloadDict['SATOSHI']:
-            QMessageBox.warning(self, 'Verification Unavaiable', \
-               'Armory cannot verify the authenticity of any downloaded '
-               'files.  You will need t download it yourself from '
-               'bitcoin.org', QMessageBox.Ok)
-            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
-            self.dashBtns[DASHBTNS.Install][LBL].setText( \
-               'This option is currently unavailable.  Please visit bitcoin.org '
-               'to download and install the software.', color='DisableFG')
-            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
-               'Armory has an internet connection but no way to verify '
-               'the authenticity of the downloaded files.  You should '
-               'download the installer yourself.')
-            openBitcoinOrg()
-            return
-            
-         print self.downloadDict['SATOSHI']['Windows']
-         theLink = self.downloadDict['SATOSHI']['Windows'][0]
-         theHash = self.downloadDict['SATOSHI']['Windows'][1]
-         dlg = DlgDownloadFile(self, self, theLink, theHash)
-         dlg.exec_()
-         fileData = dlg.dlFileData
-         if len(fileData)==0 or dlg.dlVerifyFailed:
-            QMessageBox.critical(self, 'Download Failed', \
-               'The download failed.  Please visit www.bitcoin.org '
-               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-            openBitcoinOrg()
-            return
-         
-         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
-         LOGINFO('Installer path: %s', installerPath)
-         instFile = open(installerPath, 'wb')
-         instFile.write(fileData)
-         instFile.close()
-         launchProcess('"'+installerPath+'"', shell=True, useStartInfo=False)
-
-
-      #####
-      def installForMe():
-         if   OS_WINDOWS: installWindows()
-         elif OS_LINUX:   installUbuntu()
-         elif OS_MACOSX:  installMacOSX()
 
             
 
       self.connect(self.dashBtns[DASHBTNS.Close][BTN], SIGNAL('clicked()'), \
                                                    self.closeExistingBitcoin) 
       self.connect(self.dashBtns[DASHBTNS.Install][BTN], SIGNAL('clicked()'), \
-                                                     self.openInstructWindow)
+                                                     self.installSatoshiClient)
       self.connect(self.dashBtns[DASHBTNS.Browse][BTN], SIGNAL('clicked()'), \
                                                              openBitcoinOrg)
       self.connect(self.dashBtns[DASHBTNS.Settings][BTN], SIGNAL('clicked()'), \
                                                            self.openSettings)
-      self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
-                                                     self.openInstructWindow) 
+      #self.connect(self.dashBtns[DASHBTNS.Instruct][BTN], SIGNAL('clicked()'), \
+                                                     #self.openInstructWindow) 
 
       self.dashBtns[DASHBTNS.Close][LBL] = QRichLabel( \
            'Stop existing Bitcoin processes so that Armory can open its own')
@@ -3314,13 +3271,57 @@ class ArmoryMainWindow(QMainWindow):
       self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
-   def openInstructWindow(self):
-      if OS_WINDOWS:
-         DlgInstallWindows(self, self).exec_()
-      elif OS_LINUX:
+   def installSatoshiClient(self):
+      TheSDM.stopBitcoind()
+      self.resetBdmBeforeScan()
+      self.switchNetworkMode(NETWORKMODE.Offline)
+      from twisted.internet import reactor
+      reactor.callLater(1, self.Heartbeat)
+      if OS_LINUX:
          DlgInstallLinux(self,self).exec_()
-      elif OS_MACOSX:
-         DlgInstallMacOSX(self,self).exec_()
+      elif OS_WINDOWS:
+         if not 'SATOSHI' in self.downloadDict or \
+            not 'Windows' in self.downloadDict['SATOSHI']:
+            QMessageBox.warning(self, 'Verification Unavaiable', \
+               'Armory cannot verify the authenticity of any downloaded '
+               'files.  You will need t download it yourself from '
+               'bitcoin.org.', QMessageBox.Ok)
+            self.dashBtns[DASHBTNS.Install][BTN].setEnabled(False)
+            self.dashBtns[DASHBTNS.Install][LBL].setText( \
+               'This option is currently unavailable.  Please visit bitcoin.org '
+               'to download and install the software.', color='DisableFG')
+            self.dashBtns[DASHBTNS.Install][TTIP] = self.createToolTipWidget( \
+               'Armory has an internet connection but no way to verify '
+               'the authenticity of the downloaded files.  You should '
+               'download the installer yourself.')
+            openBitcoinOrg()
+            return
+            
+         print self.downloadDict['SATOSHI']['Windows']
+         theLink = self.downloadDict['SATOSHI']['Windows'][0]
+         theHash = self.downloadDict['SATOSHI']['Windows'][1]
+         dlg = DlgDownloadFile(self, self, theLink, theHash)
+         dlg.exec_()
+         fileData = dlg.dlFileData
+         if len(fileData)==0 or dlg.dlVerifyFailed:
+            QMessageBox.critical(self, 'Download Failed', \
+               'The download failed.  Please visit www.bitcoin.org '
+               'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
+            openBitcoinOrg()
+            return
+         
+         installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
+         LOGINFO('Installer path: %s', installerPath)
+         instFile = open(installerPath, 'wb')
+         instFile.write(fileData)
+         instFile.close()
+      
+         def startInstaller():
+            execAndWait('"'+installerPath+'"', shell=True, useStartInfo=False)
+            self.startBitcoindIfNecessary()
+   
+         DlgExecLongProcess(startInstaller, \
+                     'Please Complet Bitcoin Installation', self, self).exec_()
 
    #############################################################################
    def closeExistingBitcoin(self):
@@ -3422,10 +3423,8 @@ class ArmoryMainWindow(QMainWindow):
             else:
                # If we're more than 10k blocks behind...
                if timeRemain:
-                  if timeRemain>8*HOUR:
-                     self.lblTimeLeftSync.setText("8+ hours...")
-                  else:
-                     self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
+                  timeRemain = min(8*HOUR, timeRemain)
+                  self.lblTimeLeftSync.setText(secondsToHumanTime(timeRemain))
                else:
                   self.lblTimeLeftSync.setText('')
          elif ssdm == 'BitcoindInitializing':
@@ -4002,6 +4001,16 @@ class ArmoryMainWindow(QMainWindow):
                   #if self.notAvailErrorCount < 5:
                      #LOGERROR('Auto-mode-switch')
                      #self.pressModeSwitchButton()
+                  descr1 += ''
+                  descr2 += self.GetDashFunctionalityText('Offline')
+                  self.lblDashDescr1.setText(descr1)
+                  self.lblDashDescr2.setText(descr2)
+               else:
+                  setBtnFrameVisible(False)
+                  descr1 += ''
+                  descr2 += self.GetDashFunctionalityText('Offline')
+                  self.lblDashDescr1.setText(descr1)
+                  self.lblDashDescr2.setText(descr2)
             else:  # online detected/forced, and TheSDM has already been started
                if sdmState in ['BitcoindWrongPassword', 'BitcoindNotAvailable']:
                   setOnlyDashModeVisible()
@@ -4184,6 +4193,64 @@ class ArmoryMainWindow(QMainWindow):
       lbl.mousePressEvent = pressEv
       return lbl
 
+
+   #############################################################################
+   def checkSatoshiVersion(self):
+      if not CLI_OPTIONS.skipVerCheck and \
+             (long(RightNow())%900==0 or self.satoshiLatestVer==None):
+         try:
+            # Will eventually make a specially-signed file just for this
+            # kind of information.  For now, it's all in the versions.txt
+            if not self.netMode==NETWORKMODE.Full or \
+               not 'SATOSHI' in self.latestVer or \
+               not 'SATOSHI' in self.downloadDict:
+               return
+
+            LOGINFO('Checking Satoshi Version')
+            self.checkForLatestVersion()
+
+            self.satoshiLatestVer = self.latestVer['SATOSHI']
+            self.satoshiLatestVer = readVersionString(self.satoshiLatestVer)
+            latestVerInt  = getVersionInt(self.satoshiLatestVer)
+
+            peerVersion = self.NetworkingFactory.proto.peerInfo['subver']
+            peerVersion = peerVersion.split(':')[-1][:-1]
+            peerVerInt  = getVersionInt(readVersionString(peerVersion))
+
+            self.satoshiLatestVer = '0.0'
+
+            LOGINFO('Checking Satoshi version: ')
+            LOGINFO('   Current:  %d', peerVerInt)
+            LOGINFO('    Latest:  %d', latestVerInt)
+
+
+            if latestVerInt>peerVerInt and not self.satoshiVerWarnAlready:
+               LOGINFO('New version available!')
+               self.satoshiVerWarnAlready = True
+               doUpgrade = QMessageBox.warning(self, 'Updates Available', \
+                  'There is a new version of the Bitcoin software available.  '
+                  'Newer version usually contain important security updates '
+                  'so it is best to upgrade as soon as possible.' 
+                  '<br><br>' 
+                  'Current Bitcoin Version: %s <br>'
+                  'Available Bitcoin Version: %s' 
+                  '<br><br>'
+                  'Would you like to upgrade the Bitcoin software?' % \
+                  (peerVersion, self.latestVer['SATOSHI']) , \
+                  QMessageBox.Yes | QMessageBox.No)
+               if doUpgrade==QMessageBox.Yes:
+                  TheSDM.stopBitcoind() 
+                  self.setDashboardDetails()
+                  self.installSatoshiClient() 
+               
+   
+            return
+
+         except:
+            LOGEXCEPT('Error in checkSatoshiVersion')
+            
+      
+      
    
    #############################################################################
    def Heartbeat(self, nextBeatSec=1):
@@ -4192,12 +4259,6 @@ class ArmoryMainWindow(QMainWindow):
       run every second, or whatever is specified in the nextBeatSec
       argument.
       """
-         
-      sdmState = TheSDM.getSDMState()
-      bdmState = TheBDM.getBDMState()
-      print "SDM       : ", sdmState.rjust(20),
-      print "BDM       : ", bdmState.rjust(20)
-
 
       # Special heartbeat functions are for special windows that may need
       # to update every, say, every 0.1s 
@@ -4218,11 +4279,14 @@ class ArmoryMainWindow(QMainWindow):
                self.extraHeartbeatSpecial = []
                reactor.callLater(1, self.Heartbeat)
          except:
-            LOGERROR('Error in special heartbeat function')
+            LOGEXCEPT('Error in special heartbeat function')
             self.extraHeartbeatSpecial = []
             reactor.callLater(1, self.Heartbeat)
          return
             
+
+      sdmState = TheSDM.getSDMState()
+      bdmState = TheBDM.getBDMState()
             
 
       try:
@@ -4243,6 +4307,7 @@ class ArmoryMainWindow(QMainWindow):
                elif bdmState == 'Offline':
                   LOGERROR('Bitcoind is ready, but we are offline... ?')
                elif bdmState=='Scanning':
+                  self.checkSatoshiVersion()
                   self.updateSyncProgress()
 
             if not sdmState==self.lastSDMState or not bdmState==self.lastBDMState[0]:
@@ -4255,6 +4320,7 @@ class ArmoryMainWindow(QMainWindow):
                self.setDashboardDetails()
                return
             elif bdmState=='Scanning':
+               self.checkSatoshiVersion()
                self.updateSyncProgress()
 
 
@@ -4301,6 +4367,7 @@ class ArmoryMainWindow(QMainWindow):
 
 
             # Now we start the normal array of heartbeat operations
+            self.checkSatoshiVersion()  # this actually only checks every 15 min
             newBlocks = TheBDM.readBlkFileUpdate(wait=True)
             self.currBlockNum = TheBDM.getTopBlockHeight()
 
@@ -4564,29 +4631,28 @@ class ArmoryMainWindow(QMainWindow):
          self.writeSetting('MainGeometry',   str(self.saveGeometry().toHex()))
          self.writeSetting('MainWalletCols', saveTableView(self.walletsView))
          self.writeSetting('MainLedgerCols', saveTableView(self.ledgerView))
-         # If user explicitly closed the window, don't count as a failed load
-         #nTries = max(1,self.getSettingOrSetDefault('FailedLoadCount', 1))
-         #self.writeSetting('FailedLoadCount', nTries-1)
+
+         # This will do nothing if bitcoind isn't running.  
+         TheSDM.stopBitcoind()
+
+         # Mostly for my own use, I'm curious how fast various things run
+         if CLI_OPTIONS.doDebug:
+            SaveTimingsCSV( os.path.join(ARMORY_HOME_DIR, 'timings.csv') )
       except:
          # Don't want a strange error here interrupt shutdown 
-         pass
+         LOGEXCEPT('Strange error during shutdown')
 
-      # This will do nothing if bitcoind isn't running
-      TheSDM.stopBitcoind()
-
-      # Mostly for my own use, I'm curious how fast various things run
-      if CLI_OPTIONS.doDebug:
-         SaveTimingsCSV( os.path.join(ARMORY_HOME_DIR, 'timings.csv') )
-
-      if self.doHardReset:
-         try:
+      try:
+         if self.doHardReset:
             os.remove(self.settingsPath) 
-         except:
-            LOGERROR('Could not remove settings path.')
+            mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
+            if os.path.exists(mempoolfile):
+               os.remove(mempoolfile)
+      except:
+         # Don't want a strange error here interrupt shutdown 
+         LOGEXCEPT('Strange error during shutdown')
 
-         mempoolfile = os.path.join(ARMORY_HOME_DIR, 'mempool.bin')
-         if os.path.exists(mempoolfile):
-            os.remove(mempoolfile)
+
 
       from twisted.internet import reactor
       LOGINFO('Attempting to close the main window!')

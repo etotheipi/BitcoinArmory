@@ -2351,7 +2351,9 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
    string bfile = armoryHomeDir_ + string("/blkfiles.txt");
    if(blk1-blk0 > 10000 &&
       BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+   {
       remove(bfile.c_str());
+   }
 
    TIMER_START("LoadProgress");
    bytesReadSoFar_ = 0;
@@ -2559,8 +2561,11 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
    // Remove this file
    string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   string abortFile = armoryHomeDir_ + string("/abortload.txt");
    if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
       remove(bfile.c_str());
+   if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
+      remove(abortFile.c_str());
 
    // Initialize a global cache that will be used...
    FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
@@ -2639,6 +2644,8 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
       // We'll watch for this file from the python code...
       if(armoryHomeDir_.size() > 0)
       {
+         if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
+            return 0;
          ofstream topblks(bfile.c_str(), ios::app);
          double t = TIMER_READ_SEC("LoadProgress");
          topblks << fnum-1 << " " << numBlkFiles_ << " " << t << endl;
