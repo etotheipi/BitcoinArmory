@@ -131,9 +131,9 @@ class DlgUnlockWallet(ArmoryDialog):
       self.main.settings.set('KeybdOSD', isChk)
       self.frmLower.setVisible(isChk)
       if isChk:
-         self.btnShowOSD.setText('Hide OSD Keyboard <<<')
+         self.btnShowOSD.setText('Hide Keyboard <<<')
       else:
-         self.btnShowOSD.setText('Show OSD Keyboard >>>')
+         self.btnShowOSD.setText('Show Keyboard >>>')
 
 
    #############################################################################

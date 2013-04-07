@@ -3271,12 +3271,16 @@ class ArmoryMainWindow(QMainWindow):
       self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
-   def installSatoshiClient(self):
-      TheSDM.stopBitcoind()
-      self.resetBdmBeforeScan()
-      self.switchNetworkMode(NETWORKMODE.Offline)
-      from twisted.internet import reactor
-      reactor.callLater(1, self.Heartbeat)
+   def installSatoshiClient(self, closeWhenDone=False):
+
+      if closeWhenDone:
+         # It's a long story why I need this, and only when closing...
+         TheSDM.stopBitcoind()
+         self.resetBdmBeforeScan()
+         self.switchNetworkMode(NETWORKMODE.Offline)
+         from twisted.internet import reactor
+         reactor.callLater(1, self.Heartbeat)
+
       if OS_LINUX:
          DlgInstallLinux(self,self).exec_()
       elif OS_WINDOWS:
@@ -3307,7 +3311,8 @@ class ArmoryMainWindow(QMainWindow):
             QMessageBox.critical(self, 'Download Failed', \
                'The download failed.  Please visit www.bitcoin.org '
                'to download and install Bitcoin-Qt manually.', QMessageBox.Ok)
-            openBitcoinOrg()
+            import webbrowser
+            webbrowser.open('http://www.bitcoin.org/en/download')
             return
          
          installerPath = os.path.join(ARMORY_HOME_DIR, os.path.basename(theLink))
@@ -3317,11 +3322,17 @@ class ArmoryMainWindow(QMainWindow):
          instFile.close()
       
          def startInstaller():
-            execAndWait('"'+installerPath+'"', shell=True, useStartInfo=False)
+            execAndWait('"'+installerPath+'"', useStartInfo=False)
             self.startBitcoindIfNecessary()
    
          DlgExecLongProcess(startInstaller, \
-                     'Please Complet Bitcoin Installation', self, self).exec_()
+                     'Please Complete Bitcoin Installation', self, self).exec_()
+      elif OS_MACOSX:
+         LOGERROR('Cannot install on OSX')
+
+      
+      if closeWhenDone:
+         self.closeForReal(None)
 
    #############################################################################
    def closeExistingBitcoin(self):
@@ -4203,7 +4214,8 @@ class ArmoryMainWindow(QMainWindow):
             # kind of information.  For now, it's all in the versions.txt
             if not self.netMode==NETWORKMODE.Full or \
                not 'SATOSHI' in self.latestVer or \
-               not 'SATOSHI' in self.downloadDict:
+               not 'SATOSHI' in self.downloadDict or \
+               self.NetworkingFactory.proto==None:
                return
 
             LOGINFO('Checking Satoshi Version')
@@ -4241,7 +4253,7 @@ class ArmoryMainWindow(QMainWindow):
                if doUpgrade==QMessageBox.Yes:
                   TheSDM.stopBitcoind() 
                   self.setDashboardDetails()
-                  self.installSatoshiClient() 
+                  self.installSatoshiClient(closeWhenDone=True) 
                
    
             return
