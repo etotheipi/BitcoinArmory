@@ -59,17 +59,17 @@ class DlgUnlockWallet(ArmoryDialog):
 
       ##### Lower layout
       # Add scrambled keyboard (EN-US only)
-      # TODO:  Add some locale-agnostic method here, that could replace
-      #        the letter arrays with something more appropriate for non en-us
-      self.letLower = r"`1234567890-=qwertyuiop[]\asdfghjkl;'zxcvbnm,./"
-      self.letUpper = r'~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?'
-      self.letRows  = r'11111111111112222222222222333333333334444444444'
-      self.letPairs = zip(self.letLower,self.letUpper,self.letRows)
 
+      ttipScramble= self.main.createToolTipWidget( \
+         'Using a visual keyboard to enter your passphrase '
+         'protects you against simple keyloggers.   Scrambling '
+         'makes it difficult to use, but prevents even loggers '
+         'that record mouse clicks.')
 
+      self.createKeyButtons()
       self.rdoScrambleNone = QRadioButton('Regular Keyboard')
-      self.rdoScrambleLite = QRadioButton('Scramble Letters')
-      self.rdoScrambleFull = QRadioButton('Scramble Everything')
+      self.rdoScrambleLite = QRadioButton('Scrambled (Simple)')
+      self.rdoScrambleFull = QRadioButton('Scrambled (Dynamic)')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.rdoScrambleNone)
       btngrp.addButton(self.rdoScrambleLite)
@@ -81,7 +81,7 @@ class DlgUnlockWallet(ArmoryDialog):
       elif defaultScramble==1:
          self.rdoScrambleLite.setChecked(True)
       elif defaultScramble==2:
-         self.rdoScrambleLite.setChecked(True)
+         self.rdoScrambleFull.setChecked(True)
       self.connect(self.rdoScrambleNone, SIGNAL('clicked()'), self.changeScramble)
       self.connect(self.rdoScrambleLite, SIGNAL('clicked()'), self.changeScramble)
       self.connect(self.rdoScrambleFull, SIGNAL('clicked()'), self.changeScramble)
@@ -90,34 +90,25 @@ class DlgUnlockWallet(ArmoryDialog):
                                   self.rdoScrambleFull, \
                                   'Stretch'])
 
-      self.setupScrambleFrames()
-      self.stkKeyboard = QStackedWidget()
-      self.stkKeyboard.addWidget(self.frmScrambleNone)
-      self.stkKeyboard.addWidget(self.frmScrambleLite)
-      self.stkKeyboard.addWidget(self.frmScrambleFull)
-      self.stkKeyboard.setCurrentIndex(defaultScramble)
-      self.stkKeyboard.setVisible(True)
+      self.layoutKeyboard = QGridLayout()
+      self.frmKeyboard = QFrame()
+      self.frmKeyboard.setLayout(self.layoutKeyboard)
 
-
-      layoutLower = QVBoxLayout()
-      layoutLower.addWidget( btnRowFrm )
-      layoutLower.addWidget( self.stkKeyboard )
+      showOSD = self.main.getSettingOrSetDefault('KeybdOSD',False)
+      self.layoutLower = QGridLayout()
+      self.layoutLower.addWidget( btnRowFrm , 0,0)
+      self.layoutLower.addWidget( self.frmKeyboard , 1,0)
       self.frmLower = QFrame()
-      self.frmLower.setLayout(layoutLower)
-      self.frmLower.setVisible(False)
+      self.frmLower.setLayout(self.layoutLower)
+      self.frmLower.setVisible(showOSD)
 
 
       ##### Expand button
-      self.btnShowOSD = QPushButton('Show OSD Keyboard >>>')
+      self.btnShowOSD = QPushButton('Show Keyboard >>>')
       self.btnShowOSD.setCheckable(True)
+      self.btnShowOSD.setChecked(showOSD)
       self.connect(self.btnShowOSD,    SIGNAL('toggled(bool)'), self.toggleOSD)
-      ttipExpand= self.main.createToolTipWidget( \
-         'Enter your password using an "On-Screen Display" key board.  '
-         'This protects against simple keyloggers that record keystrokes.  '
-         'Scrambling the keys protects your password against anything '
-         'that even records mouse-click locations')
-
-      frmAccept = makeHorizFrame([self.btnShowOSD, 'Stretch', buttonBox])
+      frmAccept = makeHorizFrame([self.btnShowOSD, ttipScramble, 'Stretch', buttonBox])
 
 
       ##### Complete Layout
@@ -130,141 +121,171 @@ class DlgUnlockWallet(ArmoryDialog):
 
       # Add scrambled keyboard
       self.layout().setSizeConstraint(QLayout.SetFixedSize)
+      self.changeScramble()
       self.redrawKeys()
 
    
    #############################################################################
    def toggleOSD(self):
-      self.frmLower.setVisible( self.btnShowOSD.isChecked())
-      if self.btnShowOSD.isChecked():
+      isChk = self.btnShowOSD.isChecked()
+      self.main.settings.set('KeybdOSD', isChk)
+      self.frmLower.setVisible(isChk)
+      if isChk:
          self.btnShowOSD.setText('Hide OSD Keyboard <<<')
       else:
          self.btnShowOSD.setText('Show OSD Keyboard >>>')
+
 
    #############################################################################
    def createKeyboardKeyButton(self, keyLow, keyUp, defRow, special=None):
       theBtn = LetterButton(keyLow, keyUp, defRow, special, self.edtPasswd, self)
       self.connect(theBtn, SIGNAL('clicked()'), theBtn.insertLetter)            
-      theBtn.setMaximumWidth(50)
+      theBtn.setMaximumWidth(40)
       return theBtn
 
          
    #############################################################################
    def redrawKeys(self):
-      for btnList in self.btnLists:
-         for btn in self.btnList:
-            btn.setText(btn.upper if self.btnShift.isChecked() else btn.lower)
-         self.btnShift.setText('SHIFT')
-         self.btnSpace.setText('SPACE')
-         self.btnDelete.setText('BACKSPACE')
+      for btn in self.btnList:
+         btn.setText(btn.upper if self.btnShift.isChecked() else btn.lower)
+      self.btnShift.setText('SHIFT')
+      self.btnSpace.setText('SPACE')
+      self.btnDelete.setText('DEL')
       
+   #############################################################################
+   def deleteKeyboard(self):
+      for btn in self.btnList:
+         btn.setParent(None)
+         del btn
+      self.btnList = []
+      self.btnShift.setParent(None)
+      self.btnSpace.setParent(None)
+      self.btnDelete.setParent(None)
+      del self.btnShift
+      del self.btnSpace
+      del self.btnDelete
+      del self.frmKeyboard
+      del self.layoutKeyboard
+
+   #############################################################################
+   def createKeyButtons(self):
+      # TODO:  Add some locale-agnostic method here, that could replace
+      #        the letter arrays with something more appropriate for non en-us
+      self.letLower = r"`1234567890-=qwertyuiop[]\asdfghjkl;'zxcvbnm,./"
+      self.letUpper = r'~!@#$%^&*()_+QWERTYUIOP{}|ASDFGHJKL:"ZXCVBNM<>?'
+      self.letRows  = r'11111111111112222222222222333333333334444444444'
+      self.letPairs = zip(self.letLower,self.letUpper,self.letRows)
+
+      self.btnList = []
+      for l,u,r in zip(self.letLower, self.letUpper, self.letRows):
+         if l=='7':
+            # Because QPushButtons interpret ampersands as special characters
+            u = 2*u
+
+         if l.isdigit():
+            self.btnList.append(self.createKeyboardKeyButton('#'+l,u,int(r)))
+         else:
+            self.btnList.append(self.createKeyboardKeyButton(l,u,int(r)))
+
+      # Add shift and space keys
+      self.btnShift = self.createKeyboardKeyButton('', '', 5,'shift')
+      self.btnSpace = self.createKeyboardKeyButton(' ',' ',5,'space')
+      self.btnDelete= self.createKeyboardKeyButton(' ',' ',5,'delete')
+      self.btnShift.setCheckable(True)
+      self.btnShift.setChecked(False)
+
+   #############################################################################
+   def reshuffleKeys(self):
+      if self.rdoScrambleFull.isChecked():
+         self.changeScramble()
             
    #############################################################################
    def changeScramble(self):
-      if self.rdoScrambleNone.isChecked():
-         i = 0
-      elif self.rdoScrambleLite.isChecked():
-         i = 1
-      elif self.rdoScrambleFull.isChecked():
-         i = 2
+      self.deleteKeyboard()
+      self.frmKeyboard = QFrame()
+      self.layoutKeyboard = QGridLayout()
+      self.createKeyButtons()
 
-      self.main.settings.set('ScrambleDefault', i)
-      self.stkKeyboard.setCurrentIndex(i)
+      if self.rdoScrambleNone.isChecked():
+         opt = 0
+         prevRow = 1
+         col=0
+         for btn in self.btnList:
+            row = btn.defRow
+            if not row==prevRow:
+               col=0
+            if row>3 and col==0:
+               col+=1
+            prevRow = row
+            self.layoutKeyboard.addWidget(btn, row, col)
+            col += 1
+         self.layoutKeyboard.addWidget(self.btnShift,  self.btnShift.defRow,   0, 1,3)
+         self.layoutKeyboard.addWidget(self.btnSpace,  self.btnSpace.defRow,   4, 1,5)
+         self.layoutKeyboard.addWidget(self.btnDelete, self.btnDelete.defRow, 11, 1,2)
+         self.btnShift.setMaximumWidth(1000)
+         self.btnSpace.setMaximumWidth(1000)
+         self.btnDelete.setMaximumWidth(1000)
+      elif self.rdoScrambleLite.isChecked():
+         opt = 1
+         nchar = len(self.btnList)
+         rnd = SecureBinaryData().GenerateRandom(2*nchar).toBinStr()
+         newBtnList = [[self.btnList[i], rnd[2*i:2*(i+1)]] for i in range(nchar)]
+         newBtnList.sort(key=lambda x: x[1])
+         prevRow = 0
+         col=0
+         for i,btn in enumerate(newBtnList):
+            row = i/12
+            if not row==prevRow:
+               col=0
+            prevRow = row
+            self.layoutKeyboard.addWidget(btn[0], row, col)
+            col += 1
+         self.layoutKeyboard.addWidget(self.btnShift,  self.btnShift.defRow,   0, 1,3)
+         self.layoutKeyboard.addWidget(self.btnSpace,  self.btnSpace.defRow,   4, 1,5)
+         self.layoutKeyboard.addWidget(self.btnDelete, self.btnDelete.defRow, 10, 1,2)
+         self.btnShift.setMaximumWidth(1000)
+         self.btnSpace.setMaximumWidth(1000)
+         self.btnDelete.setMaximumWidth(1000)
+      elif self.rdoScrambleFull.isChecked():
+         opt = 2
+         extBtnList = self.btnList[:]
+         extBtnList.extend([self.btnShift, self.btnSpace])
+         nchar = len(extBtnList)
+         rnd = SecureBinaryData().GenerateRandom(2*nchar).toBinStr()
+         newBtnList = [[extBtnList[i], rnd[2*i:2*(i+1)]] for i in range(nchar)]
+         newBtnList.sort(key=lambda x: x[1])
+         prevRow = 0
+         col=0
+         for i,btn in enumerate(newBtnList):
+            row = i/12
+            if not row==prevRow:
+               col=0
+            prevRow = row
+            self.layoutKeyboard.addWidget(btn[0], row, col)
+            col += 1
+         self.layoutKeyboard.addWidget(self.btnDelete, self.btnDelete.defRow-1, 11, 1,2)
+         self.btnShift.setMaximumWidth(40)
+         self.btnSpace.setMaximumWidth(40)
+         self.btnDelete.setMaximumWidth(40)
+
+      self.frmKeyboard.setLayout(self.layoutKeyboard)
+      self.layoutLower.addWidget(self.frmKeyboard, 1,0)
+      self.main.settings.set('ScrambleDefault', opt)
       self.redrawKeys()
       
-   def createKeyboardBtnList(self):
-      self.buttonLists = []
-
-      for i in range(3):
-         btnList = []
-         for l,u,r in zip(self.letLower, self.letUpper, self.letRows):
-            self.btnList.append(self.createKeyboardKeyButton(l,u,int(r)))
-         # Add shift and space keys
-         self.btnShift = self.createKeyboardKeyButton('', '', 5,'shift')
-         self.btnSpace = self.createKeyboardKeyButton(' ',' ',5,'space')
-         self.btnDelete= self.createKeyboardKeyButton(' ',' ',5,'delete')
-         self.btnShift.setCheckable(True)
-         self.btnShift.setChecked(False)
-         self.buttonLists.append(btnList)
-
-   #############################################################################
-   def setupScrambleFrames(self):
-
-      # Non-scrambled keyboard
-      layoutScrambleNone = QGridLayout()
-      prevRow = 1
-      col=0
-      for btn in self.btnList:
-         row = btn.defRow
-         if not row==prevRow:
-            col=0
-         prevRow = row
-         layoutScrambleNone.addWidget(btn, row, col)
-         col += 1
-      layoutScrambleNone.addWidget(self.btnShift,  self.btnShift.defRow,   0, 1,3)
-      layoutScrambleNone.addWidget(self.btnSpace,  self.btnSpace.defRow,   4, 1,5)
-      layoutScrambleNone.addWidget(self.btnDelete, self.btnDelete.defRow, 11, 1,2)
-      self.frmScrambleNone = QFrame()
-      self.frmScrambleNone.setLayout(layoutScrambleNone)
-      
-
-      # Only scramble the letters, not the shift and space key 
-      nchar = len(self.btnList)
-      rnd = SecureBinaryData().GenerateRandom(2*nchar).toBinStr()
-      newBtnList = [[self.btnList[i], rnd[2*i:2*(i+1)]] for i in range(nchar)]
-      newBtnList.sort(key=lambda x: x[1])
-
-      layoutScrambleLite = QGridLayout()
-      prevRow = 1
-      col=0
-      for i,btn in enumerate(newBtnList):
-         row = (i-1)/12 + 1
-         if not row==prevRow:
-            col=0
-         prevRow = row
-         layoutScrambleLite.addWidget(btn[0], row, col)
-         col += 1
-      layoutScrambleLite.addWidget(self.btnShift,  self.btnShift.defRow,   0, 1,3)
-      layoutScrambleLite.addWidget(self.btnSpace,  self.btnSpace.defRow,   4, 1,5)
-      layoutScrambleLite.addWidget(self.btnDelete, self.btnDelete.defRow, 11, 1,2)
-      self.frmScrambleLite = QFrame()
-      self.frmScrambleLite.setLayout(layoutScrambleLite)
-
-
-      # Scramble everything including shift and space keys
-      extBtnList = self.btnList[:]
-      extBtnList.extend([self.btnShift, self.btnSpace])
-      nchar = len(extBtnList)
-      rnd = SecureBinaryData().GenerateRandom(2*nchar).toBinStr()
-      newBtnList = [[extBtnList[i], rnd[2*i:2*(i+1)]] for i in range(nchar)]
-      newBtnList.sort(key=lambda x: x[1])
-
-      layoutScrambleFull = QGridLayout()
-      prevRow = 1
-      col=0
-      for i,btn in enumerate(newBtnList):
-         row = (i-1)/12 + 1
-         if not row==prevRow:
-            col=0
-         prevRow = row
-         layoutScrambleFull.addWidget(btn[0], row, col)
-         col += 1
-
-      self.frmScrambleFull = QFrame()
-      self.frmScrambleFull.setLayout(layoutScrambleFull)
-      
-
-
 
    #############################################################################
    def acceptPassphrase(self):
       securePwd = SecureBinaryData(str(self.edtPasswd.text()))
       try:
          self.wlt.unlock(securePassphrase=securePwd)
+         securePwd.destroy()
+         self.edtPasswd.setText('')
          self.accept()
       except PassphraseError:
          QMessageBox.critical(self, 'Invalid Passphrase', \
            'That passphrase is not correct!', QMessageBox.Ok)
+         securePwd.destroy()
          self.edtPasswd.setText('')
          return
 
@@ -279,6 +300,10 @@ class LetterButton(QPushButton):
       self.special = Spec
       self.target  = edtTarget
       self.parent  = parent
+      if self.special:
+         super(LetterButton, self).setFont(GETFONT('Var',8))
+      else:
+         super(LetterButton, self).setFont(GETFONT('Fixed',10))
       if self.special == 'space':
          self.setText('SPACE')
          self.lower = ' '
@@ -289,14 +314,15 @@ class LetterButton(QPushButton):
          self.special = 5
          self.insertLetter = self.pressShift
       elif self.special == 'delete':
-         self.setText('<< Backspace')
+         self.setText('DEL')
          self.special = 5
          self.insertLetter = self.pressBackspace
 
    def insertLetter(self):
       currPwd = str(self.parent.edtPasswd.text())
-      insChar = self.lower if self.parent.btnShift.isChecked() else self.upper
+      insChar = self.upper if self.parent.btnShift.isChecked() else self.lower
       self.parent.edtPasswd.setText( currPwd + insChar )
+      self.parent.reshuffleKeys()
 
    def pressShift(self):
       self.parent.redrawKeys()
