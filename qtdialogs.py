@@ -11880,7 +11880,7 @@ class DlgInstallWindows(ArmoryDialog):
 
 ################################################################################
 class DlgDownloadFile(ArmoryDialog):
-   def __init__(self, parent, main, dlfile, expectHash=None, msg=None):
+   def __init__(self, parent, main, dlfile, expectHash=None, msg=''):
       super(DlgDownloadFile, self).__init__(parent, main)
 
 
@@ -11946,10 +11946,7 @@ class DlgDownloadFile(ArmoryDialog):
       self.updateProgressLabels()
       
 
-      lblExtraMsg = QRichLabel( \
-         'The Bitcoin installer will start when the download is finished '
-         'and digital signatures are verified.  Please finish the installation '
-         'when it appears.')
+      lblExtraMsg = QRichLabel( msg )
       
 
       btnCancel = QPushButton("Cancel")

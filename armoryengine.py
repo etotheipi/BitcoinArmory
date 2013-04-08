@@ -735,7 +735,7 @@ def GetSystemDetails():
       
       stat = MEMORYSTATUSEX()
       ctypes.windll.kernel32.GlobalMemoryStatusEx(ctypes.byref(stat))
-      out.Memory = stat.ullTotalPhys
+      out.Memory = stat.ullTotalPhys/1024.
       out.CpuStr = platform.processor()
    else:
       print "I only work with Win or Linux :P"
@@ -914,6 +914,12 @@ DAY      = 24*HOUR
 WEEK     = 7*DAY
 MONTH    = 30*DAY
 YEAR     = 365*DAY
+
+KILOBYTE = 1024.0
+MEGABYTE = 1024*KILOBYTE
+GIGABYTE = 1024*MEGABYTE
+TERABYTE = 1024*GIGABYTE
+PETABYTE = 1024*TERABYTE
 
 # Set the default-default 
 DEFAULT_DATE_FORMAT = '%Y-%b-%d %I:%M%p'
@@ -1332,23 +1338,18 @@ def secondsToHumanTime(nSec):
       return '%d %ss' % (int(strPieces[0]+0.5), strPieces[1])
       
 def bytesToHumanSize(nBytes):
-   kB = 1024.0
-   MB = 1024*kB
-   GB = 1024*MB
-   TB = 1024*GB
-   PB = 1024*TB
-   if nBytes<kB:
+   if nBytes<KILOBYTE:
       return '%d bytes' % nBytes
    elif nBytes<MB:
-      return '%0.1f kB' % (nBytes/kB)
+      return '%0.1f kB' % (nBytes/KILOBYTE)
    elif nBytes<GB:
-      return '%0.1f MB' % (nBytes/MB)
+      return '%0.1f MB' % (nBytes/MEGABYTE)
    elif nBytes<TB:
-      return '%0.1f GB' % (nBytes/GB)
+      return '%0.1f GB' % (nBytes/GIGABYTE)
    elif nBytes<PB:
-      return '%0.1f TB' % (nBytes/TB)
+      return '%0.1f TB' % (nBytes/TERABYTE)
    else:
-      return '%0.1f PB' % (nBytes/PB)
+      return '%0.1f PB' % (nBytes/PETABYTE)
 
 
 ##### HEXSTR/VARINT #####
@@ -10530,10 +10531,33 @@ class SatoshiDaemonManager(object):
          raise self.BitcoindError, 'Could not find bitcoind'
    
 
+      
+
       pargs = [self.executable]
       pargs.append('-datadir=%s' % self.satoshiHome)
       if USE_TESTNET:
          pargs.append('-testnet')
+
+      try:
+         # Don't want some strange error in this size-check to abort loading
+         blocksdir = os.path.join(self.satoshiHome, 'blocks')
+         sz = long(0) 
+         if os.path.exists(blocksdir):
+            for fn in os.listdir(blocksdir):
+               fnpath = os.path.join(blocksdir, fn)
+               sz += long(os.path.getsize(fnpath))
+         
+         print sz, sz/GIGABYTE, SystemSpecs.Memory
+         if sz < 5*GIGABYTE:
+            if SystemSpecs.Memory>9.0:
+               pargs.append('-dbcache=2000')
+            elif SystemSpecs.Memory>5.0:
+               pargs.append('-dbcache=1000')
+            elif SystemSpecs.Memory>3.0:
+               pargs.append('-dbcache=500')
+      except:
+         LOGEXCEPT('Failed size check of blocks directory')
+               
 
       # Startup bitcoind and get its process ID (along with our own)
       self.bitcoind = launchProcess(pargs)

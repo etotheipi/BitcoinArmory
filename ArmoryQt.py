@@ -3298,7 +3298,8 @@ class ArmoryMainWindow(QMainWindow):
                'Armory has an internet connection but no way to verify '
                'the authenticity of the downloaded files.  You should '
                'download the installer yourself.')
-            openBitcoinOrg()
+            import webbrowser
+            webbrowser.open('http://www.bitcoin.org/en/download')
             return
             
          print self.downloadDict['SATOSHI']['Windows']
