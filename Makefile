@@ -6,6 +6,8 @@ all :
 
 clean :
 	cd cppForSwig; make clean
+	rm -rf osxbuild/Armory.app
+	rm -rf osxbuild/env
 
 install :
 	mkdir -p $(DESTDIR)/usr/share/armory/img

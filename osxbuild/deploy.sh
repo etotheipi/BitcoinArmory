@@ -15,7 +15,8 @@ function get_dependencies()
     # get build dependencies
     echo "Installing dependencies..."
     brew install cryptopp swig qt pyqt wget
-    sudo pip install virtualenv
+    sudo pip install virtualenv 
+    sudo pip install psutil
 }
 
 function make_env()
@@ -24,6 +25,7 @@ function make_env()
     virtualenv -q env
     cd env
     bin/pip install twisted >/dev/null
+    bin/pip install psutil 
 
     # move global pyqt into the env
     # do sip first
