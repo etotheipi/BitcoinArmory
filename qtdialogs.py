@@ -12083,7 +12083,7 @@ class DlgDownloadFile(ArmoryDialog):
          else:
             return 0.1
       except:
-         LOGERROR(str(sys.exc_info()))
+         LOGEXCEPT("Failed to check download progress")
          return -1
          
 

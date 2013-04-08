@@ -1340,13 +1340,13 @@ def secondsToHumanTime(nSec):
 def bytesToHumanSize(nBytes):
    if nBytes<KILOBYTE:
       return '%d bytes' % nBytes
-   elif nBytes<MB:
+   elif nBytes<MEGABYTE:
       return '%0.1f kB' % (nBytes/KILOBYTE)
-   elif nBytes<GB:
+   elif nBytes<GIGABYTE:
       return '%0.1f MB' % (nBytes/MEGABYTE)
-   elif nBytes<TB:
+   elif nBytes<TERABYTE:
       return '%0.1f GB' % (nBytes/GIGABYTE)
-   elif nBytes<PB:
+   elif nBytes<PETABYTE:
       return '%0.1f TB' % (nBytes/TERABYTE)
    else:
       return '%0.1f PB' % (nBytes/PETABYTE)
