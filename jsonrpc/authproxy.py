@@ -66,7 +66,7 @@ class AuthServiceProxy(object):
             port = self.__url.port
         self.__idcnt = 0
         authpair = "%s:%s" % (self.__url.username, self.__url.password)
-        authpair = authpair.encode('utf8')
+        authpair = unicode(authpair, 'utf-8').encode('utf-8')
         self.__authhdr = "Basic ".encode('utf8') + base64.b64encode(authpair)
         if self.__url.scheme == 'https':
             self.__conn = httplib.HTTPSConnection(self.__url.hostname, port, None, None,False,

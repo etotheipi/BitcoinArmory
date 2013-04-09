@@ -10052,7 +10052,6 @@ class ArmoryClient(Protocol):
          getdataMsg = PyMessage('getdata')
          for inv in invobj.invList:
             if inv[0]==MSG_INV_BLOCK:
-               LOGINFO('New block broadcast received')
                if TheBDM.getBDMState()=='Scanning' or \
                   TheBDM.hasHeaderWithHash(inv[1]):
                   continue
@@ -10516,11 +10515,7 @@ class SatoshiDaemonManager(object):
             raise self.BitcoinDotConfError, 'Could not find bitcoin.conf'
          else:
             LOGINFO('No bitcoin.conf available.  Creating it...')
-            randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
-            randBase58 = binary_to_base58(randBase58)
-            with open(bitconf, 'w') as f:
-               f.write('rpcuser=generated_by_armory\n')
-               f.write('rpcpassword=%s' % randBase58)
+            touchFile(bitconf)
 
       # Guarantee that bitcoin.conf file has very strict permissions
       if OS_WINDOWS:
@@ -10555,17 +10550,28 @@ class SatoshiDaemonManager(object):
          # Convert the list of pairs to a dictionary
          self.bitconf = dict(allconfPairs)
 
-         # Look for rpcport, use default if not there
-         if not self.bitconf.has_key('rpcport'):
-            self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
-         # We must have a username and password or else we bail
-         if not self.bitconf.has_key('rpcuser'):
-            raise self.ConfigFileUserDNE, 'bitcoin.conf does not have rpcuser'
-         if not self.bitconf.has_key('rpcpassword'):
-            raise self.ConfigFilePwdDNE, 'bitcoin.conf does not have rpcpassword'
+      # Look for rpcport, use default if not there
+      if not self.bitconf.has_key('rpcport'):
+         self.bitconf['rpcport'] = BITCOIN_RPC_PORT
 
-         self.bitconf['host'] = '127.0.0.1'
+      # We must have a username and password.  If not, append to file
+      if not self.bitconf.has_key('rpcuser'):
+         with open(bitconf,'a') as f:
+            f.write('\n')
+            f.write('rpcuser=generated_by_armory\n')
+            self.bitconf['rpcuser'] = 'generated_by_armory'
+
+      if not self.bitconf.has_key('rpcpassword'):
+         with open(bitconf,'a') as f:
+            randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
+            randBase58 = binary_to_base58(randBase58)
+            f.write('\n')
+            f.write('rpcpassword=%s' % randBase58)
+            self.bitconf['rpcpassword'] = randBase58
+
+
+      self.bitconf['host'] = '127.0.0.1'
       
 
 
@@ -12735,6 +12741,7 @@ class BlockDataManagerThread(threading.Thread):
             LOGERROR('Error processing BDM input')
             LOGERROR('Received inputTuple: ' + inputName + ' ' + str(inputTuple))
             LOGERROR('Error processing ID (%d)', rndID)
+            LOGEXCEPT('ERROR:')
             if expectOutput:
                self.outputQueue.put('BDM_REQUEST_ERROR')
             self.inputQueue.task_done()
