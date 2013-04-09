@@ -11555,6 +11555,7 @@ class BlockDataManagerThread(threading.Thread):
       self.blkdig = BLKFILE_NUMDIGITS
       self.blkidx = BLKFILE_STARTINDEX
       self.blk1st = BLKFILE_FIRSTFILE
+      self.lastPctLoad = 0
 
       
          
@@ -11730,6 +11731,9 @@ class BlockDataManagerThread(threading.Thread):
                return [-1,-1,-1]
             rate = (pct1-pct0) / (t1-t0) 
             tleft = (1-pct1)/rate
+            if not self.lastPctLoad == pct1:
+               LOGINFO('Reading blockchain, pct complete: %0.1f', 100*pct1)
+            self.lastPctLoad = pct1 
             return [pct1,rate,tleft]
       except:
          return [-1,-1,-1]

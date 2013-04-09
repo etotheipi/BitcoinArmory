@@ -11589,8 +11589,13 @@ class DlgInstallLinux(ArmoryDialog):
       self.distro, self.dver, self.dname = platform.linux_distribution()
 
 
-      self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Ubuntu)')
-      self.radioDlBinaries  = QRadioButton('Download and unpack binaries (Other Linux)')
+      lblOptions = QRichLabel( \
+         'If you have manually installed Bitcoin-Qt or bitcoind on this system '
+         'before, it is recommended you use the method here you previously used.  '
+         'If you get errors using one option, then try again with the other '
+         'option.')
+      self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Ubuntu only)')
+      self.radioDlBinaries  = QRadioButton('Download and unpack binaries (Any Linux)')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.radioDlBinaries)
       btngrp.addButton(self.radioUbuntuPPA)
@@ -11733,6 +11738,7 @@ class DlgInstallLinux(ArmoryDialog):
       self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
    
       layout = QVBoxLayout()
+      layout.addWidget(lblOptions)
       layout.addWidget(self.radioUbuntuPPA)
       layout.addWidget(self.radioDlBinaries)
       layout.addWidget(HLINE())

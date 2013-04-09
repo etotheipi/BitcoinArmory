@@ -1156,8 +1156,15 @@ class ArmoryMainWindow(QMainWindow):
             # In the extremely rare case that google might be down (or just to try again...)
             try:
                response=urllib2.urlopen('http://microsoft.com', timeout=CLI_OPTIONS.nettimeout)
-            except urllib2.URLError:
+            except:
+               LOGEXCEPT('Error checking for internet connection')
+               LOGERROR('Run --skip-online-check if you think this is an error')
                self.internetAvail = False
+         except:
+            LOGEXCEPT('Error checking for internet connection')
+            LOGERROR('Run --skip-online-check if you think this is an error')
+            self.internetAvail = False
+            
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
@@ -1685,6 +1692,7 @@ class ArmoryMainWindow(QMainWindow):
          self.ledgerSize = len(self.combinedLedger)
          self.statusBar().showMessage('Blockchain loaded, wallets sync\'d!', 10000) 
          if self.netMode==NETWORKMODE.Full:
+            LOGINFO('Current block number: %d', self.currBlockNum)
             self.lblArmoryStatus.setText(\
                '<font color=%s>Connected (%s blocks)</font> ' % 
                (htmlColor('TextGreen'), self.currBlockNum))
@@ -4476,6 +4484,7 @@ class ArmoryMainWindow(QMainWindow):
                self.writeSetting('LastBlkRecv',     self.currBlockNum)
             
                if self.netMode==NETWORKMODE.Full:
+                  LOGINFO('Current block number: %d', self.currBlockNum)
                   self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' % \
                      (htmlColor('TextGreen'), self.currBlockNum))
