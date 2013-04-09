@@ -10478,9 +10478,8 @@ class SatoshiDaemonManager(object):
          else: 
             import win32api
             username = win32api.GetUserName()
-            cmd_icacls = 'icacls %s /inheritance:r /grant:r %s:F' % \
-                                                   (bitconf, username)
-            LOGINFO(cmd_icacls)
+            cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
+            LOGINFO(str(cmd_icacls))
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
       else:
