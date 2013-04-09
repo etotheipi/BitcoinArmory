@@ -1636,6 +1636,15 @@ void BlockDataManager_FileRefs::SetBtcNetworkParams(
    MagicBytes_.copyFrom(MagicBytes);
 }
 
+
+/////////////////////////////////////////////////////////////////////////////
+void BlockDataManager_FileRefs::SetHomeDirLocation(string homeDir)
+{
+   // This will eventually be used to store blocks/DB
+   PDEBUG("SetHomeDirLocation");
+   armoryHomeDir_ = homeDir; 
+}
+
 /////////////////////////////////////////////////////////////////////////////
 // Bitcoin-Qt/bitcoind 0.8+ changed the location and naming convention for 
 // the blkXXXX.dat files.  The first block file use to be:
@@ -1657,7 +1666,6 @@ void BlockDataManager_FileRefs::SetBlkFileLocation(string   blkdir,
    blkFileDigits_ = blkdigits; 
    blkFileStart_  = blkstartidx; 
 }
-
 
 /////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_FileRefs::SelectNetwork(string netName)
@@ -2335,10 +2343,20 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
    //         using pre-caching as I have done seems to have no noticeable 
    //         impact on performance.  That means this code block could 
    //         probably be reused, and is fairly simple.
+   SCOPED_TIMER("rescanBlocks");
 
    blk1 = min(blk1, getTopBlockHeight()+1);
 
-   SCOPED_TIMER("rescanBlocks");
+   // Using the same file-writing hack to communicate progress to python
+   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   if(blk1-blk0 > 10000 &&
+      BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+   {
+      remove(bfile.c_str());
+   }
+
+   TIMER_START("LoadProgress");
+   bytesReadSoFar_ = 0;
    for(uint32_t h=blk0; h<blk1; h++)
    {
       BlockHeader & bhr = *(headersByHeight_[h]);
@@ -2348,13 +2366,29 @@ void BlockDataManager_FileRefs::rescanBlocks(uint32_t blk0, uint32_t blk1)
       // all the subsequent TxRef dereferences will be super fast.
       bhr.getBlockFilePtr().preCacheThisChunk();
 
+      bytesReadSoFar_ += bhr.getBlockSize();
+
       ///// LOOP OVER ALL TX FOR THIS HEADER/////
       for(uint32_t itx=0; itx<txlist.size(); itx++)
       {
          Tx thisTx = txlist[itx]->getTxCopy();
          registeredAddrScan(thisTx);
       }
+
+         
+      if( (h<120000 && h%10000==0) || (h>=120000 && h%1000==0) )
+      {
+         if(armoryHomeDir_.size() > 0)
+         {
+            ofstream topblks(bfile.c_str(), ios::app);
+            double t = TIMER_READ_SEC("LoadProgress");
+            topblks << bytesReadSoFar_ << " " 
+                    << totalBlockchainBytes_ << " " 
+                    << t << endl;
+         }
+      }
    }
+   TIMER_STOP("LoadProgress");
 
    allRegAddrScannedUpToBlk_ = blk1;
    updateRegisteredAddresses(blk1);
@@ -2525,6 +2559,14 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    SCOPED_TIMER("parseEntireBlockchain");
    cout << "Number of registered addr: " << registeredAddrMap_.size() << endl;
 
+   // Remove this file
+   string bfile = armoryHomeDir_ + string("/blkfiles.txt");
+   string abortFile = armoryHomeDir_ + string("/abortload.txt");
+   if(BtcUtils::GetFileSize(bfile) != FILE_DOES_NOT_EXIST)
+      remove(bfile.c_str());
+   if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
+      remove(abortFile.c_str());
+
    // Initialize a global cache that will be used...
    FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
    globalCache.setCacheSize(cacheSize);
@@ -2562,8 +2604,8 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
 
    if(GenesisHash_.getSize() == 0)
    {
-      cout << "***ERROR:  Must set network params before loading blockchain!" << endl;
-      cerr << "***ERROR:  Must set network params before loading blockchain!" << endl;
+      cout << "***ERROR: Set net params before loading blockchain!" << endl;
+      cerr << "***ERROR: Set net params before loading blockchain!" << endl;
       return 0;
    }
 
@@ -2572,10 +2614,11 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
    // Now we start the meat of this process...
    uint32_t blocksReadSoFar_ = 0;
    uint32_t bytesReadSoFar_ = 0;
+   TIMER_START("LoadProgress");
    for(uint32_t fnum=1; fnum<=numBlkFiles_; fnum++)
    {
       string blkfile = blkFileList_[fnum-1];
-      cout << "Attempting to read blockchain from file: " << blkfile.c_str() << endl;
+      cout << "Attempting to read blockchain file: " << blkfile.c_str() << endl;
       uint64_t filesize = globalCache.getFileSize(fnum-1);
 
       // Open the file, and check the magic bytes on the first block
@@ -2583,15 +2626,30 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
       BinaryData fileMagic(4);
       is.read((char*)(fileMagic.getPtr()), 4);
       is.seekg(0, ios::beg);
-      cout << blkfile.c_str() << " is " << BtcUtils::numToStrWCommas(filesize).c_str() << " bytes" << endl;
+      cout << blkfile.c_str() << " is " << 
+                 BtcUtils::numToStrWCommas(filesize).c_str() << " bytes" << endl;
 
       if( !(fileMagic == MagicBytes_ ) )
       {
          cerr << "***ERROR:  Block file is for the wrong network!" << endl;
-         cerr << "           MagicBytes of this file: " << fileMagic.toHexStr().c_str() << endl;
+         cerr << "           MagicBytes of this file: " ;
+         cerr << fileMagic.toHexStr().c_str() << endl;
          return 0;
       }
 
+      // This is a hack of hacks, but I can't seem to pass this data 
+      // out through getLoadProgress* methods, because they don't 
+      // update properly when the BDM is actively loading/scanning in a 
+      // separate thread
+      // We'll watch for this file from the python code...
+      if(armoryHomeDir_.size() > 0)
+      {
+         if(BtcUtils::GetFileSize(abortFile) != FILE_DOES_NOT_EXIST)
+            return 0;
+         ofstream topblks(bfile.c_str(), ios::app);
+         double t = TIMER_READ_SEC("LoadProgress");
+         topblks << fnum-1 << " " << numBlkFiles_ << " " << t << endl;
+      }
 
       // Now have a bunch of blockchain data buffered
       BinaryStreamBuffer bsb;
@@ -2634,7 +2692,11 @@ uint32_t BlockDataManager_FileRefs::parseEntireBlockchain(uint32_t cacheSize)
          if(isEOF) 
             break;
       }
+
+
+
    }
+   TIMER_STOP("LoadProgress");
 
 
    

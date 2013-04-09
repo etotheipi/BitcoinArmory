@@ -14,11 +14,14 @@ from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
+SATOSHIMODE     = enum('Auto', 'User')
 NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
 WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
@@ -189,13 +192,18 @@ def initialColResize(tblViewObj, sizeList):
 
 
 class QRichLabel(QLabel):
-   def __init__(self, txt, doWrap=True, hAlign=Qt.AlignLeft, vAlign=Qt.AlignVCenter):
-      QLabel.__init__(self, txt)
+   def __init__(self, txt, doWrap=True, \
+                           hAlign=Qt.AlignLeft, \
+                           vAlign=Qt.AlignVCenter, \
+                           **kwargs):
+      super(QRichLabel, self).__init__(txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
+      self.setText(txt, **kwargs)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
+      text = str(text)
       if color:
          text = '<font color="%s">%s</font>' % (htmlColor(color), text)
       if size:
@@ -208,7 +216,7 @@ class QRichLabel(QLabel):
       if italic:
          text = '<i>%s</i>' % text
 
-      QLabel.setText(self,text)
+      super(QRichLabel, self).setText(text)
 
    def setBold(self):
       self.setText('<b>' + self.text() + '</b>')
@@ -262,8 +270,7 @@ class QMoneyLabel(QRichLabel):
 
    
 
-
-
+################################################################################
 class QLabelButton(QLabel):
    mousePressOn = set()
 
@@ -273,10 +280,6 @@ class QLabelButton(QLabel):
       self.plainText = txt
       self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-   
-   #def setText(self, txt):
-      #colorStr = htmlColor('LBtnNormalFG')
-      #QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
   
    def sizeHint(self):
       w,h = relaxedSizeStr(self, self.plainText)
@@ -304,10 +307,16 @@ class QLabelButton(QLabel):
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
+   """
+   The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
+   text even if no HTML tags are used.  This appears to be necessary for Qt 
+   to wrap the tooltip text
+   """
    fgColor = htmlColor('ToolTipQ')
    lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
    lbl.setToolTip('<u></u>' + tiptext)
    lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
+   lbl.connect(lbl, SIGNAL('clicked()'), lambda: printlbl)
    return lbl
 
    
@@ -430,6 +439,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          w,h = tightSizeNChar(lblMsg, 50)
          lblMsg.setMinimumSize( w, 3.2*h )
+         lblMsg.setOpenExternalLinks(True)
 
          buttonbox = QDialogButtonBox()
 
@@ -564,62 +574,6 @@ def saveTableView(qtbl):
 
 
 
-class QtBackgroundThread(QThread):
-   '''
-   Define a thread object that will execute a preparatory function
-   (blocking), and then a long processing thread followed by something
-   to do when it's done (both non-blocking).  After the 3 methods and 
-   their arguments are set, use obj.start() to kick it off.
-
-   NOTE: This is basically just a copy of PyBackgroundThread in
-         armoryengine.py, but I needed a version that can access
-         Qt elements.  Using vanilla python threads with calls 
-         to Qt signals/slots/methods/etc, throws all sorts of errors.
-   '''
-
-   def __init__(self, parent, *args, **kwargs):
-      QThread.__init__(self, parent)
-
-      self.preFunc  = lambda: ()
-      self.postFunc = lambda: ()
-
-      if len(args)==0:
-         self.func  = lambda: ()
-      else:
-         if not hasattr(args[0], '__call__'):
-            raise TypeError, ('QtBkgdThread constructor first arg '
-                              '(if any) must be a function')
-         else:
-            self.setThreadFunction(args[0], *args[1:], **kwargs)
-
-   def setPreThreadFunction(self, prefunc, *args, **kwargs):
-      def preFuncPartial():
-         prefunc(*args, **kwargs)
-      self.preFunc = preFuncPartial
-
-   def setThreadFunction(self, thefunc, *args, **kwargs):
-      def funcPartial():
-         thefunc(*args, **kwargs)
-      self.func = funcPartial
-
-   def setPostThreadFunction(self, postfunc, *args, **kwargs):
-      def postFuncPartial():
-         postfunc(*args, **kwargs)
-      self.postFunc = postFuncPartial
-
-
-   def run(self):
-      print 'Executing QThread.run()...'
-      self.func()
-      self.postFunc()
-
-   def start(self):
-      print 'Executing QThread.start()...'
-      # This is blocking: we may want to guarantee that something critical 
-      #                   is in place before we start the thread
-      self.preFunc()
-      super(QtBackgroundThread, self).start()
-
 
 
 
@@ -643,6 +597,7 @@ class ArmoryDialog(QDialog):
 
 
 
+################################################################################
 class QRCodeWidget(QWidget):
 
    def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L, parent=None):
@@ -885,5 +840,51 @@ def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
       except:
          return False
       
+
+
+def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
+                           ffilter=[]):
+
+   types = list(ffilter)
+   types.append('All files (*)')
+   typesStr = ';; '.join(types)
+   if not OS_MACOSX:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr))
+   else:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
+
+   if fullPath:
+      qObj.setText( fullPath)
+   
+
+def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
+   initPath = ARMORY_HOME_DIR
+   currText = unicode(qObj.text()).strip()
+   if len(currText)>0:
+      if os.path.exists(currText):
+         initPath = currText
+    
+   if not OS_MACOSX:
+      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath))
+   else:
+      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath, \
+                                       options=QFileDialog.DontUseNativeDialog))
+   if fullPath:
+      qObj.setText( fullPath)
+    
+
+def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
+
+   btn = QPushButton('')
+   ico = QIcon(QPixmap(':/folder24.png')) 
+   btn.setIcon(ico)
+
+
+   fn = lambda: selectDirectoryForQLineEdit(parent, targetWidget, title)
+   parent.connect(btn, SIGNAL('clicked()'), fn)
+   return btn
+
 
 

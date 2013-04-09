@@ -677,12 +677,12 @@ class Armory_Daemon(object):
 
       self.wallet = PyBtcWallet().readWalletFile(wltpath)
 
-      LOGINFO("Initialising RPC server on port %d", RPC_PORT)
+      LOGINFO("Initialising RPC server on port %d", ARMORY_RPC_PORT)
       resource = Armory_Json_Rpc_Server(self.wallet)
       secured_resource = self.set_auth(resource)
 
       # This is LISTEN call for armory RPC server
-      reactor.listenTCP(RPC_PORT, \
+      reactor.listenTCP(ARMORY_RPC_PORT, \
                         server.Site(secured_resource), \
                         interface="127.0.0.1")
 
@@ -739,7 +739,7 @@ class Armory_Daemon(object):
    def checkForAlreadyRunning(self):
       try:
          # If create doesn't throw an error, there's another Armory open already!
-         sock = socket.create_connection(('127.0.0.1',RPC_PORT), 0.1);
+         sock = socket.create_connection(('127.0.0.1',ARMORY_RPC_PORT), 0.1);
    
          # If this is the first instance of armoryd.py, connection will fail,
          # we hit the except clause, and continue happily starting the server.
@@ -749,7 +749,7 @@ class Armory_Daemon(object):
             usr,pwd = f.readline().strip().split(':')
          
          if CLI_ARGS:
-            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,RPC_PORT))
+            proxyobj = ServiceProxy("http://%s:%s@127.0.0.1:%d" % (usr,pwd,ARMORY_RPC_PORT))
             extraArgs = [] if len(CLI_ARGS)==1 else CLI_ARGS[1:]
             try:
                #if not proxyobj.__hasattr__(CLI_ARGS[0]):

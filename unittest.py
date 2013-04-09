@@ -24,7 +24,7 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
-Test_FiniteField      = True
+Test_FiniteField      = False
 Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
@@ -37,6 +37,9 @@ Test_URIParse         = False
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
 Test_Timers           = False
+Test_EstBlockchain    = True
+
+Test_SatoshiManager   = False
 
 '''
 import optparse
@@ -2387,4 +2390,93 @@ if Test_PyBkgdThread:
    for i in range(1,10):
       n,s = test_N_threads(i)
       print 'NThreads: %02d,  %0.2f keys/sec' % (i, n/s)
+
+
+
+if Test_EstBlockchain:
+   print '***********************************************************************'
+   print 'Testing blockchain size estimation algorithm'
+   print '***********************************************************************'
+   for blk in [0,1000,1001,1002, 10000, 125000, 175000, 225000, 230000, 231000, 250000,275000, 300000, 1000000]:
+      sz = EstimateCumulativeBlockchainSize(blk)
+      print blk, bytesToHumanSize(sz), '(%d)'%sz
+
+
+if Test_SatoshiManager:
+   print '***********************************************************************'
+   print 'Testing Satoshi Manager '
+   print '***********************************************************************'
+
+   # This is not a proper "unittest", it's more of a case-study ... it's going 
+   # to create a new directory and start a fresh download of the blockchain.
+   # Or I may set it up to have an existing set of block files, and it just 
+   # needs to update.
+
+
+   
+
+
+   alreadyPort = satoshiIsAvailable()
+   if alreadyPort>0:
+      print 'Bitcoind is open already on port %d!  ' % alreadyPort
+      print 'Please close it and try again.'
+      exit(0)
+
+
+   if not os.path.exists('sdmtest'):
+      os.mkdir('sdmtest')
+
+   if not os.path.exists('sdmtest/bitcoind'):
+      shutil.copy('/usr/lib/bitcoin/bitcoind','sdmtest')
+
+   print 'Creating SatoshiDaemonManager...'
+   sdm = SatoshiDaemonManager()
+   sdm.setupSDM(satoshiHome='sdmtest')
+
+   print 'Reading bitcoin.conf file... (should create it if DNE)'
+   sdm.readBitcoinConf(makeIfDNE=True)
+   sdm.printSDMInfo()
+
+   var = raw_input("Continue?  [Y/n]: ")
+
+   fout = open('record_dl_times.txt','w')
+   
+   startTime = RightNow()
+   try:
+      print 'Starting bitcoind...'
+      sdm.startBitcoind()
+   
+      for i in range(1000000):
+         if i%30==0:
+            sdm.printSDMInfo()
+         state = sdm.getSDMState()
+         print 'Current SDM state:', state,
+         time.sleep(5)
+   
+         if state in ('BitcoindReady', 'BitcoindSynchronizing'):
+            info = sdm.getTopBlockInfo()
+            print ': TopBlock: %d (%s)' % (info['numblks'], unixTimeToFormatStr(info['toptime']))
+            nb = int(info['numblks'])
+            dt = int(RightNow() - startTime)
+            fout.write('%d %d\n' % (nb,dt))
+         else:
+            print ''
+      
+   
+      sdm.stopBitcoind()
+      while(sdm.isRunningBitcoind()):
+         time.sleep(0.1)
+         t+=0.1
+         print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t
+   
+      print 'Stopping again, just for fun'
+      sdm.stopBitcoind()
+   finally:
+      # Gotta shutdown bitcoind no matter what
+      print 'Attempting to shutdown, no matter what!'
+      sdm.stopBitcoind()
+
+
+
+
 

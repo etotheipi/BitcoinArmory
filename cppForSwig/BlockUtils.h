@@ -689,6 +689,7 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+   string                             armoryHomeDir_;
    string                             blkFileDir_;
    uint32_t                           blkFileDigits_;
    uint32_t                           blkFileStart_;
@@ -751,6 +752,7 @@ public:
    static BlockDataManager_FileRefs & GetInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
+   void SetHomeDirLocation(string homeDir);
    void SetBlkFileLocation(string   blkdir,
                            uint32_t blkdigits,
                            uint32_t blkstartidx);
@@ -763,6 +765,9 @@ public:
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
    BinaryData getMagicBytes(void)    { return MagicBytes_;    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // These don't actually work while scanning in another thread!? 
+   // The getLoadProgress* methods don't seem to update until after scan done
    uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
    uint16_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
    uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
