@@ -10648,6 +10648,10 @@ class SatoshiDaemonManager(object):
             f.write('rpcpassword=%s' % randBase58)
             self.bitconf['rpcpassword'] = randBase58
 
+      if not isASCII(self.bitconf['rpcuser']):
+         LOGERROR('Non-ASCII character in bitcoin.conf (rpcuser)!')
+      if not isASCII(self.bitconf['rpcpassword']):
+         LOGERROR('Non-ASCII character in bitcoin.conf (rpcpassword)!')
 
       self.bitconf['host'] = '127.0.0.1'
       
