@@ -1209,9 +1209,12 @@ class ArmoryMainWindow(QMainWindow):
       # We skip the getSettingOrSetDefault call, because we don't want to set
       # it if it doesn't exist
       if self.settings.hasSetting('SatoshiExe'):
+         if not os.path.exists(self.settings.get('SatoshiExe')):
+            LOGERROR('Bitcoin installation setting is a non-existent directory')
          self.satoshiExeSearchPath = [self.settings.get('SatoshiExe')]
       else:
          self.satoshiExeSearchPath = []
+
    
       self.satoshiHomePath = BTC_HOME_DIR
       if self.settings.hasSetting('SatoshiDatadir') and \
@@ -1633,10 +1636,8 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def getSettingOrSetDefault(self, settingName, defaultVal, forceStr=False):
+   def getSettingOrSetDefault(self, settingName, defaultVal):
       s = self.settings.getSettingOrSetDefault(settingName, defaultVal)
-      if forceStr:
-         s = str(s)
       return s
 
    #############################################################################

@@ -287,11 +287,11 @@ class QLabelButton(QLabel):
 
    def mousePressEvent(self, ev):  
       # Prevent click-bleed-through to dialogs being opened
-      txt = str(self.text())
+      txt = toBytes(unicode(self.text()))
       self.mousePressOn.add(txt)
 
    def mouseReleaseEvent(self, ev):  
-      txt = str(self.text())
+      txt = toBytes(unicode(self.text()))
       if txt in self.mousePressOn:
          self.mousePressOn.remove(txt)
          self.emit(SIGNAL('clicked()'))  

@@ -1061,6 +1061,30 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
    return outStr
 
 
+
+################################################################################
+# A couple functions to simplify string/unicode conversions
+DEFAULT_ENCODING = 'utf-8'
+
+def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
+   if isinstance(theStr, unicode):
+      return theStr.encode(theEncoding)
+   elif isinstance(theStr, str):
+      return theStr
+   else:
+      LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
+
+def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
+   if isinstance(theStr, unicode):
+      return theStr
+   elif isinstance(theStr, str):
+      return unicode(theStr, theEncoding)
+   else:
+      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
+
+
+
+
 ################################################################################
 def pprintHex(theStr, indent='', withAddr=True, major=8, minor=8):
    """
@@ -10484,7 +10508,33 @@ class SatoshiDaemonManager(object):
             testPath = os.path.join(p, 'bitcoind')
             if os.path.exists(testPath):
                self.foundExe.append(testPath)
+
+         try:
+            locs = subprocess_check_output(['whereis','bitcoind']).split()
+            if len(locs)>1:
+               locs = filter(lambda x: os.path.basename(x)=='bitcoind', locs)
+               LOGINFO('"whereis" returned: %s', str(locs))
+               self.foundExe.extend(locs)
+         except:
+            LOGEXCEPT('Error executing "whereis" command') 
                          
+
+      # For logging purposes, check that the first answer matches one of the
+      # extra search paths.  There should be some kind of notification that 
+      # their supplied search path was invalid and we are using something else.
+      if len(self.foundExe)>0 and len(extraSearchPaths)>0:
+         foundIt = False
+         for p in extraSearchPaths:
+            if self.foundExe[0].startswith(p):
+               foundIt=True
+
+         if not foundIt:
+            LOGERROR('Bitcoind could not be found in the specified installation:')
+            for p in extraSearchPaths:
+               LOGERROR('   %s', p)
+            LOGERROR('Bitcoind is being started from:')
+            LOGERROR('   %s', self.foundExe[0])
+
       return self.foundExe
 
    #############################################################################
@@ -10608,7 +10658,6 @@ class SatoshiDaemonManager(object):
                fnpath = os.path.join(blocksdir, fn)
                sz += long(os.path.getsize(fnpath))
          
-         print sz, sz/GIGABYTE, SystemSpecs.Memory
          if sz < 5*GIGABYTE:
             if SystemSpecs.Memory>9.0:
                pargs.append('-dbcache=2000')
@@ -11001,8 +11050,6 @@ class SettingsFile(object):
 
       return output
 
- 
-
 
 
    #############################################################################
@@ -11020,18 +11067,21 @@ class SettingsFile(object):
          try:
             # Skip anything that throws an exception
             valStr = '' 
-            if isinstance(val, str) or \
-               isinstance(val, unicode) or \
-               isinstance(val, int) or \
-               isinstance(val, float) or \
-               isinstance(val, long):
+            if   isinstance(val, basestring):
+               valStr = val 
+            elif isinstance(val, int) or \
+                 isinstance(val, float) or \
+                 isinstance(val, long):
                valStr = str(val)
             elif isinstance(val, list) or \
                  isinstance(val, tuple):
                valStr = ' $  '.join([str(v) for v in val])
-            f.write(key.ljust(36) + ' | ' + valStr + '\n')
+            f.write(key.ljust(36))
+            f.write(' | ')
+            f.write(toBytes(valStr))
+            f.write('\n')
          except:
-            LOGWARN('Invalid entry in SettingsFile... skipping')
+            LOGEXCEPT('Invalid entry in SettingsFile... skipping')
       f.close()
       
 
@@ -11061,7 +11111,7 @@ class SettingsFile(object):
             elif v.lower()=='false':
                return False
             else:
-               return v
+               return toUnicode(v)
          
 
       sdata = [line.strip() for line in sdata.split('\n')]
@@ -11077,7 +11127,7 @@ class SettingsFile(object):
             else:
                self.settingsMap[key.strip()] = valList
          except:
-            LOGWARN('Invalid setting in %s (skipping...)', path)
+            LOGEXCEPT('Invalid setting in %s (skipping...)', path)
 
 
 

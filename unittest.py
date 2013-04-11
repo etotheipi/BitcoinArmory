@@ -15,7 +15,7 @@ BE = BIGENDIAN
 
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
-Test_CppBlockUtils    = False
+Test_CppBlockUtils    = True
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -328,8 +328,8 @@ if Test_PyBlockUtils:
 ################################################################################
 if Test_CppBlockUtils:
 
-   print '\n\nLoading Blockchain from:', BLK0001_PATH
-   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
+   BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
    print 'Done!'
 
 
@@ -1931,8 +1931,8 @@ if Test_AddressBooks:
 
    TheBDM.registerWallet(cppWlt)
    
-   print '\n\nLoading Blockchain from:', BLK0001_PATH
-   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
+   BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
    print 'Done!'
 
    TheBDM.scanBlockchainForTx(cppWlt)

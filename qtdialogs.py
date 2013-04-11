@@ -1761,7 +1761,7 @@ class DlgWalletDetails(ArmoryDialog):
             self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.labelValues[WLTFIELDS.Secure].setText('<i>Offline</i>')
          else:
-            owner = str(dlg.edtOwnerString.text())  
+            owner = unicode(dlg.edtOwnerString.text())  
             self.main.setWltSetting(self.wltID, 'IsMine', False)
             self.main.setWltSetting(self.wltID, 'BelongsTo', owner)
                
@@ -1769,7 +1769,7 @@ class DlgWalletDetails(ArmoryDialog):
                self.labelValues[WLTFIELDS.BelongsTo].setText(owner)
             else:
                self.labelValues[WLTFIELDS.BelongsTo].setText('Someone else')
-            self.labelValues[WLTFIELDS.Secure].setText('<i>Watching-only</i>')
+            self.labelValues[WLTFIELDS.Secure].setText('<i>Watching-Only</i>')
             self.labelValues[WLTFIELDS.BelongsTo].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
             self.labelValues[WLTFIELDS.Secure].setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          
