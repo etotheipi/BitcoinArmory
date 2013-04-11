@@ -79,6 +79,15 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    return fnt
       
 
+def UnicodeErrorBox(parent):
+   QMessageBox.warning(parent, 'ASCII Error', \
+      toUnicode('Armory does not currently support non-ASCII characters in '
+      'most text fields (like \xc2\xa3\xc2\xa5\xc3\xa1\xc3\xb6\xc3\xa9).  '
+      'Please use only letters found '
+      'on an English(US) keyboard.  This will be fixed in an upcoming '
+      'release'), QMessageBox.Ok)
+
+
 
 
 #######

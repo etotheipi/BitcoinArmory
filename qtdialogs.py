@@ -811,7 +811,6 @@ class DlgChangeLabels(ArmoryDialog):
    def __init__(self, currName='', currDescr='', parent=None, main=None):
       super(DlgChangeLabels, self).__init__(parent, main)
 
-
       self.edtName = QLineEdit()
       self.edtName.setMaxLength(32)
       lblName = QLabel("Wallet &name:")
@@ -844,6 +843,11 @@ class DlgChangeLabels(ArmoryDialog):
 
 
    def accept(self, *args):
+      if not isASCII(unicode(self.edtName.text())) or \
+         not isASCII(unicode(self.edtDescr.toPlainText())):
+         UnicodeErrorBox(self)
+         return
+
       if len(str(self.edtName.text()).strip())==0:
          QMessageBox.critical(self, 'Empty Name', \
             'All wallets must have a name. ', QMessageBox.Ok)
@@ -4209,6 +4213,15 @@ class DlgSetComment(ArmoryDialog):
       layout.addWidget(self.edtComment, 1,0)
       layout.addWidget(buttonbox,       2,0)
       self.setLayout(layout)
+
+   #############################################################################
+   def accept(self): 
+      if not isASCII(unicode(self.edtComment.text())):
+         UnicodeErrorBox(self)
+         return
+      else:
+         super(DlgSetComment, self).accept()
+
 
 
 try:

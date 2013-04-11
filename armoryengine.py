@@ -45,6 +45,7 @@ import shutil
 import math
 import logging
 import logging.handlers
+import locale
 import ast
 import traceback
 import threading
@@ -80,6 +81,49 @@ parser.add_option("--mtdebug",         dest="mtdebug",     default=False,     ac
 parser.add_option("--skip-online-check", dest="forceOnline", default=False,   action="store_true", help="Go into online mode, even if internet connection isn't detected")
 parser.add_option("--skip-version-check", dest="skipVerCheck", default=False, action="store_true", help="Do not contact bitcoinarmory.com to check for new versions")
 parser.add_option("--keypool",         dest="keypool",     default=100, type="int",                help="Default number of addresses to lookahead in Armory wallets")
+
+
+################################################################################
+# We need to have some methods for casting ASCII<->Unicode<->Preferred
+DEFAULT_ENCODING = 'utf-8'
+
+def isASCII(theStr):
+   try:
+      theStr.decode('ascii')
+      return True
+   except UnicodeEncodeError:
+      return False
+   except:
+      LOGEXCEPT('What was passed to this function? %s', theStr)
+      return False
+
+
+def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
+   if isinstance(theStr, unicode):
+      return theStr.encode(theEncoding)
+   elif isinstance(theStr, str):
+      return theStr
+   else:
+      LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
+
+
+def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
+   if isinstance(theStr, unicode):
+      return theStr
+   elif isinstance(theStr, str):
+      return unicode(theStr, theEncoding)
+   else:
+      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
+
+
+def toPreferred(theStr):
+   return toUnicode(theStr).encode(locale.getpreferredencoding())
+
+
+def lenBytes(theStr, theEncoding=DEFAULT_ENCODING):
+   return len(toBytes(theStr, theEncoding))
+################################################################################
+
 
 
 (CLI_OPTIONS, CLI_ARGS) = parser.parse_args()
@@ -215,6 +259,7 @@ def findLatestBlkFiles(baseDir):
    lastModTimeOld5 = 0
    lastModTimeNew4 = 0
    lastModTimeNew5 = 0
+   baseDir = toPreferred(baseDir)
    newDir = os.path.join(baseDir, 'blocks')
    
    newBlkPath4 = lambda x: os.path.join(newDir,  'blk%04d.dat'%x)
@@ -604,12 +649,16 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
       return Popen(cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE, *args, **kwargs)
    else:
       from subprocess import Popen, PIPE, STARTUPINFO, STARTF_USESHOWWINDOW
-      # As usual, need lots of complicated stuff to accommodate quirks with
-      # Windows
+      # Need lots of complicated stuff to accommodate quirks with Windows
+      if isinstance(cmd, basestring):
+         cmd2 = toPreferred(cmd)
+      else:
+         cmd2 = [toPreferred(c) for c in cmd]
+
       if useStartInfo:
          startinfo = STARTUPINFO()
          startinfo.dwFlags |= STARTF_USESHOWWINDOW
-         return Popen(cmd, \
+         return Popen(cmd2, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \
@@ -617,7 +666,7 @@ def launchProcess(cmd, useStartInfo=True, *args, **kwargs):
                      startupinfo=startinfo, \
                      **kwargs)
       else:
-         return Popen(cmd, \
+         return Popen(cmd2, \
                      *args, \
                      stdin=PIPE, \
                      stdout=PIPE, \
@@ -777,6 +826,7 @@ LOGINFO('   Total Available RAM   : %0.2f GB', SystemSpecs.Memory)
 LOGINFO('   CPU ID string         : ' + SystemSpecs.CpuStr)
 LOGINFO('   Number of CPU cores   : %d cores', SystemSpecs.NumCores)
 LOGINFO('   System is 64-bit      : ' + str(SystemSpecs.IsX64))
+LOGINFO('   Preferred Encoding    : ' + locale.getpreferredencoding())
 LOGINFO('')
 LOGINFO('Network Name: ' + NETWORKS[ADDRBYTE])
 LOGINFO('Satoshi Port: %d', BITCOIN_PORT)
@@ -1060,27 +1110,6 @@ def prettyHex(theStr, indent='', withAddr=True, major=8, minor=8):
       outStr += theStr[i*minor:(i+1)*minor] + ' '
    return outStr
 
-
-
-################################################################################
-# A couple functions to simplify string/unicode conversions
-DEFAULT_ENCODING = 'utf-8'
-
-def toBytes(theStr, theEncoding=DEFAULT_ENCODING):
-   if isinstance(theStr, unicode):
-      return theStr.encode(theEncoding)
-   elif isinstance(theStr, str):
-      return theStr
-   else:
-      LOGERROR('toBytes() not been defined for input: %s', str(type(theStr)))
-
-def toUnicode(theStr, theEncoding=DEFAULT_ENCODING):
-   if isinstance(theStr, unicode):
-      return theStr
-   elif isinstance(theStr, str):
-      return unicode(theStr, theEncoding)
-   else:
-      LOGERROR('toUnicode() not been defined for input: %s', str(type(theStr)))
 
 
 
@@ -10580,7 +10609,6 @@ class SatoshiDaemonManager(object):
             import win32api
             username = win32api.GetUserName()
             cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
-            LOGINFO(str(cmd_icacls))
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
       else:
