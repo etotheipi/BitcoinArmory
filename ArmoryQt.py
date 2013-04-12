@@ -3282,14 +3282,15 @@ class ArmoryMainWindow(QMainWindow):
    #############################################################################
    def installSatoshiClient(self, closeWhenDone=False):
 
+      from twisted.internet import reactor
       if closeWhenDone:
          # It's a long story why I need this, and only when closing...
          TheSDM.stopBitcoind()
          self.resetBdmBeforeScan()
          self.switchNetworkMode(NETWORKMODE.Offline)
-         from twisted.internet import reactor
          reactor.callLater(1, self.Heartbeat)
 
+      reactor.callLater(0.1, self.checkForLatestVersion)
       if OS_LINUX:
          DlgInstallLinux(self,self).exec_()
       elif OS_WINDOWS:

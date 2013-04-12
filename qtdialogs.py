@@ -11583,10 +11583,10 @@ class DlgInstallLinux(ArmoryDialog):
       lblOptions = QRichLabel( \
          'If you have manually installed Bitcoin-Qt or bitcoind on this system '
          'before, it is recommended you use the method here you previously used.  '
-         'If you get errors using one option, then try again with the other '
-         'option.')
+         'If you get errors using this option, try using the manual instructions '
+         'below.')
       self.radioUbuntuPPA   = QRadioButton('Install from bitcoin.org PPA (Ubuntu only)')
-      self.radioDlBinaries  = QRadioButton('Download and unpack binaries (Any Linux)')
+      self.radioDlBinaries  = QRadioButton('Download and unpack binaries (All Linux)')
       btngrp = QButtonGroup(self)
       btngrp.addButton(self.radioDlBinaries)
       btngrp.addButton(self.radioUbuntuPPA)
@@ -11594,26 +11594,16 @@ class DlgInstallLinux(ArmoryDialog):
       self.connect(self.radioDlBinaries, SIGNAL('clicked()'), self.clickInstallOpt)
       self.connect(self.radioUbuntuPPA,  SIGNAL('clicked()'), self.clickInstallOpt)
 
-      #lblDescr1 = QRichLabel('<b>Installing Bitcoin-Qt/bitcoind in %s %s</b>')
-      #lblDescr1.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-      #lblDescr2 = QRichLabel( \
-            #'In order to run Armory in online-mode, it must have access to '
-            #'the Bitcoin software available at <a href="http://bitcoin.org"> '
-            #'bitcoin.org</a>.  Automated installation is available only for '
-            #'Ubuntu and Debian-based distributions.  For others, please visit '
-            #'the bitcoin.org website a')
-      #lblDescr1.setOpenExternalLinks(True)
-
 
       ##########################################################################
       # Install via PPA
       lblAutoPPATitle = QRichLabel('<b>Install PPA for me (Ubuntu only):</b>')
       lblAutoPPA = QRichLabel( \
-         'Have Armory install the PPA for you.  The process is described '
-         'below in case you would like to do it manually.  '
+         'Have Armory install the PPA for you.  The does not work on all '
+         'systems, so try the manual instructions below, if it fails.  '
          'Using the PPA will install the Bitcoin software using your '
          'system\'s package manager, and you will be notified of updates along with '
-         'other software on your system.   <br>')
+         'other software on your system.')
       self.btnAutoPPA = QPushButton('Install Bitcoin PPA')
       self.connect(self.btnAutoPPA, SIGNAL('clicked()'), self.doPPA)
       self.btnAutoPPA.setToolTip( \
@@ -11625,11 +11615,10 @@ class DlgInstallLinux(ArmoryDialog):
 
       lblInstallPPATitle = QRichLabel( '<b>Manual PPA Installation:', doWrap=False)
       lblInstallPPA = QRichLabel( \
-         'You can setup the PPA manually using the Linux terminal.  Open a '
-         'terminal window and copy the following '
-         'three commands one-by-one.  You can open a terminal by hitting '
-         'Alt-F2 and typing "terminal" (without quotes), or through '
-         'the "Applications" menu, in "Accessories":' )
+         'Open a terminal window and copy the following three commands '
+         'one-by-one, pressing [ENTER] after each one.  You can open a terminal by hitting '
+         'Alt-F2 and typing "terminal" (without quotes), or in '
+         'the "Applications" menu under "Accessories".' )
          
       lblInstallPPACmds = QRichLabel( \
          'sudo add-apt-repository ppa:bitcoin/bitcoin' 
@@ -11641,13 +11630,6 @@ class DlgInstallLinux(ArmoryDialog):
       lblInstallPPACmds.setTextInteractionFlags(Qt.TextSelectableByMouse | \
                                                 Qt.TextSelectableByKeyboard)
 
-      lblInstallPPAMidClick = QRichLabel( \
-         'You can select the text with your mouse '
-         'and middle-click in the terminal window to paste (this works with all '
-         'Linux applications).  Since this modifies your system, you will '
-         'be required to type in your password.')
-
-
       
       frmCmds = makeHorizFrame([lblInstallPPACmds], STYLE_SUNKEN)
       self.frmPPA = makeVertFrame([ \
@@ -11657,42 +11639,24 @@ class DlgInstallLinux(ArmoryDialog):
                                     HLINE(), \
                                     lblInstallPPATitle, \
                                     lblInstallPPA,      \
-                                    frmCmds,            \
-                                    lblInstallPPAMidClick], STYLE_SUNKEN)
+                                    frmCmds], STYLE_SUNKEN)
       # Install via PPA
       ##########################################################################
 
       ##########################################################################
       # Install via Manual Download
-
       lblManualExperiment = QRichLabel( \
          '<b>Download and set it up for me!  (All Linux):</b>'
          '<br><br>'
-         'Armory will download and verify the package from the www.bitcoin.org '
-         'and unpack it into a directory in your home folder (pick your downloads '
-         'directory if you are unsure where to put it).  Your Armory settings '
-         'will automatically be adjusted to point to that as the installation '
-         'directory.')
-      btnManualExperiment = QPushButton('Do this for me!')
+         'Armory will download and verify the binaries from www.bitcoin.org.  '
+         'Your Armory settings will automatically be adjusted to point to that '
+         'as the installation directory.')
+      btnManualExperiment = QPushButton('Install for me!')
       self.connect(btnManualExperiment, SIGNAL('clicked()'), self.tryManualInstall)
-
-      btnInstallSettings = QPushButton('Change Settings')
-      self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
-      frmChngSettings = makeHorizFrame([ 
-                     'Stretch', \
-                     btnInstallSettings, \
-                     'Stretch'], \
-                     STYLE_SUNKEN)
-
-      lblInstallManualWarn = QRichLabel( \
-         '<b>Manually download and install Bitcoin</b><br><br>'
-         'Generally, you should only install manually if you are an advanced '
-         'user, or you do not run an Ubuntu/Debian Linux distribution. ' 
-         'If you install manually, you will also be required to upgrade '
-         'manually when new versions are released at www.bitcoin.org.<br><br>')
+      self.chkCustomDLPath = QCheckBox('Select custom download location')
 
       lblInstallManualDescr = QRichLabel( \
-         '<u>Directions for manual installation of the Bitcoin software:</u><br>'
+         '<b>Manual download and install of the Bitcoin software:</b><br>'
          '<ol>'
          '<li>Go to <a href="http://www.bitcoin.org/en/download">'
          'http://www.bitcoin.org/en/download</a></li>'
@@ -11706,12 +11670,21 @@ class DlgInstallLinux(ArmoryDialog):
          'to point to the new directory.  Then restart Armory')
       lblInstallManualDescr.setOpenExternalLinks(True)
 
-      frmManualExper = makeHorizFrame(['Stretch',btnManualExperiment,'Stretch']) 
+
+      btnInstallSettings = QPushButton('Change Settings')
+      self.connect(btnInstallSettings, SIGNAL('clicked()'), self.main.openSettings)
+      frmChngSettings = makeHorizFrame([ 
+                     'Stretch', \
+                     btnInstallSettings, \
+                     'Stretch'], \
+                     STYLE_SUNKEN)
+
+      btnAndChk = makeHorizFrame([btnManualExperiment, self.chkCustomDLPath])
+      frmManualExper = makeHorizFrame(['Stretch',btnAndChk,'Stretch']) 
       self.frmManual = makeVertFrame([ \
                      lblManualExperiment, \
                      frmManualExper, \
                      HLINE(), \
-                     lblInstallManualWarn, \
                      lblInstallManualDescr, \
                      frmChngSettings, \
                      'Stretch'])
@@ -11723,7 +11696,6 @@ class DlgInstallLinux(ArmoryDialog):
       self.stkInstruct = QStackedWidget()
       self.stkInstruct.addWidget(self.frmPPA)
       self.stkInstruct.addWidget(self.frmManual)
-      
 
       btnOkay = QPushButton("OK")
       self.connect(btnOkay, SIGNAL('clicked()'), self.accept)
@@ -11742,6 +11714,9 @@ class DlgInstallLinux(ArmoryDialog):
       self.clickInstallOpt()
       self.setWindowTitle('Install Bitcoin in Linux')
 
+      from twisted.internet import reactor
+      reactor.callLater(0.2, self.main.checkForLatestVersion)
+
    #############################################################################
    def tryManualInstall(self):
       dlDict = self.main.downloadDict.copy()
@@ -11753,18 +11728,24 @@ class DlgInstallLinux(ArmoryDialog):
             'settings to point to where it was unpacked. ', QMessageBox.Ok)
          return
       
-      title = 'Download Bitcoin software to...'
-      initPath = self.main.settings.get('LastDirectory')
-      if not OS_MACOSX:
-         installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath))
+      if not self.chkCustomDLPath.isChecked():
+         installPath = os.path.join(ARMORY_HOME_DIR, 'downloaded')
+         if not os.path.exists(installPath):
+            os.makedirs(installPath)
       else:
-         installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath, \
-                                          options=QFileDialog.DontUseNativeDialog))
+         title = 'Download Bitcoin software to...'
+         initPath = self.main.settings.get('LastDirectory')
+         if not OS_MACOSX:
+            installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath))
+         else:
+            installPath = unicode(QFileDialog.getExistingDirectory(self, title, initPath, \
+                                             options=QFileDialog.DontUseNativeDialog))
 
       if not os.path.exists(installPath):
-         QMessageBox.warning(self, 'Invalid Directory', \
-            'The directory you chose does not exist.  How did you do that?', \
-            QMessageBox.Ok)
+         if len(installPath.strip()) > 0:
+            QMessageBox.warning(self, 'Invalid Directory', \
+               'The directory you chose does not exist.  How did you do that?', \
+               QMessageBox.Ok)
          return
 
       print dlDict['SATOSHI']['Linux']
@@ -11833,9 +11814,8 @@ class DlgInstallLinux(ArmoryDialog):
    #############################################################################
    def doPPA(self):
       out,err = execAndWait('gksudo install_bitcoinqt', timeout=20)
-      from twisted.internet import reactor
-      #reactor.callLater(0.5, lambda: tryInstallLinux(self.main))
       tryInstallLinux(self.main)
+      self.main.settings.delete('SatoshiExe')
       self.accept()
 
 
@@ -11844,8 +11824,9 @@ def tryInstallLinux(main):
    def doit():
       print '\n'
       print '***** Executing auto-install in linux...'
-      out,err = execAndWait(('gksudo "apt-get remove -y bitcoin-qt bitcoind"; ' 
-                             'gksudo apt-get-repository ppa:bitcoin/bitcoin; '
+      out,err = execAndWait('gksudo "apt-get remove -y bitcoin-qt bitcoind"', \
+                             timeout=20)
+      out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
                              'gksudo apt-get update; '
                              'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
                              timeout=120)
