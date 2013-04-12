@@ -1278,7 +1278,7 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', True):
+            if not self.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX):
                return 
    
             try:
@@ -1297,7 +1297,7 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' % 
                      (htmlColor('TextGreen'), self.currBlockNum))
-            if not self.getSettingOrSetDefault('NotifyReconn', True):
+            if not self.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX):
                return
    
             try:
@@ -4427,8 +4427,8 @@ class ArmoryMainWindow(QMainWindow):
                   le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
                   if not le.getTxHash()=='\x00'*32:
                      LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
+                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
                      if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
                         self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
                      self.createCombinedLedger()
@@ -4512,8 +4512,8 @@ class ArmoryMainWindow(QMainWindow):
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
-                  notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-                  notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
+                  notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+                  notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
                   if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
                      self.notifyQueue.append([wltID, le, False])
                else:

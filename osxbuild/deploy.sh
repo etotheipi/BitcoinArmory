@@ -64,6 +64,7 @@ function build_armory()
     cd .. # root dir
     make >/dev/null # keeping stderror
     python -m py_compile *.py  # compile to pyc
+    python -m py_compile jsonrpc/*.py  # compile to pyc
 
     echo "Moving Armory to app..."
     mkdir -p osxbuild/Armory.app/Contents/MacOS/armorybuild
