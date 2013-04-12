@@ -11826,7 +11826,7 @@ def tryInstallLinux(main):
       print '***** Executing auto-install in linux...'
       out,err = execAndWait('gksudo "apt-get remove -y bitcoin-qt bitcoind"', \
                              timeout=20)
-      out,err = execAndWait(('gksudo apt-get-repository ppa:bitcoin/bitcoin; '
+      out,err = execAndWait(('gksudo apt-add-repository ppa:bitcoin/bitcoin; '
                              'gksudo apt-get update; '
                              'gksudo "apt-get install -y bitcoin-qt bitcoind"'), \
                              timeout=120)
