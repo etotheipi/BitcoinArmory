@@ -141,7 +141,7 @@ for f in range(N):
 
       fout.write('This Fragment:     #%d\n' % (f+1))
       fout.write('Fragments Needed:   %d\n' % M)
-      fout.write('Fragments Created:  %d (more fragments may have been created later)\n' % N)
+      fout.write('Fragments Created:  %d (more may have been created later)\n' % N)
       fout.write('\n\n')
 
       
@@ -153,15 +153,14 @@ for f in range(N):
       fout.write('are necessary in each file.  All other data can be omitted.\n')
       fout.write('\n')
 
-      eightpcs = ''.join(pieces[f])
-      eightpcs = [eightpcs[i*16:(i+1)*16] for i in range(8)]
+      fourpcs = ''.join(pieces[f])
+      fourpcs = [fourpcs[i*16:(i+1)*16] for i in range(4,8)]
       firstLine = int_to_hex(M) + int_to_hex(f+1) + binary_to_hex(wlt.uniqueIDBin)
       fout.write('ID: %s\n' % sp(firstLine,4,' '))
       print 'Fragment %d: %s' % (f+1, fname)
       print '    ID:', sp(firstLine, 4, ' ')
-      for i in range(8):
-         prefix = ('x' if i<4 else 'y') + str(i+1 if i<4 else i-3)
-         toWrite = '%s: %s' % (prefix, makeSixteenBytesEasy(eightpcs[i]))
+      for i in range(4):
+         toWrite = 'f%d: %s' % (i+1, makeSixteenBytesEasy(fourpcs[i]))
          fout.write(toWrite + '\n')
          print '   ', toWrite
       print ''
@@ -173,5 +172,12 @@ print '      with the same fragments-required value, M, then you will'
 print '      get the same fragments.  Use this to replace fragments,'
 print '      or using a higher N-value to produce more pieces (but you'
 print '      MUST use the same M value!)'
+print ''
+print 'WARNING:'
+print '      If you previously used the script that output 8 lines for '
+print '      each fragment instead of 4, then you SHOULD NOT trust that '
+print '      the new fragments are compatible with the old ones. '
+print '      Please re-frag your wallet entirely, or use an earlier '
+print '      version of this script. '
 print ''
 

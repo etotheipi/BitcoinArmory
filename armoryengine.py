@@ -1876,7 +1876,7 @@ class FiniteField(object):
 
 
 ################################################################################
-def SplitSecret(secret, needed, pieces, nbytes=None):
+def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
    if nbytes==None:
       nbytes = len(secret)
 
@@ -1912,7 +1912,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
       b = othernum[0]
       poly = lambda x:  ff.add(ff.mult(a,x), b)
       for i in range(pieces):
-         x = othernum[i+1]
+         x = othernum[i+1] if use_random_x else i+1
          fragments.append( [x, poly(x)] )
 
    elif needed==3:
@@ -1925,7 +1925,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
          return ff.add(ff.add(ax2,bx),c) 
 
       for i in range(pieces):
-         x = othernum[i+2]
+         x = othernum[i+2] if use_random_x else i+1
          fragments.append( [x, poly(x)] )
 
    else:
@@ -1937,7 +1937,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None):
          return polyout
          
       for i in range(pieces):
-         x = othernum[i+2]
+         x = othernum[i+2] if use_random_x else i+1
          fragments.append( [x, poly(x)] )
 
 

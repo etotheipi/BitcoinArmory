@@ -42,7 +42,7 @@ for filename in files:
       allData = [line.strip() for line in f.readlines()]
 
    for line in allData:
-      if line[:2].lower() in ['id','x1','x2','x3','x4','y1','y2','y3','y4']:
+      if line[:2].lower() in ['id','x1','x2','x3','x4','y1','y2','y3','y4','f1','f2','f3','f4']:
          frags[-1][line[:2].lower()] = line[3:].replace(' ','')
 
    m = hex_to_int(frags[-1]['id'][:2])
@@ -110,18 +110,22 @@ for i,fragMap in enumerate(frags):
          print ' Error corrected,  %s:%s' % (files[i], prefix)
       return bin16
 
-   x,y = ['']*4, ['']*4
+   x,y,f = ['']*4, ['']*4, ['']*4
    
    for prefix,data in fragMap.iteritems():
       if prefix.lower()=='id':
          continue
       
       rawData = checkLine(data,prefix)
-      toList = x if prefix[0].lower()=='x' else y
+      L = prefix[0].lower()
+      toList = x if L=='x' else (y if L=='y' else f)
       toList[int(prefix[1])-1] = rawData
 
-    
-   fragMtrx.append( [''.join(x), ''.join(y)] )
+   if len(x[0])==0 and len(f[0])>0: 
+      fragnum = fragMap['id'][2:4]
+      fragMtrx.append( [hex_to_binary(fragnum), ''.join(f)] )
+   else:
+      fragMtrx.append( [''.join(x), ''.join(y)] )
 
 M = mList[0][1]
 testFrags = len(fragMtrx)>M
