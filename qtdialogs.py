@@ -5000,7 +5000,7 @@ class DlgConfirmSend(ArmoryDialog):
 
 
 class DlgSendBitcoins(ArmoryDialog):
-   COLS = enum('LblAddr','Addr','AddrBook', 'LblAmt','Btc','LblUnit','BtnMax',  'LblComm','Comm')
+   COLS = enum('LblAddr','Addr','AddrBook', 'LblWltID', 'LblAmt','Btc','LblUnit','BtnMax',  'LblComm','Comm')
    def __init__(self, wlt, parent=None, main=None, prefill=None):
       super(DlgSendBitcoins, self).__init__(parent, main)
       self.maxHeight = tightSizeNChar(GETFONT('var'), 1)[1]+8
@@ -5036,10 +5036,6 @@ class DlgSendBitcoins(ArmoryDialog):
 
       spacer = QSpacerItem(20, 1)
 
-
-
-
-      
 
       # Create the wallet summary display
       lbls = []
@@ -5493,11 +5489,24 @@ class DlgSendBitcoins(ArmoryDialog):
 
 
    #############################################################################
-   def changeWidgetTableColor(self, idx, col, color):
+   def updateAddrField(self, idx, col, color):
       palette = QPalette()
       palette.setColor( QPalette.Base, color)
       self.widgetTable[idx][col].setPalette( palette );
       self.widgetTable[idx][col].setAutoFillBackground( True );
+      try:
+         addrtext = str(self.widgetTable[idx][self.COLS.Addr].text())
+         wid = self.main.getWalletForAddr160(addrStr_to_hash160(addrtext))
+         if wid:
+            wlt = self.main.walletMap[wid]
+            dispStr = '%s (%s)' % (wlt.labelName, wlt.uniqueIDB58)
+            self.widgetTable[idx][self.COLS.LblWltID].setVisible(True)
+            self.widgetTable[idx][self.COLS.LblWltID].setText(dispStr, color='TextBlue')
+         else:
+            self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+      except:
+         self.widgetTable[idx][self.COLS.LblWltID].setVisible(False)
+         LOGEXCEPT("Addr string invalid")   
 
 
    #############################################################################
@@ -5519,7 +5528,7 @@ class DlgSendBitcoins(ArmoryDialog):
  
          if not addrIsValid:
             self.freeOfErrors = False
-            self.changeWidgetTableColor(i, COLS.Addr, Colors.SlightRed)
+            self.updateAddrField(i, COLS.Addr, Colors.SlightRed)
 
 
       numChkFail  = sum([1 if b==-1 or b!=ADDRBYTE else 0 for b in addrBytes])
@@ -5931,28 +5940,34 @@ class DlgSendBitcoins(ArmoryDialog):
          # work around this was just ultra explicit garbage.  I'll pay 0.1 BTC to anyone
          # who figures out why my original code was failing...
          #idx = r+0
-         #chgColor = lambda x: self.changeWidgetTableColor(idx, COLS.Addr, QColor(255,255,255))
+         #chgColor = lambda x: self.updateAddrField(idx, COLS.Addr, QColor(255,255,255))
          #self.connect(self.widgetTable[idx][-1], SIGNAL('textChanged(QString)'), chgColor)
          if r==0:
-            chgColor = lambda x: self.changeWidgetTableColor(0, COLS.Addr, QColor(255,255,255))
+            chgColor = lambda x: self.updateAddrField(0, COLS.Addr, QColor(255,255,255))
             self.connect(self.widgetTable[0][-1], SIGNAL('textChanged(QString)'), chgColor)
          elif r==1:
-            chgColor = lambda x: self.changeWidgetTableColor(1, COLS.Addr, QColor(255,255,255))
+            chgColor = lambda x: self.updateAddrField(1, COLS.Addr, QColor(255,255,255))
             self.connect(self.widgetTable[1][-1], SIGNAL('textChanged(QString)'), chgColor)
          elif r==2:
-            chgColor = lambda x: self.changeWidgetTableColor(2, COLS.Addr, QColor(255,255,255))
+            chgColor = lambda x: self.updateAddrField(2, COLS.Addr, QColor(255,255,255))
             self.connect(self.widgetTable[2][-1], SIGNAL('textChanged(QString)'), chgColor)
          elif r==3:
-            chgColor = lambda x: self.changeWidgetTableColor(3, COLS.Addr, QColor(255,255,255))
+            chgColor = lambda x: self.updateAddrField(3, COLS.Addr, QColor(255,255,255))
             self.connect(self.widgetTable[3][-1], SIGNAL('textChanged(QString)'), chgColor)
          elif r==4:
-            chgColor = lambda x: self.changeWidgetTableColor(4, COLS.Addr, QColor(255,255,255))
+            chgColor = lambda x: self.updateAddrField(4, COLS.Addr, QColor(255,255,255))
             self.connect(self.widgetTable[4][-1], SIGNAL('textChanged(QString)'), chgColor)
 
 
          addrEntryBox = self.widgetTable[r][-1]
          self.widgetTable[r].append( createAddrBookButton(self, addrEntryBox, \
                                       self.wlt.uniqueIDB58, 'Send to') )
+
+
+         self.widgetTable[r].append( QRichLabel('') )
+         self.widgetTable[r][-1].setVisible(False)
+
+
          self.widgetTable[r].append( QLabel('Amount:') )
 
          self.widgetTable[r].append( QLineEdit() )
@@ -5989,14 +6004,16 @@ class DlgSendBitcoins(ArmoryDialog):
          subLayout.addWidget(self.widgetTable[r][COLS.Addr],     0, 1, 1, 5)
          subLayout.addWidget(self.widgetTable[r][COLS.AddrBook], 0, 6, 1, 1)
 
-         subLayout.addWidget(self.widgetTable[r][COLS.LblAmt],   1, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.Btc],      1, 1, 1, 2)
-         subLayout.addWidget(self.widgetTable[r][COLS.LblUnit],  1, 3, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.BtnMax],   1, 4, 1, 1)
-         subLayout.addWidget(QLabel(''),                         1, 5, 1, 2)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblWltID], 1, 1, 1, 5)
 
-         subLayout.addWidget(self.widgetTable[r][COLS.LblComm],  2, 0, 1, 1)
-         subLayout.addWidget(self.widgetTable[r][COLS.Comm],     2, 1, 1, 6)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblAmt],   2, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Btc],      2, 1, 1, 2)
+         subLayout.addWidget(self.widgetTable[r][COLS.LblUnit],  2, 3, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.BtnMax],   2, 4, 1, 1)
+         subLayout.addWidget(QLabel(''),                         2, 5, 1, 2)
+
+         subLayout.addWidget(self.widgetTable[r][COLS.LblComm],  3, 0, 1, 1)
+         subLayout.addWidget(self.widgetTable[r][COLS.Comm],     3, 1, 1, 6)
          subLayout.setContentsMargins(15,15,15,15)
          subLayout.setSpacing(3)
          subfrm.setLayout(subLayout)
