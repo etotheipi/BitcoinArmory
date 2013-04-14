@@ -10302,7 +10302,7 @@ class FakeClientFactory(ReconnectingClientFactory):
 
 #############################################################################
 import socket
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.001):
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
 
    if not isinstance(port, (list,tuple)):
       port = [port]
