@@ -786,7 +786,7 @@ def GetSystemDetails():
       out.Memory = stat.ullTotalPhys/1024.
       out.CpuStr = platform.processor()
    else:
-      print "I only work with Win or Linux :P"
+      raise OSError, "Can't get system specs in OSX"
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
@@ -796,9 +796,8 @@ def GetSystemDetails():
 try:
    SystemSpecs = GetSystemDetails()
 except:
-   print 'Error getting system details:'
-   print sys.exc_info()
-   print 'Skipping.'
+   LOGEXCEPT('Error getting system details:')
+   LOGERROR('Skipping.')
    SystemSpecs = DumbStruct()
    SystemSpecs.Memory   = -1
    SystemSpecs.CpuStr   = 'Unknown'

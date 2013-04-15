@@ -6,6 +6,8 @@ all :
 
 clean :
 	cd cppForSwig; make clean
+	rm -rf osxbuild/Armory.app
+	rm -rf osxbuild/env
 
 install :
 	mkdir -p $(DESTDIR)/usr/share/armory/img
@@ -17,3 +19,7 @@ install :
 	cp jsonrpc/* $(DESTDIR)/usr/share/armory/jsonrpc
 	mkdir -p $(DESTDIR)/usr/share/applications
 	cp dpkgfiles/armory*.desktop $(DESTDIR)/usr/share/applications/
+
+osx :
+	chmod +x osxbuild/deploy.sh
+	cd osxbuild; ./deploy.sh

@@ -1,0 +1,5 @@
+#!/bin/bash
+cd "${0%/*}"
+
+export DYLD_LIBRARY_PATH=../Dependencies/QtCore.framework/Versions/Current:../Dependencies/QtGui.framework/Versions/Current:../Dependencies:$DYLD_LIBRARY_PATH
+bin/python armorybuild/ArmoryQt.pyc

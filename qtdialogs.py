@@ -10170,12 +10170,12 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # Notifications
+      # Notifications -- Don't work right on OSX
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  True)
-      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
-      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
-      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
+      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX)
+      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX)
 
       self.chkBtcIn  = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
@@ -10186,6 +10186,17 @@ class DlgSettings(ArmoryDialog):
       self.chkDiscon.setChecked(notifyDiscon)
       self.chkReconn.setChecked(notifyReconn)
 
+      if OS_MACOSX:
+         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available on Mac/OSX</b>')
+         self.chkBtcIn.setChecked(False)
+         self.chkBtcOut.setChecked(False)
+         self.chkDiscon.setChecked(False)
+         self.chkReconn.setChecked(False)
+         self.chkBtcIn.setEnabled(False)
+         self.chkBtcOut.setEnabled(False)
+         self.chkDiscon.setEnabled(False)
+         self.chkReconn.setEnabled(False)
+	
 
       ###############################################################
       # Date format preferences
