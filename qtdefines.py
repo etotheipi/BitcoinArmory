@@ -33,7 +33,7 @@ HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
 
 
 ################################################################################
-def _(txt):
+def tr(txt):
    """
    This is a common convention for implementing translations, where all 
    translatable strings are put int the _(...) function, and that method 
