@@ -11,7 +11,7 @@ run_WalletCreate          = False
 run_LoadBlockchain_Async  = False
 run_LoadBlockchain_Block  = True
 run_WalletRescan          = False
-run_DiffChangeList        = False
+run_DiffChangeList        = True
 run_UniqueAddresses       = False
 run_CumulativeSize        = True
 run_TrafficCamera         = False
@@ -131,6 +131,8 @@ if run_DiffChangeList:
    print '   Block Hash:     ', int_to_hex(minDiff, 32, BIGENDIAN)
    print '   Equiv Difficult:', maxDiff/(minDiff * 2**32)
    print '   Equiv Diff bits:', log(maxDiff/minDiff)/log(2)
+   print '   Block Header (hex): '
+   print '      ', binary_to_hex(TheBDM.getHeaderByHeight(minDiffBlk).serialize())
 
 
 ################################################################################
