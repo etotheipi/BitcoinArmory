@@ -75,7 +75,7 @@ class ArmoryMainWindow(QMainWindow):
       else:
          self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.iconfile = ':/armory_icon_32x32.png'
-         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h56.png'))
+         self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_h44.png'))
          if Colors.isDarkBkgd:
             self.lblLogoIcon.setPixmap(QPixmap(':/armory_logo_white_text_h56.png'))
       self.setWindowIcon(QIcon(self.iconfile))
@@ -423,7 +423,7 @@ class ArmoryMainWindow(QMainWindow):
       self.connect(btnSendBtc,  SIGNAL('clicked()'), self.clickSendBitcoins)
       self.connect(btnOfflineTx,SIGNAL('clicked()'), self.execOfflineTx)
 
-      verStr = 'Armory %s-beta / %s User' % (getVersionString(BTCARMORY_VERSION), \
+      verStr = 'Armory %s-beta / %s' % (getVersionString(BTCARMORY_VERSION), \
                                               UserModeStr(self.usermode))
       lblInfo = QRichLabel(verStr, doWrap=False)
       lblInfo.setFont(GETFONT('var',10))
@@ -440,9 +440,9 @@ class ArmoryMainWindow(QMainWindow):
       logoBtnFrame.append('Stretch')
 
       btnFrame = makeVertFrame(logoBtnFrame, STYLE_SUNKEN)
-      logoWidth=275
+      logoWidth=220
       btnFrame.sizeHint = lambda: QSize(logoWidth*1.0, 10)
-      btnFrame.setMaximumWidth(logoWidth*1.1)
+      btnFrame.setMaximumWidth(logoWidth*1.2)
       btnFrame.setSizePolicy(QSizePolicy.Preferred, QSizePolicy.Expanding)
       
       layout = QGridLayout()
@@ -3272,25 +3272,24 @@ class ArmoryMainWindow(QMainWindow):
       frmInner = QFrame()
       frmInner.setLayout(dashLayout)
 
-      self.scrl = QScrollArea()
-      self.scrl.setWidgetResizable(True)
-      self.scrl.setWidget(frmInner)
+      self.dashScrollArea = QScrollArea()
+      self.dashScrollArea.setWidgetResizable(True)
+      self.dashScrollArea.setWidget(frmInner)
       scrollLayout = QVBoxLayout()
-      scrollLayout.addWidget(self.scrl)
+      scrollLayout.addWidget(self.dashScrollArea)
       self.tabDashboard.setLayout(scrollLayout)
 
    #############################################################################
    def installSatoshiClient(self, closeWhenDone=False):
 
-      from twisted.internet import reactor
       if closeWhenDone:
          # It's a long story why I need this, and only when closing...
          TheSDM.stopBitcoind()
          self.resetBdmBeforeScan()
          self.switchNetworkMode(NETWORKMODE.Offline)
+         from twisted.internet import reactor
          reactor.callLater(1, self.Heartbeat)
 
-      reactor.callLater(0.1, self.checkForLatestVersion)
       if OS_LINUX:
          DlgInstallLinux(self,self).exec_()
       elif OS_WINDOWS:
@@ -4196,7 +4195,7 @@ class ArmoryMainWindow(QMainWindow):
       self.lastSDMState =  sdmState
       self.lblDashModeSync.setContentsMargins(50,5,50,5)
       self.lblDashModeScan.setContentsMargins(50,5,50,5)
-      vbar = self.scrl.verticalScrollBar()
+      vbar = self.dashScrollArea.verticalScrollBar()
       vbar.setValue(vbar.minimum())
          
       TimerStop('setDashboardDetails')

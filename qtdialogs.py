@@ -1527,12 +1527,12 @@ class DlgWalletDetails(ArmoryDialog):
    
       tooltips[WLTFIELDS.Name] = self.main.createToolTipWidget(
             'This is the name stored with the wallet file.  Click on the '
-            '"Change Labels" button at the bottom of this '
+            '"Change Labels" button on the right side of this '
             'window to change this field' )
    
       tooltips[WLTFIELDS.Descr] = self.main.createToolTipWidget(
             'This is the description of the wallet stored in the wallet file.  '
-            'Press the "Change Labels" button at the bottom of this '
+            'Press the "Change Labels" button on the right side of this '
             'window to change this field' )
    
       tooltips[WLTFIELDS.WltID] = self.main.createToolTipWidget(
@@ -1563,7 +1563,7 @@ class DlgWalletDetails(ArmoryDialog):
             'No Encryption: This wallet contains private keys, and does not require '
             'a passphrase to spend funds available to this wallet.  If someone '
             'else obtains a copy of this wallet, they can also spend your funds!  '
-            '(You can click the "Change Encryption" button at the bottom of this '
+            '(You can click the "Change Encryption" button on the right side of this '
             'window to enabled encryption)')
       elif self.typestr=='Encrypted (AES256)':
          tooltips[WLTFIELDS.Secure] = self.main.createToolTipWidget(
@@ -4984,13 +4984,6 @@ class DlgConfirmSend(ArmoryDialog):
       frmAll = makeHorizFrame( [ lblInfoImg, frmRight ] )
       
       layout.addWidget(frmAll)
-      #layout.addWidget(lblMsg,               0, 1,   1, 1)
-
-      #layout.addWidget(lblFrm,               1, 1,   1, 1)
-
-      #layout.addWidget(lblLastConfirm,       2, 1,  1, 1)
-      #layout.addWidget(buttonBox,            3, 1,  1, 1)
-      #layout.setSpacing(20)
 
       self.setLayout(layout)
       self.setMinimumWidth(350)
@@ -5013,7 +5006,6 @@ class DlgSendBitcoins(ArmoryDialog):
       self.widgetTable = []
 
       self.scrollRecipArea = QScrollArea()
-      #self.scrollRecipArea.setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
       lblRecip = QRichLabel('<b>Enter Recipients:</b>')
       lblRecip.setAlignment(Qt.AlignLeft | Qt.AlignBottom)
          
@@ -12105,5 +12097,334 @@ class DlgDownloadFile(ArmoryDialog):
          
          
 
+################################################################################
+class DlgBackupCenter(ArmoryDialog):
+   """
+   Some static enums, and a QRadioButton with mouse-enter/mouse-leave events
+   """
+   FEATURES = enum('ProtGen','ProtImport','LostPass','Durable', \
+                   'Visual','Physical','Count')
+   OPTIONS  = enum('Paper1','PaperN','DigPlain','DigCrypt','Export', 'Count')
+
+   class QRadioButtonMouseEv(QRadioButton):
+      def __init__(self, parent, txt, index):
+         super(QRadioButtonMouseEv, self).__init__(self, txt)
+         self.parent = parent
+         self.index = index
+
+      def enterEvent(self, ev):
+         self.parent.setDispFrame(self.index)
+         self.setStyleSheet('QRadioButton { background-color : %s }' % htmlColor('SlightBkgdDark'))
+
+      def leaveEvent(self, ev):
+         self.parent.setDispFrame(-1)
+         self.setStyleSheet('QRadioButton { background-color : %s }' % htmlColor('Background'))
+
+
+   #############################################################################
+   def __init__(self, parent, main, wlt):
+      super(DlgBackupCenter, self).__init__(parent, main)
       
+
+
+      self.wlt = wlt
+      wltID = wlt.uniqueIDB58
+      wltName = wlt.labelName
+
+      self.hasImportedAddr = False
+      for a160,addr in self.wlt.addrMap.iteritems():
+         if addr.chainIndex == -2:
+            self.hasImportedAddr = True
+            break
+
+      lblTitle = QRichLabel( _("""
+         <b>Backup Options for Wallet "%s" (%s)</b>""" % (wltName, wltID)))
+         
+      lblTitleDescr = QRichLabel( _("""
+         Armory wallets only need to be backed up <u>one time, ever.</u>
+         The backup is good no matter how many addresses you use.  Keep 
+         your backup in a safe place and never worry about losing your Bitcoins 
+         again!   <a href="">Click here</a> for more information about Armory 
+         backups.  """))
+      lblTitleDescr.setOpenExternalLinks(True)
+
+
+      self.optPaperBackupTop  = self.QRadioButtonMouseEv(self, \
+                                    '<b>Printable Paper Backup</b>', -1)
+      self.optPaperBackupOne  = self.QRadioButtonMouseEv(self, \
+                                    'Single-sheet backup', self.OPTIONS.Paper1)
+      self.optPaperBackupFrag = self.QRadioButtonMouseEv(self, \
+                                    'Single-sheet backup', self.OPTIONS.PaperN)
+          
+      self.optDigitalBackupTop   = self.QRadioButtonMouseEv(self, \
+                                    '<b>Digital Backup</b>', -1)
+      self.optDigitalBackupPlain = self.QRadioButtonMouseEv(self, \
+                                    'Unencrypted', self.OPTIONS.DigPlain)
+      self.optDigitalBackupCrypt = self.QRadioButtonMouseEv(self, \
+                                    'Encrypted', self.OPTIONS.DigCrypt)
+
+      self.optIndivKeyListTop   = self.QRadioButtonMouseEv(self, \
+                               '<b>Export Key Lists</b>', self.OPTIONS.Export)
+
+      '''
+      self.tipPaperBackupOne = self.main.createToolTipWidget( _("""
+         Create one sheet of paper, which is all you need to recover 
+         your wallet, any time in the future.  However, this one sheet of 
+         paper is all an attacker needs to steal your funds! """)
+      self.tipPaperBackupFrag = self.main.createToolTipWidget( _("""
+         Create multiple sheets of paper ("fragments"), of which any subset 
+         of <i>M</i> of them can be used to restore your wallet.  Print 
+         <i>N</i> of them and distribute.  For instance, you might do a 
+         2-of-3 fragmented backup -- keep one at home, one in a safe deposit
+         box, and give one to a family member.  A thief that breaks into 
+         your house, a snooping bank employee, or a traitorous friend, are 
+         all incapable of stealing your funds, unless they get a second 
+         fragment. """)
+      self.tipDigitalBackupPlain = self.main.createToolTipWidget( _("""
+         Copy your wallet directly onto a removable storage device.  This 
+         is simply a copy of your wallet file but with private keys 
+         decrypted so that it is useful as a backup in the far future. """)
+      self.tipDigitalBackupCrypt = self.main.createToolTipWidget( _("""
+         Make a simple copy of your wallet file, exactly as it sits on 
+         on your hard-drive, right now.  This does not make a good 
+         long-term backup, since few people would remember their passphrase
+         after few years when the backup is finally needed. """)
+      self.tipIndivKeyListTop = self.main.createToolTipWidget( _("""
+         View lists of keys and export them in common formats to be 
+         imported into other applications.""")
+      '''
+         
+
+      
+      btngrpTop = QButtonGroup(self)
+      btngrpTop.addButton(self.optPaperBackupTop)
+      btngrpTop.addButton(self.optDigitalBackupTop)
+      btngrpTop.addButton(self.optIndivKeyListTop)
+      btngrpTop.setExclusive(True)
+
+      btngrpPaper = QButtonGroup(self)
+      btngrpPaper.addButton(self.optPaperBackupOne)
+      btngrpPaper.addButton(self.optPaperBackupFrag)
+      btngrpPaper.setExclusive(True)
+
+      btngrpDig = QButtonGroup(self)
+      btngrpDig.addButton(self.optDigitalBackupPlain)
+      btngrpDig.addButton(self.optDigitalBackupCrypt)
+      btngrpDig.setExclusive(True)
+
+      self.connect(self.optPaperBackupTop,   SIGNAL('clicked()'), self.optionClicked)
+      self.connect(self.optDigitalBackupTop, SIGNAL('clicked()'), self.optionClicked)
+      self.connect(self.optIndivKeyListTop,  SIGNAL('clicked()'), self.optionClicked)
+
+
+      spacer = lambda w: QSpacerItem(30,10, QSizePolicy.Fixed, QSizePolicy.Expanding)
+      layoutOpts = QGridLayout()
+      layoutOpts.addWidget( optPaperBackupTop,          0,0,  1,2)
+      layoutOpts.addItem(   spacer,                     1,0)
+      layoutOpts.addItem(   spacer,                     2,0)
+      layoutOpts.addWidget( optDigitalBackupTop,        3,0,  1,2)
+      layoutOpts.addItem(   spacer,                     4,0)
+      layoutOpts.addItem(   spacer,                     5,0)
+      layoutOpts.addWidget( optIndivKeyListTop,         6,0,  1,2)
+
+      layoutOpts.addWidget( self.optPaperBackupOne,     1,1)
+      layoutOpts.addWidget( self.optPaperBackupFrag,    2,1)
+      layoutOpts.addWidget( self.optDigitalBackupPlain, 4,1)
+      layoutOpts.addWidget( self.optDigitalBackupCrypt, 5,1)
+
+      frmOpts = QFrame()
+      frmOpts.setLayout(layoutOpts)
+      frmOpts.setFrameStyle(STYLE_SUNKEN)
+
+
+      self.featuresTips = [None]*self.FEATURES.Count
+      self.featuresLbls = [None]*self.FEATURES.Count
+      self.featuresImgs = [None]*self.FEATURES.Count
+
+   
+      F = self.FEATURES
+      self.featuresTips[F.ProtGen] = self.main.createToolTipWidget(  _( """
+         Every time you click "Receive Bitcoins," a new address is generated. 
+         All of these addresses are generated from a single seed value, which 
+         is included in all backups.   Therefore, all addresses that you have
+         generated so far <b>and</b> will ever generate with this wallet, are 
+         protected by this backup! """)
+      if not self.haveImportedAddr:
+         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(_( """
+         Imported addresses are private keys that you have explicitly 
+         added to your wallet, in addition to the generated addresses. 
+         <i>This wallet does not currently have any imported addresses</i>. """))
+      else:
+         self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(_( """
+         Imported addresses are private keys that you have explicitly 
+         added to your wallet, in addition to the generated addresses. 
+         <i>Your wallet <u>does</u> contain imported addresses<i>."""))
+      self.featuresTips[F.LostPass] = self.main.createToolTipWidget(  _( """
+         Lost/forgotten passphrases are, <b>by far</b>, the most common 
+         reason for users losing bitcoins.  It is critical you have
+         at least one backup that works if you forget your wallet 
+         passphrase. """))
+      self.featuresTips[F.Durable] = self.main.createToolTipWidget(  _( """
+         USB drives and CD/DVD disks are not intended for long-term storage.
+         They a <i>likely</i> to last many years, but hardly guaranteed
+         even for 3-5 years.   On the other hand, printed text on paper will
+         last many decades, and remains useful even if thoroughly faded. """))
+      self.featuresTips[F.Visual] = self.main.createToolTipWidget(  _( """
+         Refers to the ability to look at a backup and determine if 
+         it is still usable.  A backup made on a DVD
+         or USB key requires plugging it into a computer in order to verify
+         the backup is intact.   If the digital backup is stored in a safe 
+         deposit box, you have no way to verify its integrity unless 
+         you take a secure computer/device with you.  A simple glance at 
+         a paper backup is enough to verify that it is still intact. """))
+      self.featuresTips[F.Physical] = self.main.createToolTipWidget(  _( """
+         A backup allows its holder to recover all of the bitcoins in your 
+         wallet.  This means that it can be used by an attacker to steal all 
+         of your funds if it is not secured.  In this case, "Physically 
+         Secure" refers to whether this backup and protected 
+         
+      """
+
+      self.featuresLbls[F.ProtGen] = QRichLabel( _('Protects All Future Addresses'))
+      self.featuresLbls[F.ProtImport] = QRichLabel( _('Protects Imported Addresses'))
+      self.featuresLbls[F.LostPass] = QRichLabel( _('Forgotten Passphrase'))
+      self.featuresLbls[F.Durable] = QRichLabel( _('Long-term Durability'))
+      self.featuresLbls[F.Visual] = QRichLabel( _('Visual Integrity'))
+      self.featuresLbls[F.Physical] = QRichLabel( _('Physically Secure'))
+
+      if not self.haveImportedAddr:
+         self.featuresLbls[F.ProtImport].setEnabled(False)
+
+      layoutFeat = QGridLayout()
+      for i in range(self.FEATURES.Count):
+         self.featuresImgs[i] = QLabel('')
+         layoutFeat.addWidget( self.featuresTips[i], i, 0)
+         layoutFeat.addWidget( self.featuresLbls[i], i, 1)
+         layoutFeat.addWidget( self.featuresImgs[i], i, 2)
+
+      frmFeat = QFrame()
+      frmFeat.setLayout(layoutFeat)
+      frmFeat.setFrameStyle(STYLE_SUNKEN)
+
+
+      self.lblDescrSelected = QRichLabel('')
+      frmFeatDescr = makeVertFrame(self.lblDescrSelected)
+
+      btnDone = QPushButton('Done')
+      btnDoIt = QPushButton('Create Backup')
+      frmBottomBtns = makeHorizFrame([btnDone, 'Stretch', btnDoIt])
+
+      ##########################################################################
+      layoutDialog = QGridLayout()
+      layoutDialog.addWidget(lblTitle,             0,0,  1,2)
+      layoutDialog.addWidget(lblTitleDescr,        1,0,  1,2)
+      layoutDialog.addWidget(frmOpts,              2,0)
+      layoutDialog.addWidget(frmFeat,              2,1)
+      layoutDialog.addWidget(frmFeatDescr,         3,0,  1,2)
+      layoutDialog.addWidget(frmBottomBtns,        4,0,  1,2)
+      self.setLayout(layoutDialog) 
+      self.setWindowTitle("Backup Center")
+
+
+
+   
+   #############################################################################
+   def setDispFrame(self, index):
+      if index < 0:
+         self.setDispFrame(self.getIndexChecked())
+      else:
+         chk = lambda: QPixmap(':/checkmark32.png').scaled(20,20)
+         _X_ = lambda: QPixmap(':/red_X.png').scaled(16,16)
+         if index==self.OPTIONS.Paper1:
+            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
+         elif index==self.OPTIONS.PaperN:
+            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
+         elif index==self.OPTIONS.DigPlain:
+            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
+         elif index==self.OPTIONS.DigCrypt:
+            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(chk())
+         elif index==self.OPTIONS.Export:
+            self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
+            self.featuresImgs[self.FEATURES.Physical  ].setPixmap(_X_())
+         else:
+            LOGERROR('What index was sent to setDispFrame? %d', index)
+      
+
+   #############################################################################
+   def getIndexChecked(self):
+      for self.
+      self.optPaperBackupTop.isChecked()
+      self.optPaperBackupOne.isChecked()
+      self.optPaperBackupFrag.isChecked()
+      self.optDigitalBackupTop.isChecked()
+      self.optDigitalBackupPlain.isChecked()
+      self.optDigitalBackupCrypt.isChecked()
+      self.optIndivKeyListTop.isChecked()
+
+   #############################################################################
+   def optionClicked(self):
+      if self.optPaperBackupTop.isChecked():
+         self.optPaperBackupOne.setEnabled(True)
+         self.optPaperBackupFrag.setEnabled(True)
+         self.optDigitalBackupPlain.setEnabled(False)
+         self.optDigitalBackupCrypt.setEnabled(False)
+         self.optDigitalBackupPlain.setChecked(False)
+         self.optDigitalBackupCrypt.setChecked(False)
+      elif self.optDigitalBackupTop.isChecked():
+         self.optDigitalBackupPlain.setEnabled(True)
+         self.optDigitalBackupCrypt.setEnabled(True)
+         self.optPaperBackupOne.setEnabled(False)
+         self.optPaperBackupFrag.setEnabled(False)
+         self.optPaperBackupOne.setChecked(False)
+         self.optPaperBackupFrag.setChecked(False)
+      elif self.optIndivKeyListTop.isChecked():
+         self.optPaperBackupOne.setEnabled(False)
+         self.optPaperBackupFrag.setEnabled(False)
+         self.optPaperBackupOne.setChecked(False)
+         self.optPaperBackupFrag.setChecked(False)
+         self.optDigitalBackupPlain.setEnabled(False)
+         self.optDigitalBackupCrypt.setEnabled(False)
+         self.optDigitalBackupPlain.setChecked(False)
+         self.optDigitalBackupCrypt.setChecked(False)
+         
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 

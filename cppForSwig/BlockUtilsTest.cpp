@@ -32,6 +32,7 @@ void TestScanForWalletTx(string blkdir);
 void TestReorgBlockchain(string blkdir);
 void TestZeroConf(void);
 void TestCrypto(void);
+void TestMerkle(void);
 void TestECDSA(void);
 void TestPointCompression(void);
 void TestFileCache(void);
@@ -116,11 +117,14 @@ int main(void)
    //TestOutOfOrder(blkdir);
 
    // Make sure to create testblkdir directory, or else this fails
-   printTestHeader("Testing readBlkFileUpdate calls");
-   TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
+   //printTestHeader("Testing readBlkFileUpdate calls");
+   //TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
+
+   printTestHeader("Testing merkle-root calculation");
+   TestMerkle();
 
    //printTestHeader("Crypto-KDF-and-AES-methods");
    //TestCrypto();
@@ -911,6 +915,22 @@ void TestZeroConf(void)
    wlt.pprintAlot(topBlk, true);
    */
 
+}
+
+   
+void TestMerkle(void)
+{
+   vector<BinaryData> txList(3);
+   txList[0].createFromHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
+   txList[1].createFromHex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
+   txList[2].createFromHex("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+
+   vector<BinaryData> merkleTree = BtcUtils::calculateMerkleTree(txList); 
+   cout << "Full Merkle Tree:" << endl;
+   for(uint32_t i=0; i<merkleTree.size(); i++)
+      cout << "    " << i << " " << merkleTree[i].toHexStr() << endl;
+
+   
 }
 
 

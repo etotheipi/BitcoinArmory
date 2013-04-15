@@ -29,12 +29,48 @@ STYLE_PLAIN  = QFrame.Box | QFrame.Plain
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-
-# TODO: switch to checking master branch once this is out
 HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
-#HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
-#HTTP_VERSION_FILE = 'https://github.com/downloads/etotheipi/BitcoinArmory/versions.txt'
-#HTTP_VERSION_FILE = 'http://bitcoinarmory.com/wp-content/uploads/2012/07/versions.txt'
+
+
+################################################################################
+def _(txt):
+   """
+   This is a common convention for implementing translations, where all 
+   translatable strings are put int the _(...) function, and that method 
+   does some fancy stuff to present the translation if needed. 
+
+   This is being implemented here, to not only do translations in the 
+   future, but also to clean up the typical text fields I use.  I've 
+   ended up with a program full of stuff like this:
+
+      myLabel = QRichLabel( \
+         'This text is split across mulitple lines '
+         'with a space after each one, and single '
+         'quotes on either side.')
+   
+   Instead it should really look like: 
+      
+      myLabel = QRichLabel( _('''
+         This text is split across mulitple lines 
+         and it will acquire a space after each line 
+         as well as include newlines because it's HTML
+         and uses <br>. ''' ))
+   """
+
+   txt = toUnicode(txt)
+   lines = [l.strip() for l in txt.split('\n')]
+   outText = (' '.join(lines)).strip()
+
+   # Eventually we do something cool with this transalate function.
+   TRANSLATE = lambda x: x
+
+   return TRANSLATE(outText)
+
+   
+
+
+################################################################################
+
 
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
@@ -45,6 +81,7 @@ def VLINE(style=QFrame.Plain):
    qf = QFrame()
    qf.setFrameStyle(QFrame.VLine | style)
    return qf
+
 
 
 

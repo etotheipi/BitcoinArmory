@@ -367,6 +367,7 @@ class NegativeValueError(Exception): pass
 class FiniteFieldError(Exception): pass
 class BitcoindError(Exception): pass
 class ShouldNotGetHereError(Exception): pass
+class BadInputError(Exception): pass
 
 
 
@@ -2115,7 +2116,8 @@ def parsePrivateKeyData(theStr):
 
          if binEntry=='':
             raise InvalidHashError, 'Private Key checksum failed!'
-      elif len(binEntry) in (33, 37) and binEntry[-1]=='\x01':
+      elif (len(binEntry)==33 and binEntry[-1]=='\x01') or \
+           (len(binEntry)==37 and binEntry[-5]=='\x01'):
          raise CompressedKeyError, 'Compressed Public keys not supported!'
       return binEntry, keyType
    
@@ -12807,11 +12809,9 @@ class BlockDataManagerThread(threading.Thread):
                   self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
-               LOGINFO('Go online requested')
+               LOGINFO('Go offline requested')
                self.prefMode = BLOCKCHAINMODE.Offline
 
-            # Let any blocking join() know that this queue entry is done
-            #LOGDEBUG('Output: %s \t\nTook %0.6f seconds' % (str(output), (RightNow() - tstart)))
             self.inputQueue.task_done()
             if expectOutput:
                self.outputQueue.put(output)
