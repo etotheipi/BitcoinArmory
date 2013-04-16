@@ -445,7 +445,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noStr='No'):
+def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+                   yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
@@ -479,6 +480,7 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
             msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
    
          self.chkDnaa = QCheckBox(dmsg)
+         self.chkDnaa.setChecked(dnaaStartChk)
          lblMsg = QLabel(msg)
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)

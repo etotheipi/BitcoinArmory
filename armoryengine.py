@@ -7211,7 +7211,7 @@ class PyBtcWallet(object):
                              kdfTargSec=DEFAULT_COMPUTE_TIME_TARGET, \
                              kdfMaxMem=DEFAULT_MAXMEM_LIMIT, \
                              shortLabel='', longLabel='', isActuallyNew=True, \
-                             doRegisterWithBDM=True):
+                             doRegisterWithBDM=True, skipBackupFile=False):
       """
       This method will create a new wallet, using as much customizability
       as you want.  You can enable encryption, and set the target params
@@ -7351,8 +7351,9 @@ class PyBtcWallet(object):
       newfile.write(fileData.getBinaryString())
       newfile.close()
 
-      walletFileBackup = self.getWalletPath('backup')
-      shutil.copy(self.walletPath, walletFileBackup)
+      if not skipBackupFile:
+         walletFileBackup = self.getWalletPath('backup')
+         shutil.copy(self.walletPath, walletFileBackup)
 
       # Lock/unlock to make sure encrypted keys are computed and written to file
       if self.useEncryption:
@@ -7607,11 +7608,68 @@ class PyBtcWallet(object):
             typestr = int_to_binary(WLT_DATATYPE_TXCOMMENT)
             newFile.write(typestr + hashVal + twoByteLength + comment)
 
-      for addr160,opevalData in self.opevalMap.iteritems():
-         pass
-
       newFile.close()
+
    
+   #############################################################################
+   def makeUnencryptedWalletCopy(self, newPath, securePassphrase=None):
+
+      self.writeFreshWalletFile(newPath)
+      if not self.useEncryption:
+         return True
+
+      if self.isLocked:
+         if not securePassphrase:
+            LOGERROR('Attempted to make unencrypted copy without unlocking')
+            return False
+         else:
+            self.unlock(securePassphrase=SecureBinaryData(securePassphrase))
+
+      newWlt = PyBtcWallet().readWalletFile(newPath)
+      newWlt.unlock(self.kdfKey)
+      newWlt.changeWalletEncryption(None)
+
+      
+      walletFileBackup = newWlt.getWalletPath('backup')
+      if os.path.exists(walletFileBackup):
+         LOGINFO('New wallet created, deleting backup file')
+         os.remove(walletFileBackup)
+      return True
+      
+      
+   #############################################################################
+   def makeEncryptedWalletCopy(self, newPath, securePassphrase=None):
+      """
+      Unlike the previous method, I can't just copy it if it's unencrypted, 
+      because the target device probably shouldn't be exposed to the 
+      unencrypted wallet.  So for that case, we will encrypt the wallet 
+      in place, copy, then remove the encryption.
+      """
+
+      if self.useEncryption:
+         # Encrypted->Encrypted:  Easy!
+         self.writeFreshWalletFile(newPath)
+         return True
+         
+      if not securePassphrase:
+         LOGERROR("Tried to make encrypted copy, but no passphrase supplied")
+         return False
+
+      # If we're starting unencrypted...encrypt it in place
+      (mem,nIter,salt) = self.computeSystemSpecificKdfParams(0.25)
+      self.changeKdfParams(mem, nIter, salt)
+      self.changeWalletEncryption(securePassphrase=securePassphrase)
+   
+      # Write the encrypted wallet to the target directory
+      self.writeFreshWalletFile(newPath)
+
+      # Unencrypt the wallet now
+      self.changeWalletEncryption(None)
+      return True
+   
+
+      
+
 
    #############################################################################
    def forkOnlineWallet(self, newWalletFile, shortLabel='', longLabel=''):
@@ -9055,7 +9113,6 @@ class PyBtcWallet(object):
       time the checkWalletLockTimeout function is called it will be re-
       locked.
       """
-      
       LOGDEBUG('Attempting to unlock wallet: %s', self.uniqueIDB58)
       if not secureKdfOutput and not securePassphrase:
          raise PassphraseError, "No passphrase/key provided to unlock wallet!"
