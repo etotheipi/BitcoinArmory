@@ -1269,7 +1269,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkHaveBlockfiles(self):
-      return os.path.exists(BLKFILE_FIRSTFILE)
+      return os.path.exists(TheBDM.blk1st)
 
    #############################################################################
    def onlineModeIsPossible(self):

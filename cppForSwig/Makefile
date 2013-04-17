@@ -26,7 +26,7 @@ ifeq ($(UNAME), Darwin)
    STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
 else
    SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
-   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).so"
+   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
 
 
 endif

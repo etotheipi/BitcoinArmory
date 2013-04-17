@@ -5,7 +5,7 @@
 # anyway...
 # 
 # -----BEGIN-SIGNED-DATA--------------------------------------------------------
-# SECTION-INSTALLERS-SATOSHI 0.8.2
+# SECTION-INSTALLERS-SATOSHI 0.8.1
 #    Linux     http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-linux.tar.gz     6d7f023a9df1a436c51de83f7cd751f162be9b4fb1c06da05545f9fba7cb2a98
 #    MacOSX    http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-macosx.dmg       dddc563af906e766900868970fd2146a1cad792fd7089f034d46ad0e838ce99f
 #    Windows   http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-win32-setup.exe  2d447daad6cba12a4dd29de4ffbbd00c5634f45818d39cc12ce27ad964c905a6
@@ -14,6 +14,32 @@
 # -----SIGNATURE----------------------------------------------------------------
 # 284651a0c1a5f41152f8332452831c35db0e0294dc36edac2d76e5ca0e1257370a480a2686e03cd8505e76811959aec4d125503a0efb6c960d6b38af0a8d2900
 # -----END-SIGNED-DATA----------------------------------------------------------  
+
+
+
+#-------------------------------------------------------------------------------
+VERSION 0.88
+   - Windows Users:  Please Uninstall Previous Versions!
+        The installer fails to completely overwrite previous versions
+        of Armory and will throw errors when trying to run it.  Either 
+        uninstall Armory first, or install this version, then run the 
+        installer again and select "Repair Installation."
+
+   - Auto-Management of Bitcoin Software (with version notification)
+        This version now requires you to *not* run Bitcoin-Qt in the 
+        background.  Armory will run it for you.  Modify this behavior
+        in the "File"->"Settings" menu
+
+   - Signed Windows Installers
+        Native code signing with Class 2 SSL certificate.  Installer
+        will now say "Verified Publisher:  Alan Reiner" when you 
+        install in Windows
+        
+
+   - Clickable "(?)" Objects
+        This version now requires you to *not* run Bitcoin-Qt in the 
+        background.  Armory will run it for you.  Modify this behavior
+
 
 #-------------------------------------------------------------------------------
 VERSION 0.87
