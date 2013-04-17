@@ -1,0 +1,8 @@
+The scripts in this directory are mostly just toy script, or "scratch-paper" for some operation I needed to do once.  The scripts show a variety of ways to access armory functionality, but there is no guarantee that they work for any apparent purpose (some were created for previous versions of Armory). 
+
+The script, sample_armory_code.py is generally kept-up-to-date, and intended to have a variety of access patterns to illustrate the library usage.  
+
+The script, cli_sign_script.py is a working implementation (as of v0.82) of signing and unsigned transaction from the command line using the full wlalet.
+
+
+However, there are still no guarantees even for the above two scripts.  If you email me and ask for sample code for something, I am likely to put it in this directory and commit it with the project when I'm done, but not necessarily maintain it.

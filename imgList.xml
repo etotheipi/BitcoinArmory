@@ -26,6 +26,7 @@
       <file alias="armory_logo_h36.png">img/armory_logo_h36.png</file>
       <file alias="armory_logo_h48.png">img/armory_logo_h48.png</file>
       <file alias="armory_logo_h72.png">img/armory_logo_h72.png</file>
+      <file alias="armory_logo_h44.png">img/armory_logo_h44.png</file>
       <file alias="armory_logo_h56.png">img/armory_logo_h56.png</file>
       <file alias="armory_logo_white_text_h72.png">img/armory_logo_white_text_h72.png</file>
       <file alias="armory_logo_white_text_green_h72.png">img/armory_logo_white_text_green_h72.png</file>
@@ -79,6 +80,7 @@
       <file alias="conf5t_nonum.png">img/conf5t_nonum.png</file>
       <file alias="folder-new-5.png">img/folder-new-5.png</file>
       <file alias="folder.png">img/folder.png</file>
+      <file alias="folder24.png">img/folder24.png</file>
       <file alias="lockedIcon.png">img/lockedIcon.png</file>
       <file alias="loadicon_0.png">img/loadicon_0.png</file>
       <file alias="loadicon_1.png">img/loadicon_1.png</file>

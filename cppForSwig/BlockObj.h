@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -87,7 +87,7 @@ public:
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData    serializeWholeBlock(BinaryData const & magic, 
-                                     bool withLead8Bytes=true) const;
+                                     bool withLead8Bytes) const;
 
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
    uint32_t      findNonce(void);
@@ -97,6 +97,8 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getRef()); }
    void unserialize(BinaryDataRef const & str);
    void unserialize(BinaryRefReader & brr);
+
+   void unserialize_swigsafe_(BinaryData const & rawHead) { unserialize(rawHead); }
 
    void clearDataCopy() {dataCopy_.resize(0);}
 
@@ -156,6 +158,8 @@ public:
    void        unserialize(BinaryRefReader & brr);
    void        unserialize(BinaryData const & bd);
    void        unserialize(BinaryDataRef const & bdRef);
+
+   void unserialize_swigsafe_(BinaryData const & rawOP) { unserialize(rawOP); }
 
 private:
    BinaryData txHash_;
@@ -226,6 +230,8 @@ public:
                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
    void unserialize(BinaryRefReader & brr, 
                         uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
+
+   void unserialize_swigsafe_(BinaryData const & rawIn) { unserialize(rawIn); }
 
    /////////////////////////////////////////////////////////////////////////////
    // Not all TxIns have sendor info.  Might have to go to the Outpoint and get
@@ -314,6 +320,8 @@ public:
    void unserialize(BinaryRefReader & brr, 
                          uint32_t nbytes=0, TxRef* parent=NULL, int32_t idx=-1);
 
+   void unserialize_swigsafe_(BinaryData const & rawOut) { unserialize(rawOut); }
+
    void  pprint(ostream & os=cout, int nIndent=0, bool pBigendian=true);
 
 private:
@@ -388,6 +396,8 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryRefReader & brr);
+   void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
+
 
    uint32_t    getLockTime(void) const { return lockTime_; }
    uint64_t    getSumOfOutputs(void);
@@ -451,7 +461,6 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
-   //bool               isInitialized(void)  const { return blkFilePtr_!=NULL; }
    bool               isMainBranch(void)  const;
    uint32_t           getSize(void) const {  return blkFilePtr_.getNumBytes(); }
 

@@ -3,7 +3,102 @@
 # Maintain this file in the repo so that Armory can always find info
 # about the latest version.  This is a good way to document progress,
 # anyway...
+# 
+# -----BEGIN-SIGNED-DATA--------------------------------------------------------
+# SECTION-INSTALLERS-SATOSHI 0.8.1
+#    Linux     http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-linux.tar.gz     6d7f023a9df1a436c51de83f7cd751f162be9b4fb1c06da05545f9fba7cb2a98
+#    MacOSX    http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-macosx.dmg       dddc563af906e766900868970fd2146a1cad792fd7089f034d46ad0e838ce99f
+#    Windows   http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-win32-setup.exe  2d447daad6cba12a4dd29de4ffbbd00c5634f45818d39cc12ce27ad964c905a6
+# SECTION-INSTALLERS-ARMORY 0.88
+#    No download links needed yet
+# -----SIGNATURE----------------------------------------------------------------
+# 284651a0c1a5f41152f8332452831c35db0e0294dc36edac2d76e5ca0e1257370a480a2686e03cd8505e76811959aec4d125503a0efb6c960d6b38af0a8d2900
+# -----END-SIGNED-DATA----------------------------------------------------------  
 
+#-------------------------------------------------------------------------------
+VERSION 0.87
+   - Inflatable QR Codes Everywhere!
+        QR codes added to multiple areas where addresses are displayed,
+        including the "Create Clickable Link" window which displays the
+        full payment request in the QR code.  Double-click on any QR 
+        code to inflate it to full screen.
+        
+   - Added Paper Backup info to "Backup Individual Keys"
+        If you have a lot of imported keys, you can now backup 
+        everything using the "Backup Individual Keys" dialog.  It 
+        displays the same four lines as on your paper backup, at the
+        top of the key list.  Also added option to include the address
+        pool to the backup.
+
+   - New Right-Click Menu Options
+        The "Transactions" ledger and address lists have new options,
+        including links to view the data on blockchain.info.  
+
+   - Real support for Bitcoin-Qt/bitcoind 0.8+
+        Prior attempt at supporting 0.8 Satoshi client was broken due to 
+        incomplete information about the changes.  Support has finally 
+        been implemented and tested.
+
+   - Bugfix: Copying Payment Requests
+        The "Copy to Clipboard" button on the payment request dialog 
+        never worked reliably.  It now copies actually-clickable links 
+        that should paste correctly into other applications, such as 
+        email apps (Outlook, Thunderbird), and message composition forms
+        in webbrowser email sessions.
+
+   - Bugfix: P2Pool Transactions
+        Importing wallets with P2Pool transactions no longer crashes Armory
+
+   - Bugfix: Sweeping and Importing Addresses
+        Some problems with sweeping have been resolved.  Importing addresses
+        already contained in other wallets is prohibited now.  It used to 
+        just produce weird answers, now it appears to produce crashes.
+
+   - Billions of Little Bug Fixes
+        Special thanks to forum user "subSTRATA" who identified about 
+        many DOZEN minor bugs and suboptimal features.  Most of them
+        have been fixed/upgraded, to create a smoother experience, overall.
+
+#-------------------------------------------------------------------------------
+VERSION 0.86.3
+
+   - Right-click Ledger Options
+        Added right-click menu to ledger for quick access to transaction
+        and wallet information.
+
+   - Offline-Sign Confirmation & Warnings
+        Offline signing now displays appropriate warnings about what users 
+        should verify for before signing and broadcasting.
+
+   - Added Comments to Coin Control (Expert Mode)
+        Abbreviated comments are now show in the coin control selection
+        window, with full comments availble via mouse-over text.
+
+   - Bugfix: Disappearing Addresses
+        Some startup operations were inadvertantly "rewinding" wallets with
+        unused addresses, causing those addresses to disappear from the 
+        address list, and then shown again when the user requested another
+        address.  Resolved.
+
+   - Bugfix: Ledger Sorting
+        All fields in the primary ledger are sortable.  Some fields become
+        unsortable as a side-effect of ledger optimizations in v0.85.
+
+        
+
+#-------------------------------------------------------------------------------
+VERSION 0.86
+
+   - Added "Coin Control" (Expert Mode Only)
+        Expert usermode now has the ability to control the specific input
+        coins for each transaction, as well as redirect the change output
+        to a custom address or return it to one of the inputs.
+        
+   - Bugfix: Double-Transactions 
+        A bug was causing transactions to show up twice for wallets that 
+        were just created.  This was resolved by simply restarting Armory.
+        Restarting is no longer required.
+        
 
 #-------------------------------------------------------------------------------
 VERSION 0.85

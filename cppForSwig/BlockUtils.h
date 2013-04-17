@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -450,6 +450,7 @@ private:
    vector<TxIOPair*>     relevantTxIOPtrsZC_;
    vector<LedgerEntry>   ledger_;
    vector<LedgerEntry>   ledgerZC_;
+
 };
 
 
@@ -544,8 +545,8 @@ public:
    void     sortLedger(void);
    uint32_t removeInvalidEntries(void);
 
-   vector<LedgerEntry>       getZeroConfLedger(BinaryData const * addr160=NULL);
-   vector<LedgerEntry>       getTxLedger(BinaryData const * addr160=NULL); 
+   vector<LedgerEntry> &     getZeroConfLedger(BinaryData const * addr160=NULL);
+   vector<LedgerEntry> &     getTxLedger(BinaryData const * addr160=NULL); 
    map<OutPoint, TxIOPair> & getTxIOMap(void)    {return txioMap_;}
    map<OutPoint, TxIOPair> & getNonStdTxIO(void) {return nonStdTxioMap_;}
 
@@ -558,6 +559,8 @@ public:
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
+
+   vector<LedgerEntry> & getEmptyLedger(void) { EmptyLedger_.clear(); return EmptyLedger_;}
 
 private:
    vector<BtcAddress*>          addrPtrVect_;
@@ -573,6 +576,7 @@ private:
    set<OutPoint>                nonStdUnspentOutPoints_;
 
    BlockDataManager_FileRefs*       bdmPtr_;
+   static vector<LedgerEntry> EmptyLedger_;
 };
 
 
@@ -736,15 +740,19 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
+<<<<<<< HEAD
    bool                               isNetParamsSet_;
    bool                               isBlkParamsSet_;
    bool                               isLevelDBSet_;
+=======
+   string                             armoryHomeDir_;
+>>>>>>> backupcenter
    string                             blkFileDir_;
    uint32_t                           blkFileDigits_;
    uint32_t                           blkFileStart_;
    vector<string>                     blkFileList_;
    uint64_t                           numBlkFiles_;
-   uint64_t                           lastBlkFileBytes_;
+   uint64_t                           endOfPrevLastBlock_;
 
    // These should be set after the blockchain is organized
    deque<BlockHeader*>                headersByHeight_;
@@ -801,6 +809,7 @@ public:
    static BlockDataManager_FileRefs & GetInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
+   void SetHomeDirLocation(string homeDir);
    void SetBlkFileLocation(string   blkdir,
                            uint32_t blkdigits,
                            uint32_t blkstartidx,
@@ -817,6 +826,9 @@ public:
    BinaryData getGenesisTxHash(void) { return GenesisTxHash_; }
    BinaryData getMagicBytes(void)    { return MagicBytes_;    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   // These don't actually work while scanning in another thread!? 
+   // The getLoadProgress* methods don't seem to update until after scan done
    uint64_t getTotalBlockchainBytes(void) const {return totalBlockchainBytes_;}
    uint16_t getTotalBlkFiles(void)        const {return numBlkFiles_;}
    uint64_t getLoadProgressBytes(void)    const {return bytesReadSoFar_;}
@@ -881,10 +893,10 @@ public:
 
    // Parsing requires the data TO ALREADY BE IN ITS PERMANENT MEMORY LOCATION
    // Pass in a wallet if you want to update the initialScanTxHashes_/OutPoints_
-   bool     parseNewBlockData(BinaryRefReader & rawBlockDataReader,
-                              uint32_t fileIndex,
-                              uint32_t thisHeaderOffset,
-                              uint32_t blockSize);
+   bool     parseNewBlock(BinaryRefReader & rawBlockDataReader,
+                          uint32_t fileIndex,
+                          uint32_t thisHeaderOffset,
+                          uint32_t blockSize);
                      
 
 
@@ -903,7 +915,7 @@ public:
                                        BlockHeader* newTopPtr,
                                        BlockHeader* branchPtr );
 
-   bool hasTxWithHash(BinaryData const & txhash, bool inclZeroConf=true);
+   int  hasTxWithHash(BinaryData const & txhash);
    bool hasHeaderWithHash(BinaryData const & txhash) const;
 
    uint32_t getNumBlocks(void) const { return headerMap_.size(); }

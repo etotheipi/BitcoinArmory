@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>
+# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
 # Distributed under the GNU Affero General Public License (AGPL v3)
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
@@ -9,27 +9,68 @@ from armoryengine import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
+from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
 USERMODE        = enum('Standard', 'Advanced', 'Expert')
+SATOSHIMODE     = enum('Auto', 'User')
 NETWORKMODE     = enum('Offline', 'Full', 'Disconnected')
 WLTTYPES        = enum('Plain', 'Crypt', 'WatchOnly', 'Offline')
 WLTFIELDS       = enum('Name', 'Descr', 'WltID', 'NumAddr', 'Secure', \
                        'BelongsTo', 'Crypto', 'Time', 'Mem', 'Version')
 MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+MSGBOX          = enum('Good','Info', 'Question', 'Warning', 'Critical', 'Error')
+DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
 
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
+STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
-
-# TODO: switch to checking master branch once this is out
 HTTP_VERSION_FILE = 'http://bitcoinarmory.com/versions.txt'
-#HTTP_VERSION_FILE = 'https://raw.github.com/etotheipi/BitcoinArmory/logger/versions.txt'
-#HTTP_VERSION_FILE = 'https://github.com/downloads/etotheipi/BitcoinArmory/versions.txt'
-#HTTP_VERSION_FILE = 'http://bitcoinarmory.com/wp-content/uploads/2012/07/versions.txt'
+
+
+################################################################################
+def tr(txt):
+   """
+   This is a common convention for implementing translations, where all 
+   translatable strings are put int the _(...) function, and that method 
+   does some fancy stuff to present the translation if needed. 
+
+   This is being implemented here, to not only do translations in the 
+   future, but also to clean up the typical text fields I use.  I've 
+   ended up with a program full of stuff like this:
+
+      myLabel = QRichLabel( \
+         'This text is split across mulitple lines '
+         'with a space after each one, and single '
+         'quotes on either side.')
+   
+   Instead it should really look like: 
+      
+      myLabel = QRichLabel( _('''
+         This text is split across mulitple lines 
+         and it will acquire a space after each line 
+         as well as include newlines because it's HTML
+         and uses <br>. ''' ))
+   """
+
+   txt = toUnicode(txt)
+   lines = [l.strip() for l in txt.split('\n')]
+   outText = (' '.join(lines)).strip()
+
+   # Eventually we do something cool with this transalate function.
+   TRANSLATE = lambda x: x
+
+   return TRANSLATE(outText)
+
+   
+
+
+################################################################################
+
 
 def HLINE(style=QFrame.Plain):
    qf = QFrame()
@@ -40,6 +81,7 @@ def VLINE(style=QFrame.Plain):
    qf = QFrame()
    qf.setFrameStyle(QFrame.VLine | style)
    return qf
+
 
 
 
@@ -73,6 +115,15 @@ def GETFONT(ftype, sz=10, bold=False, italic=False):
    
    return fnt
       
+
+def UnicodeErrorBox(parent):
+   QMessageBox.warning(parent, 'ASCII Error', \
+      toUnicode('Armory does not currently support non-ASCII characters in '
+      'most text fields (like \xc2\xa3\xc2\xa5\xc3\xa1\xc3\xb6\xc3\xa9).  '
+      'Please use only letters found '
+      'on an English(US) keyboard.  This will be fixed in an upcoming '
+      'release'), QMessageBox.Ok)
+
 
 
 
@@ -187,13 +238,18 @@ def initialColResize(tblViewObj, sizeList):
 
 
 class QRichLabel(QLabel):
-   def __init__(self, txt, doWrap=True, hAlign=Qt.AlignLeft, vAlign=Qt.AlignVCenter):
-      QLabel.__init__(self, txt)
+   def __init__(self, txt, doWrap=True, \
+                           hAlign=Qt.AlignLeft, \
+                           vAlign=Qt.AlignVCenter, \
+                           **kwargs):
+      super(QRichLabel, self).__init__(txt)
       self.setTextFormat(Qt.RichText)
       self.setWordWrap(doWrap)
       self.setAlignment(hAlign | vAlign)
+      self.setText(txt, **kwargs)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
+      text = str(text)
       if color:
          text = '<font color="%s">%s</font>' % (htmlColor(color), text)
       if size:
@@ -206,7 +262,7 @@ class QRichLabel(QLabel):
       if italic:
          text = '<i>%s</i>' % text
 
-      QLabel.setText(self,text)
+      super(QRichLabel, self).setText(text)
 
    def setBold(self):
       self.setText('<b>' + self.text() + '</b>')
@@ -258,10 +314,37 @@ class QMoneyLabel(QRichLabel):
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+
+def setLayoutStretchRows(layout, *args):
+   for i,st in enumerate(args):
+      layout.setRowStretch(i, st)
+
+def setLayoutStretchCols(layout, *args):
+   for i,st in enumerate(args):
+      layout.setColumnStretch(i, st)
+
+
+################################################################################
+def QPixmapButton(img):
+   btn = QPushButton('')
+   px = QPixmap(img)
+   btn.setIcon( QIcon(px))
+   btn.setIconSize(px.rect().size())
+   return btn
+################################################################################
+def QAcceptButton():
+   return QPixmapButton('img/btnaccept.png')
+def QCancelButton():
+   return QPixmapButton('img/btncancel.png')
+def QBackButton():
+   return QPixmapButton('img/btnback.png')
+def QOkButton():
+   return QPixmapButton('img/btnok.png')
+def QDoneButton():
+   return QPixmapButton('img/btndone.png')
    
 
-
-
+################################################################################
 class QLabelButton(QLabel):
    mousePressOn = set()
 
@@ -271,10 +354,6 @@ class QLabelButton(QLabel):
       self.plainText = txt
       self.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
 
-   
-   #def setText(self, txt):
-      #colorStr = htmlColor('LBtnNormalFG')
-      #QLabel.__init__(self, '<font color=%s>%s</u></font>' % (colorStr, txt))
   
    def sizeHint(self):
       w,h = relaxedSizeStr(self, self.plainText)
@@ -282,11 +361,11 @@ class QLabelButton(QLabel):
 
    def mousePressEvent(self, ev):  
       # Prevent click-bleed-through to dialogs being opened
-      txt = str(self.text())
+      txt = toBytes(unicode(self.text()))
       self.mousePressOn.add(txt)
 
    def mouseReleaseEvent(self, ev):  
-      txt = str(self.text())
+      txt = toBytes(unicode(self.text()))
       if txt in self.mousePressOn:
          self.mousePressOn.remove(txt)
          self.emit(SIGNAL('clicked()'))  
@@ -302,10 +381,16 @@ class QLabelButton(QLabel):
 
 ################################################################################
 def createToolTipObject(tiptext, iconSz=2):
+   """
+   The <u></u> is to signal to Qt that it should be interpretted as HTML/Rich 
+   text even if no HTML tags are used.  This appears to be necessary for Qt 
+   to wrap the tooltip text
+   """
    fgColor = htmlColor('ToolTipQ')
    lbl = QLabel('<font size=%d color=%s>(?)</font>' % (iconSz, fgColor))
    lbl.setToolTip('<u></u>' + tiptext)
    lbl.setMaximumWidth(relaxedSizeStr(lbl, '(?)')[0])
+   lbl.connect(lbl, SIGNAL('clicked()'), lambda: printlbl)
    return lbl
 
    
@@ -388,7 +473,8 @@ def MsgBoxCustom(wtype, title, msg, wCancel=False, yesStr=None, noStr=None):
 
 
 ################################################################################
-def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noStr='No'):
+def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, \
+                   yesStr='Yes', noStr='No', dnaaStartChk=False):
    """
    Creates a warning/question/critical dialog, but with a "Do not ask again"
    checkbox.  Will return a pair  (response, DNAA-is-checked)
@@ -422,12 +508,14 @@ def MsgBoxWithDNAA(wtype, title, msg, dnaaMsg, wCancel=False, yesStr='Yes', noSt
             msgIcon.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
    
          self.chkDnaa = QCheckBox(dmsg)
+         self.chkDnaa.setChecked(dnaaStartChk)
          lblMsg = QLabel(msg)
          lblMsg.setTextFormat(Qt.RichText)
          lblMsg.setWordWrap(True)
          lblMsg.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
          w,h = tightSizeNChar(lblMsg, 50)
          lblMsg.setMinimumSize( w, 3.2*h )
+         lblMsg.setOpenExternalLinks(True)
 
          buttonbox = QDialogButtonBox()
 
@@ -562,65 +650,294 @@ def saveTableView(qtbl):
 
 
 
-class QtBackgroundThread(QThread):
-   '''
-   Define a thread object that will execute a preparatory function
-   (blocking), and then a long processing thread followed by something
-   to do when it's done (both non-blocking).  After the 3 methods and 
-   their arguments are set, use obj.start() to kick it off.
 
-   NOTE: This is basically just a copy of PyBackgroundThread in
-         armoryengine.py, but I needed a version that can access
-         Qt elements.  Using vanilla python threads with calls 
-         to Qt signals/slots/methods/etc, throws all sorts of errors.
-   '''
 
-   def __init__(self, parent, *args, **kwargs):
-      QThread.__init__(self, parent)
 
-      self.preFunc  = lambda: ()
-      self.postFunc = lambda: ()
+################################################################################
+class ArmoryDialog(QDialog):
+   def __init__(self, parent=None, main=None):
+      super(ArmoryDialog, self).__init__(parent)
 
-      if len(args)==0:
-         self.func  = lambda: ()
+      self.parent = parent
+      self.main   = main
+
+      self.setFont(GETFONT('var'))
+
+      if USE_TESTNET:
+         self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
+         self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         if not hasattr(args[0], '__call__'):
-            raise TypeError, ('QtBkgdThread constructor first arg '
-                              '(if any) must be a function')
-         else:
-            self.setThreadFunction(args[0], *args[1:], **kwargs)
-
-   def setPreThreadFunction(self, prefunc, *args, **kwargs):
-      def preFuncPartial():
-         prefunc(*args, **kwargs)
-      self.preFunc = preFuncPartial
-
-   def setThreadFunction(self, thefunc, *args, **kwargs):
-      def funcPartial():
-         thefunc(*args, **kwargs)
-      self.func = funcPartial
-
-   def setPostThreadFunction(self, postfunc, *args, **kwargs):
-      def postFuncPartial():
-         postfunc(*args, **kwargs)
-      self.postFunc = postFuncPartial
-
-
-   def run(self):
-      print 'Executing QThread.run()...'
-      self.func()
-      self.postFunc()
-
-   def start(self):
-      print 'Executing QThread.start()...'
-      # This is blocking: we may want to guarantee that something critical 
-      #                   is in place before we start the thread
-      self.preFunc()
-      super(QtBackgroundThread, self).start()
+         self.setWindowTitle('Armory - Bitcoin Wallet Management')
+         self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
 
 
 
 
+
+################################################################################
+class QRCodeWidget(QWidget):
+
+   def __init__(self, asciiToEncode='', prefSize=160, errLevel='L', parent=None):
+      super(QRCodeWidget, self).__init__()
+
+      self.parent = parent
+      self.qrmtrx = None
+      self.setAsciiData(asciiToEncode, prefSize, errLevel, repaint=False)
+      
+
+   def setAsciiData(self, newAscii, prefSize=160, errLevel='L', repaint=True):
+      if len(newAscii)==0:
+         self.qrmtrx = [[0]]
+         self.modCt  = 1
+         self.pxScale= 1
+         return
+
+      self.theData = newAscii
+      self.qrmtrx, self.modCt = CreateQRMatrix(self.theData, errLevel)
+      self.setPreferredSize(prefSize)
+
+
+      
+            
+   def getModuleCount1D(self):
+      return self.modCt
+
+
+   def setPreferredSize(self, px, policy='Approx'):
+      self.pxScale,rem = divmod(int(px), int(self.modCt))
+
+      if policy.lower().startswith('approx'):
+         if rem>self.modCt/2.0:
+            self.pxScale += 1
+      elif policy.lower().startswith('atleast'):
+         if rem>0:
+            self.pxScale += 1
+      elif policy.lower().startswith('max'):
+         pass
+      else:
+         LOGERROR('Bad size policy in set qr size')
+         return self.pxScale*self.modCt
+
+      return
+      
+
+   def getSize(self):
+      return self.pxScale*self.modCt
+
+       
+   def sizeHint(self):
+      sz1d = self.pxScale*self.modCt
+      return QSize(sz1d, sz1d)
+
+
+   def paintEvent(self, e):
+      qp = QPainter()
+      qp.begin(self)
+      self.drawWidget(qp)
+      qp.end()
+
+
+
+   def drawWidget(self, qp):
+      # In case this is not a white background, draw the white boxes
+      qp.setPen(QColor(255,255,255))
+      qp.setBrush(QColor(255,255,255))
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if not self.qrmtrx[r][c]:
+               qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
+
+      # Draw the black tiles
+      qp.setPen(QColor(0,0,0))
+      qp.setBrush(QColor(0,0,0))
+      for r in range(self.modCt):
+         for c in range(self.modCt):
+            if self.qrmtrx[r][c]:
+               qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
+
+
+   def mouseDoubleClickEvent(self, *args):
+      DlgInflatedQR(self.parent, self.theData).exec_()
+            
+            
+# Create a very simple dialog and execute it
+class DlgInflatedQR(ArmoryDialog):
+   def __init__(self, parent, dataToQR):
+      super(DlgInflatedQR, self).__init__(parent)
+
+      sz = QApplication.desktop().size()
+      w,h = sz.width(), sz.height()
+      qrSize = int(min(w,h)*0.8)
+      qrDisp = QRCodeWidget(dataToQR, prefSize=qrSize)
+
+      def closeDlg(*args): 
+         self.accept()
+      qrDisp.mouseDoubleClickEvent = closeDlg
+      self.mouseDoubleClickEvent = closeDlg
+
+      lbl = QRichLabel('<b>Double-click or press ESC to close</b>')
+      lbl.setAlignment(Qt.AlignTop | Qt.AlignHCenter)
+
+      frmQR = makeHorizFrame(['Stretch', qrDisp, 'Stretch'])
+      frmFull = makeVertFrame(['Stretch',frmQR, lbl, 'Stretch'])
+
+      layout = QVBoxLayout()
+      layout.addWidget(frmFull)
+
+      self.setLayout(layout)
+      self.showFullScreen()
+      
+
+
+
+
+
+# Pure-python BMP creator taken from:
+#
+#     http://pseentertainmentcorp.com/smf/index.php?topic=2034.0
+#
+# This will take a 2D array of ones-and-zeros and convert it to a binary
+# bitmap image, which will be stored in a temporary file.  This temporary
+# file can be used for display and copy-and-paste into email.
+
+def bmp_binary(header, pixels):
+   '''It takes a header (based on default_bmp_header), 
+   the pixel data (from structs, as produced by get_color and row_padding),
+   and writes it to filename'''
+   header_str = ""
+   header_str += struct.pack('<B', header['mn1'])
+   header_str += struct.pack('<B', header['mn2'])
+   header_str += struct.pack('<L', header['filesize'])
+   header_str += struct.pack('<H', header['undef1'])
+   header_str += struct.pack('<H', header['undef2'])
+   header_str += struct.pack('<L', header['offset'])
+   header_str += struct.pack('<L', header['headerlength'])
+   header_str += struct.pack('<L', header['width'])
+   header_str += struct.pack('<L', header['height'])
+   header_str += struct.pack('<H', header['colorplanes'])
+   header_str += struct.pack('<H', header['colordepth'])
+   header_str += struct.pack('<L', header['compression'])
+   header_str += struct.pack('<L', header['imagesize'])
+   header_str += struct.pack('<L', header['res_hor'])
+   header_str += struct.pack('<L', header['res_vert'])
+   header_str += struct.pack('<L', header['palette'])
+   header_str += struct.pack('<L', header['importantcolors'])
+   return header_str + pixels
+
+def bmp_write(header, pixels, filename):
+   out = open(filename, 'wb')
+   out.write(bmp_binary(header, pixels))
+   out.close()
+
+def bmp_row_padding(width, colordepth):
+   '''returns any necessary row padding'''
+   byte_length = width*colordepth/8
+   # how many bytes are needed to make byte_length evenly divisible by 4?
+   padding = (4-byte_length)%4 
+   padbytes = ''
+   for i in range(padding):
+      x = struct.pack('<B',0)
+      padbytes += x
+   return padbytes
+
+def bmp_pack_color(red, green, blue):
+   '''accepts values from 0-255 for each value, returns a packed string'''
+   return struct.pack('<BBB',blue,green,red)
+
+
+###################################   
+BMP_TEMPFILE = -1
+def createBitmap(imgMtrx2D, writeToFile=-1, returnBinary=True):
+   try:
+      h,w = len(imgMtrx2D), len(imgMtrx2D[0])
+   except:
+      LOGERROR('Error creating BMP object')
+      raise
+
+   header = {'mn1':66,
+             'mn2':77,
+             'filesize':0,
+             'undef1':0,
+             'undef2':0,
+             'offset':54,
+             'headerlength':40,
+             'width':w,
+             'height':h,
+             'colorplanes':0,
+             'colordepth':24,
+             'compression':0,
+             'imagesize':0,
+             'res_hor':0,
+             'res_vert':0,
+             'palette':0,
+             'importantcolors':0}
+
+   pixels = ''
+   black = bmp_pack_color(  0,  0,  0)
+   white = bmp_pack_color(255,255,255)
+   for row in range(header['height']-1,-1,-1):# (BMPs are L to R from the bottom L row)
+      for col in range(header['width']):
+         pixels += black if imgMtrx2D[row][col] else white
+      pixels += bmp_row_padding(header['width'], header['colordepth'])
+      
+   if returnBinary:
+      return bmp_binary(header,pixels)
+   elif writeToFile==BMP_TEMPFILE:
+      handle,temppath = mkstemp(suffix='.bmp')
+      bmp_write(header, pixels, temppath)
+      return temppath
+   else:
+      try:
+         bmp_write(header, pixels, writeToFile)
+         return True
+      except:
+         return False
+      
+
+
+def selectFileForQLineEdit(parent, qObj, title="Select File", existing=False, \
+                           ffilter=[]):
+
+   types = list(ffilter)
+   types.append('All files (*)')
+   typesStr = ';; '.join(types)
+   if not OS_MACOSX:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr))
+   else:
+      fullPath = unicode(QFileDialog.getOpenFileName(parent, \
+         title, ARMORY_HOME_DIR, typesStr, options=QFileDialog.DontUseNativeDialog))
+
+   if fullPath:
+      qObj.setText( fullPath)
+   
+
+def selectDirectoryForQLineEdit(par, qObj, title="Select Directory"):
+   initPath = ARMORY_HOME_DIR
+   currText = unicode(qObj.text()).strip()
+   if len(currText)>0:
+      if os.path.exists(currText):
+         initPath = currText
+    
+   if not OS_MACOSX:
+      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath))
+   else:
+      fullPath = unicode(QFileDialog.getExistingDirectory(par, title, initPath, \
+                                       options=QFileDialog.DontUseNativeDialog))
+   if fullPath:
+      qObj.setText( fullPath)
+    
+
+def createDirectorySelectButton(parent, targetWidget, title="Select Directory"):
+
+   btn = QPushButton('')
+   ico = QIcon(QPixmap(':/folder24.png')) 
+   btn.setIcon(ico)
+
+
+   fn = lambda: selectDirectoryForQLineEdit(parent, targetWidget, title)
+   parent.connect(btn, SIGNAL('clicked()'), fn)
+   return btn
 
 
 

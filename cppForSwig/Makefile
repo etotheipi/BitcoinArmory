@@ -26,16 +26,9 @@ ifeq ($(UNAME), Darwin)
    STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
 else
    SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
-   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
+   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).so"
 
 
-   # A failed attempt at auto-detecting .a file and using .so if .a DNE
-   #PYTHONA = "$(DEPSDIR)/lib/libpython$(PYVER).a"
-   #ifeq ($(wildcard $(PYTHONA)),)
-      #STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).so"
-   #else
-      #STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
-   #endif
 endif
 
 

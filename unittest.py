@@ -1,6 +1,6 @@
 ################################################################################
 #
-# Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>
+# Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>
 # Distributed under the GNU Affero General Public License (AGPL v3)
 # See LICENSE or http://www.gnu.org/licenses/agpl.html
 #
@@ -15,7 +15,7 @@ BE = BIGENDIAN
 
 Test_BasicUtils       = False
 Test_PyBlockUtils     = False
-Test_CppBlockUtils    = False
+Test_CppBlockUtils    = True
 Test_SimpleAddress    = False
 Test_MultiSigTx       = False
 Test_TxSimpleCreate   = False
@@ -24,6 +24,8 @@ Test_EncryptedWallet  = False
 Test_TxDistProposals  = False
 Test_SelectCoins      = False
 Test_CryptoTiming     = False
+Test_FiniteField      = False
+Test_PyBkgdThread     = False
 
 Test_NetworkObjects   = False
 Test_ReactorLoop      = False
@@ -34,7 +36,10 @@ Test_URIParse         = False
 
 Test_BkgdThread       = False
 Test_AsyncBDM         = False
-Test_Timers           = True
+Test_Timers           = False
+Test_EstBlockchain    = True
+
+Test_SatoshiManager   = False
 
 '''
 import optparse
@@ -182,6 +187,7 @@ if Test_BasicUtils:
       print coin2str(c,8, maxZeros=6).rjust(16),
       print coin2str(c,8, maxZeros=2).rjust(16),
       print coin2str(c,6, maxZeros=4).rjust(16),
+      print coin2str(c,6, maxZeros=4, rJust=False),
       print coin2str_approx(c,3)
    printC2S(0)
    printC2S(1)
@@ -204,7 +210,37 @@ if Test_BasicUtils:
    printC2S(-10000990000)
    printC2S(-10009090001)
    printC2S(-10001090000)
+   printC2S(100000001090000)
    
+
+   print ''
+   print 'Testing str2coin method'
+   def printS2C(s):
+      print ('"'+s+'"').ljust(18) , str2coin(s, roundHighPrec=True)
+          
+   printS2C('0.00000000')
+   printS2C('0.0000')
+   printS2C('0.0')
+   printS2C('-0')
+   printS2C('0.00000001')
+   printS2C('0.0001')
+   printS2C('.0001')
+   printS2C('-.0001')
+   printS2C('-0.2')
+   printS2C('-1')
+   printS2C('-1.0  ')
+   printS2C(' -1.0  ')
+   printS2C('-1.')
+   printS2C('10000000')
+   printS2C('100000.00000001')
+   printS2C('0.00000001')
+   printS2C('0.000000014')
+   printS2C('0.000000015')
+   printS2C('0.000000019')
+   printS2C('0.000000019')
+   printS2C('0.9999')
+   printS2C('0.99999999')
+   printS2C('0.999999999')
 
 
 # Unserialize an reserialize
@@ -292,8 +328,8 @@ if Test_PyBlockUtils:
 ################################################################################
 if Test_CppBlockUtils:
 
-   print '\n\nLoading Blockchain from:', BLK0001_PATH
-   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
+   BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
    print 'Done!'
 
 
@@ -393,6 +429,9 @@ if Test_SimpleAddress:
    printpassorfail( sp.verifyTransactionValid() )
    print ''
 
+
+      
+      
 
 
 ################################################################################
@@ -1892,8 +1931,8 @@ if Test_AddressBooks:
 
    TheBDM.registerWallet(cppWlt)
    
-   print '\n\nLoading Blockchain from:', BLK0001_PATH
-   BDM_LoadBlockchainFile(BLK0001_PATH)
+   print '\n\nLoading Blockchain from:', BLKFILE_FIRSTFILE
+   BDM_LoadBlockchainFile(BLKFILE_FIRSTFILE)
    print 'Done!'
 
    TheBDM.scanBlockchainForTx(cppWlt)
@@ -2197,6 +2236,8 @@ if Test_AsyncBDM:
    
    
 
+################################################################################
+################################################################################
 if Test_Timers:
    print '***********************************************************************'
    print 'Testing Timer Objects'
@@ -2233,6 +2274,209 @@ if Test_Timers:
    print ''
 
 
+if Test_FiniteField:
+   print '***********************************************************************'
+   print 'Testing Finite Field'
+   print '***********************************************************************'
+   from random import uniform
+
+   print '\nTesting finite-field matrix operations'
+   ff = FiniteField(8)
+   m = [[-3,2,-5],[-1,0,-2],[3,-4,1]]
+   v = [1,5,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
+
+
+   ff = FiniteField(8)
+   m = [[1,-3,2,-5],[-1,1,0,-2],[3,-4,1,1],[3,6,-2,-2]]
+   v = [1,5,3,3]
+   print 'mtrx:', m, 'vect:', v
+   print 'm*v:' ,ff.mtrxmultvect(m, v)
+   print 'm*m:' ,ff.mtrxmult(m, m)
+   print 'det:', ff.mtrxdet(m)
+   print 'adj:', ff.mtrxadjoint(m)
+   minv = ff.mtrxinv(m)
+   print 'minv:', minv
+   print 'm*minv:', ff.mtrxmult(m, minv)
+
+
+
+   from random import shuffle
+
+   def testSecret(secretHex, M, N, nbytes=1):
+      
+      secret = hex_to_binary(secretHex)
+      print '\nSplitting secret into %d-of-%d: secret=%s' % (M,N,secretHex)
+      tstart = RightNow() 
+      out = SplitSecret(secret, M, N)
+      tsplit = RightNow() - tstart
+
+      print 'Fragments:'
+      for i in range(len(out)):
+         x = binary_to_hex(out[i][0])
+         y = binary_to_hex(out[i][1])
+         print '   Fragment %d: [%s, %s]' % (i+1,x,y)
+
+      trecon = 0
+      print 'Reconstructing secret from various subsets of fragments...'
+      for i in range(10):
+         shuffle(out)
+         tstart = RightNow()
+         reconstruct = ReconstructSecret(out, M, nbytes)
+         trecon += RightNow() - tstart
+         
+         print '   The reconstructed secret is:', binary_to_hex(reconstruct)
+
+      print 'Splitting secret took: %0.5f sec' % tsplit
+      print 'Reconstructing takes:  %0.5f sec' % (trecon/10)
+
+
+   testSecret('9f', 2,3)
+   testSecret('9f', 3,5)
+   testSecret('9f', 4,7)
+   testSecret('9f', 5,9)
+   testSecret('9f', 6,7)
+
+   testSecret('9f'*16, 3,5, 16)
+   testSecret('9f'*16, 7,10, 16)
+
 
    
+################################################################################
+################################################################################
+if Test_PyBkgdThread:
+   print '***********************************************************************'
+   print 'Testing Background Threading'
+   print '***********************************************************************'
+   from random import uniform
+ 
+   # Will run the ComputePublicKey function a bunch of times in the background
+   def compute(N, threadID):
+      s = RightNow()
+      for i in range(N):
+         key = int_to_binary(long(uniform(0,2**32)), widthBytes=32)
+         k = CryptoECDSA().ComputePublicKey(SecureBinaryData(key))
+      ns = (RightNow() - s)
+      #print 'Thread %d: %d keys in %0.2f sec,  %0.2f key/sec' % (threadID, N, ns, N/ns)
+ 
+ 
+   # Figure out how many aggregate keys/sec we get with threading
+   def test_N_threads(NThr):
+      NPer = 1000
+
+      # Test All
+      thr = []
+      for i in range(NThr):
+         thr.append( PyBackgroundThread(compute, NPer, i))
    
+      startTime = RightNow()
+      for i in range(NThr):
+         thr[i].start()
+      
+      for i in range(NThr):
+         thr[i].join()
+      
+      total = (RightNow() - startTime)
+      NC = NThr*NPer
+      return NC, total
+
+   for i in range(1,10):
+      n,s = test_N_threads(i)
+      print 'NThreads: %02d,  %0.2f keys/sec' % (i, n/s)
+
+
+
+if Test_EstBlockchain:
+   print '***********************************************************************'
+   print 'Testing blockchain size estimation algorithm'
+   print '***********************************************************************'
+   for blk in [0,1000,1001,1002, 10000, 125000, 175000, 225000, 230000, 231000, 250000,275000, 300000, 1000000]:
+      sz = EstimateCumulativeBlockchainSize(blk)
+      print blk, bytesToHumanSize(sz), '(%d)'%sz
+
+
+if Test_SatoshiManager:
+   print '***********************************************************************'
+   print 'Testing Satoshi Manager '
+   print '***********************************************************************'
+
+   # This is not a proper "unittest", it's more of a case-study ... it's going 
+   # to create a new directory and start a fresh download of the blockchain.
+   # Or I may set it up to have an existing set of block files, and it just 
+   # needs to update.
+
+
+   
+
+
+   alreadyPort = satoshiIsAvailable()
+   if alreadyPort>0:
+      print 'Bitcoind is open already on port %d!  ' % alreadyPort
+      print 'Please close it and try again.'
+      exit(0)
+
+
+   if not os.path.exists('sdmtest'):
+      os.mkdir('sdmtest')
+
+   if not os.path.exists('sdmtest/bitcoind'):
+      shutil.copy('/usr/lib/bitcoin/bitcoind','sdmtest')
+
+   print 'Creating SatoshiDaemonManager...'
+   sdm = SatoshiDaemonManager()
+   sdm.setupSDM(satoshiHome='sdmtest')
+
+   print 'Reading bitcoin.conf file... (should create it if DNE)'
+   sdm.readBitcoinConf(makeIfDNE=True)
+   sdm.printSDMInfo()
+
+   var = raw_input("Continue?  [Y/n]: ")
+
+   fout = open('record_dl_times.txt','w')
+   
+   startTime = RightNow()
+   try:
+      print 'Starting bitcoind...'
+      sdm.startBitcoind()
+   
+      for i in range(1000000):
+         if i%30==0:
+            sdm.printSDMInfo()
+         state = sdm.getSDMState()
+         print 'Current SDM state:', state,
+         time.sleep(5)
+   
+         if state in ('BitcoindReady', 'BitcoindSynchronizing'):
+            info = sdm.getTopBlockInfo()
+            print ': TopBlock: %d (%s)' % (info['numblks'], unixTimeToFormatStr(info['toptime']))
+            nb = int(info['numblks'])
+            dt = int(RightNow() - startTime)
+            fout.write('%d %d\n' % (nb,dt))
+         else:
+            print ''
+      
+   
+      sdm.stopBitcoind()
+      while(sdm.isRunningBitcoind()):
+         time.sleep(0.1)
+         t+=0.1
+         print 'Waiting for bitcoind to shutdown, %0.2f seconds' % t
+   
+      print 'Stopping again, just for fun'
+      sdm.stopBitcoind()
+   finally:
+      # Gotta shutdown bitcoind no matter what
+      print 'Attempting to shutdown, no matter what!'
+      sdm.stopBitcoind()
+
+
+
+
+

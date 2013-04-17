@@ -1,6 +1,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 //                                                                            //
-//  Copyright (C) 2011-2012, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
 //  Distributed under the GNU Affero General Public License (AGPL v3)         //
 //  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
 //                                                                            //
@@ -52,8 +52,8 @@
 #define FILE_DOES_NOT_EXIST UINT64_MAX
 
 
-#define TESTNET_MAGIC_BYTES "fabfb5da"
-#define TESTNET_GENESIS_HASH_HEX    "08b067b31dc139ee8e7a76a4f2cfcca477c4c06e1ef89f4ae308951907000000"
+#define TESTNET_MAGIC_BYTES "0b110907"
+#define TESTNET_GENESIS_HASH_HEX    "43497fd7f826957108f4a30fd9cec3aeba79972084e90ead01ea330900000000"
 #define TESTNET_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
 
 #define MAINNET_MAGIC_BYTES "f9beb4d9"
@@ -320,6 +320,37 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   static string numToStrWCommas(int64_t fullNum)
+   {
+      uint64_t num = fullNum;
+      num *= (fullNum < 0 ? -1 : 1);
+      vector<uint32_t> triplets;
+      do
+      {
+         int bottom3 = (num % 1000);
+         triplets.push_back( bottom3 );
+         num = (num - bottom3) / 1000;
+      } while(num>=1);
+
+      
+      stringstream out;
+      out << (fullNum < 0 ? "-" : "");
+      uint32_t nt = triplets.size()-1;
+      char t[4];
+      for(uint32_t i=0; i<=nt; i++)
+      {
+         if(i==0) 
+            sprintf(t, "%d",   triplets[nt-i]); 
+         else     
+            sprintf(t, "%03d", triplets[nt-i]); 
+         out << string(t);
+         
+         if(i != nt)
+            out << ",";
+      }
+      return out.str();
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////
