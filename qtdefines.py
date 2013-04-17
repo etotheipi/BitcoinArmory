@@ -9,7 +9,6 @@ from armoryengine import *
 from PyQt4.QtCore import *
 from PyQt4.QtGui  import *
 from armorycolors import Colors, htmlColor
-from qrcodenative import QRCode, QRErrorCorrectLevel
 from tempfile import mkstemp
 
 SETTINGS_PATH   = os.path.join(ARMORY_HOME_DIR, 'ArmorySettings.txt')
@@ -26,6 +25,7 @@ DASHBTNS        = enum('Close', 'Browse', 'Install', 'Instruct', 'Settings')
 STYLE_SUNKEN = QFrame.Box | QFrame.Sunken
 STYLE_RAISED = QFrame.Box | QFrame.Raised
 STYLE_PLAIN  = QFrame.Box | QFrame.Plain
+STYLE_STYLED = QFrame.StyledPanel | QFrame.Raised
 STYLE_NONE   = QFrame.NoFrame
 
 CHANGE_ADDR_DESCR_STRING = '[[ Change received ]]'
@@ -314,6 +314,34 @@ class QMoneyLabel(QRichLabel):
          self.setText('%s' % valStr)
       self.setAlignment(Qt.AlignLeft | Qt.AlignVCenter)
 
+
+def setLayoutStretchRows(layout, *args):
+   for i,st in enumerate(args):
+      layout.setRowStretch(i, st)
+
+def setLayoutStretchCols(layout, *args):
+   for i,st in enumerate(args):
+      layout.setColumnStretch(i, st)
+
+
+################################################################################
+def QPixmapButton(img):
+   btn = QPushButton('')
+   px = QPixmap(img)
+   btn.setIcon( QIcon(px))
+   btn.setIconSize(px.rect().size())
+   return btn
+################################################################################
+def QAcceptButton():
+   return QPixmapButton('img/btnaccept.png')
+def QCancelButton():
+   return QPixmapButton('img/btncancel.png')
+def QBackButton():
+   return QPixmapButton('img/btnback.png')
+def QOkButton():
+   return QPixmapButton('img/btnok.png')
+def QDoneButton():
+   return QPixmapButton('img/btndone.png')
    
 
 ################################################################################
@@ -639,8 +667,9 @@ class ArmoryDialog(QDialog):
          self.setWindowTitle('Armory - Bitcoin Wallet Management [TESTNET]')
          self.setWindowIcon(QIcon(':/armory_icon_green_32x32.png'))
       else:
-         self.setWindowTitle('Armory - Bitcoin Wallet Management [MAIN NETWORK]')
+         self.setWindowTitle('Armory - Bitcoin Wallet Management')
          self.setWindowIcon(QIcon(':/armory_icon_32x32.png'))
+
 
 
 
@@ -648,7 +677,7 @@ class ArmoryDialog(QDialog):
 ################################################################################
 class QRCodeWidget(QWidget):
 
-   def __init__(self, asciiToEncode='', prefSize=160, errLevel=QRErrorCorrectLevel.L, parent=None):
+   def __init__(self, asciiToEncode='', prefSize=160, errLevel='L', parent=None):
       super(QRCodeWidget, self).__init__()
 
       self.parent = parent
@@ -656,7 +685,7 @@ class QRCodeWidget(QWidget):
       self.setAsciiData(asciiToEncode, prefSize, errLevel, repaint=False)
       
 
-   def setAsciiData(self, newAscii, prefSize=160, errLevel=QRErrorCorrectLevel.L, repaint=True):
+   def setAsciiData(self, newAscii, prefSize=160, errLevel='L', repaint=True):
       if len(newAscii)==0:
          self.qrmtrx = [[0]]
          self.modCt  = 1
@@ -664,31 +693,7 @@ class QRCodeWidget(QWidget):
          return
 
       self.theData = newAscii
-      sz=3
-      success=False
-      while sz<20:
-         try:
-            self.qr = QRCode(sz, errLevel)
-            self.qr.addData(self.theData)
-            self.qr.make()
-            success=True
-            break
-         except TypeError:
-            sz += 1
-
-      if not success:
-         LOGERROR('Unsuccessful attempt to create QR code')
-         self.qrmtrx = [[0]]
-         return
-
-      self.qrmtrx = []
-      self.modCt = self.qr.getModuleCount()
-      for r in range(self.modCt):
-         tempList = [0]*self.modCt
-         for c in range(self.modCt):
-            tempList[c] = 1 if self.qr.isDark(r,c) else 0
-         self.qrmtrx.append(tempList)
-
+      self.qrmtrx, self.modCt = CreateQRMatrix(self.theData, errLevel)
       self.setPreferredSize(prefSize)
 
 
@@ -739,7 +744,7 @@ class QRCodeWidget(QWidget):
       qp.setBrush(QColor(255,255,255))
       for r in range(self.modCt):
          for c in range(self.modCt):
-            if not self.qrmtrx[c][r]:
+            if not self.qrmtrx[r][c]:
                qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
 
       # Draw the black tiles
@@ -747,7 +752,7 @@ class QRCodeWidget(QWidget):
       qp.setBrush(QColor(0,0,0))
       for r in range(self.modCt):
          for c in range(self.modCt):
-            if self.qrmtrx[c][r]:
+            if self.qrmtrx[r][c]:
                qp.drawRect(*[a*self.pxScale for a in [r,c,1,1]])
 
 

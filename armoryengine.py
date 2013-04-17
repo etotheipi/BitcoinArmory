@@ -1561,6 +1561,40 @@ def difficulty_to_binaryBits(i):
    pass
 
 
+################################################################################
+from qrcodenative import QRCode, QRErrorCorrectLevel
+def CreateQRMatrix(dataToEncode, errLevel='L'):
+   sz=3
+   success=False
+   qrmtrx = [[]]
+   while sz<20:
+      try:
+         errCorrectEnum = getattr(QRErrorCorrectLevel, errLevel.upper())
+         qr = QRCode(sz, errCorrectEnum)
+         qr.addData(dataToEncode)
+         qr.make()
+         success=True
+         break
+      except TypeError:
+         sz += 1
+
+   if not success:
+      LOGERROR('Unsuccessful attempt to create QR code')
+      LOGERROR('Data to encode: (Length: %s, isAscii: %s)', \
+                     len(dataToEncode), isASCII(dataToEncode))
+      return [[0]], 1
+
+   qrmtrx = []
+   modCt = qr.getModuleCount()
+   for r in range(modCt):
+      tempList = [0]*modCt
+      for c in range(modCt):
+         # The matrix is transposed by default, from what we normally expect
+         tempList[c] = 1 if qr.isDark(c,r) else 0
+      qrmtrx.append(tempList)
+   
+   return [qrmtrx, modCt]
+
 
 
 ################################################################################
@@ -10361,7 +10395,7 @@ class FakeClientFactory(ReconnectingClientFactory):
 
 #############################################################################
 import socket
-def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.001):
+def satoshiIsAvailable(host='127.0.0.1', port=BITCOIN_PORT, timeout=0.01):
 
    if not isinstance(port, (list,tuple)):
       port = [port]
@@ -13071,6 +13105,7 @@ def EstimateCumulativeBlockchainSize(blkNum):
          225792 6407870776
          227808 6652067986
          228534 6778529822
+
       """
    strList = [line.strip().split() for line in blksizefile.strip().split('\n')]
    BLK_SIZE_LIST = [[int(x[0]), int(x[1])] for x in strList]

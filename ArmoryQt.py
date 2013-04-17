@@ -915,7 +915,49 @@ class ArmoryMainWindow(QMainWindow):
 
          if dlg.requestImport:
             self.execImportWallet()
-            
+
+
+   
+   #############################################################################
+   def makeWalletCopy(self, parent, wlt, copyType='Same', suffix='', changePass=False):
+      if changePass:
+         LOGERROR('Changing password is not implemented yet!')
+         raise NotImplementedError
+
+      fn = 'armory_%s_%s.wallet' % (wlt.uniqueIDB58, suffix)
+      if wlt.watchingOnly:
+         fn = 'armory_%s_%s.watchonly.wallet' % (wlt.uniqueIDB58, suffix)
+      savePath = unicode(self.getFileSave(defaultFilename=fn))
+      if not len(savePath)>0:
+         return 
+
+      if copyType.lower()=='same':
+         wlt.writeFreshWalletFile(savePath)
+      elif copyType.lower()=='decrypt':
+         if wlt.useEncryption:
+            dlg = DlgUnlockWallet(wlt, parent, self, 'Unlock Private Keys')
+            if not dlg.exec_():
+               return
+         # Wallet should now be unlocked
+         wlt.makeUnencryptedWalletCopy(savePath)
+      elif copyType.lower()=='encrypt':
+         newPassphrase=None
+         if not wlt.useEncryption:
+            dlgCrypt = DlgChangePassphrase(parent, self, not wlt.useEncryption)
+            if not dlgCrypt.exec_():
+               QMessageBox.information(parent, tr('Aborted'), tr("""
+                  No passphrase was selected for the encrypted backup.  
+                  No backup was created"""), QMessageBox.Ok)
+            newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
+
+         wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
+      else:
+         LOGERROR('Invalid "copyType" supplied to makeWalletCopy: %s', copyType)
+         return
+
+      QMessageBox.information(parent, tr('Backup Complete'), tr("""
+         Your wallet was successfully backed up to the following 
+         location:<br><br>%s""") % savePath, QMessageBox.Ok)
       
    
    #############################################################################
@@ -1256,7 +1298,7 @@ class ArmoryMainWindow(QMainWindow):
 
    #############################################################################
    def checkHaveBlockfiles(self):
-      return os.path.exists(BLKFILE_FIRSTFILE)
+      return os.path.exists(TheBDM.blk1st)
 
    #############################################################################
    def onlineModeIsPossible(self):
@@ -3395,8 +3437,8 @@ class ArmoryMainWindow(QMainWindow):
             lastBlkTime = info['toptime']
    
          # Use a reference point if we are starting from scratch
-         refBlock = max(228798,      lastBlkNum)
-         refTime  = max(1364668926,  lastBlkTime)
+         refBlock = max(231747,      lastBlkNum)
+         refTime  = max(1366171579,  lastBlkTime)
 
   
          # Ten min/block is pretty accurate, even at genesis blk (about 1% slow)

@@ -941,7 +941,7 @@ class DlgWalletDetails(ArmoryDialog):
 
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
-      self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupCtr)
+      self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
@@ -1153,7 +1153,9 @@ class DlgWalletDetails(ArmoryDialog):
       chkDont = not self.main.getSettingOrSetDefault('DNAA_AllBackupWarn', False)
       if chkLoad and chkType and chkDNAA and chkDont:
          from twisted.internet import reactor
-         reactor.callLater(2,remindBackup)
+         reactor.callLater(1,remindBackup)
+         lbtnBackups.setText('<font color="%s"><b>Backup This Wallet</b></font>' \
+                                                         % htmlColor('TextWarn'))
 
    #############################################################################
    def doFilterAddr(self):
@@ -1365,8 +1367,8 @@ class DlgWalletDetails(ArmoryDialog):
       pass
 
 
-   def execBackupCtr(self):
-      DlgBackupCenter(self, self.main, self.wlt).exec_()
+   def execBackupDlg(self):
+      DlgSimpleBackup(self, self.main, self.wlt).exec_()
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
@@ -1379,8 +1381,7 @@ class DlgWalletDetails(ArmoryDialog):
            'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
          return 
 
-      dlg = DlgPaperBackup(self.wlt, self, self.main)
-      dlg.exec_()
+      DlgPaperBackup(self.wlt, self, self.main).exec_()
       
    def execRemoveDlg(self):
       dlg = DlgRemoveWallet(self.wlt, self, self.main)
@@ -4214,18 +4215,10 @@ class DlgSetComment(ArmoryDialog):
 
 
 
-try:
-   from qrcodenative import *
-except ImportError:
-   LOGERROR('QR-generation code not available...')
 
 PAPER_DPI       = 72
 PAPER_A4_WIDTH  =  8.5*PAPER_DPI
 PAPER_A4_HEIGHT = 11.0*PAPER_DPI
-
-
-
-
 
 class GfxViewPaper(QGraphicsView):
    def __init__(self, parent=None, main=None):
@@ -4234,7 +4227,7 @@ class GfxViewPaper(QGraphicsView):
 
 class GfxItemText(QGraphicsTextItem):
    """
-   So far, I'm pretty bad ad setting the boundingRect properly.  I have 
+   So far, I'm pretty bad at setting the boundingRect properly.  I have 
    hacked it to be usable for this specific situation, but it's not very
    reusable...
    """
@@ -4272,27 +4265,8 @@ class GfxItemQRCode(QGraphicsItem):
    def __init__(self, position, scene, rawDataToEncode, totalSize=None, modSize=None):
       super(GfxItemQRCode, self).__init__()
       self.setPos(position)
-      
-      sz=3
-      success=False
-      while sz<20:
-         try:
-            # 6 is a good size for a QR-code: If you pick too small (i.e. cannot
-            # fit all the data requested), you will get a type error.  Raise this
-            # number to get ever-more-massive QR codes which fit more data
-            self.qr = QRCode(sz, QRErrorCorrectLevel.H)
-            self.qr.addData(rawDataToEncode)
-            self.qr.make()
-            success=True
-            break
-         except TypeError:
-            #print 'Failed to generate QR code:  likely too much data for the size'
-            #LOGWARN('Could not generate QR code for size %d (too much data?)', sz)
-            sz += 1
-            pass
+      self.qrmtrx, self.modCt = CreateQRMatrix(rawDataToEncode, 'h')
 
-      
-      self.modCt = self.qr.getModuleCount()
       if totalSize==None and not modSize==None:
          totalSize = float(self.modCt)*float(modSize)
       self.modSz = round(float(totalSize)/ float(self.modCt) - 0.5)
@@ -4311,7 +4285,7 @@ class GfxItemQRCode(QGraphicsItem):
 
       for r in range(self.modCt):
          for c in range(self.modCt):
-            if (self.qr.isDark(c, r) ):
+            if self.qrmtrx[r][c] > 0:
                painter.drawRect(*[self.modSz*a for a in [r,c,1,1]])
 
 
@@ -5342,7 +5316,7 @@ class DlgSendBitcoins(ArmoryDialog):
          not loadCount==lastPestering and not dnaaDonate and \
          wlt.getBalance('Spendable') > 5*ONE_BTC and not USE_TESTNET:
          result = MsgBoxWithDNAA(MSGBOX.Question, 'Please donate!', \
-            '<i>Armory</i> is the result of over 2,000 hours of development '
+            '<i>Armory</i> is the result of over 3,000 hours of development '
             'and dozens of late nights bug-hunting and testing.  Yet, this software '
             'has been given to you for free to benefit the greater Bitcoin '
             'community! '
@@ -6440,29 +6414,29 @@ class DlgOfflineSelect(ArmoryDialog):
       self.connect(btnReview, SIGNAL('clicked()'), review)
       self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
 
-      lblCreate = QRichLabel( \
-         'Create a transaction from an Offline/Watching-Only wallet '
-         'to be signed by the computer with the full wallet')
+      lblCreate = QRichLabel( tr("""
+         Create a transaction from an Offline/Watching-Only wallet 
+         to be signed by the computer with the full wallet """))
 
-      lblReview = QRichLabel( \
-         'Review an unsigned transaction and sign it if you have '
-         'the private keys needed for it' )
+      lblReview = QRichLabel( tr("""
+         Review an unsigned transaction and sign it if you have 
+         the private keys needed for it """))
          
-      lblBroadc = QRichLabel( \
-         'Send a pre-signed transaction to the Bitcoin network to finalize it')
+      lblBroadc = QRichLabel( tr( """
+         Send a pre-signed transaction to the Bitcoin network to finalize it"""))
 
       lblBroadc.setMinimumWidth( tightSizeNChar(lblBroadc, 45)[0] )
 
       
       frmOptions = QFrame()
-      frmOptions.setFrameStyle(QFrame.Box | QFrame.Plain)
+      frmOptions.setFrameStyle(STYLE_PLAIN)
       frmOptionsLayout = QGridLayout()
       frmOptionsLayout.addWidget(btnCreate,  0,0)
       frmOptionsLayout.addWidget(lblCreate,  0,2)
-      frmOptionsLayout.addWidget(HLINE(),  1,0, 1,3)
+      frmOptionsLayout.addWidget(HLINE(),    1,0, 1,3)
       frmOptionsLayout.addWidget(btnReview,  2,0, 3,1)
       frmOptionsLayout.addWidget(lblReview,  2,2)
-      frmOptionsLayout.addWidget(HLINE(),  3,2, 1,1)
+      frmOptionsLayout.addWidget(HLINE(),    3,2, 1,1)
       frmOptionsLayout.addWidget(lblBroadc,  4,2)
 
 
@@ -6663,7 +6637,6 @@ class DlgReviewOfflineTx(ArmoryDialog):
       #        arbitrary hex-serialized transactions for broadcast... 
       #        but it's not trivial either (for instance, I assume 
       #        that we have inputs values, etc)
-
       self.wlt     = None
       self.leValue = None
       self.txdpObj = None
@@ -8161,6 +8134,10 @@ class DlgDispTxInfo(ArmoryDialog):
       clipb.setText(str(s).strip())
 
 
+
+
+
+
 class DlgPaperBackup(ArmoryDialog):
    """
    Open up a "Make Paper Backup" dialog, so the user can print out a hard
@@ -8210,17 +8187,6 @@ class DlgPaperBackup(ArmoryDialog):
 
 
       GlobalPos = QPointF(leftEdge, topEdge)
-      # I guess I still don't understand the copy/ref stuff... this didn't work
-      #def movePosRight(g, x):    
-         #g += QPointF(x,0)
-      #def movePosDown(g, y):    
-         #g += QPointF(0,y)
-      #def setPosFromLeft(g, x):    
-         #g = QPointF(x, g.y())
-      #def setPosFromTop(g, y):    
-         #g = QPointF(g.x(), y)
-      #def moveNewLine(g, pixelsDown):
-         #g = QPointF(leftEdge, g.y()+pixelsDown)
 
       # Draw the logo in the top-left
       logoPixmap = QPixmap(':/armory_logo_h36.png') 
@@ -12350,8 +12316,8 @@ class DlgBackupCenter(ArmoryDialog):
                <b>You don't need a printer to make a paper backup!
                The data can be copied by hand with pen and paper.</b>  
                Paper backups are preferred to digital backups, because you 
-               know the paper backup will work no matter how many years--or 
-               decades--it sits in storage.  """)
+               know the paper backup will work no matter how many years (or
+               decades) it sits in storage.  """)
          txtDigital = tr( """
                Digital backups can be saved to an external hard-drive or 
                USB removable media.  It is recommended you make a few 
@@ -12492,61 +12458,22 @@ class DlgBackupCenter(ArmoryDialog):
          if DlgFragBackup(self.wlt, self, self.main).exec_():
             self.accept()
       elif self.optDigitalBackupPlain.isChecked():
-         fn = 'armory_%s_decrypted.wallet' % self.wlt.uniqueIDB58
-         if self.wlt.watchingOnly:
-            fn = 'armory_%s.watchonly.wallet' % self.wlt.uniqueIDB58
-         savePath = self.main.getFileSave(defaultFilename=fn)
-
-         if not len(savePath)>0:
-            return 
-
-         if self.wlt.useEncryption:
-            dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
-            if not dlg.exec_():
-               return
-               
-         # Wallet should now be unlocked
-         self.wlt.makeUnencryptedWalletCopy(savePath)
-         QMessageBox.information(self, tr('Backup Complete'), tr( """
-            Your wallet was successfully backed up to the following 
-            location:<br><br>%s""") % savePath, QMessageBox.Ok)
-
+         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
       elif self.optDigitalBackupCrypt.isChecked():
-         fn = 'armory_%s_encrypted.wallet' % self.wlt.uniqueIDB58
-         if self.wlt.watchingOnly:
-            fn = 'armory_%s.watchonly.wallet' % self.wlt.uniqueIDB58
-         savePath = self.main.getFileSave(defaultFilename=fn)
-
-         if not len(savePath)>0:
-            return 
-
-         newPassphrase=None
-         if not self.wlt.useEncryption:
-            dlgCrypt = DlgChangePassphrase(self, self.main, not self.wlt.useEncryption)
-            if not dlgCrypt.exec_():
-               QMessageBox.information(self, tr('Aborted'), tr( """
-                  No passphrase was selected for the encrypted backup.  
-                  No backup was created"""), QMessageBox.Ok)
-            newPassphrase = SecureBinaryData(str(dlgCrypt.edtPasswd1.text()))
-
-         self.wlt.makeEncryptedWalletCopy(savePath, newPassphrase)
-         QMessageBox.information(self, tr('Backup Complete'), tr( """
-            Your wallet was successfully backed up to the following 
-            location:<br><br>%s""") % savePath, QMessageBox.Ok)
-
+         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'encrypt')
       elif self.optIndivKeyListTop.isChecked():
          if self.wlt.useEncryption and self.wlt.isLocked:
             dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Unlock Private Keys')
             if not dlg.exec_():
                if self.main.usermode==USERMODE.Expert:
-                  QMessageBox.warning(self, 'Unlock Failed', \
-                     'Wallet was not be unlocked.  The public keys and addresses '
-                     'will still be shown, but private keys will not be available '
-                     'unless you reopen the dialog with the correct passphrase', \
+                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
+                     Wallet was not be unlocked.  The public keys and addresses 
+                     will still be shown, but private keys will not be available 
+                     unless you reopen the dialog with the correct passphrase."""), \
                      QMessageBox.Ok)
                else:
-                  QMessageBox.warning(self, 'Unlock Failed', \
-                     'Wallet could not be unlocked to display individual keys.', \
+                  QMessageBox.warning(self, tr('Unlock Failed'), tr("""
+                     'Wallet could not be unlocked to display individual keys."""), \
                      QMessageBox.Ok)
                   if self.main.usermode==USERMODE.Standard:
                      return
@@ -12559,6 +12486,202 @@ class DlgBackupCenter(ArmoryDialog):
 
 
 
+################################################################################
+class DlgSimpleBackup(ArmoryDialog):
+   def __init__(self, parent, main, wlt):
+      super(DlgSimpleBackup, self).__init__(parent, main)
+      
+      self.wlt = wlt
+
+      lblDescrTitle = QRichLabel( tr(""" 
+         <b>Protect Your Bitcoins -- Make a Wallet Backup!</b>"""))
+
+      lblDescr = QRichLabel( tr("""
+         A failed hard-drive or forgotten passphrase will lead to 
+         <u>permanent loss of bitcoins</u>!  Luckily, Armory wallets only 
+         need to be backed up <u>one time</u>, and protect you in both
+         of these events.   If you've ever forgotten a password or had
+         a hardware failure, make a backup! """))
+
+      ### Paper
+      lblPaper = QRichLabel( tr(""" 
+         Use a printer or pen-and-paper to write down your wallet "root." """))
+      btnPaper = QPushButton( tr('Make Paper Backup'))
+
+      ### Digital
+      lblDigital = QRichLabel( tr("""
+         Create an unencrypted copy of your wallet file (including imported 
+         addresses)."""))
+      btnDigital = QPushButton(tr('Make Digital Backup'))
+
+      ### Other
+      lblOther = QRichLabel( tr(""" """))
+      btnOther = QPushButton(tr('See Other Backup Options'))
+
+      def backupDigital():
+         self.accept()
+         self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
+
+      def backupPaper():
+         self.accept()
+         DlgPaperBackup(self.wlt, self, self.main).exec_()
+
+      def backupOther():
+         self.accept()
+         DlgBackupCenter(self, self.main, self.wlt).exec_()
+
+      self.connect(btnPaper, SIGNAL('clicked()'), backupPaper )
+      self.connect(btnDigital, SIGNAL('clicked()'), backupDigital )
+      self.connect(btnOther, SIGNAL('clicked()'), backupOther )
+
+      layout = QGridLayout()
+
+      layout.addWidget( lblPaper,     0,0)
+      layout.addWidget( btnPaper,     0,2)
+
+      layout.addWidget( HLINE(),      1,0, 1,3)
+
+      layout.addWidget( lblDigital,   2,0)
+      layout.addWidget( btnDigital,   2,2)
+
+      layout.addWidget( HLINE(),      3,0, 1,3)
+         
+      layout.addWidget( makeHorizFrame(['Stretch', btnOther,'Stretch']), 4,0, 1,3)
+
+      #layout.addWidget( VLINE(),      0,1, 5,1)
+
+      layout.setContentsMargins(10,5,10,5)
+      setLayoutStretchRows(layout, 1,0,1,0,0)
+      setLayoutStretchCols(layout, 1,0,0)
+
+      frmGrid = QFrame()
+      frmGrid.setFrameStyle(STYLE_PLAIN)
+      frmGrid.setLayout(layout)
+      
+      btnClose = QPushButton('Done')
+      self.connect(btnClose, SIGNAL('clicked()'), self.accept)
+      frmClose = makeHorizFrame(['Stretch', btnClose])
+      
+      frmAll = makeVertFrame([lblDescrTitle, lblDescr, frmGrid, frmClose])
+      layoutAll = QVBoxLayout()
+      layoutAll.addWidget(frmAll)
+      self.setLayout(layoutAll)
+      self.sizeHint = lambda: QSize(400,250)
+
+      self.setWindowTitle(tr('Backup Options'))
+
+
+
+################################################################################
+class DlgFragBackup(ArmoryDialog):
+   #############################################################################
+   def __init__(self, parent, main, wlt):
+      super(DlgFragBackup, self).__init__(parent, main)
+      
+      self.wlt = wlt
+
+      lblDescrTitle = QRichLabel( tr(""" 
+         <b>Created "Fragmented" Backup of wallet %s (%s)</b>""") % \
+         (wlt.labelName, wlt.uniqueIDB58))
+
+      lblDescrTitle = QRichLabel( tr(""" 
+         Uses <a href="http://en.wikipedia.org/wiki/Shamir's_Secret_Sharing">Shamir's
+         Secret Sharing</a> to split your paper backup information into multiple 
+         pieces (or "fragments").  This is generally referred to an <b>M-of-N</b> 
+         scheme, which means that <b>N</b> fragments will be created, of which any
+         subset of <b>M</b> of them is sufficient to restore your wallet.  
+         <br><br>
+         The most common use-case for this scheme, is to make a 2-of-3 fragmented
+         backup.  You print three pieces of paper:  you keep one, put one in a 
+         safe-deposit box at a bank, and give one to a trusted family member.  
+         Neither the bank nor your family member can access the funds with their
+         piece.  You only need to contact one of them to recover your wallet, or 
+         both of them if you lose your fragment.  """))
+      lblDescrTitle.setOpenExternalLinks(True)
+
+
+      # We will hold all fragments here, in SBD objects.  Destroy all of them
+      # before the dialog exits
+      self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain
+      self.secureChain = self.wlt.addrMap['ROOT'].chaincode
+      self.secureData  = []
+      self.fragFrames  = []
+
+      
+      self.recomputeFragData(2,3)
+      self.createFragDisplay()
+
+
+      # Assume the wallet is unlocked
+      if self.wlt.isLocked:
+         LOGERROR('Wallet is locked!  Cannot create backup!')
+         return
+
+
+      self.scrollArea = QScrollArea()
+      self.scrollArea.setWidgetResizable(True)
+      #self.scrollRecipArea.setWidget(QFrame)
+
+
+
+   #############################################################################
+   def createFragObj(self, objIndex_1idx, fragData):
+      
+      while len(self.fragFrames) < objIndex_1idx:
+         self.fragFrames.append(None) 
+
+      idx = objIndex_1idx - 1
+
+      self.fragFrames[idx] = QFrame()
+      self.fragFrames[idx].setFrameStyle(STYLE_STYLED)
+
+
+   #############################################################################
+   def destroyFrags(self):
+      if isinstance(self.secureData[0], (list,tuple)):
+         for sbdList in self.secureData:
+            for sbd in sbdList:
+               sbd.destroy()
+      else:
+         for sbd in self.secureData:
+            sbd.destroy()
+      self.secureData = []
+      
+
+   #############################################################################
+   def destroyEverything(self):
+      self.secureRoot.destroy()
+      self.secureChain.destroy()
+      self.destroyFrags()
+
+   #############################################################################
+   def recomputeFragData(self, M, maxN=12):
+      """
+      Only M is needed, since N doesn't change 
+      """
+      # Make sure only local variables contain non-SBD data
+      self.destroyFrags()
+      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, maxN)
+      for x,y in insecureData:
+         self.secureData.append([SecureBinaryData(x), SecureBinaryData(y)])
+      insecureData = None
+
+      self.M = M
+      mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
+      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:3]
+      self.fragPrefixStr = binary_to_base58(hash256(self.wlt.uniqueIDBin)[:3])
+      self.fragPixmap = QPixmap('img/frag%df.png' % M)
+
+
+   #############################################################################
+   def accept(self):
+      self.destroyEverything()
+      super(DlgFragBackup, self).accept()
+
+   #############################################################################
+   def reject(self):
+      self.destroyEverything()
+      super(DlgFragBackup, self).reject()
 
 
 
