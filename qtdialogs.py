@@ -4065,41 +4065,44 @@ class DlgImportPaperWallet(ArmoryDialog):
          self.lineEdits[i].setText(' '.join(quads))
          
    
-
    def verifyUserInput(self):
-      nError = 0
+      def englishNumberList(nums):
+         nums = map(str, nums)
+         if len(nums)==1:
+            return nums[0]
+         return ', '.join(nums[:-1]) + ' and ' + nums[-1]
+
+      errorLines = []
       for i in range(4):
          hasError=False
          try:
-            rawBin = easyType16_to_binary( str(self.lineEdits[i].text()).replace(' ','') )
-            data, chk = rawBin[:16], rawBin[16:]
-            fixedData = verifyChecksum(data, chk)
-            if len(fixedData)==0:
-               hasError=True
-         except KeyError:
-            hasError=True
+            data, err = readSixteenEasyBytes(str(self.lineEdits[i].text()))
+         except (KeyError, TypeError):
+            data, err = ('', 'Exception')
             
-         if hasError:
+         if data=='':
             reply = QMessageBox.critical(self, 'Verify Wallet ID', \
-               'There is an error in the data you entered that could not be '
-               'fixed automatically.  Please double-check that you entered the '
-               'text exactly as it appears on the wallet-backup page.', \
+               'There is an error on line ' + str(i+1) + ' of the data you '
+               'entered, which could not be fixed automatically.  Please '
+               'double-check that you entered the text exactly as it appears '
+               'on the wallet-backup page.', \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.labels[i].setText('<font color="red">'+str(self.labels[i].text())+'</font>')
             return
-         if not fixedData==data:
-            data = fixedData
-            nError+=1
+         if err=='Fixed_1' or err=='No_Checksum':
+            errorLines += [i+1]
 
          self.wltDataLines[i] = data
 
-      if nError>0:
-         pluralStr = 'error' if nError==1 else 'errors'
+      if errorLines:
+         pluralChar = '' if len(errorLines)==1 else 's'
+         article = ' an' if len(errorLines)==1 else ''
          QMessageBox.question(self, 'Errors Corrected!', \
-            'Detected ' + str(nError) + ' ' + pluralStr + ' '
-            'in the data you entered.  Armory attempted to fix the ' + 
-            pluralStr + ' but it is not always right.  Be sure '
+            'Detected' + article +' error' + pluralChar + ' on line' +
+            pluralChar + ' ' + englishNumberList(errorLines) +
+            ' in the data you entered.  Armory attempted to fix the ' + 
+            'error' + pluralChar + ' but it is not always right.  Be sure '
             'to verify the "Wallet Unique ID" closely on the next window.', \
             QMessageBox.Ok)
             

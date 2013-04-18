@@ -108,6 +108,8 @@ for i,fragMap in enumerate(frags):
          exit(0)
       elif err=='Fixed_1':
          print ' Error corrected,  %s:%s' % (files[i], prefix)
+      elif err=='No_Checksum':
+         print ' Checksum absent,  %s:%s' % (files[i], prefix)
       return bin16
 
    x,y,f = ['']*4, ['']*4, ['']*4
