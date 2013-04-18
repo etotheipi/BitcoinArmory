@@ -8335,7 +8335,7 @@ class PyBtcWallet(object):
          return
       if not self.uniqueIDBin[-1] == ADDRBYTE:
          LOGERROR('Requested wallet is for a different network!')
-         LOGERROR('Wallet is for:  %s ', NETWORKS[netByte])
+         LOGERROR('Wallet is for:  %s ', NETWORKS[self.uniqueIDBin[-1]])
          LOGERROR('ArmoryEngine:   %s ', NETWORKS[ADDRBYTE])
          return
 

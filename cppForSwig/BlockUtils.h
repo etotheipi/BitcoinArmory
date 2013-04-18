@@ -740,13 +740,10 @@ private:
    string                             zcFilename_;
 
    // This is for detecting external changes made to the blk0001.dat file
-<<<<<<< HEAD
    bool                               isNetParamsSet_;
    bool                               isBlkParamsSet_;
    bool                               isLevelDBSet_;
-=======
    string                             armoryHomeDir_;
->>>>>>> backupcenter
    string                             blkFileDir_;
    uint32_t                           blkFileDigits_;
    uint32_t                           blkFileStart_;

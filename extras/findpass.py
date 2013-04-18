@@ -23,6 +23,23 @@ if not os.path.exists(walletPath):
 myEncryptedWlt = PyBtcWallet().readWalletFile(walletPath)
 
 
+def all_casings(input_string):
+   """
+   A useful method for producing a list of all casings of a given string
+   """
+   out = [''] 
+   if not input_string:
+      out.append('')
+   else:
+      first = input_string[:1]
+      if first.lower() == first.upper():
+         for sub_casing in all_casings(input_string[1:]):
+            out.append( first + sub_casing)
+      else:
+         for sub_casing in all_casings(input_string[1:]):
+            out.append( first.lower() + sub_casing)
+            out.append( first.upper() + sub_casing)
+   return out
 
 
 

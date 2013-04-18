@@ -285,7 +285,8 @@ def main():
    suffix = [['_amd64.deb',         'Version %s for Ubuntu/Debian 64-bit',   ['DebianPackage', 'OS-Linux64']], \
              ['_i386.deb',          'Version %s for Ubuntu/Debian 32-bit',   ['DebianPackage', 'OS-Linux32']], \
              ['_win64.msi',         'Version %s for Windows 64-bit',         ['WindowsMSI',    'OS-Win64']], \
-             ['_windows_all.msi',   'Version %s for Windows 32- and 64-bit', ['WindowsMSI',    'OS-Win32']], \
+             ['_win32.msi',         'Version %s for Windows 32- and 64-bit', ['WindowsMSI',    'OS-Win32']], \
+             ['_OSX.dmg',           'Version %s for Mac/OSX 10.8+',          ['MacosxDMG',     'OS-MacOSX']], \
              ['_sha256sum.txt.asc', 'Version %s SHA256 hashes of installers',['HashesSHA256']]]
 
    urlSummList = []
