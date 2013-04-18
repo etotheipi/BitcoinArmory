@@ -3545,7 +3545,11 @@ class ArmoryMainWindow(QMainWindow):
          return ( \
          'For more information about Armory, and even Bitcoin itself, you '
          'should visit the <a href="https://bitcoinarmory.com/index.php/fr'
-         'equently-asked-questions">frequently asked questions page</a>.'
+         'equently-asked-questions">frequently asked questions page</a>.  If '
+         'you are experiencing problems using this software, please visit the '
+         '<a href="https://bitcoinarmory.com/troubleshooting-armory/">Armory '
+         'troubleshooting webpage</a>.  It will be updated frequently with '
+         'solutions to common problems. '
          '<br><br>'
          '<b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper '
          'backups protect you <i>forever</i> against forgotten passwords, '
@@ -4081,6 +4085,7 @@ class ArmoryMainWindow(QMainWindow):
                      descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
                   else:
                      descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
+                     descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
 
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnFrameVisible(True, \
@@ -4197,6 +4202,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                descr = self.GetDashStateText('User','ScanWithWallets')
    
+            descr += self.GetDashStateText('Auto', 'NewUserInfo') 
             descr += self.GetDashFunctionalityText('Scanning') + '<br>'
             self.lblDashDescr1.setText(descr)
             self.lblDashDescr2.setText('')

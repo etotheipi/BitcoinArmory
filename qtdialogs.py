@@ -361,8 +361,8 @@ class DlgTooltip(ArmoryDialog):
       self.setMinimumWidth(150)
       self.setWindowFlags(Qt.SplashScreen)
 
-   def mouseReleaseEvent(self, ev):
-      self.accept()
+   #def mouseReleaseEvent(self, ev):
+      #self.accept()
       
    def mousePressEvent(self, ev):
       self.accept()
