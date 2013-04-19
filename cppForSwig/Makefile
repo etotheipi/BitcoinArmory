@@ -12,7 +12,7 @@ DEPSDIR ?= /usr
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread 
 SWIG_OPTS    += -c++ -python -classic -threads
-PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
+PYVER 		 += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
 
 
 UNAME := $(shell uname)

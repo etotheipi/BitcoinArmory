@@ -285,8 +285,18 @@ def main():
    suffix = [['_amd64.deb',         'Version %s for Ubuntu/Debian 64-bit',   ['DebianPackage', 'OS-Linux64']], \
              ['_i386.deb',          'Version %s for Ubuntu/Debian 32-bit',   ['DebianPackage', 'OS-Linux32']], \
              ['_win64.msi',         'Version %s for Windows 64-bit',         ['WindowsMSI',    'OS-Win64']], \
-             ['_windows_all.msi',   'Version %s for Windows 32- and 64-bit', ['WindowsMSI',    'OS-Win32']], \
+             ['_win32.msi',         'Version %s for Windows 32- and 64-bit', ['WindowsMSI',    'OS-Win32']], \
+             ['_OSX.dmg',           'Version %s for Mac/OSX 10.8+',          ['MacosxDMG',     'OS-MacOSX']], \
              ['_sha256sum.txt.asc', 'Version %s SHA256 hashes of installers',['HashesSHA256']]]
+             ['_OfflineBundle_Ubuntu-10.04-32bit.tar.gz',     'Version %s Offline Bundle for Ubuntu 10.04-32bit', \
+                                                                             ['DebianPackage', 'OS-Linux32', 'Offline']], \
+             ['_OfflineBundle_Ubuntu-10.04-64bit.tar.gz',     'Version %s Offline Bundle for Ubuntu 10.04-64bit', \
+                                                                             ['DebianPackage', 'OS-Linux64', 'Offline']], \
+             # Actually, we can just include the hashes of the offline bundles in the sha256sums file
+             #['_OfflineBundle_Ubuntu_10.04_32bit.tar.gz.sig', 'Detached Signature for %s 32-bit offline bundle', \
+                                                                             #['DetachedSig', 'OS-Linux32', 'Offline']], \
+             #['_OfflineBundle_Ubuntu_10.04_64bit.tar.gz.sig', 'Detached Signature for %s 64-bit offline bundle', \
+                                                                             #['DetachedSig', 'OS-Linux64', 'Offline']], \
 
    urlSummList = []
    password = getpass.getpass('Enter your googlecode password: ')

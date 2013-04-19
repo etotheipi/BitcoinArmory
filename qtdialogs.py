@@ -2550,7 +2550,7 @@ class DlgImportAddress(ArmoryDialog):
             return
    
          if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'New private key data cannot be imported unless the wallet is '

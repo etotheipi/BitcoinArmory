@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 88, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 88, 1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -92,6 +92,8 @@ def isASCII(theStr):
       theStr.decode('ascii')
       return True
    except UnicodeEncodeError:
+      return False
+   except UnicodeDecodeError:
       return False
    except:
       LOGEXCEPT('What was passed to this function? %s', theStr)
@@ -10629,8 +10631,7 @@ class SatoshiDaemonManager(object):
 
 
       # Look for rpcport, use default if not there
-      if not self.bitconf.has_key('rpcport'):
-         self.bitconf['rpcport'] = BITCOIN_RPC_PORT
+      self.bitconf['rpcport'] = int(self.bitconf.get('rpcport', BITCOIN_RPC_PORT))
 
       # We must have a username and password.  If not, append to file
       if not self.bitconf.has_key('rpcuser'):
@@ -10646,6 +10647,7 @@ class SatoshiDaemonManager(object):
             f.write('\n')
             f.write('rpcpassword=%s' % randBase58)
             self.bitconf['rpcpassword'] = randBase58
+
 
       if not isASCII(self.bitconf['rpcuser']):
          LOGERROR('Non-ASCII character in bitcoin.conf (rpcuser)!')
@@ -12806,7 +12808,7 @@ class BlockDataManagerThread(threading.Thread):
                   self.__startLoadBlockchain()
 
             elif cmd == BDMINPUTTYPE.GoOfflineRequested:
-               LOGINFO('Go online requested')
+               LOGINFO('Go offline requested')
                self.prefMode = BLOCKCHAINMODE.Offline
 
             # Let any blocking join() know that this queue entry is done
