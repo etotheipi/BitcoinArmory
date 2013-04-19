@@ -4,6 +4,7 @@ import time
 import platform
 import os
 import signal
+import subprocess
 
 # Note:  this ended up not being used for Windows!  Check out guardian.exe
 opsys = platform.system()
@@ -48,6 +49,19 @@ def kill(pid):
 
 
 
+################################################################################
+def killProcessTree(pid):
+   # In this case, Windows is easier because we know it has the get_children
+   # call, because have bundled a recent version of psutil.  Linux, however,
+   # does not have that function call in earlier versions.
+   if not OS_LINUX:
+      for child in psutil.Process(pid).get_children():
+         killProcess(child.pid)
+   else:
+      proc = Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=PIPE)
+      out,err = proc.communicate()
+      for pid_str in out.split("\n")[:-1]:
+         killProcess(int(pid_str))
       
 
 
@@ -65,10 +79,6 @@ if proc_name_bitcoind:
    print 'bitcoind is running in pid=%d (%s)' % (pid_bitcoind, proc_name_bitcoind)
 else:
    print 'bitcoind IS NOT RUNNING!'
-
-child_pids = [p.pid for p in psutil.Process(pid_bitcoind).get_children()]
-for ch in child_pids:
-   print 'bitcoind pid has child pid=%d (%s)' % (ch, check_pid(ch))
 
 
 while True:
@@ -88,9 +98,7 @@ if check_pid(pid_bitcoind, proc_name_bitcoind):
    # Depending on how popen was called, bitcoind may be a child of 
    # pid_bitcoind.  But psutil makes it easy to find those child procs
    # and kill them.
-   for pid in child_pids:
-      kill(pid)
-
+   killProcessTree(pid_bitcoind)
    kill(pid_bitcoind)
 
 

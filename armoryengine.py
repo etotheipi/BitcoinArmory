@@ -697,7 +697,6 @@ def killProcess(pid, sig='default'):
          
            
 
-
 ################################################################################
 def subprocess_check_output(*popenargs, **kwargs):
    """
@@ -717,6 +716,21 @@ def subprocess_check_output(*popenargs, **kwargs):
        error.output = output
        raise error
    return output
+
+
+################################################################################
+def killProcessTree(pid):
+   # In this case, Windows is easier because we know it has the get_children
+   # call, because have bundled a recent version of psutil.  Linux, however,
+   # does not have that function call in earlier versions.
+   if not OS_LINUX:
+      for child in psutil.Process(pid).get_children():
+         killProcess(child.pid)
+   else:
+      proc = Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=PIPE)
+      out,err = proc.communicate()
+      for pid_str in out.split("\n")[:-1]:
+         killProcess(int(pid_str))
 
 
 ################################################################################
@@ -10727,9 +10741,9 @@ class SatoshiDaemonManager(object):
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
-      for child in psutil.Process(self.bitcoind.pid).get_children():
-         killProcess(child.pid)
+      killProcessTree(self.bitcoind.pid)
       killProcess(self.bitcoind.pid)
+
       time.sleep(1)
       self.bitcoind = None
       
