@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 88, 1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 88, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -1927,6 +1927,9 @@ class FiniteField(object):
 
 ################################################################################
 def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
+   if not isinstance(secret, basestring):
+      secret = secret.toBinStr() 
+
    if nbytes==None:
       nbytes = len(secret)
 
@@ -1991,7 +1994,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
          fragments.append( [x, poly(x)] )
 
 
-   a = None
+   secret,a = None,None
    fragments = [ [int_to_binary(p, nbytes, BIGENDIAN) for p in frag] for frag in fragments]
    return fragments
 
@@ -7713,6 +7716,7 @@ class PyBtcWallet(object):
       self.writeFreshWalletFile(newPath)
 
       # Unencrypt the wallet now
+      self.unlock(securePassphrase=securePassphrase)
       self.changeWalletEncryption(None)
       return True
    

@@ -939,9 +939,14 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
+      LOGERROR('remove me!')
+      fnfrag = lambda: DlgFragBackup(self, self.main, self.wlt).exec_()
+      LOGERROR('remove me!')
+
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
-      self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
+      #self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
+      self.connect(lbtnBackups, SIGNAL('clicked()'), fnfrag)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
@@ -8872,12 +8877,6 @@ class DlgECDSACalc(ArmoryDialog):
       self.btnClearSP = QPushButton('Clear')
       self.btnClearPP = QPushButton('Clear')
 
-      # Looks like these images didn't make it into the resource file.
-      # TODO:  Figure this out later...
-      #imgPlus  = QImageLabel(':/plus_orange.png')
-      #imgTimes1= QImageLabel(':/asterisk_orange.png')
-      #imgTimes2= QImageLabel(':/asterisk_orange.png')
-      #imgDown  = QImageLabel(':/arrow_down32.png')
 
       imgPlus  = QRichLabel('<b>+</b>')
       imgTimes1= QRichLabel('<b>*</b>')
@@ -12619,63 +12618,209 @@ class DlgFragBackup(ArmoryDialog):
       self.wlt = wlt
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Created "Fragmented" Backup of wallet %s (%s)</b>""") % \
+         <b>Create "fragmented" backup of wallet %s (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58))
 
-      lblDescrTitle = QRichLabel( tr(""" 
-         Uses <a href="http://en.wikipedia.org/wiki/Shamir's_Secret_Sharing">Shamir's
-         Secret Sharing</a> to split your paper backup information into multiple 
-         pieces (or "fragments").  This is generally referred to an <b>M-of-N</b> 
+      lblDescr = QRichLabel( tr(""" 
+         
+         Split your wallet into secure "fragments."  This is generally referred to 
+         as an <b>M-of-N</b> 
          scheme, which means that <b>N</b> fragments will be created, of which any
-         subset of <b>M</b> of them is sufficient to restore your wallet.  
-         <br><br>
-         The most common use-case for this scheme, is to make a 2-of-3 fragmented
-         backup.  You print three pieces of paper:  you keep one, put one in a 
-         safe-deposit box at a bank, and give one to a trusted family member.  
-         Neither the bank nor your family member can access the funds with their
-         piece.  You only need to contact one of them to recover your wallet, or 
-         both of them if you lose your fragment.  """))
-      lblDescrTitle.setOpenExternalLinks(True)
+         subset of <b>M</b> of them is sufficient to restore your wallet. 
+         <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
+         to read more about fragmented backups."""))
+      lblDescr .setOpenExternalLinks(True)
 
+      
+      self.maxM = 3 if not self.main.usermode==USERMODE.Expert else 8
+      self.maxN = 5 if not self.main.usermode==USERMODE.Expert else 12
+      self.currMinN = 2
+      self.maxmaxN = 12
+
+      self.comboM = QComboBox()
+      self.comboN = QComboBox()
+
+      for M in range(2,self.maxM+1):
+         self.comboM.addItem(str(M))
+
+      for N in range(self.currMinN, self.maxN):
+         self.comboN.addItem(str(N))
+
+      self.comboM.setCurrentIndex(0)
+      self.comboN.setCurrentIndex(1)
+
+      btnPrintAll = QPushButton('Print All Fragments')
+      self.connect(btnPrintAll, SIGNAL('clicked()'), self.clickPrintAll)
+
+      def updateM():
+         self.updateComboN()
+         self.createFragDisplay()
+
+      updateN = self.createFragDisplay
+
+      self.connect(self.comboM, SIGNAL('activated(int)'), updateM)
+      self.connect(self.comboN, SIGNAL('activated(int)'), updateN)
+
+      lblBelowM  = QRichLabel(tr('Required (M)'), hAlign=Qt.AlignHCenter)
+      lblBelowN  = QRichLabel(tr('Total (N)'), hAlign=Qt.AlignHCenter)
+      lblBetween = QRichLabel(tr('- OF -'), hAlign=Qt.AlignHCenter, size=3)
+
+      self.comboM.setMinimumWidth(30)
+      self.comboN.setMinimumWidth(30)
+
+      frmComboM = makeHorizFrame(['Stretch', self.comboM, 'Stretch'])
+      frmComboN = makeHorizFrame(['Stretch', self.comboN, 'Stretch'])
+
+      layoutMofN = QGridLayout()
+      layoutMofN.addWidget(lblBelowM,    0,0)
+      layoutMofN.addWidget(lblBelowN,    0,2)
+      layoutMofN.addWidget(frmComboM,    1,0)
+      layoutMofN.addWidget(lblBetween,   1,1)
+      layoutMofN.addWidget(frmComboN,    1,2)
+      frmMofN = QFrame()
+      frmMofN.setFrameStyle(STYLE_RAISED)
+      frmMofN.setLayout(layoutMofN)
+      frmSelectParams = makeHorizFrame(['Stretch', frmMofN, btnPrintAll, 'Stretch'])
+      
+      lblBelowFrags = QRichLabel( tr("""
+         Make sure you test your backup before relying on it!"""))
+
+      btnAccept = QPushButton(tr('Close'))
+      self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
+      frmBottomBtn = makeHorizFrame(['Stretch', btnAccept])
 
       # We will hold all fragments here, in SBD objects.  Destroy all of them
       # before the dialog exits
-      self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain
-      self.secureChain = self.wlt.addrMap['ROOT'].chaincode
+      self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
+      self.secureChain = self.wlt.addrMap['ROOT'].chaincode.copy()
       self.secureData  = []
-      self.fragFrames  = []
-
-      
-      self.recomputeFragData(2,3)
-      self.createFragDisplay()
-
-
-      # Assume the wallet is unlocked
-      if self.wlt.isLocked:
-         LOGERROR('Wallet is locked!  Cannot create backup!')
-         return
-
 
       self.scrollArea = QScrollArea()
+      self.createFragDisplay()
       self.scrollArea.setWidgetResizable(True)
-      #self.scrollRecipArea.setWidget(QFrame)
+
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescrTitle)
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(frmSelectParams)
+      dlgLayout.addWidget(self.scrollArea)
+      dlgLayout.addWidget(lblBelowFrags)
+      dlgLayout.addWidget(frmBottomBtn)
+      setLayoutStretchRows(dlgLayout, 0,0,0,1,0)
+      self.setLayout(dlgLayout) 
+      self.setMinimumWidth(640)
+      self.setWindowTitle('Create Backup Fragments')
 
 
 
    #############################################################################
-   def createFragObj(self, objIndex_1idx, fragData):
+   def updateComboN(self):
+      M    = int(str(self.comboM.currentText()))
+      oldN = int(str(self.comboN.currentText()))
+      if M<=oldN:
+         return
+      self.currMinN = M
+      self.comboN.clear()
+
+      for i,N in enumerate(range(self.currMinN, self.maxN+1)):
+         self.comboN.addItem(str(N))
+
+      self.comboN.setCurrentIndex(0)
       
-      while len(self.fragFrames) < objIndex_1idx:
-         self.fragFrames.append(None) 
+      
 
-      idx = objIndex_1idx - 1
+   #############################################################################
+   def createFragDisplay(self):
+      self.recomputeFragData()
+      M = int(str(self.comboM.currentText()))
+      N = int(str(self.comboN.currentText()))
 
-      self.fragFrames[idx] = QFrame()
-      self.fragFrames[idx].setFrameStyle(STYLE_STYLED)
+      layout = QHBoxLayout()
+      for f in range(N):
+         layout.addWidget(self.createFragFrm(f))
 
+      lblAddRemove = QRichLabel( tr("""
+         Add or remove fragments<br>using the drop-down<br>boxes above"""), \
+         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
+         size=4, color='DisableFG') 
+      w = relaxedSizeStr(lblAddRemove, 'Add or remove fragments')[0]
+      lblAddRemove.setMinimumWidth(1.1*w)
+
+      layout.addWidget(lblAddRemove)
+      frmScroll = QFrame()
+      frmScroll.setFrameStyle(STYLE_SUNKEN)
+      frmScroll.setStyleSheet('QFrame { background-color : %s  }' % \
+                                                htmlColor('SlightBkgdDark'))
+      frmScroll.setLayout(layout)
+      self.scrollArea.setWidget(frmScroll)
+
+
+   #############################################################################
+   def createFragFrm(self, idx):
+      
+      outFrame = QFrame()
+      outFrame.setFrameStyle(STYLE_STYLED)
+      
+      lblFragID = QRichLabel('<b>%s%02d-%d</b>' % \
+                               (self.fragPrefixStr, self.M, idx+1))
+      lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
+      lblFragPix = QImageLabel(self.fragPixmapFn, size=(72,72))
+      ys = self.secureData[idx][1].toHexStr()[:42]
+      lblLine1 = QRichLabel('f1: %s %s %s...' % (ys[:4], ys[4:8], ys[8:10]))
+      lblLine2 = QRichLabel('f2: %s %s %s...' % (ys[32:36], ys[36:40], ys[40:42]))
+      lblLine3 = QRichLabel('...')
+      
+      for lbl in [lblLine1, lblLine2, lblLine3]:
+         lbl.setFont(GETFONT('Fixed',10))
+
+      lblFragIdx = QRichLabel('#%d' % (idx+1), size=6, color='TextBlue', \
+                                                   hAlign=Qt.AlignHCenter)
+
+      frmTopLeft  = makeVertFrame([lblFragID, lblWltID, lblFragIdx, 'Stretch'])
+      frmTopRight = makeVertFrame([lblFragPix, 'Stretch'])
+
+      frmPaper = makeVertFrame([lblLine1, lblLine2, lblLine3])
+      frmPaper.setStyleSheet('QFrame { background-color : #ffffff  }')
+
+      fnPrint = lambda: self.clickPrintFrag(idx)
+      fnSave  = lambda: self.clickSaveFrag(idx)
+
+      btnPrintFrag = QPushButton('View/Print')
+      btnSaveFrag = QPushButton('Save to File')
+      self.connect(btnPrintFrag, SIGNAL('clicked()'), fnPrint)
+      self.connect(btnSaveFrag,  SIGNAL('clicked()'), fnSave)
+      frmButtons = makeHorizFrame([btnPrintFrag, btnSaveFrag])
+      
+
+      layout = QGridLayout()
+      layout.addWidget(frmTopLeft,      0,0,     1,1)
+      layout.addWidget(frmTopRight,     0,1,     1,1)
+      layout.addWidget(frmPaper,        1,0,     1,2)
+      layout.addWidget(frmButtons,      2,0,     1,2)
+      layout.setSizeConstraint(QLayout.SetFixedSize)
+      outFrame.setLayout(layout)
+
+      return outFrame
+      
+
+   #############################################################################
+   def clickPrintAll(self):
+      pass
+      
+   #############################################################################
+   def clickPrintFrag(self, zindex):
+      pass
+
+   #############################################################################
+   def clickSaveFrag(self, zindex):
+      pass
 
    #############################################################################
    def destroyFrags(self):
+      if len(self.secureData)==0:
+         return 
+
       if isinstance(self.secureData[0], (list,tuple)):
          for sbdList in self.secureData:
             for sbd in sbdList:
@@ -12693,22 +12838,24 @@ class DlgFragBackup(ArmoryDialog):
       self.destroyFrags()
 
    #############################################################################
-   def recomputeFragData(self, M, maxN=12):
+   def recomputeFragData(self):
       """
       Only M is needed, since N doesn't change 
       """
+      M = int(str(self.comboM.currentText()))
+      N = int(str(self.comboN.currentText()))
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
-      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, maxN)
+      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, self.maxmaxN)
       for x,y in insecureData:
          self.secureData.append([SecureBinaryData(x), SecureBinaryData(y)])
       insecureData,x,y = None,None,None
 
-      self.M = M
+      self.M,self.N = M,N
       mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
       self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:3]
       self.fragPrefixStr = binary_to_base58(hash256(self.wlt.uniqueIDBin)[:3])
-      self.fragPixmap = QPixmap('img/frag%df.png' % M)
+      self.fragPixmapFn = 'img/frag%df.png' % M
 
 
    #############################################################################

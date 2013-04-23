@@ -603,12 +603,18 @@ def makeHorizFrame(widgetList, style=QFrame.NoFrame):
    return makeLayoutFrame('Horiz', widgetList, style)
 
 
-def QImageLabel(imgfn, stretch='NoStretch'):
+def QImageLabel(imgfn, size=None, stretch='NoStretch'):
    if not os.path.exists(imgfn):
       raise FileExistsError, 'Image for QImageLabel does not exist!'
 
    lbl = QLabel()
-   lbl.setPixmap(QPixmap(imgfn))
+
+   if size==None:
+      px = QPixmap(imgfn)
+   else:
+      px = QPixmap(imgfn).scaled(*size)  # expect size=(W,H)
+
+   lbl.setPixmap(px)
    return lbl
    
 
