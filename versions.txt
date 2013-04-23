@@ -3,7 +3,19 @@
 # Maintain this file in the repo so that Armory can always find info
 # about the latest version.  This is a good way to document progress,
 # anyway...
-# 
+#
+# We also bundle in signed information needed to download and verify
+# the latest version of the Satoshi client.  We use ATL's public key
+# hardcoded into armoryengine.py, for which the private key is on the
+# offline computer.  This is necessary because Armory is not guarnteed
+# to have access to a GPG utility, but of course it can verify ECDSA
+# signatures...
+#
+# We can also use the first line to simply get the the latest version 
+# number instead of trying to determine from the installer filenames 
+# (which isn't too hard... unless it's later changed and then the 
+# older version of Armory can't decode the new version strings)
+#
 # -----BEGIN-SIGNED-DATA--------------------------------------------------------
 # SECTION-INSTALLERS-SATOSHI 0.8.1
 #    Linux     http://sourceforge.net/projects/bitcoin/files/Bitcoin/bitcoin-0.8.1/bitcoin-0.8.1-linux.tar.gz     6d7f023a9df1a436c51de83f7cd751f162be9b4fb1c06da05545f9fba7cb2a98
@@ -55,9 +67,9 @@ VERSION 0.87
         just produce weird answers, now it appears to produce crashes.
 
    - Billions of Little Bug Fixes
-        Special thanks to forum user "subSTRATA" who identified about 
-        many DOZEN minor bugs and suboptimal features.  Most of them
-        have been fixed/upgraded, to create a smoother experience, overall.
+        Special thanks to forum user "subSTRATA" who identified many DOZEN 
+        minor bugs and suboptimal features.  Most of them have been fixed
+        or upgraded, to create a smoother experience, overall.
 
 #-------------------------------------------------------------------------------
 VERSION 0.86.3

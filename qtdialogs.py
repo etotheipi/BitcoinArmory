@@ -12664,7 +12664,7 @@ class DlgFragBackup(ArmoryDialog):
       insecureData = SplitSecret( self.secureRoot + self.secureChain, M, maxN)
       for x,y in insecureData:
          self.secureData.append([SecureBinaryData(x), SecureBinaryData(y)])
-      insecureData = None
+      insecureData,x,y = None,None,None
 
       self.M = M
       mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
