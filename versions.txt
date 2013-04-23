@@ -26,6 +26,73 @@
 # -----SIGNATURE----------------------------------------------------------------
 # 284651a0c1a5f41152f8332452831c35db0e0294dc36edac2d76e5ca0e1257370a480a2686e03cd8505e76811959aec4d125503a0efb6c960d6b38af0a8d2900
 # -----END-SIGNED-DATA----------------------------------------------------------  
+#
+
+
+#-------------------------------------------------------------------------------
+VERSION 0.88
+   - Windows Users:  PLEASE UNINSTALL PREVIOUS VERSIONS!
+        The installer fails to completely overwrite previous versions
+        of Armory.  Either uninstall Armory first, or install this 
+        version, then run the installer again and select "Repair 
+        Installation."
+
+   - Auto-Management of Bitcoin Software (with version notification)
+        This version now requires you to _not_ run Bitcoin-Qt in the 
+        background.  Armory will run it for you.  You can change its 
+        behavior in the "File"->"Settings" menu, including reverting
+        to the previous, user-managed method.
+
+   - New Troubleshooting Webpage
+        If you are having trouble with Armory, especially the new
+        version that has auto-management of Bitcoin software, visit 
+        https://bitcoinarmory.com/troubleshooting-armory/
+
+   - Mac/OSX Version Now Available!
+        Thanks to forum users, "higuys" and "Red Emerald," we now have
+        a working prototype *.dmg file for OSX.  It does not work on 
+        all OSX systems, but should work on newer ones.  We are working
+        to expand compatibility with more versions of OSX.  NOTE: the
+        new auto-management of Bitcoin software is disabled in OSX due
+        to some issues with the way that software is packaged.
+
+   - Signed Windows Installers
+        Native code signing using offline, Class 2 SSL certificate.  
+        Installer will now say "Verified Publisher:  Alan Reiner" when 
+        you install in Windows.  GPG-signed hash files will still be
+        made available, using offline GPG key:  0x98832223
+
+   - Unicode/Non-ASCII Issues Resolved 
+        Armory does not yet have full unicode support, but some 
+        features were upgraded to accommodate non-English(US)
+        systems better.
+
+   - Clickable "(?)" Objects
+        The blue "(?)" objects in the interface are mouse-over tooltips
+        that give you more information when you hover over them.  They
+        have now been updated to display the tooltips when you click on 
+        them.  
+
+   - Passphrase Entry:  On-Screen Keyboard 
+        You can now use your mouse with an on-screen keyboard to enter
+        your passphrase when unlocking a wallet.  This is convenient
+        for those that prefer point-and-click, and also has potential
+        to mitigate simple keyloggers.
+
+   - Fragmented Backup Scripts (Expert Only)
+        Two new scripts added to "extras" directory: "frag_wallet.py"
+        and "unfrag_wallet.py".  These scripts can be used to split
+        your wallet into pieces/fragments using Shamir's Secret Sharing.
+        This is only available from the command line, but will be 
+        integrated into the application itself in the next release.
+        The new interface will include restoring fragmented backups
+        created with these scripts. 
+
+   - New Ubuntu 10.04 offline bundles (32- and 64-bit)
+        Recompiled offline bundle with some usability updates, as well
+        as a 64-bit version.  Both are still compiled for Ubuntu 10.04
+        since that version has a very wide hardware compatibility set.
+
 
 #-------------------------------------------------------------------------------
 VERSION 0.87

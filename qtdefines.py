@@ -249,7 +249,7 @@ class QRichLabel(QLabel):
       self.setText(txt, **kwargs)
 
    def setText(self, text, color=None, size=None, bold=None, italic=None):
-      text = str(text)
+      text = unicode(text)
       if color:
          text = '<font color="%s">%s</font>' % (htmlColor(color), text)
       if size:

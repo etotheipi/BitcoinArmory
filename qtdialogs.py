@@ -2544,7 +2544,7 @@ class DlgImportAddress(ArmoryDialog):
             return
    
          if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'New private key data cannot be imported unless the wallet is '
@@ -10049,6 +10049,23 @@ class DlgSettings(ArmoryDialog):
       self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
 
 
+      lblDefaultUriTitle = QRichLabel('<b>Set Armory as default URL handler</b>')
+      lblDefaultURI = QRichLabel(
+         'Set Armory to be the default when you click on "bitcoin:" '
+         'links in your browser or in emails.  '
+         'You can test if your operating system is supported by clicking '
+         'on a "bitcoin:" link right after clicking this button.', doWrap=True)
+      btnFrmDefaultURI = QPushButton('Set Armory as Default')
+      def clickRegURI():
+         self.main.setupUriRegistration(justDoIt=True)
+         QMessageBox.information(self, 'Registered', \
+            'Armory just attempted to register itself to handle "bitcoin:" '
+            'links, but this does not work on all operating systems.  You can '
+            'test it by going to the '
+            '<a href="www.bitcoinarmory.com">Bitcoin Armory website</a> and '
+            'clicking the link at the bottom of the homepage.', QMessageBox.Ok)
+            
+      self.connect(btnFrmDefaultURI, SIGNAL('clicked()'), clickRegURI)
 
 
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
@@ -10101,12 +10118,12 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # Notifications
+      # Notifications -- Don't work right on OSX
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  True)
-      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
-      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
-      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
+      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX)
+      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX)
 
       self.chkBtcIn  = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
@@ -10117,6 +10134,17 @@ class DlgSettings(ArmoryDialog):
       self.chkDiscon.setChecked(notifyDiscon)
       self.chkReconn.setChecked(notifyReconn)
 
+      if OS_MACOSX:
+         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available on Mac/OSX</b>')
+         self.chkBtcIn.setChecked(False)
+         self.chkBtcOut.setChecked(False)
+         self.chkDiscon.setChecked(False)
+         self.chkReconn.setChecked(False)
+         self.chkBtcIn.setEnabled(False)
+         self.chkBtcOut.setEnabled(False)
+         self.chkDiscon.setEnabled(False)
+         self.chkReconn.setEnabled(False)
+	
 
       ###############################################################
       # Date format preferences
@@ -10233,6 +10261,16 @@ class DlgSettings(ArmoryDialog):
 
       i+=1
       frmLayout.addWidget(self.chkSkipOnlineCheck,i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( lblDefaultUriTitle,    i,0 )
+
+      i+=1
+      frmLayout.addWidget( lblDefaultURI,         i,0, 1,2 )
+      frmLayout.addWidget( btnFrmDefaultURI,      i,2 )
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
