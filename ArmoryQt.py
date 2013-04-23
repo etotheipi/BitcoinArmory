@@ -1127,9 +1127,11 @@ class ArmoryMainWindow(QMainWindow):
                dldict,verstrs = parseLinkList(msg)
                self.downloadDict = dldict.copy()
                self.latestVer = verstrs.copy()
-               LOGINFO('Latest versions:')
-               LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
-               LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
+               if not TheBDM.getBDMState()=='BlockchainReady':
+                  # Don't dump all this info to the log all the time
+                  LOGINFO('Latest versions:')
+                  LOGINFO('   Satoshi: %s', self.latestVer['SATOSHI'])
+                  LOGINFO('    Armory: %s', self.latestVer['ARMORY'])
             else:
                raise ECDSA_Error, 'Could not verify'
          except:
@@ -2988,33 +2990,33 @@ class ArmoryMainWindow(QMainWindow):
       LOGDEBUG('exportLogFile')
       extraStr = ''
       if self.usermode in (USERMODE.Advanced, USERMODE.Expert):
-         extraStr = ( \
-            '<br><br><b><u>Advanced tip:</u></b> This log file is maintained at '
-            'the following location on your hard drive:'
-            '<br><br>'
-            '%s'
-            '<br><br>'
-            'Before sending the log file, you may edit it to remove information that '
-            'does not seem relevant for debugging purposes.  Or, extract the error '
-            'messages from the log file and copy only those into a bug report email ' % \
+         extraStr = tr( """ 
+            <br><br><b><u>Advanced tip:</u></b> This log file is maintained at 
+            the following location on your hard drive:
+            <br><br>
+            %s
+            <br><br>
+            Before sending the log file, you may edit it to remove information that 
+            does not seem relevant for debugging purposes.  Or, extract the error 
+            messages from the log file and copy only those into a bug report email """) % \
             ARMORY_LOG_FILE)
             
       #reply = QMessageBox.warning(self, 'Export Log File', \
-      reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', \
-         'The log file contains information that may be considered sensitive '
-         'by some users.  Log files should be protected the same '
-         'way you would protect a watching-only wallet, though it '
-         'usually contains much less information than that. '
-         '<br><br>'
-         '<b>No private key data is ever written to the log file</b>. '
-         'All logged information is geared towards diagnosing '
-         'problems you may encounter while you use Armory.  '  
-         'Some information about your wallets or balances may appear '
-         'in the log file, but only enough to help the Armory developers '
-         'track down bugs in the software.'
-         '<br><br>'
-         'Please do not send the log file to the Armory developers if you are not '
-         'comfortable with the privacy implications.' + extraStr, \
+      reply = MsgBoxCustom(MSGBOX.Warning, 'Privacy Warning', tr("""
+         The log file contains information that may be considered sensitive 
+         by some users.  Log files should be protected the same 
+         way you would protect a watching-only wallet, though it 
+         usually contains much less information than that. 
+         <br><br>
+         <b>No private key data is ever written to the log file</b>. 
+         All logged information is geared towards diagnosing 
+         problems you may encounter while you use Armory.    
+         Some information about your wallets or balances may appear 
+         in the log file, but only enough to help the Armory developers 
+         track down bugs in the software.
+         <br><br>
+         Please do not send the log file to the Armory developers if you are not 
+         comfortable with the privacy implications. """) + extraStr, \
          wCancel=True, yesStr='Export', noStr='Cancel')
          
 
@@ -4286,9 +4288,7 @@ class ArmoryMainWindow(QMainWindow):
 
             self.satoshiLatestVer = '0.0'
 
-            LOGINFO('Checking Satoshi version: ')
-            LOGINFO('   Current:  %d', peerVerInt)
-            LOGINFO('    Latest:  %d', latestVerInt)
+            LOGINFO('Version: Curr: %d, New: %d', peerVerInt, latestVerInt)
 
 
             if latestVerInt>peerVerInt and not self.satoshiVerWarnAlready:

@@ -757,11 +757,13 @@ def GetSystemDetails():
       out.Memory = int(totalMemory) * 1024
 
       # Get CPU name
+      out.CpuStr = 'Unknown'
       cpuinfo = subprocess_check_output(['cat','/proc/cpuinfo'])
       for line in cpuinfo.split('\n'):
          if line.strip().lower().startswith('model name'):
             out.CpuStr = line.split(':')[1].strip()
             break
+
 
    elif OS_WINDOWS:
       import ctypes
@@ -787,7 +789,8 @@ def GetSystemDetails():
       out.Memory = stat.ullTotalPhys/1024.
       out.CpuStr = platform.processor()
    else:
-      print "I only work with Win or Linux :P"
+      out.CpuStr = 'Unknown'
+      out.CpuStr = 'Unknown'
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
