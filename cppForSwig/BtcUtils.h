@@ -354,6 +354,26 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   static BinaryData CompactBits(list<bool> const & vectBool)
+   {
+      BinaryData out( (vectBool.size() + 7)/8 )
+      for(uint32_t i=0; i<out.getSize(); i++)
+         out[i] = 0;
+
+      uint32_t i=0;
+      list<bool>::const_iterator iter;
+      for(iter  = vectBool.begin();
+          iter != vectBool.end();
+          iter++, i++)
+      {
+         if(*iter)
+            out[i/8] |= (1<<(7-i%8));
+      }
+      return out;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
    static void getHash256(uint8_t const * strToHash,
                           uint32_t        nBytes,
                           BinaryData &    hashOutput)

@@ -50,7 +50,7 @@
 
 using namespace std;
 
-class BlockDataManager_FileRefs;
+class BlockDataManager_LevelDB;
 
 
 
@@ -555,7 +555,7 @@ public:
    void pprintLedger(void);
    void pprintAlot(uint32_t topBlk=0, bool withAddr=false);
 
-   void setBdmPtr(BlockDataManager_FileRefs * bdmptr) {bdmPtr_=bdmptr;}
+   void setBdmPtr(BlockDataManager_LevelDB * bdmptr) {bdmPtr_=bdmptr;}
    void clearBlkData(void);
    
    vector<AddressBookEntry> createAddressBook(void);
@@ -575,7 +575,7 @@ private:
    map<OutPoint, TxIOPair>      nonStdTxioMap_;
    set<OutPoint>                nonStdUnspentOutPoints_;
 
-   BlockDataManager_FileRefs*       bdmPtr_;
+   BlockDataManager_LevelDB*       bdmPtr_;
    static vector<LedgerEntry> EmptyLedger_;
 };
 
@@ -685,7 +685,7 @@ typedef enum
 
 
 
-class BlockDataManager_FileRefs;
+class BlockDataManager_LevelDB;
 
 
 
@@ -695,10 +695,10 @@ class BlockDataManager_FileRefs;
 //
 // BlockDataManager is a SINGLETON:  only one is ever created.  
 //
-// Access it via BlockDataManager_FileRefs::GetInstance();
+// Access it via BlockDataManager_LevelDB::GetInstance();
 //
 ////////////////////////////////////////////////////////////////////////////////
-class BlockDataManager_FileRefs
+class BlockDataManager_LevelDB
 {
 private:
 
@@ -768,7 +768,7 @@ private:
    vector<BlockHeader*>               previouslyValidBlockHeaderPtrs_;
    vector<BlockHeader*>               orphanChainStartBlocks_;
 
-   static BlockDataManager_FileRefs*  theOnlyBDM_;
+   static BlockDataManager_LevelDB*  theOnlyBDM_;
    static bool                        bdmCreatedYet_;
    bool                               isInitialized_;
 
@@ -799,11 +799,11 @@ private:
 
 private:
    // Set the constructor to private so that only one can ever be created
-   BlockDataManager_FileRefs(void);
+   BlockDataManager_LevelDB(void);
 
 public:
 
-   static BlockDataManager_FileRefs & GetInstance(void);
+   static BlockDataManager_LevelDB & GetInstance(void);
    bool isInitialized(void) const { return isInitialized_;}
 
    void SetHomeDirLocation(string homeDir);
@@ -1014,12 +1014,12 @@ private:
 class BlockDataManager
 {
 public:
-   BlockDataManager(void) { bdm_ = &(BlockDataManager_FileRefs::GetInstance());}
+   BlockDataManager(void) { bdm_ = &(BlockDataManager_LevelDB::GetInstance());}
    
-   BlockDataManager_FileRefs & getBDM(void) { return *bdm_; }
+   BlockDataManager_LevelDB & getBDM(void) { return *bdm_; }
 
 private:
-   BlockDataManager_FileRefs* bdm_;
+   BlockDataManager_LevelDB* bdm_;
 };
 
 
