@@ -52,6 +52,18 @@ public:
    {
       createTreeNodes(nTx, bits, hashes);
    }
+
+
+   HashString getMerkleRoot(void)
+   {
+      if(!root_)
+         return BinaryData(0);
+
+      if(root_->nodeHash_.getSize() == 0)
+         root_->nodeHash_ = recurseCalcHash(root_);
+
+      return root_->nodeHash_;
+   }
    
    /////////////////////////////////////////////////////////////////////////////
    // "bits" and "hashes" are vectors of size=numTx
@@ -213,6 +225,7 @@ public:
        
       if(node->ptrRight_)
          recurseSerializeTree(node->ptrRight_, vBits, vHash);
+      cout << "Finish Serialize" << endl;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -235,6 +248,8 @@ public:
        
       if(node->ptrRight_)
          recurseUnserializeTree(node->ptrRight_, vBits, vHash);
+
+      node->nodeHash_ = recurseCalcHash(node);
    }
 
 

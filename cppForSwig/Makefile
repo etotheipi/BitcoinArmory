@@ -67,7 +67,7 @@ BtcUtils.o: BtcUtils.h BtcUtils.cpp
 BlockObj.o: BinaryData.h BtcUtils.h BlockObj.h BlockObj.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockObj.cpp
 
-BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h BlockUtils.cpp
+BlockUtils.o: BlockUtils.h BinaryData.h UniversalTimer.h PartialMerkle.h BlockUtils.cpp
 	$(COMPILER) $(COMPILER_OPTS) $(INCLUDE_OPTS) BlockUtils.cpp
 
 EncryptionUtils.o: BtcUtils.h BinaryData.h EncryptionUtils.h EncryptionUtils.cpp

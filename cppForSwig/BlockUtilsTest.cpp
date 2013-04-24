@@ -956,8 +956,16 @@ void TestMerkle(void)
 
    PartialMerkleTree pmtFull(7, &isOurs, &txList);
    BinaryData pmtSerFull = pmtFull.serialize();
+
+   cout << "Finished serializing" << endl;
+   cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
+
+   cout << "Starting unserialize:" << endl;
+   cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
    PartialMerkleTree pmtFull2(7);
    pmtFull2.unserialize(pmtSerFull);
+
+   cout << "Starting Partial Merkle tree" << endl;
    
    
    isOurs[0] = true;
