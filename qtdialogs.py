@@ -12618,8 +12618,8 @@ class DlgFragBackup(ArmoryDialog):
       self.wlt = wlt
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Create "fragmented" backup of wallet %s (%s)</b>""") % \
-         (wlt.labelName, wlt.uniqueIDB58))
+         <b>Create Fragmented Backup: "%s" (%s)</b>""") % \
+         (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
 
       lblDescr = QRichLabel( tr(""" 
          
@@ -12630,10 +12630,11 @@ class DlgFragBackup(ArmoryDialog):
          <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
          to read more about fragmented backups."""))
       lblDescr .setOpenExternalLinks(True)
+      self.lblBelowFrags = QRichLabel('')
 
       
       self.maxM = 3 if not self.main.usermode==USERMODE.Expert else 8
-      self.maxN = 5 if not self.main.usermode==USERMODE.Expert else 12
+      self.maxN = 6 if not self.main.usermode==USERMODE.Expert else 12
       self.currMinN = 2
       self.maxmaxN = 12
 
@@ -12643,14 +12644,11 @@ class DlgFragBackup(ArmoryDialog):
       for M in range(2,self.maxM+1):
          self.comboM.addItem(str(M))
 
-      for N in range(self.currMinN, self.maxN):
+      for N in range(self.currMinN, self.maxN+1):
          self.comboN.addItem(str(N))
 
       self.comboM.setCurrentIndex(0)
       self.comboN.setCurrentIndex(1)
-
-      btnPrintAll = QPushButton('Print All Fragments')
-      self.connect(btnPrintAll, SIGNAL('clicked()'), self.clickPrintAll)
 
       def updateM():
          self.updateComboN()
@@ -12677,14 +12675,12 @@ class DlgFragBackup(ArmoryDialog):
       layoutMofN.addWidget(frmComboM,    1,0)
       layoutMofN.addWidget(lblBetween,   1,1)
       layoutMofN.addWidget(frmComboN,    1,2)
+      layoutMofN.setSpacing(0)
       frmMofN = QFrame()
       frmMofN.setFrameStyle(STYLE_RAISED)
       frmMofN.setLayout(layoutMofN)
-      frmSelectParams = makeHorizFrame(['Stretch', frmMofN, btnPrintAll, 'Stretch'])
+      frmSelectParams = makeHorizFrame(['Stretch', frmMofN, 'Stretch'])
       
-      lblBelowFrags = QRichLabel( tr("""
-         Make sure you test your backup before relying on it!"""))
-
       btnAccept = QPushButton(tr('Close'))
       self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
       frmBottomBtn = makeHorizFrame(['Stretch', btnAccept])
@@ -12700,14 +12696,16 @@ class DlgFragBackup(ArmoryDialog):
       self.scrollArea.setWidgetResizable(True)
 
 
+
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(lblDescrTitle)
       dlgLayout.addWidget(lblDescr)
       dlgLayout.addWidget(frmSelectParams)
       dlgLayout.addWidget(self.scrollArea)
-      dlgLayout.addWidget(lblBelowFrags)
+      dlgLayout.addWidget(self.lblBelowFrags)
       dlgLayout.addWidget(frmBottomBtn)
-      setLayoutStretchRows(dlgLayout, 0,0,0,1,0)
+      setLayoutStretch(dlgLayout, 0,0,0,1,0)
+
       self.setLayout(dlgLayout) 
       self.setMinimumWidth(640)
       self.setWindowTitle('Create Backup Fragments')
@@ -12718,7 +12716,7 @@ class DlgFragBackup(ArmoryDialog):
    def updateComboN(self):
       M    = int(str(self.comboM.currentText()))
       oldN = int(str(self.comboN.currentText()))
-      if M<=oldN:
+      if M<oldN:
          return
       self.currMinN = M
       self.comboN.clear()
@@ -12736,18 +12734,36 @@ class DlgFragBackup(ArmoryDialog):
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
+
+      lblWltID = QRichLabel(tr('Wallet:<br><b>%s</b>') % self.wlt.uniqueIDB58, \
+                            vAlign=Qt.AlignVCenter, hAlign=Qt.AlignHCenter, \
+                            color='DisableFG')
+      lblAddRemove = QRichLabel( tr("""
+         Add or remove fragments using the drop-down boxes above"""), \
+         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
+         size=3, color='DisableFG', doWrap=True) 
+      w = relaxedSizeStr(lblAddRemove, 'Add or remove')[0]
+      lblAddRemove.setMinimumWidth(w)
+      btnPrintAll = QPushButton('Print All Fragments')
+      self.connect(btnPrintAll, SIGNAL('clicked()'), self.clickPrintAll)
+      leftFrame = makeVertFrame(['Stretch', \
+                                 lblWltID, \
+                                 'Space(10)', \
+                                 HLINE(), \
+                                 'Space(10)', \
+                                 lblAddRemove, \
+                                 'Space(10)', \
+                                 HLINE(), \
+                                 btnPrintAll, \
+                                 'Stretch'], STYLE_STYLED)
+
       layout = QHBoxLayout()
+      layout.addWidget(leftFrame)
+
       for f in range(N):
          layout.addWidget(self.createFragFrm(f))
 
-      lblAddRemove = QRichLabel( tr("""
-         Add or remove fragments<br>using the drop-down<br>boxes above"""), \
-         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
-         size=4, color='DisableFG') 
-      w = relaxedSizeStr(lblAddRemove, 'Add or remove fragments')[0]
-      lblAddRemove.setMinimumWidth(1.1*w)
 
-      layout.addWidget(lblAddRemove)
       frmScroll = QFrame()
       frmScroll.setFrameStyle(STYLE_SUNKEN)
       frmScroll.setStyleSheet('QFrame { background-color : %s  }' % \
@@ -12755,32 +12771,35 @@ class DlgFragBackup(ArmoryDialog):
       frmScroll.setLayout(layout)
       self.scrollArea.setWidget(frmScroll)
 
+      self.lblBelowFrags.setText( tr("""
+         Any <b>%d</b> of these fragments are sufficient to restore your wallet,
+         and each fragment has a ID of <b>%s</b>.  All fragments with the
+         same fragment ID are compatible with each other! """) % \
+         (M, self.fragPrefixStr) )
+
 
    #############################################################################
    def createFragFrm(self, idx):
       
-      outFrame = QFrame()
-      outFrame.setFrameStyle(STYLE_STYLED)
       
-      lblFragID = QRichLabel('<b>%s%02d-%d</b>' % \
-                               (self.fragPrefixStr, self.M, idx+1))
-      lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
+      lblFragID = QRichLabel('<b>Fragment ID:<br>%s-%d</b>' % \
+                               (self.fragPrefixStr, idx+1))
+      #lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
       lblFragPix = QImageLabel(self.fragPixmapFn, size=(72,72))
       ys = self.secureData[idx][1].toHexStr()[:42]
-      lblLine1 = QRichLabel('f1: %s %s %s...' % (ys[:4], ys[4:8], ys[8:10]))
-      lblLine2 = QRichLabel('f2: %s %s %s...' % (ys[32:36], ys[36:40], ys[40:42]))
-      lblLine3 = QRichLabel('...')
+      fragPreview  = 'f1: %s %s %s...<br>' % (ys[:4], ys[4:8], ys[8:10])
+      fragPreview += 'f2: %s %s %s...<br>' % (ys[32:36], ys[36:40], ys[40:42])
+      fragPreview += '...'
+      lblPreview = QRichLabel(fragPreview)
+      lblPreview.setFont( GETFONT('Fixed', 9))
       
-      for lbl in [lblLine1, lblLine2, lblLine3]:
-         lbl.setFont(GETFONT('Fixed',10))
-
-      lblFragIdx = QRichLabel('#%d' % (idx+1), size=6, color='TextBlue', \
+      lblFragIdx = QRichLabel('#%d' % (idx+1), size=4, color='TextBlue', \
                                                    hAlign=Qt.AlignHCenter)
 
-      frmTopLeft  = makeVertFrame([lblFragID, lblWltID, lblFragIdx, 'Stretch'])
+      frmTopLeft  = makeVertFrame([lblFragID, lblFragIdx, 'Stretch'])
       frmTopRight = makeVertFrame([lblFragPix, 'Stretch'])
 
-      frmPaper = makeVertFrame([lblLine1, lblLine2, lblLine3])
+      frmPaper = makeVertFrame([lblPreview])
       frmPaper.setStyleSheet('QFrame { background-color : #ffffff  }')
 
       fnPrint = lambda: self.clickPrintFrag(idx)
@@ -12799,8 +12818,10 @@ class DlgFragBackup(ArmoryDialog):
       layout.addWidget(frmPaper,        1,0,     1,2)
       layout.addWidget(frmButtons,      2,0,     1,2)
       layout.setSizeConstraint(QLayout.SetFixedSize)
-      outFrame.setLayout(layout)
 
+      outFrame = QFrame()
+      outFrame.setFrameStyle(STYLE_STYLED)
+      outFrame.setLayout(layout)
       return outFrame
       
 
@@ -12853,8 +12874,8 @@ class DlgFragBackup(ArmoryDialog):
 
       self.M,self.N = M,N
       mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
-      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:3]
-      self.fragPrefixStr = binary_to_base58(hash256(self.wlt.uniqueIDBin)[:3])
+      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:4]
+      self.fragPrefixStr = str(M) + binary_to_base58(self.fragPrefixBin) 
       self.fragPixmapFn = 'img/frag%df.png' % M
 
 

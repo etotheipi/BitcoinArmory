@@ -323,6 +323,10 @@ def setLayoutStretchCols(layout, *args):
    for i,st in enumerate(args):
       layout.setColumnStretch(i, st)
 
+# Use this for QHBoxLayout and QVBoxLayout, where you don't specify dimension
+def setLayoutStretch(layout, *args):
+   for i,st in enumerate(args):
+      layout.setStretch(i, st)
 
 ################################################################################
 def QPixmapButton(img):
