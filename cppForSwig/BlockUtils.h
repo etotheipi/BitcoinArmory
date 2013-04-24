@@ -727,7 +727,7 @@ private:
 
    map<HashString, BlockHeader> headerMap_;
 
-   //multimap<HashString, TxRef>        txHintMap_;
+   multimap<HashString, TxRef>        txHintMap_;
 
 
    
@@ -807,7 +807,7 @@ public:
    bool isInitialized(void) const { return isInitialized_;}
 
    void SetHomeDirLocation(string homeDir);
-   void SetBlkFileLocation(string   blkdir,
+   bool SetBlkFileLocation(string   blkdir,
                            uint32_t blkdigits,
                            uint32_t blkstartidx,
                            uint64_t cacheSize=DEFAULT_CACHE_SIZE);

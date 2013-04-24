@@ -39,124 +39,171 @@ public:
       if(node->isLeaf_)
          return;
 
-      if(ptrLeft_)  destroyTree(node->ptrLeft_);
-      if(ptrRight_) destroyTree(node->ptrRight_);
-      if(ptrLeft_)  delete ptrLeft_;
-      if(ptrRight_) delete ptrRight_;
+      if(node->ptrLeft_)  recurseDestroyTree(node->ptrLeft_);
+      if(node->ptrRight_) recurseDestroyTree(node->ptrRight_);
+      if(node->ptrLeft_)  delete node->ptrLeft_;
+      if(node->ptrRight_) delete node->ptrRight_;
+   }
+
+   
+   PartialMerkleTree(uint32_t nTx, 
+                     vector<bool> const * bits=NULL, 
+                     vector<HashString> const * hashes=NULL)
+   {
+      createTreeNodes(nTx, bits, hashes);
    }
    
    /////////////////////////////////////////////////////////////////////////////
-   // In this function "bits" is just a linear list of size=numTx which says 
-   // if we care about the hash or not.   Zero length if reconstructing
-   // "hashes" is a vector... zero-length if we are reconstructing the tree,
-   // which contains all the leaf nodes (size=numtx).
-   PartialMerkleTree(uint32_t nTx, vector<bool> bits, vector<HashString> hashes)
+   // "bits" and "hashes" are vectors of size=numTx
+   void createTreeNodes(uint32_t nTx, 
+                        vector<bool> const * bits=NULL, 
+                        vector<HashString> const * hashes=NULL)
    {
       numTx_ = nTx;
       static CryptoPP::SHA256 sha256_;
       BinaryData hashOut(32);
-      uint32_t nLevel = nTx
-      vector<MerkleNode*> levelH(nLevel)
+      uint32_t nLevel = nTx;
+      vector<MerkleNode*> levelLower(nLevel);
 
       // Setup leaf nodes
       for(uint32_t i=0; i<nTx; i++)
       {
-         levelH[i] = new MerkleNode;
-         levelH[i]->txIndex_ = i;
-         levelH[i]->isLeaf_ = true;
-         if(bits.size()>0 && bits[i])
-            levelH[i]->isOnPath_ = true;
-         if(hashes.size()>0)
-            levelH[i]->nodeHash_ = hashes[i];
+         levelLower[i] = new MerkleNode;
+         levelLower[i]->txIndex_ = i;
+         levelLower[i]->isLeaf_ = true;
+         if(bits && (*bits)[i])
+            levelLower[i]->isOnPath_ = true;
+         if(hashes)
+            levelLower[i]->nodeHash_ = (*hashes)[i];
       }
 
       while( nLevel > 1 )
       {
-         vector<MerkleNode*> levelHp1( (nLevel+1)/2 )
+         vector<MerkleNode*> levelUpper( (nLevel+1)/2 );
          for(uint32_t i=0; i<nLevel; i+=2)
          {
             MerkleNode* newNode = new MerkleNode;
-            if(levelH[i]->isOnPath_ || levelH[i+1]->isOnPath_ )
+            if(levelLower[i]->isOnPath_ || levelLower[i+1]->isOnPath_ )
                newNode->isOnPath_ = true;
 
-            newNode->ptrLeft_ = levelH[i];
+            newNode->ptrLeft_ = levelLower[i];
             if(i != nLevel-1)
-               newNode->ptrRight_ = levelH[i+1];
+               newNode->ptrRight_ = levelLower[i+1];
 
-            if(hashes.size() > 0)
-            {
-               BinaryData combined = levelH[i]->nodeHash_;
-               if(i==nLevel-1) combined = combined + levelH[i]->nodeHash_;
-               else            combined = combined + levelH[i+1]->nodeHash_;
+            if(hashes)
+               newNode->nodeHash_ = recurseCalcHash(newNode);
 
-               newNode->resize(32);
-               sha256_.CalculateDigest(newNode.getPtr(), combined.getPtr(), 64);
-               sha256_.CalculateDigest(newNode.getPtr(),  newNode.getPtr(), 32);
-            }
-            levelHp1[i/2] = newNode;
+            levelUpper[i/2] = newNode;
          } 
-         levelH = levelHp1;
+         levelLower = levelUpper;
          nLevel = (nLevel+1)/2;
       }
-      root_ = levelH[0];
+      root_ = levelLower[0];
    }
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData serialize(void)
    {
-      if( ! root->isOnPath_ )
+      if( ! root_->isOnPath_ )
          return BinaryData(0);
 
-      BinaryReader br(serialized);
+      BinaryWriter bw;
    
       list<bool> vBits;
       list<HashString> vHash;
 
       recurseSerializeTree(root_, vBits, vHash);
 
-      BinaryWriter bw;
-      
       // uint32_t - Num Tx
-      bw.put_uint32_t(numTx)
+      bw.put_uint32_t(numTx_);
 
       // var_int + vector<hash>  - Num Hash + HashList
-      bw.put_var_int(vHash.size())
-      for(list<HashString>::iterator iter=vHash.begin(); iter!=vHash.end(); iter++)
-         bw.put_BinaryData(*vHash)
+      bw.put_var_int(vHash.size());
+      list<HashString>::iterator iter;
+      for(iter = vHash.begin(); iter != vHash.end(); iter++)
+         bw.put_BinaryData(*iter);
 
       // var_int + vector<bool>  - Num Bits + BitList
-      bw.put_var_int(vBits.size())
-      bw.put_BinaryData( BtcUtils::CompactBits(vBits) )
+      bw.put_var_int(vBits.size());
+      bw.put_BinaryData( BtcUtils::PackBits(vBits) );
 
       return bw.getData();
-
    }
 
-   PartialMerkleTree unserialize(BinaryData serialized)
+
+   /////////////////////////////////////////////////////////////////////////////
+   void unserialize(BinaryData serialized)
    {
-      if( ! root->isOnPath_ )
-         return BinaryData(0);
+      if( ! root_->isOnPath_ )
+         return;
    
-      PartialMerkleTree pmt;
-      list<bool> vBits;
+      // Destroy the tree if it already exists
+      recurseDestroyTree(root_);
+
       list<HashString> vHash;
 
-      recurseUnserializeTree(pmt.root_, vBits, vHash);
+      // Read numTx
+      BinaryReader br(serialized);
+      uint32_t numTx = br.get_uint32_t();
+      
+      // Create all the nodes in the tree
+      createTreeNodes(numTx);
 
-      BinaryWriter bw;
-      bw.put_uint32_t(numTx)
-      bw.put_BinaryData( BtcUtils::CompactBits(vBits) )
-      for(list<HashString>::iterator iter=vHash.begin(); iter!=vHash.end(); iter++)
-         bw.put_BinaryData(*vHash)
+      // Read and prepare vBits for depth-first search
+      uint32_t numBits = (uint32_t)br.get_var_int();
+      BinaryData vBytes;
+      br.get_BinaryData(vBytes, (numBits+7)/8);
+      list<bool> vBits = BtcUtils::UnpackBits(vBytes, numBits);
+      
+      // Read and prepare vHash for depth-first search
+      uint32_t numHash = (uint32_t)br.get_var_int();
+      BinaryData hash(32);
+      for(uint32_t i=0; i<numHash; i++)
+      {
+         br.get_BinaryData( hash, 32);
+         vHash.push_back(hash);
+      }
+
+      recurseUnserializeTree(root_, vBits, vHash);
+      recurseCalcHash(root_);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData recurseCalcHash(MerkleNode* node)
+   {
+      static CryptoPP::SHA256 sha256_;
+      if(node->nodeHash_.getSize() > 0)
+         return node->nodeHash_;
+
+      if(node->isLeaf_)
+         cout << "ERROR:  leaf node without hash?" << endl;
+
+      BinaryData combined(64);
+      BinaryData left(32);
+
+      left = recurseCalcHash(node->ptrLeft_);
+      left.copyTo(combined.getPtr(), 32);
+      if(node->ptrRight_)
+         recurseCalcHash(node->ptrRight_).copyTo(combined.getPtr()+32, 32);
+      else
+         left.copyTo(combined.getPtr()+32, 32);
+
+      BinaryData finalHash(32);
+      sha256_.CalculateDigest(finalHash.getPtr(),  combined.getPtr(), 64);
+      sha256_.CalculateDigest(finalHash.getPtr(), finalHash.getPtr(), 32);
+      return finalHash; 
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
    static void recurseSerializeTree(MerkleNode* node, 
                                     list<bool> & vBits, 
                                     list<HashString> & vHash)
    {
+      cout << "Pushing bit: " << (node->isOnPath_) << endl;
       vBits.push_back(node->isOnPath_);
       if(!node->isOnPath_ || node->isLeaf_)
       {
+         cout << "Pushing hash: " << node->nodeHash_.toHexStr() << endl;
          vHash.push_back(node->nodeHash_);
          return;
       }
@@ -168,6 +215,7 @@ public:
          recurseSerializeTree(node->ptrRight_, vBits, vHash);
    }
 
+   /////////////////////////////////////////////////////////////////////////////
    static void recurseUnserializeTree( MerkleNode* node,
                                        list<bool> & vBits, 
                                        list<HashString> & vHash)
@@ -191,7 +239,7 @@ public:
 
 
 private:
-   MerkleNode root_;
+   MerkleNode* root_;
    uint32_t numTx_;
 };
 

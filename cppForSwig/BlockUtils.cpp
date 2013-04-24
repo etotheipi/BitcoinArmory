@@ -916,7 +916,7 @@ void BlockDataManager_LevelDB::registeredAddrScan( Tx & theTx )
 {
    registeredAddrScan(theTx.getPtr(),
                       theTx.getSize(),
-                      &theTx.offsetsTxIn_,
+                      &theTx.offsetsTxIn_, 
                       &theTx.offsetsTxOut_);
 }
 
@@ -1648,7 +1648,7 @@ void BlockDataManager_LevelDB::SetLevelDBPaths(string headerPath,
                                                 string txHintPath,
                                                 string transientPath)
 {
-   SCOPED_TIMER("SetLevelDBPaths")
+   SCOPED_TIMER("SetLevelDBPaths");
    headerPath_ = headerPath;
    txHintPath_ = txHintPath;
 
@@ -1658,19 +1658,19 @@ void BlockDataManager_LevelDB::SetLevelDBPaths(string headerPath,
    leveldb::Options opts1;
    opts1.create_if_missing = true;
    stat = leveldb::DB::Open(opts1, headerPath_.c_str(), &headerDB_);
-   checkStatus(stat);
+   leveldb::ldbCheckStatus(stat);
 
    // TxRef database
    leveldb::Options opts2;
    opts2.create_if_missing = true;
    stat = leveldb::DB::Open(opts2, txHintPath_.c_str(), &txHintDB_);
-   checkStatus(stat);
+   leveldb::ldbCheckStatus(stat);
 
    // Registered addr/tx database
    leveldb::Options opts3;
    opts3.create_if_missing = true;
    stat = leveldb::DB::Open(opts3, transientPath_.c_str(), &transientDB_);
-   checkStatus(stat);
+   leveldb::ldbCheckStatus(stat);
 
 
    isLevelDBSet_ = true;
@@ -1699,11 +1699,11 @@ void BlockDataManager_LevelDB::SetHomeDirLocation(string homeDir)
 // In addition to base dir, also need the number of digits and start index
 //
 bool BlockDataManager_LevelDB::SetBlkFileLocation(string   blkdir,
-                                                   uint32_t blkdigits,
-                                                   uint32_t blkstartidx,
-                                                   uint64_t cacheSize)
+                                                  uint32_t blkdigits,
+                                                  uint32_t blkstartidx,
+                                                  uint64_t cacheSize)
 {
-   SCOPED_TIMER("SetBlkFileLocation")
+   SCOPED_TIMER("SetBlkFileLocation");
    blkFileDir_    = blkdir; 
    blkFileDigits_ = blkdigits; 
    blkFileStart_  = blkstartidx; 
@@ -1784,7 +1784,7 @@ bool BlockDataManager_LevelDB::checkLdbStatus(leveldb::Status stat)
 /////////////////////////////////////////////////////////////////////////////
 bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
 {
-   SCOPED_TIMER("readHeadersDB")
+   SCOPED_TIMER("readHeadersDB");
    if(!isBlkParamsSet_ || !isLevelDBSet_)
    {
       cerr << "Cannot sync databases until blockfile params and LevelDB"
@@ -1797,20 +1797,22 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
    BinaryData headerData(HEADER_SIZE);
    BlockHeader thisHeader;
    uint16_t fileIndex;
-   uint32_t startByte, numBytes, blkBytes;
+   uint32_t startByte;
    uint32_t numBytes;
+   uint32_t blkBytes;
    uint8_t const * keyPtr;
    uint8_t const * dataPtr;
    uint8_t const * rawHeadPtr;
 
 
    // (1) Read transient database
-   readTransientDB()
+   //readTransientDB()
 
    // (1) Read all headers and organize the chain
    leveldb::Iterator* it = headerDB_->NewIterator(leveldb::ReadOptions());
    for(it->SeekToFirst(); it->Valid(); it->Next())
    {
+      /*
       // It's important to remember that:
       //  (1) The fileDataPtr points to the magic bytes before the block on disk
       //  (2) The blkBytes refers only to header+nTx+tx1+tx2+...+txn
@@ -1831,28 +1833,30 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
 
       thisHeader.setBlockFilePtr(FileDataPtr(fileIndex, startByte, blkBytes));
       headerMap_[thisHeader.getThisHash()] = thisHeader;
+      */
       
    }
 
    // This will organize the headers into a tree and find the longest chain
-   organizeChain(true)
+   organizeChain(true);
 
 
    // (2) Now let's make sure the blk files are the same ones used to construct
    //     these databases, originally.
    uint32_t topBlockDB    = getTopBlockHeight();
-   uint32_t topBlockSyncd = ldbSyncHeightWithBlkFiles();
+   //uint32_t topBlockSyncd = ldbSyncHeightWithBlkFiles();
 
-   TIMER_START("findHighestSyncBlock")
+   TIMER_START("findHighestSyncBlock");
    // Check every 1000th block header starting from the top, working down
    uint32_t syncStepSize = 1000;
-   uint32_t top = getTopBlockHeight()
+   uint32_t top = getTopBlockHeight();
    uint32_t topBlockSyncd = top;
    bool prevIterSyncd = false;
    for(int32_t h=top; h>=0; h-=syncStepSize)
    {
-      BinaryData & dbCopy   = getHeaderByHeight(h).serialize();
-      BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy()
+      /*
+      BinaryData & dbCopy   = getHeaderByHeight(h)->serialize();
+      BinaryData   diskCopy = headPtr->getBlockFilePtr().getDataCopy();
       if(dbCopy == diskCopy)
       {
          if(prevIterSyncd)
@@ -1861,12 +1865,13 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
       }
       else if(prevIterSyncd)
          prevIterSyncd = false;
+      */
    }
 
    if(topBlockSyncd <= syncStepSize)
       topBlockSyncd = 0;
 
-   TIMER_STOP("findHighestSyncBlock")
+   TIMER_STOP("findHighestSyncBlock");
    cout << "TopHeaderInDB: "           << topBlockDB << ", "
         << "TopHeaderFoundInBlkFile: " << topBlockSyncd << endl;
   
@@ -1884,20 +1889,21 @@ bool BlockDataManager_LevelDB::initializeDBandBlkFiles(void)
       // (3b) Simply fetch all updates to the blockchain files since last exit
       // We have to make sure our next readBlkFileUpdate starts at the correct 
       // place (one block past the current top block).
-      BlockHeader * bhptr = getTopBlockHeader();
+      /*
+      BlockHeader * bhptr = &getTopBlockHeader();
       uint32_t topBlkSize  = bhptr->getBlockSize();
       uint32_t topBlkStart = bhptr->getBlockFilePtr()->getStartByte();
       lastBlkFileBytes_ = topBlkStart + topBlkSize; // magic bytes & blk sz
       lastTopBlock_ = topBlockDB;
-
+      */
    }
 
 
 
 
 
-   updateRegisteredAddresses(topBlock - 12)
-   readBlkFileUpdate();
+   //updateRegisteredAddresses(topBlock - 12);
+   //readBlkFileUpdate();
 }
 
 
@@ -1910,18 +1916,20 @@ void readTransientDB(void)
    //    Registered Tx's (all blockchain tx relevant to this wallet)
    //    Registered OutPoints (basically, the UTXO set for these wallets)
    //    Registered OutPoints (basically, the UTXO set for these wallets)
-   it = transientDB_->NewIterator(leveldb::ReadOptions());
-   BinaryData entryType(4)
+   /*
+   leveldb::Iterator* it;
+   //it = transientDB_->NewIterator(leveldb::ReadOptions());
+   BinaryData entryType(4);
    BinaryData entryKey;
    BinaryData ADDR(string("ADDR"));  // Registered Addresses
    BinaryData RGTX(string("RGTX"));  // Registered Transactions
    BinaryData RGOP(string("RGOP"));  // Registered OutPoints
    BinaryData ZCTX(string("ZCTX"));  // Zero-confirmation transactions
 
-   registeredAddrMap_.clear()
-   registeredTxList_.clear()
-   registeredTxSet_.clear()
-   registeredOutPoints_.clear()
+   registeredAddrMap_.clear();
+   registeredTxList_.clear();
+   registeredTxSet_.clear();
+   registeredOutPoints_.clear();
 
    for(it->SeekToFirst(); it->Valid(); it->Next())
    {
@@ -2001,6 +2009,7 @@ void readTransientDB(void)
    {
       alreadyBlk = min(alreadyBlk, iter->second.alreadyScannedUpToBlk_);
    }
+   */
 }
 
 
@@ -2012,7 +2021,7 @@ void readTransientDB(void)
 // will be much more reliable).  Nonetheless, we could theoretically 
 bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
 {
-   SCOPED_TIMER("rebuildDatabases")
+   SCOPED_TIMER("rebuildDatabases");
    
    if(!isBlkParamsSet_ || !isLevelDBSet_)
    {
@@ -2032,18 +2041,18 @@ bool BlockDataManager_LevelDB::rebuildDatabases(uint32_t startAtBlk)
    delete headerDB_;  
    delete txHintDB_;  
 
-   leveldb::DestroyDB(headerPath_);
-   leveldb::DestroyDB(txHintPath_);
+   //leveldb::DestroyDB(headerPath_);
+   //leveldb::DestroyDB(txHintPath_);
    isLevelDBSet_ = false;
 
    // The rebuilt DBs will go in the same place, but they'll be referencing
    // the correct blkfiles this time.
-   SetLevelDBPaths(headerPath_, txHintPath_);
+   //SetLevelDBPaths(headerPath_, txHintPath_);
    headerMap_.clear();
 
    lastTopBlock_ = 0;
    numBlkFiles_ = 0;
-   lastBlkFileBytes_ = 0;
+   //lastBlkFileBytes_ = 0;
    totalBlockchainBytes_ = 0;
    bytesReadSoFar_ = 0;
    blocksReadSoFar_ = 0;
@@ -2075,6 +2084,7 @@ BlockDataManager_LevelDB & BlockDataManager_LevelDB::GetInstance(void)
 
 
 /////////////////////////////////////////////////////////////////////////////
+/*
 void BlockDataManager_LevelDB::insertRegOutPoint(OutPoint& op) 
 {
 
@@ -2091,6 +2101,7 @@ void BlockDataManager_LevelDB::insertRegOutPoint(OutPoint& op)
    // ...and then add it to the RAM map
    registeredOutPoints_.insert(op);
 }
+*/
 
 
 /////////////////////////////////////////////////////////////////////////////
@@ -3094,7 +3105,7 @@ uint32_t BlockDataManager_LevelDB::parseEntireBlockchain(uint32_t cacheSize)
 
 
    // We need to maintain the physical size of all blkXXXX.dat files together
-   FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
+   //FileDataCache & globalCache = FileDataPtr::getGlobalCacheRef();
    totalBlockchainBytes_ = globalCache.getCumulFileSize();
 
 
@@ -4012,6 +4023,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
    if(writeToFile)
    {
       // ZERO-CONF TRANSACTION   { "ZCTX"|TXHASH32 --> TXTIME8|RAWTX }
+      /*
       BinaryWriter keyWriter(4+32);
       keyWriter.put_BinaryData( string("ZCTX").data(), 4);
       keyWriter.put_BinaryData( txHash );
@@ -4023,6 +4035,7 @@ bool BlockDataManager_LevelDB::addNewZeroConfTx(BinaryData const & rawTx,
       leveldb::Slice key(keyWriter.toString());
       leveldb::Slice val(valWriter.toString());
       leveldb::Status stat = transientDB_->Put(leveldb::WriteOptions(), key, val);
+      */
    }
    return true;
 }

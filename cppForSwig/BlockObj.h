@@ -25,7 +25,7 @@ class Tx;
 
 class BlockHeader
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
 
 public:
 
@@ -130,7 +130,7 @@ private:
 // OutPoint is just a reference to a TxOut
 class OutPoint
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
    friend class OutPointRef;
 
 public:
@@ -173,7 +173,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxIn
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
 
 public:
    TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
@@ -262,7 +262,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxOut
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
 
 public:
 
@@ -350,7 +350,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class Tx
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
 
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
@@ -450,7 +450,7 @@ private:
 ////////////////////////////////////////////////////////////////////////////////
 class TxRef
 {
-   friend class BlockDataManager_FileRefs;
+   friend class BlockDataManager_LevelDB;
    friend class Tx;
 
 public:

@@ -16,6 +16,7 @@
 #include "BlockUtils.h"
 #include "EncryptionUtils.h"
 #include "FileDataPtr.h"
+#include "PartialMerkle.h"
 
 #include "leveldb/db.h"
 
@@ -87,7 +88,7 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
-   BlockDataManager_FileRefs::GetInstance().SelectNetwork("Test");
+   BlockDataManager_LevelDB::GetInstance().SelectNetwork("Test");
    
 
    //string blkdir("/home/alan/.bitcoin");
@@ -121,14 +122,6 @@ int main(void)
    //printTestHeader("Test-out-of-order calls");
    //TestOutOfOrder(blkdir);
 
-<<<<<<< HEAD
-   //printTestHeader("Test-out-of-order calls");
-   //TestOutOfOrder(blkdir);
-=======
-   // Make sure to create testblkdir directory, or else this fails
-   //printTestHeader("Testing readBlkFileUpdate calls");
-   //TestReadBlkFileUpdate("testReadBlkUpdTestnet", "testblkdir");
->>>>>>> backupcenter
 
    //printTestHeader("Testing Zero-conf handling");
    //TestZeroConf();
@@ -153,8 +146,8 @@ int main(void)
    //TestLDBScanBlockchain("blk0001db");
    
 
-   printTestHeader("Testing LDB Blockchain utilities");
-   TestLdbBlockchainUtils(blkdir);
+   //printTestHeader("Testing LDB Blockchain utilities");
+   //TestLdbBlockchainUtils(blkdir);
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -179,7 +172,7 @@ int main(void)
 
 void TestReadAndOrganizeChain(string blkdir)
 {
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    cout << "Reading data from blockchain..." << endl;
    TIMER_START("BDM_Load_and_Scan_BlkChain");
@@ -218,7 +211,7 @@ void TestFindNonStdTx(string blkdir)
 {
    /*
    // This is mostly just for debugging...
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    bdm.SetBlkFileLocation(blkdir, 4, 1);
    bdm.parseEntireBlockchain(); 
    bdm.findAllNonStdTx();
@@ -231,7 +224,7 @@ void TestFindNonStdTx(string blkdir)
 
 void TestScanForWalletTx(string blkdir)
 {
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    bdm.SetBlkFileLocation(blkdir, 4, 1);
    bdm.parseEntireBlockchain();
    /////////////////////////////////////////////////////////////////////////////
@@ -349,7 +342,7 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
 {
    cout << endl << "Starting blockchain loading with wallets..." << endl;
    /////////////////////////////////////////////////////////////////////////////
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt1;
    BtcWallet wlt2;
@@ -541,8 +534,8 @@ void TestReadAndOrganizeChainWithWallet(string blkdir)
       le = wlt2.calcLedgerEntryForTx( *bdm.getTxRefPtrByHash(txHash2) ); le.pprintOneLine(); cout << endl;
    }
 
-   cout << "Num Headers: " << bdm.getNumHeaders() << endl;
-   cout << "Num Tx:      " << bdm.getNumTx() << endl;
+   //cout << "Num Headers: " << bdm.getNumHeaders() << endl;
+   //cout << "Num Tx:      " << bdm.getNumTx() << endl;
   
 }
 
@@ -550,7 +543,7 @@ void TestBalanceConstruction(string blkdir)
 {
    cout << endl << "Starting blockchain loading with wallets..." << endl;
    /////////////////////////////////////////////////////////////////////////////
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt;
    
@@ -639,7 +632,7 @@ void TestReadAndUpdateBlkFile(string tempBlkDir)
 
    // The newblk directory has a blk0003.dat file with one more block
    // and blk0004.dat file with 4 more blocks
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    bdm.SetBlkFileLocation(tempBlkDir, 4, 1);
    bdm.parseEntireBlockchain();  
 
@@ -668,7 +661,7 @@ void TestReorgBlockchain(string blkdir)
    //              to FileDataPtrs, and now I don't have a good way to force 
    //              different blk files (because I auto-detect blkfiles...)
    //              Will revive this when I figure it out...
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    /////////////////////////////////////////////////////////////////////////////
    //
    // BLOCKCHAIN REORGANIZATION UNIT-TEST
@@ -830,7 +823,7 @@ void TestReorgBlockchain(string blkdir)
 void TestZeroConf(void)
 {
 
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt;
    /*
@@ -938,17 +931,47 @@ void TestZeroConf(void)
    
 void TestMerkle(void)
 {
-   vector<BinaryData> txList(3);
-   txList[0].createFromHex("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa");
-   txList[1].createFromHex("bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb");
-   txList[2].createFromHex("cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc");
+   vector<BinaryData> txList(7);
+   txList[0].createFromHex("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
+   txList[1].createFromHex("ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32");
+   txList[2].createFromHex("12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab");
+   txList[3].createFromHex("9999999999999999999999999999999999999999999999999999999999999999");
+   txList[4].createFromHex("ffabffabffabffabffabffabffabffabffabffabffabffabffabffabffabffab");
+   txList[5].createFromHex("deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead");
+   txList[6].createFromHex("aaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaab");
 
    vector<BinaryData> merkleTree = BtcUtils::calculateMerkleTree(txList); 
    cout << "Full Merkle Tree:" << endl;
    for(uint32_t i=0; i<merkleTree.size(); i++)
       cout << "    " << i << " " << merkleTree[i].toHexStr() << endl;
 
+   vector<bool> isOurs(7);
+   isOurs[0] = true;
+   isOurs[1] = true;
+   isOurs[2] = true;
+   isOurs[3] = true;
+   isOurs[4] = true;
+   isOurs[5] = true;
+   isOurs[6] = true;
+
+   PartialMerkleTree pmtFull(7, &isOurs, &txList);
+   BinaryData pmtSerFull = pmtFull.serialize();
+   PartialMerkleTree pmtFull2(7);
+   pmtFull2.unserialize(pmtSerFull);
    
+   
+   isOurs[0] = true;
+   isOurs[1] = false;
+   isOurs[2] = false;
+   isOurs[3] = false;
+   isOurs[4] = true;
+   isOurs[5] = false;
+   isOurs[6] = false;
+
+   PartialMerkleTree pmt(7, &isOurs, &txList);
+   BinaryData pmtSer = pmt.serialize();
+   PartialMerkleTree pmt2(7);
+   pmt2.unserialize(pmtSer);
 }
 
 
@@ -1460,7 +1483,7 @@ void TestFileCache(void)
 
 void TestReadBlkFileUpdate(string testblockdir, string blkdir)
 {
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
     
    // Setup the files that will be copied -- sources and destinations
    vector<string> srcs(7);
@@ -1521,15 +1544,10 @@ void TestReadBlkFileUpdate(string testblockdir, string blkdir)
 
 }
 
-<<<<<<< HEAD
-=======
-
-
->>>>>>> backupcenter
 void TestOutOfOrder(string blkdir)
 {
    /////////////////////////////////////////////////////////////////////////////
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    BinaryData myAddress;
    BtcWallet wlt;
    
@@ -1572,14 +1590,6 @@ void TestOutOfOrder(string blkdir)
 }
 
 
-bool checkStatus(leveldb::Status stat)
-{
-   if( stat.ok() )
-      return true;
-
-   cout << "***LevelDB Error: " << stat.ToString() << endl;
-   return false;
-}
 
 
 void TestLevelDB(string testLDBDir, string blkfilepath)
@@ -1593,7 +1603,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
    
    /*
    leveldb::Status stat = leveldb::DB::Open(opts, testLDBDir.c_str(), &ldb);
-   assert(checkStatus(stat));
+   assert(leveldb::ldbCheckStatus(stat));
 
    for(uint32_t i=0; i<10; i++)
    {
@@ -1610,7 +1620,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
       stat = ldb->Put(leveldb::WriteOptions(), 
                       insertKey.toBinStr(), 
                       insertVal.toBinStr()); 
-      assert(checkStatus(stat));
+      assert(leveldb::ldbCheckStatus(stat));
    }
 
    leveldb::Iterator* it = ldb->NewIterator(leveldb::ReadOptions());
@@ -1626,7 +1636,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
 
    string val2;
    stat = ldb->Get(leveldb::ReadOptions(), "MyKey", &val2);
-   checkStatus(stat);
+   leveldb::ldbCheckStatus(stat);
    cout << "Plowed through the error..." << endl;
 
    delete ldb;
@@ -1637,7 +1647,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
    opts.create_if_missing = true;
    opts.compression       = leveldb::kNoCompression;
    leveldb::Status stat = leveldb::DB::Open(opts, testLDBDir.c_str(), &ldb);
-   assert(checkStatus(stat));
+   assert(leveldb::ldbCheckStatus(stat));
 
    ifstream is(blkfilepath.c_str(), ios::in | ios::binary);
    assert(is.is_open());
@@ -1680,7 +1690,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
          stat = ldb->Put(leveldb::WriteOptions(), 
                          headerHash.toBinStr(),
                          headerRaw.toBinStr()); 
-         assert(checkStatus(stat));
+         assert(leveldb::ldbCheckStatus(stat));
          
 
          uint32_t nTx = brr.get_var_int();
@@ -1695,7 +1705,7 @@ void TestLevelDB(string testLDBDir, string blkfilepath)
             stat = ldb->Put(leveldb::WriteOptions(), 
                         txHash.toBinStr(),
                         txRaw.toBinStr()); 
-            assert(checkStatus(stat));
+            assert(leveldb::ldbCheckStatus(stat));
          }
 
          nBlkRead++;
@@ -1720,7 +1730,7 @@ void TestLDBScanBlockchain(string testdbpath)
 
    leveldb::DB* ldb;
    leveldb::Status stat = leveldb::DB::Open(opts, testdbpath.c_str(), &ldb);
-   assert(checkStatus(stat));
+   assert(leveldb::ldbCheckStatus(stat));
 
 
    map<BinaryData, int> addrMap;
@@ -1830,14 +1840,14 @@ void TestLDBScanBlockchain(string testdbpath)
 
 void TestLdbBlockchainUtils(string blkdir)
 {
-   BlockDataManager_FileRefs & bdm = BlockDataManager_FileRefs::GetInstance(); 
+   BlockDataManager_LevelDB & bdm = BlockDataManager_LevelDB::GetInstance(); 
    bdm.SetBlkFileLocation(blkdir, 4, 1);
 
    string pathH("testldb/ldbtestHeaders");
    string pathT("testldb/ldbtestTx");
    string pathR("testldb/ldbtestTransient");
 
-   bdm.setLevelDBPaths(pathH, pathT, pathR);
+   //bdm.setLevelDBPaths(pathH, pathT, pathR);
 
    
 }

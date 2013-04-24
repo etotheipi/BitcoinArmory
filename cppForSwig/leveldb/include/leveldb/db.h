@@ -21,6 +21,17 @@ struct ReadOptions;
 struct WriteOptions;
 class WriteBatch;
 
+
+inline bool ldbCheckStatus(leveldb::Status stat)
+{
+  if( stat.ok() )
+    return true;
+
+  cout << "***LevelDB Error: " << stat.ToString() << endl;
+  return false;
+}
+
+
 // Abstract handle to particular state of a DB.
 // A Snapshot is an immutable object and can therefore be safely
 // accessed from multiple threads without any external synchronization.
@@ -139,6 +150,8 @@ class DB {
   // Therefore the following call will compact the entire database:
   //    db->CompactRange(NULL, NULL);
   virtual void CompactRange(const Slice* begin, const Slice* end) = 0;
+
+
 
  private:
   // No copying allowed

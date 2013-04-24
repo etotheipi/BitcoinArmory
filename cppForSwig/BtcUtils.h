@@ -354,9 +354,9 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData CompactBits(list<bool> const & vectBool)
+   static BinaryData PackBits(list<bool> const & vectBool)
    {
-      BinaryData out( (vectBool.size() + 7)/8 )
+      BinaryData out( (vectBool.size()+7) / 8 );
       for(uint32_t i=0; i<out.getSize(); i++)
          out[i] = 0;
 
@@ -369,6 +369,15 @@ public:
          if(*iter)
             out[i/8] |= (1<<(7-i%8));
       }
+      return out;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static list<bool> UnpackBits(BinaryData bits, uint32_t nBits)
+   {
+      list<bool> out;
+      for(uint32_t i=0; i<nBits; i++)
+         out.push_back(bits[i/8] & (1 << (7-i%8)));
       return out;
    }
 

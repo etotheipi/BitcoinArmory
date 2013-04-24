@@ -10,7 +10,7 @@ OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUt
 DEPSDIR ?= /usr
 
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread -Lleveldb -lleveldb
+LIBRARY_OPTS += -lpthread -Lleveldb 
 SWIG_OPTS    += -c++ -python -classic -threads
 
 
