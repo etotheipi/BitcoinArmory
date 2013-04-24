@@ -939,14 +939,14 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
-      LOGERROR('remove me!')
-      fnfrag = lambda: DlgFragBackup(self, self.main, self.wlt).exec_()
-      LOGERROR('remove me!')
+      #LOGERROR('remove me!')
+      #fnfrag = lambda: DlgFragBackup(self, self.main, self.wlt).exec_()
+      #LOGERROR('remove me!')
 
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
-      #self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
-      self.connect(lbtnBackups, SIGNAL('clicked()'), fnfrag)
+      self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
+      #self.connect(lbtnBackups, SIGNAL('clicked()'), fnfrag)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
@@ -12492,7 +12492,7 @@ class DlgBackupCenter(ArmoryDialog):
          if DlgPaperBackup(self.wlt, self, self.main).exec_():
             self.accept()
       elif self.optPaperBackupFrag.isChecked():
-         if DlgFragBackup(self.wlt, self, self.main).exec_():
+         if DlgFragBackup(self, self.main, self.wlt).exec_():
             self.accept()
       elif self.optDigitalBackupPlain.isChecked():
          self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
@@ -12716,15 +12716,18 @@ class DlgFragBackup(ArmoryDialog):
    def updateComboN(self):
       M    = int(str(self.comboM.currentText()))
       oldN = int(str(self.comboN.currentText()))
-      if M<oldN:
-         return
       self.currMinN = M
       self.comboN.clear()
 
       for i,N in enumerate(range(self.currMinN, self.maxN+1)):
          self.comboN.addItem(str(N))
 
-      self.comboN.setCurrentIndex(0)
+      if M>oldN:
+         self.comboN.setCurrentIndex(0)
+      else:
+         for i,N in enumerate(range(self.currMinN, self.maxN+1)):
+            if N==oldN:
+               self.comboN.setCurrentIndex(i)
       
       
 
