@@ -287,7 +287,11 @@ def main():
              ['_win64.msi',         'Version %s for Windows 64-bit',         ['WindowsMSI',    'OS-Win64']], \
              ['_win32.msi',         'Version %s for Windows 32- and 64-bit', ['WindowsMSI',    'OS-Win32']], \
              ['_OSX.dmg',           'Version %s for Mac/OSX 10.8+',          ['MacosxDMG',     'OS-MacOSX']], \
-             ['_sha256sum.txt.asc', 'Version %s SHA256 hashes of installers',['HashesSHA256']]]
+             ['_sha256sum.txt.asc', 'Version %s SHA256 hashes of installers',['HashesSHA256']], \
+             ['_OfflineBundle_Ubuntu-10.04-32bit.tar.gz',     'Version %s Offline Bundle for Ubuntu 10.04-32bit', \
+                                                                             ['DebianPackage', 'OS-Linux32', 'Offline']], \
+             ['_OfflineBundle_Ubuntu-10.04-64bit.tar.gz',     'Version %s Offline Bundle for Ubuntu 10.04-64bit', \
+                                                                             ['DebianPackage', 'OS-Linux64', 'Offline']]]
 
    urlSummList = []
    password = getpass.getpass('Enter your googlecode password: ')

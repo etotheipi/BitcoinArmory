@@ -12,7 +12,6 @@ DEPSDIR ?= /usr
 INCLUDE_OPTS += -Icryptopp -Ileveldb/include -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread -Lleveldb -lleveldb
 SWIG_OPTS    += -c++ -python -classic -threads
-PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
 
 
 UNAME := $(shell uname)
@@ -22,11 +21,13 @@ ifeq ($(UNAME), Darwin)
    # Red Emerald in this thread: 
    #    https://bitcointalk.org/index.php?topic=73648.msg976015#msg976015
 	# The makefile updates he shows are already tied into this if/else branch
+   PYVER 		 += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
    SWIG_INC     += -I"/usr/include/python$(PYVER)"
    STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
 else
+   PYVER 		 += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
    SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
-   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).so"
+   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
 
 
 endif

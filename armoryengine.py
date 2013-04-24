@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 87, 98, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 88, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -92,6 +92,8 @@ def isASCII(theStr):
       theStr.decode('ascii')
       return True
    except UnicodeEncodeError:
+      return False
+   except UnicodeDecodeError:
       return False
    except:
       LOGEXCEPT('What was passed to this function? %s', theStr)
@@ -696,7 +698,6 @@ def killProcess(pid, sig='default'):
          
            
 
-
 ################################################################################
 def subprocess_check_output(*popenargs, **kwargs):
    """
@@ -716,6 +717,21 @@ def subprocess_check_output(*popenargs, **kwargs):
        error.output = output
        raise error
    return output
+
+
+################################################################################
+def killProcessTree(pid):
+   # In this case, Windows is easier because we know it has the get_children
+   # call, because have bundled a recent version of psutil.  Linux, however,
+   # does not have that function call in earlier versions.
+   if not OS_LINUX:
+      for child in psutil.Process(pid).get_children():
+         killProcess(child.pid)
+   else:
+      proc = Popen("ps -o pid --ppid %d --noheaders" % pid, shell=True, stdout=PIPE)
+      out,err = proc.communicate()
+      for pid_str in out.split("\n")[:-1]:
+         killProcess(int(pid_str))
 
 
 ################################################################################
@@ -790,7 +806,7 @@ def GetSystemDetails():
       out.CpuStr = platform.processor()
    else:
       out.CpuStr = 'Unknown'
-      out.CpuStr = 'Unknown'
+      raise OSError, "Can't get system specs in OSX"
 
    out.NumCores = multiprocessing.cpu_count()
    out.IsX64 = platform.architecture()[0].startswith('64')
@@ -800,9 +816,8 @@ def GetSystemDetails():
 try:
    SystemSpecs = GetSystemDetails()
 except:
-   print 'Error getting system details:'
-   print sys.exc_info()
-   print 'Skipping.'
+   LOGEXCEPT('Error getting system details:')
+   LOGERROR('Skipping.')
    SystemSpecs = DumbStruct()
    SystemSpecs.Memory   = -1
    SystemSpecs.CpuStr   = 'Unknown'
@@ -1920,6 +1935,9 @@ class FiniteField(object):
 
 ################################################################################
 def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
+   if not isinstance(secret, basestring):
+      secret = secret.toBinStr() 
+
    if nbytes==None:
       nbytes = len(secret)
 
@@ -1984,7 +2002,7 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
          fragments.append( [x, poly(x)] )
 
 
-   a = None
+   secret,a = None,None
    fragments = [ [int_to_binary(p, nbytes, BIGENDIAN) for p in frag] for frag in fragments]
    return fragments
 
@@ -7706,6 +7724,7 @@ class PyBtcWallet(object):
       self.writeFreshWalletFile(newPath)
 
       # Unencrypt the wallet now
+      self.unlock(securePassphrase=securePassphrase)
       self.changeWalletEncryption(None)
       return True
    
@@ -10814,8 +10833,7 @@ class SatoshiDaemonManager(object):
 
 
       # Look for rpcport, use default if not there
-      if not self.bitconf.has_key('rpcport'):
-         self.bitconf['rpcport'] = BITCOIN_RPC_PORT
+      self.bitconf['rpcport'] = int(self.bitconf.get('rpcport', BITCOIN_RPC_PORT))
 
       # We must have a username and password.  If not, append to file
       if not self.bitconf.has_key('rpcuser'):
@@ -10831,6 +10849,7 @@ class SatoshiDaemonManager(object):
             f.write('\n')
             f.write('rpcpassword=%s' % randBase58)
             self.bitconf['rpcpassword'] = randBase58
+
 
       if not isASCII(self.bitconf['rpcuser']):
          LOGERROR('Non-ASCII character in bitcoin.conf (rpcuser)!')
@@ -10910,9 +10929,9 @@ class SatoshiDaemonManager(object):
          LOGINFO('...but bitcoind is not running, to be able to stop')
          return
 
-      for child in psutil.Process(self.bitcoind.pid).get_children():
-         killProcess(child.pid)
+      killProcessTree(self.bitcoind.pid)
       killProcess(self.bitcoind.pid)
+
       time.sleep(1)
       self.bitcoind = None
       

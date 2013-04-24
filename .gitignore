@@ -16,3 +16,8 @@ _CppBlockUtils.*
 /cppForSwig/cryptopp/DLL_Debug
 /cppForSwig/cryptopp/dlltest___Win32_Debug
 /cppForSwig/cryptopp/Release
+
+*.DS_Store
+osxbuild/Armory.app
+osxbuild/env
+

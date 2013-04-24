@@ -753,11 +753,11 @@ class ArmoryMainWindow(QMainWindow):
 
 
    #############################################################################
-   def setupUriRegistration(self):
+   def setupUriRegistration(self, justDoIt=False):
       """
       Setup Armory as the default application for handling bitcoin: links
       """
-      LOGDEBUG('setupUriRegistration')
+      LOGINFO('setupUriRegistration')
       # Don't bother the user on the first load with it if verification is 
       # needed.  They have enough to worry about with this weird new program.
       isFirstLoad = self.getSettingOrSetDefault('First_Load', True)
@@ -796,7 +796,7 @@ class ArmoryMainWindow(QMainWindow):
             registryKey = OpenKey(HKEY_CURRENT_USER, userKey, 0, KEY_READ)
             val,code = QueryValueEx(registryKey, '')
             if 'armory.exe' in val.lower():
-               # Already set to Armory, we're done!
+               LOGINFO('Armory already registered for current user.  Done!')
                return
             else:
                # Already set to something (at least created, which is enough)
@@ -807,7 +807,7 @@ class ArmoryMainWindow(QMainWindow):
                registryKey = OpenKey(HKEY_CLASSES_ROOT, rootKey, 0, KEY_READ)
                val,code = QueryValueEx(registryKey, '')
                if 'armory.exe' in val.lower():
-                  # Already set to Armory, we're done!
+                  LOGINFO('Armory already registered at admin level.  Done!')
                   return
                else:
                   # Root key is set (or at least created, which is enough)
@@ -816,7 +816,15 @@ class ArmoryMainWindow(QMainWindow):
                action = 'DoIt'
 
          dontAsk = self.getSettingOrSetDefault('DNAA_DefaultApp', False)
-         if action=='AskUser' and not isFirstLoad and not dontAsk:
+         dontAskDefault = self.getSettingOrSetDefault('AlwaysArmoryURI', False)
+         print dontAsk, justDoIt, dontAskDefault
+         if justDoIt:
+            LOGINFO('URL-register: just doing it')
+            action = 'DoIt'
+         elif dontAsk and dontAskDefault:
+            LOGINFO('URL-register: user wants to do it by default')
+            action = 'DoIt'
+         elif action=='AskUser' and not isFirstLoad and not dontAsk:
             # If another application has it, ask for permission to change it
             reply = MsgBoxWithDNAA(MSGBOX.Question, 'Default URL Handler', \
                'Armory is not set as your default application for handling '
@@ -824,15 +832,20 @@ class ArmoryMainWindow(QMainWindow):
                'default?', 'Do not ask this question again')
 
             if reply[1]==True:
+               LOGINFO('URL-register:  do not ask again:  always %s', str(reply[0]))
                self.writeSetting('DNAA_DefaultApp', True)
+               self.writeSetting('AlwaysArmoryURI', reply[0])
 
             if reply[0]==True:
                action = 'DoIt'
             else:
+               LOGINFO('User requested not to use Armory as URI handler')
                return 
 
          # Finally, do it if we're supposed to!
+         LOGINFO('URL-register action: %s', action)
          if action=='DoIt':
+            LOGINFO('Registering Armory  for current user')
             x86str = '' if platform.architecture()[0][:2]=='32' else ' (x86)'
             baseDir = 'C:\\Program Files%s\\Armory\\Armory Bitcoin Client' % x86str
             regKeys = []
@@ -1332,7 +1345,7 @@ class ArmoryMainWindow(QMainWindow):
             self.setDashboardDetails()
             self.lblArmoryStatus.setText( \
                '<font color=%s><i>Disconnected</i></font>' % htmlColor('TextWarn'))
-            if not self.getSettingOrSetDefault('NotifyDiscon', True):
+            if not self.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX):
                return 
    
             try:
@@ -1351,7 +1364,7 @@ class ArmoryMainWindow(QMainWindow):
             self.lblArmoryStatus.setText(\
                      '<font color=%s>Connected (%s blocks)</font> ' % 
                      (htmlColor('TextGreen'), self.currBlockNum))
-            if not self.getSettingOrSetDefault('NotifyReconn', True):
+            if not self.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX):
                return
    
             try:
@@ -3576,7 +3589,11 @@ class ArmoryMainWindow(QMainWindow):
          return ( \
          'For more information about Armory, and even Bitcoin itself, you '
          'should visit the <a href="https://bitcoinarmory.com/index.php/fr'
-         'equently-asked-questions">frequently asked questions page</a>.'
+         'equently-asked-questions">frequently asked questions page</a>.  If '
+         'you are experiencing problems using this software, please visit the '
+         '<a href="https://bitcoinarmory.com/troubleshooting-armory/">Armory '
+         'troubleshooting webpage</a>.  It will be updated frequently with '
+         'solutions to common problems. '
          '<br><br>'
          '<b><u>IMPORTANT:</u></b> Make a backup of your wallet(s)!  Paper '
          'backups protect you <i>forever</i> against forgotten passwords, '
@@ -4112,6 +4129,7 @@ class ArmoryMainWindow(QMainWindow):
                      descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
                   else:
                      descr1 += self.GetDashStateText('Auto', 'InitializingDoneSoon')
+                     descr2 += self.GetDashStateText('Auto', 'NewUserInfo')
 
                   setBtnRowVisible(DASHBTNS.Settings, True)
                   setBtnFrameVisible(True, \
@@ -4228,6 +4246,7 @@ class ArmoryMainWindow(QMainWindow):
             else:
                descr = self.GetDashStateText('User','ScanWithWallets')
    
+            descr += self.GetDashStateText('Auto', 'NewUserInfo') 
             descr += self.GetDashFunctionalityText('Scanning') + '<br>'
             self.lblDashDescr1.setText(descr)
             self.lblDashDescr2.setText('')
@@ -4478,8 +4497,8 @@ class ArmoryMainWindow(QMainWindow):
                   le = wlt.cppWallet.calcLedgerEntryForTxStr(rawTx)
                   if not le.getTxHash()=='\x00'*32:
                      LOGDEBUG('ZerConf tx for wallet: %s.  Adding to notify queue.' % wltID)
-                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
+                     notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+                     notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
                      if (le.getValue()<=0 and notifyOut) or (le.getValue()>0 and notifyIn):
                         self.notifyQueue.append([wltID, le, False])  # notifiedAlready=False
                      self.createCombinedLedger()
@@ -4564,8 +4583,8 @@ class ArmoryMainWindow(QMainWindow):
             for wltID,wlt in self.walletMap.iteritems():
                le = wlt.cppWallet.calcLedgerEntryForTx(tx)
                if not le.getTxHash() in notifiedAlready:
-                  notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  True)
-                  notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', True)
+                  notifyIn  = self.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+                  notifyOut = self.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
                   if (le.getValue()<=0 and notifyOut) or (le.getValue>0 and notifyIn):
                      self.notifyQueue.append([wltID, le, False])
                else:
@@ -4775,19 +4794,24 @@ def checkForAlreadyOpen():
 
 ############################################
 def checkForAlreadyOpenError():
+   LOGINFO('Already open error checking')
    # Sometimes in Windows, Armory actually isn't open
    import psutil
    import signal
    armoryExists = []
    bitcoindExists = []
+   aexe = os.path.basename(sys.argv[0])
    bexe = 'bitcoind.exe' if OS_WINDOWS else 'bitcoind'
    for proc in psutil.process_iter():
-      if sys.argv[0].split('.')[0] in proc.name:
+      if aexe in proc.name:
+         LOGINFO('Found armory PID: %d', proc.pid)
          armoryExists.append(proc.pid)
       if bexe in proc.name:
+         LOGINFO('Found bitcoind PID: %d', proc.pid)
          bitcoindExists.append(proc.pid)
 
    if len(armoryExists)>0:
+      LOGINFO('Not an error!  Armory really is open')
       return 
    elif len(bitcoindExists)>0:
       # Strange condition where bitcoind doesn't get killed by Armory/guardian

@@ -939,9 +939,14 @@ class DlgWalletDetails(ArmoryDialog):
       lbtnBackups = QLabelButton('<b>Backup This Wallet</b>')
       lbtnRemove  = QLabelButton('Delete/Remove Wallet')
 
+      #LOGERROR('remove me!')
+      #fnfrag = lambda: DlgFragBackup(self, self.main, self.wlt).exec_()
+      #LOGERROR('remove me!')
+
       self.connect(lbtnSendBtc, SIGNAL('clicked()'), self.execSendBtc)
       self.connect(lbtnGenAddr, SIGNAL('clicked()'), self.getNewAddress)
       self.connect(lbtnBackups, SIGNAL('clicked()'), self.execBackupDlg)
+      #self.connect(lbtnBackups, SIGNAL('clicked()'), fnfrag)
       self.connect(lbtnRemove,  SIGNAL('clicked()'), self.execRemoveDlg)
       self.connect(lbtnImportA, SIGNAL('clicked()'), self.execImportAddress)
       self.connect(lbtnDeleteA, SIGNAL('clicked()'), self.execDeleteAddress)
@@ -2544,7 +2549,7 @@ class DlgImportAddress(ArmoryDialog):
             return
    
          if self.wlt.useEncryption and self.wlt.isLocked:
-            dlg = DlgUnlockWallet(self.wlt, self.main, 'Encrypt New Address')
+            dlg = DlgUnlockWallet(self.wlt, self, self.main, 'Encrypt New Address')
             if not dlg.exec_():
                reply = QMessageBox.critical(self, 'Wallet is locked',
                   'New private key data cannot be imported unless the wallet is '
@@ -8875,12 +8880,6 @@ class DlgECDSACalc(ArmoryDialog):
       self.btnClearSP = QPushButton('Clear')
       self.btnClearPP = QPushButton('Clear')
 
-      # Looks like these images didn't make it into the resource file.
-      # TODO:  Figure this out later...
-      #imgPlus  = QImageLabel(':/plus_orange.png')
-      #imgTimes1= QImageLabel(':/asterisk_orange.png')
-      #imgTimes2= QImageLabel(':/asterisk_orange.png')
-      #imgDown  = QImageLabel(':/arrow_down32.png')
 
       imgPlus  = QRichLabel('<b>+</b>')
       imgTimes1= QRichLabel('<b>*</b>')
@@ -10052,6 +10051,23 @@ class DlgSettings(ArmoryDialog):
       self.chkSkipOnlineCheck.setChecked(settingSkipCheck)
 
 
+      lblDefaultUriTitle = QRichLabel('<b>Set Armory as default URL handler</b>')
+      lblDefaultURI = QRichLabel(
+         'Set Armory to be the default when you click on "bitcoin:" '
+         'links in your browser or in emails.  '
+         'You can test if your operating system is supported by clicking '
+         'on a "bitcoin:" link right after clicking this button.', doWrap=True)
+      btnFrmDefaultURI = QPushButton('Set Armory as Default')
+      def clickRegURI():
+         self.main.setupUriRegistration(justDoIt=True)
+         QMessageBox.information(self, 'Registered', \
+            'Armory just attempted to register itself to handle "bitcoin:" '
+            'links, but this does not work on all operating systems.  You can '
+            'test it by going to the '
+            '<a href="www.bitcoinarmory.com">Bitcoin Armory website</a> and '
+            'clicking the link at the bottom of the homepage.', QMessageBox.Ok)
+            
+      self.connect(btnFrmDefaultURI, SIGNAL('clicked()'), clickRegURI)
 
 
       txFee = self.main.getSettingOrSetDefault('Default_Fee', MIN_TX_FEE)
@@ -10104,12 +10120,12 @@ class DlgSettings(ArmoryDialog):
 
 
       ###############################################################
-      # Notifications
+      # Notifications -- Don't work right on OSX
       lblNotify = QRichLabel('<b>Enable notifcations from the system-tray:</b>')
-      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  True)
-      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', True)
-      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', True)
-      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', True)
+      notifyBtcIn  = self.main.getSettingOrSetDefault('NotifyBtcIn',  not OS_MACOSX)
+      notifyBtcOut = self.main.getSettingOrSetDefault('NotifyBtcOut', not OS_MACOSX)
+      notifyDiscon = self.main.getSettingOrSetDefault('NotifyDiscon', not OS_MACOSX)
+      notifyReconn = self.main.getSettingOrSetDefault('NotifyReconn', not OS_MACOSX)
 
       self.chkBtcIn  = QCheckBox('Bitcoins Received')
       self.chkBtcOut = QCheckBox('Bitcoins Sent')
@@ -10120,6 +10136,17 @@ class DlgSettings(ArmoryDialog):
       self.chkDiscon.setChecked(notifyDiscon)
       self.chkReconn.setChecked(notifyReconn)
 
+      if OS_MACOSX:
+         lblNotify = QRichLabel('<b>Sorry!  Notifications are not available on Mac/OSX</b>')
+         self.chkBtcIn.setChecked(False)
+         self.chkBtcOut.setChecked(False)
+         self.chkDiscon.setChecked(False)
+         self.chkReconn.setChecked(False)
+         self.chkBtcIn.setEnabled(False)
+         self.chkBtcOut.setEnabled(False)
+         self.chkDiscon.setEnabled(False)
+         self.chkReconn.setEnabled(False)
+	
 
       ###############################################################
       # Date format preferences
@@ -10236,6 +10263,16 @@ class DlgSettings(ArmoryDialog):
 
       i+=1
       frmLayout.addWidget(self.chkSkipOnlineCheck,i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( HLINE(),               i,0, 1,3)
+
+      i+=1
+      frmLayout.addWidget( lblDefaultUriTitle,    i,0 )
+
+      i+=1
+      frmLayout.addWidget( lblDefaultURI,         i,0, 1,2 )
+      frmLayout.addWidget( btnFrmDefaultURI,      i,2 )
 
       i+=1
       frmLayout.addWidget( HLINE(),               i,0, 1,3)
@@ -12458,7 +12495,7 @@ class DlgBackupCenter(ArmoryDialog):
          if DlgPaperBackup(self.wlt, self, self.main).exec_():
             self.accept()
       elif self.optPaperBackupFrag.isChecked():
-         if DlgFragBackup(self.wlt, self, self.main).exec_():
+         if DlgFragBackup(self, self.main, self.wlt).exec_():
             self.accept()
       elif self.optDigitalBackupPlain.isChecked():
          self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
@@ -12584,63 +12621,233 @@ class DlgFragBackup(ArmoryDialog):
       self.wlt = wlt
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Created "Fragmented" Backup of wallet %s (%s)</b>""") % \
-         (wlt.labelName, wlt.uniqueIDB58))
+         <b>Create Fragmented Backup: "%s" (%s)</b>""") % \
+         (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
 
-      lblDescrTitle = QRichLabel( tr(""" 
-         Uses <a href="http://en.wikipedia.org/wiki/Shamir's_Secret_Sharing">Shamir's
-         Secret Sharing</a> to split your paper backup information into multiple 
-         pieces (or "fragments").  This is generally referred to an <b>M-of-N</b> 
+      lblDescr = QRichLabel( tr(""" 
+         
+         Split your wallet into secure "fragments."  This is generally referred to 
+         as an <b>M-of-N</b> 
          scheme, which means that <b>N</b> fragments will be created, of which any
-         subset of <b>M</b> of them is sufficient to restore your wallet.  
-         <br><br>
-         The most common use-case for this scheme, is to make a 2-of-3 fragmented
-         backup.  You print three pieces of paper:  you keep one, put one in a 
-         safe-deposit box at a bank, and give one to a trusted family member.  
-         Neither the bank nor your family member can access the funds with their
-         piece.  You only need to contact one of them to recover your wallet, or 
-         both of them if you lose your fragment.  """))
-      lblDescrTitle.setOpenExternalLinks(True)
+         subset of <b>M</b> of them is sufficient to restore your wallet. 
+         <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
+         to read more about fragmented backups."""))
+      lblDescr .setOpenExternalLinks(True)
+      self.lblBelowFrags = QRichLabel('')
 
+      
+      self.maxM = 3 if not self.main.usermode==USERMODE.Expert else 8
+      self.maxN = 6 if not self.main.usermode==USERMODE.Expert else 12
+      self.currMinN = 2
+      self.maxmaxN = 12
+
+      self.comboM = QComboBox()
+      self.comboN = QComboBox()
+
+      for M in range(2,self.maxM+1):
+         self.comboM.addItem(str(M))
+
+      for N in range(self.currMinN, self.maxN+1):
+         self.comboN.addItem(str(N))
+
+      self.comboM.setCurrentIndex(0)
+      self.comboN.setCurrentIndex(1)
+
+      def updateM():
+         self.updateComboN()
+         self.createFragDisplay()
+
+      updateN = self.createFragDisplay
+
+      self.connect(self.comboM, SIGNAL('activated(int)'), updateM)
+      self.connect(self.comboN, SIGNAL('activated(int)'), updateN)
+
+      lblBelowM  = QRichLabel(tr('Required (M)'), hAlign=Qt.AlignHCenter)
+      lblBelowN  = QRichLabel(tr('Total (N)'), hAlign=Qt.AlignHCenter)
+      lblBetween = QRichLabel(tr('- OF -'), hAlign=Qt.AlignHCenter, size=3)
+
+      self.comboM.setMinimumWidth(30)
+      self.comboN.setMinimumWidth(30)
+
+      frmComboM = makeHorizFrame(['Stretch', self.comboM, 'Stretch'])
+      frmComboN = makeHorizFrame(['Stretch', self.comboN, 'Stretch'])
+
+      layoutMofN = QGridLayout()
+      layoutMofN.addWidget(lblBelowM,    0,0)
+      layoutMofN.addWidget(lblBelowN,    0,2)
+      layoutMofN.addWidget(frmComboM,    1,0)
+      layoutMofN.addWidget(lblBetween,   1,1)
+      layoutMofN.addWidget(frmComboN,    1,2)
+      layoutMofN.setSpacing(0)
+      frmMofN = QFrame()
+      frmMofN.setFrameStyle(STYLE_RAISED)
+      frmMofN.setLayout(layoutMofN)
+      frmSelectParams = makeHorizFrame(['Stretch', frmMofN, 'Stretch'])
+      
+      btnAccept = QPushButton(tr('Close'))
+      self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
+      frmBottomBtn = makeHorizFrame(['Stretch', btnAccept])
 
       # We will hold all fragments here, in SBD objects.  Destroy all of them
       # before the dialog exits
-      self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain
-      self.secureChain = self.wlt.addrMap['ROOT'].chaincode
+      self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
+      self.secureChain = self.wlt.addrMap['ROOT'].chaincode.copy()
       self.secureData  = []
-      self.fragFrames  = []
-
-      
-      self.recomputeFragData(2,3)
-      self.createFragDisplay()
-
-
-      # Assume the wallet is unlocked
-      if self.wlt.isLocked:
-         LOGERROR('Wallet is locked!  Cannot create backup!')
-         return
-
 
       self.scrollArea = QScrollArea()
+      self.createFragDisplay()
       self.scrollArea.setWidgetResizable(True)
-      #self.scrollRecipArea.setWidget(QFrame)
+
+
+
+      dlgLayout = QVBoxLayout()
+      dlgLayout.addWidget(lblDescrTitle)
+      dlgLayout.addWidget(lblDescr)
+      dlgLayout.addWidget(frmSelectParams)
+      dlgLayout.addWidget(self.scrollArea)
+      dlgLayout.addWidget(self.lblBelowFrags)
+      dlgLayout.addWidget(frmBottomBtn)
+      setLayoutStretch(dlgLayout, 0,0,0,1,0)
+
+      self.setLayout(dlgLayout) 
+      self.setMinimumWidth(640)
+      self.setWindowTitle('Create Backup Fragments')
 
 
 
    #############################################################################
-   def createFragObj(self, objIndex_1idx, fragData):
+   def updateComboN(self):
+      M    = int(str(self.comboM.currentText()))
+      oldN = int(str(self.comboN.currentText()))
+      self.currMinN = M
+      self.comboN.clear()
+
+      for i,N in enumerate(range(self.currMinN, self.maxN+1)):
+         self.comboN.addItem(str(N))
+
+      if M>oldN:
+         self.comboN.setCurrentIndex(0)
+      else:
+         for i,N in enumerate(range(self.currMinN, self.maxN+1)):
+            if N==oldN:
+               self.comboN.setCurrentIndex(i)
       
-      while len(self.fragFrames) < objIndex_1idx:
-         self.fragFrames.append(None) 
+      
 
-      idx = objIndex_1idx - 1
+   #############################################################################
+   def createFragDisplay(self):
+      self.recomputeFragData()
+      M = int(str(self.comboM.currentText()))
+      N = int(str(self.comboN.currentText()))
 
-      self.fragFrames[idx] = QFrame()
-      self.fragFrames[idx].setFrameStyle(STYLE_STYLED)
 
+      lblWltID = QRichLabel(tr('Wallet:<br><b>%s</b>') % self.wlt.uniqueIDB58, \
+                            vAlign=Qt.AlignVCenter, hAlign=Qt.AlignHCenter, \
+                            color='DisableFG')
+      lblAddRemove = QRichLabel( tr("""
+         Add or remove fragments using the drop-down boxes above"""), \
+         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
+         size=3, color='DisableFG', doWrap=True) 
+      w = relaxedSizeStr(lblAddRemove, 'Add or remove')[0]
+      lblAddRemove.setMinimumWidth(w)
+      btnPrintAll = QPushButton('Print All Fragments')
+      self.connect(btnPrintAll, SIGNAL('clicked()'), self.clickPrintAll)
+      leftFrame = makeVertFrame(['Stretch', \
+                                 lblWltID, \
+                                 'Space(10)', \
+                                 HLINE(), \
+                                 'Space(10)', \
+                                 lblAddRemove, \
+                                 'Space(10)', \
+                                 HLINE(), \
+                                 btnPrintAll, \
+                                 'Stretch'], STYLE_STYLED)
+
+      layout = QHBoxLayout()
+      layout.addWidget(leftFrame)
+
+      for f in range(N):
+         layout.addWidget(self.createFragFrm(f))
+
+
+      frmScroll = QFrame()
+      frmScroll.setFrameStyle(STYLE_SUNKEN)
+      frmScroll.setStyleSheet('QFrame { background-color : %s  }' % \
+                                                htmlColor('SlightBkgdDark'))
+      frmScroll.setLayout(layout)
+      self.scrollArea.setWidget(frmScroll)
+
+      self.lblBelowFrags.setText( tr("""
+         Any <b>%d</b> of these fragments are sufficient to restore your wallet,
+         and each fragment has a ID of <b>%s</b>.  All fragments with the
+         same fragment ID are compatible with each other! """) % \
+         (M, self.fragPrefixStr) )
+
+
+   #############################################################################
+   def createFragFrm(self, idx):
+      
+      
+      lblFragID = QRichLabel('<b>Fragment ID:<br>%s-%d</b>' % \
+                               (self.fragPrefixStr, idx+1))
+      #lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
+      lblFragPix = QImageLabel(self.fragPixmapFn, size=(72,72))
+      ys = self.secureData[idx][1].toHexStr()[:42]
+      fragPreview  = 'f1: %s %s %s...<br>' % (ys[:4], ys[4:8], ys[8:10])
+      fragPreview += 'f2: %s %s %s...<br>' % (ys[32:36], ys[36:40], ys[40:42])
+      fragPreview += '...'
+      lblPreview = QRichLabel(fragPreview)
+      lblPreview.setFont( GETFONT('Fixed', 9))
+      
+      lblFragIdx = QRichLabel('#%d' % (idx+1), size=4, color='TextBlue', \
+                                                   hAlign=Qt.AlignHCenter)
+
+      frmTopLeft  = makeVertFrame([lblFragID, lblFragIdx, 'Stretch'])
+      frmTopRight = makeVertFrame([lblFragPix, 'Stretch'])
+
+      frmPaper = makeVertFrame([lblPreview])
+      frmPaper.setStyleSheet('QFrame { background-color : #ffffff  }')
+
+      fnPrint = lambda: self.clickPrintFrag(idx)
+      fnSave  = lambda: self.clickSaveFrag(idx)
+
+      btnPrintFrag = QPushButton('View/Print')
+      btnSaveFrag = QPushButton('Save to File')
+      self.connect(btnPrintFrag, SIGNAL('clicked()'), fnPrint)
+      self.connect(btnSaveFrag,  SIGNAL('clicked()'), fnSave)
+      frmButtons = makeHorizFrame([btnPrintFrag, btnSaveFrag])
+      
+
+      layout = QGridLayout()
+      layout.addWidget(frmTopLeft,      0,0,     1,1)
+      layout.addWidget(frmTopRight,     0,1,     1,1)
+      layout.addWidget(frmPaper,        1,0,     1,2)
+      layout.addWidget(frmButtons,      2,0,     1,2)
+      layout.setSizeConstraint(QLayout.SetFixedSize)
+
+      outFrame = QFrame()
+      outFrame.setFrameStyle(STYLE_STYLED)
+      outFrame.setLayout(layout)
+      return outFrame
+      
+
+   #############################################################################
+   def clickPrintAll(self):
+      pass
+      
+   #############################################################################
+   def clickPrintFrag(self, zindex):
+      pass
+
+   #############################################################################
+   def clickSaveFrag(self, zindex):
+      pass
 
    #############################################################################
    def destroyFrags(self):
+      if len(self.secureData)==0:
+         return 
+
       if isinstance(self.secureData[0], (list,tuple)):
          for sbdList in self.secureData:
             for sbd in sbdList:
@@ -12658,22 +12865,24 @@ class DlgFragBackup(ArmoryDialog):
       self.destroyFrags()
 
    #############################################################################
-   def recomputeFragData(self, M, maxN=12):
+   def recomputeFragData(self):
       """
       Only M is needed, since N doesn't change 
       """
+      M = int(str(self.comboM.currentText()))
+      N = int(str(self.comboN.currentText()))
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
-      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, maxN)
+      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, self.maxmaxN)
       for x,y in insecureData:
          self.secureData.append([SecureBinaryData(x), SecureBinaryData(y)])
-      insecureData = None
+      insecureData,x,y = None,None,None
 
-      self.M = M
+      self.M,self.N = M,N
       mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
-      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:3]
-      self.fragPrefixStr = binary_to_base58(hash256(self.wlt.uniqueIDBin)[:3])
-      self.fragPixmap = QPixmap('img/frag%df.png' % M)
+      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:4]
+      self.fragPrefixStr = str(M) + binary_to_base58(self.fragPrefixBin) 
+      self.fragPixmapFn = 'img/frag%df.png' % M
 
 
    #############################################################################

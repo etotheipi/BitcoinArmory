@@ -323,6 +323,10 @@ def setLayoutStretchCols(layout, *args):
    for i,st in enumerate(args):
       layout.setColumnStretch(i, st)
 
+# Use this for QHBoxLayout and QVBoxLayout, where you don't specify dimension
+def setLayoutStretch(layout, *args):
+   for i,st in enumerate(args):
+      layout.setStretch(i, st)
 
 ################################################################################
 def QPixmapButton(img):
@@ -603,12 +607,18 @@ def makeHorizFrame(widgetList, style=QFrame.NoFrame):
    return makeLayoutFrame('Horiz', widgetList, style)
 
 
-def QImageLabel(imgfn, stretch='NoStretch'):
+def QImageLabel(imgfn, size=None, stretch='NoStretch'):
    if not os.path.exists(imgfn):
       raise FileExistsError, 'Image for QImageLabel does not exist!'
 
    lbl = QLabel()
-   lbl.setPixmap(QPixmap(imgfn))
+
+   if size==None:
+      px = QPixmap(imgfn)
+   else:
+      px = QPixmap(imgfn).scaled(*size)  # expect size=(W,H)
+
+   lbl.setPixmap(px)
    return lbl
    
 
