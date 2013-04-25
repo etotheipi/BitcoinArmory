@@ -15,7 +15,7 @@
 
 
 # Version Numbers 
-BTCARMORY_VERSION    = (0, 88, 1, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
+BTCARMORY_VERSION    = (0, 88, 2, 0)  # (Major, Minor, Bugfix, AutoIncrement) 
 PYBTCWALLET_VERSION  = (1, 35, 0, 0)  # (Major, Minor, Bugfix, AutoIncrement)
 
 ARMORY_DONATION_ADDR = '1ArmoryXcfq7TnCSuZa9fQjRYwJ4bkRKfv'
@@ -10444,12 +10444,14 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def setupSDM(self, pathToBitcoindExe=None, satoshiHome=BTC_HOME_DIR, \
                       extraExeSearch=[], createHomeIfDNE=True):
+      LOGDEBUG('Exec setupSDM')
       self.failedFindExe = False
       self.failedFindHome = False
       # If we are supplied a path, then ignore the extra exe search paths
       if pathToBitcoindExe==None:
          pathToBitcoindExe = self.findBitcoind(extraExeSearch)
          if len(pathToBitcoindExe)==0:
+            LOGDEBUG('Failed to find bitcoind')
             self.failedFindExe = True
          else:
             LOGINFO('Found bitcoind in the following places:')
@@ -10459,14 +10461,17 @@ class SatoshiDaemonManager(object):
             LOGINFO('Using: %s', pathToBitcoindExe)
 
             if not os.path.exists(pathToBitcoindExe):
+               LOGINFO('Somehow failed to find exe even after finding it...?')
                self.failedFindExe = True
 
       self.executable = pathToBitcoindExe
 
       if not os.path.exists(satoshiHome):
          if createHomeIfDNE:
+            LOGINFO('Making satoshi home dir')
             os.makedirs(satoshiHome)
          else:
+            LOGINFO('No home dir, makedir not requested')
             self.failedFindHome = True
 
       if self.failedFindExe:  raise self.BitcoindError, 'bitcoind not found'
@@ -10603,6 +10608,7 @@ class SatoshiDaemonManager(object):
    
    #############################################################################
    def readBitcoinConf(self, makeIfDNE=False):
+      LOGINFO('Reading bitcoin.conf file')
       bitconf = os.path.join( self.satoshiHome, 'bitcoin.conf' )
       if not os.path.exists(bitconf):
          if not makeIfDNE:
@@ -10621,12 +10627,14 @@ class SatoshiDaemonManager(object):
             LOGERROR('on XP systems):')
             LOGERROR('    %s', bitconf)
          else: 
+            LOGINFO('Setting permissions on bitcoin.conf')
             import win32api
             username = win32api.GetUserName()
             cmd_icacls = ['icacls',bitconf,'/inheritance:r','/grant:r', '%s:F' % username]
             icacls_out = subprocess_check_output(cmd_icacls, shell=True)
             LOGINFO('icacls returned: %s', icacls_out)
       else:
+         LOGINFO('Setting permissions on bitcoin.conf')
          os.chmod(bitconf, stat.S_IRUSR | stat.S_IWUSR)
                
             
@@ -10649,12 +10657,14 @@ class SatoshiDaemonManager(object):
 
       # We must have a username and password.  If not, append to file
       if not self.bitconf.has_key('rpcuser'):
+         LOGDEBUG('No rpcuser: creating one')
          with open(bitconf,'a') as f:
             f.write('\n')
             f.write('rpcuser=generated_by_armory\n')
             self.bitconf['rpcuser'] = 'generated_by_armory'
 
       if not self.bitconf.has_key('rpcpassword'):
+         LOGDEBUG('No rpcpassword: creating one')
          with open(bitconf,'a') as f:
             randBase58 = SecureBinaryData().GenerateRandom(32).toBinStr()
             randBase58 = binary_to_base58(randBase58)
@@ -10688,8 +10698,6 @@ class SatoshiDaemonManager(object):
       if not os.path.exists(self.executable):
          raise self.BitcoindError, 'Could not find bitcoind'
    
-
-      
 
       pargs = [self.executable]
       pargs.append('-datadir=%s' % self.satoshiHome)
@@ -10759,9 +10767,11 @@ class SatoshiDaemonManager(object):
       that the process terminated
       """
       if self.bitcoind==None:
+         LOGDEBUG('self.bitcoind==None') 
          return False
       else:
          if not self.bitcoind.poll()==None:
+            LOGDEBUG('Bitcoind is no more')
             if self.btcOut==None:
                self.btcOut, self.btcErr = self.bitcoind.communicate()
                LOGWARN('bitcoind exited, bitcoind STDOUT:')
@@ -10806,6 +10816,7 @@ class SatoshiDaemonManager(object):
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
+            LOGWARN('Overriding not-available message. This should only happen 1-4 times')
             return 'BitcoindInitializing'
       
       return state
@@ -10878,6 +10889,7 @@ class SatoshiDaemonManager(object):
    #############################################################################
    def createProxy(self, forceNew=False):
       if self.proxy==None or forceNew:
+         LOGDEBUG('Creating proxy')
          usr,pas,hst,prt = [self.bitconf[k] for k in ['rpcuser','rpcpassword',\
                                                       'host', 'rpcport']]
          pstr = 'http://%s:%s@%s:%d' % (usr,pas,hst,prt)
@@ -10894,6 +10906,7 @@ class SatoshiDaemonManager(object):
          numblks = self.proxy.getinfo()['blocks']
          blkhash = self.proxy.getblockhash(numblks) 
          toptime = self.proxy.getblock(blkhash)['time']
+         LOGDEBUG('RPC Call: numBlks=%d, toptime=%d', numblks, toptime)
          # Only overwrite once all outputs are retrieved
          self.lastTopBlockInfo['numblks'] = numblks
          self.lastTopBlockInfo['tophash'] = blkhash
@@ -10916,14 +10929,18 @@ class SatoshiDaemonManager(object):
 
       except ValueError:
          # I believe this happens when you used the wrong password
+         LOGEXCEPT('ValueError in bkgd req top blk')
          self.lastTopBlockInfo['error'] = 'ValueError'
       except authproxy.JSONRPCException:
          # This seems to happen when bitcoind is overwhelmed... not quite ready 
+         LOGDEBUG('generic jsonrpc exception')
          self.lastTopBlockInfo['error'] = 'JsonRpcException'
       except socket.error:
          # Connection isn't available... is bitcoind not running anymore?
+         LOGDEBUG('generic socket error')
          self.lastTopBlockInfo['error'] = 'SocketError'
       except:
+         LOGEXCEPT('generic error')
          self.lastTopBlockInfo['error'] = 'UnknownError'
          raise
       finally:

@@ -159,7 +159,7 @@ shutil.copytree(off64, newOff64)
 
 
 shutil.copy(deb32, newOff32)
-shutil.copy(deb32, newOff64)
+shutil.copy(deb64, newOff64)
 
 # I freakin hate tar... it never does what I want... which is to not have 
 # to os.chdir in a python script...

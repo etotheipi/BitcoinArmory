@@ -99,6 +99,8 @@ class ArmoryMainWindow(QMainWindow):
       self.notAvailErrorCount = 0
       self.satoshiVerWarnAlready = False
       self.satoshiLatestVer = None
+      self.latestVer = {}
+      self.downloadDict = {}
       self.satoshiHomePath = None
       self.satoshiExeSearchPath = None
       self.initSyncCircBuff = []
@@ -1181,6 +1183,8 @@ class ArmoryMainWindow(QMainWindow):
 
       LOGINFO('Internet connection is Available: %s', self.internetAvail)
       LOGINFO('Bitcoin-Qt/bitcoind is Available: %s', self.bitcoindIsAvailable())
+      LOGINFO('The first blk*.dat was Available: %s', str(self.checkHaveBlockfiles()))
+      LOGINFO('Online mode currently possible:   %s', self.onlineModeIsPossible())
 
 
       TimerStop('setupNetworking')
@@ -1209,6 +1213,7 @@ class ArmoryMainWindow(QMainWindow):
          TheSDM.setupSDM(None, self.satoshiHomePath, \
                          extraExeSearch=self.satoshiExeSearchPath)
          TheSDM.startBitcoind()
+         LOGDEBUG('Bitcoind started without error')
          return True
       except:
          LOGEXCEPT('Failed to setup SDM')
@@ -4250,7 +4255,7 @@ class ArmoryMainWindow(QMainWindow):
                self.NetworkingFactory.proto==None:
                return
 
-            LOGINFO('Checking Satoshi Version')
+            LOGDEBUG('Checking Satoshi Version')
             self.checkForLatestVersion()
 
             self.satoshiLatestVer = self.latestVer['SATOSHI']
@@ -4263,10 +4268,7 @@ class ArmoryMainWindow(QMainWindow):
 
             self.satoshiLatestVer = '0.0'
 
-            LOGINFO('Checking Satoshi version: ')
-            LOGINFO('   Current:  %d', peerVerInt)
-            LOGINFO('    Latest:  %d', latestVerInt)
-
+            LOGINFO('Satoshi version -- Current: %s, Latest: %s', self.latestVer['SATOSHI'], peerVersion)
 
             if latestVerInt>peerVerInt and not self.satoshiVerWarnAlready:
                LOGINFO('New version available!')
@@ -4332,6 +4334,7 @@ class ArmoryMainWindow(QMainWindow):
       sdmState = TheSDM.getSDMState()
       bdmState = TheBDM.getBDMState()
             
+      LOGDEBUG('States (SDM, BDM) = (%s, %s)', sdmState, bdmState)
 
       try:
          for func in self.extraHeartbeatAlways:

@@ -346,6 +346,8 @@ class DlgTooltip(ArmoryDialog):
       qp = QPoint(qc.x()-20, qc.y()-20)
       self.move(qp)
 
+      tiptext += '<font size=2 color="#000044"><br>[Click to close]</font>'
+
       lblText = QRichLabel(tiptext, doWrap=True)
       lblText.mousePressEvent = lambda ev: self.accept()
       lblText.mouseReleaseEvent = lambda ev: self.accept()
@@ -367,6 +369,8 @@ class DlgTooltip(ArmoryDialog):
    def mousePressEvent(self, ev):
       self.accept()
 
+   def keyPressEvent(self, ev):
+      self.accept()
 
 
 ################################################################################
@@ -10114,7 +10118,7 @@ class DlgSettings(ArmoryDialog):
             'Armory just attempted to register itself to handle "bitcoin:" '
             'links, but this does not work on all operating systems.  You can '
             'test it by going to the '
-            '<a href="www.bitcoinarmory.com">Bitcoin Armory website</a> and '
+            '<a href="http://www.bitcoinarmory.com">Bitcoin Armory website</a> and '
             'clicking the link at the bottom of the homepage.', QMessageBox.Ok)
             
       self.connect(btnFrmDefaultURI, SIGNAL('clicked()'), clickRegURI)
