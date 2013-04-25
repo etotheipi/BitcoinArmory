@@ -1,4 +1,10 @@
-
+////////////////////////////////////////////////////////////////////////////////
+//                                                                            //
+//  Copyright (C) 2011-2013, Alan C. Reiner    <alan.reiner@gmail.com>        //
+//  Distributed under the GNU Affero General Public License (AGPL v3)         //
+//  See LICENSE or http://www.gnu.org/licenses/agpl.html                      //
+//                                                                            //
+////////////////////////////////////////////////////////////////////////////////
 #include <iostream>
 #include <vector>
 #include "BinaryData.h"
@@ -15,12 +21,20 @@ public:
       BinaryData  nodeHash_;
       bool        isOnPath_;
       bool        isLeaf_;
-      uint32_t    txIndex_;
       MerkleNode* ptrLeft_;
       MerkleNode* ptrRight_;
 
       MerkleNode(void) : nodeHash_(0), isOnPath_(false), isLeaf_(false),
                          ptrLeft_(NULL), ptrRight_(NULL) {}
+
+      void pprint(void)
+      {
+         cout << (nodeHash_.getSize()>0 ? nodeHash_.getSliceCopy(0,4).toHexStr() : "        ") << " "
+              << (isOnPath_ ? 1 : 0) << " "
+              << (isLeaf_ ? 1 : 0) << " "
+              << (ptrLeft_==NULL ? "L-empty" : "L-exist") << " "
+              << (ptrRight_==NULL ? "R-empty" : "R-exist") << endl;
+      }
    };
 
    /////////////////////////////////////////////////////////////////////////////
@@ -71,6 +85,7 @@ public:
                         vector<bool> const * bits=NULL, 
                         vector<HashString> const * hashes=NULL)
    {
+      //cout << "Starting createTreeNodes" << endl;
       numTx_ = nTx;
       static CryptoPP::SHA256 sha256_;
       BinaryData hashOut(32);
@@ -81,12 +96,12 @@ public:
       for(uint32_t i=0; i<nTx; i++)
       {
          levelLower[i] = new MerkleNode;
-         levelLower[i]->txIndex_ = i;
          levelLower[i]->isLeaf_ = true;
          if(bits && (*bits)[i])
             levelLower[i]->isOnPath_ = true;
          if(hashes)
             levelLower[i]->nodeHash_ = (*hashes)[i];
+         //levelLower[i]->pprint();
       }
 
       while( nLevel > 1 )
@@ -95,7 +110,8 @@ public:
          for(uint32_t i=0; i<nLevel; i+=2)
          {
             MerkleNode* newNode = new MerkleNode;
-            if(levelLower[i]->isOnPath_ || levelLower[i+1]->isOnPath_ )
+            if(levelLower[i]->isOnPath_ || 
+               (i+1<nLevel && levelLower[i+1]->isOnPath_ ))
                newNode->isOnPath_ = true;
 
             newNode->ptrLeft_ = levelLower[i];
@@ -106,6 +122,7 @@ public:
                newNode->nodeHash_ = recurseCalcHash(newNode);
 
             levelUpper[i/2] = newNode;
+            //newNode->pprint();
          } 
          levelLower = levelUpper;
          nLevel = (nLevel+1)/2;
@@ -116,7 +133,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData serialize(void)
    {
-      if( ! root_->isOnPath_ )
+      if( root_==NULL )
          return BinaryData(0);
 
       BinaryWriter bw;
@@ -146,7 +163,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(BinaryData serialized)
    {
-      if( ! root_->isOnPath_ )
+      if( root_ == NULL) 
          return;
    
       // Destroy the tree if it already exists
@@ -161,12 +178,6 @@ public:
       // Create all the nodes in the tree
       createTreeNodes(numTx);
 
-      // Read and prepare vBits for depth-first search
-      uint32_t numBits = (uint32_t)br.get_var_int();
-      BinaryData vBytes;
-      br.get_BinaryData(vBytes, (numBits+7)/8);
-      list<bool> vBits = BtcUtils::UnpackBits(vBytes, numBits);
-      
       // Read and prepare vHash for depth-first search
       uint32_t numHash = (uint32_t)br.get_var_int();
       BinaryData hash(32);
@@ -175,6 +186,12 @@ public:
          br.get_BinaryData( hash, 32);
          vHash.push_back(hash);
       }
+
+      // Read and prepare vBits for depth-first search
+      uint32_t numBits = (uint32_t)br.get_var_int();
+      BinaryData vBytes;
+      br.get_BinaryData(vBytes, (numBits+7)/8);
+      list<bool> vBits = BtcUtils::UnpackBits(vBytes, numBits);
 
       recurseUnserializeTree(root_, vBits, vHash);
       recurseCalcHash(root_);
@@ -211,11 +228,11 @@ public:
                                     list<bool> & vBits, 
                                     list<HashString> & vHash)
    {
-      cout << "Pushing bit: " << (node->isOnPath_) << endl;
+      //cout << "Pushing bit: " << (node->isOnPath_) << endl;
       vBits.push_back(node->isOnPath_);
       if(!node->isOnPath_ || node->isLeaf_)
       {
-         cout << "Pushing hash: " << node->nodeHash_.toHexStr() << endl;
+         //cout << "Pushing hash: " << node->nodeHash_.toHexStr() << endl;
          vHash.push_back(node->nodeHash_);
          return;
       }
@@ -225,7 +242,7 @@ public:
        
       if(node->ptrRight_)
          recurseSerializeTree(node->ptrRight_, vBits, vHash);
-      cout << "Finish Serialize" << endl;
+      //cout << "Finish Serialize" << endl;
    }
 
    /////////////////////////////////////////////////////////////////////////////
@@ -235,12 +252,15 @@ public:
    {
       list<bool>::iterator bIter = vBits.begin();
       list<HashString>::iterator hIter = vHash.begin();
+      //cout << "Popping bits: " << (*bIter ? 1 : 0) << endl;
       node->isOnPath_ = *bIter;
       vBits.erase(bIter);
       if(!node->isOnPath_  || node->isLeaf_)
       {
          node->nodeHash_ = *hIter;
+         //cout << "Popping hash: " << hIter->toHexStr() << endl;
          vHash.erase(hIter);
+         return;
       }
 
       if(node->ptrLeft_)
@@ -250,8 +270,30 @@ public:
          recurseUnserializeTree(node->ptrRight_, vBits, vHash);
 
       node->nodeHash_ = recurseCalcHash(node);
+      //cout << "Finish unserialize" << endl;
    }
 
+   void pprintTree(void)
+   {
+      recursePprintTree(root_);
+      cout << "Merkle root: " << root_->nodeHash_.toHexStr() << endl;
+   }
+  
+   void recursePprintTree(MerkleNode* node)
+   {
+      if(!node->isOnPath_ || node->isLeaf_)
+      {
+         node->pprint();
+         return;
+      }
+
+      if(node->ptrLeft_)
+         recursePprintTree(node->ptrLeft_);
+       
+      if(node->ptrRight_)
+         recursePprintTree(node->ptrRight_);
+
+   }
 
 private:
    MerkleNode* root_;

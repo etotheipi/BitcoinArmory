@@ -932,16 +932,28 @@ void TestZeroConf(void)
 void TestMerkle(void)
 {
    vector<BinaryData> txList(7);
-   txList[0].createFromHex("abcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcdabcd");
-   txList[1].createFromHex("ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32ab32");
-   txList[2].createFromHex("12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab12ab");
-   txList[3].createFromHex("9999999999999999999999999999999999999999999999999999999999999999");
-   txList[4].createFromHex("ffabffabffabffabffabffabffabffabffabffabffabffabffabffabffabffab");
-   txList[5].createFromHex("deaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddeaddead");
-   txList[6].createFromHex("aaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaabaaab");
+   txList[0].createFromHex("0000000000000000000000000000000000000000000000000000000000000000");
+   txList[1].createFromHex("1111111111111111111111111111111111111111111111111111111111111111");
+   txList[2].createFromHex("2222222222222222222222222222222222222222222222222222222222222222");
+   txList[3].createFromHex("3333333333333333333333333333333333333333333333333333333333333333");
+   txList[4].createFromHex("4444444444444444444444444444444444444444444444444444444444444444");
+   txList[5].createFromHex("5555555555555555555555555555555555555555555555555555555555555555");
+   txList[6].createFromHex("6666666666666666666666666666666666666666666666666666666666666666");
+
+   cout << "Merkle Tree looks like the following (7 tx): " << endl;
+   cout << "                                                    \n";
+   cout << "                   _____ec95_____                   \n";
+   cout << "                  /              \\                  \n";
+   cout << "                _/                \\_                \n";
+   cout << "            45b7                    e49b            \n";
+   cout << "          /      \\                /      \\          \n";
+   cout << "      127e        69c5        d0bc        b0d9      \n";
+   cout << "     /    \\      /    \\      /    \\      /          \n";
+   cout << "   0000  1111  2222  3333  4444  5555  6666         \n";
+   cout << endl;
 
    vector<BinaryData> merkleTree = BtcUtils::calculateMerkleTree(txList); 
-   cout << "Full Merkle Tree:" << endl;
+   cout << "Full Merkle Tree (this one has been unit tested before):" << endl;
    for(uint32_t i=0; i<merkleTree.size(); i++)
       cout << "    " << i << " " << merkleTree[i].toHexStr() << endl;
 
@@ -954,32 +966,63 @@ void TestMerkle(void)
    isOurs[5] = true;
    isOurs[6] = true;
 
+   cout << "Start serializing a full tree" << endl;
    PartialMerkleTree pmtFull(7, &isOurs, &txList);
    BinaryData pmtSerFull = pmtFull.serialize();
 
-   cout << "Finished serializing" << endl;
+   cout << "Finished serializing (full)" << endl;
    cout << "Merkle Root: " << pmtFull.getMerkleRoot().toHexStr() << endl;
 
-   cout << "Starting unserialize:" << endl;
+   cout << "Starting unserialize (full):" << endl;
    cout << "Serialized: " << pmtSerFull.toHexStr() << endl;
    PartialMerkleTree pmtFull2(7);
    pmtFull2.unserialize(pmtSerFull);
+   BinaryData pmtSerFull2 = pmtFull2.serialize();
+   cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
+
+   cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
 
    cout << "Starting Partial Merkle tree" << endl;
-   
-   
    isOurs[0] = true;
    isOurs[1] = false;
    isOurs[2] = false;
    isOurs[3] = false;
-   isOurs[4] = true;
-   isOurs[5] = false;
+   isOurs[4] = false;
+   isOurs[5] = true;
    isOurs[6] = false;
 
    PartialMerkleTree pmt(7, &isOurs, &txList);
+   cout << "Serializing (partial)" << endl;
    BinaryData pmtSer = pmt.serialize();
    PartialMerkleTree pmt2(7);
+   cout << "Unserializing (partial)" << endl;
    pmt2.unserialize(pmtSer);
+   cout << "Reserializing (partial)" << endl;
+   BinaryData pmtSer2 = pmt2.serialize();
+   cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
+   cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
+   cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
+   pmt2.pprintTree();
+
+   cout << "Empty Tree" << endl;
+   isOurs[0] = false;
+   isOurs[1] = false;
+   isOurs[2] = false;
+   isOurs[3] = false;
+   isOurs[4] = false;
+   isOurs[5] = false;
+   isOurs[6] = false;
+
+   PartialMerkleTree pmt3(7, &isOurs, &txList);
+   cout << "Serializing (partial)" << endl;
+   BinaryData pmtSer3 = pmt3.serialize();
+   PartialMerkleTree pmt4(7);
+   cout << "Unserializing (partial)" << endl;
+   pmt4.unserialize(pmtSer3);
+   cout << "Reserializing (partial)" << endl;
+   BinaryData pmtSer4 = pmt4.serialize();
+   cout << "Equal? " << (pmtSer3==pmtSer4 ? "True" : "False") << endl;
+   cout << "Empty Serialized: " << pmtSer3.toHexStr() << endl;
 }
 
 
