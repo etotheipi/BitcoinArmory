@@ -85,6 +85,12 @@ public:
                         vector<bool> const * bits=NULL, 
                         vector<HashString> const * hashes=NULL)
    {
+      // We're going to create a binary search tree that looks exactly like
+      // the target merkle tree.  It's structure is entirely dependent on 
+      // numTx.  The bits and hashes vectors are only if we already know
+      // the transaction in this block and which ones to keep.  Otherwise,
+      // this will be a blank tree to be repopulated during unserialize.
+      
       //cout << "Starting createTreeNodes" << endl;
       numTx_ = nTx;
       static CryptoPP::SHA256 sha256_;
@@ -114,10 +120,14 @@ public:
                (i+1<nLevel && levelLower[i+1]->isOnPath_ ))
                newNode->isOnPath_ = true;
 
+            // Set left pointer
             newNode->ptrLeft_ = levelLower[i];
+
+            // Set right pointer, if there is one
             if(i != nLevel-1)
                newNode->ptrRight_ = levelLower[i+1];
 
+            // If we were given hashes, then we can compute them
             if(hashes)
                newNode->nodeHash_ = recurseCalcHash(newNode);
 
@@ -141,6 +151,7 @@ public:
       list<bool> vBits;
       list<HashString> vHash;
 
+      // This will populate the vBits and vHash vectors
       recurseSerializeTree(root_, vBits, vHash);
 
       // uint32_t - Num Tx
@@ -298,6 +309,11 @@ public:
 private:
    MerkleNode* root_;
    uint32_t numTx_;
+
+   // Don't allow copying or assignment -- becuase I never implemented them
+   // I don't want anyone using them by accident!
+   //PartialMerkleTree(PartialMerkleTree const & pmt2) {}
+   PartialMerkleTree& operator=(PartialMerkleTree const & pmt2) {}
 };
 
 

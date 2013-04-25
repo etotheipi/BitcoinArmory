@@ -932,31 +932,38 @@ void TestZeroConf(void)
 void TestMerkle(void)
 {
    vector<BinaryData> txList(7);
-   txList[0].createFromHex("0000000000000000000000000000000000000000000000000000000000000000");
-   txList[1].createFromHex("1111111111111111111111111111111111111111111111111111111111111111");
-   txList[2].createFromHex("2222222222222222222222222222222222222222222222222222222222222222");
-   txList[3].createFromHex("3333333333333333333333333333333333333333333333333333333333333333");
-   txList[4].createFromHex("4444444444444444444444444444444444444444444444444444444444444444");
-   txList[5].createFromHex("5555555555555555555555555555555555555555555555555555555555555555");
-   txList[6].createFromHex("6666666666666666666666666666666666666666666666666666666666666666");
+   // The "abcd" quartets are to trigger endianness errors -- without them,
+   // these hashes are palindromes that work regardless of your endian-handling
+   txList[0].createFromHex("00000000000000000000000000000000000000000000000000000000abcd0000");
+   txList[1].createFromHex("11111111111111111111111111111111111111111111111111111111abcd1111");
+   txList[2].createFromHex("22222222222222222222222222222222222222222222222222222222abcd2222");
+   txList[3].createFromHex("33333333333333333333333333333333333333333333333333333333abcd3333");
+   txList[4].createFromHex("44444444444444444444444444444444444444444444444444444444abcd4444");
+   txList[5].createFromHex("55555555555555555555555555555555555555555555555555555555abcd5555");
+   txList[6].createFromHex("66666666666666666666666666666666666666666666666666666666abcd6666");
 
    cout << "Merkle Tree looks like the following (7 tx): " << endl;
+   cout << "The ** indicates the nodes we care about for partial tree test" << endl;
    cout << "                                                    \n";
-   cout << "                   _____ec95_____                   \n";
+   cout << "                   _____0a10_____                   \n";
    cout << "                  /              \\                  \n";
    cout << "                _/                \\_                \n";
-   cout << "            45b7                    e49b            \n";
+   cout << "            65df                    b4d6            \n";
    cout << "          /      \\                /      \\          \n";
-   cout << "      127e        69c5        d0bc        b0d9      \n";
+   cout << "      6971        22dc        5675        d0b6      \n";
    cout << "     /    \\      /    \\      /    \\      /          \n";
    cout << "   0000  1111  2222  3333  4444  5555  6666         \n";
+   cout << "    **                            **                \n";
+   cout << "    " << endl;
    cout << endl;
 
    vector<BinaryData> merkleTree = BtcUtils::calculateMerkleTree(txList); 
+
    cout << "Full Merkle Tree (this one has been unit tested before):" << endl;
    for(uint32_t i=0; i<merkleTree.size(); i++)
       cout << "    " << i << " " << merkleTree[i].toHexStr() << endl;
 
+   /////////////////////////////////////////////////////////////////////////////
    vector<bool> isOurs(7);
    isOurs[0] = true;
    isOurs[1] = true;
@@ -979,9 +986,13 @@ void TestMerkle(void)
    pmtFull2.unserialize(pmtSerFull);
    BinaryData pmtSerFull2 = pmtFull2.serialize();
    cout << "Reserializ: " << pmtSerFull2.toHexStr() << endl;
-
    cout << "Equal? " << (pmtSerFull==pmtSerFull2 ? "True" : "False") << endl;
 
+   cout << "Print Tree:" << endl;
+   pmtFull2.pprintTree();
+
+
+   /////////////////////////////////////////////////////////////////////////////
    cout << "Starting Partial Merkle tree" << endl;
    isOurs[0] = true;
    isOurs[1] = false;
@@ -1002,9 +1013,12 @@ void TestMerkle(void)
    cout << "Serialized (Partial): " << pmtSer.toHexStr() << endl;
    cout << "Reserializ (Partial): " << pmtSer.toHexStr() << endl;
    cout << "Equal? " << (pmtSer==pmtSer2 ? "True" : "False") << endl;
+
+   cout << "Print Tree:" << endl;
    pmt2.pprintTree();
 
-   cout << "Empty Tree" << endl;
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Empty tree" << endl;
    isOurs[0] = false;
    isOurs[1] = false;
    isOurs[2] = false;
@@ -1023,6 +1037,69 @@ void TestMerkle(void)
    BinaryData pmtSer4 = pmt4.serialize();
    cout << "Equal? " << (pmtSer3==pmtSer4 ? "True" : "False") << endl;
    cout << "Empty Serialized: " << pmtSer3.toHexStr() << endl;
+   cout << "Print Tree:" << endl;
+   pmt4.pprintTree();
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   cout << "Single Node on edge" << endl;
+   isOurs[0] = false;
+   isOurs[1] = false;
+   isOurs[2] = false;
+   isOurs[3] = false;
+   isOurs[4] = false;
+   isOurs[5] = false;
+   isOurs[6] = true;
+   PartialMerkleTree pmt5(7, &isOurs, &txList);
+   cout << "Serializing (partial)" << endl;
+   BinaryData pmtSer5 = pmt5.serialize();
+   PartialMerkleTree pmt6(7);
+   cout << "Unserializing (partial)" << endl;
+   pmt6.unserialize(pmtSer5);
+   cout << "Reserializing (partial)" << endl;
+   BinaryData pmtSer6 = pmt6.serialize();
+   cout << "Equal? " << (pmtSer5==pmtSer6 ? "True" : "False") << endl;
+   cout << "Empty Serialized: " << pmtSer5.toHexStr() << endl;
+   cout << "Print Tree:" << endl;
+   pmt6.pprintTree();
+
+   cout << "Four Tests: " << endl;
+   cout << "   " << (pmtSerFull==pmtSerFull2 ? "PASS" : "FAIL") << endl;
+   cout << "   " << (pmtSer==pmtSer2 ? "PASS" : "FAIL") << endl;
+   cout << "   " << (pmtSer3==pmtSer4 ? "PASS" : "FAIL") << endl;
+   cout << "   " << (pmtSer5==pmtSer6 ? "PASS" : "FAIL") << endl;
+
+
+   cout << "Super large merkle tree!" << endl;
+   uint32_t testSize = 100000;
+   vector<HashString> longHash(testSize);
+   vector<bool>       longBits(testSize);
+   for(uint32_t i=0; i<testSize; i++)
+   {
+      // Create 100,000 simple hashes
+      longHash[i] = BinaryData(32);
+      *(uint32_t*)(longHash[i].getPtr()+28) = i;
+   
+      longBits[i] = ((i%31)==0);
+   }
+
+   TIMER_START("Create 100000 Merkle Tree");
+   PartialMerkleTree pmtLong(testSize, &longBits, &longHash);
+   TIMER_STOP("Create 100000 Merkle Tree");
+
+   TIMER_START("Serialize 100000 Merkle Tree");
+   BinaryData longSer = pmtLong.serialize();
+   TIMER_STOP("Serialize 100000 Merkle Tree");
+
+   PartialMerkleTree pmtLong2(testSize);
+
+   TIMER_START("Unserialize 100000 Merkle Tree");
+   pmtLong2.unserialize(longSer);
+   TIMER_STOP("Unserialize 100000 Merkle Tree");
+
+   
+   
+
 }
 
 
