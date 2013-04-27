@@ -1059,7 +1059,7 @@ void TestMerkle(void)
    cout << "Reserializing (partial)" << endl;
    BinaryData pmtSer6 = pmt6.serialize();
    cout << "Equal? " << (pmtSer5==pmtSer6 ? "True" : "False") << endl;
-   cout << "Empty Serialized: " << pmtSer5.toHexStr() << endl;
+   cout << "Single Serialized: " << pmtSer5.toHexStr() << endl;
    cout << "Print Tree:" << endl;
    pmt6.pprintTree();
 
@@ -1080,7 +1080,7 @@ void TestMerkle(void)
       longHash[i] = BinaryData(32);
       *(uint32_t*)(longHash[i].getPtr()+28) = i;
    
-      longBits[i] = ((i%31)==0);
+      longBits[i] = ((i%(testSize/13-1))==0);
    }
 
    TIMER_START("Create 100000 Merkle Tree");
@@ -1098,6 +1098,11 @@ void TestMerkle(void)
    TIMER_STOP("Unserialize 100000 Merkle Tree");
 
    
+   cout << endl;
+   cout << "Size of original transaction list: " 
+        << BtcUtils::numToStrWCommas(testSize*32) << endl;
+   cout << "Size of partial merkle tree list:  " 
+        << BtcUtils::numToStrWCommas(longSer.getSize()) << endl;
    
 
 }

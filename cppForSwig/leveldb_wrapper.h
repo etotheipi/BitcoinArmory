@@ -4,6 +4,7 @@
 #include "BinaryData.h"
 #include "leveldb/db.h"
 #include "BlockObj.h"
+#include "BtcUtils.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -13,44 +14,47 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
-class BlockDataManager_LevelDB
+#define TX_VERSION    0x01
+#define HEADER_QUAD   0x00
+#define TX_LIST_QUAD  0x20
+#define ADDR_QUAD     0x20
+
+class InterfaceToLevelDB
 {
 
+   BinaryData txOutScriptToLevelDBKey(BinaryData const & script)
+   {
+      // Put the 0xa0 for ADDR:  it's really just a TxOut script
+      BinaryWriter bw;
+      bw.put_uint8_t(0xa0 | 0x01);
+      bw.put_var_int(script.getSize()) 
+      bw.put_BinaryData(script.getRef());
+      return bw.getData();
+   }
 
 
-private:
-   string baseDir_;
-   
-   leveldb::DB* db_rawheaders_;  // HeaderHash (32B) --> RawHeader (80B)
-   leveldb::DB* db_merklelist_;  // HeaderHash (32B) --> vector<TxHash> (Nx32B)
-   leveldb::DB* db_rawtxstore_;  // TxHash     (32B) --> RawTx
-   leveldb::DB* db_txmappings_;  // TxHash     (32B) --> HeaderHash,TxIndex
-   leveldb::DB* db_walletdata_;  // Hash160    (32B) --> TxOuts (full or unspent)
 
    void openDatabases(void)
    {
-      leveldb::Options opts;
-      opts.create_if_missing  = true;
-      opts.compression        = leveldb::kNoCompression;
-      //opts.filter_policy      = leveldb::NewBloomFilter(10);
-
+      //opts1.filter_policy      = leveldb::NewBloomFilter(10);
       char dbname[1024];
       leveldb::Status stat;
-      
+
+      leveldb::Options opts1;
+      opts1.create_if_missing  = true;
+      //opts1.compression        = leveldb::kNoCompression;
+      //opts1.filter_policy      = leveldb::NewBloomFilter(10);
       sprintf(dbname, "%s/leveldb_rawheaders", baseDir_);
-      checkStatus(leveldb::DB::Open(opts, dbname,  &db_rawheaders_));
-      
-      sprintf(dirname, "%s/leveldb_merklelist", baseDir_);
-      checkStatus(leveldb::DB::Open(opts, dbname,  &db_merklelist_));
+      checkStatus(leveldb::DB::Open(opts1, dbname,  &db_rawheaders_));
 
-      sprintf(dirname, "%s/leveldb_rawtxstore", baseDir_);
-      checkStatus(leveldb::DB::Open(opts, dbname,  &db_rawtxstore_));
 
-      sprintf(dirname, "%s/leveldb_txmappings", baseDir_);
-      checkStatus(leveldb::DB::Open(opts, dbname,  &db_txmappings_));
+      leveldb::Options opts2;
+      opts2.create_if_missing  = true;
+      //opts2.compression        = leveldb::kNoCompression;
+      //opts2.filter_policy      = leveldb::NewBloomFilter(10);
+      sprintf(dirname, "%s/leveldb_blockstore", baseDir_);
+      checkStatus(leveldb::DB::Open(opts2, dbname,  &db_merklelist_));
 
-      sprintf(dirname, "%s/leveldb_walletdata", baseDir_);
-      checkStatus(leveldb::DB::Open(opts, dbname,  &db_walletdata_));
    }
 
 
@@ -96,6 +100,12 @@ private:
       return checkStatus(stat);
    }
 
+
+
+   bool addBlock
+
+
+
    bool checkStatus(leveldb::Status stat)
    {
       if( stat.ok() )
@@ -104,6 +114,15 @@ private:
       cout << "***LevelDB Error: " << stat.ToString() << endl;
       return false;
    }
+
+
+
+private:
+   string baseDir_;
+   
+   leveldb::DB* db_rawheaders_;  // HeaderHash (32B) --> Header Info
+   leveldb::DB* db_blockstore_;  // Everything else
+
 };
 
 

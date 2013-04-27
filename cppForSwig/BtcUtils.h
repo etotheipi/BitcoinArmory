@@ -695,11 +695,12 @@ public:
          return TXIN_SCRIPT_UNKNOWN;
 
       uint32_t sigSize = s[2] + 4;
-      uint32_t keySize = 66;  // \x41 \x04 [X32] [Y32] 
+      uint32_t keySizeFull = 66;  // \x41 \x04 [X32] [Y32] 
+      uint32_t keySizeCompr= 34;  // \x41 \x02 [X32]
 
       if(s.getSize() == sigSize)
          return TXIN_SCRIPT_SPENDCB;
-      else if(s.getSize() == sigSize + keySize)
+      else if(s.getSize() == sigSize + keySizeFull) // || s.getSize() == sigSize + keySizeCompr)
          return TXIN_SCRIPT_STANDARD;
 
       return TXIN_SCRIPT_UNKNOWN;
