@@ -1,6 +1,7 @@
 COMPILER = g++ 
 #COMPILER_OPTS = -c -g -Wall -fPIC -D_DEBUG
 COMPILER_OPTS = -c -O2 -pipe -fPIC 
+EGREP = egrep
 
 #**************************************************************************
 LINKER = g++ 
@@ -12,7 +13,15 @@ DEPSDIR ?= /usr
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
 LIBRARY_OPTS += -lpthread 
 SWIG_OPTS    += -c++ -python -classic -threads
-PYVER 		 += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
+
+PYVER_IS_VER2 = $(shell python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])' | $(EGREP) -c "^2\.")
+
+ifneq ($(PYVER_IS_VER2),0)  # use python instead of python2, if python returns a version of 2.x
+  PYVER            += `python -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
+else
+  PYVER            += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
+endif
+
 
 
 UNAME := $(shell uname)

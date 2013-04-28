@@ -773,6 +773,7 @@ def GetSystemDetails():
 
       # Get CPU name
       cpuinfo = subprocess_check_output(['cat','/proc/cpuinfo'])
+      out.CpuStr = "Unknown"
       for line in cpuinfo.split('\n'):
          if line.strip().lower().startswith('model name'):
             out.CpuStr = line.split(':')[1].strip()
