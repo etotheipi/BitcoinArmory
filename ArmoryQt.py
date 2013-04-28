@@ -3356,8 +3356,9 @@ class ArmoryMainWindow(QMainWindow):
             execAndWait('"'+installerPath+'"', useStartInfo=False)
             self.startBitcoindIfNecessary()
    
-         DlgExecLongProcess(startInstaller, \
-                     'Please Complete Bitcoin Installation', self, self).exec_()
+         DlgExecLongProcess(startInstaller, tr("""
+            Please Complete Bitcoin Installation<br> (installer should 
+            have opened in your taskbar)"""), self, self).exec_()
       elif OS_MACOSX:
          LOGERROR('Cannot install on OSX')
 

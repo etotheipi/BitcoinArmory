@@ -10816,7 +10816,7 @@ class SatoshiDaemonManager(object):
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
-            LOGWARN('Overriding not-available message. This should only happen 1-4 times')
+            LOGWARN('Overriding not-available message. This should only happen 0-5 times')
             return 'BitcoindInitializing'
       
       return state
