@@ -765,6 +765,7 @@ def GetSystemDetails():
 
    CPU,COR,X64,MEM = range(4)
    sysParam = [None,None,None,None]
+   out.CpuStr = 'UNKNOWN'
    if OS_LINUX:
       # Get total RAM
       freeStr = subprocess_check_output('free -m', shell=True)
@@ -10816,7 +10817,7 @@ class SatoshiDaemonManager(object):
       # we will keep "initializing"
       if state=='BitcoindNotAvailable':
          if 'BitcoindInitializing' in self.circBufferState:
-            LOGWARN('Overriding not-available message. This should only happen 0-5 times')
+            LOGWARN('Overriding not-available message. This should happen 0-5 times')
             return 'BitcoindInitializing'
       
       return state
