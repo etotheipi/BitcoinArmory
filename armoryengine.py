@@ -1388,9 +1388,10 @@ def makeSixteenBytesEasy(b16):
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
    nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
-   four1 = ' '.join(nineQuads[:4])
-   four2 = ' '.join(nineQuads[4:8])
-   return '   '.join([four1, four2, nineQuads[-1]]) 
+   three1 = ' '.join(nineQuads[:3])
+   three2 = ' '.join(nineQuads[3:6])
+   three3 = ' '.join(nineQuads[6:])
+   return '   '.join([three1, three2, three3])
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))

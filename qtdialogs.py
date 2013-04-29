@@ -8215,25 +8215,38 @@ class SimplePrintableGraphicsScene(object):
    def newLine(self, extra_dy=0):
       xOld,yOld = self.cursorPos.x(), self.cursorPos.y()
       xNew = self.MARGIN_PIXELS
-      yNew = self.cursorPos.y() + self.lastItemSize[1] + extra_dy - 3
+      yNew = self.cursorPos.y() + self.lastItemSize[1] + extra_dy - 5
       self.moveCursor(xNew-xOld, yNew-yOld)
 
 
-   def drawHLine(self, width=None):
+   def drawHLine(self, width=None, penWidth=1):
       if width==None:
          width = 3*self.INCH
       currX,currY = self.cursorPos.x(), self.cursorPos.y()
       lineItem = QGraphicsLineItem(currX, currY, currX+width, currY)
+      pen = QPen()
+      pen.setWidth(penWidth)
+      lineItem.setPen( pen)
       self.gfxScene.addItem(lineItem)
       rect = lineItem.boundingRect()
       self.lastItemSize = (rect.width(), rect.height())
       self.moveCursor(rect.width(), 0)
       return self.lastItemSize
 
-   def drawRect(self, w, h, edgeColor=QColor(0,0,0), fillColor=None):
+   def drawRect(self, w, h, edgeColor=QColor(0,0,0), fillColor=None, penWidth=1):
       rectItem = QGraphicsRectItem(self.cursorPos.x(), self.cursorPos.y(), w, h)
-      rectItem.setPen(Qt.NoPen if edgeColor==None else QPen(edgeColor))
-      rectItem.setBrush(QBrush(Qt.NoBrush) if fillColor==None else QBrush(fillColor))
+      if edgeColor==None:
+         rectItem.setPen(Qt.NoPen)
+      else:
+         pen = QPen(edgeColor)
+         pen.setWidth(penWidth)
+         rectItem.setPen(pen)
+
+      if fillColor==None:
+         rectItem.setBrush(QBrush(Qt.NoBrush))
+      else:
+         rectItem.setBrush(QBrush(fillColor))
+
       self.gfxScene.addItem(rectItem)
       rect = rectItem.boundingRect()
       self.lastItemSize = (rect.width(), rect.height())
@@ -8241,9 +8254,12 @@ class SimplePrintableGraphicsScene(object):
       return self.lastItemSize
       
 
-   def drawText(self, txt, font=GETFONT('Var',10), wrapWidth=None):
+   def drawText(self, txt, font=GETFONT('Var',9), wrapWidth=None, useHtml=True):
       txtItem = QGraphicsTextItem('')
-      txtItem.setHtml(toUnicode(txt))
+      if useHtml:
+         txtItem.setHtml(toUnicode(txt))
+      else:
+         txtItem.setPlainText(toUnicode(txt))
       txtItem.setDefaultTextColor(self.PAGE_TEXT_COLOR)
       txtItem.setPos(self.cursorPos)
       txtItem.setFont(font)
@@ -8293,7 +8309,7 @@ class DlgPaperBackup(ArmoryDialog):
    (in order to manipulate the private keys for printing), but I don't think
    this is a big deal, because printing would be infrequent
    """
-   def __init__(self, wlt, parent=None, main=None, use_printer_mask=False):
+   def __init__(self, wlt, parent=None, main=None, use_printer_mask=True):
       super(DlgPaperBackup, self).__init__(parent, main)
 
 
@@ -8309,19 +8325,8 @@ class DlgPaperBackup(ArmoryDialog):
             # If we canceled out of unlocking, we can't print...
             self.reject()
             
-      # This is a special safety mechanism for those that are paranoid
-      # about malicious printers.  Encrypt the data with a passphrase 
-      # that will be written on the backup by hand.
-      if use_printer_mask:
-         # Hardcode salt & IV because they should *never* change
-         # Rainow tables aren't all that useful against high-entropy
-         # random passwords.
-         IV   = SecureBinaryData('&\x0cH\xa6\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
-         SALT = SecureBinaryData( '\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
-                        '\x94\x7fh\xf4\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+
    
-         self.binMask = SecureBinaryData().GenerateRandom(8)
-         
 
       self.scene = SimplePrintableGraphicsScene(self, self.main)
       self.view = QGraphicsView()
@@ -8329,11 +8334,35 @@ class DlgPaperBackup(ArmoryDialog):
       self.view.setScene(self.scene.getScene())
 
       INCH = self.scene.INCH
+      MARGIN = self.scene.MARGIN_PIXELS 
+
+      # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
+      # Hardcode salt & IV because they should *never* change
+      # Rainow tables aren't all that useful against high-entropy
+      # random passwords.
+      self.IV   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
+      self.SALT = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
+                          '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+      FULLSTR = self.binPriv.toBinStr() + self.binChain.toBinStr()
+      self.PASSPHRASE = SecureBinaryData(HMAC512(FULLSTR, self.SALT.toBinStr())[:8])
+      self.kdf = KdfRomix()
+      self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
+      start = RightNow()
+      self.binCrypt32 = self.kdf.DeriveKey(self.PASSPHRASE)
+      LOGINFO('Deriving printermask took %0.2f seconds' % (RightNow() - start))
+      self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
+                                                   self.binPriv,
+                                                   self.IV)
+      self.binChainCrypt = CryptoAES().EncryptCBC( self.binCrypt32,
+                                                   self.binChain,
+                                                   self.IV)
+         
+      print binary_to_base58(self.PASSPHRASE.toBinStr())
 
       self.scene.drawPixmapFile(':/armory_logo_h36.png') 
       self.scene.newLine()
 
-      self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 12))
+      self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
       self.scene.newLine()
       self.scene.drawText('http://www.bitcoinarmory.com')
 
@@ -8343,22 +8372,22 @@ class DlgPaperBackup(ArmoryDialog):
 
       
       topPos = self.scene.cursorPos.x(), self.scene.cursorPos.y()
-      nameSize = self.scene.drawText(tr('Wallet Name:')); self.scene.newLine()
-      idSize   = self.scene.drawText(tr('Wallet ID:'));   self.scene.newLine()
       verSize  = self.scene.drawText(tr('Wallet Version:')); self.scene.newLine()
+      idSize   = self.scene.drawText(tr('Wallet ID:'));   self.scene.newLine()
+      nameSize = self.scene.drawText(tr('Wallet Name:')); self.scene.newLine()
       typSize  = self.scene.drawText(tr('Backup Type:')); self.scene.newLine()
       offsetX = max([s[0] for s in [nameSize, idSize, verSize, typSize]]) + 20
 
       self.scene.moveCursor(*topPos, absolute=True)
 
       self.scene.moveCursor(offsetX, 0)
-      self.scene.drawText(self.wlt.labelName); self.scene.newLine()
+      self.scene.drawText('1.35'); self.scene.newLine()
 
       self.scene.moveCursor(offsetX, 0)
       self.scene.drawText(self.wlt.uniqueIDB58); self.scene.newLine()
 
       self.scene.moveCursor(offsetX, 0)
-      self.scene.drawText('1.35'); self.scene.newLine()
+      self.scene.drawText(self.wlt.labelName); self.scene.newLine()
 
       self.scene.moveCursor(offsetX, 0)
       self.scene.drawText('Single-Sheet'); self.scene.newLine()
@@ -8374,8 +8403,7 @@ class DlgPaperBackup(ArmoryDialog):
          The following four lines of completely backup all addresses 
          <i>ever generated</i> by this wallet.
          This can be used to recover your wallet if you forget your passphrase or 
-         suffer hardware failure and lose your wallet files.  The four lines 
-         can be copied by hand if you do not have a functioning printer.""")
+         suffer hardware failure and lose your wallet files. """)
          
             
                   
@@ -8383,11 +8411,11 @@ class DlgPaperBackup(ArmoryDialog):
       self.scene.newLine()
       self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
 
-      self.scene.newLine(extra_dy=10)
+      self.scene.newLine(extra_dy=20)
       self.scene.drawHLine()
-      self.scene.newLine(extra_dy=10)
+      self.scene.newLine(extra_dy=20)
 
-      self.scene.drawText(foreverMsg, GETFONT('var', 9), wrapWidth=wrap)
+      self.scene.drawText(foreverMsg, GETFONT('var', 8), wrapWidth=wrap)
       self.scene.newLine(extra_dy=10)
 
 
@@ -8395,55 +8423,84 @@ class DlgPaperBackup(ArmoryDialog):
       prevCursor = self.scene.cursorPos.x(), self.scene.cursorPos.y()
       self.scene.resetCursor()
 
-      self.scene.moveCursor(4.25*INCH, 0)
-      self.scene.drawRect(2.5*INCH, 1.5*INCH, edgeColor=QColor(180,0,0))
+      self.scene.moveCursor(4.0*INCH, 0)
 
+      pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
+      if use_printer_mask:
+         self.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
+
+      self.scene.resetCursor()
+      self.scene.moveCursor(4.07*INCH, 0.07*INCH)
+      
+      if use_printer_mask:
+         self.scene.drawText(tr("""
+            <b><font color="#770000">CRITICAL:</font>  This backup will not 
+            work without the PrinterMask
+            encryption key that is displayed on the screen. Write it 
+            on the line below, in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
+
+         self.scene.newLine(extra_dy = 8)
+         self.scene.moveCursor(4.07*INCH, 0)
+         keyWid,keyHgt = self.scene.drawText('Key:')
+         self.scene.moveCursor(0,keyHgt-3)
+         wid = pmWid - keyWid
+         w,h = self.scene.drawHLine(width=wid*0.9, penWidth=2)
+   
       self.scene.moveCursor(*prevCursor, absolute=True)
 
 
       rootSize = 0
       yVals = [self.scene.cursorPos.y()]
-      self.scene.moveCursor(15,0)
+      self.scene.moveCursor(20,0)
       rootSize = max(self.scene.drawText('<b>Root Key:</b>')[0], rootSize)
       self.scene.newLine()
 
       yVals.append(self.scene.cursorPos.y())
-      self.scene.moveCursor(15,0)
+      self.scene.moveCursor(20,0)
       rootSize = max(self.scene.drawText('')[0], rootSize)
       self.scene.newLine()
       
       yVals.append(self.scene.cursorPos.y())
-      self.scene.moveCursor(15,0)
+      self.scene.moveCursor(20,0)
       rootSize = max(self.scene.drawText('<b>Chaincode:</b>')[0], rootSize)
       self.scene.newLine()
 
       yVals.append(self.scene.cursorPos.y())
-      self.scene.moveCursor(15,0)
+      self.scene.moveCursor(20,0)
       rootSize = max(self.scene.drawText('')[0], rootSize)
       self.scene.newLine()
 
-      KEYFONT = GETFONT('Fixed', 9, bold=True)
+      KEYFONT = GETFONT('Fixed', 8, bold=True)
+
+      if use_printer_mask:
+         code12 = self.binPrivCrypt.toBinStr()
+         code34 = self.binChainCrypt.toBinStr()
+      else:
+         code12 = self.binPriv.toBinStr()
+         code34 = self.binChain.toBinStr()
+         
 
       Lines = []
-      Lines.append(makeSixteenBytesEasy(self.binPriv.toBinStr()[:16]))
-      Lines.append(makeSixteenBytesEasy(self.binPriv.toBinStr()[16:]))
-      Lines.append(makeSixteenBytesEasy(self.binChain.toBinStr()[:16]))
-      Lines.append(makeSixteenBytesEasy(self.binChain.toBinStr()[16:]))
+      Lines.append(makeSixteenBytesEasy(code12[:16]))
+      Lines.append(makeSixteenBytesEasy(code12[16:]))
+      Lines.append(makeSixteenBytesEasy(code34[:16]))
+      Lines.append(makeSixteenBytesEasy(code34[16:]))
 
-      MARG = self.scene.MARGIN_PIXELS 
       for i in range(4):
-         self.scene.moveCursor(MARG+rootSize+15, yVals[i], absolute=True)
-         self.scene.drawText(Lines[i], KEYFONT)
+         self.scene.moveCursor(MARGIN+rootSize+30, yVals[i], absolute=True)
+         self.scene.drawText(Lines[i], KEYFONT, useHtml=False)
+
+      code12,code34 = None,None
 
       top = yVals[0]
       bottom = self.scene.cursorPos.y() + self.scene.lastItemSize[1]
       
-      self.scene.moveCursor(self.scene.MARGIN_PIXELS, top, absolute=True)
-      width = self.scene.pageRect().width() - 2*MARG
+      self.scene.moveCursor(MARGIN, top, absolute=True)
+      width = self.scene.pageRect().width() - 2*MARGIN
       height = bottom - top
       self.scene.drawRect( width, height, edgeColor=QColor(0,0,0), fillColor=None)
 
-      self.scene.moveCursor(MARG, bottom, absolute=True)
+      self.scene.moveCursor(MARGIN, bottom, absolute=True)
       self.scene.moveCursor(0, 30)
 
       self.scene.drawText( tr("""
@@ -8453,8 +8510,8 @@ class DlgPaperBackup(ArmoryDialog):
 
       self.scene.moveCursor(20,0)
       x,y = self.scene.cursorPos.x(), self.scene.cursorPos.y()
-      edgeRgt = self.scene.pageRect().width() - MARG
-      edgeBot = self.scene.pageRect().height() - MARG
+      edgeRgt = self.scene.pageRect().width() - MARGIN
+      edgeBot = self.scene.pageRect().height() - MARGIN
 
       qrSize = min(edgeRgt - x, edgeBot - y)
       self.scene.drawQR('\n'.join(Lines), qrSize)
@@ -8514,11 +8571,11 @@ class DlgPaperBackup(ArmoryDialog):
 
    def cleanup(self):
       self.binPriv.destroy()
-      self.binPriv     = None
-      self.binPriv0    = None
-      self.binPriv1    = None
-      self.binPriv0Chk = None
-      self.binPriv1Chk = None
+      self.binChain.destroy()
+      self.binPrivCrypt.destroy()
+      self.binChainCrypt.destroy()
+      self.binCrypt32.destroy()
+      self.PASSPHRASE.destroy()
 
    def accept(self):
       self.cleanup()
