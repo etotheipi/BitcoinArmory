@@ -92,6 +92,11 @@ public:
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
    uint32_t      findNonce(void);
 
+   uint32_t      setDuplicateID(uint8_t id) { duplicateID_ = id; }
+   uint32_t      getDuplicateID(void) { return duplicateID_; }
+   uint32_t      setStoredHeight(uint32_t hgt) { storedHeight_ = hgt; }
+   uint32_t      getStoredHeight(void) { return storedHeight_; }
+
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);
    void unserialize(BinaryData const & str) { unserialize(str.getRef()); }
@@ -111,6 +116,7 @@ private:
    double         difficultyDbl_;
    FileDataPtr    thisBlockFilePtr_;  // points to beginning of blk, magic bytes
 
+
    // Need to compute these later
    BinaryData     nextHash_;
    uint32_t       blockHeight_;
@@ -121,6 +127,13 @@ private:
    bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
    vector<TxRef*> txPtrList_;
+
+   // Added for LevelDB engine, which indexes block by height
+   // This is just a hint so we can go directly to the correct
+   // block in the blkdata DB, instead of searching all blocks
+   // at the same height (though, there's usually 1, rarely >2)
+   uint32_t       storedHeight_;
+   uint8_t        duplicateID_;
 };
 
 
