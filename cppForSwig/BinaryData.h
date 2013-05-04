@@ -792,12 +792,18 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryReader(BinaryData const & toRead) :
-      bdStr_(toRead),
-      pos_(0)
+   BinaryReader(BinaryData const & toRead) 
    {
-      // Nothing needed here
+      setNewData(toRead);
    }
+
+
+   void setNewData(BinaryData const & toRead)
+   {
+      bdStr_ = toRead;
+      pos_ = 0;
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    void advance(uint32_t nBytes) 
@@ -929,30 +935,32 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryRefReader(BinaryData const & toRead) :
-      bdRef_(toRead),
-      totalSize_(toRead.getSize()),
-      pos_(0)
-   {
-      // Nothing needed here
-   }
-
-   BinaryRefReader(BinaryDataRef const & toRead) :
-      bdRef_(toRead),
-      totalSize_(toRead.getSize()),
-      pos_(0)
-   {
-      // Nothing needed here
-   }
+   BinaryRefReader(BinaryData const & toRead)  { setNewData(toRead); }
+   BinaryRefReader(BinaryDataRef const & toRead)  { setNewData(toRead); }
 
    // Default to INF size -- leave it to the user to guarantee that he's
    // not reading past the end of rawPtr
-   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) : 
-      bdRef_(rawPtr, nBytes),
-      totalSize_(nBytes),
-      pos_(0)
+   BinaryRefReader(uint8_t const * rawPtr, uint32_t nBytes=UINT32_MAX) 
    {
-      // Nothing needed here
+      setNewData(rawPtr, nBytes);
+   }
+
+
+   void setNewData(BinaryData const & toRead)
+   {
+      setNewData(toRead.getPtr(), toRead.getSize());
+   }
+
+   void setNewData(BinaryDataRef const & toRead)
+   {
+      setNewData(toRead.getPtr(), toRead.getSize());
+   }
+
+   void setNewData(uint8_t const * ptr, uint32_t nBytes=UINT32_MAX)
+   {
+      bdRef_ = BinaryDataRef(ptr, nBytes);
+      totalSize_ = nBytes;
+      pos_ = 0;
    }
 
    /////////////////////////////////////////////////////////////////////////////

@@ -18,19 +18,64 @@
 //
 ////////////////////////////////////////////////////////////////////////////////
 
+#define ARMORY_DB_VERSION   0x00
 
-#define LDB_PREFIX_HEADER   0x00
-#define LDB_PREFIX_TXDATA   0x01
-#define LDB_PREFIX_SCRIPT   0x02
-#define LDB_PREFIX_TRIENODE 0x03
-#define LDB_MEMADDR_MAX   (1<<48)
+typedef enum
+{
+  BLK_PREFIX_DBINFO,
+  BLK_PREFIX_BLKDATA,
+  BLK_PREFIX_REGADDR,
+  BLK_PREFIX_TXHINTS,
+  BLK_PREFIX_TRIENODES,
+  BLK_PREFIX_COUNT,
+} BLK_PREFIX_TYPE;
+
+
+typedef enum
+{
+  ARMORY_DB_LITE,
+  ARMORY_DB_PARTIAL,
+  ARMORY_DB_FULL,
+  ARMORY_DB_SUPER
+} ARMORY_DB_TYPE;
+
+#define ARMORY_DB_DEFAULT ARMORY_DB_PARTIAL
+
+typedef enum
+{
+  DB_PRUNE_ALL,
+  DB_PRUNE_NONE
+} DB_PRUNE_TYPE;
+
 
 typedef enum
 {
   LDB_TX_EXISTS,
   LDB_TX_GETBLOCK,
   LDB_TX_UNKNOWN
-} LDB_TX_AVAIL
+} LDB_TX_AVAIL;
+
+typedef enum
+{
+  HEADERS,
+  BLKDATA,
+  DB_COUNT
+} DB_SELECT;
+
+
+typedef enum
+{
+  TX_SER_FULL,
+  TX_SER_NOTXOUT,
+  TX_SER_COUNTOUT
+} TX_SERIALIZE_TYPE;
+
+typedef enum
+{
+  MERKLE_SER_NONE,
+  MERKLE_SER_PARTIAL,
+  MERKLE_SER_FULL
+} MERKLE_SERIALIZE_TYPE;
 
 class InterfaceToLevelDB
 {
@@ -38,384 +83,112 @@ public:
    InterfaceToLevelDB(string basedir, 
                       BinaryData const & genesisBlkHash,
                       BinaryData const & genesisTxHash,
-                      BinaryData const & magic)
-   {
-      baseDir_ = basedir;
-      char dbname[1024];
-
-      stringstream head;
-      head << baseDir_ << "/" << "leveldb_headers"
-      headPath_ = head.str()
-
-      stringstream blk;
-      blk << baseDir_ << "/" << "leveldb_blkdata"
-      blkPath_ = blk.str()
-      
-      magicBytes_ = magic;
-      genesisTxHash_ = genesisTxHash
-      genesisBlkHash_ = genesisBlkHash;
-
-      // Open databases and check that everything is correct
-      // Or create the databases and start it up
-      openDatabases();
-
-   }
+                      BinaryData const & magic,
+                      ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
+                      DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
 
 private:
-   BinaryData txOutScriptToLevelDBKey(BinaryData const & script)
-   {
-      BinaryWriter bw;
-      bw.put_uint8_t(LDB_PREFIX_SCRIPT)
-      bw.put_var_int(script.getSize()) 
-      bw.put_BinaryData(script.getRef());
-      return bw.getData();
-   }
-
-
-   /*
-   BinaryData memLocToLevelDBKey(uint64_t ldbAddr):
-   {
-      if(ldbAddr >= LDB_MEMADDR_MAX)
-      {
-         cout << "***ERROR: LevelDB address out of range: " << ldbAddr << endl;
-         return BinaryData(0);
-      }
-
-      uint16_t top2 = ldbAddr>>32;
-      uint32_t bot4 = ldbAddr & 0xffffffff;
-
-      BinaryWriter bw;
-      bw.put_uint8_t(LDB_PREFIX_MEMLOC);
-      bw.put_uint16_t(top2);
-      bw.put_uint32_t(bot4);
-      return bw.getData();
-   }
-   */
+   BinaryData txOutScriptToLevelDBKey(BinaryData const & script);
+   BinaryData headerHashToLevelDBKey(BinaryData const & headHash);
+   BinaryData txHashToLevelDBKey(BinaryData const & txHash);
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData headerHashToLevelDBKey(BinaryData const & headHash)
-   {
-      BinaryWriter bw;
-      bw.put_uint8_t(LDB_PREFIX_HEADER);
-      bw.put_BinaryData(headHash);
-      return bw.getData();
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   BinaryData txHashToLevelDBKey(BinaryData const & txHash)
-   {
-      // We actually only store the first four bytes of the tx
-      BinaryWriter bw;
-      bw.put_uint8_t(LDB_PREFIX_TXDATA);
-      bw.put_BinaryData(txHash, 0, 4);
-      return bw.getData();
-   }
-
-   /////////////////////////////////////////////////////////////////////////////
-   void openDatabases(void)
-   {
-      if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
-      {
-         cerr << "***ERROR:  must set magic bytes and genesis block!" << endl;
-         return;
-      }
-
-      //opts1.filter_policy      = leveldb::NewBloomFilter(10);
-      leveldb::Status stat;
-      leveldb::Options opts1;
-      opts1.create_if_missing  = true;
-      //opts1.compression        = leveldb::kNoCompression;
-      //opts1.filter_policy      = leveldb::NewBloomFilter(10);
-      checkStatus(leveldb::DB::Open(opts1, headPath_,  &db_headers_));
-
-
-      leveldb::Options opts2;
-      opts2.create_if_missing  = true;
-      //opts2.compression        = leveldb::kNoCompression;
-      //opts2.filter_policy      = leveldb::NewBloomFilter(10);
-      checkStatus(leveldb::DB::Open(opts2, dbname,  &db_blkdata_));
-
-      BinaryData key(string("DatabaseInfo"))
-      BinaryData headDBInfo = getValue(db_headers_, key);
-      if(headDBInfo.getSize() == 0)
-      {
-         // If this database is new, create the "DatabaseInfo" key
-         BinaryWriter bw;
-         bw.put_BinaryData(magicBytes_);
-         bw.put_uint32_t(0);
-         bw.put_BinaryData(genesisBlkHash_);
-         putValue(db_headers_, key, bw.getData());
-      }
-      else
-      {
-         // Else we read the DB info and make sure everything matches up
-         if(headDBInfo.getSize() < 40)
-         {
-            cerr << "***ERROR: Invalid DatabaseInfo data" << endl;
-            closeDatabases();
-            return;
-         }
-         BinaryReader br(headDBInfo);
-         BinaryData magic = br.get_BinaryData(4);
-         topBlockHeight_  = br.get_uint32_t(4);
-         topBlockHash_    = br.get_BinaryData(32);
-      
-         // Check that the magic bytes are correct
-         if(magicBytes_ != magic)
-         {
-            cerr << "***ERROR:  Magic bytes mismatch!  Different blkchain?" << endl;
-            closeDatabases();
-            return;
-         }
-         
-         // Check that we have the top hash (not sure about if we don't)
-         if( getValue(db_headers_, topBlockHash_).getSize() == 0 )
-         {
-            cerr << "***ERROR:  Top block doesn't exist!" << endl;
-            closeDatabases();
-            return;
-         }
-         
-      }
-
-   }
-
-
-
-
+   void openDatabases(void);
    
    /////////////////////////////////////////////////////////////////////////////
-   // DBs don't really need to be closed.  
-   void closeDatabases(void)
-   {
-      delete db_headers_;
-      delete db_blkdata_;
-   }
+   void closeDatabases(void);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
-   BinaryData getValue(leveldb::DB* db, leveldb::Slice ldbKey)
-   {
-      string value;
-      leveldb::Status stat = db->Get(leveldb::ReadOptions(), ldbKey, &value);
-      if(stat==Status::IsNotFound())
-         return BinaryData(0);
-
-      checkStatus(stat);
-      return BinaryData(value);
-   }
+   BinaryData getValue(DB_SELECT db, leveldb::Slice ldbKey);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
-   BinaryData getValue(leveldb::DB* db, BinaryData const & key)
-   {
-      string value;
-      leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
-      
-      leveldb::Status stat = db->Get(leveldb::ReadOptions(), ldbkey, &value);
-      if(stat==Status::IsNotFound())
-         return BinaryData(0);
-
-      checkStatus(stat);
-      return BinaryData(value);
-   }
+   BinaryData getValue(DB_SELECT db, BinaryData const & key);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void putValue(leveldb::DB* db, 
+   void putValue(DB_SELECT db, 
                  BinaryData const & key, 
-                 BinaryData const & value,
-                 leveldb::WriteBatch* batch=NULL)
-   {
-      leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
-      leveldb::Slice ldbVal((char*)value.getPtr(), value.getSize());
-      
-      if(batch==NULL)
-      {
-         leveldb::Status stat = db->Put(leveldb::ReadOptions(), ldbkey, &value);
-         checkStatus(stat);
-      }
-      else
-         batch->Put(ldbkey, &value);
-   }
+                 BinaryData const & value);
 
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void deleteValue(leveldb::DB* db, BinaryData const & key, 
-                       leveldb::WriteBatch* batch=NULL)
-   {
-      string value;
-      leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
-      
-      if(batch==NULL)
-      {
-         leveldb::Status stat = db->Put(leveldb::ReadOptions(), ldbkey, &value);
-         checkStatus(stat);
-      }
-      else
-         batch->Put(ldbkey, &value);
-   }
+   void deleteValue(DB_SELECT db, 
+                    BinaryData const & key);
+                    
 
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryData sliceToBinaryData(leveldb::Slice slice);
+   void       sliceToBinaryData(leveldb::Slice slice, BinaryData & bd);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // "Skip" refers to the behavior that the previous operation may have left
+   // the iterator already on the next desired block.  So our "advance" op may
+   // have finished before it started.  Alternatively, we may be on this block 
+   // because we checked it and decide we don't care, so we want to skip it.
+   bool advanceToNextBlock(bool skip=false);
+   void advanceIterAndRead(leveldb::Iterator* iter);
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Not sure why this is useful over getHeaderMap() ... this iterates over
+   // the headers in hash-ID-order, instead of height-order
+   void startHeaderIteration(void);
+
+   /////////////////////////////////////////////////////////////////////////////
+   void startBlockIteration(void);
+
+   // These four sliceTo* methods make copies, and thus safe to use even after
+   // we have advanced the iterator to new data
    BinaryData sliceToBinaryData(leveldb::Slice slice)
-   {
-      return BinaryData((uint8_t*)(slice.data()), slice.size())
-   }
-
+      { return BinaryData((uint8_t*)(slice.data()), slice.size()); }
    void sliceToBinaryData(leveldb::Slice slice, BinaryData & bd)
-   {
-      bd.copyFrom((uint8_t*)(slice.data()), slice.size())
-   }
+      { bd.copyFrom((uint8_t*)(slice.data()), slice.size()); }
+   BinaryReader sliceToBinaryReader(leveldb::Slice slice)
+      { return BinaryReader.copyFrom((uint8_t*)(slice.data()), slice.size()); }
+   void sliceToBinaryReader(leveldb::Slice slice, BinaryReader & brr)
+      { brr.setNewData((uint8_t*)(slice.data()), slice.size()); }
+
+   // The reamining sliceTo* methods are reference-based, which become
+   // invalid after the iterator moves on.  Since they are just pointers,
+   // there's no reason not to just copy them out.
+   BinaryDataRef sliceToBinaryDataRef(leveldb::Slice slice)
+      { return BinaryDataRef( (uint8_t*)(slice.data()), slice.size()); }
+   BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice)
+      { return BinaryRefReader( (uint8_t*)(slice.data()), slice.size()); }
 
    /////////////////////////////////////////////////////////////////////////////
-   void startHeaderIteration(void)
-   {
-      iterHeaders_ = db_headers_->NewIterator(leveldb::ReadOptions());
-      iterHeaders_->SeekToFirst();
-
-      // Skip the first entry which is the DatabaseInfo key
-      if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
-         cerr << "***WARNING: How do we not have a DB info key?" << endl; 
-      else
-         iterHeaders_->Next()
-   }
+   void getNextBlock(void);
 
    /////////////////////////////////////////////////////////////////////////////
-   void startBlockIteration(void)
-   {
-      iterBlkData_ = db_blkdata_->NewIterator(leveldb::ReadOptions());
-      iterBlkData_->SeekToFirst();
+   void getBlock(BlockHeader & bh, 
+                 vector<Tx> & txList, 
+                 leveldb::Iterator* iter=NULL,
+                 ignoreMerkle = true);
 
-      // Skip the first entry which is the DatabaseInfo key
-      if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
-         cerr << "***WARNING: How do we not have a DB info key?" << endl; 
-      else
-         iterBlkData_->Next()
-   }
+   map<HashString, BlockHeader> getHeaderMap(void);
+   BinaryData getRawHeader(BinaryData const & headerHash);
+   bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
-   /////////////////////////////////////////////////////////////////////////////
-   map<HashString, BlockHeader> getHeaderMap(void)
-   {
-      map<HashString, BlockHeader> outMap;
-
-      leveldb::Iterator* it = db_headers_->NewIterator(leveldb::ReadOptions());
-      it->SeekToFirst();
-      if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
-         cerr << "***WARNING: How do we not have a DB info key?" << endl; 
-      else:
-         it->Next()
-
-      BinaryData headerHash;
-      BinaryData headerEntry;
-      BlockHeader header;
-      for (; it->Valid(); it->Next())
-      {
-         sliceToBinaryData(it->key(),   headerHash);
-         sliceToBinaryData(it->value(), headerEntry);
-
-         BinaryRefReader brr(headerEntry);
-         header.unserialize(brr);
-         uint32_t hgtX    = brr.get_uint32_t();
-         uint32_t txCount = brr.get_uint32_t();
-         uint32_t nBytes  = brr.get_uint32_t();
-
-         // The "height" is actually a 3-byte height, and a "duplicate ID"
-         // Reorgs lead to multiple headers having the same height.  Since 
-         // the blockdata
-         header.setStoredHeight(hgtX >> 8);
-         header.setDuplicateID(hgtX | 0x000000ff);
-
-         outMap[headerHash] = header;
-      }
-
-      return outMap;
-   }
-
-   BinaryData getRawHeader(BinaryData const & headerHash)
-   {
-      // I used the seek method originally to try to return
-      // a slice that didn't need to be copied.  But in the 
-      // end, I'm doing a copy anyway.  So I switched to 
-      // regular DB.Get and commented out the seek method 
-      // so it's still here for reference
-      static leveldb::Status stat;
-      static BinaryData headerOut(HEADER_SIZE);
-      static BinaryData nullHeader(0);
-      //static leveldb::Iterator* ldbiter = 
-                 //db_headers_.NewIterator(leveldb::ReadOptions());
-
-      //leveldb::Slice key(headerHash.getPtr(), 32);
-      //ldbiter.Seek(key);
-      //headerOut.copyFrom(ldbiter->value().data(), HEADER_SIZE);
-      //if(ldbiter->Valid() && 
-         //strcmp(ldbiter->key().data(), headerHash,getPtr(), 32)==0)
-         //return headerOut;
-      //else:
-         //return nullHeader;
-      
-      static string headerVal;
-      leveldb::Slice key(headerHash.getPtr(), 32);
-      stat = db_headers_.Get(leveldb::ReadOptions(), key, &headerVal);
-      if(checkStatus(stat))
-         return headerOut;
-      else
-         return nullHeader;
-   }
-
-   bool addHeader(BinaryData const & headerHash, 
-                  BinaryData const & headerRaw)
-   {
-      static leveldb::Status stat;
-      leveldb::Slice key(headerHash.getPtr(), 32);
-      leveldb::Slice val(headerRaw.getPtr(), HEADER_SIZE);
-      
-      stat = db_headers_.Put(leveldb::WriteOptions(), key, val);
-      return checkStatus(stat);
-   }
-
-
-
-   bool addBlock
-
-
+   BinaryData getDBInfoKey(void);
 
    bool checkStatus(leveldb::Status stat)
    {
       if( stat.ok() )
          return true;
-   
       cout << "***LevelDB Error: " << stat.ToString() << endl;
       return false;
-   }
-
-   BinaryData getDBInfoKey(void)
-   {
-      // Make the 20-bytes of zeros followed by "DatabaseInfo".  We
-      // do this to make sure it's always at the beginning of an iterator
-      // loop and we can just skip the first entry, instead of checking
-      // each key in the loop
-      static BinaryData dbinfokey(0);
-      if(dbinfokey.getSize() == 0)
-      {
-         BinaryWriter bw;
-         bw.put_uint64_t(0)
-         bw.put_uint64_t(0)
-         bw.put_uint32_t(0)
-         bw.put_BinaryData( BinaryData(string("DatabaseInfo")));
-         dbinfokey = bw.getData();
-      }
-      return dbinfokey;
    }
 
 
 
 private:
    string baseDir_;
-   string headPath_;
-   string blkPath_;
 
    BinaryData genesisBlkHash_;
    BinaryData genesisTxHash_;
@@ -424,11 +197,23 @@ private:
    HashString topBlockHash_;
    uint32_t   topBlockHeight_;
 
-   leveldb::Iterator* iterHeaders_;
-   leveldb::Iterator* iterBlkData_;
+   ARMORY_DB_TYPE  dbTypeMin_;
+   DB_PRUNE_TYPE   pruneTypeMin_;
+
+   leveldb::Iterator*   iters_[2];
+   leveldb::WriteBatch* batches_[2];
+   leveldb::DB*         dbs_[2];  
+   string               dbPaths_[2];
+
+
+   BinaryRefReader currReadKey_;
+   BinaryRefReader currReadValue_;;
    
-   leveldb::DB* db_headers_;  // HeaderHash (32B) --> Header Info
-   leveldb::DB* db_blkdata_;  // Everything else
+   // In this case, a address is any TxOut script, which is usually
+   // just a 25-byte script.  But this generically captures all types
+   // of addresses including pubkey-only, P2SH, 
+   set<registeredAddrSet_>      registeredAddrSet_;
+   
 
 };
 

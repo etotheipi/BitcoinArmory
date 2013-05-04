@@ -26,6 +26,7 @@ class Tx;
 class BlockHeader
 {
    friend class BlockDataManager_LevelDB;
+   friend class InterfaceToLevelDB;
 
 public:
 
@@ -92,11 +93,6 @@ public:
    // Just in case we ever want to calculate a difficulty-1 header via CPU...
    uint32_t      findNonce(void);
 
-   uint32_t      setDuplicateID(uint8_t id) { duplicateID_ = id; }
-   uint32_t      getDuplicateID(void) { return duplicateID_; }
-   uint32_t      setStoredHeight(uint32_t hgt) { storedHeight_ = hgt; }
-   uint32_t      getStoredHeight(void) { return storedHeight_; }
-
    /////////////////////////////////////////////////////////////////////////////
    void unserialize(uint8_t const * ptr);
    void unserialize(BinaryData const & str) { unserialize(str.getRef()); }
@@ -134,6 +130,8 @@ private:
    // at the same height (though, there's usually 1, rarely >2)
    uint32_t       storedHeight_;
    uint8_t        duplicateID_;
+   bool           merkleIsPartial_;
+   BinaryData     merkle_;
 };
 
 
@@ -364,6 +362,7 @@ private:
 class Tx
 {
    friend class BlockDataManager_LevelDB;
+   friend class InterfaceToLevelDB;
 
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
@@ -435,8 +434,6 @@ public:
    void pprintAlot(ostream & os=cout);
 
 
-   
-
 
 private:
    // Full copy of the serialized tx
@@ -456,6 +453,9 @@ private:
    // To be calculated later
    BlockHeader*  headerPtr_;
    TxRef*        txRefPtr_;
+
+   // LevelDB modifications
+   uint32_t      storedNumTxOut_;
 };
 
 
@@ -500,6 +500,96 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+// TxIOPair
+//
+// This makes a lot of sense, despite the added complexity.  No TxIn exists
+// unless there was a TxOut, and they both have the same value, so we will
+// store them together here.
+//
+// This will provide the future benefit of easily determining what Tx data
+// can be pruned.  If a TxIOPair has both TxIn and TxOut, then the value 
+// was received and spent, contributes zero to our balance, and can effectively
+// ignored.  For now we will maintain them, but in the future we may decide
+// to just start removing TxIOPairs after they are spent (in which case they 
+// are no longer TxIO pairs, they're just TxO's...which eventually are removed)
+//
+//
+class TxIOPair
+{
+public:
+   //////////////////////////////////////////////////////////////////////////////
+   // TODO:  since we tend not to track TxIn/TxOuts but make them on the fly,
+   //        we should probably do that here, too.  I designed this before I
+   //        realized that these copies will fall out of sync on a reorg
+   TxIOPair(void);
+   TxIOPair(uint64_t  amount);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex);
+   TxIOPair(TxRef* txPtrO, uint32_t txoutIndex, TxRef* txPtrI, uint32_t txinIndex);
+
+   // Lots of accessors
+   bool      hasTxOut(void) const   { return (txPtrOfOutput_   != NULL); }
+   bool      hasTxIn(void) const    { return (txPtrOfInput_    != NULL); }
+   bool      hasTxOutInMain(void) const;
+   bool      hasTxInInMain(void) const;
+   bool      hasTxOutZC(void) const;
+   bool      hasTxInZC(void) const;
+   bool      hasValue(void) const   { return (amount_!=0); }
+   uint64_t  getValue(void) const   { return  amount_;}
+
+   //////////////////////////////////////////////////////////////////////////////
+   TxOut     getTxOut(void) const;   
+   TxIn      getTxIn(void) const;   
+   TxOut     getTxOutZC(void) const {return txOfOutputZC_->getTxOut(indexOfOutputZC_);}
+   TxIn      getTxInZC(void) const  {return txOfInputZC_->getTxIn(indexOfInputZC_);}
+   TxRef&    getTxRefOfOutput(void) const { return *txPtrOfOutput_; }
+   TxRef&    getTxRefOfInput(void) const  { return *txPtrOfInput_;  }
+   OutPoint  getOutPoint(void) { return OutPoint(getTxHashOfOutput(),indexOfOutput_);}
+
+   pair<bool,bool> reassessValidity(void);
+   bool  isTxOutFromSelf(void)  { return isTxOutFromSelf_; }
+   void setTxOutFromSelf(bool isTrue=true) { isTxOutFromSelf_ = isTrue; }
+   bool  isFromCoinbase(void) { return isFromCoinbase_; }
+   void setFromCoinbase(bool isTrue=true) { isFromCoinbase_ = isTrue; }
+
+
+   //////////////////////////////////////////////////////////////////////////////
+   BinaryData    getTxHashOfInput(void);
+   BinaryData    getTxHashOfOutput(void);
+
+   bool setTxIn   (TxRef* txref, uint32_t index);
+   bool setTxOut  (TxRef* txref, uint32_t index);
+   bool setTxInZC (Tx*    tx,    uint32_t index);
+   bool setTxOutZC(Tx*    tx,    uint32_t index);
+
+   //////////////////////////////////////////////////////////////////////////////
+   bool isSourceUnknown(void) { return ( !hasTxOut() &&  hasTxIn() ); }
+   bool isStandardTxOutScript(void);
+
+   bool isSpent(void);
+   bool isUnspent(void);
+   bool isSpendable(uint32_t currBlk=0);
+   bool isMineButUnconfirmed(uint32_t currBlk);
+   void clearZCFields(void);
+
+   void pprintOneLine(void);
+
+private:
+   uint64_t  amount_;
+   TxRef*    txPtrOfOutput_;
+   uint32_t  indexOfOutput_;
+   TxRef*    txPtrOfInput_;
+   uint32_t  indexOfInput_;
+
+   // Zero-conf data isn't on disk, yet, so can't use TxRef
+   Tx *      txOfOutputZC_;
+   uint32_t  indexOfOutputZC_;
+   Tx *      txOfInputZC_;
+   uint32_t  indexOfInputZC_;
+
+   bool      isTxOutFromSelf_;
+   bool      isFromCoinbase_;
+};
 
 
 
@@ -560,6 +650,113 @@ public:
    // each TxOut prioritization to be dependent on the target Tx amount.
    uint64_t   targetTxAmount_;
 };
+
+
+////////////////////////////////////////////////////////////////////////////////
+// BDM is now tracking "registered" addresses and wallets during each of its
+// normal scanning operations.  
+class BtcAddress;
+class RegisteredAddress
+{
+public:
+   RegisteredAddress(HashString  a160=HashString(0),
+                     uint32_t    blkCreated=0) :
+         addr160_(a160),
+         blkCreated_(blkCreated),
+         alreadyScannedUpToBlk_(blkCreated) { }
+
+
+   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1)
+   {
+      addr160_ = addrObj.getAddrStr20();
+
+      if(blkCreated<0)
+         blkCreated = addrObj.getFirstBlockNum();
+
+      blkCreated_            = blkCreated;
+      alreadyScannedUpToBlk_ = blkCreated;
+   }
+
+
+   HashString    addr160_;
+   uint32_t      blkCreated_;
+   uint32_t      alreadyScannedUpToBlk_;
+   uint64_t      sumValue_;
+
+   bool operator==(RegisteredAddress const & ra2) const 
+                                    { return addr160_ == ra2.addr160_;}
+   bool operator< (RegisteredAddress const & ra2) const 
+                                    { return addr160_ <  ra2.addr160_;}
+   bool operator> (RegisteredAddress const & ra2) const 
+                                    { return addr160_ >  ra2.addr160_;}
+
+};
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+// We're going to need to be able to sort our list of registered transactions,
+// so I decided to make a new class to support it, with a native operator<().
+//
+// I debated calling this class "SortableTx"
+class RegisteredTx
+{
+public:
+   TxRef *       txrefPtr_;  // Not necessary for sorting, but useful
+   BinaryData    txHash_;
+   uint32_t      blkNum_;
+   uint32_t      txIndex_;
+
+
+   TxRef *    getTxRefPtr()  { return txrefPtr_; }
+   Tx         getTxCopy()    { return txrefPtr_->getTxCopy(); }
+   BinaryData getTxHash()    { return txHash_; }
+   uint32_t   getBlkNum()    { return blkNum_; }
+   uint32_t   getTxIndex()   { return txIndex_; }
+
+   RegisteredTx(void) :
+         txrefPtr_(NULL),
+         txHash_(""),
+         blkNum_(UINT32_MAX),
+         txIndex_(UINT32_MAX) { }
+
+   RegisteredTx(BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+         txrefPtr_(NULL),
+         txHash_(txHash),
+         blkNum_(blkNum),
+         txIndex_(txIndex) { }
+
+   RegisteredTx(TxRef* txptr, BinaryData const & txHash, uint32_t blkNum, uint32_t txIndex) :
+         txrefPtr_(txptr),
+         txHash_(txHash),
+         blkNum_(blkNum),
+         txIndex_(txIndex) { }
+
+   RegisteredTx(TxRef & txref) :
+         txrefPtr_(&txref),
+         txHash_(txref.getThisHash()),
+         blkNum_(txref.getBlockHeight()),
+         txIndex_(txref.getBlockTxIndex()) { }
+
+   RegisteredTx(Tx & tx) :
+         txrefPtr_(tx.getTxRefPtr()),
+         txHash_(tx.getThisHash()),
+         blkNum_(tx.getBlockHeight()),
+         txIndex_(tx.getBlockTxIndex()) { }
+
+   bool operator<(RegisteredTx const & rt2) const 
+   {
+      if( blkNum_ < rt2.blkNum_ )
+         return true;
+      else if( rt2.blkNum_ < blkNum_ )
+         return false;
+      else
+         return (txIndex_<rt2.txIndex_);
+   }
+
+
+};
+
 
 #endif
 

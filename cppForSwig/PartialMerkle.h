@@ -67,6 +67,11 @@ public:
       createTreeNodes(nTx, bits, hashes);
    }
 
+   PartialMerkleTree(BinaryData const & partialMerkle)
+   {
+      unserialize(partialMerkle);
+   }
+
 
    HashString getMerkleRoot(void)
    {
@@ -172,40 +177,46 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   void unserialize(BinaryData serialized)
+   void unserialize(BinaryRefReader brr)
    {
       if( root_ == NULL) 
          return;
    
       // Destroy the tree if it already exists
       recurseDestroyTree(root_);
-
       list<HashString> vHash;
 
       // Read numTx
-      BinaryReader br(serialized);
-      uint32_t numTx = br.get_uint32_t();
+      uint32_t numTx = brr.get_uint32_t();
       
       // Create all the nodes in the tree
       createTreeNodes(numTx);
 
       // Read and prepare vHash for depth-first search
-      uint32_t numHash = (uint32_t)br.get_var_int();
+      uint32_t numHash = (uint32_t)brr.get_var_int();
       BinaryData hash(32);
       for(uint32_t i=0; i<numHash; i++)
       {
-         br.get_BinaryData( hash, 32);
+         brr.get_BinaryData( hash, 32);
          vHash.push_back(hash);
       }
 
       // Read and prepare vBits for depth-first search
-      uint32_t numBits = (uint32_t)br.get_var_int();
+      uint32_t numBits = (uint32_t)brr.get_var_int();
       BinaryData vBytes;
-      br.get_BinaryData(vBytes, (numBits+7)/8);
+      brr.get_BinaryData(vBytes, (numBits+7)/8);
       list<bool> vBits = BtcUtils::UnpackBits(vBytes, numBits);
 
       recurseUnserializeTree(root_, vBits, vHash);
       recurseCalcHash(root_);
+       
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   void unserialize(BinaryData const & serialized)
+   {
+      BinaryRefReader brr(serialized);
+      unserialize(brr);
    }
 
    /////////////////////////////////////////////////////////////////////////////
