@@ -10,7 +10,7 @@ OBJS = UniversalTimer.o BinaryData.o FileDataPtr.o BtcUtils.o BlockObj.o BlockUt
 DEPSDIR ?= /usr
 
 INCLUDE_OPTS += -Icryptopp -DUSE_CRYPTOPP -D__STDC_LIMIT_MACROS 
-LIBRARY_OPTS += -lpthread 
+LIBRARY_OPTS += -lpthread -L/usr/lib/python2.7/config-x86_64-linux-gnu/ -lpython2.7
 SWIG_OPTS    += -c++ -python -classic -threads
 PYVER 		 += `python2 -c 'import sys; print str(sys.version_info[0]) + "." + str(sys.version_info[1])'`
 
@@ -26,7 +26,8 @@ ifeq ($(UNAME), Darwin)
    STATICPYTHON +=   "/usr/lib/python$(PYVER)/config/libpython$(PYVER).a"
 else
    SWIG_INC     += -I"$(DEPSDIR)/include/python$(PYVER)"
-   STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
+   #STATICPYTHON +=   "$(DEPSDIR)/lib/libpython$(PYVER).a"
+   STATICPYTHON = 
 
 
 endif
