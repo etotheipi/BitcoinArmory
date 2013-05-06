@@ -22,6 +22,14 @@
 
 typedef enum
 {
+   NOT_BLKDATA,
+   BLKDATA_HEADER,
+   BLKDATA_TX,
+   BLKDATA_TXOUT
+} BLKDATA_TYPE
+
+typedef enum
+{
   BLK_PREFIX_DBINFO,
   BLK_PREFIX_BLKDATA,
   BLK_PREFIX_REGADDR,
@@ -75,7 +83,7 @@ typedef enum
   MERKLE_SER_NONE,
   MERKLE_SER_PARTIAL,
   MERKLE_SER_FULL
-} MERKLE_SERIALIZE_TYPE;
+} MERKLE_SER_TYPE;
 
 class InterfaceToLevelDB
 {
@@ -143,6 +151,10 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    void startBlockIteration(void);
 
+   uint32_t hgtxToHeight(uint32_t hgtx)  {return (hgtX & 0xffffff00)>>8;}
+   uint8_t  hgtxToDupID(uint32_t hgtx)   {return (hgtX & 0x000000ff);}
+   uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
+
    // These four sliceTo* methods make copies, and thus safe to use even after
    // we have advanced the iterator to new data
    BinaryData sliceToBinaryData(leveldb::Slice slice)
@@ -170,6 +182,8 @@ private:
                  vector<Tx> & txList, 
                  leveldb::Iterator* iter=NULL,
                  ignoreMerkle = true);
+
+   void readBlkDataTxValue(BinaryRefReader & brr, Tx* tx);
 
    map<HashString, BlockHeader> getHeaderMap(void);
    BinaryData getRawHeader(BinaryData const & headerHash);

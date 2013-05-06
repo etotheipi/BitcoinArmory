@@ -1,3 +1,6 @@
+#include <iostream>
+#include <sstream>
+#include "leveldb_wrapper.h"
 
 
 InterfaceToLevelDB::InterfaceToLevelDB(
@@ -271,8 +274,7 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip=false)
          return false;
       else if( it->key().size() == 5)
       {
-         currReadKey_.setNewData(it->key().data(), it->key().size());      
-         currReadValue_;.setNewData(it->value().data(), it->value().size());      
+         iteratorToRefReaders(it, currReadKey_, currReadValue_);
          return true;
       }
 
@@ -283,64 +285,80 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip=false)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+// Makes copies of the key and value
+void InterfaceToLevelDB::iteratorToReaders( leveldb::Iterator* it, 
+                                            BinaryReader & brKey,
+                                            BinaryReader & brValue)
+{
+   brKey.setNewData(it->key().data(), it->key().size());      
+   brValue;.setNewData(it->value().data(), it->value().size());      
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Returns refs to key and value that become invalid when iterator is moved
+void InterfaceToLevelDB::iteratorToRefReaders( leveldb::Iterator* it, 
+                                               BinaryRefReader & brrKey,
+                                               BinaryRefReader & brrValue)
+{
+   brrKey.setNewData(it->key().data(), it->key().size());      
+   brrValue;.setNewData(it->value().data(), it->value().size());      
+}
+
+/////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::getBlock( BlockHeader & bh, 
                                    vector<Tx> & txList,         
-                                   vector<HashString> & merkleList,         
                                    leveldb::Iterator* iter=NULL,
                                    ignoreMerkle = true)
 {
-   advanceToNextBlock();
-
-   if(iter==NULL)
-      iter = iters_[BLKDATA];
-
-   
-   uint8_t  leadByte = currReadKey_.get_uint8_t();
-   uint32_t hgtX     = currReadKey_.get_uint32_t();
-
-   uint16_t flags    = currReadValue_.get_uint16_t();
-   bh.unserialize(   = currReadValue_.get_BinaryData(HEADER_SIZE));
-   uint32_t numTx    = currReadValue_.get_uint32_t();
-   uint32_t numBytes = currReadValue_.get_uint32_t();
-
-   // Make sure we're expecting this version
-   uint8_t version    = (flags>>12) & 0xffffffff
-   uint8_t merkleCode = (flags>>10) & 0x0000ffff
-   if(version != (uint8_t)ARMORY_DB_VERSION)
+   bool isAnotherBlock = advanceToNextBlock();
+   if(!isAnotherBlock)
    {
-      cerr << "Version mismatch in IFTLDB::getBlock()" << endl;
-      advanceToNextBlock();
-      return
-   }
-   
-   bh.setStoredHeight(htgX >> 8);
-   bh.setDuplicateID(htgX & 0x000000ff);
-
-   if( !ignoreMerkle )
-   {
-      bool hasMerkle = 
-      uint32_t currPos = currReadValue_.getPosition();
-      uint32_t totalSz = currReadValue_.getSize();
-      if(merkleCode > MERKLE_SER_NONE)
-      {
-         bh.merkleIsPartial_ = (merkleCode == MERKLE_SER_PARTIAL);
-         currReadValue_.get_BinaryData(bh.merkle_, totalSz - currPos);
-      }
+      cerr << "Tried to getBlock() but none left" << endl;
+      return;
    }
 
+   // If an iterator was passed in, switch to the data there, but restore
+   // the class members later, afterwards.
+   bool customIter = (iter != NULL);
+   BinaryRefReader prevReaderKey = currReadKey_;
+   BinaryRefReader prevReaderVal = currReadValue_;
+   if(customIter)
+      iteratorToRefReaders(iter, currReadKey_, currReadValue_);
 
-   BinaryData hash(32);
+    
+   // Read the key for the block
+   BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_,
+                                          bh.storedHeight_,
+                                          bh.duplicateID_);
+
+   if(bdtype == NOT_BLKDATA)
+   {
+      cerr << "***ERROR: somehow did not advance to new block)";
+      return; 
+   }
+
+   
+   // Read the header and the extra data with it.
+   readBlkDataHeaderValue(currReadValue_, bh, ignoreMerkle);
+   
+
    txList.resize(numTx);
+   vector<bool> didHitTx(numTx)
+   vector<bool> didHitTx(numTx)
    for(uint32_t tx=0; tx<numTx; tx++)
    {
       advanceIterAndRead();
-      leadByte       = currReadKey_.get_uint8_t(); 
-      uint32_t hgtY  = currReadKey_.get_uint32_t(); 
-      uint32_t index = currReadKey_.get_uint16_t();
-   
-      if(leadByte != (uint8_t)BLK_PREFIX_BLKDATA || hgtX != hgtY)
-         return;
+      uint32_t height;
+      uint8_t  dupID;
+      BLKDATA_TYPE bdtype = readBlkDataKey5B(currReadKey_, height, dupID);
+      if(bdtype == BLKDATA_HEADER)
+      {
+         currReadKey_.resetPosition();
+         break
+      }
 
+
+      currTxIndex = currReadKey_.get_uint16_t(); 
       if(index > txList().size())
       {
          cerr << "***ERROR:  Invalid index for tx at height " << (hgtX>>8)
@@ -348,41 +366,182 @@ void InterfaceToLevelDB::getBlock( BlockHeader & bh,
          return;
       }
 
+      if(bdtype == BLKDATA_TX)
+         readBlkDataTxValue(currReadValue_, txList[currTxIndex])
+
+      if(bdtype == BLKDATA_TXOUT)
+      {
+         currTxOutIndex = currReadKey_.get_uint16_t(); 
+         readBlkDataTxOutValue(currReadValue_, txList[currTxIndex], currTxOutIndex);
+      }
 
    }
-}
 
-
-void readBlkDataHeaderValue(BlockHeader & bh, leveldb::Iterator* iter)
-{
-   
-}
-
-void readBlkDataTxValue(BlockHeader & tx, leveldb::Iterator* iter)
-{
-   // Now read the values here
-   currReadValue_.get_BinaryData(hash, 32);
-   flags = currReadValue_.get_uint16_t();
-
-   // flags
-   //    TxVersion      2 bits
-   //    isValid        2 bits   
-   //    WhatComesNext  4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
-   uint8_t txVer   = (flags>>14) & BITMASK(2);
-   uint8_t isValid = (flags>>12) & BITMASK(2);
-   uint8_t txSer   = (flags>> 8) & BITMASK(4);
-   uint8_t listOut = (flags>> 7) & BITMASK(1);
-   
-   if(txSer == TX_SER_FULL || txSer == TX_SER_NOTXOUT)
+   if(customIter)
    {
-      txList[tx].unserialize(currReadValue_);
+      currReadKey_   = prevReaderKey;
+      currReadValue_ = prevReaderVal;
    }
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataHeaderValue( 
+                                 BinaryRefReader & brr,
+                                 BlockHeader & bh,
+                                 bool ignoreMerkle)
+{
+   uint32_t flags = brr.get_uint32_t();
+   bh.unserialize(brr);
+   bh.storedNumTx_    = brr.get_uint32_t();
+   bh.storedNumBytes_ = brr.get_uint32_t();
+
+
+   uint32_t version            = (flags & 0xf0000000) >> 28;
+   ARMORY_DB_TYPE dbtype       = (flags & 0x0f000000) >> 24;
+   DB_PRUNE_TYPE prntype       = (flags & 0x00f00000) >> 20;
+   MERKLE_SER_TYPE merkleCode  = (flags & 0x000c0000) >> 18;
+
+   if(version != (uint8_t)ARMORY_DB_VERSION)
+   {
+      cerr << "Version mismatch in IFTLDB::getBlock()" << endl;
+      advanceToNextBlock();
+      return
+   }
+
+   if( !ignoreMerkle )
+   {
+      uint32_t currPos = brr.getPosition();
+      uint32_t totalSz = brr.getSize();
+      if(merkleCode == MERKLE_SER_NONE)
+         bh.merkle_.resize(0);
+      else
+      {
+         bh.merkleIsPartial_ = (merkleCode == MERKLE_SER_PARTIAL);
+         brr.get_BinaryData(bh.merkle_, totalSz - currPos);
+      }
+      
+   }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+BLKDATA_TYPE InterfaceToLevelDB::readBlkDataKey5B(
+                                 BinaryRefReader & brr,
+                                 uint32_t & height,
+                                 uint8_t  & dupID)
+{
+   uint8_t  prefix = brr.get_uint8_t()
+   if(prefix != BLK_PREFIX_BLKDATA)
+   {
+      height = 0xffffffff;
+      dupID  =       0xff;
+      return NOT_BLKDATA;
+   }
+   
+   uint32_t hgtX   = brr.get_uint32_t()
+   height = hgtxToHeight(hgtX);
+   dupID  = hgtxToDupID(hgtX);
+
+   if(brr.getSizeRemaining() == 0)
+      return BLKDATA_HEADER;
+   else if(brr.getSizeRemaining() == 2)
+      return BLKDATA_TX;
+   else if(brr.getSizeRemaining() == 4)
+      return BLKDATA_TXOUT;
    else
    {
-      txList[tx] = Tx();
-      txList[tx].setStoredNumTxOut_( currReadValue_.get_var_int());  
+      cerr << "Unexpected bytes remaining: " << brr.getSizeRemaining() << endl;
+      return NOT_BLKDATA;
    }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataTxKey( BinaryRefReader & brr, Tx & tx)
+{
+   BLKDATA_TYPE bdtype = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
+   if(bdtype != BLK_PREFIX_BLKDATA)
+      return
+
+   tx.storedIndex_ = brr.get_uint16_t()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, Tx & tx)
+{
+   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
+   if(bdt != BLK_PREFIX_BLKDATA)
+      return
+
+   tx.storedIndex_ = brr.get_uint16_t()
+   tx = brr.get_uint16_t()
+}
+
+////////////////////////////////////////////////////////////////////////////////
+TxOut InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr)
+{
+   TxOut txo;
+   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txo.storedHeight_, txo.storedDupID_);
+   if(bdt != BLK_PREFIX_BLKDATA)
+      return
+
+   txo.storedTxIndex_ = brr.get_uint16_t()
+   txo.index_ = brr.get_uint16_t()
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataTxValue( BinaryRefReader & brr, Tx& tx)
+{
+   uint16_t flags = brr.get_uint16_t();
+   brr.get_BinaryData(tx.thisHash_, 32);
+
+   // flags
+   //    DBVersion      4 bits
+   //    TxVersion      2 bits
+   //    isValid        2 bits   (Unknown,  Valid, NotValid)
+   //    HowTxSer       4 bits   (FullTxOut, TxNoTxOuts, numTxOutOnly)
+   uint8_t dbVer   = (flags & 0xf000) >> 12;
+   uint8_t txVer   = (flags & 0x0c00) >> 10;
+   uint8_t isValid = (flags & 0x0300) >>  8;
+   uint8_t txSer   = (flags & 0x00f0) >>  4;
    
+   if(txSer == TX_SER_FULL || txSer == TX_SER_NOTXOUT)
+      tx.unserialize(brr);
+   else
+      tx->storedNumTxOut_ = brr.get_var_int();
+
+   tx->version_ = (uint32_t)txVer;
+   tx->storedValid_ = isValid;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataTxOutValue(BinaryRefReader & brr, TxOut& txOut)
+{
+   flags = brr.get_uint16_t();
+   // Similar to TxValue flags
+   //    DBVersion   4 bits
+   //    TxVersion   2 bits
+   //    isValid     2 bits
+   //    Spentness   2 bits
+   uint8_t dbVer   =  (flags & 0xf000) >> 12;
+   uint8_t txVer   =  (flags & 0x0c00) >> 10; 
+   uint8_t isValid =  (flags & 0x0300) >>  8; 
+   uint8_t isSpent =  (flags & 0x00c0) >>  6; 
+   txOut.unserialize(brr);
+   if(isSpent == TXOUT_SPENTSAV && brr.getSizeRemaining()>=6)
+   {
+      txOut.spentByHgtX_    = brr.get_uint32_t(); 
+      txOut.spentByTxIndex_ = brr.get_uint16_t(); 
+   }
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::readBlkDataTxOutValue(BinaryRefReader & brr, 
+                                               Tx & tx, 
+                                               uint32_t txOutIndex)
+{
+   readBlkDataTxOutValue(brr, tx.storedTxOuts_[txOutIndex]);
 }
 
 
@@ -390,8 +549,7 @@ void readBlkDataTxValue(BlockHeader & tx, leveldb::Iterator* iter)
 void InterfaceToLevelDB::advanceIterAndRead(leveldb::Iterator* iter)
 {
    iter->Next();
-   currReadKey_.setNewData(iter->key().data(), iter->key().size());      
-   currReadValue_;.setNewData(iter->value().data(), iter->value().size());      
+   iteratorToRefReaders(iter, currReadKey_, currReadValue_);
 }
 
 
@@ -404,7 +562,7 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
    it->SeekToFirst();
    if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
       cerr << "***WARNING: How do we not have a DB info key?" << endl; 
-   else:
+   else
       it->Next()
 
    BinaryData headerHash;
@@ -424,8 +582,8 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
       // The "height" is actually a 3-byte height, and a "duplicate ID"
       // Reorgs lead to multiple headers having the same height.  Since 
       // the blockdata
-      header.setStoredHeight(hgtX >> 8);
-      header.setDuplicateID(hgtX & 0x000000ff);
+      header.storedHeight_(hgtX >> 8);
+      header.duplicateID_(hgtX & 0x000000ff);
 
       outMap[headerHash] = header;
    }
@@ -433,6 +591,8 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
    return outMap;
 }
 
+
+////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
 {
    // I used the seek method originally to try to return
@@ -453,6 +613,7 @@ BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
       return nullHeader;
 }
 
+////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::addHeader(BinaryData const & headerHash, 
                                    BinaryData const & headerRaw)
 {
@@ -465,7 +626,7 @@ bool InterfaceToLevelDB::addHeader(BinaryData const & headerHash,
 }
 
 
-
+////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLevelDB::getDBInfoKey(void)
 {
    // Make the 20-bytes of zeros followed by "DatabaseInfo".  We
@@ -482,3 +643,4 @@ BinaryData InterfaceToLevelDB::getDBInfoKey(void)
    }
    return dbinfokey;
 }
+

@@ -10,13 +10,6 @@
 #define _BTCUTILS_H_
 
 #include <stdio.h>
-//#ifdef WIN32
-//#include <cstdint>
-//#else
-//#include <stdlib.h>
-//#include <inttypes.h>   
-//#include <cstring>
-//#endif
 
 #include <iostream>
 #include <vector>
@@ -59,8 +52,6 @@
 #define MAINNET_MAGIC_BYTES "f9beb4d9"
 #define MAINNET_GENESIS_HASH_HEX    "6fe28c0ab6f1b372c1a6a246ae63f74f931e8365e15a089c68d6190000000000"
 #define MAINNET_GENESIS_TX_HASH_HEX "3ba3edfd7a7b12b27ac72c3e67768f617fc81bc3888a51323a9fb8aa4b1e5e4a"
-
-
 
 #define BITMASK(X) (2**X - 1)
 

@@ -128,6 +128,8 @@ private:
    // This is just a hint so we can go directly to the correct
    // block in the blkdata DB, instead of searching all blocks
    // at the same height (though, there's usually 1, rarely >2)
+   uint32_t       storedNumTx_;
+   uint32_t       storedNumBytes_;
    uint32_t       storedHeight_;
    uint8_t        duplicateID_;
    bool           merkleIsPartial_;
@@ -185,6 +187,7 @@ private:
 class TxIn
 {
    friend class BlockDataManager_LevelDB;
+   friend class InterfaceToLevelDB;
 
 public:
    TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
@@ -274,6 +277,7 @@ private:
 class TxOut
 {
    friend class BlockDataManager_LevelDB;
+   friend class InterfaceToLevelDB;
 
 public:
 
@@ -347,8 +351,14 @@ private:
    BinaryData        recipientBinAddr20_;
    TxRef*            parentTx_;
 
-   // No computed variables, because we're always re-computing these
-   // objects every time we want them
+   // LevelDB extras related to reading these from storage before verifying
+   uint32_t          storedHeight_;
+   uint8_t           storedDupID_;
+   uint16_t          storedTxIndex_;
+   uint16_t          storedTxOutIndex_;
+   bool              storedIsValid_;
+   uint32_t          spentByHgtX_;
+   uint16_t          spentByTxIndex_;
 
 
 };
@@ -455,7 +465,13 @@ private:
    TxRef*        txRefPtr_;
 
    // LevelDB modifications
+   bool          isPartial_;
+   uint32_t      storedHeight_;
+   uint8_t       storedDupID_;
+   uint8_t       storedIndex_;
    uint32_t      storedNumTxOut_;
+   uint8_t       storedValid_;
+   vector<TxOut> storedTxOuts_;
 };
 
 
