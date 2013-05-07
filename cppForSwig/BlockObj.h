@@ -131,9 +131,10 @@ private:
    uint32_t       storedNumTx_;
    uint32_t       storedNumBytes_;
    uint32_t       storedHeight_;
-   uint8_t        duplicateID_;
-   bool           merkleIsPartial_;
    BinaryData     merkle_;
+   bool           merkleIsPartial_;
+   uint8_t        duplicateID_;
+   bool           haveAllTx_;
 };
 
 
@@ -668,6 +669,39 @@ public:
 };
 
 
+class SpentByRef
+{
+public:
+   SpentByRef(BinaryData const & ref) { initialize(BinaryRefReader(ref)); }
+   SpentByRef(BinaryDataRef const & ref) { initialize(BinaryRefReader(ref)); }
+   SpentByRef(BinaryRefReader & brr) { initialize(brr); }
+   SpentByRef(BinaryData const & hgtxPlusTxIdx, uint16_t key)
+   {
+      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      dbKey_     = BinaryData(&blkdataprefix,1) + hgtxPlusTxIdx;
+      txInIndex_ = brr.get_uint16_t();
+   }
+
+   void initialize(BinaryRefReader & brr)
+   {
+      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      dbKey_     = BinaryData(&blkdataprefix,1) + brr.get_BinaryData(6);
+      txInIndex_ = brr.get_uint16_t();
+   }
+
+public:
+   BinaryData dbKey_;
+   uint16_t   txInIndex_;
+   
+};
+
+
+class UtxoDBRef
+{
+
+};
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // BDM is now tracking "registered" addresses and wallets during each of its
 // normal scanning operations.  
@@ -694,7 +728,8 @@ public:
    }
 
 
-   HashString    addr160_;
+   //HashString    addr160_;
+   BinaryData    outScript_;
    uint32_t      blkCreated_;
    uint32_t      alreadyScannedUpToBlk_;
    uint64_t      sumValue_;

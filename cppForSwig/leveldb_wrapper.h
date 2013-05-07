@@ -30,13 +30,14 @@ typedef enum
 
 typedef enum
 {
-  BLK_PREFIX_DBINFO,
-  BLK_PREFIX_BLKDATA,
-  BLK_PREFIX_REGADDR,
-  BLK_PREFIX_TXHINTS,
-  BLK_PREFIX_TRIENODES,
-  BLK_PREFIX_COUNT,
-} BLK_PREFIX_TYPE;
+  DB_PREFIX_DBINFO,
+  DB_PREFIX_BLKDATA,
+  DB_PREFIX_REGADDR,
+  DB_PREFIX_TXHINTS,
+  DB_PREFIX_TRIENODES,
+  DB_PREFIX_COUNT,
+  DB_PREFIX_NONE,  // for seeking into DBs that don't use a prefix
+} DB_PREFIX;
 
 
 typedef enum
@@ -80,6 +81,13 @@ typedef enum
 
 typedef enum
 {
+  TXOUT_UNSPENT,
+  TXOUT_SPENTSAV,
+  TXOUT_SPENTFGT,
+} TXOUT_SPENTNESS
+
+typedef enum
+{
   MERKLE_SER_NONE,
   MERKLE_SER_PARTIAL,
   MERKLE_SER_FULL
@@ -116,6 +124,19 @@ private:
    // BinaryData key(string(theStr));
    BinaryData getValue(DB_SELECT db, BinaryData const & key);
 
+   /////////////////////////////////////////////////////////////////////////////
+   // Get value using BinaryDataRef object.  Remember, references are only valid
+   // for as long as the iterator stays in one place.  If you want to collect 
+   // lots of values from the database, you must make copies of them using reg
+   // getValue() calls.
+   BinaryDataRef getValueRef(DB_SELECT db, BinaryData const & keyWithPrefix);
+
+   /////////////////////////////////////////////////////////////////////////////
+   // Get value using BinaryDataRef object.  Remember, references are only valid
+   // for as long as the iterator stays in one place.  If you want to collect 
+   // lots of values from the database, you must make copies of them using reg
+   // getValue() calls.
+   BinaryDataRef getValueRef(DB_SELECT db, BLK_PREFIX_TYPE prefix, const & key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
@@ -133,6 +154,12 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    BinaryData sliceToBinaryData(leveldb::Slice slice);
    void       sliceToBinaryData(leveldb::Slice slice, BinaryData & bd);
+
+   /////////////////////////////////////////////////////////////////////////////
+   leveldb::Slice binaryDataToSlice(BinaryData const & bd) 
+         {return leveldb::Slice(bd.getPtr(), bd.getSize());}
+   leveldb::Slice binaryDataRefToSlice(BinaryDataRef const & bdr)
+         {return leveldb::Slice(bdr.getPtr(), bdr.getSize());}
 
    /////////////////////////////////////////////////////////////////////////////
    // "Skip" refers to the behavior that the previous operation may have left
@@ -219,14 +246,15 @@ private:
    leveldb::DB*         dbs_[2];  
    string               dbPaths_[2];
 
-
    BinaryRefReader currReadKey_;
    BinaryRefReader currReadValue_;;
    
+   string lastGetValue_;
+
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
-   set<registeredAddrSet_>      registeredAddrSet_;
+   set<RegisteredAddress>      registeredAddrSet_;
    
 
 };
