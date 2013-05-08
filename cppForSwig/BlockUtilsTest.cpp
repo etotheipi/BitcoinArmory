@@ -26,6 +26,7 @@ using namespace std;
 
 
 ////////////////////////////////////////////////////////////////////////////////
+void BaseTests(void);
 void TestReadAndOrganizeChain(string blkdir);
 void TestFindNonStdTx(string blkdir);
 void TestReadAndOrganizeChainWithWallet(string blkdir);
@@ -88,6 +89,8 @@ string pathJoin(string dir, string file)
 
 int main(void)
 {
+   BaseTests();
+
    BlockDataManager_LevelDB::GetInstance().SelectNetwork("Test");
    
 
@@ -167,6 +170,25 @@ int main(void)
 
 
 
+void BaseTests(void)
+{
+   vector<BinaryData> txOutScripts;
+   vector<TXOUT_SCRIPT_TYPE> txOutTypes;
+   vector<BinaryData> hash160s;
+   vector<BinaryData> ldbKeys;
+
+   txOutScripts.push_back( BinaryData::CreateFromHex("76a914 88ac"));
+   txOutScripts.push_back( BinaryData::CreateFromHex("41 ac"));
+   txOutScripts.push_back( BinaryData::CreateFromHex("21 ac"));
+   txOutScripts.push_back( BinaryData::CreateFromHex("76 88"));
+   txOutScripts.push_back( BinaryData::CreateFromHex("00"));
+   txOutScripts.push_back( BinaryData::CreateFromHex("0100"));
+
+   txOutScripts.push_back( TXOUT_SCRIPT_STDHASH160 )
+   txOutScripts.push_back( TXOUT_SCRIPT_STDHASH160 )
+
+   
+}
 
 
 

@@ -3,13 +3,18 @@
 #include "leveldb_wrapper.h"
 
 
+////////////////////////////////////////////////////////////////////////////////
+// The dbType and pruneType inputs are left blank if you are just going to take 
+// whatever is the current state of database.  You can choose to manually 
+// specify them, if you want to throw an error if it's not what you were 
+// expecting
 InterfaceToLevelDB::InterfaceToLevelDB(
                    string basedir, 
                    BinaryData const & genesisBlkHash,
                    BinaryData const & genesisTxHash,
                    BinaryData const & magic,
-                   ARMORY_DB_TYPE     dbtype=ARMORY_DB_DEFAULT,
-                   DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE)
+                   ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
+                   DB_PRUNE_TYPE      pruneType=DB_PRUNE_WHATEVER)
 {
    baseDir_ = basedir;
    char dbname[1024];
@@ -26,6 +31,9 @@ InterfaceToLevelDB::InterfaceToLevelDB(
    genesisTxHash_ = genesisTxHash;
    genesisBlkHash_ = genesisBlkHash;
 
+   armoryDbType_ = dbtype;
+   dbPruneType_  = pruneType;
+
    // Open databases and check that everything is correct
    // Or create the databases and start it up
    openDatabases();
@@ -36,6 +44,9 @@ BinaryData InterfaceToLevelDB::txOutScriptToLevelDBKey(BinaryData const & script
 {
    BinaryWriter bw;
    bw.put_uint8_t(DB_PREFIX_REGADDR);
+
+   TXOUT_SCRIPT_TYPE scrType = getTxOutScriptType(script.getRef());
+   
    bw.put_var_int(script.getSize()) ;
    bw.put_BinaryData(script.getRef());
    return bw.getData();
@@ -63,15 +74,17 @@ BinaryData InterfaceToLevelDB::txHashToLevelDBKey(BinaryData const & txHash)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::openDatabases(void)
+bool InterfaceToLevelDB::openDatabases(void)
 {
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
       cerr << "***ERROR:  must set magic bytes and genesis block" << endl;
       cerr << "           before opening databases."  << endl;
-      return;
+      return false;
    }
 
+   // Just in case this isn't the first time we tried to open it.
+   closeDatabases();
 
    vector<leveldb::DB*> dbs[2];
    for(uint32_t db=0; db<DB_COUNT; db++)
@@ -93,9 +106,9 @@ void InterfaceToLevelDB::openDatabases(void)
          // A new database has the maximum flag settings
          // Flags can only be reduced.  Increasing requires redownloading
          uint32_t flagBytes = 0;
-         flagBytes |= ARMORY_DB_VERSION << 28;
-         flagBytes |= (uint32_t)ARMORY_DB_SUPER << 24;
-         flagBytes |= (uint32_t)DB_PRUNE_NONE << 20;
+         flagBytes |= (uint32_t)ARMORY_DB_VERSION << 28;
+         flagBytes |= (uint32_t)armoryDbType_ << 24;
+         flagBytes |= (uint32_t)dbPruneType_ << 20;
 
          BinaryWriter bw;
          bw.put_uint32_t(ARMORY_DB_VERSION)
@@ -113,12 +126,12 @@ void InterfaceToLevelDB::openDatabases(void)
          {
             cerr << "***ERROR: Invalid DatabaseInfo data" << endl;
             closeDatabases();
-            return;
+            return false;
          }
          BinaryReader br(dbinfo);
          uint32_t version = br.get_uint32_t();
          BinaryData magic = br.get_BinaryData(4);
-         BinaryData flags = br.get_BinaryData(4);
+         uint32_t flags   = br.get_uint32_t();
          topBlockHeight_  = br.get_uint32_t();
          topBlockHash_    = br.get_BinaryData(32);
       
@@ -127,7 +140,7 @@ void InterfaceToLevelDB::openDatabases(void)
          {
             cerr << "***ERROR:  Magic bytes mismatch!  Different blkchain?" << endl;
             closeDatabases();
-            return;
+            return false;
          }
          
          // Check that we have the top hash (not sure about if we don't)
@@ -135,7 +148,29 @@ void InterfaceToLevelDB::openDatabases(void)
          {
             cerr << "***ERROR:  Top block doesn't exist!" << endl;
             closeDatabases();
-            return;
+            return false;
+         }
+
+         uint32_t dbVer      = (flags & 0xf0000000) >> 28;
+         uint32_t dbType     = (flags & 0x0f000000) >> 24;
+         uint32_t pruneType  = (flags & 0x00f00000) >> 20;
+
+         if(armoryDbType_ == ARMORY_DB_WHATEVER)
+            armoryDbType_ = (ARMORY_DB_TYPE)dbType;
+         else if(armoryDbType_ != dbType)
+         {
+            cerr << "***ERROR: Mismatch in DB type" << endl;
+            closeDatabases();
+            return false;
+         }
+
+         if(dbPruneType_ == DB_PRUNE_WHATEVER)
+            dbPruneType_ = (DB_PRUNE_TYPE)pruneType;
+         else if(dbPruneType_ != pruneType)
+         {
+            cerr << "***ERROR: Mismatch in DB type" << endl;
+            closeDatabases();
+            return false;
          }
       }
    }
@@ -155,6 +190,8 @@ void InterfaceToLevelDB::openDatabases(void)
       registeredAddrSet_.insert(ra);
       lowestScannedUpTo_ = min(lowestScannedUpTo_, ra.alreadyScannedUpToBlk_);
    }
+
+   return true;
 }
 
 
@@ -165,8 +202,11 @@ void InterfaceToLevelDB::closeDatabases(void)
 {
    for(uint32_t db=0; db<DB_COUNT; db++)
    {
-      delete dbs_[db];
-      delete batches_[db];
+      if( dbs_[db] != NULL)
+         delete dbs_[db];
+      
+      if( batches_[db] != NULL )
+         delete batches_[db];
    }
 }
 
@@ -556,10 +596,10 @@ void InterfaceToLevelDB::readBlkDataHeaderValue(
    bh.storedNumBytes_ = brr.get_uint32_t();
 
 
-   uint32_t version            = (flags & 0xf0000000) >> 28;
-   ARMORY_DB_TYPE dbtype       = (flags & 0x0f000000) >> 24;
-   DB_PRUNE_TYPE prntype       = (flags & 0x00f00000) >> 20;
-   MERKLE_SER_TYPE merkleCode  = (flags & 0x000c0000) >> 18;
+   uint8_t version             =                   (flags & 0xf0000000) >> 28;
+   ARMORY_DB_TYPE dbtype       = (ARMORY_DB_TYPE)( (flags & 0x0f000000) >> 24);
+   DB_PRUNE_TYPE pruneType     = (DB_PRUNE_TYPE)(  (flags & 0x00c00000) >> 22);
+   MERKLE_SER_TYPE merkleCode  = (MERKLE_SER_TYPE)((flags & 0x00300000) >> 20);
 
    if(version != (uint8_t)ARMORY_DB_VERSION)
    {
@@ -707,7 +747,7 @@ void InterfaceToLevelDB::readBlkDataTxOutValue(BinaryRefReader & brr,
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
-                                            vector<BinaryData> * utxoVect=NULL,
+                                            vector<BinaryData>* txoVect=NULL,
                                             leveldb::Iterator* iter=NULL)
 {
    if(iter==NULL)
@@ -735,16 +775,48 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
    regAddr.alreadyScannedUpToBlk_ = currReadValue_.get_uint32_t();
    regAddr.sumValue_ = currReadValue_.get_uint64_t();
 
-   if(utxoVect != NULL)
-   {
-      uint32_t numUtxo = (uint32_t)(currReadValue_.get_var_int());
-      utxoVect.resize(numUtxo);
-      for(uint32_t i=0; i<numUtxo; i++)
-         utxoVect[i] = currReadValue_.get_BinaryData(8); 
-   }
+    
+   uint8_t version               =                   (flags & 0xf000) >> 12;
+   DB_PRUNE_TYPE pruneType       = DB_PRUNE_TYPE(    (flags & 0x0c00) >> 10);
+   REGADDR_UTXO_TYPE txoListType = REGADDR_UTXO_TYPE((flags & 0x0300) >>  8);
    
+
+   if(txoListType == REGADDR_UTXO_TREE)
+   {
+      cerr << "***ERROR:  TXO-trees are not implemented, yet!" << endl;
+      return;
+   }
+   else if(txoListType == REGADDR_UTXO_VECTOR)
+   {
+      // Get the TxOut list if a pointer was supplied
+      // This list is unspent-TxOuts only if pruning enabled.  You will
+      // have to dereference each one to check spentness if not pruning
+      if(txoVect != NULL)
+      {
+         uint32_t numUtxo = (uint32_t)(currReadValue_.get_var_int());
+         utxoVect.resize(numUtxo);
+         for(uint32_t i=0; i<numUtxo; i++)
+            utxoVect[i] = currReadValue_.get_BinaryData(8); 
+      }
+   }
 }
 
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getUtxoListForAddr(BinaryData & const addrScript,
+                                            RegisteredAddress & regAddr,
+                                            vector<UnspentTxOut> & txoVect=NULL)
+{
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getUtxoHistoryForAddr(BinaryData & const addrScript,
+                                               RegisteredAddress & regAddr,
+                                               vector<UnspentTxOut> & txoVect=NULL)
+{
+
+}
 
 /////////////////////////////////////////////////////////////////////////////
 void InterfaceToLevelDB::advanceIterAndRead(leveldb::Iterator* iter)
@@ -830,10 +902,6 @@ bool InterfaceToLevelDB::addHeader(BinaryData const & headerHash,
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLevelDB::getDBInfoKey(void)
 {
-   // Make the 20-bytes of zeros followed by "DatabaseInfo".  We
-   // do this to make sure it's always at the beginning of an iterator
-   // loop and we can just skip the first entry, instead of checking
-   // each key in the loop
    static BinaryData dbinfokey(0);
    if(dbinfokey.getSize() == 0)
    {

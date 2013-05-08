@@ -15,7 +15,6 @@
 //
 // Create & manage a bunch of different databases
 //
-//
 ////////////////////////////////////////////////////////////////////////////////
 
 #define ARMORY_DB_VERSION   0x00
@@ -45,7 +44,8 @@ typedef enum
   ARMORY_DB_LITE,
   ARMORY_DB_PARTIAL,
   ARMORY_DB_FULL,
-  ARMORY_DB_SUPER
+  ARMORY_DB_SUPER,
+  ARMORY_DB_WHATEVER
 } ARMORY_DB_TYPE;
 
 #define ARMORY_DB_DEFAULT ARMORY_DB_PARTIAL
@@ -53,7 +53,8 @@ typedef enum
 typedef enum
 {
   DB_PRUNE_ALL,
-  DB_PRUNE_NONE
+  DB_PRUNE_NONE,
+  DB_PRUNE_WHATEVER
 } DB_PRUNE_TYPE;
 
 
@@ -92,6 +93,13 @@ typedef enum
   MERKLE_SER_PARTIAL,
   MERKLE_SER_FULL
 } MERKLE_SER_TYPE;
+
+typedef enum
+{
+  REGADDR_UTXO_VECTOR,
+  REGADDR_UTXO_TREE
+} REGADDR_UTXO_TYPE;
+
 
 class InterfaceToLevelDB
 {
@@ -238,8 +246,8 @@ private:
    HashString topBlockHash_;
    uint32_t   topBlockHeight_;
 
-   ARMORY_DB_TYPE  dbTypeMin_;
-   DB_PRUNE_TYPE   pruneTypeMin_;
+   ARMORY_DB_TYPE  armoryDbType_;
+   DB_PRUNE_TYPE   dbPruneType_;
 
    leveldb::Iterator*   iters_[2];
    leveldb::WriteBatch* batches_[2];
@@ -254,7 +262,8 @@ private:
    // In this case, a address is any TxOut script, which is usually
    // just a 25-byte script.  But this generically captures all types
    // of addresses including pubkey-only, P2SH, 
-   set<RegisteredAddress>      registeredAddrSet_;
+   set<RegisteredAddress>   registeredAddrSet_;
+   uint32_t                 lowestScannedUpTo_;
    
 
 };

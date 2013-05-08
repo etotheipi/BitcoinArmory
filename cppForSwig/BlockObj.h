@@ -15,7 +15,7 @@
 #include <cassert>
 
 #include "BinaryData.h"
-#include "FileDataPtr.h"
+//#include "FileDataPtr.h"
 
 
 
@@ -68,8 +68,8 @@ public:
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const;
    uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
-   FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
-   void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
+   //FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
+   //void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -110,7 +110,7 @@ private:
    // Derived properties - we expect these to be set after construct/copy
    BinaryData     thisHash_;
    double         difficultyDbl_;
-   FileDataPtr    thisBlockFilePtr_;  // points to beginning of blk, magic bytes
+   //FileDataPtr    thisBlockFilePtr_;  // points to beginning of blk, magic bytes
 
 
    // Need to compute these later
@@ -485,8 +485,8 @@ class TxRef
 
 public:
    /////////////////////////////////////////////////////////////////////////////
-   TxRef(void) : headerPtr_(NULL) {}
-   TxRef(FileDataPtr fdr) : blkFilePtr_(fdr), headerPtr_(NULL) {}
+   TxRef(void) : ldbKey8B_(0), headerPtr_(NULL) {}
+   //TxRef(FileDataPtr fdr) : blkFilePtr_(fdr), headerPtr_(NULL) {}
      
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         getThisHash(void) const;
@@ -497,8 +497,11 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
    void               setHeaderPtr(BlockHeader* bh)   { headerPtr_ = bh; }
-   FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
-   void               setBlkFilePtr(FileDataPtr const & b) { blkFilePtr_ = b; }
+   //FileDataPtr        getBlkFilePtr(void) { return blkFilePtr_; }
+   //void               setBlkFilePtr(FileDataPtr const & b) { blkFilePtr_ = b; }
+   BinaryData         getLevelDBKey(void) { return ldbKey8B_;}
+   void               setLevelDBKey(BinaryData const & bd) { ldbKey8B_ = bd;}
+
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData         serialize(void) const { return blkFilePtr_.getDataCopy(); }
@@ -512,7 +515,8 @@ public:
    void               pprint(ostream & os=cout, int nIndent=0) const;
 
 private:
-   FileDataPtr        blkFilePtr_;
+   //FileDataPtr        blkFilePtr_;
+   BinaryData         ldbKey8B_;  // hgt(3) + dup(1) + txIdx(2) + txOutIdx(2)
    BlockHeader*       headerPtr_;
 };
 
@@ -609,6 +613,33 @@ private:
 };
 
 
+////////////////////////////////////////////////////////////////////////////////
+// Just a simple struct for storing spentness info
+class SpentByRef
+{
+public:
+   SpentByRef(BinaryData const & ref) { initialize(BinaryRefReader(ref)); }
+   SpentByRef(BinaryDataRef const & ref) { initialize(BinaryRefReader(ref)); }
+   SpentByRef(BinaryRefReader & brr) { initialize(brr); }
+   SpentByRef(BinaryData const & hgtxPlusTxIdx, uint16_t key)
+   {
+      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      dbKey_     = BinaryData(&blkdataprefix,1) + hgtxPlusTxIdx;
+      txInIndex_ = brr.get_uint16_t();
+   }
+
+   void initialize(BinaryRefReader & brr)
+   {
+      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      dbKey_     = BinaryData(&blkdataprefix,1) + brr.get_BinaryData(6);
+      txInIndex_ = brr.get_uint16_t();
+   }
+
+public:
+   BinaryData dbKey_;
+   uint16_t   txInIndex_;
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////////////////////////////////
@@ -669,38 +700,6 @@ public:
 };
 
 
-class SpentByRef
-{
-public:
-   SpentByRef(BinaryData const & ref) { initialize(BinaryRefReader(ref)); }
-   SpentByRef(BinaryDataRef const & ref) { initialize(BinaryRefReader(ref)); }
-   SpentByRef(BinaryRefReader & brr) { initialize(brr); }
-   SpentByRef(BinaryData const & hgtxPlusTxIdx, uint16_t key)
-   {
-      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
-      dbKey_     = BinaryData(&blkdataprefix,1) + hgtxPlusTxIdx;
-      txInIndex_ = brr.get_uint16_t();
-   }
-
-   void initialize(BinaryRefReader & brr)
-   {
-      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
-      dbKey_     = BinaryData(&blkdataprefix,1) + brr.get_BinaryData(6);
-      txInIndex_ = brr.get_uint16_t();
-   }
-
-public:
-   BinaryData dbKey_;
-   uint16_t   txInIndex_;
-   
-};
-
-
-class UtxoDBRef
-{
-
-};
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // BDM is now tracking "registered" addresses and wallets during each of its
@@ -729,7 +728,7 @@ public:
 
 
    //HashString    addr160_;
-   BinaryData    outScript_;
+   BinaryData    addressID_;
    uint32_t      blkCreated_;
    uint32_t      alreadyScannedUpToBlk_;
    uint64_t      sumValue_;

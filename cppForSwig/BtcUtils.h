@@ -62,16 +62,20 @@ class BinaryDataRef;
 
 typedef enum
 {
-   TXOUT_SCRIPT_STANDARD,
-   TXOUT_SCRIPT_COINBASE,
-   TXOUT_SCRIPT_UNKNOWN
+   TXOUT_SCRIPT_STDHASH160,
+   TXOUT_SCRIPT_STDPUBKEY65,
+   TXOUT_SCRIPT_STDPUBKEY33,
+   TXOUT_SCRIPT_P2SH,
+   TXOUT_SCRIPT_NONSTANDARD,
 }  TXOUT_SCRIPT_TYPE;
 
 typedef enum
 {
-   TXIN_SCRIPT_STANDARD,
+   TXIN_SCRIPT_STDUNCOMPR,
+   TXIN_SCRIPT_STDCOMPR,
    TXIN_SCRIPT_COINBASE,
    TXIN_SCRIPT_SPENDCB,
+   TXIN_SCRIPT_SPENDP2SH,
    TXIN_SCRIPT_UNKNOWN
 }  TXIN_SCRIPT_TYPE;
 
@@ -661,6 +665,11 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // TXOUT_SCRIPT_STDHASH160,
+   // TXOUT_SCRIPT_STDPUBKEY65,
+   // TXOUT_SCRIPT_STDPUBKEY33,
+   // TXOUT_SCRIPT_P2SH,
+   // TXOUT_SCRIPT_NONSTANDARD,
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
    {
       uint32_t sz = s.getSize();
@@ -711,10 +720,31 @@ public:
          type = getTxOutScriptType(script);
       switch(type)
       {
-         case(TXOUT_SCRIPT_STANDARD): return script.getSliceCopy(3,20);
-         case(TXOUT_SCRIPT_COINBASE): return getHash160(script.getSliceRef(1,65));
-         case(TXOUT_SCRIPT_UNKNOWN):  return BadAddress_;
-         default:                     return BadAddress_;
+         case(TXOUT_SCRIPT_STDHASH160):  return script.getSliceCopy(3,20);
+         case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
+         case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
+         case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(1,20);
+         //case(TXOUT_SCRIPT_P2SH):        return BadAddress_;
+         case(TXOUT_SCRIPT_UNKNOWN):     return BadAddress_;
+         default:                        return BadAddress_;
+      }
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   static BinaryData getTxOutScriptLDBKey(BinaryDataRef const & script, 
+                                    TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_UNKNOWN)
+   {
+      if(type==TXOUT_SCRIPT_UNKNOWN)
+         type = getTxOutScriptType(script);
+      switch(type)
+      {
+         case(TXOUT_SCRIPT_STDHASH160):  return script.getSliceCopy(3,20);
+         case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
+         case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
+         case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(1,20);
+         //case(TXOUT_SCRIPT_P2SH):        return BadAddress_;
+         case(TXOUT_SCRIPT_UNKNOWN):     return BadAddress_;
+         default:                        return BadAddress_;
       }
    }
 
