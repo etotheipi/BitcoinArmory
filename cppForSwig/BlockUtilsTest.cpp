@@ -86,6 +86,11 @@ string pathJoin(string dir, string file)
 }
 
 
+BinaryData h2b(string s)
+{
+   return BinaryData::CreateFromHex(s);
+}
+
 
 int main(void)
 {
@@ -170,24 +175,206 @@ int main(void)
 
 
 
+void assertError(bool isTrue, string msg)
+{
+   if(isTrue)
+      return;
+
+   cerr << "***ERROR:  Failed BaseTest.   Msg:" << endl;
+   cerr << msg.c_str() << endl;
+   exit(1);
+}
+
+
 void BaseTests(void)
 {
+
+   BinaryData pushScript1 = h2b("493046022100c6abd6466c0cca354bebe9e9fb200ebd2924726a390eec8d76643cbb7959a070022100a5e02686e49819644d1f10d39fd59a41eb5c6f7bc28923f65cad72651fc8131401410459fd82189b81772258a3fc723fdda900eb8193057d4a573ee5ad39e26b58b5c12c4a51b0edd01769f96ed1998221daf0df89634a7137a8fa312d5ccc95ed89254930460221008e238f15d45c1d3739a6c65b6ad9689837f01685d0ded7adbff139e479d4a802022100b19ea60db5fdfc228a07b6d6b5115e148b861cd1085c4db1546da913a35a3f64014104ce6242d72ee67e867e6f8ec434b95fcb1889c5b485ec3414df407e11194a7ce012eda021b68f1dd124598a9b677d6e7d7c95b1b7347f5c5a08efa628ef0204e1483045022100cd58f567dba08d9f33c59efd7271e105ab19a2e9e9f7ec423d93b2c5759636ad02206f6512f67a40051c8dd5a3910b371246a409d7589afcf019cc3550bbfcc41416014104ce66c9f5068b715b62cc1622572cd98a08812d8ca01563045263c3e7af6b997e603e8e62041c4eb82dfd386a3412c34c334c34eb3c76fb0e37483fc72323f807");
+   BinaryData pushScript2 = h2b("00493046022100c6abd6466c0cca354bebe9e9fb200ebd2924726a390eec8d76643cbb7959a070022100a5e02686e49819644d1f10d39fd59a41eb5c6f7bc28923f65cad72651fc8131401410459fd82189b81772258a3fc723fdda900eb8193057d4a573ee5ad39e26b58b5c12c4a51b0edd01769f96ed1998221daf0df89634a7137a8fa312d5ccc95ed89254930460221008e238f15d45c1d3739a6c65b6ad9689837f01685d0ded7adbff139e479d4a802022100b19ea60db5fdfc228a07b6d6b5115e148b861cd1085c4db1546da913a35a3f64014104ce6242d72ee67e867e6f8ec434b95fcb1889c5b485ec3414df407e11194a7ce012eda021b68f1dd124598a9b677d6e7d7c95b1b7347f5c5a08efa628ef0204e1483045022100cd58f567dba08d9f33c59efd7271e105ab19a2e9e9f7ec423d93b2c5759636ad02206f6512f67a40051c8dd5a3910b371246a409d7589afcf019cc3550bbfcc41416014104ce66c9f5068b715b62cc1622572cd98a08812d8ca01563045263c3e7af6b997e603e8e62041c4eb82dfd386a3412c34c334c34eb3c76fb0e37483fc72323f807");
+   vector<BinaryData> splitPush = splitPushOnlyScript(pushScript1);
+   cout << "Splitting push-only script" << endl;
+   for(uint32_t i=0; i<splitPush.size(); i++)
+      cout << "   " << splitPush[i].toHexStr() << endl;
+   cout << endl;
+   
+   /////////////////////////////////////////////////////////////////////////////
+   // Test TxOut/TxIn script interpretting
    vector<BinaryData> txOutScripts;
    vector<TXOUT_SCRIPT_TYPE> txOutTypes;
    vector<BinaryData> hash160s;
-   vector<BinaryData> ldbKeys;
+   vector<BinaryData> txOutLDBKeys;
 
-   txOutScripts.push_back( BinaryData::CreateFromHex("76a914 88ac"));
-   txOutScripts.push_back( BinaryData::CreateFromHex("41 ac"));
-   txOutScripts.push_back( BinaryData::CreateFromHex("21 ac"));
-   txOutScripts.push_back( BinaryData::CreateFromHex("76 88"));
-   txOutScripts.push_back( BinaryData::CreateFromHex("00"));
-   txOutScripts.push_back( BinaryData::CreateFromHex("0100"));
+   txOutTypes.push_back( TXOUT_SCRIPT_STDHASH160 )
+   txOutScripts.push_back( h2b("76a914a134408afa258a50ed7a1d9817f26b63cc9002cc88ac"));
+   txOutHash160s.push_back( h2b("a134408afa258a50ed7a1d9817f26b63cc9002cc"));
+   txOutLDBKeys.push_back(h2b("00a134408afa258a50ed7a1d9817f26b63cc9002cc"));
 
-   txOutScripts.push_back( TXOUT_SCRIPT_STDHASH160 )
-   txOutScripts.push_back( TXOUT_SCRIPT_STDHASH160 )
+   txOutTypes.push_back( TXOUT_SCRIPT_STDPUBKEY65 );
+   txOutScripts.push_back( h2b("4104b0bd634234abbb1ba1e986e884185c61cf43e001f9137f23c2c409273eb16e6537a576782eba668a7ef8bd3b3cfb1edb7117ab65129b8a2e681f3c1e0908ef7bac"));
+   txOutHash160s.push_back( h2b("6da6f1bd6c6380633bc667ba232611f5bf864be2"));
+   txOutLDBKeys.push_back(h2b("006da6f1bd6c6380633bc667ba232611f5bf864be2"));
 
-   
+
+   txOutTypes.push_back( TXOUT_SCRIPT_STDPUBKEY33 );
+   txOutScripts.push_back( h2b("21024005c945d86ac6b01fb04258345abea7a845bd25689edb723d5ad4068ddd3036ac"));
+   txOutHash160s.push_back( h2b("0c1b83d01d0ffb2bccae606963376cca3863a7ce"));
+   txOutLDBKeys.push_back(h2b("000c1b83d01d0ffb2bccae606963376cca3863a7ce"));
+
+   // This was from block 150951 which was erroneously produced by MagicalTux
+   // This is not only non-standard, it's non-spendable
+   txOutTypes.push_back( TXOUT_SCRIPT_NONSTANDARD );
+   txOutScripts.push_back( h2b("76a90088ac"));
+   txOutHash160s.push_back( BtcUtils::BadAddress_);
+   txOutLDBKeys.push_back(h2b("ff76a90088ac"));
+
+   // P2SH script from tx: 4ac04b4830d115eb9a08f320ef30159cc107dfb72b29bbc2f370093f962397b4 (TxOut: 1)
+   // Spent in tx:         fd16d6bbf1a3498ca9777b9d31ceae883eb8cb6ede1fafbdd218bae107de66fe (TxIn: 1)
+   // P2SH address:        3Lip6sxQymNr9LD2cAVp6wLrw8xdKBdYFG
+   // Hash160:             d0c15a7d41500976056b3345f542d8c944077c8a
+   txOutTypes.push_back( TXOUT_SCRIPT_P2SH )
+   txOutScripts.push_back( h2b("a914d0c15a7d41500976056b3345f542d8c944077c8a87")); // send to P2SH
+   txOutHash160s.push_back( h2b("d0c15a7d41500976056b3345f542d8c944077c8a"));
+   txOutLDBKeys.push_back( h2b("05d0c15a7d41500976056b3345f542d8c944077c8a"));
+
+
+   //realCoinbaseOut = "04b6acd549c083cb0d31ee975eb8c2ad7a41be61f0a47bc5d75e919d42704e5642d72f1804bcbab60dbd33f041d3c9edde57704a061a22c5e3cf93debf5f35daaeac"
+   //spendcb = "47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818e173eaf0c2eef101"
+   //has160 = 957efec6af757ccbbcf9a436f0083c5ddaa3bf1d
+   //addrStr 1EdTpNBiPNPbEE4kASow2F4pUpES9jeTJE
+
+   vector<BinaryData> txInScripts;
+   vector<BinaryData> txInPrevHashes;
+   vector<TXIN_SCRIPT_TYPE> txInTypes;
+   vector<BinaryData> txInHash160s;
+
+   prevHashCB  = h2b("0000000000000000000000000000000000000000000000000000000000000000");
+   prevHashReg = h2b("894862e362905c6075074d9ec4b4e2dc34720089b1e9ef4738ee1b13f3bdcdb7");
+
+   txInTypes.push_back(TXIN_SCRIPT_STDUNCOMPR)
+   txInScripts.push_back( h2b("493046022100b9daf2733055be73ae00ee0c5d78ca639d554fe779f163396c1a39b7913e7eac02210091f0deeb2e510c74354afb30cc7d8fbac81b1ca8b3940613379adc41a6ffd226014104b1537fa5bc2242d25ebf54f31e76ebabe0b3de4a4dccd9004f058d6c2caa5d31164252e1e04e5df627fae7adec27fa9d40c271fc4d30ff375ef6b26eba192bac"))
+   txInPrevHashes.push_back(prevHashReg);
+   txInHash160s.push_back(h2b("c42a8290196b2c5bcb35471b45aa0dc096baed5e"));
+
+   txInTypes.push_back(TXIN_SCRIPT_STDCOMPR);
+   txInScripts.push_back( h2b("47304402205299224886e5e3402b0e9fa3527bcfe1d73c4e2040f18de8dd17f116e3365a1102202590dcc16c4b711daae6c37977ba579ca65bcaa8fba2bd7168a984be727ccf7a01210315122ff4d41d9fe3538a0a8c6c7f813cf12a901069a43d6478917246dc92a782"));
+   txInPrevHashes.push_back(prevHashReg);
+   txInHash160s.push_back("03214fc1433a287e964d6c4242093c34e4ed0001");
+
+
+   txInTypes.push_back(TXIN_SCRIPT_COINBASE)
+   txInScripts.push_back( h2b("0310920304000071c3124d696e656420627920425443204775696c640800b75f950e000000"));
+   txInPrevHashes.push_back(prevHashCB);
+   txInHash160s.push_back( BtcUtils::BadAddress_); 
+
+   // Spending P2SH output as above:  fd16d6bbf1a3498ca9777b9d31ceae883eb8cb6ede1fafbdd218bae107de66fe (TxIn: 1, 219 B)
+   // Leading 0x00 byte is required due to a bug in OP_CHECKMULTISIG
+   txInTypes.push_back(TXIN_SCRIPT_SPENDP2SH)
+   txInScripts.push_back( h2b("004830450221009254113fa46918f299b1d18ec918613e56cffbeba0960db05f66b51496e5bf3802201e229de334bd753a2b08b36cc3f38f5263a23e9714a737520db45494ec095ce80148304502206ee62f539d5cd94f990b7abfda77750f58ff91043c3f002501e5448ef6dba2520221009d29229cdfedda1dd02a1a90bb71b30b77e9c3fc28d1353f054c86371f6c2a8101475221034758cefcb75e16e4dfafb32383b709fa632086ea5ca982712de6add93060b17a2103fe96237629128a0ae8c3825af8a4be8fe3109b16f62af19cec0b1eb93b8717e252ae")); 
+   txInPrevHashes.push_back(prevHashReg);
+   txInHash160s.push_back( BtcUtils::BadAddress_); 
+
+
+   txInTypes.push_back(TXIN_SCRIPT_SPENDPUBKEY)
+   txInScripts.push_back( h2b("47304402201ffc44394e5a3dd9c8b55bdc12147e18574ac945d15dac026793bf3b8ff732af022035fd832549b5176126f735d87089c8c1c1319447a458a09818e173eaf0c2eef101"));
+   txInPrevHashes.push_back(prevHashReg);
+   txInHash160s.push_back( BtcUtils::BadAddress_); 
+   //txInHash160s.push_back( h2b("957efec6af757ccbbcf9a436f0083c5ddaa3bf1d")); // this one can't be determined
+  
+
+   uint32_t nOutTest = txOutScripts.size(); 
+   TXOUT_SCRIPT_TYPE outType;
+   BinaryData a160Out_1, a160Out_2;
+   BinaryData keyOut_1, keyOut_2;
+   for(uint32_t test=0; test<nOutTest; test++)
+   {
+      outType   = getTxOutScriptType(txOutScripts[test].getRef());
+      a160Out_1 = getTxOutRecipientAddr(txOutScripts[test].getRef());
+      a160Out_2 = getTxOutRecipientAddr(txOutScripts[test].getRef(), outType);
+      keyOut_1  = getTxOutScriptLDBKey(txOutScripts[test].getRef());
+      keyOut_2  = getTxOutScriptLDBKey(txOutScripts[test].getRef(), outType);
+
+      assertError(outType==txOutTypes[test], "TxOut Script Type does not match");    
+      assertError(a160Out_1==txOutHash160s[test], "TxOut Hash160_1 does not match");    
+      assertError(a160Out_1==txOutHash160s[test], "TxOut Hash160_2 does not match");    
+      assertError(keyOut_1==txOutLDBKeys[test], "TxOut LDBKey_1 does not match");    
+      assertError(keyOut_2==txOutLDBKeys[test], "TxOut LDBKey_2 does not match");    
+   }
+
+   uint32_t nInTest = txInScripts.size();
+   TXIN_SCRIPT_TYPE inType; 
+   BinaryData a160;
+   for(uint32_t test=0; test<nInTest; test++)
+   {
+      inType = getTxInScriptType(txInScripts[test], txInPrevHashes[test]);
+      a160 = 
+   }
+
+   vector<BinaryData> txInScripts;
+   vector<BinaryData> txInPrevHashes;
+   vector<TXIN_SCRIPT_TYPE> txInTypes;
+   vector<BinaryData> txInHash160s;
+
+
+   // Test difficulty-to-double
+   vector<BinaryData> diffBits;
+   vector<double>     diffDbls;
+
+   diffBits.push_back(h2b("ffff001d"));
+   diffDbls.push_back(1.0);
+
+   diffBits.push_back(h2b("be2f021a"));
+   diffDbls.push_back(7672999.920164138);
+
+   diffBits.push_back(h2b("3daa011a"));
+   diffDbls.push_back(10076292.883418716);
+
+   for(uint32_t test=0; test<diffBits.size(); test++)
+   {
+      double diffdbl = convertDiffBitsToDouble(diffBits[test]);
+      assertError(abs(diffdbl-diffDbls[test])<1e-4, "Double repr of diff !match!");
+   }
+
+
+
+   BinaryData txFull(h2b("01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dcda1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef16a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b176952508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f6b73ab75947ac339e5ffffffff02ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac00000000"));
+
+   BinaryData txFrag(h2b("01000000020044fbc929d78e4203eed6f1d3d39c0157d8e5c100bbe0886779c0ebf6a69324010000008a47304402206568144ed5e7064d6176c74738b04c08ca19ca54ddeb480084b77f45eebfe57802207927d6975a5ac0e1bb36f5c05356dcda1f521770511ee5e03239c8e1eecf3aed0141045d74feae58c4c36d7c35beac05eddddc78b3ce4b02491a2eea72043978056a8bc439b99ddaad327207b09ef16a8910828e805b0cc8c11fba5caea2ee939346d7ffffffff45c866b219b176952508f8e5aea728f950186554fc4a5807e2186a8e1c4009e5000000008c493046022100bd5d41662f98cfddc46e86ea7e4a3bc8fe9f1dfc5c4836eaf7df582596cfe0e9022100fc459ae4f59b8279d679003b88935896acd10021b6e2e4619377e336b5296c5e014104c00bab76a708ba7064b2315420a1c533ca9945eeff9754cdc574224589e9113469b4e71752146a10028079e04948ecdf70609bf1b9801f6b73ab75947ac339e5ffffffff0200000000"));
+   BinaryData txOut0(h2b("ac4c8bd5000000001976a9148dce8946f1c7763bb60ea5cf16ef514cbed0633b88ac"));
+   BinaryData txOut1(h2b("002f6859000000001976a9146a59ac0e8f553f292dfe5e9f3aaa1da93499c15e88ac"));
+
+   Tx tx;
+   tx.unserialize(txFull);
+
+   StoredTx stxFull;
+   StoredTx stxFrag;
+   stxFull.unserialize(txFull, false);
+   stxFrag.unserialize(txFrag, true);
+
+   assertError(txFull.haveAllTxOut(), "Fragged tx reported having all TxOuts");
+   assertError(!txFrag.haveAllTxOut(), "Full tx reported not having all TxOuts");
+
+   StoredTxOut stxOut0;
+   StoredTxOut stxOut1;
+   stxOut0.unserialize(txOut0);
+   stxOut1.unserialize(txOut1);
+
+   stxFrag.txOutMap_[0] = stxOut0;
+   assertError(!txFrag.haveAllTxOut(), "Fragged tx reported having all TxOuts");
+
+   stxFrag.txOutMap_[1] = stxOut1;
+   assertError(txFrag.haveAllTxOut(), "Frag-but-full tx reported not having all TxOuts");
+
+   assertError(stxFrag.getTxCopy()==txFrag, "stxFrag.getTxCopy() does not match raw");
+   assertError(stxFrag.getTxCopy()==stxFull.serialize(), "stxFrag.getTxCopy() does not match serialized tx");
+
+   StoredTx stxFrom1;
+   StoredTx stxFrom2;
+   stxFrom1.createFromTx(tx, false);
+   stxFrom2.createFromTx(tx, true);
+
+   assertError(stxFrom1.getTxCopy()==stxFrom2.getTxCopy(), "Creating from tx failed");
+   assertError(stxFrom1.getTxCopy()==txFull,  "Creating from tx failed");
+
 }
 
 

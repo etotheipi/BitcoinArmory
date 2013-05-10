@@ -124,17 +124,6 @@ private:
    uint32_t       wholeBlockSize_;
    vector<TxRef*> txPtrList_;
 
-   // Added for LevelDB engine, which indexes block by height
-   // This is just a hint so we can go directly to the correct
-   // block in the blkdata DB, instead of searching all blocks
-   // at the same height (though, there's usually 1, rarely >2)
-   uint32_t       storedNumTx_;
-   uint32_t       storedNumBytes_;
-   uint32_t       storedHeight_;
-   BinaryData     merkle_;
-   bool           merkleIsPartial_;
-   uint8_t        duplicateID_;
-   bool           haveAllTx_;
 };
 
 
@@ -351,19 +340,7 @@ private:
    TXOUT_SCRIPT_TYPE scriptType_;
    BinaryData        recipientBinAddr20_;
    TxRef*            parentTx_;
-
-   // LevelDB extras related to reading these from storage before verifying
-   uint32_t          storedHeight_;
-   uint8_t           storedDupID_;
-   uint16_t          storedTxIndex_;
-   uint16_t          storedTxOutIndex_;
-   bool              storedIsValid_;
-   uint32_t          spentByHgtX_;
-   uint16_t          spentByTxIndex_;
-
-
 };
-
 
 
 
@@ -377,7 +354,7 @@ class Tx
 
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
-              offsetsTxIn_(0), offsetsTxOut_(0) {}
+              offsetsTxIn_(0), offsetsTxOut_(0), isPartial_(false) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }
@@ -419,6 +396,7 @@ public:
    void unserialize(BinaryData const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryDataRef const & str) { unserialize(str.getPtr()); }
    void unserialize(BinaryRefReader & brr);
+   void unserialize_no_txout(BinaryRefReader & brr);
    void unserialize_swigsafe_(BinaryData const & rawTx) { unserialize(rawTx); }
 
 
@@ -464,16 +442,9 @@ private:
    // To be calculated later
    BlockHeader*  headerPtr_;
    TxRef*        txRefPtr_;
-
-   // LevelDB modifications
-   bool          isPartial_;
-   uint32_t      storedHeight_;
-   uint8_t       storedDupID_;
-   uint8_t       storedIndex_;
-   uint32_t      storedNumTxOut_;
-   uint8_t       storedValid_;
-   vector<TxOut> storedTxOuts_;
 };
+
+
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -650,6 +621,12 @@ public:
    UnspentTxOut(void);
    UnspentTxOut(TxOut & txout, uint32_t blknum) { init(txout, blknum);}
 
+
+   UnspentTxOut(BinaryData const & hash, uint32_t outIndex, uint32_t height, 
+                uint64_t val, BinaryData const & script) :
+      txHash_(hash), txOutIndex_(outIndex), txHeight_(height),
+      value_(val), script_(script) {}
+
    void init(TxOut & txout, uint32_t blknum);
 
    BinaryData   getTxHash(void) const      { return txHash_;     }
@@ -661,6 +638,7 @@ public:
    OutPoint getOutPoint(void) const { return OutPoint(txHash_, txOutIndex_); }
 
    BinaryData const & getScript(void) const      { return script_;     }
+   BinaryData   getRecipientAddr(void) const;
    BinaryData   getRecipientAddr(void) const;
 
    uint32_t   updateNumConfirm(uint32_t currBlknum);
@@ -727,18 +705,26 @@ public:
    }
 
 
-   //HashString    addr160_;
-   BinaryData    addressID_;
-   uint32_t      blkCreated_;
-   uint32_t      alreadyScannedUpToBlk_;
-   uint64_t      sumValue_;
-
    bool operator==(RegisteredAddress const & ra2) const 
                                     { return addr160_ == ra2.addr160_;}
    bool operator< (RegisteredAddress const & ra2) const 
                                     { return addr160_ <  ra2.addr160_;}
    bool operator> (RegisteredAddress const & ra2) const 
                                     { return addr160_ >  ra2.addr160_;}
+
+   
+   void setUniqueKey(BinaryData const & key)
+   {
+      addrType_ = uniqueKey_[0];
+      uniqueKey_.copyFrom(key.getPtr()+1, key.getSize()-1);
+   }
+
+
+   BinaryData        uniqueKey_;
+   uint8_t           addrType_;
+   uint32_t          blkCreated_;
+   uint32_t          alreadyScannedUpToBlk_;
+   uint64_t          sumValue_;
 
 };
 

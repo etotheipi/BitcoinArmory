@@ -3,6 +3,115 @@
 #include "leveldb_wrapper.h"
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+//
+// STORED HEADER/TX/TXOUT Methods
+//
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredTx::unserialize(BinaryData const & data, bool fragged)
+{
+   unserialize(BinaryRefReader(data), fragged);
+}
+
+void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
+{
+   uint32_t numBytes = BtcUtils::StoredTxCalcLength( brr.getCurrPtr(), 
+                                                     fragged,
+                                                     &offsetsTxIn_, 
+                                                     &offsetsTxOut_);
+   dataCopy_.copyFrom(brr.getCurrPtr(), numBytes);
+
+   isFragged_ = fragged;
+   numTxOut_  = offsetsTxOut_.size()-1;
+   version_   = *(uint32_t*)(ptr);
+   lockTime_  = *(uint32_t*)(ptr + numBytes - 4);
+   isInitialized_ = true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool StoredTx::haveAllTxOut(void)
+{
+   if(!isInitialized_ || dataCopy_.getSize()==0)
+      return false; 
+
+   if(!isFragged_)
+      return true;
+
+   for(uint32_t i=0; i<numTxOut_; i++)
+      if(txOutMap_.find(i) == txOutMap_.end())
+         return false;
+
+   return true;
+   
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+BinaryData StoredTx::getTxCopy(void)
+{
+   if(!isInitialized_)
+      return BinaryData(0); 
+
+   if(!isFragged_)
+      return dataCopy_;
+   else if(!haveAllTxOut())
+      return BinaryData(0); 
+    
+   if(!isFragged_)
+      return dataCopy_;
+
+   BinaryWriter bw;
+   bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
+
+   for(uint32_t txo=0; txo<numTxOut_; txo++)
+      bw.put_BinaryData(txOutMap_[i].serialize());
+
+   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize(), 4);
+   return bw.getData();
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void StoredTx::createFromTx(Tx & tx, bool doFrag)
+{
+   if(!tx.isInitialized())
+   {
+      cerr << "ERROR: creating storedtx from uninitialized tx" << endl;
+      isInitialized_ = false;
+      return
+   }
+
+   thisHash_ = tx.getThisHash();
+   numTxOut_ = tx.getNumTxOut();
+   version_  = tx.getVersion();
+   lockTime_ = tx.getLockTime();
+
+   if(!doFrag)
+   {
+      isInitialized_ = true;
+      isFragged_ = false;
+      dataCopy_ = tx.serialize(); 
+   }
+   else
+   {
+      BinaryRefReader brr(tx.serialize());
+      uint32_t firstOut  = tx.getTxOutOffset(0);
+      uint32_t afterLast = tx.getTxOutOffset(numTxOut_);
+      uint32_t span = afterLast - firstOut;
+      dataCopy_.resize(tx.getSize() - span);
+      brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
+      brr.advance(span);
+      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
+   }
+}
+
+
 ////////////////////////////////////////////////////////////////////////////////
 // The dbType and pruneType inputs are left blank if you are just going to take 
 // whatever is the current state of database.  You can choose to manually 
@@ -260,6 +369,39 @@ BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, BinaryData const & key)
    return getValue(db, ldbKey)
 }
 
+/////////////////////////////////////////////////////////////////////////////
+// Get value using BinaryData object.  If you have a string, you can use
+// BinaryData key(string(theStr));
+BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, BinaryDataRef key)
+{
+   leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
+   return getValue(db, ldbKey)
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+// Get value using BinaryData object.  If you have a string, you can use
+// BinaryData key(string(theStr));
+BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, 
+                                        DB_PREFIX prefix,
+                                        BinaryData const & key)
+{
+   return getValue(db, prefix, key.getRef());
+}
+
+/////////////////////////////////////////////////////////////////////////////
+// Get value using BinaryData object.  If you have a string, you can use
+// BinaryData key(string(theStr));
+BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, 
+                                        DB_PREFIX prefix,
+                                        BinaryDataRef key)
+{
+   BinaryData keyFull(key.size()+1);
+   keyFull[0] = (uint8_t)prefix;
+   key.copyTo(keyFull.getPtr()+1, key.getSize());
+   leveldb::Slice ldbKey((char*)keyFull.getPtr(), keyFull.getSize());
+   return getValue(db, ldbKey)
+}
 
 /////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryDataRef object.  Remember, references are only valid
@@ -287,13 +429,13 @@ BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db,
                                               DB_PREFIX prefix, 
                                               BinaryData const & key)
 {
-   BinaryData ldbkey;
    if(db==HEADERS)
       return getValueRef(db, key);
    else
    {
-      uint8_t prefInt = (uint8_t)prefix;
-      ldbkey = BinaryData(&prefInt, 1) + bd;
+      BinaryData ldbkey(key.getSize()+1)
+      ldbkey[0] = (uint8_t)prefix;
+      key.copyTo(ldbkey.getPtr()+1, key.getSize());
       return getValueRef(db, ldbkey);
    }
    
@@ -661,20 +803,23 @@ void InterfaceToLevelDB::readBlkDataTxKey( BinaryRefReader & brr, Tx & tx)
 {
    BLKDATA_TYPE bdtype = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
    if(bdtype != DB_PREFIX_BLKDATA)
+   {
+      tx = Tx();
       return
+   }
 
    tx.storedIndex_ = brr.get_uint16_t()
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, Tx & tx)
+void InterfaceToLevelDB::readBlkDataTxOutKey( BinaryRefReader & brr, TxOut & txout)
 {
-   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, tx.storedHeight_, tx.storedDupID_);
+   BLKDATA_TYPE bdt = readBlkDataKey5B(brr, txOut.storedHeight_txOut tx.storedDupID_);
    if(bdt != DB_PREFIX_BLKDATA)
       return
 
-   tx.storedIndex_ = brr.get_uint16_t()
-   tx = brr.get_uint16_t()
+   txout.storedTxIndex_    = brr.get_uint16_t();
+   txout.storedTxOutIndex_ = brr.get_uint16_t();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -706,13 +851,15 @@ void InterfaceToLevelDB::readBlkDataTxValue( BinaryRefReader & brr, Tx& tx)
    uint8_t isValid = (flags & 0x0300) >>  8;
    uint8_t txSer   = (flags & 0x00f0) >>  4;
    
-   if(txSer == TX_SER_FULL || txSer == TX_SER_NOTXOUT)
+   if(txSer == TX_SER_FULL)
       tx.unserialize(brr);
+   else if(txSer == TX_SER_NOTXOUT)
+      tx.unserialize_no_txout(brr);
    else
-      tx->storedNumTxOut_ = brr.get_var_int();
+      tx.storedTxOuts_.resize(brr.get_var_int());
 
-   tx->version_ = (uint32_t)txVer;
-   tx->storedValid_ = isValid;
+   tx.version_ = (uint32_t)txVer;
+   tx.storedValid_ = isValid;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -729,6 +876,7 @@ void InterfaceToLevelDB::readBlkDataTxOutValue(BinaryRefReader & brr, TxOut& txO
    uint8_t isValid =  (flags & 0x0300) >>  8; 
    uint8_t isSpent =  (flags & 0x00c0) >>  6; 
    txOut.unserialize(brr);
+   txOut.storedIsSpent_ = isSpent;
    if(isSpent == TXOUT_SPENTSAV && brr.getSizeRemaining()>=6)
    {
       txOut.spentByHgtX_    = brr.get_uint32_t(); 
@@ -768,7 +916,8 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
    }
       
    uint32_t nBytes = currReadKey_.getSizeRemaining();
-   currReadKey_.get_BinaryData(regAddr.outScript_, nBytes);
+   regAddr.addrType_ = currReadKey_.get_uint8_t()
+   currReadKey_.get_BinaryData(regAddr.uniqueKey_, nBytes);
 
    // Now read the stored data fro this registered address
    uint16_t flags = currReadValue_.get_uint16_t();
@@ -802,11 +951,121 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
 }
 
 /////////////////////////////////////////////////////////////////////////////
-void InterfaceToLevelDB::getUtxoListForAddr(BinaryData & const addrScript,
-                                            RegisteredAddress & regAddr,
-                                            vector<UnspentTxOut> & txoVect=NULL)
+bool InterfaceToLevelDB::getUnspentTxOut( BinaryData & const ldbKey8B,
+                                          UnspentTxOut & utxo)
+{
+   BinaryRefReader txrr(txoData[i]);
+   uint32_t hgtX   = txrr.get_uint32_t();
+   uint16_t txIdx  = txrr.get_uint16_t();
+   uint16_t outIdx = txrr.get_uint16_t();
+
+
+   BinaryDataRef txRef(txoData[i].getPtr(), 6);
+   bool isFound = seekTo(BLKDATA, DB_PREFIX_BLKDATA, txRef);
+   if(!isFound)
+   {
+      cerr << "***ERROR:  could not find transaction in DB" << endl;
+      return false;
+   }
+
+   // Need to get the height and hash of the parent transaction
+   Tx tx;
+   readBlkDataTxValue(currReadValue_, tx)
+
+   // Now get the TxOut directly
+   BinaryDataRef rawTxOutRef = getValueRef(BLKDATA, DB_PREFIX_BLKDATA, txoData[i]);
+   if(rawTxOutRef.getSize()==0)
+   {
+      cerr << "***ERROR:  could not find TxOut in DB" << endl;
+      return false;
+   }
+
+   BinaryRefReader brr(rawTxOutRef);
+   TxOut txout;
+   readBlkDataTxOutValue(brr, txout);
+
+   utxo.txHash_     = tx.thisHash_;
+   utxo.txOutIndex_ = outIdx;
+   utxo.txHeight_   = hgtxToHeight(hgtX);
+   utxo.value_      = txout.getValue();
+   utxo.script_     = txout.getScript();
+
+   return txout.storedIsSpent_;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::getUtxoListForAddr( BinaryData & const scriptWithType,
+                                             vector<UnspentTxOut> & utxoVect)
+{
+   BinaryWriter bw;
+   bw.put_uint8_t(DB_PREFIX_REGADDR);
+   bw.put_BinaryData(scriptWithType);
+
+   seekTo(BLKDATA, DB_PREFIX_REGADDR, bw.getData());
+
+   RegisteredAddress ra;
+   vector<BinaryData> txoData;
+
+   readRegisteredAddr(ra, &txoData);
+   utxoVect.clear();
+   utxoVect.reserve(txoData.size());
+
+   for(uint32_t i=0; i<txoData.size(); i++)
+   {
+      UnspentTxOut utxo;
+      bool isSpent = getUnspentTxOut(txoData[i], utxo);
+      if(!isSpent)
+         utxoVect.push_back(utxo);
+   }
+   
+   return true;
+
+}
+
+
+bool InterfaceToLevelDB::getFullTxFromKey6B(BinaryData const & key6B)
 {
 
+}
+
+bool InterfaceToLevelDB::getFullTxFromHash(BinaryData const & key6B)
+{
+
+}
+
+
+bool InterfaceToLevelDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
+{
+   if(iter==NULL)
+      iter = iters_[BLKDATA];
+
+   readBlkDataTxKey(currReadKey_, tx);
+   if(!tx.isInitialized())
+   {
+      cerr << "ERROR: iterator is not pointing to a Tx" << endl;
+      return false;
+   }
+
+   readBlkDataTxValue(currReadValue_, tx);
+
+   if(!tx.isPartial_)
+      return;
+   
+   while(1)
+   {
+      advanceIterAndRead(iter);
+      if(readBlkDataKey5B(currReadKey_) != BLKDATA_TXOUT)
+      {
+         currReadKey_.resetPosition();
+         break;
+      }
+
+      TxOut txout;
+      readBlkDataTxOutKey(currReadKey_, txout);
+      readBlkDataTxOutValue(currReadValue_, txout);
+
+      
+   }
 }
 
 
@@ -873,17 +1132,9 @@ BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
    // end, I'm doing a copy anyway.  So I switched to 
    // regular DB.Get and commented out the seek method 
    // so it's still here for reference
-   static leveldb::Status stat;
    static BinaryData headerOut(HEADER_SIZE);
-   static BinaryData nullHeader(0);
-   
-   static string headerVal;
-   leveldb::Slice key(headerHash.getPtr(), 32);
-   stat = db_headers_.Get(leveldb::ReadOptions(), key, &headerVal);
-   if(checkStatus(stat))
-      return headerOut;
-   else
-      return nullHeader;
+   headerOut = getValue(HEADERS, headerHash);
+   return headerOut;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

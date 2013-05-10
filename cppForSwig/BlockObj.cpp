@@ -547,6 +547,33 @@ void Tx::unserialize(uint8_t const * ptr)
 }
 
 /////////////////////////////////////////////////////////////////////////////
+void Tx::unserialize_no_txout(BinaryRefReader & brr)
+{
+   uint32_t numBytes = BtcUtils::TxCalcLength_no_txout(ptr, 
+                                                       &offsetsTxIn_, 
+                                                       &offsetsTxOut_);
+   dataCopy_.copyFrom(ptr, numBytes);
+   BtcUtils::getHash256(ptr, numBytes, thisHash_);
+
+   isPartial_ = true;
+   uint32_t numTxOut = offsetsTxOut_.size()-1;
+   version_  = *(uint32_t*)(ptr);
+   lockTime_ = *(uint32_t*)(ptr + offsetsTxOut_[numTxOut]);
+
+   isInitialized_ = true;
+   headerPtr_ = NULL;
+   txRefPtr_ = NULL;
+
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void Tx::mergePartialTxWithTxOuts(vector<TxOut> const & )
+{
+
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
 bool Tx::isMainBranch(void) const
 {
    if(headerPtr_==NULL || !headerPtr_->isMainBranch())

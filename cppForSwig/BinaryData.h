@@ -140,8 +140,8 @@ public:
 
    void fill(uint8_t ch) { if(getSize()>0) memset(getPtr(), ch, getSize()); }
                
-   uint8_t & operator[](size_t i)       { return data_[i]; }
-   uint8_t   operator[](size_t i) const { return data_[i]; } 
+   uint8_t & operator[](int32_t i)       { return (i<0 ? data_[getSize()+i] : data_[i]); }
+   uint8_t   operator[](int32_t i) const { return (i<0 ? data_[getSize()+i] : data_[i]); } 
 
    /////////////////////////////////////////////////////////////////////////////
    BinaryData operator+(BinaryData const & bd2) const
@@ -499,8 +499,7 @@ public:
    char* toCharPtr(void) const  { return  (char*)(ptr_); }
    unsigned char* toUCharPtr(void) const { return (unsigned char*)(ptr_); }
 
-   uint8_t const & operator[](size_t i) const      { return ptr_[i]; }
-   //uint8_t   operator[](size_t i) const { return ptr_[i]; } 
+   uint8_t const & operator[](int32_t i) const { return (i<0 ? ptr_[nBytes_+i] : ptr_[i]); }
    bool isValid(void) const { return ptr_ != NULL; }
 
    /////////////////////////////////////////////////////////////////////////////

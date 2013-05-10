@@ -74,9 +74,9 @@ typedef enum
    TXIN_SCRIPT_STDUNCOMPR,
    TXIN_SCRIPT_STDCOMPR,
    TXIN_SCRIPT_COINBASE,
-   TXIN_SCRIPT_SPENDCB,
+   TXIN_SCRIPT_SPENDPUBKEY,
    TXIN_SCRIPT_SPENDP2SH,
-   TXIN_SCRIPT_UNKNOWN
+   TXIN_SCRIPT_NONSTANDARD
 }  TXIN_SCRIPT_TYPE;
 
 enum OPCODETYPE
@@ -663,6 +663,70 @@ public:
    }
 
 
+   /////////////////////////////////////////////////////////////////////////////
+   static uint32_t StoredTxCalcLength( 
+                                uint8_t const * ptr,
+                                bool fragged,
+                                vector<uint32_t> * offsetsIn=NULL,
+                                vector<uint32_t> * offsetsOut=NULL)
+   {
+      BinaryRefReader brr(ptr);  
+      
+      // Tx Version;
+      brr.advance(4);
+
+      // TxIn List
+      uint32_t nIn = (uint32_t)brr.get_var_int();
+      if(offsetsIn != NULL)
+      {
+         offsetsIn->resize(nIn+1);
+         for(uint32_t i=0; i<nIn; i++)
+         {
+            (*offsetsIn)[i] = brr.getPosition();
+            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+         }
+         (*offsetsIn)[nIn] = brr.getPosition(); // Get the end of the last
+      }
+      else
+      {
+         // Don't need to track the offsets, just leap over everything
+         for(uint32_t i=0; i<nIn; i++)
+            brr.advance( TxInCalcLength(brr.getCurrPtr()) );
+      }
+
+      // Now extract the TxOut list
+      uint32_t nOut = (uint32_t)brr.get_var_int();
+
+      if(fragged)
+      {
+         offsetsOut->resize(nOut);
+         for(uint32_t i=0; i<nOut; i++)
+            (*offsetsOut)[i] = brr.getPosition();
+      }
+      else
+      {
+         // Now extract the TxOut list
+         if(offsetsOut != NULL)
+         {
+            offsetsOut->resize(nOut+1);
+            for(uint32_t i=0; i<nOut; i++)
+            {
+               (*offsetsOut)[i] = brr.getPosition();
+               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+            }
+            (*offsetsOut)[nOut] = brr.getPosition();
+         }
+         else
+         {
+            for(uint32_t i=0; i<nOut; i++)
+               brr.advance( TxOutCalcLength(brr.getCurrPtr()) );
+         }
+      }
+      brr.advance(4);
+
+      return brr.getPosition();
+   }
+
 
    /////////////////////////////////////////////////////////////////////////////
    // TXOUT_SCRIPT_STDHASH160,
@@ -673,98 +737,223 @@ public:
    static TXOUT_SCRIPT_TYPE getTxOutScriptType(BinaryDataRef const & s)
    {
       uint32_t sz = s.getSize();
-      if(sz < 2) return TXOUT_SCRIPT_UNKNOWN;
-
-      // Had to add a couple conditionals due to block 150951...
-      if( sz      >= 25   &&
-          s[0]    == 0x76 && 
-          s[1]    == 0xa9 &&
-          s[2]    == 0x14 &&  // txs in blk 150951 has a 0x00 here
-          s[sz-2] == 0x88 &&
-          s[sz-1] == 0xac   )
-         return TXOUT_SCRIPT_STANDARD;
-
-      if(sz==67 && s[0]==0x41 && s[1]==0x04 && s[sz-1]==0xac)
-         return TXOUT_SCRIPT_COINBASE;
-
-      return TXOUT_SCRIPT_UNKNOWN;
+      if(sz < 23) 
+         return TXOUT_SCRIPT_NONSTANDARD;
+      else if( sz      == 25   &&
+               s[0]    == 0x76 && 
+               s[1]    == 0xa9 &&
+               s[2]    == 0x14 &&  
+               s[-2]   == 0x88 &&
+               s[-1]   == 0xac   )
+         return TXOUT_SCRIPT_STDHASH160;
+      else if( sz      == 67   &&
+               s[0]    == 0x41 &&
+               s[1]    == 0x04 &&
+               s[-1]   == 0xac)
+         return TXOUT_SCRIPT_STDPUBKEY65;
+      else if( sz      == 35   &&
+               s[0]    == 0x21 &&
+              (s[1]    == 0x02 || s[1] == 0x03) &&
+               s[-1]   == 0xac)
+         return TXOUT_SCRIPT_STDPUBKEY33;
+      else if( sz      == 23   &&
+               s[0]    == 0xa9 &&
+               s[1]    == 0x14 &&
+               s[-1]   == 0x87)
+         return TXOUT_SCRIPT_P2SH;
+      else 
+         return TXOUT_SCRIPT_NONSTANDARD;
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   // TXIN_SCRIPT_STDUNCOMPR,
+   // TXIN_SCRIPT_STDCOMPR,
+   // TXIN_SCRIPT_COINBASE,
+   // TXIN_SCRIPT_SPENDPUBKEY,
+   // TXIN_SCRIPT_SPENDP2SH,
+   // TXIN_SCRIPT_NONSTANDARD
    static TXIN_SCRIPT_TYPE getTxInScriptType(BinaryDataRef const & s,
                                              BinaryDataRef const & prevTxHash)
    {
       if(prevTxHash == BtcUtils::EmptyHash_)
          return TXIN_SCRIPT_COINBASE;
 
+      if(s[0]==0x00 && s[2]==0x30 && s[4]==0x02)
+         return TXIN_SCRIPT_SPENDP2SH;
+
       if( !(s[1]==0x30 && s[3]==0x02) )
-         return TXIN_SCRIPT_UNKNOWN;
+         return TXIN_SCRIPT_NONSTANDARD;
 
       uint32_t sigSize = s[2] + 4;
+
+      if(s.getSize() == sigSize)
+         return TXIN_SCRIPT_SPENDPUBKEY;
+
       uint32_t keySizeFull = 66;  // \x41 \x04 [X32] [Y32] 
       uint32_t keySizeCompr= 34;  // \x41 \x02 [X32]
 
-      if(s.getSize() == sigSize)
-         return TXIN_SCRIPT_SPENDCB;
-      else if(s.getSize() == sigSize + keySizeFull) // || s.getSize() == sigSize + keySizeCompr)
-         return TXIN_SCRIPT_STANDARD;
+      if(s.getSize() == sigSize + keySizeFull)
+         return TXIN_SCRIPT_STDUNCOMPR;
+      else if(s.getSize() == sigSize + keySizeCompr)
+         return TXIN_SCRIPT_STDCOMPR;
 
-      return TXIN_SCRIPT_UNKNOWN;
+      return TXIN_SCRIPT_NONSTANDARD;
    }
 
    /////////////////////////////////////////////////////////////////////////////
    static BinaryData getTxOutRecipientAddr(BinaryDataRef const & script, 
-                                           TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_UNKNOWN)
+                                           TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
    {
-      if(type==TXOUT_SCRIPT_UNKNOWN)
+      if(type==TXOUT_SCRIPT_NONSTANDARD)
          type = getTxOutScriptType(script);
       switch(type)
       {
          case(TXOUT_SCRIPT_STDHASH160):  return script.getSliceCopy(3,20);
          case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
          case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
-         case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(1,20);
-         //case(TXOUT_SCRIPT_P2SH):        return BadAddress_;
-         case(TXOUT_SCRIPT_UNKNOWN):     return BadAddress_;
+         case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(2,20);
+         case(TXOUT_SCRIPT_NONSTANDARD): return BadAddress_;
          default:                        return BadAddress_;
       }
    }
 
    /////////////////////////////////////////////////////////////////////////////
-   static BinaryData getTxOutScriptLDBKey(BinaryDataRef const & script, 
-                                    TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_UNKNOWN)
+   static BinaryData getTxOutScriptUniqueKey(BinaryDataRef const & script, 
+                                    TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
    {
-      if(type==TXOUT_SCRIPT_UNKNOWN)
+      BinaryWriter bw; 
+      if(type==TXOUT_SCRIPT_NONSTANDARD)
          type = getTxOutScriptType(script);
       switch(type)
       {
-         case(TXOUT_SCRIPT_STDHASH160):  return script.getSliceCopy(3,20);
-         case(TXOUT_SCRIPT_STDPUBKEY65): return getHash160(script.getSliceRef(1,65));
-         case(TXOUT_SCRIPT_STDPUBKEY33): return getHash160(script.getSliceRef(1,33));
-         case(TXOUT_SCRIPT_P2SH):        return script.getSliceCopy(1,20);
-         //case(TXOUT_SCRIPT_P2SH):        return BadAddress_;
-         case(TXOUT_SCRIPT_UNKNOWN):     return BadAddress_;
-         default:                        return BadAddress_;
+         case(TXOUT_SCRIPT_STDHASH160):  
+            bw.put_uint8_t(0x00);
+            bw.put_BinaryData(script.getSliceCopy(3,20));
+            return bw.getData();
+         case(TXOUT_SCRIPT_STDPUBKEY65): 
+            bw.put_uint8_t(0x00);
+            bw.put_BinaryData( getHash160(script.getSliceRef(1,65)));
+            return bw.getData();
+         case(TXOUT_SCRIPT_STDPUBKEY33): 
+            bw.put_uint8_t(0x00);
+            bw.put_BinaryData( getHash160(script.getSliceRef(1,33)));
+            return bw.getData();
+         case(TXOUT_SCRIPT_P2SH):       
+            bw.put_uint8_t(0x05);
+            bw.put_BinaryData(script.getSliceCopy(2,20));
+            return bw.getData();
+         case(TXOUT_SCRIPT_NONSTANDARD):     
+            bw.put_uint8_t(0xff);
+            bw.put_var_int(script.getSliceCopy(2,20));
+            return bw.getData();
+         default:
+            cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
+            return BinaryData(0);
       }
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   // TXIN_SCRIPT_STDUNCOMPR,
+   // TXIN_SCRIPT_STDCOMPR,
+   // TXIN_SCRIPT_COINBASE,
+   // TXIN_SCRIPT_SPENDPUBKEY,
+   // TXIN_SCRIPT_SPENDP2SH,
+   // TXIN_SCRIPT_NONSTANDARD
    static BinaryData getTxInAddr(BinaryDataRef const & script, 
                                  BinaryDataRef const & prevTxHash,
-                                 TXIN_SCRIPT_TYPE type=TXIN_SCRIPT_UNKNOWN)
+                                 TXIN_SCRIPT_TYPE type=TXIN_SCRIPT_NONSTANDARD)
    {
-      if(type==TXIN_SCRIPT_UNKNOWN)
+      if(type==TXIN_SCRIPT_NONSTANDARD)
          type = getTxInScriptType(script, prevTxHash);
       switch(type)
       {
-         case(TXIN_SCRIPT_STANDARD):  return getHash160(script.getSliceRef(-65, 65));
-         case(TXIN_SCRIPT_COINBASE):
-         case(TXIN_SCRIPT_SPENDCB):   
-         case(TXIN_SCRIPT_UNKNOWN):   
-         default:                     return BadAddress_;
+         case(TXIN_SCRIPT_STDUNCOMPR):  
+            return getHash160(script.getSliceRef(-65, 65));
+         case(TXIN_SCRIPT_STDCOMPR):    
+            return getHash160(script.getSliceRef(-33, 33));
+         case(TXIN_SCRIPT_SPENDP2SH):   
+            vector<BinaryDataRef> pushVect = splitPushOnlyScriptRefs(script);   
+            return getHash160(pushVect[pushVect.size()]);
+         case(TXIN_SCRIPT_COINBASE):    
+         case(TXIN_SCRIPT_SPENDPUBKEY):   
+         case(TXIN_SCRIPT_NONSTANDARD): 
+            cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
+            return BadAddress_;
       }
    }
 
+
+   /////////////////////////////////////////////////////////////////////////////
+   static vector<BinaryDataRef> splitPushOnlyScriptRefs(BinaryData const & script)
+   {
+      list<BinaryDataRef> opList;
+
+      BinaryRefReader brr(script);
+      opList.push_back(brr.get_BinaryDataRef(1));
+
+      uint8_t nextOp;
+      
+      while(brr.getSizeRemaining() > 0)
+      {
+         nextOp = brr.get_uint8_t();
+         if(nextOp < 76)
+         {
+            // Implicit pushdata
+            brr.rewind(1);
+            opList.push_back(brr.get_BinaryDataRef(1));
+            opList.push_back(brr.get_BinaryDataRef(nextOp));
+         }
+         else if(nextOp == 76)
+         {
+            uint8_t nb = brr.get_uint8_t();
+            brr.rewind(2);
+            opList.push_back( brr.get_BinaryDataRef(2));
+            opList.push_back( brr.get_BinaryDataRef(nb));
+         }
+         else if(nextOp == 77)
+         {
+            uint16_t nb = brr.get_uint16_t();
+            brr.rewind(3);
+            opList.push_back( brr.get_BinaryDataRef(3));
+            opList.push_back( brr.get_BinaryDataRef(nb));
+         }
+         else if(nextOp == 78)
+         {
+            uint16_t nb = brr.get_uint32_t();
+            brr.rewind(5);
+            opList.push_back( brr.get_BinaryDataRef(5));
+            opList.push_back( brr.get_BinaryDataRef(nb));
+         }
+         else if(nextOp > 78 && nextOp < 97 && nextOp !=80)
+         {
+            brr.rewind(1);
+            opList.push_back( brr.get_BinaryDataRef(1));
+         }
+         else
+         {
+            cerr << "This is not a push-only script!" << endl;
+            return vector<BinaryDataRef>(0);
+         }
+      }
+
+      vector<BinaryDataRef> vectOut(opList.size());
+      list<BinaryDataRef>::iterator iter;
+      uint32_t i=0;
+      for(iter = opList.begin(); iter != opList.end(); iter++,i++)
+         vectOut[i] = *iter;
+      return vectOut;
+   }
+
+
+   /////////////////////////////////////////////////////////////////////////////
+   static vector<BinaryData> splitPushOnlyScript(BinaryData const & script)
+   {
+      vector<BinaryDataRef> refs = splitPushOnlyScriptRefs(script);
+      vector<BinaryData> out(refs.size());
+      for(uint32_t i=0; i<refs.size(); i++)
+         out[i].copyFrom(refs[i]);
+      return out;
+   }
 
 
    /////////////////////////////////////////////////////////////////////////////

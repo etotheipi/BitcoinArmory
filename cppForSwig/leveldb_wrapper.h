@@ -101,6 +101,64 @@ typedef enum
 } REGADDR_UTXO_TYPE;
 
 
+
+class StoredBlockHeader
+{
+public:
+   
+   bool           isInitialized_;
+   BinaryData     dataCopy_;
+   uint32_t       numTx_;
+   uint32_t       numBytes_;
+   uint32_t       blockHeight_;
+   BinaryData     merkle_;
+   bool           merkleIsPartial_;
+   uint8_t        duplicateID_;
+
+   bool           isPartial_;
+   map<uint32_t, StoredTx> txMap_;
+};
+
+class StoredTx
+{
+public:
+   StoredTx(void) : isInitialized_(false), thisHash_(0), dataCopy_(0) {}
+   
+   bool haveAllTxOut(void);
+
+   uint32_t             version_;
+   BinaryData           thisHash_;
+   BinaryData           lockTime_;
+   bool                 isInitialized_;
+
+   BinaryData           dataCopy_;
+   bool                 isFragged_;
+   uint32_t             blockHeight_;
+   uint8_t              blockDupID_;
+   uint8_t              txIndex_;
+   uint8_t              isValid_;
+   uint32_t             numTxOut_;
+   map<uint32_t, StoredTxOut> txOutMap_;
+
+};
+
+class StoredTxOut
+{
+public:
+   BinaryData        dataCopy_;
+   bool              isInitialized_;
+   uint32_t          blockHeight_;
+   uint8_t           blockDupID_;
+   uint16_t          txIndex_;
+   uint16_t          txOutIndex_;
+   bool              isValid_;
+   bool              isSpent_;
+   uint32_t          spentByHgtX_;
+   uint16_t          spentByTxIndex_;
+};
+
+
+
 class InterfaceToLevelDB
 {
 public:
@@ -121,7 +179,6 @@ private:
    
    /////////////////////////////////////////////////////////////////////////////
    void closeDatabases(void);
-
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using pre-created slice
@@ -144,7 +201,7 @@ private:
    // for as long as the iterator stays in one place.  If you want to collect 
    // lots of values from the database, you must make copies of them using reg
    // getValue() calls.
-   BinaryDataRef getValueRef(DB_SELECT db, BLK_PREFIX_TYPE prefix, const & key);
+   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, const & key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
