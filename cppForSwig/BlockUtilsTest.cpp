@@ -15,8 +15,9 @@
 #include "BtcUtils.h"
 #include "BlockUtils.h"
 #include "EncryptionUtils.h"
-#include "FileDataPtr.h"
+//#include "FileDataPtr.h"
 #include "PartialMerkle.h"
+#include "leveldb_wrapper.h"
 
 #include "leveldb/db.h"
 
@@ -364,16 +365,16 @@ void BaseTests(void)
    stxFrag.txOutMap_[1] = stxOut1;
    assertError(txFrag.haveAllTxOut(), "Frag-but-full tx reported not having all TxOuts");
 
-   assertError(stxFrag.getTxCopy()==txFrag, "stxFrag.getTxCopy() does not match raw");
-   assertError(stxFrag.getTxCopy()==stxFull.serialize(), "stxFrag.getTxCopy() does not match serialized tx");
+   assertError(stxFrag.getSerializedTx()==txFrag, "stxFrag.getSerializedTx() does not match raw");
+   assertError(stxFrag.getSerializedTx()==stxFull.serialize(), "stxFrag.getTxCopy() does not match serialized tx");
 
    StoredTx stxFrom1;
    StoredTx stxFrom2;
    stxFrom1.createFromTx(tx, false);
    stxFrom2.createFromTx(tx, true);
 
-   assertError(stxFrom1.getTxCopy()==stxFrom2.getTxCopy(), "Creating from tx failed");
-   assertError(stxFrom1.getTxCopy()==txFull,  "Creating from tx failed");
+   assertError(stxFrom1.getSerializedTx()==stxFrom2.getSerializedTx(), "Creating from tx failed");
+   assertError(stxFrom1.getSerializedTx()==txFull,  "Creating from tx failed");
 
 }
 
@@ -1709,116 +1710,6 @@ void TestPointCompression(void)
 
 
 
-void TestFileCache(void)
-{
-   uint32_t nTestFiles = 3;
-   vector<string> filenames(nTestFiles);
-
-   // Create some test files
-   for(uint32_t i=0; i<nTestFiles; i++)
-   {
-      char fn[256];
-      sprintf(fn, "test_file_cache_%04d.dat", i);
-      filenames[i] = string(fn);
-      ofstream os(fn, ios::out | ios::binary);
-      for(uint32_t j=0; j<(i+3)*1024; j++)
-         os << (uint8_t)(j%256);
-      os.close();
-   }
-
-
-   // Setup the file cache -- test with a cache of 1 kB
-   FileDataPtr::SetupFileCaching(128);
-   FileDataCache & fdcache = FileDataPtr::getGlobalCacheRef();
-   
-   for(uint32_t i=0; i<nTestFiles; i++)
-   {
-      fdcache.openFile(i, filenames[i]); 
-      fdcache.pprintCacheState();
-   }
-
-
-   // Start testing only for a single file
-   vector<FileDataPtr> fdrefs;
-   //                           File  Start  Bytes
-   fdrefs.push_back(FileDataPtr(   0,     0,    16  ));
-   fdrefs.push_back(FileDataPtr(   0,     0,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     0,    32  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,    16  ));
-   fdrefs.push_back(FileDataPtr(   0,  3060,    12  ));
-   fdrefs.push_back(FileDataPtr(   0,  3060,    13  ));
-   fdrefs.push_back(FileDataPtr(   0,  3050,    22  ));
-   fdrefs.push_back(FileDataPtr(   0,  1024,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   512,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   768,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   768,   129  ));
-
-   for(uint32_t i=0; i<fdrefs.size(); i++)
-   {
-      cout << fdrefs[i].getDataCopy().toHexStr() << endl;
-   }
-
-
-   FileDataPtr fdrHit(   0, 768,  16 );
-   FileDataPtr fdrMiss1( 0,   0, 128 );
-   FileDataPtr fdrMiss2( 0, 256, 128 );
-
-   cout << "Testing Cache Hits" << endl;
-   TIMER_START("CacheHit_50000");
-   for(uint32_t i=0; i<50000; i++)
-   {
-      fdrHit.getUnsafeDataPtr();
-   }
-   TIMER_STOP("CacheHit_50000");
-
-
-   cout << "Testing Cache Misses" << endl;
-   TIMER_START("CacheMiss_50000");
-   for(uint32_t i=0; i<50000; i++)
-   {
-      fdrMiss1.getUnsafeDataPtr();
-      fdrMiss2.getUnsafeDataPtr();
-   }
-   TIMER_STOP("CacheMiss_50000");
-
-
-
-
-   // Test multi-file caching
-   fdrefs.clear();
-   fdrefs.push_back(FileDataPtr(   0,     0,    16  ));
-   fdrefs.push_back(FileDataPtr(   0,     0,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     0,    32  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   0,     8,    16  ));
-   fdrefs.push_back(FileDataPtr(   0,  3060,    12  ));
-   fdrefs.push_back(FileDataPtr(   0,  3060,    13  ));
-   fdrefs.push_back(FileDataPtr(   0,  3050,    22  ));
-   fdrefs.push_back(FileDataPtr(   0,  1024,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   512,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   768,    64  ));
-   fdrefs.push_back(FileDataPtr(   0,   768,   129  ));
-   fdrefs.push_back(FileDataPtr(   1,     0,    16  ));
-   fdrefs.push_back(FileDataPtr(   1,     0,     8  ));
-   fdrefs.push_back(FileDataPtr(   1,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   1,     0,    32  ));
-   fdrefs.push_back(FileDataPtr(   1,     8,     8  ));
-   fdrefs.push_back(FileDataPtr(   1,     8,    16  ));
-   fdrefs.push_back(FileDataPtr(   1,  3060,    12  ));
-   fdrefs.push_back(FileDataPtr(   1,  3060,    13  ));
-   fdrefs.push_back(FileDataPtr(   1,  3050,    22  ));
-   fdrefs.push_back(FileDataPtr(   1,  1024,    64  ));
-   fdrefs.push_back(FileDataPtr(   1,   512,    64  ));
-   fdrefs.push_back(FileDataPtr(   1,   768,    64  ));
-   fdrefs.push_back(FileDataPtr(   1,   768,   129  ));
-   fdrefs.push_back(FileDataPtr(   2,     0,    16  ));
-   fdrefs.push_back(FileDataPtr(   2,   129,    16  ));
-   for(uint32_t i=0; i<fdrefs.size(); i++)
-      cout << fdrefs[i].getDataCopy().toHexStr() << endl;
-}
 
 
 

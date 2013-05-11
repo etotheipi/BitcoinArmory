@@ -76,7 +76,7 @@ typedef enum
 typedef enum
 {
   TX_SER_FULL,
-  TX_SER_NOTXOUT,
+  TX_SER_FRAGGED,
   TX_SER_COUNTOUT
 } TX_SERIALIZE_TYPE;
 
@@ -105,9 +105,14 @@ typedef enum
 class StoredBlockHeader
 {
 public:
+   StoredBlockHeader(void) : isInitialized_(false), dataCopy_(0), thisHash_(0) {}
+
+   bool haveFullBlock(void);
+   BlockHeader getBlocKHeaderCopy(void);
    
    bool           isInitialized_;
    BinaryData     dataCopy_;
+   BinaryData     thisHash_;
    uint32_t       numTx_;
    uint32_t       numBytes_;
    uint32_t       blockHeight_;
@@ -117,6 +122,8 @@ public:
 
    bool           isPartial_;
    map<uint32_t, StoredTx> txMap_;
+
+   
 };
 
 class StoredTx
@@ -125,6 +132,13 @@ public:
    StoredTx(void) : isInitialized_(false), thisHash_(0), dataCopy_(0) {}
    
    bool haveAllTxOut(void);
+   BinaryData getSerializedTx(void);
+   BinaryData getTxCopy(void);
+   void createFromTx(Tx & tx, bool doFrag);
+
+   void unserialize(BinaryData const & data, bool isFragged=false);
+   void unserialize(BinaryDataRef data,      bool isFragged=false);
+   void unserialize(BinaryRefReader & brr,   bool isFragged=false);
 
    uint32_t             version_;
    BinaryData           thisHash_;
@@ -145,6 +159,10 @@ public:
 class StoredTxOut
 {
 public:
+   StoredTxOut(void) : isInitialized_(false), dataCopy_(0) {}
+
+   void unserialize(BinaryDataRef 
+
    BinaryData        dataCopy_;
    bool              isInitialized_;
    uint32_t          blockHeight_;

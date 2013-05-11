@@ -15,6 +15,7 @@
 #include <cassert>
 
 #include "BinaryData.h"
+#include "leveldb_wrapper.h"
 //#include "FileDataPtr.h"
 
 
@@ -60,7 +61,7 @@ public:
    BinaryDataRef  getNextHashRef(void) const   { return nextHash_.getRef();            }
    BinaryDataRef  getMerkleRootRef(void) const { return BinaryDataRef(getPtr()+36,32); }
    BinaryDataRef  getDiffBitsRef(void) const   { return BinaryDataRef(getPtr()+72,4 ); }
-   uint32_t       getNumTx(void) const         { return txPtrList_.size();             }
+   uint32_t       getNumTx(void) const         { return numTx_; }
 
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const  { assert(isInitialized_); return dataCopy_.getPtr(); }
@@ -68,12 +69,13 @@ public:
    uint32_t        isInitialized(void) const { return isInitialized_; }
    uint32_t        getBlockSize(void) const;
    uint32_t        setBlockSize(uint32_t sz) { wholeBlockSize_ = sz; }
+   uint32_t        setNumTx(uint32_t ntx) { numTx_ = ntx; }
    //FileDataPtr     getBlockFilePtr(void) { return thisBlockFilePtr_; }
    //void            setBlockFilePtr(FileDataPtr b) { thisBlockFilePtr_ = b; }
 
 
    /////////////////////////////////////////////////////////////////////////////
-   vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
+   //vector<TxRef*> &   getTxRefPtrList(void) {return txPtrList_;}
    vector<BinaryData> getTxHashList(void);
    BinaryData         calcMerkleRoot(vector<BinaryData>* treeOut=NULL);
    bool               verifyMerkleRoot(void);
@@ -122,7 +124,8 @@ private:
    bool           isFinishedCalc_;
    bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
-   vector<TxRef*> txPtrList_;
+   uint32_t       numTx_;
+   //vector<TxRef*> txPtrList_;
 
 };
 
@@ -180,7 +183,7 @@ class TxIn
    friend class InterfaceToLevelDB;
 
 public:
-   TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_UNKNOWN), 
+   TxIn(void) : dataCopy_(0), scriptType_(TXIN_SCRIPT_NONSTANDARD), 
                 scriptOffset_(0), parentHash_(0) {}
 
    // Ptr to the beginning of the TxIn, last two arguments are supplemental
@@ -191,8 +194,8 @@ public:
 
    uint8_t const *  getPtr(void) const { assert(isInitialized()); return dataCopy_.getPtr(); }
    uint32_t         getSize(void) const { assert(isInitialized()); return dataCopy_.getSize(); }
-   bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_UNKNOWN; }
-   bool             isCoinbase(void) const;
+   bool             isStandard(void) const { return scriptType_!=TXIN_SCRIPT_NONSTANDARD; }
+   bool             isCoinbase(void) const { return (scriptType_ == TXIN_SCRIPT_COINBASE); }
    bool             isInitialized(void) const {return dataCopy_.getSize() > 0; }
    OutPoint         getOutPoint(void) const;
 
@@ -204,10 +207,13 @@ public:
    uint32_t         getScriptOffset(void) const { return scriptOffset_; }
 
    // SWIG doesn't handle these enums well, so we will provide some direct bools
-   bool             isScriptStandard(void) { return scriptType_ == TXIN_SCRIPT_STANDARD;}
-   bool             isScriptCoinbase(void) { return scriptType_ == TXIN_SCRIPT_COINBASE;}
-   bool             isScriptSpendCB(void)  { return scriptType_ == TXIN_SCRIPT_SPENDCB; }
-   bool             isScriptUnknown(void)  { return scriptType_ == TXIN_SCRIPT_UNKNOWN; }
+   bool             isScriptStandard(void)   { return scriptType_ != TXIN_SCRIPT_NONSTANDARD;}
+   bool             isScriptUncomprKey(void) { return scriptType_ == TXIN_SCRIPT_STDUNCOMPR;}
+   bool             isScriptComprKey(void)   { return scriptType_ == TXIN_SCRIPT_STDCOMPR;}
+   bool             isScriptCoinbase(void)   { return scriptType_ == TXIN_SCRIPT_COINBASE;}
+   bool             isScriptSpendPubKey(void){ return scriptType_ == TXIN_SCRIPT_SPENDPUBKEY; }
+   bool             isScriptSpendP2SH(void)  { return scriptType_ == TXIN_SCRIPT_SPENDP2SH; }
+   bool             isScriptNonStd(void)     { return scriptType_ == TXIN_SCRIPT_NONSTANDARD; }
 
    TxRef*           getParentTxPtr(void) { return parentTx_; }
    uint32_t         getIndex(void) { return index_; }
@@ -281,7 +287,7 @@ public:
    uint8_t const * getPtr(void) const { return dataCopy_.getPtr(); }
    uint32_t        getSize(void) const { return dataCopy_.getSize(); }
    uint64_t        getValue(void) const { return *(uint64_t*)(dataCopy_.getPtr()); }
-   bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_UNKNOWN; }
+   bool            isStandard(void) const { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD; }
    bool            isInitialized(void) const {return dataCopy_.getSize() > 0; }
    TxRef*          getParentTxPtr(void) { return parentTx_; }
    uint32_t        getIndex(void) { return index_; }
@@ -300,9 +306,12 @@ public:
    uint32_t           getScriptSize(void) const { return getSize() - scriptOffset_; }
 
    // SWIG doesn't handle these enums well, so we will provide some direct bools
-   bool               isScriptStandard(void) { return scriptType_ == TXOUT_SCRIPT_STANDARD;}
-   bool               isScriptCoinbase(void) { return scriptType_ == TXOUT_SCRIPT_COINBASE;}
-   bool               isScriptUnknown(void)  { return scriptType_ == TXOUT_SCRIPT_UNKNOWN; }
+   bool isScriptStandard(void)    { return scriptType_ != TXOUT_SCRIPT_NONSTANDARD;}
+   bool isScriptStdHash160(void)  { return scriptType_ == TXOUT_SCRIPT_STDHASH160;}
+   bool isScriptStdPubKey65(void) { return scriptType_ == TXOUT_SCRIPT_STDPUBKEY65;}
+   bool isScriptStdPubKey33(void) { return scriptType_ == TXOUT_SCRIPT_STDPUBKEY33; }
+   bool isScriptP2SH(void)        { return scriptType_ == TXOUT_SCRIPT_P2SH; }
+   bool isScriptNonStd(void)      { return scriptType_ == TXOUT_SCRIPT_NONSTANDARD; }
 
 
    /////////////////////////////////////////////////////////////////////////////
@@ -354,7 +363,7 @@ class Tx
 
 public:
    Tx(void) : isInitialized_(false), headerPtr_(NULL), txRefPtr_(NULL),
-              offsetsTxIn_(0), offsetsTxOut_(0), isPartial_(false) {}
+              offsetsTxIn_(0), offsetsTxOut_(0) {}
    Tx(uint8_t const * ptr)       { unserialize(ptr);       }
    Tx(BinaryRefReader & brr)     { unserialize(brr);       }
    Tx(BinaryData const & str)    { unserialize(str);       }
@@ -463,7 +472,7 @@ public:
    BinaryData         getThisHash(void) const;
    Tx                 getTxCopy(void) const;
    bool               isMainBranch(void)  const;
-   uint32_t           getSize(void) const {  return blkFilePtr_.getNumBytes(); }
+   uint32_t           getSize(void) const {  return -1; }  // TODO: fix this!
 
    /////////////////////////////////////////////////////////////////////////////
    BlockHeader*       getHeaderPtr(void)  const { return headerPtr_; }
@@ -475,7 +484,7 @@ public:
 
 
    /////////////////////////////////////////////////////////////////////////////
-   BinaryData         serialize(void) const { return blkFilePtr_.getDataCopy(); }
+   //BinaryData         serialize(void) const { return blkFilePtr_.getDataCopy(); }
 
    /////////////////////////////////////////////////////////////////////////////
    uint32_t           getBlockTimestamp(void) const;
@@ -589,27 +598,38 @@ private:
 class SpentByRef
 {
 public:
-   SpentByRef(BinaryData const & ref) { initialize(BinaryRefReader(ref)); }
-   SpentByRef(BinaryDataRef const & ref) { initialize(BinaryRefReader(ref)); }
+   SpentByRef(BinaryData const & ref) 
+   { 
+      BinaryRefReader brr(ref);
+      initialize(brr); 
+   }
+
+   SpentByRef(BinaryDataRef const & ref) 
+   {
+      BinaryRefReader brr(ref);
+      initialize(brr); 
+   }
+
    SpentByRef(BinaryRefReader & brr) { initialize(brr); }
+
    SpentByRef(BinaryData const & hgtxPlusTxIdx, uint16_t key)
    {
-      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
-      dbKey_     = BinaryData(&blkdataprefix,1) + hgtxPlusTxIdx;
-      txInIndex_ = brr.get_uint16_t();
+      //static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      //dbKey_     = BinaryData(&blkdataprefix,1) + hgtxPlusTxIdx;
+      //txInIndex_ = brr.get_uint16_t();
    }
 
    void initialize(BinaryRefReader & brr)
    {
-      static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
-      dbKey_     = BinaryData(&blkdataprefix,1) + brr.get_BinaryData(6);
-      txInIndex_ = brr.get_uint16_t();
+      //static uint8_t blkdataprefix = (uint8_t)DB_PREFIX_BLKDATA;
+      //dbKey_     = BinaryData(&blkdataprefix,1) + brr.get_BinaryData(6);
+      //txInIndex_ = brr.get_uint16_t();
    }
 
 public:
    BinaryData dbKey_;
    uint16_t   txInIndex_;
-}
+};
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -638,7 +658,6 @@ public:
    OutPoint getOutPoint(void) const { return OutPoint(txHash_, txOutIndex_); }
 
    BinaryData const & getScript(void) const      { return script_;     }
-   BinaryData   getRecipientAddr(void) const;
    BinaryData   getRecipientAddr(void) const;
 
    uint32_t   updateNumConfirm(uint32_t currBlknum);
@@ -682,35 +701,25 @@ public:
 ////////////////////////////////////////////////////////////////////////////////
 // BDM is now tracking "registered" addresses and wallets during each of its
 // normal scanning operations.  
-class BtcAddress;
 class RegisteredAddress
 {
 public:
    RegisteredAddress(HashString  a160=HashString(0),
                      uint32_t    blkCreated=0) :
-         addr160_(a160),
+         uniqueKey_(a160),
          blkCreated_(blkCreated),
          alreadyScannedUpToBlk_(blkCreated) { }
 
 
-   RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1)
-   {
-      addr160_ = addrObj.getAddrStr20();
-
-      if(blkCreated<0)
-         blkCreated = addrObj.getFirstBlockNum();
-
-      blkCreated_            = blkCreated;
-      alreadyScannedUpToBlk_ = blkCreated;
-   }
+   //RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated=-1);
 
 
    bool operator==(RegisteredAddress const & ra2) const 
-                                    { return addr160_ == ra2.addr160_;}
+                                    { return uniqueKey_ == ra2.uniqueKey_;}
    bool operator< (RegisteredAddress const & ra2) const 
-                                    { return addr160_ <  ra2.addr160_;}
+                                    { return uniqueKey_ <  ra2.uniqueKey_;}
    bool operator> (RegisteredAddress const & ra2) const 
-                                    { return addr160_ >  ra2.addr160_;}
+                                    { return uniqueKey_ >  ra2.uniqueKey_;}
 
    
    void setUniqueKey(BinaryData const & key)

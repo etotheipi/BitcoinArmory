@@ -844,7 +844,7 @@ public:
             return bw.getData();
          case(TXOUT_SCRIPT_NONSTANDARD):     
             bw.put_uint8_t(0xff);
-            bw.put_var_int(script.getSliceCopy(2,20));
+            bw.put_BinaryData(script.getSliceCopy(2,20));
             return bw.getData();
          default:
             cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
@@ -865,6 +865,14 @@ public:
    {
       if(type==TXIN_SCRIPT_NONSTANDARD)
          type = getTxInScriptType(script, prevTxHash);
+
+      return getTxInAddrFromType(script, type);
+   }
+
+   static BinaryData getTxInAddrFromType( BinaryDataRef const & script,
+                                          TXIN_SCRIPT_TYPE type)
+                                                
+   {
       switch(type)
       {
          case(TXIN_SCRIPT_STDUNCOMPR):  
@@ -872,16 +880,20 @@ public:
          case(TXIN_SCRIPT_STDCOMPR):    
             return getHash160(script.getSliceRef(-33, 33));
          case(TXIN_SCRIPT_SPENDP2SH):   
+         {
             vector<BinaryDataRef> pushVect = splitPushOnlyScriptRefs(script);   
             return getHash160(pushVect[pushVect.size()]);
+         }
          case(TXIN_SCRIPT_COINBASE):    
          case(TXIN_SCRIPT_SPENDPUBKEY):   
          case(TXIN_SCRIPT_NONSTANDARD): 
+         default:
             cerr << "***ERROR:  What kind of TxOutScript did we get?" << endl;
             return BadAddress_;
+         
       }
-   }
 
+   }
 
    /////////////////////////////////////////////////////////////////////////////
    static vector<BinaryDataRef> splitPushOnlyScriptRefs(BinaryData const & script)

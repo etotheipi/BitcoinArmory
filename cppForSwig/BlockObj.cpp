@@ -34,7 +34,8 @@ void BlockHeader::unserialize(uint8_t const * ptr)
    isOrphan_ = true;
    isFinishedCalc_ = false;
    isOnDiskYet_ = false;
-   txPtrList_ = vector<TxRef*>(0);
+   //txPtrList_ = vector<TxRef*>(0);
+   numTx_ = 0;
    wholeBlockSize_ = UINT32_MAX;
 }
 
@@ -310,11 +311,6 @@ BinaryDataRef TxIn::getScriptRef(void) const
 }
 
 
-/////////////////////////////////////////////////////////////////////////////
-bool TxIn::isCoinbase(void) const
-{
-   return (scriptType_ == TXIN_SCRIPT_COINBASE);
-}
 
 /////////////////////////////////////////////////////////////////////////////
 void TxIn::unserialize(uint8_t const * ptr, uint32_t nbytes, TxRef* parent, int32_t idx)
@@ -356,23 +352,22 @@ void TxIn::unserialize(BinaryDataRef const & str, uint32_t nbytes, TxRef* parent
 // not available, return false and don't write the output
 bool TxIn::getSenderAddrIfAvailable(BinaryData & addrTarget) const
 {
-   if(scriptType_ != TXIN_SCRIPT_STANDARD)
+   if(scriptType_ == TXIN_SCRIPT_NONSTANDARD ||
+      scriptType_ == TXIN_SCRIPT_COINBASE)
+   {
+      addrTarget = BtcUtils::BadAddress_;
       return false;
+   }
    
-   BinaryData pubkey65 = getScript().getSliceCopy(-65, 65);
-   addrTarget = BtcUtils::getHash160(pubkey65);
+   addrTarget = BtcUtils::getTxInAddrFromType(getScript(), scriptType_);
    return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData TxIn::getSenderAddrIfAvailable(void) const
 {
-   BinaryData addrTarget(0);
-   if(scriptType_ == TXIN_SCRIPT_STANDARD)
-   {
-      BinaryData pubkey65 = getScriptRef().getSliceCopy(-65, 65);
-      addrTarget = BtcUtils::getHash160(pubkey65);
-   }
+   BinaryData addrTarget(20);
+   getSenderAddrIfAvailable(addrTarget);
    return addrTarget;
 }
 
@@ -406,10 +401,12 @@ void TxIn::pprint(ostream & os, int nIndent, bool pBigendian) const
    os << indent << "   Type:    ";
    switch(scriptType_)
    {
-      case TXIN_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
-      case TXIN_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
-      case TXIN_SCRIPT_SPENDCB : os << "SPEND CB" << endl; break;
-      case TXIN_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
+      case TXIN_SCRIPT_STDUNCOMPR:  os << "UncomprKey" << endl; break;
+      case TXIN_SCRIPT_STDCOMPR:    os << "ComprKey" << endl; break;
+      case TXIN_SCRIPT_COINBASE:    os << "Coinbase" << endl; break;
+      case TXIN_SCRIPT_SPENDPUBKEY: os << "SpendPubKey" << endl; break;
+      case TXIN_SCRIPT_SPENDP2SH:   os << "SpendP2sh" << endl; break;
+      case TXIN_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Bytes:   " << getSize() << endl;
    os << indent << "   Sender:  " << getSenderAddrIfAvailable().toHexStr() << endl;
@@ -501,9 +498,11 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
    os << indent << "   Type:   ";
    switch(scriptType_)
    {
-   case TXOUT_SCRIPT_STANDARD: os << "STANDARD" << endl; break;
-   case TXOUT_SCRIPT_COINBASE: os << "COINBASE" << endl; break;
-   case TXOUT_SCRIPT_UNKNOWN : os << "UNKNOWN " << endl; break;
+   case TXOUT_SCRIPT_STDHASH160:  os << "StdHash160" << endl; break;
+   case TXOUT_SCRIPT_STDPUBKEY65: os << "StdPubKey65" << endl; break;
+   case TXOUT_SCRIPT_STDPUBKEY33: os << "StdPubKey65" << endl; break;
+   case TXOUT_SCRIPT_P2SH:        os << "Pay2ScrHash" << endl; break;
+   case TXOUT_SCRIPT_NONSTANDARD: os << "UNKNOWN " << endl; break;
    }
    os << indent << "   Recip:  " 
                 << recipientBinAddr20_.toHexStr(pBigendian).c_str() 
@@ -522,12 +521,12 @@ void TxOut::pprint(ostream & os, int nIndent, bool pBigendian)
 
 Tx::Tx(TxRef* txref)
 {
-   if(txref != NULL)
-   {
-      unserialize(txref->getBlkFilePtr().getUnsafeDataPtr());
-      headerPtr_ = txref->getHeaderPtr();
-   }
-   txRefPtr_ = txref;
+   //if(txref != NULL)
+   //{
+      //unserialize(txref->getBlkFilePtr().getUnsafeDataPtr());
+      //headerPtr_ = txref->getHeaderPtr();
+   //}
+   //txRefPtr_ = txref;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -544,32 +543,6 @@ void Tx::unserialize(uint8_t const * ptr)
    isInitialized_ = true;
    headerPtr_ = NULL;
    txRefPtr_ = NULL;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void Tx::unserialize_no_txout(BinaryRefReader & brr)
-{
-   uint32_t numBytes = BtcUtils::TxCalcLength_no_txout(ptr, 
-                                                       &offsetsTxIn_, 
-                                                       &offsetsTxOut_);
-   dataCopy_.copyFrom(ptr, numBytes);
-   BtcUtils::getHash256(ptr, numBytes, thisHash_);
-
-   isPartial_ = true;
-   uint32_t numTxOut = offsetsTxOut_.size()-1;
-   version_  = *(uint32_t*)(ptr);
-   lockTime_ = *(uint32_t*)(ptr + offsetsTxOut_[numTxOut]);
-
-   isInitialized_ = true;
-   headerPtr_ = NULL;
-   txRefPtr_ = NULL;
-
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void Tx::mergePartialTxWithTxOuts(vector<TxOut> const & )
-{
-
 }
 
 
@@ -611,18 +584,18 @@ uint64_t Tx::getSumOfOutputs(void)
 BinaryData Tx::getRecipientForTxOut(uint32_t txOutIndex) 
 {
    TxOut txout = getTxOut(txOutIndex);
-   if(txout.getScriptType() == TXOUT_SCRIPT_STANDARD ||
-      txout.getScriptType() == TXOUT_SCRIPT_COINBASE)
-   {
-      return txout.getRecipientAddr();
-   }
-   else
-   {
-      // TODO:  We may actually want to have another branch for P2SH
-      //        and pass out the P2SH script hash
-      return BinaryData("");
-   }
-
+   //if(txout.getScriptType() == TXOUT_SCRIPT_STANDARD ||
+      //txout.getScriptType() == TXOUT_SCRIPT_COINBASE)
+   //{
+      //return txout.getRecipientAddr();
+   //}
+   //else
+   //{
+      //// TODO:  We may actually want to have another branch for P2SH
+      ////        and pass out the P2SH script hash
+      //return BinaryData("");
+   //}
+   return BtcUtils::getTxOutRecipientAddr(txout.getScript());
 }
 
 
@@ -768,10 +741,12 @@ Tx TxRef::getTxCopy(void) const
    // It seems unnecessary to have to make this method non-const, but also
    // unnecessary to require (TxRef const *) for the tx copy...
    // I've never used const_cast before, but it seems appropriate here...
-   Tx out(blkFilePtr_.getUnsafeDataPtr());
-   out.setTxRefPtr(const_cast<TxRef*>(this));
-   out.setHeaderPtr(headerPtr_);
-   return out;
+   
+   //Tx out(blkFilePtr_.getUnsafeDataPtr());
+   //out.setTxRefPtr(const_cast<TxRef*>(this));
+   //out.setHeaderPtr(headerPtr_);
+   //return out;
+   return Tx();
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -786,8 +761,9 @@ bool TxRef::isMainBranch(void) const
 /////////////////////////////////////////////////////////////////////////////
 BinaryData TxRef::getThisHash(void) const
 {
-   uint8_t* tempPtr = blkFilePtr_.getUnsafeDataPtr();
-   return BtcUtils::getHash256(tempPtr, blkFilePtr_.getNumBytes());
+   //uint8_t* tempPtr = blkFilePtr_.getUnsafeDataPtr();
+   //return BtcUtils::getHash256(tempPtr, blkFilePtr_.getNumBytes());
+   return BinaryData(0);
 }
 
 
@@ -830,9 +806,9 @@ void TxRef::pprint(ostream & os, int nIndent) const
    os << "   Hash:      " << getThisHash().toHexStr() << endl;
    os << "   Height:    " << getBlockHeight() << endl;
    os << "   BlkIndex:  " << getBlockTxIndex() << endl;
-   os << "   FileIdx:   " << blkFilePtr_.getFileIndex() << endl;
-   os << "   FileStart: " << blkFilePtr_.getStartByte() << endl;
-   os << "   NumBytes:  " << blkFilePtr_.getNumBytes() << endl;
+   //os << "   FileIdx:   " << blkFilePtr_.getFileIndex() << endl;
+   //os << "   FileStart: " << blkFilePtr_.getStartByte() << endl;
+   //os << "   NumBytes:  " << blkFilePtr_.getNumBytes() << endl;
    os << "   ----- " << endl;
    os << "   Read from disk, full tx-info: " << endl;
    getTxCopy().pprint(os, nIndent+1); 
@@ -956,6 +932,21 @@ void UnspentTxOut::pprintOneLine(uint32_t currBlk)
 
 
 
+
+////////////////////////////////////////////////////////////////////////////////
+/*
+RegisteredAddress::RegisteredAddress(BtcAddress const & addrObj, int32_t blkCreated)
+{
+   uniqueKey_ = addrObj.getAddrStr20();
+   addrType_ = 0x00;
+
+   if(blkCreated<0)
+      blkCreated = addrObj.getFirstBlockNum();
+
+   blkCreated_            = blkCreated;
+   alreadyScannedUpToBlk_ = blkCreated;
+}
+*/
 
 
 

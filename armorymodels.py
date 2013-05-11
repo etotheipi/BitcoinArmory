@@ -1141,13 +1141,17 @@ class TxInDataModel(QAbstractTableModel):
                return QVariant("%0.4f" % float(self.tx.getSumOfOutputs()/1e8))
             return QVariant("%0.4f" % float(self.bdm.getSentValue(cppTxIn)/1e8))
          elif col== TXIN_STYPE:
-            if cppTxIn.isScriptStandard():
-               return QVariant('Standard')
+            if cppTxIn.isScriptUncomprKey():
+               return QVariant('REG-PUBKEY')
+            if cppTxIn.isScriptComprKey():
+               return QVariant('COMPR-PUBKEY')
             elif cppTxIn.isScriptCoinbase():
                return QVariant('<ARBITRARY>')
-            elif cppTxIn.isScriptSpendCB():
-               return QVariant('SPEND-COINBASE')
-            elif cppTxIn.isScriptUnknown():
+            elif cppTxIn.isScriptSpendPubKey():
+               return QVariant('SPEND-PUBKEY')
+            elif cppTxIn.isScriptSpendP2SH():
+               return QVariant('SPEND-P2SH')
+            elif cppTxIn.isScriptNonStd():
                return QVariant('UNKNOWN')
          elif col== TXIN_SBLK:
             if cppTxIn.isCoinbase():
@@ -1206,11 +1210,15 @@ class TxOutDataModel(QAbstractTableModel):
          elif col== TXOUT_BTC:
             return QVariant("%0.4f" % float(cppTxOut.getValue()/1e8))
          elif col== TXOUT_STYPE:
-            if cppTxOut.isScriptStandard():
-               return QVariant('Standard')
-            elif cppTxOut.isScriptCoinbase():
-               return QVariant('COINBASE')
-            elif cppTxOut.isScriptUnknown():
+            if cppTxOut.isScriptStdHash160():
+               return QVariant('P2HASH160)')
+            elif cppTxOut.isScriptStdPubKey65():
+               return QVariant('P2PUBKEY65')
+            elif cppTxOut.isScriptStdPubKey33():
+               return QVariant('P2PUBKEY33')
+            elif cppTxOut.isScriptP2SH():
+               return QVariant('P2SH')
+            elif cppTxOut.isScriptNonStd():
                return QVariant('UNKNOWN')
       elif role==Qt.TextAlignmentRole:
          if col in (TXOUT_STYPE,):
