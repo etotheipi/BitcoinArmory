@@ -9,6 +9,7 @@
 
 #include "leveldb/db.h"
 #include "leveldb/write_batch.h"
+#include "log.h"
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -105,10 +106,18 @@ typedef enum
 class StoredBlockHeader
 {
 public:
-   StoredBlockHeader(void) : isInitialized_(false), dataCopy_(0), thisHash_(0) {}
+   StoredBlockHeader(void) : 
+         isInitialized_(false), dataCopy_(0), thisHash_(0),
+         blockHeight_(UINT32_MAX), merkle_(0), duplicateID_(0xff),
+         isMainBranch_(false) {}
+                           
 
    bool haveFullBlock(void);
    BlockHeader getBlocKHeaderCopy(void);
+   BinaryData getSerializedBlock(void);
+
+   void addTxToMap(uint32_t txIdx, Tx & tx);
+   void addTxToMap(uint32_t txIdx, StoredTx & tx);
    
    bool           isInitialized_;
    BinaryData     dataCopy_;
@@ -119,6 +128,7 @@ public:
    BinaryData     merkle_;
    bool           merkleIsPartial_;
    uint8_t        duplicateID_;
+   uint8_t        isMainBranch_;
 
    bool           isPartial_;
    map<uint32_t, StoredTx> txMap_;
@@ -129,7 +139,10 @@ public:
 class StoredTx
 {
 public:
-   StoredTx(void) : isInitialized_(false), thisHash_(0), dataCopy_(0) {}
+   StoredTx(void) : isInitialized_(false), 
+                    thisHash_(0), 
+                    dataCopy_(0), 
+                    numBytes_(0) {}
    
    bool haveAllTxOut(void);
    BinaryData getSerializedTx(void);
@@ -152,6 +165,7 @@ public:
    uint8_t              txIndex_;
    uint8_t              isValid_;
    uint32_t             numTxOut_;
+   uint32_t             numBytes_;
    map<uint32_t, StoredTxOut> txOutMap_;
 
 };
@@ -188,9 +202,9 @@ public:
                       DB_PRUNE_TYPE      pruneType=DB_PRUNE_NONE);
 
 private:
-   BinaryData txOutScriptToLevelDBKey(BinaryData const & script);
-   BinaryData headerHashToLevelDBKey(BinaryData const & headHash);
-   BinaryData txHashToLevelDBKey(BinaryData const & txHash);
+   BinaryData txOutScriptToLDBKey(BinaryData const & script);
+   BinaryData txHashToLDBKey(BinaryData const & txHash);
+   //BinaryData headerHashToLDBKey(BinaryData const & headHash);
 
    /////////////////////////////////////////////////////////////////////////////
    void openDatabases(void);
@@ -205,28 +219,25 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryData object.  If you have a string, you can use
    // BinaryData key(string(theStr));
-   BinaryData getValue(DB_SELECT db, BinaryData const & key);
+   BinaryData getValue(DB_SELECT db, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryDataRef object.  Remember, references are only valid
    // for as long as the iterator stays in one place.  If you want to collect 
    // lots of values from the database, you must make copies of them using reg
    // getValue() calls.
-   BinaryDataRef getValueRef(DB_SELECT db, BinaryData const & keyWithPrefix);
+   BinaryDataRef getValueRef(DB_SELECT db, BinaryDataRef keyWithPrefix);
 
    /////////////////////////////////////////////////////////////////////////////
    // Get value using BinaryDataRef object.  Remember, references are only valid
    // for as long as the iterator stays in one place.  If you want to collect 
    // lots of values from the database, you must make copies of them using reg
    // getValue() calls.
-   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, const & key);
+   BinaryDataRef getValueRef(DB_SELECT db, DB_PREFIX_TYPE prefix, BinaryDataRef key);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch
-   void putValue(DB_SELECT db, 
-                 BinaryData const & key, 
-                 BinaryData const & value);
-
+   void putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value);
 
    /////////////////////////////////////////////////////////////////////////////
    // Put value based on BinaryData key.  If batch writing, pass in the batch

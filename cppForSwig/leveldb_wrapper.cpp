@@ -34,18 +34,67 @@ bool StoredBlockHeader::haveFullBlock(void)
 }
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData StoredBlockHeader::getFullBlock(void)
+BinaryData StoredBlockHeader::getSerializedBlock(void)
 {
    if(!haveFullBlock())
       return BinaryData(0);
 
    BinaryWriter bw;
+   if(numBytes_>0)
+      bw.reserve(numBytes_+100); // add extra room for header and var_int
+
    bw.put_BinaryData(dataCopy_); 
    bw.put_var_int(numTx_);
    for(uint32_t tx=0; tx<numTx_; tx++)
       bw.put_BinaryData(txMap_[tx].getSerializedTx());
    
    return bw.getData();
+}
+
+
+/////////////////////////////////////////////////////////////////////////////
+void createFromBlockHeader(BlockHeader & bh)
+{
+   if(!bh.isInitialized())
+   {
+      cerr << "ERROR: trying to create from uninitialized block header" << endl;
+      return;
+   } 
+
+   unserialize(bh.serialize());
+
+   numTx_ = bh.getNumTx();
+   numBytes_ = bh.getBlockSize();
+   blockHeight_ = bh.getBlockHeight();
+   duplicateID_ = 0xff;
+   isMainBranch_ = bh.isMainBranch();
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void unserialize(BinaryData & header80B);
+{
+   if(header80B.getSize() != HEADER_SIZE)
+   {
+      cerr << "ERROR: Asked to unserialize a non-80-byte header" << endl;
+      return;
+   }
+   dataCopy_.copyFrom(header80B);
+   thisHash_ = BtcUtils::getHash256(header80B);
+   isInitialized_ = true;
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredBlockHeader::addTxToMap(uint32_t txIdx, Tx & tx)
+{
+   StoredTx storedtx;
+   storedtx.createFromTx(tx);
+   addTxToMap(txIdx, storedTx);
+}
+
+/////////////////////////////////////////////////////////////////////////////
+void StoredBlockHeader::addTxToMap(uint32_t txIdx, StoredTx & tx)
+{
+      
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -124,13 +173,24 @@ void StoredBlockHeader::serializeForLDB(BinaryWriter & bw,
       map<uint32_t, StoredTx>::iterator iter = txMap_.begin();
       while(iter != txMap_.end())
       {
-         bw.put_BinaryData(iter->second.thisHash_)
+         isReqTx[iter->first] = true;
+         reqTxs[iter->first] = iter->second.thisHash_;
       }
+      bw.put_BinaryData(PartialMerkleTree(numTx_, isReqTx, reqTxs).serialize());
    }
-   
-   
 }
 
+/////////////////////////////////////////////////////////////////////////////
+bool StoredBlockHeader::serializeForHeaderDB(BinaryWriter & bw)
+{
+   if(!isInitialized_)
+   {
+      cerr << "Uninitialized Header" << endl;
+      return false;
+   }
+   bw.put_BinaryData(dataCopy_);
+   bw.put_uint32_t( heightAndDupToHgtx(blockHeight_, duplicateID_) );
+}
 
 /////////////////////////////////////////////////////////////////////////////
 
@@ -195,6 +255,9 @@ BinaryData StoredTx::getSerializedTx(void)
       return dataCopy_;
 
    BinaryWriter bw;
+   if(numBytes_>0)
+      bw.reserve(numBytes_);
+
    bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
 
    for(uint32_t txo=0; txo<numTxOut_; txo++)
@@ -285,38 +348,34 @@ InterfaceToLevelDB::InterfaceToLevelDB(
 
 
 /////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLevelDB::txOutScriptToLevelDBKey(BinaryData const & script)
+BinaryData InterfaceToLevelDB::txOutScriptToLDBKey(BinaryData const & script)
 {
-   BinaryWriter bw;
+   BinaryWriter bw(22);  // reserve 21 bytes which is almost always perfect
    bw.put_uint8_t(DB_PREFIX_REGADDR);
-
-   TXOUT_SCRIPT_TYPE scrType = getTxOutScriptType(script.getRef());
-   
-   bw.put_var_int(script.getSize()) ;
-   bw.put_BinaryData(script.getRef());
+   bw.put_BinaryData(getTxOutScriptUniqueKey(script.getRef());
    return bw.getData();
 }
 
 
-
 /////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLevelDB::headerHashToLevelDBKey(BinaryData const & headHash)
-{
-   BinaryWriter bw;
-   bw.put_uint8_t(DB_PREFIX_HEADERS);
-   bw.put_BinaryData(headHash);
-   return bw.getData();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData InterfaceToLevelDB::txHashToLevelDBKey(BinaryData const & txHash)
+BinaryData InterfaceToLevelDB::txHashToLDBKey(BinaryData const & txHash)
 {
    // We actually only store the first four bytes of the tx
-   BinaryWriter bw;
+   BinaryWriter bw(5);
    bw.put_uint8_t(DB_PREFIX_BLKDATA);
    bw.put_BinaryData(txHash, 0, 4);
    return bw.getData();
 }
+
+
+/////////////////////////////////////////////////////////////////////////////
+//BinaryData InterfaceToLevelDB::headerHashToLDBKey(BinaryData const & headHash)
+//{
+   //BinaryWriter bw;
+   //bw.put_uint8_t(DB_PREFIX_HEADERS);
+   //bw.put_BinaryData(headHash);
+   //return bw.getData();
+//}
 
 /////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::openDatabases(void)
@@ -355,7 +414,7 @@ bool InterfaceToLevelDB::openDatabases(void)
          flagBytes |= (uint32_t)armoryDbType_ << 24;
          flagBytes |= (uint32_t)dbPruneType_ << 20;
 
-         BinaryWriter bw;
+         BinaryWriter bw(48);
          bw.put_uint32_t(ARMORY_DB_VERSION)
          bw.put_BinaryData(magicBytes_);
          bw.put_uint32_t(flagBytes);
@@ -499,7 +558,7 @@ BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, leveldb::Slice ldbKey)
 /////////////////////////////////////////////////////////////////////////////
 // Get value using BinaryData object.  If you have a string, you can use
 // BinaryData key(string(theStr));
-BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, BinaryData const & key)
+BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, BinaryDataRef key)
 {
    leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
    return getValue(db, ldbKey)
@@ -520,7 +579,7 @@ BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, BinaryDataRef key)
 // BinaryData key(string(theStr));
 BinaryData InterfaceToLevelDB::getValue(DB_SELECT db, 
                                         DB_PREFIX prefix,
-                                        BinaryData const & key)
+                                        BinaryDataRef key)
 {
    return getValue(db, prefix, key.getRef());
 }
@@ -544,7 +603,7 @@ BinaryData InterfaceToLevelDB::getValue(DB_SELECT db,
 // for as long as the iterator stays in one place.  If you want to collect 
 // lots of values from the database, you must make copies of them using reg
 // getValue() calls.
-BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db, BinaryData const & key)
+BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db, BinaryDataRef key)
 {
    leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
    return getValue(db, ldbKey)
@@ -563,7 +622,7 @@ BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db, BinaryData const & k
 // getValue() calls.
 BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db, 
                                               DB_PREFIX prefix, 
-                                              BinaryData const & key)
+                                              BinaryDataRef key)
 {
    if(db==HEADERS)
       return getValueRef(db, key);
@@ -579,9 +638,7 @@ BinaryDataRef InterfaceToLevelDB::getValueRef(DB_SELECT db,
 
 /////////////////////////////////////////////////////////////////////////////
 // Put value based on BinaryData key.  If batch writing, pass in the batch
-void InterfaceToLevelDB::putValue(DB_SELECT db, 
-                                  BinaryData const & key, 
-                                  BinaryData const & value)
+void InterfaceToLevelDB::putValue(DB_SELECT db, BinaryDataRef key, BinaryDataRef value)
 {
    leveldb::Slice ldbKey((char*)key.getPtr(), key.getSize());
    leveldb::Slice ldbVal((char*)value.getPtr(), value.getSize());
@@ -1111,7 +1168,7 @@ bool InterfaceToLevelDB::getUnspentTxOut( BinaryData & const ldbKey8B,
 bool InterfaceToLevelDB::getUtxoListForAddr( BinaryData & const scriptWithType,
                                              vector<UnspentTxOut> & utxoVect)
 {
-   BinaryWriter bw;
+   BinaryWriter bw(22);
    bw.put_uint8_t(DB_PREFIX_REGADDR);
    bw.put_BinaryData(scriptWithType);
 
@@ -1136,16 +1193,6 @@ bool InterfaceToLevelDB::getUtxoListForAddr( BinaryData & const scriptWithType,
 
 }
 
-
-bool InterfaceToLevelDB::getFullTxFromKey6B(BinaryData const & key6B)
-{
-
-}
-
-bool InterfaceToLevelDB::getFullTxFromHash(BinaryData const & key6B)
-{
-
-}
 
 
 bool InterfaceToLevelDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
@@ -1251,17 +1298,6 @@ BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
    return headerOut;
 }
 
-////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::addHeader(BinaryData const & headerHash, 
-                                   BinaryData const & headerRaw)
-{
-   static leveldb::Status stat;
-   leveldb::Slice key(headerHash.getPtr(), 32);
-   leveldb::Slice val(headerRaw.getPtr(), HEADER_SIZE);
-   
-   stat = db_headers_.Put(leveldb::WriteOptions(), key, val);
-   return checkStatus(stat);
-}
 
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1270,11 +1306,85 @@ BinaryData InterfaceToLevelDB::getDBInfoKey(void)
    static BinaryData dbinfokey(0);
    if(dbinfokey.getSize() == 0)
    {
-      BinaryWriter bw;
+      BinaryWriter bw(13);
       bw.put_uint8_t((uint8_t) DB_PREFIX_DBINFO)
       bw.put_BinaryData( BinaryData(string("DatabaseInfo")));
       dbinfokey = bw.getData();
    }
    return dbinfokey;
 }
+
+StoredTx InterfaceToLevelDB::getFullTxFromKey6B(BinaryDataRef key6B)
+{
+
+}
+
+StoredTx InterfaceToLevelDB::getFullTxFromHash(BinaryDataRef txHash)
+{
+
+}
+
+
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::addInitHeader(BinaryDataRef header80B)
+{
+   BinaryWriter bwKey(33);
+   bwKey.put_uint8_t( (uint8_t)(*(uint32_t*)header80B.getPtr()));
+   bwKey.put_BinaryData( BtcUtils::getHash256(header80B));
+
+   BinaryWriter bwVal(84);
+   bwVal.put_BinaryData(header80B);
+   bwVal.put_uint32_t(0xffffffff);
+
+   putValue(HEADERS, bwKey.getDataRef(), bwVal.getDataRef());
+   return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash, 
+                                            uint32_t height, uint8_t dup)
+{
+   BinaryDataRef headVal = getValueRef(HEADERS, headHash);
+   if(headVal.isNull())
+   {
+      cerr << "ERROR:  Attempted to update a non-existent header!" << endl;
+      return false;
+   }
+      
+   BinaryWriter bw(HEADER_SIZE + 4);
+   bw.put_BinaryData(headVal.getPtr(), HEADER_SIZE);
+   bw.put_uint32_t(heightAndDupToHgtx(height, dup));
+
+   putValue(HEADERS, headHash, bw.getDataRef());
+   return true;
+}  
+
+////////////////////////////////////////////////////////////////////////////////
+// 
+bool InterfaceToLevelDB::addBlockToDB(BinaryDataRef newBlock, bool withLead8B)
+{
+   BinaryRefReader brr(newBlock);
+
+   if(withLead8B)
+   {
+      BinaryDataRef first4 = brr.get_BinaryDataRef(4);
+      if(first4 != magicBytes_)
+      {
+         cerr << "Magic bytes don't match! " << first4.toHexStr().c_str() << endl;
+         return false;
+      }
+      
+      // The next 4 bytes is the block size, but we will end up computing this
+      // anyway, as we dissect the block.
+      brr.advance(4);
+      
+   }
+   
+   
+
+}
+
+
+
 

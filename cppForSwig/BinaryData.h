@@ -91,6 +91,8 @@ public:
    BinaryData(BinaryDataRef const & bdRef);
    size_t getSize(void) const               { return data_.size(); }
 
+   bool isNull(void) { return (data_.size()==0);}
+
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       
    { 
@@ -455,6 +457,7 @@ public:
    /////////////////////////////////////////////////////////////////////////////
    uint8_t const * getPtr(void) const       { return ptr_;    }
    size_t getSize(void) const               { return nBytes_; }
+   bool isNull(void) { return (ptr_==NULL);}
 
    /////////////////////////////////////////////////////////////////////////////
    void setRef(uint8_t const * inData, size_t sz)          
@@ -1144,6 +1147,12 @@ public:
    BinaryData const & getData(void)
    {
       return theString_;
+   }
+
+   /////////////////////////////////////////////////////////////////////////////
+   BinaryDataRef getDataRef(void)
+   {
+      return theString_.getRef();
    }
 
    /////////////////////////////////////////////////////////////////////////////

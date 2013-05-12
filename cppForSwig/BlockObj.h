@@ -125,7 +125,7 @@ private:
    bool           isOnDiskYet_;
    uint32_t       wholeBlockSize_;
    uint32_t       numTx_;
-   //vector<TxRef*> txPtrList_;
+   vector<TxRef*> txPtrList_;
 
 };
 

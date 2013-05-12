@@ -818,6 +818,8 @@ public:
    }
 
    /////////////////////////////////////////////////////////////////////////////
+   // We use this for LevelDB keys, to return same key if the same priv/pub 
+   // pair is used
    static BinaryData getTxOutScriptUniqueKey(BinaryDataRef const & script, 
                                     TXOUT_SCRIPT_TYPE type=TXOUT_SCRIPT_NONSTANDARD)
    {
