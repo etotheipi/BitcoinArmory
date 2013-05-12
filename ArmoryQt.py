@@ -2245,8 +2245,8 @@ class ArmoryMainWindow(QMainWindow):
       
       # Prompt user to print paper backup if they requested it.
       if dlg.chkPrintPaper.isChecked():
-         dlg = DlgPaperBackup(newWallet, self, self)
-         dlg.exec_()
+         OpenPaperBackupWindow('Single', self, self.main, self.wlt, \
+            tr("Create Paper Backup"))
 
 
 

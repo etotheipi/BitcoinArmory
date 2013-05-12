@@ -1386,7 +1386,8 @@ class DlgWalletDetails(ArmoryDialog):
            'This wallet does not contain any private keys.  Nothing to backup!', QMessageBox.Ok)
          return 
 
-      DlgPaperBackup(self.wlt, self, self.main).exec_()
+      OpenPaperBackupWindow('Single', self, self.main, self.wlt)
+
       
    def execRemoveDlg(self):
       dlg = DlgRemoveWallet(self.wlt, self, self.main)
@@ -4423,8 +4424,8 @@ class DlgRemoveWallet(ArmoryDialog):
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
       if self.chkPrintBackup.isChecked():      
-         dlg = DlgPaperBackup(wlt, self, self.main)
-         if not dlg.exec_():
+         if not OpenPaperBackupWindow('Single', self, self.main, self.wlt, \
+                                                tr('Unlock Paper Backup')):
             QMessageBox.warning(self, 'Operation Aborted', \
               'You requested a paper backup before deleting the wallet, but '
               'clicked "Cancel" on the backup printing window.  So, the delete '
@@ -4609,7 +4610,7 @@ class DlgRemoveAddress(ArmoryDialog):
       # Open the print dialog.  If they hit cancel at any time, then 
       # we go back to the primary wallet-remove dialog without any other action
       #if self.chkPrintBackup.isChecked():      
-         #dlg = DlgPaperBackup(wlt, self, self.main)
+         #dlg = DlgPaperBackup(self, self.main, wlt)
          #if not dlg.exec_():
             #return
             
@@ -8208,6 +8209,10 @@ class SimplePrintableGraphicsScene(object):
          self.lastCursorMove = (dx, dy)
 
 
+   def resetScene(self):
+      self.gfxScene.clear()
+      self.resetCursor()
+
    def resetCursor(self):
       self.cursorPos = QPointF(self.MARGIN_PIXELS, self.MARGIN_PIXELS)
 
@@ -8309,7 +8314,7 @@ class DlgPaperBackup(ArmoryDialog):
    (in order to manipulate the private keys for printing), but I don't think
    this is a big deal, because printing would be infrequent
    """
-   def __init__(self, wlt, parent=None, main=None, use_printer_mask=True):
+   def __init__(self, parent, main, wlt):
       super(DlgPaperBackup, self).__init__(parent, main)
 
 
@@ -8317,6 +8322,40 @@ class DlgPaperBackup(ArmoryDialog):
       self.binMask  = SecureBinaryData(0)
       self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain = wlt.addrMap['ROOT'].chaincode.copy()
+
+      # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
+      # Hardcode salt & IV because they should *never* change.
+      # Rainbow tables aren't all that useful here because the user
+      # is not creating the password -- it's *essentially* randomized
+      # with 64-bits of real entropy. (though, it is deterministic
+      # based on the private key, so that printing the backup multiple
+      # times will produce the same password.
+      self.IV   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
+      self.SALT = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
+                          '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+      secretData = self.binPriv.toBinStr() + self.binChain.toBinStr()
+      self.randpass = SecureBinaryData(HMAC512(secretData, self.SALT.toBinStr())[:7])
+      secretData = None;
+
+      self.kdf = KdfRomix()
+      self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
+      start = RightNow()
+      self.binCrypt32 = self.kdf.DeriveKey(self.randpass)
+      LOGINFO('Deriving printermask took %0.2f seconds' % (RightNow() - start))
+      self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
+                                                   self.binPriv,
+                                                   self.IV)
+      self.binChainCrypt = CryptoAES().EncryptCBC( self.binCrypt32,
+                                                   self.binChain,
+                                                   self.IV)
+      self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
+
+      # Create the scene and the view.
+      self.scene = SimplePrintableGraphicsScene(self, self.main)
+      self.view = QGraphicsView()
+      self.view.setRenderHint(QPainter.TextAntialiasing) 
+      self.view.setScene(self.scene.getScene())
+
       if wlt.useEncryption and wlt.isLocked:
          dlg = DlgUnlockWallet(wlt, parent, main, 'Create Paper Backup')
          if dlg.exec_():
@@ -8326,40 +8365,100 @@ class DlgPaperBackup(ArmoryDialog):
             self.reject()
             
 
-   
+      self.chkPrinterMask = QCheckBox(tr('Use PrinterMask\xe2\x84\xa2'))
+      self.chkPrinterMask.setChecked(False)
+      self.ttipPrinterMask = self.main.createToolTipWidget( tr("""
+         PrinterMask\xe2\x84\xa2 prevents your printer from ever being exposed to the 
+         unencrypted key data.  However, it requires you to write the
+         encryption key on back after it has been printed.  This feature
+         is completely unnecessary if you are copying the backup by hand, 
+         anyway."""))
+      self.lblPrinterMask = QRichLabel(tr("""
+         <b><font color="%s"><u>IMPORTANT:</u>  You must write the PrinterMask\xe2\x84\xa2
+         encryption key on the printed backup!  Your PrinterMask\xe2\x84\xa2 key is </font>
+         <font color="%s">%s</font>.  <font color="%s">Your backup will not work
+         if this key is not included in the backup!</font> """) % \
+         (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
+         htmlColor('TextWarn')))
+      self.connect(self.chkPrinterMask, SIGNAL("clicked()"), self.redrawBackup)
+         
 
-      self.scene = SimplePrintableGraphicsScene(self, self.main)
-      self.view = QGraphicsView()
-      self.view.setRenderHint(QPainter.TextAntialiasing) 
-      self.view.setScene(self.scene.getScene())
+      btnPrint = QPushButton('&Print...')
+      btnPrint.setMinimumWidth( 3*tightSizeStr(btnPrint,'Print...')[0])
+      self.btnCancel = QPushButton('&Cancel')
+      self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+
+      lblDescr = QRichLabel(tr( """ 
+         <b>Print a One-Time Backup</b><br>
+         Printing this sheet backs up all <u>previous and future</u> addresses
+         generated by this wallet!  The "Root Key" and "Chaincode" can 
+         be copied by hand if you do not have a working printer</b>"""))
+         
+      frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
+
+      self.redrawBackup()
+
+      frmPrinterMask = makeHorizFrame([self.chkPrinterMask, 
+                                       self.ttipPrinterMask, 
+                                       'Stretch'])
+
+      layout = QGridLayout()
+      layout.addWidget(frmDescr,            0,0, 1,4)
+      layout.addWidget(frmPrinterMask,      1,0, 1,4)
+      layout.addWidget(self.lblPrinterMask, 2,0, 1,4)
+      layout.addWidget(self.view,           3,0, 3,4)
+      
+      frmButtons = makeHorizFrame([self.btnCancel, 'Stretch', btnPrint])
+      layout.addWidget(frmButtons, 6,0, 1,4)
+
+      self.setLayout(layout)
+
+      self.setWindowIcon(QIcon(':/printer_icon.png'))
+      self.setWindowTitle('Print Wallet Backup')
+
+      def warnImportedKeys():
+         QMessageBox.warning(self, "Imported Addresses", tr(""" 
+            <b><font color="red"><u>WARNING</u></font>:  
+            You must backup <u>imported</u>
+            addresses separately to protect any money in them.  This
+            backup only protects addresses naturally generated by this
+            wallet.</b>
+            <br><br> 
+            Visit the backup center again and select an option
+            indicates support for imported keys. """),  \
+            QMessageBox.Ok)
+
+      # Apparently I can't programmatically scroll until after it's painted
+      def scrollTop():
+         vbar = self.view.verticalScrollBar()
+         vbar.setValue(vbar.minimum())
+      from twisted.internet import reactor
+      reactor.callLater(0.01, scrollTop)
+
+      haveImportedAddr = False
+      for a160,aobj in wlt.addrMap.iteritems():
+         if aobj.chainIndex==-2:
+            haveImportedAddr = True
+            break
+
+      if haveImportedAddr:
+         reactor.callLater(0.1, warnImportedKeys)
+
+
+   def redrawBackup(self):
+      self.scene.gfxScene.clear()
+      self.scene.resetCursor()
 
       INCH = self.scene.INCH
       MARGIN = self.scene.MARGIN_PIXELS 
 
-      # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
-      # Hardcode salt & IV because they should *never* change
-      # Rainow tables aren't all that useful against high-entropy
-      # random passwords.
-      self.IV   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
-      self.SALT = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
-                          '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
-      FULLSTR = self.binPriv.toBinStr() + self.binChain.toBinStr()
-      self.PASSPHRASE = SecureBinaryData(HMAC512(FULLSTR, self.SALT.toBinStr())[:8])
-      self.kdf = KdfRomix()
-      self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
-      start = RightNow()
-      self.binCrypt32 = self.kdf.DeriveKey(self.PASSPHRASE)
-      LOGINFO('Deriving printermask took %0.2f seconds' % (RightNow() - start))
-      self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
-                                                   self.binPriv,
-                                                   self.IV)
-      self.binChainCrypt = CryptoAES().EncryptCBC( self.binCrypt32,
-                                                   self.binChain,
-                                                   self.IV)
-         
-      print binary_to_base58(self.PASSPHRASE.toBinStr())
+      doMask = self.chkPrinterMask.isChecked()
 
-      self.scene.drawPixmapFile(':/armory_logo_h36.png') 
+      if USE_TESTNET:
+         self.scene.drawPixmapFile(':/armory_logo_green_h56.png') 
+      else:
+         self.scene.drawPixmapFile(':/armory_logo_h36.png') 
       self.scene.newLine()
 
       self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
@@ -8389,8 +8488,9 @@ class DlgPaperBackup(ArmoryDialog):
       self.scene.moveCursor(offsetX, 0)
       self.scene.drawText(self.wlt.labelName); self.scene.newLine()
 
+      ssType =  ' (with PrinterMask\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
       self.scene.moveCursor(offsetX, 0)
-      self.scene.drawText('Single-Sheet'); self.scene.newLine()
+      self.scene.drawText(tr('Single-Sheet' + ssType)); self.scene.newLine()
       
       wrap = 0.9*self.scene.pageRect().width()
       
@@ -8426,13 +8526,16 @@ class DlgPaperBackup(ArmoryDialog):
       self.scene.moveCursor(4.0*INCH, 0)
 
       pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
-      if use_printer_mask:
+      if doMask:
          self.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
 
       self.scene.resetCursor()
       self.scene.moveCursor(4.07*INCH, 0.07*INCH)
       
-      if use_printer_mask:
+      if not doMask:
+         self.lblPrinterMask.setVisible(False)
+      else:
+         self.lblPrinterMask.setVisible(True)
          self.scene.drawText(tr("""
             <b><font color="#770000">CRITICAL:</font>  This backup will not 
             work without the PrinterMask
@@ -8472,7 +8575,7 @@ class DlgPaperBackup(ArmoryDialog):
 
       KEYFONT = GETFONT('Fixed', 8, bold=True)
 
-      if use_printer_mask:
+      if doMask:
          code12 = self.binPrivCrypt.toBinStr()
          code34 = self.binChainCrypt.toBinStr()
       else:
@@ -8516,47 +8619,9 @@ class DlgPaperBackup(ArmoryDialog):
       qrSize = min(edgeRgt - x, edgeBot - y)
       self.scene.drawQR('\n'.join(Lines), qrSize)
       
-
-
-      btnPrint = QPushButton('&Print...')
-      btnPrint.setMinimumWidth( 3*tightSizeStr(btnPrint,'Print...')[0])
-      btnCancel = QPushButton('&Cancel')
-      self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
-      self.connect(btnCancel, SIGNAL('clicked()'), self.reject)
-
-      warnSecurityStr = ( \
-         'The data shown below '
-         'protects all keys that are ever <u>generated</u> by your wallet. '
-         'The QR code holds the exact same data as the four data '
-         'lines, and provided for convenience.  If you do not have a '
-         'working printer, <b>you can copy the four lines by hand</b>.')
-         
-      haveImportedAddr = False
-      for a160,aobj in wlt.addrMap.iteritems():
-         if aobj.chainIndex==-2:
-            haveImportedAddr = True
-            break
-      if haveImportedAddr:
-         warnSecurityStr += ( \
-            '<br><br>'
-            '<font color="red"><u>WARNING</u>:  <i>YOU MUST BACKUP IMPORTED '
-            'ADDRESSES SEPARATELY TO PROTECT ANY MONEY IN THEM</i>.  '
-            'Use the "Backup Individual Keys" buttton in the wallet '
-            'properties to access imported private keys.</font>')
-      lblWarn = QRichLabel( warnSecurityStr)
-
-
-      layout = QGridLayout()
-      layout.addWidget(lblWarn,    0,0, 1,4)
-      layout.addWidget(self.view,  1,0, 3,4)
-      
-      frmButtons = makeHorizFrame([btnCancel, 'Stretch', btnPrint])
-      layout.addWidget(frmButtons, 4,0, 1,4)
-
-      self.setLayout(layout)
-
-      self.setWindowIcon(QIcon(':/printer_icon.png'))
-      self.setWindowTitle('Print Wallet Backup')
+      vbar = self.view.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
+      #self.view.invalidateScene()
       
        
    def print_(self):
@@ -8564,10 +8629,21 @@ class DlgPaperBackup(ArmoryDialog):
       self.printer.setPageSize(QPrinter.Letter)
       dialog = QPrintDialog(self.printer)
       if dialog.exec_():
-          painter = QPainter(self.printer)
-          painter.setRenderHint(QPainter.TextAntialiasing)
-          self.scene.getScene().render(painter)
-          self.accept()
+         painter = QPainter(self.printer)
+         painter.setRenderHint(QPainter.TextAntialiasing)
+         self.scene.getScene().render(painter)
+         if self.chkPrinterMask.isChecked():
+            QMessageBox.warning(self, 'PrinterMask Key', tr("""
+               <br><b>You must write your PrinterMask\xe2\x84\xa2 
+               key on the sheet of paper you just printed!</b>  
+               Write it in the red box in upper-right corner 
+               of the printed page. <br><br>PrinterMask\xe2\x84\xa2 key: 
+               <font color="%s" size=4><b>%s</b></font> 
+               <br>""") % (htmlColor('TextBlue'),self.randpass.toBinStr()), \
+               QMessageBox.Ok)
+         #self.accept()
+         self.btnCancel.setText('Done')
+               
 
    def cleanup(self):
       self.binPriv.destroy()
@@ -8575,7 +8651,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.binPrivCrypt.destroy()
       self.binChainCrypt.destroy()
       self.binCrypt32.destroy()
-      self.PASSPHRASE.destroy()
+      self.randpass.destroy()
 
    def accept(self):
       self.cleanup()
@@ -8586,6 +8662,26 @@ class DlgPaperBackup(ArmoryDialog):
       super(DlgPaperBackup, self).reject()
 
 
+
+################################################################################
+def OpenPaperBackupWindow(backupType, parent, main, wlt, unlockTitle=None):
+   
+   if wlt.useEncryption and wlt.isLocked:
+      if unlockTitle==None:
+         unlockTitle = tr("Unlock Paper Backup")
+      dlg = DlgUnlockWallet(wlt, self, self.main, unlockTitle)
+      if not dlg.exec_():
+         QMessageBox.warning(self, tr('Unlock Failed'), tr("""
+            The correct unlock password was not entered.  You cannot make a 
+            paper backup without unlocking the wallet, first."""), QMessageBox.Ok)
+         return
+
+   if backupType=='Single':
+      return DlgPaperBackup(parent, main, wlt).exec_()
+   elif backupType=='Frag':
+      return DlgFragBackup(parent, main, wlt).exec_()
+
+################################################################################
 class DlgBadConnection(ArmoryDialog):
    def __init__(self, haveInternet, haveSatoshi, parent=None, main=None):
       super(DlgBadConnection, self).__init__(parent, main)
@@ -12696,10 +12792,10 @@ class DlgBackupCenter(ArmoryDialog):
 
    def clickedDoIt(self):
       if self.optPaperBackupOne.isChecked():
-         if DlgPaperBackup(self.wlt, self, self.main).exec_():
+         if OpenPaperBackupWindow('Single', self, self.main, self.wlt):
             self.accept()
       elif self.optPaperBackupFrag.isChecked():
-         if DlgFragBackup(self, self.main, self.wlt).exec_():
+         if OpenPaperBackupWindow('Frag', self, self.main, self.wlt):
             self.accept()
       elif self.optDigitalBackupPlain.isChecked():
          self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
@@ -12768,7 +12864,7 @@ class DlgSimpleBackup(ArmoryDialog):
 
       def backupPaper():
          self.accept()
-         DlgPaperBackup(self.wlt, self, self.main).exec_()
+         OpenPaperBackupWindow('Single', self, self.main, self.wlt)
 
       def backupOther():
          self.accept()
@@ -12818,6 +12914,7 @@ class DlgSimpleBackup(ArmoryDialog):
 
 ################################################################################
 class DlgFragBackup(ArmoryDialog):
+
    #############################################################################
    def __init__(self, parent, main, wlt):
       super(DlgFragBackup, self).__init__(parent, main)
