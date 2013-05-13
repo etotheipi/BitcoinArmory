@@ -2389,6 +2389,13 @@ class PyBtcAddress(object):
          raise KeyDataError, 'PyBtcAddress does not have an address string!'
       return self.addrStr20
 
+
+   #############################################################################
+   def isCompressed(self):
+      # Armory wallets (v1.35) do not support compressed keys
+      return False 
+   
+
    #############################################################################
    def touch(self, unixTime=None, blkNum=None):
       """

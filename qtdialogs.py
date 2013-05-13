@@ -8327,17 +8327,13 @@ class DlgPaperBackup(ArmoryDialog):
       # Save off imported addresses in case they need to be printed, too
       for a160,addr in self.wlt.addrMap.iteritems():
          if addr.chainIndex==-2:
-            if(addr.binPrivKey32_Plain.getSize() == 33)
+            if addr.binPrivKey32_Plain.getSize()==33 or addr.isCompressed():
                prv = addr.binPrivKey32_Plain.toBinStr()[:32]
                self.binImport.append( [a160, SecureBinaryData(prv), 1])
                prv = None
             else:
                self.binImport.append( [a160, addr.binPrivKey32_Plain.copy(), 0])
 
-            # In case we don't have 33-byte compressed keys but just a flag
-            #if(addr.isCompressed()):
-               #self.binImport[-1][-1] = 1
-   
 
       # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
       # Hardcode salt & IV because they should *never* change.
@@ -8357,7 +8353,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
       start = RightNow()
       self.binCrypt32 = self.kdf.DeriveKey(self.randpass)
-      LOGINFO('Deriving printermask took %0.2f seconds' % (RightNow() - start))
+      LOGINFO('Deriving secureprint took %0.2f seconds' % (RightNow() - start))
       self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
                                                    self.binPriv,
                                                    self.IV)
@@ -8366,9 +8362,20 @@ class DlgPaperBackup(ArmoryDialog):
                                                    self.IV)
       self.binImportCrypt = []
       for i in range(len(self.binImport)):
-         self.binImportCrypt.append(CryptoAES().EncryptCBC( self.binImportCrypt,
-                                                            self.binChain,
-                                                            self.IV)
+         prvCrypt = CryptoAES().EncryptCBC( self.binImport[i][1],
+                                            self.binChain,
+                                            self.IV)
+         self.binImportCrypt.append([self.binImport[i][0], \
+                                     prvCrypt, \
+                                     self.binImport[i][2]])
+
+
+      # We need to figure out how many imported keys fit on one page
+      tempTxtItem = QGraphicsTextItem('')
+      tempTxtItem.setPlainText(toUnicode('0123QAZjqlmYy'))
+      tempTxtItem.setFont(GETFONT('Fix',7))
+      self.importHgt = tempTxtItem.boundingRect().height() - 3
+      
          
       self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
 
@@ -8386,22 +8393,28 @@ class DlgPaperBackup(ArmoryDialog):
             ## If we canceled out of unlocking, we can't print...
             #self.reject()
             
+      self.chkImportPrint = QCheckBox(tr('Print imported keys on subsequent pages'))
+      self.connect(self.chkImportPrint, SIGNAL('clicked()'), self.clickImportChk)
+      self.chkImportPrint.setVisible( len(self.binImport)>0)
 
-      self.chkPrinterMask = QCheckBox(tr('Use PrinterMask\xe2\x84\xa2 to hide the keys from your printer'))
-      self.chkPrinterMask.setChecked(False)
-      self.ttipPrinterMask = self.main.createToolTipWidget( tr("""
-         PrinterMask\xe2\x84\xa2 encrypts your backup with a code displayed on the 
-         screen, to make sure that your printer (or other device) is never
-         exposed to the private keys.  This feature is unnecessary 
-         if you are copying the "Root Key" and "Chaincode" by hand."""))
-      self.lblPrinterMask = QRichLabel(tr("""
-         <b><font color="%s"><u>IMPORTANT:</u>  You must write the PrinterMask\xe2\x84\xa2
-         encryption code on the printed backup!  Your PrinterMask\xe2\x84\xa2 code is </font>
+      self.chkSecurePrint = QCheckBox(tr( """
+         Use SecurePrint\xe2\x84\xa2 to prevent exposing keys
+         to networked devices."""))
+      self.chkSecurePrint.setChecked(False)
+      self.ttipSecurePrint = self.main.createToolTipWidget( tr("""
+         SecurePrint\xe2\x84\xa2 encrypts your backup with a code displayed on 
+         the screen, to make sure that your printer is never exposed to the 
+         private keys.  If you turn on SecurePrint\xe2\x84\xa2 <u>you must 
+         write the code on the page after it is done printing!</u>  Turn off
+         this feature if you copy the "Root Key" and "Chaincode" by hand."""))
+      self.lblSecurePrint = QRichLabel(tr("""
+         <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
+         encryption code on the printed backup!  Your SecurePrint\xe2\x84\xa2 code is </font>
          <font color="%s">%s</font>.  <font color="%s">Your backup will not work
          if this code is lost!</font> """) % \
          (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
          htmlColor('TextWarn')))
-      self.connect(self.chkPrinterMask, SIGNAL("clicked()"), self.redrawBackup)
+      self.connect(self.chkSecurePrint, SIGNAL("clicked()"), self.redrawBackup)
          
 
       btnPrint = QPushButton('&Print...')
@@ -8421,17 +8434,19 @@ class DlgPaperBackup(ArmoryDialog):
 
       self.redrawBackup()
 
-      frmPrinterMask = makeHorizFrame([self.chkPrinterMask, 
-                                       self.ttipPrinterMask, 
+      frmSecurePrint = makeHorizFrame([self.chkSecurePrint, 
+                                       self.ttipSecurePrint, 
                                        'Stretch'])
+      frmChkImport = makeHorizFrame([self.chkImportPrint, 'Stretch'])
 
       frmButtons = makeHorizFrame([self.btnCancel, 'Stretch', btnPrint])
 
       layout = QVBoxLayout()
       layout.addWidget(frmDescr)
+      layout.addWidget(frmChkImport)
       layout.addWidget(self.view)
-      layout.addWidget(frmPrinterMask)
-      layout.addWidget(self.lblPrinterMask)
+      layout.addWidget(frmSecurePrint)
+      layout.addWidget(self.lblSecurePrint)
       layout.addWidget(frmButtons)
       setLayoutStretch(layout, 0,1,0,0,0)
 
@@ -8459,19 +8474,33 @@ class DlgPaperBackup(ArmoryDialog):
       from twisted.internet import reactor
       reactor.callLater(0.01, scrollTop)
 
-      self.haveImportedAddr = False
-      for a160,aobj in parent.wlt.addrMap.iteritems():
-         if aobj.chainIndex==-2:
-            self.haveImportedAddr = True
-            break
-
-      if self.haveImportedAddr:
-         reactor.callLater(0.5, warnImportedKeys)
+      #if len(self.bin
+         #reactor.callLater(0.5, warnImportedKeys)
 
 
    def redrawBackup(self):
       CreatePrintScene(self, 'SingleSheetFirstPage','')
-      
+
+   def clickImportChk(self):
+      MARGIN = self.scene.MARGIN_PIXELS 
+      bottomOfPage = self.scene.pageRect().height() + MARGIN
+      totalHgt = bottomOfPage - self.bottomOfSceneHeader 
+      self.maxKeysPerPage = int(totalHgt / (self.importHgt+1))
+      self.numImportPages = (len(self.binImport)-1) / self.maxKeysPerPage + 1
+      if self.numImportPages > 1:
+         ans = QMessageBox.warning(self, tr('Lots to Print!'), tr("""
+            This wallet contains <b>%d</b> imported keys, which will require 
+            <b>%d</b> pages to print.  Not only will this use a lot of paper, 
+            it will be a lot of work to manually type in these keys in the 
+            event that you need to restore this backup. It is recommended 
+            that you do <u>not</u> print your imported keys and instead make 
+            a digital backup, which can be restored instantly if needed.
+            <br><br> Do you want to print the imported keys, anyway?""") % \
+            (len(self.binImport), self.numImportPages), \
+            QMessageBox.Yes | QMessageBox.No)
+         if not ans==QMessageBox.Yes:
+            self.chkImportPrint.setChecked(False)
+
        
    def print_(self):
       LOGINFO('Printing!')
@@ -8483,24 +8512,28 @@ class DlgPaperBackup(ArmoryDialog):
          painter.setRenderHint(QPainter.TextAntialiasing)
          self.scene.getScene().render(painter)
 
-         if self.haveImportedAddr:
-            self.printer.newPage()
-            CreatePrintScene(self, 'SingleSheetImported', [0,10])
-            self.scene.getScene().render(painter)
+         if len(self.binImport)>0 and self.chkImportPrint.isChecked():
+            nKey = self.maxKeysPerPage
+            for i in range(self.numImportPages):
+               self.printer.newPage()
+               CreatePrintScene(self, 'SingleSheetImported', [i*nKey,(i+1)*nKey])
+               self.scene.getScene().render(painter)
 
          painter.end()
 
-         if self.chkPrinterMask.isChecked():
-            QMessageBox.warning(self, 'PrinterMask Code', tr("""
-               <br><b>You must write your PrinterMask\xe2\x84\xa2 
-               code on the sheet of paper you just printed!</b>  
+         if self.chkSecurePrint.isChecked():
+            QMessageBox.warning(self, 'SecurePrint Code', tr("""
+               <br><b>You must write your SecurePrint\xe2\x84\xa2 
+               code on each sheet of paper you just printed!</b>  
                Write it in the red box in upper-right corner 
-               of the printed page. <br><br>PrinterMask\xe2\x84\xa2 code: 
+               of the printed page. <br><br>SecurePrint\xe2\x84\xa2 code: 
                <font color="%s" size=4><b>%s</b></font> 
                <br>""") % (htmlColor('TextBlue'),self.randpass.toBinStr()), \
                QMessageBox.Ok)
-         #self.accept()
-         self.btnCancel.setText('Done')
+         if self.chkSecurePrint.isChecked():
+            self.btnCancel.setText('Done')
+         else:
+            self.accept()
                
 
    def cleanup(self):
@@ -8510,7 +8543,7 @@ class DlgPaperBackup(ArmoryDialog):
       self.binChainCrypt.destroy()
       self.binCrypt32.destroy()
       self.randpass.destroy()
-      for a160,priv in self.binImport:
+      for a160,priv,compr in self.binImport:
          priv.destroy()
 
    def accept(self):
@@ -8530,7 +8563,7 @@ def CreatePrintScene(parent, printType, printData):
    INCH = parent.scene.INCH
    MARGIN = parent.scene.MARGIN_PIXELS 
 
-   doMask = parent.chkPrinterMask.isChecked()
+   doMask = parent.chkSecurePrint.isChecked()
 
    if USE_TESTNET:
       parent.scene.drawPixmapFile(':/armory_logo_green_h56.png') 
@@ -8538,10 +8571,7 @@ def CreatePrintScene(parent, printType, printData):
       parent.scene.drawPixmapFile(':/armory_logo_h36.png') 
    parent.scene.newLine()
 
-   if printType=='SingleSheetFirstPage':
-      parent.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
-   elif printType=='SingleSheetImported':
-      parent.scene.drawText('Imported Addresses for Armory Wallet', GETFONT('Var', 11))
+   parent.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
    parent.scene.newLine()
    parent.scene.drawText('http://www.bitcoinarmory.com')
 
@@ -8568,9 +8598,12 @@ def CreatePrintScene(parent, printType, printData):
    parent.scene.moveCursor(offsetX, 0)
    parent.scene.drawText(parent.wlt.labelName); parent.scene.newLine()
 
-   ssType =  ' (with PrinterMask\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
+   ssType =  ' (with SecurePrint\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
    parent.scene.moveCursor(offsetX, 0)
-   parent.scene.drawText(tr('Single-Sheet' + ssType)); parent.scene.newLine()
+   if printType=='SingleSheetFirstPage':
+      parent.scene.drawText(tr('Single-Sheet' + ssType)); parent.scene.newLine()
+   elif printType=='SingleSheetImported':
+      parent.scene.drawText(tr('Imported Addresses' + ssType)); parent.scene.newLine()
    
    wrap = 0.9*parent.scene.pageRect().width()
    
@@ -8588,25 +8621,30 @@ def CreatePrintScene(parent, printType, printData):
    parent.scene.drawHLine()
    parent.scene.newLine(extra_dy=20)
 
-   if printType=='SingleSheetImported':
-      for a160,priv in parent.binImport[printData[0]:printData[1]]:
-         prprv = encodePrivKeyBase58(priv.toBinStr())
-         toPrint = [prprv[i*6:(i+1)*6] for i in range((len(prprv)+5)/6)]
-         parent.scene.drawText(' '.join(toPrint), GETFONT('Fix',7))
-         parent.scene.newLine(extra_dy=-3)
-         prprv = None
-      return
-
-   foreverMsg = tr(""" 
-      The following four lines of completely backup all addresses 
-      <i>ever generated</i> by this wallet.
-      This can be used to recover your wallet if you forget your passphrase or 
-      suffer hardware failure and lose your wallet files. """)
+   if printType=='SingleSheetFirstPage':
+      descrMsg = tr(""" 
+         The following four lines of completely backup all addresses 
+         <i>ever generated</i> by this wallet.
+         This can be used to recover your wallet if you forget your passphrase or 
+         suffer hardware failure and lose your wallet files. """)
+   elif printType=='SingleSheetImported':
+      if parent.chkSecurePrint.isChecked():
+         descrMsg = tr("""
+            The following is a list of all private keys imported into your 
+            wallet before this backup was made.   These keys are encrypted 
+            with the SecurePrint code and can only be restored by entering 
+            them into Armory.  You must print a copy of this backup without 
+            the SecurePrint option enabled if you want to be able to import 
+            them into any application""")
+      else:
+         descrMsg = tr(""" 
+            The following is a list of all private keys imported into your 
+            wallet before this backup was made.  Each one must be copied 
+            manually into the application where you wish to import them.  """)
+      
          
-   parent.scene.drawText(foreverMsg, GETFONT('var', 8), wrapWidth=wrap)
+   parent.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
    parent.scene.newLine(extra_dy=10)
-
-
 
    prevCursor = parent.scene.cursorPos.x(), parent.scene.cursorPos.y()
    parent.scene.resetCursor()
@@ -8621,12 +8659,12 @@ def CreatePrintScene(parent, printType, printData):
    parent.scene.moveCursor(4.07*INCH, 0.07*INCH)
    
    if not doMask:
-      parent.lblPrinterMask.setVisible(False)
+      parent.lblSecurePrint.setVisible(False)
    else:
-      parent.lblPrinterMask.setVisible(True)
+      parent.lblSecurePrint.setVisible(True)
       parent.scene.drawText(tr("""
          <b><font color="#770000">CRITICAL:</font>  This backup will not 
-         work without the PrinterMask\xe2\x84\xa2
+         work without the SecurePrint\xe2\x84\xa2
          code displayed on the screen during printing. 
          Copy it here in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
 
@@ -8638,6 +8676,27 @@ def CreatePrintScene(parent, printType, printData):
       w,h = parent.scene.drawHLine(width=wid*0.9, penWidth=2)
 
    parent.scene.moveCursor(*prevCursor, absolute=True)
+
+   parent.bottomOfSceneHeader = parent.scene.cursorPos.y()
+
+   if printType=='SingleSheetImported':
+      parent.scene.moveCursor(0, 0.1*INCH)
+      importList = parent.binImport
+      if parent.chkSecurePrint.isChecked():
+         importList = parent.binImportCrypt
+      
+      for a160,priv,isCompr in importList[printData[0]:printData[1]]:
+         comprByte = ('\x01' if isCompr==1 else '')
+         prprv = encodePrivKeyBase58(priv.toBinStr() + comprByte)
+         toPrint  = [prprv[i*6:(i+1)*6] for i in range((len(prprv)+5)/6)]
+         addrHint = '  (%s...)' % hash160_to_addrStr(a160)[:12]
+         parent.scene.drawText(' '.join(toPrint), GETFONT('Fix',7))
+         parent.scene.moveCursor(0.02*INCH,0)
+         parent.scene.drawText(addrHint, GETFONT('Var',7))
+         parent.scene.newLine(extra_dy=-3)
+         prprv = None
+      return
+
 
 
    rootSize = 0
