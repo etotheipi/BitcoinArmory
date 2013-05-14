@@ -1373,7 +1373,7 @@ class DlgWalletDetails(ArmoryDialog):
 
 
    def execBackupDlg(self):
-      DlgSimpleBackup(self, self.main, self.wlt).exec_()
+      DlgBackupCenter(self, self.main, self.wlt).exec_()
 
    def execPrintDlg(self):
       if self.wlt.isLocked:
@@ -4606,15 +4606,6 @@ class DlgRemoveAddress(ArmoryDialog):
 
 
    def removeAddress(self):
-
-      # Open the print dialog.  If they hit cancel at any time, then 
-      # we go back to the primary wallet-remove dialog without any other action
-      #if self.chkPrintBackup.isChecked():      
-         #dlg = DlgPaperBackup(self, self.main, wlt)
-         #if not dlg.exec_():
-            #return
-            
-            
       reply = QMessageBox.warning(self, 'One more time...', \
            'Simply deleting an address does not prevent anyone '
            'from sending money to it.  If you have given this address '
@@ -8241,7 +8232,7 @@ class SimplePrintableGraphicsScene(object):
    def drawRect(self, w, h, edgeColor=QColor(0,0,0), fillColor=None, penWidth=1):
       rectItem = QGraphicsRectItem(self.cursorPos.x(), self.cursorPos.y(), w, h)
       if edgeColor==None:
-         rectItem.setPen(Qt.NoPen)
+         rectItem.setPen(QPen(Qt.NoPen))
       else:
          pen = QPen(edgeColor)
          pen.setWidth(penWidth)
@@ -8259,7 +8250,9 @@ class SimplePrintableGraphicsScene(object):
       return self.lastItemSize
       
 
-   def drawText(self, txt, font=GETFONT('Var',9), wrapWidth=None, useHtml=True):
+   def drawText(self, txt, font=None, wrapWidth=None, useHtml=True):
+      if font==None:
+         font = GETFONT('Var',9)
       txtItem = QGraphicsTextItem('')
       if useHtml:
          txtItem.setHtml(toUnicode(txt))
@@ -8298,24 +8291,54 @@ class SimplePrintableGraphicsScene(object):
       return self.lastItemSize
 
          
+   def drawColumn(self, strList, rowHeight=None, font=None, useHtml=True):
+      """ 
+      This draws a bunch of left-justified strings in a column.  It returns
+      a tight bounding box around all elements in the column, which can easily
+      be used to start the next column.  The rowHeight is returned, and also
+      an available input, in case you are drawing text/font that has a different 
+      height in each column, and want to make sure they stay aligned.
+
+      Just like the other methods, this leaves the cursor sitting at the
+      original y-value, but shifted to the right by the width of the column.
+      """
+      origX, origY = self.cursorPos.x(), self.cursorPos.y()
+      maxColWidth = 0
+      cumulativeY = 0
+      for r in strList:
+         szX, szY = self.drawText(tr(r), font=font, useHtml=useHtml)
+         prevY = self.cursorPos.y()
+         if rowHeight==None:
+            self.newLine()
+            szY = self.cursorPos.y() - prevY
+            self.moveCursor(origX-self.MARGIN_PIXELS, 0)
+         else:
+            self.moveCursor(-szX, rowHeight)
+         maxColWidth = max(maxColWidth, szX)
+         cumulativeY += szY
+      
+      if rowHeight==None:
+         rowHeight = float(cumulativeY)/len(strList)
+
+      self.moveCursor(origX + maxColWidth, origY, absolute=True)
+      
+      return [QRectF(origX, origY, maxColWidth, cumulativeY), rowHeight]
 
 
 
-class DlgPaperBackup(ArmoryDialog):
+class DlgPrintBackup(ArmoryDialog):
    """
    Open up a "Make Paper Backup" dialog, so the user can print out a hard
    copy of whatever data they need to recover their wallet should they lose
    it.  
 
-   TODO:  Currently only does chain-coded keys.  Support for printing imported
-          keys as well, well be added later.
-
-   I have to forego using SecureBinaryData objects for most of these methods
-   (in order to manipulate the private keys for printing), but I don't think
-   this is a big deal, because printing would be infrequent
+   This method is kind of a mess, because it ended up having to support
+   printing of single-sheet, imported keys, single fragments, multiple
+   fragments, with-or-without SecurePrint.  
    """
-   def __init__(self, parent, main, wlt):
-      super(DlgPaperBackup, self).__init__(parent, main)
+   def __init__(self, parent, main, wlt, printType='SingleSheet', \
+                                    fragMtrx=[], fragMtrxCrypt=[], fragData=[]):
+      super(DlgPrintBackup, self).__init__(parent, main)
 
 
       self.wlt = wlt
@@ -8323,6 +8346,20 @@ class DlgPaperBackup(ArmoryDialog):
       self.binPriv   = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.binChain  = wlt.addrMap['ROOT'].chaincode.copy()
       self.binImport = []
+      self.fragMtrx  = fragMtrx
+
+      self.doPrintFrag = printType.lower().startswith('frag')
+      self.fragMtrx = fragMtrx
+      self.fragMtrxCrypt = fragMtrxCrypt
+      self.fragData = fragData
+      if self.doPrintFrag:
+         self.doMultiFrag = len(fragData['Range'])>1
+
+      # A self-evident check of whether we need to print the chaincode.
+      # If we derive the chaincode from the private key, and it matches
+      # what's already in the wallet, we obviously don't need to print it!
+      testChain = DeriveChaincodeFromRootKey(self.binPriv)
+      self.noNeedChaincode = (testChain == self.binChain)
 
       # Save off imported addresses in case they need to be printed, too
       for a160,addr in self.wlt.addrMap.iteritems():
@@ -8335,78 +8372,84 @@ class DlgPaperBackup(ArmoryDialog):
                self.binImport.append( [a160, addr.binPrivKey32_Plain.copy(), 0])
 
 
-      # USE PRINTER MASK TO PREVENT PRINTER SW FROM SEEING DATA
+      # USE PRINTER MASK TO PREVENT NETWORK DEVICES FROM SEEING PRIVATE KEYS
       # Hardcode salt & IV because they should *never* change.
       # Rainbow tables aren't all that useful here because the user
       # is not creating the password -- it's *essentially* randomized
       # with 64-bits of real entropy. (though, it is deterministic
       # based on the private key, so that printing the backup multiple
-      # times will produce the same password.
-      self.IV   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
-      self.SALT = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
-                          '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
-      secretData = self.binPriv.toBinStr() + self.binChain.toBinStr()
-      self.randpass = SecureBinaryData(HMAC512(secretData, self.SALT.toBinStr())[:7])
-      secretData = None;
+      # times will produce the same password).
+      SECPRINT = HardcodedKeyMaskParams()
+      self.randpass = SECPRINT['FUNC_PWD'](self.binPriv + self.binChain)
+      self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
 
-      self.kdf = KdfRomix()
-      self.kdf.usePrecomputedKdfParams(long(8*MEGABYTE), 1, self.SALT)
       start = RightNow()
-      self.binCrypt32 = self.kdf.DeriveKey(self.randpass)
-      LOGINFO('Deriving secureprint took %0.2f seconds' % (RightNow() - start))
-      self.binPrivCrypt = CryptoAES().EncryptCBC(  self.binCrypt32,
-                                                   self.binPriv,
-                                                   self.IV)
-      self.binChainCrypt = CryptoAES().EncryptCBC( self.binCrypt32,
-                                                   self.binChain,
-                                                   self.IV)
+      self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
+      LOGINFO('Deriving SecurePrint code took %0.2f seconds' % (RightNow() - start))
+      MASK = lambda s: CryptoAES().EncryptCBC(s, self.binCrypt32, SECPRINT['IV'])
+
+      self.binPrivCrypt   = MASK(self.binPriv)
+      self.binChainCrypt  = MASK(self.binChain)
+
       self.binImportCrypt = []
       for i in range(len(self.binImport)):
-         prvCrypt = CryptoAES().EncryptCBC( self.binImport[i][1],
-                                            self.binChain,
-                                            self.IV)
-         self.binImportCrypt.append([self.binImport[i][0], \
-                                     prvCrypt, \
-                                     self.binImport[i][2]])
+         self.binImportCrypt.append([      self.binImport[i][0],  \
+                                      MASK(self.binImport[i][1]), \
+                                           self.binImport[i][2]   ])
+
+      # If there is data in the fragments matrix, also convert it
+      if len(self.fragMtrx)>0:
+         self.fragMtrxCrypt = []
+         for sbdX,sbdY in self.fragMtrx:
+            self.fragMtrxCrypt.append( [sbdX.copy(), MASK(sbdY)] )
+            
+      self.binCrypt32.destroy()
 
 
       # We need to figure out how many imported keys fit on one page
       tempTxtItem = QGraphicsTextItem('')
       tempTxtItem.setPlainText(toUnicode('0123QAZjqlmYy'))
       tempTxtItem.setFont(GETFONT('Fix',7))
-      self.importHgt = tempTxtItem.boundingRect().height() - 3
+      self.importHgt = tempTxtItem.boundingRect().height() - 5
       
          
-      self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
-
       # Create the scene and the view.
       self.scene = SimplePrintableGraphicsScene(self, self.main)
       self.view = QGraphicsView()
       self.view.setRenderHint(QPainter.TextAntialiasing) 
       self.view.setScene(self.scene.getScene())
 
-      #if wlt.useEncryption and wlt.isLocked:
-         #dlg = DlgUnlockWallet(wlt, parent, main, 'Create Paper Backup')
-         #if dlg.exec_():
-            #self.binPriv  = wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
-         #else:
-            ## If we canceled out of unlocking, we can't print...
-            #self.reject()
             
-      self.chkImportPrint = QCheckBox(tr('Print imported keys on subsequent pages'))
+      self.chkImportPrint = QCheckBox(tr('Print imported keys'))
       self.connect(self.chkImportPrint, SIGNAL('clicked()'), self.clickImportChk)
-      self.chkImportPrint.setVisible( len(self.binImport)>0)
+
+      self.lblPageStr    = QRichLabel(tr('Page:'))
+      self.comboPageNum  = QComboBox()
+      self.lblPageMaxStr = QRichLabel('')
+      self.connect(self.comboPageNum, SIGNAL('activated(int)'), self.redrawBackup)
+
+      # We enable printing of imported addresses but not frag'ing them.... way
+      # too much work for everyone (developer and user) to deal with 2x or 3x
+      # the amount of data to type
+      self.chkImportPrint.setVisible( len(self.binImport)>0 and not self.doPrintFrag)
+      self.lblPageStr.setVisible(False)
+      self.comboPageNum.setVisible(False)
+      self.lblPageMaxStr.setVisible(False)
 
       self.chkSecurePrint = QCheckBox(tr( """
-         Use SecurePrint\xe2\x84\xa2 to prevent exposing keys
-         to networked devices."""))
-      self.chkSecurePrint.setChecked(False)
+         Use SecurePrint\xe2\x84\xa2 to prevent exposing keys to printer or other 
+         network devices"""))
+
+      if(self.doPrintFrag):
+         self.chkSecurePrint.setChecked(self.fragData['Secure'])
+
       self.ttipSecurePrint = self.main.createToolTipWidget( tr("""
          SecurePrint\xe2\x84\xa2 encrypts your backup with a code displayed on 
-         the screen, to make sure that your printer is never exposed to the 
-         private keys.  If you turn on SecurePrint\xe2\x84\xa2 <u>you must 
-         write the code on the page after it is done printing!</u>  Turn off
-         this feature if you copy the "Root Key" and "Chaincode" by hand."""))
+         the screen, so that no other devices on your network see the plain 
+         private keys when you send it to the printer.  If you turn on
+         SecurePrint\xe2\x84\xa2 <u>you must write the code on the page after 
+         it is done printing!</u>  Turn off this feature if you copy the 
+         "Root Key" and "Chaincode" by hand."""))
       self.lblSecurePrint = QRichLabel(tr("""
          <b><font color="%s"><u>IMPORTANT:</u>  You must write the SecurePrint\xe2\x84\xa2
          encryption code on the printed backup!  Your SecurePrint\xe2\x84\xa2 code is </font>
@@ -8423,21 +8466,36 @@ class DlgPaperBackup(ArmoryDialog):
       self.connect(btnPrint, SIGNAL('clicked()'), self.print_)
       self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
 
-      lblDescr = QRichLabel(tr( """ 
-         <b><u>Print a Forever-Backup!</u></b><br><br>
-         Printing this sheet protects all <u>previous <b>and</b> future</u> addresses
-         generated by this wallet!  You can copy the "Root Key" and "Chaincode" 
-         by hand if you do not have a working printer.</b>"""))
+      if self.doPrintFrag:
+         M,N = self.fragData['M'], self.fragData['N']
+         lblDescr = QRichLabel(tr( """ 
+            <b><u>Print Wallet Backup Fragments</u></b><br><br>
+            When any %d of these fragments are combined, all <u>previous 
+            <b>and</b> future</u> addresses generated by this wallet will be 
+            restored, giving you complete access to your bitcoins.  The 
+            data can be copied by hand if a working printer is not 
+            available.""") % M)
+      else:
+         withChain =  '' if self.noNeedChaincode else 'and "Chaincode"'
+         lblDescr = QRichLabel(tr( """ 
+            <b><u>Print a Forever-Backup</u></b><br><br>
+            Printing this sheet protects all <u>previous <b>and</b> future</u> addresses
+            generated by this wallet!  You can copy the "Root Key" %s 
+            by hand if a working printer is not available.""" % withChain))
+
       lblDescr.setContentsMargins(5,5,5,5)
-         
       frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
 
       self.redrawBackup()
+      frmChkImport = makeHorizFrame([self.chkImportPrint, \
+                                     'Stretch', \
+                                     self.lblPageStr, \
+                                     self.comboPageNum, \
+                                     self.lblPageMaxStr])
 
       frmSecurePrint = makeHorizFrame([self.chkSecurePrint, 
                                        self.ttipSecurePrint, 
                                        'Stretch'])
-      frmChkImport = makeHorizFrame([self.chkImportPrint, 'Stretch'])
 
       frmButtons = makeHorizFrame([self.btnCancel, 'Stretch', btnPrint])
 
@@ -8455,17 +8513,6 @@ class DlgPaperBackup(ArmoryDialog):
       self.setWindowIcon(QIcon(':/printer_icon.png'))
       self.setWindowTitle('Print Wallet Backup')
 
-      def warnImportedKeys():
-         QMessageBox.warning(self, "Imported Addresses", tr(""" 
-            <b><font color="red"><u>WARNING</u></font>:  
-            You must backup <u>imported</u>
-            addresses separately to protect any money in them.  This
-            backup only protects addresses natively generated by this
-            wallet.</b>
-            <br><br> 
-            Visit the backup center again and select an option
-            indicates support for imported keys. """),  \
-            QMessageBox.Ok)
 
       # Apparently I can't programmatically scroll until after it's painted
       def scrollTop():
@@ -8479,15 +8526,39 @@ class DlgPaperBackup(ArmoryDialog):
 
 
    def redrawBackup(self):
-      CreatePrintScene(self, 'SingleSheetFirstPage','')
+
+      cmbPage = 1
+      if self.comboPageNum.count() > 0:
+         cmbPage = int(str(self.comboPageNum.currentText()))
+
+      if self.doPrintFrag:
+         if not self.doMultiFrag:
+            cmbPage = self.fragData['Range'][0]
+         else:
+            cmbPage = int(str(self.comboPageNum.currentText()))
+
+         self.createPrintScene('Fragmented',cmbPage)
+      else:
+         pgSelect = cmbPage if self.chkImportPrint.isChecked() else 1
+         if pgSelect==1:
+            self.createPrintScene('SingleSheetFirstPage','')
+         else:
+            pg = pgSelect-2
+            nKey = self.maxKeysPerPage
+            self.createPrintScene('SingleSheetImported', [pg*nKey,(pg+1)*nKey])
+
+      self.view.update()
+
+   
+
 
    def clickImportChk(self):
       MARGIN = self.scene.MARGIN_PIXELS 
       bottomOfPage = self.scene.pageRect().height() + MARGIN
       totalHgt = bottomOfPage - self.bottomOfSceneHeader 
-      self.maxKeysPerPage = int(totalHgt / (self.importHgt+1))
+      self.maxKeysPerPage = int(totalHgt / (self.importHgt))
       self.numImportPages = (len(self.binImport)-1) / self.maxKeysPerPage + 1
-      if self.numImportPages > 1:
+      if self.numImportPages > 1 and self.chkImportPrint.isChecked():
          ans = QMessageBox.warning(self, tr('Lots to Print!'), tr("""
             This wallet contains <b>%d</b> imported keys, which will require 
             <b>%d</b> pages to print.  Not only will this use a lot of paper, 
@@ -8501,25 +8572,60 @@ class DlgPaperBackup(ArmoryDialog):
          if not ans==QMessageBox.Yes:
             self.chkImportPrint.setChecked(False)
 
+      if self.comboPageNum.count() == 0:
+         if self.doPrintFrag:
+            numFrag = len(self.fragData['Range'])
+            for i in range(numFrag):
+               self.comboPageNum.addItem(str(i+1))
+            self.lblPageMaxStr.setText(tr('of %d') % (numFrag,))
+         else:
+            for i in range(self.numImportPages+1):
+               self.comboPageNum.addItem(str(i+1))
+            self.lblPageMaxStr.setText(tr('of %d') % (self.numImportPages+1,))
+
+      showPageSelect = self.chkImportPrint.isChecked() or \
+                       (self.doPrintFrag and self.doMultiFrag)
+
+      self.lblPageStr.setVisible(showPageSelect)
+      self.comboPageNum.setVisible(showPageSelect)
+      self.lblPageMaxStr.setVisible(showPageSelect)
+      self.comboPageNum.setCurrentIndex(0)
+      self.redrawBackup()
+
+         
+
        
    def print_(self):
       LOGINFO('Printing!')
       self.printer = QPrinter(QPrinter.HighResolution)
       self.printer.setPageSize(QPrinter.Letter)
-      dialog = QPrintDialog(self.printer)
-      if dialog.exec_():
-         painter = QPainter(self.printer)
-         painter.setRenderHint(QPainter.TextAntialiasing)
-         self.scene.getScene().render(painter)
+      painter = QPainter(self.printer)
+      painter.setRenderHint(QPainter.TextAntialiasing)
 
-         if len(self.binImport)>0 and self.chkImportPrint.isChecked():
-            nKey = self.maxKeysPerPage
-            for i in range(self.numImportPages):
-               self.printer.newPage()
-               CreatePrintScene(self, 'SingleSheetImported', [i*nKey,(i+1)*nKey])
+      if QPrintDialog(self.printer).exec_():
+
+         if self.doPrintFrag:
+            for i in self.fragData['Range']:
+               self.createPrintScene('Fragment', i)
                self.scene.getScene().render(painter)
+               if not i==self.fragData['Range']-1:
+                  self.printer.newPage()
+                  
+         else:
+            self.createPrintScene('SingleSheetFirstPage', '')
+            self.scene.getScene().render(painter)
+   
+            if len(self.binImport)>0 and self.chkImportPrint.isChecked():
+               nKey = self.maxKeysPerPage
+               for i in range(self.numImportPages):
+                  self.printer.newPage()
+                  self.createPrintScene('SingleSheetImported', [i*nKey,(i+1)*nKey])
+                  self.scene.getScene().render(painter)
 
          painter.end()
+
+         # The last scene printed is what's displayed now.  Set the combo box
+         self.comboPageNum.setCurrentIndex(self.comboPageNum.count()-1)
 
          if self.chkSecurePrint.isChecked():
             QMessageBox.warning(self, 'SecurePrint Code', tr("""
@@ -8527,7 +8633,7 @@ class DlgPaperBackup(ArmoryDialog):
                code on each sheet of paper you just printed!</b>  
                Write it in the red box in upper-right corner 
                of the printed page. <br><br>SecurePrint\xe2\x84\xa2 code: 
-               <font color="%s" size=4><b>%s</b></font> 
+               <font color="%s" size=5><b>%s</b></font> 
                <br>""") % (htmlColor('TextBlue'),self.randpass.toBinStr()), \
                QMessageBox.Ok)
          if self.chkSecurePrint.isChecked():
@@ -8541,234 +8647,270 @@ class DlgPaperBackup(ArmoryDialog):
       self.binChain.destroy()
       self.binPrivCrypt.destroy()
       self.binChainCrypt.destroy()
-      self.binCrypt32.destroy()
       self.randpass.destroy()
       for a160,priv,compr in self.binImport:
          priv.destroy()
 
+      for x,y in self.fragMtrxCrypt:
+         x.destroy()
+         y.destroy()
+
    def accept(self):
       self.cleanup()
-      super(DlgPaperBackup, self).accept()
+      super(DlgPrintBackup, self).accept()
 
    def reject(self):
       self.cleanup()
-      super(DlgPaperBackup, self).reject()
+      super(DlgPrintBackup, self).reject()
 
 
-
-def CreatePrintScene(parent, printType, printData):
-   parent.scene.gfxScene.clear()
-   parent.scene.resetCursor()
-
-   INCH = parent.scene.INCH
-   MARGIN = parent.scene.MARGIN_PIXELS 
-
-   doMask = parent.chkSecurePrint.isChecked()
-
-   if USE_TESTNET:
-      parent.scene.drawPixmapFile(':/armory_logo_green_h56.png') 
-   else:
-      parent.scene.drawPixmapFile(':/armory_logo_h36.png') 
-   parent.scene.newLine()
-
-   parent.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
-   parent.scene.newLine()
-   parent.scene.drawText('http://www.bitcoinarmory.com')
-
-   parent.scene.newLine(extra_dy=20)
-   parent.scene.drawHLine()
-   parent.scene.newLine(extra_dy=20)
-
+   #############################################################################
+   #############################################################################
+   def createPrintScene(self, printType, printData):
+      print 'Print data passed into createPrintScene:', printData
+      self.scene.gfxScene.clear()
+      self.scene.resetCursor()
    
-   topPos = parent.scene.cursorPos.x(), parent.scene.cursorPos.y()
-   verSize  = parent.scene.drawText(tr('Wallet Version:')); parent.scene.newLine()
-   idSize   = parent.scene.drawText(tr('Wallet ID:'));   parent.scene.newLine()
-   nameSize = parent.scene.drawText(tr('Wallet Name:')); parent.scene.newLine()
-   typSize  = parent.scene.drawText(tr('Backup Type:')); parent.scene.newLine()
-   offsetX = max([s[0] for s in [nameSize, idSize, verSize, typSize]]) + 20
-
-   parent.scene.moveCursor(*topPos, absolute=True)
-
-   parent.scene.moveCursor(offsetX, 0)
-   parent.scene.drawText('1.35'); parent.scene.newLine()
-
-   parent.scene.moveCursor(offsetX, 0)
-   parent.scene.drawText(parent.wlt.uniqueIDB58); parent.scene.newLine()
-
-   parent.scene.moveCursor(offsetX, 0)
-   parent.scene.drawText(parent.wlt.labelName); parent.scene.newLine()
-
-   ssType =  ' (with SecurePrint\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
-   parent.scene.moveCursor(offsetX, 0)
-   if printType=='SingleSheetFirstPage':
-      parent.scene.drawText(tr('Single-Sheet' + ssType)); parent.scene.newLine()
-   elif printType=='SingleSheetImported':
-      parent.scene.drawText(tr('Imported Addresses' + ssType)); parent.scene.newLine()
-   
-   wrap = 0.9*parent.scene.pageRect().width()
-   
-   container = 'this wallet' if printType=='SingleSheetFirstPage' else 'these addresses'
-   warnMsg = tr(""" 
-      <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to this 
-      page has access to all the bitcoins in %s!  Please keep this 
-      page in a safe place.""" % container)
-
-
-   parent.scene.newLine()
-   parent.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
-
-   parent.scene.newLine(extra_dy=20)
-   parent.scene.drawHLine()
-   parent.scene.newLine(extra_dy=20)
-
-   if printType=='SingleSheetFirstPage':
-      descrMsg = tr(""" 
-         The following four lines of completely backup all addresses 
-         <i>ever generated</i> by this wallet.
-         This can be used to recover your wallet if you forget your passphrase or 
-         suffer hardware failure and lose your wallet files. """)
-   elif printType=='SingleSheetImported':
-      if parent.chkSecurePrint.isChecked():
-         descrMsg = tr("""
-            The following is a list of all private keys imported into your 
-            wallet before this backup was made.   These keys are encrypted 
-            with the SecurePrint code and can only be restored by entering 
-            them into Armory.  You must print a copy of this backup without 
-            the SecurePrint option enabled if you want to be able to import 
-            them into any application""")
-      else:
-         descrMsg = tr(""" 
-            The following is a list of all private keys imported into your 
-            wallet before this backup was made.  Each one must be copied 
-            manually into the application where you wish to import them.  """)
-      
+      pr = self.scene.pageRect()
+      self.scene.drawRect(pr.width(), pr.height(), edgeColor=None, fillColor=QColor(255,255,255))
+      self.scene.resetCursor()
          
-   parent.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
-   parent.scene.newLine(extra_dy=10)
-
-   prevCursor = parent.scene.cursorPos.x(), parent.scene.cursorPos.y()
-   parent.scene.resetCursor()
-
-   parent.scene.moveCursor(4.0*INCH, 0)
-
-   pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
-   if doMask:
-      parent.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
-
-   parent.scene.resetCursor()
-   parent.scene.moveCursor(4.07*INCH, 0.07*INCH)
    
-   if not doMask:
-      parent.lblSecurePrint.setVisible(False)
-   else:
-      parent.lblSecurePrint.setVisible(True)
-      parent.scene.drawText(tr("""
-         <b><font color="#770000">CRITICAL:</font>  This backup will not 
-         work without the SecurePrint\xe2\x84\xa2
-         code displayed on the screen during printing. 
-         Copy it here in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
-
-      parent.scene.newLine(extra_dy = 8)
-      parent.scene.moveCursor(4.07*INCH, 0)
-      keyWid,keyHgt = parent.scene.drawText('Code:')
-      parent.scene.moveCursor(0,keyHgt-3)
-      wid = pmWid - keyWid
-      w,h = parent.scene.drawHLine(width=wid*0.9, penWidth=2)
-
-   parent.scene.moveCursor(*prevCursor, absolute=True)
-
-   parent.bottomOfSceneHeader = parent.scene.cursorPos.y()
-
-   if printType=='SingleSheetImported':
-      parent.scene.moveCursor(0, 0.1*INCH)
-      importList = parent.binImport
-      if parent.chkSecurePrint.isChecked():
-         importList = parent.binImportCrypt
+      INCH = self.scene.INCH
+      MARGIN = self.scene.MARGIN_PIXELS 
+   
+      doMask = self.chkSecurePrint.isChecked()
+   
+      if USE_TESTNET:
+         self.scene.drawPixmapFile(':/armory_logo_green_h56.png') 
+      else:
+         self.scene.drawPixmapFile(':/armory_logo_h36.png') 
+      self.scene.newLine()
+   
+      self.scene.drawText('Paper Backup for Armory Wallet', GETFONT('Var', 11))
+      self.scene.newLine()
+      self.scene.drawText('http://www.bitcoinarmory.com')
+   
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+   
+   
+      ssType =  ' (with SecurePrint\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
+      if printType=='SingleSheetFirstPage':
+         bType = tr('Single-Sheet ' + ssType)
+      elif printType=='SingleSheetImported':
+         bType = tr('Imported Keys ' + ssType)
+      elif printType=='Fragmented':
+         bstr = tr('Fragemented %d-of-%d  ') % (self.fragData['M'], self.fragData['N'])
+         bType = bstr + tr(ssType)
       
-      for a160,priv,isCompr in importList[printData[0]:printData[1]]:
-         comprByte = ('\x01' if isCompr==1 else '')
-         prprv = encodePrivKeyBase58(priv.toBinStr() + comprByte)
-         toPrint  = [prprv[i*6:(i+1)*6] for i in range((len(prprv)+5)/6)]
-         addrHint = '  (%s...)' % hash160_to_addrStr(a160)[:12]
-         parent.scene.drawText(' '.join(toPrint), GETFONT('Fix',7))
-         parent.scene.moveCursor(0.02*INCH,0)
-         parent.scene.drawText(addrHint, GETFONT('Var',7))
-         parent.scene.newLine(extra_dy=-3)
-         prprv = None
-      return
-
-
-
-   rootSize = 0
-   yVals = [parent.scene.cursorPos.y()]
-   parent.scene.moveCursor(20,0)
-   rootSize = max(parent.scene.drawText('<b>Root Key:</b>')[0], rootSize)
-   parent.scene.newLine()
-
-   yVals.append(parent.scene.cursorPos.y())
-   parent.scene.moveCursor(20,0)
-   rootSize = max(parent.scene.drawText('')[0], rootSize)
-   parent.scene.newLine()
-   
-   yVals.append(parent.scene.cursorPos.y())
-   parent.scene.moveCursor(20,0)
-   rootSize = max(parent.scene.drawText('<b>Chaincode:</b>')[0], rootSize)
-   parent.scene.newLine()
-
-   yVals.append(parent.scene.cursorPos.y())
-   parent.scene.moveCursor(20,0)
-   rootSize = max(parent.scene.drawText('')[0], rootSize)
-   parent.scene.newLine()
-
-   KEYFONT = GETFONT('Fixed', 8, bold=True)
-
-   if doMask:
-      code12 = parent.binPrivCrypt.toBinStr()
-      code34 = parent.binChainCrypt.toBinStr()
-   else:
-      code12 = parent.binPriv.toBinStr()
-      code34 = parent.binChain.toBinStr()
+      if printType.startswith('SingleSheet'):
+         colRect, rowHgt = self.scene.drawColumn(['Wallet Version:', 'Wallet ID:', \
+                                                   'Wallet Name:', 'Backup Type:'])
+         self.scene.moveCursor(15, 0)
+         colRect, rowHgt = self.scene.drawColumn(['1.35a', self.wlt.uniqueIDB58, \
+                                                   self.wlt.labelName, bType])
+         self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
+      else:
+         colRect, rowHgt = self.scene.drawColumn(['Wallet Version:', 'Wallet ID:', \
+                                                   'Wallet Name:', 'Backup Type:', \
+                                                   'Fragment ID:'])
+         baseID = self.fragData['FragIDStr']
+         fragNum = printData+1
+         fragID = tr('<b>%s-<font color="%s">#%d</font></b>') % \
+                                     (baseID, htmlColor('TextBlue'), fragNum)
+         self.scene.moveCursor(15, 0)
+         colRect, rowHgt = self.scene.drawColumn(['1.35a', self.wlt.uniqueIDB58, \
+                                                   self.wlt.labelName, bType, fragID])
+         self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
       
 
-   Lines = []
-   Lines.append(makeSixteenBytesEasy(code12[:16]))
-   Lines.append(makeSixteenBytesEasy(code12[16:]))
-   Lines.append(makeSixteenBytesEasy(code34[:16]))
-   Lines.append(makeSixteenBytesEasy(code34[16:]))
-
-   for i in range(4):
-      parent.scene.moveCursor(MARGIN+rootSize+30, yVals[i], absolute=True)
-      parent.scene.drawText(Lines[i], KEYFONT, useHtml=False)
-
-   code12,code34 = None,None
-
-   top = yVals[0]
-   bottom = parent.scene.cursorPos.y() + parent.scene.lastItemSize[1]
+      # Display warning about unprotected key data
+      wrap = 0.9*self.scene.pageRect().width()
+      container = 'this wallet' if printType=='SingleSheetFirstPage' else 'these addresses'
+      warnMsg = tr(""" 
+         <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to this 
+         page has access to all the bitcoins in %s!  Please keep this 
+         page in a safe place.""" % container)
    
-   parent.scene.moveCursor(MARGIN, top, absolute=True)
-   width = parent.scene.pageRect().width() - 2*MARGIN
-   height = bottom - top
-   parent.scene.drawRect( width, height, edgeColor=QColor(0,0,0), fillColor=None)
-
-   parent.scene.moveCursor(MARGIN, bottom, absolute=True)
-   parent.scene.moveCursor(0, 30)
-
-   parent.scene.drawText( tr("""
-      The following QR code is for convenience only.  It contains the 
-      exact same data as the four lines above.  If you copy this backup 
-      by hand, you can safely ignore this QR code. """), wrapWidth=4*INCH)
-
-   parent.scene.moveCursor(20,0)
-   x,y = parent.scene.cursorPos.x(), parent.scene.cursorPos.y()
-   edgeRgt = parent.scene.pageRect().width() - MARGIN
-   edgeBot = parent.scene.pageRect().height() - MARGIN
-
-   qrSize = min(edgeRgt - x, edgeBot - y)
-   parent.scene.drawQR('\n'.join(Lines), qrSize)
    
-   vbar = parent.view.verticalScrollBar()
-   vbar.setValue(vbar.minimum())
-   #parent.view.invalidateScene()
+      self.scene.newLine()
+      self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
+   
+      self.scene.newLine(extra_dy=20)
+      self.scene.drawHLine()
+      self.scene.newLine(extra_dy=20)
+   
+      numLine = 'two' if self.noNeedChaincode else 'four'
+      if printType=='SingleSheetFirstPage':
+         descrMsg = tr(""" 
+            The following %s lines backup all addresses 
+            <i>ever generated</i> by this wallet (previous and future).
+            This can be used to recover your wallet if you forget your passphrase or 
+            suffer hardware failure and lose your wallet files. """ % numLine)
+      elif printType=='SingleSheetImported':
+         if self.chkSecurePrint.isChecked():
+            descrMsg = tr("""
+               The following is a list of all private keys imported into your 
+               wallet before this backup was made.   These keys are encrypted 
+               with the SecurePrint\xe2\x84\xa2 code and can only be restored 
+               by entering them into Armory.  Print a copy of this backup without 
+               the SecurePrint\xe2\x84\xa2 option if you want to be able to import 
+               them into another application.""")
+         else:
+            descrMsg = tr(""" 
+               The following is a list of all private keys imported into your 
+               wallet before this backup was made.  Each one must be copied 
+               manually into the application where you wish to import them.  """)
+      elif printType.lower().startswith('frag'):
+         BLUE = htmlColor('TextBlue')
+         fragNum = printData+1
+         descrMsg = tr("""
+            The following is fragment <font color="%s">#%d</font> for this 
+            wallet.  Any <font color="%s">%d</font> of fragments with this
+            ID (<font color="%s">%s</font>) are sufficient to recover all the 
+            coins contained in this wallet.""") % (BLUE, printData+1, \
+                                                   BLUE, self.fragData['M'], \
+                                                   BLUE, self.fragData['FragIDStr'])
+         
+            
+      self.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
+      self.scene.newLine(extra_dy=10)
+   
+      ###########################################################################
+      # Draw the SecurePrint box, if needed
+      prevCursor = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      self.scene.resetCursor()
+   
+      self.scene.moveCursor(4.0*INCH, 0)
+   
+      pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
+      if doMask:
+         self.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
+   
+      self.scene.resetCursor()
+      self.scene.moveCursor(4.07*INCH, 0.07*INCH)
+      
+      if not doMask:
+         self.lblSecurePrint.setVisible(False)
+      else:
+         self.lblSecurePrint.setVisible(True)
+         self.scene.drawText(tr("""
+            <b><font color="#770000">CRITICAL:</font>  This backup will not 
+            work without the SecurePrint\xe2\x84\xa2
+            code displayed on the screen during printing. 
+            Copy it here in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
+   
+         self.scene.newLine(extra_dy = 8)
+         self.scene.moveCursor(4.07*INCH, 0)
+         keyWid,keyHgt = self.scene.drawText('Code:')
+         self.scene.moveCursor(0,keyHgt-3)
+         wid = pmWid - keyWid
+         w,h = self.scene.drawHLine(width=wid*0.9, penWidth=2)
+   
+      self.scene.moveCursor(*prevCursor, absolute=True)
+      ###########################################################################
+   
+      
+      ###########################################################################
+      # Finally, draw the backup information.
+
+      # If this page is only imported addresses, draw them then bail
+      self.bottomOfSceneHeader = self.scene.cursorPos.y()
+      if printType=='SingleSheetImported':
+         self.scene.moveCursor(0, 0.1*INCH)
+         importList = self.binImport
+         if self.chkSecurePrint.isChecked():
+            importList = self.binImportCrypt
+         
+         for a160,priv,isCompr in importList[printData[0]:printData[1]]:
+            comprByte = ('\x01' if isCompr==1 else '')
+            prprv = encodePrivKeyBase58(priv.toBinStr() + comprByte)
+            toPrint  = [prprv[i*6:(i+1)*6] for i in range((len(prprv)+5)/6)]
+            addrHint = '  (%s...)' % hash160_to_addrStr(a160)[:12]
+            self.scene.drawText(' '.join(toPrint), GETFONT('Fix',7))
+            self.scene.moveCursor(0.02*INCH,0)
+            self.scene.drawText(addrHint, GETFONT('Var',7))
+            self.scene.newLine(extra_dy=-3)
+            prprv = None
+         return
+   
+   
+      if self.doPrintFrag:
+         M = self.fragData['M']
+         fnum = printData+1
+         Lines = []
+         Prefix = [] 
+         fmtrx = self.fragMtrxCrypt if doMask else self.fragMtrx
+         fragY = fmtrx[printData+1][1]
+         IDLine = int_to_hex(M) + int_to_hex(fnum) + binary_to_hex(self.wlt.uniqueIDBin)
+         if fragY.getSize()==32:
+            Prefix.append('ID:');  Lines.append(' '.join([IDLine[i*4:(i+1)*4] for i in range(4)]))
+            Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[:16 ]))
+            Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[ 16:]))
+         elif fragY.getSize()==64:
+            Prefix.append('ID:');  Lines.append(' '.join([IDLine[i*4:(i+1)*4] for i in range(4)]))
+            Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[:16       ]))
+            Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[ 16:32    ]))
+            Prefix.append('F3:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[    32:48 ]))
+            Prefix.append('F4:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[       48:]))
+      else:
+         # Single-sheet backup
+         if doMask:
+            code12 = self.binPrivCrypt.toBinStr()
+            code34 = self.binChainCrypt.toBinStr()
+         else:
+            code12 = self.binPriv.toBinStr()
+            code34 = self.binChain.toBinStr()
+         
+      
+         Lines = []
+         Prefix = [] 
+         Prefix.append('Root Key:');  Lines.append(makeSixteenBytesEasy(code12[:16]))
+         Prefix.append('');           Lines.append(makeSixteenBytesEasy(code12[16:]))
+         Prefix.append('Chaincode:'); Lines.append(makeSixteenBytesEasy(code34[:16]))
+         Prefix.append('');           Lines.append(makeSixteenBytesEasy(code34[16:]))
+      
+         if self.noNeedChaincode:
+            Prefix = Prefix[:2]
+            Lines  = Lines[:2]
+   
+      # Draw the prefix
+      origX,origY = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      self.scene.moveCursor(20,0) 
+      colRect, rowHgt = self.scene.drawColumn(['<b>'+l+'</b>' for l in Prefix])
+      
+      nudgeDown = 2  # because the differing font size makes it look unaligned
+      self.scene.moveCursor(20, nudgeDown)
+      self.scene.drawColumn(Lines, 
+                              font=GETFONT('Fixed', 8, bold=True), \
+                              rowHeight=rowHgt, 
+                              useHtml=False)
+   
+      self.scene.moveCursor(MARGIN, colRect.y()-2, absolute=True)
+      width = self.scene.pageRect().width() - 2*MARGIN
+      self.scene.drawRect( width, colRect.height()+6, edgeColor=QColor(0,0,0), fillColor=None)
+   
+      self.scene.newLine(extra_dy=30)
+      self.scene.drawText( tr("""
+         The following QR code is for convenience only.  It contains the 
+         exact same data as the %s lines above.  If you copy this backup 
+         by hand, you can safely ignore this QR code. """ % numLine), wrapWidth=4*INCH)
+   
+      self.scene.moveCursor(20,0)
+      x,y = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      edgeRgt = self.scene.pageRect().width() - MARGIN
+      edgeBot = self.scene.pageRect().height() - MARGIN
+   
+      qrSize = min(edgeRgt - x, edgeBot - y)
+      self.scene.drawQR('\n'.join(Lines), qrSize)
+   
+      Lines = None
+      
+      vbar = self.view.verticalScrollBar()
+      vbar.setValue(vbar.minimum())
+      self.view.update()
 
 
 
@@ -8786,7 +8928,7 @@ def OpenPaperBackupWindow(backupType, parent, main, wlt, unlockTitle=None):
          return
 
    if backupType=='Single':
-      return DlgPaperBackup(parent, main, wlt).exec_()
+      return DlgPrintBackup(parent, main, wlt).exec_()
    elif backupType=='Frag':
       return DlgFragBackup(parent, main, wlt).exec_()
 
@@ -12647,16 +12789,16 @@ class DlgBackupCenter(ArmoryDialog):
          protected by this backup! """))
       if not self.hasImportedAddr:
          self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr( """
-            Backups that protect imported addresses <b>only protects those
-            imported before the backup was made!  You must replace that 
-            backup if you import more addresses!</b>
             <i>This wallet <u>does not</u> currently have any imported 
-            addresses</i>. """))
+            addresses, so you can safely ignore this feature!</i>.
+            When imported addresses are present, backups only protects those
+            imported before the backup was made!  You must replace that 
+            backup if you import more addresses! """))
       else:
          self.featuresTips[F.ProtImport] = self.main.createToolTipWidget(tr( """
-            Backups that protect imported addresses <b>only protects those
+            When imported addresses are present, backups only protects those
             imported before the backup was made!  You must replace that 
-            backup if you import more addresses!</b>
+            backup if you import more addresses!
             <i>Your wallet <u>does</u> contain imported addresses<i>."""))
       self.featuresTips[F.LostPass] = self.main.createToolTipWidget(  tr( """
          Lost/forgotten passphrases are, <b>by far</b>, the most common 
@@ -12675,10 +12817,10 @@ class DlgBackupCenter(ArmoryDialog):
          you take a secure computer/device with you.  A simple glance at 
          a paper backup is enough to verify that it is still intact. """))
       self.featuresTips[F.Physical] = self.main.createToolTipWidget(  tr( """
-         When multiple components are required to restore this wallet.  
-         For instance, encrypted digital backups require the backup 
-         <b>and</b> your passphrase.  This is only important for those 
-         seriously concerned about physical security, not just online security."""))
+         If multiple pieces/fragments are required to restore this wallet.  
+         For instance, encrypted backups require the backup 
+         <b>and</b> the passphrase.  This feature is only needed for those 
+         concerned about physical security, not just online security."""))
          
 
       MkFeatLabel = lambda x: QRichLabel( tr(x), doWrap=False )
@@ -12795,11 +12937,11 @@ class DlgBackupCenter(ArmoryDialog):
                
 
          chk = lambda: QPixmap(':/checkmark32.png').scaled(20,20)
-         _X_ = lambda: QPixmap('img/red_X.png').scaled(16,16)
+         _X_ = lambda: QPixmap(':/red_X.png').scaled(16,16)
          if index==self.OPTIONS.Paper1:
             self.lblSelFeat.setText(tr('Single-Sheet Paper Backup'), bold=True)
             self.featuresImgs[self.FEATURES.ProtGen   ].setPixmap(chk())
-            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(_X_())
+            self.featuresImgs[self.FEATURES.ProtImport].setPixmap(chk())
             self.featuresImgs[self.FEATURES.LostPass  ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.Durable   ].setPixmap(chk())
             self.featuresImgs[self.FEATURES.Visual    ].setPixmap(chk())
@@ -13029,20 +13171,25 @@ class DlgFragBackup(ArmoryDialog):
       super(DlgFragBackup, self).__init__(parent, main)
       
       self.wlt = wlt
+      self.randpass = None
+      self.binCrypt32 = None
 
       lblDescrTitle = QRichLabel( tr(""" 
          <b>Create Fragmented Backup: "%s" (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
+      lblDescrTitle.setContentsMargins(5,5,5,5)
 
       lblDescr = QRichLabel( tr(""" 
-         
          Split your wallet into secure "fragments."  This is generally referred to 
-         as an <b>M-of-N</b> 
-         scheme, which means that <b>N</b> fragments will be created, of which any
+         as an <b>M-of-N</b> bakcup.  With the settings below 
+         , which means that <b>N</b> fragments will be created, of which any
          subset of <b>M</b> of them is sufficient to restore your wallet. 
          <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
          to read more about fragmented backups."""))
       lblDescr .setOpenExternalLinks(True)
+      frmDescr = makeVertFrame([lblDescrTitle, lblDescr], STYLE_RAISED)
+
+
       self.lblBelowFrags = QRichLabel('')
 
       
@@ -13072,9 +13219,9 @@ class DlgFragBackup(ArmoryDialog):
       self.connect(self.comboM, SIGNAL('activated(int)'), updateM)
       self.connect(self.comboN, SIGNAL('activated(int)'), updateN)
 
-      lblBelowM  = QRichLabel(tr('Required (M)'), hAlign=Qt.AlignHCenter)
-      lblBelowN  = QRichLabel(tr('Total (N)'), hAlign=Qt.AlignHCenter)
-      lblBetween = QRichLabel(tr('- OF -'), hAlign=Qt.AlignHCenter, size=3)
+      #lblBelowM  = QRichLabel(tr('Required (M)'), hAlign=Qt.AlignHCenter)
+      #lblBelowN  = QRichLabel(tr('Total (N)'), hAlign=Qt.AlignHCenter)
+      #lblBetween = QRichLabel(tr('- OF -'), hAlign=Qt.AlignHCenter, size=3)
 
       self.comboM.setMinimumWidth(30)
       self.comboN.setMinimumWidth(30)
@@ -13082,17 +13229,17 @@ class DlgFragBackup(ArmoryDialog):
       frmComboM = makeHorizFrame(['Stretch', self.comboM, 'Stretch'])
       frmComboN = makeHorizFrame(['Stretch', self.comboN, 'Stretch'])
 
-      layoutMofN = QGridLayout()
-      layoutMofN.addWidget(lblBelowM,    0,0)
-      layoutMofN.addWidget(lblBelowN,    0,2)
-      layoutMofN.addWidget(frmComboM,    1,0)
-      layoutMofN.addWidget(lblBetween,   1,1)
-      layoutMofN.addWidget(frmComboN,    1,2)
-      layoutMofN.setSpacing(0)
-      frmMofN = QFrame()
-      frmMofN.setFrameStyle(STYLE_RAISED)
-      frmMofN.setLayout(layoutMofN)
-      frmSelectParams = makeHorizFrame(['Stretch', frmMofN, 'Stretch'])
+      #layoutMofN = QGridLayout()
+      #layoutMofN.addWidget(lblBelowM,    0,0)
+      #layoutMofN.addWidget(lblBelowN,    0,2)
+      #layoutMofN.addWidget(frmComboM,    1,0)
+      #layoutMofN.addWidget(lblBetween,   1,1)
+      #layoutMofN.addWidget(frmComboN,    1,2)
+      #layoutMofN.setSpacing(0)
+      #frmMofN = QFrame()
+      #frmMofN.setFrameStyle(STYLE_RAISED)
+      #frmMofN.setLayout(layoutMofN)
+      #frmSelectParams = makeHorizFrame(['Stretch', frmMofN, 'Stretch'])
       
       btnAccept = QPushButton(tr('Close'))
       self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
@@ -13102,20 +13249,47 @@ class DlgFragBackup(ArmoryDialog):
       # before the dialog exits
       self.secureRoot  = self.wlt.addrMap['ROOT'].binPrivKey32_Plain.copy()
       self.secureChain = self.wlt.addrMap['ROOT'].chaincode.copy()
-      self.secureData  = []
+      self.secureMtrx  = []
+
+      testChain = DeriveChaincodeFromRootKey(self.secureRoot)
+      if testChain == self.secureChain:
+         self.noNeedChaincode = True
+         self.securePrint = self.secureRoot 
+      else:
+         self.securePrint = self.secureRoot + self.secureChain
+
+      self.chkSecurePrint = QCheckBox( tr("""
+         Use SecurePrint\xe2\x84\xa2 to prevent exposing keys to other devices"""))
 
       self.scrollArea = QScrollArea()
       self.createFragDisplay()
       self.scrollArea.setWidgetResizable(True)
 
-
+      self.ttipSecurePrint = self.main.createToolTipWidget( tr("""
+         SecurePrint\xe2\x84\xa2 encrypts your backup with a code displayed on 
+         the screen, so that no other devices or processes has access to the 
+         unencrypted private keys (either network devices when printing, or 
+         other applications if you save a fragment to disk or USB device). 
+         <u>You must keep the SecurePrint\xe2\x84\xa2 code with the backup!</u>"""))
+      self.lblSecurePrint = QRichLabel(tr("""
+         <b><font color="%s"><u>IMPORTANT:</u>  You must keep the SecurePrint\xe2\x84\xa2
+         encryption code with your backup!  Your SecurePrint\xe2\x84\xa2 code is </font>
+         <font color="%s">%s</font><font color="%s">. All fragments for a given wallet use the 
+         same code.</font>""") % \
+         (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr(), \
+          htmlColor('TextWarn')))
+      self.connect(self.chkSecurePrint, SIGNAL('clicked()'), self.clickChkSP)
+      self.chkSecurePrint.setChecked(False)
+      self.lblSecurePrint.setVisible(False)
+      frmChkSP = makeHorizFrame([self.chkSecurePrint, self.ttipSecurePrint, 'Stretch'])
 
       dlgLayout = QVBoxLayout()
-      dlgLayout.addWidget(lblDescrTitle)
-      dlgLayout.addWidget(lblDescr)
-      dlgLayout.addWidget(frmSelectParams)
+      dlgLayout.addWidget(frmDescr)
+      #dlgLayout.addWidget(frmSelectParams)
       dlgLayout.addWidget(self.scrollArea)
       dlgLayout.addWidget(self.lblBelowFrags)
+      dlgLayout.addWidget(self.chkSecurePrint)
+      dlgLayout.addWidget(self.lblSecurePrint)
       dlgLayout.addWidget(frmBottomBtn)
       setLayoutStretch(dlgLayout, 0,0,0,1,0)
 
@@ -13123,6 +13297,11 @@ class DlgFragBackup(ArmoryDialog):
       self.setMinimumWidth(640)
       self.setWindowTitle('Create Backup Fragments')
 
+
+   #############################################################################
+   def clickChkSP(self):
+      self.lblSecurePrint.setVisible( self.chkSecurePrint.isChecked())   
+      self.createFragDisplay()
 
 
    #############################################################################
@@ -13150,25 +13329,31 @@ class DlgFragBackup(ArmoryDialog):
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
+      
+      #lblWltID = QRichLabel(tr('Wallet:<br><b>%s</b>') % self.wlt.uniqueIDB58, \
+                            #vAlign=Qt.AlignVCenter, hAlign=Qt.AlignHCenter, \
+                            #color='DisableFG')
+      #lblAddRemove = QRichLabel( tr("""
+         #Add or remove fragments using the drop-down boxes above"""), \
+         #hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
+         #size=3, color='DisableFG', doWrap=True) 
+      #w = relaxedSizeStr(lblAddRemove, 'Add or remove')[0]
+      #lblAddRemove.setMinimumWidth(w)
 
-      lblWltID = QRichLabel(tr('Wallet:<br><b>%s</b>') % self.wlt.uniqueIDB58, \
-                            vAlign=Qt.AlignVCenter, hAlign=Qt.AlignHCenter, \
-                            color='DisableFG')
-      lblAddRemove = QRichLabel( tr("""
-         Add or remove fragments using the drop-down boxes above"""), \
-         hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
-         size=3, color='DisableFG', doWrap=True) 
-      w = relaxedSizeStr(lblAddRemove, 'Add or remove')[0]
-      lblAddRemove.setMinimumWidth(w)
+      
+      lblAboveM  = QRichLabel(tr('Required Fragments '), hAlign=Qt.AlignHCenter)
+      lblAboveN  = QRichLabel(tr('Total Fragments '), hAlign=Qt.AlignHCenter)
+      frmComboM = makeHorizFrame(['Stretch', QLabel('M:'), self.comboM, 'Stretch'])
+      frmComboN = makeHorizFrame(['Stretch', QLabel('N:'), self.comboN, 'Stretch'])
+
       btnPrintAll = QPushButton('Print All Fragments')
       self.connect(btnPrintAll, SIGNAL('clicked()'), self.clickPrintAll)
       leftFrame = makeVertFrame(['Stretch', \
-                                 lblWltID, \
-                                 'Space(10)', \
-                                 HLINE(), \
-                                 'Space(10)', \
-                                 lblAddRemove, \
-                                 'Space(10)', \
+                                 lblAboveM, \
+                                 frmComboM, \
+                                 lblAboveN, \
+                                 frmComboN, \
+                                 'Stretch', \
                                  HLINE(), \
                                  btnPrintAll, \
                                  'Stretch'], STYLE_STYLED)
@@ -13187,22 +13372,30 @@ class DlgFragBackup(ArmoryDialog):
       frmScroll.setLayout(layout)
       self.scrollArea.setWidget(frmScroll)
 
+      BLUE = htmlColor('TextBlue')
       self.lblBelowFrags.setText( tr("""
-         Any <b>%d</b> of these fragments are sufficient to restore your wallet,
+         Any <font color="%s"><b>%d</b></font> of these 
+             <font color="%s"><b>%d</b></font> 
+         fragments are sufficient to restore your wallet,
          and each fragment has a ID of <b>%s</b>.  All fragments with the
          same fragment ID are compatible with each other! """) % \
-         (M, self.fragPrefixStr) )
+         (BLUE, M, BLUE, N, self.fragPrefixStr) )
 
 
    #############################################################################
    def createFragFrm(self, idx):
       
+      doSecPrint = self.chkSecurePrint.isChecked()
       
       lblFragID = QRichLabel('<b>Fragment ID:<br>%s-%d</b>' % \
                                (self.fragPrefixStr, idx+1))
       #lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
       lblFragPix = QImageLabel(self.fragPixmapFn, size=(72,72))
-      ys = self.secureData[idx][1].toHexStr()[:42]
+      if doSecPrint:
+         ys = self.secureMtrxCrypt[idx][1].toHexStr()[:42]
+      else:
+         ys = self.secureMtrx[idx][1].toHexStr()[:42]
+
       fragPreview  = 'f1: %s %s %s...<br>' % (ys[:4], ys[4:8], ys[8:10])
       fragPreview += 'f2: %s %s %s...<br>' % (ys[32:36], ys[36:40], ys[40:42])
       fragPreview += '...'
@@ -13243,11 +13436,22 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def clickPrintAll(self):
-      pass
+      self.clickPrintFrag(range(int(str(self.comboN.currentText()))))
       
    #############################################################################
    def clickPrintFrag(self, zindex):
-      pass
+      if not isinstance(zindex, (list,tuple)):
+         zindex = [zindex]
+      fragData = {}
+      fragData['M'] = int(str(self.comboM.currentText()))
+      fragData['N'] = int(str(self.comboN.currentText()))
+      fragData['FragIDStr'] = self.fragPrefixStr
+      fragData['FragPixmap'] = self.fragPixmapFn
+      fragData['Range'] = zindex
+      fragData['Secure'] = self.chkSecurePrint.isChecked()
+      dlg = DlgPrintBackup(self, self.main, self.wlt, 'Fragments', \
+                              self.secureMtrx, self.secureMtrxCrypt, fragData)
+      dlg.exec_()
 
    #############################################################################
    def clickSaveFrag(self, zindex):
@@ -13255,23 +13459,31 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def destroyFrags(self):
-      if len(self.secureData)==0:
+      if len(self.secureMtrx)==0:
          return 
 
-      if isinstance(self.secureData[0], (list,tuple)):
-         for sbdList in self.secureData:
+      if isinstance(self.secureMtrx[0], (list,tuple)):
+         for sbdList in self.secureMtrx:
+            for sbd in sbdList:
+               sbd.destroy()
+         for sbdList in self.secureMtrxCrypt:
             for sbd in sbdList:
                sbd.destroy()
       else:
-         for sbd in self.secureData:
+         for sbd in self.secureMtrx:
             sbd.destroy()
-      self.secureData = []
+         for sbd in self.secureMtrxCrypt:
+            sbd.destroy()
+
+      self.secureMtrx      = []
+      self.secureMtrxCrypt = []
       
 
    #############################################################################
    def destroyEverything(self):
       self.secureRoot.destroy()
       self.secureChain.destroy()
+      self.securePrint.destroy()
       self.destroyFrags()
 
    #############################################################################
@@ -13279,14 +13491,28 @@ class DlgFragBackup(ArmoryDialog):
       """
       Only M is needed, since N doesn't change 
       """
+            
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
       # Make sure only local variables contain non-SBD data
       self.destroyFrags()
-      insecureData = SplitSecret( self.secureRoot + self.secureChain, M, self.maxmaxN)
+      insecureData = SplitSecret(self.securePrint, M, self.maxmaxN)
       for x,y in insecureData:
-         self.secureData.append([SecureBinaryData(x), SecureBinaryData(y)])
+         self.secureMtrx.append([SecureBinaryData(x), SecureBinaryData(y)])
       insecureData,x,y = None,None,None
+
+      #####
+      # Now we compute the SecurePrint(TM) versions of the fragments
+      SECPRINT = HardcodedKeyMaskParams()
+      MASK = lambda s: CryptoAES().EncryptCBC(s, self.binCrypt32, SECPRINT['IV'])
+      if not self.randpass or not self.binCrypt32:
+         self.randpass = SECPRINT['FUNC_PWD'](self.secureRoot + self.secureChain)
+         self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
+         self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
+      self.secureMtrxCrypt = []
+      for sbdX,sbdY in self.secureMtrx:
+         self.secureMtrxCrypt.append( [sbdX.copy(), MASK(sbdY)] )
+      #####
 
       self.M,self.N = M,N
       mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)

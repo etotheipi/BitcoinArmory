@@ -609,7 +609,7 @@ def makeHorizFrame(widgetList, style=QFrame.NoFrame):
 
 def QImageLabel(imgfn, size=None, stretch='NoStretch'):
    if not os.path.exists(imgfn):
-      raise FileExistsError, 'Image for QImageLabel does not exist!'
+      raise FileExistsError, 'Image for QImageLabel does not exist! ' + imgfn
 
    lbl = QLabel()
 

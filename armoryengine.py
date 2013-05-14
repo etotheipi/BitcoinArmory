@@ -1391,7 +1391,7 @@ def makeSixteenBytesEasy(b16):
    three1 = ' '.join(nineQuads[:3])
    three2 = ' '.join(nineQuads[3:6])
    three3 = ' '.join(nineQuads[6:])
-   return '   '.join([three1, three2, three3])
+   return '  '.join([three1, three2, three3])
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
@@ -2180,8 +2180,8 @@ def parsePrivateKeyData(theStr):
 
 
 ################################################################################
-def encodePrivKeyBase58(privKeyBin):
-   bin33 = PRIVKEYBYTE + privKeyBin
+def encodePrivKeyBase58(privKeyBin, leadByte=PRIVKEYBYTE):
+   bin33 = leadByte + privKeyBin
    chk = computeChecksum(bin33)
    return binary_to_base58(bin33 + chk)
 
@@ -6747,6 +6747,36 @@ DEFAULT_COMPUTE_TIME_TARGET = 0.25
 DEFAULT_MAXMEM_LIMIT        = 32*1024*1024
 
 
+#############################################################################
+def DeriveChaincodeFromRootKey(sbdPrivKey):
+   return SecureBinaryData( HMAC256( sbdPrivKey.getHash256(), \
+                                     'Derive Chaincode from Root Key'))
+
+
+################################################################################
+def HardcodedKeyMaskParams():
+   paramMap = {}
+   paramMap['IV']   = SecureBinaryData('&\x0cH3\xc1\x1c\x16\x8a\x86`\xa6k<C\x1fD')
+   paramMap['SALT'] = SecureBinaryData('\xd5\xa35\xe6Y\xdbj\x93M\xf1\xca\x0fM\x81'
+                              '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
+   paramMap['KDFBYTES'] = long(16*MEGABYTE)
+
+   def createSecurePrintPassphrase(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      return SecureBinaryData(HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:8])
+
+   def applyKdf(secret):
+      if isinstance(secret, basestring):
+         secret = SecureBinaryData(secret)
+      kdf = KdfRomix() 
+      kdf.usePrecomputedKdfParams(paramMap['KDFBYTES'], 1, paramMap['SALT'])
+      return kdf.DeriveKey(secret)
+
+   paramMap['FUNC_PWD'] = createSecurePrintPassphrase
+   paramMap['FUNC_KDF'] = applyKdf
+   return paramMap
+
 
 ################################################################################
 ################################################################################
@@ -7267,6 +7297,9 @@ class PyBtcWallet(object):
       """
       self.defaultKeyLifetime = lifetimeInSec
 
+
+
+   
    #############################################################################
    def createNewWallet(self, newWalletFilePath=None, \
                              plainRootKey=None, chaincode=None, \
@@ -7337,7 +7370,14 @@ class PyBtcWallet(object):
          plainRootKey = SecureBinaryData().GenerateRandom(32)
 
       if not chaincode:
-         chaincode = SecureBinaryData().GenerateRandom(32)
+         #chaincode = SecureBinaryData().GenerateRandom(32)
+         # For wallet 1.35a, derive chaincode deterministically from root key
+         # The root key already has 256 bits of entropy which is excessive,
+         # anyway.  And my original reason for having the chaincode random is 
+         # no longer valid.
+         chaincode = DeriveChaincodeFromRootKey(plainRootKey)
+            
+                             
 
       # Create the root address object
       rootAddr = PyBtcAddress().createFromPlainKeyData( \
