@@ -6780,20 +6780,32 @@ def HardcodedKeyMaskParams():
                               '\x94\x7fh\x1ci\xe7\x12c+b\xd5Y\\\x8f\xee\xab\xa0)')
    paramMap['KDFBYTES'] = long(16*MEGABYTE)
 
-   def createSecurePrintPassphrase(secret):
+   def hardcodeCreateSecurePrintPassphrase(secret):
       if isinstance(secret, basestring):
          secret = SecureBinaryData(secret)
       return SecureBinaryData(HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:8])
 
-   def applyKdf(secret):
+   def hardcodeApplyKdf(secret):
       if isinstance(secret, basestring):
          secret = SecureBinaryData(secret)
       kdf = KdfRomix() 
       kdf.usePrecomputedKdfParams(paramMap['KDFBYTES'], 1, paramMap['SALT'])
       return kdf.DeriveKey(secret)
 
-   paramMap['FUNC_PWD'] = createSecurePrintPassphrase
-   paramMap['FUNC_KDF'] = applyKdf
+   def hardcodeMask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = hardcodeApplyKdf(passphrase)
+      return CryptoAES().EncryptCBC(secret, ekey, paramMap['IV'])
+
+   def hardcodeUnmask(secret, passphrase=None, ekey=None):
+      if not ekey:
+         ekey = applyKdf(passphrase)
+      return CryptoAES().DecryptCBC(secret, ekey, paramMap['IV'])
+
+   paramMap['FUNC_PWD']    = hardcodeCreateSecurePrintPassphrase
+   paramMap['FUNC_KDF']    = hardcodeApplyKdf
+   paramMap['FUNC_MASK']   = hardcodeMask
+   paramMap['FUNC_UNMASK'] = hardcodeUnmask
    return paramMap
 
 

@@ -247,14 +247,20 @@ class ArmoryMainWindow(QMainWindow):
       self.ledgerView.setContextMenuPolicy(Qt.CustomContextMenu)
       self.ledgerView.customContextMenuRequested.connect(self.showContextMenuLedger)
 
-      btnAddWallet = QPushButton("Create New Wallet")
-      btnImportWlt = QPushButton("Import Wallet")
-      self.connect(btnAddWallet, SIGNAL('clicked()'), self.createNewWallet)
-      self.connect(btnImportWlt, SIGNAL('clicked()'), self.execImportWallet)
+      btnAddWallet  = QPushButton("Create Wallet")
+      btnImportWlt  = QPushButton("Import Wallet")
+      btnRestoreWlt = QPushButton("Restore Backup")
+      self.connect(btnAddWallet,  SIGNAL('clicked()'), self.createNewWallet)
+      self.connect(btnImportWlt,  SIGNAL('clicked()'), self.execImportWallet)
+      self.connect(btnRestoreWlt, SIGNAL('clicked()'), self.execRestoreWlt)
 
       # Put the Wallet info into it's own little box
       lblAvail = QLabel("<b>Available Wallets:</b>")
-      viewHeader = makeLayoutFrame('Horiz', [lblAvail, 'Stretch', btnAddWallet, btnImportWlt])
+      viewHeader = makeLayoutFrame('Horiz', [lblAvail, \
+                                             'Stretch', \
+                                             btnAddWallet, \
+                                             btnImportWlt, \
+                                             btnRestoreWlt ])
       wltFrame = QFrame()
       wltFrame.setFrameStyle(QFrame.Box|QFrame.Sunken)
       wltLayout = QGridLayout()
@@ -2251,6 +2257,9 @@ class ArmoryMainWindow(QMainWindow):
 
 
 
+   #############################################################################
+   def execRestoreWlt(self):
+      DlgUniversalRestoreSelect(self, self).exec_()
 
 
    #############################################################################

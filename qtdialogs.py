@@ -8390,7 +8390,7 @@ class DlgPrintBackup(ArmoryDialog):
       start = RightNow()
       self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
       LOGINFO('Deriving SecurePrint code took %0.2f seconds' % (RightNow() - start))
-      MASK = lambda s: CryptoAES().EncryptCBC(s, self.binCrypt32, SECPRINT['IV'])
+      MASK = lambda x: SECPRINT['FUNC_MASK'](x, ekey=self.binCrypt32)
 
       self.binPrivCrypt   = MASK(self.binPriv)
       self.binChainCrypt  = MASK(self.binChain)
@@ -8720,7 +8720,8 @@ class DlgPrintBackup(ArmoryDialog):
          colRect, rowHgt = self.scene.drawColumn(['Wallet Version:', 'Wallet ID:', \
                                                    'Wallet Name:', 'Backup Type:'])
          self.scene.moveCursor(15, 0)
-         colRect, rowHgt = self.scene.drawColumn(['1.35a', self.wlt.uniqueIDB58, \
+         suf = 'c' if self.noNeedChaincode else 'a'
+         colRect, rowHgt = self.scene.drawColumn(['1.35'+suf, self.wlt.uniqueIDB58, \
                                                    self.wlt.labelName, bType])
          self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
       else:
@@ -8732,7 +8733,8 @@ class DlgPrintBackup(ArmoryDialog):
          fragID = tr('<b>%s-<font color="%s">#%d</font></b>') % \
                                      (baseID, htmlColor('TextBlue'), fragNum)
          self.scene.moveCursor(15, 0)
-         colRect, rowHgt = self.scene.drawColumn(['1.35a', self.wlt.uniqueIDB58, \
+         suf = 'c' if self.noNeedChaincode else 'a'
+         colRect, rowHgt = self.scene.drawColumn(['1.35'+suf, self.wlt.uniqueIDB58, \
                                                    self.wlt.labelName, bType, fragID])
          self.scene.moveCursor(15, colRect.y() + colRect.height(), absolute=True)
       
@@ -8915,7 +8917,7 @@ class DlgPrintBackup(ArmoryDialog):
    
       self.scene.moveCursor(MARGIN, colRect.y()-2, absolute=True)
       width = self.scene.pageRect().width() - 2*MARGIN
-      self.scene.drawRect( width, colRect.height()+6, edgeColor=QColor(0,0,0), fillColor=None)
+      self.scene.drawRect( width, colRect.height()+7, edgeColor=QColor(0,0,0), fillColor=None)
    
       self.scene.newLine(extra_dy=30)
       self.scene.drawText( tr("""
@@ -13491,7 +13493,7 @@ class DlgFragBackup(ArmoryDialog):
             backups, which can also be applied to fragments saved to file.
             Doing so will require you store the SecurePrint\xe2\x84\xa2 
             code with the backup, but it will prevent unencrypted key data from
-            touching any disk.  <br><br> Do you want to encrypt the fragment 
+            touching any disks.  <br><br> Do you want to encrypt the fragment 
             file with the same SecurePrint\xe2\x84\xa2 code?"""), \
             QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
          
@@ -13608,7 +13610,7 @@ class DlgFragBackup(ArmoryDialog):
       #####
       # Now we compute the SecurePrint(TM) versions of the fragments
       SECPRINT = HardcodedKeyMaskParams()
-      MASK = lambda s: CryptoAES().EncryptCBC(s, self.binCrypt32, SECPRINT['IV'])
+      MASK = lambda x: SECPRINT['FUNC_MASK'](x, ekey=self.binCrypt32)
       if not self.randpass or not self.binCrypt32:
          self.randpass = SECPRINT['FUNC_PWD'](self.secureRoot + self.secureChain)
          self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
@@ -13636,10 +13638,289 @@ class DlgFragBackup(ArmoryDialog):
 
 
 
+################################################################################
+class DlgUniversalRestoreSelect(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main):
+      super(DlgUniversalRestoreSelect, self).__init__(parent, main)
+
+
+      lblDescrTitle = QRichLabel( tr("""
+         <b><u>Restore Wallet from Backup</u></b>"""))
+      lblDescr = QRichLabel( tr("""
+         You can restore any kind of backup ever created by Armory using
+         one of the options below.  If you have a key list to import 
+         you should open the target wallet and select "Import/Sweep 
+         Private Keys" to import them into that wallet."""))
+
+      lblRestore = QRichLabel(tr("""I am restoring a..."""))
+
+      self.rdoSingle  = QRadioButton(tr('Single-Sheet Backup (printed)'))
+      self.rdoFragged = QRadioButton(tr('Fragmented Backup (incl. mix of paper and files)'))
+      self.rdoDigital = QRadioButton(tr('Digital Backup'))
+      btngrp = QButtonGroup(self)
+      btngrp.addButton(self.rdoSingle)
+      btngrp.addButton(self.rdoFragged)
+      btngrp.addButton(self.rdoDigital)
+      btngrp.setExclusive(True)
+
+      self.rdoSingle.setChecked(True)
+      
+      self.btnOkay   = QPushButton('Continue')
+      self.btnCancel = QPushButton('Cancel')
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnOkay,   QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+      self.connect(self.btnOkay, SIGNAL('clicked()'), self.clickedOkay)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescrTitle)
+      layout.addWidget(lblDescr)
+      layout.addWidget(HLINE())
+      layout.addWidget(self.rdoSingle)
+      layout.addWidget(self.rdoFragged)
+      layout.addWidget(self.rdoDigital)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+      self.setMinimumWidth(450)
+
+
+   def clickedOkay(self):
+      if self.rdoSingle.isChecked():
+         self.accept()
+         DlgRestoreSingle(self.parent, self.main).exec_()
+      elif self.rdoFragged.isChecked():
+         self.accept()
+         DlgRestoreFragged(self.parent, self.main).exec_()
+      elif self.rdoFragged.isChecked():
+         self.main.execRestorePaperBackup()
+         self.accept()
 
 
 
+################################################################################
+class DlgRestoreSingle(ArmoryDialog):
+   #############################################################################
+   def __init__(self, parent, main):
+      super(DlgRestoreSingle, self).__init__(parent, main)
 
+      lblDescr = QRichLabel( tr("""
+         <b><u>Restore Single-Sheet Paper Backup</u></b>
+         <br><br>
+         Use this form to restore your wallet from a single-sheet, printed backup.
+         If your backup includes extra pages with imported keys, please use this
+         form to restore the base wallet first, then double-click the restored 
+         wallet and select "Import Private Keys. """))
+         
+
+      self.comboBackupType = QComboBox()
+      self.comboBackupType.clear()
+      self.comboBackupType.addItem( tr('Version 1.35  (Root Key & Chaincode)'))
+      self.comboBackupType.addItem( tr('Version 1.35a (Unencrypted)'))
+      self.comboBackupType.addItem( tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.addItem( tr('Version 1.35c (Unencrypted)'))
+      self.comboBackupType.addItem( tr('Version 1.35c (with SecurePrint\xe2\x84\xa2)'))
+      self.comboBackupType.setCurrentIndex(0)
+            
+
+      self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
+
+
+      # 
+      self.lblSP = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), doWrap=False)
+      self.edtSP = QLineEdit()
+      self.prfxList = [QLabel(tr('Root Key:')), QLabel(''), QLabel(tr('Chaincode:')), QLabel('')]
+      self.edtList = [QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
+
+      inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      
+      self.frmSP = makeHorizFrame(['Stretch', self.lblSP, self.edtSP])
+
+      frmAllInputs = QFrame()
+      frmAllInputs.setFrameStyle(STYLE_RAISED)
+      layoutAllInp = QGridLayout()
+      layoutAllInp.addWidget( self.frmSP,  0,0, 1,2)
+      for i in range(4):
+         fixFont = GETFONT('Fix', 9)
+         self.edtList[i].setInputMask(inpMask)
+         self.edtList[i].setFont(fixFont)
+         self.edtList[i].setMinimumWidth( tightSizeStr(fixFont, inpMask)[0]+10)
+         def setCurs0():
+            if len(str(self.edtList[i].text()))==0:
+               self.edtList[i].setCursorPosition(0)
+         self.connect(self.edtList[i], SIGNAL('textEdited(QString)'), setCurs0)
+         layoutAllInp.addWidget(self.prfxList[i], i+1, 0)
+         layoutAllInp.addWidget(self.edtList[i], i+1, 1)
+      frmAllInputs.setLayout(layoutAllInp)
+
+      self.btnAccept = QPushButton("Restore")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.verifyUserInput)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(self.comboBackupType)
+      layout.addWidget(frmAllInputs)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+
+
+      self.setWindowTitle('Restore Single-Sheet Backup')
+      self.setMinimumWidth(500)
+      self.layout().setSizeConstraint(QLayout.SetFixedSize)
+      self.changeType()
+      
+      
+   #############################################################################
+   def changeType(self):
+      sel = self.comboBackupType.currentIndex()
+      if   sel==0: visList = [0, 1,1,1,1]
+      elif sel==1: visList = [0, 1,1,1,1]
+      elif sel==2: visList = [1, 1,1,1,1]
+      elif sel==3: visList = [0, 1,1,0,0]
+      elif sel==4: visList = [1, 1,1,0,0]
+      else:
+         LOGERROR('What the heck backup type is selected?  %d', sel)
+         return
+
+      self.doMask = (visList[0]==1)
+      self.frmSP.setVisible(self.doMask)
+      for i in range(4):
+         self.prfxList[i].setVisible( visList[i+1]==1) 
+         self.edtList[ i].setVisible( visList[i+1]==1) 
+
+      self.isLongForm = (visList[-1]==1)
+         
+   #############################################################################
+   def verifyUserInput(self):
+      inputLines = []
+      nError = 0
+      rawBin = None
+      nLine = 4 if self.isLongForm else 2
+      for i in range(nLine):
+         hasError=False
+         try:
+            rawEntry = str(self.edtList[i].text())
+            #print '"'+rawEntry+'"'
+            rawBin,err = readSixteenEasyBytes( rawEntry.replace(' ','') )
+            #print '"'+binary_to_hex(rawBin)+'"'
+            #print '"'+(err if err else '')+'"'
+            if err=='Error_2+':
+               hasError=True
+            elif err=='Fixed_1':
+               nError += 1
+         except KeyError:
+            hasError=True
+            
+         if hasError:
+            reply = QMessageBox.critical(self, 'Verify Wallet ID', \
+               'There is an error in the data you entered that could not be '
+               'fixed automatically.  Please double-check that you entered the '
+               'text exactly as it appears on the wallet-backup page.', \
+               QMessageBox.Ok)
+            LOGERROR('Error in wallet restore field')
+            self.prfxList[i].setText('<font color="red">'+str(self.prfxList[i].text())+'</font>')
+            return
+
+         inputLines.append(rawBin)
+
+      if nError>0:
+         pluralStr = 'error' if nError==1 else 'errors'
+         QMessageBox.question(self, 'Errors Corrected!', \
+            'Detected ' + str(nError) + ' ' + pluralStr + ' '
+            'in the data you entered.  Armory attempted to fix the ' + 
+            pluralStr + ' but it is not always right.  Be sure '
+            'to verify the "Wallet Unique ID" closely on the next window.', \
+            QMessageBox.Ok)
+
+            
+      # If we got here, the data is valid, let's create the wallet and accept the dlg
+      SECPRINT = HardcodedKeyMaskParams()
+      privKey = SecureBinaryData(''.join(inputLines[:2]))
+      if self.isLongForm:
+         chain = SecureBinaryData(''.join(inputLines[2:]))
+       
+      if self.doMask:
+         pwd = str(self.edtSP.text())
+         maskKey = SECPRINT['FUNC_KDF'](pwd)
+         privKey = SECPRINT['FUNC_UNMASK'](privKey, ekey=maskKey)
+         if self.isLongForm:
+            chain   = SECPRINT['FUNC_UNMASK'](chain,   ekey=maskKey)
+         
+      if not self.isLongForm:
+         chain = DeriveChaincodeFromRootKey(privKey)
+
+      # Now we shouldh ave a fully-plaintext rootkey and chaincode
+      root  = PyBtcAddress().createFromPlainKeyData(privKey)
+      root.chaincode = chain
+
+      first = root.extendAddressChain()
+      newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
+
+      if self.main.walletMap.has_key(newWltID):
+         QMessageBox.question(self, 'Duplicate Wallet!', \
+               'The data you entered is for a wallet with a ID: \n\n \t' +
+               newWltID + '\n\nYou already own this wallet! \n  '
+               'Nothing to do...', QMessageBox.Ok)
+         self.reject()
+         return
+         
+      
+      
+      reply = QMessageBox.question(self, 'Verify Wallet ID', \
+               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
+               'printed on your paper backup?  If not, click "No" and reenter '
+               'key and chain-code data again.', \
+               QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.No:
+         return
+
+      passwd = []
+      if self.chkEncrypt.isChecked():
+         dlgPasswd = DlgChangePassphrase(self, self.main)
+         if dlgPasswd.exec_():
+            passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
+         else:
+            QMessageBox.critical(self, 'Cannot Encrypt', \
+               'You requested your restored wallet be encrypted, but no '
+               'valid passphrase was supplied.  Aborting wallet recovery.', \
+               QMessageBox.Ok)
+            return
+
+      if passwd:
+          self.newWallet = PyBtcWallet().createNewWallet( \
+                                 plainRootKey=SecureBinaryData(privKey), \
+                                 chaincode=SecureBinaryData(chain), \
+                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 withEncrypt=True, \
+                                 securePassphrase=passwd, \
+                                 kdfTargSec=0.25, \
+                                 kdfMaxMem=32*1024*1024, \
+                                 isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
+      else:
+         self.newWallet = PyBtcWallet().createNewWallet(  \
+                                 plainRootKey=SecureBinaryData(privKey), \
+                                 chaincode=SecureBinaryData(chain), \
+                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 withEncrypt=False,\
+                                 isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
+
+      def fillAddrPoolAndAccept():
+         self.newWallet.fillAddressPool()
+         self.accept()
+
+      # Will pop up a little "please wait..." window while filling addr pool
+      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
 
 
 
