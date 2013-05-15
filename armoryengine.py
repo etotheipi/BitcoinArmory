@@ -6783,7 +6783,18 @@ def HardcodedKeyMaskParams():
    def hardcodeCreateSecurePrintPassphrase(secret):
       if isinstance(secret, basestring):
          secret = SecureBinaryData(secret)
-      return SecureBinaryData(HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:8])
+      bin7 = HMAC512(secret.getHash256(), paramMap['SALT'].toBinStr())[:7]
+      out,bin7 = SecureBinaryData(binary_to_base58(bin7 + hash256(bin7)[0])), None
+      return out 
+
+   def hardcodeCheckPassphrase(passphrase):
+      if isinstance(passphrase, basestring):
+         pwd = base58_to_binary(passphrase)
+      else:
+         pwd = base58_to_binary(passphrase.toBinStr())
+
+      isgood,pwd = (hash256(pwd[:7])[0] == pwd[-1]), None
+      return isgood
 
    def hardcodeApplyKdf(secret):
       if isinstance(secret, basestring):
@@ -6806,6 +6817,7 @@ def HardcodedKeyMaskParams():
    paramMap['FUNC_KDF']    = hardcodeApplyKdf
    paramMap['FUNC_MASK']   = hardcodeMask
    paramMap['FUNC_UNMASK'] = hardcodeUnmask
+   paramMap['FUNC_CHKPWD'] = hardcodeCheckPassphrase
    return paramMap
 
 

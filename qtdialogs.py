@@ -8384,12 +8384,12 @@ class DlgPrintBackup(ArmoryDialog):
       # based on the private key, so that printing the backup multiple
       # times will produce the same password).
       SECPRINT = HardcodedKeyMaskParams()
-      self.randpass = SECPRINT['FUNC_PWD'](self.binPriv + self.binChain)
-      self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
 
       start = RightNow()
+      self.randpass   = SECPRINT['FUNC_PWD'](self.binPriv + self.binChain)
       self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
       LOGINFO('Deriving SecurePrint code took %0.2f seconds' % (RightNow() - start))
+
       MASK = lambda x: SECPRINT['FUNC_MASK'](x, ekey=self.binCrypt32)
 
       self.binPrivCrypt   = MASK(self.binPriv)
@@ -13612,8 +13612,7 @@ class DlgFragBackup(ArmoryDialog):
       SECPRINT = HardcodedKeyMaskParams()
       MASK = lambda x: SECPRINT['FUNC_MASK'](x, ekey=self.binCrypt32)
       if not self.randpass or not self.binCrypt32:
-         self.randpass = SECPRINT['FUNC_PWD'](self.secureRoot + self.secureChain)
-         self.randpass = SecureBinaryData(binary_to_base58(self.randpass.toBinStr()))
+         self.randpass   = SECPRINT['FUNC_PWD'](self.secureRoot + self.secureChain)
          self.binCrypt32 = SECPRINT['FUNC_KDF'](self.randpass)
       self.secureMtrxCrypt = []
       for sbdX,sbdY in self.secureMtrx:
@@ -13808,10 +13807,7 @@ class DlgRestoreSingle(ArmoryDialog):
          hasError=False
          try:
             rawEntry = str(self.edtList[i].text())
-            #print '"'+rawEntry+'"'
             rawBin,err = readSixteenEasyBytes( rawEntry.replace(' ','') )
-            #print '"'+binary_to_hex(rawBin)+'"'
-            #print '"'+(err if err else '')+'"'
             if err=='Error_2+':
                hasError=True
             elif err=='Fixed_1':
@@ -13840,15 +13836,29 @@ class DlgRestoreSingle(ArmoryDialog):
             'to verify the "Wallet Unique ID" closely on the next window.', \
             QMessageBox.Ok)
 
-            
-      # If we got here, the data is valid, let's create the wallet and accept the dlg
-      SECPRINT = HardcodedKeyMaskParams()
       privKey = SecureBinaryData(''.join(inputLines[:2]))
       if self.isLongForm:
          chain = SecureBinaryData(''.join(inputLines[2:]))
        
+
+
       if self.doMask:
-         pwd = str(self.edtSP.text())
+         # Prepare the key mask parameters
+         SECPRINT = HardcodedKeyMaskParams()
+         pwd = str(self.edtSP.text()).strip()
+         if len(pwd)<9:
+            QMessageBox.critical(self, 'Invalid Code', tr("""
+               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+               code is needed to decrypt your backup.  If this backup is 
+               actually unencrypted and there is no code, then choose the
+               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+         if not SECPRINT['FUNC_CHKPWD'](pwd):
+            QMessageBox.critical(self, 'Bad Encryption Code', tr("""
+               The SecurePrint\xe2\x84\xa2 code you entered has an error 
+               in it.  Note that the code is case-sensitive.  Please verify
+               you entered it correctly and try again."""), QMessageBox.Ok)
+            return
+            
          maskKey = SECPRINT['FUNC_KDF'](pwd)
          privKey = SECPRINT['FUNC_UNMASK'](privKey, ekey=maskKey)
          if self.isLongForm:
@@ -13857,7 +13867,8 @@ class DlgRestoreSingle(ArmoryDialog):
       if not self.isLongForm:
          chain = DeriveChaincodeFromRootKey(privKey)
 
-      # Now we shouldh ave a fully-plaintext rootkey and chaincode
+      # If we got here, the data is valid, let's create the wallet and accept the dlg
+      # Now we should have a fully-plaintext rootkey and chaincode
       root  = PyBtcAddress().createFromPlainKeyData(privKey)
       root.chaincode = chain
 
