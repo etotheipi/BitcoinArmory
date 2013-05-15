@@ -8,6 +8,7 @@
 import sys
 import time
 import shutil
+import functools
 from PyQt4.QtCore import *
 from PyQt4.QtGui import *
 from qtdefines import *
@@ -8866,7 +8867,8 @@ class DlgPrintBackup(ArmoryDialog):
 
          try:
             yBin = fmtrx[printData][1].toBinStr()
-            IDLine = ComputeFragIDLineHex(M, printData, self.wlt, doMask, addSpaces=True)
+            binID = self.wlt.uniqueIDBin
+            IDLine = ComputeFragIDLineHex(M, printData, binID, doMask, addSpaces=True)
             if len(yBin)==32:
                Prefix.append('ID:');  Lines.append(IDLine)
                Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(yBin[:16 ]))
@@ -13424,7 +13426,8 @@ class DlgFragBackup(ArmoryDialog):
       easyYs1 = makeSixteenBytesEasy(ys[:16   ])
       easyYs2 = makeSixteenBytesEasy(ys[ 16:32])
       
-      ID = ComputeFragIDLineHex(M, idx, self.wlt, doMask, addSpaces=True)
+      binID = self.wlt.uniqueIDBin
+      ID = ComputeFragIDLineHex(M, idx, binID, doMask, addSpaces=True)
 
       fragPreview  = 'ID: %s...<br>' % ID[:12]
       fragPreview += 'F1: %s...<br>' % easyYs1[:12]
@@ -13529,7 +13532,8 @@ class DlgFragBackup(ArmoryDialog):
 
       try:
          yBin = saveMtrx[zindex][1].toBinStr() 
-         IDLine = ComputeFragIDLineHex(M, zindex, self.wlt, doMask, addSpaces=True)
+         binID = self.wlt.uniqueIDBin
+         IDLine = ComputeFragIDLineHex(M, zindex, binID, doMask, addSpaces=True)
          if len(yBin)==32:
             fout.write('ID: ' + IDLine + '\n')
             fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16 ]) + '\n')
@@ -13620,7 +13624,7 @@ class DlgFragBackup(ArmoryDialog):
       #####
 
       self.M,self.N = M,N
-      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt)
+      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt.uniqueIDBin)
       self.fragPixmapFn = 'img/frag%df.png' % M
 
 
@@ -13707,17 +13711,21 @@ class DlgRestoreSingle(ArmoryDialog):
       super(DlgRestoreSingle, self).__init__(parent, main)
 
       lblDescr = QRichLabel( tr("""
-         <b><u>Restore Single-Sheet Paper Backup</u></b>
+         <b><u>Restore Wallet from Paper Backup</u></b>
          <br><br>
          Use this form to restore your wallet from a single-sheet, printed backup.
-         If your backup includes extra pages with imported keys, please use this
-         form to restore the base wallet first, then double-click the restored 
-         wallet and select "Import Private Keys. """))
+         If your backup includes extra pages with imported keys, please restore
+         the base wallet first, then double-click the restored wallet and select
+         "Import Private Keys" from the right-hand menu. <br><br>
+         If your backup consists of multiple "fragments," then cancel out of this
+         window and choose "Fragmented Backup" from the "Restore Wallet" menu."""))
          
+
+      lblType = QRichLabel( tr("""<b>Backup Type:</b>"""), doWrap=False)
 
       self.comboBackupType = QComboBox()
       self.comboBackupType.clear()
-      self.comboBackupType.addItem( tr('Version 1.35  (Root Key & Chaincode)'))
+      self.comboBackupType.addItem( tr('Version 1.35'))
       self.comboBackupType.addItem( tr('Version 1.35a (Unencrypted)'))
       self.comboBackupType.addItem( tr('Version 1.35a (with SecurePrint\xe2\x84\xa2)'))
       self.comboBackupType.addItem( tr('Version 1.35c (Unencrypted)'))
@@ -13726,6 +13734,7 @@ class DlgRestoreSingle(ArmoryDialog):
             
 
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
+      frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
 
 
       # 
@@ -13747,10 +13756,6 @@ class DlgRestoreSingle(ArmoryDialog):
          self.edtList[i].setInputMask(inpMask)
          self.edtList[i].setFont(fixFont)
          self.edtList[i].setMinimumWidth( tightSizeStr(fixFont, inpMask)[0]+10)
-         def setCurs0():
-            if len(str(self.edtList[i].text()))==0:
-               self.edtList[i].setCursorPosition(0)
-         self.connect(self.edtList[i], SIGNAL('textEdited(QString)'), setCurs0)
          layoutAllInp.addWidget(self.prfxList[i], i+1, 0)
          layoutAllInp.addWidget(self.edtList[i], i+1, 1)
       frmAllInputs.setLayout(layoutAllInp)
@@ -13765,7 +13770,8 @@ class DlgRestoreSingle(ArmoryDialog):
 
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
-      layout.addWidget(self.comboBackupType)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmCombo)
       layout.addWidget(frmAllInputs)
       layout.addWidget(buttonBox)
       self.setLayout(layout)
@@ -13816,10 +13822,11 @@ class DlgRestoreSingle(ArmoryDialog):
             hasError=True
             
          if hasError:
-            reply = QMessageBox.critical(self, 'Verify Wallet ID', \
-               'There is an error in the data you entered that could not be '
-               'fixed automatically.  Please double-check that you entered the '
-               'text exactly as it appears on the wallet-backup page.', \
+            reply = QMessageBox.critical(self, tr('Verify Wallet ID'), tr("""
+               There is an error in the data you entered that could not be 
+               fixed automatically.  Please double-check that you entered the 
+               text exactly as it appears on the wallet-backup page.  <br><br>
+               The error occured on <font color="%s">line #%d</font>.""") % i, \
                QMessageBox.Ok)
             LOGERROR('Error in wallet restore field')
             self.prfxList[i].setText('<font color="red">'+str(self.prfxList[i].text())+'</font>')
@@ -13852,6 +13859,7 @@ class DlgRestoreSingle(ArmoryDialog):
                code is needed to decrypt your backup.  If this backup is 
                actually unencrypted and there is no code, then choose the
                appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
          if not SECPRINT['FUNC_CHKPWD'](pwd):
             QMessageBox.critical(self, 'Bad Encryption Code', tr("""
                The SecurePrint\xe2\x84\xa2 code you entered has an error 
@@ -13908,9 +13916,9 @@ class DlgRestoreSingle(ArmoryDialog):
 
       if passwd:
           self.newWallet = PyBtcWallet().createNewWallet( \
-                                 plainRootKey=SecureBinaryData(privKey), \
-                                 chaincode=SecureBinaryData(chain), \
-                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 plainRootKey=privKey, \
+                                 chaincode=chain, \
+                                 shortLabel='Restored - %s'%newWltID, \
                                  withEncrypt=True, \
                                  securePassphrase=passwd, \
                                  kdfTargSec=0.25, \
@@ -13919,9 +13927,9 @@ class DlgRestoreSingle(ArmoryDialog):
                                  doRegisterWithBDM=False)
       else:
          self.newWallet = PyBtcWallet().createNewWallet(  \
-                                 plainRootKey=SecureBinaryData(privKey), \
-                                 chaincode=SecureBinaryData(chain), \
-                                 shortLabel='PaperBackup - %s'%newWltID, \
+                                 plainRootKey=privKey, \
+                                 chaincode=chain, \
+                                 shortLabel='Restored - %s'%newWltID, \
                                  withEncrypt=False,\
                                  isActuallyNew=False, \
                                  doRegisterWithBDM=False)
@@ -13932,6 +13940,378 @@ class DlgRestoreSingle(ArmoryDialog):
 
       # Will pop up a little "please wait..." window while filling addr pool
       DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
+
+
+
+
+################################################################################
+class DlgRestoreFragged(ArmoryDialog):
+   def __init__(self, parent, main):
+      super(DlgRestoreFragged, self).__init__(parent, main)
+
+      lblDescr = QRichLabel( tr("""
+         <b><u>Restore Wallet from Fragments</u></b> <br><br> 
+         Use this form to enter all the fragments to be restored.  Fragments 
+         can be stored on a mix of paper printouts, and saved files. 
+         If any of the fragments require a SecurePrint\xe2\x84\xa2 code, 
+         you will only have to enter it once, since that code is the same for
+         all fragments of any given wallet. """))
+         #<br><br>
+         #If you enter more fragments than are needed, a "Test" button will
+         #appear that will allow you to test reconstructing your wallet 
+         #from different subsets of the fragments."""))
+
+      frmDescr = makeHorizFrame([lblDescr], STYLE_RAISED)
+
+      # HLINE
+
+      self.scrollFragInput = QScrollArea()
+      self.scrollFragInput.setWidgetResizable(True)
+      self.scrollFragInput.setMinimumHeight(150)
+
+      self.btnAddFrag = QPushButton(tr('+Add Frag'))
+      self.btnRmFrag  = QPushButton(tr('-Remove Frag'))
+      self.btnRmFrag.setVisible(False)
+      self.connect(self.btnAddFrag, SIGNAL('clicked()'), self.addFragment)
+      self.connect(self.btnRmFrag,  SIGNAL('clicked()'), self.removeFragment)
+      frmAddRm = makeHorizFrame(['Stretch', self.btnRmFrag, self.btnAddFrag])
+
+      self.fragDataMap = {}
+      self.tableSize = 2
+      self.wltType = UNKNOWN
+      self.fragIDPrefix = UNKNOWN
+
+      self.makeFragInputTable()
+
+      btnExit = QPushButton('Cancel')
+      btnRestore = QPushButton('Restore from Fragments')
+      btnRestore.setEnabled(False)
+      self.connect(btnExit, SIGNAL('clicked()'), self.reject)
+      self.connect(btnRestore, SIGNAL('clicked()'), self.processFrags)
+      frmBtns = makeHorizFrame([btnExit, 'Stretch', btnRestore])
+      
+      layout = QGridLayout()
+      layout.addWidget(frmDescr,             0,0,  1,2)
+      layout.addWidget(frmAddRm,             1,0,  1,2)
+      layout.addWidget(self.scrollFragInput, 2,0,  1,2)
+      layout.addWidget(frmBtns,              3,0,  1,2)
+      self.setLayout(layout)
+      self.setMinimumWidth(600)
+      self.setMinimumHeight(400)
+      self.setWindowTitle('Restore wallet from fragments')
+      
+
+   def makeFragInputTable(self, addCount=0):
+         
+      self.tableSize += addCount
+      newLayout = QGridLayout()
+      newFrame  = QFrame()
+      self.fragsDone = []
+      for i in range(self.tableSize):
+         btnEnter  = QPushButton(tr('Enter Data'))
+         btnLoad   = QPushButton(tr('Load File'))
+         btnClear  = QPushButton(tr('Clear Frag'))
+         lblFragID = QRichLabel('')
+         lblMval   = QRichLabel('')
+         lblSecure = QLabel('')
+         if i in self.fragDataMap:
+            self.fragsDone.append(i)
+            M,fnum,wltID,doMask,fid = ReadFragIDLineHex(self.fragDataMap[i][0])
+            lblFragID.setText('<b>'+fid+'</b>')
+            lblMval.setText('M=' + str(M))
+            if doMask:
+               lblSecure.setPixmap(QPixmap(':/lockedIcon.png'))
+               lblSecure.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+
+         self.connect(btnEnter, SIGNAL('clicked()'), \
+                      functools.partial(self.dataEnter, fnum=i))
+         self.connect(btnLoad, SIGNAL('clicked()'), \
+                      functools.partial(self.dataLoad, fnum=i))
+         self.connect(btnClear, SIGNAL('clicked()'), \
+                      functools.partial(self.dataClear, fnum=i))
+
+
+         newLayout.addWidget(btnEnter,   i,0)
+         newLayout.addWidget(btnLoad,    i,1)
+         newLayout.addWidget(btnClear,   i,2)
+         newLayout.addWidget(lblFragID,  i,3)
+         newLayout.addWidget(lblMval,    i,4)
+         newLayout.addWidget(lblSecure,  i,5)
+            
+      btnFrame = QFrame()
+      btnFrame.setLayout(newLayout)
+
+      frmFinal = makeVertFrame([btnFrame, 'Stretch'], STYLE_SUNKEN)
+      self.scrollFragInput.setWidget(frmFinal)
+
+      self.btnAddFrag.setVisible(self.tableSize<12)
+      self.btnRmFrag.setVisible(self.tableSize>2)
+
+
+   #############################################################################
+   def addFragment(self):
+      self.makeFragInputTable(1)
+
+   #############################################################################
+   def removeFragment(self):
+      self.makeFragInputTable(-1)
+      toRemove = []
+      for key,val in self.fragDataMap.iteritems():
+         if key >= self.tableSize:
+            toRemove.append(key)
+
+      # Have to do this in a separate loop, cause you can't remove items
+      # from a map while you are iterating over them
+      for key in toRemove:
+         del self.fragDataMap[key]
+
+   #############################################################################
+   def dataEnter(self, fnum):
+      dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
+      if dlg.exec_():
+         print 'Good data from enter_one_frag exec!', fnum
+         self.makeFragInputTable()
+
+
+   #############################################################################
+   def dataLoad(self, fnum):
+      print 'Loading data for entry,', fnum
+
+   #############################################################################
+   def dataClear(self, fnum):
+      print 'Clearing data for entry,', fnum
+
+   #############################################################################
+   def addFragToTable(self, tableIndex, fragData):
+
+      if len(fragData) == 9:
+         currType = '0'
+      elif len(fragData) == 5:
+         currType = '1.35a'
+      elif len(fragData) == 3:
+         currType = '1.35c'
+      else:
+         LOGERROR('How\'d we get fragData of size: %d', len(fragData))
+         return
+   
+      if self.wltType==UNKNOWN:
+         self.wltType = currType
+      else:
+         if not self.wltType==currType:
+            LOGERROR('Mixing frag types!  How did that happen?')
+            return
+
+      
+      M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineHex(binary_to_hex(fragData[0]))
+      if not self.fragIDPrefix == idBase58.split('-')[0]:
+         LOGERROR('Mixing fragments of different wallets! %s', idBase58)
+         return
+
+      self.fragDataMap[tableIndex] = fragData
+
+   #############################################################################
+   def processFrags(self):
+      pass
+ 
+
+
+
+
+################################################################################
+class DlgEnterOneFrag(ArmoryDialog):
+
+   #############################################################################
+   def __init__(self, parent, main, fragList=[], wltType=UNKNOWN):
+      super(DlgEnterOneFrag, self).__init__(parent, main)
+
+
+      self.fragData = []
+
+      BLUE = htmlColor('TextBlue')
+      already = ''
+      if len(fragList)>0:
+         strList = ['<font color="%s">%d</font>' % (BLUE, f) for f in fragList]
+         replStr = '[' + ','.join(strList[:]) + ']'
+         already = tr(""" You have entered fragments %s, so far.  """) % replStr
+
+      lblDescr = QRichLabel( tr("""
+         <b><u>Enter Another Fragment...</u></b> <br><br> %s 
+         The fragments can be entered in any order, as long as you provide 
+         enough of them to restore the wallet.  If any fragments use a  
+         SecurePrint\xe2\x84\xa2 code, please enter it once on the
+         previous window, and it will be applied to all fragments that 
+         require it.""") % already)
+         
+
+         
+         
+      self.comboBackupType = QComboBox()
+      self.comboBackupType.clear()
+      self.comboBackupType.addItem( tr('Version 0  (from script, 9 lines)'))
+      self.comboBackupType.addItem( tr('Version 1.35a  (5 lines)'))
+      self.comboBackupType.addItem( tr('Version 1.35c  (3 lines)'))
+
+      # If a wallet type hasn't been determined yet, allow the user to select it
+      # This value will be locked after the first fragment is entered.
+      if wltType==UNKNOWN:
+         self.comboBackupType.setCurrentIndex(2)
+         self.comboBackupType.setEnabled(True)
+      elif wltType=='0':
+         self.comboBackupType.setCurrentIndex(0)
+         self.comboBackupType.setEnabled(False)
+      elif wltType=='1.35a':
+         self.comboBackupType.setCurrentIndex(1)
+         self.comboBackupType.setEnabled(False)
+      elif wltType=='1.35c':
+         self.comboBackupType.setCurrentIndex(2)
+         self.comboBackupType.setEnabled(False)
+
+      lblType = QRichLabel( tr("""<b>Backup Type:</b>"""), doWrap=False)
+      self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
+      frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
+
+      self.lblID = QRichLabel('ID:')
+      self.edtID = QLineEdit()
+      self.edtID.setInputMask('<HHHH\ HHHH\ HHHH\ HHHH!')
+
+      self.prfxList = ['x1:','x2:','x3:','x4:', \
+                       'y1:','y2:','y3:','y4:', \
+                       'F1:','F2:','F3:','F4:']
+      self.prfxList = [QLabel(p) for p in self.prfxList]
+      self.edtList = [QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
+                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
+                      QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
+
+      inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+
+      frmAllInputs = QFrame()
+      frmAllInputs.setFrameStyle(STYLE_RAISED)
+      layoutAllInp = QGridLayout()
+      layoutAllInp.addWidget( self.lblID,  0,0, 1,1)
+      layoutAllInp.addWidget( self.edtID,  0,1, 1,1)
+      for i in range(12):
+         fixFont = GETFONT('Fix', 9)
+         self.edtList[i].setInputMask(inpMask)
+         self.edtList[i].setFont(fixFont)
+         self.edtList[i].setMinimumWidth(tightSizeStr(fixFont, inpMask)[0]+10)
+         layoutAllInp.addWidget(self.prfxList[i], i+1,0, 1,2)
+         layoutAllInp.addWidget(self.edtList[i],  i+1,1, 1,2)
+      frmAllInputs.setLayout(layoutAllInp)
+
+      self.btnAccept = QPushButton("Done")
+      self.btnCancel = QPushButton("Cancel")
+      self.connect(self.btnAccept, SIGNAL('clicked()'), self.verifyUserInput)
+      self.connect(self.btnCancel, SIGNAL('clicked()'), self.reject)
+      buttonBox = QDialogButtonBox()
+      buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
+      buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
+
+      layout = QVBoxLayout()
+      layout.addWidget(lblDescr)
+      layout.addWidget(HLINE())
+      layout.addWidget(frmCombo)
+      layout.addWidget(frmAllInputs)
+      layout.addWidget(buttonBox)
+      self.setLayout(layout)
+
+
+      self.setWindowTitle('Restore Single-Sheet Backup')
+      self.setMinimumWidth(500)
+      self.layout().setSizeConstraint(QLayout.SetFixedSize)
+      self.changeType()
+      
+      
+   #############################################################################
+   def changeType(self):
+      sel = self.comboBackupType.currentIndex()
+      if   sel==0: visList = [1,1,1,1, 1,1,1,1, 0,0,0,0]
+      elif sel==1: visList = [0,0,0,0, 0,0,0,0, 1,1,1,1]
+      elif sel==2: visList = [0,0,0,0, 0,0,0,0, 1,1,0,0]
+      else:
+         LOGERROR('What the heck backup type is selected?  %d', sel)
+         return
+
+      for i in range(12):
+         self.prfxList[i].setVisible( visList[i]==1) 
+         self.edtList[ i].setVisible( visList[i]==1) 
+
+      self.isLongForm = (sel in [0,1])
+         
+
+   #############################################################################
+   def destroyFragData(self):
+      for line in self.fragData:
+         if not isinstance(line, basestring):
+            # It's an SBD Object.  Destroy it. 
+            line.destroy()
+   
+
+   #############################################################################
+   def verifyUserInput(self):
+      self.fragData = []
+      nError = 0
+      rawBin = None
+      
+      sel = self.comboBackupType.currentIndex()
+      rng = [-1]
+      if   sel==0: rng = range(8)
+      elif sel==1: rng = range(8,12)
+      elif sel==2: rng = range(8,10)
+
+
+      for i in rng:
+         hasError=False
+         try:
+            rawEntry = str(self.edtList[i].text())
+            rawBin,err = readSixteenEasyBytes( rawEntry.replace(' ','') )
+            if err=='Error_2+':
+               hasError=True
+            elif err=='Fixed_1':
+               nError += 1
+         except KeyError:
+            hasError=True
+            
+         if hasError:
+            reply = QMessageBox.critical(self, tr('Verify Wallet ID'), tr("""
+               There is an error in the data you entered that could not be 
+               fixed automatically.  Please double-check that you entered the 
+               text exactly as it appears on the wallet-backup page. <br><br>
+               The error occured on the "%s" line.""") % \
+               str(self.prfxList[i].text()), QMessageBox.Ok)
+            LOGERROR('Error in wallet restore field')
+            self.prfxList[i].setText('<font color="red">'+str(self.prfxList[i].text())+'</font>')
+            self.destroyFragData()
+            return
+
+         self.fragData.append(SecureBinaryData(rawBin))
+         rawBin = None
+      
+
+      idLine = str(self.edtID.text()).replace(' ','')
+      self.fragData.insert(0, hex_to_binary(idLine))
+
+      M,fnum,wltID,doMask,fid = ReadFragIDLineHex(idLine)
+
+      reply = QMessageBox.question(self, tr('Verify Fragment ID'), tr("""
+         The data you entered is for fragment <font color="%s"><b>%s</b></font>. 
+         Does this ID match the "Fragment:" field displayed on your backup?
+         <br><br>
+         If not, click "No" and verify that you entered the fragment data
+         correctly""") % (htmlColor('TextBlue'), fid), \
+         QMessageBox.Yes | QMessageBox.No)
+
+      if reply==QMessageBox.Yes:
+         self.accept()
+      
+
+
+
+
+
+
+
+
+
 
 
 

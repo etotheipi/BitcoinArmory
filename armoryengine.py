@@ -2050,23 +2050,35 @@ def ReconstructSecret(fragments, needed, nbytes):
          
    
 ################################################################################
-def ComputeFragIDBase58(M, wlt):
+def ComputeFragIDBase58(M, wltIDBin):
    mBin4   = int_to_binary(M, widthBytes=4, endOut=BIGENDIAN)
-   fragBin = hash256(wlt.uniqueIDBin + mBin4)[:4]
+   fragBin = hash256(wltIDBin + mBin4)[:4]
    fragB58 = str(M) + binary_to_base58(fragBin) 
    return fragB58
 
 ################################################################################
-def ComputeFragIDLineHex(M, index, wlt, isSecure=False, addSpaces=False):
+def ComputeFragIDLineHex(M, index, wltIDBin, isSecure=False, addSpaces=False):
    fragID  = int_to_hex((128+M) if isSecure else M)
    fragID += int_to_hex(index+1)
-   fragID += binary_to_hex(wlt.uniqueIDBin)
+   fragID += binary_to_hex(wltIDBin)
    
    if addSpaces:
       fragID = ' '.join([fragID[i*4:(i+1)*4] for i in range(4)])
 
    return fragID
    
+
+################################################################################
+def ReadFragIDLineHex(theLine):
+   binLine = hex_to_binary(theLine.strip().replace(' ',''))
+   doMask = binary_to_int(binLine[0]) > 127
+   M      = binary_to_int(binLine[0]) & 0x7f
+   fnum   = binary_to_int(binLine[1]) 
+   wltID  = binLine[2:]
+   
+   idBase58 = ComputeFragIDBase58(M, wltID) + '-#' + str(fnum)
+   return (M, fnum, wltID, doMask, idBase58)
+
     
 
 
