@@ -8176,6 +8176,8 @@ class SimplePrintableGraphicsScene(object):
       self.lastCursorMove = (0,0)
 
    
+   def getCursorXY(self):
+      return (self.cursorPos.x(), self.cursorPos.y())
 
    def getScene(self):
       return self.gfxScene
@@ -8191,7 +8193,7 @@ class SimplePrintableGraphicsScene(object):
       return self.pageRect.contains(pt)
    
    def moveCursor(self, dx, dy, absolute=False):
-      xOld,yOld = self.cursorPos.x(), self.cursorPos.y()
+      xOld,yOld = self.getCursorXY()
       if absolute:
          self.cursorPos = QPointF(dx,dy)
          self.lastCursorMove = (dx-xOld, dy-yOld)
@@ -8209,7 +8211,7 @@ class SimplePrintableGraphicsScene(object):
 
 
    def newLine(self, extra_dy=0):
-      xOld,yOld = self.cursorPos.x(), self.cursorPos.y()
+      xOld,yOld = self.getCursorXY()
       xNew = self.MARGIN_PIXELS
       yNew = self.cursorPos.y() + self.lastItemSize[1] + extra_dy - 5
       self.moveCursor(xNew-xOld, yNew-yOld)
@@ -8218,7 +8220,7 @@ class SimplePrintableGraphicsScene(object):
    def drawHLine(self, width=None, penWidth=1):
       if width==None:
          width = 3*self.INCH
-      currX,currY = self.cursorPos.x(), self.cursorPos.y()
+      currX,currY = self.getCursorXY()
       lineItem = QGraphicsLineItem(currX, currY, currX+width, currY)
       pen = QPen()
       pen.setWidth(penWidth)
@@ -8269,8 +8271,10 @@ class SimplePrintableGraphicsScene(object):
       self.moveCursor(rect.width(), 0)
       return self.lastItemSize
 
-   def drawPixmapFile(self, pixFn):
+   def drawPixmapFile(self, pixFn, sizePx=None):
       pix = QPixmap(pixFn)
+      if not sizePx==None:
+         pix = pix.scaled(sizePx, sizePx)
       pixItem = QGraphicsPixmapItem( pix )
       pixItem.setPos( self.cursorPos )
       pixItem.setMatrix( QMatrix() )
@@ -8302,7 +8306,7 @@ class SimplePrintableGraphicsScene(object):
       Just like the other methods, this leaves the cursor sitting at the
       original y-value, but shifted to the right by the width of the column.
       """
-      origX, origY = self.cursorPos.x(), self.cursorPos.y()
+      origX, origY = self.getCursorXY()
       maxColWidth = 0
       cumulativeY = 0
       for r in strList:
@@ -8526,16 +8530,16 @@ class DlgPrintBackup(ArmoryDialog):
 
 
    def redrawBackup(self):
-
       cmbPage = 1
       if self.comboPageNum.count() > 0:
          cmbPage = int(str(self.comboPageNum.currentText()))
 
       if self.doPrintFrag:
+         cmbPage -= 1
          if not self.doMultiFrag:
             cmbPage = self.fragData['Range'][0]
-         else:
-            cmbPage = int(str(self.comboPageNum.currentText()))
+         elif self.comboPageNum.count() > 0:
+            cmbPage = int(str(self.comboPageNum.currentText()))-1
 
          self.createPrintScene('Fragmented',cmbPage)
       else:
@@ -8547,17 +8551,16 @@ class DlgPrintBackup(ArmoryDialog):
             nKey = self.maxKeysPerPage
             self.createPrintScene('SingleSheetImported', [pg*nKey,(pg+1)*nKey])
 
+
+      showPageCombo = self.chkImportPrint.isChecked() or \
+                      (self.doPrintFrag and self.doMultiFrag)
+      self.showPageSelect(showPageCombo)
       self.view.update()
 
    
 
 
    def clickImportChk(self):
-      MARGIN = self.scene.MARGIN_PIXELS 
-      bottomOfPage = self.scene.pageRect().height() + MARGIN
-      totalHgt = bottomOfPage - self.bottomOfSceneHeader 
-      self.maxKeysPerPage = int(totalHgt / (self.importHgt))
-      self.numImportPages = (len(self.binImport)-1) / self.maxKeysPerPage + 1
       if self.numImportPages > 1 and self.chkImportPrint.isChecked():
          ans = QMessageBox.warning(self, tr('Lots to Print!'), tr("""
             This wallet contains <b>%d</b> imported keys, which will require 
@@ -8571,7 +8574,20 @@ class DlgPrintBackup(ArmoryDialog):
             QMessageBox.Yes | QMessageBox.No)
          if not ans==QMessageBox.Yes:
             self.chkImportPrint.setChecked(False)
+      
+      showPageCombo = self.chkImportPrint.isChecked() or \
+                      (self.doPrintFrag and self.doMultiFrag)
+      self.showPageSelect(showPageCombo)
+      self.comboPageNum.setCurrentIndex(0)
+      self.redrawBackup()
 
+
+   def showPageSelect(self, doShow=True):
+      MARGIN = self.scene.MARGIN_PIXELS 
+      bottomOfPage = self.scene.pageRect().height() + MARGIN
+      totalHgt = bottomOfPage - self.bottomOfSceneHeader 
+      self.maxKeysPerPage = int(totalHgt / (self.importHgt))
+      self.numImportPages = (len(self.binImport)-1) / self.maxKeysPerPage + 1
       if self.comboPageNum.count() == 0:
          if self.doPrintFrag:
             numFrag = len(self.fragData['Range'])
@@ -8583,14 +8599,10 @@ class DlgPrintBackup(ArmoryDialog):
                self.comboPageNum.addItem(str(i+1))
             self.lblPageMaxStr.setText(tr('of %d') % (self.numImportPages+1,))
 
-      showPageSelect = self.chkImportPrint.isChecked() or \
-                       (self.doPrintFrag and self.doMultiFrag)
 
-      self.lblPageStr.setVisible(showPageSelect)
-      self.comboPageNum.setVisible(showPageSelect)
-      self.lblPageMaxStr.setVisible(showPageSelect)
-      self.comboPageNum.setCurrentIndex(0)
-      self.redrawBackup()
+      self.lblPageStr.setVisible(doShow)
+      self.comboPageNum.setVisible(doShow)
+      self.lblPageMaxStr.setVisible(doShow)
 
          
 
@@ -8599,16 +8611,16 @@ class DlgPrintBackup(ArmoryDialog):
       LOGINFO('Printing!')
       self.printer = QPrinter(QPrinter.HighResolution)
       self.printer.setPageSize(QPrinter.Letter)
-      painter = QPainter(self.printer)
-      painter.setRenderHint(QPainter.TextAntialiasing)
 
       if QPrintDialog(self.printer).exec_():
+         painter = QPainter(self.printer)
+         painter.setRenderHint(QPainter.TextAntialiasing)
 
          if self.doPrintFrag:
             for i in self.fragData['Range']:
                self.createPrintScene('Fragment', i)
                self.scene.getScene().render(painter)
-               if not i==self.fragData['Range']-1:
+               if not i==len(self.fragData['Range'])-1:
                   self.printer.newPage()
                   
          else:
@@ -8667,7 +8679,6 @@ class DlgPrintBackup(ArmoryDialog):
    #############################################################################
    #############################################################################
    def createPrintScene(self, printType, printData):
-      print 'Print data passed into createPrintScene:', printData
       self.scene.gfxScene.clear()
       self.scene.resetCursor()
    
@@ -8696,14 +8707,14 @@ class DlgPrintBackup(ArmoryDialog):
       self.scene.newLine(extra_dy=20)
    
    
-      ssType =  ' (with SecurePrint\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
+      ssType =  ' (SecurePrint\xe2\x84\xa2)' if doMask else ' (Unencrypted)'
       if printType=='SingleSheetFirstPage':
          bType = tr('Single-Sheet ' + ssType)
       elif printType=='SingleSheetImported':
          bType = tr('Imported Keys ' + ssType)
-      elif printType=='Fragmented':
-         bstr = tr('Fragemented %d-of-%d  ') % (self.fragData['M'], self.fragData['N'])
-         bType = bstr + tr(ssType)
+      elif printType.lower().startswith('frag'):
+         bstr = tr('Fragmented %d-of-%d') % (self.fragData['M'], self.fragData['N'])
+         bType = bstr + ' ' + tr(ssType)
       
       if printType.startswith('SingleSheet'):
          colRect, rowHgt = self.scene.drawColumn(['Wallet Version:', 'Wallet ID:', \
@@ -8715,7 +8726,7 @@ class DlgPrintBackup(ArmoryDialog):
       else:
          colRect, rowHgt = self.scene.drawColumn(['Wallet Version:', 'Wallet ID:', \
                                                    'Wallet Name:', 'Backup Type:', \
-                                                   'Fragment ID:'])
+                                                   'Fragment:'])
          baseID = self.fragData['FragIDStr']
          fragNum = printData+1
          fragID = tr('<b>%s-<font color="%s">#%d</font></b>') % \
@@ -8728,12 +8739,21 @@ class DlgPrintBackup(ArmoryDialog):
 
       # Display warning about unprotected key data
       wrap = 0.9*self.scene.pageRect().width()
-      container = 'this wallet' if printType=='SingleSheetFirstPage' else 'these addresses'
-      warnMsg = tr(""" 
-         <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to this 
-         page has access to all the bitcoins in %s!  Please keep this 
-         page in a safe place.""" % container)
    
+      if self.doPrintFrag:
+         warnMsg = tr(""" 
+            Any subset of <font color="%s"><b>%d</b></font> fragments with this
+            ID (<font color="%s"><b>%s</b></font>) are sufficient to recover all the 
+            coins contained in this wallet.  To optimize the physical security of 
+            your wallet, please store the fragments in different locations.""") % \
+                                       (htmlColor('TextBlue'), self.fragData['M'], \
+                                       htmlColor('TextBlue'), self.fragData['FragIDStr'])
+      else: 
+         container = 'this wallet' if printType=='SingleSheetFirstPage' else 'these addresses'
+         warnMsg = tr(""" 
+            <font color="#aa0000"><b>WARNING:</b></font> Anyone who has access to this 
+            page has access to all the bitcoins in %s!  Please keep this 
+            page in a safe place.""" % container)
    
       self.scene.newLine()
       self.scene.drawText(warnMsg, GETFONT('Var', 9), wrapWidth=wrap)
@@ -8742,7 +8762,11 @@ class DlgPrintBackup(ArmoryDialog):
       self.scene.drawHLine()
       self.scene.newLine(extra_dy=20)
    
-      numLine = 'two' if self.noNeedChaincode else 'four'
+      if self.doPrintFrag:
+         numLine = 'three' if self.noNeedChaincode else 'five'
+      else:
+         numLine = 'two' if self.noNeedChaincode else 'four'
+
       if printType=='SingleSheetFirstPage':
          descrMsg = tr(""" 
             The following %s lines backup all addresses 
@@ -8764,51 +8788,46 @@ class DlgPrintBackup(ArmoryDialog):
                wallet before this backup was made.  Each one must be copied 
                manually into the application where you wish to import them.  """)
       elif printType.lower().startswith('frag'):
-         BLUE = htmlColor('TextBlue')
          fragNum = printData+1
          descrMsg = tr("""
-            The following is fragment <font color="%s">#%d</font> for this 
-            wallet.  Any <font color="%s">%d</font> of fragments with this
-            ID (<font color="%s">%s</font>) are sufficient to recover all the 
-            coins contained in this wallet.""") % (BLUE, printData+1, \
-                                                   BLUE, self.fragData['M'], \
-                                                   BLUE, self.fragData['FragIDStr'])
+            The following is fragment <font color="%s"><b>#%d</b></font> for this 
+            wallet. """)  % (htmlColor('TextBlue'), printData+1)
          
             
       self.scene.drawText(descrMsg, GETFONT('var', 8), wrapWidth=wrap)
       self.scene.newLine(extra_dy=10)
    
       ###########################################################################
-      # Draw the SecurePrint box, if needed
-      prevCursor = self.scene.cursorPos.x(), self.scene.cursorPos.y()
-      self.scene.resetCursor()
-   
-      self.scene.moveCursor(4.0*INCH, 0)
-   
-      pmWid, pmHgt = 2.75*INCH, 1.5*INCH, 
+      # Draw the SecurePrint box if needed, frag pie, then return cursor
+      prevCursor = self.scene.getCursorXY()
+
+      self.lblSecurePrint.setVisible(doMask)
       if doMask:
-         self.scene.drawRect(pmWid, pmHgt, edgeColor=QColor(180,0,0), penWidth=3)
+         self.scene.resetCursor()
+         self.scene.moveCursor(4.0*INCH, 0)
+         spWid, spHgt = 2.75*INCH, 1.5*INCH, 
+         if doMask:
+            self.scene.drawRect(spWid, spHgt, edgeColor=QColor(180,0,0), penWidth=3)
    
-      self.scene.resetCursor()
-      self.scene.moveCursor(4.07*INCH, 0.07*INCH)
+         self.scene.resetCursor()
+         self.scene.moveCursor(4.07*INCH, 0.07*INCH)
       
-      if not doMask:
-         self.lblSecurePrint.setVisible(False)
-      else:
-         self.lblSecurePrint.setVisible(True)
          self.scene.drawText(tr("""
             <b><font color="#770000">CRITICAL:</font>  This backup will not 
             work without the SecurePrint\xe2\x84\xa2
             code displayed on the screen during printing. 
-            Copy it here in ink:"""), wrapWidth=pmWid*0.93, font=GETFONT('Var', 7))
+            Copy it here in ink:"""), wrapWidth=spWid*0.93, font=GETFONT('Var', 7))
    
          self.scene.newLine(extra_dy = 8)
          self.scene.moveCursor(4.07*INCH, 0)
-         keyWid,keyHgt = self.scene.drawText('Code:')
-         self.scene.moveCursor(0,keyHgt-3)
-         wid = pmWid - keyWid
+         codeWid,codeHgt = self.scene.drawText('Code:')
+         self.scene.moveCursor(0,codeHgt-3)
+         wid = spWid - codeWid
          w,h = self.scene.drawHLine(width=wid*0.9, penWidth=2)
+
+
    
+      # Done drawing other stuff, so return to the original drawing location
       self.scene.moveCursor(*prevCursor, absolute=True)
       ###########################################################################
    
@@ -8839,22 +8858,28 @@ class DlgPrintBackup(ArmoryDialog):
    
       if self.doPrintFrag:
          M = self.fragData['M']
-         fnum = printData+1
          Lines = []
          Prefix = [] 
          fmtrx = self.fragMtrxCrypt if doMask else self.fragMtrx
-         fragY = fmtrx[printData+1][1]
-         IDLine = int_to_hex(M) + int_to_hex(fnum) + binary_to_hex(self.wlt.uniqueIDBin)
-         if fragY.getSize()==32:
-            Prefix.append('ID:');  Lines.append(' '.join([IDLine[i*4:(i+1)*4] for i in range(4)]))
-            Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[:16 ]))
-            Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[ 16:]))
-         elif fragY.getSize()==64:
-            Prefix.append('ID:');  Lines.append(' '.join([IDLine[i*4:(i+1)*4] for i in range(4)]))
-            Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[:16       ]))
-            Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[ 16:32    ]))
-            Prefix.append('F3:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[    32:48 ]))
-            Prefix.append('F4:');  Lines.append(makeSixteenBytesEasy(fragY.toBinStr()[       48:]))
+
+         try:
+            yBin = fmtrx[printData][1].toBinStr()
+            IDLine = ComputeFragIDLineHex(M, printData, self.wlt, doMask, addSpaces=True)
+            if len(yBin)==32:
+               Prefix.append('ID:');  Lines.append(IDLine)
+               Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(yBin[:16 ]))
+               Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(yBin[ 16:]))
+            elif len(yBin)==64:
+               Prefix.append('ID:');  Lines.append(IDLine)
+               Prefix.append('F1:');  Lines.append(makeSixteenBytesEasy(yBin[:16       ]))
+               Prefix.append('F2:');  Lines.append(makeSixteenBytesEasy(yBin[ 16:32    ]))
+               Prefix.append('F3:');  Lines.append(makeSixteenBytesEasy(yBin[    32:48 ]))
+               Prefix.append('F4:');  Lines.append(makeSixteenBytesEasy(yBin[       48:]))
+            else:
+               LOGERROR('yBin is not 32 or 64 bytes!  It is %s bytes', len(yBin))
+         finally:
+            yBin = None
+
       else:
          # Single-sheet backup
          if doMask:
@@ -8877,7 +8902,7 @@ class DlgPrintBackup(ArmoryDialog):
             Lines  = Lines[:2]
    
       # Draw the prefix
-      origX,origY = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      origX,origY = self.scene.getCursorXY()
       self.scene.moveCursor(20,0) 
       colRect, rowHgt = self.scene.drawColumn(['<b>'+l+'</b>' for l in Prefix])
       
@@ -8899,14 +8924,43 @@ class DlgPrintBackup(ArmoryDialog):
          by hand, you can safely ignore this QR code. """ % numLine), wrapWidth=4*INCH)
    
       self.scene.moveCursor(20,0)
-      x,y = self.scene.cursorPos.x(), self.scene.cursorPos.y()
+      x,y = self.scene.getCursorXY()
       edgeRgt = self.scene.pageRect().width() - MARGIN
       edgeBot = self.scene.pageRect().height() - MARGIN
    
-      qrSize = min(edgeRgt - x, edgeBot - y)
+      qrSize = max(1.5*INCH, min(edgeRgt - x, edgeBot - y, 2.0*INCH))
       self.scene.drawQR('\n'.join(Lines), qrSize)
+      self.scene.newLine(extra_dy=25)
    
       Lines = None
+
+      # Finally, draw some pie slices at the bottom
+      if self.doPrintFrag:
+         M,N = self.fragData['M'], self.fragData['N']
+         bottomOfPage = self.scene.pageRect().height() + MARGIN
+         maxPieHeight = bottomOfPage - self.scene.getCursorXY()[1] - 8
+         maxPieWidth  = int((self.scene.pageRect().width()-2*MARGIN) / N) - 10
+         pieSize = min(72., maxPieHeight, maxPieWidth)
+         print pieSize
+         for i in range(N):
+            startX, startY = self.scene.getCursorXY()
+            drawSize = self.scene.drawPixmapFile('img/frag%df.png' % M, sizePx=pieSize)
+            self.scene.moveCursor(10,0)
+            if i==printData:
+               returnX, returnY = self.scene.getCursorXY() 
+               self.scene.moveCursor(startX, startY, absolute=True)
+               self.scene.moveCursor(-5, -5)
+               self.scene.drawRect(drawSize[0]+10, \
+                                   drawSize[1]+10, \
+                                   edgeColor=Colors.TextBlue, \
+                                   penWidth=3)
+               self.scene.newLine()
+               self.scene.moveCursor(startX-MARGIN, 0)
+               self.scene.drawText('<font color="%s">#%d</font>' % \
+                        (htmlColor('TextBlue'), fragNum), GETFONT('Var',10))
+               self.scene.moveCursor(returnX, returnY, absolute=True)
+               
+         
       
       vbar = self.view.verticalScrollBar()
       vbar.setValue(vbar.minimum())
@@ -12678,8 +12732,6 @@ class DlgBackupCenter(ArmoryDialog):
    #############################################################################
    def __init__(self, parent, main, wlt):
       super(DlgBackupCenter, self).__init__(parent, main)
-      
-
 
       self.wlt = wlt
       wltID = wlt.uniqueIDB58
@@ -13043,11 +13095,11 @@ class DlgBackupCenter(ArmoryDialog):
 
    def clickedDoIt(self):
       if self.optPaperBackupOne.isChecked():
-         if OpenPaperBackupWindow('Single', self, self.main, self.wlt):
-            self.accept()
+         self.accept()
+         OpenPaperBackupWindow('Single', self.parent, self.main, self.wlt)
       elif self.optPaperBackupFrag.isChecked():
-         if OpenPaperBackupWindow('Frag', self, self.main, self.wlt):
-            self.accept()
+         self.accept()
+         OpenPaperBackupWindow('Frag', self.parent, self.main, self.wlt)
       elif self.optDigitalBackupPlain.isChecked():
          self.main.makeWalletCopy(self, self.wlt, 'Decrypt', 'decrypt')
       elif self.optDigitalBackupCrypt.isChecked():
@@ -13068,7 +13120,8 @@ class DlgBackupCenter(ArmoryDialog):
                      QMessageBox.Ok)
                   if self.main.usermode==USERMODE.Standard:
                      return
-         DlgShowKeyList(self.wlt, self, self.main).exec_()
+         DlgShowKeyList(self.wlt, self.parent, self.main).exec_()
+         self.accept()
       else:
          return 0
       
@@ -13118,8 +13171,8 @@ class DlgSimpleBackup(ArmoryDialog):
          self.accept()
 
       def backupOther():
-         DlgBackupCenter(self, self.main, self.wlt).exec_()
          self.accept()
+         DlgBackupCenter(self, self.main, self.wlt).exec_()
 
       self.connect(btnPaper, SIGNAL('clicked()'), backupPaper )
       self.connect(btnDigital, SIGNAL('clicked()'), backupDigital )
@@ -13175,22 +13228,21 @@ class DlgFragBackup(ArmoryDialog):
       self.binCrypt32 = None
 
       lblDescrTitle = QRichLabel( tr(""" 
-         <b>Create Fragmented Backup: "%s" (%s)</b>""") % \
+         <b>Create M-of-N Fragmented Backup: "%s" (%s)</b>""") % \
          (wlt.labelName, wlt.uniqueIDB58), doWrap=False)
       lblDescrTitle.setContentsMargins(5,5,5,5)
 
       lblDescr = QRichLabel( tr(""" 
-         Split your wallet into secure "fragments."  This is generally referred to 
-         as an <b>M-of-N</b> bakcup.  With the settings below 
-         , which means that <b>N</b> fragments will be created, of which any
-         subset of <b>M</b> of them is sufficient to restore your wallet. 
+         Split your wallet into <b>N</b> secure "fragments," of which any
+         <b>M</b> of them can be used to restore your wallet. 
          <a href="http://bitcoinarmory.com/fragmenting-your-backups/">Click here</a>
          to read more about fragmented backups."""))
       lblDescr .setOpenExternalLinks(True)
-      frmDescr = makeVertFrame([lblDescrTitle, lblDescr], STYLE_RAISED)
-
-
+      lblDescr.setContentsMargins(10,0,10,0)
       self.lblBelowFrags = QRichLabel('')
+      self.lblBelowFrags.setContentsMargins(10,0,10,0)
+
+      frmDescr = makeVertFrame([lblDescrTitle, lblDescr, HLINE(), self.lblBelowFrags], STYLE_RAISED)
 
       
       self.maxM = 3 if not self.main.usermode==USERMODE.Expert else 8
@@ -13207,8 +13259,8 @@ class DlgFragBackup(ArmoryDialog):
       for N in range(self.currMinN, self.maxN+1):
          self.comboN.addItem(str(N))
 
-      self.comboM.setCurrentIndex(0)
-      self.comboN.setCurrentIndex(1)
+      self.comboM.setCurrentIndex(1)
+      self.comboN.setCurrentIndex(2)
 
       def updateM():
          self.updateComboN()
@@ -13218,29 +13270,9 @@ class DlgFragBackup(ArmoryDialog):
 
       self.connect(self.comboM, SIGNAL('activated(int)'), updateM)
       self.connect(self.comboN, SIGNAL('activated(int)'), updateN)
-
-      #lblBelowM  = QRichLabel(tr('Required (M)'), hAlign=Qt.AlignHCenter)
-      #lblBelowN  = QRichLabel(tr('Total (N)'), hAlign=Qt.AlignHCenter)
-      #lblBetween = QRichLabel(tr('- OF -'), hAlign=Qt.AlignHCenter, size=3)
-
       self.comboM.setMinimumWidth(30)
       self.comboN.setMinimumWidth(30)
 
-      frmComboM = makeHorizFrame(['Stretch', self.comboM, 'Stretch'])
-      frmComboN = makeHorizFrame(['Stretch', self.comboN, 'Stretch'])
-
-      #layoutMofN = QGridLayout()
-      #layoutMofN.addWidget(lblBelowM,    0,0)
-      #layoutMofN.addWidget(lblBelowN,    0,2)
-      #layoutMofN.addWidget(frmComboM,    1,0)
-      #layoutMofN.addWidget(lblBetween,   1,1)
-      #layoutMofN.addWidget(frmComboN,    1,2)
-      #layoutMofN.setSpacing(0)
-      #frmMofN = QFrame()
-      #frmMofN.setFrameStyle(STYLE_RAISED)
-      #frmMofN.setLayout(layoutMofN)
-      #frmSelectParams = makeHorizFrame(['Stretch', frmMofN, 'Stretch'])
-      
       btnAccept = QPushButton(tr('Close'))
       self.connect(btnAccept, SIGNAL('clicked()'), self.accept)
       frmBottomBtn = makeHorizFrame(['Stretch', btnAccept])
@@ -13285,16 +13317,15 @@ class DlgFragBackup(ArmoryDialog):
 
       dlgLayout = QVBoxLayout()
       dlgLayout.addWidget(frmDescr)
-      #dlgLayout.addWidget(frmSelectParams)
       dlgLayout.addWidget(self.scrollArea)
-      dlgLayout.addWidget(self.lblBelowFrags)
       dlgLayout.addWidget(self.chkSecurePrint)
       dlgLayout.addWidget(self.lblSecurePrint)
       dlgLayout.addWidget(frmBottomBtn)
-      setLayoutStretch(dlgLayout, 0,0,0,1,0)
+      setLayoutStretch(dlgLayout, 0,1,0,0,0)
 
       self.setLayout(dlgLayout) 
-      self.setMinimumWidth(640)
+      self.setMinimumWidth(700)
+      self.setMinimumHeight(500)
       self.setWindowTitle('Create Backup Fragments')
 
 
@@ -13329,20 +13360,10 @@ class DlgFragBackup(ArmoryDialog):
       M = int(str(self.comboM.currentText()))
       N = int(str(self.comboN.currentText()))
 
-      
-      #lblWltID = QRichLabel(tr('Wallet:<br><b>%s</b>') % self.wlt.uniqueIDB58, \
-                            #vAlign=Qt.AlignVCenter, hAlign=Qt.AlignHCenter, \
-                            #color='DisableFG')
-      #lblAddRemove = QRichLabel( tr("""
-         #Add or remove fragments using the drop-down boxes above"""), \
-         #hAlign=Qt.AlignHCenter, vAlign=Qt.AlignVCenter, \
-         #size=3, color='DisableFG', doWrap=True) 
-      #w = relaxedSizeStr(lblAddRemove, 'Add or remove')[0]
-      #lblAddRemove.setMinimumWidth(w)
 
       
-      lblAboveM  = QRichLabel(tr('Required Fragments '), hAlign=Qt.AlignHCenter)
-      lblAboveN  = QRichLabel(tr('Total Fragments '), hAlign=Qt.AlignHCenter)
+      lblAboveM  = QRichLabel(tr('<u><b>Required Fragments</b></u> '), hAlign=Qt.AlignHCenter, doWrap=False)
+      lblAboveN  = QRichLabel(tr('<u><b>Total Fragments</b></u> '), hAlign=Qt.AlignHCenter)
       frmComboM = makeHorizFrame(['Stretch', QLabel('M:'), self.comboM, 'Stretch'])
       frmComboN = makeHorizFrame(['Stretch', QLabel('N:'), self.comboN, 'Stretch'])
 
@@ -13376,29 +13397,36 @@ class DlgFragBackup(ArmoryDialog):
       self.lblBelowFrags.setText( tr("""
          Any <font color="%s"><b>%d</b></font> of these 
              <font color="%s"><b>%d</b></font> 
-         fragments are sufficient to restore your wallet,
-         and each fragment has a ID of <b>%s</b>.  All fragments with the
+         fragments are sufficient to restore your wallet, and each fragment 
+         has the ID, <font color="%s"><b>%s</b></font>.  All fragments with the
          same fragment ID are compatible with each other! """) % \
-         (BLUE, M, BLUE, N, self.fragPrefixStr) )
+         (BLUE, M, BLUE, N, BLUE, self.fragPrefixStr) )
 
 
    #############################################################################
    def createFragFrm(self, idx):
       
-      doSecPrint = self.chkSecurePrint.isChecked()
+      doMask = self.chkSecurePrint.isChecked()
+      M = int(str(self.comboM.currentText()))
+      N = int(str(self.comboN.currentText()))
       
       lblFragID = QRichLabel('<b>Fragment ID:<br>%s-%d</b>' % \
                                (self.fragPrefixStr, idx+1))
       #lblWltID = QRichLabel('(%s)' % self.wlt.uniqueIDB58)
       lblFragPix = QImageLabel(self.fragPixmapFn, size=(72,72))
-      if doSecPrint:
-         ys = self.secureMtrxCrypt[idx][1].toHexStr()[:42]
+      if doMask:
+         ys = self.secureMtrxCrypt[idx][1].toBinStr()[:42]
       else:
-         ys = self.secureMtrx[idx][1].toHexStr()[:42]
+         ys = self.secureMtrx[idx][1].toBinStr()[:42]
 
-      fragPreview  = 'f1: %s %s %s...<br>' % (ys[:4], ys[4:8], ys[8:10])
-      fragPreview += 'f2: %s %s %s...<br>' % (ys[32:36], ys[36:40], ys[40:42])
-      fragPreview += '...'
+      easyYs1 = makeSixteenBytesEasy(ys[:16   ])
+      easyYs2 = makeSixteenBytesEasy(ys[ 16:32])
+      
+      ID = ComputeFragIDLineHex(M, idx, self.wlt, doMask, addSpaces=True)
+
+      fragPreview  = 'ID: %s...<br>' % ID[:12]
+      fragPreview += 'F1: %s...<br>' % easyYs1[:12]
+      fragPreview += 'F2: %s...    ' % easyYs2[:12]
       lblPreview = QRichLabel(fragPreview)
       lblPreview.setFont( GETFONT('Fixed', 9))
       
@@ -13455,7 +13483,83 @@ class DlgFragBackup(ArmoryDialog):
 
    #############################################################################
    def clickSaveFrag(self, zindex):
-      pass
+      saveMtrx = self.secureMtrx;
+      doMask = False
+      if self.chkSecurePrint.isChecked():
+         response = QMessageBox.question(self, 'Secure Backup?', tr("""
+            You have selected to use SecurePrint\xe2\x84\xa2 for the printed
+            backups, which can also be applied to fragments saved to file.
+            Doing so will require you store the SecurePrint\xe2\x84\xa2 
+            code with the backup, but it will prevent unencrypted key data from
+            touching any disk.  <br><br> Do you want to encrypt the fragment 
+            file with the same SecurePrint\xe2\x84\xa2 code?"""), \
+            QMessageBox.Yes | QMessageBox.No | QMessageBox.Cancel)
+         
+         if response==QMessageBox.Yes:
+            saveMtrx = self.secureMtrxCrypt;
+            doMask = True
+         elif response==QMessageBox.No:
+            pass
+         else:
+            return
+
+      
+      wid  = self.wlt.uniqueIDB58
+      pref = self.fragPrefixStr
+      fnum = zindex+1
+      M    = self.M
+      sec  = 'secure.' if doMask else ''
+      defaultFn = 'wallet_%s_%s_num%d_need%d.%sfrag' % (wid,pref,fnum,M, sec)
+      print 'FragFN:', defaultFn
+      savepath = self.main.getFileSave(tr('Save Fragment'), \
+                                       [tr('Wallet Fragments (*.frag)')],\
+                                       defaultFn)
+
+      if len(toUnicode(savepath))==0:
+         return
+
+      fout = open(savepath, 'w')
+      fout.write('Wallet ID:     %s\n' % wid)
+      fout.write('Create Date:   %s\n' % unixTimeToFormatStr(RightNow()))
+      fout.write('Fragment ID:   %s-#%d\n' % (pref,fnum))
+      fout.write('Frag Needed:   %d\n' % M)
+      fout.write('\n\n')
+
+      try:
+         yBin = saveMtrx[zindex][1].toBinStr() 
+         IDLine = ComputeFragIDLineHex(M, zindex, self.wlt, doMask, addSpaces=True)
+         if len(yBin)==32:
+            fout.write('ID: ' + IDLine + '\n')
+            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16 ]) + '\n')
+            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:]) + '\n')
+         elif len(yBin)==64:
+            fout.write('ID: ' + IDLine + '\n')
+            fout.write('F1: ' + makeSixteenBytesEasy(yBin[:16       ]) + '\n')
+            fout.write('F2: ' + makeSixteenBytesEasy(yBin[ 16:32    ]) + '\n')
+            fout.write('F3: ' + makeSixteenBytesEasy(yBin[    32:48 ]) + '\n')
+            fout.write('F4: ' + makeSixteenBytesEasy(yBin[       48:]) + '\n')
+         else:
+            LOGERROR('yBin is not 32 or 64 bytes!  It is %s bytes', len(yBin))
+      finally:
+         yBin = None
+
+      fout.close()
+      
+      qmsg = tr("""
+         The fragment was successfully saved to the following location:
+         <br><br> %s <br><br> """) % savepath
+
+      if doMask:
+         qmsg += tr("""
+            <b><u><font color="%s">Important</font</u></b>:  The fragment was encrypted with the 
+            SecurePrint\xe2\x84\xa2 encryption code.  You must keep this
+            code with the backup in order to use it!  The code is:
+            <br><br> <font color="%s" size=5>%s</font>""") % \
+            (htmlColor('TextWarn'), htmlColor('TextBlue'), self.randpass.toBinStr())
+
+      QMessageBox.information(self, 'Success', qmsg, QMessageBox.Ok)
+   
+      
 
    #############################################################################
    def destroyFrags(self):
@@ -13515,9 +13619,7 @@ class DlgFragBackup(ArmoryDialog):
       #####
 
       self.M,self.N = M,N
-      mBin4 = int_to_binary(self.M, widthBytes=4, endOut=BIGENDIAN)
-      self.fragPrefixBin = hash256(self.wlt.uniqueIDBin + mBin4)[:4]
-      self.fragPrefixStr = str(M) + binary_to_base58(self.fragPrefixBin) 
+      self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt)
       self.fragPixmapFn = 'img/frag%df.png' % M
 
 

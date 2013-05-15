@@ -1388,10 +1388,10 @@ def makeSixteenBytesEasy(b16):
    chk2 = computeChecksum(b16, nBytes=2)
    et18 = binary_to_easyType16(b16 + chk2) 
    nineQuads = [et18[i*4:(i+1)*4] for i in range(9)]
-   three1 = ' '.join(nineQuads[:3])
-   three2 = ' '.join(nineQuads[3:6])
-   three3 = ' '.join(nineQuads[6:])
-   return '  '.join([three1, three2, three3])
+   first4  = ' '.join(nineQuads[:4])
+   second4 = ' '.join(nineQuads[4:8])
+   last1   = nineQuads[8]
+   return '  '.join([first4, second4, last1])
 
 def readSixteenEasyBytes(et18):
    b18 = easyType16_to_binary(et18.strip().replace(' ',''))
@@ -2049,6 +2049,25 @@ def ReconstructSecret(fragments, needed, nbytes):
       return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
    
+################################################################################
+def ComputeFragIDBase58(M, wlt):
+   mBin4   = int_to_binary(M, widthBytes=4, endOut=BIGENDIAN)
+   fragBin = hash256(wlt.uniqueIDBin + mBin4)[:4]
+   fragB58 = str(M) + binary_to_base58(fragBin) 
+   return fragB58
+
+################################################################################
+def ComputeFragIDLineHex(M, index, wlt, isSecure=False, addSpaces=False):
+   fragID  = int_to_hex((128+M) if isSecure else M)
+   fragID += int_to_hex(index+1)
+   fragID += binary_to_hex(wlt.uniqueIDBin)
+   
+   if addSpaces:
+      fragID = ' '.join([fragID[i*4:(i+1)*4] for i in range(4)])
+
+   return fragID
+   
+    
 
 
 # END FINITE FIELD OPERATIONS
