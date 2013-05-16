@@ -2069,8 +2069,7 @@ def ComputeFragIDLineHex(M, index, wltIDBin, isSecure=False, addSpaces=False):
    
 
 ################################################################################
-def ReadFragIDLineHex(theLine):
-   binLine = hex_to_binary(theLine.strip().replace(' ',''))
+def ReadFragIDLineBin(binLine):
    doMask = binary_to_int(binLine[0]) > 127
    M      = binary_to_int(binLine[0]) & 0x7f
    fnum   = binary_to_int(binLine[1]) 
@@ -2080,6 +2079,9 @@ def ReadFragIDLineHex(theLine):
    return (M, fnum, wltID, doMask, idBase58)
 
     
+################################################################################
+def ReadFragIDLineHex(hexLine):
+   return ReadFragIDLineBin( hex_to_binary(hexLine.strip().replace(' ','')))
 
 
 # END FINITE FIELD OPERATIONS

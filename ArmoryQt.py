@@ -1647,7 +1647,7 @@ class ArmoryMainWindow(QMainWindow):
          lastDir = ARMORY_HOME_DIR
 
       types = list(ffilter)
-      types.append('All files (*)')
+      types.append(tr('All files (*)'))
       typesStr = ';; '.join(types)
       # Found a bug with Swig+Threading+PyQt+OSX -- save/load file dialogs freeze
       # User picobit discovered this is avoided if you use the Qt dialogs, instead 

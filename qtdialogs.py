@@ -8945,7 +8945,6 @@ class DlgPrintBackup(ArmoryDialog):
          maxPieHeight = bottomOfPage - self.scene.getCursorXY()[1] - 8
          maxPieWidth  = int((self.scene.pageRect().width()-2*MARGIN) / N) - 10
          pieSize = min(72., maxPieHeight, maxPieWidth)
-         print pieSize
          for i in range(N):
             startX, startY = self.scene.getCursorXY()
             drawSize = self.scene.drawPixmapFile('img/frag%df.png' % M, sizePx=pieSize)
@@ -13969,37 +13968,60 @@ class DlgRestoreFragged(ArmoryDialog):
       self.scrollFragInput.setWidgetResizable(True)
       self.scrollFragInput.setMinimumHeight(150)
 
-      self.btnAddFrag = QPushButton(tr('+Add Frag'))
-      self.btnRmFrag  = QPushButton(tr('-Remove Frag'))
+      lblFragList = QRichLabel(tr('Input Fragments Below:'), doWrap=False, bold=True)
+      self.btnAddFrag = QPushButton(tr('+Frag'))
+      self.btnRmFrag  = QPushButton(tr('-Frag'))
       self.btnRmFrag.setVisible(False)
       self.connect(self.btnAddFrag, SIGNAL('clicked()'), self.addFragment)
       self.connect(self.btnRmFrag,  SIGNAL('clicked()'), self.removeFragment)
-      frmAddRm = makeHorizFrame(['Stretch', self.btnRmFrag, self.btnAddFrag])
+      frmAddRm = makeHorizFrame([lblFragList, 'Stretch', self.btnRmFrag, self.btnAddFrag])
 
       self.fragDataMap = {}
       self.tableSize = 2
       self.wltType = UNKNOWN
       self.fragIDPrefix = UNKNOWN
 
-      self.makeFragInputTable()
-
-      btnExit = QPushButton('Cancel')
-      btnRestore = QPushButton('Restore from Fragments')
-      btnRestore.setEnabled(False)
+      btnExit = QPushButton(tr('Cancel'))
+      self.btnRestore = QPushButton(tr('Restore from Fragments'))
       self.connect(btnExit, SIGNAL('clicked()'), self.reject)
-      self.connect(btnRestore, SIGNAL('clicked()'), self.processFrags)
-      frmBtns = makeHorizFrame([btnExit, 'Stretch', btnRestore])
+      self.connect(self.btnRestore, SIGNAL('clicked()'), self.processFrags)
+      frmBtns = makeHorizFrame([btnExit, 'Stretch', self.btnRestore])
+
+      self.lblRightFrm  = QRichLabel('', hAlign=Qt.AlignHCenter )
+      self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), hAlign=Qt.AlignHCenter)
+      self.edtSecureStr = QLineEdit()
+      self.imgPie       = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.lblReqd      = QRichLabel('', hAlign=Qt.AlignHCenter)
+      self.lblWltID     = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
+      self.lblFragID    = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
+      self.lblSecureStr.setVisible(False)
+      self.edtSecureStr.setVisible(False)
+
+      frmWltInfo = makeVertFrame( [self.lblRightFrm, 
+                                   self.lblSecureStr,
+                                   self.edtSecureStr,
+                                   self.imgPie,
+                                   self.lblReqd,
+                                   self.lblWltID,
+                                   self.lblFragID,
+                                   'Strut(200)',
+                                   'Stretch'], STYLE_SUNKEN)
+   
       
       layout = QGridLayout()
       layout.addWidget(frmDescr,             0,0,  1,2)
-      layout.addWidget(frmAddRm,             1,0,  1,2)
-      layout.addWidget(self.scrollFragInput, 2,0,  1,2)
+      layout.addWidget(frmAddRm,             1,0,  1,1)
+      layout.addWidget(self.scrollFragInput, 2,0,  1,1)
+      layout.addWidget(frmWltInfo,           1,1,  2,1)
       layout.addWidget(frmBtns,              3,0,  1,2)
       self.setLayout(layout)
-      self.setMinimumWidth(600)
+      self.setMinimumWidth(650)
       self.setMinimumHeight(400)
-      self.setWindowTitle('Restore wallet from fragments')
+      self.setWindowTitle(tr('Restore wallet from fragments'))
       
+      self.makeFragInputTable()
+      self.checkRestoreParams()
+
 
    def makeFragInputTable(self, addCount=0):
          
@@ -14007,18 +14029,17 @@ class DlgRestoreFragged(ArmoryDialog):
       newLayout = QGridLayout()
       newFrame  = QFrame()
       self.fragsDone = []
+      newLayout.addWidget(HLINE(), 0,0, 1,5)
       for i in range(self.tableSize):
-         btnEnter  = QPushButton(tr('Enter Data'))
+         btnEnter  = QPushButton(tr('Type Data'))
          btnLoad   = QPushButton(tr('Load File'))
-         btnClear  = QPushButton(tr('Clear Frag'))
-         lblFragID = QRichLabel('')
-         lblMval   = QRichLabel('')
+         btnClear  = QPushButton(tr('Clear'))
+         lblFragID = QRichLabel('', doWrap=False)
          lblSecure = QLabel('')
          if i in self.fragDataMap:
-            self.fragsDone.append(i)
-            M,fnum,wltID,doMask,fid = ReadFragIDLineHex(self.fragDataMap[i][0])
+            M,fnum,wltID,doMask,fid = ReadFragIDLineBin(self.fragDataMap[i][0])
+            self.fragsDone.append(fnum)
             lblFragID.setText('<b>'+fid+'</b>')
-            lblMval.setText('M=' + str(M))
             if doMask:
                lblSecure.setPixmap(QPixmap(':/lockedIcon.png'))
                lblSecure.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
@@ -14031,12 +14052,12 @@ class DlgRestoreFragged(ArmoryDialog):
                       functools.partial(self.dataClear, fnum=i))
 
 
-         newLayout.addWidget(btnEnter,   i,0)
-         newLayout.addWidget(btnLoad,    i,1)
-         newLayout.addWidget(btnClear,   i,2)
-         newLayout.addWidget(lblFragID,  i,3)
-         newLayout.addWidget(lblMval,    i,4)
-         newLayout.addWidget(lblSecure,  i,5)
+         newLayout.addWidget(btnEnter,   2*i+1,0)
+         newLayout.addWidget(btnLoad,    2*i+1,1)
+         newLayout.addWidget(btnClear,   2*i+1,2)
+         newLayout.addWidget(lblFragID,  2*i+1,3)
+         newLayout.addWidget(lblSecure,  2*i+1,4)
+         newLayout.addWidget(HLINE(), 2*i+2,0, 1,5)
             
       btnFrame = QFrame()
       btnFrame.setLayout(newLayout)
@@ -14063,23 +14084,111 @@ class DlgRestoreFragged(ArmoryDialog):
       # Have to do this in a separate loop, cause you can't remove items
       # from a map while you are iterating over them
       for key in toRemove:
-         del self.fragDataMap[key]
+         self.dataClear(key)         
+
 
    #############################################################################
    def dataEnter(self, fnum):
       dlg = DlgEnterOneFrag(self, self.main, self.fragsDone, self.wltType)
       if dlg.exec_():
          print 'Good data from enter_one_frag exec!', fnum
+         self.addFragToTable(fnum, dlg.fragData)
          self.makeFragInputTable()
 
 
    #############################################################################
    def dataLoad(self, fnum):
       print 'Loading data for entry,', fnum
+      toLoad = unicode(self.main.getFileLoad(tr('Load Fragment File'), \
+                                    [tr('Wallet Fragments (*.frag)')]))
+
+      if len(toLoad)==0:
+         return
+
+      if not os.path.exists(toLoad):
+         LOGERROR('File just chosen does not exist! %s', toLoad)
+         QMessageBox.critical(self, tr('File Does Not Exist'), tr("""
+            The file you select somehow does not exist...?  
+            <br><br>%s<br><br> Try a different file""") % toLoad, \
+            QMessageBox.Ok)
+
+      fragMap = {}
+      with open(toLoad,'r') as fin:
+         allData = [line.strip() for line in fin.readlines()]
+         fragMap = {}
+         for line in allData:
+            if line[:2].lower() in ['id','x1','x2','x3','x4',\
+                                         'y1','y2','y3','y4',\
+                                         'f1','f2','f3','f4']:
+               fragMap[line[:2].lower()] = line[3:].strip().replace(' ','')
+
+
+      cList,nList = [],[]
+      if len(fragMap)==9:
+         cList,nList = ['x','y'], ['1','2','3','4']
+      elif len(fragMap)==5:
+         cList,nList = ['f'], ['1','2','3','4']
+      elif len(fragMap)==3:
+         cList,nList = ['f'], ['1','2']
+      else:
+         LOGERROR('Unexpected number of lines in the frag file, %d', len(fragMap))
+         return
+
+      fragData = []
+      fragData.append( hex_to_binary( fragMap['id'] ))
+      for c in cList:
+         for n in nList:
+            rawBin,err = readSixteenEasyBytes(fragMap[c+n])
+            if err=='Error_2+':
+               QMessageBox.critical(self, tr('Fragment Error'), tr("""
+                  There was an unfixable error in the fragment file:
+                  <br><br> File: %s <br> Line: %s <br>""") % (toLoad, mapKey), \
+                  QMessageBox.Ok)
+               return
+            fragData.append( SecureBinaryData(rawBin) )
+            rawBin = None
+      
+      M, findex, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragMap['id'])
+      self.addFragToTable(fnum, fragData)
+      self.makeFragInputTable()
+
 
    #############################################################################
    def dataClear(self, fnum):
-      print 'Clearing data for entry,', fnum
+      if not fnum in self.fragDataMap:
+         return
+
+      for i in range(1,3):
+         self.fragDataMap[fnum][i].destroy()
+      del self.fragDataMap[fnum]
+      self.makeFragInputTable()
+      self.checkRestoreParams()
+      
+
+   #############################################################################
+   def checkRestoreParams(self):
+      showRightFrm = False
+      self.btnRestore.setEnabled(False)
+      self.lblRightFrm.setText( tr("""
+         <b>Start entering fragments into the table to left...</b>"""))
+      for row,data in self.fragDataMap.iteritems():
+         showRightFrm = True
+         M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
+         self.lblRightFrm.setText('<b><u>Wallet Being Restored:</u></b>')
+         self.lblSecureStr.setVisible(doMask)
+         self.edtSecureStr.setVisible(doMask)
+         self.imgPie.setPixmap(QPixmap('img/frag%df.png' % M))
+         self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
+         self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
+         self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split('-')[0])
+         self.btnRestore.setEnabled(len(self.fragDataMap) >= M)
+         break
+            
+      self.imgPie.setVisible(showRightFrm)
+      self.lblReqd.setVisible(showRightFrm)
+      self.lblWltID.setVisible(showRightFrm)
+      self.lblFragID.setVisible(showRightFrm)
+         
 
    #############################################################################
    def addFragToTable(self, tableIndex, fragData):
@@ -14096,18 +14205,33 @@ class DlgRestoreFragged(ArmoryDialog):
    
       if self.wltType==UNKNOWN:
          self.wltType = currType
-      else:
-         if not self.wltType==currType:
-            LOGERROR('Mixing frag types!  How did that happen?')
-            return
+      elif not self.wltType==currType:
+         LOGERROR('Mixing frag types!  How did that happen?')
+         return
 
       
-      M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineHex(binary_to_hex(fragData[0]))
-      if not self.fragIDPrefix == idBase58.split('-')[0]:
+      M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(fragData[0])
+      if self.fragIDPrefix == UNKNOWN:
+         self.fragIDPrefix = idBase58.split('-')[0]
+      elif not self.fragIDPrefix == idBase58.split('-')[0]:
          LOGERROR('Mixing fragments of different wallets! %s', idBase58)
          return
 
-      self.fragDataMap[tableIndex] = fragData
+      
+      if currType=='0':
+         X = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1,5)]))
+         Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(5,9)]))
+      elif currType=='1.35a':
+         X = SecureBinaryData( int_to_binary(fnum+1, widthBytes=64, endOut=BIGENDIAN) )
+         Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1,5)]))
+      elif currType=='1.35c':
+         X = SecureBinaryData( int_to_binary(fnum+1, widthBytes=32, endOut=BIGENDIAN) )
+         Y = SecureBinaryData(''.join([fragData[i].toBinStr() for i in range(1,3)]))
+         
+      self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
+      X.destroy()
+      Y.destroy()
+      self.checkRestoreParams()
 
    #############################################################################
    def processFrags(self):
@@ -14170,10 +14294,6 @@ class DlgEnterOneFrag(ArmoryDialog):
       self.connect(self.comboBackupType, SIGNAL('activated(int)'), self.changeType)
       frmCombo = makeHorizFrame([lblType, 'Space(20)', self.comboBackupType, 'Stretch'])
 
-      self.lblID = QRichLabel('ID:')
-      self.edtID = QLineEdit()
-      self.edtID.setInputMask('<HHHH\ HHHH\ HHHH\ HHHH!')
-
       self.prfxList = ['x1:','x2:','x3:','x4:', \
                        'y1:','y2:','y3:','y4:', \
                        'F1:','F2:','F3:','F4:']
@@ -14182,7 +14302,15 @@ class DlgEnterOneFrag(ArmoryDialog):
                       QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit(), \
                       QLineEdit(), QLineEdit(), QLineEdit(), QLineEdit()]
 
-      inpMask = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+      inpMaskID = '<HHHH\ HHHH\ HHHH\ HHHH!'
+      inpMask   = '<AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA\ AAAA\ AAAA\ AAAA\ \ AAAA!'
+
+      fixFont = GETFONT('Fix', 9)
+      self.lblID = QRichLabel('ID:')
+      self.edtID = QLineEdit()
+      self.edtID.setInputMask(inpMaskID)
+      self.edtID.setFont(fixFont)
+      #self.edtID.setMaximumWidth(tightSizeStr(fixFont, inpMaskID)[0]+10)
 
       frmAllInputs = QFrame()
       frmAllInputs.setFrameStyle(STYLE_RAISED)
@@ -14190,7 +14318,6 @@ class DlgEnterOneFrag(ArmoryDialog):
       layoutAllInp.addWidget( self.lblID,  0,0, 1,1)
       layoutAllInp.addWidget( self.edtID,  0,1, 1,1)
       for i in range(12):
-         fixFont = GETFONT('Fix', 9)
          self.edtList[i].setInputMask(inpMask)
          self.edtList[i].setFont(fixFont)
          self.edtList[i].setMinimumWidth(tightSizeStr(fixFont, inpMask)[0]+10)
@@ -14290,15 +14417,14 @@ class DlgEnterOneFrag(ArmoryDialog):
       idLine = str(self.edtID.text()).replace(' ','')
       self.fragData.insert(0, hex_to_binary(idLine))
 
-      M,fnum,wltID,doMask,fid = ReadFragIDLineHex(idLine)
+      M,fnum,wltID,doMask,fid = ReadFragIDLineBin(self.fragData[0])
 
       reply = QMessageBox.question(self, tr('Verify Fragment ID'), tr("""
-         The data you entered is for fragment <font color="%s"><b>%s</b></font>. 
+         The data you entered is for fragment:
+         <br><br> <font color="%s" size=3><b>%s</b></font>  <br><br>
          Does this ID match the "Fragment:" field displayed on your backup?
-         <br><br>
-         If not, click "No" and verify that you entered the fragment data
-         correctly""") % (htmlColor('TextBlue'), fid), \
-         QMessageBox.Yes | QMessageBox.No)
+         If not, click "No" and re-enter the fragment data.""") % \
+         (htmlColor('TextBlue'), fid), QMessageBox.Yes | QMessageBox.No)
 
       if reply==QMessageBox.Yes:
          self.accept()
