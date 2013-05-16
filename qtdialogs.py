@@ -13988,7 +13988,9 @@ class DlgRestoreFragged(ArmoryDialog):
       frmBtns = makeHorizFrame([btnExit, 'Stretch', self.btnRestore])
 
       self.lblRightFrm  = QRichLabel('', hAlign=Qt.AlignHCenter )
-      self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), hAlign=Qt.AlignHCenter)
+      self.lblSecureStr = QRichLabel(tr('SecurePrint\xe2\x84\xa2 Code:'), \
+                                     hAlign=Qt.AlignHCenter, \
+                                     color='TextWarn')
       self.edtSecureStr = QLineEdit()
       self.imgPie       = QRichLabel('', hAlign=Qt.AlignHCenter)
       self.lblReqd      = QRichLabel('', hAlign=Qt.AlignHCenter)
@@ -13996,14 +13998,17 @@ class DlgRestoreFragged(ArmoryDialog):
       self.lblFragID    = QRichLabel('', doWrap=False, hAlign=Qt.AlignHCenter)
       self.lblSecureStr.setVisible(False)
       self.edtSecureStr.setVisible(False)
+      self.edtSecureStr.setMaximumWidth( relaxedSizeNChar(self.edtSecureStr, 16)[0])
+      frmSecPair = makeVertFrame([self.lblSecureStr, self.edtSecureStr])
+      frmSecCtr = makeHorizFrame(['Stretch', frmSecPair, 'Stretch'])
 
       frmWltInfo = makeVertFrame( [self.lblRightFrm, 
-                                   self.lblSecureStr,
-                                   self.edtSecureStr,
                                    self.imgPie,
                                    self.lblReqd,
                                    self.lblWltID,
                                    self.lblFragID,
+                                   HLINE(),
+                                   frmSecCtr,
                                    'Strut(200)',
                                    'Stretch'], STYLE_SUNKEN)
    
@@ -14014,9 +14019,10 @@ class DlgRestoreFragged(ArmoryDialog):
       layout.addWidget(self.scrollFragInput, 2,0,  1,1)
       layout.addWidget(frmWltInfo,           1,1,  2,1)
       layout.addWidget(frmBtns,              3,0,  1,2)
+      setLayoutStretchCols(layout, 1,0)
       self.setLayout(layout)
       self.setMinimumWidth(650)
-      self.setMinimumHeight(400)
+      self.setMinimumHeight(465)
       self.setWindowTitle(tr('Restore wallet from fragments'))
       
       self.makeFragInputTable()
@@ -14041,8 +14047,8 @@ class DlgRestoreFragged(ArmoryDialog):
             self.fragsDone.append(fnum)
             lblFragID.setText('<b>'+fid+'</b>')
             if doMask:
-               lblSecure.setPixmap(QPixmap(':/lockedIcon.png'))
-               lblSecure.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
+               lblFragID.setText('<b>'+fid+'</b>', color='TextWarn')
+               
 
          self.connect(btnEnter, SIGNAL('clicked()'), \
                       functools.partial(self.dataEnter, fnum=i))
@@ -14175,14 +14181,23 @@ class DlgRestoreFragged(ArmoryDialog):
          showRightFrm = True
          M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
          self.lblRightFrm.setText('<b><u>Wallet Being Restored:</u></b>')
-         self.lblSecureStr.setVisible(doMask)
-         self.edtSecureStr.setVisible(doMask)
          self.imgPie.setPixmap(QPixmap('img/frag%df.png' % M))
          self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
          self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
          self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split('-')[0])
          self.btnRestore.setEnabled(len(self.fragDataMap) >= M)
          break
+
+      anyMask = False
+      for row,data in self.fragDataMap.iteritems():
+         M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
+         if doMask:
+            anyMask = True
+            break
+         
+      self.lblSecureStr.setVisible(anyMask)
+      self.edtSecureStr.setVisible(anyMask)
+      
             
       self.imgPie.setVisible(showRightFrm)
       self.lblReqd.setVisible(showRightFrm)
@@ -14235,9 +14250,82 @@ class DlgRestoreFragged(ArmoryDialog):
 
    #############################################################################
    def processFrags(self):
-      pass
- 
+      
+      SECPRINT = HardcodedKeyMaskParams()
+      pwd,ekey = '',''
+      if self.edtSecureStr.isVisible():
+         pwd = str(self.edtSecureStr.text()).strip()
+         if len(pwd)<9:
+            QMessageBox.critical(self, tr('Invalid Code'), tr("""
+               You didn't enter a full SecurePrint\xe2\x84\xa2 code.  This
+               code is needed to decrypt your backup.  If this backup is 
+               actually unencrypted and there is no code, then choose the
+               appropriate backup type from the drop-down box"""), QMessageBox.Ok)
+            return
+         if not SECPRINT['FUNC_CHKPWD'](pwd):
+            QMessageBox.critical(self, tr('Bad Encryption Code'), tr("""
+               The SecurePrint\xe2\x84\xa2 code you entered has an error 
+               in it.  Note that the code is case-sensitive.  Please verify
+               you entered it correctly and try again."""), QMessageBox.Ok)
+            return
+         maskKey = SECPRINT['FUNC_KDF'](pwd)
 
+      #self.fragDataMap[tableIndex] = [fragData[0][:], X.copy(), Y.copy()]
+      fragMtrx,M = [], -1
+      for row,trip in self.fragDataMap.iteritems():
+         M,fnum,wltID,doMask,fid = ReadFragIDLineBin(trip[0])
+         X,Y = trip[1],trip[2]
+         if doMask:
+            print 'Row %d needs unmasking' % row
+            Y = SECPRINT['FUNC_UNMASK'](Y, ekey=maskKey)
+         else:
+            print 'Row %d is already unencrypted' % row
+         fragMtrx.append( [X.toBinStr(), Y.toBinStr()])
+                  
+      typeToBytes = {'0': 64, '1.35a': 64, '1.35c': 32}
+      nBytes = typeToBytes[self.wltType]
+      SECRET = ReconstructSecret(fragMtrx, M, nBytes)
+      for i in range(len(fragMtrx)):
+         fragMtrx[i] = []
+ 
+      print 'Final length of frag mtrx:', len(fragMtrx)
+      print 'Final length of secret:   ', len(SECRET)
+
+      priv,chain = '',''
+      if len(SECRET)==64:
+         priv  = SecureBinaryData(SECRET[:32 ])
+         chain = SecureBinaryData(SECRET[ 32:])
+      elif len(SECRET)==32:
+         priv  = SecureBinaryData(SECRET)
+         chain = DeriveChaincodeFromRootKey(priv)
+         
+
+      # If we got here, the data is valid, let's create the wallet and accept the dlg
+      # Now we should have a fully-plaintext rootkey and chaincode
+      root  = PyBtcAddress().createFromPlainKeyData(priv)
+      root.chaincode = chain
+
+      first = root.extendAddressChain()
+      newWltID = binary_to_base58((ADDRBYTE + first.getAddr160()[:5])[::-1])
+
+      if self.main.walletMap.has_key(newWltID):
+         QMessageBox.question(self, 'Duplicate Wallet!', \
+               'The data you entered is for a wallet with a ID: \n\n \t' +
+               newWltID + '\n\nYou already own this wallet! \n  '
+               'Nothing to do...', QMessageBox.Ok)
+         self.reject()
+         return
+         
+      
+      
+      reply = QMessageBox.question(self, 'Verify Wallet ID', \
+               'The data you entered corresponds to a wallet with a wallet ID: \n\n \t' +
+               newWltID + '\n\nDoes this ID match the "Wallet Unique ID" ' 
+               'printed on your paper backup?  If not, click "No" and reenter '
+               'key and chain-code data again.', \
+               QMessageBox.Yes | QMessageBox.No)
+      if reply==QMessageBox.No:
+         return
 
 
 
