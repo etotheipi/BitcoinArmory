@@ -8947,7 +8947,7 @@ class DlgPrintBackup(ArmoryDialog):
          pieSize = min(72., maxPieHeight, maxPieWidth)
          for i in range(N):
             startX, startY = self.scene.getCursorXY()
-            drawSize = self.scene.drawPixmapFile('img/frag%df.png' % M, sizePx=pieSize)
+            drawSize = self.scene.drawPixmapFile(':/frag%df.png' % M, sizePx=pieSize)
             self.scene.moveCursor(10,0)
             if i==printData:
                returnX, returnY = self.scene.getCursorXY() 
@@ -13624,7 +13624,7 @@ class DlgFragBackup(ArmoryDialog):
 
       self.M,self.N = M,N
       self.fragPrefixStr = ComputeFragIDBase58(self.M, self.wlt.uniqueIDBin)
-      self.fragPixmapFn = 'img/frag%df.png' % M
+      self.fragPixmapFn = ':/frag%df.png' % M
 
 
    #############################################################################
@@ -13693,10 +13693,17 @@ class DlgUniversalRestoreSelect(ArmoryDialog):
    def clickedOkay(self):
       if self.rdoSingle.isChecked():
          self.accept()
-         DlgRestoreSingle(self.parent, self.main).exec_()
+         dlg = DlgRestoreSingle(self.parent, self.main)
+         if dlg.exec_():
+            self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
+            LOGINFO('Wallet Restore Complete!')
+            
       elif self.rdoFragged.isChecked():
          self.accept()
-         DlgRestoreFragged(self.parent, self.main).exec_()
+         dlg = DlgRestoreFragged(self.parent, self.main)
+         if dlg.exec_():
+            self.main.addWalletToAppAndAskAboutRescan(dlg.newWallet)
+            LOGINFO('Wallet Restore Complete!')
       elif self.rdoFragged.isChecked():
          self.main.execRestorePaperBackup()
          self.accept()
@@ -13767,12 +13774,16 @@ class DlgRestoreSingle(ArmoryDialog):
       buttonBox.addButton(self.btnAccept, QDialogButtonBox.AcceptRole)
       buttonBox.addButton(self.btnCancel, QDialogButtonBox.RejectRole)
 
+      self.chkEncrypt = QCheckBox('Encrypt Wallet')
+      self.chkEncrypt.setChecked(True)
+      bottomFrm = makeHorizFrame([self.chkEncrypt, buttonBox])
+
       layout = QVBoxLayout()
       layout.addWidget(lblDescr)
       layout.addWidget(HLINE())
       layout.addWidget(frmCombo)
       layout.addWidget(frmAllInputs)
-      layout.addWidget(buttonBox)
+      layout.addWidget(bottomFrm)
       self.setLayout(layout)
 
 
@@ -13974,7 +13985,9 @@ class DlgRestoreFragged(ArmoryDialog):
       self.btnRmFrag.setVisible(False)
       self.connect(self.btnAddFrag, SIGNAL('clicked()'), self.addFragment)
       self.connect(self.btnRmFrag,  SIGNAL('clicked()'), self.removeFragment)
-      frmAddRm = makeHorizFrame([lblFragList, 'Stretch', self.btnRmFrag, self.btnAddFrag])
+      self.chkEncrypt = QCheckBox('Encrypt Restored Wallet')
+      self.chkEncrypt.setChecked(True)
+      frmAddRm = makeHorizFrame([self.chkEncrypt, 'Stretch', self.btnRmFrag, self.btnAddFrag])
 
       self.fragDataMap = {}
       self.tableSize = 2
@@ -14002,7 +14015,8 @@ class DlgRestoreFragged(ArmoryDialog):
       frmSecPair = makeVertFrame([self.lblSecureStr, self.edtSecureStr])
       frmSecCtr = makeHorizFrame(['Stretch', frmSecPair, 'Stretch'])
 
-      frmWltInfo = makeVertFrame( [self.lblRightFrm, 
+      frmWltInfo = makeVertFrame( ['Stretch',
+                                   self.lblRightFrm, 
                                    self.imgPie,
                                    self.lblReqd,
                                    self.lblWltID,
@@ -14011,7 +14025,7 @@ class DlgRestoreFragged(ArmoryDialog):
                                    frmSecCtr,
                                    'Strut(200)',
                                    'Stretch'], STYLE_SUNKEN)
-   
+
       
       layout = QGridLayout()
       layout.addWidget(frmDescr,             0,0,  1,2)
@@ -14181,7 +14195,7 @@ class DlgRestoreFragged(ArmoryDialog):
          showRightFrm = True
          M, fnum, wltIDBin, doMask, idBase58 = ReadFragIDLineBin(data[0])
          self.lblRightFrm.setText('<b><u>Wallet Being Restored:</u></b>')
-         self.imgPie.setPixmap(QPixmap('img/frag%df.png' % M))
+         self.imgPie.setPixmap(QPixmap(':/frag%df.png' % M))
          self.lblReqd.setText(tr('<b>Frags Needed:</b> %d') % M)
          self.lblWltID.setText(tr('<b>Wallet:</b> %s') % binary_to_base58(wltIDBin))
          self.lblFragID.setText(tr('<b>Fragments:</b> %s') % idBase58.split('-')[0])
@@ -14198,6 +14212,9 @@ class DlgRestoreFragged(ArmoryDialog):
       self.lblSecureStr.setVisible(anyMask)
       self.edtSecureStr.setVisible(anyMask)
       
+      if not showRightFrm:
+         self.fragIDPrefix = UNKNOWN
+         self.wltType = UNKNOWN
             
       self.imgPie.setVisible(showRightFrm)
       self.lblReqd.setVisible(showRightFrm)
@@ -14327,6 +14344,45 @@ class DlgRestoreFragged(ArmoryDialog):
       if reply==QMessageBox.No:
          return
 
+
+      passwd = []
+      if self.chkEncrypt.isChecked():
+         dlgPasswd = DlgChangePassphrase(self, self.main)
+         if dlgPasswd.exec_():
+            passwd = SecureBinaryData(str(dlgPasswd.edtPasswd1.text()))
+         else:
+            QMessageBox.critical(self, 'Cannot Encrypt', \
+               'You requested your restored wallet be encrypted, but no '
+               'valid passphrase was supplied.  Aborting wallet recovery.', \
+               QMessageBox.Ok)
+            return
+
+      if passwd:
+          self.newWallet = PyBtcWallet().createNewWallet( \
+                                 plainRootKey=priv, \
+                                 chaincode=chain, \
+                                 shortLabel='Restored - %s'%newWltID, \
+                                 withEncrypt=True, \
+                                 securePassphrase=passwd, \
+                                 kdfTargSec=0.25, \
+                                 kdfMaxMem=32*1024*1024, \
+                                 isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
+      else:
+         self.newWallet = PyBtcWallet().createNewWallet(  \
+                                 plainRootKey=priv, \
+                                 chaincode=chain, \
+                                 shortLabel='Restored - %s'%newWltID, \
+                                 withEncrypt=False,\
+                                 isActuallyNew=False, \
+                                 doRegisterWithBDM=False)
+
+      def fillAddrPoolAndAccept():
+         self.newWallet.fillAddressPool()
+         self.accept()
+
+      # Will pop up a little "please wait..." window while filling addr pool
+      DlgExecLongProcess(fillAddrPoolAndAccept, "Recovering wallet...", self, self.main).exec_()
 
 
 ################################################################################
