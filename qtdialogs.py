@@ -320,7 +320,10 @@ class LetterButton(QPushButton):
 
    def insertLetter(self):
       currPwd = str(self.parent.edtPasswd.text())
-      insChar = self.upper if self.parent.btnShift.isChecked() else self.lower
+      LOW = self.lower
+      if LOW.startswith('#'):
+          LOW = LOW[1]
+      insChar = self.upper if self.parent.btnShift.isChecked() else LOW
       self.parent.edtPasswd.setText( currPwd + insChar )
       self.parent.reshuffleKeys()
 
