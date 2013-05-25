@@ -1361,7 +1361,6 @@ bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash,
 }  
 
 ////////////////////////////////////////////////////////////////////////////////
-// 
 bool InterfaceToLevelDB::addBlockToDB(BinaryDataRef newBlock, bool withLead8B)
 {
    BinaryRefReader brr(newBlock);
@@ -1375,11 +1374,13 @@ bool InterfaceToLevelDB::addBlockToDB(BinaryDataRef newBlock, bool withLead8B)
          return false;
       }
       
-      // The next 4 bytes is the block size, but we will end up computing this
-      // anyway, as we dissect the block.
+         // The next 4 bytes is the block size, but we will end up computing this
+         // anyway, as we dissect the block.
       brr.advance(4);
-      
    }
+
+   BlockHeader bh(brr);
+    
    
    
 
