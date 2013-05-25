@@ -8646,8 +8646,9 @@ class DlgPrintBackup(ArmoryDialog):
                code on each sheet of paper you just printed!</b>  
                Write it in the red box in upper-right corner 
                of the printed page. <br><br>SecurePrint\xe2\x84\xa2 code: 
-               <font color="%s" size=5><b>%s</b></font> 
-               <br>""") % (htmlColor('TextBlue'),self.randpass.toBinStr()), \
+               <font color="%s" size=5><b>%s</b></font> <br><br>
+               <b>NOTE: the above code <u>is</u> case-sensitive!</b>""") % \
+               (htmlColor('TextBlue'),self.randpass.toBinStr()), \
                QMessageBox.Ok)
          if self.chkSecurePrint.isChecked():
             self.btnCancel.setText('Done')

@@ -1873,12 +1873,10 @@ class FiniteField(object):
       baddinv = self.powinv(b)
       return self.mult(a,baddinv)
    
-   
    def mtrxrmrowcol(self,mtrx,r,c):
       if not len(mtrx) == len(mtrx[0]):
          LOGERROR('Must be a square matrix!')
          return []
-   
       sz = len(mtrx)
       return [[mtrx[i][j] for j in range(sz) if not j==c] for i in range(sz) if not i==r]
       
@@ -1951,52 +1949,30 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
       LOGERROR('You must create more pieces than needed to reconstruct!')
       raise FiniteFieldError
 
-
    if needed==1 or needed>8:
       LOGERROR('Can split secrets into parts *requiring* at most 8 fragments')
       LOGERROR('You can break it into as many optional fragments as you want')
-      return fragments
+      raise FiniteFieldError
 
 
+   # We deterministically produce the coefficients so that we always use the
+   # same polynomial for a given secret
    lasthmac = secret[:]
    othernum = []
    for i in range(pieces+needed-1):
       lasthmac = HMAC512(lasthmac, 'splitsecrets')[:nbytes]
-      othernum.append(lasthmac)
+      othernum.append(binary_to_int(lasthmac))
 
-   othernum = [binary_to_int(n) for n in othernum]
-   if needed==2:
-      b = othernum[0]
-      poly = lambda x:  ff.add(ff.mult(a,x), b)
-      for i in range(pieces):
-         x = othernum[i+1] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
-   elif needed==3:
-      def poly(x):
-         b = othernum[0]
-         c = othernum[1]
-         x2  = ff.power(x,2)
-         ax2 = ff.mult(a,x2)
-         bx  = ff.mult(b,x)
-         return ff.add(ff.add(ax2,bx),c) 
-
-      for i in range(pieces):
-         x = othernum[i+2] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
-   else:
-      def poly(x):
-         polyout = ff.mult(a, ff.power(x,needed-1))
-         for i,e in enumerate(range(needed-2,-1,-1)):
-            term = ff.mult(othernum[i], ff.power(x,e))
-            polyout = ff.add(polyout, term)
-         return polyout
-         
-      for i in range(pieces):
-         x = othernum[i+2] if use_random_x else i+1
-         fragments.append( [x, poly(x)] )
-
+   def poly(x):
+      polyout = ff.mult(a, ff.power(x,needed-1))
+      for i,e in enumerate(range(needed-2,-1,-1)):
+         term = ff.mult(othernum[i], ff.power(x,e))
+         polyout = ff.add(polyout, term)
+      return polyout
+      
+   for i in range(pieces):
+      x = othernum[i+2] if use_random_x else i+1
+      fragments.append( [x, poly(x)] )
 
    secret,a = None,None
    fragments = [ [int_to_binary(p, nbytes, BIGENDIAN) for p in frag] for frag in fragments]
@@ -2007,47 +1983,23 @@ def SplitSecret(secret, needed, pieces, nbytes=None, use_random_x=False):
 def ReconstructSecret(fragments, needed, nbytes):
 
    ff = FiniteField(nbytes)
-   if needed==2:
-      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
-      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
+   pairs = fragments[:needed]
+   m = []
+   v = []
+   for x,y in pairs:
+      x = binary_to_int(x, BIGENDIAN)
+      y = binary_to_int(y, BIGENDIAN)
+      m.append([])
+      for i,e in enumerate(range(needed-1,-1,-1)):
+         m[-1].append( ff.power(x,e) )
+      v.append(y)
 
-      m = [[x1,1],[x2,1]]
-      v = [y1,y2]
-
-      minv = ff.mtrxinv(m)
-      a,b = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, nbytes, BIGENDIAN)
-   
-   elif needed==3:
-      x1,y1 = [binary_to_int(f, BIGENDIAN) for f in fragments[0]]
-      x2,y2 = [binary_to_int(f, BIGENDIAN) for f in fragments[1]]
-      x3,y3 = [binary_to_int(f, BIGENDIAN) for f in fragments[2]]
-
-      sq = lambda x: ff.power(x,2)
-      m = [  [sq(x1), x1 ,1], \
-             [sq(x2), x2, 1], \
-             [sq(x3), x3, 1] ]
-      v = [y1,y2,y3]
-
-      minv = ff.mtrxinv(m)
-      a,b,c = ff.mtrxmultvect(minv,v)
-      return int_to_binary(a, nbytes, BIGENDIAN)
-   else:
-      pairs = fragments[:needed]
-      m = []
-      v = []
-      for x,y in pairs:
-         x = binary_to_int(x, BIGENDIAN)
-         y = binary_to_int(y, BIGENDIAN)
-         m.append([])
-         for i,e in enumerate(range(needed-1,-1,-1)):
-            m[-1].append( ff.power(x,e) )
-         v.append(y)
-
-      minv = ff.mtrxinv(m)
-      outvect = ff.mtrxmultvect(minv,v)
-      return int_to_binary(outvect[0], nbytes, BIGENDIAN)
+   minv = ff.mtrxinv(m)
+   outvect = ff.mtrxmultvect(minv,v)
+   return int_to_binary(outvect[0], nbytes, BIGENDIAN)
          
+
+
    
 ################################################################################
 def ComputeFragIDBase58(M, wltIDBin):
@@ -8462,7 +8414,7 @@ class PyBtcWallet(object):
          return
       if not self.uniqueIDBin[-1] == ADDRBYTE:
          LOGERROR('Requested wallet is for a different network!')
-         LOGERROR('Wallet is for:  %s ', NETWORKS[netByte])
+         LOGERROR('Wallet is for:  %s ', NETWORKS[self.uniqueIDBin[-1]])
          LOGERROR('ArmoryEngine:   %s ', NETWORKS[ADDRBYTE])
          return
 
