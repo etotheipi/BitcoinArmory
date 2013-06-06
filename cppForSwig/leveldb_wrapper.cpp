@@ -4,311 +4,6 @@
 
 
 
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-//
-// STORED HEADER/TX/TXOUT Methods
-//
-////////////////////////////////////////////////////////////////////////////////
-////////////////////////////////////////////////////////////////////////////////
-
-//StoredBlockHeader::StoredBlockHeader
-
-
-/////////////////////////////////////////////////////////////////////////////
-bool StoredBlockHeader::haveFullBlock(void)
-{
-   if(!isInitialized || dataCopy_.getSize() != HEADER_SIZE)
-      return false;
-
-   for(uint32_t tx=0; tx<numTx_; tx++)
-   {
-      map<uint32_t, StoredTx>::iterator iter = txMap_.find(tx);
-      if(iter == txMap_.end())
-         return false;
-      if(!iter->haveAllTxOut())
-         return false;
-   }
-
-   return true;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData StoredBlockHeader::getSerializedBlock(void)
-{
-   if(!haveFullBlock())
-      return BinaryData(0);
-
-   BinaryWriter bw;
-   if(numBytes_>0)
-      bw.reserve(numBytes_+100); // add extra room for header and var_int
-
-   bw.put_BinaryData(dataCopy_); 
-   bw.put_var_int(numTx_);
-   for(uint32_t tx=0; tx<numTx_; tx++)
-      bw.put_BinaryData(txMap_[tx].getSerializedTx());
-   
-   return bw.getData();
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void createFromBlockHeader(BlockHeader & bh)
-{
-   if(!bh.isInitialized())
-   {
-      cerr << "ERROR: trying to create from uninitialized block header" << endl;
-      return;
-   } 
-
-   unserialize(bh.serialize());
-
-   numTx_ = bh.getNumTx();
-   numBytes_ = bh.getBlockSize();
-   blockHeight_ = bh.getBlockHeight();
-   duplicateID_ = 0xff;
-   isMainBranch_ = bh.isMainBranch();
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void unserialize(BinaryData & header80B);
-{
-   if(header80B.getSize() != HEADER_SIZE)
-   {
-      cerr << "ERROR: Asked to unserialize a non-80-byte header" << endl;
-      return;
-   }
-   dataCopy_.copyFrom(header80B);
-   thisHash_ = BtcUtils::getHash256(header80B);
-   isInitialized_ = true;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::addTxToMap(uint32_t txIdx, Tx & tx)
-{
-   StoredTx storedtx;
-   storedtx.createFromTx(tx);
-   addTxToMap(txIdx, storedTx);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::addTxToMap(uint32_t txIdx, StoredTx & tx)
-{
-      
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BlockHeader StoredBlockHeader::getBlocKHeaderCopy(void)
-{
-   if(!isInitialized)
-      return BlockHeader(); 
-
-   BlockHeader bh();
-   bh.unserialize(dataCopy_);
-
-   bh.setNumTx(numTx_);
-   bh.setBlockSize(numBytes_);
-
-   return bh;
-}
-
-/////////////////////////////////////////////////////////////////////////////
-BinaryData StoredBlockHeader::getSerializedBlockHeader(void)
-{
-   if(!isInitialized)
-      return BinaryData(0);
-
-   return dataCopy_;
-}
-
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredBlockHeader::serializeForLDB(BinaryWriter & bw, 
-                                        ARMORY_DB_TYPE dbType,
-                                        DB_PRUNE_TYPE pruneType,
-                                        MERKLE_SER_TYPE merkType=MERKLE_SER_FULL)
-{
-   if(!isInitialized_ || dataCopy_.getSize()==0)
-   {
-      cerr << "ERROR:  can't serialize an uninitialized header!" << endl;
-      return;
-   }
-
-   if(merkType==MERKLE_SER_FULL && txMap_.size() < numTx_)
-   {
-      cerr << "ERROR:  Cannot produce full tx list" << endl;
-      return;
-   }
-   
-   //uint8_t version             =                   (flags & 0xf0000000) >> 28;
-   //ARMORY_DB_TYPE dbtype       = (ARMORY_DB_TYPE)( (flags & 0x0f000000) >> 24);
-   //DB_PRUNE_TYPE pruneType     = (DB_PRUNE_TYPE)(  (flags & 0x00c00000) >> 22);
-   //MERKLE_SER_TYPE merkleCode  = (MERKLE_SER_TYPE)((flags & 0x00300000) >> 20);
-   uint32_t flags = 0;
-   flags |= ((uint32_t)ARMORY_DB_VERSION << 28) & 0xf0000000;
-   flags |= ((uint32_t)dbType            << 24) & 0x0f000000;
-   flags |= ((uint32_t)pruneType         << 22) & 0x00c00000;
-   flags |= ((uint32_t)merkType          << 20) & 0x00300000;
-
-   bw.put_uint32_t(flags);
-   bw.put_BinaryData(dataCopy_);
-   bw.put_uint32_t(numTx_);
-   bw.put_uint32_t(numBytes_);
-
-   if(merkType == MERKLE_SER_FULL)
-   {
-      map<uint32_t, StoredTx>::iterator iter = txMap_.begin();
-      while(iter != txMap_.end())
-         bw.put_BinaryData(iter->second.thisHash_)
-   }
-   else if(merkType == MERKLE_SER_PARTIAL)
-   {
-      vector<bool> isReqTx(numTx_);
-      vector<HashString> reqTxs(numTx_);
-      for(uint32_t tx=0; tx<numTx_; tx++)
-      {
-         isReqTx = false;
-         reqTxs = BinaryData(0);
-      }
-      map<uint32_t, StoredTx>::iterator iter = txMap_.begin();
-      while(iter != txMap_.end())
-      {
-         isReqTx[iter->first] = true;
-         reqTxs[iter->first] = iter->second.thisHash_;
-      }
-      bw.put_BinaryData(PartialMerkleTree(numTx_, isReqTx, reqTxs).serialize());
-   }
-}
-
-/////////////////////////////////////////////////////////////////////////////
-bool StoredBlockHeader::serializeForHeaderDB(BinaryWriter & bw)
-{
-   if(!isInitialized_)
-   {
-      cerr << "Uninitialized Header" << endl;
-      return false;
-   }
-   bw.put_BinaryData(dataCopy_);
-   bw.put_uint32_t( heightAndDupToHgtx(blockHeight_, duplicateID_) );
-}
-
-/////////////////////////////////////////////////////////////////////////////
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryDataRef data, bool fragged)
-{
-   unserialize(BinaryRefReader(data), fragged);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryData const & data, bool fragged)
-{
-   unserialize(BinaryRefReader(data), fragged);
-}
-
-/////////////////////////////////////////////////////////////////////////////
-void StoredTx::unserialize(BinaryRefReader & brr, bool fragged)
-{
-   uint32_t numBytes = BtcUtils::StoredTxCalcLength( brr.getCurrPtr(), 
-                                                     fragged,
-                                                     &offsetsTxIn_, 
-                                                     &offsetsTxOut_);
-   dataCopy_.copyFrom(brr.getCurrPtr(), numBytes);
-
-   isFragged_ = fragged;
-   numTxOut_  = offsetsTxOut_.size()-1;
-   version_   = *(uint32_t*)(ptr);
-   lockTime_  = *(uint32_t*)(ptr + numBytes - 4);
-   isInitialized_ = true;
-}
-
-////////////////////////////////////////////////////////////////////////////////
-bool StoredTx::haveAllTxOut(void)
-{
-   if(!isInitialized_ || dataCopy_.getSize()==0)
-      return false; 
-
-   if(!isFragged_)
-      return true;
-
-   for(uint32_t i=0; i<numTxOut_; i++)
-      if(txOutMap_.find(i) == txOutMap_.end())
-         return false;
-
-   return true;
-
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-BinaryData StoredTx::getSerializedTx(void)
-{
-   if(!isInitialized_)
-      return BinaryData(0); 
-
-   if(!isFragged_)
-      return dataCopy_;
-   else if(!haveAllTxOut())
-      return BinaryData(0); 
-    
-   if(!isFragged_)
-      return dataCopy_;
-
-   BinaryWriter bw;
-   if(numBytes_>0)
-      bw.reserve(numBytes_);
-
-   bw.put_BinaryData(dataCopy_.getPtr(), dataCopy_.getSize()-4);
-
-   for(uint32_t txo=0; txo<numTxOut_; txo++)
-      bw.put_BinaryData(txOutMap_[i].serialize());
-
-   bw.put_BinaryData(dataCopy_.getPtr()+dataCopy_.getSize(), 4);
-   return bw.getData();
-}
-
-////////////////////////////////////////////////////////////////////////////////
-Tx StoredTx::getTxCopy(void)
-{
-   Tx tx;
-   tx.unserialize(getSerializedTx());
-   return tx;
-}
-
-
-////////////////////////////////////////////////////////////////////////////////
-void StoredTx::createFromTx(Tx & tx, bool doFrag)
-{
-   if(!tx.isInitialized())
-   {
-      cerr << "ERROR: creating storedtx from uninitialized tx" << endl;
-      isInitialized_ = false;
-      return
-   }
-
-   thisHash_ = tx.getThisHash();
-   numTxOut_ = tx.getNumTxOut();
-   version_  = tx.getVersion();
-   lockTime_ = tx.getLockTime(); 
-   if(!doFrag)
-   {
-      isInitialized_ = true;
-      isFragged_ = false;
-      dataCopy_ = tx.serialize(); 
-   }
-   else
-   {
-      BinaryRefReader brr(tx.serialize());
-      uint32_t firstOut  = tx.getTxOutOffset(0);
-      uint32_t afterLast = tx.getTxOutOffset(numTxOut_);
-      uint32_t span = afterLast - firstOut;
-      dataCopy_.resize(tx.getSize() - span);
-      brr.get_BinaryData(dataCopy_.getPtr(), firstOut);
-      brr.advance(span);
-      brr.get_BinaryData(dataCopy_.getPtr()+firstOut, 4);
-   }
-}
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // The dbType and pruneType inputs are left blank if you are just going to take 
@@ -316,7 +11,8 @@ void StoredTx::createFromTx(Tx & tx, bool doFrag)
 // specify them, if you want to throw an error if it's not what you were 
 // expecting
 InterfaceToLevelDB::InterfaceToLevelDB(
-                   string basedir, BinaryData const & genesisBlkHash, 
+                   string             basedir, 
+                   BinaryData const & genesisBlkHash, 
                    BinaryData const & genesisTxHash, 
                    BinaryData const & magic,
                    ARMORY_DB_TYPE     dbtype=ARMORY_DB_WHATEVER,
@@ -382,8 +78,8 @@ bool InterfaceToLevelDB::openDatabases(void)
 {
    if(genesisBlkHash_.getSize() == 0 || magicBytes_.getSize() == 0)
    {
-      cerr << "***ERROR:  must set magic bytes and genesis block" << endl;
-      cerr << "           before opening databases."  << endl;
+      Log::ERR() << " must set magic bytes and genesis block";
+      Log::ERR() << "           before opening databases.";
       return false;
    }
 
@@ -428,7 +124,7 @@ bool InterfaceToLevelDB::openDatabases(void)
          // Else we read the DB info and make sure everything matches up
          if(dbinfo.getSize() < 40)
          {
-            cerr << "***ERROR: Invalid DatabaseInfo data" << endl;
+            Log::ERR() << "Invalid DatabaseInfo data";
             closeDatabases();
             return false;
          }
@@ -442,7 +138,7 @@ bool InterfaceToLevelDB::openDatabases(void)
          // Check that the magic bytes are correct
          if(magicBytes_ != magic)
          {
-            cerr << "***ERROR:  Magic bytes mismatch!  Different blkchain?" << endl;
+            Log::ERR() << " Magic bytes mismatch!  Different blkchain?";
             closeDatabases();
             return false;
          }
@@ -450,7 +146,7 @@ bool InterfaceToLevelDB::openDatabases(void)
          // Check that we have the top hash (not sure about if we don't)
          if( getValue(dbs_[db], topBlockHash_).getSize() == 0 )
          {
-            cerr << "***ERROR:  Top block doesn't exist!" << endl;
+            Log::ERR() << " Top block doesn't exist!";
             closeDatabases();
             return false;
          }
@@ -463,7 +159,7 @@ bool InterfaceToLevelDB::openDatabases(void)
             armoryDbType_ = (ARMORY_DB_TYPE)dbType;
          else if(armoryDbType_ != dbType)
          {
-            cerr << "***ERROR: Mismatch in DB type" << endl;
+            Log::ERR() << "Mismatch in DB type";
             closeDatabases();
             return false;
          }
@@ -472,7 +168,7 @@ bool InterfaceToLevelDB::openDatabases(void)
             dbPruneType_ = (DB_PRUNE_TYPE)pruneType;
          else if(dbPruneType_ != pruneType)
          {
-            cerr << "***ERROR: Mismatch in DB type" << endl;
+            Log::ERR() << "Mismatch in DB type";
             closeDatabases();
             return false;
          }
@@ -530,7 +226,7 @@ void InterfaceToLevelDB::commitBatch(DB_SELECT db, doSync=false)
 {
    if(batches_[db] == NULL)
    {
-      cerr << "***ERROR:  Can't commit NULL WriteBatch" << endl;
+      Log::ERR() << " Can't commit NULL WriteBatch";
       return;
    }
    leveldb::WriteOptions writeopt;
@@ -682,7 +378,7 @@ void InterfaceToLevelDB::startHeaderIteration()
 
    // Skip the first entry which is the DatabaseInfo key
    if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
-      cerr << "***WARNING: How do we not have a DB info key?" << endl; 
+      Log::WARN() << "How do we not have a DB info key?" ;
    else
       iterHeaders_->Next()
 }
@@ -724,7 +420,7 @@ bool InterfaceToLevelDB::advanceToNextBlock(bool skip=false)
 
       if(!skip) it->Next()
    } 
-   cerr << "ERROR: we should never get here..." << endl;
+   Log::ERR() << "we should never get here...";
    return false;
 }
 
@@ -839,7 +535,7 @@ void InterfaceToLevelDB::readBlock( StoredBlockHeader & bh,
    bool isAnotherBlock = advanceToNextBlock();
    if(!isAnotherBlock)
    {
-      cerr << "Tried to getBlock() but none left" << endl;
+      Log::ERR() << "Tried to getBlock() but none left";
       return;
    }
 
@@ -851,7 +547,7 @@ void InterfaceToLevelDB::readBlock( StoredBlockHeader & bh,
 
    if(bdtype == NOT_BLKDATA)
    {
-      cerr << "***ERROR: somehow did not advance to new block)";
+      Log::ERR() << "somehow did not advance to new;
       return; 
    }
 
@@ -874,8 +570,8 @@ void InterfaceToLevelDB::readBlock( StoredBlockHeader & bh,
       currTxIndex = currReadKey_.get_uint16_t(); 
       if(index > txList().size())
       {
-         cerr << "***ERROR:  Invalid index for tx at height " << (hgtX>>8)
-              << " index " << index << endl;
+         Log::ERR() << "Invalid index for tx at height " << (hgtX>>8)
+                    << " index " << index << endl;
          return;
       }
 
@@ -916,7 +612,7 @@ void InterfaceToLevelDB::readBlkDataHeaderValue(
 
    if(version != (uint8_t)ARMORY_DB_VERSION)
    {
-      cerr << "Version mismatch in IFTLDB::getBlock()" << endl;
+      Log::ERR() << "Version mismatch in IFTLDB::getBlock()";
       advanceToNextBlock();
       return
    }
@@ -962,7 +658,7 @@ BLKDATA_TYPE InterfaceToLevelDB::readBlkDataKey5B(
       return BLKDATA_TXOUT;
    else
    {
-      cerr << "Unexpected bytes remaining: " << brr.getSizeRemaining() << endl;
+      Log::ERR() << "Unexpected bytes remaining: " << brr.getSizeRemaining();
       return NOT_BLKDATA;
    }
 }
@@ -1074,7 +770,7 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
 
    if(!iter->Valid())
    { 
-      cerr << "Tried to access invalid iterator!" << endl;
+      Log::ERR() << "Tried to access invalid iterator!";
       return;
    }
 
@@ -1082,7 +778,7 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
     
    if( currReadKey_.get_uint8_t() != (uint8_t)DB_PREFIX_REGADDR)
    { 
-      cerr << "Iterator does not point to a registered address" << endl;
+      Log::ERR() << "Iterator does not point to a registered address";
       return;
    }
       
@@ -1103,7 +799,7 @@ void InterfaceToLevelDB::readRegisteredAddr(RegisteredAddress & regAddr,
 
    if(txoListType == REGADDR_UTXO_TREE)
    {
-      cerr << "***ERROR:  TXO-trees are not implemented, yet!" << endl;
+      Log::ERR() << " TXO-trees are not implemented, yet!";
       return;
    }
    else if(txoListType == REGADDR_UTXO_VECTOR)
@@ -1135,7 +831,7 @@ bool InterfaceToLevelDB::getUnspentTxOut( BinaryData & const ldbKey8B,
    bool isFound = seekTo(BLKDATA, DB_PREFIX_BLKDATA, txRef);
    if(!isFound)
    {
-      cerr << "***ERROR:  could not find transaction in DB" << endl;
+      Log::ERR() << " could not find transaction in DB";
       return false;
    }
 
@@ -1147,7 +843,7 @@ bool InterfaceToLevelDB::getUnspentTxOut( BinaryData & const ldbKey8B,
    BinaryDataRef rawTxOutRef = getValueRef(BLKDATA, DB_PREFIX_BLKDATA, txoData[i]);
    if(rawTxOutRef.getSize()==0)
    {
-      cerr << "***ERROR:  could not find TxOut in DB" << endl;
+      Log::ERR() << " could not find TxOut in DB";
       return false;
    }
 
@@ -1203,7 +899,7 @@ bool InterfaceToLevelDB::readFullTx(Tx & tx, leveldb::Iterator* iter=NULL)
    readBlkDataTxKey(currReadKey_, tx);
    if(!tx.isInitialized())
    {
-      cerr << "ERROR: iterator is not pointing to a Tx" << endl;
+      Log::ERR() << "iterator is not pointing to a Tx";
       return false;
    }
 
@@ -1253,8 +949,8 @@ map<HashString, BlockHeader> InterfaceToLevelDB::getHeaderMap(void)
 
    leveldb::Iterator* it = dbs_[HEADERS]->NewIterator(leveldb::ReadOptions());
    it->SeekToFirst();
-   if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey )
-      cerr << "***WARNING: How do we not have a DB info key?" << endl; 
+   if( sliceToBinaryData(ldbiter->key()) != getDBInfoKey() )
+      Log::WARN() << "How do we not have a DB info key?" ;
    else
       it->Next()
 
@@ -1303,12 +999,13 @@ BinaryData InterfaceToLevelDB::getRawHeader(BinaryData const & headerHash)
 ////////////////////////////////////////////////////////////////////////////////
 BinaryData InterfaceToLevelDB::getDBInfoKey(void)
 {
+   // Return a key that is guaranteed to be before all other non-empty
+   // DB keys
    static BinaryData dbinfokey(0);
    if(dbinfokey.getSize() == 0)
    {
-      BinaryWriter bw(13);
-      bw.put_uint8_t((uint8_t) DB_PREFIX_DBINFO)
-      bw.put_BinaryData( BinaryData(string("DatabaseInfo")));
+      BinaryWriter bw(1);
+      bw.put_uint8_t(0x00); 
       dbinfokey = bw.getData();
    }
    return dbinfokey;
@@ -1325,21 +1022,168 @@ StoredTx InterfaceToLevelDB::getFullTxFromHash(BinaryDataRef txHash)
 }
 
 
+////////////////////////////////////////////////////////////////////////////////
+/*  I think the BDM will do this, not the DB interface
+bool InterfaceToLevelDB::addBlockToDB(BinaryDataRef newBlock,
+                                      bool withLead8B, 
+                                      UPDATE_DB_TYPE updType=UPDATE_DB_NORMAL)
+{
+   
+   BinaryRefReader brr(newBlock);
+
+   if(withLead8B)
+   {
+      BinaryDataRef first4 = brr.get_BinaryDataRef(4);
+      if(first4 != magicBytes_)
+      {
+         Log::ERR() << "Magic bytes don't match! " << first4.toHexStr().c_str();
+         return false;
+      }
+      
+      // The next 4 bytes is the block size, but we will end up computing this
+      // anyway, as we dissect the block.
+      brr.advance(4);
+   }
+
+   BlockHeader bh(brr);
+   
+   uint32_t nTx = brr.get_var_int();
+   vector<Tx> allTxInBlock(nTx);
+   for(uint32_t itx=0; itx<nTx; itx++)
+      allTxInBlock[itx].unserialize(brr);
+   
+   
+   // Check whether the DB has it already.
+   bool chkAlready = (getValue(HEADERS, bh.getThisHash()).getSize() == 0);
+
+   bool doValid;
+   bool skipEntirely = false;
+   if(updType==UPDATE_DB_NORMAL)
+   {
+   }
+   
+}
+*/
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::addInitHeader(BinaryDataRef header80B)
+// We assume that the SBH has the correct blockheight already included.  
+void InterfaceToLevelDB::serializeStoredBlockHeaderValue(
+                                          DB_SELECT db,
+                                          StoredBlockHeader const & sbh,
+                                          BinaryWriter & bw)
 {
-   BinaryWriter bwKey(33);
-   bwKey.put_uint8_t( (uint8_t)(*(uint32_t*)header80B.getPtr()));
-   bwKey.put_BinaryData( BtcUtils::getHash256(header80B));
+   if(!sbh.isInitialized_)
+   {
+      Log::ERROR() << "Attempted to serialize uninitialized block header";
+      return;
+   }
 
-   BinaryWriter bwVal(84);
-   bwVal.put_BinaryData(header80B);
-   bwVal.put_uint32_t(0xffffffff);
+   if(db==HEADERS)
+   {
+      uint32_t hgtx = heightAndDupToHgtx(sbh.blockheight, sbh.duplicateID_);
+      bw.put_BinaryData(header80B);
+      bw.put_uint32_t(hgtx);
+   }
+   else if(db==BLKDATA)
+   {
+      uint32_t flags = 0;
+      uint32_t version = *(uint32_t*)sbh.dataCopy_.getPtr();
+
+      MERKLE_SER_TYPE mtype = MERKLE_SER_NONE;
+      if(sbh.merkle_.getSize() > 0)
+         mtype = (sbh.merkleIsPartial_ ? MERKLE_SER_PARTIAL : MERKLE_SER_FULL);
+   
+
+      flags |= ((uint32_t)version       << 28) & 0xf0000000;
+      flags |= ((uint32_t)armoryDbType_ << 24) & 0x0f000000;
+      flags |= ((uint32_t)dbPruneType_  << 22) & 0x00c00000;
+      flags |= ((uint32_t)mtype         << 20) & 0x00300000;
+
+      bw.put_uint32_t(flags);
+      bw.put_BinaryData(sbh.dataCopy_);
+      bw.put_uint32_t(sbh.numTx_);
+      bw.put_uint32_t(sbh.numBytes_);
+
+      if( mtype != MERKLE_SER_NONE )
+         bw.put_BinaryData(sbh.merkle_);
+      
+   }
+   
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+// We assume that the SBH has the correct blockheight already included.  
+void InterfaceToLevelDB::putStoredBlockHeader(
+                          StoredBlockHeader const & sbh,
+                          bool withTx)
+{
+   BinaryData existingHead = getValue(HEADERS, sbh.thisHash_);
+   if(existingHead.getSize() == 0)
+   {
 
    putValue(HEADERS, bwKey.getDataRef(), bwVal.getDataRef());
    return true;
+   }
 }
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredBlockHeader(
+                          StoredBlockHeader & sbh,
+                          BinaryDataRef headHash, 
+                          bool withTx)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredBlockHeader(
+                          StoredBlockHeader & sbh,
+                          uint32_t blockHgt,
+                          uint8_t blockDup,
+                          bool withTx)
+{
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::putStoredTx(         
+                          StoredTx const & st,
+                          bool withTxOut)
+{
+
+}
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredTx(         
+                          StoredTx & st,
+                          BinaryDataRef txHash, 
+                          bool withTxOut)
+{
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::putStoredTxOut(      
+                          StoredTxOut const & sto)
+{
+
+}
+
+
+////////////////////////////////////////////////////////////////////////////////
+void InterfaceToLevelDB::getStoredTxOut(      
+                          StoredTxOut & sto,
+                          BinaryDataRef txHash)
+{
+
+}
+
+
 
 ////////////////////////////////////////////////////////////////////////////////
 bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash, 
@@ -1348,7 +1192,7 @@ bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash,
    BinaryDataRef headVal = getValueRef(HEADERS, headHash);
    if(headVal.isNull())
    {
-      cerr << "ERROR:  Attempted to update a non-existent header!" << endl;
+      Log::ERR() << " Attempted to update a non-existent header!";
       return false;
    }
       
@@ -1359,33 +1203,4 @@ bool InterfaceToLevelDB::updateHeaderHeight(BinaryDataRef headHash,
    putValue(HEADERS, headHash, bw.getDataRef());
    return true;
 }  
-
-////////////////////////////////////////////////////////////////////////////////
-bool InterfaceToLevelDB::addBlockToDB(BinaryDataRef newBlock, bool withLead8B)
-{
-   BinaryRefReader brr(newBlock);
-
-   if(withLead8B)
-   {
-      BinaryDataRef first4 = brr.get_BinaryDataRef(4);
-      if(first4 != magicBytes_)
-      {
-         cerr << "Magic bytes don't match! " << first4.toHexStr().c_str() << endl;
-         return false;
-      }
-      
-         // The next 4 bytes is the block size, but we will end up computing this
-         // anyway, as we dissect the block.
-      brr.advance(4);
-   }
-
-   BlockHeader bh(brr);
-    
-   
-   
-
-}
-
-
-
 

@@ -55,6 +55,7 @@ public:
    LogStream& operator<<(double d)           { cout << d;    if(fout_.is_open()) fout_ << d; return *this; }
 
    void newline(void) { fout_ << endl;  cout << endl;}
+   void close(void) { fout_.close(); }
 
    ofstream fout_;
    string   fname_;
@@ -77,7 +78,7 @@ public:
 class Log
 {
 public:
-    Log(void) {}
+    Log(void) : isInitialized_(false) {}
     static Log & GetInstance(const char * filename=NULL);
     virtual ~Log();
 
@@ -97,12 +98,13 @@ public:
     static LogStream & DEBUG4(void) { return GetInstance().Get(logDebug4); }
 
     static bool isOpen(void) {GetInstance().ds_.fout_.is_open();}
-    static string filename(void) {GetInstance().ds_.fname_;}
+    static string filename(void) {return GetInstance().ds_.fname_;}
 
 protected:
     DualStream ds_;
     NullStream ns_;
     int logLevel_;
+    bool isInitialized_;
 private:
     Log(const Log&);
     Log& operator =(const Log&);
@@ -113,17 +115,32 @@ private:
 Log& Log::GetInstance(const char * filename)
 {
    static Log* theOneLog=NULL;
-   if(theOneLog==NULL)
+   if(theOneLog==NULL || filename!=NULL)
    {
+      // Close and delete any existing Log object
+      if(theOneLog != NULL)
+      {
+         theOneLog->ds_.close();
+         delete theOneLog;
+      }
+
+      // Create a Log object
       theOneLog = new Log;
-      theOneLog->ds_.setLogFile(string(filename));
+
+      // Open the filestream if it's open
+      if(filename != NULL)
+      {
+         theOneLog->ds_.setLogFile(string(filename));
+         theOneLog->isInitialized_ = true;
+      }
    }
    return *theOneLog;
 }
 
+
 LogStream& Log::Get(LogLevel level)
 {
-   if((int)level > logLevel_)
+   if((int)level > logLevel_ || !isInitialized_)
       return ns_;
    
    ds_.newline();

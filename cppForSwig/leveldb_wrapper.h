@@ -5,6 +5,7 @@
 #include "BinaryData.h"
 #include "leveldb/db.h"
 #include "BlockObj.h"
+#include "StoredBlockObj.h"
 #include "BtcUtils.h"
 
 #include "leveldb/db.h"
@@ -101,93 +102,13 @@ typedef enum
   REGADDR_UTXO_TREE
 } REGADDR_UTXO_TYPE;
 
-
-
-class StoredBlockHeader
+typedef enum
 {
-public:
-   StoredBlockHeader(void) : 
-         isInitialized_(false), dataCopy_(0), thisHash_(0),
-         blockHeight_(UINT32_MAX), merkle_(0), duplicateID_(0xff),
-         isMainBranch_(false) {}
-                           
+  UPDATE_DB_NORMAL,
+  UPDATE_DB_FORCE_VALID,
+  UPDATE_DB_FORCE_INVALID,
+} UPDATE_DB_TYPE
 
-   bool haveFullBlock(void);
-   BlockHeader getBlocKHeaderCopy(void);
-   BinaryData getSerializedBlock(void);
-
-   void addTxToMap(uint32_t txIdx, Tx & tx);
-   void addTxToMap(uint32_t txIdx, StoredTx & tx);
-   
-   bool           isInitialized_;
-   BinaryData     dataCopy_;
-   BinaryData     thisHash_;
-   uint32_t       numTx_;
-   uint32_t       numBytes_;
-   uint32_t       blockHeight_;
-   BinaryData     merkle_;
-   bool           merkleIsPartial_;
-   uint8_t        duplicateID_;
-   uint8_t        isMainBranch_;
-
-   bool           isPartial_;
-   map<uint32_t, StoredTx> txMap_;
-
-   
-};
-
-class StoredTx
-{
-public:
-   StoredTx(void) : isInitialized_(false), 
-                    thisHash_(0), 
-                    dataCopy_(0), 
-                    numBytes_(0) {}
-   
-   bool haveAllTxOut(void);
-   BinaryData getSerializedTx(void);
-   BinaryData getTxCopy(void);
-   void createFromTx(Tx & tx, bool doFrag);
-
-   void unserialize(BinaryData const & data, bool isFragged=false);
-   void unserialize(BinaryDataRef data,      bool isFragged=false);
-   void unserialize(BinaryRefReader & brr,   bool isFragged=false);
-
-   uint32_t             version_;
-   BinaryData           thisHash_;
-   BinaryData           lockTime_;
-   bool                 isInitialized_;
-
-   BinaryData           dataCopy_;
-   bool                 isFragged_;
-   uint32_t             blockHeight_;
-   uint8_t              blockDupID_;
-   uint8_t              txIndex_;
-   uint8_t              isValid_;
-   uint32_t             numTxOut_;
-   uint32_t             numBytes_;
-   map<uint32_t, StoredTxOut> txOutMap_;
-
-};
-
-class StoredTxOut
-{
-public:
-   StoredTxOut(void) : isInitialized_(false), dataCopy_(0) {}
-
-   void unserialize(BinaryDataRef 
-
-   BinaryData        dataCopy_;
-   bool              isInitialized_;
-   uint32_t          blockHeight_;
-   uint8_t           blockDupID_;
-   uint16_t          txIndex_;
-   uint16_t          txOutIndex_;
-   bool              isValid_;
-   bool              isSpent_;
-   uint32_t          spentByHgtX_;
-   uint16_t          spentByTxIndex_;
-};
 
 
 
@@ -265,6 +186,12 @@ private:
 
 
    /////////////////////////////////////////////////////////////////////////////
+   // NOTE:  These ref readers become invalid as soon as the iterator is moved!
+   void iteratorToRefReaders( leveldb::Iterator* it, 
+                              BinaryRefReader & brrKey,
+                              BinaryRefReader & brrValue);
+
+   /////////////////////////////////////////////////////////////////////////////
    // Not sure why this is useful over getHeaderMap() ... this iterates over
    // the headers in hash-ID-order, instead of height-order
    void startHeaderIteration(void);
@@ -272,10 +199,12 @@ private:
    /////////////////////////////////////////////////////////////////////////////
    void startBlockIteration(void);
 
+   /////////////////////////////////////////////////////////////////////////////
    uint32_t hgtxToHeight(uint32_t hgtx)  {return (hgtX & 0xffffff00)>>8;}
    uint8_t  hgtxToDupID(uint32_t hgtx)   {return (hgtX & 0x000000ff);}
    uint32_t heightAndDupToHgtx(uint32_t hgt, uint8_t dup) {return hgt<<8|dup;}
 
+   /////////////////////////////////////////////////////////////////////////////
    // These four sliceTo* methods make copies, and thus safe to use even after
    // we have advanced the iterator to new data
    BinaryData sliceToBinaryData(leveldb::Slice slice)
@@ -287,9 +216,9 @@ private:
    void sliceToBinaryReader(leveldb::Slice slice, BinaryReader & brr)
       { brr.setNewData((uint8_t*)(slice.data()), slice.size()); }
 
+   /////////////////////////////////////////////////////////////////////////////
    // The reamining sliceTo* methods are reference-based, which become
-   // invalid after the iterator moves on.  Since they are just pointers,
-   // there's no reason not to just copy them out.
+   // invalid after the iterator moves on.  
    BinaryDataRef sliceToBinaryDataRef(leveldb::Slice slice)
       { return BinaryDataRef( (uint8_t*)(slice.data()), slice.size()); }
    BinaryRefReader sliceToBinaryRefReader(leveldb::Slice slice)
@@ -310,13 +239,35 @@ private:
    BinaryData getRawHeader(BinaryData const & headerHash);
    bool addHeader(BinaryData const & headerHash, BinaryData const & headerRaw);
 
-   BinaryData getDBInfoKey(void);
+
+   
+   // Interface to translate Stored* objects to persistent DB storage
+   void putStoredBlockHeader(StoredBlockHeader const & sbh,
+                             bool withTx=false);
+   void getStoredBlockHeader(StoredBlockHeader & sbh,
+                             BinaryDataRef headHash, 
+                             bool withTx=false);
+   void getStoredBlockHeader(StoredBlockHeader & sbh,
+                             uint32_t blockHgt,
+                             uint8_t blockDup=UINT8_MAX,
+                             bool withTx=false);
+
+   void putStoredTx(         StoredTx const & st,
+                             bool withTxOut=false);
+   void getStoredTx(         StoredTx & st,
+                             BinaryDataRef txHash, 
+                             bool withTxOut=false);
+
+   void putStoredTxOut(      StoredTxOut const & sto)
+   void getStoredTxOut(      StoredTxOut & sto,
+                             BinaryDataRef txHash)
+
 
    bool checkStatus(leveldb::Status stat)
    {
       if( stat.ok() )
          return true;
-      cout << "***LevelDB Error: " << stat.ToString() << endl;
+      Log::ERR() << "***LevelDB Error: " << stat.ToString();
       return false;
    }
 

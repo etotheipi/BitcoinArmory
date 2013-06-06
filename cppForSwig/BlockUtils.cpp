@@ -3615,8 +3615,8 @@ vector<bool> BlockDataManager_LevelDB::addNewBlockData(BinaryRefReader & brrRawB
 
 ////////////////////////////////////////////////////////////////////////////////
 void BlockDataManager_LevelDB::reassessAfterReorg( BlockHeader* oldTopPtr,
-                                                    BlockHeader* newTopPtr,
-                                                    BlockHeader* branchPtr)
+                                                   BlockHeader* newTopPtr,
+                                                   BlockHeader* branchPtr)
 {
    SCOPED_TIMER("reassessAfterReorg");
    cout << "Reassessing Tx validity after (after reorg?)" << endl;
